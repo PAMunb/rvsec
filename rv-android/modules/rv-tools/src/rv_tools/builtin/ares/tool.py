@@ -8,10 +8,10 @@ sibling container using reinforcement learning (SAC algorithm) with Appium.
 
 import os
 import socket
-from typing import Dict, Any
+from typing import Any, Dict
 
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
@@ -48,7 +48,7 @@ class AresTool(AbstractTool):
         description="ARES Docker-based systematic UI exploration tool",
         url="https://github.com/H2SO4T/ARES",
         version="1.0.0",
-        process_pattern="ares"
+        process_pattern="ares",
     )
 
     def __init__(self):
@@ -57,7 +57,7 @@ class AresTool(AbstractTool):
         super().__init__(
             name=tool_spec.name,
             description=tool_spec.description,
-            process_pattern=tool_spec.process_pattern
+            process_pattern=tool_spec.process_pattern,
         )
         self.config = {}
         self.logger.info("Initialized Ares tool for Docker-based exploration")
@@ -99,9 +99,7 @@ class AresTool(AbstractTool):
         )
 
     @ErrorHandler.handle_errors(
-        component="AresTool",
-        phase="execute_tool_specific_logic",
-        reraise=True
+        component="AresTool", phase="execute_tool_specific_logic", reraise=True
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
@@ -120,7 +118,7 @@ class AresTool(AbstractTool):
         """
         self.logger.info(f"Executing Ares tool for {app.package_name}")
 
-        timeout_in_seconds = getattr(task.config, 'timeout', self.config['timeout'])
+        timeout_in_seconds = getattr(task.config, "timeout", self.config["timeout"])
         timeout_in_minutes = max(1, int(timeout_in_seconds / 60))
         container_name = f"ares_{task.id[:8]}"
 
@@ -136,25 +134,33 @@ class AresTool(AbstractTool):
             create_cmd.invoke()
 
             # 2. Copy APK into the container as /ares/apks/app.apk
-            cp_cmd = Command("docker", [
-                "cp", app.path, f"{container_name}:/ares/apks/app.apk"
-            ], 60)
-            self.logger.debug(f"Ares cp: {app.path} -> {container_name}:/ares/apks/app.apk")
+            cp_cmd = Command(
+                "docker", ["cp", app.path, f"{container_name}:/ares/apks/app.apk"], 60
+            )
+            self.logger.debug(
+                f"Ares cp: {app.path} -> {container_name}:/ares/apks/app.apk"
+            )
             cp_cmd.invoke()
 
             # 3. Start container and capture output
-            start_cmd = Command("docker", ["start", "-a", container_name], timeout_in_seconds)
+            start_cmd = Command(
+                "docker", ["start", "-a", container_name], timeout_in_seconds
+            )
             self.logger.info(f"Starting Ares container {container_name}")
 
-            with open(task.result.trace_file, 'wb') as trace_file:
-                self._execute_and_check_command(start_cmd, stdout=trace_file, stderr=trace_file)
+            with open(task.result.trace_file, "wb") as trace_file:
+                self._execute_and_check_command(
+                    start_cmd, stdout=trace_file, stderr=trace_file
+                )
 
             self.logger.info("Ares execution completed successfully")
 
         finally:
             self._cleanup_container(container_name)
 
-    def _build_create_command(self, container_name: str, timeout_minutes: int) -> Command:
+    def _build_create_command(
+        self, container_name: str, timeout_minutes: int
+    ) -> Command:
         """
         Build docker create command for the ARES container.
 
@@ -174,14 +180,17 @@ class AresTool(AbstractTool):
 
         cmd_args = [
             "create",
-            "--name", container_name,
-            "-e", f"EMUNAME={device_serial}",
-            "-e", f"TIMEOUT_IN_MINUTES={timeout_minutes}",
+            "--name",
+            container_name,
+            "-e",
+            f"EMUNAME={device_serial}",
+            "-e",
+            f"TIMEOUT_IN_MINUTES={timeout_minutes}",
         ]
 
         # Network: share parent container's namespace when in Docker (D10/INV-TOOL-15),
         # use host network otherwise for direct emulator access
-        if os.path.exists('/.dockerenv'):
+        if os.path.exists("/.dockerenv"):
             cmd_args.extend(["--network", f"container:{socket.gethostname()}"])
         else:
             cmd_args.extend(["--network", "host"])
@@ -201,10 +210,12 @@ class AresTool(AbstractTool):
     def get_tool_info(self) -> dict:
         """Get ARES tool information."""
         info = super().get_tool_info()
-        info.update({
-            "tool_spec": self.TOOL_SPEC.to_dict(),
-            "docker_image": self.config.get("docker_image", "not configured"),
-            "version": self.TOOL_SPEC.version,
-            "url": self.TOOL_SPEC.url
-        })
+        info.update(
+            {
+                "tool_spec": self.TOOL_SPEC.to_dict(),
+                "docker_image": self.config.get("docker_image", "not configured"),
+                "version": self.TOOL_SPEC.version,
+                "url": self.TOOL_SPEC.url,
+            }
+        )
         return info

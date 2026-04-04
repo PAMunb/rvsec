@@ -15,9 +15,11 @@ errors gracefully.
 
 import pytest
 from rv_screen_parser.constants import ScreenParserType
-from rv_screen_parser.parser.screen.parser_factory import ParserFactory
 from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.parser_factory import ParserFactory
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 
 
 class TestParserFactory:
@@ -40,6 +42,7 @@ class TestParserFactory:
 
     def test_register_invalid_parser_raises_type_error(self):
         """Test that registering an invalid parser raises a TypeError."""
+
         class InvalidParser:
             pass
 

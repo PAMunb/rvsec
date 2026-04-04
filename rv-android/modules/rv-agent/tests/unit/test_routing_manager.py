@@ -7,9 +7,9 @@ Tests the simplified routing manager that:
 - Tracks counters for metrics
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.routing.routing_manager import RoutingManager
 

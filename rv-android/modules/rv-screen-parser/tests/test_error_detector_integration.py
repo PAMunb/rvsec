@@ -9,14 +9,16 @@ images and capture the expected false positive profile for colorful interfaces.
 Test images are located in modules/rv-screen-parser/tests/images/.
 """
 
-import cv2
-import pytest
 from pathlib import Path
 
-from rv_screen_parser.screenshot.detectors.error_detector import ErrorDetector, get_error_detector
+import cv2
+import pytest
+from rv_screen_parser.screenshot.detectors.error_detector import (
+    ErrorDetector,
+    get_error_detector,
+)
 from rv_screen_parser.screenshot.detectors.text_detector import get_text_detector
-from rv_screen_parser.screenshot.models import ErrorType, DetectionMethod
-
+from rv_screen_parser.screenshot.models import DetectionMethod, ErrorType
 
 IMAGES_DIR = Path(__file__).parent / "images"
 
@@ -64,23 +66,23 @@ class TestErrorDetectorIntegration:
         errors = detector.detect_errors(original_image, texts)
 
         # The image has two red validation icons; both should be detected
-        assert len(errors) >= 1, (
-            f"Expected >= 1 error indicator on form with validation errors, got {len(errors)}"
-        )
+        assert (
+            len(errors) >= 1
+        ), f"Expected >= 1 error indicator on form with validation errors, got {len(errors)}"
 
         for error in errors:
             # All detected errors should use color-based detection (the icons are red circles)
-            assert error.detection_method == DetectionMethod.COLOR, (
-                f"Expected COLOR detection method, got {error.detection_method}"
-            )
+            assert (
+                error.detection_method == DetectionMethod.COLOR
+            ), f"Expected COLOR detection method, got {error.detection_method}"
             # Confidence should be at least 0.7 for clear red validation icons
-            assert error.confidence >= 0.7, (
-                f"Expected confidence >= 0.7 for red validation icon, got {error.confidence}"
-            )
+            assert (
+                error.confidence >= 0.7
+            ), f"Expected confidence >= 0.7 for red validation icon, got {error.confidence}"
             # Error type should be VISUAL_INDICATOR (color-based detection classifies them this way)
-            assert error.error_type == ErrorType.VISUAL_INDICATOR, (
-                f"Expected VISUAL_INDICATOR type, got {error.error_type}"
-            )
+            assert (
+                error.error_type == ErrorType.VISUAL_INDICATOR
+            ), f"Expected VISUAL_INDICATOR type, got {error.error_type}"
 
     def test_cryptoapp_normal_no_errors(self, detector, text_detector):
         """
@@ -95,9 +97,9 @@ class TestErrorDetectorIntegration:
 
         errors = detector.detect_errors(original_image, texts)
 
-        assert len(errors) == 0, (
-            f"Expected 0 error indicators on clean form screen, got {len(errors)}"
-        )
+        assert (
+            len(errors) == 0
+        ), f"Expected 0 error indicators on clean form screen, got {len(errors)}"
 
     def test_cryptoapp_initial_no_errors(self, detector, text_detector):
         """
@@ -115,11 +117,13 @@ class TestErrorDetectorIntegration:
 
         errors = detector.detect_errors(original_image, texts)
 
-        assert len(errors) == 0, (
-            f"Expected 0 error indicators on initial menu screen, got {len(errors)}"
-        )
+        assert (
+            len(errors) == 0
+        ), f"Expected 0 error indicators on initial menu screen, got {len(errors)}"
 
-    def test_hourlyreminder_adaptive_threshold_suppresses_false_positives(self, detector, text_detector):
+    def test_hourlyreminder_adaptive_threshold_suppresses_false_positives(
+        self, detector, text_detector
+    ):
         """
         Validate that the adaptive confidence threshold suppresses false positives
         on a pink/magenta-themed alarm app.
@@ -164,15 +168,15 @@ class TestErrorDetectorIntegration:
         errors = detector.detect_errors(original_image, texts)
 
         # DNS Hero produces multiple false positives from its colored data visualization
-        assert len(errors) >= 3, (
-            f"Expected >= 3 false positive indicators from colored charts, got {len(errors)}"
-        )
+        assert (
+            len(errors) >= 3
+        ), f"Expected >= 3 false positive indicators from colored charts, got {len(errors)}"
 
         # Some false positives should have large bounding boxes (chart regions)
         large_indicators = [e for e in errors if e.width > 100 or e.height > 100]
-        assert len(large_indicators) >= 1, (
-            f"Expected >= 1 large indicator (chart region), got {len(large_indicators)}"
-        )
+        assert (
+            len(large_indicators) >= 1
+        ), f"Expected >= 1 large indicator (chart region), got {len(large_indicators)}"
 
         # All should be color-based detections
         for error in errors:
@@ -181,7 +185,9 @@ class TestErrorDetectorIntegration:
                 f"got {error.detection_method}"
             )
 
-    def test_hex_adaptive_threshold_suppresses_false_positives(self, detector, text_detector):
+    def test_hex_adaptive_threshold_suppresses_false_positives(
+        self, detector, text_detector
+    ):
         """
         Validate that the adaptive threshold suppresses false positives on a
         high-contrast hex strategy game.
@@ -209,7 +215,9 @@ class TestErrorDetectorIntegration:
         detector1 = get_error_detector()
         detector2 = get_error_detector()
 
-        assert detector1 is detector2, "get_error_detector() should return the same instance"
+        assert (
+            detector1 is detector2
+        ), "get_error_detector() should return the same instance"
         assert isinstance(detector1, ErrorDetector)
 
     def test_error_detection_summary_on_real_image(self, detector, text_detector):

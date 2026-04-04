@@ -18,10 +18,9 @@ managing logcat operations for Android devices, including capturing output and c
 - Verifies correct interaction with the Android Debug Bridge (ADB)
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.util.android.logcat_manager import LogcatManager
 
 
@@ -38,10 +37,12 @@ class TestLogcatManager:
         assert logcat_manager.logcat_process is None
         assert logcat_manager.logcat_file_handle is None
 
-    @patch('rv_android_core.util.android.logcat_manager.Command')
-    @patch('builtins.open')
-    @patch('os.makedirs')
-    def test_start_capture_success(self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager):
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_start_capture_success(
+        self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
+    ):
         """Test successful start of logcat capture."""
         # Configure mocks properly to avoid hanging
         mock_file = MagicMock()
@@ -68,8 +69,22 @@ class TestLogcatManager:
         # Verify commands were created correctly with device serial
         # Tags get :V (Verbose) suffix for proper logcat filtering
         assert mock_command_class.call_count == 2
-        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-c"])
-        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC:V", "RVSEC-COV:V"])
+        mock_command_class.assert_any_call(
+            "adb", ["-s", "emulator-5554", "logcat", "-c"]
+        )
+        mock_command_class.assert_any_call(
+            "adb",
+            [
+                "-s",
+                "emulator-5554",
+                "logcat",
+                "-v",
+                "threadtime",
+                "-s",
+                "RVSEC:V",
+                "RVSEC-COV:V",
+            ],
+        )
 
         # Verify commands were executed
         mock_clear_command.invoke.assert_called_once()
@@ -80,10 +95,12 @@ class TestLogcatManager:
         assert logcat_manager.logcat_file_handle == mock_file
         assert result is True
 
-    @patch('rv_android_core.util.android.logcat_manager.Command')
-    @patch('builtins.open')
-    @patch('os.makedirs')
-    def test_start_capture_custom_tags(self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager):
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_start_capture_custom_tags(
+        self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
+    ):
         """Test logcat capture with custom tags."""
         # Configure mocks
         mock_file = MagicMock()
@@ -102,17 +119,33 @@ class TestLogcatManager:
         mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
 
         # Call the method with custom tags
-        result = logcat_manager.start_capture("/test/output.log", tags=["CUSTOM", "DEBUG"])
+        result = logcat_manager.start_capture(
+            "/test/output.log", tags=["CUSTOM", "DEBUG"]
+        )
 
         # Verify correct command arguments with device serial
         # Tags get :V (Verbose) suffix for proper logcat filtering
-        mock_command_class.assert_any_call("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "CUSTOM:V", "DEBUG:V"])
+        mock_command_class.assert_any_call(
+            "adb",
+            [
+                "-s",
+                "emulator-5554",
+                "logcat",
+                "-v",
+                "threadtime",
+                "-s",
+                "CUSTOM:V",
+                "DEBUG:V",
+            ],
+        )
         assert result is True
 
-    @patch('rv_android_core.util.android.logcat_manager.Command')
-    @patch('builtins.open')
-    @patch('os.makedirs')
-    def test_start_capture_without_clear(self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager):
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_start_capture_without_clear(
+        self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
+    ):
         """Test logcat capture without clearing the buffer."""
         # Configure mocks
         mock_file = MagicMock()
@@ -129,12 +162,24 @@ class TestLogcatManager:
 
         # Verify command creation and execution with device serial
         # Tags get :V (Verbose) suffix for proper logcat filtering
-        mock_command_class.assert_called_once_with("adb", ["-s", "emulator-5554", "logcat", "-v", "threadtime", "-s", "RVSEC:V", "RVSEC-COV:V"])
+        mock_command_class.assert_called_once_with(
+            "adb",
+            [
+                "-s",
+                "emulator-5554",
+                "logcat",
+                "-v",
+                "threadtime",
+                "-s",
+                "RVSEC:V",
+                "RVSEC-COV:V",
+            ],
+        )
         mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
 
         assert result is True
 
-    @patch('os.makedirs')
+    @patch("os.makedirs")
     def test_start_capture_directory_error(self, mock_makedirs, logcat_manager):
         """Test handling of directory creation errors."""
         # Configure mock to raise an exception
@@ -146,10 +191,12 @@ class TestLogcatManager:
         # Verify result
         assert result is False
 
-    @patch('rv_android_core.util.android.logcat_manager.Command')
-    @patch('builtins.open')
-    @patch('os.makedirs')
-    def test_start_capture_command_error(self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager):
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_start_capture_command_error(
+        self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
+    ):
         """Test handling of command execution errors."""
         # Configure mocks
         mock_file = MagicMock()

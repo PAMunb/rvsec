@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from rv_static_analysis.config import RVStaticAnalysisConfig, ConfigurationError
+from rv_static_analysis.config import ConfigurationError, RVStaticAnalysisConfig
 
 
 class TestRVStaticAnalysisConfig(unittest.TestCase):
@@ -220,7 +220,9 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             )
 
             cmd = config.get_tool_command(
-                "analysis", "/test/app.apk", "/test/output.json",
+                "analysis",
+                "/test/app.apk",
+                "/test/output.json",
                 code_package="com.gh4a",
             )
 
@@ -246,7 +248,9 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             )
 
             cmd = config.get_tool_command(
-                "analysis", "/test/app.apk", "/test/output.json",
+                "analysis",
+                "/test/app.apk",
+                "/test/output.json",
             )
 
             # Only ONE -clientParam (mopDir)
@@ -269,7 +273,9 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             )
 
             cmd = config.get_tool_command(
-                "analysis", "/test/app.apk", "/test/output.json",
+                "analysis",
+                "/test/app.apk",
+                "/test/output.json",
             )
 
             idx = cmd.index("--jvm-memory")

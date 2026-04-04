@@ -5,14 +5,17 @@ This module provides a streamlined registry that manages tool instances
 and variants for monitored operations testing.
 """
 
-from typing import Dict, List, Optional, Any, Type
+from typing import Any, Dict, List, Optional, Type
 
-from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.error.exceptions import ToolNotFoundError, ToolRegistrationError
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
+from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import (
+    ToolNotFoundError,
+    ToolRegistrationError,
+)
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class ToolRegistry:
@@ -41,10 +44,10 @@ class ToolRegistry:
     - Integration with rv-android-core error handling and logging
     """
 
-    _instance: Optional['ToolRegistry'] = None
+    _instance: Optional["ToolRegistry"] = None
 
     @classmethod
-    def get_instance(cls) -> 'ToolRegistry':
+    def get_instance(cls) -> "ToolRegistry":
         """
         Get the singleton instance of the tool registry.
 
@@ -69,10 +72,9 @@ class ToolRegistry:
         # Set up standardized logging
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_tools.registry",
-            {CONTEXT_COMPONENT: "ToolRegistry"}
+            "rv_tools.registry", {CONTEXT_COMPONENT: "ToolRegistry"}
         )
-        
+
         # Initialize error handler
         self.error_handler = ErrorHandler.get_instance()
 
@@ -81,12 +83,10 @@ class ToolRegistry:
         self.tool_specs: Dict[str, ToolSpec] = {}
         self.variants: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-
-    @ErrorHandler.handle_errors(
-        component="ToolRegistry",
-        phase="register_tool"
-    )
-    def register_tool(self, tool_name: str, tool_class: Type[AbstractTool], tool_spec: ToolSpec) -> None:
+    @ErrorHandler.handle_errors(component="ToolRegistry", phase="register_tool")
+    def register_tool(
+        self, tool_name: str, tool_class: Type[AbstractTool], tool_spec: ToolSpec
+    ) -> None:
         """
         Register a tool class and specification in the registry.
 
@@ -94,17 +94,19 @@ class ToolRegistry:
             tool_name: Name of the tool
             tool_class: Tool class type
             tool_spec: Tool specification with metadata
-            
+
         Raises:
             ToolRegistrationError: If tool registration fails
         """
         try:
             if tool_name in self.tool_classes:
-                self.logger.warning(f"Tool '{tool_name}' already registered, replacing existing registration")
+                self.logger.warning(
+                    f"Tool '{tool_name}' already registered, replacing existing registration"
+                )
 
             self.tool_classes[tool_name] = tool_class
             self.tool_specs[tool_name] = tool_spec
-            
+
             # Initialize empty variants if not present
             if tool_name not in self.variants:
                 self.variants[tool_name] = {}
@@ -112,28 +114,27 @@ class ToolRegistry:
             self.logger.info(f"Registered tool: {tool_name}")
 
         except Exception as e:
-            raise ToolRegistrationError(f"Failed to register tool '{tool_name}': {e}") from e
+            raise ToolRegistrationError(
+                f"Failed to register tool '{tool_name}': {e}"
+            ) from e
 
-    @ErrorHandler.handle_errors(
-        component="ToolRegistry",
-        phase="register_tool_class"
-    )
+    @ErrorHandler.handle_errors(component="ToolRegistry", phase="register_tool_class")
     def register_tool_class(self, tool_class: Type[AbstractTool]) -> None:
         """
         Register a tool class and automatically register its variants.
-        
+
         This method performs complete tool registration including:
         - Tool class registration with specification
         - Automatic variant registration for the tool
         - Validation of variant configuration
-        
+
         ### Registration Process:
         Registers tool class and automatically registers its variants by calling
         get_variants() and registering each variant with the registry.
 
         Args:
             tool_class: Tool class to register
-            
+
         Raises:
             ToolRegistrationError: If tool class registration or variant registration fails
         """
@@ -141,30 +142,35 @@ class ToolRegistry:
             # Get tool specification using new method
             tool_spec = tool_class.get_tool_spec()
             tool_name = tool_spec.name
-            
-            
+
             # Register tool class (existing logic)
             self.register_tool(tool_name, tool_class, tool_spec)
-            
+
             # Automatic variant registration (Registry responsibility)
             try:
                 variants = tool_class.get_variants()
                 for variant_name, config in variants.items():
                     self.register_variant(tool_name, variant_name, config)
-                self.logger.info(f"Registered {len(variants)} variants for tool: {tool_name}")
+                self.logger.info(
+                    f"Registered {len(variants)} variants for tool: {tool_name}"
+                )
             except Exception as e:
-                raise ToolRegistrationError(f"Failed to register variants for {tool_name}: {e}")
-            
+                raise ToolRegistrationError(
+                    f"Failed to register variants for {tool_name}: {e}"
+                )
+
         except Exception as e:
             import traceback
-            traceback.print_exc()
-            raise ToolRegistrationError(f"Failed to register tool class '{tool_class.__name__}': {e}") from e
 
-    @ErrorHandler.handle_errors(
-        component="ToolRegistry",
-        phase="register_variant"
-    )
-    def register_variant(self, tool_name: str, variant_name: str, config: Dict[str, Any]) -> None:
+            traceback.print_exc()
+            raise ToolRegistrationError(
+                f"Failed to register tool class '{tool_class.__name__}': {e}"
+            ) from e
+
+    @ErrorHandler.handle_errors(component="ToolRegistry", phase="register_variant")
+    def register_variant(
+        self, tool_name: str, variant_name: str, config: Dict[str, Any]
+    ) -> None:
         """
         Register a configuration variant for a tool.
 
@@ -172,19 +178,23 @@ class ToolRegistry:
             tool_name: Tool name
             variant_name: Variant name
             config: Configuration dictionary for this variant
-            
+
         Raises:
             ToolRegistrationError: If variant registration fails
         """
         try:
             if tool_name not in self.tool_classes:
-                raise ToolNotFoundError(f"Tool '{tool_name}' not found. Register tool first.")
+                raise ToolNotFoundError(
+                    f"Tool '{tool_name}' not found. Register tool first."
+                )
 
             if tool_name not in self.variants:
                 self.variants[tool_name] = {}
 
             self.variants[tool_name][variant_name] = config.copy()
-            self.logger.debug(f"Registered variant '{variant_name}' for tool: {tool_name}")
+            self.logger.debug(
+                f"Registered variant '{variant_name}' for tool: {tool_name}"
+            )
 
         except Exception as e:
             raise ToolRegistrationError(
@@ -201,7 +211,7 @@ class ToolRegistry:
 
         Returns:
             Configured tool instance
-            
+
         Raises:
             ToolNotFoundError: If tool or variant is not found
         """
@@ -219,18 +229,27 @@ class ToolRegistry:
             if variant != "default" and tool_name in self.variants:
                 if variant in self.variants[tool_name]:
                     variant_config = self.variants[tool_name][variant]
-                    if hasattr(tool_instance, 'configure') and callable(tool_instance.configure):
+                    if hasattr(tool_instance, "configure") and callable(
+                        tool_instance.configure
+                    ):
                         tool_instance.configure(variant_config)
-                        self.logger.debug(f"Applied variant '{variant}' configuration to tool: {tool_name}")
+                        self.logger.debug(
+                            f"Applied variant '{variant}' configuration to tool: {tool_name}"
+                        )
                 else:
-                    self.logger.warning(f"Variant '{variant}' not found for tool '{tool_name}', using default")
+                    self.logger.warning(
+                        f"Variant '{variant}' not found for tool '{tool_name}', using default"
+                    )
 
             return tool_instance
 
         except Exception as e:
             import traceback
+
             traceback.print_exc()
-            raise ToolNotFoundError(f"Failed to create tool instance '{tool_name}': {e}") from e
+            raise ToolNotFoundError(
+                f"Failed to create tool instance '{tool_name}': {e}"
+            ) from e
 
     def get_all_tools(self) -> List[AbstractTool]:
         """
@@ -245,8 +264,10 @@ class ToolRegistry:
                 tool = self.get_tool(tool_name)
                 tools.append(tool)
             except Exception as e:
-                self.logger.error(f"Failed to create instance for tool '{tool_name}': {e}")
-        
+                self.logger.error(
+                    f"Failed to create instance for tool '{tool_name}': {e}"
+                )
+
         return tools
 
     def get_tool_names(self) -> List[str]:
@@ -267,13 +288,13 @@ class ToolRegistry:
 
         Returns:
             Tool class type
-            
+
         Raises:
             ToolNotFoundError: If tool is not found
         """
         if tool_name not in self.tool_classes:
             raise ToolNotFoundError(f"Tool class '{tool_name}' not found")
-        
+
         return self.tool_classes[tool_name]
 
     def get_tool_spec(self, tool_name: str) -> ToolSpec:
@@ -285,13 +306,13 @@ class ToolRegistry:
 
         Returns:
             ToolSpec instance
-            
+
         Raises:
             ToolNotFoundError: If tool is not found
         """
         if tool_name not in self.tool_specs:
             raise ToolNotFoundError(f"Tool specification for '{tool_name}' not found")
-        
+
         return self.tool_specs[tool_name]
 
     def get_tool_variants(self, tool_name: str) -> List[str]:
@@ -323,14 +344,14 @@ class ToolRegistry:
     def validate_tool_variant(self, tool_name: str, variant_name: str) -> bool:
         """
         Validate that a tool variant combination exists and is properly configured.
-        
+
         This method provides validation capabilities for experiment configuration
         validation and CLI argument checking.
-        
+
         Args:
             tool_name: Name of the tool
             variant_name: Name of the variant
-            
+
         Returns:
             True if variant is valid and available, False otherwise
         """
@@ -339,23 +360,23 @@ class ToolRegistry:
             return True
         except:
             return False
-    
+
     def is_tool_registered(self, tool_name: str) -> bool:
         """
         Check if a tool is registered in the registry.
-        
+
         Args:
             tool_name: Name of the tool to check
-            
+
         Returns:
             True if tool is registered, False otherwise
         """
         return tool_name in self.tool_classes
-    
+
     def get_all_tool_names(self) -> List[str]:
         """
         Get names of all registered tools.
-        
+
         Returns:
             List of all registered tool names
         """
@@ -372,8 +393,7 @@ class ToolRegistry:
         Returns:
             True if variant is registered, False otherwise
         """
-        return (tool_name in self.variants and 
-                variant_name in self.variants[tool_name])
+        return tool_name in self.variants and variant_name in self.variants[tool_name]
 
     def get_variant_config(self, tool_name: str, variant_name: str) -> Dict[str, Any]:
         """
@@ -385,7 +405,7 @@ class ToolRegistry:
 
         Returns:
             Configuration dictionary for the variant
-            
+
         Raises:
             ToolNotFoundError: If tool or variant is not found
         """
@@ -393,7 +413,7 @@ class ToolRegistry:
             raise ToolNotFoundError(
                 f"Variant '{variant_name}' not found for tool '{tool_name}'"
             )
-        
+
         return self.variants[tool_name][variant_name].copy()
 
     def clear(self) -> None:
@@ -411,14 +431,14 @@ class ToolRegistry:
             Dictionary with registry statistics and metadata
         """
         total_variants = sum(len(variants) for variants in self.variants.values())
-        
+
         return {
             "total_tools": len(self.tool_classes),
             "total_variants": total_variants,
             "tools": list(self.tool_classes.keys()),
             "variants_by_tool": {
-                tool_name: list(variants.keys()) 
+                tool_name: list(variants.keys())
                 for tool_name, variants in self.variants.items()
                 if variants
-            }
+            },
         }

@@ -1,11 +1,18 @@
 # rvandroid/parser/visitor/text_visitor.py
-from typing import Optional, Set, Dict, Any
+from typing import Any, Dict, Optional, Set
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
-from rv_screen_parser.constants import SystemActionType, ActionType
+from rv_screen_parser.constants import ActionType, SystemActionType
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import (
+    AbstractScreenVisitor,
+)
+from rv_screen_parser.parser.screen.visitor.model import (
+    ItemAction,
+    Node,
+    ScreenDescription,
+    ScreenItem,
+)
 
 
 class DefaultTextVisitor(AbstractScreenVisitor):
@@ -31,7 +38,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         # Add standard system actions for consistent navigation
         self._ensure_standard_system_actions()
-        
+
         self.logger.info(f"Generated screen description with {len(self.items)} items")
         return ScreenDescription(self.activity, self.items)
 
@@ -102,7 +109,9 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             is_actionable = parent_clickable
 
         if is_actionable and node_id not in self.processed_parents:
-            actions = self.get_possible_actions(leaf_node, self.counter, inherit_click=parent_clickable)
+            actions = self.get_possible_actions(
+                leaf_node, self.counter, inherit_click=parent_clickable
+            )
             text = f"Element {leaf_node.view_class} {self._with_text(leaf_node)}{self._has_focus(leaf_node)}{self._with_description(leaf_node)}{self._with_resource_id(leaf_node)}"
             item = ScreenItem(leaf_node.data, text, actions)
             self.items.append(item)
@@ -128,8 +137,12 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 for action in actions:
                     for event in widget.events:
                         if event.type == action.event:
-                            action.reaches_mop = self._check_method_reaches_mop(event.signature)
-                            action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+                            action.reaches_mop = self._check_method_reaches_mop(
+                                event.signature
+                            )
+                            action.directly_reaches_mop = (
+                                self._check_method_directly_reaches_mop(event.signature)
+                            )
         else:
             # Se actions for None, inicializar como lista vazia
             actions = []
@@ -152,7 +165,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
         # Add input type information if available
         input_type = ""
-        if widget and hasattr(widget, 'input_type') and widget.input_type:
+        if widget and hasattr(widget, "input_type") and widget.input_type:
             input_type = f" for {widget.input_type}"
 
         text = f"Editable text field{input_type} {self._with_text(node)}{self._with_description(node)}{self._with_hint(node)}{self._has_focus(node)} {self._with_field(widget)}"
@@ -174,7 +187,9 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         self.logger.debug(f"Visiting text view: {node.resource_id}")
 
         # Check if node is actionable itself (including inherently clickable types)
-        is_actionable = node.clickable or node.long_clickable or self.is_always_clickable_type(node)
+        is_actionable = (
+            node.clickable or node.long_clickable or self.is_always_clickable_type(node)
+        )
 
         # If not actionable itself, check if it inherits click from parent
         parent_clickable = False
@@ -182,7 +197,9 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             parent_clickable = self.is_parent_clickable(node)
             is_actionable = parent_clickable
 
-        actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
+        actions = self.get_possible_actions(
+            node, self.counter, inherit_click=parent_clickable
+        )
 
         # Only add if it has text content or is interactive
         if node.view_text or actions:
@@ -254,7 +271,9 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         self.logger.debug(f"Visiting image: {node.resource_id}")
 
         # Check if node is actionable itself (including inherently clickable types)
-        is_actionable = node.clickable or node.long_clickable or self.is_always_clickable_type(node)
+        is_actionable = (
+            node.clickable or node.long_clickable or self.is_always_clickable_type(node)
+        )
 
         # If not actionable itself, check if it inherits click from parent
         parent_clickable = False
@@ -262,7 +281,9 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             parent_clickable = self.is_parent_clickable(node)
             is_actionable = parent_clickable
 
-        actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
+        actions = self.get_possible_actions(
+            node, self.counter, inherit_click=parent_clickable
+        )
 
         # Only include interactive images or those with descriptions
         if actions or node.content_description:
@@ -343,25 +364,28 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         # Extract coordinates from node
         node_data = node.data
         coordinates = None
-        if hasattr(node, 'center_coordinates'):
+        if hasattr(node, "center_coordinates"):
             coordinates = node.center_coordinates
-        elif 'bounds' in node_data:
-            bounds = node_data['bounds']
+        elif "bounds" in node_data:
+            bounds = node_data["bounds"]
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
                 coordinates = (x, y)
 
         # Add click action (always for spinners)
-        actions.append(ItemAction(
-            id=self.counter.increment(),
-            text=f"CLICK ({self.counter.get_current()})" + (f" on '{node.view_text}'" if node.view_text else ""),
-            event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
-            target_view=node_data,
-            coordinates=coordinates
-        ))
+        actions.append(
+            ItemAction(
+                id=self.counter.increment(),
+                text=f"CLICK ({self.counter.get_current()})"
+                + (f" on '{node.view_text}'" if node.view_text else ""),
+                event=WidgetEventType.CLICK,
+                reaches_mop=False,
+                directly_reaches_mop=False,
+                target_view=node_data,
+                coordinates=coordinates,
+            )
+        )
 
         # Only add vertical scroll for spinners
         # if node.scrollable:
@@ -373,12 +397,12 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         #         ))
 
         selected_item_text = ""
-        if hasattr(node, 'children') and node.children:
+        if hasattr(node, "children") and node.children:
             first_child = node.children[0]
             selected_item_text = f" with selected item '{first_child.view_text}'"
 
         options = ""
-        if widget and hasattr(widget, 'entries') and widget.entries:
+        if widget and hasattr(widget, "entries") and widget.entries:
             options_list = ", ".join(widget.entries[:5])
             if len(widget.entries) > 5:
                 options_list += f", and {len(widget.entries) - 5} more options"
@@ -417,7 +441,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
             for i, rb in enumerate(radio_buttons):
                 # Calculate coordinates from radio button bounds
-                bounds = rb.bounds if hasattr(rb, 'bounds') else rb.data.get('bounds')
+                bounds = rb.bounds if hasattr(rb, "bounds") else rb.data.get("bounds")
                 coordinates = None
                 if bounds and len(bounds) == 2:
                     x1, y1 = bounds[0]
@@ -425,18 +449,24 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                     coordinates = ((x1 + x2) // 2, (y1 + y2) // 2)
 
                 # Create a select action for each radio button with coordinates
-                action_text = f"SELECT ({self.counter.increment()}) '{rb.view_text}'" if rb.view_text else f"SELECT option {i + 1} ({self.counter.get_current()})"
+                action_text = (
+                    f"SELECT ({self.counter.increment()}) '{rb.view_text}'"
+                    if rb.view_text
+                    else f"SELECT option {i + 1} ({self.counter.get_current()})"
+                )
                 target_view = dict(rb.data) if rb.data else {}
 
-                group_actions.append(ItemAction(
-                    id=self.counter.get_current(),
-                    text=action_text,
-                    event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=target_view,
-                    coordinates=coordinates
-                ))
+                group_actions.append(
+                    ItemAction(
+                        id=self.counter.get_current(),
+                        text=action_text,
+                        event=WidgetEventType.CLICK,
+                        reaches_mop=False,
+                        directly_reaches_mop=False,
+                        target_view=target_view,
+                        coordinates=coordinates,
+                    )
+                )
 
                 # Add the radio button's text to the group description
                 if i > 0:
@@ -471,7 +501,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         actions = []
 
         # Get slider bounds for coordinate calculation
-        bounds = node.bounds if hasattr(node, 'bounds') else node.data.get('bounds')
+        bounds = node.bounds if hasattr(node, "bounds") else node.data.get("bounds")
         if bounds and len(bounds) == 2:
             x1, y1 = bounds[0]
             x2, y2 = bounds[1]
@@ -487,31 +517,39 @@ class DefaultTextVisitor(AbstractScreenVisitor):
 
                 # Create target_view with swipe coordinates
                 target_view = dict(node.data) if node.data else {}
-                target_view['swipe_start'] = (center_x, center_y)
-                target_view['swipe_end'] = (target_x, center_y)
+                target_view["swipe_start"] = (center_x, center_y)
+                target_view["swipe_end"] = (target_x, center_y)
 
-                actions.append(ItemAction(
-                    id=self.counter.increment(),
-                    text=f"DRAG_SLIDER ({self.counter.get_current()}) to {position}%",
-                    event=WidgetEventType.DRAG,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=target_view,
-                    coordinates=(center_x, center_y)
-                ))
+                actions.append(
+                    ItemAction(
+                        id=self.counter.increment(),
+                        text=f"DRAG_SLIDER ({self.counter.get_current()}) to {position}%",
+                        event=WidgetEventType.DRAG,
+                        reaches_mop=False,
+                        directly_reaches_mop=False,
+                        target_view=target_view,
+                        coordinates=(center_x, center_y),
+                    )
+                )
         else:
             # Fallback if bounds not available - use CLICK at slider center
             self.logger.warning("Slider bounds not available, using click fallback")
-            actions.append(ItemAction(
-                id=self.counter.increment(),
-                text=f"CLICK ({self.counter.get_current()}) on slider",
-                event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node.data
-            ))
+            actions.append(
+                ItemAction(
+                    id=self.counter.increment(),
+                    text=f"CLICK ({self.counter.get_current()}) on slider",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node.data,
+                )
+            )
 
-        current_percent = int((node.progress / node.max_progress) * 100) if node.max_progress > 0 else 0
+        current_percent = (
+            int((node.progress / node.max_progress) * 100)
+            if node.max_progress > 0
+            else 0
+        )
         text = f"Slider currently at {current_percent}% {self._with_text(node)}{self._with_description(node)}"
 
         item = ScreenItem(node.data, text, actions)
@@ -522,14 +560,16 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """Get maximum action ID from all actions in all items."""
         if not self.items:
             return 0
-        return max((action.id for item in self.items for action in item.actions), default=0)
+        return max(
+            (action.id for item in self.items for action in item.actions), default=0
+        )
 
     def _add_system_action(self, actions: list[ItemAction]):
         """Adds a system action as a new ScreenItem."""
         system_item = ScreenItem(
             view=self._create_system_action_view(SystemActionType.BACK),
             base_description="System",
-            actions=actions
+            actions=actions,
         )
         self.items.append(system_item)
         self.logger.debug(f"Adding system actions: {len(actions)}")
@@ -537,13 +577,13 @@ class DefaultTextVisitor(AbstractScreenVisitor):
     def _ensure_standard_system_actions(self) -> None:
         """
         Inject standard system actions for consistent navigation capabilities.
-        
+
         ### System Action Strategy:
         - Automatically provides SYSTEM_BACK and RESTART actions for every screen
         - Creates virtual target views with system action markers
         - Uses null coordinates to indicate system-level operations
         - Assigns incremental IDs to avoid conflicts with UI elements
-        
+
         ### Integration Points:
         - Called during screen processing to ensure action availability
         - Coordinates with ActionGenerator for proper action resolution
@@ -551,7 +591,7 @@ class DefaultTextVisitor(AbstractScreenVisitor):
         """
         max_action_id = self._get_max_action_id()
         actions = []
-        
+
         # Inject SYSTEM_BACK action if not already present
         if not self._has_action_by_type(SystemActionType.BACK):
             back_action = ItemAction(
@@ -561,12 +601,12 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=self._create_system_action_view(SystemActionType.BACK),
-                coordinates=None  # System actions use null coordinates
+                coordinates=None,  # System actions use null coordinates
             )
             actions.append(back_action)
             # self._add_system_action(back_action)
-            max_action_id += 1 # Increment max_id after use
-    
+            max_action_id += 1  # Increment max_id after use
+
         # Inject RESTART action if not already present
         if not self._has_action_by_type(SystemActionType.RESTART):
             restart_action = ItemAction(
@@ -576,27 +616,29 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=self._create_system_action_view(SystemActionType.RESTART),
-                coordinates=None  # System actions use null coordinates
+                coordinates=None,  # System actions use null coordinates
             )
             actions.append(restart_action)
             # self._add_system_action(restart_action)
 
-        if (len(actions) > 0):
+        if len(actions) > 0:
             self._add_system_action(actions)
 
-    def _create_system_action_view(self, action_type: SystemActionType) -> Dict[str, Any]:
+    def _create_system_action_view(
+        self, action_type: SystemActionType
+    ) -> Dict[str, Any]:
         """
         Create virtual view representation for system actions.
-        
+
         ### Virtual View Strategy:
         - Provides consistent view structure for system operations
         - Includes system_action flag for action type identification
         - Uses ActionType enum for proper classification
         - Maintains compatibility with existing action processing pipeline
-        
+
         Args:
             action_type: System action type from SystemActionType enum
-            
+
         Returns:
             Dictionary representing virtual view for system action
         """
@@ -607,24 +649,27 @@ class DefaultTextVisitor(AbstractScreenVisitor):
             "bounds": [[0, 0], [0, 0]],  # Virtual bounds for system actions
             "action_type": ActionType.SYSTEM_ACTION,
             "system_action_type": action_type,
-            "system_action": True  # Compatibility flag for existing code
+            "system_action": True,  # Compatibility flag for existing code
         }
 
     def _has_action_by_type(self, system_action_type: SystemActionType) -> bool:
         """
         Check if screen already contains specific system action type.
-        
+
         Args:
             system_action_type: System action type to check
-            
+
         Returns:
             True if action type already exists in screen actions
         """
         for item in self.items:
             for action in item.actions:
-                if (hasattr(action, 'target_view') and 
-                    action.target_view and 
-                    action.target_view.get('system_action_type') == system_action_type):
+                if (
+                    hasattr(action, "target_view")
+                    and action.target_view
+                    and action.target_view.get("system_action_type")
+                    == system_action_type
+                ):
                     return True
         return False
 

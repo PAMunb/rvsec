@@ -13,17 +13,17 @@ graph.states dict and found nothing.
 """
 
 import math
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.memory.ui_coverage import UICoverageTracker
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     SaturationScorer,
     VisitationPenaltyScorer,
 )
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 
 
 def _make_config(**overrides):

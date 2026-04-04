@@ -8,12 +8,13 @@ works correctly with different visitor implementations.
 import os
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
@@ -28,7 +29,7 @@ def sample_xml_file():
 @pytest.fixture
 def sample_xml_content(sample_xml_file):
     """Fixture that provides the content of the sample UIAutomator XML file."""
-    with open(sample_xml_file, 'r') as f:
+    with open(sample_xml_file, "r") as f:
         return f.read()
 
 
@@ -52,7 +53,7 @@ class TestVisitorIntegration:
         # Parse the sample XML
         state_data = {
             "hierarchy": sample_xml_content,
-            "activity": "br.unb.cic.cryptoapp.MainActivity"
+            "activity": "br.unb.cic.cryptoapp.MainActivity",
         }
 
         # Run the parser
@@ -64,14 +65,15 @@ class TestVisitorIntegration:
 
         # The CryptoApp has three main buttons, so we expect them to be captured
         # Plus a BACK button added by the visitor
-        button_items = [item for item in result.items
-                        if "Button" in item.base_description]
+        button_items = [
+            item for item in result.items if "Button" in item.base_description
+        ]
 
         # Check for the three app buttons plus system back button = 4
         assert len(button_items) >= 3
 
         # Verify that the specific buttons from the app are present
-        button_texts = [item.view.get('text', '') for item in result.items]
+        button_texts = [item.view.get("text", "") for item in result.items]
         assert "MESSAGE DIGEST" in button_texts
         assert "CIPHER" in button_texts
         assert "GENERATED" in button_texts
@@ -80,17 +82,23 @@ class TestVisitorIntegration:
         """Test that different visitors create appropriate node representations."""
         # Test with basic visitor first
         basic_parser = UIAutomator2Parser(BasicTextVisitor)
-        basic_result = basic_parser.parse_screen({
-            "hierarchy": sample_xml_content,
-            "activity": "br.unb.cic.cryptoapp.MainActivity"
-        }, static_data)
+        basic_result = basic_parser.parse_screen(
+            {
+                "hierarchy": sample_xml_content,
+                "activity": "br.unb.cic.cryptoapp.MainActivity",
+            },
+            static_data,
+        )
 
         # Count actions in basic result
         basic_action_count = sum(len(item.actions) for item in basic_result.items)
 
         # Get all button descriptions
-        basic_buttons = [item.base_description for item in basic_result.items
-                         if "Button" in item.base_description]
+        basic_buttons = [
+            item.base_description
+            for item in basic_result.items
+            if "Button" in item.base_description
+        ]
 
         # Basic assertions
         assert len(basic_result.items) > 0
@@ -106,14 +114,18 @@ class TestVisitorIntegration:
         root_node = parser.create_node_tree(state_data)
 
         # Check that the root node has the expected structure
-        assert hasattr(root_node, 'view_class')
-        assert hasattr(root_node, 'package')
+        assert hasattr(root_node, "view_class")
+        assert hasattr(root_node, "package")
 
         # Find buttons regardless of exact class name
         def find_buttons(node):
             """Recursively find buttons in the node tree."""
             buttons = []
-            if hasattr(node, 'view_text') and node.view_text in ["MESSAGE DIGEST", "CIPHER", "GENERATED"]:
+            if hasattr(node, "view_text") and node.view_text in [
+                "MESSAGE DIGEST",
+                "CIPHER",
+                "GENERATED",
+            ]:
                 buttons.append(node)
             for child in node.children:
                 buttons.extend(find_buttons(child))
@@ -181,7 +193,8 @@ class TestVisitorIntegration:
 
         # Find the "MESSAGE DIGEST" button
         button = find_node_by_resource_id(
-            root_node, "br.unb.cic.cryptoapp:id/buttonMessageDigest")
+            root_node, "br.unb.cic.cryptoapp:id/buttonMessageDigest"
+        )
 
         # Verify bounds
         assert button is not None

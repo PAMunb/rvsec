@@ -5,13 +5,14 @@ Tests the integration between major components without requiring emulator.
 """
 
 from unittest.mock import MagicMock, patch
+
 from rv_agent.agent.rv_agent import RVAgent
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
-from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_agent.domain.state import AgentState
 from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent.routing.routing_manager import RoutingManager
-from rv_agent.domain.state import AgentState
+from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 
 # class TestRVAgentComponentIntegration:
 #     """Test integration between RVAgent and its core components."""

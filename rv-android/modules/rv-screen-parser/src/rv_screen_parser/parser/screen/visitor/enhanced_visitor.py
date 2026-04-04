@@ -1,11 +1,19 @@
 # rvandroid/parser/screen/visitor/new_enhanced_visitor.py
 import logging
-from typing import List, Optional, Set, Dict, Any
+from typing import Any, Dict, List, Optional, Set
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import (
+    AbstractScreenVisitor,
+)
+from rv_screen_parser.parser.screen.visitor.model import (
+    Counter,
+    ItemAction,
+    Node,
+    ScreenDescription,
+    ScreenItem,
+)
 
 
 class EnhancedTextVisitor(AbstractScreenVisitor):
@@ -32,10 +40,12 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             "element_count": 0,
             "actionable_count": 0,
             "form_elements": [],
-            "navigation_elements": []
+            "navigation_elements": [],
         }
         self.logger = logging.getLogger(__name__)
-        self.logger.debug(f"Initialized NewEnhancedTextVisitor for activity: {activity}")
+        self.logger.debug(
+            f"Initialized NewEnhancedTextVisitor for activity: {activity}"
+        )
 
     def visit_node(self, node: Node) -> None:
         """
@@ -48,7 +58,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         # Compute node depth and update max hierarchy depth
         node_depth = self._compute_node_depth(node)
         self.node_depth_map[node.unique_identifier] = node_depth
-        self.screen_structure["hierarchy_depth"] = max(self.screen_structure["hierarchy_depth"], node_depth)
+        self.screen_structure["hierarchy_depth"] = max(
+            self.screen_structure["hierarchy_depth"], node_depth
+        )
 
         node_id = node.unique_identifier
         if node_id in self.processed_parents:
@@ -114,7 +126,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             is_actionable = parent_clickable
 
         if is_actionable:
-            actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
+            actions = self.get_possible_actions(
+                node, self.counter, inherit_click=parent_clickable
+            )
 
             # Include accessibility information and detailed properties
             accessibility_info = self._format_accessibility_info(node)
@@ -164,7 +178,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # If button is used for navigation, track it in screen structure
         if button_purpose == "Navigation":
-            self.screen_structure["navigation_elements"].append(node.resource_id or node.view_text or "unnamed_button")
+            self.screen_structure["navigation_elements"].append(
+                node.resource_id or node.view_text or "unnamed_button"
+            )
 
         item = ScreenItem(node.data, text, actions)
         self._add_security_info(item, node)
@@ -201,11 +217,13 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         )
 
         # Track form elements in screen structure
-        self.screen_structure["form_elements"].append({
-            "id": node.resource_id or "unnamed_input",
-            "type": input_type_info,
-            "required": "required" in validation_info.lower()
-        })
+        self.screen_structure["form_elements"].append(
+            {
+                "id": node.resource_id or "unnamed_input",
+                "type": input_type_info,
+                "required": "required" in validation_info.lower(),
+            }
+        )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -229,7 +247,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             parent_clickable = self.is_parent_clickable(node)
             is_actionable = parent_clickable
 
-        actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
+        actions = self.get_possible_actions(
+            node, self.counter, inherit_click=parent_clickable
+        )
         node_depth = self._compute_node_depth(node)
 
         # Analyze text content and purpose
@@ -281,11 +301,13 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Track form elements if applicable
         if checkbox_purpose == "Form":
-            self.screen_structure["form_elements"].append({
-                "id": node.resource_id or "unnamed_checkbox",
-                "type": "checkbox",
-                "checked": node.checked
-            })
+            self.screen_structure["form_elements"].append(
+                {
+                    "id": node.resource_id or "unnamed_checkbox",
+                    "type": "checkbox",
+                    "checked": node.checked,
+                }
+            )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -350,11 +372,13 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Track as form element if applicable
         if toggle_purpose == "Form":
-            self.screen_structure["form_elements"].append({
-                "id": node.resource_id or "unnamed_toggle",
-                "type": "toggle",
-                "state": "on" if node.checked else "off"
-            })
+            self.screen_structure["form_elements"].append(
+                {
+                    "id": node.resource_id or "unnamed_toggle",
+                    "type": "toggle",
+                    "state": "on" if node.checked else "off",
+                }
+            )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -391,12 +415,14 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Track as form element or setting if applicable
         if switch_purpose in ["Form", "Setting"]:
-            self.screen_structure["form_elements"].append({
-                "id": node.resource_id or "unnamed_switch",
-                "type": "switch",
-                "purpose": switch_purpose.lower(),
-                "state": "on" if node.checked else "off"
-            })
+            self.screen_structure["form_elements"].append(
+                {
+                    "id": node.resource_id or "unnamed_switch",
+                    "type": "switch",
+                    "purpose": switch_purpose.lower(),
+                    "state": "on" if node.checked else "off",
+                }
+            )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -433,7 +459,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         # Track as navigation element if applicable
         if button_purpose == "Navigation":
             self.screen_structure["navigation_elements"].append(
-                node.resource_id or node.content_description or "unnamed_image_button")
+                node.resource_id or node.content_description or "unnamed_image_button"
+            )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -458,7 +485,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             parent_clickable = self.is_parent_clickable(node)
             is_actionable = parent_clickable
 
-        actions = self.get_possible_actions(node, self.counter, inherit_click=parent_clickable)
+        actions = self.get_possible_actions(
+            node, self.counter, inherit_click=parent_clickable
+        )
         node_depth = self._compute_node_depth(node)
 
         # Analyze image properties and position
@@ -507,11 +536,13 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         )
 
         # Track as form element
-        self.screen_structure["form_elements"].append({
-            "id": node.resource_id or "unnamed_radio",
-            "type": "radio",
-            "selected": node.selected
-        })
+        self.screen_structure["form_elements"].append(
+            {
+                "id": node.resource_id or "unnamed_radio",
+                "type": "radio",
+                "selected": node.selected,
+            }
+        )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -563,14 +594,18 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 self.processed_parents.add(rb_node_id)
 
                 # Calculate coordinates from radio button bounds
-                bounds = rb.bounds if hasattr(rb, 'bounds') else rb.data.get('bounds')
+                bounds = rb.bounds if hasattr(rb, "bounds") else rb.data.get("bounds")
                 coordinates = None
                 if bounds and len(bounds) == 2:
                     x1, y1 = bounds[0]
                     x2, y2 = bounds[1]
                     coordinates = ((x1 + x2) // 2, (y1 + y2) // 2)
 
-                action_text = f"SELECT ({self.counter.increment()}) '{rb.view_text}'" if rb.view_text else f"SELECT option {i + 1} ({self.counter.get_current()})"
+                action_text = (
+                    f"SELECT ({self.counter.increment()}) '{rb.view_text}'"
+                    if rb.view_text
+                    else f"SELECT option {i + 1} ({self.counter.get_current()})"
+                )
                 target_view = dict(rb.data) if rb.data else {}
 
                 action = ItemAction(
@@ -580,7 +615,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=target_view,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
 
                 group_actions.append(action)
@@ -592,19 +627,24 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 group_text += option_text
 
                 # Track option
-                radio_options.append({
-                    "text": rb.view_text or f"Option {i + 1}",
-                    "selected": rb.selected
-                })
+                radio_options.append(
+                    {"text": rb.view_text or f"Option {i + 1}", "selected": rb.selected}
+                )
 
             # Track as form element
-            self.screen_structure["form_elements"].append({
-                "id": node.resource_id or "radio_group",
-                "type": "radio_group",
-                "options": radio_options
-            })
+            self.screen_structure["form_elements"].append(
+                {
+                    "id": node.resource_id or "radio_group",
+                    "type": "radio_group",
+                    "options": radio_options,
+                }
+            )
 
-            group_item = ScreenItem(node.data, f"{group_text}{bounds_info} at depth {node_depth}", group_actions)
+            group_item = ScreenItem(
+                node.data,
+                f"{group_text}{bounds_info} at depth {node_depth}",
+                group_actions,
+            )
             self._add_security_info(group_item, node)
             self.items.append(group_item)
             self.window_info["interactive_elements"] += 1
@@ -631,12 +671,17 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Add click action
         if node.clickable:
-            actions.append(ItemAction(
-                self.counter.increment(),
-                f"CLICK ({self.counter.get_current()})" + (f" on '{node.view_text}'" if node.view_text else ""),
-                WidgetEventType.CLICK, False, False,
-                target_view=node.data
-            ))
+            actions.append(
+                ItemAction(
+                    self.counter.increment(),
+                    f"CLICK ({self.counter.get_current()})"
+                    + (f" on '{node.view_text}'" if node.view_text else ""),
+                    WidgetEventType.CLICK,
+                    False,
+                    False,
+                    target_view=node.data,
+                )
+            )
 
         # Add vertical scroll for spinners
         # if node.scrollable:
@@ -650,12 +695,12 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Generate detailed options information
         selected_item_text = ""
-        if hasattr(node, 'children') and node.children:
+        if hasattr(node, "children") and node.children:
             first_child = node.children[0]
             selected_item_text = f" with selected item '{first_child.view_text}'"
 
         options_info = ""
-        if widget and hasattr(widget, 'entries') and widget.entries:
+        if widget and hasattr(widget, "entries") and widget.entries:
             options_list = ", ".join(widget.entries[:3])
             if len(widget.entries) > 3:
                 options_list += f", and {len(widget.entries) - 3} more options"
@@ -670,11 +715,15 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         )
 
         # Track as form element
-        self.screen_structure["form_elements"].append({
-            "id": node.resource_id or "unnamed_spinner",
-            "type": "dropdown",
-            "options_count": len(widget.entries) if widget and hasattr(widget, 'entries') else 0
-        })
+        self.screen_structure["form_elements"].append(
+            {
+                "id": node.resource_id or "unnamed_spinner",
+                "type": "dropdown",
+                "options_count": (
+                    len(widget.entries) if widget and hasattr(widget, "entries") else 0
+                ),
+            }
+        )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -702,7 +751,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         actions = []
 
         # Get slider bounds for coordinate calculation
-        bounds = node.bounds if hasattr(node, 'bounds') else node.data.get('bounds')
+        bounds = node.bounds if hasattr(node, "bounds") else node.data.get("bounds")
         if bounds and len(bounds) == 2:
             x1, y1 = bounds[0]
             x2, y2 = bounds[1]
@@ -718,32 +767,40 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
                 # Create target_view with swipe coordinates
                 target_view = dict(node.data) if node.data else {}
-                target_view['swipe_start'] = (center_x, center_y)
-                target_view['swipe_end'] = (target_x, center_y)
+                target_view["swipe_start"] = (center_x, center_y)
+                target_view["swipe_end"] = (target_x, center_y)
 
-                actions.append(ItemAction(
-                    id=self.counter.increment(),
-                    text=f"DRAG_SLIDER ({self.counter.get_current()}) to {position}%",
-                    event=WidgetEventType.DRAG,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
-                    target_view=target_view,
-                    coordinates=(center_x, center_y)
-                ))
+                actions.append(
+                    ItemAction(
+                        id=self.counter.increment(),
+                        text=f"DRAG_SLIDER ({self.counter.get_current()}) to {position}%",
+                        event=WidgetEventType.DRAG,
+                        reaches_mop=False,
+                        directly_reaches_mop=False,
+                        target_view=target_view,
+                        coordinates=(center_x, center_y),
+                    )
+                )
         else:
             # Fallback if bounds not available - use CLICK at slider center
             self.logger.warning("Slider bounds not available, using click fallback")
-            actions.append(ItemAction(
-                id=self.counter.increment(),
-                text=f"CLICK ({self.counter.get_current()}) on slider",
-                event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
-                target_view=node.data
-            ))
+            actions.append(
+                ItemAction(
+                    id=self.counter.increment(),
+                    text=f"CLICK ({self.counter.get_current()}) on slider",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                    target_view=node.data,
+                )
+            )
 
         # Calculate current position as percentage
-        current_percent = int((node.progress / node.max_progress) * 100) if node.max_progress > 0 else 0
+        current_percent = (
+            int((node.progress / node.max_progress) * 100)
+            if node.max_progress > 0
+            else 0
+        )
 
         # Determine slider purpose
         slider_purpose = self._determine_slider_purpose(node)
@@ -758,12 +815,14 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         )
 
         # Track as form element
-        self.screen_structure["form_elements"].append({
-            "id": node.resource_id or "unnamed_slider",
-            "type": "slider",
-            "value": current_percent,
-            "max": node.max_progress
-        })
+        self.screen_structure["form_elements"].append(
+            {
+                "id": node.resource_id or "unnamed_slider",
+                "type": "slider",
+                "value": current_percent,
+                "max": node.max_progress,
+            }
+        )
 
         item = ScreenItem(node.data, description, actions)
         self._add_security_info(item, node)
@@ -773,8 +832,13 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         self.screen_structure["element_count"] += 1
         self.screen_structure["actionable_count"] += 1
 
-    def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
-                             prioritize_check: bool = False) -> List[ItemAction]:
+    def get_possible_actions(
+        self,
+        node: Node,
+        counter: Counter,
+        inherit_click: bool = False,
+        prioritize_check: bool = False,
+    ) -> List[ItemAction]:
         """
         Get possible actions for a node with enhanced security awareness and detailed information.
 
@@ -794,10 +858,10 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Extract coordinates from node
         coordinates = None
-        if hasattr(node, 'get_center_coordinates'):
+        if hasattr(node, "get_center_coordinates"):
             coordinates = node.get_center_coordinates()
-        elif 'bounds' in node_data:
-            bounds = node_data['bounds']
+        elif "bounds" in node_data:
+            bounds = node_data["bounds"]
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
@@ -808,7 +872,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             self.create_checked_action(actions, coordinates, counter, node, node_data)
 
         # Handle click actions (including inherently clickable types like ActionBar$Tab)
-        elif (node.clickable or inherit_click or self.is_always_clickable_type(node)) and not (prioritize_check and node.checkable):
+        elif (
+            node.clickable or inherit_click or self.is_always_clickable_type(node)
+        ) and not (prioritize_check and node.checkable):
             text_suffix = ""
             if node.view_text:
                 text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
@@ -820,7 +886,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=node_data,
-                coordinates=coordinates
+                coordinates=coordinates,
             )
             # Update security information
             self._update_action_mop_related_info(action, node)
@@ -839,7 +905,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=node_data,
-                coordinates=coordinates
+                coordinates=coordinates,
             )
             # Update security information
             self._update_action_mop_related_info(action, node)
@@ -855,7 +921,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=node_data,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
                 # Update security information
                 self._update_action_mop_related_info(action, node)
@@ -868,7 +934,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=node_data,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
                 # Update security information
                 self._update_action_mop_related_info(action, node)
@@ -880,7 +946,10 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             directions = ["UP", "DOWN", "LEFT", "RIGHT"]
 
             # Filter directions for certain widget types
-            if node.view_class in ["android.widget.ListView", "android.widget.ScrollView"]:
+            if node.view_class in [
+                "android.widget.ListView",
+                "android.widget.ScrollView",
+            ]:
                 directions = ["UP", "DOWN"]
             elif node.view_class in ["android.widget.HorizontalScrollView"]:
                 directions = ["LEFT", "RIGHT"]
@@ -893,7 +962,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=node_data,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
                 # Update security information
                 self._update_action_mop_related_info(action, node)
@@ -918,7 +987,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=node_data,
-                coordinates=coordinates
+                coordinates=coordinates,
             )
             # Update security information
             self._update_action_mop_related_info(action, node)
@@ -944,19 +1013,17 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         )
 
         # Add form detection
-        if self.screen_structure['form_elements']:
-            form_types = set(elem['type'] for elem in self.screen_structure['form_elements'])
+        if self.screen_structure["form_elements"]:
+            form_types = set(
+                elem["type"] for elem in self.screen_structure["form_elements"]
+            )
             form_desc = f"Form detected with: {', '.join(form_types)}"
             structure_item = ScreenItem(
-                {"special": "screen_structure"},
-                f"{structure_desc}. {form_desc}",
-                []
+                {"special": "screen_structure"}, f"{structure_desc}. {form_desc}", []
             )
         else:
             structure_item = ScreenItem(
-                {"special": "screen_structure"},
-                structure_desc,
-                []
+                {"special": "screen_structure"}, structure_desc, []
             )
 
         # Insert as the first item
@@ -969,18 +1036,18 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             WidgetEventType.KEY,
             False,
             False,
-            target_view={"special": "back_button"}
+            target_view={"special": "back_button"},
         )
 
         # Create a back button item
         back_item = ScreenItem(
-            {"special": "back_button"},
-            "System back button",
-            [back_action]
+            {"special": "back_button"}, "System back button", [back_action]
         )
 
         self.items.append(back_item)
-        self.logger.info(f"Generated comprehensive screen description with {len(self.items)} items")
+        self.logger.info(
+            f"Generated comprehensive screen description with {len(self.items)} items"
+        )
 
         return ScreenDescription(self.activity, self.items)
 
@@ -1020,7 +1087,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             if event.type == action.event:
                 # Check if method reaches or directly reaches MOP
                 action.reaches_mop = self._check_method_reaches_mop(event.signature)
-                action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+                action.directly_reaches_mop = self._check_method_directly_reaches_mop(
+                    event.signature
+                )
 
                 # Add more detailed info to action text if it reaches MOP
                 if action.directly_reaches_mop:
@@ -1118,7 +1187,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         Returns:
             Formatted bounds information
         """
-        if not hasattr(node, 'bounds') or not node.bounds:
+        if not hasattr(node, "bounds") or not node.bounds:
             return ""
 
         try:
@@ -1147,14 +1216,14 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         """
         info_parts = []
 
-        if hasattr(node, 'content_description') and node.content_description:
+        if hasattr(node, "content_description") and node.content_description:
             info_parts.append(f"a11y description: '{node.content_description}'")
 
         # Analyze accessibility issues
         if not node.content_description and node.clickable:
             info_parts.append("missing a11y description")
 
-        if hasattr(node, 'enabled') and not node.enabled:
+        if hasattr(node, "enabled") and not node.enabled:
             info_parts.append("disabled")
 
         if not info_parts:
@@ -1172,7 +1241,7 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         Returns:
             Position description (e.g., "Top Left", "Center", etc.)
         """
-        if not hasattr(node, 'bounds') or not node.bounds:
+        if not hasattr(node, "bounds") or not node.bounds:
             return ""
 
         try:
@@ -1236,14 +1305,21 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             Detailed input type description
         """
         # Check common properties for clues
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
-        hint = node.hint.lower() if hasattr(node, 'hint') and node.hint else ""
-        content_desc = node.content_description.lower() if hasattr(node,
-                                                                   'content_description') and node.content_description else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        node.view_text.lower() if hasattr(node, "view_text") and node.view_text else ""
+        hint = node.hint.lower() if hasattr(node, "hint") and node.hint else ""
+        content_desc = (
+            node.content_description.lower()
+            if hasattr(node, "content_description") and node.content_description
+            else ""
+        )
 
         # Check the most specific types first
-        if hasattr(node, 'is_password') and node.is_password:
+        if hasattr(node, "is_password") and node.is_password:
             return "password"
 
         if "email" in resource_id or "email" in hint or "email" in content_desc:
@@ -1273,7 +1349,11 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         if "address" in resource_id or "address" in hint:
             return "address"
 
-        if "code" in resource_id or "otp" in resource_id or "verification" in resource_id:
+        if (
+            "code" in resource_id
+            or "otp" in resource_id
+            or "verification" in resource_id
+        ):
             return "verification code"
 
         if "name" in resource_id or "name" in hint:
@@ -1287,8 +1367,13 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         if "number" in resource_id or "numeric" in hint:
             return "numeric field"
 
-        if "message" in resource_id or "comment" in resource_id or node.view_class == "android.widget.EditText" and node.view_text and len(
-                node.view_text) > 50:
+        if (
+            "message" in resource_id
+            or "comment" in resource_id
+            or node.view_class == "android.widget.EditText"
+            and node.view_text
+            and len(node.view_text) > 50
+        ):
             return "multi-line text"
 
         # Default
@@ -1305,34 +1390,55 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             Button purpose description
         """
         # Check common properties for clues
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        text = node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
-        content_desc = node.content_description.lower() if hasattr(node,
-                                                                   'content_description') and node.content_description else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        text = (
+            node.view_text.lower()
+            if hasattr(node, "view_text") and node.view_text
+            else ""
+        )
+        content_desc = (
+            node.content_description.lower()
+            if hasattr(node, "content_description") and node.content_description
+            else ""
+        )
 
         # Navigation buttons
-        if any(term in (text + resource_id + content_desc) for term in
-               ["back", "prev", "previous", "return", "nav", "arrow"]):
+        if any(
+            term in (text + resource_id + content_desc)
+            for term in ["back", "prev", "previous", "return", "nav", "arrow"]
+        ):
             return "Navigation"
 
         # Action buttons
-        if any(term in (text + resource_id + content_desc) for term in
-               ["submit", "save", "done", "ok", "apply", "confirm", "accept"]):
+        if any(
+            term in (text + resource_id + content_desc)
+            for term in ["submit", "save", "done", "ok", "apply", "confirm", "accept"]
+        ):
             return "Action"
 
         # Confirmation buttons
-        if any(term in (text + resource_id + content_desc) for term in
-               ["yes", "confirm", "agree", "proceed"]):
+        if any(
+            term in (text + resource_id + content_desc)
+            for term in ["yes", "confirm", "agree", "proceed"]
+        ):
             return "Confirmation"
 
         # Cancellation buttons
-        if any(term in (text + resource_id + content_desc) for term in
-               ["no", "cancel", "deny", "reject", "dismiss", "close"]):
+        if any(
+            term in (text + resource_id + content_desc)
+            for term in ["no", "cancel", "deny", "reject", "dismiss", "close"]
+        ):
             return "Cancellation"
 
         # Menu buttons
-        if any(term in (text + resource_id + content_desc) for term in
-               ["menu", "drawer", "hamburger", "options"]):
+        if any(
+            term in (text + resource_id + content_desc)
+            for term in ["menu", "drawer", "hamburger", "options"]
+        ):
             return "Menu"
 
         # Default
@@ -1349,8 +1455,16 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             Text purpose description
         """
         # Check common properties for clues
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        text = node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        text = (
+            node.view_text.lower()
+            if hasattr(node, "view_text") and node.view_text
+            else ""
+        )
 
         # Title or heading (typically larger or bold text)
         if "title" in resource_id or "header" in resource_id:
@@ -1374,7 +1488,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
 
         # Default - use heuristics based on content
         if text:
-            if len(text) < 30 and text.upper() == text:  # All caps short text is likely a header
+            if (
+                len(text) < 30 and text.upper() == text
+            ):  # All caps short text is likely a header
                 return "Header"
             elif len(text) > 100:  # Long text is likely a paragraph
                 return "Paragraph"
@@ -1393,19 +1509,49 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             Checkbox purpose description
         """
         # Check common properties for clues
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        text = node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
-        content_desc = node.content_description.lower() if hasattr(node,
-                                                                   'content_description') and node.content_description else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        text = (
+            node.view_text.lower()
+            if hasattr(node, "view_text") and node.view_text
+            else ""
+        )
+        content_desc = (
+            node.content_description.lower()
+            if hasattr(node, "content_description") and node.content_description
+            else ""
+        )
 
         # Terms for agreement checkboxes
-        agreement_terms = ["agree", "accept", "terms", "conditions", "policy", "policies", "consent"]
+        agreement_terms = [
+            "agree",
+            "accept",
+            "terms",
+            "conditions",
+            "policy",
+            "policies",
+            "consent",
+        ]
         if any(term in (text + resource_id + content_desc) for term in agreement_terms):
             return "Agreement"
 
         # Terms for preference or settings checkboxes
-        preference_terms = ["preference", "option", "setting", "config", "enable", "disable", "turn on", "turn off"]
-        if any(term in (text + resource_id + content_desc) for term in preference_terms):
+        preference_terms = [
+            "preference",
+            "option",
+            "setting",
+            "config",
+            "enable",
+            "disable",
+            "turn on",
+            "turn off",
+        ]
+        if any(
+            term in (text + resource_id + content_desc) for term in preference_terms
+        ):
             return "Preference"
 
         # Terms for form checkboxes
@@ -1427,10 +1573,21 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             Toggle purpose description
         """
         # Similar to checkbox purpose but with toggle-specific terms
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        text = node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
-        content_desc = node.content_description.lower() if hasattr(node,
-                                                                   'content_description') and node.content_description else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        text = (
+            node.view_text.lower()
+            if hasattr(node, "view_text") and node.view_text
+            else ""
+        )
+        content_desc = (
+            node.content_description.lower()
+            if hasattr(node, "content_description") and node.content_description
+            else ""
+        )
 
         # Settings toggles
         settings_terms = ["setting", "preference", "enable", "disable", "mode"]
@@ -1461,10 +1618,21 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             Switch purpose description
         """
         # Similar to toggle purpose
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        text = node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else ""
-        content_desc = node.content_description.lower() if hasattr(node,
-                                                                   'content_description') and node.content_description else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        text = (
+            node.view_text.lower()
+            if hasattr(node, "view_text") and node.view_text
+            else ""
+        )
+        content_desc = (
+            node.content_description.lower()
+            if hasattr(node, "content_description") and node.content_description
+            else ""
+        )
 
         # Privacy settings
         privacy_terms = ["privacy", "data", "collection", "tracking", "analytics"]
@@ -1472,12 +1640,30 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             return "Privacy"
 
         # System settings
-        system_terms = ["wifi", "bluetooth", "location", "gps", "notification", "sound", "vibrate", "airplane", "sync"]
+        system_terms = [
+            "wifi",
+            "bluetooth",
+            "location",
+            "gps",
+            "notification",
+            "sound",
+            "vibrate",
+            "airplane",
+            "sync",
+        ]
         if any(term in (text + resource_id + content_desc) for term in system_terms):
             return "System"
 
         # General settings
-        settings_terms = ["setting", "preference", "enable", "disable", "toggle", "turn on", "turn off"]
+        settings_terms = [
+            "setting",
+            "preference",
+            "enable",
+            "disable",
+            "toggle",
+            "turn on",
+            "turn off",
+        ]
         if any(term in (text + resource_id + content_desc) for term in settings_terms):
             return "Setting"
 
@@ -1499,9 +1685,16 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         Returns:
             Image purpose description
         """
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        content_desc = node.content_description.lower() if hasattr(node,
-                                                                   'content_description') and node.content_description else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        content_desc = (
+            node.content_description.lower()
+            if hasattr(node, "content_description") and node.content_description
+            else ""
+        )
 
         # Icons
         icon_terms = ["icon", "ic_", "img_"]
@@ -1536,22 +1729,55 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         Returns:
             Slider purpose description
         """
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        content_desc = node.content_description.lower() if hasattr(node,
-                                                                   'content_description') and node.content_description else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        content_desc = (
+            node.content_description.lower()
+            if hasattr(node, "content_description") and node.content_description
+            else ""
+        )
 
         # Media player sliders
-        media_terms = ["media", "player", "video", "audio", "music", "volume", "progress", "seek", "timeline"]
+        media_terms = [
+            "media",
+            "player",
+            "video",
+            "audio",
+            "music",
+            "volume",
+            "progress",
+            "seek",
+            "timeline",
+        ]
         if any(term in (resource_id + content_desc) for term in media_terms):
             return "Media Control"
 
         # Value selection sliders
-        value_terms = ["value", "rating", "score", "amount", "quantity", "level", "range"]
+        value_terms = [
+            "value",
+            "rating",
+            "score",
+            "amount",
+            "quantity",
+            "level",
+            "range",
+        ]
         if any(term in (resource_id + content_desc) for term in value_terms):
             return "Value Selection"
 
         # Settings sliders
-        settings_terms = ["setting", "brightness", "opacity", "transparency", "size", "zoom", "scale"]
+        settings_terms = [
+            "setting",
+            "brightness",
+            "opacity",
+            "transparency",
+            "size",
+            "zoom",
+            "scale",
+        ]
         if any(term in (resource_id + content_desc) for term in settings_terms):
             return "Setting"
 
@@ -1573,8 +1799,12 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         validation_info = ""
 
         # Check if field appears to be required
-        resource_id = node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else ""
-        hint = node.hint.lower() if hasattr(node, 'hint') and node.hint else ""
+        resource_id = (
+            node.resource_id.lower()
+            if hasattr(node, "resource_id") and node.resource_id
+            else ""
+        )
+        hint = node.hint.lower() if hasattr(node, "hint") and node.hint else ""
 
         if "required" in resource_id or "required" in hint or "*" in hint:
             validation_info += " (required)"

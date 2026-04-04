@@ -4,8 +4,9 @@ Comprehensive tests for DeviceInterface functionality.
 Tests the DeviceInterface class which handles all device interactions.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from rv_agent.agent.device_interface import DeviceInterface
 
 

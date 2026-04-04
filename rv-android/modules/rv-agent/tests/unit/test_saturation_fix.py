@@ -7,11 +7,11 @@ Without this fix, max saturation = N/(N+2), preventing screens with fewer
 than 8 real actions from reaching the 80% backtrack threshold.
 """
 
-import pytest
-from unittest.mock import MagicMock
 from dataclasses import dataclass
 from typing import Optional, Tuple
+from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 
 
@@ -289,9 +289,7 @@ class TestPathBufferFailureCache:
 
     def test_cooldown_blocks_planning(self):
         """During cooldown, planning is skipped without calling TransitionManager."""
-        from rv_agent.strategies.rvagent_strategy.path_buffer import (
-            PathBuffer,
-        )
+        from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
 
         tm = MagicMock()
         tm.plan_path_to_mop_activity.return_value = None

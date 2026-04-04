@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import List, Optional
 
 from pydantic import ConfigDict, Field, field_validator
-
 from rv_android_core.commands.command import Command
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import LogcatValidationError

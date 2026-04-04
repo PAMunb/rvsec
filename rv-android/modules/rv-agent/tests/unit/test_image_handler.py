@@ -9,14 +9,13 @@ Tests verify:
 - Queue management and cleanup
 """
 
-import pytest
 import base64
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from io import BytesIO
 
+import pytest
 from PIL import Image
-
 from rv_agent.services.vision_service import ImageHandler
 
 # =============================================================================

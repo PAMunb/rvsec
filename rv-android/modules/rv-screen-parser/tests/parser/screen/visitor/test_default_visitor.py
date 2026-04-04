@@ -1,14 +1,19 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType, Widget
-from rv_android_core.domain.window import Windows, Window
+from rv_android_core.domain.widget import Widget, WidgetEventType
+from rv_android_core.domain.window import Window, Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node, Counter
+from rv_screen_parser.parser.screen.visitor.model import (
+    Counter,
+    ItemAction,
+    Node,
+    ScreenDescription,
+    ScreenItem,
+)
 
 
 class TestDefaultTextVisitor:
@@ -17,7 +22,9 @@ class TestDefaultTextVisitor:
     @pytest.fixture(autouse=True)
     def setup_logging(self):
         """Fixture to set up logging and suppress log messages during tests"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging_manager:
+        with patch(
+            "rv_android_core.util.logging.manager.LoggingManager"
+        ) as mock_logging_manager:
             mock_logger = MagicMock()
             mock_logging_manager.get_instance.return_value = mock_logging_manager
             mock_logging_manager.get_logger.return_value = mock_logger
@@ -59,7 +66,7 @@ class TestDefaultTextVisitor:
             "text": "Test Button",
             "content_description": "A test button",
             "clickable": True,
-            "bounds": [[10, 10], [100, 50]]
+            "bounds": [[10, 10], [100, 50]],
         }
         return Node(data)
 
@@ -70,7 +77,7 @@ class TestDefaultTextVisitor:
             "class": "android.widget.LinearLayout",
             "resource_id": "parent_layout",
             "clickable": True,
-            "bounds": [[0, 0], [200, 100]]
+            "bounds": [[0, 0], [200, 100]],
         }
         parent = Node(data)
         return parent
@@ -82,7 +89,7 @@ class TestDefaultTextVisitor:
             "class": "android.widget.TextView",
             "resource_id": "test_text",
             "text": "Child Text",
-            "clickable": False
+            "clickable": False,
         }
         child = Node(data, parent=parent_node)
         parent_node.children = [child]
@@ -144,13 +151,21 @@ class TestDefaultTextVisitor:
         assert len(visitor.items) == 0
         assert visitor.window_info["interactive_elements"] == 0
 
-    def test_visit_node_with_actionable_children(self, visitor, parent_node, child_node):
+    def test_visit_node_with_actionable_children(
+        self, visitor, parent_node, child_node
+    ):
         """Test visit_node with parent that has actionable children."""
         parent_node.actionable = True
         child_node.actionable = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_node(parent_node)
@@ -159,13 +174,21 @@ class TestDefaultTextVisitor:
         assert len(visitor.items) == 0
         assert visitor.window_info["interactive_elements"] == 0
 
-    def test_visit_node_with_non_actionable_children(self, visitor, parent_node, child_node):
+    def test_visit_node_with_non_actionable_children(
+        self, visitor, parent_node, child_node
+    ):
         """Test visit_node with parent that has non-actionable children."""
         parent_node.actionable = True
         child_node.actionable = False
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_node(parent_node)
@@ -191,7 +214,13 @@ class TestDefaultTextVisitor:
         node.actionable = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_leaf_node(node)
@@ -212,7 +241,13 @@ class TestDefaultTextVisitor:
         visitor.is_parent_clickable = MagicMock(return_value=True)
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_leaf_node(child_node)
@@ -227,7 +262,7 @@ class TestDefaultTextVisitor:
         # Verify get_possible_actions was called with inherit_click=True
         visitor.get_possible_actions.assert_called_once()
         args, kwargs = visitor.get_possible_actions.call_args
-        assert kwargs.get('inherit_click', False) is True
+        assert kwargs.get("inherit_click", False) is True
 
     def test_find_matching_widget_by_resource_id(self, visitor):
         """Test find_matching_widget method with resource ID."""
@@ -250,7 +285,13 @@ class TestDefaultTextVisitor:
     def test_visit_button(self, visitor, node):
         """Test visit_button method."""
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Mock find_matching_widget to return None
@@ -269,7 +310,13 @@ class TestDefaultTextVisitor:
     def test_visit_edit_text(self, visitor, node):
         """Test visit_edit_text method."""
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="SET_TEXT (1)", event=WidgetEventType.TEXT_CHANGE, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="SET_TEXT (1)",
+            event=WidgetEventType.TEXT_CHANGE,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Mock find_matching_widget to return a widget with input_type
@@ -299,7 +346,13 @@ class TestDefaultTextVisitor:
     def test_visit_text_view(self, visitor, node):
         """Test visit_text_view method."""
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         node.view_text = "Text view content"
@@ -316,7 +369,13 @@ class TestDefaultTextVisitor:
     def test_visit_checkbox(self, visitor, node):
         """Test visit_checkbox method."""
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Mock find_matching_widget to return None

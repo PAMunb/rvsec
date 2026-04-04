@@ -6,7 +6,7 @@ supporting both JCA (Java Cryptographic Architecture) and generic monitored oper
 
 ### Architectural Decisions:
 - Implements a modular configuration system with intelligent path resolution and environment discovery
-- Integrates seamlessly with existing rv-android-core error handling and logging infrastructure  
+- Integrates seamlessly with existing rv-android-core error handling and logging infrastructure
 - Supports flexible specification sets for different experimental scenarios and research contexts
 - Provides both programmatic API and CLI interfaces for diverse integration requirements
 - Maintains clear separation between JCA cryptographic and generic operation monitoring capabilities
@@ -29,7 +29,7 @@ supporting both JCA (Java Cryptographic Architecture) and generic monitored oper
 
 **JCA Specifications (Cryptographic API Monitoring):**
 - MessageDigest algorithm validation and usage pattern detection
-- SecureRandom entropy source verification and randomization tracking  
+- SecureRandom entropy source verification and randomization tracking
 - Cipher operation sequence monitoring and algorithm compliance checking
 - Key generation and management operation validation
 
@@ -64,7 +64,7 @@ jca_config = RVGeneratorConfig(
 jca_generator = RuntimeVerificationGenerator(jca_config)
 jca_result = jca_generator.generate_monitors('/output/jca-monitors')
 
-# Generic Operations Monitoring Setup  
+# Generic Operations Monitoring Setup
 generic_config = RVGeneratorConfig(
     rvsec_root='/path/to/rvsec',
     mop_specs_dir='/path/to/rvsec/rvsec-mop/src/main/resources/generic'
@@ -78,7 +78,7 @@ generic_result = generic_generator.generate_monitors('/output/generic-monitors')
 # JCA cryptographic specifications
 rv-monitor-generator generate --specs-dir /rvsec/rvsec-mop/src/main/resources/jca --output /output/jca
 
-# Generic operation specifications  
+# Generic operation specifications
 rv-monitor-generator generate --specs-dir /rvsec/rvsec-mop/src/main/resources/generic --output /output/generic
 
 # Environment-based automatic detection
@@ -89,12 +89,9 @@ rv-monitor-generator generate --output /output/auto-detected
 __version__ = "0.1.0"
 __author__ = "RV-Android Team"
 
+from .config import ConfigurationError, RVGeneratorConfig
+
 # Public API exports
 from .runtime_verification_generator import RuntimeVerificationGenerator
-from .config import RVGeneratorConfig, ConfigurationError
 
-__all__ = [
-    'RuntimeVerificationGenerator',
-    'RVGeneratorConfig', 
-    'ConfigurationError'
-]
+__all__ = ["RuntimeVerificationGenerator", "RVGeneratorConfig", "ConfigurationError"]

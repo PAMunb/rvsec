@@ -5,10 +5,7 @@ This package provides the core registry and factory infrastructure for
 managing tools in the RV-Android framework.
 """
 
-from .registry import ToolRegistry
 from .factory import ToolFactory
+from .registry import ToolRegistry
 
-__all__ = [
-    "ToolRegistry",
-    "ToolFactory"
-]
+__all__ = ["ToolRegistry", "ToolFactory"]

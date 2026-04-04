@@ -19,29 +19,29 @@ ensuring proper initialization, inheritance relationships, and string representa
 """
 
 from rv_android_core.util.error.exceptions import (
-    RVAndroidError,
-    ConfigurationError,
-    NetworkError,
-    EmulatorError,
     ADBError,
-    InstrumentationError,
     AnalysisError,
-    ExecutionError,
-    TaskExecutionError,
-    RVValidationError,
     CommandValidationError,
-    LogcatValidationError,
+    ConfigurationError,
+    EmulatorError,
     EventProcessingError,
-    RVCommandTimeoutError,
+    ExecutionError,
+    InstrumentationError,
     JarNotFoundError,
-    RVToolError,
-    RVToolExecutionError,
-    RVToolTimeoutError,
-    ToolNotFoundError,
-    ToolRegistrationError,
+    LogcatValidationError,
+    NetworkError,
+    RVAndroidError,
+    RVCommandTimeoutError,
     RVExperimentError,
     RVExperimentExecutionError,
     RVParsingError,
+    RVToolError,
+    RVToolExecutionError,
+    RVToolTimeoutError,
+    RVValidationError,
+    TaskExecutionError,
+    ToolNotFoundError,
+    ToolRegistrationError,
 )
 
 
@@ -61,7 +61,10 @@ class TestRVAndroidError:
         error = RVAndroidError("Test error message", cause)
         assert error.message == "Test error message"
         assert error.cause == cause
-        assert str(error) == "RVAndroidError: Test error message caused by ValueError: Original error"
+        assert (
+            str(error)
+            == "RVAndroidError: Test error message caused by ValueError: Original error"
+        )
 
 
 class TestDerivedExceptions:
@@ -187,11 +190,16 @@ class TestSpecializedExceptions:
         assert error.message == "Task failed"
         assert error.task_id == 42
         assert error.cause == cause
-        assert str(error) == "TaskExecutionError: Task failed caused by ValueError: Original error (Task ID: 42)"
+        assert (
+            str(error)
+            == "TaskExecutionError: Task failed caused by ValueError: Original error (Task ID: 42)"
+        )
 
     def test_rv_command_timeout_error(self):
         """Test RVCommandTimeoutError with timeout and command."""
-        error = RVCommandTimeoutError("Command timed out", timeout_seconds=30, command="adb shell")
+        error = RVCommandTimeoutError(
+            "Command timed out", timeout_seconds=30, command="adb shell"
+        )
         assert isinstance(error, RVAndroidError)
         assert error.message == "Command timed out"
         assert error.timeout_seconds == 30
@@ -208,7 +216,9 @@ class TestSpecializedExceptions:
 
     def test_jar_not_found_error(self):
         """Test JarNotFoundError with jar_name and search_paths."""
-        error = JarNotFoundError("JAR not found", jar_name="test.jar", search_paths=["/path1", "/path2"])
+        error = JarNotFoundError(
+            "JAR not found", jar_name="test.jar", search_paths=["/path1", "/path2"]
+        )
         assert isinstance(error, RVAndroidError)
         assert error.message == "JAR not found"
         assert error.jar_name == "test.jar"
@@ -388,7 +398,9 @@ class TestExceptionUsage:
         """Test RVToolError chaining with cause."""
         cause = RuntimeError("Process crashed")
         RVToolExecutionError("Tool crashed", "monkey")
-        error_with_cause = RVToolExecutionError("Tool execution failed", "monkey", cause)
+        error_with_cause = RVToolExecutionError(
+            "Tool execution failed", "monkey", cause
+        )
         assert error_with_cause.cause == cause
         assert "caused by RuntimeError" in str(error_with_cause)
 

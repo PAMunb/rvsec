@@ -13,7 +13,6 @@ from pathlib import Path
 
 from rv_android_core.domain.app import App
 from rv_android_core.util.error.exceptions import ConfigurationError
-
 from rv_static_analysis import (
     RVStaticAnalysisConfig,
     StaticAnalysisException,

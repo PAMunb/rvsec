@@ -11,7 +11,7 @@ import os
 import shutil
 import time
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 from rv_android_core.analysis.base_analyzer import BaseRepository
 
@@ -34,9 +34,12 @@ class ScreenshotManager(BaseRepository):
     - Handles cleanup to avoid excessive disk usage
     """
 
-    def __init__(self, base_dir: Optional[str] = None,
-                 max_screenshots: int = 100,
-                 retention_time: int = 3600):  # Default 1 hour retention
+    def __init__(
+        self,
+        base_dir: Optional[str] = None,
+        max_screenshots: int = 100,
+        retention_time: int = 3600,
+    ):  # Default 1 hour retention
         """
         Initialize the screenshot manager.
 
@@ -48,7 +51,9 @@ class ScreenshotManager(BaseRepository):
         super().__init__(repository_name="screenshot")
 
         # Set base directory
-        self.base_dir = base_dir or os.path.join(os.path.dirname(__file__), "screenshots")
+        self.base_dir = base_dir or os.path.join(
+            os.path.dirname(__file__), "screenshots"
+        )
         os.makedirs(self.base_dir, exist_ok=True)
 
         # Set session directory (with timestamp)
@@ -64,12 +69,16 @@ class ScreenshotManager(BaseRepository):
         self.screenshot_paths: List[str] = []
         self.screenshot_count = 0
 
-        self.logger.info(f"Initialized screenshot manager with session dir: {self.session_dir}")
+        self.logger.info(
+            f"Initialized screenshot manager with session dir: {self.session_dir}"
+        )
 
         # Clean up old screenshots
         self._cleanup_old_screenshots()
 
-    def save_screenshot(self, screenshot_data, activity_name: Optional[str] = None) -> Optional[str]:
+    def save_screenshot(
+        self, screenshot_data, activity_name: Optional[str] = None
+    ) -> Optional[str]:
         """
         Save a screenshot to disk.
 
@@ -91,12 +100,14 @@ class ScreenshotManager(BaseRepository):
 
             # Save based on data type
             if isinstance(screenshot_data, bytes):
-                with open(save_path, 'wb') as f:
+                with open(save_path, "wb") as f:
                     f.write(screenshot_data)
-            elif hasattr(screenshot_data, 'save'):  # PIL Image
+            elif hasattr(screenshot_data, "save"):  # PIL Image
                 screenshot_data.save(save_path)
             else:
-                self.logger.error(f"Unsupported screenshot data type: {type(screenshot_data)}")
+                self.logger.error(
+                    f"Unsupported screenshot data type: {type(screenshot_data)}"
+                )
                 return None
 
             # Track this screenshot
@@ -116,7 +127,9 @@ class ScreenshotManager(BaseRepository):
             self.logger.error(f"Error saving screenshot: {e}")
             return None
 
-    def rename_with_state(self, screenshot_path: str, state_fingerprint: str) -> Optional[str]:
+    def rename_with_state(
+        self, screenshot_path: str, state_fingerprint: str
+    ) -> Optional[str]:
         """
         Rename a screenshot file to include state fingerprint.
 
@@ -137,7 +150,7 @@ class ScreenshotManager(BaseRepository):
             filename = os.path.basename(screenshot_path)
 
             # Add state fingerprint to filename (before extension)
-            name_parts = filename.split('.')
+            name_parts = filename.split(".")
             if len(name_parts) > 1:
                 # Take the first 8 chars of fingerprint for brevity
                 short_fingerprint = state_fingerprint[:8]
@@ -239,7 +252,9 @@ class ScreenshotManager(BaseRepository):
                     if dir_age > self.retention_time:
                         shutil.rmtree(item_path)
                         removed_count += 1
-                        self.logger.info(f"Removed old screenshot directory: {item_path}")
+                        self.logger.info(
+                            f"Removed old screenshot directory: {item_path}"
+                        )
 
             if removed_count > 0:
                 self.log_storage_summary("old screenshot directories", removed_count)
@@ -262,7 +277,7 @@ class ScreenshotManager(BaseRepository):
     def get_metrics(self) -> Dict[str, Any]:
         """
         Get metrics about the screenshot repository.
-        
+
         Returns:
             Dictionary with metrics
         """
@@ -271,5 +286,5 @@ class ScreenshotManager(BaseRepository):
             "active_screenshots": len(self.screenshot_paths),
             "session_directory": self.session_dir,
             "max_screenshots": self.max_screenshots,
-            "retention_time_seconds": self.retention_time
+            "retention_time_seconds": self.retention_time,
         }

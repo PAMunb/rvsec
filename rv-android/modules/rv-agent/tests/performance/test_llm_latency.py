@@ -7,14 +7,14 @@ Tests verify:
 - Baseline comparison with acceptable thresholds
 """
 
-import pytest
-import time
 import base64
 import statistics
+import time
 from pathlib import Path
 
-from langchain_openai import ChatOpenAI
+import pytest
 from langchain_core.messages import HumanMessage
+from langchain_openai import ChatOpenAI
 from rv_agent.llm.llm_client import get_android_tools
 
 pytestmark = [pytest.mark.performance]

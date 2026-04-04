@@ -5,12 +5,14 @@ Specialized parser implementation for processing DroidBot-generated state data
 into standardized ScreenDescription objects for monitored operations analysis.
 """
 
-from typing import Dict, Any, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import (
+    AbstractScreenVisitor,
+)
+from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 
 
 class DroidBotParser(BaseScreenParser[ScreenDescription]):
@@ -46,17 +48,20 @@ class DroidBotParser(BaseScreenParser[ScreenDescription]):
         """
         super().__init__("droidbot", visitor_class)
 
-    def _parse_implementation(self, state_data: Dict[str, Any],
-                              static_data: Optional[StaticAnalysisData],
-                              activity: str) -> ScreenDescription:
+    def _parse_implementation(
+        self,
+        state_data: Dict[str, Any],
+        static_data: Optional[StaticAnalysisData],
+        activity: str,
+    ) -> ScreenDescription:
         """
         Implementation-specific parsing logic for DroidBot data.
-        
+
         Args:
             state_data: Dictionary containing UI state information
             static_data: Static analysis data for the application
             activity: Current activity name
-            
+
         Returns:
             ScreenDescription object containing parsed UI elements
         """
@@ -162,7 +167,9 @@ class DroidBotParser(BaseScreenParser[ScreenDescription]):
             self.logger.warning(f"Invalid JSON data format: {type(view_tree)}")
             return None
 
-        def create_node(data: Dict[str, Any], parent: Optional[Node] = None) -> Optional[Node]:
+        def create_node(
+            data: Dict[str, Any], parent: Optional[Node] = None
+        ) -> Optional[Node]:
             """
             Recursive function to create nodes from JSON data.
 

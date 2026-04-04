@@ -8,9 +8,9 @@ Tests cover:
 """
 
 import os
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from helpers import make_config
 
 
@@ -48,6 +48,8 @@ class TestRvsecRootHierarchy:
         config = make_config(tmp_apk_dir, rvsec_root="/nonexistent/rvsec")
         result = config.get_effective_rvsec_root()
         assert result is None
+
+
 class TestJitMonitorConfig:
     """FR17: get_monitored_operations_config creates RVGeneratorConfig.
 
@@ -68,7 +70,9 @@ class TestJitMonitorConfig:
         )
 
         mock_config = MagicMock()
-        with patch("rv_experiment.config.RVGeneratorConfig", return_value=mock_config) as mock_cls:
+        with patch(
+            "rv_experiment.config.RVGeneratorConfig", return_value=mock_config
+        ) as mock_cls:
             result = config.get_monitored_operations_config()
 
         assert result is mock_config
@@ -89,7 +93,9 @@ class TestJitMonitorConfig:
         )
 
         mock_config = MagicMock()
-        with patch("rv_experiment.config.RVGeneratorConfig", return_value=mock_config) as mock_cls:
+        with patch(
+            "rv_experiment.config.RVGeneratorConfig", return_value=mock_config
+        ) as mock_cls:
             config.get_monitored_operations_config()
 
         call_kwargs = mock_cls.call_args[1]
@@ -112,7 +118,9 @@ class TestJitMonitorConfig:
         )
 
         mock_config = MagicMock()
-        with patch("rv_experiment.config.RVGeneratorConfig", return_value=mock_config) as mock_cls:
+        with patch(
+            "rv_experiment.config.RVGeneratorConfig", return_value=mock_config
+        ) as mock_cls:
             config.get_monitored_operations_config()
 
         call_kwargs = mock_cls.call_args[1]
@@ -133,7 +141,9 @@ class TestJitMonitorConfig:
         )
 
         mock_config = MagicMock()
-        with patch("rv_experiment.config.RVGeneratorConfig", return_value=mock_config) as mock_cls:
+        with patch(
+            "rv_experiment.config.RVGeneratorConfig", return_value=mock_config
+        ) as mock_cls:
             config.get_monitored_operations_config()
 
         call_kwargs = mock_cls.call_args[1]
@@ -158,6 +168,8 @@ class TestJitMonitorConfig:
             config.get_monitored_operations_config()
         except Exception:
             pass  # ConfigurationError expected for unsupported spec set
+
+
 class TestGetModuleConfig:
     """FR17: get_module_config dispatches to correct JIT method."""
 

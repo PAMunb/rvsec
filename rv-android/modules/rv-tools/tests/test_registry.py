@@ -10,10 +10,7 @@ Tests cover:
 """
 
 import pytest
-from rv_android_core.util.error.exceptions import (
-    ConfigurationError,
-    ToolNotFoundError,
-)
+from rv_android_core.util.error.exceptions import ConfigurationError, ToolNotFoundError
 from rv_tools.registry.registry import ToolRegistry
 
 
@@ -45,7 +42,9 @@ class TestToolRegistration:
         assert fresh_registry.get_tool_class("faketool") is fake_tool_class
         assert fresh_registry.get_tool_spec("faketool").name == "faketool"
 
-    def test_register_tool_class_registers_variants(self, fresh_registry, fake_tool_class):
+    def test_register_tool_class_registers_variants(
+        self, fresh_registry, fake_tool_class
+    ):
         """FR18/FR20: register_tool_class auto-registers all variants."""
         fresh_registry.register_tool_class(fake_tool_class)
 
@@ -70,7 +69,10 @@ class TestToolRegistration:
 
     def test_get_all_tool_names_alias(self, registry_with_fake):
         """FR18: get_all_tool_names is alias for get_tool_names."""
-        assert registry_with_fake.get_all_tool_names() == registry_with_fake.get_tool_names()
+        assert (
+            registry_with_fake.get_all_tool_names()
+            == registry_with_fake.get_tool_names()
+        )
 
     def test_get_tool_class_raises_for_unknown(self, fresh_registry):
         """FR18: get_tool_class raises ToolNotFoundError for unknown tool."""
@@ -207,7 +209,11 @@ class TestClearAndInfo:
         assert info["total_tools"] == 1
         assert info["total_variants"] == 3
         assert "faketool" in info["tools"]
-        assert set(info["variants_by_tool"]["faketool"]) == {"default", "fast", "stress"}
+        assert set(info["variants_by_tool"]["faketool"]) == {
+            "default",
+            "fast",
+            "stress",
+        }
 
     def test_get_registry_info_empty(self, fresh_registry):
         """get_registry_info on empty registry."""

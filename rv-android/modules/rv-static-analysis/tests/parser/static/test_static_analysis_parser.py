@@ -4,8 +4,6 @@ import json
 import os
 
 import pytest
-
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
@@ -539,7 +537,7 @@ class TestTruncatedJSON:
         # Truncate mid-way through windows section
         # Find the end of reachability array
         reach_end = content.find('"windows"')
-        truncated = content[:reach_end + 30]  # Cut in middle of windows
+        truncated = content[: reach_end + 30]  # Cut in middle of windows
 
         path = os.path.join(str(tmp_path), "truncated.json")
         with open(path, "w") as f:
@@ -806,7 +804,9 @@ class TestBaselineEquivalence:
     def test_activity_count_exact(self, parser):
         """Exact match: number of activity classes."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
-        activities = [c for c in result.classes.classes.values() if c.component_type == "activity"]
+        activities = [
+            c for c in result.classes.classes.values() if c.component_type == "activity"
+        ]
         assert len(activities) == self.BASELINE["activities"]
 
     def test_window_count_exact(self, parser):
@@ -832,18 +832,18 @@ class TestBaselineEquivalence:
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         count = sum(1 for m in result.classes.methods.values() if m.reachable)
         expected = self.BASELINE["reachable"]
-        assert abs(count - expected) <= expected * 0.10, (
-            f"reachable={count}, expected={expected} (±10%)"
-        )
+        assert (
+            abs(count - expected) <= expected * 0.10
+        ), f"reachable={count}, expected={expected} (±10%)"
 
     def test_reaches_mop_within_tolerance(self, parser):
         """±10% tolerance: methods that can reach monitored operations."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         count = sum(1 for m in result.classes.methods.values() if m.reaches_mop)
         expected = self.BASELINE["reaches_mop"]
-        assert abs(count - expected) <= expected * 0.10, (
-            f"reaches_mop={count}, expected={expected} (±10%)"
-        )
+        assert (
+            abs(count - expected) <= expected * 0.10
+        ), f"reaches_mop={count}, expected={expected} (±10%)"
 
     def test_main_activity_identified(self, parser):
         """Main activity must be correctly identified."""
@@ -861,7 +861,11 @@ class TestBaselineEquivalence:
             "br.unb.cic.cryptoapp.generated.CryptographyActivity",
         }
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
-        actual = {c.name for c in result.classes.classes.values() if c.component_type == "activity"}
+        actual = {
+            c.name
+            for c in result.classes.classes.values()
+            if c.component_type == "activity"
+        }
         assert actual == expected_activities
 
     def test_wtg_window_ids_match_windows(self, parser):
@@ -875,12 +879,12 @@ class TestBaselineEquivalence:
         """Every transition must reference source/target in window_ids."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         for t in result.wtg.transitions:
-            assert t["source"] in result.wtg.window_ids, (
-                f"source {t['source']} not in window_ids"
-            )
-            assert t["target"] in result.wtg.window_ids, (
-                f"target {t['target']} not in window_ids"
-            )
+            assert (
+                t["source"] in result.wtg.window_ids
+            ), f"source {t['source']} not in window_ids"
+            assert (
+                t["target"] in result.wtg.window_ids
+            ), f"target {t['target']} not in window_ids"
 
 
 # --- Normalization validation (Task 8.10) ---
@@ -909,9 +913,9 @@ class TestNormalizerSafetyNet:
         parser.normalizer.normalize_class_name = counting_normalize
         parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
 
-        assert change_count == 0, (
-            f"Normalizer changed {change_count} class names — Java client may have a bug"
-        )
+        assert (
+            change_count == 0
+        ), f"Normalizer changed {change_count} class names — Java client may have a bug"
 
     def test_normalizer_warns_on_change(self, parser, tmp_path, caplog):
         """If normalizer changes a class name, a WARNING should be logged."""
@@ -1007,9 +1011,9 @@ class TestNormalizerSafetyNet:
         result = parser.parse_file(path, "com.example")
 
         for _, expected in classes:
-            assert expected in result.classes.classes, (
-                f"Expected {expected} in classes, got: {list(result.classes.classes.keys())}"
-            )
+            assert (
+                expected in result.classes.classes
+            ), f"Expected {expected} in classes, got: {list(result.classes.classes.keys())}"
 
 
 class TestMultiPackageFiltering:
@@ -1186,9 +1190,7 @@ class TestComponentsParsing:
                         "authorities": "com.example.data",
                         "exported": False,
                         "reachesMop": True,
-                        "mopMethods": [
-                            "<com.example.DataProvider: Cursor query()>"
-                        ],
+                        "mopMethods": ["<com.example.DataProvider: Cursor query()>"],
                     }
                 ],
             },
@@ -1301,9 +1303,7 @@ class TestComponentsParsing:
                         "isMain": False,
                         "intentFilters": [
                             {
-                                "actions": [
-                                    "android.intent.action.BOOT_COMPLETED"
-                                ],
+                                "actions": ["android.intent.action.BOOT_COMPLETED"],
                                 "categories": [],
                             }
                         ],

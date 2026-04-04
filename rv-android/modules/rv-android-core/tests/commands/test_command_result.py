@@ -7,7 +7,6 @@ command execution results with standardized error handling and type safety.
 
 import pytest
 from pydantic import ValidationError
-
 from rv_android_core.commands.command_result import CommandResult
 
 
@@ -76,11 +75,7 @@ class TestCommandResultInitialization:
     def test_named_arguments(self):
         """Test CommandResult with named arguments."""
         # Act
-        result = CommandResult(
-            code=-1,
-            stdout=b"named stdout",
-            stderr=b"named stderr"
-        )
+        result = CommandResult(code=-1, stdout=b"named stdout", stderr=b"named stderr")
 
         # Assert
         assert result.code == -1
@@ -232,7 +227,9 @@ class TestCommandResultStatusMethods:
             result = CommandResult(code=code)
 
             # Act & Assert
-            assert result.is_success() != result.is_failure(), f"Failed for exit code {code}"
+            assert (
+                result.is_success() != result.is_failure()
+            ), f"Failed for exit code {code}"
             # Also test that they return actual booleans
             assert isinstance(result.is_success(), bool)
             assert isinstance(result.is_failure(), bool)
@@ -328,7 +325,7 @@ class TestCommandResultTextMethods:
     def test_get_stdout_text_with_valid_utf8(self):
         """Test get_stdout_text with valid UTF-8 content."""
         # Arrange
-        stdout_bytes = "Hello, World! 🌍".encode('utf-8')
+        stdout_bytes = "Hello, World! 🌍".encode("utf-8")
         result = CommandResult(code=0, stdout=stdout_bytes)
 
         # Act
@@ -340,11 +337,11 @@ class TestCommandResultTextMethods:
     def test_get_stdout_text_with_custom_encoding(self):
         """Test get_stdout_text with custom encoding."""
         # Arrange
-        stdout_bytes = "Olá, Mundo!".encode('latin-1')
+        stdout_bytes = "Olá, Mundo!".encode("latin-1")
         result = CommandResult(code=0, stdout=stdout_bytes)
 
         # Act
-        text = result.get_stdout_text(encoding='latin-1')
+        text = result.get_stdout_text(encoding="latin-1")
 
         # Assert
         assert text == "Olá, Mundo!"
@@ -352,27 +349,31 @@ class TestCommandResultTextMethods:
     def test_get_stdout_text_with_encoding_errors(self):
         """Test get_stdout_text with encoding errors using replace strategy."""
         # Arrange
-        stdout_bytes = b'\xff\xfe\x00\x48\x00\x65\x00\x6c\x00\x6c\x00\x6f'  # Invalid UTF-8
+        stdout_bytes = (
+            b"\xff\xfe\x00\x48\x00\x65\x00\x6c\x00\x6c\x00\x6f"  # Invalid UTF-8
+        )
         result = CommandResult(code=0, stdout=stdout_bytes)
 
         # Act
-        text = result.get_stdout_text(errors='replace')
+        text = result.get_stdout_text(errors="replace")
 
         # Assert
-        assert '�' in text or len(text) > 0  # Should contain replacement chars or be processed
+        assert (
+            "�" in text or len(text) > 0
+        )  # Should contain replacement chars or be processed
 
     def test_get_stdout_text_with_ignore_errors(self):
         """Test get_stdout_text with ignore error handling."""
         # Arrange
-        stdout_bytes = b'Valid\xff\xfeInvalid\x00UTF-8'
+        stdout_bytes = b"Valid\xff\xfeInvalid\x00UTF-8"
         result = CommandResult(code=0, stdout=stdout_bytes)
 
         # Act
-        text = result.get_stdout_text(errors='ignore')
+        text = result.get_stdout_text(errors="ignore")
 
         # Assert
-        assert 'Valid' in text
-        assert 'UTF-8' in text
+        assert "Valid" in text
+        assert "UTF-8" in text
 
     def test_get_stdout_text_with_none_stdout(self):
         """Test get_stdout_text with None stdout."""
@@ -388,7 +389,7 @@ class TestCommandResultTextMethods:
     def test_get_stderr_text_with_valid_utf8(self):
         """Test get_stderr_text with valid UTF-8 content."""
         # Arrange
-        stderr_bytes = "Error: File not found! ❌".encode('utf-8')
+        stderr_bytes = "Error: File not found! ❌".encode("utf-8")
         result = CommandResult(code=1, stderr=stderr_bytes)
 
         # Act
@@ -400,11 +401,11 @@ class TestCommandResultTextMethods:
     def test_get_stderr_text_with_custom_encoding(self):
         """Test get_stderr_text with custom encoding."""
         # Arrange
-        stderr_bytes = "Erro: Arquivo não encontrado!".encode('latin-1')
+        stderr_bytes = "Erro: Arquivo não encontrado!".encode("latin-1")
         result = CommandResult(code=1, stderr=stderr_bytes)
 
         # Act
-        text = result.get_stderr_text(encoding='latin-1')
+        text = result.get_stderr_text(encoding="latin-1")
 
         # Assert
         assert text == "Erro: Arquivo não encontrado!"
@@ -412,11 +413,11 @@ class TestCommandResultTextMethods:
     def test_get_stderr_text_with_encoding_errors(self):
         """Test get_stderr_text with encoding errors using replace strategy."""
         # Arrange
-        stderr_bytes = b'\xff\xfeError\x00Message'  # Invalid UTF-8
+        stderr_bytes = b"\xff\xfeError\x00Message"  # Invalid UTF-8
         result = CommandResult(code=1, stderr=stderr_bytes)
 
         # Act
-        text = result.get_stderr_text(errors='replace')
+        text = result.get_stderr_text(errors="replace")
 
         # Assert
         assert len(text) > 0  # Should return some text with replacements
@@ -436,9 +437,7 @@ class TestCommandResultTextMethods:
         """Test get_combined_output with stdout content only."""
         # Arrange
         result = CommandResult(
-            code=0,
-            stdout=b"Command executed successfully",
-            stderr=b""
+            code=0, stdout=b"Command executed successfully", stderr=b""
         )
 
         # Act
@@ -450,11 +449,7 @@ class TestCommandResultTextMethods:
     def test_get_combined_output_stderr_only(self):
         """Test get_combined_output with stderr content only."""
         # Arrange
-        result = CommandResult(
-            code=1,
-            stdout=b"",
-            stderr=b"Permission denied"
-        )
+        result = CommandResult(code=1, stdout=b"", stderr=b"Permission denied")
 
         # Act
         combined = result.get_combined_output()
@@ -466,9 +461,7 @@ class TestCommandResultTextMethods:
         """Test get_combined_output with both stdout and stderr."""
         # Arrange
         result = CommandResult(
-            code=1,
-            stdout=b"Partial success",
-            stderr=b"Warning: deprecated option"
+            code=1, stdout=b"Partial success", stderr=b"Warning: deprecated option"
         )
 
         # Act
@@ -495,7 +488,7 @@ class TestCommandResultTextMethods:
         result = CommandResult(
             code=0,
             stdout=b"  Output with spaces  \n",
-            stderr=b"  \n  Error with spaces  \n  "
+            stderr=b"  \n  Error with spaces  \n  ",
         )
 
         # Act
@@ -521,12 +514,12 @@ class TestCommandResultTextMethods:
         # Arrange
         result = CommandResult(
             code=0,
-            stdout="Saída em português".encode('latin-1'),
-            stderr="Erro em português".encode('latin-1')
+            stdout="Saída em português".encode("latin-1"),
+            stderr="Erro em português".encode("latin-1"),
         )
 
         # Act
-        combined = result.get_combined_output(encoding='latin-1')
+        combined = result.get_combined_output(encoding="latin-1")
 
         # Assert
         expected = "Saída em português\nSTDERR: Erro em português"
@@ -536,17 +529,15 @@ class TestCommandResultTextMethods:
         """Test get_combined_output with encoding error handling."""
         # Arrange
         result = CommandResult(
-            code=1,
-            stdout=b'Valid\xff\xfeOutput',
-            stderr=b'Valid\xff\xfeError'
+            code=1, stdout=b"Valid\xff\xfeOutput", stderr=b"Valid\xff\xfeError"
         )
 
         # Act
-        combined = result.get_combined_output(errors='ignore')
+        combined = result.get_combined_output(errors="ignore")
 
         # Assert
-        assert 'ValidOutput' in combined
-        assert 'ValidError' in combined
+        assert "ValidOutput" in combined
+        assert "ValidError" in combined
 
     def test_combined_output_stderr_multiline_behavior(self):
         """Test that combined output adds STDERR prefix only once for multiline stderr."""
@@ -554,7 +545,7 @@ class TestCommandResultTextMethods:
         result = CommandResult(
             code=1,
             stdout=b"Success message",
-            stderr=b"Line 1 error\nLine 2 error\nLine 3 error"
+            stderr=b"Line 1 error\nLine 2 error\nLine 3 error",
         )
 
         # Act
@@ -638,7 +629,7 @@ class TestCommandResultStringRepresentation:
             (1, "FAILED"),
             (2, "FAILED"),
             (127, "FAILED"),
-            (-128, "FAILED")
+            (-128, "FAILED"),
         ]
 
         for exit_code, expected_status in test_cases:
@@ -687,7 +678,7 @@ class TestCommandResultEdgeCases:
         result = CommandResult(code=0, stdout=binary_data, stderr=b"")
 
         # Act
-        text = result.get_stdout_text(errors='replace')
+        text = result.get_stdout_text(errors="replace")
 
         # Assert
         assert isinstance(text, str)
@@ -709,7 +700,7 @@ class TestCommandResultEdgeCases:
         """Test comprehensive Unicode handling in outputs."""
         # Arrange - Various Unicode characters
         unicode_text = "Hello 🌍 世界 🚀 Ñoño café résumé"
-        unicode_bytes = unicode_text.encode('utf-8')
+        unicode_bytes = unicode_text.encode("utf-8")
         result = CommandResult(code=0, stdout=unicode_bytes, stderr=b"")
 
         # Act
@@ -725,16 +716,14 @@ class TestCommandResultEdgeCases:
         """Test newline handling in combined output method."""
         # Arrange
         result = CommandResult(
-            code=0,
-            stdout=b"Line 1\nLine 2\n",
-            stderr=b"Error line 1\nError line 2\n"
+            code=0, stdout=b"Line 1\nLine 2\n", stderr=b"Error line 1\nError line 2\n"
         )
 
         # Act
         combined = result.get_combined_output()
 
         # Assert
-        lines = combined.split('\n')
+        lines = combined.split("\n")
         assert "Line 1" in lines
         assert "Line 2" in lines
         # The STDERR prefix is added once to the entire stderr content

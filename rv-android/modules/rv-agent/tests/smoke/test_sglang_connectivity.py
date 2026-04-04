@@ -4,10 +4,11 @@ SGLang server connectivity tests.
 Validates connection to SGLang server and basic LLM functionality.
 """
 
-import pytest
 import time
-from langchain_openai import ChatOpenAI
+
+import pytest
 from langchain_core.messages import HumanMessage
+from langchain_openai import ChatOpenAI
 
 pytestmark = [pytest.mark.smoke, pytest.mark.sglang]
 

@@ -8,7 +8,6 @@ operations testing framework, focusing on essential metadata only.
 from typing import Any, Dict, Optional
 
 from pydantic import Field
-
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 

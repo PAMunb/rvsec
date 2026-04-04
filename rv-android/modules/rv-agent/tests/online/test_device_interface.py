@@ -4,8 +4,9 @@ Device interface integration tests.
 Tests DeviceInterface with real Android emulator.
 """
 
-import pytest
 import time
+
+import pytest
 
 from .conftest import launch_app
 

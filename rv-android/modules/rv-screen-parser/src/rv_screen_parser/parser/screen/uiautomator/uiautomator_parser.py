@@ -6,14 +6,16 @@ into standardized ScreenDescription objects for comprehensive monitored operatio
 """
 
 import xml.etree.ElementTree as ET
-from typing import Dict, Any, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.decorators import task_phase
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import (
+    AbstractScreenVisitor,
+)
+from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 
 
 class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
@@ -52,15 +54,20 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
         # Configure logging with context adapter
         self.logger = self.logging_manager.get_logger(
             f"parser.screen.{self.parser_name}",
-            {CONTEXT_COMPONENT: "UIAutomator2Parser"}
+            {CONTEXT_COMPONENT: "UIAutomator2Parser"},
         )
 
     @task_phase("parse_xml_hierarchy")
-    def parse(self, xml_data: str, static_data: Optional[StaticAnalysisData] = None,
-              activity: str = "", state_data: Optional[Dict[str, Any]] = None) -> ScreenDescription:
+    def parse(
+        self,
+        xml_data: str,
+        static_data: Optional[StaticAnalysisData] = None,
+        activity: str = "",
+        state_data: Optional[Dict[str, Any]] = None,
+    ) -> ScreenDescription:
         """
         Special parse method for XML data that maintains backward compatibility.
-        
+
         This method handles both string XML data and dictionary state data.
 
         Args:
@@ -82,10 +89,7 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
                 activity = self._extract_activity_from_xml(xml_data)
 
             # Create simple state data for processing
-            state_data_dict = {
-                "hierarchy": xml_data,
-                "activity": activity
-            }
+            state_data_dict = {"hierarchy": xml_data, "activity": activity}
 
             if state_data and isinstance(state_data, dict):
                 # Merge any additional state data
@@ -98,17 +102,20 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
         else:
             raise ValueError(f"Unsupported data type: {type(xml_data)}")
 
-    def _parse_implementation(self, state_data: Dict[str, Any],
-                              static_data: Optional[StaticAnalysisData],
-                              activity: str) -> ScreenDescription:
+    def _parse_implementation(
+        self,
+        state_data: Dict[str, Any],
+        static_data: Optional[StaticAnalysisData],
+        activity: str,
+    ) -> ScreenDescription:
         """
         Implementation-specific parsing logic for UIAutomator2 data.
-        
+
         Args:
             state_data: Dictionary containing UI state information
             static_data: Static analysis data for the application
             activity: Current activity name
-            
+
         Returns:
             ScreenDescription object containing parsed UI elements
         """
@@ -175,13 +182,13 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
     def _extract_activity_from_xml(self, xml_data: str) -> str:
         """
         Extract activity/package name from XML string.
-        
+
         Args:
             xml_data: XML hierarchy string
-            
+
         Returns:
             Activity or package name
-            
+
         Raises:
             ValueError: If activity cannot be determined
         """
@@ -220,7 +227,9 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
             if "hierarchy" in state_data and isinstance(state_data["hierarchy"], str):
                 return self._parse_xml(state_data["hierarchy"])
 
-            raise ValueError("Could not create node tree from state data (missing hierarchy)")
+            raise ValueError(
+                "Could not create node tree from state data (missing hierarchy)"
+            )
         except Exception as e:
             self.logger.error(f"Error creating node tree: {e}")
             raise
@@ -275,7 +284,9 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
             self.logger.error(f"Error parsing XML data: {e}")
             return None
 
-    def _build_node_from_element(self, element: ET.Element, parent_node: Optional[Node] = None) -> Node:
+    def _build_node_from_element(
+        self, element: ET.Element, parent_node: Optional[Node] = None
+    ) -> Node:
         """
         Recursively build a Node from an XML element.
 
@@ -300,7 +311,8 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
             "checkable": attributes.get("checkable", "false").lower() == "true",
             "checked": attributes.get("checked", "false").lower() == "true",
             "scrollable": attributes.get("scrollable", "false").lower() == "true",
-            "long_clickable": attributes.get("long-clickable", "false").lower() == "true",
+            "long_clickable": attributes.get("long-clickable", "false").lower()
+            == "true",
             "editable": attributes.get("editable", "false").lower() == "true",
             "enabled": attributes.get("enabled", "true").lower() == "true",
             "focused": attributes.get("focused", "false").lower() == "true",
@@ -315,12 +327,13 @@ class UIAutomator2Parser(BaseScreenParser[ScreenDescription]):
             try:
                 # Extract numbers from string
                 import re
-                numbers = re.findall(r'\d+', bounds_str)
+
+                numbers = re.findall(r"\d+", bounds_str)
                 if len(numbers) >= 4:
                     # Create bounds as [[left, top], [right, bottom]]
                     view_data["bounds"] = [
                         [int(numbers[0]), int(numbers[1])],
-                        [int(numbers[2]), int(numbers[3])]
+                        [int(numbers[2]), int(numbers[3])],
                     ]
             except Exception as e:
                 self.logger.warning(f"Error parsing bounds '{bounds_str}': {e}")

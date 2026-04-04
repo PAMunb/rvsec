@@ -8,19 +8,13 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
-
-from rv_android_core.domain.task import (
-    Task,
-    TaskConfiguration,
-    TaskState,
-    ToolConfig,
-)
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_platform.components.result_processor import ResultProcessorComponent
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_completed_task(
     apk="app.apk",
@@ -97,6 +91,7 @@ def _make_mock_repository(method_calls=None, errors=None, static_methods=None):
 # Filter Completed Tasks
 # ===========================================================================
 
+
 class TestFilterCompletedTasks:
     def test_filters_only_completed_tasks(self, tmp_path):
         completed = _make_completed_task()
@@ -119,17 +114,32 @@ class TestFilterCompletedTasks:
 # Coverage CSV Generation
 # ===========================================================================
 
+
 class TestCoverageCSV:
     def test_coverage_csv_with_repository(self, tmp_path):
         """Tasks with a repository produce per-method-call rows."""
         method_calls = [
-            {"signature": "void foo()", "class_name": "Foo", "method_name": "foo",
-             "time": 1, "activity": "MainActivity", "is_mop_method": True},
-            {"signature": "void bar()", "class_name": "Bar", "method_name": "bar",
-             "time": 2, "activity": "MainActivity", "is_mop_method": False},
+            {
+                "signature": "void foo()",
+                "class_name": "Foo",
+                "method_name": "foo",
+                "time": 1,
+                "activity": "MainActivity",
+                "is_mop_method": True,
+            },
+            {
+                "signature": "void bar()",
+                "class_name": "Bar",
+                "method_name": "bar",
+                "time": 2,
+                "activity": "MainActivity",
+                "is_mop_method": False,
+            },
         ]
         static_methods = [MagicMock() for _ in range(10)]
-        repo = _make_mock_repository(method_calls=method_calls, static_methods=static_methods)
+        repo = _make_mock_repository(
+            method_calls=method_calls, static_methods=static_methods
+        )
 
         task = _make_completed_task(repository=repo)
         results_dir = str(tmp_path / "results")
@@ -148,7 +158,11 @@ class TestCoverageCSV:
 
     def test_coverage_csv_fallback_without_repository(self, tmp_path):
         """Tasks without repository use coverage_metrics fallback (single row)."""
-        metrics = {"method_coverage": 25.0, "activities_coverage": 50.0, "mop_coverage": 10.0}
+        metrics = {
+            "method_coverage": 25.0,
+            "activities_coverage": 50.0,
+            "mop_coverage": 10.0,
+        }
         task = _make_completed_task(coverage_metrics=metrics)
 
         results_dir = str(tmp_path / "results")
@@ -167,14 +181,20 @@ class TestCoverageCSV:
 # Errors CSV Generation
 # ===========================================================================
 
+
 class TestErrorsCSV:
     def test_errors_csv_with_repository(self, tmp_path):
         """Tasks with a repository produce error rows from repository.get_errors()."""
         errors = [
-            {"class_full_name": "javax.crypto.Cipher", "method": "init",
-             "spec": "Cipher_1", "error_type": "violation", "message": "bad init",
-             "unique_msg": "Cipher:::init:::Cipher_1:::violation:::bad init",
-             "time_since_task_start": 5},
+            {
+                "class_full_name": "javax.crypto.Cipher",
+                "method": "init",
+                "spec": "Cipher_1",
+                "error_type": "violation",
+                "message": "bad init",
+                "unique_msg": "Cipher:::init:::Cipher_1:::violation:::bad init",
+                "time_since_task_start": 5,
+            },
         ]
         repo = _make_mock_repository(errors=errors)
         task = _make_completed_task(repository=repo)
@@ -198,12 +218,21 @@ class TestErrorsCSV:
 
         # Mock reconstruction to return errors
         mock_repo = _make_mock_repository(
-            errors=[{"class_full_name": "c", "method": "m", "spec": "s",
-                     "error_type": "t", "message": "msg",
-                     "unique_msg": "c:::m:::s:::t:::msg",
-                     "time_since_task_start": 1}]
+            errors=[
+                {
+                    "class_full_name": "c",
+                    "method": "m",
+                    "spec": "s",
+                    "error_type": "t",
+                    "message": "msg",
+                    "unique_msg": "c:::m:::s:::t:::msg",
+                    "time_since_task_start": 1,
+                }
+            ]
         )
-        with patch.object(processor, "_reconstruct_repository_from_logcat", return_value=mock_repo):
+        with patch.object(
+            processor, "_reconstruct_repository_from_logcat", return_value=mock_repo
+        ):
             processor._generate_errors_csv([task])
 
         csv_path = os.path.join(results_dir, "errors.csv")
@@ -218,7 +247,9 @@ class TestErrorsCSV:
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
 
-        with patch.object(processor, "_reconstruct_repository_from_logcat", return_value=None):
+        with patch.object(
+            processor, "_reconstruct_repository_from_logcat", return_value=None
+        ):
             processor._generate_errors_csv([task])
 
         csv_path = os.path.join(results_dir, "errors.csv")
@@ -230,6 +261,7 @@ class TestErrorsCSV:
 # ===========================================================================
 # Summary CSV Generation
 # ===========================================================================
+
 
 class TestSummaryCSV:
     def test_summary_csv_from_coverage_metrics(self, tmp_path):
@@ -251,9 +283,9 @@ class TestSummaryCSV:
             reader = list(csv.reader(f))
         assert len(reader) == 2
         row = reader[1]
-        assert row[4] == "75.0"   # cov_act
-        assert row[5] == "30.0"   # cov_method
-        assert row[6] == "20.0"   # cov_rv_method
+        assert row[4] == "75.0"  # cov_act
+        assert row[5] == "30.0"  # cov_method
+        assert row[6] == "20.0"  # cov_rv_method
         assert float(row[7]) == 5  # errors (may be int or float in CSV)
 
     def test_summary_csv_fallback_to_repository(self, tmp_path):
@@ -289,6 +321,7 @@ class TestSummaryCSV:
 # Results JSON Generation
 # ===========================================================================
 
+
 class TestResultsJSON:
     def test_json_hierarchical_structure(self, tmp_path):
         """JSON is structured: apk → repetition → timeout → tool."""
@@ -311,13 +344,21 @@ class TestResultsJSON:
         assert "a.apk" in data
         assert "b.apk" in data
         assert "monkey" in data["a.apk"]["repetitions"]["1"]["timeouts"]["300"]["tools"]
-        assert "droidbot" in data["a.apk"]["repetitions"]["1"]["timeouts"]["300"]["tools"]
+        assert (
+            "droidbot" in data["a.apk"]["repetitions"]["1"]["timeouts"]["300"]["tools"]
+        )
 
     def test_json_task_data_with_repository(self, tmp_path):
         """Task data extracted from repository includes summary and MOP errors."""
         errors = [
-            {"class_full_name": "Cipher", "method": "init", "spec": "Cipher_1",
-             "error_type": "v", "message": "m", "unique_msg": "Cipher:::init:::Cipher_1:::v:::m"},
+            {
+                "class_full_name": "Cipher",
+                "method": "init",
+                "spec": "Cipher_1",
+                "error_type": "v",
+                "message": "m",
+                "unique_msg": "Cipher:::init:::Cipher_1:::v:::m",
+            },
         ]
         repo = _make_mock_repository(errors=errors)
         task = _make_completed_task(repository=repo)
@@ -346,7 +387,9 @@ class TestResultsJSON:
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
 
-        with patch.object(processor, "_reconstruct_repository_from_logcat", return_value=None):
+        with patch.object(
+            processor, "_reconstruct_repository_from_logcat", return_value=None
+        ):
             task_data = processor._extract_task_data(task)
 
         assert task_data["summary"]["called_methods"] == 8
@@ -356,6 +399,7 @@ class TestResultsJSON:
 # ===========================================================================
 # Logcat Reconstruction
 # ===========================================================================
+
 
 class TestLogcatReconstruction:
     def test_no_logcat_file_returns_none(self, tmp_path):
@@ -391,7 +435,10 @@ class TestLogcatReconstruction:
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
 
-        with patch("rv_platform.components.result_processor.parse_logcat_file", return_value=mock_repo):
+        with patch(
+            "rv_platform.components.result_processor.parse_logcat_file",
+            return_value=mock_repo,
+        ):
             result = processor._reconstruct_repository_from_logcat(task)
 
         assert result is mock_repo
@@ -407,7 +454,10 @@ class TestLogcatReconstruction:
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
 
-        with patch("rv_platform.components.result_processor.parse_logcat_file", side_effect=Exception("parse error")):
+        with patch(
+            "rv_platform.components.result_processor.parse_logcat_file",
+            side_effect=Exception("parse error"),
+        ):
             result = processor._reconstruct_repository_from_logcat(task)
 
         assert result is None
@@ -416,6 +466,7 @@ class TestLogcatReconstruction:
 # ===========================================================================
 # Full Execute Pipeline
 # ===========================================================================
+
 
 class TestExecutePipeline:
     def test_execute_generates_all_output_files(self, tmp_path):
@@ -431,7 +482,9 @@ class TestExecutePipeline:
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
 
-        with patch.object(processor, "_reconstruct_repository_from_logcat", return_value=None):
+        with patch.object(
+            processor, "_reconstruct_repository_from_logcat", return_value=None
+        ):
             processor.initialize({})
             processor.execute({})
             processor.cleanup()
@@ -454,6 +507,7 @@ class TestExecutePipeline:
 # ===========================================================================
 # Performance CSV Fallback
 # ===========================================================================
+
 
 class TestPerformanceCSVFallback:
     def test_fallback_creates_empty_performance_csv(self, tmp_path):

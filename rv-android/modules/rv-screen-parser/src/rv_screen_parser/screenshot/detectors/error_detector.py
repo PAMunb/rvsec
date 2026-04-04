@@ -21,15 +21,15 @@ error conditions, warnings, and validation messages in mobile applications.
 
 import re
 from typing import List, Optional, Tuple
+
 import cv2
 import numpy as np
-
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import RVParsingError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
-from ..models import DetectedText, ErrorIndicator, ErrorType, DetectionMethod
+from ..models import DetectedText, DetectionMethod, ErrorIndicator, ErrorType
 from ..utils.geometry_utils import get_geometry_utils
 
 
@@ -45,8 +45,7 @@ class ErrorDetector:
         """Initialize error detector with configuration parameters."""
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "screenshot.error_detector",
-            {CONTEXT_COMPONENT: "ErrorDetector"}
+            "screenshot.error_detector", {CONTEXT_COMPONENT: "ErrorDetector"}
         )
         self.geometry_utils = get_geometry_utils()
 
@@ -54,42 +53,42 @@ class ErrorDetector:
         self.error_color_ranges = {
             "red": [(0, 100, 100), (10, 255, 255), (160, 100, 100), (180, 255, 255)],
             "orange": [(11, 100, 100), (25, 255, 255)],
-            "yellow": [(26, 100, 100), (35, 255, 255)]
+            "yellow": [(26, 100, 100), (35, 255, 255)],
         }
 
         # Error text patterns by category
         self.error_patterns = {
             "network": [
-                r'\b(no.{0,5}(internet|connection|network))\b',
-                r'\b(connection.{0,10}(failed|error|timeout))\b',
-                r'\b(server.{0,10}(unavailable|error|timeout))\b',
-                r'\b(offline|disconnected)\b'
+                r"\b(no.{0,5}(internet|connection|network))\b",
+                r"\b(connection.{0,10}(failed|error|timeout))\b",
+                r"\b(server.{0,10}(unavailable|error|timeout))\b",
+                r"\b(offline|disconnected)\b",
             ],
             "permission": [
-                r'\b(permission.{0,10}denied)\b',
-                r'\b(access.{0,10}denied)\b',
-                r'\b(unauthorized|forbidden)\b',
-                r'\b(needs?.{0,5}permission)\b'
+                r"\b(permission.{0,10}denied)\b",
+                r"\b(access.{0,10}denied)\b",
+                r"\b(unauthorized|forbidden)\b",
+                r"\b(needs?.{0,5}permission)\b",
             ],
             "validation": [
-                r'\b(invalid.{0,10}(format|input|data))\b',
-                r'\b(required.{0,5}field)\b',
-                r'\b(too.{0,5}(short|long))\b',
-                r'\b(must.{0,10}contain)\b',
-                r'\b(cannot.{0,5}be.{0,5}empty)\b'
+                r"\b(invalid.{0,10}(format|input|data))\b",
+                r"\b(required.{0,5}field)\b",
+                r"\b(too.{0,5}(short|long))\b",
+                r"\b(must.{0,10}contain)\b",
+                r"\b(cannot.{0,5}be.{0,5}empty)\b",
             ],
             "system": [
-                r'\b(application.{0,10}(crashed|stopped|error))\b',
-                r'\b(system.{0,5}error)\b',
-                r'\b(unexpected.{0,5}error)\b',
-                r'\b(something.{0,5}went.{0,5}wrong)\b'
+                r"\b(application.{0,10}(crashed|stopped|error))\b",
+                r"\b(system.{0,5}error)\b",
+                r"\b(unexpected.{0,5}error)\b",
+                r"\b(something.{0,5}went.{0,5}wrong)\b",
             ],
             "general": [
-                r'\b(error|failed|failure)\b',
-                r'\b(warning|alert)\b',
-                r'\b(problem|issue)\b',
-                r'\b(incorrect|wrong)\b'
-            ]
+                r"\b(error|failed|failure)\b",
+                r"\b(warning|alert)\b",
+                r"\b(problem|issue)\b",
+                r"\b(incorrect|wrong)\b",
+            ],
         }
 
         # Icon patterns for error detection (Unicode symbols commonly used)
@@ -97,12 +96,15 @@ class ErrorDetector:
             "warning": ["⚠", "⚠️", "!"],
             "error": ["✕", "✗", "❌", "⛔", "🚫"],
             "info": ["ℹ", "ℹ️", "💡"],
-            "critical": ["🔥", "💥", "⭕"]
+            "critical": ["🔥", "💥", "⭕"],
         }
 
-    @ErrorHandler.handle_errors(component="ErrorDetector", phase="error_detection", reraise=True)
-    def detect_errors(self, original_image: np.ndarray,
-                      texts: List[DetectedText]) -> List[ErrorIndicator]:
+    @ErrorHandler.handle_errors(
+        component="ErrorDetector", phase="error_detection", reraise=True
+    )
+    def detect_errors(
+        self, original_image: np.ndarray, texts: List[DetectedText]
+    ) -> List[ErrorIndicator]:
         """
         Detect error indicators using multiple detection strategies.
 
@@ -121,8 +123,7 @@ class ErrorDetector:
         """
         if original_image is None:
             raise RVParsingError(
-                "Cannot detect errors with null image",
-                parser_type="ErrorDetector"
+                "Cannot detect errors with null image", parser_type="ErrorDetector"
             )
 
         errors = []
@@ -143,20 +144,21 @@ class ErrorDetector:
         errors.sort(key=lambda e: e.confidence, reverse=True)
 
         self.logger.info(
-            f"Detected {len(errors)} error indicators ({len(color_errors)} color-based, {len(text_errors)} text-based, {len(pattern_errors)} pattern-based)")
+            f"Detected {len(errors)} error indicators ({len(color_errors)} color-based, {len(text_errors)} text-based, {len(pattern_errors)} pattern-based)"
+        )
         return errors
 
     def _detect_high_color_density_context(self, original_image: np.ndarray) -> dict:
         """
         Detect high color density contexts that may produce false positive error indicators.
-        
+
         Analyzes visual patterns to determine if the screen contains many colored elements
         that might be legitimate UI components rather than error indicators (e.g., colorful
         interfaces, games, data visualizations, etc.).
-        
+
         Args:
             original_image: Original color image
-            
+
         Returns:
             Dictionary with high color density context information
         """
@@ -164,148 +166,200 @@ class ErrorDetector:
             "high_color_density": False,
             "colored_elements_count": 0,
             "regular_pattern_detected": False,
-            "confidence": 0.0
+            "confidence": 0.0,
         }
-        
+
         try:
             height, width = original_image.shape[:2]
             hsv_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2HSV)
-            
+
             # Count colored elements with high saturation (game pieces)
             colored_elements = []
-            
+
             # Find contours for analysis
             gray = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
             _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-            contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
+            contours, _ = cv2.findContours(
+                binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+
             for contour in contours:
                 area = cv2.contourArea(contour)
                 if area < 200 or area > 50000:  # Broader range for game piece size
                     continue
-                
+
                 x, y, w, h = cv2.boundingRect(contour)
                 aspect_ratio = float(w) / h if h > 0 else 1.0
-                
+
                 # Check if roughly square/circular (typical for game pieces)
                 if 0.3 <= aspect_ratio <= 3.0:  # More flexible aspect ratio
                     # Analyze color saturation in this region
-                    roi = hsv_image[y:y+h, x:x+w]
+                    roi = hsv_image[y : y + h, x : x + w]
                     if roi.size > 0:
                         avg_saturation = np.mean(roi[:, :, 1])
                         if avg_saturation > 50:  # Lower saturation threshold
-                            colored_elements.append({
-                                'x': x, 'y': y, 'w': w, 'h': h,
-                                'saturation': avg_saturation
-                            })
-            
+                            colored_elements.append(
+                                {
+                                    "x": x,
+                                    "y": y,
+                                    "w": w,
+                                    "h": h,
+                                    "saturation": avg_saturation,
+                                }
+                            )
+
             context["colored_elements_count"] = len(colored_elements)
-            
+
             # Check for regular patterns (characteristic of structured interfaces)
             if len(colored_elements) >= 5:
-                centers = [(elem['x'] + elem['w']//2, elem['y'] + elem['h']//2) 
-                          for elem in colored_elements]
-                
+                centers = [
+                    (elem["x"] + elem["w"] // 2, elem["y"] + elem["h"] // 2)
+                    for elem in colored_elements
+                ]
+
                 # Analyze spacing patterns
                 x_positions = sorted(set(c[0] for c in centers))
                 y_positions = sorted(set(c[1] for c in centers))
-                
+
                 # Check for regular spacing
                 if len(x_positions) >= 2 and len(y_positions) >= 2:
-                    x_spacings = [x_positions[i+1] - x_positions[i] for i in range(len(x_positions)-1)]
-                    y_spacings = [y_positions[i+1] - y_positions[i] for i in range(len(y_positions)-1)]
-                    
+                    x_spacings = [
+                        x_positions[i + 1] - x_positions[i]
+                        for i in range(len(x_positions) - 1)
+                    ]
+                    y_spacings = [
+                        y_positions[i + 1] - y_positions[i]
+                        for i in range(len(y_positions) - 1)
+                    ]
+
                     # Calculate coefficient of variation for spacing regularity
                     if x_spacings and y_spacings:
-                        x_cv = np.std(x_spacings) / np.mean(x_spacings) if np.mean(x_spacings) > 0 else 1
-                        y_cv = np.std(y_spacings) / np.mean(y_spacings) if np.mean(y_spacings) > 0 else 1
-                        
+                        x_cv = (
+                            np.std(x_spacings) / np.mean(x_spacings)
+                            if np.mean(x_spacings) > 0
+                            else 1
+                        )
+                        y_cv = (
+                            np.std(y_spacings) / np.mean(y_spacings)
+                            if np.mean(y_spacings) > 0
+                            else 1
+                        )
+
                         # Detect regular patterns
-                        if (x_cv < 0.6 and y_cv < 0.6) or (len(centers) >= 10 and (x_cv < 0.8 or y_cv < 0.8)):
+                        if (x_cv < 0.6 and y_cv < 0.6) or (
+                            len(centers) >= 10 and (x_cv < 0.8 or y_cv < 0.8)
+                        ):
                             context["regular_pattern_detected"] = True
-            
+
             # Determine if this interface has high color density that may cause false positives
             confidence = 0.0
-            
+
             # Factor 1: Number of colored elements
             if context["colored_elements_count"] >= 15:
                 confidence += 0.4
             elif context["colored_elements_count"] >= 8:
                 confidence += 0.3
-            
+
             # Factor 2: Regular pattern suggests structured interface
             if context["regular_pattern_detected"]:
                 confidence += 0.4
-            
+
             # Factor 3: High density of colored elements relative to screen size
-            element_density = context["colored_elements_count"] / ((width * height) / 10000)
+            element_density = context["colored_elements_count"] / (
+                (width * height) / 10000
+            )
             if element_density > 0.8:
                 confidence += 0.3
             elif element_density > 0.5:
                 confidence += 0.2
-            
+
             context["confidence"] = min(confidence, 1.0)
             # High color density context if there are many colored elements or regular patterns
             context["high_color_density"] = confidence >= 0.4
-            
-            
+
         except Exception as e:
             self.logger.warning(f"Error detecting high color density context: {e}")
-        
+
         return context
 
-    def _calculate_adaptive_confidence_threshold(self, original_image: np.ndarray, texts: List[DetectedText]) -> float:
+    def _calculate_adaptive_confidence_threshold(
+        self, original_image: np.ndarray, texts: List[DetectedText]
+    ) -> float:
         """
         Calculate adaptive confidence threshold based on image characteristics.
-        
-        Uses heuristics to detect colorful interfaces that may produce 
+
+        Uses heuristics to detect colorful interfaces that may produce
         false positive error indicators.
-        
+
         Args:
             original_image: Original color image
             texts: List of detected text elements for context
-            
+
         Returns:
             Confidence threshold to use for error detection
         """
         try:
             height, width = original_image.shape[:2]
-            
+
             # Quick saturation analysis
             hsv_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2HSV)
             saturation_channel = hsv_image[:, :, 1]
-            
+
             # Count highly saturated pixels (indicative of colorful content)
             high_saturation_pixels = np.sum(saturation_channel > 100)
             very_high_saturation_pixels = np.sum(saturation_channel > 150)
             total_pixels = width * height
             saturation_ratio = high_saturation_pixels / total_pixels
             very_high_saturation_ratio = very_high_saturation_pixels / total_pixels
-            
+
             # Check for game-like text patterns
             game_keywords = ["player", "turn", "roll", "dice", "score", "level", "game"]
             game_text_detected = any(
                 any(keyword in text.text.lower() for keyword in game_keywords)
                 for text in texts
             )
-            
+
             # Check for color picker interface patterns
             color_picker_keywords = ["color", "theme", "regular", "text", "change"]
-            color_picker_detected = sum(
-                1 for text in texts 
-                if any(keyword in text.text.lower() for keyword in color_picker_keywords)
-            ) >= 2  # At least 2 color picker related texts
-            
+            color_picker_detected = (
+                sum(
+                    1
+                    for text in texts
+                    if any(
+                        keyword in text.text.lower()
+                        for keyword in color_picker_keywords
+                    )
+                )
+                >= 2
+            )  # At least 2 color picker related texts
+
             # Check for colorful UI interface patterns (apps with many colored UI elements)
-            colorful_ui_keywords = ["alarm", "reminder", "hourly", "beep", "speech", "ringtone", "custom", "game", "player", "level"]
-            colorful_ui_detected = sum(
-                1 for text in texts 
-                if any(keyword in text.text.lower() for keyword in colorful_ui_keywords)
-            ) >= 3  # At least 3 colorful UI related texts
-            
+            colorful_ui_keywords = [
+                "alarm",
+                "reminder",
+                "hourly",
+                "beep",
+                "speech",
+                "ringtone",
+                "custom",
+                "game",
+                "player",
+                "level",
+            ]
+            colorful_ui_detected = (
+                sum(
+                    1
+                    for text in texts
+                    if any(
+                        keyword in text.text.lower() for keyword in colorful_ui_keywords
+                    )
+                )
+                >= 3
+            )  # At least 3 colorful UI related texts
+
             # Adaptive threshold logic
             base_threshold = 0.3
-            
+
             # Color picker interfaces should have very high threshold
             if color_picker_detected and saturation_ratio > 0.15:
                 base_threshold = 0.95
@@ -323,18 +377,20 @@ class ErrorDetector:
                 base_threshold = 0.8
             elif saturation_ratio > 0.20:
                 base_threshold = 0.7
-            
+
             # Game text is a strong indicator for games
             if game_text_detected:
                 base_threshold = max(base_threshold, 0.8)
-            
+
             return base_threshold
-            
+
         except Exception as e:
             self.logger.warning(f"Error calculating adaptive threshold: {e}")
             return 0.3  # Default threshold
 
-    def _detect_color_errors(self, original_image: np.ndarray, texts: List[DetectedText]) -> List[ErrorIndicator]:
+    def _detect_color_errors(
+        self, original_image: np.ndarray, texts: List[DetectedText]
+    ) -> List[ErrorIndicator]:
         """
         Detect errors based on color analysis (red, orange, yellow regions).
 
@@ -355,9 +411,11 @@ class ErrorDetector:
         height, width = original_image.shape[:2]
         min_error_area = (width * height) * 0.0001  # 0.01% of screen
         max_error_area = (width * height) * 0.2  # 20% of screen
-        
+
         # Use adaptive confidence threshold based on overall image characteristics
-        confidence_threshold = self._calculate_adaptive_confidence_threshold(original_image, texts)
+        confidence_threshold = self._calculate_adaptive_confidence_threshold(
+            original_image, texts
+        )
 
         for color_name, ranges in self.error_color_ranges.items():
             try:
@@ -366,14 +424,22 @@ class ErrorDetector:
 
                 if color_name == "red":
                     # Red wraps around in HSV, so we need two ranges
-                    mask1 = cv2.inRange(hsv_image, np.array(ranges[0]), np.array(ranges[1]))
-                    mask2 = cv2.inRange(hsv_image, np.array(ranges[2]), np.array(ranges[3]))
+                    mask1 = cv2.inRange(
+                        hsv_image, np.array(ranges[0]), np.array(ranges[1])
+                    )
+                    mask2 = cv2.inRange(
+                        hsv_image, np.array(ranges[2]), np.array(ranges[3])
+                    )
                     mask = cv2.bitwise_or(mask1, mask2)
                 else:
-                    mask = cv2.inRange(hsv_image, np.array(ranges[0]), np.array(ranges[1]))
+                    mask = cv2.inRange(
+                        hsv_image, np.array(ranges[0]), np.array(ranges[1])
+                    )
 
                 # Find contours in color mask
-                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                contours, _ = cv2.findContours(
+                    mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                )
 
                 for contour in contours:
                     area = cv2.contourArea(contour)
@@ -384,13 +450,22 @@ class ErrorDetector:
                     x, y, w, h = cv2.boundingRect(contour)
 
                     # Calculate confidence based on color intensity and area
-                    roi = hsv_image[y:y + h, x:x + w]
-                    confidence = self._calculate_color_confidence(roi, color_name, area, width * height)
+                    roi = hsv_image[y : y + h, x : x + w]
+                    confidence = self._calculate_color_confidence(
+                        roi, color_name, area, width * height
+                    )
 
-                    if confidence > confidence_threshold:  # Adjusted confidence threshold based on context
+                    if (
+                        confidence > confidence_threshold
+                    ):  # Adjusted confidence threshold based on context
                         error_indicator = self._create_error_indicator(
-                            x, y, w, h, confidence, ErrorType.VISUAL_INDICATOR,
-                            f"{color_name.title()} color error indicator"
+                            x,
+                            y,
+                            w,
+                            h,
+                            confidence,
+                            ErrorType.VISUAL_INDICATOR,
+                            f"{color_name.title()} color error indicator",
                         )
                         if error_indicator:
                             errors.append(error_indicator)
@@ -400,8 +475,9 @@ class ErrorDetector:
 
         return errors
 
-    def _detect_text_errors(self, texts: List[DetectedText],
-                            existing_errors: List[ErrorIndicator]) -> List[ErrorIndicator]:
+    def _detect_text_errors(
+        self, texts: List[DetectedText], existing_errors: List[ErrorIndicator]
+    ) -> List[ErrorIndicator]:
         """
         Detect errors based on text pattern matching.
 
@@ -428,16 +504,25 @@ class ErrorDetector:
             if confidence > 0.4:  # Minimum confidence for text errors
                 bbox = text_element.bbox
                 error_indicator = self._create_error_indicator(
-                    bbox.x, bbox.y, bbox.width, bbox.height,
-                    confidence, error_type, text_element.text
+                    bbox.x,
+                    bbox.y,
+                    bbox.width,
+                    bbox.height,
+                    confidence,
+                    error_type,
+                    text_element.text,
                 )
                 if error_indicator:
                     text_errors.append(error_indicator)
 
         return text_errors
 
-    def _detect_pattern_errors(self, original_image: np.ndarray, texts: List[DetectedText],
-                               existing_errors: List[ErrorIndicator]) -> List[ErrorIndicator]:
+    def _detect_pattern_errors(
+        self,
+        original_image: np.ndarray,
+        texts: List[DetectedText],
+        existing_errors: List[ErrorIndicator],
+    ) -> List[ErrorIndicator]:
         """
         Detect errors based on UI patterns (dialogs, toasts, banners).
 
@@ -452,7 +537,9 @@ class ErrorDetector:
         pattern_errors = []
 
         # Detect error dialogs
-        dialog_errors = self._detect_error_dialogs(original_image, texts, existing_errors)
+        dialog_errors = self._detect_error_dialogs(
+            original_image, texts, existing_errors
+        )
         pattern_errors.extend(dialog_errors)
 
         # Detect toast notifications
@@ -460,13 +547,19 @@ class ErrorDetector:
         pattern_errors.extend(toast_errors)
 
         # Detect banner/snackbar errors
-        banner_errors = self._detect_banner_errors(original_image, texts, existing_errors)
+        banner_errors = self._detect_banner_errors(
+            original_image, texts, existing_errors
+        )
         pattern_errors.extend(banner_errors)
 
         return pattern_errors
 
-    def _detect_error_dialogs(self, original_image: np.ndarray, texts: List[DetectedText],
-                              existing_errors: List[ErrorIndicator]) -> List[ErrorIndicator]:
+    def _detect_error_dialogs(
+        self,
+        original_image: np.ndarray,
+        texts: List[DetectedText],
+        existing_errors: List[ErrorIndicator],
+    ) -> List[ErrorIndicator]:
         """Detect error dialogs based on geometric patterns and text clustering."""
         dialogs = []
         height, width = original_image.shape[:2]
@@ -494,32 +587,47 @@ class ErrorDetector:
             dialog_h = max_y - min_y
 
             # Check if it's dialog-sized and positioned
-            if (width * 0.3 <= dialog_w <= width * 0.9 and
-                    height * 0.2 <= dialog_h <= height * 0.7):
+            if (
+                width * 0.3 <= dialog_w <= width * 0.9
+                and height * 0.2 <= dialog_h <= height * 0.7
+            ):
 
                 # Check if it's roughly centered
                 center_x = min_x + dialog_w / 2
                 center_y = min_y + dialog_h / 2
 
-                if (abs(center_x - width / 2) < width * 0.2 and
-                        abs(center_y - height / 2) < height * 0.3):
+                if (
+                    abs(center_x - width / 2) < width * 0.2
+                    and abs(center_y - height / 2) < height * 0.3
+                ):
 
                     # Calculate confidence based on text content and positioning
-                    confidence = 0.6 + (len(group) * 0.1)  # More text = higher confidence
+                    confidence = 0.6 + (
+                        len(group) * 0.1
+                    )  # More text = higher confidence
                     confidence = min(confidence, 0.9)
 
                     error_text = " ".join(t.text for t in group[:3])  # First 3 texts
                     dialog = self._create_error_indicator(
-                        min_x, min_y, dialog_w, dialog_h,
-                        confidence, ErrorType.DIALOG, error_text
+                        min_x,
+                        min_y,
+                        dialog_w,
+                        dialog_h,
+                        confidence,
+                        ErrorType.DIALOG,
+                        error_text,
                     )
                     if dialog:
                         dialogs.append(dialog)
 
         return dialogs
 
-    def _detect_toast_errors(self, original_image: np.ndarray, texts: List[DetectedText],
-                             existing_errors: List[ErrorIndicator]) -> List[ErrorIndicator]:
+    def _detect_toast_errors(
+        self,
+        original_image: np.ndarray,
+        texts: List[DetectedText],
+        existing_errors: List[ErrorIndicator],
+    ) -> List[ErrorIndicator]:
         """Detect toast notification errors at top/bottom of screen."""
         toasts = []
         height, width = original_image.shape[:2]
@@ -539,16 +647,25 @@ class ErrorDetector:
                     confidence = 0.7 if is_top_toast else 0.6  # Top toasts more common
 
                     toast = self._create_error_indicator(
-                        bbox.x, bbox.y, bbox.width, bbox.height,
-                        confidence, ErrorType.DIALOG_ERROR, text_element.text
+                        bbox.x,
+                        bbox.y,
+                        bbox.width,
+                        bbox.height,
+                        confidence,
+                        ErrorType.DIALOG_ERROR,
+                        text_element.text,
                     )
                     if toast:
                         toasts.append(toast)
 
         return toasts
 
-    def _detect_banner_errors(self, original_image: np.ndarray, texts: List[DetectedText],
-                              existing_errors: List[ErrorIndicator]) -> List[ErrorIndicator]:
+    def _detect_banner_errors(
+        self,
+        original_image: np.ndarray,
+        texts: List[DetectedText],
+        existing_errors: List[ErrorIndicator],
+    ) -> List[ErrorIndicator]:
         """Detect banner/snackbar errors (horizontal strips)."""
         banners = []
         height, width = original_image.shape[:2]
@@ -560,22 +677,33 @@ class ErrorDetector:
             aspect_ratio = bbox.width / bbox.height if bbox.height > 0 else 0
 
             # Look for wide, short text regions (banner-like)
-            if (aspect_ratio > 3 and bbox.width > width * 0.5 and
-                    bbox.height < height * 0.1):
+            if (
+                aspect_ratio > 3
+                and bbox.width > width * 0.5
+                and bbox.height < height * 0.1
+            ):
 
-                confidence = 0.5 + min(aspect_ratio / 10, 0.3)  # Higher aspect ratio = more banner-like
+                confidence = 0.5 + min(
+                    aspect_ratio / 10, 0.3
+                )  # Higher aspect ratio = more banner-like
 
                 banner = self._create_error_indicator(
-                    bbox.x, bbox.y, bbox.width, bbox.height,
-                    confidence, ErrorType.BANNER, text_element.text
+                    bbox.x,
+                    bbox.y,
+                    bbox.width,
+                    bbox.height,
+                    confidence,
+                    ErrorType.BANNER,
+                    text_element.text,
                 )
                 if banner:
                     banners.append(banner)
 
         return banners
 
-    def _calculate_color_confidence(self, roi: np.ndarray, color_name: str,
-                                    area: float, total_area: float) -> float:
+    def _calculate_color_confidence(
+        self, roi: np.ndarray, color_name: str, area: float, total_area: float
+    ) -> float:
         """Calculate confidence score for color-based error detection."""
         try:
             if roi.size == 0:
@@ -588,31 +716,37 @@ class ErrorDetector:
                 # Red error indicators can be bright red (high value) or dark red (lower value)
                 s_channel = roi[:, :, 1]
                 v_channel = roi[:, :, 2]
-                
+
                 # For bright red indicators (like validation errors): high saturation + high value
                 bright_red_pixels = np.sum((s_channel > 120) & (v_channel > 200))
-                # For dark red indicators: high saturation + medium value  
-                dark_red_pixels = np.sum((s_channel > 150) & (v_channel > 100) & (v_channel <= 200))
-                
+                # For dark red indicators: high saturation + medium value
+                dark_red_pixels = np.sum(
+                    (s_channel > 150) & (v_channel > 100) & (v_channel <= 200)
+                )
+
                 total_red_pixels = bright_red_pixels + dark_red_pixels
                 intensity_score = total_red_pixels / roi.size if roi.size > 0 else 0
-                
+
                 # Bright red indicators get higher confidence (validation errors are typically bright)
                 bright_red_ratio = bright_red_pixels / roi.size
-                
+
                 # Factor 2: Area relative to screen (error indicators are typically small)
                 area_ratio = area / total_area
-                
-                # Small, bright red elements get highest confidence (typical error indicators)  
-                if bright_red_ratio > 0.20 and area_ratio <= 0.005:  # Small bright red elements (validation errors)
+
+                # Small, bright red elements get highest confidence (typical error indicators)
+                if (
+                    bright_red_ratio > 0.20 and area_ratio <= 0.005
+                ):  # Small bright red elements (validation errors)
                     confidence += 0.55  # High confidence for clear validation errors
-                elif bright_red_ratio > 0.15 and area_ratio <= 0.01:  # Small-medium bright red
+                elif (
+                    bright_red_ratio > 0.15 and area_ratio <= 0.01
+                ):  # Small-medium bright red
                     confidence += 0.5
                 elif bright_red_ratio > 0.10:  # General bright red
                     confidence += min(intensity_score * 0.45, 0.45)
                 else:
                     confidence += intensity_score * 0.35  # Standard red detection
-                
+
             elif color_name in ["orange", "yellow"]:
                 # Orange/yellow indicators
                 saturated_pixels = np.sum(roi[:, :, 1] > 100)
@@ -622,7 +756,9 @@ class ErrorDetector:
             # Factor 2: Area contribution (already used above for red, add for others)
             area_ratio = area / total_area
             if color_name != "red":  # Red already handled above
-                if 0.0005 <= area_ratio <= 0.05:  # 0.05% to 5% of screen (optimal for error indicators)
+                if (
+                    0.0005 <= area_ratio <= 0.05
+                ):  # 0.05% to 5% of screen (optimal for error indicators)
                     confidence += 0.35
                 elif 0.0001 <= area_ratio <= 0.1:  # Broader range with lower score
                     confidence += 0.25
@@ -647,7 +783,7 @@ class ErrorDetector:
             "permission": ErrorType.PERMISSION_ERROR,
             "validation": ErrorType.VALIDATION_ERROR,
             "system": ErrorType.SYSTEM_ERROR,
-            "general": ErrorType.GENERAL_ERROR
+            "general": ErrorType.GENERAL_ERROR,
         }
 
         # Check against error patterns
@@ -657,7 +793,9 @@ class ErrorDetector:
                     confidence = 0.8 if error_category != "general" else 0.6
                     if confidence > max_confidence:
                         max_confidence = confidence
-                        detected_type = category_to_error_type.get(error_category, ErrorType.GENERAL_ERROR)
+                        detected_type = category_to_error_type.get(
+                            error_category, ErrorType.GENERAL_ERROR
+                        )
 
         # Check for error icons in text
         for icon_category, icons in self.error_icons.items():
@@ -669,7 +807,9 @@ class ErrorDetector:
 
         return detected_type, max_confidence
 
-    def _group_nearby_texts(self, texts: List[DetectedText], max_distance: int = 100) -> List[List[DetectedText]]:
+    def _group_nearby_texts(
+        self, texts: List[DetectedText], max_distance: int = 100
+    ) -> List[List[DetectedText]]:
         """Group text elements that are close to each other."""
         if not texts:
             return []
@@ -694,7 +834,9 @@ class ErrorDetector:
                 center2_x = other_text.bbox.center_x
                 center2_y = other_text.bbox.center_y
 
-                distance = ((center1_x - center2_x) ** 2 + (center1_y - center2_y) ** 2) ** 0.5
+                distance = (
+                    (center1_x - center2_x) ** 2 + (center1_y - center2_y) ** 2
+                ) ** 0.5
 
                 if distance <= max_distance:
                     group.append(other_text)
@@ -705,9 +847,16 @@ class ErrorDetector:
 
         return groups
 
-    def _create_error_indicator(self, x: int, y: int, w: int, h: int,
-                                confidence: float, error_type: ErrorType,
-                                message: str) -> Optional[ErrorIndicator]:
+    def _create_error_indicator(
+        self,
+        x: int,
+        y: int,
+        w: int,
+        h: int,
+        confidence: float,
+        error_type: ErrorType,
+        message: str,
+    ) -> Optional[ErrorIndicator]:
         """Create a validated ErrorIndicator model."""
         try:
             return ErrorIndicator(
@@ -719,23 +868,31 @@ class ErrorDetector:
                 confidence=float(confidence),
                 error_type=error_type,
                 text=message,
-                area=float(w * h)
+                area=float(w * h),
             )
         except Exception as validation_error:
             self.logger.warning(f"Failed to create ErrorIndicator: {validation_error}")
             return None
 
-    def _text_overlaps_with_errors(self, text_element: DetectedText,
-                                   errors: List[ErrorIndicator]) -> bool:
+    def _text_overlaps_with_errors(
+        self, text_element: DetectedText, errors: List[ErrorIndicator]
+    ) -> bool:
         """Check if text element overlaps with any existing error."""
         bbox = text_element.bbox
         tx, ty, tw, th = bbox.x, bbox.y, bbox.width, bbox.height
 
         for error in errors:
-            ex, ey, ew, eh = error.bbox.x, error.bbox.y, error.bbox.width, error.bbox.height
+            ex, ey, ew, eh = (
+                error.bbox.x,
+                error.bbox.y,
+                error.bbox.width,
+                error.bbox.height,
+            )
 
             try:
-                overlap = self.geometry_utils.calculate_overlap_percentage(tx, ty, tw, th, ex, ey, ew, eh)
+                overlap = self.geometry_utils.calculate_overlap_percentage(
+                    tx, ty, tw, th, ex, ey, ew, eh
+                )
                 if overlap > 0.5:
                     return True
             except Exception as e:
@@ -754,7 +911,11 @@ class ErrorDetector:
             Dictionary with detection statistics
         """
         total_errors = len(errors)
-        critical_errors = sum(1 for e in errors if e.error_type in [ErrorType.CRITICAL_ERROR, ErrorType.SYSTEM_ERROR])
+        critical_errors = sum(
+            1
+            for e in errors
+            if e.error_type in [ErrorType.CRITICAL_ERROR, ErrorType.SYSTEM_ERROR]
+        )
 
         # Count by error type
         type_counts = {}
@@ -769,7 +930,11 @@ class ErrorDetector:
             "critical_errors": critical_errors,
             "high_confidence_errors": high_confidence,
             "error_types": type_counts,
-            "average_confidence": sum(e.confidence for e in errors) / total_errors if total_errors > 0 else 0.0
+            "average_confidence": (
+                sum(e.confidence for e in errors) / total_errors
+                if total_errors > 0
+                else 0.0
+            ),
         }
 
 

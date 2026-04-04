@@ -8,20 +8,22 @@ monitors from MOP specifications using JavaMOP and RV-Monitor tools.
 import argparse
 import sys
 
-from rv_monitor_generator.config import RVGeneratorConfig, ConfigurationError
-from rv_monitor_generator.runtime_verification_generator import RuntimeVerificationGenerator
+from rv_monitor_generator.config import ConfigurationError, RVGeneratorConfig
+from rv_monitor_generator.runtime_verification_generator import (
+    RuntimeVerificationGenerator,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
     """
     Create and configure the argument parser for rv-monitor-generator CLI.
-    
+
     Returns:
         Configured ArgumentParser instance
     """
     parser = argparse.ArgumentParser(
-        prog='rv-monitor-generator',
-        description='Generate runtime verification monitors from MOP specifications',
+        prog="rv-monitor-generator",
+        description="Generate runtime verification monitors from MOP specifications",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -44,67 +46,59 @@ Configuration Priority (highest to lowest):
   2. Explicit --rvsec-root parameter
   3. RVSEC_HOME environment variable
   4. Error if none available
-        """
+        """,
     )
 
     # Add subcommands
-    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Generate command
     generate_parser = subparsers.add_parser(
-        'generate',
-        help='Generate monitors from MOP specifications',
-        description='Generate runtime verification monitors and AspectJ files from MOP specifications'
+        "generate",
+        help="Generate monitors from MOP specifications",
+        description="Generate runtime verification monitors and AspectJ files from MOP specifications",
     )
 
     # Configuration options
-    config_group = generate_parser.add_argument_group('Configuration Options')
+    config_group = generate_parser.add_argument_group("Configuration Options")
     config_group.add_argument(
-        '--rvsec-root',
-        help='Root directory of RVSEC installation (alternative to individual paths)'
+        "--rvsec-root",
+        help="Root directory of RVSEC installation (alternative to individual paths)",
     )
 
     # Individual tool paths
-    tools_group = generate_parser.add_argument_group('Individual Tool Paths')
+    tools_group = generate_parser.add_argument_group("Individual Tool Paths")
+    tools_group.add_argument("--javamop-bin", help="Path to JavaMOP binary executable")
     tools_group.add_argument(
-        '--javamop-bin',
-        help='Path to JavaMOP binary executable'
-    )
-    tools_group.add_argument(
-        '--rvmonitor-bin',
-        help='Path to RV-Monitor binary executable'
+        "--rvmonitor-bin", help="Path to RV-Monitor binary executable"
     )
 
     # Specification directories
-    specs_group = generate_parser.add_argument_group('Specification Directories')
+    specs_group = generate_parser.add_argument_group("Specification Directories")
     specs_group.add_argument(
-        '--specs-dir',
-        help='Directory containing MOP specification files (.mop)'
+        "--specs-dir", help="Directory containing MOP specification files (.mop)"
     )
     specs_group.add_argument(
-        '--aspects-dir',
-        help='Directory containing custom AspectJ files (.aj)'
+        "--aspects-dir", help="Directory containing custom AspectJ files (.aj)"
     )
 
     # Output configuration
-    output_group = generate_parser.add_argument_group('Output Configuration')
+    output_group = generate_parser.add_argument_group("Output Configuration")
     output_group.add_argument(
-        '--output',
+        "--output",
         required=True,
-        help='Output directory for generated monitors and AspectJ files'
+        help="Output directory for generated monitors and AspectJ files",
     )
 
     # Utility options
-    util_group = generate_parser.add_argument_group('Utility Options')
+    util_group = generate_parser.add_argument_group("Utility Options")
     util_group.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Enable verbose output'
+        "--verbose", "-v", action="store_true", help="Enable verbose output"
     )
     util_group.add_argument(
-        '--summary',
-        action='store_true',
-        help='Display generation summary after completion'
+        "--summary",
+        action="store_true",
+        help="Display generation summary after completion",
     )
 
     return parser
@@ -113,7 +107,7 @@ Configuration Priority (highest to lowest):
 def configure_logging(verbose: bool) -> None:
     """
     Configure logging based on verbosity level.
-    
+
     Args:
         verbose: Enable verbose logging if True
     """
@@ -122,18 +116,18 @@ def configure_logging(verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
 def handle_generate_command(args) -> int:
     """
     Handle the generate command execution.
-    
+
     Args:
         args: Parsed command line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -144,7 +138,7 @@ def handle_generate_command(args) -> int:
             javamop_bin=args.javamop_bin,
             rvmonitor_bin=args.rvmonitor_bin,
             mop_specs_dir=args.specs_dir,
-            aspects_dir=args.aspects_dir
+            aspects_dir=args.aspects_dir,
         )
 
         # Initialize generator
@@ -162,11 +156,15 @@ def handle_generate_command(args) -> int:
                 summary = generator.get_generation_summary(args.output)
                 print("\nGeneration Summary:")
                 print(f"  Output Directory: {summary['output_directory']}")
-                print(f"  AspectJ Files: {summary['aspectj_files']['count']} ({summary['aspectj_files']['purpose']})")
                 print(
-                    f"  Monitor Classes: {summary['monitor_classes']['count']} ({summary['monitor_classes']['purpose']})")
+                    f"  AspectJ Files: {summary['aspectj_files']['count']} ({summary['aspectj_files']['purpose']})"
+                )
                 print(
-                    f"  Specs Processed: {summary['specs_processed']['count']} from {summary['specs_processed']['source_directory']}")
+                    f"  Monitor Classes: {summary['monitor_classes']['count']} ({summary['monitor_classes']['purpose']})"
+                )
+                print(
+                    f"  Specs Processed: {summary['specs_processed']['count']} from {summary['specs_processed']['source_directory']}"
+                )
 
             return 0
         else:
@@ -184,7 +182,7 @@ def handle_generate_command(args) -> int:
 def main() -> int:
     """
     Main entry point for rv-monitor-generator CLI.
-    
+
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
@@ -192,15 +190,15 @@ def main() -> int:
     args = parser.parse_args()
 
     # Configure logging
-    configure_logging(getattr(args, 'verbose', False))
+    configure_logging(getattr(args, "verbose", False))
 
     # Handle commands
-    if args.command == 'generate':
+    if args.command == "generate":
         return handle_generate_command(args)
     else:
         parser.print_help()
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

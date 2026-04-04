@@ -9,15 +9,12 @@ Tests three bug fixes:
 (e) None UI state returns safe fallback result
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
-from rv_agent.services.screen_analyzer import (
-    ScreenProcessor,
-    LAUNCHER_PACKAGES,
-)
-from rv_agent.agent.rv_agent import MAX_TOTAL_ERRORS
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.rv_agent import MAX_TOTAL_ERRORS
+from rv_agent.services.screen_analyzer import LAUNCHER_PACKAGES, ScreenProcessor
 
 
 def _make_ui_state(package, activity="MainActivity", xml="<hierarchy></hierarchy>"):

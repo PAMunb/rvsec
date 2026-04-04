@@ -12,9 +12,9 @@ Also tests the detection disabled path and counter reset on no-error-found.
 from unittest.mock import MagicMock, patch
 
 from rv_agent.agent.nodes.learn_node import (
-    learn_node,
-    _detect_validation_error,
     MAX_ERROR_RECOVERY,
+    _detect_validation_error,
+    learn_node,
 )
 from rv_agent.services.error_detection import ValidationErrorResult
 

@@ -2,9 +2,10 @@
 Unit tests for the ScreenshotOptimizer service.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 from PIL import Image
 from rv_agent.services.screenshot_optimizer import ScreenshotOptimizer
 

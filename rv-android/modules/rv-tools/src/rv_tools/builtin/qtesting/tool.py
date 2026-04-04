@@ -12,16 +12,16 @@ The container entry point is: python src/main.py -r apks/conf.txt
 import os
 import socket
 import tempfile
-from typing import Dict, Any
+from typing import Any, Dict
 
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class QTestingTool(AbstractTool):
@@ -38,7 +38,7 @@ class QTestingTool(AbstractTool):
         description="QTesting Q-learning based Android UI exploration tool",
         url="https://github.com/nicetester/QTesting",
         version="1.0.0",
-        process_pattern="qtesting"
+        process_pattern="qtesting",
     )
 
     def __init__(self):
@@ -46,13 +46,12 @@ class QTestingTool(AbstractTool):
         super().__init__(
             name=tool_spec.name,
             description=tool_spec.description,
-            process_pattern=tool_spec.process_pattern
+            process_pattern=tool_spec.process_pattern,
         )
 
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_tools.builtin.qtesting",
-            {CONTEXT_COMPONENT: "QTestingTool"}
+            "rv_tools.builtin.qtesting", {CONTEXT_COMPONENT: "QTestingTool"}
         )
 
         self.config = {}
@@ -85,8 +84,7 @@ class QTestingTool(AbstractTool):
         )
 
     @ErrorHandler.handle_errors(
-        component="QTestingTool",
-        phase="execute_tool_specific_logic"
+        component="QTestingTool", phase="execute_tool_specific_logic"
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
@@ -97,12 +95,14 @@ class QTestingTool(AbstractTool):
         2. docker cp — copy APK and conf.txt into /qtesting/apks/
         3. docker start -a — run and capture output as trace file
         """
-        timeout_in_seconds = getattr(task.config, 'timeout', self.config['timeout'])
+        timeout_in_seconds = getattr(task.config, "timeout", self.config["timeout"])
         container_name = f"qtesting_{task.id[:8]}"
         device_serial = self.config.get("device_serial") or "emulator-5554"
 
         self.logger.info(f"Executing QTesting for {app.package_name}")
-        self.logger.info(f"QTesting timeout: {timeout_in_seconds}s, device: {device_serial}")
+        self.logger.info(
+            f"QTesting timeout: {timeout_in_seconds}s, device: {device_serial}"
+        )
 
         try:
             # Step 1: Create container
@@ -117,7 +117,7 @@ class QTestingTool(AbstractTool):
             cp_apk_cmd = Command(
                 "docker",
                 ["cp", app.path, f"{container_name}:/qtesting/apks/app.apk"],
-                60
+                60,
             )
             cp_apk_cmd.invoke()
             self.logger.debug(f"Copied APK to container: {app.path}")
@@ -130,7 +130,7 @@ class QTestingTool(AbstractTool):
                 "docker", ["start", "-a", container_name], timeout_in_seconds
             )
             self.logger.info(f"Starting QTesting container: {container_name}")
-            with open(task.result.trace_file, 'wb') as trace_file:
+            with open(task.result.trace_file, "wb") as trace_file:
                 self._execute_and_check_command(
                     start_cmd, stdout=trace_file, stderr=trace_file
                 )
@@ -142,12 +142,13 @@ class QTestingTool(AbstractTool):
         """Build the docker create command for QTesting container."""
         cmd_args = [
             "create",
-            "--name", container_name,
+            "--name",
+            container_name,
         ]
 
         # Network: share parent container's network inside Docker,
         # use host network outside Docker
-        if os.path.exists('/.dockerenv'):
+        if os.path.exists("/.dockerenv"):
             cmd_args.extend(["--network", f"container:{socket.gethostname()}"])
         else:
             cmd_args.extend(["--network", "host"])
@@ -175,9 +176,7 @@ class QTestingTool(AbstractTool):
         )
 
         # Write to a temp file and docker cp into the container
-        with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.txt', delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write(conf_content)
             tmp_path = f.name
 
@@ -185,7 +184,7 @@ class QTestingTool(AbstractTool):
             cp_cmd = Command(
                 "docker",
                 ["cp", tmp_path, f"{container_name}:/qtesting/apks/conf.txt"],
-                30
+                30,
             )
             cp_cmd.invoke()
             self.logger.debug(
@@ -201,6 +200,4 @@ class QTestingTool(AbstractTool):
             Command("docker", ["rm", "-f", container_name], 30).invoke()
             self.logger.debug(f"Cleaned up container: {container_name}")
         except Exception as e:
-            self.logger.warning(
-                f"Failed to clean up container {container_name}: {e}"
-            )
+            self.logger.warning(f"Failed to clean up container {container_name}: {e}")

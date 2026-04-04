@@ -9,12 +9,12 @@ Tests the tracking calls added retroactively to existing code paths:
 """
 
 import logging
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent import tracking as track
-from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.domain.screen_node import ScreenNode
 
 
 @pytest.fixture(autouse=True)
@@ -75,8 +75,8 @@ def _make_config(**overrides):
 
 def _make_strategy(config=None):
     """Create a RVAgentStrategy with minimal dependencies."""
-    from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
     from rv_agent.memory.ui_coverage import UICoverageTracker
+    from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 
     if config is None:
         config = _make_config()
@@ -580,11 +580,11 @@ class TestSystemActionFilteredCounter:
     def test_filtering_back_increments_counter(self):
         """A BACK action in the actions list is filtered out and increments
         the system_action_filtered counter."""
+        from rv_android_core.domain.widget import WidgetEventType
         from rv_screen_parser.parser.screen.visitor.model import (
             ItemAction,
             ScreenDescription,
         )
-        from rv_android_core.domain.widget import WidgetEventType
 
         strategy = _make_strategy()
 
@@ -638,11 +638,11 @@ class TestSystemActionFilteredCounter:
 
     def test_filtering_restart_increments_counter(self):
         """A RESTART action in the actions list is filtered and counted."""
+        from rv_android_core.domain.widget import WidgetEventType
         from rv_screen_parser.parser.screen.visitor.model import (
             ItemAction,
             ScreenDescription,
         )
-        from rv_android_core.domain.widget import WidgetEventType
 
         strategy = _make_strategy()
 
@@ -697,11 +697,11 @@ class TestSystemActionFilteredCounter:
 
     def test_multiple_system_actions_counted(self):
         """When both BACK and RESTART are in the list, counter increments by 2."""
+        from rv_android_core.domain.widget import WidgetEventType
         from rv_screen_parser.parser.screen.visitor.model import (
             ItemAction,
             ScreenDescription,
         )
-        from rv_android_core.domain.widget import WidgetEventType
 
         strategy = _make_strategy()
 
@@ -764,11 +764,11 @@ class TestSystemActionFilteredCounter:
 
     def test_no_system_actions_counter_stays_zero(self):
         """When there are no system actions, the counter remains 0."""
+        from rv_android_core.domain.widget import WidgetEventType
         from rv_screen_parser.parser.screen.visitor.model import (
             ItemAction,
             ScreenDescription,
         )
-        from rv_android_core.domain.widget import WidgetEventType
 
         strategy = _make_strategy()
 

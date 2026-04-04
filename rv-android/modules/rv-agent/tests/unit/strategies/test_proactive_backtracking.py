@@ -10,8 +10,8 @@ Verifies FR26 Proactive Backtracking scenarios and INV-AGT-38:
 
 from unittest.mock import MagicMock
 
-from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_screen_parser.parser.screen.visitor.model import (

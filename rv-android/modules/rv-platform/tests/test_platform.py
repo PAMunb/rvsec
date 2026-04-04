@@ -6,14 +6,8 @@ error message extraction, and summary generation.
 from unittest.mock import patch
 
 import pytest
-
 from rv_android_core.domain.app import App
-from rv_android_core.domain.task import (
-    Task,
-    TaskConfiguration,
-    TaskState,
-    ToolConfig,
-)
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_android_core.util.error.exceptions import (
     RVToolExecutionError,
     RVToolTimeoutError,
@@ -21,10 +15,10 @@ from rv_android_core.util.error.exceptions import (
 from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.platform import Platform
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _create_apks(tmp_path, names=("app1.apk", "app2.apk")):
     """Create fake APK files and return the directory path."""
@@ -59,6 +53,7 @@ def _make_platform(tmp_path, tools=None, repetitions=1, timeouts=None, apk_names
 # ===========================================================================
 # Task Generation
 # ===========================================================================
+
 
 class TestGenerateTasks:
     def test_generates_tasks_for_all_combinations(self, tmp_path):
@@ -105,6 +100,7 @@ class TestGenerateTasks:
 # ===========================================================================
 # APK Discovery
 # ===========================================================================
+
 
 class TestDiscoverApks:
     def test_discovers_apk_files(self, tmp_path):
@@ -154,6 +150,7 @@ class TestDiscoverApks:
 # ===========================================================================
 # Skip Completed Tasks (Resume)
 # ===========================================================================
+
 
 class TestSkipCompletedTasks:
     def _add_completed_to_storage(self, platform, apk, tool, rep, timeout):
@@ -217,6 +214,7 @@ class TestSkipCompletedTasks:
 # Error Message Extraction
 # ===========================================================================
 
+
 class TestExtractMeaningfulErrorMessage:
     @pytest.fixture
     def platform(self, tmp_path):
@@ -258,6 +256,7 @@ class TestExtractMeaningfulErrorMessage:
 # ===========================================================================
 # Summary Generation
 # ===========================================================================
+
 
 class TestGenerateSummary:
     @pytest.fixture

@@ -7,9 +7,9 @@ Tests verify:
 - Consistent proportion across different apps
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.routing.routing_manager import RoutingManager
 

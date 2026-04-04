@@ -19,7 +19,7 @@ import re
 
 import rv_android_core.constants as constants
 from rv_android_core.domain.classes import Classes, Method
-from rv_android_core.domain.components import Components, ComponentInfo, IntentFilter
+from rv_android_core.domain.components import ComponentInfo, Components, IntentFilter
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import (
     Widget,
@@ -461,40 +461,50 @@ class StaticAnalysisParser:
         """Parse intent filter entries into IntentFilter objects."""
         result = []
         for f in filters_data:
-            result.append(IntentFilter(
-                actions=f.get("actions", []),
-                categories=f.get("categories", []),
-            ))
+            result.append(
+                IntentFilter(
+                    actions=f.get("actions", []),
+                    categories=f.get("categories", []),
+                )
+            )
         return result
 
-    def _parse_component_list(self, entries: list, component_type: str) -> list[ComponentInfo]:
+    def _parse_component_list(
+        self, entries: list, component_type: str
+    ) -> list[ComponentInfo]:
         """Parse component entries (activities, receivers, services) with intentFilters."""
         result = []
         for entry in entries:
-            result.append(ComponentInfo(
-                class_name=entry.get("className", ""),
-                component_type=component_type,
-                is_main=entry.get("isMain", False),
-                intent_filters=self._parse_intent_filters(entry.get("intentFilters", [])),
-                exported=entry.get("exported", False),
-                reaches_mop=entry.get("reachesMop", False),
-                mop_methods=entry.get("mopMethods", []),
-            ))
+            result.append(
+                ComponentInfo(
+                    class_name=entry.get("className", ""),
+                    component_type=component_type,
+                    is_main=entry.get("isMain", False),
+                    intent_filters=self._parse_intent_filters(
+                        entry.get("intentFilters", [])
+                    ),
+                    exported=entry.get("exported", False),
+                    reaches_mop=entry.get("reachesMop", False),
+                    mop_methods=entry.get("mopMethods", []),
+                )
+            )
         return result
 
     def _parse_provider_list(self, entries: list) -> list[ComponentInfo]:
         """Parse provider entries with authorities instead of intentFilters."""
         result = []
         for entry in entries:
-            result.append(ComponentInfo(
-                class_name=entry.get("className", ""),
-                component_type="provider",
-                is_main=False,  # Providers are never the main component
-                authorities=entry.get("authorities"),
-                exported=entry.get("exported", False),
-                reaches_mop=entry.get("reachesMop", False),
-                mop_methods=entry.get("mopMethods", []),
-            ))
+            result.append(
+                ComponentInfo(
+                    class_name=entry.get("className", ""),
+                    component_type="provider",
+                    is_main=False,  # Providers are never the main component
+                    authorities=entry.get("authorities"),
+                    exported=entry.get("exported", False),
+                    reaches_mop=entry.get("reachesMop", False),
+                    mop_methods=entry.get("mopMethods", []),
+                )
+            )
         return result
 
     def _parse_components(self, data: dict) -> Components:
@@ -513,13 +523,17 @@ class StaticAnalysisParser:
 
             return Components(
                 activities=self._parse_component_list(
-                    components_data.get("activities", []), "activity"),
+                    components_data.get("activities", []), "activity"
+                ),
                 receivers=self._parse_component_list(
-                    components_data.get("receivers", []), "receiver"),
+                    components_data.get("receivers", []), "receiver"
+                ),
                 services=self._parse_component_list(
-                    components_data.get("services", []), "service"),
+                    components_data.get("services", []), "service"
+                ),
                 providers=self._parse_provider_list(
-                    components_data.get("providers", [])),
+                    components_data.get("providers", [])
+                ),
             )
         except Exception as e:
             self.logger.error(f"Error parsing components section: {e}")

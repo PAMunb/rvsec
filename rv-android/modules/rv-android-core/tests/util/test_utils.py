@@ -1,34 +1,34 @@
-import pytest
-from unittest.mock import MagicMock, patch, call
-import os
 import hashlib
 import json
+import os
 import time
+from unittest.mock import MagicMock, call, patch
 from zipfile import ZIP_DEFLATED
 
-from rv_android_core.util.utils import (
-    execute_command,
-    file_hash,
-    create_folder_if_not_exists,
-    reset_folder,
-    move_files_by_extension,
-    copy_files_by_extension,
-    copy_files,
-    delete_files_by_extension,
-    delete_file,
-    delete_dir,
-    check_folder_exists,
-    get_apks,
-    unzip,
-    zip_dir_content,
-    to_readable_time,
-    get_env_or_default,
-    get_env_or_exception,
-    read_json,
-)
+import pytest
 from rv_android_core.commands.command_exception import CommandException
 from rv_android_core.domain.app import App
 from rv_android_core.util.error.exceptions import RVAndroidError
+from rv_android_core.util.utils import (
+    check_folder_exists,
+    copy_files,
+    copy_files_by_extension,
+    create_folder_if_not_exists,
+    delete_dir,
+    delete_file,
+    delete_files_by_extension,
+    execute_command,
+    file_hash,
+    get_apks,
+    get_env_or_default,
+    get_env_or_exception,
+    move_files_by_extension,
+    read_json,
+    reset_folder,
+    to_readable_time,
+    unzip,
+    zip_dir_content,
+)
 
 
 # Mock LoggingManager globally

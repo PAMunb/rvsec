@@ -5,11 +5,12 @@ This module provides common test fixtures and configuration for the
 rv-instrumentation test suite.
 """
 
-import pytest
-import tempfile
 import os
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 
 @pytest.fixture

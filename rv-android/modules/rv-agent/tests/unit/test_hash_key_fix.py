@@ -17,7 +17,6 @@ import logging
 from unittest.mock import MagicMock
 
 import pytest
-
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
     compute_screen_hash_from_description,

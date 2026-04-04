@@ -5,7 +5,6 @@ This module provides action execution capabilities using UIAutomator,
 translating GeneratedAction objects into device interactions.
 """
 
-
 from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT

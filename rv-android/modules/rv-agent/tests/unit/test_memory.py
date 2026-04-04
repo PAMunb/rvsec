@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import MagicMock
-from rv_agent.memory.memory_coordinator import MemoryCoordinator
+
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 

@@ -8,10 +8,9 @@ scenarios for the DroidBotParser class.
 from unittest.mock import patch
 
 import pytest
-
-from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
 from rv_android_core.util.error.exceptions import RVParsingError
+from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
+from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 
 
 class TestDroidBotParserEdgeCases:
@@ -19,13 +18,13 @@ class TestDroidBotParserEdgeCases:
 
     def test_empty_state_data(self, parser, mock_visitor):
         """Test handling of empty state data."""
-        with patch.object(DroidBotParser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(DroidBotParser, "create_visitor", return_value=mock_visitor):
             with pytest.raises(RVParsingError):
                 parser.parse_screen({})
 
     def test_missing_view_tree(self, parser, mock_visitor):
         """Test handling of missing view_tree in state data."""
-        with patch.object(DroidBotParser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(DroidBotParser, "create_visitor", return_value=mock_visitor):
             with pytest.raises(RVParsingError):
                 parser.parse_screen({"activity": "com.example.app.MainActivity"})
 
@@ -34,7 +33,7 @@ class TestDroidBotParserEdgeCases:
         # Test with non-dict view_tree
         state_data = {
             "activity": "com.example.app.MainActivity",
-            "view_tree": "not a dictionary"
+            "view_tree": "not a dictionary",
         }
 
         # The create_node_tree method should return None for malformed view_tree
@@ -51,8 +50,8 @@ class TestDroidBotParserEdgeCases:
             "activity": "com.example.app.MainActivity",
             "view_tree": {
                 "class": "android.widget.FrameLayout",
-                "children": ["not a dict", {"class": "android.widget.Button"}]
-            }
+                "children": ["not a dict", {"class": "android.widget.Button"}],
+            },
         }
 
         # Should still create a node but skip the invalid child
@@ -75,10 +74,8 @@ class TestDroidBotParserEdgeCases:
         state_data = {
             "activity": "com.primary.app.MainActivity",
             "stack": ["com.stack.app.StackActivity"],
-            "windows": [
-                {"focused": True, "activity": "com.window.app.WindowActivity"}
-            ],
-            "package_name": "com.package.app"
+            "windows": [{"focused": True, "activity": "com.window.app.WindowActivity"}],
+            "package_name": "com.package.app",
         }
 
         # Should prioritize direct activity field
@@ -110,7 +107,7 @@ class TestDroidBotParserEdgeCases:
 
         state_data = {
             "activity": "com.example.app.MainActivity",
-            "view_tree": view_tree
+            "view_tree": view_tree,
         }
 
         # Create node tree
@@ -132,7 +129,7 @@ class TestDroidBotParserEdgeCases:
         """Test handling of special characters in activity names."""
         state_data = {
             "activity": "com.example.app/.MainActivityWithSpecial$Characters",
-            "view_tree": {"class": "android.widget.FrameLayout", "children": []}
+            "view_tree": {"class": "android.widget.FrameLayout", "children": []},
         }
 
         activity = parser.get_activity_name(state_data)
@@ -149,12 +146,12 @@ class TestDroidBotParserEdgeCases:
                     "class": "android.widget.Button"
                     # No other attributes provided
                 }
-            ]
+            ],
         }
 
         state_data = {
             "activity": "com.example.app.MainActivity",
-            "view_tree": view_tree
+            "view_tree": view_tree,
         }
 
         # Create node tree - this should not crash
@@ -171,19 +168,19 @@ class TestDroidBotParserEdgeCases:
             "activity": "com.example.app.MainActivity",
             "stack": [
                 "com.example.app/.MainActivity",
-                "com.example.app/.SecondActivity"
+                "com.example.app/.SecondActivity",
             ],
-            "view_tree": {"class": "android.widget.FrameLayout", "children": []}
+            "view_tree": {"class": "android.widget.FrameLayout", "children": []},
         }
 
-        with patch.object(DroidBotParser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(DroidBotParser, "create_visitor", return_value=mock_visitor):
             # The parser should convert the stack activity names
             result = parser.parse_screen(state_data)
 
             # Check that stack format was converted (removed slashes)
             assert state_data["stack"] == [
                 "com.example.app.MainActivity",
-                "com.example.app.SecondActivity"
+                "com.example.app.SecondActivity",
             ]
 
             assert isinstance(result, ScreenDescription)

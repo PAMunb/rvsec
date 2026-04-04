@@ -10,7 +10,6 @@ import functools
 from typing import Any, Callable, Dict, List, Type, TypeVar
 
 from pydantic import BaseModel
-
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager

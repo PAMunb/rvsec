@@ -12,12 +12,12 @@ import errno
 import os
 import sys
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Ensure the parent directory is in the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_not_found_error import CommandNotFoundError
@@ -122,7 +122,7 @@ class TestCommand:
         process = cmd.invoke_as_deamon()
 
         assert process is not None
-        assert hasattr(process, 'pid')
+        assert hasattr(process, "pid")
         assert process.poll() is None  # Ensure process is still running
 
         # Cleanup
@@ -171,13 +171,13 @@ class TestCommand:
         - Command executes correctly with complex arguments
         """
         # Command with quotes, wildcards, etc.
-        cmd = Command("echo", ["Special * characters", "'quoted'", "\"double quoted\""])
+        cmd = Command("echo", ["Special * characters", "'quoted'", '"double quoted"'])
         result = cmd.invoke()
 
         assert result.code == 0
         assert b"Special * characters" in result.stdout
         assert b"'quoted'" in result.stdout
-        assert b"\"double quoted\"" in result.stdout
+        assert b'"double quoted"' in result.stdout
 
     def test_command_properties(self):
         """
@@ -203,7 +203,7 @@ class TestCommand:
         assert cmd.args == ["-a"]
         assert cmd.timeout == 5
 
-    @patch('subprocess.Popen')
+    @patch("subprocess.Popen")
     def test_command_error_handling(self, mock_popen):
         """
         Test error handling during command execution.
@@ -255,12 +255,12 @@ class TestCommand:
         """
         # Create temporary file
         output_file = tmpdir.join("output.txt")
-        with open(output_file, 'wb') as f:
+        with open(output_file, "wb") as f:
             cmd = Command("echo", ["File test"])
             result = cmd.invoke(stdout=f)
 
         # Verify file content
-        with open(output_file, 'rb') as f:
+        with open(output_file, "rb") as f:
             content = f.read()
 
         assert b"File test" in content
@@ -294,7 +294,7 @@ class TestCommand:
         with pytest.raises(CommandNotFoundError):
             cmd.invoke_as_deamon()
 
-    @patch('subprocess.Popen')
+    @patch("subprocess.Popen")
     def test_command_other_oserror(self, mock_popen):
         """
         Test handling of different types of OSErrors.
@@ -314,7 +314,7 @@ class TestCommand:
 
         assert "not found" in str(exc_info.value)
 
-    @patch('rv_android_core.commands.command.kill_process_tree')
+    @patch("rv_android_core.commands.command.kill_process_tree")
     def test_kill_process_method(self, mock_kill):
         """
         Test the kill_process method directly.
@@ -394,4 +394,6 @@ class TestCommandPerformance:
         # The execution time should scale approximately linearly
         # but with some overhead for the first execution
         # This is a loose test, just to catch major performance regressions
-        assert execution_time < 1.0 * iterations, f"Execution took too long: {execution_time}s for {iterations} iterations"
+        assert (
+            execution_time < 1.0 * iterations
+        ), f"Execution took too long: {execution_time}s for {iterations} iterations"

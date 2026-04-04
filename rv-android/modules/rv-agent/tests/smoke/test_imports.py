@@ -20,8 +20,7 @@ class TestImports:
 
     def test_import_agent_modules(self):
         """Agent modules import without error."""
-        from rv_agent.agent import rv_agent
-        from rv_agent.agent import agent_factory
+        from rv_agent.agent import agent_factory, rv_agent
 
         assert rv_agent is not None
         assert agent_factory is not None
@@ -47,8 +46,8 @@ class TestImports:
         """Tool modules import without error."""
         from rv_agent.llm.tools import tool_call_parser
         from rv_agent.llm.tools.tool_call_parser import (
-            parse_tool_calls_with_strategy,
             normalize_tool_args,
+            parse_tool_calls_with_strategy,
         )
 
         assert tool_call_parser is not None
@@ -57,10 +56,12 @@ class TestImports:
 
     def test_import_strategies(self):
         """Strategy modules import without error."""
-        from rv_agent.strategies import base_strategy
-        from rv_agent.strategies import dfs_strategy
-        from rv_agent.strategies import greedy_strategy
-        from rv_agent.strategies import strategy_registry
+        from rv_agent.strategies import (
+            base_strategy,
+            dfs_strategy,
+            greedy_strategy,
+            strategy_registry,
+        )
 
         assert base_strategy is not None
         assert dfs_strategy is not None
@@ -75,24 +76,21 @@ class TestImports:
 
     def test_import_memory(self):
         """Memory modules import without error."""
-        from rv_agent.memory import memory_coordinator
-        from rv_agent.memory import agent_memory
+        from rv_agent.memory import agent_memory, memory_coordinator
 
         assert memory_coordinator is not None
         assert agent_memory is not None
 
     def test_import_routing(self):
         """Routing modules import without error."""
-        from rv_agent.routing import routing_manager
-        from rv_agent.routing import fallback_manager
+        from rv_agent.routing import fallback_manager, routing_manager
 
         assert routing_manager is not None
         assert fallback_manager is not None
 
     def test_import_services(self):
         """Services modules import without error."""
-        from rv_agent.services import screen_analyzer
-        from rv_agent.services import vision_service
+        from rv_agent.services import screen_analyzer, vision_service
 
         assert screen_analyzer is not None
         assert vision_service is not None
@@ -108,11 +106,10 @@ class TestImports:
     def test_no_circular_dependencies(self):
         """No circular imports between core modules."""
         # Import all modules in different orders
-        from rv_agent.llm.llm_client import LLMClient
-        from rv_agent.config.agent_config import RVAgentConfig
-
         # Reimport in different order
+        from rv_agent.config.agent_config import RVAgentConfig
         from rv_agent.config.agent_config import RVAgentConfig as RC2
+        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.llm.llm_client import LLMClient as LC2
 
         assert RC2 is RVAgentConfig

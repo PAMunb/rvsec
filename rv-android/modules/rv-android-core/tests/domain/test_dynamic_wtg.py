@@ -6,16 +6,15 @@ and DynamicTransitionGraph classes that track runtime navigation behavior of
 Android applications.
 """
 
-import pytest
 from datetime import datetime
 from unittest.mock import Mock, patch
 
 import networkx as nx
-
+import pytest
 from rv_android_core.domain.dynamic_wtg import (
-    DynamicTransition,
     ActivityNode,
-    DynamicTransitionGraph
+    DynamicTransition,
+    DynamicTransitionGraph,
 )
 
 
@@ -59,7 +58,7 @@ class TestDynamicTransition:
         transition = DynamicTransition(
             "com.example.MainActivity",
             "com.example.SecondActivity",
-            [{"action_id": "button1", "action_type": "click"}]
+            [{"action_id": "button1", "action_type": "click"}],
         )
         original_timestamp = transition.timestamp
         initial_count = transition.count
@@ -100,7 +99,7 @@ class TestDynamicTransition:
             "target_activity": "com.example.SecondActivity",
             "actions": [{"action_id": "button1", "action_type": "click"}],
             "timestamp": "2023-01-01T12:00:00",
-            "count": 3
+            "count": 3,
         }
 
         # Act
@@ -285,7 +284,7 @@ class TestActivityNode:
             "visit_count": 5,
             "first_visit": "2023-01-01T10:00:00",
             "last_visit": "2023-01-01T12:00:00",
-            "ui_elements_tested": ["button1", "edittext1"]
+            "ui_elements_tested": ["button1", "edittext1"],
         }
 
         # Act
@@ -306,7 +305,7 @@ class TestActivityNode:
             "visit_count": 0,
             "first_visit": None,
             "last_visit": None,
-            "ui_elements_tested": []
+            "ui_elements_tested": [],
         }
 
         # Act
@@ -341,24 +340,22 @@ class TestDynamicTransitionGraph:
         actions2 = [{"action_id": "button2", "action_type": "click"}]
 
         empty_graph.record_transition(
-            "com.example.MainActivity",
-            "com.example.SecondActivity",
-            actions1
+            "com.example.MainActivity", "com.example.SecondActivity", actions1
         )
         empty_graph.record_transition(
-            "com.example.SecondActivity",
-            "com.example.ThirdActivity",
-            actions2
+            "com.example.SecondActivity", "com.example.ThirdActivity", actions2
         )
 
         return empty_graph
 
-    @patch('rv_android_core.util.logging.manager.LoggingManager')
+    @patch("rv_android_core.util.logging.manager.LoggingManager")
     def test_init(self, mock_logging_manager):
         """Test DynamicTransitionGraph initialization."""
         # Arrange
         mock_logger = Mock()
-        mock_logging_manager.get_instance.return_value.get_logger.return_value = mock_logger
+        mock_logging_manager.get_instance.return_value.get_logger.return_value = (
+            mock_logger
+        )
 
         # Act
         graph = DynamicTransitionGraph()
@@ -519,16 +516,24 @@ class TestDynamicTransitionGraph:
         empty_graph.record_action(activity_name, action_id)
 
         # Assert
-        activities_names = [activity.name for activity in empty_graph.activities.values()]
+        activities_names = [
+            activity.name for activity in empty_graph.activities.values()
+        ]
         assert expected_name in activities_names
         assert action_id in empty_graph.activities[expected_name].ui_elements_tested
 
     def test_has_edge(self, populated_graph):
         """Test checking if edge exists between activities."""
         # Act & Assert
-        assert populated_graph.has_edge("com.example.MainActivity", "com.example.SecondActivity")
-        assert populated_graph.has_edge("com.example.SecondActivity", "com.example.ThirdActivity")
-        assert not populated_graph.has_edge("com.example.MainActivity", "com.example.ThirdActivity")
+        assert populated_graph.has_edge(
+            "com.example.MainActivity", "com.example.SecondActivity"
+        )
+        assert populated_graph.has_edge(
+            "com.example.SecondActivity", "com.example.ThirdActivity"
+        )
+        assert not populated_graph.has_edge(
+            "com.example.MainActivity", "com.example.ThirdActivity"
+        )
         assert not populated_graph.has_edge("nonexistent", "activity")
 
     def test_get_unexplored_activities(self, populated_graph):
@@ -593,7 +598,9 @@ class TestDynamicTransitionGraph:
         populated_graph.record_action(activity_name, "button1")
 
         # Act
-        coverage_actions = populated_graph.get_actions_for_coverage(activity_name, current_actions)
+        coverage_actions = populated_graph.get_actions_for_coverage(
+            activity_name, current_actions
+        )
 
         # Assert
         assert "button1" not in coverage_actions  # Already tested
@@ -604,8 +611,7 @@ class TestDynamicTransitionGraph:
         """Test getting actions for coverage on nonexistent activity."""
         # Act
         coverage_actions = populated_graph.get_actions_for_coverage(
-            "nonexistent.Activity",
-            ["button1", "button2"]
+            "nonexistent.Activity", ["button1", "button2"]
         )
 
         # Assert
@@ -669,7 +675,7 @@ class TestDynamicTransitionGraph:
                     "visit_count": 2,
                     "first_visit": "2023-01-01T10:00:00",
                     "last_visit": "2023-01-01T11:00:00",
-                    "ui_elements_tested": ["button1"]
+                    "ui_elements_tested": ["button1"],
                 }
             },
             "transitions": [
@@ -678,10 +684,10 @@ class TestDynamicTransitionGraph:
                     "target_activity": "com.example.SecondActivity",
                     "actions": [{"action_id": "button1", "action_type": "click"}],
                     "timestamp": "2023-01-01T10:30:00",
-                    "count": 1
+                    "count": 1,
                 }
             ],
-            "current_activity": "com.example.MainActivity"
+            "current_activity": "com.example.MainActivity",
         }
 
         # Act
@@ -698,11 +704,7 @@ class TestDynamicTransitionGraph:
     def test_from_dict_empty_data(self):
         """Test creation from empty dictionary."""
         # Arrange
-        data = {
-            "activities": {},
-            "transitions": [],
-            "current_activity": None
-        }
+        data = {"activities": {}, "transitions": [], "current_activity": None}
 
         # Act
         graph = DynamicTransitionGraph.from_dict(data)
@@ -716,9 +718,7 @@ class TestDynamicTransitionGraph:
         """Test recording transition when no current activity is set."""
         # Act
         result = empty_graph.record_current_to_next(
-            "com.example.SecondActivity",
-            "button1",
-            "click"
+            "com.example.SecondActivity", "button1", "click"
         )
 
         # Assert
@@ -731,9 +731,7 @@ class TestDynamicTransitionGraph:
 
         # Act
         result = empty_graph.record_current_to_next(
-            "com.example.SecondActivity",
-            "button1",
-            "click"
+            "com.example.SecondActivity", "button1", "click"
         )
 
         # Assert

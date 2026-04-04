@@ -5,8 +5,8 @@ Verifies NavigationGuidance.format_for_llm() produces MOP-specific hints
 when static analysis data is available.
 """
 
-from unittest.mock import MagicMock
 from dataclasses import dataclass
+from unittest.mock import MagicMock
 
 from rv_agent.services.navigation_guidance import NavigationGuidance
 

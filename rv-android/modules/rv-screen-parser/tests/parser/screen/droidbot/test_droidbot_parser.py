@@ -10,7 +10,6 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Windows
@@ -56,7 +55,7 @@ def sample_state_file():
 @pytest.fixture
 def sample_state_data(sample_state_file):
     """Fixture that provides the content of the sample DroidBot state file."""
-    with open(sample_state_file, 'r') as f:
+    with open(sample_state_file, "r") as f:
         return json.load(f)
 
 
@@ -90,10 +89,7 @@ class TestDroidBotParserBasics:
 
     def test_get_activity_from_stack(self, parser):
         """Test extracting activity from stack when activity field is empty."""
-        state_data = {
-            "activity": "",
-            "stack": ["com.example.app/.MainActivity"]
-        }
+        state_data = {"activity": "", "stack": ["com.example.app/.MainActivity"]}
         activity = parser.get_activity_name(state_data)
         assert activity == "com.example.app.MainActivity"
 
@@ -104,17 +100,15 @@ class TestDroidBotParserBasics:
             "stack": [],
             "windows": [
                 {"focused": True, "activity": "com.example.app/.MainActivity"},
-                {"focused": False, "activity": "com.example.app/.OtherActivity"}
-            ]
+                {"focused": False, "activity": "com.example.app/.OtherActivity"},
+            ],
         }
         activity = parser.get_activity_name(state_data)
         assert activity == "com.example.app.MainActivity"
 
     def test_activity_fallback(self, parser):
         """Test fallback to package name when no activity info is available."""
-        state_data = {
-            "package_name": "com.example.app"
-        }
+        state_data = {"package_name": "com.example.app"}
         activity = parser.get_activity_name(state_data)
         assert activity == "com.example.app.UnknownActivity"
 
@@ -133,7 +127,7 @@ class TestDroidBotParserBasics:
 
         # Check the root node
         assert isinstance(root_node, Node)
-        assert hasattr(root_node, 'view_class')
+        assert hasattr(root_node, "view_class")
         assert "FrameLayout" in root_node.view_class
 
         # Check that we have children
@@ -153,18 +147,18 @@ class TestDroidBotParserBasics:
 class TestDroidBotParserIntegration:
     """Integration tests for the DroidBotParser."""
 
-    def test_parse_implementation(self, parser, sample_state_data, static_data, mock_visitor):
+    def test_parse_implementation(
+        self, parser, sample_state_data, static_data, mock_visitor
+    ):
         """Test the _parse_implementation method."""
-        with patch.object(DroidBotParser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(DroidBotParser, "create_visitor", return_value=mock_visitor):
             # Configure the mock_visitor
             mock_visitor.get_screen_description.return_value = ScreenDescription(
                 "br.unb.cic.cryptoapp.MainActivity", []
             )
 
             result = parser._parse_implementation(
-                sample_state_data,
-                static_data,
-                "br.unb.cic.cryptoapp.MainActivity"
+                sample_state_data, static_data, "br.unb.cic.cryptoapp.MainActivity"
             )
 
             assert isinstance(result, ScreenDescription)
@@ -172,7 +166,7 @@ class TestDroidBotParserIntegration:
 
     def test_parse_screen(self, parser, sample_state_data, mock_visitor):
         """Test the parse_screen method."""
-        with patch.object(DroidBotParser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(DroidBotParser, "create_visitor", return_value=mock_visitor):
             # Configure the mock_visitor
             mock_visitor.get_screen_description.return_value = ScreenDescription(
                 "br.unb.cic.cryptoapp.MainActivity", []
@@ -188,7 +182,9 @@ class TestDroidBotParserIntegration:
         with pytest.raises(RVParsingError):
             parser.parse_screen({})  # Missing view_tree
 
-    def test_basic_visitor_integration(self, parser_with_basic_visitor, sample_state_data):
+    def test_basic_visitor_integration(
+        self, parser_with_basic_visitor, sample_state_data
+    ):
         """Test DroidBotParser with BasicTextVisitor."""
         result = parser_with_basic_visitor.parse_screen(sample_state_data)
 
@@ -199,7 +195,9 @@ class TestDroidBotParserIntegration:
         assert len(result.items) > 0
 
         # Check that buttons are captured
-        button_items = [item for item in result.items if "Button" in item.base_description]
+        button_items = [
+            item for item in result.items if "Button" in item.base_description
+        ]
         assert len(button_items) >= 3  # At least 3 buttons from the sample
 
         # Check for action items
@@ -216,7 +214,7 @@ class TestDroidBotParserNodeProcessing:
         # Find a button node to test
         def find_button_node(node):
             """Helper to find a button node."""
-            if hasattr(node, 'view_class') and "Button" in node.view_class:
+            if hasattr(node, "view_class") and "Button" in node.view_class:
                 return node
             for child in node.children:
                 result = find_button_node(child)
@@ -228,9 +226,9 @@ class TestDroidBotParserNodeProcessing:
         assert button_node is not None
 
         # Check button attributes
-        assert hasattr(button_node, 'clickable')
+        assert hasattr(button_node, "clickable")
         assert button_node.clickable is True
-        assert hasattr(button_node, 'view_text')
+        assert hasattr(button_node, "view_text")
         assert button_node.view_text in ["MESSAGE DIGEST", "CIPHER", "GENERATED"]
 
     def test_node_recursion(self, parser, sample_state_data):
@@ -252,7 +250,7 @@ class TestDroidBotParserNodeProcessing:
         # Find a node with specific bounds to test
         def find_node_with_bounds(node, bounds):
             """Helper to find a node with specific bounds."""
-            if hasattr(node, 'bounds') and node.bounds == bounds:
+            if hasattr(node, "bounds") and node.bounds == bounds:
                 return node
             for child in node.children:
                 result = find_node_with_bounds(child, bounds)
@@ -267,4 +265,3 @@ class TestDroidBotParserNodeProcessing:
         # Check center coordinates
         center = button_node.center_coordinates
         assert center == (540, 273)  # Center of the button
-       

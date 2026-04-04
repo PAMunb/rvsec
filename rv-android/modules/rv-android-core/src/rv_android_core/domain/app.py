@@ -11,7 +11,6 @@ from typing import List, Optional
 
 from androguard.core.bytecodes.apk import APK
 from pydantic import Field, computed_field, field_validator
-
 from rv_android_core.util.android.package_detector import (
     PackageDetectionResult,
     PackageDetector,

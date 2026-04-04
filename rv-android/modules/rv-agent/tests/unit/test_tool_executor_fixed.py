@@ -5,8 +5,9 @@ Tests the ToolExecutor class which handles execution of various tools/actions on
 Based on the actual implementation.
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 from rv_agent.execution.tool_executor import ToolExecutor
 
 

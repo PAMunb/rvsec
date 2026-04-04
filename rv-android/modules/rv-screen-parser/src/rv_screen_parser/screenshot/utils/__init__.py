@@ -8,7 +8,4 @@ validation, and spatial analysis operations.
 
 from .geometry_utils import GeometryUtils, get_geometry_utils
 
-__all__ = [
-    'GeometryUtils',
-    'get_geometry_utils'
-]
+__all__ = ["GeometryUtils", "get_geometry_utils"]

@@ -7,7 +7,6 @@ uses tool_execution_start (not task creation time) for accurate relative timesta
 from unittest.mock import MagicMock
 
 import pytest
-
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_platform.components.coverage import CoverageComponent

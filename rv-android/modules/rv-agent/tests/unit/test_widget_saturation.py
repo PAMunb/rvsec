@@ -6,7 +6,6 @@ saturation on screens with diverse interactive elements.
 """
 
 import pytest
-
 from rv_agent.domain.screen_node import (
     DEFAULT_SATURATION_THRESHOLD,
     MULTI_VALUE_WIDGETS,

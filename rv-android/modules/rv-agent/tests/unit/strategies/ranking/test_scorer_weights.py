@@ -9,13 +9,14 @@ Verifies FR27 Updated Default Weights:
 - Gumbel-max sampling behavior
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     MopScorer,
-    WtgScorer,
     VisitationPenaltyScorer,
+    WtgScorer,
 )
 
 
@@ -62,6 +63,7 @@ class TestScorerWeightDefaults:
     def test_stochastic_gumbel_sampling_with_015(self, config):
         """With stochastic_probability=0.15, top-scored action wins ~85% of time."""
         import random
+
         from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import (
             ActionRanker,
         )

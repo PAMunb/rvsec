@@ -1,14 +1,20 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType, Widget
-from rv_android_core.domain.window import Windows, Window
+from rv_android_core.domain.widget import Widget, WidgetEventType
+from rv_android_core.domain.window import Window, Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import (
+    AbstractScreenVisitor,
+)
+from rv_screen_parser.parser.screen.visitor.model import (
+    ItemAction,
+    Node,
+    ScreenDescription,
+    ScreenItem,
+)
 
 
 class MockScreenVisitor(AbstractScreenVisitor):
@@ -74,7 +80,9 @@ class TestAbstractScreenVisitor:
     @pytest.fixture(autouse=True)
     def setup_logging(self):
         """Fixture to set up logging and suppress log messages during tests"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging_manager:
+        with patch(
+            "rv_android_core.util.logging.manager.LoggingManager"
+        ) as mock_logging_manager:
             mock_logger = MagicMock()
             mock_logging_manager.get_instance.return_value = mock_logging_manager
             mock_logging_manager.get_logger.return_value = mock_logger
@@ -127,7 +135,7 @@ class TestAbstractScreenVisitor:
             "clickable": True,
             "bounds": [[10, 10], [100, 50]],
             "enabled": True,
-            "focused": False
+            "focused": False,
         }
         return Node(data)
 
@@ -138,7 +146,7 @@ class TestAbstractScreenVisitor:
             "class": "android.widget.LinearLayout",
             "resource_id": "parent_layout",
             "clickable": True,
-            "bounds": [[0, 0], [200, 100]]
+            "bounds": [[0, 0], [200, 100]],
         }
         return Node(data)
 
@@ -254,18 +262,22 @@ class TestAbstractScreenVisitor:
     def test_should_exclude_system_button(self, visitor):
         """Test should_exclude_system_button method"""
         # System button node
-        system_button = Node({
-            "resource_id": "com.android.systemui:id/home",
-            "class": "android.widget.Button",
-            "package": "com.android.systemui"
-        })
+        system_button = Node(
+            {
+                "resource_id": "com.android.systemui:id/home",
+                "class": "android.widget.Button",
+                "package": "com.android.systemui",
+            }
+        )
 
         # Regular app button
-        app_button = Node({
-            "resource_id": "com.example.app:id/my_button",
-            "class": "android.widget.Button",
-            "package": "com.example.app"
-        })
+        app_button = Node(
+            {
+                "resource_id": "com.example.app:id/my_button",
+                "class": "android.widget.Button",
+                "package": "com.example.app",
+            }
+        )
 
         assert visitor.should_exclude_system_button(system_button) is True
         assert visitor.should_exclude_system_button(app_button) is False

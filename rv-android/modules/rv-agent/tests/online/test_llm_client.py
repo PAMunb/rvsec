@@ -4,13 +4,14 @@ LLM client integration tests with SGLang.
 Tests LLM functionality via AgentFactory and RVAgent.
 """
 
-import pytest
-import time
 import base64
+import time
 
-from rv_agent.config.agent_config import RVAgentConfig
+import pytest
 from rv_agent.agent.agent_factory import AgentFactory
-from .conftest import DATASET_ROOT, DEVICE_ID, SGLANG_URL, SGLANG_MODEL
+from rv_agent.config.agent_config import RVAgentConfig
+
+from .conftest import DATASET_ROOT, DEVICE_ID, SGLANG_MODEL, SGLANG_URL
 
 pytestmark = [pytest.mark.online, pytest.mark.sglang]
 
@@ -30,8 +31,8 @@ class TestSGLangConnectivity:
 
     def test_text_generation(self, sglang_url, sglang_model, check_sglang):
         """SGLang can generate text."""
-        from langchain_openai import ChatOpenAI
         from langchain_core.messages import HumanMessage
+        from langchain_openai import ChatOpenAI
 
         llm = ChatOpenAI(
             base_url=sglang_url,
@@ -48,8 +49,8 @@ class TestSGLangConnectivity:
 
     def test_response_latency(self, sglang_url, sglang_model, check_sglang):
         """Response latency is acceptable."""
-        from langchain_openai import ChatOpenAI
         from langchain_core.messages import HumanMessage
+        from langchain_openai import ChatOpenAI
 
         llm = ChatOpenAI(
             base_url=sglang_url,
@@ -125,8 +126,8 @@ class TestToolCalling:
 
     def test_tool_binding(self, sglang_url, sglang_model, check_sglang):
         """SGLang supports tool binding."""
-        from langchain_openai import ChatOpenAI
         from langchain_core.tools import tool
+        from langchain_openai import ChatOpenAI
 
         @tool
         def android_click(x: int, y: int, element_description: str = "") -> str:
@@ -147,9 +148,9 @@ class TestToolCalling:
 
     def test_tool_call_generation(self, sglang_url, sglang_model, check_sglang):
         """SGLang generates tool calls."""
-        from langchain_openai import ChatOpenAI
         from langchain_core.messages import HumanMessage
         from langchain_core.tools import tool
+        from langchain_openai import ChatOpenAI
 
         @tool
         def android_click(x: int, y: int, element_description: str = "") -> str:
@@ -195,8 +196,8 @@ class TestVisionCapability:
 
     def test_image_in_message(self, sglang_url, sglang_model, check_sglang):
         """SGLang accepts image in message."""
-        from langchain_openai import ChatOpenAI
         from langchain_core.messages import HumanMessage
+        from langchain_openai import ChatOpenAI
 
         # Load real screenshot from dataset
         screenshot_path = DATASET_ROOT / "cryptoapp.apk" / "screenshot_001.png"

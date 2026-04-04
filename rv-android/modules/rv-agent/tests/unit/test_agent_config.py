@@ -2,8 +2,9 @@
 Unit tests for the RVAgentConfig model.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 from rv_agent.config.agent_config import RVAgentConfig
 
 

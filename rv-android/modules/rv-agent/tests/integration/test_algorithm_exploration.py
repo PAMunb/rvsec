@@ -9,27 +9,26 @@ Tests DFS algorithm exploration using real screenshots and UIAutomator dumps to 
 - Coordinate-based action tracking
 """
 
-import pytest
 from pathlib import Path
 from typing import List, Tuple
 
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
-    UIAutomator2Parser,
-)
-from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
-
+import pytest
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
     ScreenNode,
     compute_screen_hash_from_description,
 )
-from rv_agent.strategies.dfs_strategy import DFSStrategy
 from rv_agent.memory.agent_memory import AgentMemoryManager
-from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.memory.long_term import LongTermMemory
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
 from rv_agent.memory.short_term import ShortTermMemory
-from rv_agent.memory.long_term import LongTermMemory
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.strategies.dfs_strategy import DFSStrategy
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
+from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 pytestmark = pytest.mark.integration
 

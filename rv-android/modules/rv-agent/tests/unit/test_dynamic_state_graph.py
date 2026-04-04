@@ -5,10 +5,10 @@ Tests state tracking, coordinate-based action identification, coverage computati
 transition history, and graph reporting with comprehensive scenarios.
 """
 
-import pytest
 import time
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.agent.dynamic_state_graph import (
     DynamicStateGraph,
     ScreenNode,

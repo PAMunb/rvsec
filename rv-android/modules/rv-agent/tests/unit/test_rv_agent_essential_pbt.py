@@ -4,22 +4,23 @@ Simple, focused property-based tests for the most critical RVAgent components us
 This test suite focuses on the most essential properties that should hold regardless of inputs.
 """
 
-import pytest
-from hypothesis import given, strategies as st, settings, HealthCheck
-from unittest.mock import MagicMock
 import time
+from unittest.mock import MagicMock
 
-from rv_agent.agent.rv_agent import RVAgent
-from rv_agent.config.agent_config import RVAgentConfig
+import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.services.vision_service import ImageHandler
-from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.llm.llm_client import LLMClient
-from rv_agent.routing.routing_manager import RoutingManager
+from rv_agent.agent.rv_agent import RVAgent
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.execution.tool_executor import ToolExecutor
+from rv_agent.llm.llm_client import LLMClient
 from rv_agent.memory.memory_coordinator import MemoryCoordinator
+from rv_agent.routing.routing_manager import RoutingManager
+from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_agent.services.vision_service import ImageHandler
+from rv_agent.strategies.base_strategy import ExplorationStrategy
 
 # Define simple strategies for generating test data
 agent_modes = st.sampled_from(["pure_algorithm", "multimode"])

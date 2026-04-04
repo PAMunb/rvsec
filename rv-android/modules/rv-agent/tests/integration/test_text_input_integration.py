@@ -7,10 +7,10 @@ in InputValueGenerator via learn_node.
 
 from unittest.mock import MagicMock
 
+from rv_agent.agent.nodes.learn_node import _track_llm_text_value
 from rv_agent.strategies.rvagent_strategy.input_value_generator import (
     InputValueGenerator,
 )
-from rv_agent.agent.nodes.learn_node import _track_llm_text_value
 
 
 class TestClearBeforeType:

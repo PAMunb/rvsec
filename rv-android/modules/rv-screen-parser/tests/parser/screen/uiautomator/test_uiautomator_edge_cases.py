@@ -5,13 +5,14 @@ This module contains tests for various edge cases and error handling
 scenarios for the UIAutomator2Parser class.
 """
 
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 import pytest
-
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, Node
 from rv_android_core.util.error.exceptions import RVParsingError
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
+from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 
 
 @pytest.fixture
@@ -33,11 +34,13 @@ class TestUIAutomator2ParserEdgeCases:
 
     def test_empty_xml(self, parser, mock_visitor):
         """Test handling of empty XML content."""
-        with patch.object(UIAutomator2Parser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(
+            UIAutomator2Parser, "create_visitor", return_value=mock_visitor
+        ):
             # Empty but valid XML
             state_data = {
                 "hierarchy": "<hierarchy></hierarchy>",
-                "activity": "TestActivity"
+                "activity": "TestActivity",
             }
 
             # Should not raise an exception
@@ -49,9 +52,7 @@ class TestUIAutomator2ParserEdgeCases:
     def test_missing_required_fields(self, parser):
         """Test handling of missing required fields in state data."""
         # State data without hierarchy
-        state_data = {
-            "activity": "TestActivity"
-        }
+        state_data = {"activity": "TestActivity"}
 
         with pytest.raises(RVParsingError):
             parser.parse_screen(state_data)
@@ -59,10 +60,7 @@ class TestUIAutomator2ParserEdgeCases:
     def test_invalid_xml_format(self, parser):
         """Test handling of invalid XML format."""
         # Invalid XML
-        state_data = {
-            "hierarchy": "<hierarchy><unclosed>",
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": "<hierarchy><unclosed>", "activity": "TestActivity"}
 
         with pytest.raises(RVParsingError):
             parser.parse_screen(state_data)
@@ -78,13 +76,12 @@ class TestUIAutomator2ParserEdgeCases:
         </hierarchy>
         """
 
-        state_data = {
-            "hierarchy": xml_str,
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": xml_str, "activity": "TestActivity"}
 
         # Create the visitor
-        with patch.object(UIAutomator2Parser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(
+            UIAutomator2Parser, "create_visitor", return_value=mock_visitor
+        ):
             # Should not raise an exception for unknown attributes
             result = parser.parse_screen(state_data)
 
@@ -100,10 +97,7 @@ class TestUIAutomator2ParserEdgeCases:
         </hierarchy>
         """
 
-        state_data = {
-            "hierarchy": xml_str,
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": xml_str, "activity": "TestActivity"}
 
         # Create node tree directly
         node = parser.create_node_tree(state_data)
@@ -137,14 +131,11 @@ class TestUIAutomator2ParserEdgeCases:
         for i in range(20):  # 20 levels of nesting
             xml_parts.append(f'<node id="level{i}">')
         for i in range(20):
-            xml_parts.append('</node>')
+            xml_parts.append("</node>")
         xml_parts.append("</hierarchy>")
 
         xml_str = "".join(xml_parts)
-        state_data = {
-            "hierarchy": xml_str,
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": xml_str, "activity": "TestActivity"}
 
         # Create node tree
         node = parser.create_node_tree(state_data)
@@ -172,10 +163,7 @@ class TestUIAutomator2ParserEdgeCases:
         </hierarchy>
         """
 
-        state_data = {
-            "hierarchy": xml_str,
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": xml_str, "activity": "TestActivity"}
 
         # Create node tree
         node = parser.create_node_tree(state_data)
@@ -200,10 +188,7 @@ class TestUIAutomator2ParserEdgeCases:
         </hierarchy>
         """
 
-        state_data = {
-            "hierarchy": xml_str,
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": xml_str, "activity": "TestActivity"}
 
         # Create node tree
         node = parser.create_node_tree(state_data)
@@ -234,12 +219,11 @@ class TestUIAutomator2ParserEdgeCases:
         xml_parts.append("</hierarchy>")
 
         xml_str = "".join(xml_parts)
-        state_data = {
-            "hierarchy": xml_str,
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": xml_str, "activity": "TestActivity"}
 
-        with patch.object(UIAutomator2Parser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(
+            UIAutomator2Parser, "create_visitor", return_value=mock_visitor
+        ):
             # Should handle large XML without timeouts
             result = parser.parse_screen(state_data)
             assert isinstance(result, ScreenDescription)
@@ -254,10 +238,7 @@ class TestUIAutomator2ParserEdgeCases:
         </ns:hierarchy>
         """
 
-        state_data = {
-            "hierarchy": xml_str,
-            "activity": "TestActivity"
-        }
+        state_data = {"hierarchy": xml_str, "activity": "TestActivity"}
 
         # Skip this specific assertion for now
         # The actual behavior may vary depending on the XML parser implementation
@@ -273,16 +254,21 @@ class TestUIAutomator2ParserEdgeCases:
                 "top": 1600,
                 "left": 0,
                 "right": 1080,
-                "bottom": 1920
-            }
+                "bottom": 1920,
+            },
         }
 
-        with patch.object(UIAutomator2Parser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(
+            UIAutomator2Parser, "create_visitor", return_value=mock_visitor
+        ):
             # Should pass system_navigation_bounds to the visitor
             parser.parse_screen(state_data)
 
             # Check that the bounds were passed to the visitor
-            assert mock_visitor.system_navigation_bounds == state_data["system_navigation_bounds"]
+            assert (
+                mock_visitor.system_navigation_bounds
+                == state_data["system_navigation_bounds"]
+            )
 
     def test_device_info(self, parser, mock_visitor):
         """Test handling of device info."""
@@ -294,11 +280,13 @@ class TestUIAutomator2ParserEdgeCases:
                 "displayWidth": 1080,
                 "displayHeight": 1920,
                 "density": 2.0,
-                "api_level": 28
-            }
+                "api_level": 28,
+            },
         }
 
-        with patch.object(UIAutomator2Parser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(
+            UIAutomator2Parser, "create_visitor", return_value=mock_visitor
+        ):
             # Should pass device_info to the visitor
             parser.parse_screen(state_data)
 

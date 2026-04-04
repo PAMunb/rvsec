@@ -10,31 +10,31 @@ Tests the autonomous Android exploration agent including:
 - Execution loop
 """
 
-import pytest
 import time
 from unittest.mock import MagicMock, patch
 
-from rv_agent.agent.rv_agent import RVAgent
-from rv_agent.agent.nodes import (
-    parse_ui_node,
-    decision_router_node,
-    algorithm_node,
-    capture_screenshot_node,
-    llm_generate_node,
-    validate_action_node,
-    execute_node,
-    learn_node,
-)
-from rv_agent.config.agent_config import RVAgentConfig
+import pytest
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.services.vision_service import ImageHandler
-from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.llm.llm_client import LLMClient
-from rv_agent.execution.tool_executor import ToolExecutor
-from rv_agent.memory.memory_coordinator import MemoryCoordinator
+from rv_agent.agent.nodes import (
+    algorithm_node,
+    capture_screenshot_node,
+    decision_router_node,
+    execute_node,
+    learn_node,
+    llm_generate_node,
+    parse_ui_node,
+    validate_action_node,
+)
+from rv_agent.agent.rv_agent import RVAgent
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.action import ActionNormalizer
+from rv_agent.execution.tool_executor import ToolExecutor
+from rv_agent.llm.llm_client import LLMClient
+from rv_agent.memory.memory_coordinator import MemoryCoordinator
+from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_agent.services.vision_service import ImageHandler
+from rv_agent.strategies.base_strategy import ExplorationStrategy
 
 
 @pytest.fixture

@@ -10,7 +10,6 @@ that don't match ExperimentConfig — it is dead code and not tested.
 """
 
 import pytest
-
 from rv_experiment.factories.configuration_factory import ConfigurationFactory
 
 
@@ -44,7 +43,9 @@ class TestParseToolSpecifications:
 
     def test_tool_with_parameters(self, factory):
         """FR16 scenario: tool with parameters via @ syntax."""
-        result = factory.parse_tool_specifications(["rvagent:multimode@temperature=0.3"])
+        result = factory.parse_tool_specifications(
+            ["rvagent:multimode@temperature=0.3"]
+        )
         assert result[0]["name"] == "rvagent"
         assert result[0]["variants"] == ["multimode"]
         assert result[0]["parameters"] == {"temperature": "0.3"}

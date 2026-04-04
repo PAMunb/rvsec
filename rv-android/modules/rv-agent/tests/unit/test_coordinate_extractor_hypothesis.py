@@ -3,8 +3,8 @@ Property-based tests for the coordinate_extractor service using Hypothesis.
 """
 
 import pytest
-from hypothesis import given, strategies as st
-
+from hypothesis import given
+from hypothesis import strategies as st
 from rv_agent.services import coordinate_extractor
 
 # --- Strategies for generating coordinates and bounds ---

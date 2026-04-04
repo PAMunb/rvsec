@@ -16,10 +16,9 @@ d = Device(sys.argv[1])
 # 	print "error direction?"
 
 # scroll forward or backward
-if sys.argv[2] == 'up':
+if sys.argv[2] == "up":
     d(scrollable=True).scroll.vert.backward()
-elif sys.argv[2] == 'down':
+elif sys.argv[2] == "down":
     d(scrollable=True).scroll.vert.forward()
 else:
     print("error direction?")
-

@@ -17,7 +17,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from pydantic import Field
-
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model

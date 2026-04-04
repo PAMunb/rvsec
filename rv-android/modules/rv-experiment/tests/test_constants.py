@@ -11,7 +11,9 @@ rv_experiment.constants module are working correctly.
 """
 
 import os
+
 from rv_experiment import constants
+
 
 class TestConstants:
     """
@@ -43,7 +45,10 @@ class TestConstants:
         experiment_id = "test_experiment"
         apk_name = "test_app.apk"
         expected_path = os.path.join(results_dir, experiment_id, apk_name)
-        assert constants.get_apk_results_dir(results_dir, experiment_id, apk_name) == expected_path
+        assert (
+            constants.get_apk_results_dir(results_dir, experiment_id, apk_name)
+            == expected_path
+        )
 
     def test_get_static_analysis_source_path(self):
         """
@@ -52,8 +57,13 @@ class TestConstants:
         output_dir = "out"
         apk_name = "test_app"
         extension = ".json"
-        expected_path = os.path.join(output_dir, constants.STATIC_ANALYSIS_DIR, f"{apk_name}{extension}")
-        assert constants.get_static_analysis_source_path(output_dir, apk_name, extension) == expected_path
+        expected_path = os.path.join(
+            output_dir, constants.STATIC_ANALYSIS_DIR, f"{apk_name}{extension}"
+        )
+        assert (
+            constants.get_static_analysis_source_path(output_dir, apk_name, extension)
+            == expected_path
+        )
 
     def test_get_instrumented_apk_path(self):
         """
@@ -61,5 +71,9 @@ class TestConstants:
         """
         output_dir = "out"
         apk_name = "test_app.apk"
-        expected_path = os.path.join(output_dir, constants.INSTRUMENTED_APKS_DIR, apk_name)
-        assert constants.get_instrumented_apk_path(output_dir, apk_name) == expected_path
+        expected_path = os.path.join(
+            output_dir, constants.INSTRUMENTED_APKS_DIR, apk_name
+        )
+        assert (
+            constants.get_instrumented_apk_path(output_dir, apk_name) == expected_path
+        )

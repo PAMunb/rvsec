@@ -4,15 +4,15 @@ import threading
 import time
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.android.repository_initializer import (
     initialize_repository_from_static_data,
 )
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 

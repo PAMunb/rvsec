@@ -6,19 +6,29 @@ This test suite covers edge cases, error scenarios, and specific handler behavio
 that are not covered by the main test suite. Focus on increasing coverage
 for uncovered lines in the error handler module.
 """
-import pytest
-import threading
-from unittest.mock import Mock, patch
-from contextlib import contextmanager
 
+import threading
+from contextlib import contextmanager
+from unittest.mock import Mock, patch
+
+import pytest
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import (
-    RVAndroidError, RVToolError, RVExperimentError,
-    RVParsingError, RVValidationError,
-    CommandValidationError, LogcatValidationError, EventProcessingError,
-    RVCommandTimeoutError, JarNotFoundError,
-    ToolNotFoundError, ToolRegistrationError,
-    RVToolTimeoutError, RVToolExecutionError, ConfigurationError
+    CommandValidationError,
+    ConfigurationError,
+    EventProcessingError,
+    JarNotFoundError,
+    LogcatValidationError,
+    RVAndroidError,
+    RVCommandTimeoutError,
+    RVExperimentError,
+    RVParsingError,
+    RVToolError,
+    RVToolExecutionError,
+    RVToolTimeoutError,
+    RVValidationError,
+    ToolNotFoundError,
+    ToolRegistrationError,
 )
 
 
@@ -35,7 +45,9 @@ class TestErrorHandlerComprehensive:
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing."""
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -130,13 +142,17 @@ class TestErrorHandlerComprehensive:
 
     def test_rv_command_timeout_error_propagated(self, error_handler):
         """Test RVCommandTimeoutError is propagated (returns False)."""
-        error = RVCommandTimeoutError("Command timed out", timeout_seconds=30, command="adb shell")
+        error = RVCommandTimeoutError(
+            "Command timed out", timeout_seconds=30, command="adb shell"
+        )
         result = error_handler.handle_error(error)
         assert result is False
 
     def test_jar_not_found_error_propagated(self, error_handler):
         """Test JarNotFoundError is propagated (returns False)."""
-        error = JarNotFoundError("JAR not found", jar_name="test.jar", search_paths=["/path1", "/path2"])
+        error = JarNotFoundError(
+            "JAR not found", jar_name="test.jar", search_paths=["/path1", "/path2"]
+        )
         result = error_handler.handle_error(error)
         assert result is False
 
@@ -152,9 +168,10 @@ class TestErrorHandlerComprehensive:
         """Test Pydantic ValidationError is not absorbed by generic exception handler."""
         try:
             from pydantic_core import ValidationError as PydanticValidationError
+
             error = PydanticValidationError.from_exception_data(
                 "ValidationError",
-                [{"type": "missing", "loc": ("field",), "msg": "Field required"}]
+                [{"type": "missing", "loc": ("field",), "msg": "Field required"}],
             )
             result = error_handler.handle_error(error)
             assert result is False
@@ -220,7 +237,9 @@ class TestErrorHandlerComprehensive:
 
     def test_command_timeout_error_with_context(self, error_handler):
         """Test RVCommandTimeoutError with detailed context."""
-        error = RVCommandTimeoutError("Command timed out", timeout_seconds=30, command="adb shell")
+        error = RVCommandTimeoutError(
+            "Command timed out", timeout_seconds=30, command="adb shell"
+        )
         context = {"component": "ADBManager", "operation": "shell_command"}
         result = error_handler.handle_error(error, context)
         assert result is False
@@ -230,7 +249,7 @@ class TestErrorHandlerComprehensive:
         error = JarNotFoundError(
             "JAR not found",
             jar_name="test.jar",
-            search_paths=["/path1", "/path2", "/path3"]
+            search_paths=["/path1", "/path2", "/path3"],
         )
         context = {"component": "JarResolver", "tool_name": "test_tool"}
         result = error_handler.handle_error(error, context)
@@ -259,7 +278,9 @@ class TestErrorHandlerComprehensive:
         result = error_handler.handle_error(error, context)
         assert result is True
 
-    def test_log_error_with_rv_android_error_and_cause(self, error_handler, mock_logging_manager):
+    def test_log_error_with_rv_android_error_and_cause(
+        self, error_handler, mock_logging_manager
+    ):
         """Test logging RVAndroidError with cause."""
         _, _, mock_logger = mock_logging_manager
 
@@ -286,7 +307,9 @@ class TestErrorHandlerComprehensive:
         assert "Timeout:" in args[0]
         assert "exc_info" not in kwargs
 
-    def test_log_error_with_command_timeout_error(self, error_handler, mock_logging_manager):
+    def test_log_error_with_command_timeout_error(
+        self, error_handler, mock_logging_manager
+    ):
         """Test logging command timeout errors uses WARNING level (no stacktrace)."""
         _, _, mock_logger = mock_logging_manager
 
@@ -299,7 +322,9 @@ class TestErrorHandlerComprehensive:
         assert "Timeout:" in args[0]
         assert "exc_info" not in kwargs
 
-    def test_log_error_non_timeout_still_uses_error_level(self, error_handler, mock_logging_manager):
+    def test_log_error_non_timeout_still_uses_error_level(
+        self, error_handler, mock_logging_manager
+    ):
         """Test that non-timeout errors still log at ERROR level with exc_info."""
         _, _, mock_logger = mock_logging_manager
 
@@ -367,7 +392,9 @@ class TestParametrizedErrorHandling:
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing."""
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -390,70 +417,99 @@ class TestParametrizedErrorHandling:
         """Create ErrorHandler instance for testing."""
         return ErrorHandler.get_instance()
 
-    @pytest.mark.parametrize("error_message,tool_name,timeout_seconds", [
-        ("Timeout", "monkey", 60),
-        ("Tool execution timeout", "droidbot", 120),
-        ("Long timeout", "ui_automator", 300),
-        ("Short timeout", "espresso", 30),
-        ("Very long name tool timeout", "very_long_tool_name_for_testing", 600)
-    ])
-    def test_tool_timeout_error_parametrized(self, error_handler, error_message, tool_name, timeout_seconds):
+    @pytest.mark.parametrize(
+        "error_message,tool_name,timeout_seconds",
+        [
+            ("Timeout", "monkey", 60),
+            ("Tool execution timeout", "droidbot", 120),
+            ("Long timeout", "ui_automator", 300),
+            ("Short timeout", "espresso", 30),
+            ("Very long name tool timeout", "very_long_tool_name_for_testing", 600),
+        ],
+    )
+    def test_tool_timeout_error_parametrized(
+        self, error_handler, error_message, tool_name, timeout_seconds
+    ):
         """Parametrized test for tool timeout errors (all absorbed)."""
         error = RVToolTimeoutError(error_message, tool_name, timeout_seconds)
         result = error_handler.handle_error(error)
         assert result is True
 
-    @pytest.mark.parametrize("error_message,jar_name,search_paths", [
-        ("JAR not found", "test.jar", ["/path1", "/path2"]),
-        ("Missing dependency", "lib.jar", ["/usr/lib", "/opt/lib"]),
-        ("Tool JAR missing", "tool.jar", []),
-        ("Complex path JAR", "complex-name.jar", ["/very/long/path/to/search", "/another/path"]),
-        ("Single path search", "simple.jar", ["/single/path"])
-    ])
-    def test_jar_not_found_error_parametrized(self, error_handler, error_message, jar_name, search_paths):
+    @pytest.mark.parametrize(
+        "error_message,jar_name,search_paths",
+        [
+            ("JAR not found", "test.jar", ["/path1", "/path2"]),
+            ("Missing dependency", "lib.jar", ["/usr/lib", "/opt/lib"]),
+            ("Tool JAR missing", "tool.jar", []),
+            (
+                "Complex path JAR",
+                "complex-name.jar",
+                ["/very/long/path/to/search", "/another/path"],
+            ),
+            ("Single path search", "simple.jar", ["/single/path"]),
+        ],
+    )
+    def test_jar_not_found_error_parametrized(
+        self, error_handler, error_message, jar_name, search_paths
+    ):
         """Parametrized test for JAR not found errors (all propagated)."""
         error = JarNotFoundError(error_message, jar_name, search_paths)
         result = error_handler.handle_error(error)
         assert result is False
 
-    @pytest.mark.parametrize("filename,component,operation,expected_result", [
-        ("test.apk", "APKManager", "check_if_instrumented", True),
-        ("app.apk", "FileChecker", "check_if_exists", True),
-        ("tool.jar", "Validator", "verify_file", True),
-        ("data.xml", "HashCalculator", "get_file_hash", True),
-        ("output.log", "FileWriter", "write_file", False),
-        ("input.txt", "FileReader", "read_file", False),
-        ("config.json", "ConfigManager", "load_config", False)
-    ])
-    def test_file_not_found_error_parametrized(self, error_handler, filename, component, operation, expected_result):
+    @pytest.mark.parametrize(
+        "filename,component,operation,expected_result",
+        [
+            ("test.apk", "APKManager", "check_if_instrumented", True),
+            ("app.apk", "FileChecker", "check_if_exists", True),
+            ("tool.jar", "Validator", "verify_file", True),
+            ("data.xml", "HashCalculator", "get_file_hash", True),
+            ("output.log", "FileWriter", "write_file", False),
+            ("input.txt", "FileReader", "read_file", False),
+            ("config.json", "ConfigManager", "load_config", False),
+        ],
+    )
+    def test_file_not_found_error_parametrized(
+        self, error_handler, filename, component, operation, expected_result
+    ):
         """Parametrized test for FileNotFoundError handling."""
         error = FileNotFoundError(filename)
         context = {"component": component, "operation": operation}
         result = error_handler.handle_error(error, context)
         assert result is expected_result
 
-    @pytest.mark.parametrize("error_message,tool_name", [
-        ("Execution failed", "monkey"),
-        ("Tool crashed", "droidbot"),
-        ("Process error", "rvagent"),
-        ("Timeout exceeded", "espresso"),
-        ("Connection lost", "ui_automator")
-    ])
-    def test_tool_execution_error_parametrized(self, error_handler, error_message, tool_name):
+    @pytest.mark.parametrize(
+        "error_message,tool_name",
+        [
+            ("Execution failed", "monkey"),
+            ("Tool crashed", "droidbot"),
+            ("Process error", "rvagent"),
+            ("Timeout exceeded", "espresso"),
+            ("Connection lost", "ui_automator"),
+        ],
+    )
+    def test_tool_execution_error_parametrized(
+        self, error_handler, error_message, tool_name
+    ):
         """Parametrized test for tool execution errors (all absorbed)."""
         error = RVToolExecutionError(error_message, tool_name)
         result = error_handler.handle_error(error)
         assert result is True
 
-    @pytest.mark.parametrize("context_data", [
-        {"component": "TestComponent", "phase": "execution"},
-        {"operation": "file_processing", "tool_name": "test_tool"},
-        {"task_id": "task_123", "experiment_id": "exp_456"},
-        {"count": 42, "enabled": True, "ratio": 3.14},
-        {"items": ["item1", "item2"], "metadata": {"key": "value"}},
-        {}  # Empty context
-    ])
-    def test_error_with_various_contexts_parametrized(self, error_handler, context_data):
+    @pytest.mark.parametrize(
+        "context_data",
+        [
+            {"component": "TestComponent", "phase": "execution"},
+            {"operation": "file_processing", "tool_name": "test_tool"},
+            {"task_id": "task_123", "experiment_id": "exp_456"},
+            {"count": 42, "enabled": True, "ratio": 3.14},
+            {"items": ["item1", "item2"], "metadata": {"key": "value"}},
+            {},  # Empty context
+        ],
+    )
+    def test_error_with_various_contexts_parametrized(
+        self, error_handler, context_data
+    ):
         """Parametrized test for error handling with various context types."""
         error = RVToolExecutionError("Test error", "test_tool")
         result = error_handler.handle_error(error, context_data)
@@ -473,7 +529,9 @@ class TestErrorHandlerEdgeCases:
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing."""
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -502,7 +560,9 @@ class TestErrorHandlerEdgeCases:
 
         def handle_error_thread(thread_id):
             for i in range(10):
-                error = RVToolExecutionError(f"Error from thread {thread_id}-{i}", "test_tool")
+                error = RVToolExecutionError(
+                    f"Error from thread {thread_id}-{i}", "test_tool"
+                )
                 result = error_handler.handle_error(error)
                 errors_handled.append((thread_id, i, result))
 
@@ -653,7 +713,7 @@ class TestErrorHandlerEdgeCases:
         errors = [
             RVToolError("Tool error", "test_tool"),
             RVExperimentError("Experiment error", "exp_1"),
-            RVAndroidError("Base error")
+            RVAndroidError("Base error"),
         ]
 
         results = []
@@ -689,7 +749,7 @@ class TestErrorHandlerEdgeCases:
     def test_all_builtin_handlers_registered(self, error_handler):
         """Test that all expected builtin handlers are registered."""
         assert len(error_handler._error_callbacks) == 16
-        assert hasattr(error_handler, '_registered_handlers')
+        assert hasattr(error_handler, "_registered_handlers")
         assert len(error_handler._registered_handlers) == 16
 
 
@@ -706,7 +766,9 @@ class TestSpecificHandlerBehaviors:
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing."""
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -769,7 +831,9 @@ class TestSpecificHandlerBehaviors:
         assert result is True
         assert mock_logger.error.called
 
-    def test_command_validation_error_with_command_context(self, error_handler, mock_logging_manager):
+    def test_command_validation_error_with_command_context(
+        self, error_handler, mock_logging_manager
+    ):
         """Test CommandValidationError with command in context."""
         _, _, mock_logger = mock_logging_manager
         error = CommandValidationError("Invalid command", "command_field")
@@ -778,7 +842,9 @@ class TestSpecificHandlerBehaviors:
         assert result is True
         assert mock_logger.error.called
 
-    def test_logcat_validation_error_with_tags_context(self, error_handler, mock_logging_manager):
+    def test_logcat_validation_error_with_tags_context(
+        self, error_handler, mock_logging_manager
+    ):
         """Test LogcatValidationError with tags in context."""
         _, _, mock_logger = mock_logging_manager
         error = LogcatValidationError("Invalid logcat config", "tags_field")
@@ -787,20 +853,20 @@ class TestSpecificHandlerBehaviors:
         assert result is True
         assert mock_logger.error.called
 
-    def test_event_processing_error_with_event_details(self, error_handler, mock_logging_manager):
+    def test_event_processing_error_with_event_details(
+        self, error_handler, mock_logging_manager
+    ):
         """Test EventProcessingError with event details in context."""
         _, _, mock_logger = mock_logging_manager
         error = EventProcessingError("Event processing failed", "TEST_EVENT")
-        context = {
-            "channel": "test_channel",
-            "handler_count": 3,
-            "queue_size": 100
-        }
+        context = {"channel": "test_channel", "handler_count": 3, "queue_size": 100}
         result = error_handler.handle_error(error, context)
         assert result is True
         assert mock_logger.error.called
 
-    def test_tool_execution_error_with_exit_code(self, error_handler, mock_logging_manager):
+    def test_tool_execution_error_with_exit_code(
+        self, error_handler, mock_logging_manager
+    ):
         """Test RVToolExecutionError with exit code attribute."""
         _, _, mock_logger = mock_logging_manager
         error = RVToolExecutionError("Tool execution failed", "test_tool")
@@ -826,7 +892,9 @@ class TestSpecificHandlerBehaviors:
 
         for error, expected in errors_and_expected:
             result = error_handler.handle_error(error)
-            assert result is expected, f"Expected {expected} for {type(error).__name__}, got {result}"
+            assert (
+                result is expected
+            ), f"Expected {expected} for {type(error).__name__}, got {result}"
 
 
 class TestErrorHandlerCoverageGaps:
@@ -842,7 +910,9 @@ class TestErrorHandlerCoverageGaps:
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing."""
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -865,7 +935,9 @@ class TestErrorHandlerCoverageGaps:
         """Create ErrorHandler instance for testing."""
         return ErrorHandler.get_instance()
 
-    def test_callback_exception_handling_direct(self, error_handler, mock_logging_manager):
+    def test_callback_exception_handling_direct(
+        self, error_handler, mock_logging_manager
+    ):
         """Test error callback that raises exception does not break the flow."""
         _, _, mock_logger = mock_logging_manager
 
@@ -882,12 +954,17 @@ class TestErrorHandlerCoverageGaps:
         assert result is True
 
         # Should log the callback error
-        assert any("Error in callback:" in str(call) for call in mock_logger.error.call_args_list)
+        assert any(
+            "Error in callback:" in str(call)
+            for call in mock_logger.error.call_args_list
+        )
 
         # Clean up
         error_handler._error_callbacks.remove(failing_callback)
 
-    def test_generic_exception_with_valueerror_direct(self, error_handler, mock_logging_manager):
+    def test_generic_exception_with_valueerror_direct(
+        self, error_handler, mock_logging_manager
+    ):
         """Test generic exception handler with ValueError directly."""
         _, _, mock_logger = mock_logging_manager
 
@@ -898,9 +975,14 @@ class TestErrorHandlerCoverageGaps:
 
         assert result is False
 
-        assert any("Not handling ValueError" in str(call) for call in mock_logger.debug.call_args_list)
+        assert any(
+            "Not handling ValueError" in str(call)
+            for call in mock_logger.debug.call_args_list
+        )
 
-    def test_generic_exception_with_configuration_error_direct(self, error_handler, mock_logging_manager):
+    def test_generic_exception_with_configuration_error_direct(
+        self, error_handler, mock_logging_manager
+    ):
         """Test generic exception handler with ConfigurationError directly."""
         _, _, mock_logger = mock_logging_manager
 
@@ -911,13 +993,18 @@ class TestErrorHandlerCoverageGaps:
 
         assert result is False
 
-        assert any("Not handling ConfigurationError" in str(call) for call in mock_logger.debug.call_args_list)
+        assert any(
+            "Not handling ConfigurationError" in str(call)
+            for call in mock_logger.debug.call_args_list
+        )
 
-    def test_generic_exception_in_decorator_phases(self, error_handler, mock_logging_manager):
+    def test_generic_exception_in_decorator_phases(
+        self, error_handler, mock_logging_manager
+    ):
         """Test generic exception handler in decorator phases."""
         _, _, mock_logger = mock_logging_manager
 
-        phases = ['tool_copy', 'tool_creation', 'tool_instantiation']
+        phases = ["tool_copy", "tool_creation", "tool_instantiation"]
 
         for phase in phases:
             error = Exception(f"Generic error in {phase}")
@@ -927,14 +1014,23 @@ class TestErrorHandlerCoverageGaps:
 
             assert result is False
 
-            assert any(f"Not handling Exception in decorator phase '{phase}'" in str(call)
-                       for call in mock_logger.debug.call_args_list)
+            assert any(
+                f"Not handling Exception in decorator phase '{phase}'" in str(call)
+                for call in mock_logger.debug.call_args_list
+            )
 
-    def test_generic_exception_with_non_critical_operations(self, error_handler, mock_logging_manager):
+    def test_generic_exception_with_non_critical_operations(
+        self, error_handler, mock_logging_manager
+    ):
         """Test generic exception handler with non-critical operations."""
         _, _, mock_logger = mock_logging_manager
 
-        operations = ['static_analysis', 'file_copy', 'artifact_validation', 'optional_processing']
+        operations = [
+            "static_analysis",
+            "file_copy",
+            "artifact_validation",
+            "optional_processing",
+        ]
 
         for operation in operations:
             error = Exception(f"Generic error in {operation}")
@@ -944,24 +1040,37 @@ class TestErrorHandlerCoverageGaps:
 
             assert result is True
 
-            assert any(f"Non-critical Exception in TestComponent during {operation}" in str(call)
-                       for call in mock_logger.warning.call_args_list)
+            assert any(
+                f"Non-critical Exception in TestComponent during {operation}"
+                in str(call)
+                for call in mock_logger.warning.call_args_list
+            )
 
-    def test_generic_exception_with_critical_operations(self, error_handler, mock_logging_manager):
+    def test_generic_exception_with_critical_operations(
+        self, error_handler, mock_logging_manager
+    ):
         """Test generic exception handler with critical operations."""
         _, _, mock_logger = mock_logging_manager
 
         error = Exception("Generic error in critical operation")
-        context = {"component": "TestComponent", "operation": "critical_system_operation"}
+        context = {
+            "component": "TestComponent",
+            "operation": "critical_system_operation",
+        }
 
         result = error_handler.handle_error(error, context)
 
         assert result is True
 
-        assert any("Unhandled Exception in TestComponent during critical_system_operation" in str(call)
-                    for call in mock_logger.error.call_args_list)
+        assert any(
+            "Unhandled Exception in TestComponent during critical_system_operation"
+            in str(call)
+            for call in mock_logger.error.call_args_list
+        )
 
-    def test_generic_exception_without_context(self, error_handler, mock_logging_manager):
+    def test_generic_exception_without_context(
+        self, error_handler, mock_logging_manager
+    ):
         """Test generic exception handler without context."""
         _, _, mock_logger = mock_logging_manager
 
@@ -971,10 +1080,14 @@ class TestErrorHandlerCoverageGaps:
 
         assert result is True
 
-        assert any("Unhandled Exception: Generic error without context" in str(call)
-                    for call in mock_logger.error.call_args_list)
+        assert any(
+            "Unhandled Exception: Generic error without context" in str(call)
+            for call in mock_logger.error.call_args_list
+        )
 
-    def test_generic_exception_final_fallback_direct(self, error_handler, mock_logging_manager):
+    def test_generic_exception_final_fallback_direct(
+        self, error_handler, mock_logging_manager
+    ):
         """Test generic exception handler final return directly."""
         _, _, mock_logger = mock_logging_manager
 
@@ -988,10 +1101,15 @@ class TestErrorHandlerCoverageGaps:
 
         assert result is True
 
-        assert any("Unhandled CustomException in TestComponent during unknown_operation" in str(call)
-                    for call in mock_logger.error.call_args_list)
+        assert any(
+            "Unhandled CustomException in TestComponent during unknown_operation"
+            in str(call)
+            for call in mock_logger.error.call_args_list
+        )
 
-    def test_pydantic_validation_error_direct(self, error_handler, mock_logging_manager):
+    def test_pydantic_validation_error_direct(
+        self, error_handler, mock_logging_manager
+    ):
         """Test PydanticValidationError handling directly."""
         _, _, mock_logger = mock_logging_manager
 
@@ -1000,7 +1118,7 @@ class TestErrorHandlerCoverageGaps:
 
             error = PydanticValidationError.from_exception_data(
                 "ValidationError",
-                [{"type": "missing", "loc": ("field",), "msg": "Field required"}]
+                [{"type": "missing", "loc": ("field",), "msg": "Field required"}],
             )
 
             context = {"component": "TestComponent", "operation": "validation"}
@@ -1009,12 +1127,17 @@ class TestErrorHandlerCoverageGaps:
 
             assert result is False
 
-            assert any("Not handling ValidationError" in str(call) for call in mock_logger.debug.call_args_list)
+            assert any(
+                "Not handling ValidationError" in str(call)
+                for call in mock_logger.debug.call_args_list
+            )
 
         except ImportError:
             pytest.skip("pydantic_core not available")
 
-    def test_no_handler_processed_debug_message(self, error_handler, mock_logging_manager):
+    def test_no_handler_processed_debug_message(
+        self, error_handler, mock_logging_manager
+    ):
         """Test debug message when no handler processes error."""
         _, _, mock_logger = mock_logging_manager
 
@@ -1024,8 +1147,10 @@ class TestErrorHandlerCoverageGaps:
 
         assert result is False
 
-        assert any("No handler successfully processed ValueError" in str(call)
-                    for call in mock_logger.debug.call_args_list)
+        assert any(
+            "No handler successfully processed ValueError" in str(call)
+            for call in mock_logger.debug.call_args_list
+        )
 
     def test_multiple_error_types_in_sequence(self, error_handler):
         """Test handling multiple error types in sequence with correct results."""
@@ -1048,4 +1173,6 @@ class TestErrorHandlerCoverageGaps:
 
         for error, expected in test_cases:
             result = error_handler.handle_error(error)
-            assert result is expected, f"Expected {expected} for {type(error).__name__}, got {result}"
+            assert (
+                result is expected
+            ), f"Expected {expected} for {type(error).__name__}, got {result}"

@@ -4,16 +4,17 @@ Tests for RewardPropagator (gh26 Group 4).
 Verifies INV-AGT-29 (N-step reward propagation), INV-AGT-35 (symmetric bounds).
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
+from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.strategies.rvagent_strategy.reward_propagator import (
-    RewardPropagator,
+    MAX_CUMULATIVE_REWARD_FACTOR,
     REWARD_MOP_WEIGHT,
     REWARD_PROPAGATION_N,
-    MAX_CUMULATIVE_REWARD_FACTOR,
     REWARD_VALUES,
+    RewardPropagator,
 )
-from rv_agent.domain.screen_node import ScreenNode
 
 
 def _make_graph_with_nodes(*hashes):

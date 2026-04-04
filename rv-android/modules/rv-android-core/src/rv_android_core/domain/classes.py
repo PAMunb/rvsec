@@ -8,7 +8,6 @@ with their properties, relationships, and monitored operations tracking.
 from typing import Dict, List, Optional, Set
 
 from pydantic import ConfigDict, Field
-
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation.base import BaseValidatedModel
@@ -476,7 +475,9 @@ class Classes(BaseValidatedModel):
         total_methods = len(self.methods)
         reachable_methods = sum(1 for m in self.methods.values() if m.reachable)
         monitored_methods = len(self.get_monitored_operation_methods())
-        activities = sum(1 for c in self.classes.values() if c.component_type == "activity")
+        activities = sum(
+            1 for c in self.classes.values() if c.component_type == "activity"
+        )
         main_activity = self.get_main_activity()
 
         return {

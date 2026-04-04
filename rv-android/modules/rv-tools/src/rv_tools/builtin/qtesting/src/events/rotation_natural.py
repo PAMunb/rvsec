@@ -8,16 +8,6 @@ from uiautomator import Device
 d = Device(sys.argv[1])
 
 # dump the orientation
-#print d.orientation
+# print d.orientation
 if d.orientation != "n":
-	d.orientation = "n" 
-
-
-
-
-
-
-
-
-
-
+    d.orientation = "n"

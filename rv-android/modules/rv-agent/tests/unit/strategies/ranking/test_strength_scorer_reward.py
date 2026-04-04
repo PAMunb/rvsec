@@ -4,9 +4,9 @@ Tests for StrengthScorer reward integration (gh26 Group 4).
 Verifies FR27 Reward-Enhanced Strength Scoring.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import StrengthScorer

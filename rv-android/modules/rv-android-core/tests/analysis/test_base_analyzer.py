@@ -5,11 +5,10 @@ This module contains tests for the BaseAnalyzer and BaseRepository abstract
 classes that serve as foundation for dynamic analysis components.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer, BaseRepository
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.logging.manager import LoggingManager
@@ -68,8 +67,10 @@ class TestBaseAnalyzer:
 
     def test_initialization_without_static_data(self, mock_logging_manager):
         """Test initialization of analyzer without static data."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             analyzer = ConcreteAnalyzer("test_analyzer")
 
             # Verify initialization
@@ -80,10 +81,14 @@ class TestBaseAnalyzer:
             mock_logging_manager.get_logger.assert_called_once()
             assert "test_analyzer" in mock_logging_manager.get_logger.call_args[0][0]
 
-    def test_initialization_with_static_data(self, mock_logging_manager, mock_static_data):
+    def test_initialization_with_static_data(
+        self, mock_logging_manager, mock_static_data
+    ):
         """Test initialization of analyzer with static data."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             analyzer = ConcreteAnalyzer("test_analyzer", mock_static_data)
 
             # Verify initialization
@@ -93,8 +98,10 @@ class TestBaseAnalyzer:
 
     def test_analyze_method(self, mock_logging_manager):
         """Test the analyze method implementation."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             analyzer = ConcreteAnalyzer("test_analyzer")
             result = analyzer.analyze("test_data")
 
@@ -102,8 +109,10 @@ class TestBaseAnalyzer:
 
     def test_get_metrics_method(self, mock_logging_manager):
         """Test the get_metrics method implementation."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             analyzer = ConcreteAnalyzer("test_analyzer")
             metrics = analyzer.get_metrics()
 
@@ -111,8 +120,10 @@ class TestBaseAnalyzer:
 
     def test_log_processing_summary(self, mock_logging_manager):
         """Test the log_processing_summary method."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             analyzer = ConcreteAnalyzer("test_analyzer")
             analyzer.log_processing_summary("items", 10)
 
@@ -125,8 +136,10 @@ class TestBaseRepository:
 
     def test_initialization(self, mock_logging_manager):
         """Test initialization of repository."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             repo = ConcreteRepository("test_repo")
 
             # Verify initialization
@@ -138,8 +151,10 @@ class TestBaseRepository:
 
     def test_log_storage_summary(self, mock_logging_manager):
         """Test the log_storage_summary method."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             repo = ConcreteRepository("test_repo")
             repo.log_storage_summary("items", 5)
 
@@ -148,8 +163,10 @@ class TestBaseRepository:
 
     def test_repository_functionality(self, mock_logging_manager):
         """Test concrete repository implementation functionality."""
-        with patch('rv_android_core.analysis.base_analyzer.LoggingManager.get_instance',
-                   return_value=mock_logging_manager):
+        with patch(
+            "rv_android_core.analysis.base_analyzer.LoggingManager.get_instance",
+            return_value=mock_logging_manager,
+        ):
             repo = ConcreteRepository("test_repo")
 
             # Add and retrieve data

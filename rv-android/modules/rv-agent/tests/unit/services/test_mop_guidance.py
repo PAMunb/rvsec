@@ -9,9 +9,9 @@ NavigationGuidance from TransitionManager and StaticAnalysisData internals.
 from unittest.mock import MagicMock
 
 from rv_agent.services.navigation_guidance import (
-    NavigationGuidance,
     ExplorationContext,
     MopDescription,
+    NavigationGuidance,
 )
 
 

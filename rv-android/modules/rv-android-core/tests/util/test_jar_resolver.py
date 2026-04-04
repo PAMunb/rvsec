@@ -7,11 +7,11 @@ error handling, and environment variable configuration.
 """
 
 import os
-import pytest
 from unittest.mock import Mock, patch
 
-from rv_android_core.util.jar_resolver import JarResolver
+import pytest
 from rv_android_core.util.error.exceptions import JarNotFoundError
+from rv_android_core.util.jar_resolver import JarResolver
 
 
 class TestJarResolver:
@@ -20,13 +20,15 @@ class TestJarResolver:
     @pytest.fixture
     def jar_resolver(self):
         """Create a JarResolver instance for testing"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             return JarResolver()
 
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.logging.manager.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
             mock_logger.debug = Mock()
@@ -42,16 +44,16 @@ class TestJarResolver:
         resolver = JarResolver()
 
         # Verify logger was set up
-        assert hasattr(resolver, 'logger')
+        assert hasattr(resolver, "logger")
 
     def test_resolve_jar_path_success(self, jar_resolver):
         """Test successful JAR file resolution"""
         jar_name = "test.jar"
         expected_path = "/path/to/test.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.path.abspath') as mock_abspath:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.path.abspath") as mock_abspath:
                     mock_build.return_value = [expected_path, "/other/path"]
                     mock_isfile.side_effect = lambda p: p == expected_path
                     mock_abspath.return_value = expected_path
@@ -66,8 +68,8 @@ class TestJarResolver:
         """Test JAR file not found scenario"""
         jar_name = "missing.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
                 mock_build.return_value = ["/path1/missing.jar", "/path2/missing.jar"]
                 mock_isfile.return_value = False
 
@@ -83,9 +85,9 @@ class TestJarResolver:
         custom_paths = ["/custom/path1", "/custom/path2"]
         expected_path = "/custom/path1/test.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.path.abspath') as mock_abspath:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.path.abspath") as mock_abspath:
                     mock_build.return_value = [expected_path]
                     mock_isfile.return_value = True
                     mock_abspath.return_value = expected_path
@@ -100,15 +102,12 @@ class TestJarResolver:
         jar_names = ["test1.jar", "test2.jar"]
         paths = ["/path/test1.jar", "/path/test2.jar"]
 
-        with patch.object(jar_resolver, 'resolve_jar_path') as mock_resolve:
+        with patch.object(jar_resolver, "resolve_jar_path") as mock_resolve:
             mock_resolve.side_effect = paths
 
             result = jar_resolver.resolve_multiple_jars(jar_names)
 
-            expected = {
-                "test1": paths[0],
-                "test2": paths[1]
-            }
+            expected = {"test1": paths[0], "test2": paths[1]}
             assert result == expected
             assert mock_resolve.call_count == 2
 
@@ -122,7 +121,7 @@ class TestJarResolver:
             else:
                 raise JarNotFoundError(f"JAR file '{jar_name}' not found")
 
-        with patch.object(jar_resolver, 'resolve_jar_path') as mock_resolve:
+        with patch.object(jar_resolver, "resolve_jar_path") as mock_resolve:
             mock_resolve.side_effect = mock_resolve_side_effect
 
             with pytest.raises(JarNotFoundError) as exc_info:
@@ -135,9 +134,9 @@ class TestJarResolver:
         resource_name = "libs"
         expected_path = "/path/to/libs"
 
-        with patch.object(jar_resolver, '_build_resource_search_paths') as mock_build:
-            with patch('os.path.isdir') as mock_isdir:
-                with patch('os.path.abspath') as mock_abspath:
+        with patch.object(jar_resolver, "_build_resource_search_paths") as mock_build:
+            with patch("os.path.isdir") as mock_isdir:
+                with patch("os.path.abspath") as mock_abspath:
                     mock_build.return_value = [expected_path]
                     mock_isdir.return_value = True
                     mock_abspath.return_value = expected_path
@@ -150,8 +149,8 @@ class TestJarResolver:
         """Test resource directory not found scenario"""
         resource_name = "missing_libs"
 
-        with patch.object(jar_resolver, '_build_resource_search_paths') as mock_build:
-            with patch('os.path.isdir') as mock_isdir:
+        with patch.object(jar_resolver, "_build_resource_search_paths") as mock_build:
+            with patch("os.path.isdir") as mock_isdir:
                 mock_build.return_value = ["/path/missing_libs"]
                 mock_isdir.return_value = False
 
@@ -165,7 +164,7 @@ class TestJarResolver:
         jar_name = "test.jar"
 
         with patch.dict(os.environ, {}, clear=True):
-            with patch('os.path.abspath') as mock_abspath:
+            with patch("os.path.abspath") as mock_abspath:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
 
                 paths = jar_resolver._build_search_paths(jar_name)
@@ -179,8 +178,8 @@ class TestJarResolver:
         jar_name = "test.jar"
         rvsec_home = "/opt/rvsec"
 
-        with patch.dict(os.environ, {'RVSEC_HOME': rvsec_home}):
-            with patch('os.path.abspath') as mock_abspath:
+        with patch.dict(os.environ, {"RVSEC_HOME": rvsec_home}):
+            with patch("os.path.abspath") as mock_abspath:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
 
                 paths = jar_resolver._build_search_paths(jar_name)
@@ -194,8 +193,8 @@ class TestJarResolver:
         jar_name = "test.jar"
         additional_paths = ["/custom1", "/custom2"]
 
-        with patch('os.path.abspath') as mock_abspath:
-            with patch('os.path.isdir') as mock_isdir:
+        with patch("os.path.abspath") as mock_abspath:
+            with patch("os.path.isdir") as mock_isdir:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
                 mock_isdir.return_value = True  # Treat all as directories
 
@@ -211,8 +210,8 @@ class TestJarResolver:
         jar_name = "test.jar"
         tools_dir = "/opt/tools"
 
-        with patch.dict(os.environ, {'TOOLS_DIR': tools_dir}):
-            with patch('os.path.abspath') as mock_abspath:
+        with patch.dict(os.environ, {"TOOLS_DIR": tools_dir}):
+            with patch("os.path.abspath") as mock_abspath:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
 
                 paths = jar_resolver._build_search_paths(jar_name)
@@ -225,7 +224,7 @@ class TestJarResolver:
         """Test resource directory search path building"""
         resource_name = "libs"
 
-        with patch('os.path.abspath') as mock_abspath:
+        with patch("os.path.abspath") as mock_abspath:
             mock_abspath.side_effect = lambda p: f"/abs{p}"
 
             paths = jar_resolver._build_resource_search_paths(resource_name)
@@ -239,10 +238,12 @@ class TestJarResolver:
         resource_name = "libs"
         additional_paths = ["/custom/path"]
 
-        with patch('os.path.abspath') as mock_abspath:
+        with patch("os.path.abspath") as mock_abspath:
             mock_abspath.side_effect = lambda p: f"/abs{p}"
 
-            paths = jar_resolver._build_resource_search_paths(resource_name, additional_paths)
+            paths = jar_resolver._build_resource_search_paths(
+                resource_name, additional_paths
+            )
 
             # Additional paths should be included
             assert "/abs/custom/path/libs" in paths
@@ -254,7 +255,7 @@ class TestJarResolver:
             ("fastbot-thirdpart.jar", "fastbot"),
             ("framework.jar", "fastbot"),
             ("monkeyq.jar", "fastbot"),
-            ("droidmate.jar", "droidmate")
+            ("droidmate.jar", "droidmate"),
         ]
 
         for jar_name, expected_subdir in test_cases:
@@ -267,7 +268,7 @@ class TestJarResolver:
             ("droidmate-2.3.4-all.jar", "droidmate"),
             ("fastbot-custom.jar", "fastbot"),
             ("ape-modified.jar", "ape"),
-            ("unknown-tool.jar", "unknown-tool")
+            ("unknown-tool.jar", "unknown-tool"),
         ]
 
         for jar_name, expected_subdir in test_cases:
@@ -280,7 +281,7 @@ class TestJarResolver:
             ("fastbot-thirdpart.jar", "fastbot_thirdpart"),
             ("framework.jar", "framework"),
             ("monkeyq.jar", "monkeyq"),
-            ("ape.jar", "ape")
+            ("ape.jar", "ape"),
         ]
 
         for jar_name, expected_key in test_cases:
@@ -292,7 +293,7 @@ class TestJarResolver:
         test_cases = [
             ("custom-tool.jar", "custom_tool"),
             ("my.tool.jar", "my_tool"),
-            ("tool-1.0.jar", "tool_1_0")
+            ("tool-1.0.jar", "tool_1_0"),
         ]
 
         for jar_name, expected_key in test_cases:
@@ -303,10 +304,10 @@ class TestJarResolver:
         """Test successful JAR accessibility verification"""
         jar_path = "/path/to/test.jar"
 
-        with patch('os.path.exists') as mock_exists:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.access') as mock_access:
-                    with patch('os.path.getsize') as mock_getsize:
+        with patch("os.path.exists") as mock_exists:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.access") as mock_access:
+                    with patch("os.path.getsize") as mock_getsize:
                         mock_exists.return_value = True
                         mock_isfile.return_value = True
                         mock_access.return_value = True
@@ -320,7 +321,7 @@ class TestJarResolver:
         """Test JAR accessibility when file doesn't exist"""
         jar_path = "/path/to/missing.jar"
 
-        with patch('os.path.exists') as mock_exists:
+        with patch("os.path.exists") as mock_exists:
             mock_exists.return_value = False
 
             result = jar_resolver.verify_jar_accessibility(jar_path)
@@ -331,8 +332,8 @@ class TestJarResolver:
         """Test JAR accessibility when path is not a file"""
         jar_path = "/path/to/directory"
 
-        with patch('os.path.exists') as mock_exists:
-            with patch('os.path.isfile') as mock_isfile:
+        with patch("os.path.exists") as mock_exists:
+            with patch("os.path.isfile") as mock_isfile:
                 mock_exists.return_value = True
                 mock_isfile.return_value = False
 
@@ -344,9 +345,9 @@ class TestJarResolver:
         """Test JAR accessibility when file is not readable"""
         jar_path = "/path/to/test.jar"
 
-        with patch('os.path.exists') as mock_exists:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.access') as mock_access:
+        with patch("os.path.exists") as mock_exists:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.access") as mock_access:
                     mock_exists.return_value = True
                     mock_isfile.return_value = True
                     mock_access.return_value = False
@@ -359,10 +360,10 @@ class TestJarResolver:
         """Test JAR accessibility when file is empty"""
         jar_path = "/path/to/empty.jar"
 
-        with patch('os.path.exists') as mock_exists:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.access') as mock_access:
-                    with patch('os.path.getsize') as mock_getsize:
+        with patch("os.path.exists") as mock_exists:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.access") as mock_access:
+                    with patch("os.path.getsize") as mock_getsize:
                         mock_exists.return_value = True
                         mock_isfile.return_value = True
                         mock_access.return_value = True
@@ -376,7 +377,7 @@ class TestJarResolver:
         """Test JAR accessibility with OS error"""
         jar_path = "/path/to/test.jar"
 
-        with patch('os.path.exists') as mock_exists:
+        with patch("os.path.exists") as mock_exists:
             mock_exists.side_effect = OSError("Permission denied")
 
             result = jar_resolver.verify_jar_accessibility(jar_path)
@@ -387,12 +388,15 @@ class TestJarResolver:
         """Test search paths information gathering"""
         jar_name = "test.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.exists') as mock_exists:
-                with patch('os.path.isfile') as mock_isfile:
-                    with patch('os.access') as mock_access:
-                        with patch('os.path.getsize') as mock_getsize:
-                            mock_build.return_value = ["/path1/test.jar", "/path2/test.jar"]
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.exists") as mock_exists:
+                with patch("os.path.isfile") as mock_isfile:
+                    with patch("os.access") as mock_access:
+                        with patch("os.path.getsize") as mock_getsize:
+                            mock_build.return_value = [
+                                "/path1/test.jar",
+                                "/path2/test.jar",
+                            ]
 
                             # Use functions instead of limited side_effect lists
                             def exists_side_effect(path):
@@ -414,45 +418,49 @@ class TestJarResolver:
 
                             result = jar_resolver.get_search_paths_info(jar_name)
 
-                            assert result['jar_name'] == jar_name
-                            assert result['total_paths'] == 2
-                            assert len(result['paths']) == 2
+                            assert result["jar_name"] == jar_name
+                            assert result["total_paths"] == 2
+                            assert len(result["paths"]) == 2
 
                             # First path should show as accessible
-                            assert result['paths'][0]['exists'] is True
-                            assert result['paths'][0]['is_file'] is True
-                            assert result['paths'][0]['readable'] is True
-                            assert result['paths'][0]['size'] == 1024
+                            assert result["paths"][0]["exists"] is True
+                            assert result["paths"][0]["is_file"] is True
+                            assert result["paths"][0]["readable"] is True
+                            assert result["paths"][0]["size"] == 1024
 
                             # Second path should show as not accessible
-                            assert result['paths'][1]['exists'] is False
+                            assert result["paths"][1]["exists"] is False
 
     def test_get_search_paths_info_with_additional_paths(self, jar_resolver):
         """Test search paths info with additional paths"""
         jar_name = "test.jar"
         additional_paths = ["/custom"]
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.exists') as mock_exists:
-                with patch('os.path.isfile') as mock_isfile:
-                    with patch('os.access') as mock_access:
-                        with patch('os.path.getsize') as mock_getsize:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.exists") as mock_exists:
+                with patch("os.path.isfile") as mock_isfile:
+                    with patch("os.access") as mock_access:
+                        with patch("os.path.getsize") as mock_getsize:
                             mock_build.return_value = ["/custom/test.jar"]
                             mock_exists.return_value = True
                             mock_isfile.return_value = True
                             mock_access.return_value = True
                             mock_getsize.return_value = 2048
 
-                            result = jar_resolver.get_search_paths_info(jar_name, additional_paths)
+                            result = jar_resolver.get_search_paths_info(
+                                jar_name, additional_paths
+                            )
 
-                            mock_build.assert_called_once_with(jar_name, additional_paths)
-                            assert result['total_paths'] == 1
+                            mock_build.assert_called_once_with(
+                                jar_name, additional_paths
+                            )
+                            assert result["total_paths"] == 1
 
     def test_build_search_paths_invalid_paths(self, jar_resolver):
         """Test search path building with invalid paths"""
         jar_name = "test.jar"
 
-        with patch('os.path.abspath') as mock_abspath:
+        with patch("os.path.abspath") as mock_abspath:
             # Simulate OSError when processing invalid paths
             def mock_abspath_side_effect(path):
                 if "invalid" in path:
@@ -474,8 +482,8 @@ class TestJarResolver:
         jar_name = "test.jar"
         additional_paths = ["", "  ", "/valid/path"]
 
-        with patch('os.path.abspath') as mock_abspath:
-            with patch('os.path.isdir') as mock_isdir:
+        with patch("os.path.abspath") as mock_abspath:
+            with patch("os.path.isdir") as mock_isdir:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
                 mock_isdir.return_value = True
 
@@ -489,7 +497,7 @@ class TestJarResolver:
         """Test that duplicate paths are removed"""
         jar_name = "test.jar"
 
-        with patch('os.path.abspath') as mock_abspath:
+        with patch("os.path.abspath") as mock_abspath:
             # Return the same absolute path for different inputs
             mock_abspath.return_value = "/same/absolute/path/test.jar"
 
@@ -503,9 +511,9 @@ class TestJarResolver:
         jar_name = "test.jar"
         direct_file_path = "/direct/path/to/test.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.path.abspath') as mock_abspath:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.path.abspath") as mock_abspath:
                     mock_build.return_value = [direct_file_path]
                     mock_isfile.return_value = True
                     mock_abspath.return_value = direct_file_path
@@ -519,10 +527,10 @@ class TestJarResolver:
         jar_name = "test.jar"
         additional_paths = ["/direct/file.jar", "/directory/path"]
 
-        with patch('os.path.abspath') as mock_abspath:
-            with patch('os.path.isdir') as mock_isdir:
+        with patch("os.path.abspath") as mock_abspath:
+            with patch("os.path.isdir") as mock_isdir:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
-                mock_isdir.side_effect = lambda p: not p.endswith('.jar')
+                mock_isdir.side_effect = lambda p: not p.endswith(".jar")
 
                 paths = jar_resolver._build_search_paths(jar_name, additional_paths)
 
@@ -557,37 +565,37 @@ class TestJarResolverIntegration:
         framework_jar.write_bytes(b"fake jar content")
 
         return {
-            'base_dir': tmp_path,
-            'ape_jar': str(ape_jar),
-            'fastbot_jar': str(fastbot_jar),
-            'framework_jar': str(framework_jar),
-            'fastbot_libs': str(fastbot_libs)
+            "base_dir": tmp_path,
+            "ape_jar": str(ape_jar),
+            "fastbot_jar": str(fastbot_jar),
+            "framework_jar": str(framework_jar),
+            "fastbot_libs": str(fastbot_libs),
         }
 
     def test_real_jar_resolution(self, temp_jar_structure):
         """Test JAR resolution with real file system"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             resolver = JarResolver()
 
             # Use the exact directory containing the JAR file
-            ape_dir = str(temp_jar_structure['base_dir'] / "tools" / "ape")
+            ape_dir = str(temp_jar_structure["base_dir"] / "tools" / "ape")
             search_paths = [ape_dir]
 
             # Test resolving APE JAR
             result = resolver.resolve_jar_path("ape.jar", search_paths)
-            assert result == temp_jar_structure['ape_jar']
+            assert result == temp_jar_structure["ape_jar"]
 
             # Verify accessibility
             assert resolver.verify_jar_accessibility(result) is True
 
     def test_real_multiple_jar_resolution(self, temp_jar_structure):
         """Test multiple JAR resolution with real files"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             resolver = JarResolver()
 
             # Provide specific directories for each JAR
-            ape_dir = str(temp_jar_structure['base_dir'] / "tools" / "ape")
-            fastbot_dir = str(temp_jar_structure['base_dir'] / "tools" / "fastbot")
+            ape_dir = str(temp_jar_structure["base_dir"] / "tools" / "ape")
+            fastbot_dir = str(temp_jar_structure["base_dir"] / "tools" / "fastbot")
             search_paths = [ape_dir, fastbot_dir]
 
             jar_names = ["ape.jar", "fastbot-thirdpart.jar"]
@@ -597,41 +605,41 @@ class TestJarResolverIntegration:
             assert len(result) == 2
             assert "ape" in result
             assert "fastbot_thirdpart" in result
-            assert result["ape"] == temp_jar_structure['ape_jar']
-            assert result["fastbot_thirdpart"] == temp_jar_structure['fastbot_jar']
+            assert result["ape"] == temp_jar_structure["ape_jar"]
+            assert result["fastbot_thirdpart"] == temp_jar_structure["fastbot_jar"]
 
     def test_real_resource_directory_resolution(self, temp_jar_structure):
         """Test resource directory resolution with real directories"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             resolver = JarResolver()
 
             # Use the fastbot directory which contains the libs subdirectory
-            fastbot_dir = str(temp_jar_structure['base_dir'] / "tools" / "fastbot")
+            fastbot_dir = str(temp_jar_structure["base_dir"] / "tools" / "fastbot")
             search_paths = [fastbot_dir]
 
             result = resolver.resolve_resource_directory("libs", search_paths)
-            assert result == temp_jar_structure['fastbot_libs']
+            assert result == temp_jar_structure["fastbot_libs"]
 
     def test_real_search_paths_info(self, temp_jar_structure):
         """Test search paths info with real file system"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             resolver = JarResolver()
 
             # Use the ape directory directly
-            ape_dir = str(temp_jar_structure['base_dir'] / "tools" / "ape")
+            ape_dir = str(temp_jar_structure["base_dir"] / "tools" / "ape")
             search_paths = [ape_dir]
 
             info = resolver.get_search_paths_info("ape.jar", search_paths)
 
-            assert info['jar_name'] == "ape.jar"
-            assert info['total_paths'] > 0
+            assert info["jar_name"] == "ape.jar"
+            assert info["total_paths"] > 0
 
             # Find the path that exists
-            existing_paths = [p for p in info['paths'] if p['exists']]
+            existing_paths = [p for p in info["paths"] if p["exists"]]
             assert len(existing_paths) >= 1
-            assert existing_paths[0]['is_file'] is True
-            assert existing_paths[0]['readable'] is True
-            assert existing_paths[0]['size'] > 0
+            assert existing_paths[0]["is_file"] is True
+            assert existing_paths[0]["readable"] is True
+            assert existing_paths[0]["size"] > 0
 
 
 class TestJarResolverEdgeCases:
@@ -640,7 +648,7 @@ class TestJarResolverEdgeCases:
     @pytest.fixture
     def jar_resolver(self):
         """Create a JarResolver instance for testing"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             return JarResolver()
 
     def test_build_search_paths_rvsec_and_tools_env(self, jar_resolver):
@@ -649,8 +657,8 @@ class TestJarResolverEdgeCases:
         rvsec_home = "/opt/rvsec"
         tools_dir = "/opt/tools"
 
-        with patch.dict(os.environ, {'RVSEC_HOME': rvsec_home, 'TOOLS_DIR': tools_dir}):
-            with patch('os.path.abspath') as mock_abspath:
+        with patch.dict(os.environ, {"RVSEC_HOME": rvsec_home, "TOOLS_DIR": tools_dir}):
+            with patch("os.path.abspath") as mock_abspath:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
 
                 paths = jar_resolver._build_search_paths(jar_name)
@@ -666,7 +674,7 @@ class TestJarResolverEdgeCases:
         test_cases = [
             "droidmate-2.3.4-all.jar",
             "droidmate-3.0.0-SNAPSHOT.jar",
-            "droidmate-custom-build.jar"
+            "droidmate-custom-build.jar",
         ]
 
         for jar_name in test_cases:
@@ -679,7 +687,7 @@ class TestJarResolverEdgeCases:
             ("tool-with-many-dashes.jar", "tool_with_many_dashes"),
             ("tool.with.dots.jar", "tool_with_dots"),
             ("Tool-Mixed.Case.jar", "tool_mixed_case"),
-            ("tool_with_underscores.jar", "tool_with_underscores")
+            ("tool_with_underscores.jar", "tool_with_underscores"),
         ]
 
         for jar_name, expected_key in test_cases:
@@ -690,7 +698,7 @@ class TestJarResolverEdgeCases:
         """Test JAR resolution with empty search paths"""
         jar_name = "test.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
             mock_build.return_value = []
 
             with pytest.raises(JarNotFoundError) as exc_info:
@@ -707,10 +715,10 @@ class TestJarResolverEdgeCases:
         """Test JAR accessibility with permission error during size check"""
         jar_path = "/path/to/test.jar"
 
-        with patch('os.path.exists') as mock_exists:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.access') as mock_access:
-                    with patch('os.path.getsize') as mock_getsize:
+        with patch("os.path.exists") as mock_exists:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.access") as mock_access:
+                    with patch("os.path.getsize") as mock_getsize:
                         mock_exists.return_value = True
                         mock_isfile.return_value = True
                         mock_access.return_value = True
@@ -723,14 +731,19 @@ class TestJarResolverEdgeCases:
     def test_build_search_paths_mixed_additional_paths(self, jar_resolver):
         """Test search path building with mixed file and directory additional paths"""
         jar_name = "test.jar"
-        additional_paths = ["/file.jar", "/directory", "", "  "]  # Mixed with empty paths
+        additional_paths = [
+            "/file.jar",
+            "/directory",
+            "",
+            "  ",
+        ]  # Mixed with empty paths
 
-        with patch('os.path.abspath') as mock_abspath:
-            with patch('os.path.isdir') as mock_isdir:
+        with patch("os.path.abspath") as mock_abspath:
+            with patch("os.path.isdir") as mock_isdir:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
 
                 def isdir_side_effect(path):
-                    return not path.endswith('.jar')
+                    return not path.endswith(".jar")
 
                 mock_isdir.side_effect = isdir_side_effect
 
@@ -747,27 +760,29 @@ class TestJarResolverEdgeCases:
         resource_name = "libs"
         rvsec_home = "/opt/rvsec"
 
-        with patch.dict(os.environ, {'RVSEC_HOME': rvsec_home}):
-            with patch('os.path.abspath') as mock_abspath:
+        with patch.dict(os.environ, {"RVSEC_HOME": rvsec_home}):
+            with patch("os.path.abspath") as mock_abspath:
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
 
                 paths = jar_resolver._build_resource_search_paths(resource_name)
 
                 # Should include RVSEC_HOME based paths for fastbot (default tool)
-                rvsec_paths = [p for p in paths if rvsec_home in p and resource_name in p]
+                rvsec_paths = [
+                    p for p in paths if rvsec_home in p and resource_name in p
+                ]
                 assert len(rvsec_paths) > 0
 
     def test_resolve_jar_path_case_insensitive_error_logging(self, jar_resolver):
         """Test that error logging works correctly during JAR resolution failure"""
         jar_name = "missing.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
                 mock_build.return_value = ["/path1/missing.jar", "/path2/missing.jar"]
                 mock_isfile.return_value = False
 
                 # Capture logger calls
-                with patch.object(jar_resolver, 'logger') as mock_logger:
+                with patch.object(jar_resolver, "logger") as mock_logger:
                     with pytest.raises(JarNotFoundError):
                         jar_resolver.resolve_jar_path(jar_name)
 
@@ -778,7 +793,7 @@ class TestJarResolverEdgeCases:
         """Test multiple JAR resolution when all JARs are missing"""
         jar_names = ["missing1.jar", "missing2.jar", "missing3.jar"]
 
-        with patch.object(jar_resolver, 'resolve_jar_path') as mock_resolve:
+        with patch.object(jar_resolver, "resolve_jar_path") as mock_resolve:
             mock_resolve.side_effect = JarNotFoundError("JAR not found")
 
             with pytest.raises(JarNotFoundError) as exc_info:
@@ -794,24 +809,27 @@ class TestJarResolverEdgeCases:
         """Test comprehensive search paths info with various file states"""
         jar_name = "test.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
             mock_build.return_value = [
                 "/existing/readable/test.jar",
                 "/existing/unreadable/test.jar",
                 "/nonexistent/test.jar",
-                "/directory/test.jar"  # Path that exists but is not a file
+                "/directory/test.jar",  # Path that exists but is not a file
             ]
 
-            with patch('os.path.exists') as mock_exists:
-                with patch('os.path.isfile') as mock_isfile:
-                    with patch('os.access') as mock_access:
-                        with patch('os.path.getsize') as mock_getsize:
+            with patch("os.path.exists") as mock_exists:
+                with patch("os.path.isfile") as mock_isfile:
+                    with patch("os.access") as mock_access:
+                        with patch("os.path.getsize") as mock_getsize:
 
                             def exists_side_effect(path):
                                 return "nonexistent" not in path
 
                             def isfile_side_effect(path):
-                                return "directory" not in path and "nonexistent" not in path
+                                return (
+                                    "directory" not in path
+                                    and "nonexistent" not in path
+                                )
 
                             def access_side_effect(path, mode):
                                 return "unreadable" not in path
@@ -830,43 +848,45 @@ class TestJarResolverEdgeCases:
 
                             result = jar_resolver.get_search_paths_info(jar_name)
 
-                            assert result['total_paths'] == 4
-                            assert len(result['paths']) == 4
+                            assert result["total_paths"] == 4
+                            assert len(result["paths"]) == 4
 
                             # Check each path state
-                            paths_info = {p['path']: p for p in result['paths']}
+                            paths_info = {p["path"]: p for p in result["paths"]}
 
                             # Readable file
                             readable_info = paths_info["/existing/readable/test.jar"]
-                            assert readable_info['exists'] is True
-                            assert readable_info['is_file'] is True
-                            assert readable_info['readable'] is True
-                            assert readable_info['size'] == 2048
+                            assert readable_info["exists"] is True
+                            assert readable_info["is_file"] is True
+                            assert readable_info["readable"] is True
+                            assert readable_info["size"] == 2048
 
                             # Unreadable file
-                            unreadable_info = paths_info["/existing/unreadable/test.jar"]
-                            assert unreadable_info['exists'] is True
-                            assert unreadable_info['is_file'] is True
-                            assert unreadable_info['readable'] is False
+                            unreadable_info = paths_info[
+                                "/existing/unreadable/test.jar"
+                            ]
+                            assert unreadable_info["exists"] is True
+                            assert unreadable_info["is_file"] is True
+                            assert unreadable_info["readable"] is False
 
                             # Non-existent path
                             nonexistent_info = paths_info["/nonexistent/test.jar"]
-                            assert nonexistent_info['exists'] is False
-                            assert nonexistent_info['is_file'] is False
+                            assert nonexistent_info["exists"] is False
+                            assert nonexistent_info["is_file"] is False
 
     def test_build_search_paths_home_expansion(self, jar_resolver):
         """Test that home directory expansion works in search paths"""
         jar_name = "test.jar"
 
-        with patch('os.path.expanduser') as mock_expanduser:
-            with patch('os.path.abspath') as mock_abspath:
-                mock_expanduser.side_effect = lambda p: p.replace('~', '/home/user')
+        with patch("os.path.expanduser") as mock_expanduser:
+            with patch("os.path.abspath") as mock_abspath:
+                mock_expanduser.side_effect = lambda p: p.replace("~", "/home/user")
                 mock_abspath.side_effect = lambda p: f"/abs{p}"
 
                 paths = jar_resolver._build_search_paths(jar_name)
 
                 # Should include expanded home directory paths
-                home_paths = [p for p in paths if '/home/user/' in p]
+                home_paths = [p for p in paths if "/home/user/" in p]
                 assert len(home_paths) > 0
 
     def test_resolve_resource_directory_with_empty_additional_paths(self, jar_resolver):
@@ -877,20 +897,22 @@ class TestJarResolverEdgeCases:
         # Filter out None from additional_paths as the real method would
         filtered_paths = [p for p in additional_paths if p is not None]
 
-        with patch.object(jar_resolver, '_build_resource_search_paths') as mock_build:
-            with patch('os.path.isdir') as mock_isdir:
+        with patch.object(jar_resolver, "_build_resource_search_paths") as mock_build:
+            with patch("os.path.isdir") as mock_isdir:
                 mock_build.return_value = ["/default/libs"]
                 mock_isdir.return_value = False
 
                 with pytest.raises(JarNotFoundError):
-                    jar_resolver.resolve_resource_directory(resource_name, filtered_paths)
+                    jar_resolver.resolve_resource_directory(
+                        resource_name, filtered_paths
+                    )
 
     def test_jar_not_found_error_attributes(self, jar_resolver):
         """Test that JarNotFoundError includes proper attributes"""
         jar_name = "missing.jar"
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
                 search_paths = ["/path1/missing.jar", "/path2/missing.jar"]
                 mock_build.return_value = search_paths
                 mock_isfile.return_value = False
@@ -899,8 +921,8 @@ class TestJarResolverEdgeCases:
                     jar_resolver.resolve_jar_path(jar_name)
 
                 error = exc_info.value
-                assert hasattr(error, 'jar_name')
-                assert hasattr(error, 'search_paths')
+                assert hasattr(error, "jar_name")
+                assert hasattr(error, "search_paths")
                 assert error.jar_name == jar_name
                 assert error.search_paths == search_paths
 
@@ -908,9 +930,13 @@ class TestJarResolverEdgeCases:
         """Test search path building handles ValueError during path processing"""
         jar_name = "test.jar"
 
-        with patch('os.path.abspath') as mock_abspath:
+        with patch("os.path.abspath") as mock_abspath:
             # First call succeeds, second raises ValueError, third succeeds
-            mock_abspath.side_effect = ["/abs/valid", ValueError("Invalid path"), "/abs/valid2"] + ["/abs/path"] * 20
+            mock_abspath.side_effect = [
+                "/abs/valid",
+                ValueError("Invalid path"),
+                "/abs/valid2",
+            ] + ["/abs/path"] * 20
 
             paths = jar_resolver._build_search_paths(jar_name)
 
@@ -925,15 +951,15 @@ class TestJarResolverErrorHandling:
     @pytest.fixture
     def jar_resolver(self):
         """Create a JarResolver instance for testing"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             return JarResolver()
 
     def test_error_handler_decorator_integration(self, jar_resolver):
         """Test that ErrorHandler decorators work correctly with JarResolver methods"""
         # The resolve_jar_path method should be decorated with @ErrorHandler.handle_errors
 
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
                 mock_build.return_value = []
                 mock_isfile.return_value = False
 
@@ -946,10 +972,10 @@ class TestJarResolverErrorHandling:
         jar_name = "test.jar"
 
         # Test debug logging during successful resolution
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch('os.path.abspath') as mock_abspath:
-                    with patch.object(jar_resolver, 'logger') as mock_logger:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch("os.path.abspath") as mock_abspath:
+                    with patch.object(jar_resolver, "logger") as mock_logger:
                         mock_build.return_value = ["/found/test.jar"]
                         mock_isfile.return_value = True
                         mock_abspath.return_value = "/found/test.jar"
@@ -960,9 +986,9 @@ class TestJarResolverErrorHandling:
                         assert mock_logger.debug.call_count >= 2
 
         # Test error logging during failed resolution
-        with patch.object(jar_resolver, '_build_search_paths') as mock_build:
-            with patch('os.path.isfile') as mock_isfile:
-                with patch.object(jar_resolver, 'logger') as mock_logger:
+        with patch.object(jar_resolver, "_build_search_paths") as mock_build:
+            with patch("os.path.isfile") as mock_isfile:
+                with patch.object(jar_resolver, "logger") as mock_logger:
                     mock_build.return_value = ["/missing/test.jar"]
                     mock_isfile.return_value = False
 
@@ -976,8 +1002,8 @@ class TestJarResolverErrorHandling:
         """Test logging during multiple JAR resolution"""
         jar_names = ["jar1.jar", "jar2.jar"]
 
-        with patch.object(jar_resolver, 'resolve_jar_path') as mock_resolve:
-            with patch.object(jar_resolver, 'logger') as mock_logger:
+        with patch.object(jar_resolver, "resolve_jar_path") as mock_resolve:
+            with patch.object(jar_resolver, "logger") as mock_logger:
                 mock_resolve.side_effect = ["/path/jar1.jar", "/path/jar2.jar"]
 
                 result = jar_resolver.resolve_multiple_jars(jar_names)
@@ -990,10 +1016,10 @@ class TestJarResolverErrorHandling:
         """Test logging during resource directory resolution"""
         resource_name = "libs"
 
-        with patch.object(jar_resolver, '_build_resource_search_paths') as mock_build:
-            with patch('os.path.isdir') as mock_isdir:
-                with patch('os.path.abspath') as mock_abspath:
-                    with patch.object(jar_resolver, 'logger') as mock_logger:
+        with patch.object(jar_resolver, "_build_resource_search_paths") as mock_build:
+            with patch("os.path.isdir") as mock_isdir:
+                with patch("os.path.abspath") as mock_abspath:
+                    with patch.object(jar_resolver, "logger") as mock_logger:
                         mock_build.return_value = ["/found/libs"]
                         mock_isdir.return_value = True
                         mock_abspath.return_value = "/found/libs"
@@ -1006,7 +1032,7 @@ class TestJarResolverErrorHandling:
     def test_context_component_logging(self, jar_resolver):
         """Test that JarResolver uses proper logging context component"""
         # Verify that the logger was initialized with correct context
-        assert hasattr(jar_resolver, 'logger')
+        assert hasattr(jar_resolver, "logger")
 
         # Test that the logger context includes the JarResolver component
         # This verifies the CONTEXT_COMPONENT integration
@@ -1018,7 +1044,7 @@ class TestJarResolverCompleteWorkflow:
     @pytest.fixture
     def jar_resolver(self):
         """Create a JarResolver instance for testing"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager'):
+        with patch("rv_android_core.util.logging.manager.LoggingManager"):
             return JarResolver()
 
     def test_complete_jar_resolution_workflow(self, jar_resolver):
@@ -1027,11 +1053,11 @@ class TestJarResolverCompleteWorkflow:
         search_paths = ["/tools/ape"]
         expected_path = "/tools/ape/ape.jar"
 
-        with patch('os.path.isfile') as mock_isfile:
-            with patch('os.path.abspath') as mock_abspath:
-                with patch('os.path.exists') as mock_exists:
-                    with patch('os.access') as mock_access:
-                        with patch('os.path.getsize') as mock_getsize:
+        with patch("os.path.isfile") as mock_isfile:
+            with patch("os.path.abspath") as mock_abspath:
+                with patch("os.path.exists") as mock_exists:
+                    with patch("os.access") as mock_access:
+                        with patch("os.path.getsize") as mock_getsize:
                             # Setup mocks for successful resolution
                             mock_isfile.side_effect = lambda p: p == expected_path
                             mock_abspath.return_value = expected_path
@@ -1040,19 +1066,25 @@ class TestJarResolverCompleteWorkflow:
                             mock_getsize.return_value = 1024
 
                             # Step 1: Resolve the JAR
-                            resolved_path = jar_resolver.resolve_jar_path(jar_name, search_paths)
+                            resolved_path = jar_resolver.resolve_jar_path(
+                                jar_name, search_paths
+                            )
                             assert resolved_path == expected_path
 
                             # Step 2: Verify accessibility
-                            is_accessible = jar_resolver.verify_jar_accessibility(resolved_path)
+                            is_accessible = jar_resolver.verify_jar_accessibility(
+                                resolved_path
+                            )
                             assert is_accessible is True
 
                             # Step 3: Get search paths info
-                            info = jar_resolver.get_search_paths_info(jar_name, search_paths)
-                            assert info['jar_name'] == jar_name
+                            info = jar_resolver.get_search_paths_info(
+                                jar_name, search_paths
+                            )
+                            assert info["jar_name"] == jar_name
 
                             # Find the successful path in the info
-                            successful_paths = [p for p in info['paths'] if p['exists']]
+                            successful_paths = [p for p in info["paths"] if p["exists"]]
                             assert len(successful_paths) >= 1
 
     def test_complete_failure_workflow(self, jar_resolver):
@@ -1060,8 +1092,8 @@ class TestJarResolverCompleteWorkflow:
         jar_names = ["missing1.jar", "missing2.jar"]
         search_paths = ["/nonexistent"]
 
-        with patch('os.path.isfile') as mock_isfile:
-            with patch('os.path.exists') as mock_exists:
+        with patch("os.path.isfile") as mock_isfile:
+            with patch("os.path.exists") as mock_exists:
                 mock_isfile.return_value = False
                 mock_exists.return_value = False
 
@@ -1075,5 +1107,5 @@ class TestJarResolverCompleteWorkflow:
 
                 # Search paths info should show no accessible paths
                 info = jar_resolver.get_search_paths_info(jar_names[0], search_paths)
-                accessible_paths = [p for p in info['paths'] if p['exists']]
+                accessible_paths = [p for p in info["paths"] if p["exists"]]
                 assert len(accessible_paths) == 0

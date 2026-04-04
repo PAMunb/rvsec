@@ -3,14 +3,14 @@ import time
 from datetime import datetime
 from unittest.mock import MagicMock
 
-from hypothesis import given, strategies as st
-
+from hypothesis import given
+from hypothesis import strategies as st
 from rv_android_core.domain.task import (
-    TaskState,
-    ToolConfig,
+    Task,
     TaskConfiguration,
     TaskResult,
-    Task,
+    TaskState,
+    ToolConfig,
 )
 
 

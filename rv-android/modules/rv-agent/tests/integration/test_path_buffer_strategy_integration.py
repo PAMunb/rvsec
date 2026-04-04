@@ -8,9 +8,7 @@ SuccessorTracker BFS, and UICoverageTracker coverage metrics.
 
 from unittest.mock import MagicMock
 
-from rv_agent.strategies.rvagent_strategy.path_buffer import (
-    PathBuffer,
-)
+from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
 from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
 from rv_android_core.domain.widget import WidgetEventType
 

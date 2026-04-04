@@ -1,14 +1,18 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
+from rv_screen_parser.parser.screen.visitor.model import (
+    ItemAction,
+    Node,
+    ScreenDescription,
+    ScreenItem,
+)
 
 
 class TestBasicTextVisitor:
@@ -17,7 +21,9 @@ class TestBasicTextVisitor:
     @pytest.fixture(autouse=True)
     def setup_logging(self):
         """Fixture to set up logging and suppress log messages during tests"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging_manager:
+        with patch(
+            "rv_android_core.util.logging.manager.LoggingManager"
+        ) as mock_logging_manager:
             mock_logger = MagicMock()
             mock_logging_manager.get_instance.return_value = mock_logging_manager
             mock_logging_manager.get_logger.return_value = mock_logger
@@ -59,7 +65,7 @@ class TestBasicTextVisitor:
             "text": "Test Button",
             "content_description": "A test button",
             "clickable": True,
-            "bounds": [[10, 10], [100, 50]]
+            "bounds": [[10, 10], [100, 50]],
         }
         return Node(data)
 
@@ -70,7 +76,7 @@ class TestBasicTextVisitor:
             "class": "android.widget.LinearLayout",
             "resource_id": "parent_layout",
             "clickable": True,
-            "bounds": [[0, 0], [200, 100]]
+            "bounds": [[0, 0], [200, 100]],
         }
         return Node(data)
 
@@ -117,7 +123,13 @@ class TestBasicTextVisitor:
         node.actionable = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_node(node)
@@ -143,7 +155,13 @@ class TestBasicTextVisitor:
         node.actionable = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_leaf_node(node)
@@ -160,7 +178,13 @@ class TestBasicTextVisitor:
         node.view_text = "Test Button"
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_button(node)
@@ -168,7 +192,7 @@ class TestBasicTextVisitor:
         # Should add an item for the button
         assert len(visitor.items) == 1
         assert visitor.items[0].view == node.data
-        assert visitor.items[0].base_description == 'Button {Test Button}'
+        assert visitor.items[0].base_description == "Button {Test Button}"
         assert visitor.window_info["interactive_elements"] == 1
 
     def test_visit_edit_text(self, visitor, node):
@@ -177,7 +201,13 @@ class TestBasicTextVisitor:
         node.content_description = "Username field"
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="SET_TEXT (1)", event=WidgetEventType.TEXT_CHANGE, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="SET_TEXT (1)",
+            event=WidgetEventType.TEXT_CHANGE,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_edit_text(node)
@@ -226,7 +256,13 @@ class TestBasicTextVisitor:
         node.clickable = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_text_view(node)
@@ -242,7 +278,13 @@ class TestBasicTextVisitor:
         node.checked = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="UNCHECK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="UNCHECK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_checkbox(node)
@@ -266,7 +308,13 @@ class TestBasicTextVisitor:
         node.checked = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="UNCHECK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="UNCHECK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_checked_text(node)
@@ -288,7 +336,13 @@ class TestBasicTextVisitor:
     def test_visit_image_button(self, visitor, node):
         """Test visit_image_button method."""
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_image_button(node)
@@ -329,7 +383,13 @@ class TestBasicTextVisitor:
         node.content_description = ""
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_image(node)
@@ -345,7 +405,13 @@ class TestBasicTextVisitor:
         node.checked = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_toggle_button(node)
@@ -369,7 +435,13 @@ class TestBasicTextVisitor:
         node.checked = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_switch(node)
@@ -393,7 +465,13 @@ class TestBasicTextVisitor:
         node.selected = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_radio_button(node)
@@ -437,12 +515,22 @@ class TestBasicTextVisitor:
         node.actionable = True
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Create real child nodes
-        child1 = Node(data={"class": "android.widget.RadioButton", "resource_id": "radio1"})
-        child2 = Node(data={"class": "android.widget.RadioButton", "resource_id": "radio2"})
+        child1 = Node(
+            data={"class": "android.widget.RadioButton", "resource_id": "radio1"}
+        )
+        child2 = Node(
+            data={"class": "android.widget.RadioButton", "resource_id": "radio2"}
+        )
         node.children = [child1, child2]
 
         visitor.visit_radio_group(node)
@@ -452,11 +540,17 @@ class TestBasicTextVisitor:
         assert len(visitor.items) == 3  # 1 group + 2 radio buttons
         assert visitor.items[0].view == node.data
         assert visitor.items[0].base_description == "Radio group"
-        assert visitor.window_info["interactive_elements"] == 3  # 1 group + 2 radio buttons
+        assert (
+            visitor.window_info["interactive_elements"] == 3
+        )  # 1 group + 2 radio buttons
 
         # Verify that child radio buttons were processed correctly
-        assert any("radio1" in item.view.get("resource_id", "") for item in visitor.items)
-        assert any("radio2" in item.view.get("resource_id", "") for item in visitor.items)
+        assert any(
+            "radio1" in item.view.get("resource_id", "") for item in visitor.items
+        )
+        assert any(
+            "radio2" in item.view.get("resource_id", "") for item in visitor.items
+        )
 
     def test_visit_slider(self, visitor, node):
         """Test visit_slider method."""
@@ -464,7 +558,13 @@ class TestBasicTextVisitor:
         node.max_progress = 100
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         visitor.visit_slider(node)

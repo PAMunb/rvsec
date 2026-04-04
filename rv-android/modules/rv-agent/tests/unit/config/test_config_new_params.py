@@ -2,7 +2,6 @@
 
 import pytest
 from pydantic import ValidationError
-
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.constants import RVAgentConstants
 

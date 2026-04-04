@@ -10,9 +10,9 @@ Verifies INV-AGT-30:
 - Registration in ActionRanker
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import GradualDecayScorer
 
 
@@ -83,14 +83,14 @@ class TestGradualDecayScorer:
             ActionRanker,
         )
         from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
-            MopScorer,
-            WtgScorer,
-            SaturationScorer,
             ComponentPriorityScorer,
+            GradualDecayScorer,
+            MopScorer,
+            SaturationScorer,
             StrengthScorer,
             SystemElementFilter,
             VisitationPenaltyScorer,
-            GradualDecayScorer,
+            WtgScorer,
         )
 
         config = RVAgentConfig(package_name="test.app")

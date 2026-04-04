@@ -1,5 +1,4 @@
 import pytest
-
 from rv_android_core.commands.command_exception import CommandException
 
 
@@ -17,7 +16,9 @@ class TestCommandException:
     def test_command_exception_str(self):
         """Test string representation of CommandException"""
         exception = CommandException("adb", 1, "Device not found")
-        expected_str = "CommandException[tool=adb ::: code=1 ::: message=Device not found]"
+        expected_str = (
+            "CommandException[tool=adb ::: code=1 ::: message=Device not found]"
+        )
 
         assert str(exception) == expected_str
 

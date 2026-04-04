@@ -4,10 +4,11 @@ Screen processor integration tests.
 Tests ScreenProcessor with real device UI.
 """
 
-import pytest
 import time
 
+import pytest
 from rv_agent.services.screen_analyzer import ScreenProcessor
+
 from .conftest import launch_app
 
 pytestmark = [pytest.mark.online]

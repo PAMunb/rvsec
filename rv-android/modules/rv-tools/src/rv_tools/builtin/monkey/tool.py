@@ -7,14 +7,14 @@ and monitored operations validation in Android applications.
 
 from typing import Any, Dict
 
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class MonkeyTool(AbstractTool):
@@ -49,49 +49,50 @@ class MonkeyTool(AbstractTool):
         description="Android UI/Application exerciser generating pseudo-random user events",
         url="https://developer.android.com/studio/test/monkey",
         version="1.0.0",
-        process_pattern="com.android.commands.monkey"
+        process_pattern="com.android.commands.monkey",
     )
 
-    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
+    def __init__(
+        self, name: str = None, description: str = None, process_pattern: str = None
+    ):
         """
         Initialize Monkey tool with rv-android-core infrastructure.
         """
         super().__init__(
             name=name or self.TOOL_SPEC.name,
             description=description or self.TOOL_SPEC.description,
-            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
+            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern,
         )
 
         # Initialize rv-android-core infrastructure components
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_tools.builtin.monkey",
-            {CONTEXT_COMPONENT: "MonkeyTool"}
+            "rv_tools.builtin.monkey", {CONTEXT_COMPONENT: "MonkeyTool"}
         )
 
         # Default Monkey configuration
         self.config = {
-            "event_count": 1_000_000_000,    # Number of events to generate
-            "seed": None,                     # Random seed for reproducibility
-            "throttle": 0,                    # Delay between events (ms)
-            "device_id": "emulator-5554",     # Target device (fallback default)
-            "verbosity": 2,                   # Verbosity level (0-3)
-            "ignore_crashes": False,          # Continue after crashes
-            "ignore_timeouts": False,         # Continue after ANR timeouts
-            "ignore_monitored_violations": True, # Ignore monitored operations violations
-            "kill_process_after_error": False, # Kill process after error
-            "monitor_native_crashes": True,   # Monitor for native crashes
-            "event_percentages": {            # Event type percentages
-                "touch": None,                # Touch events
-                "motion": None,               # Motion events  
-                "trackball": None,            # Trackball events
-                "syskeys": None,              # System key events
-                "nav": None,                  # Navigation events
-                "majornav": None,             # Major navigation events
-                "appswitch": None,            # App switch events
-                "flip": None,                 # Keyboard flip events
-                "anyevent": None              # Any event types
-            }
+            "event_count": 1_000_000_000,  # Number of events to generate
+            "seed": None,  # Random seed for reproducibility
+            "throttle": 0,  # Delay between events (ms)
+            "device_id": "emulator-5554",  # Target device (fallback default)
+            "verbosity": 2,  # Verbosity level (0-3)
+            "ignore_crashes": False,  # Continue after crashes
+            "ignore_timeouts": False,  # Continue after ANR timeouts
+            "ignore_monitored_violations": True,  # Ignore monitored operations violations
+            "kill_process_after_error": False,  # Kill process after error
+            "monitor_native_crashes": True,  # Monitor for native crashes
+            "event_percentages": {  # Event type percentages
+                "touch": None,  # Touch events
+                "motion": None,  # Motion events
+                "trackball": None,  # Trackball events
+                "syskeys": None,  # System key events
+                "nav": None,  # Navigation events
+                "majornav": None,  # Major navigation events
+                "appswitch": None,  # App switch events
+                "flip": None,  # Keyboard flip events
+                "anyevent": None,  # Any event types
+            },
         }
 
         self.logger.info("Initialized Monkey tool for random event generation")
@@ -100,7 +101,7 @@ class MonkeyTool(AbstractTool):
     def get_tool_spec(cls):
         """Get tool specification for registration."""
         return cls.TOOL_SPEC
-    
+
     @classmethod
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
         """Get available Monkey variants with different configurations."""
@@ -111,7 +112,7 @@ class MonkeyTool(AbstractTool):
                 "throttle": 0,
                 "verbosity": 2,
                 "ignore_crashes": False,
-                "ignore_timeouts": False
+                "ignore_timeouts": False,
             },
             "fast": {
                 "event_count": 500,
@@ -119,7 +120,7 @@ class MonkeyTool(AbstractTool):
                 "throttle": 0,
                 "verbosity": 1,
                 "ignore_crashes": True,
-                "ignore_timeouts": True
+                "ignore_timeouts": True,
             },
             "stress": {
                 "event_count": 10000,
@@ -127,14 +128,14 @@ class MonkeyTool(AbstractTool):
                 "throttle": 0,
                 "verbosity": 3,
                 "ignore_crashes": False,
-                "ignore_timeouts": False
-            }
+                "ignore_timeouts": False,
+            },
         }
 
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure Monkey-specific parameters.
-        
+
         Supported configuration options:
         - event_count: Number of events to generate
         - seed: Random seed for reproducible testing
@@ -145,7 +146,7 @@ class MonkeyTool(AbstractTool):
         - ignore_timeouts: Whether to continue after ANR timeouts
         - ignore_monitored_violations: Whether to ignore monitored operations violations
         - event_percentages: Dictionary with event type percentages
-        
+
         Args:
             config: Configuration dictionary with Monkey parameters
         """
@@ -162,7 +163,9 @@ class MonkeyTool(AbstractTool):
                 else:
                     self.logger.warning("Event count must be positive")
             except (ValueError, TypeError):
-                self.logger.warning(f"Invalid event_count value: {config['event_count']}")
+                self.logger.warning(
+                    f"Invalid event_count value: {config['event_count']}"
+                )
 
         # Update random seed
         if "seed" in config:
@@ -204,17 +207,22 @@ class MonkeyTool(AbstractTool):
 
         # Update boolean flags
         boolean_flags = [
-            "ignore_crashes", "ignore_timeouts", "ignore_monitored_violations",
-            "kill_process_after_error", "monitor_native_crashes"
+            "ignore_crashes",
+            "ignore_timeouts",
+            "ignore_monitored_violations",
+            "kill_process_after_error",
+            "monitor_native_crashes",
         ]
-        
+
         for flag in boolean_flags:
             if flag in config:
                 self.config[flag] = bool(config[flag])
                 self.logger.debug(f"Set Monkey {flag} to: {self.config[flag]}")
 
         # Update event percentages
-        if "event_percentages" in config and isinstance(config["event_percentages"], dict):
+        if "event_percentages" in config and isinstance(
+            config["event_percentages"], dict
+        ):
             for event_type, percentage in config["event_percentages"].items():
                 if event_type in self.config["event_percentages"]:
                     try:
@@ -222,67 +230,73 @@ class MonkeyTool(AbstractTool):
                             pct = float(percentage)
                             if 0 <= pct <= 100:
                                 self.config["event_percentages"][event_type] = pct
-                                self.logger.debug(f"Set {event_type} percentage to: {pct}%")
+                                self.logger.debug(
+                                    f"Set {event_type} percentage to: {pct}%"
+                                )
                             else:
-                                self.logger.warning(f"Percentage for {event_type} must be 0-100")
+                                self.logger.warning(
+                                    f"Percentage for {event_type} must be 0-100"
+                                )
                         else:
                             self.config["event_percentages"][event_type] = None
                     except (ValueError, TypeError):
-                        self.logger.warning(f"Invalid percentage for {event_type}: {percentage}")
+                        self.logger.warning(
+                            f"Invalid percentage for {event_type}: {percentage}"
+                        )
 
     @ErrorHandler.handle_errors(
-        component="MonkeyTool",
-        phase="execute_tool_specific_logic",
-        reraise=True
+        component="MonkeyTool", phase="execute_tool_specific_logic", reraise=True
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
         Execute Monkey testing with configured parameters.
-        
+
         ### Execution Workflow:
         1. Build Monkey command with configured parameters
         2. Add event type percentages if specified
         3. Execute Monkey command on target device
         4. Capture execution output for analysis
-        
+
         Args:
             task: Task configuration containing timeout and other parameters
             app: Application under test with package name and metadata
         """
         device_id = self.config["device_id"]
         event_count = self.config["event_count"]
-        
+
         self.logger.info(f"Executing Monkey tool for {app.package_name}")
         self.logger.debug(f"Device: {device_id}, Events: {event_count}")
 
         # Get timeout from task configuration
-        timeout_in_seconds = getattr(task.config, 'timeout', 300)  # Default 5 minutes
-        
+        timeout_in_seconds = getattr(task.config, "timeout", 300)  # Default 5 minutes
+
         self.logger.info(f"Monkey execution timeout: {timeout_in_seconds} seconds")
 
         # Build Monkey command
         monkey_cmd = self._build_monkey_command(app, timeout_in_seconds)
-        
+
         # Build command string for logging
         cmd_str = f"{monkey_cmd.command} {' '.join(monkey_cmd.args)}"
         self.logger.debug(f"Monkey command: {cmd_str}")
 
         # Execute Monkey testing with centralized error handling
         self.logger.info(f"Starting Monkey execution for {app.package_name}")
-        
+
         # Execute command with output redirection (binary mode for command output)
-        with open(task.result.trace_file, 'wb') as trace_file:
+        with open(task.result.trace_file, "wb") as trace_file:
             # Use centralized command execution with error handling
             # Redirect both stdout and stderr to trace file to prevent console flooding
-            self._execute_and_check_command(monkey_cmd, stdout=trace_file, stderr=trace_file)
-        
+            self._execute_and_check_command(
+                monkey_cmd, stdout=trace_file, stderr=trace_file
+            )
+
         # Append success information to trace file (text mode for metadata)
         # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
         #     success_info = f"\n--- Monkey Execution Completed ---\n"
         #     success_info += f"Events: {event_count}\n"
         #     success_info += f"Command: {cmd_str}\n"
         #     trace_file.write(success_info)
-        
+
         self.logger.info("Monkey execution completed successfully")
 
     def _build_monkey_command(self, app: App, timeout_seconds: int) -> Command:
@@ -300,8 +314,10 @@ class MonkeyTool(AbstractTool):
             Configured Command object for Monkey execution
         """
         cmd_args = [
-            "-s", self.config["device_id"],
-            "shell", "monkey",
+            "-s",
+            self.config["device_id"],
+            "shell",
+            "monkey",
         ]
 
         # Verbosity flags (-v repeated N times)
@@ -325,14 +341,16 @@ class MonkeyTool(AbstractTool):
             cmd_args.extend(["-s", str(seed)])
 
         cmd_args.extend(["-p", app.package_name])
-        cmd_args.append(str(1_000_000_000))  # Effectively infinite — timeout controls execution duration
+        cmd_args.append(
+            str(1_000_000_000)
+        )  # Effectively infinite — timeout controls execution duration
 
         return Command("adb", cmd_args, timeout_seconds)
 
     def get_supported_event_types(self) -> list:
         """
         Get list of supported Monkey event types.
-        
+
         Returns:
             List of supported event type names
         """
@@ -341,17 +359,19 @@ class MonkeyTool(AbstractTool):
     def get_tool_info(self) -> dict:
         """
         Get comprehensive Monkey tool information.
-        
+
         Returns:
             Dictionary with tool information and current configuration
         """
         info = super().get_tool_info()
-        info.update({
-            "tool_spec": self.TOOL_SPEC.to_dict(),
-            "supported_event_types": self.get_supported_event_types(),
-            "current_event_count": self.config["event_count"],
-            "current_seed": self.config["seed"],
-            "version": self.TOOL_SPEC.version,
-            "url": self.TOOL_SPEC.url
-        })
+        info.update(
+            {
+                "tool_spec": self.TOOL_SPEC.to_dict(),
+                "supported_event_types": self.get_supported_event_types(),
+                "current_event_count": self.config["event_count"],
+                "current_seed": self.config["seed"],
+                "version": self.TOOL_SPEC.version,
+                "url": self.TOOL_SPEC.url,
+            }
+        )
         return info

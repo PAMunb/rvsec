@@ -8,9 +8,9 @@ Tests cover:
 - FR20 scenario: Parameter overrides replace variant values
 """
 
-
 from rv_android_core.domain.task import ToolConfig
 from rv_tools.registry.factory import ToolFactory
+
 
 class TestCreateTool:
     """FR18: Factory creates configured tool instances from ToolConfig."""
@@ -87,7 +87,9 @@ class TestFactoryRejectsInvalid:
 
     def test_rejects_invalid_variant(self, factory):
         """FR18 scenario: invalid variant returns None (error absorbed by decorator)."""
-        tool_config = ToolConfig(name="faketool", variant="invalid_variant", parameters={})
+        tool_config = ToolConfig(
+            name="faketool", variant="invalid_variant", parameters={}
+        )
         result = factory.create_tool(tool_config)
         assert result is None
 

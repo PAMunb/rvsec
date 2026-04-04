@@ -14,13 +14,4 @@ inputs = ["test", "12", "0.8", "1.2", "1.0", "9.8"]
 
 # edit text
 if d(text=sys.argv[2]).exists:
-	d(text=sys.argv[2]).set_text(inputs[random.randint(0, 5)])
-
-
-
-
-
-
-
-
-
+    d(text=sys.argv[2]).set_text(inputs[random.randint(0, 5)])

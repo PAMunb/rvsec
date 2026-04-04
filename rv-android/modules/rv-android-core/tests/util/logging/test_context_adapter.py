@@ -5,7 +5,6 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.util.logging.context_adapter import ContextAdapter
 
 
@@ -69,7 +68,10 @@ class TestContextAdapter:
         context_adapter.push_context(new_key="new_value")
 
         # Check that context is updated
-        assert context_adapter.context == {"test_key": "test_value", "new_key": "new_value"}
+        assert context_adapter.context == {
+            "test_key": "test_value",
+            "new_key": "new_value",
+        }
         assert context_adapter._context_stack == [{"test_key": "test_value"}]
 
         # Push another context
@@ -79,7 +81,7 @@ class TestContextAdapter:
         assert context_adapter.context == {
             "test_key": "test_value",
             "new_key": "new_value",
-            "another_key": "another_value"
+            "another_key": "another_value",
         }
         assert len(context_adapter._context_stack) == 2
 
@@ -96,9 +98,12 @@ class TestContextAdapter:
         assert old_context == {
             "test_key": "test_value",
             "new_key": "new_value",
-            "another_key": "another_value"
+            "another_key": "another_value",
         }
-        assert context_adapter.context == {"test_key": "test_value", "new_key": "new_value"}
+        assert context_adapter.context == {
+            "test_key": "test_value",
+            "new_key": "new_value",
+        }
         assert len(context_adapter._context_stack) == 1
 
         # Pop again
@@ -124,7 +129,10 @@ class TestContextAdapter:
         # Use as context manager
         with context_adapter.with_context(temp_key="temp_value"):
             # Inside context: context should be updated
-            assert context_adapter.context == {"test_key": "test_value", "temp_key": "temp_value"}
+            assert context_adapter.context == {
+                "test_key": "test_value",
+                "temp_key": "temp_value",
+            }
             assert context_adapter._context_stack == [{"test_key": "test_value"}]
 
         # After context: context should be restored
@@ -138,17 +146,23 @@ class TestContextAdapter:
 
         # Nested context managers
         with context_adapter.with_context(level1="value1"):
-            assert context_adapter.context == {"test_key": "test_value", "level1": "value1"}
+            assert context_adapter.context == {
+                "test_key": "test_value",
+                "level1": "value1",
+            }
 
             with context_adapter.with_context(level2="value2"):
                 assert context_adapter.context == {
                     "test_key": "test_value",
                     "level1": "value1",
-                    "level2": "value2"
+                    "level2": "value2",
                 }
 
             # After inner context
-            assert context_adapter.context == {"test_key": "test_value", "level1": "value1"}
+            assert context_adapter.context == {
+                "test_key": "test_value",
+                "level1": "value1",
+            }
 
         # After outer context
         assert context_adapter.context == {"test_key": "test_value"}
@@ -158,7 +172,7 @@ class TestContextAdapter:
         msg = "Test message"
         kwargs = {}
 
-        with patch.object(threading, 'current_thread') as mock_current_thread:
+        with patch.object(threading, "current_thread") as mock_current_thread:
             mock_thread = MagicMock()
             mock_thread.ident = 12345
             mock_current_thread.return_value = mock_thread
@@ -204,7 +218,10 @@ class TestContextAdapter:
         """Test that context is properly restored even when exception occurs"""
         try:
             with context_adapter.with_context(exception_test="value"):
-                assert context_adapter.context == {"test_key": "test_value", "exception_test": "value"}
+                assert context_adapter.context == {
+                    "test_key": "test_value",
+                    "exception_test": "value",
+                }
                 raise ValueError("Test exception")
         except ValueError:
             # Context should be restored after exception

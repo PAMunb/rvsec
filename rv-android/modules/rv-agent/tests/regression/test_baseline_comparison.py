@@ -8,10 +8,10 @@ Tests verify:
 - Execution time within acceptable bounds
 """
 
-import pytest
 import json
 from pathlib import Path
 
+import pytest
 
 # =============================================================================
 # Fixtures

@@ -5,18 +5,17 @@ Tests MOP marker enrichment, widget matching, and WTG integration
 using real static analysis data from fixtures.
 """
 
-import pytest
 from pathlib import Path
 
-from rv_static_analysis.parser.static.static_analysis_parser import parse_file
+import pytest
+from rv_agent.ui.rvagent_visitor import RVAgentVisitor
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_screen_parser.constants import ScreenParserType
+from rv_screen_parser.parser.screen.parser_factory import ParserFactory
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,
 )
-from rv_screen_parser.parser.screen.parser_factory import ParserFactory
-from rv_screen_parser.constants import ScreenParserType
-
-from rv_agent.ui.rvagent_visitor import RVAgentVisitor
+from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 
 # =============================================================================
 # Fixtures

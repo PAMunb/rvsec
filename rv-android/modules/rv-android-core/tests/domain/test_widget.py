@@ -1,6 +1,10 @@
 import pytest
-
-from rv_android_core.domain.widget import Widget, WidgetType, WidgetEvent, WidgetEventType
+from rv_android_core.domain.widget import (
+    Widget,
+    WidgetEvent,
+    WidgetEventType,
+    WidgetType,
+)
 
 
 class TestWidgetEventType:
@@ -34,7 +38,7 @@ class TestWidgetEvent:
             WidgetEventType.CLICK,
             "com.example.MainActivity",
             "onClick",
-            "com.example.MainActivity.onClick(android.view.View)"
+            "com.example.MainActivity.onClick(android.view.View)",
         )
 
     def test_widget_event_initialization(self, sample_event):
@@ -42,13 +46,19 @@ class TestWidgetEvent:
         assert sample_event.type == WidgetEventType.CLICK
         assert sample_event.clazz == "com.example.MainActivity"
         assert sample_event.method == "onClick"
-        assert sample_event.signature == "com.example.MainActivity.onClick(android.view.View)"
+        assert (
+            sample_event.signature
+            == "com.example.MainActivity.onClick(android.view.View)"
+        )
 
     def test_to_json(self, sample_event):
         """Test to_json method"""
         json_data = sample_event.to_json()
         assert json_data["type"] == "CLICK"
-        assert json_data["signature"] == "com.example.MainActivity.onClick(android.view.View)"
+        assert (
+            json_data["signature"]
+            == "com.example.MainActivity.onClick(android.view.View)"
+        )
 
     def test_equality(self, sample_event):
         """Test equality comparison"""
@@ -57,7 +67,7 @@ class TestWidgetEvent:
             WidgetEventType.CLICK,
             "com.example.MainActivity",
             "onClick",
-            "com.example.MainActivity.onClick(android.view.View)"
+            "com.example.MainActivity.onClick(android.view.View)",
         )
         assert sample_event == event2
 
@@ -66,7 +76,7 @@ class TestWidgetEvent:
             WidgetEventType.LONG_CLICK,
             "com.example.MainActivity",
             "onClick",
-            "com.example.MainActivity.onClick(android.view.View)"
+            "com.example.MainActivity.onClick(android.view.View)",
         )
         assert sample_event != event3
 
@@ -75,7 +85,7 @@ class TestWidgetEvent:
             WidgetEventType.CLICK,
             "com.example.MainActivity",
             "onClick",
-            "com.example.MainActivity.onClick()"
+            "com.example.MainActivity.onClick()",
         )
         assert sample_event != event4
 
@@ -87,18 +97,25 @@ class TestWidgetEvent:
         expected_hash = hash((sample_event.signature, sample_event.type))
         assert hash(sample_event) == expected_hash
 
-    def test_widget_event_string_representation(self, sample_event):  # Renomeado para evitar confusão
+    def test_widget_event_string_representation(
+        self, sample_event
+    ):  # Renomeado para evitar confusão
         """Test __str__ method"""
         string_repr = str(sample_event)
 
         assert "WidgetEvent=" in string_repr
-        assert "type=WidgetEventType.CLICK" in string_repr  # Corrigido para corresponder à saída real
+        assert (
+            "type=WidgetEventType.CLICK" in string_repr
+        )  # Corrigido para corresponder à saída real
         assert "clazz=com.example.MainActivity" in string_repr
         assert "method=onClick" in string_repr
 
     def test_repr(self, sample_event):
         """Test __repr__ method"""
-        assert repr(sample_event) == "(CLICK,com.example.MainActivity.onClick(android.view.View))"
+        assert (
+            repr(sample_event)
+            == "(CLICK,com.example.MainActivity.onClick(android.view.View))"
+        )
 
 
 class TestWidgetType:
@@ -120,8 +137,13 @@ class TestWidgetType:
     def test_from_class_name(self):
         """Test from_class_name method"""
         assert WidgetType.from_class_name("android.widget.Button") == WidgetType.BUTTON
-        assert WidgetType.from_class_name("android.widget.EditText") == WidgetType.EDIT_TEXT
-        assert WidgetType.from_class_name("android.something.Unknown") == WidgetType.OTHER
+        assert (
+            WidgetType.from_class_name("android.widget.EditText")
+            == WidgetType.EDIT_TEXT
+        )
+        assert (
+            WidgetType.from_class_name("android.something.Unknown") == WidgetType.OTHER
+        )
 
 
 class TestWidget:
@@ -139,7 +161,7 @@ class TestWidget:
             WidgetEventType.CLICK,
             "com.example.MainActivity",
             "onClick",
-            "com.example.MainActivity.onClick(android.view.View)"
+            "com.example.MainActivity.onClick(android.view.View)",
         )
 
     def test_widget_initialization(self, sample_widget):
@@ -205,14 +227,18 @@ class TestWidget:
         """Test hash computation"""
         assert hash(sample_widget) == hash(sample_widget.id)
 
-    def test_widget_string_representation(self, sample_widget):  # Renomeado para evitar confusão
+    def test_widget_string_representation(
+        self, sample_widget
+    ):  # Renomeado para evitar confusão
         """Test __str__ method"""
         sample_widget.text = "Login"
         string_repr = str(sample_widget)
 
         assert "Widget=" in string_repr
         assert "id=button1" in string_repr
-        assert "type=WidgetType.BUTTON" in string_repr  # Corrigido para corresponder à saída real
+        assert (
+            "type=WidgetType.BUTTON" in string_repr
+        )  # Corrigido para corresponder à saída real
         assert "name=login_button" in string_repr
         assert "text=Login" in string_repr
 

@@ -2,9 +2,9 @@
 Unit tests for DeviceInterface class.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
+import pytest
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.domain.exceptions import DeviceError
 

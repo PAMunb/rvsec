@@ -13,7 +13,6 @@ Covers:
 from unittest.mock import MagicMock
 
 import pytest
-
 from rv_agent import tracking as track
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.domain.screen_node import ScreenNode

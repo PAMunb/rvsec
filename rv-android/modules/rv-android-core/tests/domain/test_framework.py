@@ -13,7 +13,9 @@ class ModelTestBase:
     """
 
     @staticmethod
-    def assert_dict_contains_subset(subset: Dict[str, Any], full_dict: Dict[str, Any]) -> None:
+    def assert_dict_contains_subset(
+        subset: Dict[str, Any], full_dict: Dict[str, Any]
+    ) -> None:
         """
         Assert that a dictionary contains all key-value pairs from a subset dictionary.
 

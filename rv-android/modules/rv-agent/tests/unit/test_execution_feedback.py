@@ -10,8 +10,8 @@ Tests:
 
 from unittest.mock import MagicMock, patch
 
-from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent.domain.screen_node import ScreenNode
+from rv_agent.execution.tool_executor import ToolExecutor
 
 
 class TestToolExecutorReturnValuePropagation:
@@ -158,10 +158,10 @@ class TestRVTRACKIterationNumbers:
 
     def test_reward_propagation_logs_correct_iteration(self):
         """RVTRACK:REWARD uses actual iteration, not hardcoded 0."""
+        from rv_agent import tracking as track
         from rv_agent.strategies.rvagent_strategy.reward_propagator import (
             RewardPropagator,
         )
-        from rv_agent import tracking as track
 
         propagator = RewardPropagator()
         propagator.record_action("state_a", ((100, 200), "CLICK"))

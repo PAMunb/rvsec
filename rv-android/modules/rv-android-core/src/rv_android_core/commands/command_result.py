@@ -8,7 +8,6 @@ with standardized error handling and type safety.
 from typing import Optional
 
 from pydantic import Field
-
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 

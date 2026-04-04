@@ -9,13 +9,13 @@ M7: parse_node._update_cached_bounds() updates cached screen_desc bounds
     when the keyboard shifts elements without changing the structural hash.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.agent.nodes.parse_node import _update_cached_bounds
 from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
-from rv_agent.agent.nodes.parse_node import _update_cached_bounds
 
 # ---------------------------------------------------------------------------
 # M5: coverage_cache invalidation in update_action_availability

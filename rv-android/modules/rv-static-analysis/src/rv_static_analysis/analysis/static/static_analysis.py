@@ -51,7 +51,6 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.context_adapter import ContextAdapter
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel, validated_model
-
 from rv_static_analysis.config import RVStaticAnalysisConfig
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
 
@@ -250,7 +249,9 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
     def _run_analysis(self) -> None:
         """Build and execute the GATOR analysis command."""
         cmd_args = self.config.get_tool_command(
-            "analysis", self.app.path, self.analysis_file,
+            "analysis",
+            self.app.path,
+            self.analysis_file,
             code_package=self.app.code_package,
         )
         cmd = Command(cmd_args[0], cmd_args[1:], timeout=self.config.analysis_timeout)

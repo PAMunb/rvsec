@@ -1,6 +1,5 @@
 # tests/commands/test_command_not_found_error.py
 import pytest
-
 from rv_android_core.commands.command_exception import CommandException
 from rv_android_core.commands.command_not_found_error import CommandNotFoundError
 

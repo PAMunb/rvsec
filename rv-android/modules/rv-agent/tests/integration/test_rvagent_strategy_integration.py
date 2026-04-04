@@ -16,15 +16,11 @@ the integration between RVAgentStrategy and its dependencies.
 
 import hashlib
 
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.config.agent_config import RVAgentConfig
-
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_screen_parser.parser.screen.visitor.model import WidgetEventType
 
-from .conftest import (
-    create_mock_action,
-    create_mock_screen,
-)
+from .conftest import create_mock_action, create_mock_screen
 
 
 def compute_test_hash(activity: str, items_count: int) -> str:

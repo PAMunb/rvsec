@@ -6,7 +6,6 @@ tool specification and metadata management for monitored operations testing tool
 """
 
 import pytest
-
 from rv_android_core.tools.tool_spec import ToolSpec
 
 
@@ -20,7 +19,7 @@ class TestToolSpecInitialization:
             name="test_tool",
             description="Test tool description",
             url="http://github.com/test/tool",
-            version="1.0.0"
+            version="1.0.0",
         )
 
         # Assert
@@ -38,7 +37,7 @@ class TestToolSpecInitialization:
             description="Comprehensive test tool",
             version="2.1.0",
             url="http://github.com/test/tool",
-            process_pattern="com.comprehensive.tool"
+            process_pattern="com.comprehensive.tool",
         )
 
         # Assert
@@ -55,7 +54,7 @@ class TestToolSpecInitialization:
             "positional_tool",
             "Tool with positional args",
             "http://github.com/test/tool",
-            "1.5.0"
+            "1.5.0",
         )
 
         # Assert
@@ -71,7 +70,7 @@ class TestToolSpecInitialization:
             "mixed_tool",
             "Mixed args tool",
             "http://github.com/test/tool",
-            version="3.0.0"
+            version="3.0.0",
         )
 
         # Assert
@@ -90,13 +89,16 @@ class TestToolSpecFactoryMethods:
         spec = ToolSpec.create_builtin_spec(
             name="monkey",
             description="Android Monkey testing tool",
-            url="https://github.com/android/platform/frameworks/base/cmds/monkey"
+            url="https://github.com/android/platform/frameworks/base/cmds/monkey",
         )
 
         # Assert
         assert spec.name == "monkey"
         assert spec.description == "Android Monkey testing tool"
-        assert spec.url == "https://github.com/android/platform/frameworks/base/cmds/monkey"
+        assert (
+            spec.url
+            == "https://github.com/android/platform/frameworks/base/cmds/monkey"
+        )
         assert spec.version == "1.0.0"  # Default version
         assert spec.process_pattern is None
 
@@ -108,7 +110,7 @@ class TestToolSpecFactoryMethods:
             description="Model-based Android testing tool",
             url="https://github.com/honeynet/droidbot",
             version="2.0.0",
-            process_pattern="com.droidbot"
+            process_pattern="com.droidbot",
         )
 
         # Assert
@@ -125,7 +127,7 @@ class TestToolSpecFactoryMethods:
             name="appium",
             description="Cross-platform mobile testing framework",
             url="https://github.com/appium/appium",
-            version="1.0.0"
+            version="1.0.0",
         )
 
         # Assert
@@ -143,7 +145,7 @@ class TestToolSpecFactoryMethods:
             description="Mobile UI testing framework",
             url="https://github.com/mobile-dev-tools/maestro",
             version="1.5.0",
-            process_pattern="com.maestro"
+            process_pattern="com.maestro",
         )
 
         # Assert
@@ -165,7 +167,7 @@ class TestToolSpecSerialization:
             description="Tool for testing serialization",
             version="1.2.3",
             url="http://github.com/test/serialization",
-            process_pattern="com.serialization.tool"
+            process_pattern="com.serialization.tool",
         )
 
     @pytest.fixture
@@ -175,7 +177,7 @@ class TestToolSpecSerialization:
             name="minimal_tool",
             description="Minimal tool",
             version="1.0.0",
-            url="http://github.com/test/minimal"
+            url="http://github.com/test/minimal",
         )
 
     def test_to_dict_complete_spec(self, complete_spec):
@@ -189,7 +191,7 @@ class TestToolSpecSerialization:
             "description": "Tool for testing serialization",
             "version": "1.2.3",
             "url": "http://github.com/test/serialization",
-            "process_pattern": "com.serialization.tool"
+            "process_pattern": "com.serialization.tool",
         }
         assert result == expected
 
@@ -204,7 +206,7 @@ class TestToolSpecSerialization:
             "description": "Minimal tool",
             "version": "1.0.0",
             "url": "http://github.com/test/minimal",
-            "process_pattern": None
+            "process_pattern": None,
         }
         assert result == expected
 
@@ -216,7 +218,7 @@ class TestToolSpecSerialization:
             "description": "Tool created from dict",
             "version": "2.0.0",
             "url": "http://github.com/test/from_dict",
-            "process_pattern": "com.from.dict"
+            "process_pattern": "com.from.dict",
         }
 
         # Act

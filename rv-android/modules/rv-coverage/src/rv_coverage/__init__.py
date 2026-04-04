@@ -22,7 +22,7 @@ Provides real-time coverage tracking and formal property violation detection.
 
 from .analysis.coverage.analyzer import CoverageAnalyzer
 from .analysis.coverage.tracker import CoverageTracker
-from .parser.log.logcat_parser import parse_logcat_line, parse_logcat_file
+from .parser.log.logcat_parser import parse_logcat_file, parse_logcat_line
 
 __version__ = "0.1.0"
 __all__ = [

@@ -11,12 +11,12 @@ Verifies buffered navigation for multi-step path execution:
 
 from unittest.mock import MagicMock
 
-from rv_android_core.domain.widget import WidgetEventType
 from rv_agent.strategies.rvagent_strategy.path_buffer import (
-    PathBuffer,
-    MAX_BACKTRACK_HOPS,
     BACK_ACTION_ID,
+    MAX_BACKTRACK_HOPS,
+    PathBuffer,
 )
+from rv_android_core.domain.widget import WidgetEventType
 
 
 def _make_path_buffer(
@@ -242,4 +242,3 @@ class TestPlanMopPath:
 
 class TestPlanCoveragePath:
     """Coverage path tests moved to test_path_buffer_coverage.py."""
-

@@ -2,7 +2,12 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
-from rv_android_core.domain.log import RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV
+from rv_android_core.domain.log import (
+    TAG_RVSEC,
+    TAG_RVSEC_COV,
+    RvCoverageLog,
+    RvErrorLog,
+)
 
 
 class TestRvErrorLog:
@@ -17,7 +22,7 @@ class TestRvErrorLog:
             class_full_name="com.example.app.MainActivity",
             method="accessCamera",
             source="MainActivity.java",
-            message="Attempted to access camera without permission"
+            message="Attempted to access camera without permission",
         )
 
     def test_error_log_initialization(self, sample_error_log):
@@ -27,7 +32,9 @@ class TestRvErrorLog:
         assert sample_error_log.class_full_name == "com.example.app.MainActivity"
         assert sample_error_log.method == "accessCamera"
         assert sample_error_log.source == "MainActivity.java"
-        assert sample_error_log.message == "Attempted to access camera without permission"
+        assert (
+            sample_error_log.message == "Attempted to access camera without permission"
+        )
 
         # Check auto-generated fields
         assert isinstance(sample_error_log.time_occurred, datetime)
@@ -47,7 +54,7 @@ class TestRvErrorLog:
             "source": "MainActivity.java",
             "message": "Attempted to access camera without permission",
             "time_occurred": 1617234567890,  # Example timestamp in milliseconds
-            "time_since_task_start": 30
+            "time_since_task_start": 30,
         }
 
         error_log = RvErrorLog.from_dict(data)
@@ -69,7 +76,7 @@ class TestRvErrorLog:
             "class_full_name": "com.example.app.MainActivity",
             "method": "accessCamera",
             "source": "MainActivity.java",
-            "message": "Attempted to access camera without permission"
+            "message": "Attempted to access camera without permission",
         }
 
         error_log = RvErrorLog.from_dict(data)
@@ -107,7 +114,7 @@ class TestRvErrorLog:
             class_full_name="com.example.app.MainActivity",
             method="accessCamera",
             source="MainActivity.java",
-            message="Attempted to access camera without permission"
+            message="Attempted to access camera without permission",
         )
         assert sample_error_log == error2
 
@@ -118,7 +125,7 @@ class TestRvErrorLog:
             class_full_name="com.example.app.MainActivity",
             method="accessCamera",
             source="MainActivity.java",
-            message="Different message"
+            message="Different message",
         )
         assert sample_error_log != error3
 
@@ -136,7 +143,7 @@ class TestRvCoverageLog:
             clazz="com.example.app.MainActivity",
             method="onCreate",
             params="android.os.Bundle",
-            signature="com.example.app.MainActivity.onCreate(android.os.Bundle)"
+            signature="com.example.app.MainActivity.onCreate(android.os.Bundle)",
         )
 
     def test_coverage_log_initialization(self, sample_coverage_log):
@@ -144,7 +151,10 @@ class TestRvCoverageLog:
         assert sample_coverage_log.clazz == "com.example.app.MainActivity"
         assert sample_coverage_log.method == "onCreate"
         assert sample_coverage_log.params == "android.os.Bundle"
-        assert sample_coverage_log.signature == "com.example.app.MainActivity.onCreate(android.os.Bundle)"
+        assert (
+            sample_coverage_log.signature
+            == "com.example.app.MainActivity.onCreate(android.os.Bundle)"
+        )
 
         # Check auto-generated fields
         assert isinstance(sample_coverage_log.time_occurred, datetime)
@@ -154,7 +164,10 @@ class TestRvCoverageLog:
     def test_to_dict(self, sample_error_log):
         """Test to_dict method"""
         # Mock utils.datetime_to_milliseconds para um comportamento conhecido
-        with patch('rv_android_core.domain.log.utils.datetime_to_milliseconds', return_value=123456789):
+        with patch(
+            "rv_android_core.domain.log.utils.datetime_to_milliseconds",
+            return_value=123456789,
+        ):
             dic = sample_error_log.to_dict()
 
             assert dic["spec"] == "SecuritySpec"
@@ -169,13 +182,19 @@ class TestRvCoverageLog:
     def test_to_dict(self, sample_coverage_log):
         """Test to_dict method"""
         # Mock utils.datetime_to_milliseconds para um comportamento conhecido
-        with patch('rv_android_core.domain.log.utils.datetime_to_milliseconds', return_value=123456789):
+        with patch(
+            "rv_android_core.domain.log.utils.datetime_to_milliseconds",
+            return_value=123456789,
+        ):
             dic = sample_coverage_log.to_dict()
 
             assert dic["class"] == "com.example.app.MainActivity"
             assert dic["method"] == "onCreate"
             assert dic["params"] == "android.os.Bundle"
-            assert dic["signature"] == "com.example.app.MainActivity.onCreate(android.os.Bundle)"
+            assert (
+                dic["signature"]
+                == "com.example.app.MainActivity.onCreate(android.os.Bundle)"
+            )
             assert dic["time_occurred"] == 123456789
             assert dic["time_since_task_start"] == 0
             assert dic["original_msg"] == ""
@@ -189,7 +208,7 @@ class TestRvCoverageLog:
             "signature": "com.example.app.MainActivity.onCreate(android.os.Bundle)",
             "time_occurred": 1617234567890,  # Example timestamp in milliseconds
             "time_since_task_start": 30,
-            "original_msg": "Log message"
+            "original_msg": "Log message",
         }
 
         coverage_log = RvCoverageLog.from_dict(data)
@@ -197,7 +216,10 @@ class TestRvCoverageLog:
         assert coverage_log.clazz == "com.example.app.MainActivity"
         assert coverage_log.method == "onCreate"
         assert coverage_log.params == "android.os.Bundle"
-        assert coverage_log.signature == "com.example.app.MainActivity.onCreate(android.os.Bundle)"
+        assert (
+            coverage_log.signature
+            == "com.example.app.MainActivity.onCreate(android.os.Bundle)"
+        )
         assert isinstance(coverage_log.time_occurred, datetime)
         assert coverage_log.time_since_task_start == 30
         assert coverage_log.original_msg == "Log message"
@@ -208,7 +230,7 @@ class TestRvCoverageLog:
             "class": "com.example.app.MainActivity",
             "method": "onCreate",
             "params": "android.os.Bundle",
-            "signature": "com.example.app.MainActivity.onCreate(android.os.Bundle)"
+            "signature": "com.example.app.MainActivity.onCreate(android.os.Bundle)",
         }
 
         coverage_log = RvCoverageLog.from_dict(data)
@@ -227,7 +249,7 @@ class TestRvCoverageLog:
             clazz="com.example.app.MainActivity",
             method="onResult",
             params="int;java.lang.String",
-            signature="com.example.app.MainActivity.onResult(int,java.lang.String)"
+            signature="com.example.app.MainActivity.onResult(int,java.lang.String)",
         )
         params = log.get_parameters_list()
         assert params == ["int", "java.lang.String"]
@@ -237,7 +259,7 @@ class TestRvCoverageLog:
             clazz="com.example.app.MainActivity",
             method="clear",
             params="",
-            signature="com.example.app.MainActivity.clear()"
+            signature="com.example.app.MainActivity.clear()",
         )
         params = log.get_parameters_list()
         assert params == []
@@ -269,7 +291,7 @@ class TestRvCoverageLog:
             clazz="com.example.app.MainActivity",
             method="onCreate",
             params="android.os.Bundle",
-            signature="com.example.app.MainActivity.onCreate(android.os.Bundle)"
+            signature="com.example.app.MainActivity.onCreate(android.os.Bundle)",
         )
         assert sample_coverage_log == log2
 
@@ -278,7 +300,7 @@ class TestRvCoverageLog:
             clazz="com.example.app.MainActivity",
             method="onDestroy",
             params="",
-            signature="com.example.app.MainActivity.onDestroy()"
+            signature="com.example.app.MainActivity.onDestroy()",
         )
         assert sample_coverage_log != log3
 

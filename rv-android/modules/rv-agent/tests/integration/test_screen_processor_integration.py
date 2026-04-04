@@ -5,23 +5,22 @@ Tests screen parsing, UI element formatting, coordinate transformation,
 and integration with DynamicStateGraph.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+from rv_agent.agent.device_interface import DeviceInterface
+from rv_agent.agent.dynamic_state_graph import (
+    DynamicStateGraph,
+    compute_screen_hash_from_description,
+)
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.services.screen_analyzer import ScreenProcessor
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,
 )
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
-from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.agent.dynamic_state_graph import (
-    DynamicStateGraph,
-    compute_screen_hash_from_description,
-)
-from rv_agent.agent.device_interface import DeviceInterface
-from rv_agent.memory.ui_coverage import UICoverageTracker
 
 pytestmark = pytest.mark.integration
 

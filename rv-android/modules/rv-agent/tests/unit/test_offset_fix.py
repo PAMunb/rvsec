@@ -18,9 +18,8 @@ Tests:
 
 from unittest.mock import MagicMock, patch
 
-
-from rv_agent.agent.nodes.learn_node import _propagate_reward, _record_action_success
 from rv_agent.agent.nodes.execute_node import execute_node
+from rv_agent.agent.nodes.learn_node import _propagate_reward, _record_action_success
 
 # ---------------------------------------------------------------------------
 # Helpers

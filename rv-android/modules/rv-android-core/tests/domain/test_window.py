@@ -215,7 +215,9 @@ class TestWindows(ModelTestBase):
         assert window in windows.windows
 
         # Create window with name and ID
-        window_with_id = windows.create_new_window("com.example.AnotherActivity", "activity_id")
+        window_with_id = windows.create_new_window(
+            "com.example.AnotherActivity", "activity_id"
+        )
         assert window_with_id.name == "com.example.AnotherActivity"
         assert window_with_id.id == "activity_id"
         assert window_with_id in windows.windows
@@ -314,6 +316,8 @@ class TestWindows(ModelTestBase):
         assert "com.example.SecondActivity" in window_names
 
         # Find the first window and verify its widgets
-        first_window = next(w for w in json_data["windows"] if w["name"] == "com.example.TestActivity")
+        first_window = next(
+            w for w in json_data["windows"] if w["name"] == "com.example.TestActivity"
+        )
         assert len(first_window["widgets"]) == 1
         assert first_window["widgets"][0] == widget.to_json()

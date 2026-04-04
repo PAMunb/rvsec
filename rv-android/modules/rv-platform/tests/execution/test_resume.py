@@ -14,14 +14,8 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.domain.app import App
-from rv_android_core.domain.task import (
-    Task,
-    TaskConfiguration,
-    TaskState,
-    ToolConfig,
-)
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_platform.components.result_processor import ResultProcessorComponent
 from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.platform import Platform

@@ -8,23 +8,17 @@ import os
 from unittest.mock import patch
 
 import pytest
-
-from rv_android_core.domain.task import (
-    Task,
-    TaskConfiguration,
-    TaskState,
-    ToolConfig,
-)
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_platform.storage.task_storage import (
     ExperimentMetadata,
     StorageConfig,
     TaskStorage,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(apk="app.apk", tool="monkey", rep=1, timeout=300):
     return TaskConfiguration(
@@ -55,6 +49,7 @@ def _make_completed_task(apk="app.apk", tool="monkey", rep=1, timeout=300):
 # ExperimentMetadata
 # ===========================================================================
 
+
 class TestExperimentMetadata:
     def test_create_from_config_produces_sha256_checksum(self):
         """Checksum is a 64-char hex string (SHA-256)."""
@@ -81,6 +76,7 @@ class TestExperimentMetadata:
 # ===========================================================================
 # TaskStorage — load / save round-trip
 # ===========================================================================
+
 
 class TestTaskStorageLoadSave:
     @pytest.fixture
@@ -163,6 +159,7 @@ class TestTaskStorageLoadSave:
 # TaskStorage — CRUD operations
 # ===========================================================================
 
+
 class TestTaskStorageCRUD:
     @pytest.fixture
     def storage(self, tmp_path):
@@ -220,6 +217,7 @@ class TestTaskStorageCRUD:
 # TaskStorage — filtering
 # ===========================================================================
 
+
 class TestTaskStorageFiltering:
     @pytest.fixture
     def storage(self, tmp_path):
@@ -268,6 +266,7 @@ class TestTaskStorageFiltering:
 # ===========================================================================
 # TaskStorage — transactions
 # ===========================================================================
+
 
 class TestTaskStorageTransactions:
     @pytest.fixture
@@ -343,6 +342,7 @@ class TestTaskStorageTransactions:
 # TaskStorage — bulk_update
 # ===========================================================================
 
+
 class TestTaskStorageBulkUpdate:
     def test_bulk_update_applies_all_tasks(self, tmp_path):
         storage = TaskStorage(str(tmp_path / "tasks.json"))
@@ -363,6 +363,7 @@ class TestTaskStorageBulkUpdate:
 # ===========================================================================
 # TaskStorage — statistics
 # ===========================================================================
+
 
 class TestTaskStorageStatistics:
     @pytest.fixture
@@ -410,6 +411,7 @@ class TestTaskStorageStatistics:
 # TaskStorage — continuation compatibility
 # ===========================================================================
 
+
 class TestContinuationCompatibility:
     def test_compatible_config(self, tmp_path):
         config_dict = {"tools": ["monkey"], "timeout": 300}
@@ -435,6 +437,7 @@ class TestContinuationCompatibility:
 # ===========================================================================
 # TaskStorage — metadata operations
 # ===========================================================================
+
 
 class TestTaskStorageMetadata:
     def test_set_and_get_metadata(self, tmp_path):

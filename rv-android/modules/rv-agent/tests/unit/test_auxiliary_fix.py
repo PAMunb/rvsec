@@ -15,11 +15,10 @@ Tests:
 import logging
 from unittest.mock import MagicMock, patch
 
-
+from rv_agent import tracking as track
 from rv_agent.agent.nodes.learn_node import learn_node
 from rv_agent.agent.nodes.parse_node import _update_cached_bounds
 from rv_agent.execution.tool_executor import ToolExecutor
-from rv_agent import tracking as track
 
 # ---------------------------------------------------------------------------
 # Helpers

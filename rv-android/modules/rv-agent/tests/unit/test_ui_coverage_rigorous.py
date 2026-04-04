@@ -5,9 +5,9 @@ Tests element tracking, interaction recording, coverage statistics,
 temporal tracking, and discovery timeline.
 """
 
-import pytest
 import time
 
+import pytest
 from rv_agent.memory.ui_coverage import UICoverageTracker, UIElementStats
 
 pytestmark = pytest.mark.unit

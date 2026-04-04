@@ -11,13 +11,14 @@ import xml.etree.ElementTree as ET
 from unittest.mock import Mock, patch
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_android_core.util.error.exceptions import RVParsingError
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.model import Node, ScreenDescription
 
 
@@ -45,7 +46,7 @@ def sample_xml_file():
 @pytest.fixture
 def sample_xml_content(sample_xml_file):
     """Fixture that provides the content of the sample UIAutomator XML file."""
-    with open(sample_xml_file, 'r') as f:
+    with open(sample_xml_file, "r") as f:
         return f.read()
 
 
@@ -66,25 +67,29 @@ class TestUIAutomator2Parser:
         assert parser.parser_name == "uiautomator"
         assert parser.visitor_class is not None
 
-    @patch.object(UIAutomator2Parser, 'create_visitor')
-    def test_parse_xml_string(self, mock_create_visitor, parser, mock_visitor, sample_xml_content):
+    @patch.object(UIAutomator2Parser, "create_visitor")
+    def test_parse_xml_string(
+        self, mock_create_visitor, parser, mock_visitor, sample_xml_content
+    ):
         """Test parsing an XML string directly."""
         mock_create_visitor.return_value = mock_visitor
 
-        result = parser.parse(sample_xml_content, activity="br.unb.cic.cryptoapp.MainActivity")
+        result = parser.parse(
+            sample_xml_content, activity="br.unb.cic.cryptoapp.MainActivity"
+        )
 
         assert isinstance(result, ScreenDescription)
         assert mock_visitor.get_screen_description.called
         mock_create_visitor.assert_called_once()
 
-    @patch.object(UIAutomator2Parser, 'create_visitor')
+    @patch.object(UIAutomator2Parser, "create_visitor")
     def test_parse_state_data_dict(self, mock_create_visitor, parser, mock_visitor):
         """Test parsing a state data dictionary."""
         mock_create_visitor.return_value = mock_visitor
 
         state_data = {
             "hierarchy": "<hierarchy><node text='test' /></hierarchy>",
-            "activity": "TestActivity"
+            "activity": "TestActivity",
         }
 
         result = parser.parse_screen(state_data)
@@ -97,7 +102,7 @@ class TestUIAutomator2Parser:
         """Test extracting activity name when explicitly provided."""
         state_data = {
             "activity": "com.test.Activity",
-            "hierarchy": "<hierarchy></hierarchy>"
+            "hierarchy": "<hierarchy></hierarchy>",
         }
 
         activity = parser.get_activity_name(state_data)
@@ -106,9 +111,7 @@ class TestUIAutomator2Parser:
 
     def test_get_activity_name_from_xml(self, parser, sample_xml_content):
         """Test extracting activity name from XML content."""
-        state_data = {
-            "hierarchy": sample_xml_content
-        }
+        state_data = {"hierarchy": sample_xml_content}
 
         activity = parser.get_activity_name(state_data)
 
@@ -122,9 +125,7 @@ class TestUIAutomator2Parser:
 
     def test_validate_state_data_valid(self, parser, sample_xml_content):
         """Test validation of valid state data."""
-        state_data = {
-            "hierarchy": sample_xml_content
-        }
+        state_data = {"hierarchy": sample_xml_content}
 
         assert parser.validate_state_data(state_data) is True
 
@@ -135,33 +136,33 @@ class TestUIAutomator2Parser:
         assert parser.validate_state_data(state_data1) is False
 
         # Invalid XML
-        state_data2 = {
-            "hierarchy": "<invalid>"
-        }
+        state_data2 = {"hierarchy": "<invalid>"}
         assert parser.validate_state_data(state_data2) is False
 
     def test_create_node_tree(self, parser, sample_xml_content):
         """Test creating a node tree from XML data."""
-        state_data = {
-            "hierarchy": sample_xml_content
-        }
+        state_data = {"hierarchy": sample_xml_content}
 
         root_node = parser.create_node_tree(state_data)
 
         assert isinstance(root_node, Node)
         # The exact class name might vary, test that it's a node with children
-        assert hasattr(root_node, 'view_class')
+        assert hasattr(root_node, "view_class")
         assert len(root_node.children) > 0
 
     def test_parse_real_xml_file(self, parser, sample_xml_content, mock_visitor):
         """Test parsing a real XML file and validating the structure."""
         # Update the mock visitor to return a screen description with the correct activity
-        mock_visitor.get_screen_description.return_value = ScreenDescription("br.unb.cic.cryptoapp.MainActivity", [])
+        mock_visitor.get_screen_description.return_value = ScreenDescription(
+            "br.unb.cic.cryptoapp.MainActivity", []
+        )
 
-        with patch.object(UIAutomator2Parser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(
+            UIAutomator2Parser, "create_visitor", return_value=mock_visitor
+        ):
             state_data = {
                 "hierarchy": sample_xml_content,
-                "activity": "br.unb.cic.cryptoapp.MainActivity"
+                "activity": "br.unb.cic.cryptoapp.MainActivity",
             }
 
             result = parser.parse_screen(state_data)
@@ -207,18 +208,26 @@ class TestUIAutomator2Parser:
         assert len(node.children[1].children) == 1
         assert node.children[1].children[0].view_class == "grandchild"
 
-    def test_parse_implementation(self, parser, sample_xml_content, static_data, mock_visitor):
+    def test_parse_implementation(
+        self, parser, sample_xml_content, static_data, mock_visitor
+    ):
         """Test the specific implementation of _parse_implementation."""
         # Update the mock visitor to return a screen description with the correct activity
-        mock_visitor.get_screen_description.return_value = ScreenDescription("br.unb.cic.cryptoapp.MainActivity", [])
+        mock_visitor.get_screen_description.return_value = ScreenDescription(
+            "br.unb.cic.cryptoapp.MainActivity", []
+        )
 
-        with patch.object(UIAutomator2Parser, 'create_visitor', return_value=mock_visitor):
+        with patch.object(
+            UIAutomator2Parser, "create_visitor", return_value=mock_visitor
+        ):
             state_data = {
                 "hierarchy": sample_xml_content,
-                "activity": "br.unb.cic.cryptoapp.MainActivity"
+                "activity": "br.unb.cic.cryptoapp.MainActivity",
             }
 
-            result = parser._parse_implementation(state_data, static_data, "br.unb.cic.cryptoapp.MainActivity")
+            result = parser._parse_implementation(
+                state_data, static_data, "br.unb.cic.cryptoapp.MainActivity"
+            )
 
             assert isinstance(result, ScreenDescription)
             assert result.activity == "br.unb.cic.cryptoapp.MainActivity"
@@ -231,7 +240,7 @@ class TestUIAutomator2Parser:
         # Verify that we get a visitor instance
         assert visitor is not None
         # The visitor should have the expected methods
-        assert hasattr(visitor, 'get_screen_description')
+        assert hasattr(visitor, "get_screen_description")
 
     def test_parse_bounds_attribute(self, parser):
         """Test parsing of the bounds attribute."""

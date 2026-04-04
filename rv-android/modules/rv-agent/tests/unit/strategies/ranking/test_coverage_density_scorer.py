@@ -9,9 +9,9 @@ Verifies coverage-density scoring:
 - SuccessorTracker.get_action_destination integration
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import CoverageDensityScorer
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
@@ -164,15 +164,15 @@ class TestCoverageDensityScorer:
             ActionRanker,
         )
         from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
-            MopScorer,
-            WtgScorer,
-            SaturationScorer,
             ComponentPriorityScorer,
-            StrengthScorer,
-            GradualDecayScorer,
             CoverageDensityScorer,
+            GradualDecayScorer,
+            MopScorer,
+            SaturationScorer,
+            StrengthScorer,
             SystemElementFilter,
             VisitationPenaltyScorer,
+            WtgScorer,
         )
 
         config = RVAgentConfig(package_name="test.app")

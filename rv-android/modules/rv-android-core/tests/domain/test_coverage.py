@@ -3,10 +3,10 @@ from datetime import datetime
 
 import pytest
 from rv_android_core.domain.coverage import (
-    MethodCoverageData,
     ClassCoverageData,
     CoverageMetrics,
-    LogcatRepository
+    LogcatRepository,
+    MethodCoverageData,
 )
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
 
@@ -30,14 +30,17 @@ class TestMethodCoverageData(ModelTestBase):
             parameters=["java.lang.String"],
             reachable=True,
             reaches_mop=True,
-            directly_reaches_mop=False
+            directly_reaches_mop=False,
         )
 
     def test_initialization(self, method_data):
         """Test that MethodCoverageData initializes with correct attributes."""
         assert method_data.class_name == "com.example.TestClass"
         assert method_data.method_name == "testMethod"
-        assert method_data.signature == "com.example.TestClass.testMethod(Ljava/lang/String;)V"
+        assert (
+            method_data.signature
+            == "com.example.TestClass.testMethod(Ljava/lang/String;)V"
+        )
         assert method_data.parameters == ["java.lang.String"]
         assert method_data.reachable is True
         assert method_data.reaches_mop is True
@@ -74,7 +77,7 @@ class TestMethodCoverageData(ModelTestBase):
         call_times = [
             datetime(2023, 1, 1, 12, 0, 0),
             datetime(2023, 1, 1, 12, 5, 0),
-            datetime(2023, 1, 1, 12, 10, 0)
+            datetime(2023, 1, 1, 12, 10, 0),
         ]
 
         for time in call_times:
@@ -97,9 +100,7 @@ class TestClassCoverageData(ModelTestBase):
     def class_data(self):
         """Create a standard class coverage data instance for testing."""
         return ClassCoverageData(
-            name="com.example.TestClass",
-            component_type="activity",
-            is_main=False
+            name="com.example.TestClass", component_type="activity", is_main=False
         )
 
     @pytest.fixture
@@ -111,7 +112,7 @@ class TestClassCoverageData(ModelTestBase):
             signature="com.example.TestClass.method1()V",
             parameters=[],
             reachable=True,
-            reaches_mop=True
+            reaches_mop=True,
         )
 
     @pytest.fixture
@@ -123,7 +124,7 @@ class TestClassCoverageData(ModelTestBase):
             signature="com.example.TestClass.method2(Ljava/lang/String;)V",
             parameters=["java.lang.String"],
             reachable=True,
-            reaches_mop=False
+            reaches_mop=False,
         )
 
     def test_initialization(self, class_data):
@@ -150,11 +151,13 @@ class TestClassCoverageData(ModelTestBase):
             signature=method_data_1.signature,  # Same signature
             parameters=[],
             reachable=False,  # Different value
-            reaches_mop=False  # Different value
+            reaches_mop=False,  # Different value
         )
         class_data.add_method(modified_method)
         assert len(class_data.methods) == 2  # Count should remain the same
-        assert class_data.methods[modified_method.signature].reachable is False  # Should be updated
+        assert (
+            class_data.methods[modified_method.signature].reachable is False
+        )  # Should be updated
 
     def test_register_method_call(self, class_data, method_data_1, method_data_2):
         """Test registering method calls."""
@@ -171,7 +174,9 @@ class TestClassCoverageData(ModelTestBase):
         assert class_data.methods[method_data_1.signature].last_called_at == timestamp
 
         # Test non-existent method
-        non_existent_result = class_data.register_method_call("non.existent.method", timestamp)
+        non_existent_result = class_data.register_method_call(
+            "non.existent.method", timestamp
+        )
         assert non_existent_result is False
 
     def test_called_property(self, class_data, method_data_1, method_data_2):
@@ -213,7 +218,9 @@ class TestClassCoverageData(ModelTestBase):
         class_data.register_method_call(method_data_2.signature)
         assert class_data.called_method_count == 2
         assert class_data.called_reachable_method_count == 2
-        assert class_data.called_mop_reaching_method_count == 1  # Still 1 since method2 doesn't reach MOP
+        assert (
+            class_data.called_mop_reaching_method_count == 1
+        )  # Still 1 since method2 doesn't reach MOP
 
 
 class TestCoverageMetrics(ModelTestBase):
@@ -324,9 +331,7 @@ class TestLogcatRepository(ModelTestBase):
     def class_data(self):
         """Create a class coverage data instance for testing."""
         return ClassCoverageData(
-            name="com.example.TestClass",
-            component_type="activity",
-            is_main=False
+            name="com.example.TestClass", component_type="activity", is_main=False
         )
 
     @pytest.fixture
@@ -339,7 +344,7 @@ class TestLogcatRepository(ModelTestBase):
             parameters=[],
             reachable=True,
             reaches_mop=True,
-            from_static_analysis=True
+            from_static_analysis=True,
         )
 
     @pytest.fixture
@@ -349,7 +354,7 @@ class TestLogcatRepository(ModelTestBase):
             clazz="com.example.TestClass",
             method="testMethod",
             params="",
-            signature="com.example.TestClass.testMethod()V"
+            signature="com.example.TestClass.testMethod()V",
         )
 
     @pytest.fixture
@@ -361,7 +366,7 @@ class TestLogcatRepository(ModelTestBase):
             class_full_name="com.example.TestClass",
             method="testMethod",
             source="TestSource",
-            message="Test error message"
+            message="Test error message",
         )
 
     def test_initialization(self, repository):
@@ -386,7 +391,9 @@ class TestLogcatRepository(ModelTestBase):
         # Verify method was added with static analysis flag
         retrieved_class = repository.classes["com.example.TestClass"]
         assert method_data.signature in retrieved_class.methods
-        assert retrieved_class.methods[method_data.signature].from_static_analysis is True
+        assert (
+            retrieved_class.methods[method_data.signature].from_static_analysis is True
+        )
 
         # Verify static totals were reset
         assert repository._static_totals is None
@@ -395,7 +402,7 @@ class TestLogcatRepository(ModelTestBase):
         class_data_duplicate = ClassCoverageData(
             name="com.example.TestClass",
             component_type=None,  # Different value
-            is_main=True  # Different value
+            is_main=True,  # Different value
         )
         repository.add_class(class_data_duplicate)
 
@@ -417,7 +424,9 @@ class TestLogcatRepository(ModelTestBase):
         # Test non-existent class
         assert repository.get_class("non.existent.Class") is None
 
-    def test_register_method_call(self, repository, class_data, method_data, coverage_log):
+    def test_register_method_call(
+        self, repository, class_data, method_data, coverage_log
+    ):
         """Test registering a method call."""
         # Add class with method to repository
         class_data.add_method(method_data)
@@ -436,7 +445,7 @@ class TestLogcatRepository(ModelTestBase):
             clazz="non.existent.Class",
             method="method",
             params="",
-            signature="non.existent.Class.method()V"
+            signature="non.existent.Class.method()V",
         )
         repository.register_method_call(non_existent_log)
         # Should not raise exception, just log debug message
@@ -446,11 +455,13 @@ class TestLogcatRepository(ModelTestBase):
             clazz="com.example.TestClass",
             method="nonExistentMethod",
             params="",
-            signature="com.example.TestClass.nonExistentMethod()V"
+            signature="com.example.TestClass.nonExistentMethod()V",
         )
         repository.register_method_call(non_existent_method_log)
         # Should not add the method since it's not in static analysis
-        assert "com.example.TestClass.nonExistentMethod()V" not in retrieved_class.methods
+        assert (
+            "com.example.TestClass.nonExistentMethod()V" not in retrieved_class.methods
+        )
 
     def test_register_rv_error(self, repository, error_log):
         """Test registering a runtime verification error."""
@@ -477,7 +488,7 @@ class TestLogcatRepository(ModelTestBase):
             class_full_name="com.example.TestClass",
             method="differentMethod",  # Different method
             source="TestSource",
-            message="Test error message"
+            message="Test error message",
         )
         repository.register_rv_error(different_error)
 
@@ -505,9 +516,7 @@ class TestLogcatRepository(ModelTestBase):
         # Create and add a new method to a new class instance
         # (instead of modifying the existing one)
         new_class = ClassCoverageData(
-            name="com.example.TestClass",
-            component_type="activity",
-            is_main=False
+            name="com.example.TestClass", component_type="activity", is_main=False
         )
 
         # Add the original method
@@ -521,7 +530,7 @@ class TestLogcatRepository(ModelTestBase):
             parameters=[],
             reachable=True,
             reaches_mop=False,
-            from_static_analysis=True
+            from_static_analysis=True,
         )
         new_class.add_method(second_method)
 
@@ -552,7 +561,9 @@ class TestLogcatRepository(ModelTestBase):
         assert metrics_dict["activity_coverage"] == 0.0
         assert metrics_dict["mop_method_coverage"] == 0.0
 
-    def test_calculate_metrics(self, repository, class_data, method_data, coverage_log, error_log):
+    def test_calculate_metrics(
+        self, repository, class_data, method_data, coverage_log, error_log
+    ):
         """Test calculating metrics with data."""
         # Add class with method
         class_data.add_method(method_data)
@@ -589,7 +600,9 @@ class TestLogcatRepository(ModelTestBase):
         assert metrics_dict["reachable_method_coverage"] == 100.0
         assert metrics_dict["mop_method_coverage"] == 100.0
 
-    def test_diagnose(self, repository, class_data, method_data, coverage_log, error_log):
+    def test_diagnose(
+        self, repository, class_data, method_data, coverage_log, error_log
+    ):
         """Test the diagnose method."""
         # Empty repository
         empty_diagnostics = repository.diagnose()

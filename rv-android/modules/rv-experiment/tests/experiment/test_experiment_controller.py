@@ -15,7 +15,6 @@ post-processing) is correctly invoked.
 from unittest.mock import Mock, patch
 
 import pytest
-
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.config import ExperimentConfig
 from rv_experiment.experiment.experiment_controller import (

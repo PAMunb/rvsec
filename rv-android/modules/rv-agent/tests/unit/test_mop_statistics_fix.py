@@ -9,7 +9,6 @@ exhaustion reporting for MOP fields.
 """
 
 import pytest
-
 from rv_agent.strategies.rvagent_strategy.input_value_generator import (
     InputValueGenerator,
 )

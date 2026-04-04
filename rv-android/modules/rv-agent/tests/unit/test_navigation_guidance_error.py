@@ -13,7 +13,6 @@ import logging
 from unittest.mock import MagicMock
 
 import pytest
-
 from rv_agent import tracking as track
 from rv_agent.services.navigation_guidance import ExplorationContext, NavigationGuidance
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription

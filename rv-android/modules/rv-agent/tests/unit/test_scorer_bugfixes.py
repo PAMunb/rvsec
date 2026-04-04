@@ -19,13 +19,11 @@ from typing import Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
-
 from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     MopScorer,
     SystemElementFilter,
 )
-
 
 # ---------------------------------------------------------------------------
 # Minimal mock action
@@ -76,7 +74,10 @@ class TestSystemElementFilterPackageFix:
         """Elements with package='com.android.systemui' still get -5000."""
         scorer = SystemElementFilter()
         action = _MockAction(
-            target_view={"package": "com.android.systemui", "class": "android.widget.TextView"}
+            target_view={
+                "package": "com.android.systemui",
+                "class": "android.widget.TextView",
+            }
         )
         context = _make_context()
 
@@ -88,7 +89,10 @@ class TestSystemElementFilterPackageFix:
         """Normal app elements get score 0.0."""
         scorer = SystemElementFilter()
         action = _MockAction(
-            target_view={"package": "com.example.myapp", "class": "android.widget.Button"}
+            target_view={
+                "package": "com.example.myapp",
+                "class": "android.widget.Button",
+            }
         )
         context = _make_context()
 
@@ -111,7 +115,9 @@ class TestSystemElementFilterPackageFix:
     def test_empty_package_returns_zero(self):
         """Actions with empty package get score 0.0."""
         scorer = SystemElementFilter()
-        action = _MockAction(target_view={"package": "", "class": "android.widget.Button"})
+        action = _MockAction(
+            target_view={"package": "", "class": "android.widget.Button"}
+        )
         context = _make_context()
 
         score = scorer.score(action, context)
@@ -120,7 +126,9 @@ class TestSystemElementFilterPackageFix:
 
     def test_system_packages_only_contains_systemui(self):
         """SYSTEM_PACKAGES must only contain 'com.android.systemui'."""
-        assert SystemElementFilter.SYSTEM_PACKAGES == frozenset({"com.android.systemui"})
+        assert SystemElementFilter.SYSTEM_PACKAGES == frozenset(
+            {"com.android.systemui"}
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -144,9 +152,9 @@ class TestScoreDecaySign:
         decay_factor = 1 + math.log2(exec_count)
         decayed_score = base_score * decay_factor  # negative path
 
-        assert decayed_score < base_score, (
-            f"Negative score should become MORE negative: {decayed_score} should be < {base_score}"
-        )
+        assert (
+            decayed_score < base_score
+        ), f"Negative score should become MORE negative: {decayed_score} should be < {base_score}"
         assert decayed_score == pytest.approx(-10000.0)
 
     def test_positive_score_becomes_smaller_with_executions(self):

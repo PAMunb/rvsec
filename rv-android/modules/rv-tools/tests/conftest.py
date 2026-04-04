@@ -3,10 +3,9 @@ Shared fixtures for rv-tools tests.
 """
 
 import pytest
-
-from rv_tools.registry.registry import ToolRegistry
-from rv_tools.registry.factory import ToolFactory
 from helpers import FakeTool, FakeToolNoDefault
+from rv_tools.registry.factory import ToolFactory
+from rv_tools.registry.registry import ToolRegistry
 
 
 @pytest.fixture

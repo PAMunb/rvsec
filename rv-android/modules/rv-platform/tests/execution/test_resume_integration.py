@@ -15,23 +15,17 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
-
 from rv_android_core.domain.app import App
-from rv_android_core.domain.task import (
-    Task,
-    TaskConfiguration,
-    TaskState,
-    ToolConfig,
-)
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_platform.components.result_processor import ResultProcessorComponent
 from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.platform import Platform
 from rv_platform.storage.task_storage import ExperimentMetadata, TaskStorage
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _create_apks_dir(tmp_path, names=("app.apk",)):
     """Create a directory with fake APK files."""
@@ -42,7 +36,9 @@ def _create_apks_dir(tmp_path, names=("app.apk",)):
     return str(apks_dir)
 
 
-def _make_platform_config(apks_dir, results_dir, tools=None, repetitions=1, timeouts=None):
+def _make_platform_config(
+    apks_dir, results_dir, tools=None, repetitions=1, timeouts=None
+):
     return PlatformConfig(
         apks_dir=apks_dir,
         tools=tools or [ToolConfig(name="monkey")],
@@ -81,6 +77,7 @@ def _simulate_task_execution(task):
 # ===========================================================================
 # Round-trip: save → load → skip
 # ===========================================================================
+
 
 class TestSaveLoadResume:
     """Test the real save→load→skip cycle without mocking TaskStorage."""
@@ -160,6 +157,7 @@ class TestSaveLoadResume:
 # Expand experiment
 # ===========================================================================
 
+
 class TestExpandExperiment:
     """Test expanding an experiment by increasing repetitions."""
 
@@ -205,7 +203,9 @@ class TestExpandExperiment:
         tools = [ToolConfig(name="monkey"), ToolConfig(name="droidbot")]
 
         # Session 1: 1 rep
-        config1 = _make_platform_config(apks_dir, results_dir, tools=tools, repetitions=1)
+        config1 = _make_platform_config(
+            apks_dir, results_dir, tools=tools, repetitions=1
+        )
         with patch.object(App, "model_post_init", lambda self, ctx: None):
             p1 = Platform(config1)
             p1._generate_tasks()
@@ -218,7 +218,9 @@ class TestExpandExperiment:
         p1.task_storage.save()
 
         # Session 2: 3 reps — should generate 12, skip 4, run 8
-        config2 = _make_platform_config(apks_dir, results_dir, tools=tools, repetitions=3)
+        config2 = _make_platform_config(
+            apks_dir, results_dir, tools=tools, repetitions=3
+        )
         with patch.object(App, "model_post_init", lambda self, ctx: None):
             p2 = Platform(config2)
             p2._generate_tasks()
@@ -235,6 +237,7 @@ class TestExpandExperiment:
 # ===========================================================================
 # Config checksum persistence
 # ===========================================================================
+
 
 class TestChecksumPersistence:
     """Test that config checksum survives save→load."""
@@ -306,8 +309,9 @@ class TestChecksumPersistence:
 
         # Warning about config change must be logged
         warning_msgs = [c[0][0] for c in mock_warn.call_args_list]
-        assert any("Config changed" in msg for msg in warning_msgs), \
-            f"Expected 'Config changed' warning. Got: {warning_msgs}"
+        assert any(
+            "Config changed" in msg for msg in warning_msgs
+        ), f"Expected 'Config changed' warning. Got: {warning_msgs}"
 
 
 def _make_dummy_task():
@@ -324,6 +328,7 @@ def _make_dummy_task():
 # ===========================================================================
 # Coverage CSV for resumed tasks
 # ===========================================================================
+
 
 class TestCoverageCSVResumedTasks:
     """Verify that tasks loaded from disk (repository=None) produce a
@@ -358,13 +363,14 @@ class TestCoverageCSVResumedTasks:
             reader = list(csv.reader(f))
 
         # header + exactly 1 summary row (not per-method)
-        assert len(reader) == 2, \
-            f"Expected header + 1 summary row, got {len(reader)} rows"
+        assert (
+            len(reader) == 2
+        ), f"Expected header + 1 summary row, got {len(reader)} rows"
 
         row = reader[1]
         assert row[0] == "app.apk"
-        assert float(row[8]) == 25.0   # cov_class = method_coverage
-        assert float(row[9]) == 50.0   # cov_act = activities_coverage
+        assert float(row[8]) == 25.0  # cov_class = method_coverage
+        assert float(row[9]) == 50.0  # cov_act = activities_coverage
         assert float(row[11]) == 10.0  # cov_rv_method = mop_coverage
 
     def test_mixed_live_and_resumed_tasks(self, tmp_path):
@@ -373,17 +379,31 @@ class TestCoverageCSVResumedTasks:
         # Live task with repository
         live_repo = MagicMock()
         live_repo.get_method_calls.return_value = [
-            {"signature": "void a()", "class_name": "A", "method_name": "a",
-             "time": 1, "activity": "Main", "is_mop_method": False},
-            {"signature": "void b()", "class_name": "B", "method_name": "b",
-             "time": 2, "activity": "Main", "is_mop_method": True},
+            {
+                "signature": "void a()",
+                "class_name": "A",
+                "method_name": "a",
+                "time": 1,
+                "activity": "Main",
+                "is_mop_method": False,
+            },
+            {
+                "signature": "void b()",
+                "class_name": "B",
+                "method_name": "b",
+                "time": 2,
+                "activity": "Main",
+                "is_mop_method": True,
+            },
         ]
         live_repo.get_static_methods.return_value = [MagicMock()] * 10
         live_repo.get_static_activities.return_value = [MagicMock()] * 2
         live_repo.get_mop_methods.return_value = [MagicMock()] * 5
 
         live_config = TaskConfiguration(
-            apk_name="live.apk", repetition=1, timeout=300,
+            apk_name="live.apk",
+            repetition=1,
+            timeout=300,
             tool_config=ToolConfig(name="monkey"),
         )
         live_task = Task(live_config)
@@ -393,14 +413,18 @@ class TestCoverageCSVResumedTasks:
 
         # Resumed task without repository
         resumed_config = TaskConfiguration(
-            apk_name="resumed.apk", repetition=1, timeout=300,
+            apk_name="resumed.apk",
+            repetition=1,
+            timeout=300,
             tool_config=ToolConfig(name="monkey"),
         )
         resumed_task = Task(resumed_config)
         resumed_task.update_state(TaskState.RUNNING)
         resumed_task.update_state(TaskState.COMPLETED)
         resumed_task.result.coverage_metrics = {
-            "method_coverage": 30.0, "activities_coverage": 60.0, "mop_coverage": 15.0,
+            "method_coverage": 30.0,
+            "activities_coverage": 60.0,
+            "mop_coverage": 15.0,
         }
         resumed_task.repository = None
 
@@ -413,8 +437,9 @@ class TestCoverageCSVResumedTasks:
             reader = list(csv.reader(f))
 
         # header + 2 per-method rows (live) + 1 summary row (resumed) = 4
-        assert len(reader) == 4, \
-            f"Expected 4 rows (header + 2 live + 1 resumed), got {len(reader)}"
+        assert (
+            len(reader) == 4
+        ), f"Expected 4 rows (header + 2 live + 1 resumed), got {len(reader)}"
 
         # Verify live rows have apk=live.apk
         live_rows = [r for r in reader[1:] if r[0] == "live.apk"]
@@ -429,6 +454,7 @@ class TestCoverageCSVResumedTasks:
 # ===========================================================================
 # Result consolidation across sessions
 # ===========================================================================
+
 
 class TestResultConsolidationIntegration:
     """Verify that _process_results() uses ALL completed tasks from
@@ -472,8 +498,7 @@ class TestResultConsolidationIntegration:
         with open(summary_path) as f:
             reader = list(csv.reader(f))
         # header + 2 data rows
-        assert len(reader) == 3, \
-            f"Expected 3 rows (header + 2 reps), got {len(reader)}"
+        assert len(reader) == 3, f"Expected 3 rows (header + 2 reps), got {len(reader)}"
 
         # Verify results.json has both reps
         results_path = os.path.join(results_dir, "results.json")

@@ -5,6 +5,7 @@ Tests the execute_node function which handles action execution on the device.
 """
 
 from unittest.mock import MagicMock
+
 from rv_agent.agent.nodes.execute_node import execute_node
 from rv_agent.domain.state import AgentState
 

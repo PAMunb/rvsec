@@ -11,7 +11,7 @@ Key Components:
 - RVInstrumentationConfig: Configuration management for flexible deployment
 """
 
+from .config import ConfigurationError, RVInstrumentationConfig
 from .rvandroid import RVInstrumentation
-from .config import RVInstrumentationConfig, ConfigurationError
 
 __all__ = ["RVInstrumentation", "RVInstrumentationConfig", "ConfigurationError"]

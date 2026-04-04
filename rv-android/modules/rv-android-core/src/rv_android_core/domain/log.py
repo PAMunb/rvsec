@@ -9,9 +9,11 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from pydantic import Field, computed_field
-
 from rv_android_core.util import utils
-from rv_android_core.util.logging.constants import TAG_RVSEC, TAG_RVSEC_COV  # noqa: F401
+from rv_android_core.util.logging.constants import (
+    TAG_RVSEC,  # noqa: F401
+    TAG_RVSEC_COV,
+)
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 

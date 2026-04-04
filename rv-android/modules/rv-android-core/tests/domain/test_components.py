@@ -1,8 +1,7 @@
 """Tests for Components domain models."""
 
 import pytest
-
-from rv_android_core.domain.components import IntentFilter, ComponentInfo, Components
+from rv_android_core.domain.components import ComponentInfo, Components, IntentFilter
 
 
 class TestIntentFilter:
@@ -107,9 +106,7 @@ class TestComponents:
                     class_name="com.example.CryptoService",
                     component_type="service",
                     reaches_mop=True,
-                    mop_methods=[
-                        "<com.example.CryptoService: void onStartCommand()>"
-                    ],
+                    mop_methods=["<com.example.CryptoService: void onStartCommand()>"],
                 ),
             ],
             providers=[
@@ -157,9 +154,7 @@ class TestComponents:
         assert c.authorities == "com.example.data"
 
     def test_get_by_class_name_not_found(self, sample_components):
-        assert (
-            sample_components.get_by_class_name("com.example.DoesNotExist") is None
-        )
+        assert sample_components.get_by_class_name("com.example.DoesNotExist") is None
 
     def test_get_analysis_summary(self, sample_components):
         summary = sample_components.get_analysis_summary()

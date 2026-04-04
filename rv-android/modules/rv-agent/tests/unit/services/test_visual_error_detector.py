@@ -7,7 +7,7 @@ rv-screen-parser's ErrorDetector for use in rv-agent validation.
 All tests use mocks — no real screenshots or cv2 processing.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from rv_agent.services.error_detection import VisualErrorDetector
 

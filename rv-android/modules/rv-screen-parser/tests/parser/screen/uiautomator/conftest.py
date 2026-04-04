@@ -9,12 +9,13 @@ import os
 from unittest.mock import Mock
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
-from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+    UIAutomator2Parser,
+)
 from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
@@ -54,7 +55,7 @@ def sample_xml_file():
 @pytest.fixture
 def sample_xml_content(sample_xml_file):
     """Fixture that provides the content of the sample UIAutomator XML file."""
-    with open(sample_xml_file, 'r', encoding='utf-8') as f:
+    with open(sample_xml_file, "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -98,12 +99,12 @@ def crypto_app_state_data(sample_xml_content):
             "top": 1794,
             "left": 0,
             "right": 1080,
-            "bottom": 1920
+            "bottom": 1920,
         },
         "device_info": {
             "displayWidth": 1080,
             "displayHeight": 1920,
             "density": 2.0,
-            "api_level": 28
-        }
+            "api_level": 28,
+        },
     }

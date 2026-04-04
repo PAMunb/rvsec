@@ -4,17 +4,16 @@ Unit tests for NavigationGuidance.
 Tests the unified abstraction for algorithm and LLM navigation guidance.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from rv_static_analysis.parser.static.static_analysis_parser import parse_file
+import pytest
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.services.navigation_guidance import ExplorationContext, NavigationGuidance
+from rv_agent.services.transition_manager import TransitionManager
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
-from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.services.transition_manager import TransitionManager
-from rv_agent.services.navigation_guidance import NavigationGuidance, ExplorationContext
+from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 
 # =============================================================================
 # Fixtures

@@ -13,10 +13,9 @@ created but is in an invalid state. Pydantic-level constraints (gt=0) DO raise.
 """
 
 import pytest
-
+from helpers import make_config
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.config import ExperimentConfig
-from helpers import make_config
 
 
 class TestModelPostInit:
@@ -42,6 +41,8 @@ class TestModelPostInit:
         config = make_config(tmp_apk_dir)
         assert config.created_at is not None
         assert "T" in config.created_at  # ISO format contains T
+
+
 class TestValidation:
     """INV-EXP-03: validate() detects invalid configs.
 
@@ -95,11 +96,10 @@ class TestValidation:
 
     def test_tool_without_name_detected(self, tmp_apk_dir):
         """INV-EXP-03: tool without name — validate detects (decorator absorbs)."""
-        config = make_config(
-            tmp_apk_dir,
-            tool_configs=[ToolConfig(name="")]
-        )
+        config = make_config(tmp_apk_dir, tool_configs=[ToolConfig(name="")])
         assert config.tool_configs[0].name == ""
+
+
 class TestSpecificationSetValidation:
     """INV-EXP-04: custom spec set requires custom_specs_dir with .mop files."""
 
@@ -117,6 +117,8 @@ class TestSpecificationSetValidation:
         """FR15: custom specification set is accepted at config level."""
         config = make_config(tmp_apk_dir, specification_set="custom")
         assert config.specification_set == "custom"
+
+
 class TestValidateSpecsDir:
     """INV-EXP-04: validate_specs_dir checks for .mop files."""
 
@@ -141,6 +143,8 @@ class TestValidateSpecsDir:
         """INV-EXP-04: nonexistent directory returns False."""
         config = make_config(tmp_apk_dir)
         assert config.validate_specs_dir("/nonexistent/dir") is False
+
+
 class TestSerializationRoundTrip:
     """FR15: ExperimentConfig serialization preserves all fields."""
 
@@ -169,6 +173,8 @@ class TestSerializationRoundTrip:
         """FR15: from_file raises FileNotFoundError for missing file."""
         with pytest.raises(FileNotFoundError):
             ExperimentConfig.from_file("/nonexistent/config.json")
+
+
 class TestResumeConfig:
     """INV-EXP-13: Resume mode config fields."""
 
@@ -188,6 +194,8 @@ class TestResumeConfig:
         assert config.resume_mode is True
         assert config.repetitions == 5
         assert config.timeouts == [600]
+
+
 class TestGetApkList:
     """FR15: get_apk_list returns APK files with optional filter."""
 

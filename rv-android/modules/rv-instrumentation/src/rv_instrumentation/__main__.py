@@ -9,9 +9,9 @@ operations-enabled artifacts ready for runtime verification testing.
 import argparse
 import os
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
 
-from rv_instrumentation.config import RVInstrumentationConfig, ConfigurationError
+from rv_instrumentation.config import ConfigurationError, RVInstrumentationConfig
 from rv_instrumentation.rvandroid import RVInstrumentation
 
 

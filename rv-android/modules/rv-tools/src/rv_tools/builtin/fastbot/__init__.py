@@ -7,4 +7,4 @@ to intelligently explore application GUI transitions and discover stability issu
 
 from .tool import FastBotTool
 
-__all__ = ['FastBotTool']
+__all__ = ["FastBotTool"]

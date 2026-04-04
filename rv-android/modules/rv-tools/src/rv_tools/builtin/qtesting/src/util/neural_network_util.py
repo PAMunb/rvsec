@@ -1,4 +1,3 @@
-from tensorflow.keras import backend as K
 import itertools
 
 from tensorflow.keras import backend as K
@@ -7,32 +6,35 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 max_length = 0
 
+
 def string_to_vector(df):
     global max_length
     for index, row in df.iterrows():
-        for gui_hierarchy in ['gui_hierarchy1', 'gui_hierarchy2']:
+        for gui_hierarchy in ["gui_hierarchy1", "gui_hierarchy2"]:
             s2v = []
-            for vector_string in str(row[gui_hierarchy]).split('\n'):
-                if vector_string != '':
+            for vector_string in str(row[gui_hierarchy]).split("\n"):
+                if vector_string != "":
                     vector = []
-                    for sub_string in vector_string.split(' '):
-                        if sub_string != '':
+                    for sub_string in vector_string.split(" "):
+                        if sub_string != "":
                             vector.append(float(sub_string))
 
                     s2v.append(vector)
 
-            df.at[(index, gui_hierarchy + '_v')] = s2v
+            df.at[(index, gui_hierarchy + "_v")] = s2v
             if len(s2v) > max_length:
                 max_length = len(s2v)
-                print(('max length is now : ' + str(max_length)))
+                print(("max length is now : " + str(max_length)))
 
     return df
 
 
 def split_and_zero_padding(df, max_seq_length):
-    X = {'left': (df['gui_hierarchy1_v']), 'right': (df['gui_hierarchy2_v'])}
-    for dataset, side in itertools.product([X], ['left', 'right']):
-        dataset[side] = pad_sequences(dataset[side], padding='pre', truncating='post', maxlen=max_seq_length)
+    X = {"left": (df["gui_hierarchy1_v"]), "right": (df["gui_hierarchy2_v"])}
+    for dataset, side in itertools.product([X], ["left", "right"]):
+        dataset[side] = pad_sequences(
+            dataset[side], padding="pre", truncating="post", maxlen=max_seq_length
+        )
 
     return dataset
 
@@ -67,5 +69,6 @@ class EmptyWord2Vec:
     """
     Just for test use.
     """
+
     vocab = {}
     word_vec = {}

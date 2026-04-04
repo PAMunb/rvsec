@@ -2,9 +2,9 @@
 Unit tests for the FallbackManager.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.routing.fallback_manager import FallbackManager
 
 

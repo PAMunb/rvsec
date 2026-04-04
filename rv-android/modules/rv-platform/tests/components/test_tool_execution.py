@@ -2,10 +2,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.domain.app import App
-from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.domain.task import Task, TaskConfiguration
+from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_platform.components.tool_execution import ToolExecutionComponent
 
 

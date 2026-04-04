@@ -4,16 +4,15 @@ Unit tests for TransitionManager.
 Tests integration of static WTG with dynamic exploration graph.
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from rv_static_analysis.parser.static.static_analysis_parser import parse_file
-from rv_android_core.domain.static import StaticAnalysisData
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.services.transition_manager import TransitionManager
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
+from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 
 # =============================================================================
 # Fixtures

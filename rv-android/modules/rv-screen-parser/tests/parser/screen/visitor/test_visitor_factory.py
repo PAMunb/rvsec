@@ -1,9 +1,10 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import (
+    AbstractScreenVisitor,
+)
 from rv_screen_parser.parser.screen.visitor.basic_visitor import BasicTextVisitor
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
@@ -16,7 +17,9 @@ class TestVisitorFactory:
     @pytest.fixture(autouse=True)
     def setup_logging(self):
         """Fixture to set up logging and suppress log messages during tests"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging_manager:
+        with patch(
+            "rv_android_core.util.logging.manager.LoggingManager"
+        ) as mock_logging_manager:
             mock_logger = MagicMock()
             mock_logging_manager.get_instance.return_value = mock_logging_manager
             mock_logging_manager.get_logger.return_value = mock_logger
@@ -77,7 +80,9 @@ class TestVisitorFactory:
     def test_create_with_invalid_type(self, static_data):
         """Test creating a visitor with an invalid type raises ValueError."""
         with pytest.raises(ValueError) as excinfo:
-            VisitorFactory.create("invalid_type", static_data, "com.example.TestActivity")
+            VisitorFactory.create(
+                "invalid_type", static_data, "com.example.TestActivity"
+            )
 
         assert "Unknown visitor type" in str(excinfo.value)
         assert "invalid_type" in str(excinfo.value)
@@ -88,13 +93,13 @@ class TestVisitorFactory:
         activity = "com.example.TestActivity"
 
         # Mock the DefaultTextVisitor.__init__ to verify kwargs are passed through
-        with patch('rv_screen_parser.parser.screen.visitor.default_visitor.DefaultTextVisitor.__init__') as mock_init:
+        with patch(
+            "rv_screen_parser.parser.screen.visitor.default_visitor.DefaultTextVisitor.__init__"
+        ) as mock_init:
             mock_init.return_value = None  # __init__ returns None
 
             VisitorFactory.create(
-                static_data=static_data,
-                activity=activity,
-                custom_param="test_value"
+                static_data=static_data, activity=activity, custom_param="test_value"
             )
 
             # Verify the custom parameter was passed through
@@ -126,35 +131,50 @@ class TestVisitorFactory:
 
         # Create a proper visitor class that inherits from AbstractScreenVisitor
         class TestVisitor(AbstractScreenVisitor):
-            def visit_node(self, node): pass
+            def visit_node(self, node):
+                pass
 
-            def visit_leaf_node(self, node): pass
+            def visit_leaf_node(self, node):
+                pass
 
-            def visit_button(self, node): pass
+            def visit_button(self, node):
+                pass
 
-            def visit_edit_text(self, node): pass
+            def visit_edit_text(self, node):
+                pass
 
-            def visit_text_view(self, node): pass
+            def visit_text_view(self, node):
+                pass
 
-            def visit_checkbox(self, node): pass
+            def visit_checkbox(self, node):
+                pass
 
-            def visit_checked_text(self, node): pass
+            def visit_checked_text(self, node):
+                pass
 
-            def visit_toggle_button(self, node): pass
+            def visit_toggle_button(self, node):
+                pass
 
-            def visit_switch(self, node): pass
+            def visit_switch(self, node):
+                pass
 
-            def visit_image_button(self, node): pass
+            def visit_image_button(self, node):
+                pass
 
-            def visit_image(self, node): pass
+            def visit_image(self, node):
+                pass
 
-            def visit_radio_button(self, node): pass
+            def visit_radio_button(self, node):
+                pass
 
-            def visit_radio_group(self, node): pass
+            def visit_radio_group(self, node):
+                pass
 
-            def visit_spinner(self, node): pass
+            def visit_spinner(self, node):
+                pass
 
-            def visit_slider(self, node): pass
+            def visit_slider(self, node):
+                pass
 
         # Register the visitor type
         VisitorFactory.register_visitor_type("test_visitor", TestVisitor)
@@ -236,41 +256,58 @@ class TestVisitorFactory:
 
         # Create a custom visitor subclass
         class CustomVisitor(AbstractScreenVisitor):
-            def visit_node(self, node): pass
+            def visit_node(self, node):
+                pass
 
-            def visit_leaf_node(self, node): pass
+            def visit_leaf_node(self, node):
+                pass
 
-            def visit_button(self, node): pass
+            def visit_button(self, node):
+                pass
 
-            def visit_edit_text(self, node): pass
+            def visit_edit_text(self, node):
+                pass
 
-            def visit_text_view(self, node): pass
+            def visit_text_view(self, node):
+                pass
 
-            def visit_checkbox(self, node): pass
+            def visit_checkbox(self, node):
+                pass
 
-            def visit_checked_text(self, node): pass
+            def visit_checked_text(self, node):
+                pass
 
-            def visit_toggle_button(self, node): pass
+            def visit_toggle_button(self, node):
+                pass
 
-            def visit_switch(self, node): pass
+            def visit_switch(self, node):
+                pass
 
-            def visit_image_button(self, node): pass
+            def visit_image_button(self, node):
+                pass
 
-            def visit_image(self, node): pass
+            def visit_image(self, node):
+                pass
 
-            def visit_radio_button(self, node): pass
+            def visit_radio_button(self, node):
+                pass
 
-            def visit_radio_group(self, node): pass
+            def visit_radio_group(self, node):
+                pass
 
-            def visit_spinner(self, node): pass
+            def visit_spinner(self, node):
+                pass
 
-            def visit_slider(self, node): pass
+            def visit_slider(self, node):
+                pass
 
         # Register the custom visitor
         VisitorFactory.register_visitor_type("custom", CustomVisitor)
 
         # Create a visitor using the custom type
-        visitor = VisitorFactory.create("custom", static_data, "com.example.TestActivity")
+        visitor = VisitorFactory.create(
+            "custom", static_data, "com.example.TestActivity"
+        )
 
         # Verify the visitor was created correctly
         assert isinstance(visitor, CustomVisitor)

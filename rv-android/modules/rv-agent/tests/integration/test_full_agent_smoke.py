@@ -10,16 +10,15 @@ not fine-grained scoring or reward math.
 """
 
 import pytest
-
-from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.memory.ui_coverage import UICoverageTracker
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
-from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import CoverageDensityScorer
+from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 
-from .conftest import create_mock_screen, create_mock_action
+from .conftest import create_mock_action, create_mock_screen
 
 
 def _make_full_strategy():

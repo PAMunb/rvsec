@@ -4,15 +4,15 @@ Comprehensive tests for RVAgentStrategy functionality.
 Tests the RVAgentStrategy class which implements the core exploration strategy.
 """
 
-import pytest
-from unittest.mock import MagicMock
 from dataclasses import dataclass, field, replace
-from typing import Optional, Tuple, List
+from typing import List, Optional, Tuple
+from unittest.mock import MagicMock
 
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
-from rv_agent.config.agent_config import RVAgentConfig
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_android_core.domain.widget import WidgetEventType
 
 # --- Mock data structures for screen/action ---

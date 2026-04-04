@@ -4,9 +4,9 @@ LLMClient unit tests for SGLang backend.
 Tests the LangChain-based client with mocked SGLang responses.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
 from langchain_core.messages import AIMessage
 
 pytestmark = pytest.mark.unit
@@ -17,8 +17,8 @@ class TestLLMClientInit:
 
     def test_initialization_sglang(self):
         """LLMClient initializes with SGLang config."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
 
@@ -40,8 +40,8 @@ class TestLLMClientInit:
 
     def test_tools_bound(self):
         """All 8 Android tools are bound to LLM."""
-        from rv_agent.llm.llm_client import LLMClient, get_android_tools
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient, get_android_tools
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()
@@ -105,8 +105,8 @@ class TestExtractToolCalls:
     @pytest.fixture
     def client(self):
         """Create client with mocked LLM."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()
@@ -186,8 +186,8 @@ class TestTokenTracking:
     @pytest.fixture
     def client(self):
         """Create client with mocked LLM."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()
@@ -224,8 +224,8 @@ class TestBuildMessages:
     @pytest.fixture
     def client(self):
         """Create client with mocked LLM."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()
@@ -243,7 +243,7 @@ class TestBuildMessages:
 
     def test_messages_structure(self, client):
         """Messages have correct structure."""
-        from langchain_core.messages import SystemMessage, HumanMessage
+        from langchain_core.messages import HumanMessage, SystemMessage
 
         messages = client._build_messages(
             ui_elements_text="OK button",
@@ -375,8 +375,8 @@ class TestExtractTokenUsage:
     @pytest.fixture
     def client(self):
         """Create client with mocked LLM."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()
@@ -439,8 +439,8 @@ class TestGenerateAction:
     @pytest.fixture
     def client(self):
         """Create client with mocked LLM."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()
@@ -487,8 +487,8 @@ class TestGenerateAction:
 
     def test_generate_action_failure(self, client):
         """generate_action raises LLMError on exception."""
-        from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
         from rv_agent.domain.exceptions import LLMError
+        from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
         client.llm_with_tools.invoke = MagicMock(
             side_effect=Exception("Connection failed")
@@ -514,8 +514,8 @@ class TestResetStats:
     @pytest.fixture
     def client(self):
         """Create client with mocked LLM."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()
@@ -549,8 +549,8 @@ class TestCleanup:
     @pytest.fixture
     def client(self):
         """Create client with mocked LLM."""
-        from rv_agent.llm.llm_client import LLMClient
         from rv_agent.config.agent_config import RVAgentConfig
+        from rv_agent.llm.llm_client import LLMClient
 
         config = RVAgentConfig.create_default(package_name="com.test.app")
         prompt_module = MagicMock()

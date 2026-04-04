@@ -15,17 +15,17 @@ DroidMate-2 uses a `--Category-settingName=value` CLI flag format:
 """
 
 import os
-from typing import Dict, Any
+from typing import Any, Dict
 
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.jar_resolver import JarResolver
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class DroidMateTool(AbstractTool):
@@ -35,7 +35,7 @@ class DroidMateTool(AbstractTool):
         description="DroidMate-2 JAR-based Android UI exploration tool",
         url="https://github.com/uds-se/droidmate",
         version="1.0.0",
-        process_pattern="org.droidmate"
+        process_pattern="org.droidmate",
     )
 
     JAR_NAME = "droidmate-2-X.X.X-all.jar"
@@ -45,12 +45,11 @@ class DroidMateTool(AbstractTool):
         super().__init__(
             name=tool_spec.name,
             description=tool_spec.description,
-            process_pattern=tool_spec.process_pattern
+            process_pattern=tool_spec.process_pattern,
         )
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_tools.builtin.droidmate",
-            {CONTEXT_COMPONENT: "DroidMateTool"}
+            "rv_tools.builtin.droidmate", {CONTEXT_COMPONENT: "DroidMateTool"}
         )
         self.jar_resolver = JarResolver()
         self.config = {}
@@ -79,9 +78,13 @@ class DroidMateTool(AbstractTool):
             f"Configured DroidMate tool - Action limit: {self.config['action_limit']}"
         )
 
-    @ErrorHandler.handle_errors(component="DroidMateTool", phase="execute_tool_specific_logic")
+    @ErrorHandler.handle_errors(
+        component="DroidMateTool", phase="execute_tool_specific_logic"
+    )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
-        timeout_in_seconds = getattr(task.config, 'timeout', self.config.get('timeout', 3600))
+        timeout_in_seconds = getattr(
+            task.config, "timeout", self.config.get("timeout", 3600)
+        )
 
         self.logger.info(f"Executing DroidMate for {app.package_name}")
         self.logger.info(f"DroidMate timeout: {timeout_in_seconds}s")
@@ -90,25 +93,30 @@ class DroidMateTool(AbstractTool):
         jar_path = self._resolve_jar()
 
         # DroidMate output goes to a temp directory alongside the trace file
-        output_dir = os.path.join(os.path.dirname(task.result.trace_file), "droidmate_output")
+        output_dir = os.path.join(
+            os.path.dirname(task.result.trace_file), "droidmate_output"
+        )
         os.makedirs(output_dir, exist_ok=True)
 
         # Build and execute DroidMate command
-        cmd = self._build_droidmate_command(app, jar_path, output_dir, timeout_in_seconds)
+        cmd = self._build_droidmate_command(
+            app, jar_path, output_dir, timeout_in_seconds
+        )
 
-        with open(task.result.trace_file, 'wb') as trace_file:
+        with open(task.result.trace_file, "wb") as trace_file:
             self._execute_and_check_command(cmd, stdout=trace_file, stderr=trace_file)
 
     def _resolve_jar(self) -> str:
         """Resolve DroidMate JAR path. Searches the module directory first."""
         search_paths = [
             os.path.dirname(__file__),
-            os.path.join(os.environ.get('TOOLS_DIR', ''), 'droidmate'),
+            os.path.join(os.environ.get("TOOLS_DIR", ""), "droidmate"),
         ]
         return self.jar_resolver.resolve_jar_path(self.JAR_NAME, search_paths)
 
-    def _build_droidmate_command(self, app: App, jar_path: str, output_dir: str,
-                                  timeout_seconds: int) -> Command:
+    def _build_droidmate_command(
+        self, app: App, jar_path: str, output_dir: str, timeout_seconds: int
+    ) -> Command:
         """Build DroidMate-2 command with correct --Category-settingName=value flags."""
         timeout_millis = timeout_seconds * 1000
         action_limit = self.config.get("action_limit", 100000000)
@@ -118,7 +126,8 @@ class DroidMateTool(AbstractTool):
         apk_dir = os.path.dirname(app.path)
 
         cmd_args = [
-            "-jar", jar_path,
+            "-jar",
+            jar_path,
             f"--Exploration-apkNames={apk_name}",
             f"--Exploration-apksDir={apk_dir}",
             f"--Output-outputDir={output_dir}",

@@ -5,12 +5,12 @@ BFS on SuccessorTracker's back_successors to find the ancestor state with
 highest exploration_potential (coverage_gap * element_count).
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.strategies.rvagent_strategy.path_buffer import (
-    PathBuffer,
     MAX_COVERAGE_HOPS,
+    PathBuffer,
 )
 
 

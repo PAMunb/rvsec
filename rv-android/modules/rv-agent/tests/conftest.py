@@ -8,12 +8,13 @@ Provides fixtures for:
 - Test app configurations
 """
 
+import base64
 import os
 import sys
-import pytest
-import base64
 from pathlib import Path
 from unittest.mock import Mock
+
+import pytest
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

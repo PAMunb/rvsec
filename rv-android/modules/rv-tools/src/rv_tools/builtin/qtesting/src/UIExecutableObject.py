@@ -5,23 +5,36 @@ class UIExecutableObject:
         self.pkg_name = pkg_name
         self.class_name = class_name
         self.isListView = False
-        self.clickable = ''
-        self.long_clickable = ''
-        self.scrollable = ''
-        self.checkable = ''
-        self.text = ''
-        self.resource_id = ''
-        self.content_desc = ''
-        self.index = ''
-        self.instance = ''
-        self.id_instance = ''
+        self.clickable = ""
+        self.long_clickable = ""
+        self.scrollable = ""
+        self.checkable = ""
+        self.text = ""
+        self.resource_id = ""
+        self.content_desc = ""
+        self.index = ""
+        self.instance = ""
+        self.id_instance = ""
         self.clickable = False
         self.long_clickable = False
         self.scrollable = False
         self.checkable = False
         self.enabled = False
 
-    def set_event_property(self, clickable, long_clickable, scrollable, checkable, text, resource_id, content_desc, index, enabled, instance, id_instance):
+    def set_event_property(
+        self,
+        clickable,
+        long_clickable,
+        scrollable,
+        checkable,
+        text,
+        resource_id,
+        content_desc,
+        index,
+        enabled,
+        instance,
+        id_instance,
+    ):
         self.clickable = clickable
         self.long_clickable = long_clickable
         self.scrollable = scrollable
@@ -50,10 +63,10 @@ class UIExecutableObject:
         return self.class_name
 
     def has_multi_lines_text(self):
-        if '\n' in self.text:
+        if "\n" in self.text:
             return True
         else:
             return False
 
     def get_first_line_text(self):
-        return self.text.split('\n')[0]
+        return self.text.split("\n")[0]

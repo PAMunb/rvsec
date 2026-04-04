@@ -3,7 +3,8 @@ Property-based tests for coordinate_utils using Hypothesis.
 """
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 from rv_agent.services import coordinate_utils
 
 # Define standard dimensions for tests

@@ -8,15 +8,15 @@ Covers four related fixes:
 (d) H5: forced_back_count increments only once per forced-back event
 """
 
-import pytest
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.memory.element_id import make_element_id_from_tuple
-from rv_agent.strategies.rvagent_strategy.ranking.scorers import MopScorer
 from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
+from rv_agent.strategies.rvagent_strategy.ranking.scorers import MopScorer
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -309,8 +309,8 @@ class TestForcedBackCountSingleIncrement:
 
     def test_full_flow_increments_exactly_once(self):
         """End-to-end: decision_node + algorithm_node increments forced_back_count once."""
-        from rv_agent.agent.nodes.decision_node import decision_router_node
         from rv_agent.agent.nodes.algorithm_node import algorithm_node
+        from rv_agent.agent.nodes.decision_node import decision_router_node
 
         agent = MagicMock()
         agent.routing_manager.mode = "pure_algorithm"

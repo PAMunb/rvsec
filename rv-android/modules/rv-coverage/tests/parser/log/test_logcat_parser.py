@@ -17,17 +17,22 @@ Android app testing.
 import os
 import tempfile
 from datetime import datetime
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
 # Import domain models used by the parser
 from rv_android_core.domain.coverage import LogcatRepository
+
 # Import the module to test
 from rv_coverage.parser.log.logcat_parser import (
-    parse_logcat_file, parse_logcat_line, _parse_logcat_line,
-    _parse_error_message, _parse_coverage_message, _convert_to_datetime,
-    _parse_generic_spec_error
+    _convert_to_datetime,
+    _parse_coverage_message,
+    _parse_error_message,
+    _parse_generic_spec_error,
+    _parse_logcat_line,
+    parse_logcat_file,
+    parse_logcat_line,
 )
 
 
@@ -65,20 +70,24 @@ class TestLogcatParser:
         return ""
 
     @pytest.fixture
-    def sample_logcat_content(self, valid_error_line, valid_coverage_line, valid_error_line_fsm_format):
+    def sample_logcat_content(
+        self, valid_error_line, valid_coverage_line, valid_error_line_fsm_format
+    ):
         """Sample content for a logcat file with multiple entries."""
-        return "\n".join([
-            valid_error_line,
-            valid_coverage_line,
-            valid_error_line_fsm_format,
-            "07-15 14:33:00.000 1234 5678 D OtherTag: Some debug message to ignore",
-            ""  # Empty line at the end
-        ])
+        return "\n".join(
+            [
+                valid_error_line,
+                valid_coverage_line,
+                valid_error_line_fsm_format,
+                "07-15 14:33:00.000 1234 5678 D OtherTag: Some debug message to ignore",
+                "",  # Empty line at the end
+            ]
+        )
 
     @pytest.fixture
     def sample_logcat_file(self, sample_logcat_content):
         """Create a temporary file with sample logcat content."""
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False) as f:
             f.write(sample_logcat_content)
             temp_filename = f.name
 
@@ -189,7 +198,7 @@ class TestLogcatParser:
 
     def test_parse_logcat_file_with_exception(self):
         """Test handling of exceptions when parsing a logcat file."""
-        with patch('builtins.open', side_effect=Exception("File error")):
+        with patch("builtins.open", side_effect=Exception("File error")):
             repository = parse_logcat_file("non_existent_file.logcat")
 
             # Should return an empty repository instead of raising an exception
@@ -310,7 +319,7 @@ class TestLogcatParser:
     def test_convert_to_datetime_year_transition(self):
         """Test handling of year transitions in timestamp conversion."""
         # Simulate December log in January (previous year)
-        with patch('rv_coverage.parser.log.logcat_parser.datetime') as mock_datetime:
+        with patch("rv_coverage.parser.log.logcat_parser.datetime") as mock_datetime:
             # Mock current date as January 2nd
             mock_now = Mock()
             mock_now.year = 2023
@@ -332,21 +341,40 @@ class TestLogcatParser:
             # (We can't check the exact value because our mock doesn't fully implement datetime behavior)
             mock_datetime.strptime.assert_called_once()
 
-    @pytest.mark.parametrize("test_input,expected", [
-        # Good inputs
-        ("07-15 14:30:22.123 1234 5678 E RVSEC: Message",
-         {"date": "07-15", "time": "14:30:22.123", "pid": "1234", "tid": "5678",
-          "level": "E", "tag": "RVSEC", "message": "Message"}),
-
-        # Missing message (should still parse)
-        ("07-15 14:30:22.123 1234 5678 E RVSEC:",
-         {"date": "07-15", "time": "14:30:22.123", "pid": "1234", "tid": "5678",
-          "level": "E", "tag": "RVSEC", "message": ""}),
-
-        # Bad inputs (should return None)
-        ("Not a logcat line", None),
-        ("", None),
-    ])
+    @pytest.mark.parametrize(
+        "test_input,expected",
+        [
+            # Good inputs
+            (
+                "07-15 14:30:22.123 1234 5678 E RVSEC: Message",
+                {
+                    "date": "07-15",
+                    "time": "14:30:22.123",
+                    "pid": "1234",
+                    "tid": "5678",
+                    "level": "E",
+                    "tag": "RVSEC",
+                    "message": "Message",
+                },
+            ),
+            # Missing message (should still parse)
+            (
+                "07-15 14:30:22.123 1234 5678 E RVSEC:",
+                {
+                    "date": "07-15",
+                    "time": "14:30:22.123",
+                    "pid": "1234",
+                    "tid": "5678",
+                    "level": "E",
+                    "tag": "RVSEC",
+                    "message": "",
+                },
+            ),
+            # Bad inputs (should return None)
+            ("Not a logcat line", None),
+            ("", None),
+        ],
+    )
     def test_parse_logcat_line_parameterized(self, test_input, expected):
         """Parameterized test for _parse_logcat_line with various inputs."""
         result = _parse_logcat_line(test_input)
@@ -369,7 +397,7 @@ class TestLogcatParser:
 
     def test_parse_logcat_file_empty(self):
         """Test parsing an empty logcat file."""
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False) as f:
             temp_filename = f.name
 
         try:
@@ -421,7 +449,9 @@ class TestLogcatParser:
     def test_parse_error_message_with_parentheses(self):
         """Test parsing error message with parentheses in method name."""
         # First test with FSM format which is more sensitive to parentheses
-        message = "com.example.Auth.login(String,int):::AuthSpec went into an error state."
+        message = (
+            "com.example.Auth.login(String,int):::AuthSpec went into an error state."
+        )
         error = _parse_error_message(message)
 
         assert error is not None
@@ -442,7 +472,9 @@ class TestLogcatParser:
         current_year = 2023
 
         for current_month, log_month, expected_year_delta in current_month_scenarios:
-            with patch('rv_coverage.parser.log.logcat_parser.datetime') as mock_datetime:
+            with patch(
+                "rv_coverage.parser.log.logcat_parser.datetime"
+            ) as mock_datetime:
                 # Mock current date
                 mock_now = Mock()
                 mock_now.year = current_year
@@ -452,7 +484,7 @@ class TestLogcatParser:
                 # Mock datetime.strptime to return a controlled date
                 def mock_strptime(date_str, format_str):
                     parsed_date = Mock()
-                    parsed_date.year = int(date_str.split('-')[0])
+                    parsed_date.year = int(date_str.split("-")[0])
                     parsed_date.month = int(log_month)
                     parsed_date.day = 15
                     return parsed_date
@@ -481,7 +513,7 @@ class TestLogcatParser:
             "07-15 14:31:10.789 1234 5678 E RVSEC: com.example.app.Auth.login():::AuthSpec went into an error state.\n"
         )
 
-        with patch('builtins.open', mock_open(read_data=sample_content)):
+        with patch("builtins.open", mock_open(read_data=sample_content)):
             # Parse the sample file
             repository = parse_logcat_file(sample_logcat_file)
 

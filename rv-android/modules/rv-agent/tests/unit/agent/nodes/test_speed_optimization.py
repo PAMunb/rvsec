@@ -13,8 +13,8 @@ Tests RVTRACK:STRATEGY logging in decision_node:
 import logging
 from unittest.mock import MagicMock, patch
 
-from rv_agent.agent.nodes.parse_node import parse_ui_node
 from rv_agent.agent.nodes.learn_node import learn_node
+from rv_agent.agent.nodes.parse_node import parse_ui_node
 
 
 def _make_parse_agent(error_detection_enabled=False):

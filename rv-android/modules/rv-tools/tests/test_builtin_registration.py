@@ -10,15 +10,20 @@ Tests cover:
 """
 
 import pytest
-
-from rv_tools.registry.registry import ToolRegistry
 from rv_tools.builtin import BUILTIN_TOOLS
-
+from rv_tools.registry.registry import ToolRegistry
 
 # Expected tools with their variant names (from source code, verified against spec FR20)
 EXPECTED_TOOLS = {
     "monkey": {"default", "fast", "stress"},
-    "droidbot": {"default", "dfs_greedy", "bfs_greedy", "dfs_naive", "bfs_naive", "random"},
+    "droidbot": {
+        "default",
+        "dfs_greedy",
+        "bfs_greedy",
+        "dfs_naive",
+        "bfs_naive",
+        "random",
+    },
     "ape": {"default", "sata", "bfs", "dfs", "random"},
     "fastbot": {"default", "conservative", "aggressive", "balanced"},
     "ares": {"default"},
@@ -60,9 +65,9 @@ class TestAllToolsRegistered:
     def test_all_expected_tools_present(self, builtin_registry):
         """FR19: registry contains all 8 expected tools."""
         registered = set(builtin_registry.get_tool_names())
-        assert EXPECTED_TOOL_NAMES.issubset(registered), (
-            f"Missing tools: {EXPECTED_TOOL_NAMES - registered}"
-        )
+        assert EXPECTED_TOOL_NAMES.issubset(
+            registered
+        ), f"Missing tools: {EXPECTED_TOOL_NAMES - registered}"
 
 
 class TestToolSpecs:
@@ -105,9 +110,9 @@ class TestVariantsMatchSpec:
     def test_variants_present(self, tool_name, expected_variants, builtin_registry):
         """FR20: tool contains expected variants."""
         actual = set(builtin_registry.get_tool_variants(tool_name))
-        assert expected_variants.issubset(actual), (
-            f"{tool_name}: missing variants {expected_variants - actual}"
-        )
+        assert expected_variants.issubset(
+            actual
+        ), f"{tool_name}: missing variants {expected_variants - actual}"
 
 
 class TestDroidBotPolicyValidation:

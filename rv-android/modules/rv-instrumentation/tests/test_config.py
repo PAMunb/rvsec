@@ -9,16 +9,12 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from rv_android_core.util.error.exceptions import ConfigurationError
-from rv_instrumentation.config import (
-    RVInstrumentationConfig,
-    Dex2jarTools,
-    ConfigurationSummary,
-    InstrumentationError as InstrumentationErrorModel,
-    InstrumentationResults,
-)
+from rv_instrumentation.config import ConfigurationSummary, Dex2jarTools
+from rv_instrumentation.config import InstrumentationError as InstrumentationErrorModel
+from rv_instrumentation.config import InstrumentationResults, RVInstrumentationConfig
 
 
 class TestRVInstrumentationConfig(unittest.TestCase):

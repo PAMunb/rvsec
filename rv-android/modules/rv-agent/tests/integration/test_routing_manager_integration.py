@@ -4,24 +4,21 @@ Integration tests for RoutingManager with real fixtures.
 Tests routing decisions, mode transitions, and action validation.
 """
 
-import pytest
 from pathlib import Path
 from typing import Tuple
 
+import pytest
+from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.routing.fallback_manager import FallbackManager
+from rv_agent.routing.routing_manager import RoutingManager
+from rv_agent.strategies.dfs_strategy import DFSStrategy
+from rv_agent.strategies.strategy_registry import StrategyRegistry
 from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
     UIAutomator2Parser,
 )
 from rv_screen_parser.parser.screen.visitor.default_visitor import DefaultTextVisitor
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
-
-from rv_agent.agent.dynamic_state_graph import (
-    DynamicStateGraph,
-)
-from rv_agent.routing.routing_manager import RoutingManager
-from rv_agent.routing.fallback_manager import FallbackManager
-from rv_agent.strategies.strategy_registry import StrategyRegistry
-from rv_agent.strategies.dfs_strategy import DFSStrategy
-from rv_agent.config.agent_config import RVAgentConfig
 
 pytestmark = pytest.mark.integration
 

@@ -3,7 +3,6 @@ import io
 import logging
 
 import pytest
-
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.context_adapter import ContextAdapter
 from rv_android_core.util.logging.formatters import StructuredFormatter
@@ -41,14 +40,14 @@ class TestLoggingManager:
         manager = LoggingManager.get_instance()
 
         # Check default attributes
-        assert manager.root_logger.name == 'root'
+        assert manager.root_logger.name == "root"
         assert manager.log_path is None
         assert manager.logger_cache == {}
 
         # Check default output config
-        assert manager._output_config['console']['enabled'] is True
-        assert manager._output_config['console']['level'] == logging.INFO
-        assert manager._output_config['file']['enabled'] is False
+        assert manager._output_config["console"]["enabled"] is True
+        assert manager._output_config["console"]["level"] == logging.INFO
+        assert manager._output_config["file"]["enabled"] is False
 
     def test_get_instance_initialization(self, cleanup_instance):
         """Test that get_instance initializes properly"""
@@ -96,13 +95,13 @@ class TestLoggingManager:
         manager = LoggingManager.get_instance()
 
         # Initial values
-        assert manager._output_config['console']['level'] == logging.INFO
+        assert manager._output_config["console"]["level"] == logging.INFO
 
         # Configure output
         manager.configure_output(console_level=logging.DEBUG)
 
         # Check that config was updated
-        assert manager._output_config['console']['level'] == logging.DEBUG
+        assert manager._output_config["console"]["level"] == logging.DEBUG
 
     def test_get_logger_with_different_contexts(self, cleanup_instance):
         """Test getting loggers with different contexts"""
@@ -124,11 +123,11 @@ class TestLoggingManager:
         manager = LoggingManager.get_instance()
 
         # Console: context off by default (cleaner output; enable with --show-context)
-        assert manager._output_config['console']['show_context'] is False
-        assert manager._output_config['console']['max_context_length'] == 200
+        assert manager._output_config["console"]["show_context"] is False
+        assert manager._output_config["console"]["max_context_length"] == 200
         # File: context on by default (structured logs benefit from context)
-        assert manager._output_config['file']['show_context'] is True
-        assert manager._output_config['file']['max_context_length'] == 500
+        assert manager._output_config["file"]["show_context"] is True
+        assert manager._output_config["file"]["max_context_length"] == 500
 
     def test_configure_output_with_context_parameters(self, cleanup_instance):
         """Test that configure_output handles context parameters correctly"""
@@ -136,26 +135,21 @@ class TestLoggingManager:
 
         # Configure output with context parameters
         manager.configure_output(
-            console=True,
-            file=True,
-            console_context=False,
-            file_context=True
+            console=True, file=True, console_context=False, file_context=True
         )
 
         # Check context configuration was applied
-        assert manager._output_config['console']['show_context'] is False
-        assert manager._output_config['file']['show_context'] is True
+        assert manager._output_config["console"]["show_context"] is False
+        assert manager._output_config["file"]["show_context"] is True
 
         # Configure output with None context parameters
         manager.configure_output(
-            console_level=logging.DEBUG,
-            console_context=None,
-            file_context=None
+            console_level=logging.DEBUG, console_context=None, file_context=None
         )
 
         # Context settings should remain unchanged
-        assert manager._output_config['console']['show_context'] is False
-        assert manager._output_config['file']['show_context'] is True
+        assert manager._output_config["console"]["show_context"] is False
+        assert manager._output_config["file"]["show_context"] is True
 
     def test_root_logger_receives_handlers(self, cleanup_instance):
         """Test that any logger propagates through root logger's StructuredFormatter.
@@ -219,7 +213,9 @@ class TestLoggingManager:
         # The logger itself should not have its own handlers (propagates to root)
         assert len(logging.getLogger("some.module").handlers) == 0
 
-    def test_get_logger_receives_structured_formatter_when_context_enabled(self, cleanup_instance):
+    def test_get_logger_receives_structured_formatter_when_context_enabled(
+        self, cleanup_instance
+    ):
         """Test that StructuredFormatter is used when context display is enabled."""
         manager = LoggingManager.get_instance()
         manager.configure_output(console_context=True)

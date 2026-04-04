@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
 from pydantic import Field
-
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
@@ -722,7 +721,9 @@ class LogcatRepository:
         # Collect diagnostic information
         diagnostics = {
             "class_count": len(self.classes),
-            "activity_count": sum(1 for c in self.classes.values() if c.component_type == "activity"),
+            "activity_count": sum(
+                1 for c in self.classes.values() if c.component_type == "activity"
+            ),
             "method_count": sum(len(c.methods) for c in self.classes.values()),
             "called_method_count": sum(
                 sum(1 for m in c.methods.values() if m.called)
@@ -795,7 +796,11 @@ class LogcatRepository:
                         "method_name": method_data.method_name,
                         "signature": signature,
                         "is_mop_method": method_data.reaches_mop,
-                        "activity": class_name if class_data.component_type == "activity" else None,
+                        "activity": (
+                            class_name
+                            if class_data.component_type == "activity"
+                            else None
+                        ),
                         "call_count": method_data.call_count,
                         "first_called_at": (
                             method_data.first_called_at.isoformat()
@@ -849,7 +854,9 @@ class LogcatRepository:
             List of activity class names
         """
         return [
-            name for name, class_data in self.classes.items() if class_data.component_type == "activity"
+            name
+            for name, class_data in self.classes.items()
+            if class_data.component_type == "activity"
         ]
 
     def get_mop_methods(self) -> List[str]:

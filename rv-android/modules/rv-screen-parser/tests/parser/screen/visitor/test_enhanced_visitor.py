@@ -1,14 +1,18 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType, Widget
+from rv_android_core.domain.widget import Widget, WidgetEventType
 from rv_android_core.domain.window import Windows
 from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_screen_parser.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Node
+from rv_screen_parser.parser.screen.visitor.model import (
+    ItemAction,
+    Node,
+    ScreenDescription,
+    ScreenItem,
+)
 
 
 class TestEnhancedTextVisitor:
@@ -17,7 +21,9 @@ class TestEnhancedTextVisitor:
     @pytest.fixture(autouse=True)
     def setup_logging(self):
         """Fixture to set up logging and suppress log messages during tests"""
-        with patch('rv_android_core.util.logging.manager.LoggingManager') as mock_logging_manager:
+        with patch(
+            "rv_android_core.util.logging.manager.LoggingManager"
+        ) as mock_logging_manager:
             mock_logger = MagicMock()
             mock_logging_manager.get_instance.return_value = mock_logging_manager
             mock_logging_manager.get_logger.return_value = mock_logger
@@ -59,7 +65,7 @@ class TestEnhancedTextVisitor:
             "text": "Test Button",
             "content_description": "A test button",
             "clickable": True,
-            "bounds": [[10, 10], [100, 50]]
+            "bounds": [[10, 10], [100, 50]],
         }
         node = Node(data)
         return node
@@ -71,7 +77,7 @@ class TestEnhancedTextVisitor:
             "class": "android.widget.LinearLayout",
             "resource_id": "parent_layout",
             "clickable": True,
-            "bounds": [[0, 0], [200, 100]]
+            "bounds": [[0, 0], [200, 100]],
         }
         parent = Node(data)
         return parent
@@ -83,7 +89,7 @@ class TestEnhancedTextVisitor:
             "class": "android.widget.TextView",
             "resource_id": "test_text",
             "text": "Child Text",
-            "clickable": False
+            "clickable": False,
         }
         child = Node(data, parent=parent_node)
         parent_node.children = [child]
@@ -147,12 +153,20 @@ class TestEnhancedTextVisitor:
         visitor._format_bounds_info = MagicMock(return_value=" [100x50]")
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # In EnhancedTextVisitor, visit_node only adds items if node has children
         # and child_handles_action is False, so we need to add children
-        child_node = Node(data={"class": "android.widget.TextView", "resource_id": "child1"})
+        child_node = Node(
+            data={"class": "android.widget.TextView", "resource_id": "child1"}
+        )
         child_node.actionable = False
         node.children = [child_node]
 
@@ -206,7 +220,15 @@ class TestEnhancedTextVisitor:
             mock_get_possible_actions.args = args
             mock_get_possible_actions.kwargs = kwargs
             # Return a mock action
-            return [ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)]
+            return [
+                ItemAction(
+                    id=1,
+                    text="CLICK (1)",
+                    event=WidgetEventType.CLICK,
+                    reaches_mop=False,
+                    directly_reaches_mop=False,
+                )
+            ]
 
         mock_get_possible_actions.args = None
         mock_get_possible_actions.kwargs = None
@@ -223,8 +245,12 @@ class TestEnhancedTextVisitor:
 
         # Verify get_possible_actions was called with the right arguments
         assert mock_get_possible_actions.args[0] == node  # First arg should be node
-        assert mock_get_possible_actions.args[1] == visitor.counter  # Second arg should be counter
-        assert mock_get_possible_actions.kwargs.get('inherit_click', True) is False  # inherit_click should be False
+        assert (
+            mock_get_possible_actions.args[1] == visitor.counter
+        )  # Second arg should be counter
+        assert (
+            mock_get_possible_actions.kwargs.get("inherit_click", True) is False
+        )  # inherit_click should be False
 
         # _add_security_info should be called (not asserting the parameters)
         assert visitor._add_security_info.call_count == 1
@@ -257,7 +283,13 @@ class TestEnhancedTextVisitor:
         visitor._format_bounds_info = MagicMock(return_value=" [100x50]")
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Mock find_matching_widget to return None
@@ -307,7 +339,13 @@ class TestEnhancedTextVisitor:
         visitor._infer_validation_rules = MagicMock(return_value=" (required)")
 
         # Mock get_possible_actions to return a list of actions
-        action = ItemAction(id=1, text="SET_TEXT (1)", event=WidgetEventType.TEXT_CHANGE, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="SET_TEXT (1)",
+            event=WidgetEventType.TEXT_CHANGE,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
         # Mock find_matching_widget to return None
@@ -408,33 +446,33 @@ class TestEnhancedTextVisitor:
     def test_format_accessibility_info(self, visitor):
         """Test _format_accessibility_info method."""
         # Test with content description
-        node = Node({
-            "content_description": "Test description",
-            "clickable": True,
-            "enabled": True
-        })
+        node = Node(
+            {
+                "content_description": "Test description",
+                "clickable": True,
+                "enabled": True,
+            }
+        )
         a11y_info = visitor._format_accessibility_info(node)
 
         # Should contain description
         assert "a11y description" in a11y_info
 
         # Test with missing description on clickable element
-        node = Node({
-            "content_description": "",
-            "clickable": True,
-            "enabled": True
-        })
+        node = Node({"content_description": "", "clickable": True, "enabled": True})
         a11y_info = visitor._format_accessibility_info(node)
 
         # Should indicate missing a11y description
         assert "missing a11y description" in a11y_info
 
         # Test with disabled element
-        node = Node({
-            "content_description": "Test description",
-            "clickable": True,
-            "enabled": False
-        })
+        node = Node(
+            {
+                "content_description": "Test description",
+                "clickable": True,
+                "enabled": False,
+            }
+        )
         a11y_info = visitor._format_accessibility_info(node)
 
         # Should indicate disabled state
@@ -480,29 +518,31 @@ class TestEnhancedTextVisitor:
         assert input_type == "password"
 
         # Test email field
-        node = Node({
-            "is_password": False,
-            "resource_id": "email_input",
-            "hint": "Enter email"
-        })
+        node = Node(
+            {"is_password": False, "resource_id": "email_input", "hint": "Enter email"}
+        )
         input_type = visitor._analyze_input_type(node)
         assert input_type == "email address"
 
         # Test phone field
-        node = Node({
-            "is_password": False,
-            "resource_id": "phone_input",
-            "hint": "Enter phone number"
-        })
+        node = Node(
+            {
+                "is_password": False,
+                "resource_id": "phone_input",
+                "hint": "Enter phone number",
+            }
+        )
         input_type = visitor._analyze_input_type(node)
         assert input_type == "phone number"
 
         # Test default field
-        node = Node({
-            "is_password": False,
-            "resource_id": "generic_input",
-            "hint": "Enter something"
-        })
+        node = Node(
+            {
+                "is_password": False,
+                "resource_id": "generic_input",
+                "hint": "Enter something",
+            }
+        )
         input_type = visitor._analyze_input_type(node)
         assert input_type == "text field"
 
@@ -512,13 +552,29 @@ class TestEnhancedTextVisitor:
         # We need to inspect the actual implementation to match test expectations
         def mock_determine_button_purpose(node):
             # Mock implementation based on text inspection
-            text = (node.resource_id.lower() if hasattr(node, 'resource_id') and node.resource_id else "") + \
-                   (node.view_text.lower() if hasattr(node, 'view_text') and node.view_text else "") + \
-                   (node.content_description.lower() if hasattr(node,
-                                                                'content_description') and node.content_description else "")
+            text = (
+                (
+                    node.resource_id.lower()
+                    if hasattr(node, "resource_id") and node.resource_id
+                    else ""
+                )
+                + (
+                    node.view_text.lower()
+                    if hasattr(node, "view_text") and node.view_text
+                    else ""
+                )
+                + (
+                    node.content_description.lower()
+                    if hasattr(node, "content_description") and node.content_description
+                    else ""
+                )
+            )
 
             # Check navigation terms
-            if any(term in text for term in ["back", "prev", "previous", "return", "nav", "arrow"]):
+            if any(
+                term in text
+                for term in ["back", "prev", "previous", "return", "nav", "arrow"]
+            ):
                 return "Navigation"
 
             # Check confirmation terms
@@ -526,7 +582,10 @@ class TestEnhancedTextVisitor:
                 return "Confirmation"
 
             # Check cancel terms
-            if any(term in text for term in ["no", "cancel", "deny", "reject", "dismiss", "close"]):
+            if any(
+                term in text
+                for term in ["no", "cancel", "deny", "reject", "dismiss", "close"]
+            ):
                 return "Cancellation"
 
             # Check menu terms
@@ -534,7 +593,18 @@ class TestEnhancedTextVisitor:
                 return "Menu"
 
             # Check action terms
-            if any(term in text for term in ["submit", "save", "done", "ok", "apply", "confirm", "accept"]):
+            if any(
+                term in text
+                for term in [
+                    "submit",
+                    "save",
+                    "done",
+                    "ok",
+                    "apply",
+                    "confirm",
+                    "accept",
+                ]
+            ):
                 return "Action"
 
             # Default
@@ -546,56 +616,68 @@ class TestEnhancedTextVisitor:
 
         try:
             # Test navigation button
-            node = Node({
-                "resource_id": "back_button",
-                "text": "Back",
-                "content_description": "Go back"
-            })
+            node = Node(
+                {
+                    "resource_id": "back_button",
+                    "text": "Back",
+                    "content_description": "Go back",
+                }
+            )
             purpose = visitor._determine_button_purpose(node)
             assert purpose == "Navigation"
 
             # Test action button
-            node = Node({
-                "resource_id": "save_button",
-                "text": "Save",
-                "content_description": "Save changes"
-            })
+            node = Node(
+                {
+                    "resource_id": "save_button",
+                    "text": "Save",
+                    "content_description": "Save changes",
+                }
+            )
             purpose = visitor._determine_button_purpose(node)
             assert purpose == "Action"
 
             # Test confirmation button
-            node = Node({
-                "resource_id": "confirm_button",
-                "text": "Yes",
-                "content_description": "Confirm action"
-            })
+            node = Node(
+                {
+                    "resource_id": "confirm_button",
+                    "text": "Yes",
+                    "content_description": "Confirm action",
+                }
+            )
             purpose = visitor._determine_button_purpose(node)
             assert purpose == "Confirmation"
 
             # Test cancellation button
-            node = Node({
-                "resource_id": "cancel_button",
-                "text": "Cancel",
-                "content_description": "Cancel action"
-            })
+            node = Node(
+                {
+                    "resource_id": "cancel_button",
+                    "text": "Cancel",
+                    "content_description": "Cancel action",
+                }
+            )
             purpose = visitor._determine_button_purpose(node)
             assert purpose == "Cancellation"
 
             # Test menu button
-            node = Node({
-                "resource_id": "menu_button",
-                "text": "Menu",
-                "content_description": "Open menu"
-            })
+            node = Node(
+                {
+                    "resource_id": "menu_button",
+                    "text": "Menu",
+                    "content_description": "Open menu",
+                }
+            )
             purpose = visitor._determine_button_purpose(node)
             assert purpose == "Menu"
 
             # Test default
-            node = Node({
-                "resource_id": "generic_button",
-                "text": "Button",
-                "content_description": "A button"
-            })
+            node = Node(
+                {
+                    "resource_id": "generic_button",
+                    "text": "Button",
+                    "content_description": "A button",
+                }
+            )
             purpose = visitor._determine_button_purpose(node)
             assert purpose == "Standard"
         finally:
@@ -612,13 +694,25 @@ class TestEnhancedTextVisitor:
         assert item.base_description == "Test Item"
 
         # Test with sensitive actions
-        action1 = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=True, directly_reaches_mop=False)
+        action1 = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=True,
+            directly_reaches_mop=False,
+        )
         item.actions = [action1]
         visitor._add_security_info(item, node)
         assert "SPECIFICATION SENSITIVE" in item.base_description
 
         # Test with critical actions
-        action2 = ItemAction(id=2, text="CLICK (2)", event=WidgetEventType.CLICK, reaches_mop=True, directly_reaches_mop=True)
+        action2 = ItemAction(
+            id=2,
+            text="CLICK (2)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=True,
+            directly_reaches_mop=True,
+        )
         item.actions = [action2]
         item.base_description = "Test Item"
         visitor._add_security_info(item, node)
@@ -649,7 +743,13 @@ class TestEnhancedTextVisitor:
     def test_update_action_mop_related_info(self, visitor, node):
         """Test _update_action_mop_related_info method."""
         # Create an action
-        action = ItemAction(id=1, text="CLICK (1)", event=WidgetEventType.CLICK, reaches_mop=False, directly_reaches_mop=False)
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            reaches_mop=False,
+            directly_reaches_mop=False,
+        )
 
         # Mock find_matching_widget to return None
         visitor.find_matching_widget = MagicMock(return_value=None)

@@ -6,7 +6,6 @@ exploration summaries, and memory insights generation.
 """
 
 import pytest
-
 from rv_agent.memory.agent_memory import AgentMemoryManager
 
 pytestmark = pytest.mark.unit

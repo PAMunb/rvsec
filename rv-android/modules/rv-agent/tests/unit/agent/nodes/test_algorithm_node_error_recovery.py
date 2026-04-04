@@ -100,8 +100,8 @@ def _make_agent():
 def _make_error_indicator(x=100, y=500, width=30, height=30):
     """Create a mock ErrorIndicator with bbox property."""
     from rv_screen_parser.screenshot.models import (
-        ErrorIndicator,
         DetectionMethod,
+        ErrorIndicator,
         ErrorType,
     )
 

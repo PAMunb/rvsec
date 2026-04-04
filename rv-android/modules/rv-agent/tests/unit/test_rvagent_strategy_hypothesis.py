@@ -2,16 +2,14 @@
 Property-based tests for the RVAgentStrategy using Hypothesis.
 """
 
-import pytest
-from hypothesis import given, strategies as st, settings
 from unittest.mock import MagicMock
 
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from rv_agent.config.agent_config import RVAgentConfig
-from rv_screen_parser.parser.screen.visitor.model import (
-    ItemAction,
-    WidgetEventType,
-)
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, WidgetEventType
 
 # --- Strategies for generating strategy components ---
 

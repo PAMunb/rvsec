@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Set
 
 import networkx as nx
 from pydantic import ConfigDict, Field
-
 from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.domain.window import Window
 from rv_android_core.util.validation import BaseValidatedModel

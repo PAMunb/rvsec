@@ -5,11 +5,13 @@ Provides centralized factory pattern implementation for creating appropriate par
 based on input source type, enabling seamless integration with diverse monitoring tools.
 """
 
-from typing import Dict, Type, Optional
+from typing import Dict, Optional, Type
 
 from rv_screen_parser.constants import ScreenParserType
 from rv_screen_parser.parser.screen.base_parser import BaseScreenParser
-from rv_screen_parser.parser.screen.visitor.abstract_visitor import AbstractScreenVisitor
+from rv_screen_parser.parser.screen.visitor.abstract_visitor import (
+    AbstractScreenVisitor,
+)
 
 
 class ParserFactory:
@@ -42,17 +44,21 @@ class ParserFactory:
     @classmethod
     def register_default_parsers(cls):
         """Register the default parser implementations."""
-        from rv_screen_parser.parser.screen.droidbot.droidbot_parser import DroidBotParser
-        from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import UIAutomator2Parser
+        from rv_screen_parser.parser.screen.droidbot.droidbot_parser import (
+            DroidBotParser,
+        )
+        from rv_screen_parser.parser.screen.uiautomator.uiautomator_parser import (
+            UIAutomator2Parser,
+        )
 
         cls.register_parser_type(ScreenParserType.DROIDBOT, DroidBotParser)
         cls.register_parser_type(ScreenParserType.UIAUTOMATOR, UIAutomator2Parser)
 
     @classmethod
     def create(
-            cls,
-            parser_type: str,
-            visitor_class: Optional[Type[AbstractScreenVisitor]] = None
+        cls,
+        parser_type: str,
+        visitor_class: Optional[Type[AbstractScreenVisitor]] = None,
     ) -> BaseScreenParser:
         """
         Create a parser instance of the specified type.
@@ -92,7 +98,9 @@ class ParserFactory:
         return ParserFactory._REGISTRY.copy()
 
     @staticmethod
-    def register_parser_type(parser_type: str, parser_class: Type[BaseScreenParser]) -> None:
+    def register_parser_type(
+        parser_type: str, parser_class: Type[BaseScreenParser]
+    ) -> None:
         """
         Register a new parser type.
 

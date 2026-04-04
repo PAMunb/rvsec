@@ -4,12 +4,12 @@ Unit tests for the action_mapper service.
 
 import pytest
 from rv_agent.services import action_mapper
+from rv_android_core.domain.widget import WidgetEventType
 from rv_screen_parser.parser.screen.visitor.model import (
+    ItemAction,
     ScreenDescription,
     ScreenItem,
-    ItemAction,
 )
-from rv_android_core.domain.widget import WidgetEventType
 
 # Define standard dimensions for tests
 DEVICE_DIMS = (1080, 1920)

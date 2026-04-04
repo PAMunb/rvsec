@@ -6,18 +6,18 @@ enabling model-based testing with reinforcement learning capabilities.
 """
 
 import os
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
-from rv_android_core.domain.app import App
 from rv_android_core.commands.command import Command
+from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import RVToolExecutionError
 from rv_android_core.util.jar_resolver import JarResolver
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 
 
 class FastBotTool(AbstractTool):
@@ -59,46 +59,51 @@ class FastBotTool(AbstractTool):
         description="FastBot model-based testing tool with reinforcement learning capabilities",
         url="https://github.com/bytedance/Fastbot_Android",
         version="1.0.0",
-        process_pattern="fastbot"
+        process_pattern="fastbot",
     )
 
     # Available exploration strategies
     AVAILABLE_STRATEGIES = [
-        'conservative', 'aggressive', 'balanced', 'random', 'model_based'
+        "conservative",
+        "aggressive",
+        "balanced",
+        "random",
+        "model_based",
     ]
 
-    def __init__(self, name: str = None, description: str = None, process_pattern: str = None):
+    def __init__(
+        self, name: str = None, description: str = None, process_pattern: str = None
+    ):
         """
         Initialize the FastBot tool with rv-android-core infrastructure.
         """
         super().__init__(
             name=name or self.TOOL_SPEC.name,
             description=description or self.TOOL_SPEC.description,
-            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern
+            process_pattern=process_pattern or self.TOOL_SPEC.process_pattern,
         )
 
         # Initialize rv-android-core infrastructure components
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "rv_tools.builtin.fastbot",
-            {CONTEXT_COMPONENT: "FastBotTool"}
+            "rv_tools.builtin.fastbot", {CONTEXT_COMPONENT: "FastBotTool"}
         )
         self.jar_resolver = JarResolver()
 
         # Default FastBot configuration
         self.config = {
-            "max_step": 10000,               # Maximum exploration steps
-            "device_serial": None,           # Device serial number
-            "strategy": "balanced",          # Exploration strategy
-            "fastbot_thirdpart_jar": None,   # FastBot thirdpart jar path
-            "framework_jar": None,           # Framework jar path
-            "monkeyq_jar": None,             # MonkeyQ jar path
-            "throttle": 500,                 # Throttle between actions (ms)
-            "debug_mode": False,             # Enable debug mode
-            "timeout": 3600,                 # Execution timeout in seconds
-            "learning_rate": 0.1,            # Learning rate for RL
-            "exploration_rate": 0.2,         # Exploration rate (epsilon)
-            "model_update_frequency": 100    # Model update frequency
+            "max_step": 10000,  # Maximum exploration steps
+            "device_serial": None,  # Device serial number
+            "strategy": "balanced",  # Exploration strategy
+            "fastbot_thirdpart_jar": None,  # FastBot thirdpart jar path
+            "framework_jar": None,  # Framework jar path
+            "monkeyq_jar": None,  # MonkeyQ jar path
+            "throttle": 500,  # Throttle between actions (ms)
+            "debug_mode": False,  # Enable debug mode
+            "timeout": 3600,  # Execution timeout in seconds
+            "learning_rate": 0.1,  # Learning rate for RL
+            "exploration_rate": 0.2,  # Exploration rate (epsilon)
+            "model_update_frequency": 100,  # Model update frequency
         }
 
         self.logger.info("Initialized FastBot tool for model-based exploration")
@@ -107,7 +112,7 @@ class FastBotTool(AbstractTool):
     def get_tool_spec(cls):
         """Get tool specification for registration."""
         return cls.TOOL_SPEC
-    
+
     @classmethod
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
         """Get available FastBot variants with different learning strategies."""
@@ -120,7 +125,7 @@ class FastBotTool(AbstractTool):
                 "timeout": 3600,
                 "learning_rate": 0.1,
                 "exploration_rate": 0.2,
-                "model_update_frequency": 100
+                "model_update_frequency": 100,
             },
             "conservative": {
                 "max_step": 5000,
@@ -130,7 +135,7 @@ class FastBotTool(AbstractTool):
                 "timeout": 1800,
                 "learning_rate": 0.05,
                 "exploration_rate": 0.1,
-                "model_update_frequency": 200
+                "model_update_frequency": 200,
             },
             "aggressive": {
                 "max_step": 20000,
@@ -140,7 +145,7 @@ class FastBotTool(AbstractTool):
                 "timeout": 5400,
                 "learning_rate": 0.2,
                 "exploration_rate": 0.4,
-                "model_update_frequency": 50
+                "model_update_frequency": 50,
             },
             "balanced": {
                 "max_step": 15000,
@@ -150,8 +155,8 @@ class FastBotTool(AbstractTool):
                 "timeout": 4200,
                 "learning_rate": 0.15,
                 "exploration_rate": 0.25,
-                "model_update_frequency": 75
-            }
+                "model_update_frequency": 75,
+            },
         }
 
     def configure(self, config: Dict[str, Any]) -> None:
@@ -176,11 +181,11 @@ class FastBotTool(AbstractTool):
             return
 
         # Update max steps
-        if 'max_step' in config:
+        if "max_step" in config:
             try:
-                steps = int(config['max_step'])
+                steps = int(config["max_step"])
                 if steps > 0:
-                    self.config['max_step'] = steps
+                    self.config["max_step"] = steps
                     self.logger.debug(f"Set FastBot max steps to: {steps}")
                 else:
                     self.logger.warning("Max steps must be positive")
@@ -188,26 +193,32 @@ class FastBotTool(AbstractTool):
                 self.logger.warning(f"Invalid max_step value: {config['max_step']}")
 
         # Update device serial
-        if 'device_serial' in config:
-            self.config['device_serial'] = config['device_serial']
-            self.logger.debug(f"Set FastBot device serial to: {config['device_serial']}")
+        if "device_serial" in config:
+            self.config["device_serial"] = config["device_serial"]
+            self.logger.debug(
+                f"Set FastBot device serial to: {config['device_serial']}"
+            )
 
         # Update exploration strategy
-        if 'strategy' in config:
-            strategy = config['strategy']
+        if "strategy" in config:
+            strategy = config["strategy"]
             if strategy not in self.AVAILABLE_STRATEGIES:
-                self.logger.warning(f"Invalid strategy '{strategy}'. Using default 'balanced'")
-                self.logger.warning(f"Available strategies: {self.AVAILABLE_STRATEGIES}")
+                self.logger.warning(
+                    f"Invalid strategy '{strategy}'. Using default 'balanced'"
+                )
+                self.logger.warning(
+                    f"Available strategies: {self.AVAILABLE_STRATEGIES}"
+                )
             else:
-                self.config['strategy'] = strategy
+                self.config["strategy"] = strategy
                 self.logger.debug(f"Set FastBot strategy to: {strategy}")
 
         # Update throttle
-        if 'throttle' in config:
+        if "throttle" in config:
             try:
-                throttle = int(config['throttle'])
+                throttle = int(config["throttle"])
                 if throttle >= 0:
-                    self.config['throttle'] = throttle
+                    self.config["throttle"] = throttle
                     self.logger.debug(f"Set FastBot throttle to: {throttle}ms")
                 else:
                     self.logger.warning("Throttle must be non-negative")
@@ -215,11 +226,11 @@ class FastBotTool(AbstractTool):
                 self.logger.warning(f"Invalid throttle value: {config['throttle']}")
 
         # Update timeout
-        if 'timeout' in config:
+        if "timeout" in config:
             try:
-                timeout = int(config['timeout'])
+                timeout = int(config["timeout"])
                 if timeout > 0:
-                    self.config['timeout'] = timeout
+                    self.config["timeout"] = timeout
                     self.logger.debug(f"Set FastBot timeout to: {timeout}s")
                 else:
                     self.logger.warning("Timeout must be positive")
@@ -227,7 +238,7 @@ class FastBotTool(AbstractTool):
                 self.logger.warning(f"Invalid timeout value: {config['timeout']}")
 
         # Update learning parameters
-        learning_params = ['learning_rate', 'exploration_rate']
+        learning_params = ["learning_rate", "exploration_rate"]
         for param in learning_params:
             if param in config:
                 try:
@@ -241,32 +252,33 @@ class FastBotTool(AbstractTool):
                     self.logger.warning(f"Invalid {param} value: {config[param]}")
 
         # Update model update frequency
-        if 'model_update_frequency' in config:
+        if "model_update_frequency" in config:
             try:
-                freq = int(config['model_update_frequency'])
+                freq = int(config["model_update_frequency"])
                 if freq > 0:
-                    self.config['model_update_frequency'] = freq
+                    self.config["model_update_frequency"] = freq
                     self.logger.debug(f"Set FastBot model update frequency to: {freq}")
                 else:
                     self.logger.warning("Model update frequency must be positive")
             except (ValueError, TypeError):
-                self.logger.warning(f"Invalid model_update_frequency value: {config['model_update_frequency']}")
+                self.logger.warning(
+                    f"Invalid model_update_frequency value: {config['model_update_frequency']}"
+                )
 
         # Update boolean flags
-        if 'debug_mode' in config:
-            self.config['debug_mode'] = bool(config['debug_mode'])
+        if "debug_mode" in config:
+            self.config["debug_mode"] = bool(config["debug_mode"])
             self.logger.debug(f"Set FastBot debug mode to: {self.config['debug_mode']}")
 
         # Update jar paths
-        jar_params = ['fastbot_thirdpart_jar', 'framework_jar', 'monkeyq_jar']
+        jar_params = ["fastbot_thirdpart_jar", "framework_jar", "monkeyq_jar"]
         for param in jar_params:
             if param in config:
                 self.config[param] = config[param]
                 self.logger.debug(f"Set FastBot {param} to: {config[param]}")
 
     @ErrorHandler.handle_errors(
-        component="FastBotTool",
-        phase="execute_tool_specific_logic"
+        component="FastBotTool", phase="execute_tool_specific_logic"
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
@@ -284,11 +296,13 @@ class FastBotTool(AbstractTool):
             app: Application under test with package name and metadata
         """
         self.logger.info(f"Executing FastBot tool for {app.package_name}")
-        self.logger.debug(f"Strategy: {self.config['strategy']}, Max steps: {self.config['max_step']}")
+        self.logger.debug(
+            f"Strategy: {self.config['strategy']}, Max steps: {self.config['max_step']}"
+        )
 
         # Get timeout from task configuration
-        timeout_in_seconds = getattr(task.config, 'timeout', self.config['timeout'])
-        
+        timeout_in_seconds = getattr(task.config, "timeout", self.config["timeout"])
+
         self.logger.info(f"FastBot execution timeout: {timeout_in_seconds} seconds")
 
         # Resolve FastBot jar files
@@ -296,7 +310,7 @@ class FastBotTool(AbstractTool):
 
         # Push JARs to device before execution
         self._push_jars_to_sdcard(jar_paths, task.result.trace_file)
-        
+
         # Push native libraries to device
         self._push_libs_to_device(task.result.trace_file)
 
@@ -304,8 +318,10 @@ class FastBotTool(AbstractTool):
         timeout_in_minutes = int(timeout_in_seconds / 60)
         if timeout_in_minutes == 0:
             timeout_in_minutes = 1
-        fastbot_cmd = self._build_fastbot_command(app, timeout_in_minutes, timeout_in_seconds)
-        
+        fastbot_cmd = self._build_fastbot_command(
+            app, timeout_in_minutes, timeout_in_seconds
+        )
+
         # Build command string for logging
         cmd_str = f"{fastbot_cmd.command} {' '.join(fastbot_cmd.args)}"
         self.logger.debug(f"FastBot command: {cmd_str}")
@@ -313,13 +329,15 @@ class FastBotTool(AbstractTool):
         # Execute FastBot testing with centralized error handling
         try:
             self.logger.info(f"Starting FastBot execution for {app.package_name}")
-            
+
             # Execute command with output redirection (binary mode for command output)
-            with open(task.result.trace_file, 'wb') as trace_file:
+            with open(task.result.trace_file, "wb") as trace_file:
                 # Use centralized command execution with error handling
                 # Redirect both stdout and stderr to trace file to prevent console flooding
-                self._execute_and_check_command(fastbot_cmd, stdout=trace_file, stderr=trace_file)
-            
+                self._execute_and_check_command(
+                    fastbot_cmd, stdout=trace_file, stderr=trace_file
+                )
+
             # Append success information to trace file (text mode for metadata)
             # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
             #     success_info = f"\n--- FastBot Execution Completed ---\n"
@@ -327,9 +345,9 @@ class FastBotTool(AbstractTool):
             #     success_info += f"Running minutes: {timeout_in_minutes}\n"
             #     success_info += f"Command: {cmd_str}\n"
             #     trace_file.write(success_info)
-            
+
             self.logger.info("FastBot execution completed successfully")
-            
+
         except Exception as e:
             self.logger.error(f"FastBot execution failed: {str(e)}")
             raise
@@ -345,158 +363,202 @@ class FastBotTool(AbstractTool):
             FileNotFoundError: If required jar files are not found
         """
         jar_paths = {}
-        
+
         # Required jar files
         required_jars = {
-            'fastbot_thirdpart': 'fastbot-thirdpart.jar',
-            'framework': 'framework.jar',
-            'monkeyq': 'monkeyq.jar'
+            "fastbot_thirdpart": "fastbot-thirdpart.jar",
+            "framework": "framework.jar",
+            "monkeyq": "monkeyq.jar",
         }
 
         # Common search paths for FastBot jars
         search_paths = [
             # Environment variable based path
-            os.path.join(os.environ.get('TOOLS_DIR', ''), 'fastbot'),
+            os.path.join(os.environ.get("TOOLS_DIR", ""), "fastbot"),
             # Relative to current module
             os.path.dirname(__file__),
             # Standard installation paths
-            '/opt/rv-android/tools/fastbot',
-            './tools/fastbot',
-            '../tools/fastbot'
+            "/opt/rv-android/tools/fastbot",
+            "./tools/fastbot",
+            "../tools/fastbot",
         ]
 
         for jar_key, jar_filename in required_jars.items():
             config_key = f"{jar_key}_jar"
-            
+
             try:
                 # Check configured path first
                 if self.config.get(config_key):
-                    jar_paths[jar_key] = self.jar_resolver.resolve_jar_path(jar_filename, [os.path.dirname(self.config[config_key])])
+                    jar_paths[jar_key] = self.jar_resolver.resolve_jar_path(
+                        jar_filename, [os.path.dirname(self.config[config_key])]
+                    )
                 else:
                     # Use JarResolver with search paths
-                    jar_paths[jar_key] = self.jar_resolver.resolve_jar_path(jar_filename, search_paths)
-                    
+                    jar_paths[jar_key] = self.jar_resolver.resolve_jar_path(
+                        jar_filename, search_paths
+                    )
+
             except FileNotFoundError:
-                raise FileNotFoundError(f"FastBot jar file {jar_filename} not found. Please ensure FastBot is properly installed.")
+                raise FileNotFoundError(
+                    f"FastBot jar file {jar_filename} not found. Please ensure FastBot is properly installed."
+                )
 
         return jar_paths
 
-    def _push_jars_to_sdcard(self, jar_paths: Dict[str, str], trace_file_path: str) -> None:
+    def _push_jars_to_sdcard(
+        self, jar_paths: Dict[str, str], trace_file_path: str
+    ) -> None:
         """
         Push FastBot JAR files to device /sdcard/ directory.
-        
+
         Transfers JAR files required for FastBot execution to the Android device
         storage location for ADB shell execution.
-        
+
         Args:
             jar_paths: Dictionary containing local paths to JAR files
             trace_file_path: Path to trace file for logging push operations
-            
+
         Raises:
             RVToolExecutionError: If JAR file push operation fails
         """
         device_jar_paths = {
-            'fastbot_thirdpart': '/sdcard/fastbot-thirdpart.jar',
-            'framework': '/sdcard/framework.jar', 
-            'monkeyq': '/sdcard/monkeyq.jar'
+            "fastbot_thirdpart": "/sdcard/fastbot-thirdpart.jar",
+            "framework": "/sdcard/framework.jar",
+            "monkeyq": "/sdcard/monkeyq.jar",
         }
-        
+
         for jar_key, local_path in jar_paths.items():
             device_path = device_jar_paths[jar_key]
-            
-            self.logger.info(f"Pushing {jar_key} JAR from {local_path} to {device_path}")
-            
-            push_cmd = Command('adb', [
-                '-s', self.config.get("device_serial") or "emulator-5554",
-                'push', '-a', '-p', local_path, device_path
-            ], timeout=60)  # 60 seconds timeout for push
-            
-            with open(trace_file_path, 'ab') as trace_file:
-                trace_file.write(f"\n--- FastBot JAR Push: {jar_key} ---\n".encode('utf-8'))
+
+            self.logger.info(
+                f"Pushing {jar_key} JAR from {local_path} to {device_path}"
+            )
+
+            push_cmd = Command(
+                "adb",
+                [
+                    "-s",
+                    self.config.get("device_serial") or "emulator-5554",
+                    "push",
+                    "-a",
+                    "-p",
+                    local_path,
+                    device_path,
+                ],
+                timeout=60,
+            )  # 60 seconds timeout for push
+
+            with open(trace_file_path, "ab") as trace_file:
+                trace_file.write(
+                    f"\n--- FastBot JAR Push: {jar_key} ---\n".encode("utf-8")
+                )
                 result = push_cmd.invoke(stdout=trace_file)
-                
+
                 if result.is_failure():
                     error_msg = f"Failed to push {jar_key} JAR to device with exit code {result.code}"
                     if result.has_error_output():
                         error_msg += f". Error: {result.get_stderr_text()}"
-                    
+
                     self.logger.error(error_msg)
                     raise RVToolExecutionError(
-                        error_msg,
-                        tool_name=self.name,
-                        cause=None
+                        error_msg, tool_name=self.name, cause=None
                     )
-        
+
         self.logger.debug("All FastBot JARs pushed to device successfully")
 
     def _push_libs_to_device(self, trace_file_path: str) -> None:
         """
         Push FastBot native libraries to device architecture-specific directories.
-        
+
         Transfers native library files (.so) required for FastBot execution to the Android device
         in the appropriate architecture-specific directories.
-        
+
         Args:
             trace_file_path: Path to trace file for logging push operations
-            
+
         Raises:
             RVToolExecutionError: If library file push operation fails
         """
         # Resolve libs directory using JarResolver
         search_paths = [os.path.dirname(__file__)]
         try:
-            libs_dir = self.jar_resolver.resolve_resource_directory("libs", search_paths)
+            libs_dir = self.jar_resolver.resolve_resource_directory(
+                "libs", search_paths
+            )
         except Exception as e:
             self.logger.warning(f"FastBot libs directory not found: {e}")
-            self.logger.info("Continuing without native libraries (may affect performance)")
+            self.logger.info(
+                "Continuing without native libraries (may affect performance)"
+            )
             return
 
         # Architecture mappings - fastbot expects libs in /data/local/tmp/<arch>/
         arch_mappings = {
-            'arm64-v8a': '/data/local/tmp/arm64-v8a/',
-            'armeabi-v7a': '/data/local/tmp/armeabi-v7a/',
-            'x86': '/data/local/tmp/x86/',
-            'x86_64': '/data/local/tmp/x86_64/'
+            "arm64-v8a": "/data/local/tmp/arm64-v8a/",
+            "armeabi-v7a": "/data/local/tmp/armeabi-v7a/",
+            "x86": "/data/local/tmp/x86/",
+            "x86_64": "/data/local/tmp/x86_64/",
         }
 
         for arch, device_path in arch_mappings.items():
             local_lib_path = os.path.join(libs_dir, arch, "libfastbot_native.so")
-            
+
             if not os.path.isfile(local_lib_path):
-                self.logger.debug(f"FastBot native library not found for {arch}: {local_lib_path}")
+                self.logger.debug(
+                    f"FastBot native library not found for {arch}: {local_lib_path}"
+                )
                 continue
-                
+
             device_lib_path = os.path.join(device_path, "libfastbot_native.so")
-            
-            self.logger.info(f"Pushing FastBot native library for {arch} to {device_lib_path}")
-            
-            push_cmd = Command('adb', [
-                '-s', self.config.get("device_serial") or "emulator-5554",
-                'push', '-a', '-p', local_lib_path, device_lib_path
-            ], timeout=60)  # 60 seconds timeout for push
-            
-            with open(trace_file_path, 'ab') as trace_file:
-                trace_file.write(f"\n--- FastBot Native Library Push: {arch} ---\n".encode('utf-8'))
+
+            self.logger.info(
+                f"Pushing FastBot native library for {arch} to {device_lib_path}"
+            )
+
+            push_cmd = Command(
+                "adb",
+                [
+                    "-s",
+                    self.config.get("device_serial") or "emulator-5554",
+                    "push",
+                    "-a",
+                    "-p",
+                    local_lib_path,
+                    device_lib_path,
+                ],
+                timeout=60,
+            )  # 60 seconds timeout for push
+
+            with open(trace_file_path, "ab") as trace_file:
+                trace_file.write(
+                    f"\n--- FastBot Native Library Push: {arch} ---\n".encode("utf-8")
+                )
                 try:
                     # Use centralized command execution with error handling
                     self._execute_and_check_command(push_cmd, stdout=trace_file)
-                    self.logger.debug(f"Successfully pushed FastBot native library for {arch}")
+                    self.logger.debug(
+                        f"Successfully pushed FastBot native library for {arch}"
+                    )
                 except Exception as e:
-                    self.logger.warning(f"Failed to push FastBot native library for {arch}: {e}")
+                    self.logger.warning(
+                        f"Failed to push FastBot native library for {arch}: {e}"
+                    )
                     # Continue with other architectures - this is not critical
                     continue
-        
+
         self.logger.debug("FastBot native libraries push completed")
 
-    def _build_fastbot_command(self, app: App, timeout_minutes: int, timeout_seconds: int) -> Command:
+    def _build_fastbot_command(
+        self, app: App, timeout_minutes: int, timeout_seconds: int
+    ) -> Command:
         """
         Build the FastBot command using ADB shell execution model.
-        
-        Constructs ADB shell command for FastBot model-based testing with 
+
+        Constructs ADB shell command for FastBot model-based testing with
         JAR file execution on Android device and reinforcement learning capabilities.
-        
-        Command format: adb -s emulator-5554 shell CLASSPATH=/sdcard/monkeyq.jar:/sdcard/framework.jar:/sdcard/fastbot-thirdpart.jar 
-                       exec app_process /system/bin com.android.commands.monkey.Monkey -p <package> --agent reuseq 
+
+        Command format: adb -s emulator-5554 shell CLASSPATH=/sdcard/monkeyq.jar:/sdcard/framework.jar:/sdcard/fastbot-thirdpart.jar
+                       exec app_process /system/bin com.android.commands.monkey.Monkey -p <package> --agent reuseq
                        --running-minutes <X> --throttle <Y> -v -v
 
         Args:
@@ -508,16 +570,24 @@ class FastBotTool(AbstractTool):
             Configured Command object for FastBot execution
         """
         cmd_args = [
-            "-s", self.config.get("device_serial") or "emulator-5554",
+            "-s",
+            self.config.get("device_serial") or "emulator-5554",
             "shell",
             "CLASSPATH=/sdcard/monkeyq.jar:/sdcard/framework.jar:/sdcard/fastbot-thirdpart.jar",
-            "exec", "app_process", "/system/bin",
+            "exec",
+            "app_process",
+            "/system/bin",
             "com.android.commands.monkey.Monkey",
-            "-p", app.package_name,
-            "--agent", "reuseq", 
-            "--running-minutes", str(timeout_minutes),
-            "--throttle", str(self.config["throttle"]),
-            "-v", "-v"  # Verbose output for debugging
+            "-p",
+            app.package_name,
+            "--agent",
+            "reuseq",
+            "--running-minutes",
+            str(timeout_minutes),
+            "--throttle",
+            str(self.config["throttle"]),
+            "-v",
+            "-v",  # Verbose output for debugging
         ]
 
         return Command("adb", cmd_args, timeout_seconds)
@@ -539,16 +609,18 @@ class FastBotTool(AbstractTool):
             Dictionary with tool information and current configuration
         """
         info = super().get_tool_info()
-        info.update({
-            "tool_spec": self.TOOL_SPEC.to_dict(),
-            "available_strategies": self.get_available_strategies(),
-            "current_strategy": self.config["strategy"],
-            "current_max_step": self.config["max_step"],
-            "learning_rate": self.config["learning_rate"],
-            "exploration_rate": self.config["exploration_rate"],
-            "version": self.TOOL_SPEC.version,
-            "url": self.TOOL_SPEC.url
-        })
+        info.update(
+            {
+                "tool_spec": self.TOOL_SPEC.to_dict(),
+                "available_strategies": self.get_available_strategies(),
+                "current_strategy": self.config["strategy"],
+                "current_max_step": self.config["max_step"],
+                "learning_rate": self.config["learning_rate"],
+                "exploration_rate": self.config["exploration_rate"],
+                "version": self.TOOL_SPEC.version,
+                "url": self.TOOL_SPEC.url,
+            }
+        )
         return info
 
 
@@ -556,7 +628,7 @@ class FastBotTool(AbstractTool):
 def register_fastbot_variants(registry):
     """
     Register FastBot variants in the tool registry.
-    
+
     Args:
         registry: ToolRegistry instance
     """
@@ -565,8 +637,12 @@ def register_fastbot_variants(registry):
         "conservative": {"strategy": "conservative", "exploration_rate": 0.1},
         "aggressive": {"strategy": "aggressive", "exploration_rate": 0.3},
         "balanced": {"strategy": "balanced", "exploration_rate": 0.2},
-        "model_based": {"strategy": "model_based", "learning_rate": 0.15, "model_update_frequency": 50}
+        "model_based": {
+            "strategy": "model_based",
+            "learning_rate": 0.15,
+            "model_update_frequency": 50,
+        },
     }
-    
+
     for variant_name, config in variants.items():
         registry.register_variant("fastbot", variant_name, config)

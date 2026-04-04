@@ -6,9 +6,7 @@ Tests memory updates, stuck detection, and UI coverage integration.
 
 from unittest.mock import MagicMock
 
-from rv_agent.agent.nodes.learn_node import (
-    learn_node,
-)
+from rv_agent.agent.nodes.learn_node import learn_node
 
 
 class TestLearnNodeIntegration:

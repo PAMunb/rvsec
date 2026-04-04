@@ -2,11 +2,11 @@
 Unit tests for DFSStrategy.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from rv_agent.strategies.dfs_strategy import DFSStrategy, DFSState
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.strategies.dfs_strategy import DFSState, DFSStrategy
 
 # =============================================================================
 # Fixtures

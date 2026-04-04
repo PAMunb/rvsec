@@ -9,11 +9,11 @@ Tests cross-session persistence including:
 - Statistics calculation
 """
 
-import pytest
 import time
 from unittest.mock import MagicMock, patch
 
-from rv_agent.memory.long_term import LongTermMemory, MemoryState, MemoryAction
+import pytest
+from rv_agent.memory.long_term import LongTermMemory, MemoryAction, MemoryState
 
 
 class TestMemoryState:

@@ -6,18 +6,17 @@ Tests for StaticAnalyzer which runs the unified GATOR-based analysis client.
 
 import os
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
+from rv_android_core.commands.command_result import CommandResult
+from rv_android_core.domain.app import App
+from rv_android_core.util.error.exceptions import RVCommandTimeoutError
 from rv_static_analysis.analysis.static.static_analysis import (
-    StaticAnalyzer,
     StaticAnalysisException,
+    StaticAnalyzer,
 )
 from rv_static_analysis.config import RVStaticAnalysisConfig
-from rv_android_core.domain.app import App
-from rv_android_core.commands.command_result import CommandResult
-from rv_android_core.util.error.exceptions import RVCommandTimeoutError
 
 
 @pytest.fixture

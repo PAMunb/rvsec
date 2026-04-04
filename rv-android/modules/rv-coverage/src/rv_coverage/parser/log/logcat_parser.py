@@ -16,10 +16,10 @@ from typing import Any, Dict, Optional, Tuple
 
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.log import (
-    RvErrorLog,
-    RvCoverageLog,
     TAG_RVSEC,
     TAG_RVSEC_COV,
+    RvCoverageLog,
+    RvErrorLog,
 )
 from rv_android_core.util.android.repository_initializer import (
     initialize_repository_from_static_data,

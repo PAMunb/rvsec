@@ -2,13 +2,17 @@
 import logging
 
 import pytest
-
-from rv_android_core.util.logging.constants import (
+from rv_android_core.util.logging.constants import (  # Standard context keys; Common log message patterns
+    CONTEXT_APP_NAME,
+    CONTEXT_COMPONENT,
+    CONTEXT_PHASE,
+    CONTEXT_TASK_ID,
+    CONTEXT_TOOL_NAME,
     ERROR,
-    # Standard context keys
-    CONTEXT_TASK_ID, CONTEXT_APP_NAME, CONTEXT_TOOL_NAME, CONTEXT_COMPONENT, CONTEXT_PHASE,
-    # Common log message patterns
-    LOG_START, LOG_COMPLETE, LOG_ERROR, LOG_SKIPPED
+    LOG_COMPLETE,
+    LOG_ERROR,
+    LOG_SKIPPED,
+    LOG_START,
 )
 
 

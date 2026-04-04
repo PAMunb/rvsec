@@ -3,7 +3,6 @@ import json
 import logging
 
 import pytest
-
 from rv_android_core.util.logging.formatters import JsonFormatter, StructuredFormatter
 
 
@@ -25,7 +24,7 @@ class TestJsonFormatter:
             lineno=42,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         record.module = "test_module"
         record.funcName = "test_function"
@@ -56,7 +55,7 @@ class TestJsonFormatter:
             lineno=42,
             msg="Test message with extras",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         # Add extra fields
         record.custom_field1 = "custom_value1"
@@ -92,7 +91,7 @@ class TestJsonFormatter:
                 lineno=42,
                 msg="Exception occurred",
                 args=(),
-                exc_info=True  # Include exception info
+                exc_info=True,  # Include exception info
             )
 
         formatted = json_formatter.format(record)
@@ -134,9 +133,7 @@ class TestStructuredFormatter:
     def custom_formatter(self):
         """Fixture that provides a StructuredFormatter with custom settings"""
         return StructuredFormatter(
-            fmt="%(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d",
-            max_context_length=50
+            fmt="%(levelname)s - %(message)s", datefmt="%Y-%m-%d", max_context_length=50
         )
 
     @pytest.fixture
@@ -149,7 +146,7 @@ class TestStructuredFormatter:
             lineno=42,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         return record
 
@@ -161,13 +158,13 @@ class TestStructuredFormatter:
 
         # Custom initialization
         formatter = StructuredFormatter(
-            fmt="%(levelname)s - %(message)s",
-            datefmt="%H:%M:%S",
-            max_context_length=80
+            fmt="%(levelname)s - %(message)s", datefmt="%H:%M:%S", max_context_length=80
         )
         assert formatter.max_context_length == 80
 
-    def test_format_no_brackets_without_custom_attrs(self, structured_formatter, log_record):
+    def test_format_no_brackets_without_custom_attrs(
+        self, structured_formatter, log_record
+    ):
         """Test that a record without custom attributes has no context brackets"""
         formatted = structured_formatter.format(log_record)
 
@@ -175,7 +172,9 @@ class TestStructuredFormatter:
         assert "Test message" in formatted
         assert "[" not in formatted
 
-    def test_format_includes_brackets_with_custom_attrs(self, structured_formatter, log_record):
+    def test_format_includes_brackets_with_custom_attrs(
+        self, structured_formatter, log_record
+    ):
         """Test that a record with custom attributes gets context brackets"""
         log_record.app_name = "test_app"
         formatted = structured_formatter.format(log_record)
@@ -204,7 +203,7 @@ class TestStructuredFormatter:
             lineno=42,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         record.very_long_context_value = "a" * 50  # Long value
 
@@ -229,7 +228,7 @@ class TestStructuredFormatter:
             lineno=42,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         record.custom_attr = "custom_value"
 
@@ -253,7 +252,7 @@ class TestStructuredFormatter:
             lineno=42,
             msg="Test message",
             args=(),
-            exc_info=None
+            exc_info=None,
         )
         # Add a custom attribute that SHOULD appear in context
         record.my_custom_key = "custom_value"
@@ -262,21 +261,42 @@ class TestStructuredFormatter:
 
         # Standard attributes should NOT appear in the context brackets
         standard_attrs = [
-            'args', 'msg', 'message', 'pathname', 'filename',
-            'module', 'exc_info', 'exc_text', 'lineno',
-            'funcName', 'created', 'msecs', 'relativeCreated',
-            'levelname', 'levelno', 'name',
-            'stack_info', 'taskName', 'thread', 'threadName',
-            'process', 'processName', 'asctime'
+            "args",
+            "msg",
+            "message",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "levelname",
+            "levelno",
+            "name",
+            "stack_info",
+            "taskName",
+            "thread",
+            "threadName",
+            "process",
+            "processName",
+            "asctime",
         ]
 
         # Extract context section from formatted output
-        if '[' in formatted and ']' in formatted:
-            context_section = formatted.split('[', 1)[1].rsplit(']', 1)[0]
-            context_keys = [item.split('=')[0].strip() for item in context_section.split('|')]
+        if "[" in formatted and "]" in formatted:
+            context_section = formatted.split("[", 1)[1].rsplit("]", 1)[0]
+            context_keys = [
+                item.split("=")[0].strip() for item in context_section.split("|")
+            ]
 
             for attr in standard_attrs:
-                assert attr not in context_keys, f"Standard attr '{attr}' should not appear in context"
+                assert (
+                    attr not in context_keys
+                ), f"Standard attr '{attr}' should not appear in context"
 
             # Custom attribute SHOULD appear
-            assert 'my_custom_key' in context_section
+            assert "my_custom_key" in context_section

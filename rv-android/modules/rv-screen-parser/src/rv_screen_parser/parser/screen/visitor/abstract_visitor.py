@@ -1,13 +1,18 @@
 # rvandroid/parser/screen/visitor/abstract_visitor.py
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.domain.widget import WidgetEventType, Widget
+from rv_android_core.domain.widget import Widget, WidgetEventType
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenItem, ScreenDescription, Counter, Node
-
+from rv_screen_parser.parser.screen.visitor.model import (
+    Counter,
+    ItemAction,
+    Node,
+    ScreenDescription,
+    ScreenItem,
+)
 
 # Element types that should always be considered clickable even without clickable=true
 # These are UI elements that are inherently interactive but may not be marked as such
@@ -57,9 +62,7 @@ class AbstractScreenVisitor(ABC):
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
             "rv_screen_parser.parser.screen.visitor",
-            {
-                CONTEXT_COMPONENT: "AbstractScreenVisitor"
-            }
+            {CONTEXT_COMPONENT: "AbstractScreenVisitor"},
         )
         self.static_info = static_info
         self.activity = activity
@@ -81,7 +84,7 @@ class AbstractScreenVisitor(ABC):
         self.window_info: Dict = {
             "total_widgets": 0,
             "matched_widgets": 0,
-            "interactive_elements": 0
+            "interactive_elements": 0,
         }
 
     def get_screen_description(self) -> ScreenDescription:
@@ -243,11 +246,17 @@ class AbstractScreenVisitor(ABC):
 
         # Common resource IDs for system navigation buttons
         system_button_ids = [
-            "home", "recent", "recents", "back", "back_button",
-            "navigation_bar", "nav_bar", "navbar_view",
+            "home",
+            "recent",
+            "recents",
+            "back",
+            "back_button",
+            "navigation_bar",
+            "nav_bar",
+            "navbar_view",
             "com.android.systemui:id/home",
             "com.android.systemui:id/recent_apps",
-            "com.android.systemui:id/back"
+            "com.android.systemui:id/back",
         ]
 
         # Check if resource ID contains any system button pattern
@@ -261,7 +270,7 @@ class AbstractScreenVisitor(ABC):
             "com.google.android.inputmethod",
             "android.inputmethodservice",
             "com.samsung.android.keyboardsettings",
-            "com.android.systemui"
+            "com.android.systemui",
         ]
 
         if any(kbd_pkg in package.lower() for kbd_pkg in keyboard_packages):
@@ -270,16 +279,23 @@ class AbstractScreenVisitor(ABC):
         # Check for common keyboard class names
         class_name = node.view_class or ""
         keyboard_classes = [
-            "Keyboard", "KeyboardView", "KeyboardViewCluster",
-            "SoftKeyboard", "SoftKeyboardView", "KeyboardLayout",
-            "KeyButton", "KeyboardButtonCluster"
+            "Keyboard",
+            "KeyboardView",
+            "KeyboardViewCluster",
+            "SoftKeyboard",
+            "SoftKeyboardView",
+            "KeyboardLayout",
+            "KeyButton",
+            "KeyboardButtonCluster",
         ]
 
         if any(kbd_cls.lower() in class_name.lower() for kbd_cls in keyboard_classes):
             return True
 
         # Check if the node is in the system navigation area based on bounds
-        if hasattr(self, 'system_navigation_bounds') and self.system_navigation_bounds.get("present", False):
+        if hasattr(
+            self, "system_navigation_bounds"
+        ) and self.system_navigation_bounds.get("present", False):
             bounds = node.bounds
             if bounds and len(bounds) == 2:
                 # Check if the node is entirely in the navigation area
@@ -291,7 +307,7 @@ class AbstractScreenVisitor(ABC):
                     return True
 
         # Check for keyboard pattern: small buttons in bottom half of screen
-        if hasattr(self, 'device_info') and self.device_info:
+        if hasattr(self, "device_info") and self.device_info:
             display_height = self.device_info.get("displayHeight", 0)
             if display_height > 0:
                 bounds = node.bounds
@@ -302,8 +318,7 @@ class AbstractScreenVisitor(ABC):
                     center_y = (bounds[0][1] + bounds[1][1]) / 2
 
                     # Check if it's a small button in the bottom half of the screen
-                    if (width < 100 and height < 100 and
-                            center_y > display_height * 0.5):
+                    if width < 100 and height < 100 and center_y > display_height * 0.5:
 
                         # Additional check for keyboard key: look for single character text
                         text = node.view_text or ""
@@ -312,7 +327,10 @@ class AbstractScreenVisitor(ABC):
 
         # Check based on common descriptions for system buttons
         content_desc = (node.content_description or "").lower()
-        if any(desc in content_desc for desc in ["home", "recent apps", "overview", "go back"]):
+        if any(
+            desc in content_desc
+            for desc in ["home", "recent apps", "overview", "go back"]
+        ):
             return True
 
         # Check "soft buttons" identifier
@@ -321,8 +339,13 @@ class AbstractScreenVisitor(ABC):
 
         return False
 
-    def get_possible_actions(self, node: Node, counter: Counter, inherit_click: bool = False,
-                             prioritize_check: bool = False) -> List[ItemAction]:
+    def get_possible_actions(
+        self,
+        node: Node,
+        counter: Counter,
+        inherit_click: bool = False,
+        prioritize_check: bool = False,
+    ) -> List[ItemAction]:
         """
         Get possible actions for a node with enhanced security awareness and detailed information.
 
@@ -342,10 +365,10 @@ class AbstractScreenVisitor(ABC):
 
         # Extract coordinates from node
         coordinates = None
-        if hasattr(node, 'center_coordinates'):
+        if hasattr(node, "center_coordinates"):
             coordinates = node.center_coordinates
-        elif 'bounds' in node_data:
-            bounds = node_data['bounds']
+        elif "bounds" in node_data:
+            bounds = node_data["bounds"]
             if bounds and len(bounds) == 2:
                 x = (bounds[0][0] + bounds[1][0]) // 2
                 y = (bounds[0][1] + bounds[1][1]) // 2
@@ -361,7 +384,7 @@ class AbstractScreenVisitor(ABC):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=node_data,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
                 # Update security information
                 self._update_action_mop_related_info(action, node)
@@ -374,14 +397,18 @@ class AbstractScreenVisitor(ABC):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=node_data,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
                 self._update_action_mop_related_info(action, node)
                 actions.append(action)
 
         # Handle click actions (skip for editable elements - they use TEXT_CHANGE instead)
         # Also consider elements that are inherently clickable by type (e.g., ActionBar$Tab)
-        elif (node.clickable or inherit_click or self.is_always_clickable_type(node)) and not (prioritize_check and node.checkable) and not node.editable:
+        elif (
+            (node.clickable or inherit_click or self.is_always_clickable_type(node))
+            and not (prioritize_check and node.checkable)
+            and not node.editable
+        ):
             text_suffix = ""
             if node.view_text:
                 text_suffix = f" on '{node.view_text[:30]}'{' (truncated)' if len(node.view_text) > 30 else ''}"
@@ -393,7 +420,7 @@ class AbstractScreenVisitor(ABC):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=node_data,
-                coordinates=coordinates
+                coordinates=coordinates,
             )
             self._update_action_mop_related_info(action, node)
             actions.append(action)
@@ -412,7 +439,7 @@ class AbstractScreenVisitor(ABC):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=node_data,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
                 self._update_action_mop_related_info(action, node)
                 actions.append(action)
@@ -427,7 +454,10 @@ class AbstractScreenVisitor(ABC):
             directions = ["UP", "DOWN", "LEFT", "RIGHT"]
 
             # Filter directions for certain widget types
-            if node.view_class in ["android.widget.ListView", "android.widget.ScrollView"]:
+            if node.view_class in [
+                "android.widget.ListView",
+                "android.widget.ScrollView",
+            ]:
                 directions = ["UP", "DOWN"]
             elif node.view_class in ["android.widget.HorizontalScrollView"]:
                 directions = ["LEFT", "RIGHT"]
@@ -440,7 +470,7 @@ class AbstractScreenVisitor(ABC):
                     reaches_mop=False,
                     directly_reaches_mop=False,
                     target_view=node_data,
-                    coordinates=coordinates
+                    coordinates=coordinates,
                 )
                 self._update_action_mop_related_info(action, node)
                 actions.append(action)
@@ -454,7 +484,7 @@ class AbstractScreenVisitor(ABC):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=node_data,
-                coordinates=coordinates
+                coordinates=coordinates,
             )
             self._update_action_mop_related_info(action, node)
             actions.append(action)
@@ -470,7 +500,7 @@ class AbstractScreenVisitor(ABC):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=node_data,
-                coordinates=coordinates
+                coordinates=coordinates,
             )
             self._update_action_mop_related_info(action, node)
             actions.append(action)
@@ -482,7 +512,7 @@ class AbstractScreenVisitor(ABC):
                 reaches_mop=False,
                 directly_reaches_mop=False,
                 target_view=node_data,
-                coordinates=coordinates
+                coordinates=coordinates,
             )
             self._update_action_mop_related_info(action, node)
             actions.append(action)
@@ -504,7 +534,9 @@ class AbstractScreenVisitor(ABC):
             if event.type == action.event:
                 # Check if method reaches or directly reaches MOP
                 action.reaches_mop = self._check_method_reaches_mop(event.signature)
-                action.directly_reaches_mop = self._check_method_directly_reaches_mop(event.signature)
+                action.directly_reaches_mop = self._check_method_directly_reaches_mop(
+                    event.signature
+                )
                 action.widget_id = widget.id
                 action.callback_signature = event.signature
 
@@ -660,7 +692,7 @@ class AbstractScreenVisitor(ABC):
         Returns:
             Formatted text description
         """
-        if not hasattr(node, 'view_text') or not node.view_text:
+        if not hasattr(node, "view_text") or not node.view_text:
             return "with no text"
 
         text = node.view_text
@@ -672,7 +704,7 @@ class AbstractScreenVisitor(ABC):
         return f"with text '{text}'"
 
     def _with_field(self, widget: Widget):
-        if widget is None or not hasattr(widget, 'field') or not widget.field:
+        if widget is None or not hasattr(widget, "field") or not widget.field:
             return ""
 
         return "is assigned to a field"
@@ -687,7 +719,7 @@ class AbstractScreenVisitor(ABC):
         Returns:
             Formatted focus description
         """
-        if not hasattr(node, 'focused'):
+        if not hasattr(node, "focused"):
             return ""
 
         return " that is currently focused" if node.focused else ""
@@ -702,7 +734,7 @@ class AbstractScreenVisitor(ABC):
         Returns:
             Formatted content description
         """
-        if not hasattr(node, 'content_description') or not node.content_description:
+        if not hasattr(node, "content_description") or not node.content_description:
             return ""
 
         content_desc = node.content_description
@@ -723,7 +755,7 @@ class AbstractScreenVisitor(ABC):
         Returns:
             Formatted resource ID description
         """
-        if not hasattr(node, 'resource_id') or not node.resource_id:
+        if not hasattr(node, "resource_id") or not node.resource_id:
             return ""
 
         resource_id = node.resource_id
@@ -746,7 +778,7 @@ class AbstractScreenVisitor(ABC):
         Returns:
             Formatted hint
         """
-        if not hasattr(node, 'hint') or not node.hint:
+        if not hasattr(node, "hint") or not node.hint:
             return ""
 
         hint = node.hint
@@ -760,59 +792,59 @@ class AbstractScreenVisitor(ABC):
     def _with_position(self, node: Node) -> str:
         """
         Format node position coordinates for enhanced coordinate precision.
-        
+
         ### Coordinate Precision Enhancement:
         Provides precise position information to improve LLM coordinate generation
         accuracy from 30% to 95-100% as specified in the refactoring plan.
-        
+
         Args:
             node: The node to describe
-            
+
         Returns:
             Formatted position string with coordinates
         """
-        if not hasattr(node, 'center_coordinates') or not node.center_coordinates:
+        if not hasattr(node, "center_coordinates") or not node.center_coordinates:
             return ""
-        
+
         x, y = node.center_coordinates
         return f" at position ({x}, {y})"
 
     def _with_bounds(self, node: Node) -> str:
         """
         Format node bounds information for coordinate validation.
-        
+
         ### Bounds Information Strategy:
         Provides complete bounds information following the standardized format
         specified in the plan: [[x1,y1],[x2,y2]] for arrays.
-        
+
         Args:
             node: The node to describe
-            
+
         Returns:
             Formatted bounds string with coordinate arrays
         """
-        if not hasattr(node, 'bounds') or not node.bounds:
+        if not hasattr(node, "bounds") or not node.bounds:
             return ""
-        
+
         bounds = node.bounds
         if len(bounds) == 2:
             x1, y1 = bounds[0]
             x2, y2 = bounds[1]
             return f" - bounds[[{x1}, {y1}], [{x2}, {y2}]]"
-        
+
         return ""
 
     def _with_complete_coordinates(self, node: Node) -> str:
         """
         Provide complete coordinate information combining position and bounds.
-        
+
         ### Complete Coordinate Strategy:
         Implements the proposed format from the plan:
         "button 'OK' at position (540, 1306) - bounds[[200, 1270], [880, 1342]]"
-        
+
         Args:
             node: The node to describe
-            
+
         Returns:
             Complete coordinate description string
         """

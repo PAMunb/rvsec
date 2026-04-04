@@ -10,7 +10,6 @@ import json
 from unittest.mock import patch
 
 import pytest
-
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.config import ExperimentConfig
 
@@ -171,8 +170,9 @@ class TestVariantExpansionAtParseTime:
     @patch("rv_tools.ToolRegistry.get_instance")
     def test_single_variant_produces_one_config(self, mock_registry):
         """Test that a single variant produces exactly one ToolConfig."""
-        from rv_experiment.__main__ import CLIContext
         from unittest.mock import MagicMock
+
+        from rv_experiment.__main__ import CLIContext
 
         mock_registry_instance = mock_registry.return_value
         mock_registry_instance.get_all_tools.return_value = []
@@ -190,8 +190,9 @@ class TestVariantExpansionAtParseTime:
     @patch("rv_tools.ToolRegistry.get_instance")
     def test_no_variant_produces_default(self, mock_registry):
         """Test that no variant produces a single ToolConfig with 'default' variant."""
-        from rv_experiment.__main__ import CLIContext
         from unittest.mock import MagicMock
+
+        from rv_experiment.__main__ import CLIContext
 
         mock_registry_instance = mock_registry.return_value
         mock_registry_instance.get_all_tools.return_value = []
@@ -210,8 +211,9 @@ class TestVariantExpansionAtParseTime:
     @patch("rv_tools.ToolRegistry.get_instance")
     def test_variant_expansion_with_parameters(self, mock_registry):
         """Test that parameters are preserved across expanded variants."""
-        from rv_experiment.__main__ import CLIContext
         from unittest.mock import MagicMock
+
+        from rv_experiment.__main__ import CLIContext
 
         mock_registry_instance = mock_registry.return_value
         mock_registry_instance.get_all_tools.return_value = []

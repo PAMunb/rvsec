@@ -64,7 +64,6 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from pydantic import Field
-
 from rv_android_core.util.validation import BaseValidatedModel
 
 # Import psutil conditionally to handle cases where it might not be available

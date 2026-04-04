@@ -13,11 +13,8 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import InstrumentationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_instrumentation.config import (
-    RVInstrumentationConfig,
-    InstrumentationResults,
-    InstrumentationError as InstrumentationErrorModel,
-)
+from rv_instrumentation.config import InstrumentationError as InstrumentationErrorModel
+from rv_instrumentation.config import InstrumentationResults, RVInstrumentationConfig
 
 
 class RVInstrumentation:

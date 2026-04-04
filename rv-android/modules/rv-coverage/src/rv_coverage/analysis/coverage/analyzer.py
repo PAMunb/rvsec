@@ -6,17 +6,17 @@ entry point for coverage analysis operations in the RV-Android system,
 with support for graceful degradation when static analysis data is not available.
 """
 
-from typing import Dict, Optional, Any
 from enum import Enum
+from typing import Any, Dict, Optional
 
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.android.repository_initializer import (
     initialize_repository_from_static_data,
 )
+from rv_android_core.util.error.error_handler import ErrorHandler
 
 
 class CoverageCalculationMode(Enum):

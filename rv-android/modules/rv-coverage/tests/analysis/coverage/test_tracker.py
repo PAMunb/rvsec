@@ -2,9 +2,12 @@
 from datetime import datetime
 
 import pytest
-
 from rv_android_core.domain.classes import Classes, Method
-from rv_android_core.domain.static import StaticAnalysisData, WindowTransitionGraph, Windows
+from rv_android_core.domain.static import (
+    StaticAnalysisData,
+    Windows,
+    WindowTransitionGraph,
+)
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
@@ -17,15 +20,13 @@ class TestCoverageTracker:
 
         # Create mock classes matching logcat content
         main_activity_class = classes.add_clazz(
-            "br.unb.cic.cryptoapp.MainActivity",
-            component_type="activity",
-            is_main=True
+            "br.unb.cic.cryptoapp.MainActivity", component_type="activity", is_main=True
         )
 
         crypto_activity_class = classes.add_clazz(
             "br.unb.cic.cryptoapp.generated.CryptographyActivity",
             component_type="activity",
-            is_main=False
+            is_main=False,
         )
 
         # Add methods matching logcat entries
@@ -37,7 +38,7 @@ class TestCoverageTracker:
                 signature="br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)",
                 reachable=True,
                 reaches_mop=False,
-                directly_reaches_mop=False
+                directly_reaches_mop=False,
             ),
             Method(
                 class_name="br.unb.cic.cryptoapp.generated.CryptographyActivity",
@@ -46,17 +47,15 @@ class TestCoverageTracker:
                 signature="br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeSecretKeyOperation()",
                 reachable=True,
                 reaches_mop=True,
-                directly_reaches_mop=True
-            )
+                directly_reaches_mop=True,
+            ),
         ]
 
         for method in methods:
             classes.add_method(method)
 
         return StaticAnalysisData(
-            classes=classes,
-            windows=Windows(),
-            wtg=WindowTransitionGraph()
+            classes=classes, windows=Windows(), wtg=WindowTransitionGraph()
         )
 
     @pytest.fixture
@@ -73,7 +72,7 @@ class TestCoverageTracker:
 
     def test_parse_real_logcat_entries(self, sample_logcat_file):
         """Test parsing real logcat entries."""
-        with open(sample_logcat_file, 'r') as f:
+        with open(sample_logcat_file, "r") as f:
             lines = f.readlines()
 
         for line in lines:
@@ -81,21 +80,23 @@ class TestCoverageTracker:
             if line:
                 error_log, coverage_log = parse_logcat_line(line)
 
-                if 'RVSEC-COV' in line:
+                if "RVSEC-COV" in line:
                     assert coverage_log is not None
                     assert coverage_log.clazz is not None
                     assert coverage_log.method is not None
-                elif 'RVSEC' in line and 'COV' not in line:
+                elif "RVSEC" in line and "COV" not in line:
                     assert error_log is not None
                     assert error_log.class_full_name is not None
                     assert error_log.method is not None
 
     def test_process_real_logcat_file(self, mock_static_data, sample_logcat_file):
         """Test processing a real logcat file."""
-        tracker = CoverageTracker(sample_logcat_file, mock_static_data, task_id="test_task")
+        tracker = CoverageTracker(
+            sample_logcat_file, mock_static_data, task_id="test_task"
+        )
 
         # Simulate tracking
-        with open(sample_logcat_file, 'r') as f:
+        with open(sample_logcat_file, "r") as f:
             lines = f.readlines()
 
         # Process all lines
@@ -108,14 +109,16 @@ class TestCoverageTracker:
         # Verify metrics have been updated
         metrics = tracker.get_coverage_metrics()
         assert metrics is not None
-        assert 'method_coverage' in metrics
+        assert "method_coverage" in metrics
 
     def test_get_detailed_metrics(self, mock_static_data, sample_logcat_file):
         """Test retrieving detailed coverage metrics."""
-        tracker = CoverageTracker(sample_logcat_file, mock_static_data, task_id="test_task")
+        tracker = CoverageTracker(
+            sample_logcat_file, mock_static_data, task_id="test_task"
+        )
 
         # Process lines manually
-        with open(sample_logcat_file, 'r') as f:
+        with open(sample_logcat_file, "r") as f:
             lines = f.readlines()
 
         tracker.process_lines(lines)
@@ -124,9 +127,9 @@ class TestCoverageTracker:
         detailed_metrics = tracker.repository.to_dict()
 
         # Verify structure of detailed metrics
-        assert 'metrics' in detailed_metrics
-        assert 'classes' in detailed_metrics
-        assert 'errors' in detailed_metrics
+        assert "metrics" in detailed_metrics
+        assert "classes" in detailed_metrics
+        assert "errors" in detailed_metrics
 
 
 class TestCoverageTrackerTiming:
@@ -167,7 +170,7 @@ class TestCoverageTrackerTiming:
 
         tracker.repository.register_method_call = capture_register
 
-        with open(logcat_file, 'r') as f:
+        with open(logcat_file, "r") as f:
             tracker.process_lines(f.readlines())
 
         assert tracker.total_method_calls == 1, "Expected exactly one coverage entry"
@@ -181,8 +184,7 @@ class TestCoverageTrackerTiming:
         """
         tool_start = datetime(2026, 3, 24, 19, 37, 0)
         tracker = CoverageTracker(
-            logcat_with_timing, None,
-            task_start_time=tool_start, task_id="test"
+            logcat_with_timing, None, task_start_time=tool_start, task_id="test"
         )
 
         time_value = self._get_captured_time(tracker, logcat_with_timing)
@@ -199,8 +201,7 @@ class TestCoverageTrackerTiming:
         """
         task_creation = datetime(2026, 3, 24, 19, 36, 0)
         tracker = CoverageTracker(
-            logcat_with_timing, None,
-            task_start_time=task_creation, task_id="test"
+            logcat_with_timing, None, task_start_time=task_creation, task_id="test"
         )
 
         # Initially, time reference is task creation
@@ -224,8 +225,7 @@ class TestCoverageTrackerTiming:
         """
         task_creation = datetime(2026, 3, 24, 19, 36, 0)
         tracker = CoverageTracker(
-            logcat_with_timing, None,
-            task_start_time=task_creation, task_id="test"
+            logcat_with_timing, None, task_start_time=task_creation, task_id="test"
         )
 
         # Do NOT update tool_execution_start_time (simulates the bug)

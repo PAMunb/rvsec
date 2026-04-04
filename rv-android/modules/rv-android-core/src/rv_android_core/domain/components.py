@@ -9,7 +9,6 @@ export status, and monitored operations reachability.
 from typing import Dict, List, Optional
 
 from pydantic import Field
-
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
@@ -19,18 +18,14 @@ class IntentFilter(BaseValidatedModel):
     """Intent filter with actions and categories from AndroidManifest.xml."""
 
     actions: List[str] = Field(default_factory=list, description="Intent actions")
-    categories: List[str] = Field(
-        default_factory=list, description="Intent categories"
-    )
+    categories: List[str] = Field(default_factory=list, description="Intent categories")
 
 
 @validated_model(["class_name", "component_type"])
 class ComponentInfo(BaseValidatedModel):
     """Metadata for an Android component (Activity, Service, Receiver, or Provider)."""
 
-    class_name: str = Field(
-        ..., description="Fully qualified class name", min_length=1
-    )
+    class_name: str = Field(..., description="Fully qualified class name", min_length=1)
     component_type: str = Field(
         ...,
         description="Component type: activity, service, receiver, provider",

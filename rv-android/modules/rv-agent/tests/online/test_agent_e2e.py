@@ -4,21 +4,16 @@ End-to-end agent integration tests.
 Tests full RVAgent workflow with real emulator and LLM.
 """
 
-import pytest
-import time
 import json
-from pathlib import Path
+import time
 from datetime import datetime
+from pathlib import Path
 
-from rv_agent.config.agent_config import RVAgentConfig
+import pytest
 from rv_agent.agent.agent_factory import AgentFactory
-from .conftest import (
-    launch_app,
-    force_stop_app,
-    SGLANG_URL,
-    SGLANG_MODEL,
-    DEVICE_ID,
-)
+from rv_agent.config.agent_config import RVAgentConfig
+
+from .conftest import DEVICE_ID, SGLANG_MODEL, SGLANG_URL, force_stop_app, launch_app
 
 pytestmark = [pytest.mark.online, pytest.mark.slow]
 

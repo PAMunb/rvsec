@@ -2,15 +2,14 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from rv_android_core.domain.app import App
+from rv_android_core.domain.task import Task, TaskConfiguration, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.domain.task import Task, TaskConfiguration, TaskState
-from rv_platform.execution.executor import TaskExecutor
 from rv_platform.components.coverage import CoverageComponent
 from rv_platform.components.emulator import EmulatorComponent
 from rv_platform.components.tool_execution import ToolExecutionComponent
+from rv_platform.execution.executor import TaskExecutor
 
 
 class TestTaskExecutor:

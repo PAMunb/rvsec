@@ -12,10 +12,10 @@ Covers three related changes:
 import logging
 from unittest.mock import MagicMock
 
+from rv_agent.services.transition_manager import TransitionManager
 from rv_agent.strategies.rvagent_strategy.input_value_generator import (
     InputValueGenerator,
 )
-from rv_agent.services.transition_manager import TransitionManager
 
 # ---------------------------------------------------------------------------
 # (a) Priority scoring: directly_reaches_mop > reaches_mop

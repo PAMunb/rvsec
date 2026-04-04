@@ -8,7 +8,4 @@ optimized for different types of visual element detection.
 
 from .image_preprocessor import ImagePreprocessor, get_image_preprocessor
 
-__all__ = [
-    'ImagePreprocessor',
-    'get_image_preprocessor'
-]
+__all__ = ["ImagePreprocessor", "get_image_preprocessor"]

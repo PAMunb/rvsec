@@ -10,13 +10,13 @@ Tests verify:
 - Coordinate conversion between device and optimized spaces
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
 from collections import deque
+from unittest.mock import MagicMock, patch
 
-from rv_agent.strategies.bfs_strategy import BFSState, BFSStrategy
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
+from rv_agent.strategies.bfs_strategy import BFSState, BFSStrategy
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 # =============================================================================
 # Fixtures

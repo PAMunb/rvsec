@@ -5,19 +5,19 @@ This module provides the central component for transforming Monitoring-Oriented 
 (MOP) specifications into executable monitoring artifacts for runtime verification.
 """
 
-import os
 import glob
-from typing import Optional, Dict, Any
+import os
+from typing import Any, Dict, Optional
 
 import rv_android_core.constants as constants
+from pydantic import Field, field_validator
 from rv_android_core.commands.command import Command
 from rv_android_core.util import utils
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_monitor_generator.config import RVGeneratorConfig
-from pydantic import Field, field_validator
 
 
 class RuntimeVerificationGenerator(BaseValidatedModel):
@@ -54,7 +54,7 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         description="Configuration for monitor generation tools and paths"
     )
 
-    @field_validator('config')
+    @field_validator("config")
     @classmethod
     def validate_config(cls, v):
         """Validate config field ensuring correct type."""
@@ -82,19 +82,20 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         # Initialize structured logging through LoggingManager
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
-            'rv_monitor_generator.RuntimeVerificationGenerator',
+            "rv_monitor_generator.RuntimeVerificationGenerator",
             {
-                CONTEXT_COMPONENT: 'RuntimeVerificationGenerator',
-                'component_module': 'rv-monitor-generator'
-            }
+                CONTEXT_COMPONENT: "RuntimeVerificationGenerator",
+                "component_module": "rv-monitor-generator",
+            },
         )
 
         # Initialize centralized error handling
         self._error_handler = ErrorHandler.get_instance()
 
-        self._logger.info("RuntimeVerificationGenerator initialized", extra={
-            'config_summary': self.config.get_configuration_summary()
-        })
+        self._logger.info(
+            "RuntimeVerificationGenerator initialized",
+            extra={"config_summary": self.config.get_configuration_summary()},
+        )
 
     def generate_monitors(self, output_dir: str) -> bool:
         """
@@ -128,35 +129,40 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
             # Critical validation point - ensure output accessibility
             self.config.validate_output_directory(output_dir)
 
-            self._logger.info("Starting runtime verification monitor generation pipeline", extra={
-                'output_dir': output_dir,
-                'specs_count': len(self._get_mop_specs()),
-                'pipeline_stage': 'initialization'
-            })
+            self._logger.info(
+                "Starting runtime verification monitor generation pipeline",
+                extra={
+                    "output_dir": output_dir,
+                    "specs_count": len(self._get_mop_specs()),
+                    "pipeline_stage": "initialization",
+                },
+            )
             self._logger.debug(f"Runtime verification config: {self.config}")
 
             # Prepare clean generation environment
             utils.reset_folder(output_dir)
-            self._logger.debug("Output directory prepared", extra={'output_dir': output_dir})
+            self._logger.debug(
+                "Output directory prepared", extra={"output_dir": output_dir}
+            )
 
             # Execute coordinated generation pipeline
             self._execute_javamop(output_dir)
             self._execute_rvmonitor(output_dir)
 
-            self._logger.info("Monitor generation pipeline completed successfully", extra={
-                'output_dir': output_dir,
-                'pipeline_stage': 'completed'
-            })
+            self._logger.info(
+                "Monitor generation pipeline completed successfully",
+                extra={"output_dir": output_dir, "pipeline_stage": "completed"},
+            )
             return True
 
         except Exception as e:
             # Use centralized error handling for consistent error management
             context = {
-                'component': 'RuntimeVerificationGenerator',
-                'operation': 'generate_monitors',
-                'output_dir': output_dir,
-                'mop_specs_dir': self.config.mop_specs_dir,
-                'pipeline_stage': 'failed'
+                "component": "RuntimeVerificationGenerator",
+                "operation": "generate_monitors",
+                "output_dir": output_dir,
+                "mop_specs_dir": self.config.mop_specs_dir,
+                "pipeline_stage": "failed",
             }
 
             self._error_handler.handle_error(e, context)
@@ -183,29 +189,43 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         """
         mop_specs = self._get_mop_specs()
 
-        self._logger.info("Executing JavaMOP ...", extra={
-            'specs_directory': self.config.mop_specs_dir,
-            'specs_count': len(mop_specs),
-            'output_directory': output_dir
-        })
+        self._logger.info(
+            "Executing JavaMOP ...",
+            extra={
+                "specs_directory": self.config.mop_specs_dir,
+                "specs_count": len(mop_specs),
+                "output_directory": output_dir,
+            },
+        )
 
         # Construct JavaMOP command with merge option for unified artifact generation
-        mop_files_pattern = os.path.join(self.config.mop_specs_dir, '*' + constants.EXTENSION_MOP)
-        javamop_cmd = Command(self.config.javamop_bin, ['-d', output_dir, '-merge', mop_files_pattern])
+        mop_files_pattern = os.path.join(
+            self.config.mop_specs_dir, "*" + constants.EXTENSION_MOP
+        )
+        javamop_cmd = Command(
+            self.config.javamop_bin, ["-d", output_dir, "-merge", mop_files_pattern]
+        )
 
         utils.execute_command(javamop_cmd, "javamop")
 
         # Critical workaround: JavaMOP's -d option has incomplete behavior
         # It moves generated .aj files but leaves .rvm files in source directory
-        utils.move_files_by_extension(constants.EXTENSION_RVM, self.config.mop_specs_dir, output_dir)
+        utils.move_files_by_extension(
+            constants.EXTENSION_RVM, self.config.mop_specs_dir, output_dir
+        )
 
         # Integrate custom AspectJ files for monitoring capabilities
-        utils.copy_files_by_extension(constants.EXTENSION_AJ, self.config.aspects_dir, output_dir, log_info=True)
+        utils.copy_files_by_extension(
+            constants.EXTENSION_AJ, self.config.aspects_dir, output_dir, log_info=True
+        )
 
-        self._logger.debug("JavaMOP execution completed", extra={
-            'generated_artifacts': ['AspectJ files', 'RVM specifications'],
-            'custom_aspects_integrated': True
-        })
+        self._logger.debug(
+            "JavaMOP execution completed",
+            extra={
+                "generated_artifacts": ["AspectJ files", "RVM specifications"],
+                "custom_aspects_integrated": True,
+            },
+        )
 
     def _execute_rvmonitor(self, output_dir: str) -> None:
         """
@@ -226,25 +246,33 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         Raises:
             CommandException: If RV-Monitor execution fails
         """
-        self._logger.info("Executing rv-monitor ...", extra={
-            'tool': 'RV-Monitor',
-            'input_directory': output_dir,
-            'artifact_type': 'Java monitor classes'
-        })
+        self._logger.info(
+            "Executing rv-monitor ...",
+            extra={
+                "tool": "RV-Monitor",
+                "input_directory": output_dir,
+                "artifact_type": "Java monitor classes",
+            },
+        )
 
         # Process all RVM files in the output directory
-        rvm_files_pattern = os.path.join(output_dir, '*' + constants.EXTENSION_RVM)
-        rvmonitor_cmd = Command(self.config.rvmonitor_bin, ['-d', output_dir, '-merge', rvm_files_pattern])
+        rvm_files_pattern = os.path.join(output_dir, "*" + constants.EXTENSION_RVM)
+        rvmonitor_cmd = Command(
+            self.config.rvmonitor_bin, ["-d", output_dir, "-merge", rvm_files_pattern]
+        )
 
         utils.execute_command(rvmonitor_cmd, "rvmonitor")
 
         # Clean up intermediate RVM files - they're no longer needed after monitor generation
         utils.delete_files_by_extension(constants.EXTENSION_RVM, output_dir)
 
-        self._logger.debug("RV-Monitor execution completed", extra={
-            'generated_artifacts': ['Java monitor classes'],
-            'intermediate_files_cleaned': True
-        })
+        self._logger.debug(
+            "RV-Monitor execution completed",
+            extra={
+                "generated_artifacts": ["Java monitor classes"],
+                "intermediate_files_cleaned": True,
+            },
+        )
 
     def _get_mop_specs(self) -> list:
         """
@@ -253,7 +281,9 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         Returns:
             list: List of MOP specification file paths
         """
-        return glob.glob(os.path.join(self.config.mop_specs_dir, f'*{constants.EXTENSION_MOP}'))
+        return glob.glob(
+            os.path.join(self.config.mop_specs_dir, f"*{constants.EXTENSION_MOP}")
+        )
 
     def get_generation_summary(self, output_dir: str) -> Dict[str, Any]:
         """
@@ -265,15 +295,17 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
         Returns:
             Dict containing summary of generated artifacts and their purposes
         """
-        aspectj_files = glob.glob(os.path.join(output_dir, f'*{constants.EXTENSION_AJ}'))
-        java_files = glob.glob(os.path.join(output_dir, f'*{constants.EXTENSION_JAVA}'))
+        aspectj_files = glob.glob(
+            os.path.join(output_dir, f"*{constants.EXTENSION_AJ}")
+        )
+        java_files = glob.glob(os.path.join(output_dir, f"*{constants.EXTENSION_JAVA}"))
 
         return {
-            'output_directory': output_dir,
-            'aspectj_files':  len(aspectj_files),
-            'monitor_classes': len(java_files),
-            'specs_processed': {
-                'source_directory': self.config.mop_specs_dir,
-                'count': len(self._get_mop_specs())
-            }
+            "output_directory": output_dir,
+            "aspectj_files": len(aspectj_files),
+            "monitor_classes": len(java_files),
+            "specs_processed": {
+                "source_directory": self.config.mop_specs_dir,
+                "count": len(self._get_mop_specs()),
+            },
         }

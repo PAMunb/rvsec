@@ -4,7 +4,7 @@ RV-Tools Module
 Tool registry and plugin system for monitored operations testing in RV-Android.
 
 This module provides comprehensive tool management capabilities including:
-- Abstract base classes for tool implementations  
+- Abstract base classes for tool implementations
 - Plugin discovery and registration system
 - Built-in testing tools (APE, DroidBot, Monkey, etc.)
 - External tool plugin interfaces
@@ -44,8 +44,10 @@ This module provides comprehensive tool management capabilities including:
 # Core base classes
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
+
 # Factory system
 from .registry.factory import ToolFactory
+
 # Registry system
 from .registry.registry import ToolRegistry
 
@@ -67,7 +69,10 @@ def _register_builtin_tools():
             except Exception as e:
                 # Log error but don't fail module import
                 import logging
-                logging.getLogger(__name__).warning(f"Failed to register builtin tool {tool_class.__name__}: {e}")
+
+                logging.getLogger(__name__).warning(
+                    f"Failed to register builtin tool {tool_class.__name__}: {e}"
+                )
 
     except Exception:
         # Fail silently if builtin tools can't be imported
@@ -82,7 +87,6 @@ __all__ = [
     # Base classes
     "AbstractTool",
     "ToolSpec",
-
     # Registry system
     "ToolRegistry",
     "ToolFactory",

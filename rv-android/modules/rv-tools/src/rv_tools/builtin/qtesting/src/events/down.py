@@ -8,13 +8,4 @@ from uiautomator import Device
 d = Device(sys.argv[1])
 
 # press the menu
-d.click(50,50)
-
-
-
-
-
-
-
-
-
+d.click(50, 50)

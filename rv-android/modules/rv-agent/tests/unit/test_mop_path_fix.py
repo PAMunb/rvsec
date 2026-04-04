@@ -14,11 +14,11 @@ Tests:
 
 from unittest.mock import MagicMock, patch
 
-from rv_agent.strategies.rvagent_strategy.path_buffer import (
-    PathBuffer,
-    PLAN_COOLDOWN_AFTER_FAILURE,
-)
 from rv_agent.services.transition_manager import TransitionManager
+from rv_agent.strategies.rvagent_strategy.path_buffer import (
+    PLAN_COOLDOWN_AFTER_FAILURE,
+    PathBuffer,
+)
 
 # ---------------------------------------------------------------------------
 # Shared factories

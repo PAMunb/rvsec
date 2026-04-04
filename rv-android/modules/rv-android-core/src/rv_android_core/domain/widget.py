@@ -9,7 +9,6 @@ from enum import Enum
 from typing import Any, Dict, List, Set
 
 from pydantic import Field
-
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model

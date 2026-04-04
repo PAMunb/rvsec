@@ -17,7 +17,9 @@ def make_config(tmp_apk_dir, tool_configs=None, **overrides):
 
     kwargs = {
         "name": "test_experiment",
-        "tool_configs": tool_configs if tool_configs is not None else [ToolConfig(name="monkey")],
+        "tool_configs": (
+            tool_configs if tool_configs is not None else [ToolConfig(name="monkey")]
+        ),
         "apks_dir": tmp_apk_dir,
         "specification_set": "jca",
         "generate_monitors": False,

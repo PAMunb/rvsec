@@ -22,7 +22,6 @@ from typing import Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
-
 from rv_agent.memory.element_id import make_element_id
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext

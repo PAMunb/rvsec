@@ -39,7 +39,7 @@ class TestWindowTransition:
         transition = WindowTransition(
             "widget123",
             WidgetEventType.CLICK,
-            "com.example.MainActivity.onClick(android.view.View)"
+            "com.example.MainActivity.onClick(android.view.View)",
         )
 
         # Act
@@ -49,7 +49,7 @@ class TestWindowTransition:
         assert json_output == {
             "widget_id": "widget123",
             "event_type": "CLICK",
-            "method": "com.example.MainActivity.onClick(android.view.View)"
+            "method": "com.example.MainActivity.onClick(android.view.View)",
         }
 
     def test_str_representation(self):
@@ -58,7 +58,7 @@ class TestWindowTransition:
         transition = WindowTransition(
             "widget123",
             WidgetEventType.CLICK,
-            "com.example.MainActivity.onClick(android.view.View)"
+            "com.example.MainActivity.onClick(android.view.View)",
         )
 
         # Act
@@ -68,7 +68,10 @@ class TestWindowTransition:
         assert "WindowTransition" in str_representation
         assert "widget_id=widget123" in str_representation
         assert "event_type=WidgetEventType.CLICK" in str_representation
-        assert "method=com.example.MainActivity.onClick(android.view.View)" in str_representation
+        assert (
+            "method=com.example.MainActivity.onClick(android.view.View)"
+            in str_representation
+        )
 
     def test_repr_representation(self):
         """Test __repr__ representation of the WindowTransition."""
@@ -76,14 +79,16 @@ class TestWindowTransition:
         transition = WindowTransition(
             "widget123",
             WidgetEventType.CLICK,
-            "com.example.MainActivity.onClick(android.view.View)"
+            "com.example.MainActivity.onClick(android.view.View)",
         )
 
         # Act
         repr_representation = repr(transition)
 
         # Assert
-        assert repr_representation == "com.example.MainActivity.onClick(android.view.View)"
+        assert (
+            repr_representation == "com.example.MainActivity.onClick(android.view.View)"
+        )
 
 
 class TestWindowTransitionGraph:
@@ -116,14 +121,10 @@ class TestWindowTransitionGraph:
 
         # Create transitions
         transition1 = WindowTransition(
-            "button1",
-            WidgetEventType.CLICK,
-            "com.example.MainActivity.goToSecond()"
+            "button1", WidgetEventType.CLICK, "com.example.MainActivity.goToSecond()"
         )
         transition2 = WindowTransition(
-            "button2",
-            WidgetEventType.CLICK,
-            "com.example.SecondActivity.goToThird()"
+            "button2", WidgetEventType.CLICK, "com.example.SecondActivity.goToThird()"
         )
 
         # Add transitions to graph
@@ -145,9 +146,7 @@ class TestWindowTransitionGraph:
         window2 = mock_window_factory("w2", "SecondActivity")
 
         transition = WindowTransition(
-            "button1",
-            WidgetEventType.CLICK,
-            "com.example.MainActivity.goToSecond()"
+            "button1", WidgetEventType.CLICK, "com.example.MainActivity.goToSecond()"
         )
 
         # Act
@@ -161,7 +160,10 @@ class TestWindowTransitionGraph:
         assert empty_graph.transitions[0]["target"] == "w2"
         assert empty_graph.transitions[0]["widget_id"] == "button1"
         assert empty_graph.transitions[0]["event_type"] == WidgetEventType.CLICK
-        assert empty_graph.transitions[0]["method"] == "com.example.MainActivity.goToSecond()"
+        assert (
+            empty_graph.transitions[0]["method"]
+            == "com.example.MainActivity.goToSecond()"
+        )
 
     def test_get_transitions(self, populated_graph):
         """Test getting all transitions in the graph."""

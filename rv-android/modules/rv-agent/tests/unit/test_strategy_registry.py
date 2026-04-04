@@ -4,17 +4,17 @@ Unit tests for StrategyRegistry.
 Tests strategy registration, instantiation, listing, and error handling.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from rv_agent.strategies.strategy_registry import StrategyRegistry
-from rv_agent.strategies.base_strategy import ExplorationStrategy
-from rv_agent.strategies.dfs_strategy import DFSStrategy
-from rv_agent.strategies.bfs_strategy import BFSStrategy
-from rv_agent.strategies.greedy_strategy import GreedyStrategy
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.config.agent_config import RVAgentConfig
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.strategies.base_strategy import ExplorationStrategy
+from rv_agent.strategies.bfs_strategy import BFSStrategy
+from rv_agent.strategies.dfs_strategy import DFSStrategy
+from rv_agent.strategies.greedy_strategy import GreedyStrategy
+from rv_agent.strategies.strategy_registry import StrategyRegistry
 
 
 class TestStrategyRegistryInit:

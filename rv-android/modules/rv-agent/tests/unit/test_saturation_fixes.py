@@ -6,9 +6,9 @@ Unit tests for saturation fixes (gh26 Group 16 tasks 16.1-16.3).
 (c) PathBuffer invalidation on failed action makes is_active return False
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.domain.screen_node import ScreenNode
 from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
 

@@ -11,21 +11,21 @@ to isolate the cross-node interaction logic.
 
 from unittest.mock import MagicMock, patch
 
-from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.agent.nodes.learn_node import learn_node, MAX_ERROR_RECOVERY
-from rv_agent.agent.nodes.decision_node import decision_router_node
 from rv_agent.agent.nodes.algorithm_node import algorithm_node
+from rv_agent.agent.nodes.decision_node import decision_router_node
+from rv_agent.agent.nodes.learn_node import MAX_ERROR_RECOVERY, learn_node
 from rv_agent.agent.nodes.parse_node import parse_ui_node
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.services.error_detection import ValidationErrorResult
 from rv_screen_parser.parser.screen.visitor.model import (
     ItemAction,
-    ScreenItem,
     ScreenDescription,
+    ScreenItem,
     WidgetEventType,
 )
 from rv_screen_parser.screenshot.models import (
-    ErrorIndicator,
     DetectionMethod,
+    ErrorIndicator,
     ErrorType,
 )
 

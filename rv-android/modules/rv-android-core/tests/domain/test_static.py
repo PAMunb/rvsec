@@ -25,7 +25,9 @@ class TestStaticAnalysisData:
         """Create a mock WindowTransitionGraph instance"""
         return MagicMock(spec=WindowTransitionGraph)
 
-    def test_static_analysis_data_initialization(self, mock_classes, mock_windows, mock_wtg):
+    def test_static_analysis_data_initialization(
+        self, mock_classes, mock_windows, mock_wtg
+    ):
         """Test StaticAnalysisData constructor"""
         static_data = StaticAnalysisData(mock_classes, mock_windows, mock_wtg)
 

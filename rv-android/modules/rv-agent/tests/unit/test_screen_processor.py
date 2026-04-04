@@ -4,12 +4,12 @@ Unit tests for ScreenProcessor.
 Tests UI element formatting, coordinate transformation, and scored output.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from rv_agent.services.screen_analyzer import ScreenProcessor
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
-from rv_screen_parser.parser.screen.visitor.model import ScreenDescription, ItemAction
+from rv_agent.services.screen_analyzer import ScreenProcessor
+from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 
 class TestScreenProcessorInit:

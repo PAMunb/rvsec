@@ -7,16 +7,13 @@ Tests RVAgent with and without static analysis data to verify:
 - Static data loading from unified .json file
 """
 
-import pytest
 import time
 
-from rv_agent.config.agent_config import RVAgentConfig
+import pytest
 from rv_agent.agent.agent_factory import AgentFactory
-from .conftest import (
-    launch_app,
-    force_stop_app,
-    DEVICE_ID,
-)
+from rv_agent.config.agent_config import RVAgentConfig
+
+from .conftest import DEVICE_ID, force_stop_app, launch_app
 
 pytestmark = [pytest.mark.online, pytest.mark.static_analysis]
 

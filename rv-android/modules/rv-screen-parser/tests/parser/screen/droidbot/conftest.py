@@ -10,7 +10,6 @@ import os
 from unittest.mock import Mock
 
 import pytest
-
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.window import Windows
@@ -36,7 +35,9 @@ def parser_with_basic_visitor():
 def mock_visitor():
     """Fixture that provides a mock visitor."""
     mock = Mock()
-    mock.get_screen_description.return_value = ScreenDescription("br.unb.cic.cryptoapp.MainActivity", [])
+    mock.get_screen_description.return_value = ScreenDescription(
+        "br.unb.cic.cryptoapp.MainActivity", []
+    )
 
     # Add additional required methods for the visitor
     mock.system_navigation_bounds = {}
@@ -55,7 +56,7 @@ def sample_state_file():
 @pytest.fixture
 def sample_state_data(sample_state_file):
     """Fixture that provides the content of the sample DroidBot state file."""
-    with open(sample_state_file, 'r') as f:
+    with open(sample_state_file, "r") as f:
         return json.load(f)
 
 
@@ -93,7 +94,7 @@ def simple_state_data():
                             "bounds": [[100, 100], [500, 200]],
                             "text": "Hello World",
                             "resource_id": "com.example.app:id/text_view",
-                            "children": []
+                            "children": [],
                         },
                         {
                             "package": "com.example.app",
@@ -102,12 +103,12 @@ def simple_state_data():
                             "text": "Click Me",
                             "resource_id": "com.example.app:id/button",
                             "clickable": True,
-                            "children": []
-                        }
-                    ]
+                            "children": [],
+                        },
+                    ],
                 }
-            ]
-        }
+            ],
+        },
     }
 
 
@@ -120,12 +121,12 @@ def crypto_app_state_data(sample_state_data):
         "top": 1794,
         "left": 0,
         "right": 1080,
-        "bottom": 1920
+        "bottom": 1920,
     }
     sample_state_data["device_info"] = {
         "displayWidth": 1080,
         "displayHeight": 1920,
         "density": 2.0,
-        "api_level": 28
+        "api_level": 28,
     }
     return sample_state_data

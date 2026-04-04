@@ -4,13 +4,13 @@ Unit tests for AgentFactory.
 Tests factory pattern for creating fully configured RVAgent instances.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
 from rv_agent.agent.agent_factory import AgentFactory
-from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.rv_agent import RVAgent
+from rv_agent.config.agent_config import RVAgentConfig
 
 
 @pytest.fixture

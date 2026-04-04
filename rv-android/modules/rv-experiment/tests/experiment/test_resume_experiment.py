@@ -11,13 +11,11 @@ Complements test_resume_cli.py (CLI argument parsing) by testing:
 import os
 from unittest.mock import MagicMock, patch
 
-
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.config import ExperimentConfig
 from rv_experiment.experiment.experiment_controller import ExperimentController
-from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
-
+from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -78,9 +76,15 @@ def _make_fresh_config(tmp_path, **overrides):
 class TestPreProcessorResumeBehavior:
     """Verify PreProcessor.process() respects boolean flags."""
 
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._generate_monitors")
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._instrument_apks")
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._run_static_analysis")
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._generate_monitors"
+    )
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._instrument_apks"
+    )
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._run_static_analysis"
+    )
     def test_all_false_skips_all_phases(
         self, mock_static, mock_instrument, mock_monitors, tmp_path
     ):
@@ -94,9 +98,15 @@ class TestPreProcessorResumeBehavior:
         mock_instrument.assert_not_called()
         mock_static.assert_not_called()
 
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._generate_monitors")
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._instrument_apks")
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._run_static_analysis")
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._generate_monitors"
+    )
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._instrument_apks"
+    )
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._run_static_analysis"
+    )
     def test_all_true_runs_all_phases(
         self, mock_static, mock_instrument, mock_monitors, tmp_path
     ):
@@ -110,9 +120,15 @@ class TestPreProcessorResumeBehavior:
         mock_instrument.assert_called_once()
         mock_static.assert_called_once()
 
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._generate_monitors")
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._instrument_apks")
-    @patch("rv_experiment.experiment.workflow.pre_processor.PreProcessor._run_static_analysis")
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._generate_monitors"
+    )
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._instrument_apks"
+    )
+    @patch(
+        "rv_experiment.experiment.workflow.pre_processor.PreProcessor._run_static_analysis"
+    )
     def test_partial_flags_selective_execution(
         self, mock_static, mock_instrument, mock_monitors, tmp_path
     ):
@@ -248,7 +264,9 @@ class TestExecutionControllerResultsDir:
     """ExecutionController must pass results_dir to PlatformConfig for resume."""
 
     @patch("rv_experiment.experiment.workflow.execution_controller.Platform")
-    def test_setup_passes_results_dir_to_platform_config(self, mock_platform_cls, tmp_path):
+    def test_setup_passes_results_dir_to_platform_config(
+        self, mock_platform_cls, tmp_path
+    ):
         """results_dir from experiment is forwarded to PlatformConfig."""
         config = _make_resume_config(tmp_path)
         results_dir = str(tmp_path / "results" / "my_exp")

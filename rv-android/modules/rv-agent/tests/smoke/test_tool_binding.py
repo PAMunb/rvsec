@@ -5,8 +5,8 @@ Validates that Android tools bind correctly to ChatOpenAI.
 """
 
 import pytest
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 
 pytestmark = [pytest.mark.smoke, pytest.mark.sglang]
 

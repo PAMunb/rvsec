@@ -13,37 +13,35 @@ These tests target scenarios that could fail silently in production:
 - ActionRanker scorer count
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from rv_agent.config.agent_config import RVAgentConfig
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
+from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.screen_node import ScreenNode
-from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
-from rv_agent.strategies.rvagent_strategy.path_buffer import (
-    PathBuffer,
-)
-from rv_agent.strategies.rvagent_strategy.reward_propagator import (
-    RewardPropagator,
-    MAX_CUMULATIVE_REWARD_FACTOR,
-    REWARD_MOP_WEIGHT,
-)
+from rv_agent.memory.ui_coverage import UICoverageTracker
+from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
+from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import ActionRanker
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
-    CoverageDensityScorer,
-    MopScorer,
-    WtgScorer,
-    SaturationScorer,
     ComponentPriorityScorer,
-    StrengthScorer,
+    CoverageDensityScorer,
     GradualDecayScorer,
+    MopScorer,
+    SaturationScorer,
+    StrengthScorer,
     SystemElementFilter,
     VisitationPenaltyScorer,
+    WtgScorer,
 )
-from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import ActionRanker
+from rv_agent.strategies.rvagent_strategy.reward_propagator import (
+    MAX_CUMULATIVE_REWARD_FACTOR,
+    REWARD_MOP_WEIGHT,
+    RewardPropagator,
+)
+from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
-from rv_agent.memory.ui_coverage import UICoverageTracker
 
-from .conftest import create_mock_screen, create_mock_action
+from .conftest import create_mock_action, create_mock_screen
 
 
 class TestConfigBackwardCompatibility:

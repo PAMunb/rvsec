@@ -16,8 +16,8 @@ Tests:
 from unittest.mock import MagicMock
 
 from rv_agent.domain.screen_node import ScreenNode
-from rv_agent.strategies.rvagent_strategy.ranking.scorers import StrengthScorer
 from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
+from rv_agent.strategies.rvagent_strategy.ranking.scorers import StrengthScorer
 
 
 def _make_node(

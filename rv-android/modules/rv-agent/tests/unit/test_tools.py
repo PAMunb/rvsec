@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import MagicMock
-from rv_agent.execution.tool_executor import ToolExecutor
+
+import pytest
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.domain.exceptions import DeviceError
+from rv_agent.execution.tool_executor import ToolExecutor
 from rv_agent.services.vision_service import ImageHandler
 
 

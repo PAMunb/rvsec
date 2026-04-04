@@ -5,17 +5,17 @@ Tests coordination of all 5 memory systems: DynamicStateGraph, ShortTermMemory,
 LongTermMemory, UICoverageTracker, and AgentMemoryManager.
 """
 
-import pytest
 import time
 from unittest.mock import MagicMock
 
-from rv_agent.memory.memory_coordinator import MemoryCoordinator
+import pytest
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.domain.screen_node import ScreenNode
-from rv_agent.memory.short_term import ShortTermMemory
-from rv_agent.memory.long_term import LongTermMemory
-from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.memory.agent_memory import AgentMemoryManager
+from rv_agent.memory.long_term import LongTermMemory
+from rv_agent.memory.memory_coordinator import MemoryCoordinator
+from rv_agent.memory.short_term import ShortTermMemory
+from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_screen_parser.parser.screen.visitor.model import ScreenDescription
 
 pytestmark = pytest.mark.unit

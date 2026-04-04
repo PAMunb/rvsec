@@ -11,16 +11,19 @@ This test suite validates the error handler functionality, focusing on key behav
 """
 
 import threading
-from unittest.mock import Mock, patch
 from contextlib import contextmanager
+from unittest.mock import Mock, patch
 
 import pytest
-
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import (
-    RVExperimentError, RVParsingError, RVValidationError,
-    RVToolExecutionError, ToolNotFoundError, RVCommandTimeoutError,
-    ConfigurationError
+    ConfigurationError,
+    RVCommandTimeoutError,
+    RVExperimentError,
+    RVParsingError,
+    RVToolExecutionError,
+    RVValidationError,
+    ToolNotFoundError,
 )
 
 
@@ -37,7 +40,9 @@ class TestErrorHandlerCore:
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing."""
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -92,11 +97,12 @@ class TestErrorHandlerCore:
         assert len(error_handler._error_callbacks) == 16
 
         # Check that handler signatures are tracked
-        assert hasattr(error_handler, '_registered_handlers')
+        assert hasattr(error_handler, "_registered_handlers")
         assert len(error_handler._registered_handlers) == 16
 
     def test_register_handler_success(self, error_handler):
         """Test successful handler registration."""
+
         def test_handler(error, context):
             return True
 
@@ -107,6 +113,7 @@ class TestErrorHandlerCore:
 
     def test_register_handler_duplicate_prevention(self, error_handler):
         """Test that duplicate handlers are prevented."""
+
         def test_handler(error, context):
             return True
 
@@ -139,6 +146,7 @@ class TestErrorHandlerCore:
 
     def test_exact_type_matching(self, error_handler):
         """Test that handlers only trigger for exact type matches."""
+
         # Create a subclass of RVToolExecutionError
         class CustomToolError(RVToolExecutionError):
             pass
@@ -179,6 +187,7 @@ class TestErrorHandlerCore:
 
     def test_decorator_functionality(self, error_handler):
         """Test @ErrorHandler.handle_errors decorator."""
+
         @ErrorHandler.handle_errors(component="TestComponent")
         def test_function():
             raise RVToolExecutionError("Test error", "test_tool")
@@ -189,6 +198,7 @@ class TestErrorHandlerCore:
 
     def test_decorator_with_reraise(self, error_handler):
         """Test decorator with reraise=True."""
+
         @ErrorHandler.handle_errors(component="TestComponent", reraise=True)
         def test_function():
             raise ValueError("Unhandled error")
@@ -209,6 +219,7 @@ class TestErrorHandlerCore:
 
     def test_custom_handler_registration(self, error_handler):
         """Test registering custom handlers for custom exceptions."""
+
         class CustomError(Exception):
             pass
 
@@ -241,7 +252,9 @@ class TestErrorHandlerIntegration:
     @pytest.fixture
     def mock_logging_manager(self):
         """Mock LoggingManager for testing."""
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -322,7 +335,9 @@ class TestErrorHandlerExtended:
 
     @pytest.fixture
     def mock_logging_manager(self):
-        with patch('rv_android_core.util.error.error_handler.LoggingManager') as mock_manager:
+        with patch(
+            "rv_android_core.util.error.error_handler.LoggingManager"
+        ) as mock_manager:
             mock_instance = Mock()
             mock_logger = Mock()
 
@@ -352,6 +367,7 @@ class TestErrorHandlerExtended:
 
     def test_handle_error_with_object_context(self, handler):
         """Test handle_error with object context that has build method."""
+
         class DummyContext:
             def build(self, frame_offset=3):
                 return {"phase": "from-object"}
@@ -396,22 +412,28 @@ class TestErrorHandlerExtended:
 
     def test_error_context_scope_reraise(self, handler):
         """Test instance error_context context manager re-raises unhandled errors."""
+
         class Dummy(Exception):
             pass
+
         with pytest.raises(Dummy):
             with handler.error_context(component="Scoped"):
                 raise Dummy("fail")
 
     def test_decorator_propagate_with_phase(self, handler):
         """Test decorator with phase context."""
+
         @ErrorHandler.handle_errors(component="X", phase="tool_creation", reraise=False)
         def f():
             raise RuntimeError("boom")
+
         assert f() is None
 
     def test_decorator_logs_if_not_handled(self, handler):
         """Test decorator with absorbed error."""
+
         @ErrorHandler.handle_errors(component="Test", reraise=False)
         def f():
             raise RVToolExecutionError("fail", "tool1")
+
         assert f() is None

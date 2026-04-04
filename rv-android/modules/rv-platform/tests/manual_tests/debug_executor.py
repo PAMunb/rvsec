@@ -1,11 +1,11 @@
 # Debug executor behavior
 from unittest.mock import MagicMock
-from rv_android_core.domain.task import Task, TaskConfiguration
-from rv_platform.execution.executor import TaskExecutor
+
 from rv_android_core.domain.app import App
 
 # Create basic config
-from rv_android_core.domain.task import ToolConfig
+from rv_android_core.domain.task import Task, TaskConfiguration, ToolConfig
+from rv_platform.execution.executor import TaskExecutor
 
 tool_config = ToolConfig(name="monkey", variant="default", parameters={})
 

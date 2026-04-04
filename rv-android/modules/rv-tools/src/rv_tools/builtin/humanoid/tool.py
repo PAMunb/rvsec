@@ -7,11 +7,11 @@ during Android application exploration.
 """
 
 import os
-from typing import Dict, Any
+from typing import Any, Dict
 
+from rv_android_core.commands.command import Command
 from rv_android_core.constants import ENV_HUMANOID_URL
 from rv_android_core.domain.app import App
-from rv_android_core.commands.command import Command
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
@@ -42,7 +42,7 @@ class HumanoidTool(AbstractTool):
         description="DroidBot with Humanoid inference server for human-like exploration",
         url="https://github.com/yzygitzh/Humanoid",
         version="1.0.0",
-        process_pattern="droidbot"
+        process_pattern="droidbot",
     )
 
     def __init__(self):
@@ -51,7 +51,7 @@ class HumanoidTool(AbstractTool):
         super().__init__(
             name=tool_spec.name,
             description=tool_spec.description,
-            process_pattern=tool_spec.process_pattern
+            process_pattern=tool_spec.process_pattern,
         )
         self.config = {}
         self.logger.info("Initialized Humanoid tool (DroidBot + humanoid inference)")
@@ -70,11 +70,7 @@ class HumanoidTool(AbstractTool):
         configuration (dfs_greedy policy with humanoid inference).
         """
         return {
-            "default": {
-                "policy": "dfs_greedy",
-                "count": 10000000000,
-                "ignore_ad": True
-            }
+            "default": {"policy": "dfs_greedy", "count": 10000000000, "ignore_ad": True}
         }
 
     def configure(self, config: Dict[str, Any]) -> None:
@@ -88,7 +84,11 @@ class HumanoidTool(AbstractTool):
             config: Configuration dictionary with tool parameters
         """
         # Resolve humanoid URL: config > env var > default
-        humanoid_url = config.get("humanoid_url") or os.environ.get(ENV_HUMANOID_URL) or "127.0.0.1:50405"
+        humanoid_url = (
+            config.get("humanoid_url")
+            or os.environ.get(ENV_HUMANOID_URL)
+            or "127.0.0.1:50405"
+        )
 
         self.config = {
             "policy": config.get("policy", "dfs_greedy"),
@@ -105,9 +105,7 @@ class HumanoidTool(AbstractTool):
         )
 
     @ErrorHandler.handle_errors(
-        component="HumanoidTool",
-        phase="execute_tool_specific_logic",
-        reraise=True
+        component="HumanoidTool", phase="execute_tool_specific_logic", reraise=True
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
@@ -118,9 +116,11 @@ class HumanoidTool(AbstractTool):
             app: Application under test with package name and metadata
         """
         self.logger.info(f"Executing Humanoid tool for {app.package_name}")
-        self.logger.debug(f"Policy: {self.config['policy']}, Humanoid URL: {self.config['humanoid_url']}")
+        self.logger.debug(
+            f"Policy: {self.config['policy']}, Humanoid URL: {self.config['humanoid_url']}"
+        )
 
-        timeout_in_seconds = getattr(task.config, 'timeout', self.config['timeout'])
+        timeout_in_seconds = getattr(task.config, "timeout", self.config["timeout"])
         self.logger.info(f"Humanoid execution timeout: {timeout_in_seconds} seconds")
 
         humanoid_cmd = self._build_humanoid_command(app, timeout_in_seconds)
@@ -130,8 +130,10 @@ class HumanoidTool(AbstractTool):
 
         self.logger.info(f"Starting Humanoid execution for {app.package_name}")
 
-        with open(task.result.trace_file, 'wb') as trace_file:
-            self._execute_and_check_command(humanoid_cmd, stdout=trace_file, stderr=trace_file)
+        with open(task.result.trace_file, "wb") as trace_file:
+            self._execute_and_check_command(
+                humanoid_cmd, stdout=trace_file, stderr=trace_file
+            )
 
         self.logger.info("Humanoid execution completed successfully")
 
@@ -153,14 +155,20 @@ class HumanoidTool(AbstractTool):
         device_serial = self.config.get("device_serial") or "emulator-5554"
 
         cmd_args = [
-            "-d", device_serial,
-            "-a", app.path,
-            "-humanoid", self.config["humanoid_url"],
-            "-policy", self.config["policy"],
-            "-count", "10000000000",
-            "-timeout", str(timeout_seconds),
+            "-d",
+            device_serial,
+            "-a",
+            app.path,
+            "-humanoid",
+            self.config["humanoid_url"],
+            "-policy",
+            self.config["policy"],
+            "-count",
+            "10000000000",
+            "-timeout",
+            str(timeout_seconds),
             "-ignore_ad",
-            "-is_emulator"
+            "-is_emulator",
         ]
 
         return Command("droidbot", cmd_args, timeout_seconds)
@@ -168,11 +176,13 @@ class HumanoidTool(AbstractTool):
     def get_tool_info(self) -> dict:
         """Get Humanoid tool information."""
         info = super().get_tool_info()
-        info.update({
-            "tool_spec": self.TOOL_SPEC.to_dict(),
-            "humanoid_url": self.config.get("humanoid_url", "not configured"),
-            "current_policy": self.config.get("policy", "not configured"),
-            "version": self.TOOL_SPEC.version,
-            "url": self.TOOL_SPEC.url
-        })
+        info.update(
+            {
+                "tool_spec": self.TOOL_SPEC.to_dict(),
+                "humanoid_url": self.config.get("humanoid_url", "not configured"),
+                "current_policy": self.config.get("policy", "not configured"),
+                "version": self.TOOL_SPEC.version,
+                "url": self.TOOL_SPEC.url,
+            }
+        )
         return info

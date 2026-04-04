@@ -8,11 +8,11 @@ Tests screen-scoped memory management including:
 - Statistics calculation
 """
 
-import pytest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from rv_agent.memory.short_term import ShortTermMemory, Iteration
+import pytest
+from rv_agent.memory.short_term import Iteration, ShortTermMemory
 
 
 class TestIteration:

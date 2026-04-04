@@ -6,9 +6,9 @@ doesn't exist on ItemAction — it was dead code. The deferral block was removed
 MopScorer now always scores based on MOP reachability flags.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import MopScorer
 
@@ -35,9 +35,7 @@ def context_without_untested_inputs():
 class TestMopScorerScoring:
     """Verify MopScorer scores based on MOP reachability."""
 
-    def test_direct_mop_gets_full_score(
-        self, config, context_with_untested_inputs
-    ):
+    def test_direct_mop_gets_full_score(self, config, context_with_untested_inputs):
         """directly_reaches_mop=True gets direct score regardless of untested inputs."""
         scorer = MopScorer(config=config)
 
@@ -48,7 +46,9 @@ class TestMopScorerScoring:
         score = scorer.score(action, context_with_untested_inputs)
         assert score == config.mop_direct_score
 
-    def test_transitive_mop_gets_transitive_score(self, config, context_with_untested_inputs):
+    def test_transitive_mop_gets_transitive_score(
+        self, config, context_with_untested_inputs
+    ):
         """reaches_mop=True (not direct) gets transitive score."""
         scorer = MopScorer(config=config)
 

@@ -41,24 +41,22 @@ pip3 install \
 
 import sys
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 import cv2
-
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import RVParsingError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-
-from rv_screen_parser.screenshot.models import (
-    ScreenshotAnalysisResult, ImageDimensions
-)
 from rv_screen_parser.screenshot.detectors import (
-    get_text_detector, get_button_detector, get_error_detector, 
-    get_interactive_element_detector
+    get_button_detector,
+    get_error_detector,
+    get_interactive_element_detector,
+    get_text_detector,
 )
+from rv_screen_parser.screenshot.models import ImageDimensions, ScreenshotAnalysisResult
 from rv_screen_parser.screenshot.preprocessing import get_image_preprocessor
 from rv_screen_parser.screenshot.utils import get_geometry_utils
 
@@ -89,8 +87,12 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
     - Implements comprehensive error handling and logging
     """
 
-    def __init__(self, image_path: Optional[str] = None, analyzer_name: str = "screenshot",
-                 static_data: Optional[StaticAnalysisData] = None):
+    def __init__(
+        self,
+        image_path: Optional[str] = None,
+        analyzer_name: str = "screenshot",
+        static_data: Optional[StaticAnalysisData] = None,
+    ):
         """
         Initialize the screenshot analyzer with enhanced component architecture.
 
@@ -100,15 +102,14 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             static_data: Optional static analysis data for context
         """
         super().__init__(analyzer_name, static_data)
-        
+
         # Initialize enhanced logging and error handling
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
-            "screenshot.analyzer",
-            {CONTEXT_COMPONENT: "ScreenshotAnalyzer"}
+            "screenshot.analyzer", {CONTEXT_COMPONENT: "ScreenshotAnalyzer"}
         )
         self.error_handler = ErrorHandler.get_instance()
-        
+
         # Initialize detector components with dependency injection
         self.text_detector = get_text_detector()
         self.button_detector = get_button_detector()
@@ -116,7 +117,7 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
         self.interactive_element_detector = get_interactive_element_detector()
         self.image_preprocessor = get_image_preprocessor()
         self.geometry_utils = get_geometry_utils()
-        
+
         self.metrics = {
             "processed_images": 0,
             "total_processing_time": 0.0,
@@ -125,7 +126,7 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             "detected_texts": 0,
             "detected_buttons": 0,
             "detected_errors": 0,
-            "detected_interactive_elements": 0
+            "detected_interactive_elements": 0,
         }
 
         # Store image path for later use
@@ -149,10 +150,14 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
         by understanding the application's expected window structure and
         common UI patterns.
         """
-        if self.static_data and hasattr(self.static_data, 'windows'):
-            self.logger.info(f"Initialized with static data containing {len(self.static_data.windows.windows)} windows")
+        if self.static_data and hasattr(self.static_data, "windows"):
+            self.logger.info(
+                f"Initialized with static data containing {len(self.static_data.windows.windows)} windows"
+            )
 
-    @ErrorHandler.handle_errors(component="ScreenshotAnalyzer", phase="analysis", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="ScreenshotAnalyzer", phase="analysis", reraise=True
+    )
     def analyze(self, image_path: str) -> ScreenshotAnalysisResult:
         """
         Analyze a screenshot using modular detector components.
@@ -166,7 +171,7 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
 
         Returns:
             ScreenshotAnalysisResult containing validated extracted information
-            
+
         Raises:
             RVParsingError: If image cannot be loaded or analysis fails
             RVValidationError: If analysis result validation fails
@@ -181,13 +186,12 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             if original_image is None:
                 raise RVParsingError(
                     f"Could not read image from path: {image_path}",
-                    parser_type="ScreenshotAnalyzer"
+                    parser_type="ScreenshotAnalyzer",
                 )
 
             # Create image dimensions
             dimensions = ImageDimensions(
-                width=original_image.shape[1],
-                height=original_image.shape[0]
+                width=original_image.shape[1], height=original_image.shape[0]
             )
 
             # Preprocess images using component
@@ -199,12 +203,16 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             self.metrics["detected_texts"] += len(texts)
 
             # Detect button elements using button detector component
-            buttons = self.button_detector.detect_buttons(binary_image, original_image, texts)
+            buttons = self.button_detector.detect_buttons(
+                binary_image, original_image, texts
+            )
             self.metrics["detected_buttons"] += len(buttons)
 
             # Detect interactive elements using interactive element detector component
-            interactive_elements = self.interactive_element_detector.detect_interactive_elements(
-                binary_image, original_image, texts
+            interactive_elements = (
+                self.interactive_element_detector.detect_interactive_elements(
+                    binary_image, original_image, texts
+                )
             )
             self.metrics["detected_interactive_elements"] += len(interactive_elements)
 
@@ -226,16 +234,18 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
                 interactive_elements=interactive_elements,
                 processing_time=processing_time,
                 success=True,
-                error_message=""
+                error_message="",
             )
 
             # Update success metrics
             self.metrics["processed_images"] += 1
             self.metrics["successful_analyses"] += 1
-            
+
             self.log_processing_summary("screenshot", 1)
-            self.logger.debug(f"Successfully analyzed screenshot with {result.total_elements} elements")
-            
+            self.logger.debug(
+                f"Successfully analyzed screenshot with {result.total_elements} elements"
+            )
+
             return result
 
         except Exception as e:
@@ -243,7 +253,7 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             processing_time = time.time() - start_time
             self.metrics["total_processing_time"] += processing_time
             self.metrics["failed_analyses"] += 1
-            
+
             # Create error result
             try:
                 error_result = ScreenshotAnalysisResult(
@@ -251,17 +261,17 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
                     dimensions=ImageDimensions(width=0, height=0),
                     processing_time=processing_time,
                     success=False,
-                    error_message=str(e)
+                    error_message=str(e),
                 )
-                
+
                 self.logger.error(f"Analysis failed for {image_path}: {str(e)}")
                 return error_result
-                
+
             except Exception as validation_error:
                 # If we can't even create an error result, raise parsing error
                 raise RVParsingError(
                     f"Screenshot analysis failed and could not create error result: {str(e)}",
-                    parser_type="ScreenshotAnalyzer"
+                    parser_type="ScreenshotAnalyzer",
                 ) from validation_error
 
     def extract_information(self) -> Dict[str, Any]:
@@ -277,17 +287,17 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             interactive elements, and error indicators
         """
         # Check that we have a valid image path stored
-        if not hasattr(self, 'current_image_path') or not self.current_image_path:
+        if not hasattr(self, "current_image_path") or not self.current_image_path:
             self.logger.error("No image path available for extraction")
             return {
                 "texts": [],
                 "buttons": [],
                 "error_indicators": [],
-                "interactive_elements": []
+                "interactive_elements": [],
             }
 
         # Analyze the screenshot if not already done
-        if not hasattr(self, 'current_result') or not self.current_result:
+        if not hasattr(self, "current_result") or not self.current_result:
             try:
                 self.current_result = self.analyze(self.current_image_path)
             except Exception as e:
@@ -296,16 +306,23 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
                     "texts": [],
                     "buttons": [],
                     "error_indicators": [],
-                    "interactive_elements": []
+                    "interactive_elements": [],
                 }
 
         # Convert Pydantic models to dictionaries for backward compatibility
         try:
             return {
                 "texts": [text.model_dump() for text in self.current_result.texts],
-                "buttons": [button.model_dump() for button in self.current_result.buttons],
-                "error_indicators": [error.model_dump() for error in self.current_result.error_indicators],
-                "interactive_elements": [element.model_dump() for element in self.current_result.interactive_elements]
+                "buttons": [
+                    button.model_dump() for button in self.current_result.buttons
+                ],
+                "error_indicators": [
+                    error.model_dump() for error in self.current_result.error_indicators
+                ],
+                "interactive_elements": [
+                    element.model_dump()
+                    for element in self.current_result.interactive_elements
+                ],
             }
         except Exception as e:
             self.logger.error(f"Error converting models to dictionaries: {e}")
@@ -313,7 +330,7 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
                 "texts": [],
                 "buttons": [],
                 "error_indicators": [],
-                "interactive_elements": []
+                "interactive_elements": [],
             }
 
     def get_metrics(self) -> Dict[str, Any]:
@@ -326,8 +343,9 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
         # Calculate average processing time
         avg_time = 0.0
         if self.metrics["processed_images"] > 0:
-            avg_time = (self.metrics["total_processing_time"] /
-                        self.metrics["processed_images"])
+            avg_time = (
+                self.metrics["total_processing_time"] / self.metrics["processed_images"]
+            )
 
         return {
             "processed_images": self.metrics["processed_images"],
@@ -338,49 +356,59 @@ class ScreenshotAnalyzer(BaseAnalyzer[ScreenshotAnalysisResult]):
             "detected_texts": self.metrics["detected_texts"],
             "detected_buttons": self.metrics["detected_buttons"],
             "detected_errors": self.metrics["detected_errors"],
-            "detected_interactive_elements": self.metrics["detected_interactive_elements"]
+            "detected_interactive_elements": self.metrics[
+                "detected_interactive_elements"
+            ],
         }
 
     def get_detection_summary(self) -> Dict[str, Any]:
         """
         Get comprehensive detection summary from all components.
-        
+
         Returns:
             Dictionary with detection statistics from all detector components
         """
         if not self.current_result:
             return {"error": "No analysis result available"}
-        
+
         try:
             summary = {
                 "total_elements": self.current_result.total_elements,
                 "processing_time": self.current_result.processing_time,
-                "success": self.current_result.success
+                "success": self.current_result.success,
             }
-            
+
             # Get component-specific summaries
             if self.current_result.texts:
-                summary["text_summary"] = self.text_detector.get_text_classification_summary(
-                    self.current_result.texts
+                summary["text_summary"] = (
+                    self.text_detector.get_text_classification_summary(
+                        self.current_result.texts
+                    )
                 )
-            
+
             if self.current_result.buttons:
-                summary["button_summary"] = self.button_detector.get_button_detection_summary(
-                    self.current_result.buttons
+                summary["button_summary"] = (
+                    self.button_detector.get_button_detection_summary(
+                        self.current_result.buttons
+                    )
                 )
-            
+
             if self.current_result.error_indicators:
-                summary["error_summary"] = self.error_detector.get_error_detection_summary(
-                    self.current_result.error_indicators
+                summary["error_summary"] = (
+                    self.error_detector.get_error_detection_summary(
+                        self.current_result.error_indicators
+                    )
                 )
-            
+
             if self.current_result.interactive_elements:
-                summary["interactive_summary"] = self.interactive_element_detector.get_interactive_element_summary(
-                    self.current_result.interactive_elements
+                summary["interactive_summary"] = (
+                    self.interactive_element_detector.get_interactive_element_summary(
+                        self.current_result.interactive_elements
+                    )
                 )
-            
+
             return summary
-            
+
         except Exception as e:
             self.logger.error(f"Error generating detection summary: {e}")
             return {"error": f"Summary generation failed: {str(e)}"}
@@ -422,7 +450,7 @@ def main(screenshot_path):
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # image = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/001.png"
     image = "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/cryptoapp.apk/009.png"
     main(image)

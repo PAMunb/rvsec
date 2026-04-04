@@ -6,16 +6,16 @@ ScreenNode instances. Tests cross-group interactions between reward propagation
 (Group 4) and DynamicStateGraph node state (Groups 1-2).
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from rv_agent.strategies.rvagent_strategy.reward_propagator import (
-    RewardPropagator,
-    REWARD_MOP_WEIGHT,
-    MAX_CUMULATIVE_REWARD_FACTOR,
-    REWARD_VALUES,
-)
+import pytest
 from rv_agent.domain.screen_node import ScreenNode
+from rv_agent.strategies.rvagent_strategy.reward_propagator import (
+    MAX_CUMULATIVE_REWARD_FACTOR,
+    REWARD_MOP_WEIGHT,
+    REWARD_VALUES,
+    RewardPropagator,
+)
 
 
 def _make_graph_with_nodes(*hashes):
