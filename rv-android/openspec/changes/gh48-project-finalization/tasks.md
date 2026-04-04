@@ -137,11 +137,11 @@
 
 Subagent dispatch: each module independently.
 
-- [ ] 6.1 Run `/rv-test-add rv-uiautomator` — target: UIAdapter, ActionExecutor, StateConverter (goal: >=20 tests)
-- [ ] 6.2 Run `/rv-test-add rv-instrumentation` — target: pipeline, config validation (goal: >=25 tests)
-- [ ] 6.3 Run `/rv-test-add rv-monitor-generator` — target: generator, spec parsing (goal: >=25 tests)
-- [ ] 6.4 Run `/rv-test-add rv-tools` — target: ToolRegistry, ToolFactory (goal: >=100 tests)
-- [ ] 6.5 Run full test suite on all modules to verify
+- [x] 6.1 rv-uiautomator: 3 → 66 tests (adapter, executor, converter, constants, hash)
+- [x] 6.2 rv-instrumentation: 12 → 42 tests (config, pipeline steps, CLI parsing)
+- [x] 6.3 rv-monitor-generator: 17 → 41 tests (config, validation, CLI parsing)
+- [x] 6.4 rv-tools: 81 → 195 tests (registry edge cases, factory edge cases, builtin tool specs)
+- [x] 6.5 Full test suite: 14/14 modules pass (3,695 tests, 0 business code modified)
 
 ## 7. Final Verification & Review
 
