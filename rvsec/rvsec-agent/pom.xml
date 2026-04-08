@@ -38,7 +38,12 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-
+		<!-- Required for generic_new specs (generated code references org.aspectj.lang.Signature) -->
+		<dependency>
+			<groupId>org.aspectj</groupId>
+			<artifactId>aspectjrt</artifactId>
+			<scope>provided</scope>
+		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
@@ -96,7 +101,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<pathToMopFiles>${main.basedir}/${project.parent.artifactId}/rvsec-mop/src/main/resources/jca</pathToMopFiles>
+					<pathToMopFiles>/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-testes-jca/resources/generic_new_jvm</pathToMopFiles>
 					<pathToJavaMop>${main.basedir}/javamop/bin</pathToJavaMop>
 					<pathToMonitor>${main.basedir}/rv-monitor/bin</pathToMonitor>
 					<destinationFolder>${main.basedir}/${project.parent.artifactId}/${project.artifactId}/src/main/java/mop</destinationFolder>

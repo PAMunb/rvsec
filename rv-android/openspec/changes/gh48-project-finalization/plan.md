@@ -1,160 +1,104 @@
-# Change Plan: Project Finalization — Quality, Documentation, and Cleanup
+# Change Plan: Project Finalization — Quality, Documentation, and Cleanup (v2)
 
-**Date**: 2026-04-03
+**Date**: 2026-04-03 (revised 2026-04-08)
 **Track**: Quick Path
-**Priority**: High (thesis deadline 2026-04-13)
+**Priority**: High
 **GitHub Issue**: [#48](https://github.com/PAMunb/rvsec/issues/48)
 **PRD Reference**: NFR1 (Maintainability), NFR6 (Documentation), NFR8 (Reproducibility)
-**Domains**: core, platform, experiment, agent, instrumentation, analysis, tools
+**Domains**: core, platform, experiment, agent, instrumentation, analysis, tools + Java/Maven
 
 ## 1. Context
 
-RV-Android is functionally complete. With ~10 days before thesis submission, the project needs finalization: archive deprecated modules, remove dead code, enforce code quality (lint + format), generate comprehensive documentation for all modules, increase test coverage in under-tested modules, close obsolete issues/changes, and verify everything works end-to-end.
+RV-Android is functionally complete. The project needs finalization: archive
+deprecated modules, remove dead code, enforce code quality (lint + format),
+generate comprehensive documentation for ALL modules (Python and Java),
+increase test coverage, and verify everything works end-to-end.
 
-The system has 16 modules in the workspace. Two modules (rvsmart-tool, rv-agent-validation) are no longer needed and should be archived. The rvsmart OpenSpec spec (`openspec/specs/rvsmart/`) must also be archived, and rvsmart references removed from specs in aperv, platform, and tools domains. Nine modules lack architecture documentation. Code quality debt exists across all modules (formatting inconsistencies). Test coverage has critical gaps (rv-uiautomator has only 3 tests). Several GitHub issues and OpenSpec changes are obsolete.
+### 1.1 Completed work (v1, 99/118 tasks)
 
-## 2. Scope
+| TG | Status | Description |
+|----|--------|-------------|
+| TG1 | COMPLETE | Archival: rvsmart-tool, rv-agent-validation, rvsmart spec |
+| TG2 | COMPLETE | Dead code removal: autoflake, f-strings, 3458 tests passing |
+| TG3 | COMPLETE | Lint/fix on modules/: black, isort, flake8 3578->684 |
+| TG4 | COMPLETE | Google-style docstrings on all 14 Python modules |
+| TG6 | COMPLETE | Test coverage: UV 66, INS 42, MG 41, TOOLS 195 tests |
 
-**14 modules remaining** (after archiving rvsmart-tool and rv-agent-validation):
+### 1.2 Remaining work (v2 scope)
 
-| Group | Modules | Work |
-|-------|---------|------|
-| **TG1: Archival** | rvsmart-tool, rv-agent-validation + OpenSpec rvsmart spec | Archive 2 modules, archive rvsmart spec, update references in code and specs |
-| **TG2: Dead Code** | All 14 remaining modules | Remove dead imports, constants, stale comments |
-| **TG3: Lint & Fix** | All 14 remaining modules | black + isort + flake8 |
-| **TG4: Docstrings** | All 14 remaining modules (key files) | Code-level documentation |
-| **TG5: Module Docs** | 8 modules missing arch docs, 3 missing CLAUDE.md, 2 missing README | CLAUDE.md, README.md, architecture.md |
-| **TG6: Tests** | rv-uiautomator, rv-instrumentation, rv-monitor-generator, rv-tools | Add tests for public APIs |
-| **TG7: Verification** | All 14 remaining modules + project level | Final checks, metrics, issue cleanup |
+1. **Python architecture docs**: 13/14 exist with mermaid and 400-878 lines.
+   3 pending (core, agent, platform — failed due to rate limit in v1).
+   Quality review needed on ALL.
 
-## 3. File Inventory
+2. **Full Java documentation**: Our Java modules lack docs entirely:
+   - APE-RV (175 Java files) — testing engine
+   - rvsec-gator/client (6 src + 8 test) — GATOR client (static analysis)
+   - rvsec-agent (28 files) — instrumentation agent
+   - mop-maven-plugin (3 files) — Maven MOP plugin
+   - rvsec-core, rvsec-mop, rvsec-mop-extractor, rvsec-mop-defsuses (smaller)
+   - rvsec-apk, rvsec-logger-csv, rvsec-logger-logcat (utilities)
+   Level: README.md + docs/architecture.md + javadoc on key classes.
 
-### TG1: Housekeeping & Module Archival
+3. **Scripts quality**: 24 Python scripts in scripts/ need lint, tests, docstrings.
 
-| File | Action | Detail |
-|------|--------|--------|
-| `modules/rvsmart-tool/` | Move | Move entire directory to `backup/rvsmart-tool` |
-| `modules/rv-agent-validation/` | Move | Move entire directory to `backup/rv-agent-validation` |
-| `pyproject.toml` | Edit | Remove `rvsmart-tool` and `rv-agent-validation` from workspace members |
-| `modules/rv-platform/src/rv_platform/__init__.py` | Edit | Remove rvsmart-tool lazy import |
-| `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py` | Edit | Remove rvsmart references |
-| `openspec/specs/rvsmart/` | Move | Move entire spec directory to `backup/openspec-specs-rvsmart` |
-| `openspec/specs/tools/spec.md` | Edit | Remove rvsmart-tool references |
-| `openspec/specs/aperv/spec.md` | Edit | Remove rvsmart references |
-| `openspec/specs/platform/spec.md` | Edit | Remove rvsmart references |
-| `openspec/specs/agent/spec.md` | Edit | Remove rv-agent-validation references |
-| `openspec/specs/analysis/spec.md` | Edit | Remove rv-agent-validation references |
-| `docs/rv_android_architecture.md` | Edit | Remove rvsmart-tool and rv-agent-validation from diagrams/tables |
-| `CLAUDE.md` | Edit | Update module list (14 modules), remove rvsmart and rv-agent-validation references |
-| `.claude/AGENTS.md` | Edit | Update module references if present |
+4. **Test coverage expansion**: Measure coverage for all modules, add tests where
+   ratios are low (rv-static-analysis, rv-coverage, rv-uiautomator, aperv-tool, rvagent-tool).
 
-### TG2: Dead Code Removal
+5. **CLAUDE.md/README.md review**: Quality review across all 14 Python modules.
 
-Per-module via `/rv-cleanup`. Key known targets:
+6. **Shell scripts**: clean.sh, lock.sh, test.sh MODULES arrays (already correct).
 
-| File | Action | Detail |
-|------|--------|--------|
-| `modules/rv-android-core/src/rv_android_core/constants.py` | Edit | Remove ~53 dead constants (77% dead) |
-| `modules/rv-agent/src/rv_agent/agent/rv_agent.py` | Edit | Remove 6 unused imports |
-| All modules `src/**/*.py` | Edit | Remove dead imports found by pyflakes |
-| All modules `src/**/*.py` | Edit | Review 10 TODO/FIXME comments, remove stale ones |
+7. **TG7 verification**: Issues, metadata audit, code review, metrics.
 
-### TG3: Lint & Fix
+### 1.3 Java modules — ours vs external
 
-Per-module via `/rv-qa-lint-fix`. No specific file inventory — automated tool handles it.
+**OURS (document)**:
+- `ape/` — APE-RV, testing engine (175 Java files)
+- `rvsec/rvsec-android/rvsec-gator/client/` — GATOR client (6 src)
+- `rvsec/rvsec-android/rvsec-gator/commons/` — Timer, Logger (2 files)
+- `rvsec/rvsec-agent/` — instrumentation agent (28 files)
+- `rvsec/mop-maven-plugin/` — Maven MOP plugin (3 files)
+- `rvsec/rvsec-core/` — domain models (6 files)
+- `rvsec/rvsec-mop/` — MOP specs (336 .mop)
+- `rvsec/rvsec-mop-extractor/` — spec extractor (9 files)
+- `rvsec/rvsec-mop-defsuses/` — defs-uses analysis (5 files)
+- `rvsec/rvsec-android/rvsec-apk/` — APK utilities (6 files)
+- `rvsec/rvsec-logger-csv/` — CSV logger (1 file)
+- `rvsec/rvsec-android/rvsec-logger-logcat/` — logcat logger (1 file)
 
-### TG4: Docstrings
+**EXTERNAL (do not modify)**:
+- javamop, rv-monitor, crylogger (forked/copied)
+- rvsec-gator/sootandroid (GATOR server, 178 files)
+- rvsec-gesda, rvsec-reachability (deprecated, commented out in POM)
+- rvsec-taint (deprecated), rvsec-methods-extractor (deprecated)
 
-Key files per module (priority order):
-
-| Module | Key Files |
-|--------|-----------|
-| rv-android-core | `domain/task.py`, `domain/coverage.py`, `error_handler.py`, `command.py`, `abstract_tool.py` |
-| rv-agent | `agent/rv_agent.py`, `strategies/rvagent_strategy/rvagent_strategy.py`, `llm/llm_client.py`, `services/transition_manager.py`, `agent/nodes/*.py` |
-| rv-platform | `platform.py`, `task_executor.py`, `storage/task_storage.py`, `config.py` |
-| rv-experiment | `controller.py`, `execution_controller.py`, `config.py`, `__main__.py` |
-| rv-tools | `registry.py`, `factory.py`, `builtin/*/tool.py` |
-| rv-screen-parser | `parser/screen/visitor/abstract_visitor.py`, `parser/screen/visitor/enhanced_visitor.py` |
-| rv-static-analysis | `analyzer.py`, `parser.py` |
-| rv-coverage | `coverage_tracker.py`, `parser.py` |
-| rv-uiautomator | `adapter.py`, `action_executor.py` |
-| rv-instrumentation | `rvandroid.py` |
-| rv-monitor-generator | `generator.py` |
-| rvagent-tool | `tool.py` |
-| aperv-tool | `tool.py` |
-| aperv-llm-validation | `pipeline/*.py`, `constants.py` |
-
-### TG5: Module Documentation
-
-| Module | Missing | Skill |
-|--------|---------|-------|
-| rv-screen-parser | architecture.md | `/rv-doc-architecture rv-screen-parser` |
-| rv-static-analysis | architecture.md | `/rv-doc-architecture rv-static-analysis` |
-| rv-coverage | architecture.md | `/rv-doc-architecture rv-coverage` |
-| rv-uiautomator | architecture.md | `/rv-doc-architecture rv-uiautomator` |
-| rv-instrumentation | architecture.md | `/rv-doc-architecture rv-instrumentation` |
-| rv-monitor-generator | architecture.md | `/rv-doc-architecture rv-monitor-generator` |
-| rvagent-tool | CLAUDE.md, architecture.md | `/rv-doc-generate-claude-md rvagent-tool`, `/rv-doc-architecture rvagent-tool` |
-| aperv-tool | README.md, CLAUDE.md, architecture.md | `/rv-doc-readme aperv-tool`, `/rv-doc-generate-claude-md aperv-tool`, `/rv-doc-architecture aperv-tool` |
-| aperv-llm-validation | README.md, CLAUDE.md, architecture.md | `/rv-doc-readme aperv-llm-validation`, `/rv-doc-generate-claude-md aperv-llm-validation`, `/rv-doc-architecture aperv-llm-validation` |
-| All 14 modules | Update existing docs | `/rv-docs-sync <module>` |
-| Project root | CLAUDE.md update | Update module count, remove archived module references |
-
-### TG6: Test Coverage
-
-| Module | Current Tests | Target | Focus |
-|--------|--------------|--------|-------|
-| rv-uiautomator | 3 | >=20 | UIAdapter, ActionExecutor, StateConverter public APIs |
-| rv-instrumentation | 12 | >=25 | Instrumentation pipeline, config validation |
-| rv-monitor-generator | 17 | >=25 | Generator, spec parsing, output validation |
-| rv-tools | 81 | >=100 | ToolRegistry edge cases, ToolFactory, builtin tool configs |
-
-### TG7: Final Verification
-
-| Action | Detail |
-|--------|--------|
-| Close issues | #34, #35, #36, #39 (rvsmart — archived), assess #20-#25, #41-#43 |
-| Archive OpenSpec changes | gh34, gh35, gh36, gh43, gh9 (stale) |
-| pyproject.toml audit | Verify version, description, authors, license in all 14 modules |
-| CLI entry points | Test `rv-experiment --help`, `rv-platform --help`, `rv-agent --help` |
-| Metrics report | Generate LOC, test count, complexity (radon), per module summary |
-| OpenSpec specs sync | Sync any pending delta specs to main specs |
-| `/rv-verify` | Run on all 14 modules |
-| `/rv-code-reviewer` | Run on core, agent, platform, experiment |
-
-## 4. Execution Order
+## 2. Execution Order
 
 ```
-TG1 (Archival) ──────────────────────────────────────────────┐
-                                                              │
-TG2 (Dead Code) ── depends on TG1 ───────────────────────────┤
-                                                              │
-TG3 (Lint & Fix) ── depends on TG2 ──────────────────────────┤
-                                                              │
-TG4 (Docstrings) ── depends on TG3 ──┐                       │
-                                       ├── can run in parallel│
-TG5 (Module Docs) ── depends on TG3 ──┘                      │
-                                                              │
-TG6 (Tests) ── depends on TG3, independent of TG4/TG5 ───────┤
-                                                              │
-TG7 (Verification) ── depends on ALL above ───────────────────┘
+Batch 1: TG5-R (Python arch docs) + TG5-shell + TG8-A (scripts lint)
+Batch 2: TG9-A (APE-RV) + TG9-B (gator client) + TG8-B (scripts docstrings)
+Batch 3: TG9-C + TG9-D + TG9-E (Java docs) + TG8-C (script tests) + TG6-R (test coverage)
+Batch 4: TG10 (CLAUDE.md/README review) + TG7R.1-7R.2 (issues, metadata)
+Batch 5: TG7R.3-7R.6 (verification, code review, metrics, close)
 ```
 
-**Subagent dispatch** (WORKFLOW.md Section 5):
-- TG2: 3-4 modules per subagent batch (independent modules in parallel)
-- TG3: 3-4 modules per subagent batch
-- TG4 + TG5: Can run in parallel, 2-3 modules per subagent
-- TG6: Each module independently via subagent
+Subagent dispatch: batches 1-3 use 3-4 parallel subagents per batch.
 
-## 5. Acceptance Criteria
+## 3. Acceptance Criteria
 
-- [ ] AC1: rvsmart-tool and rv-agent-validation archived in `backup/`; rvsmart spec archived; workspace builds cleanly with `uv sync`
-- [ ] AC2: No dead imports across any module (pyflakes clean); dead constants removed from rv-android-core
-- [ ] AC3: `black --check` and `isort --check` pass on all modules; flake8 errors reduced by >80%
-- [ ] AC4: Key files in all modules have module-level and class/function docstrings
-- [ ] AC5: All 14 modules have CLAUDE.md, README.md, and architecture.md
-- [ ] AC6: rv-uiautomator >=20 tests, rv-instrumentation >=25, rv-monitor-generator >=25
-- [ ] AC7: `/rv-verify` passes on all modules; CLI entry points functional
-- [ ] AC8: Obsolete GitHub issues closed; stale OpenSpec changes archived
-- [ ] AC9: pyproject.toml metadata consistent across all modules (version, authors, license)
-- [ ] AC10: Project metrics report generated (LOC, tests, complexity per module)
+- [x] AC1: Modules archived, workspace builds (TG1)
+- [x] AC2: Dead imports removed (TG2)
+- [x] AC3: black/isort pass on modules/, flake8 reduced 81% (TG3)
+- [x] AC4: Docstrings on key files across all Python modules (TG4)
+- [ ] AC5: All 14 Python modules with architecture.md reviewed and >=3 mermaid
+- [ ] AC6: All our Java modules with README.md + javadoc; APE-RV and gator client with architecture.md
+- [ ] AC7: Scripts linted (black/flake8 pass) + docstrings + tests for 3 key scripts
+- [x] AC8: Test coverage increased for 4 modules (TG6)
+- [ ] AC9: Test coverage measured for all modules; gaps filled in low-ratio modules (TG6-R)
+- [ ] AC10: CLAUDE.md and README.md reviewed for all 14 Python modules
+- [ ] AC11: Shell scripts updated (MODULES arrays)
+- [ ] AC12: `/rv-verify` passes on all modules; CLI entry points functional
+- [ ] AC13: Obsolete issues closed; delta specs synced
+- [ ] AC14: pyproject.toml metadata consistent
+- [ ] AC15: Metrics report generated in `docs/project_metrics.md`
+- [ ] AC16: Issue #48 closed

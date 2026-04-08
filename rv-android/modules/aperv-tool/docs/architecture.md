@@ -46,6 +46,26 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 | Process Pattern | Shared with builtin APE | Both APE and APE-RV use `com.android.commands.monkey` -- mutual exclusion enforced by rv-platform process cleanup |
 | LLM URL Override | Environment variable `APERV_LLM_BASE_URL` | Emulator uses `10.0.2.2` (host loopback alias); Docker and physical devices need different addresses |
 
+### Why Properties File Injection?
+
+APE-RV is a Java application running inside the Android emulator via `app_process`. It reads configuration from `ape.properties` on the device filesystem at startup. The Python wrapper generates this file dynamically because: (1) different variants need different configurations (throttle, MOP weights, LLM parameters), (2) configuration must be applied per-experiment without rebuilding the JAR, and (3) the `APERV_PROPERTY_MAPPING` dictionary serves as an explicit contract between Python config keys and Java property names, making the translation auditable. Keys not in the mapping (like `strategy` and `mop_data`) are Python-only control parameters consumed during execution, not configuration for the Java binary.
+
+### Why Shared Process Pattern with APE?
+
+Both the builtin APE tool (from rv-tools) and APE-RV run as `com.android.commands.monkey` on the Android device. This shared process pattern is a deliberate safety mechanism (INV-APV-07): rv-platform's `kill_related_processes()` terminates any running APE/APE-RV process before launching a new one. Since both tools use the same Android Monkey entry point (`app_process` with `CLASSPATH`), they cannot coexist on the same device. The shared pattern ensures stale processes from a previous experiment are cleaned up before the next run.
+
+### Why Working Directory is /system/bin?
+
+The `app_process` command requires the working directory as its first argument. APE-RV uses `/system/bin` (INV-APV-04) rather than `/data/local/tmp/` because the enhanced binary resolves internal Android framework classes relative to the system path. Using `/data/local/tmp/` causes `ClassNotFoundException` on some API levels because `app_process` cannot locate required system resources from that directory. This was discovered empirically during development and is a hard requirement.
+
+### Why Module-Local JAR Has Highest Priority?
+
+The JAR resolution priority (INV-APV-01) places the module directory first because experiment reproducibility requires using the exact binary that was packaged with the tool. If `$RVSEC_HOME/ape/target/` were checked first, a developer rebuilding the Java project mid-experiment would silently change the binary being used. The module-local JAR (shipped alongside `tool.py`) provides a stable reference point.
+
+### Why Timeout is Expected Exit?
+
+Exploration tools like APE-RV are designed to run indefinitely, exploring the application until killed. The `--running-minutes` flag sets a soft limit, but the tool may exceed it during state serialization. The +15s grace period on the Command timeout gives APE-RV time to flush its WTG model to disk before the process is forcibly killed. `RVCommandTimeoutError` is re-raised as `RVToolTimeoutError`, which rv-platform treats as a completed run (not a failure) and proceeds to collect coverage from logcat.
+
 ## Architectural Patterns
 
 ### Pattern: Template Method (AbstractTool)
@@ -405,6 +425,107 @@ classDiagram
 3. `configure()` validates strategy and checks `APERV_LLM_BASE_URL` env var for URL override
 4. Execution pushes JAR, static analysis JSON, broadcast catalog, and generates `ape.properties` with all 18 mapped properties (exploration + MOP weights + LLM parameters)
 5. APE-RV queries the SGLang server at the configured URL during exploration, using the v17 prompt variant for 70% of decisions
+
+---
+
+## Data Flow
+
+This section describes how data flows through aperv-tool from rv-platform input to APE-RV execution on the Android device.
+
+### End-to-End Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Platform["rv-platform"]
+        Task["Task\n(device_id, timeout,\nresults_dir, trace_file)"]
+        App["App\n(package_name)"]
+        ToolConfig["ToolConfig\n(name=aperv, variant,\nparameters)"]
+    end
+
+    subgraph ConfigPhase["Configuration Phase"]
+        FactoryResolve["ToolFactory resolves\nvariant from registry"]
+        Configure["configure()\nValidates strategy\nStores _tool_config"]
+    end
+
+    subgraph ExecutionPhase["Execution Phase"]
+        direction TB
+        JarResolve["_resolve_jar_path()\nPriority: module > RVSEC_HOME > TOOLS_DIR"]
+        PushJar["Push ape-rv.jar\n-> /data/local/tmp/"]
+        PushBroadcast["Push system-broadcast.json\n-> /data/local/tmp/\n(optional)"]
+        FindStatic["_find_static_analysis_file()\nLook for <apk>.json"]
+        PushStatic["Push static_analysis.json\n-> /data/local/tmp/\n(MOP variants only)"]
+        GenProps["_push_properties()\nGenerate ape.properties\nfrom APERV_PROPERTY_MAPPING"]
+        BuildCmd["_build_main_command()\nadb shell CLASSPATH=...\napp_process /system/bin"]
+        Execute["Command.invoke()\nWrite stdout to trace_file"]
+        CheckTrace["_check_empty_trace()\nWarn on 0-byte trace"]
+    end
+
+    subgraph Device["Android Emulator"]
+        ApeRV["APE-RV via app_process\nReads ape.properties\nExplores app UI"]
+        Coverage["Coverage.aj events\n(captured by logcat)"]
+    end
+
+    ToolConfig --> FactoryResolve
+    FactoryResolve --> Configure
+    Task --> JarResolve
+    JarResolve --> PushJar
+    PushJar --> PushBroadcast
+    PushBroadcast --> FindStatic
+    FindStatic --> PushStatic
+    PushStatic --> GenProps
+    GenProps --> BuildCmd
+    BuildCmd --> Execute
+    Execute --> CheckTrace
+    Execute --> ApeRV
+    ApeRV --> Coverage
+    Task --> Execute
+    App --> BuildCmd
+```
+
+### Properties Generation Flow
+
+The `_push_properties()` method translates Python configuration keys to Java property names using `APERV_PROPERTY_MAPPING`. This is a deliberate filtering mechanism: only keys that appear in the mapping are written to the device. Python-only control keys (`strategy`, `mop_data`) are excluded automatically because they have no mapping entry.
+
+| Python Key | Java Property | Category |
+|-----------|--------------|----------|
+| `throttle_ms` | `ape.defaultGUIThrottle` | Exploration |
+| `default_epsilon` | `ape.defaultEpsilon` | Exploration |
+| `graph_stable_restart_threshold` | `ape.graphStableRestartThreshold` | Exploration |
+| `mop_weight_direct` | `ape.mopWeightDirect` | MOP scoring |
+| `mop_weight_transitive` | `ape.mopWeightTransitive` | MOP scoring |
+| `mop_weight_activity` | `ape.mopWeightActivity` | MOP scoring |
+| `llm_url` | `ape.llmUrl` | LLM |
+| `llm_percentage` | `ape.llmPercentage` | LLM |
+| `llm_prompt_variant` | `ape.llmPromptVariant` | LLM |
+
+When `mop_json_pushed` is True, the generated properties also include `ape.mopDataPath=/data/local/tmp/static_analysis.json`, pointing APE-RV to the static analysis JSON pushed earlier.
+
+### MOP Data Flow (sata_mop variants)
+
+For MOP-guided variants, static analysis data flows from rv-platform's pre-processing through to APE-RV's scoring engine:
+
+1. rv-experiment runs GATOR static analysis during pre-processing, producing `<apk_name>.json` in `task.results_dir`
+2. `_find_static_analysis_file(task)` locates this JSON by constructing the expected path
+3. The JSON is pushed to `/data/local/tmp/static_analysis.json` on the device
+4. `_push_properties()` includes `ape.mopDataPath` pointing to the pushed file
+5. APE-RV reads the JSON at startup, mapping activities to monitored operations
+6. During exploration, APE-RV biases action selection toward screens where monitored operations are reachable
+
+If the static analysis file is not found, the tool logs a warning and runs without MOP data -- APE-RV degrades gracefully to pure strategy-based exploration.
+
+### LLM Data Flow (LLM variants)
+
+For LLM-guided variants, the data flow involves network communication between the emulator and the host:
+
+1. `configure()` checks `APERV_LLM_BASE_URL` environment variable for URL override
+2. `_push_properties()` writes LLM configuration (URL, model, temperature, top_p, top_k, timeout, percentage, prompt variant) to `ape.properties`
+3. APE-RV reads these properties at startup and initializes its LLM client
+4. During exploration, APE-RV sends requests to the SGLang server at the configured URL
+5. Inside the emulator, `10.0.2.2` routes to the host machine's loopback address
+6. The SGLang server returns action suggestions that APE-RV integrates with its WTG model
+
+The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias does not work in Docker containers (where the SGLang server is at the Docker host's IP) or on physical devices (where the server is at the development machine's network IP).
 
 ---
 

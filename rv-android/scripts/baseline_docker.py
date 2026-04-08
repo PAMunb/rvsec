@@ -188,10 +188,10 @@ def preflight_checks(data_dir: str, filter_file: str) -> None:
     min_free_bytes = 10 * 1024 * 1024 * 1024  # 10 GB
     usage = shutil.disk_usage(str(data_path))
     if usage.free < min_free_bytes:
-        free_gb = usage.free / (1024 ** 3)
+        free_gb = usage.free / (1024**3)
         print(
             f"ERROR: insufficient disk space: {free_gb:.1f} GB free, "
-            f"need at least 10 GB",
+            "need at least 10 GB",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -273,7 +273,7 @@ def main():
         type=str,
         default=None,
         help="SGLang server URL reachable from containers (e.g. http://host.docker.internal:30000/v1). "
-             "Injects llm_base_url into multimode tool spec and adds extra_hosts to compose.",
+        "Injects llm_base_url into multimode tool spec and adds extra_hosts to compose.",
     )
 
     args = parser.parse_args()
@@ -320,7 +320,9 @@ def main():
             tools = tools.rstrip(",") + f",llm_base_url={args.sglang_url}"
         else:
             # No params yet — add the @ separator before the param
-            tools = tools.replace("multimode", f"multimode@llm_base_url={args.sglang_url}", 1)
+            tools = tools.replace(
+                "multimode", f"multimode@llm_base_url={args.sglang_url}", 1
+            )
 
     # Generate and write compose file
     extra_hosts = ["host.docker.internal:host-gateway"] if args.sglang_url else None
@@ -351,7 +353,7 @@ def main():
     print(f"\nLaunching {n_batches} containers...")
     try:
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_path), "up"],
+            ["docker", "compose", "-", str(compose_path), "up"],
             check=False,
         )
     finally:

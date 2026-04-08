@@ -155,7 +155,15 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 | `tests/parser/screen/uiautomator/` | UIAutomator parser tests |
 | `tests/parser/screen/visitor/` | Visitor implementation tests |
 | `tests/analysis/screenshot/` | Screenshot analyzer tests |
+| `tests/preprocessing/` | Image preprocessing tests |
+| `tests/utils/` | Utility function tests |
 | `tests/images/` | Test screenshot fixtures |
+| `tests/test_default_visitor.py` | Default visitor tests |
+| `tests/test_enhanced_visitor.py` | Enhanced visitor tests |
+| `tests/test_error_detector.py` | Error detector tests |
+| `tests/test_error_detector_integration.py` | Error detector integration tests |
+| `tests/test_real_parsing.py` | Real parsing scenario tests |
+| `tests/test_screenshot_manager.py` | Screenshot manager tests |
 
 ### Running Specific Tests
 

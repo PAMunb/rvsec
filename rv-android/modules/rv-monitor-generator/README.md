@@ -33,10 +33,9 @@ The RV-Monitor-Generator module provides runtime verification monitor generation
 - **RVGeneratorConfig**: Configuration management with multi-source support and validation
 
 #### Integration Points
-- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager for infrastructure
-- **rv-experiment**: Provides monitor generation components for experiment orchestration
-- **rv-static-analysis**: Coordinates with static analysis for monitor placement
-- **rv-instrumentation**: Integrates generated monitors with instrumentation pipeline
+- **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, Command utilities
+- **rv-experiment**: Called during the pre-processing phase for monitor generation
+- **rv-instrumentation**: Generated artifacts (*.aj, *.java) are consumed for APK weaving
 
 ### Specification Categories
 
@@ -77,8 +76,7 @@ uv run pytest
 
 ### Environment Variables
 
-- `RVSEC_HOME`: RVSEC installation root directory
-- `JAVAMOP_HOME`: JavaMOP installation directory (optional)
+- `RVSEC_HOME`: RVSEC installation root directory (auto-discovers tool paths from standard layout)
 
 ## Usage
 
@@ -141,20 +139,12 @@ config_custom = RVGeneratorConfig(
 
 ```
 output/
-├── *.rvm                    # RV-Monitor files
-├── *.aj                     # AspectJ aspects 
+├── *.aj                     # AspectJ aspects (pointcuts + advice)
 ├── *.java                   # Java monitor classes
-└── MultiSpec_*MonitorAspect.aj  # Combined aspects
+└── MultiSpec_*MonitorAspect.aj  # Combined aspects from merged specs
 ```
 
-### Monitor Integration
-
-```bash
-# Generated monitors are ready for instrumentation
-# AspectJ files: Used by rv-instrumentation for APK weaving
-# Java files: Compiled and included in instrumented applications
-# RVM files: Intermediate representation for debugging
-```
+Note: `.rvm` intermediate files are generated during the pipeline but cleaned up automatically after RV-Monitor processing. The final output contains only `.aj` and `.java` files ready for rv-instrumentation.
 
 ## Specification Management
 
@@ -272,23 +262,6 @@ rv-instrumentation instrument --apk app.apk --monitors /monitors --output /instr
 - AspectJ: Aspect-oriented programming framework
 - Java 8+ runtime
 
-## Contributing
-
-### Adding New Specifications
-
-1. Create .mop specification files following JavaMOP format
-2. Place in appropriate specification directory (jca, generic, custom)
-3. Test monitor generation and validation
-4. Add tests for new specifications
-5. Update documentation
-
-### Code Standards
-
-1. Follow existing code style and patterns
-2. Add comprehensive tests for new functionality
-3. Use rv-android-core infrastructure for error handling
-4. Maintain backward compatibility
-
 ## License
 
-This module is part of the RV-Android project and follows the same licensing terms.
+Part of the rv-android project.

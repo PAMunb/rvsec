@@ -5,15 +5,31 @@ Produces a markdown report comparing the best Optuna trials against baseline
 tools on the same APK subset. Uses the same scoring methodology as the
 calibration objective (trimmed mean 10%, score = 50% MOP + 50% method).
 
+Report sections:
+    1. Optuna state (complete/running/failed trial counts)
+    2. Top-N trials with detailed coverage metrics
+    3. Comparison against baseline tools (ape, fastbot, monkey, etc.)
+    4. Per-APK violation details for the best trial
+    5. Parameter range analysis (detects ceiling/floor effects)
+    6. Best trial parameter values with position in search range
+    7. Convergence tracking (score improvement over rounds)
+
+Key functions:
+    - ``load_optuna_trials``: Reads trial data from Optuna's SQLite DB.
+    - ``compute_trial_metrics``: Scores a trial using trimmed-mean methodology.
+    - ``load_baselines``: Loads and scores baseline tools from consolidated CSV.
+    - ``analyze_ranges``: Detects if top trials cluster at parameter boundaries.
+    - ``generate_report``: Assembles the full markdown report.
+
 Usage:
     # Default: aperv_precal_macro vs exp3_consolidated baselines
     uv run python scripts/analyze_calibration.py
 
     # Custom paths:
-    uv run python scripts/analyze_calibration.py \
-        --study-dir results/aperv_precal_macro \
-        --baseline-csv data/results/exp3_consolidated.csv \
-        --filter-file data/apks/aperv_precal_30.txt \
+    uv run python scripts/analyze_calibration.py \\
+        --study-dir results/aperv_precal_macro \\
+        --baseline-csv data/results/exp3_consolidated.csv \\
+        --filter-file data/apks/aperv_precal_30.txt \\
         --top-n 10
 
     # Save report to file:
@@ -30,12 +46,16 @@ import numpy as np
 import pandas as pd
 from scipy.stats import trim_mean
 
-# Same as aperv_objective.py
+# Must match aperv_objective.py so analysis scores are consistent with calibration
 TRIM_PROPORTION = 0.1
 MOP_WEIGHT = 0.50
 METHOD_WEIGHT = 0.50
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# Column name mappings: the two CSV formats use different column names for the
+# same metrics. These dicts provide a uniform interface so the analysis code
+# can use semantic keys ("method", "mop") regardless of source format.
 
 # Baseline CSV column mapping (unified format from consolidate_exp*.py)
 BASELINE_COLS = {
@@ -45,17 +65,37 @@ BASELINE_COLS = {
     "errors": "total_errors",
 }
 
-# Calibration summary.csv column mapping (rv-platform format)
+# Calibration summary.csv column mapping (rv-platform ResultProcessor format)
 TRIAL_COLS = {
     "method": "cov_method",
-    "mop": "cov_rv_method",
+    "mop": "cov_rv_method",  # "rv_method" = RV-instrumented methods reached
     "activity": "cov_act",
     "errors": "errors",
 }
 
 
-def load_optuna_trials(study_dir: Path) -> list[dict]:
-    """Load completed trials from Optuna SQLite DB."""
+def load_optuna_trials(study_dir: Path) -> tuple[list[dict], dict, dict, dict]:
+    """Load completed trials and parameter data from Optuna's SQLite DB.
+
+    Reads directly from the SQLite database instead of using the Optuna API
+    to avoid importing optuna (heavy dependency) in an analysis-only script.
+
+    Args:
+        study_dir: Path to the calibration output directory containing
+            ``optuna_study.db``.
+
+    Returns:
+        Tuple of:
+            - trials: List of ``{"number": int, "score": float}`` dicts,
+              sorted by score descending (best first).
+            - states: Dict mapping state name to count (e.g. ``{"COMPLETE": 80}``).
+            - param_data: Nested dict ``{trial_number: {param_name: value}}``.
+            - distributions: Dict ``{param_name: distribution_json_dict}`` for
+              range analysis.
+
+    Raises:
+        SystemExit: If the Optuna DB file does not exist.
+    """
     db_path = study_dir / "optuna_study.db"
     if not db_path.exists():
         sys.exit(f"Optuna DB not found: {db_path}")
@@ -67,7 +107,7 @@ def load_optuna_trials(study_dir: Path) -> list[dict]:
     c.execute("SELECT state, COUNT(*) FROM trials GROUP BY state")
     states = dict(c.fetchall())
 
-    # Completed trials with scores
+    # Completed trials with scores, sorted best-first for top-N selection
     c.execute("""
         SELECT t.number, tv.value
         FROM trials t
@@ -77,12 +117,12 @@ def load_optuna_trials(study_dir: Path) -> list[dict]:
     """)
     trials = [{"number": num, "score": score} for num, score in c.fetchall()]
 
-    # Target trials count
     c.execute("SELECT COUNT(*) FROM trials")
     total_in_db = c.fetchone()[0]
 
-    # Load params for all completed trials (for range analysis)
-    # Optuna stores categorical as index — need distribution_json to decode
+    # Load params for all completed trials (for range analysis).
+    # Optuna stores categorical values as integer indices into the choices list,
+    # so we need distribution_json to decode back to the actual string value.
     c.execute("""
         SELECT t.number, tp.param_name, tp.param_value, tp.distribution_json
         FROM trials t
@@ -90,12 +130,14 @@ def load_optuna_trials(study_dir: Path) -> list[dict]:
         WHERE t.state = 'COMPLETE'
     """)
     import json
+
     param_data = defaultdict(dict)
     distributions = {}
     for num, name, val, dist_json in c.fetchall():
         dist = json.loads(dist_json)
         distributions[name] = dist
         if dist["name"] == "CategoricalDistribution":
+            # Decode index back to the original string choice
             choices = dist["attributes"]["choices"]
             param_data[num][name] = choices[int(float(val))]
         else:
@@ -107,7 +149,20 @@ def load_optuna_trials(study_dir: Path) -> list[dict]:
 
 
 def load_trial_summary(study_dir: Path, trial_num: int) -> pd.DataFrame | None:
-    """Load summary.csv for a trial."""
+    """Load summary.csv for a single trial.
+
+    The double-nested path matches the Docker volume mount layout used by
+    ``calibration_orchestrator.py``: outer dir is the mount target, inner dir
+    is created by rv-experiment using ``RV_EXPERIMENT_NAME=trial_N``.
+
+    Args:
+        study_dir: Base calibration output directory.
+        trial_num: Optuna trial number.
+
+    Returns:
+        DataFrame with per-APK results, or None if summary.csv is missing
+        (trial failed or container was killed before writing results).
+    """
     p = study_dir / f"trial_{trial_num}" / f"trial_{trial_num}" / "summary.csv"
     if not p.exists():
         return None
@@ -115,7 +170,19 @@ def load_trial_summary(study_dir: Path, trial_num: int) -> pd.DataFrame | None:
 
 
 def compute_trial_metrics(df: pd.DataFrame) -> dict:
-    """Compute trimmed-mean metrics for a trial's summary.csv."""
+    """Compute trimmed-mean metrics for a trial's summary.csv.
+
+    Uses the same scoring formula as ``aperv_objective.compute_score`` to
+    ensure analysis scores match the values Optuna saw during calibration.
+
+    Args:
+        df: DataFrame loaded from a trial's summary.csv.
+
+    Returns:
+        Dict with keys: ``method``, ``mop``, ``activity`` (trimmed means),
+        ``score`` (weighted composite), ``errors_sum``, ``errors_mean``,
+        ``n_apks_with_errors``, ``n_apks``.
+    """
     method = trim_mean(df[TRIAL_COLS["method"]].values, TRIM_PROPORTION)
     mop = trim_mean(df[TRIAL_COLS["mop"]].values, TRIM_PROPORTION)
     activity = trim_mean(df[TRIAL_COLS["activity"]].values, TRIM_PROPORTION)
@@ -136,31 +203,58 @@ def compute_trial_metrics(df: pd.DataFrame) -> dict:
 
 
 def load_baselines(csv_path: Path, filter_apks: set[str]) -> dict[str, dict]:
-    """Load baseline tools, filter to APK subset, compute per-APK averages then trimmed mean."""
+    """Load baseline tools, filter to APK subset, and compute trimmed-mean metrics.
+
+    The baseline CSV comes from ``consolidate_exp*.py`` scripts and contains
+    results from multiple tools with multiple repetitions per APK. To make
+    comparisons fair with calibration trials (which run each APK once), we
+    first average repetitions per APK, then apply trimmed mean across APKs.
+
+    Args:
+        csv_path: Path to the consolidated baseline CSV.
+        filter_apks: Set of APK names to include (must match the calibration
+            subset to ensure apples-to-apples comparison).
+
+    Returns:
+        Dict mapping tool name to a metrics dict with the same structure as
+        ``compute_trial_metrics`` output, plus ``n_reps``.
+    """
     df = pd.read_csv(csv_path)
     df = df[df["apk"].isin(filter_apks)].copy()
 
     results = {}
     for tool, gdf in df.groupby("tool"):
-        # Average reps per APK first
-        apk_means = gdf.groupby("apk").agg({
-            BASELINE_COLS["method"]: "mean",
-            BASELINE_COLS["mop"]: "mean",
-            BASELINE_COLS["activity"]: "mean",
-            BASELINE_COLS["errors"]: "sum",  # sum errors across reps per APK
-        }).reset_index()
+        # Average reps per APK first to avoid biasing tools with more reps
+        apk_means = (
+            gdf.groupby("apk")
+            .agg(
+                {
+                    BASELINE_COLS["method"]: "mean",
+                    BASELINE_COLS["mop"]: "mean",
+                    BASELINE_COLS["activity"]: "mean",
+                    BASELINE_COLS["errors"]: "sum",  # sum errors across reps per APK
+                }
+            )
+            .reset_index()
+        )
 
         # Errors: total across all APKs and reps
         errors_total = gdf[BASELINE_COLS["errors"]].sum()
         errors_per_apk_mean = gdf.groupby("apk")[BASELINE_COLS["errors"]].sum().mean()
-        n_apks_with_errors = (gdf.groupby("apk")[BASELINE_COLS["errors"]].sum() > 0).sum()
+        n_apks_with_errors = (
+            gdf.groupby("apk")[BASELINE_COLS["errors"]].sum() > 0
+        ).sum()
 
+        # Assumes uniform rep count across APKs (enforced by experiment design)
         n_reps = int(gdf.groupby("apk").size().iloc[0])
         n_apks = len(apk_means)
 
+        # Trimmed mean for robustness, matching calibration objective methodology
         method = trim_mean(apk_means[BASELINE_COLS["method"]].values, TRIM_PROPORTION)
         mop = trim_mean(apk_means[BASELINE_COLS["mop"]].values, TRIM_PROPORTION)
-        activity = trim_mean(apk_means[BASELINE_COLS["activity"]].values, TRIM_PROPORTION)
+        activity = trim_mean(
+            apk_means[BASELINE_COLS["activity"]].values, TRIM_PROPORTION
+        )
         score = MOP_WEIGHT * mop + METHOD_WEIGHT * method
 
         results[tool] = {
@@ -178,21 +272,46 @@ def load_baselines(csv_path: Path, filter_apks: set[str]) -> dict[str, dict]:
     return results
 
 
-def analyze_ranges(param_data: dict, distributions: dict, top_n_trials: list[int]) -> list[dict]:
-    """Analyze parameter ranges vs observed values."""
+def analyze_ranges(
+    param_data: dict, distributions: dict, top_n_trials: list[int]
+) -> list[dict]:
+    """Analyze parameter ranges vs observed values in top trials.
+
+    Detects ceiling/floor effects: if the best trials cluster near a
+    parameter boundary, the search range may need to be expanded. This is
+    critical for iterating on the parameter space definition -- a ceiling
+    warning means Optuna "wants" to go higher but is constrained.
+
+    Args:
+        param_data: Nested dict ``{trial_number: {param_name: value}}``.
+        distributions: Dict ``{param_name: distribution_json_dict}`` from Optuna.
+        top_n_trials: List of trial numbers for the top-N trials (best first).
+
+    Returns:
+        List of dicts, one per parameter. Numeric params include ``top_avg``,
+        ``top_pos_pct`` (position as % of range), and ``warning`` (non-empty
+        if ceiling/floor detected). Categorical params include value counts.
+    """
     top_set = set(top_n_trials)
     results = []
 
     for name, dist in sorted(distributions.items()):
         attrs = dist.get("attributes", {})
 
-        all_vals = [param_data[t].get(name) for t in param_data if name in param_data[t]]
-        top_vals = [param_data[t].get(name) for t in param_data if t in top_set and name in param_data[t]]
+        all_vals = [
+            param_data[t].get(name) for t in param_data if name in param_data[t]
+        ]
+        top_vals = [
+            param_data[t].get(name)
+            for t in param_data
+            if t in top_set and name in param_data[t]
+        ]
 
         entry = {"name": name, "dist_type": dist["name"]}
 
         if dist["name"] == "CategoricalDistribution":
             from collections import Counter
+
             entry["choices"] = attrs["choices"]
             entry["all_counts"] = dict(Counter(all_vals))
             entry["top_counts"] = dict(Counter(top_vals))
@@ -212,26 +331,31 @@ def analyze_ranges(param_data: dict, distributions: dict, top_n_trials: list[int
                 entry["top_avg"] = avg
                 entry["top_min"] = min(numeric_top)
                 entry["top_max"] = max(numeric_top)
-                entry["top_pos_pct"] = (avg - low) / (high - low) * 100 if high > low else 0
+                # Position as percentage of range: 0% = at floor, 100% = at ceiling
+                entry["top_pos_pct"] = (
+                    (avg - low) / (high - low) * 100 if high > low else 0
+                )
             if numeric_all:
                 entry["all_min"] = min(numeric_all)
                 entry["all_max"] = max(numeric_all)
 
-            # Warnings
+            # Ceiling/floor warnings: if the best trials are near a boundary,
+            # Optuna may be constrained and the range should be expanded
             warn = ""
             if numeric_top:
                 pos = entry["top_pos_pct"]
                 if pos >= 90:
-                    warn = "⚠⚠ ↑ TOP AVG AT CEILING"
+                    warn = "!! TOP AVG AT CEILING"
                 elif pos <= 10:
-                    warn = "⚠⚠ ↓ TOP AVG AT FLOOR"
+                    warn = "!! TOP AVG AT FLOOR"
+                # Also check the single best trial specifically
                 best_val = param_data[top_n_trials[0]].get(name)
                 if isinstance(best_val, (int, float)):
                     best_pos = (best_val - low) / (high - low) * 100
                     if best_pos >= 95:
-                        warn = "⚠⚠ ↑ BEST AT CEILING"
+                        warn = "!! BEST AT CEILING"
                     elif best_pos <= 5:
-                        warn = "⚠⚠ ↓ BEST AT FLOOR"
+                        warn = "!! BEST AT FLOOR"
             entry["warning"] = warn
 
         results.append(entry)
@@ -249,7 +373,24 @@ def generate_report(
     top_n: int,
     target_trials: int,
 ) -> str:
-    """Generate markdown report."""
+    """Generate a comprehensive markdown report for calibration analysis.
+
+    Assembles 7 report sections comparing calibration trials against baselines,
+    analyzing parameter convergence, and detecting range boundary issues.
+
+    Args:
+        study_dir: Path to the calibration output directory.
+        trials: List of ``{"number", "score"}`` dicts, sorted best-first.
+        states: Dict mapping trial state names to counts.
+        param_data: Nested dict ``{trial_number: {param_name: value}}``.
+        distributions: Dict ``{param_name: distribution_json_dict}``.
+        baselines: Dict ``{tool_name: metrics_dict}`` from ``load_baselines``.
+        top_n: Number of top trials to display in detail.
+        target_trials: Target trial count for progress percentage.
+
+    Returns:
+        Complete markdown report as a string.
+    """
     lines = []
     w = lines.append
 
@@ -263,7 +404,7 @@ def generate_report(
     fail = states.get("FAIL", 0)
     total = complete + running + fail
     pct = complete / target_trials * 100 if target_trials else 0
-    w(f"| Metric | Value |")
+    w("| Metric | Value |")
     w(f"|--------|-------|")
     w(f"| Complete | {complete} |")
     w(f"| Running | {running} |")
@@ -274,7 +415,7 @@ def generate_report(
 
     # --- 2. Top-N Trials ---
     w(f"## 2. Top {top_n} Trials\n")
-    w(f"| # | Score | Method% | MOP% | Activity% | Errors | APKs w/err |")
+    w("| # | Score | Method% | MOP% | Activity% | Errors | APKs w/err |")
     w(f"|---|-------|---------|------|-----------|--------|------------|")
 
     top_trials_metrics = []
@@ -285,34 +426,42 @@ def generate_report(
         m = compute_trial_metrics(df)
         m["number"] = t["number"]
         top_trials_metrics.append(m)
-        w(f"| {t['number']:>3} | {m['score']:.2f} | {m['method']:.2f} | {m['mop']:.2f} "
-          f"| {m['activity']:.2f} | {m['errors_sum']:.0f} | {m['n_apks_with_errors']}/{m['n_apks']} |")
+        w(
+            f"| {t['number']:>3} | {m['score']:.2f} | {m['method']:.2f} | {m['mop']:.2f} "
+            f"| {m['activity']:.2f} | {m['errors_sum']:.0f} | {m['n_apks_with_errors']}/{m['n_apks']} |"
+        )
     w("")
 
     # Score distribution
     scores = [t["score"] for t in trials]
     w("**Score distribution**:")
-    w(f"best={scores[0]:.2f}, median={np.median(scores):.2f}, "
-      f"worst={scores[-1]:.2f}, mean={np.mean(scores):.2f}, std={np.std(scores):.2f}\n")
+    w(
+        f"best={scores[0]:.2f}, median={np.median(scores):.2f}, "
+        f"worst={scores[-1]:.2f}, mean={np.mean(scores):.2f}, std={np.std(scores):.2f}\n"
+    )
 
     # --- 3. Comparison with Baselines ---
     w("## 3. Comparison with Baselines\n")
     w("All metrics use trimmed mean (10% cut) on the same APK subset.\n")
-    w(f"| Tool | Method% | MOP% | Activity% | Score | Errors | APKs w/err | Reps |")
+    w("| Tool | Method% | MOP% | Activity% | Score | Errors | APKs w/err | Reps |")
     w(f"|------|---------|------|-----------|-------|--------|------------|------|")
 
     for tool in sorted(baselines.keys()):
         b = baselines[tool]
-        w(f"| `{tool}` | {b['method']:.2f} | {b['mop']:.2f} | {b['activity']:.2f} "
-          f"| {b['score']:.2f} | {b['errors_sum']:.0f} | {b['n_apks_with_errors']}/{b['n_apks']} "
-          f"| {b['n_reps']} |")
+        w(
+            f"| `{tool}` | {b['method']:.2f} | {b['mop']:.2f} | {b['activity']:.2f} "
+            f"| {b['score']:.2f} | {b['errors_sum']:.0f} | {b['n_apks_with_errors']}/{b['n_apks']} "
+            f"| {b['n_reps']} |"
+        )
 
     # Add best calibrated and top-3 avg
     if top_trials_metrics:
         best = top_trials_metrics[0]
-        w(f"| **CALIBRATED #{best['number']}** | **{best['method']:.2f}** | **{best['mop']:.2f}** "
-          f"| **{best['activity']:.2f}** | **{best['score']:.2f}** | **{best['errors_sum']:.0f}** "
-          f"| **{best['n_apks_with_errors']}/{best['n_apks']}** | 1 |")
+        w(
+            f"| **CALIBRATED #{best['number']}** | **{best['method']:.2f}** | **{best['mop']:.2f}** "
+            f"| **{best['activity']:.2f}** | **{best['score']:.2f}** | **{best['errors_sum']:.0f}** "
+            f"| **{best['n_apks_with_errors']}/{best['n_apks']}** | 1 |"
+        )
 
         if len(top_trials_metrics) >= 3:
             top3 = top_trials_metrics[:3]
@@ -322,16 +471,18 @@ def generate_report(
             avg_score = np.mean([t["score"] for t in top3])
             avg_err = np.mean([t["errors_sum"] for t in top3])
             avg_apks_err = np.mean([t["n_apks_with_errors"] for t in top3])
-            w(f"| **CALIBRATED top-3 avg** | **{avg_m:.2f}** | **{avg_mop:.2f}** "
-              f"| **{avg_act:.2f}** | **{avg_score:.2f}** | **{avg_err:.0f}** "
-              f"| **{avg_apks_err:.0f}/{top3[0]['n_apks']}** | 1 |")
+            w(
+                f"| **CALIBRATED top-3 avg** | **{avg_m:.2f}** | **{avg_mop:.2f}** "
+                f"| **{avg_act:.2f}** | **{avg_score:.2f}** | **{avg_err:.0f}** "
+                f"| **{avg_apks_err:.0f}/{top3[0]['n_apks']}** | 1 |"
+            )
     w("")
 
     # Delta vs baselines
     if top_trials_metrics and baselines:
         best = top_trials_metrics[0]
         w("### Deltas vs baselines\n")
-        w(f"| Baseline | Δ Method | Δ MOP | Δ Score | Δ Errors |")
+        w("| Baseline | Δ Method | Δ MOP | Δ Score | Δ Errors |")
         w(f"|----------|----------|-------|---------|----------|")
         for tool in sorted(baselines.keys()):
             b = baselines[tool]
@@ -343,8 +494,10 @@ def generate_report(
             sign_mop = "+" if dmop >= 0 else ""
             sign_s = "+" if ds >= 0 else ""
             sign_e = "+" if de >= 0 else ""
-            w(f"| `{tool}` | {sign_m}{dm:.2f}pp | {sign_mop}{dmop:.2f}pp "
-              f"| {sign_s}{ds:.2f} | {sign_e}{de:.0f} |")
+            w(
+                f"| `{tool}` | {sign_m}{dm:.2f}pp | {sign_mop}{dmop:.2f}pp "
+                f"| {sign_s}{ds:.2f} | {sign_e}{de:.0f} |"
+            )
         w("")
 
     # --- 4. Per-APK Comparison (best trial vs best baseline) ---
@@ -357,14 +510,18 @@ def generate_report(
                 TRIAL_COLS["errors"], ascending=False
             )
             if len(err_df) > 0:
-                w(f"| APK | Method% | MOP% | Violations |")
+                w("| APK | Method% | MOP% | Violations |")
                 w(f"|-----|---------|------|------------|")
                 for _, row in err_df.iterrows():
                     apk_short = row["apk"][:50]
-                    w(f"| {apk_short} | {row[TRIAL_COLS['method']]:.1f} "
-                      f"| {row[TRIAL_COLS['mop']]:.1f} | {int(row[TRIAL_COLS['errors']])} |")
-                w(f"\n**{len(err_df)}/{len(best_df)} APKs** detected violations "
-                  f"(total: {int(best_df[TRIAL_COLS['errors']].sum())})\n")
+                    w(
+                        f"| {apk_short} | {row[TRIAL_COLS['method']]:.1f} "
+                        f"| {row[TRIAL_COLS['mop']]:.1f} | {int(row[TRIAL_COLS['errors']])} |"
+                    )
+                w(
+                    f"\n**{len(err_df)}/{len(best_df)} APKs** detected violations "
+                    f"(total: {int(best_df[TRIAL_COLS['errors']].sum())})\n"
+                )
             else:
                 w("No violations detected.\n")
 
@@ -375,23 +532,29 @@ def generate_report(
 
         w("## 5. Parameter Range Analysis\n")
         w(f"| Parameter | Range | Top{top_n} avg | Pos% | Warning |")
-        w(f"|-----------|-------|----------|------|---------|")
+        w("|-----------|-------|----------|------|---------|")
 
         for r in range_results:
             if r["dist_type"] == "CategoricalDistribution":
-                w(f"| `{r['name']}` | {r['choices']} | all:{r['all_counts']} "
-                  f"| — | top:{r['top_counts']} |")
+                w(
+                    f"| `{r['name']}` | {r['choices']} | all:{r['all_counts']} "
+                    f"| — | top:{r['top_counts']} |"
+                )
             else:
                 low, high = r["low"], r["high"]
                 if "top_avg" in r:
                     avg = r["top_avg"]
                     pos = r["top_pos_pct"]
                     if isinstance(low, float) and low < 1:
-                        w(f"| `{r['name']}` | [{low:.3f}, {high:.3f}] "
-                          f"| {avg:.4f} | {pos:.0f}% | {r['warning']} |")
+                        w(
+                            f"| `{r['name']}` | [{low:.3f}, {high:.3f}] "
+                            f"| {avg:.4f} | {pos:.0f}% | {r['warning']} |"
+                        )
                     else:
-                        w(f"| `{r['name']}` | [{low:.0f}, {high:.0f}] "
-                          f"| {avg:.1f} | {pos:.0f}% | {r['warning']} |")
+                        w(
+                            f"| `{r['name']}` | [{low:.0f}, {high:.0f}] "
+                            f"| {avg:.1f} | {pos:.0f}% | {r['warning']} |"
+                        )
                 else:
                     w(f"| `{r['name']}` | [{low}, {high}] | N/A (conditional) | — | |")
         w("")
@@ -400,7 +563,7 @@ def generate_report(
     if top_trials_metrics:
         best_num = top_trials_metrics[0]["number"]
         w(f"## 6. Best Trial #{best_num} Parameters\n")
-        w(f"| Parameter | Value | Position in range |")
+        w("| Parameter | Value | Position in range |")
         w(f"|-----------|-------|-------------------|")
         params = param_data.get(best_num, {})
         for name in sorted(params.keys()):
@@ -425,27 +588,30 @@ def generate_report(
     # --- 7. Convergence ---
     w("## 7. Convergence by Round\n")
     trials_by_num = sorted(trials, key=lambda t: t["number"])
-    w(f"| Round | Trials | Best in round | Best overall | Improved? |")
+    w("| Round | Trials | Best in round | Best overall | Improved? |")
     w(f"|-------|--------|---------------|-------------|-----------|")
 
     round_size = 10  # default containers per round
     best_so_far = -float("inf")
     for i in range(0, len(trials_by_num), round_size):
-        chunk = trials_by_num[i:i + round_size]
+        chunk = trials_by_num[i : i + round_size]
         round_n = i // round_size + 1
         round_best = max(t["score"] for t in chunk)
         improved = ""
         if round_best > best_so_far:
             best_so_far = round_best
             improved = "← NEW BEST"
-        w(f"| {round_n} | {chunk[0]['number']}-{chunk[-1]['number']} "
-          f"| {round_best:.2f} | {best_so_far:.2f} | {improved} |")
+        w(
+            f"| {round_n} | {chunk[0]['number']}-{chunk[-1]['number']} "
+            f"| {round_best:.2f} | {best_so_far:.2f} | {improved} |"
+        )
     w("")
 
     return "\n".join(lines)
 
 
-def main():
+def main() -> None:
+    """Parse arguments, load data, and generate the calibration report."""
     parser = argparse.ArgumentParser(
         description="Analyze APE-RV calibration progress vs baselines.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -482,7 +648,8 @@ def main():
         help="Target number of trials for progress percentage (default: 130)",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=Path,
         default=None,
         help="Write report to file instead of stdout",

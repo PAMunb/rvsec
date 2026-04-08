@@ -154,13 +154,14 @@ rv-platform list-tools --detailed
 #### Configuration and Execution
 
 ```python
-from rv_platform.config.platform_config import PlatformConfig, ToolConfig
+from rv_platform.config.platform_config import PlatformConfig
+from rv_android_core.domain.task import ToolConfig
 from rv_platform.platform import Platform
 
 # Create tool configurations with variants
 tools = [
-    ToolConfig(name="monkey", variants=["default"], parameters={}),
-    ToolConfig(name="droidbot", variants=["dfs_greedy"], parameters={"count": 1000})
+    ToolConfig(name="monkey"),
+    ToolConfig(name="droidbot", variant="dfs_greedy", parameters={"count": 1000})
 ]
 
 # Create platform configuration
@@ -209,7 +210,7 @@ results = platform.run()
   "tools": [
     {
       "name": "monkey",
-      "variants": ["default"],
+      "variant": "default",
       "parameters": {}
     }
   ],
@@ -229,7 +230,7 @@ results = platform.run()
   "tools": [
     {
       "name": "monkey",
-      "variants": ["default"],
+      "variant": "default",
       "parameters": {
         "event_count": 1000,
         "seed": 42
@@ -237,7 +238,7 @@ results = platform.run()
     },
     {
       "name": "droidbot",
-      "variants": ["dfs_greedy"],
+      "variant": "dfs_greedy",
       "parameters": {
         "count": 500
       }
@@ -269,10 +270,13 @@ uv run pytest tests/components/
 
 ### Test Structure
 
+- `tests/test_platform.py`: Platform-level tests
 - `tests/execution/`: Task execution and lifecycle management tests
-- `tests/execution/test_resume.py`: Resume and result consolidation tests (U1-U10, U15-U17)
-- `tests/components/`: Individual component functionality tests
+- `tests/execution/test_resume.py`: Resume and result consolidation tests
+- `tests/execution/test_resume_integration.py`: Resume integration tests
+- `tests/components/`: Individual component functionality tests (coverage, emulator, logcat, result processor, static analysis, tool execution)
 - `tests/config/`: Configuration management and validation tests
+- `tests/storage/`: TaskStorage persistence tests
 
 ## Performance Characteristics
 
@@ -293,7 +297,8 @@ uv run pytest tests/components/
 
 ```python
 # Complete experiment execution
-from rv_platform.config.platform_config import PlatformConfig, ToolConfig
+from rv_platform.config.platform_config import PlatformConfig
+from rv_android_core.domain.task import ToolConfig
 from rv_platform.platform import Platform
 
 # Setup for comprehensive testing
@@ -346,7 +351,8 @@ rv-platform supports resuming experiments through `TaskStorage` persistence. Whe
 
 ```python
 from rv_platform.platform import Platform
-from rv_platform.config.platform_config import PlatformConfig, ToolConfig
+from rv_platform.config.platform_config import PlatformConfig
+from rv_android_core.domain.task import ToolConfig
 
 # Same config as original run, but with more repetitions
 config = PlatformConfig(

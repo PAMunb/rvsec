@@ -46,15 +46,59 @@ Scenarios from `openspec/specs/platform/spec.md` that validate this architecture
 
 ## Key Architectural Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Application Type | CLI tool + library (dual interface) | Standalone CLI via `rv-platform run` for direct use; programmatic API via `Platform(config).run()` for rv-experiment integration |
-| Structuring | Component-based modular | Each execution concern (emulator, logcat, coverage, static analysis, tool) is an independent component with standardized lifecycle |
-| Primary Pattern | Component with lifecycle (initialize/execute/cleanup) | Task execution involves 5 orthogonal concerns with strict ordering requirements; components encapsulate each concern while the executor coordinates them |
-| Control Strategy | Call-based with phase coordination | `TaskExecutor` explicitly calls components in 3 phases; no event-driven dispatch because execution order is deterministic and critical |
-| Persistence Strategy | Atomic file operations with transactions | Experiments run for hours; atomic writes (temp + fsync + rename) prevent data loss on interruption; transactions enable batched updates |
-| Timeout Handling | Timeout as success | Testing tools run for a configured duration; timeout is the normal termination mechanism, not an error |
-| Static Analysis | Non-critical (graceful degradation) | Static analysis data enriches coverage tracking but is not required; execution continues without it to avoid blocking experiments due to analysis failures |
+### AD-1: Dual Interface (CLI + Library)
+
+**Choice**: Expose both a standalone CLI (`rv-platform run`) and a programmatic API (`Platform(config).run()`).
+
+**Why**: rv-platform serves two audiences. Researchers use the CLI for quick, standalone experiments without the full rv-experiment pipeline. rv-experiment uses the programmatic API to delegate execution as Phase 2 of its three-phase workflow. Supporting both avoids forcing rv-experiment to shell out to a CLI, which would lose type safety and error propagation, while still allowing the platform to operate independently.
+
+### AD-2: Component-Based Task Execution
+
+**Choice**: Decompose task execution into 5 pluggable components (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution), each implementing the `ITaskComponent` interface with `initialize/execute/cleanup` lifecycle.
+
+**Why**: Task execution involves orthogonal concerns that interact in specific ways -- static analysis data must load before the coverage tracker can classify methods; logcat capture must start before coverage tracking begins; coverage must stop before logcat stops. A monolithic executor would tangle these ordering constraints. Components encapsulate each concern independently, and the `TaskExecutor` enforces the ordering through three explicit phases. Adding a new concern (e.g., screenshots, memory profiling) requires only implementing `ITaskComponent` and registering it, without modifying existing components.
+
+**Invariant cross-reference**: INV-PLT-06 guarantees all component `cleanup()` methods are called even if a preceding component fails. This is enforced by `TaskExecutor._cleanup_resources()`, which iterates components in a try/except per component.
+
+### AD-3: Three-Phase Coordinated Execution
+
+**Choice**: Execute components in three phases: Phase 1 (static analysis -- no emulator), Phase 2 (coverage init -- no emulator), Phase 3 (emulator session with tool execution).
+
+**Why**: Static analysis data loading and coverage tracker initialization are CPU/IO operations that do not require an Android emulator. Starting the emulator before these complete wastes emulator time (emulators consume significant resources) and creates a race condition where the coverage tracker might miss early method calls. The three-phase design ensures all preparation is complete before the emulator starts, maximizing the useful execution window.
+
+**Invariant cross-reference**: INV-PLT-13 requires Phase 3 to execute within the emulator context manager. If either `EmulatorComponent` or `ToolExecutionComponent` is missing, the emulator session is skipped with a warning.
+
+### AD-4: Timeout as Success
+
+**Choice**: When a testing tool exceeds its configured timeout, `ToolExecutionComponent` catches `RVToolTimeoutError` and returns `True` (success).
+
+**Why**: In time-bounded experiments, the timeout is the normal termination mechanism. The researcher configures "run Monkey for 300 seconds" -- after 300 seconds, the timeout fires, execution stops, and results are collected. This is not an error condition; it is the expected outcome. If timeouts were treated as errors, every experiment run would report 100% task failure despite producing valid coverage data.
+
+**Invariant cross-reference**: INV-PLT-04 formalizes this: `RVToolTimeoutError` MUST be caught by `ToolExecutionComponent.execute()` and treated as success.
+
+### AD-5: Atomic Task Persistence
+
+**Choice**: `TaskStorage.save()` uses write-to-temp-file-then-rename (`fsync` + `shutil.move`) for atomic saves, with thread safety via `RLock`.
+
+**Why**: Experiments run for hours (the ICST study ran 188 APKs across 7 Docker containers). If the process is killed mid-write, a partially written `tasks.json` would lose all previous results. The temp-file-then-rename pattern ensures the file is either fully written or not updated at all. The `RLock` is needed because the background coverage tracking thread (in rv-coverage) accesses `TaskStorage` concurrently with the main execution thread.
+
+**Invariant cross-reference**: INV-PLT-03 requires atomic file operations. INV-PLT-07 requires thread safety via `RLock`. INV-PLT-08 governs auto-save behavior.
+
+### AD-6: Non-Critical Static Analysis
+
+**Choice**: Static analysis data loading is non-critical. If it fails, execution continues without static data.
+
+**Why**: Static analysis (GATOR/GESDA/REACH) provides method reachability data that enriches coverage tracking -- it enables the platform to classify methods as "reachable," "reaches MOP," or "directly reaches MOP." Without it, coverage tracking still works (methods are recorded), but the MOP-specific coverage percentages will be less informative. Blocking an entire experiment because a GATOR parse failed would be disproportionate -- the researcher can still collect useful data without static analysis enrichment.
+
+**Invariant cross-reference**: INV-PLT-05 requires `StaticAnalysisComponent.execute()` to return `True` on failure, logging a warning.
+
+### AD-7: Deterministic Task Generation
+
+**Choice**: APKs are discovered via `glob("*.apk")` and sorted alphabetically. Tasks are the Cartesian product of APKs x tools x repetitions x timeouts.
+
+**Why**: Deterministic task generation is essential for experiment resume. When a researcher re-runs the same command after an interruption, `Platform._generate_tasks()` produces the same task list. `_skip_completed_tasks()` then matches tasks by identity tuple `(apk_name, tool_name, variant, repetition, timeout)` and removes already-completed tasks. Non-deterministic ordering would cause identity mismatches and force re-execution of completed tasks.
+
+**Invariant cross-reference**: INV-PLT-01 requires exactly `|APKs| x |tool_configs| x repetitions x |timeouts|` tasks.
 
 ## Architectural Patterns
 
@@ -299,6 +343,106 @@ sequenceDiagram
 - **Background logcat capture**: `LogcatManager` starts a background process that writes logcat output to a file on disk
 - **Background coverage tracking**: `CoverageTracker` runs a background thread monitoring the logcat file for `RVSEC-COV` entries, publishing `COVERAGE_UPDATED` events to the EventBus
 - **Thread-safe storage**: `TaskStorage` uses `RLock` for all public methods (INV-PLT-07), supporting concurrent reads from the coverage tracking thread and writes from the main execution thread
+
+---
+
+## Data Flow
+
+This section traces how data moves through rv-platform during a complete experiment run, from configuration input through result output.
+
+### Input Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Input["Input Sources"]
+        CLI["CLI args or\nrv-experiment"]
+        APKDir["apks_dir/\n*.apk files"]
+        StaticFiles["*.reach, *.wtg,\n*.gesda files"]
+        PrevTasks["tasks.json\n(previous run)"]
+    end
+
+    subgraph Config["Configuration"]
+        PConfig["PlatformConfig\n(Pydantic validated)"]
+    end
+
+    subgraph Generation["Task Generation"]
+        Discover["_discover_apks()\nsorted glob"]
+        GenTasks["_generate_tasks()\nCartesian product"]
+        Skip["_skip_completed_tasks()\nidentity matching"]
+    end
+
+    CLI --> PConfig
+    PConfig --> Discover
+    APKDir --> Discover
+    Discover --> GenTasks
+    GenTasks --> Skip
+    PrevTasks --> Skip
+```
+
+1. **Configuration ingress**: `PlatformConfig` arrives from rv-experiment (programmatic) or CLI argument parsing. Pydantic validates all fields at construction (INV-PLT-09).
+2. **APK discovery**: `_discover_apks()` globs `*.apk` in `apks_dir`, sorts alphabetically, creates `App` instances via Androguard.
+3. **Task generation**: `_generate_tasks()` computes the Cartesian product of APKs x tools x repetitions x timeouts (INV-PLT-01).
+4. **Resume filtering**: `_skip_completed_tasks()` loads completed tasks from `TaskStorage` and removes matching identity tuples from the execution list.
+
+### Per-Task Execution Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Phase1["Phase 1: Pre-Emulator"]
+        SA["StaticAnalysis\nComponent"]
+        SAData["GATOR/GESDA/REACH\ndata loaded"]
+    end
+
+    subgraph Phase2["Phase 2: Pre-Emulator"]
+        CovInit["Coverage\nComponent init"]
+        Tracker["CoverageTracker\nconfigured"]
+    end
+
+    subgraph Phase3["Phase 3: Emulator Session"]
+        direction TB
+        EMU["Emulator start"]
+        APKInst["APK install"]
+        LogStart["Logcat start\n(background process)"]
+        CovStart["Coverage start\n(background thread)"]
+        ToolRun["Tool execution\n(timeout-bounded)"]
+        CovStop["Coverage stop"]
+        CovProcess["Coverage results\nprocessed"]
+        LogStop["Logcat stop"]
+    end
+
+    SA --> SAData
+    SAData --> CovInit
+    CovInit --> Tracker
+    Tracker --> Phase3
+    EMU --> APKInst
+    APKInst --> LogStart
+    LogStart --> CovStart
+    CovStart --> ToolRun
+    ToolRun --> CovStop
+    CovStop --> CovProcess
+    CovProcess --> LogStop
+```
+
+During Phase 3, data flows through three concurrent channels:
+- **Logcat file**: The `LogcatManager` background process writes raw logcat output to disk. This file persists after task completion and is the source of truth for MOP violation reconstruction on resume.
+- **CoverageTracker thread**: A background thread monitors the logcat file for `RVSEC-COV` entries, parsing them into `RvCoverageLog` objects that are registered in `LogcatRepository`. The `RVSEC` entries (specification violations) are stored as `RvErrorLog` objects.
+- **Tool execution**: The testing tool (Monkey, DroidBot, rv-agent, etc.) exercises the Android application, generating the logcat entries that the other two channels consume.
+
+### Output Data Flow
+
+After all tasks complete, `Platform._process_results()` calls `TaskStorage.get_completed_tasks()` to collect ALL completed tasks across all sessions (INV-PLT-10 filters for `TaskState.COMPLETED`). `ResultProcessorComponent` generates five output files:
+
+| Output File | Data Source | Content |
+|-------------|-------------|---------|
+| `coverage.csv` | `LogcatRepository` per-method data (current session) or `CoverageMetrics` summary (resumed tasks) | Progressive method coverage with timestamps |
+| `errors.csv` | `LogcatRepository` errors or `parse_logcat_file()` reconstruction | Monitored operations violations |
+| `summary.csv` | `CoverageMetrics` from `task.result.coverage_metrics` | Aggregate per-task metrics |
+| `results.json` | Combined coverage + violation data | Hierarchical JSON keyed by APK/rep/timeout/tool |
+| `performance.csv` | `PerformanceMonitor` timing data | Task execution durations |
+
+For resumed tasks (where `task.repository` is `None`), `ResultProcessorComponent` reconstructs MOP violation data by calling `parse_logcat_file()` from rv-coverage. Per-method progressive coverage data cannot be reconstructed because `register_method_call()` requires static analysis class data that is not serialized in `tasks.json`.
 
 ---
 

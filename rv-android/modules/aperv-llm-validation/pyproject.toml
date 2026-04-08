@@ -2,6 +2,7 @@
 name = "aperv-llm-validation"
 version = "0.1.0"
 description = "Offline validation module for APE-RV LLM coordinate mapping pipeline"
+readme = "README.md"
 authors = [{name = "RV-Android Team"}]
 requires-python = ">=3.12"
 dependencies = [

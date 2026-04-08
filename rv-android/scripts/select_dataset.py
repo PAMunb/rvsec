@@ -28,8 +28,8 @@ import os
 import random
 import sys
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import List
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,11 +43,11 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 SIZE_BUCKETS = {
-    "tiny":   (0, 50),
-    "small":  (50, 200),
+    "tiny": (0, 50),
+    "small": (50, 200),
     "medium": (200, 500),
-    "large":  (500, 1500),
-    "xlarge": (1500, float("inf")),
+    "large": (500, 1500),
+    "xlarge": (1500, float("in")),
 }
 
 
@@ -61,6 +61,7 @@ def get_size_bucket(methods: int) -> str:
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ApkInfo:
@@ -83,6 +84,7 @@ class ApkInfo:
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
+
 
 def load_passed_apks(path: str) -> List[str]:
     """Load APK names from passed_apks.txt (one per line)."""
@@ -130,14 +132,16 @@ def build_apk_info_list(passed_apks: List[str], metadata: dict) -> List[ApkInfo]
         except (ValueError, TypeError):
             crashes = 0
 
-        infos.append(ApkInfo(
-            apk=apk,
-            methods=methods,
-            categories=parse_categories(row.get("categories", "")),
-            crashes=crashes,
-            manifest_package=row.get("manifest_package", ""),
-            detected_package=row.get("detected_package", ""),
-        ))
+        infos.append(
+            ApkInfo(
+                apk=apk,
+                methods=methods,
+                categories=parse_categories(row.get("categories", "")),
+                crashes=crashes,
+                manifest_package=row.get("manifest_package", ""),
+                detected_package=row.get("detected_package", ""),
+            )
+        )
 
     if missing:
         log.warning(f"{missing} APKs had no metadata in CSV")
@@ -148,6 +152,7 @@ def build_apk_info_list(passed_apks: List[str], metadata: dict) -> List[ApkInfo]
 # ---------------------------------------------------------------------------
 # Statistics
 # ---------------------------------------------------------------------------
+
 
 def print_stats(infos: List[ApkInfo]) -> None:
     """Print dataset statistics."""
@@ -160,7 +165,7 @@ def print_stats(infos: List[ApkInfo]) -> None:
     print("Size distribution (by methods count):")
     for bucket in SIZE_BUCKETS:
         lo, hi = SIZE_BUCKETS[bucket]
-        hi_str = str(int(hi)) if hi != float("inf") else "+"
+        hi_str = str(int(hi)) if hi != float("in") else "+"
         print(f"  {bucket:8s} ({lo}-{hi_str}): {size_counts.get(bucket, 0):3d}")
     print()
 
@@ -175,8 +180,10 @@ def print_stats(infos: List[ApkInfo]) -> None:
     methods = sorted(a.methods for a in infos)
     n = len(methods)
     print("Methods stats:")
-    print(f"  min={methods[0]}, Q1={methods[n//4]}, median={methods[n//2]}, "
-          f"Q3={methods[3*n//4]}, max={methods[-1]}, mean={sum(methods)/n:.0f}")
+    print(
+        f"  min={methods[0]}, Q1={methods[n//4]}, median={methods[n//2]}, "
+        f"Q3={methods[3*n//4]}, max={methods[-1]}, mean={sum(methods)/n:.0f}"
+    )
     print()
 
     # Crashes stats
@@ -190,7 +197,11 @@ def print_stats(infos: List[ApkInfo]) -> None:
     print()
 
     # Package mismatches
-    mismatches = [a for a in infos if a.manifest_package != a.detected_package and a.detected_package]
+    mismatches = [
+        a
+        for a in infos
+        if a.manifest_package != a.detected_package and a.detected_package
+    ]
     print(f"Package mismatches (manifest != detected): {len(mismatches)}/{len(infos)}")
     print()
 
@@ -205,6 +216,7 @@ def print_stats(infos: List[ApkInfo]) -> None:
 # ---------------------------------------------------------------------------
 # Stratified split
 # ---------------------------------------------------------------------------
+
 
 def stratified_split(
     infos: List[ApkInfo],
@@ -273,7 +285,9 @@ def stratified_split(
     while len(cal_set) > cal_size:
         holdout_set.append(cal_set.pop())
 
-    log.info(f"Split: {len(cal_set)} calibration + {len(holdout_set)} holdout = {len(cal_set) + len(holdout_set)} total")
+    log.info(
+        f"Split: {len(cal_set)} calibration + {len(holdout_set)} holdout = {len(cal_set) + len(holdout_set)} total"
+    )
     return cal_set, holdout_set
 
 
@@ -319,7 +333,9 @@ def print_split_comparison(cal: List[ApkInfo], holdout: List[ApkInfo]) -> None:
     print(f"  {'':10s} {'Cal':>10s}  {'Holdout':>10s}")
     print(f"  {'min':10s} {cal_m[0]:10d}  {hold_m[0]:10d}")
     print(f"  {'median':10s} {cal_m[len(cal_m)//2]:10d}  {hold_m[len(hold_m)//2]:10d}")
-    print(f"  {'mean':10s} {sum(cal_m)/len(cal_m):10.0f}  {sum(hold_m)/len(hold_m):10.0f}")
+    print(
+        f"  {'mean':10s} {sum(cal_m)/len(cal_m):10.0f}  {sum(hold_m)/len(hold_m):10.0f}"
+    )
     print(f"  {'max':10s} {cal_m[-1]:10d}  {hold_m[-1]:10d}")
     print()
 
@@ -327,6 +343,7 @@ def print_split_comparison(cal: List[ApkInfo], holdout: List[ApkInfo]) -> None:
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
+
 
 def write_apk_list(apks: List[ApkInfo], path: str) -> None:
     """Write APK names to text file (one per line, without .apk extension)."""
@@ -342,15 +359,33 @@ def write_detailed_csv(apks: List[ApkInfo], path: str, set_name: str) -> None:
     """Write detailed CSV with metadata for each APK in the set."""
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "apk", "set", "methods", "size_bucket", "primary_category",
-            "crashes", "manifest_package", "detected_package", "stratum"
-        ])
+        writer.writerow(
+            [
+                "apk",
+                "set",
+                "methods",
+                "size_bucket",
+                "primary_category",
+                "crashes",
+                "manifest_package",
+                "detected_package",
+                "stratum",
+            ]
+        )
         for a in sorted(apks, key=lambda x: x.apk):
-            writer.writerow([
-                a.apk, set_name, a.methods, a.size_bucket, a.primary_category,
-                a.crashes, a.manifest_package, a.detected_package, a.stratum
-            ])
+            writer.writerow(
+                [
+                    a.apk,
+                    set_name,
+                    a.methods,
+                    a.size_bucket,
+                    a.primary_category,
+                    a.crashes,
+                    a.manifest_package,
+                    a.detected_package,
+                    a.stratum,
+                ]
+            )
     log.info(f"Wrote detailed CSV to {path}")
 
 
@@ -371,27 +406,58 @@ def write_full_report(
     write_apk_list(all_apks, os.path.join(output_dir, "all_valid_apks.txt"))
 
     # Detailed CSVs
-    write_detailed_csv(cal, os.path.join(output_dir, "calibration_set_v2.csv"), "calibration")
-    write_detailed_csv(holdout, os.path.join(output_dir, "holdout_set_v2.csv"), "holdout")
+    write_detailed_csv(
+        cal, os.path.join(output_dir, "calibration_set_v2.csv"), "calibration"
+    )
+    write_detailed_csv(
+        holdout, os.path.join(output_dir, "holdout_set_v2.csv"), "holdout"
+    )
 
     # Combined CSV
     combined_path = os.path.join(output_dir, "dataset_split.csv")
     with open(combined_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "apk", "set", "methods", "size_bucket", "primary_category",
-            "crashes", "stratum"
-        ])
+        writer.writerow(
+            [
+                "apk",
+                "set",
+                "methods",
+                "size_bucket",
+                "primary_category",
+                "crashes",
+                "stratum",
+            ]
+        )
         for a in sorted(cal, key=lambda x: x.apk):
-            writer.writerow([a.apk, "calibration", a.methods, a.size_bucket, a.primary_category, a.crashes, a.stratum])
+            writer.writerow(
+                [
+                    a.apk,
+                    "calibration",
+                    a.methods,
+                    a.size_bucket,
+                    a.primary_category,
+                    a.crashes,
+                    a.stratum,
+                ]
+            )
         for a in sorted(holdout, key=lambda x: x.apk):
-            writer.writerow([a.apk, "holdout", a.methods, a.size_bucket, a.primary_category, a.crashes, a.stratum])
+            writer.writerow(
+                [
+                    a.apk,
+                    "holdout",
+                    a.methods,
+                    a.size_bucket,
+                    a.primary_category,
+                    a.crashes,
+                    a.stratum,
+                ]
+            )
     log.info(f"Wrote combined split CSV to {combined_path}")
 
     # Summary
     summary_path = os.path.join(output_dir, "selection_summary.txt")
     with open(summary_path, "w", encoding="utf-8") as f:
-        f.write(f"Dataset Selection Summary\n")
+        f.write("Dataset Selection Summary\n")
         f.write(f"========================\n\n")
         f.write(f"Date: auto-generated\n")
         f.write(f"Seed: {seed}\n")
@@ -399,7 +465,7 @@ def write_full_report(
         f.write(f"Calibration set: {len(cal)} APKs\n")
         f.write(f"Holdout set: {len(holdout)} APKs\n")
         f.write(f"Cal ratio: {len(cal)/len(all_apks)*100:.1f}%\n\n")
-        f.write(f"Stratification: primary_category + size_bucket\n")
+        f.write("Stratification: primary_category + size_bucket\n")
         f.write(f"Size buckets: {SIZE_BUCKETS}\n")
     log.info(f"Wrote summary to {summary_path}")
 
@@ -407,6 +473,7 @@ def write_full_report(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -436,27 +503,35 @@ Examples:
         """,
     )
     parser.add_argument(
-        "--passed-apks", required=True,
+        "--passed-apks",
+        required=True,
         help="Path to passed_apks.txt from filter_apks_static_analysis.py",
     )
     parser.add_argument(
-        "--csv", required=True,
+        "--csv",
+        required=True,
         help="Path to apks_complete.csv with metadata",
     )
     parser.add_argument(
-        "--cal-size", type=int, default=None,
+        "--cal-size",
+        type=int,
+        default=None,
         help="Number of APKs for calibration set (rest goes to holdout)",
     )
     parser.add_argument(
-        "--output-dir", default="./out/dataset_selection",
+        "--output-dir",
+        default="./out/dataset_selection",
         help="Output directory for split files (default: ./out/dataset_selection)",
     )
     parser.add_argument(
-        "--seed", type=int, default=42,
+        "--seed",
+        type=int,
+        default=42,
         help="Random seed for reproducibility (default: 42)",
     )
     parser.add_argument(
-        "--stats-only", action="store_true",
+        "--stats-only",
+        action="store_true",
         help="Only print dataset statistics, don't split",
     )
 
@@ -491,7 +566,7 @@ Examples:
     print(f"\nOutput written to: {args.output_dir}/")
     print(f"  calibration_set_v2.txt  ({len(cal)} APKs)")
     print(f"  holdout_set_v2.txt      ({len(holdout)} APKs)")
-    print(f"  dataset_split.csv       (combined with metadata)")
+    print("  dataset_split.csv       (combined with metadata)")
 
 
 if __name__ == "__main__":

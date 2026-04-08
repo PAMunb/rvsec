@@ -1,6 +1,0 @@
-class,method,parameters,signature,is_activity,reachable,reaches_mop,directly_reaches_mop,androguard
-com.android.keepass.KeePass,startFileSelect,,startFileSelect(),True,True,False,False,True
-com.android.keepass.KeePass,onActivityResult,"int,int,android.content.Intent","onActivityResult(int,int,android.content.Intent)",True,True,False,False,True
-com.android.keepass.KeePass,onStart,,onStart(),True,True,False,False,True
-com.android.keepass.KeePass,onDestroy,,onDestroy(),True,True,False,False,True
-com.android.keepass.KeePass,onCreate,android.os.Bundle,onCreate(android.os.Bundle),True,True,False,False,True

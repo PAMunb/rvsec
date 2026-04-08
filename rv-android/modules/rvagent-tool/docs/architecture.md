@@ -43,6 +43,22 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 | Import Strategy | Lazy imports in `execute_tool_specific_logic()` | Avoids circular dependencies at registration time (rv-tools -> rvagent-tool -> rv-agent) |
 | Timeout Ownership | Task controls timeout, not variants | Keeps execution timeout uniform across all tools; prevents variant misconfiguration |
 
+### Why Lazy Imports?
+
+rvagent-tool registers itself with the `ToolRegistry` at import time (when rv-platform starts). At that point, rv-agent's heavy dependencies (LangGraph, LangChain, PIL, scipy) would be loaded even for experiments that use Monkey or DroidBot. Lazy imports in `execute_tool_specific_logic()` defer this cost to execution time, when rv-agent is actually needed. This also breaks a potential circular dependency chain: rv-tools depends on rv-android-core, rvagent-tool depends on rv-tools, and rv-agent depends on rv-android-core -- eagerly importing rv-agent at registration time would pull in the full dependency graph before the registry is ready.
+
+### Why Task Controls Timeout?
+
+In the rv-platform execution model, all tools receive the same timeout from the experiment configuration. If variants could override timeout, an experiment specifying `--timeout 300` might silently run one tool for 600 seconds because a variant redefined it. By making timeout exclusively sourced from `task.config.timeout`, rv-platform controls the execution budget uniformly. The `build_agent_config_dict()` function enforces this by mapping timeout only from the task, never from `tool_config`.
+
+### Why a Separate Config Module?
+
+The `config.py` module exists because the parameter mapping between rv-platform's domain (Task, App, ToolConfig) and rv-agent's domain (RVAgentConfig) spans 40+ parameters across 6 categories (LLM, strategy, scorer, error detection, fallback, metrics). Embedding this mapping in `tool.py` would make the tool class unwieldy and harder to test. The separation allows unit-testing the mapping logic independently from the AbstractTool lifecycle.
+
+### Why Empty Process Pattern?
+
+rv-agent interacts with the Android device through UIAutomator2, which manages its own process lifecycle on the device. Unlike tools like DroidBot (which spawn a persistent process matching a pattern) or APE-RV (which runs as `com.android.commands.monkey`), rv-agent has no device-side process to kill after execution. Setting `process_pattern=""` means `kill_related_processes()` is a no-op, which is the correct behavior.
+
 ## Architectural Patterns
 
 ### Pattern: Adapter
@@ -356,6 +372,80 @@ classDiagram
 2. `ToolFactory` gets variant config (`llm_probability=0.7`) and merges with parameters (`llm_probability=0.9` overrides)
 3. `configure()` stores the merged config with `llm_probability=0.9`
 4. During execution, `build_agent_config_dict()` includes `llm_probability=0.9` in the config dict
+
+---
+
+## Data Flow
+
+This section describes how data flows through rvagent-tool from rv-platform input to rv-agent execution.
+
+### Configuration Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Input["rv-platform Input"]
+        Task["Task\n(device_id, timeout,\nstatic_data, results_dir)"]
+        App["App\n(package_name)"]
+        ToolConfig["ToolConfig\n(name, variant, parameters)"]
+    end
+
+    subgraph Factory["ToolFactory"]
+        Resolve["Resolve variant\nfrom registry"]
+        Merge["Merge variant defaults\n+ parameter overrides"]
+    end
+
+    subgraph Adapter["rvagent-tool"]
+        Configure["configure()\nStores merged config"]
+        BuildDict["build_agent_config_dict()\nMaps 40+ params across\n6 categories"]
+        GetStatic["get_static_data()\nExtracts task.static_data"]
+    end
+
+    subgraph Output["rv-agent Input"]
+        AgentConfig["RVAgentConfig\n(Pydantic model)"]
+        StaticData["StaticAnalysisData\n(optional)"]
+        AgentInst["AgentFactory.create_agent()"]
+    end
+
+    ToolConfig --> Resolve
+    Resolve --> Merge
+    Merge --> Configure
+    Task --> BuildDict
+    App --> BuildDict
+    Configure --> BuildDict
+    BuildDict --> AgentConfig
+    Task --> GetStatic
+    GetStatic --> StaticData
+    AgentConfig --> AgentInst
+    StaticData --> AgentInst
+```
+
+### Parameter Mapping Categories
+
+`build_agent_config_dict()` maps parameters in explicit groups. Each group is an enumerated list of parameter names, making the mapping auditable and preventing accidental passthrough of unsupported parameters.
+
+| Category | Source | Parameters | Count |
+|----------|--------|------------|-------|
+| Core | Task + App | package_name, device_id, timeout, repetition | 4 |
+| Mode | ToolConfig variant | agent_mode, llm_probability, strategy, debug_mode | 4 |
+| LLM | ToolConfig variant | llm_model, llm_base_url, llm_temperature, llm_top_p, llm_top_k, llm_max_tokens, llm_timeout, prompt_version | 8 |
+| Strategy | ToolConfig variant | plateau_window, max_input_variations, stochastic_probability, stochastic_temperature, backtrack_saturation_threshold, multi_value_saturation_threshold, mop_nav_weight, mop_max_input_variations | 8 |
+| Scorer | ToolConfig variant | mop_direct_score, mop_transitive_score, wtg_guided_score, unsaturated_bonus, visitation_penalty_factor, strength_weight, gradual_decay_base/rate/min_visits, component_high/medium_priority, max_re_enables, ui_coverage_threshold, coverage_density_weight, reward_gamma, reward_score_weight, scroll_probability | 16 |
+| Error Detection | ToolConfig variant | error_detection_confidence, error_max_indicator_size/count, spatial_edittext_boost, spatial_spinner_boost, spatial_min_match_threshold | 6 |
+| Fallback | ToolConfig variant | max_short_term_iterations, llm_max_retries | 2 |
+| Metrics | Task | metrics_output_dir (from task.results_dir) | 1 |
+
+### Static Analysis Data Flow
+
+Static analysis data flows from rv-platform's `StaticAnalysisComponent` through the task context to rv-agent:
+
+1. rv-platform's pre-processing phase runs GATOR static analysis on the APK
+2. Results are stored in `task.static_data` as a `StaticAnalysisData` instance
+3. `get_static_data(task)` extracts this data with a safe `hasattr` check
+4. `AgentFactory.create_agent(config, static_data)` receives it
+5. Inside rv-agent, the data feeds `TransitionManager` (WTG navigation) and `MopScorer` (action prioritization)
+
+When static analysis is unavailable (e.g., `RVSEC_HOME` not set), `get_static_data()` returns None and rv-agent operates without WTG guidance or MOP scoring, relying solely on the algorithmic DFS strategy and UI-based heuristics.
 
 ---
 

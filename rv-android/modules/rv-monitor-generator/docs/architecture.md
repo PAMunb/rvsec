@@ -38,14 +38,171 @@ Scenarios from `openspec/specs/instrumentation/spec.md` that validate this archi
 
 ## Key Architectural Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Application Type | Library with CLI wrapper | Used programmatically by rv-experiment (PreProcessor) and standalone via CLI |
-| Structuring | Two-class module: config + generator | Configuration validation is complex enough (path resolution, tool probing) to warrant separation from pipeline logic |
-| Primary Pattern | Pipeline (sequential stages) | Monitor generation is an inherently sequential process: JavaMOP must complete before RV-Monitor can process `.rvm` files |
-| Control Strategy | Synchronous call-based | External tools (JavaMOP, RV-Monitor) are blocking processes; no concurrency benefit within a single generation run |
-| Configuration Strategy | Priority-based resolution with fail-fast validation | Supports multiple deployment scenarios (CI, development, explicit paths) while catching configuration errors at initialization rather than during execution |
-| Error Handling | Centralized via ErrorHandler | Consistent with rv-android-core error handling patterns used across all modules |
+### Decision 1: Two-Class Module (Config + Generator)
+
+**Choice**: Separate configuration resolution/validation (`RVGeneratorConfig`) from pipeline execution (`RuntimeVerificationGenerator`).
+
+**Why**: Configuration validation is non-trivial for this module -- it probes external tool binaries by running them with `-h`, scans directories for `.mop` files, and resolves paths through four priority levels. This complexity belongs in a dedicated class so that the generator itself remains focused on pipeline orchestration. The separation also enables testing each concern independently: config tests mock the filesystem, generator tests mock `Command` execution.
+
+### Decision 2: JavaMOP `-d` Bug Workaround
+
+**Choice**: After JavaMOP execution, explicitly move `.rvm` files from `mop_specs_dir` to `output_dir`.
+
+**Why**: JavaMOP's `-d` flag is supposed to place all output in the specified directory, but it only moves `.aj` files -- `.rvm` intermediary files remain in the source `mop_specs_dir`. Rather than patching JavaMOP (Java 8+ dependency), the generator implements a file-move workaround. This is documented in the spec (FR01) and has been stable across JavaMOP versions used in this project.
+
+### Decision 3: `-merge` Flag for Unified Artifacts
+
+**Choice**: Invoke both JavaMOP and RV-Monitor with the `-merge` flag.
+
+**Why**: Without `-merge`, each `.mop` file produces a separate AspectJ aspect. With 23 JCA specifications, this would create 23 individual aspects that each intercept different methods, multiplying the runtime overhead due to separate pointcut matching passes. The `-merge` flag combines all specifications into a single unified aspect that intercepts all methods in one pass, reducing instrumented APK runtime overhead. This is a fundamental design choice inherited from the original RV-Android project by Daian et al.
+
+### Decision 4: Tool Functionality Probing at Config Time
+
+**Choice**: Run `javamop -h` and `rv-monitor -h` during configuration validation to verify the tools are functional.
+
+**Why**: Tool binary existence and executable permissions alone do not guarantee the tool works. Java version mismatches, missing JARs in the tool's `lib/` directory, or corrupted installations can pass basic file checks but fail during actual execution. The `-h` probe catches these failures at config time with a clear error message, rather than mid-pipeline when the cause is harder to diagnose. Both tools may return non-zero exit codes with `-h`, so the validation checks for any output (stdout or stderr) rather than exit code.
+
+### Decision 5: Default to JCA Specification Set
+
+**Choice**: When `mop_specs_dir` is not explicitly provided, default to the JCA specification directory.
+
+**Why**: The JCA (Java Cryptography Architecture) specification set is the primary focus of this research project -- detecting cryptographic API misuses in Android applications. Defaulting to JCA reduces configuration burden for the most common use case while still allowing explicit specification of generic or custom sets.
+
+### Decision 6: Coverage.aj as Custom Aspect
+
+**Choice**: Include `Coverage.aj` as a custom aspect copied alongside generated monitors, rather than generating it from a MOP specification.
+
+**Why**: `Coverage.aj` intercepts all method executions (excluding system packages) and logs unique signatures via `Log.v("RVSEC-COV", signature)`. This broad interception pattern does not follow the state-machine structure of MOP specifications -- it is a simple "log on execution" behavior. Writing it as a standalone `.aj` file is clearer and more maintainable than encoding it as a degenerate MOP specification. The aspect is stored in the `aspects_dir` and copied during the JavaMOP phase.
+
+## Data Flow
+
+### Generation Pipeline Data Flow
+
+The generation pipeline transforms `.mop` specification files through two external tools and a file-copy operation to produce the final monitor artifacts.
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Input["Input"]
+        MOP[".mop files<br/>(23 JCA or 118 generic)"]
+        Aspects["Custom aspects<br/>(Coverage.aj, logging.aj)"]
+    end
+
+    subgraph Stage1["Stage 1: JavaMOP"]
+        JM["javamop -merge -d output"]
+    end
+
+    subgraph Intermediate["Intermediate Artifacts"]
+        AJ[".aj files<br/>(merged aspects)"]
+        RVM[".rvm files<br/>(monitor specs)"]
+    end
+
+    subgraph FileOps["File Operations"]
+        Move["Move .rvm from<br/>mop_specs_dir<br/>(JavaMOP -d bug)"]
+        Copy["Copy .aj from<br/>aspects_dir"]
+    end
+
+    subgraph Stage2["Stage 2: RV-Monitor"]
+        RVMON["rv-monitor -merge -d output"]
+    end
+
+    subgraph Cleanup["Cleanup"]
+        Del["Delete .rvm<br/>intermediaries"]
+    end
+
+    subgraph Output["Output"]
+        FinalAJ["Merged .aj aspects"]
+        FinalJava[".java monitor classes"]
+        CovAJ["Coverage.aj + logging.aj"]
+    end
+
+    MOP --> JM
+    JM --> AJ
+    JM --> RVM
+    RVM --> Move
+    Aspects --> Copy
+    Move --> RVMON
+    RVMON --> FinalJava
+    RVMON --> Del
+    AJ --> FinalAJ
+    Copy --> CovAJ
+```
+
+### Artifact Consumption Chain
+
+Generated artifacts flow from rv-monitor-generator through rv-instrumentation to the final instrumented APK, and ultimately produce runtime events consumed by rv-coverage and rv-platform.
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Gen["rv-monitor-generator"]
+        GenPipeline["generate_monitors()"]
+    end
+
+    subgraph Artifacts["Monitor Artifacts (files)"]
+        direction LR
+        AJ["MultiSpec_*.aj<br/>*MonitorAspect.aj"]
+        Java["*.java<br/>(monitor classes)"]
+        Cov["Coverage.aj"]
+    end
+
+    subgraph Instr["rv-instrumentation"]
+        InstrPipeline["instrument_apks()"]
+    end
+
+    subgraph Runtime["Runtime (emulator)"]
+        RVSEC["RVSEC log events<br/>(violation detected)"]
+        RVSECCOV["RVSEC-COV log events<br/>(method coverage)"]
+    end
+
+    subgraph Consumers["Downstream Consumers"]
+        Platform["rv-platform<br/>(captures logcat)"]
+        Coverage["rv-coverage<br/>(parses RVSEC-COV)"]
+    end
+
+    GenPipeline --> AJ
+    GenPipeline --> Java
+    GenPipeline --> Cov
+    AJ --> InstrPipeline
+    Java --> InstrPipeline
+    Cov --> InstrPipeline
+    InstrPipeline --> RVSEC
+    InstrPipeline --> RVSECCOV
+    RVSEC --> Platform
+    RVSECCOV --> Coverage
+```
+
+### Configuration Resolution Flow
+
+Configuration data flows through a four-level priority cascade during `RVGeneratorConfig.model_post_init()`. The process resolves tool binary paths, specification directories, and aspects directory.
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    Start["RVGeneratorConfig()"]
+
+    P1{"Priority 1:<br/>javamop_bin AND<br/>rvmonitor_bin AND<br/>mop_specs_dir<br/>all provided?"}
+    P2{"Priority 2:<br/>rvsec_root<br/>provided?"}
+    P3{"Priority 3:<br/>RVSEC_HOME<br/>env var set?"}
+    P4["ConfigurationError"]
+
+    FillAspects["Default aspects_dir<br/>from mop_specs_dir parent"]
+    FromRoot["_resolve_from_rvsec_root()<br/>- javamop: rvsec/javamop/bin/javamop<br/>- rvmonitor: rvsec/rv-monitor/bin/rv-monitor<br/>- mop_specs: rvsec/.../jca/<br/>- aspects: rvsec/.../aspect/"]
+    Validate["_validate_configuration()<br/>1. Binary existence<br/>2. Directory access<br/>3. MOP file presence<br/>4. Tool -h probe"]
+    Ready["Config Ready"]
+
+    Start --> P1
+    P1 -->|Yes| FillAspects
+    P1 -->|No| P2
+    P2 -->|Yes| FromRoot
+    P2 -->|No| P3
+    P3 -->|Yes| FromRoot
+    P3 -->|No| P4
+    FillAspects --> Validate
+    FromRoot --> Validate
+    Validate -->|Pass| Ready
+    Validate -->|Fail| P4
+```
 
 ## Architectural Patterns
 
@@ -75,6 +232,20 @@ Scenarios from `openspec/specs/instrumentation/spec.md` that validate this archi
 
 **Disadvantages**:
 - Default to JCA specification set when `mop_specs_dir` is not provided may surprise users expecting an error
+
+### Pattern: Defensive Tool Probing
+
+**Description**: Configuration validation not only checks file existence and permissions, but actively runs each tool binary with `-h` to verify it produces output. This catches Java version mismatches, corrupted installations, and missing classpath dependencies.
+
+**When Used**: During `_validate_tool_functionality()` in the config validation phase.
+
+**Advantages**:
+- Catches subtle tool failures that file-level checks would miss
+- Provides clear diagnostic messages at config time rather than mid-pipeline
+
+**Disadvantages**:
+- Adds latency to initialization (two subprocess calls)
+- Tools that legitimately produce no output on `-h` would fail validation
 
 ---
 
@@ -223,6 +394,36 @@ sequenceDiagram
     Gen-->>Caller: True
 ```
 
+### Error Handling During Generation
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    Start["generate_monitors(output_dir)"]
+
+    Validate["validate_output_directory()"]
+    Reset["reset_folder(output_dir)"]
+    JM["_execute_javamop()"]
+    RVM["_execute_rvmonitor()"]
+    Success["return True"]
+
+    Catch["except Exception"]
+    Handle["ErrorHandler.handle_error(e, context)"]
+    Fail["return False"]
+
+    Start --> Validate
+    Validate --> Reset
+    Reset --> JM
+    JM --> RVM
+    RVM --> Success
+
+    Validate -->|ConfigurationError| Catch
+    JM -->|CommandException| Catch
+    RVM -->|CommandException| Catch
+    Catch --> Handle
+    Handle --> Fail
+```
+
 ---
 
 ## Core Components
@@ -253,8 +454,14 @@ sequenceDiagram
 - `model_post_init()`: Triggers path resolution and validation after Pydantic model initialization
 - `_resolve_paths()`: Implements the 4-level priority resolution (explicit paths -> rvsec_root -> RVSEC_HOME -> error)
 - `_validate_configuration()`: Runs 4 validation phases: binary existence, directory access, specification availability, tool functionality
-- `validate_output_directory(output_dir: str)`: Verifies write permissions for the target directory
+- `validate_output_directory(output_dir: str)`: Verifies write permissions for the target directory (creates dir, writes test file, deletes test file)
 - `get_configuration_summary() -> Dict`: Returns configuration state for logging
+
+**Validation Phases**:
+1. Binary existence and executable permissions (`_validate_tool_binary`)
+2. Directory existence and accessibility (`_validate_directory`)
+3. MOP specification file presence (`_validate_mop_specifications`)
+4. Tool functionality probe via `-h` flag (`_validate_tool_functionality`)
 
 **Dependencies**:
 - External: `pydantic` (Field, BaseValidatedModel), `subprocess` (tool probing), `rv_android_core.constants`
@@ -268,7 +475,6 @@ sequenceDiagram
 **Key Points**:
 - Uses `argparse` with subcommands (`generate`)
 - Maps CLI arguments to `RVGeneratorConfig` fields
-- Contains a bug: `--summary` output accesses `summary['aspectj_files']['count']` but `get_generation_summary()` returns integers, not dicts
 
 ---
 
@@ -328,6 +534,43 @@ class RVGeneratorConfig(BaseValidatedModel):
         ...
 ```
 
+### Class Diagram
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+classDiagram
+    class RuntimeVerificationGenerator {
+        +config: RVGeneratorConfig
+        +generate_monitors(output_dir) bool
+        +get_generation_summary(output_dir) Dict
+        -_execute_javamop(output_dir) None
+        -_execute_rvmonitor(output_dir) None
+        -_get_mop_specs() list
+    }
+
+    class RVGeneratorConfig {
+        +javamop_bin: Optional~str~
+        +rvmonitor_bin: Optional~str~
+        +mop_specs_dir: Optional~str~
+        +aspects_dir: Optional~str~
+        +rvsec_root: Optional~str~
+        +validate_output_directory(output_dir) None
+        +get_configuration_summary() Dict
+        -_resolve_paths() None
+        -_validate_configuration() None
+        -_validate_tool_binary(path, name) None
+        -_validate_mop_specifications() None
+        -_validate_tool_functionality() None
+    }
+
+    class ConfigurationError {
+        +message: str
+    }
+
+    RuntimeVerificationGenerator --> RVGeneratorConfig : uses
+    RVGeneratorConfig --> ConfigurationError : raises
+```
+
 ---
 
 ## Scenarios
@@ -354,6 +597,19 @@ class RVGeneratorConfig(BaseValidatedModel):
 5. Priority 3 (`RVSEC_HOME` env var) fails: not set
 6. `ConfigurationError` is raised with a message listing all three configuration options
 7. No files are created; no external tools are invoked
+
+### Scenario 3: RV-Monitor Execution Failure
+
+**Description**: RV-Monitor fails during `.rvm` file processing due to a malformed specification.
+
+**Flow**:
+1. JavaMOP completes successfully, producing `.aj` and `.rvm` files in `output_dir`
+2. `_execute_rvmonitor()` runs `rv-monitor -d output_dir -merge *.rvm`
+3. RV-Monitor returns non-zero exit code; `utils.execute_command()` raises `CommandException`
+4. The exception propagates to the `except` block in `generate_monitors()`
+5. `ErrorHandler.handle_error(e, context)` logs the error with component, operation, output_dir, and mop_specs_dir
+6. `generate_monitors()` returns `False`
+7. Note: `.rvm` files remain in `output_dir` because the cleanup step was not reached
 
 ---
 

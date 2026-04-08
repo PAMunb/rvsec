@@ -1,4 +1,0 @@
-class,method,parameters,signature,is_activity,reachable,reaches_mop,directly_reaches_mop,androguard
-com.glitterware.passy.MainActivity,onCreate,android.os.Bundle,onCreate(android.os.Bundle),True,True,False,False,True
-com.glitterware.passy.AutofillActivity,v,,v(),True,True,False,False,True
-com.glitterware.passy.AutofillActivity,onCreate,android.os.Bundle,onCreate(android.os.Bundle),True,True,False,False,True

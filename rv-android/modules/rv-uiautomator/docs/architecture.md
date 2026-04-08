@@ -39,6 +39,42 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 
 ## Key Architectural Decisions
 
+### ADR-1: Abstract UIAdapter Interface with Single Implementation
+
+`UIAdapter` is an ABC defining 11 methods for device interaction. Only `UIAutomator2Adapter` implements it.
+
+**Why**: The abstraction was introduced to decouple rv-agent's device interaction code from the specific automation framework. Although only one implementation exists, the interface provides two concrete benefits: (1) test code can use mock adapters without requiring a physical device or emulator, enabling unit tests for all of rv-agent's workflow nodes, and (2) if a future requirement demands Appium or direct ADB support, a new adapter can be added without modifying any consumer. The cost is minimal -- one ABC file with 11 abstract method signatures.
+
+### ADR-2: Guard Clause Pattern for Connection Safety
+
+Every public method in `UIAutomator2Adapter` begins with a guard clause checking `self.connected` and `self.device is not None`. Disconnected operations return safe defaults (`False` for actions, `{}` for state capture) without raising exceptions (INV-TOOL-09).
+
+**Why**: Android device connections are inherently unreliable. The emulator may crash, ADB may lose its connection, or the uiautomator2 server may become unresponsive. Without guard clauses, every caller would need try/except blocks around every device operation. The guard clause pattern centralizes this check and ensures a consistent failure mode: operations silently fail with logged warnings rather than propagating exceptions up the call stack. This is critical for rv-agent's exploration loop, which must continue (e.g., retry, fall back to algorithm) rather than crash on transient device failures.
+
+### ADR-3: Mediator Pattern for Action Dispatching
+
+`UIAutomatorActionExecutor` sits between `GeneratedAction` objects (from rv-agent) and `UIAdapter` method calls, dispatching on `WidgetEventType` (INV-TOOL-10).
+
+**Why**: Without the executor, every rv-agent workflow node that needs to execute an action would contain adapter-specific dispatch logic (if click then adapter.click, if scroll then compute swipe coordinates, etc.). Centralizing this in a single class ensures consistent coordinate extraction, duration handling, and error recovery across all action types. The executor also handles the scroll-to-swipe translation (converting a directional scroll into swipe start/end coordinates with configurable distance), which is non-trivial and should not be duplicated.
+
+### ADR-4: State Format Conversion as Temporary Adapter
+
+`StateConverter.uiautomator_to_droidbot()` translates UIAutomator state dictionaries to DroidBot-compatible format (INV-TOOL-11). This is documented as a temporary solution.
+
+**Why**: rv-agent reuses DroidBot's state parsing infrastructure (`DroidBotParser` from rv-screen-parser), which expects specific key names (`view_tree`, `activity`, `package_name`). UIAutomator captures state with different keys (`xml`, `current_activity`, `current_package`). The converter bridges this gap without modifying either the UIAutomator adapter (which uses standard naming) or the DroidBot parser (which is used by DroidBot tool integration too). A typed `DeviceState` model would be the proper solution, but the dictionary-based approach works and the conversion is a single method with explicit key mapping.
+
+### ADR-5: Tuned Constants for Headless Emulator Execution
+
+All timing constants are centralized in `constants.py` with values tuned for headless emulator mode: `ACTION_EXECUTION_DELAY=0.3s`, `TEXT_INPUT_DELAY=0.2s`, `DEFAULT_SWIPE_DURATION=0.25s`, `WAIT_FOR_IDLE_TIMEOUT=5.0s`.
+
+**Why**: The system runs experiments on headless Android emulators where animations are disabled and rendering is faster than on physical devices. The default uiautomator2 timeouts (designed for physical devices with animations) are too conservative, adding unnecessary delay to each of the 200-500 actions in a typical experiment. The tuned constants reduce per-action overhead by 0.5-1.0s while remaining reliable on headless emulators. Centralizing them in `constants.py` makes it easy to adjust for different emulator configurations.
+
+### ADR-6: Screen Hash for DFS State Identification
+
+`StateConverter.compute_screen_hash()` produces a 16-character hex string by SHA-256 hashing the first 500 characters of the UI hierarchy XML, or falling back to `{package}/{activity}` when no hierarchy is available.
+
+**Why**: rv-agent's DFS exploration strategy needs to identify previously visited screens. Full XML comparison is too expensive (5-50KB per screen, hundreds of comparisons per exploration). The first 500 characters of the hierarchy capture the top-level structure (root layout, first few children) which is sufficient to distinguish most screens. The SHA-256 hash reduces this to a constant-size 16-character identifier for O(1) dictionary lookups. The activity-based fallback handles screens where the hierarchy dump fails (rare but possible on custom views).
+
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Application Type | Library (no CLI entry point) | Consumed programmatically by rv-agent; no standalone use case |
@@ -47,6 +83,100 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 | Secondary Pattern | Adapter (StateConverter) | Bridges incompatible state dict formats between UIAutomator and DroidBot |
 | Control Strategy | Synchronous call-based | All operations are blocking request-response; concurrency is managed by the caller (rv-agent) |
 | Error Strategy | Guard + Decorator | Guard clauses check connection state; `@ErrorHandler.handle_errors` wraps all public methods for consistent error logging and default returns |
+
+## Data Flow
+
+The module mediates between rv-agent's high-level action decisions and the physical Android device, with data flowing in two directions: state capture (device to agent) and action execution (agent to device).
+
+### Bidirectional Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Agent["rv-agent"]
+        DI["DeviceInterface"]
+        WF["Workflow Nodes\n(parse, decision,\nalgorithm, execute)"]
+        GA["GeneratedAction\n(action_type, coordinates,\nparams, text_value)"]
+    end
+
+    subgraph UIAutomator["rv-uiautomator"]
+        direction TB
+        subgraph Capture["State Capture Path"]
+            ADAPTER_STATE["UIAutomator2Adapter\n.get_ui_state()"]
+            RAW_STATE["Raw State Dict\n{xml, current_activity,\ncurrent_package,\ndevice_info, timestamp}"]
+            CONV["StateConverter\n.uiautomator_to_droidbot()"]
+            DB_STATE["DroidBot State Dict\n{view_tree, hierarchy,\nactivity, package_name,\n_conversion_metadata}"]
+            HASH["StateConverter\n.compute_screen_hash()"]
+        end
+        subgraph Execute["Action Execution Path"]
+            EXEC["UIAutomatorActionExecutor\n.execute()"]
+            DISPATCH["WidgetEventType\nDispatch"]
+            CLICK_M["adapter.click(x, y)"]
+            TEXT_M["adapter.click() +\nadapter.input_text()"]
+            LONG_M["adapter.long_click(x, y, dur)"]
+            SWIPE_M["adapter.swipe(x1, y1, x2, y2)"]
+            BACK_M["adapter.press_back()"]
+        end
+    end
+
+    subgraph Device["Android Device/Emulator"]
+        U2["uiautomator2 HTTP server"]
+        SCREEN["Device Screen"]
+    end
+
+    subgraph Downstream["Downstream Consumers"]
+        PARSER["rv-screen-parser\n(UIAutomator2Parser)"]
+        DFS["DFS Successor Tracker\n(state identification)"]
+    end
+
+    DI -->|"get_ui_state()"| ADAPTER_STATE
+    ADAPTER_STATE -->|"HTTP: dump_hierarchy\n+ app_current"| U2
+    U2 -->|"XML + activity + package"| RAW_STATE
+    RAW_STATE --> CONV
+    CONV --> DB_STATE
+    DB_STATE --> PARSER
+    DB_STATE --> HASH
+    HASH -->|"16-char hex"| DFS
+
+    WF -->|"GeneratedAction"| GA
+    GA --> EXEC
+    EXEC --> DISPATCH
+    DISPATCH -->|"CLICK"| CLICK_M
+    DISPATCH -->|"TEXT_CHANGE"| TEXT_M
+    DISPATCH -->|"LONG_CLICK"| LONG_M
+    DISPATCH -->|"SCROLL"| SWIPE_M
+    DISPATCH -->|"BACK"| BACK_M
+    CLICK_M -->|"HTTP"| U2
+    TEXT_M -->|"HTTP"| U2
+    LONG_M -->|"HTTP"| U2
+    SWIPE_M -->|"HTTP"| U2
+    BACK_M -->|"HTTP"| U2
+    U2 --> SCREEN
+```
+
+### State Capture Path
+
+1. **Device query**: rv-agent's `DeviceInterface` calls `UIAutomator2Adapter.get_ui_state()`. The adapter makes two HTTP calls to the uiautomator2 server: `device.app_current()` (returns current package and activity) and `device.dump_hierarchy()` (returns XML UI tree).
+
+2. **Raw state assembly**: The adapter assembles a dictionary with keys `xml`, `current_activity`, `current_package`, `device_info`, and `timestamp`. The guard clause (INV-TOOL-09) returns `{}` if the adapter is disconnected.
+
+3. **Format conversion**: `StateConverter.uiautomator_to_droidbot()` maps keys to DroidBot-compatible names: `xml` to both `view_tree` and `hierarchy`, `current_activity` to `activity`, `current_package` to `package_name`. Additional keys from the raw state are preserved. Conversion metadata is attached (INV-TOOL-11).
+
+4. **Screen hashing**: `StateConverter.compute_screen_hash()` takes the first 500 characters of the hierarchy XML, computes SHA-256, and truncates to 16 hex characters. This hash identifies the screen for DFS state tracking. If no hierarchy is available, the hash is computed from `{package}/{activity}`.
+
+5. **Downstream parsing**: The DroidBot-format state is passed to `rv-screen-parser`'s `UIAutomator2Parser` or `DroidBotParser` for visitor-based traversal into `ScreenDescription`.
+
+### Action Execution Path
+
+1. **Action receipt**: rv-agent's execute node produces a `GeneratedAction` with `action_type` (WidgetEventType name), `coordinates` (pixel x,y), optional `params` (text, direction, distance, duration), and optional `text_value`.
+
+2. **Type dispatch**: `UIAutomatorActionExecutor.execute()` lowercases the action type and dispatches to the corresponding handler method. Unknown types return `False` (INV-TOOL-10).
+
+3. **Coordinate extraction and adapter call**: Each handler extracts coordinates and parameters from the action object and calls the appropriate `UIAdapter` method. The scroll handler translates a directional scroll into swipe start/end coordinates by adding the configured distance to the start point in the specified direction.
+
+4. **Device execution**: The adapter delegates to the uiautomator2 library, which sends HTTP commands to the on-device uiautomator2 server. After each action, the adapter sleeps for `ACTION_EXECUTION_DELAY` (0.3s) to allow the UI to stabilize.
+
+5. **Result propagation**: The boolean success result propagates back through the executor to the rv-agent execute node, which decides whether to retry, fall back, or proceed to the next exploration step.
 
 ## Architectural Patterns
 

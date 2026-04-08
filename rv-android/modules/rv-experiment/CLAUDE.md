@@ -42,15 +42,19 @@ modules/rv-experiment/
     ├── conftest.py
     ├── helpers.py
     ├── experiment/
-    │   ├── test_experiment_controller.py
-    │   └── test_resume_experiment.py
-    ├── test_config_jit.py              # JIT configuration tests
-    ├── test_config_json.py             # JSON serialization tests
-    ├── test_config_validation.py       # Validation tests
-    ├── test_configuration_factory.py   # Factory tests
-    ├── test_constants.py               # Constants tests
-    ├── test_post_processor.py          # Post-processing tests
-    └── test_resume_cli.py              # Resume CLI tests
+    │   ├── test_execution_controller.py  # ExecutionController tests
+    │   ├── test_experiment_controller.py  # ExperimentController tests
+    │   ├── test_post_processor.py         # Post-processor tests
+    │   ├── test_resume_experiment.py      # Resume experiment tests
+    │   └── test_workflow_factory.py       # WorkflowFactory tests
+    ├── test_config_jit.py                 # JIT configuration tests
+    ├── test_config_json.py                # JSON serialization tests
+    ├── test_config_validation.py          # Validation tests
+    ├── test_configuration_factory.py      # Factory tests
+    ├── test_configuration_factory_methods.py  # Factory method tests
+    ├── test_constants.py                  # Constants tests
+    ├── test_post_processor.py             # Post-processing tests
+    └── test_resume_cli.py                 # Resume CLI tests
 ```
 
 ## CLI Commands

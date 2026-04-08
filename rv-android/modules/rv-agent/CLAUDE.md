@@ -446,7 +446,7 @@ uv run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --
 | `llm_model` | str | Qwen/Qwen3-VL-4B-Instruct | LLM model identifier |
 | `llm_base_url` | str | http://192.168.0.36:30000/v1 | SGLang server URL |
 | `llm_temperature` | float | 0.01 | LLM temperature (0.01 optimal for tool calling) |
-| `prompt_version` | str | v13 | Prompt version (v12, v13, v14, v15, v16) |
+| `prompt_version` | str | v13 | Prompt version (v12, v13, v14, v15, v16, v17) |
 | `stochastic_probability` | float | 0.15 | Gumbel-max stochastic selection probability |
 | `stochastic_temperature` | float | 1.0 | Gumbel-max temperature (higher = more random) |
 | `backtrack_saturation_threshold` | float | 0.8 | Saturation threshold triggering proactive backtrack |

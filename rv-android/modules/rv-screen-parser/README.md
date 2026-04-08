@@ -120,13 +120,14 @@ interactive_elements = analysis_result["interactive_elements"]  # List[Interacti
 ### Factory Pattern Usage
 
 ```python
-from rv_screen_parser.parser.screen.parser_factory import ParserFactory, ParserType
+from rv_screen_parser.parser.screen.parser_factory import ParserFactory
+from rv_screen_parser.constants import ScreenParserType
 
 # Register default parsers
 ParserFactory.register_default_parsers()
 
 # Create parser dynamically
-parser = ParserFactory.create(ParserType.DROIDBOT)
+parser = ParserFactory.create(ScreenParserType.DROIDBOT)
 screen_data = parser.parse_screen(state_data)
 ```
 
@@ -143,11 +144,12 @@ screen_data = parser.parse_screen(state_data, static_analysis_data)
 ### Integrated Analysis Usage
 
 ```python
-from rv_screen_parser.parser.screen.parser_factory import ParserFactory, ParserType
+from rv_screen_parser.parser.screen.parser_factory import ParserFactory
+from rv_screen_parser.constants import ScreenParserType
 from rv_screen_parser.screenshot.screenshot_analyzer import ScreenshotAnalyzer
 
 # Complete UI analysis with both hierarchy and visual data
-parser = ParserFactory.create(ParserType.DROIDBOT)
+parser = ParserFactory.create(ScreenParserType.DROIDBOT)
 screen_description = parser.parse_screen(state_data, static_data)
 
 # Enhance with screenshot analysis
@@ -390,14 +392,11 @@ class NewFormatParser(BaseScreenParser[ScreenDescription]):
 
 2. **Register with Factory**:
 ```python
-from rv_screen_parser.parser.screen.parser_factory import ParserFactory, ParserType
+from rv_screen_parser.parser.screen.parser_factory import ParserFactory
+from rv_screen_parser.constants import ScreenParserType
 
-# Add new parser type to enum
-class ParserType(Enum):
-    NEW_FORMAT = "new_format"
-
-# Register implementation
-ParserFactory.register_parser_type(ParserType.NEW_FORMAT, NewFormatParser)
+# Register new parser type
+ParserFactory.register_parser_type("new_format", NewFormatParser)
 ```
 
 ### Adding New Detection Algorithms
@@ -460,7 +459,7 @@ class SpecializedVisitor(AbstractScreenVisitor):
 ```python
 from rv_screen_parser.parser.screen.visitor.visitor_factory import VisitorFactory
 
-VisitorFactory.register_visitor("specialized", SpecializedVisitor)
+VisitorFactory.register_visitor_type("specialized", SpecializedVisitor)
 ```
 
 ## Contributing

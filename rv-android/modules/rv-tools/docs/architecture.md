@@ -53,6 +53,22 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 | Tool Abstraction | `AbstractTool` base class in rv-android-core | Base class lives in core to avoid circular dependencies; tools extend it |
 | External Registration | Deferred, idempotent, at consumer import | External tools (rvagent) register when their own modules are imported, respecting dependency hierarchy |
 
+### Why Singleton for ToolRegistry?
+
+The registry must be the single source of truth for available tools across all consumers: rv-platform (task execution), rv-experiment (experiment validation and tool listing), and the CLI (help output). Without a singleton, each consumer would need a reference passed through the call chain, adding parameter overhead at every level. The tradeoff is global mutable state, which requires `reset_instance()` for test isolation -- but since the registry is populated at import time and read-only during execution, the mutability concern is limited to test teardown.
+
+### Why Auto-Registration at Import Time?
+
+Tools are registered when `rv_tools` is first imported, not lazily on demand. This ensures the registry is fully populated before any consumer code runs. rv-experiment's CLI, for example, validates tool names at argument-parsing time -- if tools were registered lazily, validation would fail because the registry would be empty. Auto-registration also means consumers do not need to call an explicit `initialize()` method, reducing boilerplate and the risk of forgetting initialization.
+
+### Why Two-Step Creation (Constructor + Configure)?
+
+The `ToolFactory` calls `tool_class()` (no arguments) followed by `tool.configure(merged_config)`. This separates instance creation from configuration application because: (1) the constructor sets sane defaults and initializes logging, which is useful even without configuration (e.g., for introspection), (2) the factory needs the instance to exist before applying configuration that may depend on tool-specific validation logic, and (3) it matches the AbstractTool contract where `configure()` is an explicit lifecycle phase that tools can override with validation logic (e.g., DroidBot validates policy strings, APE-RV validates strategy names).
+
+### Why Defensive Copy in get_variant_config?
+
+`get_variant_config()` returns `variants[tool_name][variant_name].copy()` rather than the stored dictionary reference (INV-TOOL-13). This prevents consumers (particularly `ToolFactory.create_tool()`, which merges user parameters into the config) from accidentally mutating the registry's internal state. Without the copy, creating a tool with parameter overrides would permanently modify the variant's default configuration for all subsequent calls.
+
 ## Architectural Patterns
 
 ### Pattern: Singleton Registry
@@ -511,6 +527,123 @@ classDiagram
     AbstractTool <|-- AresTool
     note for AbstractTool "5 more tools omitted for clarity:\nAPETool, FastBotTool, DroidMateTool,\nHumanoidTool, QTestingTool"
 ```
+
+---
+
+## Data Flow
+
+This section describes how data flows through the rv-tools module during tool registration and creation.
+
+### Registration Data Flow
+
+At import time, tool classes flow through auto-registration to populate the registry:
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Import["Module Import"]
+        ImportRVTools["import rv_tools"]
+    end
+
+    subgraph Init["__init__.py"]
+        RegisterBuiltin["_register_builtin_tools()"]
+    end
+
+    subgraph BuiltinPkg["builtin/__init__.py"]
+        BuiltinList["BUILTIN_TOOLS list\n(8 tool classes)"]
+    end
+
+    subgraph PerTool["Per-Tool Registration"]
+        direction TB
+        GetSpec["tool_class.get_tool_spec()\n-> ToolSpec"]
+        GetVariants["tool_class.get_variants()\n-> Dict of variant configs"]
+        StoreClass["registry.tool_classes[name] = class"]
+        StoreSpec["registry.tool_specs[name] = spec"]
+        StoreVariants["registry.variants[name] = variants"]
+    end
+
+    subgraph ErrorPath["Error Handling"]
+        CatchLog["try/except per tool\nLog warning, continue\n(INV-TOOL-08)"]
+    end
+
+    ImportRVTools --> Init
+    Init --> BuiltinList
+    BuiltinList --> RegisterBuiltin
+    RegisterBuiltin --> GetSpec
+    GetSpec --> StoreClass
+    GetSpec --> StoreSpec
+    GetVariants --> StoreVariants
+    RegisterBuiltin --> CatchLog
+```
+
+### Tool Creation Data Flow
+
+When rv-platform creates a tool, data flows through the factory's four-step workflow:
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Input["Input"]
+        ToolConfigInput["ToolConfig\nname: droidbot\nvariant: dfs_greedy\nparams: {count: 5000}"]
+    end
+
+    subgraph Step1["Step 1: Resolve"]
+        CheckReg["is_tool_registered(name)?"]
+        GetClass["get_tool_class(name)\n-> DroidBotTool"]
+    end
+
+    subgraph Step2["Step 2: Variant"]
+        GetVariant["get_variant_config(\nname, variant)\n-> {policy: dfs_greedy,\ncount: 10B, interval: 3}"]
+        DefCopy["Returns defensive\ncopy (INV-TOOL-13)"]
+    end
+
+    subgraph Step3["Step 3: Merge"]
+        MergeConfig["{**variant_config,\n**tool_config.params}\n-> {policy: dfs_greedy,\ncount: 5000, interval: 3}"]
+    end
+
+    subgraph Step4["Step 4: Create"]
+        Instantiate["DroidBotTool()"]
+        ConfigureCall["tool.configure(\nmerged_config)\n(INV-TOOL-05)"]
+    end
+
+    subgraph Output["Output"]
+        ConfiguredTool["Configured\nDroidBotTool instance"]
+    end
+
+    ToolConfigInput --> CheckReg
+    CheckReg --> GetClass
+    GetClass --> GetVariant
+    GetVariant --> DefCopy
+    DefCopy --> MergeConfig
+    ToolConfigInput --> MergeConfig
+    MergeConfig --> Instantiate
+    Instantiate --> ConfigureCall
+    ConfigureCall --> ConfiguredTool
+```
+
+### Tool Execution Data Flow
+
+After creation, the configured tool instance flows through rv-platform's execution pipeline:
+
+1. `ToolExecutionComponent` receives the configured tool from `ToolFactory`
+2. `tool.execute(task, app)` invokes the Template Method in `AbstractTool`
+3. Template Method calls `execute_tool_specific_logic(task, app)` (tool-specific logic)
+4. If `RVCommandTimeoutError` is raised, Template Method converts it to `RVToolTimeoutError` (INV-TOOL-06)
+5. Template Method calls `kill_related_processes(process_pattern)` to clean up device processes (INV-TOOL-07)
+6. rv-platform's `LogcatComponent` independently captures coverage events during execution
+
+The tool does not return coverage data directly. Coverage is collected by a separate logcat monitor thread that runs in parallel with tool execution.
+
+### External Tool Registration Data Flow
+
+External tools (rvagent-tool, aperv-tool) register at rv-platform import time via `_register_external_tools()`:
+
+1. rv-platform's `__init__.py` calls `_register_external_tools()`
+2. For each external tool, it checks `registry.is_tool_registered(name)` for idempotency (INV-TOOL-12)
+3. If not registered, it imports the tool class and calls `registry.register_tool_class(tool_class)`
+4. Registration follows the same flow as built-in tools: `get_tool_spec()` and `get_variants()` populate the registry
+
+This deferred registration ensures external tool modules are only imported when rv-platform is used, not when rv-tools is imported standalone (e.g., for introspection or testing).
 
 ---
 

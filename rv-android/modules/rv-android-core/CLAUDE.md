@@ -138,9 +138,9 @@ uv run pytest tests/ --cov=src --cov-report=html
 
 # Run specific test categories
 uv run pytest tests/domain/ -v      # Domain model tests
-uv run pytest tests/event/ -v       # Event system tests
 uv run pytest tests/util/ -v        # Utility tests
 uv run pytest tests/commands/ -v    # Command execution tests
+uv run pytest tests/tools/ -v       # Tool infrastructure tests
 ```
 
 ## Common Tasks

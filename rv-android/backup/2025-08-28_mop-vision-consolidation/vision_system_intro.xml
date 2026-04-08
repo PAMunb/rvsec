@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<fragment name="vision_system_intro">
-  <![CDATA[Android testing for monitored operations violation discovery.
-App has JavaMOP monitors - trigger violations via systematic UI testing.
-
-GOALS: Test systematically, maximize coverage, prioritize [M]/[DM] monitored actions, explore thoroughly.]]>
-</fragment>

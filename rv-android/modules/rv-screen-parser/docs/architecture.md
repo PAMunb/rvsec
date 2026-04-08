@@ -36,6 +36,42 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 
 ## Key Architectural Decisions
 
+### ADR-1: Visitor Pattern for Extensible UI Output Formats
+
+The module uses the visitor pattern (`Node.accept(visitor)`) to separate UI tree traversal from description generation. Three concrete visitors produce different output formats from the same Node tree.
+
+**Why**: rv-agent needs compact text for LLM prompts (token budget), but debugging requires detailed coordinate information. Without the visitor pattern, supporting multiple output formats would require either duplicating the entire parser or adding format-conditional branches throughout the traversal logic. The visitor pattern isolates format-specific logic into separate classes (BasicTextVisitor, DefaultTextVisitor, EnhancedTextVisitor) while sharing common logic (action generation, MOP tracking, system button filtering) in `AbstractScreenVisitor`. Adding a new output format requires only implementing 14 abstract methods without modifying parsers or the Node hierarchy. This satisfies INV-ANA-12 (Node.accept(visitor) dispatches to element-specific visitor methods).
+
+### ADR-2: BasicTextVisitor as Default for LLM Prompt Generation
+
+`BasicTextVisitor` produces compact one-line descriptions like `Button 'Submit'. Actions: CLICK (7)` instead of verbose multi-line output.
+
+**Why**: Qwen3-VL (the LLM backend) has a limited context window, and each token costs inference time. An average Android screen has 20-40 actionable elements. Raw UIAutomator XML for such a screen is 2000-5000 tokens. `BasicTextVisitor` achieves approximately 69% token reduction, bringing the same screen to 600-1500 tokens. This leaves sufficient context for the system prompt, conversation history, and LLM reasoning. The reduced representation also improves LLM accuracy because the signal-to-noise ratio is higher -- the model sees only actionable elements and their IDs, not framework boilerplate.
+
+### ADR-3: ALWAYS_CLICKABLE_TYPES Override Set
+
+A hardcoded set of 20+ widget class names (`ActionBar$Tab`, `Chip`, `FloatingActionButton`, `BottomNavigationItemView`, etc.) overrides the `clickable` attribute from UIAutomator.
+
+**Why**: UIAutomator dumps often report `clickable=false` for elements that are interactive. This is a known Android framework issue: custom views and Material Design components handle click events via `OnTouchListener` or `RippleDrawable` rather than `View.setClickable(true)`. Without this override, the visitor would silently drop valid actions for tabs, navigation items, chips, and FABs -- some of the most important interactive elements in modern Android apps. The set includes both simple class names and fully-qualified names because UIAutomator inconsistently reports either.
+
+### ADR-4: Factory + Registry for Parser and Visitor Selection
+
+`ParserFactory` and `VisitorFactory` use registry dictionaries to map type constants to implementation classes. New parsers or visitors can be registered at runtime via `register_parser_type()` or `register_visitor_type()`.
+
+**Why**: rv-agent needs to select the parser (UIAutomator vs DroidBot) and visitor (basic vs enhanced) at runtime based on the tool being used and the current exploration mode. A factory with dynamic registration follows the open/closed principle: adding a new parser or visitor requires no changes to existing code, only a registration call. This also enables test code to register mock parsers/visitors.
+
+### ADR-5: MOP Tracking via Widget Matching
+
+`AbstractScreenVisitor._update_action_mop_related_info()` matches runtime UI nodes to GATOR-analyzed widgets via resource ID or text content, then checks whether the widget's event handler reaches a monitored operation.
+
+**Why**: rv-agent's exploration strategy uses MOP reachability to prioritize actions that trigger specification-relevant code paths. Without this annotation, the agent would explore blindly. The matching uses resource ID first (exact match) and falls back to text content (fuzzy match) because not all widgets have resource IDs. The markers `[M]` (transitively reaches MOP) and `[DM]` (directly reaches MOP) are appended to the action text so the LLM can see them in the screen description. This satisfies INV-ANA-09 (ItemAction.action_type derives from WidgetEventType mapping).
+
+### ADR-6: System Button and Keyboard Filtering
+
+`AbstractScreenVisitor.should_exclude_system_button()` uses multiple heuristics to filter out non-app UI elements: resource ID patterns, package names, class names, bounds-based position checks, content descriptions, and small-button detection.
+
+**Why**: System navigation buttons (home, back, recents) and on-screen keyboard keys appear in UIAutomator dumps but produce meaningless actions for app testing. Without filtering, the action space is polluted with 10-20 irrelevant actions per screen, reducing LLM decision accuracy. The multi-heuristic approach is necessary because no single signal reliably identifies system elements across all Android versions and OEM skins. This satisfies INV-ANA-12 (system button filtering applies to leaf nodes only).
+
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Application Type | Library | Consumed by rv-agent and rv-platform; no standalone CLI entry point |
@@ -45,6 +81,101 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 | Parser Selection | Factory + Registry | Enables adding new parser formats without modifying existing code |
 | Visitor Selection | Factory + Registry | Three built-in visitors (basic, default, enhanced) with dynamic registration for new implementations |
 | Token Optimization | BasicTextVisitor as default for LLM | Achieves ~69% token reduction vs. raw XML, critical for LLM prompt efficiency |
+
+## Data Flow
+
+The module transforms raw device state representations into structured action-annotated screen descriptions. Two independent data flows exist: UI hierarchy parsing (primary) and screenshot analysis (supplementary).
+
+### UI Hierarchy Parsing Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Input["Input Sources"]
+        XML["UIAutomator2 XML\n(from adapter.dump_hierarchy)"]
+        JSON_STATE["DroidBot JSON\n(view_tree format)"]
+        STATIC["StaticAnalysisData\n(from rv-static-analysis)"]
+        ACT["Activity name\n(from adapter.app_current)"]
+    end
+
+    subgraph Parsing["Parser Layer"]
+        PF["ParserFactory.create()"]
+        UAP["UIAutomator2Parser"]
+        DBP["DroidBotParser"]
+        TREE["Node Tree\n(parent/child hierarchy)"]
+    end
+
+    subgraph Visiting["Visitor Layer"]
+        VF["VisitorFactory"]
+        BV["BasicTextVisitor\n(~69% token reduction)"]
+        DV["DefaultTextVisitor"]
+        EV["EnhancedTextVisitor"]
+        FILT["System Button\nFiltering"]
+        ACT_GEN["Action Generation\nget_possible_actions()"]
+        MOP_ANN["MOP Annotation\n_update_action_mop_related_info()"]
+    end
+
+    subgraph Output["Output"]
+        SD["ScreenDescription"]
+        SI["ScreenItem[]\n(descriptions)"]
+        IA["ItemAction[]\n(coordinates, event type,\nMOP flags, widget_id)"]
+        EBI["events_by_id\n(Dict[int, ItemAction])"]
+    end
+
+    XML --> PF
+    JSON_STATE --> PF
+    PF -->|type=uiautomator| UAP
+    PF -->|type=droidbot| DBP
+    UAP --> TREE
+    DBP --> TREE
+    TREE -->|"Node.accept(visitor)"| BV
+    TREE -->|"Node.accept(visitor)"| DV
+    TREE -->|"Node.accept(visitor)"| EV
+    ACT --> VF
+    STATIC --> VF
+    VF --> BV
+    VF --> DV
+    VF --> EV
+    BV --> FILT
+    DV --> FILT
+    EV --> FILT
+    FILT -->|"not system button"| ACT_GEN
+    ACT_GEN --> MOP_ANN
+    STATIC -.->|"widget matching"| MOP_ANN
+    MOP_ANN --> IA
+    IA --> SI
+    SI --> SD
+    SD --> EBI
+```
+
+### Data Transformation Stages
+
+1. **XML/JSON to Node Tree**: The parser converts raw device state data into a hierarchical `Node` tree. `UIAutomator2Parser` parses XML via `ElementTree`, extracting attributes (bounds, clickable, scrollable, editable, resource-id, text, content-description) into `Node` properties. `DroidBotParser` parses JSON `view_tree` format with DroidBot-specific property names. Both produce identical `Node` trees with parent/child references.
+
+2. **Node traversal with visitor dispatch**: Each `Node` in the tree calls `accept(visitor)`, which inspects the `view_class` attribute to dispatch to the correct visitor method. The dispatch logic maps 30+ Android widget classes (including standard, AppCompat, and Material Design variants) to 14 visitor methods (`visit_button`, `visit_edit_text`, `visit_checkbox`, etc.). Unknown classes fall through to `visit_leaf_node()`. Container nodes recurse into their children.
+
+3. **System button filtering**: Before processing a leaf node, the visitor checks `should_exclude_system_button()` using six heuristics: resource ID patterns, keyboard package names, keyboard class names, bounds-based position (system navigation area), content descriptions, and small-button detection. Filtered nodes produce no `ScreenItem` or `ItemAction` output.
+
+4. **Action generation**: `get_possible_actions()` inspects node properties to build `ItemAction` objects:
+   - `clickable` (or in ALWAYS_CLICKABLE_TYPES) and not editable: CLICK action
+   - `long_clickable` (excluding EditText/TextView): LONG_CLICK action
+   - `checkable`: CHECK/UNCHECK action (via WidgetEventType.CLICK)
+   - `scrollable`: SCROLL actions (direction restricted by widget type)
+   - `editable`: TEXT_CHANGE action
+   Each action carries coordinates (center of node bounds), a sequential ID from `Counter`, and the source `WidgetEventType`.
+
+5. **MOP annotation**: For each generated action, `_update_action_mop_related_info()` matches the runtime UI node to a GATOR-analyzed widget (by resource ID or text), then checks whether the widget's event handler reaches a monitored operation. Matching actions get `reaches_mop=True` and/or `directly_reaches_mop=True`, and `[M]`/`[DM]` markers are appended to the action text.
+
+6. **ScreenDescription assembly**: The visitor collects all `ScreenItem` objects and creates a `ScreenDescription` with the activity name, items list, and `events_by_id` mapping (INV-ANA-10: ScreenDescription builds events_by_id from all ItemAction objects).
+
+### Screenshot Analysis Data Flow
+
+The screenshot analysis subsystem operates independently of UI hierarchy parsing:
+
+1. `ScreenshotAnalyzer.analyze(path)` loads the screenshot and creates grayscale/binary representations via `ImagePreprocessor`
+2. Four detectors run in sequence: `TextDetector` (Tesseract OCR), `ButtonDetector` (contour analysis), `ErrorDetector` (visual pattern matching), `InteractiveElementDetector` (game UI shapes)
+3. Results are aggregated into `ScreenshotAnalysisResult` with bounding boxes and confidence scores
+4. rv-agent uses this data when the UIAutomator hierarchy is empty or unreliable (games, custom views)
 
 ## Architectural Patterns
 

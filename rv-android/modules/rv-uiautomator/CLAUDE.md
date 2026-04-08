@@ -106,9 +106,11 @@ Defined in `constants.py`:
 |----------|---------|-------------|
 | `DEFAULT_CONNECTION_TIMEOUT` | 30 | Device connection timeout (seconds) |
 | `DEFAULT_DEVICE_ID` | "emulator-5554" | Default emulator device |
-| `ACTION_EXECUTION_DELAY` | 0.5 | Delay after action execution (seconds) |
-| `TEXT_INPUT_DELAY` | 0.3 | Delay for text input (seconds) |
-| `STATE_STABILIZATION_DELAY` | 1.0 | Wait for UI stabilization (seconds) |
+| `ACTION_EXECUTION_DELAY` | 0.3 | Delay after action execution (seconds) |
+| `TEXT_INPUT_DELAY` | 0.2 | Delay for text input (seconds) |
+| `STATE_STABILIZATION_DELAY` | 0.8 | Wait for UI stabilization (seconds) |
+| `DEFAULT_SWIPE_DURATION` | 0.25 | Swipe gesture duration (seconds) |
+| `WAIT_FOR_IDLE_TIMEOUT` | 5.0 | UIAutomator2 idle wait timeout (seconds) |
 | `SCREENSHOT_QUALITY` | 90 | JPEG compression quality |
 | `MAX_RETRY_ATTEMPTS` | 3 | Retry attempts for failed operations |
 | `SCREEN_HASH_LENGTH` | 16 | Characters in screen hash |
@@ -244,12 +246,6 @@ This provides:
    - Managers handle resource lifecycle
 
 4. **Error Handling**: All operations use ErrorHandler decorators for consistent error management
-
-## Future Evolution Notes
-
-- StateConverter is a temporary solution; future versions should implement a proper DeviceState model with typed attributes
-- Additional UIAdapter implementations may be added for different automation frameworks
-
 
 ## Development Notes
 

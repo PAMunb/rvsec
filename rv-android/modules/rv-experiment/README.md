@@ -291,6 +291,7 @@ modules/rv-experiment/
 │   ├── experiment/
 │   │   ├── experiment_controller.py    # Three-phase orchestration
 │   │   └── workflow/
+│   │       ├── workflow_factory.py     # Factory for workflow components
 │   │       ├── pre_processor.py        # Monitors, instrumentation, static analysis
 │   │       ├── execution_controller.py # rv-platform coordination
 │   │       ├── post_processor.py       # Diagnostics

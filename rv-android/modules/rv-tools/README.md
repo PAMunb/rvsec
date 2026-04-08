@@ -23,7 +23,6 @@ The RV-Tools module provides a centralized tool management system for Android te
 #### Registry Infrastructure
 - **ToolRegistry**: Singleton registry for tool management with variant support and automatic registration
 - **ToolFactory**: Factory for creating configured tool instances with variant resolution
-- **PluginLoader**: Plugin discovery and loading system with variant-aware registration
 
 #### Tool Infrastructure
 - **AbstractTool**: Base class for all testing tools (from rv-android-core)
@@ -79,9 +78,9 @@ from rv_android_core.domain.task import ToolConfig
 
 # Create tool configuration with variant
 tool_config = ToolConfig(
-    tool_name="droidbot",
+    name="droidbot",
     variant="dfs_greedy",
-    additional_params={"count": 1000}
+    parameters={"count": 1000}
 )
 
 # Create tool using factory
@@ -123,25 +122,25 @@ factory = ToolFactory()
 
 # Create tool with default variant
 tool_config_default = ToolConfig(
-    tool_name="ape",
+    name="ape",
     variant="default",
-    additional_params={}
+    parameters={}
 )
 ape_tool = factory.create_tool(tool_config_default)
 
 # Create tool with specific variant and parameters
 tool_config_custom = ToolConfig(
-    tool_name="droidbot",
+    name="droidbot",
     variant="dfs_greedy", 
-    additional_params={"count": 2000, "interval": 1}
+    parameters={"count": 2000, "interval": 1}
 )
 droidbot_tool = factory.create_tool(tool_config_custom)
 
 # Create RVAgent tool with configuration
 rvagent_config = ToolConfig(
-    tool_name="rvagent",
+    name="rvagent",
     variant="multimode",
-    additional_params={
+    parameters={
         "timeout": 300
     }
 )
@@ -316,9 +315,9 @@ from rv_android_core.domain.task import ToolConfig
 
 # Create tool configuration with variant
 tool_config = ToolConfig(
-    tool_name="mytool",
+    name="mytool",
     variant="thorough",  # Use thorough variant
-    additional_params={"custom_param": "value"}
+    parameters={"custom_param": "value"}
 )
 
 # Create tool instance
@@ -349,12 +348,13 @@ tool.configure(config)
 ### Variant Registration
 
 ```python
-# Register tool variants
-registry.register_variant("mytool", "fast", {"timeout": 60})
-registry.register_variant("mytool", "thorough", {"timeout": 1800, "depth": 10})
+from rv_tools import ToolFactory
+from rv_android_core.domain.task import ToolConfig
 
-# Create tool with variant
-tool = ToolFactory.create_tool_from_spec("mytool:fast", registry)
+# Create tool with variant via ToolFactory
+tool_config = ToolConfig(name="mytool", variant="fast", parameters={"timeout": 60})
+factory = ToolFactory()
+tool = factory.create_tool(tool_config)
 ```
 
 ## Testing
@@ -376,10 +376,16 @@ uv run pytest tests/test_main_functionalities.py
 
 ```
 tests/
-├── fixtures/
-│   └── mock_tools.py          # Mock tool implementations
-├── test_main_functionalities.py  # Main functionality tests
-└── conftest.py                # Test configuration
+├── builtin/                         # Built-in tool tests
+├── conftest.py                      # Test fixtures and registry setup
+├── helpers.py                       # Test helper utilities
+├── test_basic.py                    # Registry initialization and singleton behavior
+├── test_builtin_registration.py     # Auto-registration of 8 built-in tools
+├── test_builtin_tool_specs.py       # Tool specification validation
+├── test_factory.py                  # Factory creation and variant resolution
+├── test_factory_edge_cases.py       # Factory edge case handling
+├── test_registry.py                 # Registry operations (register, query, validate)
+└── test_registry_edge_cases.py      # Registry edge case handling
 ```
 
 ## Integration Examples
@@ -387,22 +393,19 @@ tests/
 ### With rv-experiment
 
 ```python
-# Tool specifications in experiment configuration
+from rv_tools import ToolFactory
+from rv_android_core.domain.task import ToolConfig
+
+# Tool configurations in experiment
 tool_configs = [
-    {"name": "monkey", "variants": [], "parameters": {"event_count": 1000}},
-    {"name": "droidbot", "variants": ["bfs_greedy"], "parameters": {"count": 2000}}
+    ToolConfig(name="monkey", parameters={"event_count": 1000}),
+    ToolConfig(name="droidbot", variant="bfs_greedy", parameters={"count": 2000}),
 ]
 
-# Automatic tool creation in experiment
+# Create tool instances via factory
+factory = ToolFactory()
 for config in tool_configs:
-    spec = f"{config['name']}"
-    if config['variants']:
-        spec += f":{':'.join(config['variants'])}"
-    if config['parameters']:
-        params = ','.join([f"{k}={v}" for k, v in config['parameters'].items()])
-        spec += f"@{params}"
-    
-    tool = ToolFactory.create_tool_from_spec(spec, registry)
+    tool = factory.create_tool(config)
 ```
 
 ### With rv-platform
@@ -459,8 +462,9 @@ except ToolNotFoundError as e:
     print(f"Tool not found: {e}")
 
 try:
-    ToolFactory.create_tool_from_spec("invalid:spec", registry)
-except ToolRegistrationError as e:
+    factory = ToolFactory()
+    tool = factory.create_tool(ToolConfig(name="nonexistent"))
+except ToolNotFoundError as e:
     print(f"Tool creation failed: {e}")
 ```
 

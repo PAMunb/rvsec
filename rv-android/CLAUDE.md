@@ -33,8 +33,15 @@ The system consists of the following modules:
 **LLM Testing:**
 10. **rv-agent**: Main LLM-driven testing tool using LangGraph for workflow orchestration
 
+**Tool Plugins (rv-platform):**
+11. **rvagent-tool**: rv-platform plugin wrapping rv-agent as an AbstractTool
+12. **aperv-tool**: rv-platform plugin wrapping the APE-RV binary (ape-rv.jar) for model-based UI exploration
+
 **Experiment Orchestration:**
-11. **rv-experiment**: Experiment orchestration and coordination system
+13. **rv-experiment**: Experiment orchestration and coordination system
+
+**Temporary/Validation:**
+14. **aperv-llm-validation**: Offline validation for APE-RV LLM coordinate mapping pipeline (temporary module)
 
 ## Development Commands
 
@@ -331,7 +338,7 @@ The system is documented via Spec-Driven Development. Specs document current beh
 | Agent | `openspec/specs/agent/spec.md` | rv-agent | FR21-FR32 |
 | Instrumentation | `openspec/specs/instrumentation/spec.md` | rv-monitor-generator, rv-instrumentation | FR01-FR03 |
 | Analysis | `openspec/specs/analysis/spec.md` | rv-static-analysis, rv-coverage, rv-screen-parser | FR04-FR06, FR12-FR13 |
-| Tools | `openspec/specs/tools/spec.md` | rv-tools, rv-uiautomator | FR18-FR20 |
+| Tools | `openspec/specs/tools/spec.md` | rv-tools, rv-uiautomator, rvagent-tool, aperv-tool | FR18-FR20 |
 
 ### Templates
 

@@ -44,15 +44,61 @@ Scenarios from `openspec/specs/experiment/spec.md` that validate this architectu
 
 ## Key Architectural Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Application Type | CLI tool with Click framework | Experiments are invoked from command line or Docker entrypoint; Click provides argument parsing, help generation, and command grouping |
-| Structuring | Three-phase pipeline with facade | Experiment lifecycle has three distinct concerns (preparation, execution, analysis) with different failure modes and skip capabilities |
-| Primary Pattern | Facade + Pipeline | ExperimentController acts as a facade over three workflow components; PreProcessor implements a sequential pipeline |
-| Control Strategy | Sequential call-based | Phases depend on each other (instrumentation before execution, execution before diagnostics); no concurrency within the orchestrator |
-| Configuration | JIT sub-module configs via Pydantic | Avoids eager validation of modules that may be skipped or not installed; reduces initialization overhead |
-| Data Flow | One-way (experiment -> platform) | rv-experiment provides configuration; rv-platform handles execution and results independently, preventing coupling |
-| Resume Strategy | tasks.json detection + auto-skip | Docker containers are killed and restarted routinely; resume avoids redundant pre-processing and re-execution of completed tasks |
+### AD-1: Click-Based CLI with Tool Specification DSL
+
+**Choice**: Use Click framework for CLI with a compact DSL (`tool:variant@param=value`) for tool configuration.
+
+**Why**: Experiments are invoked from the command line or Docker entrypoint scripts. Click provides argument parsing, help generation, and command grouping without boilerplate. The tool specification DSL exists because researchers frequently compare multiple tools with different configurations. A verbose JSON-only interface would be impractical for iterative experimentation -- the DSL allows `rv-experiment run --tools monkey,droidbot:dfs_greedy,rvagent:multimode@temperature=0.3` as a single command.
+
+**Invariant cross-reference**: INV-EXP-09 ensures correct comma handling inside parameter sections, distinguishing tool separators from parameter separators by detecting `=` tokens.
+
+### AD-2: Three-Phase Pipeline with Facade
+
+**Choice**: Decompose the experiment lifecycle into three sequential phases (pre-processing, execution, post-processing) orchestrated by `ExperimentController` as a facade.
+
+**Why**: Each phase has distinct failure modes and skip capabilities. Pre-processing (monitor generation, instrumentation, static analysis) can fail due to missing external tools (JavaMOP, RV-Monitor, ajc) but should not abort the entire experiment. Execution is delegated to rv-platform which manages its own lifecycle. Post-processing generates diagnostics from whatever completed. Making these three explicit phases allows individual operations within Phase 1 to be skipped independently via boolean flags, and allows Phase 3 to execute even if Phase 2 failed.
+
+**Invariant cross-reference**: INV-EXP-01 mandates strict sequential order (Phase 1 before Phase 2 before Phase 3). INV-EXP-07 ensures skip flags are respected.
+
+### AD-3: One-Way Data Flow (Experiment to Platform)
+
+**Choice**: rv-experiment provides configuration to rv-platform but does not read back task results, coverage data, or error logs.
+
+**Why**: If rv-experiment consumed rv-platform's results, the two modules would be bidirectionally coupled, making it impossible to change rv-platform's output format without updating rv-experiment. The one-way flow means rv-platform owns all result processing -- it writes CSV/JSON files to disk, and researchers or analysis tools consume those files directly. rv-experiment receives only an aggregate success/failure count from `Platform.run()` for logging purposes.
+
+**Invariant cross-reference**: INV-EXP-02 formalizes this constraint: the only information flowing back is `{total_tasks, successful_tasks, failed_tasks}`.
+
+### AD-4: Just-in-Time Sub-Module Configuration
+
+**Choice**: `ExperimentConfig` provides `get_monitored_operations_config()`, `get_instrumentation_config()`, and `get_static_analysis_config()` methods that create sub-module configurations on demand.
+
+**Why**: Eager construction of all sub-module configurations during `ExperimentConfig.__init__()` would fail if optional sub-modules are not installed (e.g., rv-monitor-generator might not be present in a skip-monitors run). It would also validate paths that may not be needed (e.g., RVSEC_HOME when all pre-processing is skipped). JIT creation avoids both problems -- configurations are built only when the `PreProcessor` needs them, and only for operations that are actually enabled.
+
+**Invariant cross-reference**: INV-EXP-05 governs RVSEC_HOME resolution: (1) `rvsec_root` field, (2) `RVSEC_HOME` env var, (3) `ConfigurationError`.
+
+### AD-5: Resume via tasks.json Detection with Auto-Skip
+
+**Choice**: Resume is detected by the presence of `tasks.json` in the target results directory. When detected, all pre-processing skip flags are forced to `True`.
+
+**Why**: Docker containers in the ICST study were routinely killed and restarted by orchestrators and watchdog processes. Without resume, a restart discards all completed work. The auto-skip behavior exists because pre-processing artifacts (monitors, instrumented APKs, static analysis files) already exist from the original run. Re-generating them would waste time and potentially overwrite the artifacts that rv-platform needs for coverage tracking. The platform handles task-level resume via identity matching in `_skip_completed_tasks()`.
+
+**Invariant cross-reference**: INV-EXP-13 formalizes the auto-skip: all three pre-processing flags are set to `True` regardless of CLI values when resume is detected.
+
+### AD-6: Flat Results Directory
+
+**Choice**: `ExperimentController` uses `config.results_dir` directly without appending subdirectories. The CLI layer constructs the complete path.
+
+**Why**: The original design appended `config.name` to `config.results_dir`, creating paths like `results/my_experiment/my_experiment`. This caused confusion and broke resume detection (the CLI expected the path it constructed, but the controller modified it). The flat design means the CLI builds `results/my_experiment/` and passes it as-is; the controller writes all artifacts there without further path manipulation.
+
+**Invariant cross-reference**: INV-EXP-14 formalizes this: `ExperimentController` MUST use `config.results_dir` directly.
+
+### AD-7: Instrumentation Failure Fallback
+
+**Choice**: If APK instrumentation fails, `PreProcessor` copies original APKs to the instrumented directory as a fallback.
+
+**Why**: Instrumentation involves complex external toolchains (dex2jar, ajc, d8, jarsigner) that can fail for specific APKs due to obfuscation, multi-dex issues, or version incompatibilities. Aborting the entire experiment because one APK failed to instrument would waste all the successful instrumentation work and prevent data collection on the remaining APKs. The fallback means the experiment continues with uninstrumented APKs (producing 0% coverage for those APKs, which is still useful data for the researcher).
+
+**Invariant cross-reference**: INV-EXP-08 requires this fallback behavior.
 
 ## Architectural Patterns
 
@@ -325,6 +371,109 @@ When resume mode is detected (existing `tasks.json`), the flow differs:
 3. Phase 1 (`PreProcessor.process()`) executes but all steps are skipped
 4. Phase 2 delegates to rv-platform, which loads `tasks.json` and skips completed tasks
 5. Phase 3 runs normally to update diagnostics
+
+---
+
+## Data Flow
+
+This section traces how data moves through rv-experiment during a complete experiment run, from user input through to output artifacts.
+
+### Configuration Assembly
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Input["User Input"]
+        CLIArgs["CLI arguments\n(--tools, --timeout, etc.)"]
+        JSONFile["JSON config file\n(--config)"]
+        EnvVars["Environment vars\n(RVSEC_HOME, etc.)"]
+        DockerVars["Docker env vars\n(RV_TOOLS, etc.)"]
+    end
+
+    subgraph Parsing["CLI Layer"]
+        DSLParse["DSL Parser\ntool:variant@param=val"]
+        ConfigFact["ConfigurationFactory"]
+    end
+
+    subgraph Validation["Configuration"]
+        ExpConfig["ExperimentConfig\n(Pydantic validated)"]
+        JITGen["get_monitored_operations_config()"]
+        JITInstr["get_instrumentation_config()"]
+        JITStatic["get_static_analysis_config()"]
+    end
+
+    CLIArgs --> DSLParse
+    DSLParse --> ConfigFact
+    JSONFile --> ConfigFact
+    DockerVars -->|"entrypoint.sh\ntranslates"| CLIArgs
+    ConfigFact --> ExpConfig
+    EnvVars --> ExpConfig
+    ExpConfig -.->|"on demand\n(Phase 1 only)"| JITGen
+    ExpConfig -.->|"on demand"| JITInstr
+    ExpConfig -.->|"on demand"| JITStatic
+```
+
+Configuration enters rv-experiment through two paths:
+1. **CLI mode**: The DSL parser converts `--tools monkey,droidbot:dfs_greedy` into `ToolConfig` instances; `ConfigurationFactory` assembles the full `ExperimentConfig`.
+2. **Config file mode**: `ExperimentConfig.from_file()` loads a JSON file directly, bypassing the DSL parser.
+
+In Docker mode, `docker-entrypoint.sh` translates environment variables (`RV_TOOLS`, `RV_TIMEOUTS`, etc.) into CLI arguments before the Python process starts.
+
+JIT configuration methods (`get_monitored_operations_config()`, etc.) are called only by `PreProcessor` during Phase 1, and only when the corresponding operation is enabled (INV-EXP-05).
+
+### Three-Phase Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Phase1["Phase 1: Pre-Processing"]
+        direction TB
+        MOP[".mop spec files"] --> MonGen["Monitor Generation\n(rv-monitor-generator)"]
+        MonGen --> Monitors[".aj aspects +\n.java monitors"]
+        Monitors --> Instr["APK Instrumentation\n(rv-instrumentation)"]
+        OrigAPKs["Original APKs"] --> Instr
+        Instr --> InstrAPKs["Instrumented APKs\n(out/instrumented_apks/)"]
+        InstrAPKs --> Static["Static Analysis\n(rv-static-analysis)"]
+        Static --> SAFiles[".wtg, .gesda,\n.reach files"]
+    end
+
+    subgraph Phase2["Phase 2: Execution"]
+        direction TB
+        InstrAPKs2["Instrumented APKs"] --> PlatConfig["PlatformConfig\ncreation"]
+        PlatConfig --> PlatRun["Platform.run()\n(rv-platform)"]
+        PlatRun --> Results["coverage.csv\nerrors.csv\nsummary.csv\nresults.json\nperformance.csv\ntasks.json"]
+    end
+
+    subgraph Phase3["Phase 3: Post-Processing"]
+        direction TB
+        TasksJSON["tasks.json"] --> PostProc["PostProcessor"]
+        PostProc --> InstrErrors["instrument_errors.json"]
+        PostProc --> CompDiag["experiment_completion.json"]
+    end
+
+    InstrAPKs --> InstrAPKs2
+    SAFiles -.->|"co-located\nwith APKs"| InstrAPKs2
+    Results --> TasksJSON
+
+    style Phase1 fill:#f9f9f9
+    style Phase2 fill:#f0f0ff
+    style Phase3 fill:#f0fff0
+```
+
+Data flows one-way through the three phases:
+
+1. **Phase 1 (Pre-Processing)**: `.mop` specifications are compiled into AspectJ aspects and Java monitors by rv-monitor-generator. These monitors are woven into APKs by rv-instrumentation, producing instrumented APKs. Static analysis (GATOR/GESDA/REACH) runs on the instrumented APKs, producing `.wtg`, `.gesda`, and `.reach` files co-located with the APKs. Each step is independently skippable.
+
+2. **Phase 2 (Execution)**: `ExecutionController` translates `ExperimentConfig` into `PlatformConfig` (the bridge pattern) and delegates to `Platform.run()`. All task execution, emulator management, coverage tracking, and result processing happen inside rv-platform. rv-experiment receives only `{total_tasks, successful_tasks, failed_tasks}` back (INV-EXP-02).
+
+3. **Phase 3 (Post-Processing)**: `PostProcessor` reads `tasks.json` (via `TaskStorage`) to generate `instrument_errors.json` tracking which APKs failed instrumentation. It also writes `experiment_completion.json` with timestamps and completion status.
+
+### Resume Data Flow
+
+On resume, the data flow changes:
+- Phase 1 is effectively bypassed: all skip flags are forced to `True` (INV-EXP-13), so no pre-processing artifacts are regenerated.
+- Phase 2 reuses the existing `tasks.json`: rv-platform loads completed tasks, skips them via identity matching, and executes only remaining tasks.
+- Phase 3 runs normally, updating diagnostics with the combined results.
 
 ---
 

@@ -32,11 +32,22 @@ COLUMN_MAP = {
     "errors": "total_errors",
 }
 
-UNIFIED_COLS = ["apk", "tool", "rep", "status", "duration_s",
-                "method_coverage", "activity_coverage", "mop_coverage", "total_errors"]
+UNIFIED_COLS = [
+    "apk",
+    "tool",
+    "rep",
+    "status",
+    "duration_s",
+    "method_coverage",
+    "activity_coverage",
+    "mop_coverage",
+    "total_errors",
+]
 
 
-def load_containers(containers: list[str], rename_map: dict | None = None) -> pd.DataFrame:
+def load_containers(
+    containers: list[str], rename_map: dict | None = None
+) -> pd.DataFrame:
     """Load results from a set of containers."""
     frames = []
     for container in containers:
@@ -58,7 +69,9 @@ def load_containers(containers: list[str], rename_map: dict | None = None) -> pd
             for task in tasks_data["tasks"]:
                 cfg = task["config"]
                 tc = cfg["tool_config"]
-                tool_name = f"{tc['name']}:{tc['variant']}" if tc.get("variant") else tc["name"]
+                tool_name = (
+                    f"{tc['name']}:{tc['variant']}" if tc.get("variant") else tc["name"]
+                )
                 key = (cfg["apk_name"], tool_name, cfg["repetition"])
                 status_map[key] = task["result"]["state"]
                 duration_map[key] = task["result"].get("execution_time_seconds", 0)
@@ -75,12 +88,24 @@ def load_containers(containers: list[str], rename_map: dict | None = None) -> pd
             completed_keys = set(zip(df["apk"], df["tool"], df["rep"]))
             for (apk, tool, rep), state in status_map.items():
                 if state != "COMPLETED" and (apk, tool, rep) not in completed_keys:
-                    frames.append(pd.DataFrame([{
-                        "apk": apk, "rep": rep, "timeout": 600, "tool": tool,
-                        "cov_act": 0.0, "cov_method": 0.0, "cov_rv_method": 0.0,
-                        "errors": 0, "status": state,
-                        "duration_s": duration_map.get((apk, tool, rep), 0),
-                    }]))
+                    frames.append(
+                        pd.DataFrame(
+                            [
+                                {
+                                    "apk": apk,
+                                    "rep": rep,
+                                    "timeout": 600,
+                                    "tool": tool,
+                                    "cov_act": 0.0,
+                                    "cov_method": 0.0,
+                                    "cov_rv_method": 0.0,
+                                    "errors": 0,
+                                    "status": state,
+                                    "duration_s": duration_map.get((apk, tool, rep), 0),
+                                }
+                            ]
+                        )
+                    )
         else:
             df["status"] = "COMPLETED"
             df["duration_s"] = 600
@@ -121,17 +146,25 @@ def print_summary(df: pd.DataFrame) -> None:
         err = total - ok
         apks = g["apk"].nunique()
         reps = g["rep"].max()
-        print(f"  {tool:25s}: {total:4d} tasks ({ok} ok, {err} fail) | {apks} APKs × {reps} reps")
+        print(
+            f"  {tool:25s}: {total:4d} tasks ({ok} ok, {err} fail) | {apks} APKs × {reps} reps"
+        )
 
     print("\n--- Per-APK Mean Coverage (averaged across reps, then APKs) ---")
-    apk_means = completed.groupby(["tool", "apk"])[metrics].mean().groupby("tool").mean()
+    apk_means = (
+        completed.groupby(["tool", "apk"])[metrics].mean().groupby("tool").mean()
+    )
     for tool in sorted(apk_means.index):
         row = apk_means.loc[tool]
-        print(f"  {tool:25s}  method={row['method_coverage']:.2f}%  "
-              f"activity={row['activity_coverage']:.2f}%  mop={row['mop_coverage']:.2f}%")
+        print(
+            f"  {tool:25s}  method={row['method_coverage']:.2f}%  "
+            f"activity={row['activity_coverage']:.2f}%  mop={row['mop_coverage']:.2f}%"
+        )
 
     print("\n--- Wilcoxon Signed-Rank Tests (method_coverage, paired by APK) ---")
-    apk_tool = completed.groupby(["tool", "apk"])["method_coverage"].mean().reset_index()
+    apk_tool = (
+        completed.groupby(["tool", "apk"])["method_coverage"].mean().reset_index()
+    )
 
     pairs = [
         ("aperv:sata_mop_v1", "aperv:sata_mop_llm"),
@@ -153,9 +186,15 @@ def print_summary(df: pd.DataFrame) -> None:
         try:
             stat, pval = stats.wilcoxon(v1, v2, alternative="two-sided")
             direction = ">" if delta.mean() > 0 else "<" if delta.mean() < 0 else "="
-            sig = "***" if pval < 0.001 else "**" if pval < 0.01 else "*" if pval < 0.05 else "ns"
-            print(f"  {t1:25s} vs {t2:25s}: p={pval:.4f} {sig:3s}  "
-                  f"delta={delta.mean():+.2f}pp  {t2}{direction}{t1}  (N={len(common)})")
+            sig = (
+                "***"
+                if pval < 0.001
+                else "**" if pval < 0.01 else "*" if pval < 0.05 else "ns"
+            )
+            print(
+                f"  {t1:25s} vs {t2:25s}: p={pval:.4f} {sig:3s}  "
+                f"delta={delta.mean():+.2f}pp  {t2}{direction}{t1}  (N={len(common)})"
+            )
         except ValueError as e:
             print(f"  {t1:25s} vs {t2:25s}: {e}")
 
@@ -166,7 +205,9 @@ def main():
     print(f"  {len(exp1)} rows ({exp1['tool'].nunique()} tools)")
 
     print("Loading experiment 2...")
-    exp2 = load_containers(EXP2_CONTAINERS, rename_map={"aperv:sata_mop": "aperv:sata_mop_v2"})
+    exp2 = load_containers(
+        EXP2_CONTAINERS, rename_map={"aperv:sata_mop": "aperv:sata_mop_v2"}
+    )
     print(f"  {len(exp2)} rows ({exp2['tool'].nunique()} tools)")
 
     print("Loading experiment 3...")

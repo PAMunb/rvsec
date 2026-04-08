@@ -67,11 +67,11 @@ print(f"Explored {results['unique_states']} states in {results['iterations']} it
 ### Integration with rv-platform
 
 ```bash
-# Run via rv-experiment
-uv run rv-experiment run --tools rv-agent:multimode --apks-dir ./apks_examples
+# Run via rv-experiment (note: tool name is "rvagent", no hyphen)
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples
 
 # Run via rv-platform directly
-uv run rv-platform run --tools rv-agent --apks-dir ./apks_examples
+uv run rv-platform run --tools rvagent --apks-dir ./apks_examples
 ```
 
 ## Features
@@ -111,9 +111,11 @@ config = RVAgentConfig(package_name="com.example.app", agent_mode="llm_only")
 | `--package` | `-p` | (required) | Android package name to test |
 | `--device` | `-d` | `emulator-5554` | Device ID for connection |
 | `--timeout` | `-t` | `300` | Execution timeout in seconds |
-| `--output-dir` | `-o` | `./rvagent_results` | Output directory for results |
+| `--mode` | `-m` | `multimode` | Agent execution mode (multimode, pure_algorithm, llm_only) |
+| `--strategy` | `-s` | `rvagent` | Exploration strategy (rvagent, dfs, bfs, greedy) |
+| `--results-dir` | `-o` | `./rvagent_results` | Output directory for results |
+| `--llm-probability` | | `0.7` | LLM probability for multimode (0.0-1.0) |
 | `--debug` | `-v` | `false` | Enable debug logging |
-| `--objective` | | `explore_application` | Testing objective description |
 
 ### Configuration Options
 
@@ -128,8 +130,8 @@ config = RVAgentConfig(package_name="com.example.app", agent_mode="llm_only")
 | `llm_model` | str | `Qwen/Qwen3-VL-4B-Instruct` | LLM model identifier |
 | `llm_base_url` | str | `http://192.168.0.36:30000/v1` | SGLang server URL |
 | `llm_temperature` | float | `0.01` | LLM temperature |
-| `prompt_version` | str | `v13` | Prompt version (v12-v16) |
-| `stochastic_probability` | float | `0.3` | Gumbel-max stochastic selection probability |
+| `prompt_version` | str | `v13` | Prompt version (v12-v17) |
+| `stochastic_probability` | float | `0.15` | Gumbel-max stochastic selection probability |
 | `static_analysis_path` | str | `None` | Path to GATOR output for WTG guidance |
 
 ### Environment Variables
@@ -151,17 +153,7 @@ uv run rv-agent run --package br.unb.cic.cryptoapp --timeout 300
 # Results saved to ./rvagent_results/
 ```
 
-### Example 2: Targeted Testing with Custom Objective
-
-```bash
-uv run rv-agent run \
-  --package com.example.app \
-  --objective "Test the login flow and verify authentication" \
-  --timeout 600 \
-  --debug
-```
-
-### Example 3: Pure Algorithm Mode (No LLM)
+### Example 2: Pure Algorithm Mode (No LLM)
 
 ```python
 from rv_agent.config.agent_config import RVAgentConfig
@@ -178,7 +170,7 @@ agent = AgentFactory.create_agent(config)
 results = agent.run()
 ```
 
-### Example 4: With Static Analysis Data
+### Example 3: With Static Analysis Data
 
 ```python
 from rv_agent.config.agent_config import RVAgentConfig

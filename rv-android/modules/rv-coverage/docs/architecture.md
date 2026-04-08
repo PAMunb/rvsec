@@ -40,6 +40,44 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 
 ## Key Architectural Decisions
 
+### ADR-1: Background Daemon Thread for Real-Time Tracking
+
+`CoverageTracker` spawns a daemon thread that continuously tails the logcat file, rather than polling on demand or using an event-driven architecture.
+
+**Why**: Logcat data arrives asynchronously during tool execution. A polling-on-demand approach would miss data if the caller does not poll frequently enough, and would couple the tool execution loop to coverage processing. A daemon thread with file-tailing decouples the two: the testing tool writes to logcat at its own pace, and the tracker processes lines independently. The daemon flag (`daemon=True`) ensures the thread terminates when the main process exits, even if `stop()` is not called. This satisfies INV-ANA-05 (thread MUST be a daemon).
+
+**Spec reference**: The "Real-time coverage tracking with CoverageTracker" scenario validates the full lifecycle: start, initial drain, seek-to-end, tail loop with adaptive sleep.
+
+### ADR-2: File-Tailing Instead of ADB Logcat Stream
+
+The tracker reads from a logcat file on disk rather than piping directly from `adb logcat`.
+
+**Why**: rv-platform's `LogcatComponent` manages the `adb logcat` process and redirects its output to a file. The file serves multiple consumers: `CoverageTracker` reads it in real-time, and the file persists as a result artifact for post-experiment batch analysis. Tailing a file is simpler than managing a subprocess pipe and avoids the complexity of buffering issues with `adb logcat` output streams.
+
+### ADR-3: Adaptive Sleep (0.5s Active / 1.0s Idle)
+
+The tail loop uses a shorter sleep interval (0.5s) when data is flowing and a longer interval (1.0s) when idle.
+
+**Why**: A fixed interval forces a tradeoff between latency and CPU usage. With adaptive sleep, the tracker responds quickly when the instrumented APK is actively executing (many logcat lines per second) and reduces CPU consumption during idle periods (e.g., between test actions). The 0.5s active interval provides sub-second metric update latency, sufficient for rv-agent's exploration loop which operates on a 2-3 second cycle.
+
+### ADR-4: Change Detection for Metric Calculation
+
+`CoverageTracker` maintains a `_data_changed_since_last_update` flag and a `_previous_metrics` snapshot. Metrics are only recalculated when new data has arrived, and only logged when values have actually changed.
+
+**Why**: `LogcatRepository.calculate_metrics()` iterates all classes and methods to compute coverage percentages. In an experiment with 5000+ methods, this is measurably expensive. During idle periods (no new logcat lines), recalculating every second wastes CPU. The change detection flag skips the calculation entirely when no new data has arrived. The metrics snapshot comparison prevents log spam from repeated identical metric values. This satisfies INV-ANA-04 (log coverage metric updates when metrics change).
+
+### ADR-5: Multi-Format Parser with Ordered Fallback
+
+`LogcatParser._parse_error_message()` tries three formats in a specific order: generic spec error, JCA CSV, FSM triple-colon. `_parse_coverage_message()` tries modern angle-bracket format, then legacy triple-colon.
+
+**Why**: Three error formats exist because different RV-Monitor/RVSEC versions emit different message structures. The order matters: the generic spec error format (ending with "went into an error state.") is tried first because the JCA CSV split would match generic messages too, producing garbled fields. The modern Soot-signature format for coverage is tried before legacy because it is more specific (angle-bracket delimiters vs. triple-colon, which could appear in class names). This satisfies INV-ANA-07 (support modern and legacy coverage formats) and INV-ANA-08 (support three error formats; malformed messages return None with warning).
+
+### ADR-6: Reachability Data as Coverage Denominator
+
+Coverage percentages are computed as `called_methods / total_reachable_methods`. Without reachability data from static analysis, only absolute counts are valid (INV-ANA-15).
+
+**Why**: Using "all methods in the APK" as the denominator would include unreachable dead code, framework methods, and library code, producing artificially low coverage percentages (often <1%). The reachability analysis in rv-static-analysis identifies which methods are actually reachable from framework entry points, providing a meaningful denominator. When static data is unavailable (analysis timed out with no reachability section), `CoverageCalculationMode` degrades gracefully to `RUNTIME_ONLY` mode, reporting only absolute counts.
+
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Application Type | Library module | Consumed by rv-platform (real-time tracking) and rv-android-core (batch parsing). No CLI or service interface. |
@@ -48,6 +86,97 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 | Control Strategy | File-tailing with adaptive sleep | The tracker tails the logcat file using file position tracking (`seek`/`readlines`), with 0.5s sleep when data flows and 1.0s when idle. Balances latency and CPU usage. |
 | Metric Delegation | Delegate to `LogcatRepository.calculate_metrics()` | Metric calculation logic lives in rv-android-core's `LogcatRepository`, keeping rv-coverage focused on data acquisition and tracking lifecycle. |
 | Error Format Support | Multi-format parser with ordered fallback | Three error formats and two coverage formats exist due to different RV-Monitor/RVSEC versions. The parser tries the most specific format first to avoid ambiguous matches. |
+
+## Data Flow
+
+The module operates at the intersection of three data streams: static analysis data (method universe), logcat output (runtime events), and coverage metrics (computed output).
+
+### End-to-End Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph Input["Data Sources"]
+        SA["StaticAnalysisData\n(from rv-static-analysis)"]
+        APK["Instrumented APK\n(Coverage.aj + MOP monitors)"]
+        LF["Logcat file\n(from rv-platform LogcatComponent)"]
+    end
+
+    subgraph Processing["rv-coverage Processing"]
+        direction TB
+        INIT["Repository Initialization\ninitialize_repository_from_static_data()"]
+        PARSE["Line Parsing\nparse_logcat_line()"]
+        REG_COV["Register Coverage\nregister_method_call()"]
+        REG_ERR["Register Error\nregister_rv_error()"]
+        CALC["Metric Calculation\ncalculate_metrics()"]
+    end
+
+    subgraph Repository["LogcatRepository (rv-android-core)"]
+        CLASSES["classes: Dict\n(method universe)"]
+        METHODS["called_methods: Set\n(observed calls)"]
+        ERRORS["errors: List\n(RV violations)"]
+    end
+
+    subgraph Output["Coverage Metrics"]
+        MC["method_coverage %"]
+        AC["activity_coverage %"]
+        MOP_C["mop_method_coverage %"]
+        CM["called_methods count"]
+        UE["unique_errors count"]
+    end
+
+    SA -->|"Classes, methods,\nMOP flags"| INIT
+    INIT --> CLASSES
+    APK -->|"RVSEC-COV / RVSEC\ntags via logcat"| LF
+    LF -->|"new lines"| PARSE
+    PARSE -->|"RvCoverageLog"| REG_COV
+    PARSE -->|"RvErrorLog"| REG_ERR
+    REG_COV --> METHODS
+    REG_ERR --> ERRORS
+    CLASSES --> CALC
+    METHODS --> CALC
+    ERRORS --> CALC
+    CALC --> MC
+    CALC --> AC
+    CALC --> MOP_C
+    CALC --> CM
+    CALC --> UE
+```
+
+### Data Transformation Pipeline
+
+1. **Repository initialization**: When `CoverageTracker` (or `CoverageAnalyzer`) is created with `StaticAnalysisData`, it calls `initialize_repository_from_static_data()` to populate `LogcatRepository.classes` with all known classes and methods from the reachability section. This establishes the denominator for coverage percentages. Each method entry carries `reachable`, `reaches_mop`, and `directly_reaches_mop` flags.
+
+2. **Logcat line parsing**: The background thread reads new lines from the logcat file. Each line is passed to `parse_logcat_line()`, which:
+   - Extracts date, time, PID, TID, level, tag, and message via regex matching against the Android logcat "threadtime" format
+   - If the tag is `RVSEC-COV`: tries the modern angle-bracket format (`<class: retType method(params)>`) first, then legacy triple-colon (`class:::method:::params`), producing an `RvCoverageLog`
+   - If the tag is `RVSEC`: tries generic spec error, JCA CSV, then FSM triple-colon, producing an `RvErrorLog`
+   - Both domain objects carry `time_occurred` (parsed from the logcat timestamp with year inference) and `original_msg` (raw line)
+
+3. **Repository registration**: Coverage entries are registered via `register_method_call()`, which marks the method as "called" in the repository. Error entries are registered via `register_rv_error()`, which adds the violation to the error list. Both operations set `_data_changed_since_last_update` to trigger metric recalculation.
+
+4. **Metric calculation**: `LogcatRepository.calculate_metrics()` computes:
+   - `method_coverage`: called reachable methods / total reachable methods
+   - `activity_coverage`: activities with at least one called method / total activities
+   - `mop_method_coverage`: called methods that reach MOP / total methods that reach MOP
+   - `called_methods`: absolute count of unique methods observed
+   - `unique_errors`: absolute count of distinct RV violations
+
+### Logcat Line Format and Tag Routing
+
+```
+MM-DD HH:MM:SS.mmm  PID  TID  LEVEL  TAG: message
+                                        |
+                          +-------------+-------------+
+                          |                           |
+                    TAG == RVSEC              TAG == RVSEC-COV
+                          |                           |
+              _parse_error_message()      _parse_coverage_message()
+                    |     |     |                |           |
+                generic  JCA   FSM           modern       legacy
+                spec    CSV   :::            <sig>        :::
+                error   6+f  split          regex        split
+```
 
 ## Architectural Patterns
 

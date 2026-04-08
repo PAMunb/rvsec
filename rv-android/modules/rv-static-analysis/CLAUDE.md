@@ -89,7 +89,7 @@ config = RVStaticAnalysisConfig(
 )
 
 # Build GATOR command
-cmd = config.build_analysis_command(apk_path, output_file, mop_dir)
+cmd = config.get_tool_command("analysis", apk_path, output_file, code_package="com.example")
 ```
 
 Key config fields: `rvsec_root`, `lib_dir`, `gator_dir`, `analysis_client_jar`, `android_jar`, `mop_dir`, `output_dir`, `jvm_memory`.

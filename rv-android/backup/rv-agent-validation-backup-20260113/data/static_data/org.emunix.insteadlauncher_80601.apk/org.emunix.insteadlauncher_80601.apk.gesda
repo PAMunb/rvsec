@@ -1,1 +1,0 @@
-{"fileName":"org.emunix.insteadlauncher_80601.apk","appName":"org.emunix.insteadlauncher.InsteadLauncher","packageName":"org.emunix.insteadlauncher","windows":[{"id":1,"name":"org.emunix.instead.ui.InsteadActivity","isMain":false,"type":"ACT"},{"id":2,"name":"org.emunix.insteadlauncher.ui.launcher.LauncherActivity","isMain":true,"type":"ACT"}]}

@@ -7,7 +7,7 @@ SHELL ["/bin/bash", "-c"]
 
 # Environment variables for installation paths as per your provided Dockerfile
 ENV JAVA_HOME=/opt/openjdk-25.0.2
-ENV MAVEN_HOME=/opt/apache-maven-3.9.12
+ENV MAVEN_HOME=/opt/apache-maven-3.9.14
 ENV ASPECTJ_HOME=/opt/aspectj
 ENV PATH=$ASPECTJ_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin:$PATH
 
@@ -26,9 +26,9 @@ RUN wget https://download.java.net/java/GA/jdk25.0.2/b1e0dfa218384cb9959bdcb8971
     rm openjdk-25.0.2_linux-x64_bin.tar.gz
 
 # Install Maven exactly as in your provided Dockerfile
-RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.zip && \
-    unzip apache-maven-3.9.12-bin.zip && \
-    rm apache-maven-3.9.12-bin.zip
+RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.14/binaries/apache-maven-3.9.14-bin.zip && \
+    unzip apache-maven-3.9.14-bin.zip && \
+    rm apache-maven-3.9.14-bin.zip
 
 # Install AspectJ compiler — version must match aspectj.version in rvsec/pom.xml (1.9.24)
 RUN mkdir $ASPECTJ_HOME && \

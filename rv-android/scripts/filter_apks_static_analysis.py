@@ -29,8 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
-
+from typing import Any, Dict, List, Optional, Tuple
 
 # Default timeout per tool (in seconds)
 DEFAULT_TIMEOUT = 600  # 10 minutes
@@ -39,6 +38,7 @@ DEFAULT_TIMEOUT = 600  # 10 minutes
 @dataclass
 class ToolResult:
     """Result of a single tool execution."""
+
     tool_name: str
     success: bool
     execution_time: float
@@ -53,13 +53,14 @@ class ToolResult:
             "execution_time": self.execution_time,
             "output_file": self.output_file,
             "error_message": self.error_message,
-            "timed_out": self.timed_out
+            "timed_out": self.timed_out,
         }
 
 
 @dataclass
 class ApkAnalysisResult:
     """Complete analysis result for a single APK."""
+
     apk_name: str
     apk_path: str
     valid: bool
@@ -74,7 +75,7 @@ class ApkAnalysisResult:
             "valid": self.valid,
             "total_time": self.total_time,
             "error_summary": self.error_summary,
-            "tools": {k: v.to_dict() for k, v in self.tool_results.items()}
+            "tools": {k: v.to_dict() for k, v in self.tool_results.items()},
         }
 
 
@@ -82,21 +83,25 @@ def create_config(
     rvsec_home: Optional[str] = None,
     android_home: Optional[str] = None,
     rt_jar: Optional[str] = None,
-    mop_dir: Optional[str] = None
+    mop_dir: Optional[str] = None,
 ) -> Dict[str, str]:
     """
     Create configuration dictionary for static analysis tools.
     Returns a plain dict that can be passed to worker processes.
     """
-    rvsec_home = rvsec_home or os.environ.get('RVSEC_HOME')
-    android_home = android_home or os.environ.get('ANDROID_HOME')
-    rt_jar = rt_jar or os.environ.get('RV_RT_JAR')
+    rvsec_home = rvsec_home or os.environ.get("RVSEC_HOME")
+    android_home = android_home or os.environ.get("ANDROID_HOME")
+    rt_jar = rt_jar or os.environ.get("RV_RT_JAR")
 
     if not rvsec_home:
-        raise ValueError("RVSEC_HOME not set. Set environment variable or pass --rvsec-home")
+        raise ValueError(
+            "RVSEC_HOME not set. Set environment variable or pass --rvsec-home"
+        )
 
     if not android_home:
-        raise ValueError("ANDROID_HOME not set. Set environment variable or pass --android-home")
+        raise ValueError(
+            "ANDROID_HOME not set. Set environment variable or pass --android-home"
+        )
 
     # Derive paths from RVSEC_HOME
     lib_dir = os.path.join(rvsec_home, "rv-android", "lib")
@@ -110,7 +115,9 @@ def create_config(
     android_platforms_dir = os.path.join(android_home, "platforms")
     android_jar = None
     for api_level in ["29", "28", "27", "26", "30", "31", "32", "33", "34"]:
-        candidate = os.path.join(android_platforms_dir, f"android-{api_level}", "android.jar")
+        candidate = os.path.join(
+            android_platforms_dir, f"android-{api_level}", "android.jar"
+        )
         if os.path.isfile(candidate):
             android_jar = candidate
             break
@@ -173,10 +180,7 @@ def create_config(
 
 
 def run_command_with_timeout(
-    cmd: List[str],
-    timeout: int,
-    tool_name: str,
-    output_file: str
+    cmd: List[str], timeout: int, tool_name: str, output_file: str
 ) -> ToolResult:
     """
     Execute a command with timeout.
@@ -185,12 +189,7 @@ def run_command_with_timeout(
     start_time = time.time()
 
     try:
-        result = subprocess.run(
-            cmd,
-            timeout=timeout,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(cmd, timeout=timeout, capture_output=True, text=True)
 
         execution_time = time.time() - start_time
 
@@ -202,7 +201,7 @@ def run_command_with_timeout(
                 execution_time=execution_time,
                 output_file=output_file,
                 error_message=f"Output file not created. Exit code: {result.returncode}. Stderr: {result.stderr[:500] if result.stderr else 'N/A'}",
-                timed_out=False
+                timed_out=False,
             )
 
         # Check file size (empty files are invalid)
@@ -213,14 +212,14 @@ def run_command_with_timeout(
                 execution_time=execution_time,
                 output_file=output_file,
                 error_message="Output file is empty",
-                timed_out=False
+                timed_out=False,
             )
 
         return ToolResult(
             tool_name=tool_name,
             success=True,
             execution_time=execution_time,
-            output_file=output_file
+            output_file=output_file,
         )
 
     except subprocess.TimeoutExpired:
@@ -231,7 +230,7 @@ def run_command_with_timeout(
             execution_time=execution_time,
             output_file=output_file,
             error_message=f"Timeout after {timeout} seconds",
-            timed_out=True
+            timed_out=True,
         )
 
     except Exception as e:
@@ -241,11 +240,13 @@ def run_command_with_timeout(
             success=False,
             execution_time=execution_time,
             output_file=output_file,
-            error_message=str(e)
+            error_message=str(e),
         )
 
 
-def analyze_apk_worker(args: Tuple[str, str, Dict[str, str], int, bool]) -> ApkAnalysisResult:
+def analyze_apk_worker(
+    args: Tuple[str, str, Dict[str, str], int, bool],
+) -> ApkAnalysisResult:
     """
     Worker function for parallel APK analysis.
     Takes a tuple of arguments to work with multiprocessing.Pool.
@@ -259,7 +260,7 @@ def analyze_apk(
     output_dir: str,
     config: Dict[str, str],
     timeout: int = DEFAULT_TIMEOUT,
-    stop_on_first_failure: bool = True
+    stop_on_first_failure: bool = True,
 ) -> ApkAnalysisResult:
     """
     Run all static analysis tools on a single APK.
@@ -278,11 +279,7 @@ def analyze_apk(
     apk_output_dir = os.path.join(output_dir, apk_name)
     os.makedirs(apk_output_dir, exist_ok=True)
 
-    result = ApkAnalysisResult(
-        apk_name=apk_name,
-        apk_path=apk_path,
-        valid=True
-    )
+    result = ApkAnalysisResult(apk_name=apk_name, apk_path=apk_path, valid=True)
 
     start_time = time.time()
 
@@ -293,11 +290,17 @@ def analyze_apk(
 
     # 1. Run GESDA (required for REACH)
     gesda_cmd = [
-        'java', '-jar', config['gesda_jar'],
-        '--android-dir', config['android_platforms_dir'],
-        '--rt-jar', config['rt_jar'],
-        '--output', gesda_file,
-        '--apk', apk_path
+        "java",
+        "-jar",
+        config["gesda_jar"],
+        "--android-dir",
+        config["android_platforms_dir"],
+        "--rt-jar",
+        config["rt_jar"],
+        "--output",
+        gesda_file,
+        "--apk",
+        apk_path,
     ]
 
     gesda_result = run_command_with_timeout(gesda_cmd, timeout, "GESDA", gesda_file)
@@ -312,11 +315,17 @@ def analyze_apk(
 
     # 2. Run GATOR
     gator_cmd = [
-        'python', config['gator_python'], 'a',
-        '-p', apk_path,
-        '--client-jar', config['gator_client_jar'],
-        '--out', gator_file,
-        '-client', 'RvsecWtgClient'
+        "python",
+        config["gator_python"],
+        "a",
+        "-p",
+        apk_path,
+        "--client-jar",
+        config["gator_client_jar"],
+        "--out",
+        gator_file,
+        "-client",
+        "RvsecWtgClient",
     ]
 
     gator_result = run_command_with_timeout(gator_cmd, timeout, "GATOR", gator_file)
@@ -332,15 +341,25 @@ def analyze_apk(
     # 3. Run REACH (depends on GESDA)
     if gesda_result.success:
         reach_cmd = [
-            'java', '-jar', config['reach_jar'],
-            '--android-dir', config['android_platforms_dir'],
-            '--rt-jar', config['rt_jar'],
-            '--mop-dir', config['mop_dir'],
-            '--gesda', gesda_file,
-            '--writer', 'csv',
-            '--timeout', str(timeout),
-            '--apk', apk_path,
-            '--output', reach_file
+            "java",
+            "-jar",
+            config["reach_jar"],
+            "--android-dir",
+            config["android_platforms_dir"],
+            "--rt-jar",
+            config["rt_jar"],
+            "--mop-dir",
+            config["mop_dir"],
+            "--gesda",
+            gesda_file,
+            "--writer",
+            "csv",
+            "--timeout",
+            str(timeout),
+            "--apk",
+            apk_path,
+            "--output",
+            reach_file,
         ]
 
         reach_result = run_command_with_timeout(reach_cmd, timeout, "REACH", reach_file)
@@ -355,7 +374,7 @@ def analyze_apk(
             success=False,
             execution_time=0.0,
             output_file=reach_file,
-            error_message="Skipped: GESDA failed"
+            error_message="Skipped: GESDA failed",
         )
         result.valid = False
 
@@ -368,7 +387,7 @@ def find_apks(apks_dir: str) -> List[str]:
     apks = []
     for root, dirs, files in os.walk(apks_dir):
         for file in files:
-            if file.lower().endswith('.apk'):
+            if file.lower().endswith(".apk"):
                 apks.append(os.path.join(root, file))
     return sorted(apks)
 
@@ -379,7 +398,7 @@ def run_sequential(
     config: Dict[str, str],
     timeout: int,
     continue_on_failure: bool,
-    verbose: bool
+    verbose: bool,
 ) -> List[ApkAnalysisResult]:
     """Run analysis sequentially."""
     results = []
@@ -392,7 +411,7 @@ def run_sequential(
             output_dir=output_dir,
             config=config,
             timeout=timeout,
-            stop_on_first_failure=not continue_on_failure
+            stop_on_first_failure=not continue_on_failure,
         )
 
         results.append(result)
@@ -412,7 +431,7 @@ def run_parallel(
     timeout: int,
     continue_on_failure: bool,
     num_workers: int,
-    verbose: bool
+    verbose: bool,
 ) -> List[ApkAnalysisResult]:
     """Run analysis in parallel using multiprocessing."""
     print(f"\nStarting parallel analysis with {num_workers} workers...")
@@ -442,8 +461,14 @@ def run_parallel(
                 failed_count += 1
 
             # Progress update
-            error_info = f" - {result.error_summary[:50]}..." if not result.valid and result.error_summary else ""
-            print(f"[{completed}/{len(apks)}] {result.apk_name}: {status} ({result.total_time:.1f}s){error_info}")
+            error_info = (
+                f" - {result.error_summary[:50]}..."
+                if not result.valid and result.error_summary
+                else ""
+            )
+            print(
+                f"[{completed}/{len(apks)}] {result.apk_name}: {status} ({result.total_time:.1f}s){error_info}"
+            )
 
     print("-" * 60)
     print(f"Parallel execution complete: {valid_count} valid, {failed_count} failed")
@@ -468,58 +493,54 @@ Examples:
 
     # Maximum parallelism (use all CPUs)
     python scripts/filter_apks_static_analysis.py --apks-dir ./apks --output-dir ./out/static -p 0
-        """
+        """,
     )
 
     parser.add_argument(
-        '--apks-dir', '-a',
-        required=True,
-        help='Directory containing APK files'
+        "--apks-dir", "-a", required=True, help="Directory containing APK files"
     )
     parser.add_argument(
-        '--output-dir', '-o',
+        "--output-dir",
+        "-o",
         required=True,
-        help='Output directory for analysis results'
+        help="Output directory for analysis results",
     )
     parser.add_argument(
-        '--timeout', '-t',
+        "--timeout",
+        "-t",
         type=int,
         default=DEFAULT_TIMEOUT,
-        help=f'Timeout per tool in seconds (default: {DEFAULT_TIMEOUT})'
+        help=f"Timeout per tool in seconds (default: {DEFAULT_TIMEOUT})",
     )
     parser.add_argument(
-        '--rvsec-home',
-        help='RVSEC installation root (default: $RVSEC_HOME)'
+        "--rvsec-home", help="RVSEC installation root (default: $RVSEC_HOME)"
     )
     parser.add_argument(
-        '--android-home',
-        help='Android SDK path (default: $ANDROID_HOME)'
+        "--android-home", help="Android SDK path (default: $ANDROID_HOME)"
     )
     parser.add_argument(
-        '--mop-dir',
-        help='MOP specifications directory (default: $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca)'
+        "--mop-dir",
+        help="MOP specifications directory (default: $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca)",
     )
     parser.add_argument(
-        '--continue-on-failure',
-        action='store_true',
-        help='Continue running all tools even if one fails'
+        "--continue-on-failure",
+        action="store_true",
+        help="Continue running all tools even if one fails",
     )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Verbose output'
-    )
-    parser.add_argument(
-        '--parallel', '-p',
+        "--parallel",
+        "-p",
         type=int,
         default=1,
-        help='Number of parallel workers (0 = auto-detect CPU count, default: 1)'
+        help="Number of parallel workers (0 = auto-detect CPU count, default: 1)",
     )
     parser.add_argument(
-        '--limit', '-l',
+        "--limit",
+        "-l",
         type=int,
         default=0,
-        help='Limit number of APKs to analyze (0 = no limit, default: 0)'
+        help="Limit number of APKs to analyze (0 = no limit, default: 0)",
     )
 
     args = parser.parse_args()
@@ -534,7 +555,7 @@ Examples:
         config = create_config(
             rvsec_home=args.rvsec_home,
             android_home=args.android_home,
-            mop_dir=args.mop_dir
+            mop_dir=args.mop_dir,
         )
     except ValueError as e:
         print(f"ERROR: Configuration error: {e}")
@@ -552,7 +573,7 @@ Examples:
 
     # Apply limit if specified
     if args.limit > 0:
-        apks = apks[:args.limit]
+        apks = apks[: args.limit]
 
     # Determine number of workers
     num_workers = args.parallel
@@ -563,7 +584,9 @@ Examples:
 
     print(f"Found {len(apks)} APK(s) to analyze")
     print(f"Timeout per tool: {args.timeout} seconds ({args.timeout/60:.1f} minutes)")
-    print(f"Max time per APK: {args.timeout * 3} seconds ({args.timeout * 3 / 60:.1f} minutes)")
+    print(
+        f"Max time per APK: {args.timeout * 3} seconds ({args.timeout * 3 / 60:.1f} minutes)"
+    )
     print(f"Parallel workers: {num_workers}")
     print(f"Output directory: {args.output_dir}")
 
@@ -572,13 +595,22 @@ Examples:
     # Run analysis
     if num_workers == 1:
         results = run_sequential(
-            apks, args.output_dir, config, args.timeout,
-            args.continue_on_failure, args.verbose
+            apks,
+            args.output_dir,
+            config,
+            args.timeout,
+            args.continue_on_failure,
+            args.verbose,
         )
     else:
         results = run_parallel(
-            apks, args.output_dir, config, args.timeout,
-            args.continue_on_failure, num_workers, args.verbose
+            apks,
+            args.output_dir,
+            config,
+            args.timeout,
+            args.continue_on_failure,
+            num_workers,
+            args.verbose,
         )
 
     total_time = time.time() - total_start
@@ -596,18 +628,20 @@ Examples:
     print(f"Failed APKs: {len(failed_apks)}")
     print(f"Total time: {total_time:.1f}s ({total_time/60:.1f} minutes)")
     if num_workers > 1:
-        print(f"Speedup: ~{len(apks) * args.timeout * 3 / total_time:.1f}x theoretical max")
+        print(
+            f"Speedup: ~{len(apks) * args.timeout * 3 / total_time:.1f}x theoretical max"
+        )
 
     # Write passed APKs list (consumed by select_dataset.py --passed-apks)
     valid_file = os.path.join(args.output_dir, "passed_apks.txt")
-    with open(valid_file, 'w') as f:
+    with open(valid_file, "w") as f:
         for apk in valid_apks:
             f.write(f"{apk}\n")
     print(f"\nPassed APKs list: {valid_file}")
 
     # Write failed APKs list
     failed_file = os.path.join(args.output_dir, "failed_apks.txt")
-    with open(failed_file, 'w') as f:
+    with open(failed_file, "w") as f:
         for apk, reason in failed_apks:
             f.write(f"{apk}\t{reason}\n")
     print(f"Failed APKs list: {failed_file}")
@@ -620,19 +654,19 @@ Examples:
             "apks_dir": args.apks_dir,
             "output_dir": args.output_dir,
             "continue_on_failure": args.continue_on_failure,
-            "parallel_workers": num_workers
+            "parallel_workers": num_workers,
         },
         "summary": {
             "total_apks": len(apks),
             "valid_apks": len(valid_apks),
             "failed_apks": len(failed_apks),
-            "total_time_seconds": total_time
+            "total_time_seconds": total_time,
         },
-        "results": [r.to_dict() for r in results]
+        "results": [r.to_dict() for r in results],
     }
 
     report_file = os.path.join(args.output_dir, "analysis_report.json")
-    with open(report_file, 'w') as f:
+    with open(report_file, "w") as f:
         json.dump(report, f, indent=2)
     print(f"Detailed report: {report_file}")
 
@@ -651,8 +685,16 @@ Examples:
         print("=" * 60)
 
         # Group by failure reason
-        timeout_failures = [(apk, reason) for apk, reason in failed_apks if reason and "Timeout" in reason]
-        other_failures = [(apk, reason) for apk, reason in failed_apks if not reason or "Timeout" not in reason]
+        timeout_failures = [
+            (apk, reason)
+            for apk, reason in failed_apks
+            if reason and "Timeout" in reason
+        ]
+        other_failures = [
+            (apk, reason)
+            for apk, reason in failed_apks
+            if not reason or "Timeout" not in reason
+        ]
 
         if timeout_failures:
             print(f"\n  Timeout failures ({len(timeout_failures)}):")
@@ -664,12 +706,16 @@ Examples:
         if other_failures:
             print(f"\n  Other failures ({len(other_failures)}):")
             for apk, reason in other_failures[:10]:
-                reason_short = (reason[:60] + "...") if reason and len(reason) > 60 else (reason or "Unknown")
+                reason_short = (
+                    (reason[:60] + "...")
+                    if reason and len(reason) > 60
+                    else (reason or "Unknown")
+                )
                 print(f"    - {Path(apk).name}: {reason_short}")
             if len(other_failures) > 10:
                 print(f"    ... and {len(other_failures) - 10} more")
 
-    print(f"\nDone!")
+    print("\nDone!")
 
     # Exit with appropriate code
     if len(valid_apks) == 0:

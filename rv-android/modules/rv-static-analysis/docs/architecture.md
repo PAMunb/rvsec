@@ -39,6 +39,44 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 
 ## Key Architectural Decisions
 
+### ADR-1: Single GATOR Client Instead of Three Separate Tools
+
+The original pipeline ran three separate Java tools in sequence -- GESDA (GUI element extraction), GATOR (window transition graph), and REACH (method reachability). This was replaced by a single `RvsecAnalysisClient` invocation that produces all four data sections (reachability, windows, transitions, components) in one JSON file.
+
+**Why**: Running three Java processes per APK tripled JVM startup overhead (~10s each) and required coordinating intermediate files between tools. A single invocation reduces wall-clock time by 20-30s per APK and eliminates file coordination bugs. The client writes sections in priority order with explicit `flush()` between each, so timeout still preserves the most critical data first.
+
+**Spec reference**: This decision directly enables FR04, FR05, and FR06 from a single process. The priority-ordered output satisfies INV-ANA-06 (parser does not propagate exceptions; returns empty domain objects per-section).
+
+### ADR-2: File-Level Caching Without Content Validation
+
+`StaticAnalyzer._execute_command()` checks whether the output JSON file exists before invoking GATOR. If the file exists, execution is skipped entirely -- no content validation, no checksum, no schema check.
+
+**Why**: GATOR analysis takes 2-10 minutes per APK. In experiments with 100+ APKs, re-running the pre-processing phase after a crash would waste hours. File existence is a sufficient signal because: (a) a complete run produces valid JSON, and (b) a timed-out run produces truncated JSON that the parser can recover via bracket completion. The only scenario where the file exists but is unusable is a disk-full write, which is rare and detectable at the experiment level. This satisfies INV-ANA-11.
+
+### ADR-3: Two-Layer Architecture (Analysis + Parser)
+
+The module is split into two independent layers: analysis orchestration (`StaticAnalyzer`) and data transformation (`StaticAnalysisParser`). The parser has no dependency on the analyzer and can operate on any JSON file matching the expected schema.
+
+**Why**: This separation serves two use cases. In the experiment pipeline, the analyzer runs GATOR and then the parser transforms the output. In batch/offline scenarios, researchers parse pre-existing JSON files without running GATOR. The parser's independence also enables unit testing with JSON fixtures (55 tests) without requiring GATOR installation.
+
+### ADR-4: Per-Section Independent Parsing with Graceful Degradation
+
+Each JSON section (reachability, windows, transitions, components) is parsed in its own `_parse_*()` method wrapped in try/except. A failure in one section does not prevent parsing of others (INV-ANA-06).
+
+**Why**: The GATOR client writes sections sequentially and flushes between each. On timeout (the most common failure mode at 600s default), the file is truncated mid-section. Reachability is written first because it provides the coverage denominator -- the most critical data for experiment validity. Even if transitions are entirely lost, the coverage calculation and MOP tracking still function. This pattern is validated by the "Timeout with partial JSON output" scenario from the spec.
+
+### ADR-5: SignatureNormalizer as Defensive Safety Net
+
+`StaticAnalysisParser` applies `SignatureNormalizer` to all class names (INV-ANA-02), converting `.` inner-class notation to `$` notation. The GATOR client already writes `$` notation via `SootClass.getName()`, so the normalizer is expected to be a no-op on well-formed output.
+
+**Why**: The normalizer exists as a guard against upstream changes in the GATOR client. If a future version of Soot or GATOR changes its output format, the parser continues to produce consistent class names. The cost is negligible (string scan per class name), and the safety benefit was validated when a GATOR version briefly produced mixed notation.
+
+### ADR-6: ETL Pipeline Pattern
+
+The module follows an Extract-Transform-Load pattern: `StaticAnalyzer` extracts raw data by running GATOR as a subprocess, `StaticAnalysisParser` transforms the JSON into domain objects, and the resulting `StaticAnalysisData` is loaded into downstream consumers.
+
+**Why**: GATOR is a Java program that cannot be imported as a Python library, so subprocess invocation with file-based I/O is the natural integration pattern. The file-based intermediate step also provides an audit trail -- the raw JSON is preserved in the results directory for post-experiment inspection.
+
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Application Type | Library with CLI entry point | Consumed programmatically by rv-platform/rv-experiment; CLI for standalone/batch use |
@@ -47,6 +85,89 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 | Control Strategy | Call-based, synchronous | Single subprocess execution with timeout; no concurrency within the module |
 | Distribution | Single machine, subprocess | GATOR runs as a Java subprocess on the same host; no network communication |
 | Caching Strategy | File-level existence check | If output JSON exists, execution is skipped entirely. No content validation -- existence implies usable data |
+
+## Data Flow
+
+The module participates in a linear data pipeline that transforms an APK binary into structured domain objects consumed by three downstream modules.
+
+### End-to-End Data Flow
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Input
+        APK["APK binary"]
+        MOP["MOP specs\n(jca/*.mop)"]
+    end
+
+    subgraph rv-static-analysis
+        SA["StaticAnalyzer"]
+        CACHE{"JSON exists?"}
+        GATOR["GATOR subprocess\n(RvsecAnalysisClient)"]
+        JSON["analysis JSON\n{reachability, windows,\ntransitions, components}"]
+        SAP["StaticAnalysisParser"]
+    end
+
+    subgraph Output["StaticAnalysisData"]
+        CLS["Classes\n(methods, MOP flags)"]
+        WIN["Windows\n(widgets, listeners)"]
+        WTG["WindowTransitionGraph\n(navigation edges)"]
+        CMP["Components\n(intents, exported, MOP)"]
+    end
+
+    subgraph Consumers
+        COV["rv-coverage\n(method universe)"]
+        AGT["rv-agent\n(WTG nav, MOP priority)"]
+        PLT["rv-platform\n(StaticAnalysisComponent)"]
+    end
+
+    APK --> SA
+    MOP --> SA
+    SA --> CACHE
+    CACHE -->|no| GATOR
+    CACHE -->|yes, skip| SAP
+    GATOR --> JSON
+    JSON --> SAP
+    SAP --> CLS
+    SAP --> WIN
+    SAP --> WTG
+    SAP --> CMP
+    CLS --> COV
+    CLS --> AGT
+    WIN --> AGT
+    WTG --> AGT
+    CLS --> PLT
+    WIN --> PLT
+    WTG --> PLT
+    CMP --> PLT
+```
+
+### Data Transformation Stages
+
+1. **Extract**: `StaticAnalyzer` builds a GATOR command line from `RVStaticAnalysisConfig` paths (JVM, android.jar, MOP dir, analysis client JAR) and invokes it as a subprocess with configurable timeout (default 600s). The GATOR client performs Soot-based analysis of the APK bytecode.
+
+2. **Intermediate file**: The GATOR client writes a single JSON file with four sections in priority order: `reachability` (classes with MOP flags), `windows` (widgets with event listeners), `transitions` (window-to-window edges), and `components` (non-Activity component data). Each section is flushed before starting the next, so timeout preserves sections in priority order.
+
+3. **Transform**: `StaticAnalysisParser.parse_file()` reads the JSON and produces four domain objects:
+   - `Classes`: one `Clazz` per app class (filtered by `code_package` per INV-ANA-03), each containing `Method` objects with `reachable`, `reaches_mop`, and `directly_reaches_mop` flags.
+   - `Windows`: one `Window` per UI screen with `Widget` objects carrying event listeners (`WidgetEvent` with handler signatures).
+   - `WindowTransitionGraph`: a `networkx.DiGraph` where nodes are `Window` objects and edges carry `WindowTransition` lists (widget ID, event type, handler method). Widgets referenced in transitions but absent from windows are back-filled on the fly.
+   - `Components`: activities, receivers, services, and providers with intent filters, exported status, and MOP reachability data.
+
+4. **Load**: The `StaticAnalysisData` aggregate is passed to downstream consumers. rv-coverage uses `Classes.methods` as the denominator for coverage percentages. rv-agent uses the WTG for navigation guidance and MOP flags for action prioritization. rv-platform makes the data available to all task executor components.
+
+### JSON Section Priority and Timeout Behavior
+
+When the GATOR client is killed by timeout, the JSON file is truncated at the point of interruption. The parser's bracket-recovery mechanism finds the last complete `]` and closes the root object with `}`. This yields:
+
+| Timeout point | Reachability | Windows | Transitions | Components | Impact |
+|---------------|-------------|---------|-------------|------------|--------|
+| After reachability flush | Complete | Empty | Empty | Empty | Coverage denominator preserved; no navigation data |
+| During windows write | Complete | Partial | Empty | Empty | Coverage + partial widget data for MOP matching |
+| After windows flush | Complete | Complete | Empty | Empty | Coverage + full widget matching; no WTG navigation |
+| During transitions write | Complete | Complete | Partial | Empty | Full data except some WTG edges and all components |
+| After transitions flush | Complete | Complete | Complete | Empty | Full navigation data; missing component-level MOP |
+| Complete | Complete | Complete | Complete | Complete | All data available |
 
 ## Architectural Patterns
 

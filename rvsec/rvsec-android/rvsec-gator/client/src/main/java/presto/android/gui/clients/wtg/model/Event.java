@@ -5,6 +5,18 @@ import java.util.Objects;
 import presto.android.gui.graph.NObjectNode;
 import presto.android.gui.wtg.EventHandler;
 
+/**
+ * Represents a UI event within the Window Transition Graph (WTG).
+ *
+ * <p>An Event captures the type of user interaction (e.g., click, long-click),
+ * the handler method that processes the event, and the target widget's identity
+ * (resource ID, class, and name). Events are extracted from GATOR's
+ * {@link EventHandler} during static analysis and serialized to JSON as part
+ * of the WTG output consumed by the RV-Android testing tools.</p>
+ *
+ * <p>Equality is based on all fields, so two events are considered identical
+ * only when they share the same type, handler, widget ID, class, and name.</p>
+ */
 public class Event {
 
 	private String type;
@@ -13,7 +25,16 @@ public class Event {
 	private String widgetClass;
 	private String widgetName;
 
-	public Event(EventHandler e) {	
+	/**
+	 * Constructs an Event from a GATOR {@link EventHandler}.
+	 *
+	 * <p>Extracts the event type, handler signature, and widget metadata.
+	 * If the widget has an associated {@code idNode}, the resource name and
+	 * numeric ID are taken from it (overriding the raw object node ID).</p>
+	 *
+	 * @param e the GATOR event handler to convert
+	 */
+	public Event(EventHandler e) {
 		this.type = e.getEvent().toString();
 		this.handler = (e.getEventHandler() == null) ? "" : e.getEventHandler().getSignature();
 		if (e.getWidget() != null) {

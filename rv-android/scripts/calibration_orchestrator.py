@@ -69,24 +69,36 @@ _get_default_params = None
 
 
 def _load_tool_modules(tool: str) -> None:
-    """Load parameter space and objective modules for the given tool family."""
+    """Load parameter space and objective modules for the given tool family.
+
+    Dynamically imports the correct parameter space and objective function
+    modules based on the tool family (aperv vs rvagent). This avoids a
+    hard dependency on both tool families at import time -- the rvagent
+    calibration modules live in a separate package that may not be installed.
+
+    Args:
+        tool: Tool identifier string. If it starts with ``"aperv"``, loads
+            from ``aperv_parameter_space`` / ``aperv_objective`` (local scripts).
+            Otherwise, loads from ``rv_agent_validation.calibration`` package.
+    """
     global _suggest_params, _params_to_tool_spec, _CalibrationPhase
     global _compute_aperv_score, _ObjectiveFunction, _get_default_params
 
     if tool.startswith("aperv"):
+        from aperv_objective import compute_score
         from aperv_parameter_space import (
             CalibrationPhase,
             get_default_params,
             params_to_tool_spec,
             suggest_params,
         )
-        from aperv_objective import compute_score
 
         _suggest_params = suggest_params
         _params_to_tool_spec = params_to_tool_spec
         _CalibrationPhase = CalibrationPhase
         _compute_aperv_score = compute_score
         _get_default_params = get_default_params
+        # aperv uses a standalone compute_score function, not a class
         _ObjectiveFunction = None
     else:
         from rv_agent_validation.calibration.objective import ObjectiveFunction
@@ -100,9 +112,11 @@ def _load_tool_modules(tool: str) -> None:
         _suggest_params = suggest_params
         _params_to_tool_spec = params_to_tool_spec
         _CalibrationPhase = CalibrationPhase
+        # rvagent uses ObjectiveFunction class with configurable weights
         _compute_aperv_score = None
         _get_default_params = get_default_params
         _ObjectiveFunction = ObjectiveFunction
+
 
 logger = logging.getLogger(__name__)
 
@@ -169,12 +183,16 @@ def generate_calibration_compose(
                 "RV_TIMEOUTS": str(timeout),
                 "RV_APKS_DIR": "/opt/rvsec/rv-android/apks",
                 "RV_NO_WINDOW": "true",
+                # Skip pre-processing: APKs in data_dir are already instrumented.
+                # This saves ~5min/APK of monitor generation + instrumentation.
                 "RV_SKIP_MONITORS": "true",
                 "RV_SKIP_INSTRUMENT": "true",
                 "RV_SKIP_STATIC_ANALYSIS": "true",
                 "RV_APKS_FILTER": "/opt/rvsec/rv-android/filters/filter.txt",
+                # Stagger emulator boots to avoid a KVM/CPU boot-storm on the host
                 "RV_DELAY": str(index * CONTAINER_STAGGER_SECONDS),
-                # Activate socat bridge for LLM variants (aperv:sata_mop_llm, etc.)
+                # Activate socat bridge inside the container for LLM variants.
+                # The bridge forwards LLM requests to the SGLang server on the host.
                 **({"RVSMART_LLM_MODE": "true"} if "llm" in tool_spec else {}),
             },
             "volumes": [
@@ -240,18 +258,32 @@ def recover_orphaned_trials(
 
 
 def count_filter_apks(filter_file: str) -> int:
-    """Count non-empty lines in a filter file."""
+    """Count non-empty lines in a filter file.
+
+    Args:
+        filter_file: Path to the APK filter file (one filename per line).
+
+    Returns:
+        Number of APKs that will be processed by each container.
+    """
     with open(filter_file, "r", encoding="utf-8") as f:
         return sum(1 for line in f if line.strip())
 
 
 def compute_round_timeout(timeout: int, n_apks: int) -> int:
-    """
-    Compute a round timeout based on the number of APKs each container processes.
+    """Compute a round timeout based on the number of APKs each container processes.
 
     Each container runs n_apks tasks sequentially. Each task takes approximately
-    ``timeout + TASK_OVERHEAD_SECONDS`` seconds (tool execution + emulator boot/teardown).
-    A safety margin is applied to account for variance.
+    ``timeout + TASK_OVERHEAD_SECONDS`` seconds (tool execution + emulator
+    boot/teardown). A safety margin is applied to account for variance in
+    emulator boot times and I/O contention when many containers run in parallel.
+
+    Args:
+        timeout: Per-APK tool timeout in seconds.
+        n_apks: Number of APKs each container will process.
+
+    Returns:
+        Round timeout in seconds (integer).
     """
     per_task = timeout + TASK_OVERHEAD_SECONDS
     return int(n_apks * per_task * ROUND_TIMEOUT_SAFETY_MARGIN)
@@ -281,7 +313,7 @@ def preflight_checks(data_dir: str, filter_file: str, agent_mode: str) -> None:
     # Check free disk space on the partition where output will be written
     disk = shutil.disk_usage(data_path)
     if disk.free < MIN_DISK_SPACE_BYTES:
-        free_gb = disk.free / (1024 ** 3)
+        free_gb = disk.free / (1024**3)
         sys.exit(
             f"Insufficient disk space: {free_gb:.1f} GB free, "
             f"need at least {MIN_DISK_SPACE_BYTES / (1024 ** 3):.0f} GB"
@@ -311,6 +343,8 @@ def compute_score_for_trial(
     Returns:
         Objective score (0-100 scale).
     """
+    # Double nesting: outer dir is the Docker volume mount target, inner dir is
+    # created by rv-experiment using RV_EXPERIMENT_NAME (which we set to trial_N)
     results_dir = Path(output_dir) / f"trial_{trial_num}" / f"trial_{trial_num}"
     summary_csv = results_dir / "summary.csv"
     if not summary_csv.exists():
@@ -387,6 +421,11 @@ def _save_results(
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the calibration orchestrator CLI.
+
+    Returns:
+        Configured ``ArgumentParser`` with all calibration options.
+    """
     parser = argparse.ArgumentParser(
         description="Docker-based calibration orchestrator for RVAgent parameters.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -397,8 +436,8 @@ def _build_parser() -> argparse.ArgumentParser:
         type=str,
         default="rvagent",
         help="Tool family to calibrate. For rvagent: 'rvagent' (uses --agent-mode). "
-             "For APE-RV: 'aperv:sata_mop' (MACRO, no LLM) or 'aperv:sata_mop_llm' (MICRO, with LLM). "
-             "Default: rvagent.",
+        "For APE-RV: 'aperv:sata_mop' (MACRO, no LLM) or 'aperv:sata_mop_llm' (MICRO, with LLM). "
+        "Default: rvagent.",
     )
     parser.add_argument(
         "--phase",
@@ -491,7 +530,7 @@ def _build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="SGLang server URL reachable from containers (e.g. http://host.docker.internal:30000/v1). "
-             "Injects llm_base_url into the tool spec for multimode agents.",
+        "Injects llm_base_url into the tool spec for multimode agents.",
     )
     parser.add_argument(
         "--no-enqueue-defaults",
@@ -503,18 +542,35 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=5,
         help="Stop early if best score hasn't improved for this many rounds (default: 5). "
-             "Set to 0 to disable convergence monitoring.",
+        "Set to 0 to disable convergence monitoring.",
     )
     return parser
 
 
 def main() -> None:
+    """Run the calibration orchestrator main loop.
+
+    Orchestrates the full Optuna-based calibration workflow:
+
+    1. Parse CLI arguments and validate preconditions.
+    2. Create or resume an Optuna study (SQLite-backed for crash resilience).
+    3. Optionally warm-start the study with default parameter values.
+    4. Loop: ask Optuna for N trial suggestions, generate a docker-compose file,
+       launch containers in parallel, wait for completion, score results, and
+       report scores back to Optuna.
+    5. Stop when all trials are complete or early convergence is detected.
+    6. Save best parameters, tool spec string, and full trial history to disk.
+
+    Raises:
+        SystemExit: If precondition checks fail (missing data, insufficient disk).
+    """
     args = _build_parser().parse_args()
 
     # --- Setup ---
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Log to both console and file so the orchestrator log survives disconnects
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -530,7 +586,9 @@ def main() -> None:
 
     logger.info("=" * 60)
     logger.info("Calibration Orchestrator")
-    logger.info(f"Tool: {args.tool}, Phase: {args.phase}, Trials: {args.n_trials}, Containers/round: {args.n_containers}")
+    logger.info(
+        f"Tool: {args.tool}, Phase: {args.phase}, Trials: {args.n_trials}, Containers/round: {args.n_containers}"
+    )
     logger.info(f"Data: {args.data_dir}, Output: {args.output_dir}")
     logger.info("=" * 60)
 
@@ -546,7 +604,9 @@ def main() -> None:
     if not is_aperv:
         baseline_max_errors: Optional[float] = None
         if args.baseline_dir:
-            baseline_max_errors = _ObjectiveFunction.compute_baseline_max_errors(args.baseline_dir)
+            baseline_max_errors = _ObjectiveFunction.compute_baseline_max_errors(
+                args.baseline_dir
+            )
             logger.info(f"Baseline max errors: {baseline_max_errors:.2f}")
 
         objective_fn = _ObjectiveFunction(
@@ -561,6 +621,11 @@ def main() -> None:
     storage_url = f"sqlite:///{storage_path}"
     study_name = f"calibration_{args.phase}_{args.seed}"
 
+    # constant_liar=True: allows asking for N trials before reporting results,
+    # which is needed because we run N containers in parallel per round.
+    # multivariate=True: models parameter correlations (e.g., epsilon vs throttle).
+    # n_startup_trials: random exploration before TPE kicks in -- set to 2 rounds
+    # worth of containers to ensure a diverse initial sample.
     sampler = optuna.samplers.TPESampler(
         seed=args.seed,
         constant_liar=True,
@@ -577,7 +642,9 @@ def main() -> None:
     logger.info(f"Optuna study: {study_name} (storage: {storage_path})")
 
     # --- Map phase string to enum ---
-    phase = _CalibrationPhase.MACRO if args.phase == "macro" else _CalibrationPhase.MICRO
+    phase = (
+        _CalibrationPhase.MACRO if args.phase == "macro" else _CalibrationPhase.MICRO
+    )
 
     # --- Load fixed params for micro phase ---
     fixed_params: Dict[str, Any] = {}
@@ -585,7 +652,9 @@ def main() -> None:
         with open(args.best_macro, "r", encoding="utf-8") as f:
             macro_results = json.load(f)
         fixed_params = macro_results["best_params"]
-        logger.info(f"Loaded {len(fixed_params)} fixed macro params from {args.best_macro}")
+        logger.info(
+            f"Loaded {len(fixed_params)} fixed macro params from {args.best_macro}"
+        )
 
     # --- Warm-starting: enqueue default params as first trial ---
     # Only on fresh runs (not resume) with no completed trials yet.
@@ -617,10 +686,12 @@ def main() -> None:
     # --- Main optimization loop ---
     round_number = 0
     rounds_without_improvement = 0
-    best_score_so_far = -float("inf")
+    best_score_so_far = -float("in")
     n_apks = count_filter_apks(args.filter_file)
     round_timeout = compute_round_timeout(args.timeout, n_apks)
-    logger.info(f"Round timeout: {round_timeout}s ({round_timeout / 3600:.1f}h) for {n_apks} APKs")
+    logger.info(
+        f"Round timeout: {round_timeout}s ({round_timeout / 3600:.1f}h) for {n_apks} APKs"
+    )
 
     while remaining > 0:
         round_number += 1
@@ -638,17 +709,23 @@ def main() -> None:
             # Suggest parameters for this trial's phase
             params = _suggest_params(trial, phase)
 
-            # For micro phase, merge fixed macro params underneath the tuned micro params
+            # For micro phase, merge fixed macro params underneath the tuned micro
+            # params. The spread order matters: micro params override any macro
+            # params with the same name (shouldn't happen, but defensive).
             if fixed_params:
                 merged = {**fixed_params, **params}
             else:
                 merged = params
 
             param_str = _params_to_tool_spec(merged)
+            # SGLang URL is injected into the tool spec so the container can
+            # reach the LLM server on the host via host.docker.internal
             if args.sglang_url and not is_aperv:
                 param_str += f",llm_base_url={args.sglang_url}"
 
-            # Build tool spec: aperv uses --tool directly, rvagent appends agent_mode
+            # Build tool spec DSL: aperv uses the --tool value directly (e.g.
+            # "aperv:sata_mop"), while rvagent needs the agent_mode appended
+            # as a variant (e.g. "rvagent:pure_algorithm")
             if is_aperv:
                 tool_spec = f"{args.tool}@{param_str}"
             else:
@@ -680,9 +757,12 @@ def main() -> None:
         logger.info(f"Launching {batch_size} container(s)...")
         start_time = time.monotonic()
 
+        # check=False: we handle failures via Optuna scoring (no summary.csv = FAIL).
+        # The finally block ensures containers are torn down even on timeout,
+        # freeing resources (KVM, memory) for the next round.
         try:
             subprocess.run(
-                ["docker", "compose", "-f", str(compose_path), "up"],
+                ["docker", "compose", "-", str(compose_path), "up"],
                 check=False,
                 timeout=round_timeout,
             )
@@ -690,7 +770,7 @@ def main() -> None:
             logger.warning(f"Round {round_number} timed out after {round_timeout}s")
         finally:
             subprocess.run(
-                ["docker", "compose", "-f", str(compose_path), "down"],
+                ["docker", "compose", "-", str(compose_path), "down"],
                 check=False,
             )
 
@@ -700,7 +780,9 @@ def main() -> None:
         # Score results and tell Optuna
         for trial in trials_this_round:
             try:
-                score = compute_score_for_trial(trial.number, str(output_dir), objective_fn)
+                score = compute_score_for_trial(
+                    trial.number, str(output_dir), objective_fn
+                )
                 study.tell(trial.number, score)
                 logger.info(f"  Trial {trial.number} -> score {score:.2f}")
             except Exception as e:
@@ -708,7 +790,9 @@ def main() -> None:
                 logger.warning(f"  Trial {trial.number} FAILED: {e}")
 
         # Update remaining count
-        completed_count = len([t for t in study.trials if t.state == TrialState.COMPLETE])
+        completed_count = len(
+            [t for t in study.trials if t.state == TrialState.COMPLETE]
+        )
         remaining = args.n_trials - completed_count
         logger.info(f"Progress: {completed_count}/{args.n_trials} trials complete")
 
@@ -734,7 +818,11 @@ def main() -> None:
 
 
 def _print_summary(study: optuna.Study) -> None:
-    """Print a human-readable summary of the calibration run."""
+    """Print a human-readable summary of the calibration run.
+
+    Args:
+        study: Completed Optuna study to summarize.
+    """
     completed = [t for t in study.trials if t.state == TrialState.COMPLETE]
     failed = [t for t in study.trials if t.state == TrialState.FAIL]
 

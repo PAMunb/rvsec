@@ -19,26 +19,17 @@ The RV-Coverage module provides coverage tracking capabilities for Android appli
 ### Core Components
 
 #### Coverage Analysis Infrastructure
-- **CoverageAnalyzer**: Centralized analyzer with batch processing, multi-source data integration, and metrics calculation
-- **CoverageTracker**: Real-time monitoring system with concurrent logcat processing
-- **MetricsCalculator**: Metrics engine with support for method, activity, and specification-specific coverage calculation
+- **CoverageAnalyzer**: Centralized analyzer with batch processing, fallback capabilities, and metrics calculation
+- **CoverageTracker**: Real-time monitoring system with background logcat processing
 
-#### Monitoring Operations Support
-- **MonitoredOperationsDetector**: Detection system for both JCA cryptography and generic programming pattern violations
-- **SpecificationAnalyzer**: Analyzer for different specification types with validation and error reporting
-- **ViolationProcessor**: Processor for handling different types of monitored operations violations
-
-#### Integration Infrastructure
-- **LogcatParser**: Logcat parsing with real-time processing and structured data extraction
-- **EventPublisher**: Event publishing system with typed events and error handling
-- **RepositoryIntegration**: Direct repository access with performance optimization and caching
+#### Parsing Infrastructure
+- **LogcatParser**: Logcat parsing with real-time processing and structured data extraction (RVSEC and RVSEC-COV tags)
 
 ### Integration Points
 
 - **rv-android-core**: Uses ErrorHandler decorators, LoggingManager, and domain models for infrastructure
-- **rv-experiment**: Provides coverage tracking components for experiment orchestration and real-time monitoring
-- **rv-static-analysis**: Integrates static analysis data for coverage calculation and baseline establishment
-- **rv-monitor-generator**: Coordinates with monitor specifications for monitored operations detection
+- **rv-platform**: Provides coverage tracking components for task execution
+- **rv-static-analysis**: Integrates static analysis data for coverage calculation
 
 ## Installation
 
@@ -66,35 +57,13 @@ uv sync --extras dev
 ### Coverage Analysis
 
 ```python
-from rv_coverage.analysis.coverage import CoverageAnalyzer, CoverageTracker
-from rv_coverage.analysis.coverage.tracker import MetricsCalculator
-from rv_android_core.util.error.decorators import handle_errors
-from rv_android_core.util.logging.manager import LoggingManager
+from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer
 
-# Create coverage analyzer with configuration
-analyzer = CoverageAnalyzer(
-    static_data=static_analysis_result,
-    specification_type="jca",  # "jca", "generic", or "custom"
-    enable_real_time_events=True,
-    validation_enabled=True
-)
+# Create coverage analyzer with static analysis data
+analyzer = CoverageAnalyzer(static_data=static_analysis_result)
 
-# Batch analysis with error handling
-@handle_errors(component="CoverageAnalysis", operation="analyze")
-def analyze_coverage():
-    metrics = analyzer.analyze("/path/to/logcat.txt")
-    return metrics
-
-metrics = analyze_coverage()
-
-if metrics:
-    print(f"Coverage Analysis Results:")
-    print(f"  Method Coverage: {metrics['method_coverage']:.2f}%")
-    print(f"  Activity Coverage: {metrics['activities_coverage']:.2f}%")
-    print(f"  JCA Operations Coverage: {metrics.get('jca_coverage', 0):.2f}%")
-    print(f"  Generic Patterns Coverage: {metrics.get('generic_coverage', 0):.2f}%")
-    print(f"  Total Violations: {metrics['total_errors']}")
-    print(f"  Performance Metrics: {metrics.get('performance_stats', {})}")
+# Batch analysis
+metrics = analyzer.analyze("/path/to/logcat.txt")
 ```
 
 ### Real-time Coverage Tracking
@@ -102,55 +71,22 @@ if metrics:
 ```python
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
 
-# Context manager usage with configuration
-tracker_config = {
-    "specification_type": "jca",
-    "real_time_events": True,
-    "performance_monitoring": True,
-    "violation_detection": True
-}
-
-with CoverageTracker(logcat_file, static_data, config=tracker_config) as tracker:
-    # Tracker automatically monitors coverage with real-time events
+# Context manager usage (recommended)
+with CoverageTracker(logcat_file, static_data, task_id="task_123") as tracker:
+    # Tracker automatically monitors coverage in a background thread
     # Run your testing framework here
-    
+
     # Get intermediate coverage metrics
     current_metrics = tracker.get_coverage_metrics()
-    print(f"Current method coverage: {current_metrics.method_coverage:.2f}%")
-    
-    # Get real-time violation information
-    violations = tracker.get_detected_violations()
-    for violation in violations:
-        print(f"Violation: {violation.type} at {violation.timestamp}")
 
-# Manual lifecycle management with error handling
-@handle_errors(component="CoverageTracker", operation="lifecycle")
-def run_tracking():
-    tracker = CoverageTracker(
-        logcat_file, 
-        static_data,
-        enable_parallel_processing=True,
-        specification_aware=True
-    )
-    
-    try:
-        tracker.start()
-        
-        # Metrics access
-        real_time_metrics = tracker.get_real_time_metrics()
-        specification_metrics = tracker.get_specification_metrics()
-        performance_stats = tracker.get_performance_statistics()
-        
-        return {
-            "real_time": real_time_metrics,
-            "specifications": specification_metrics,
-            "performance": performance_stats
-        }
-        
-    finally:
-        tracker.stop()
-
-tracking_results = run_tracking()
+# Manual lifecycle management
+tracker = CoverageTracker(logcat_file, static_data)
+tracker.start()
+try:
+    # Run tests
+    metrics = tracker.get_coverage_metrics()
+finally:
+    tracker.stop()
 ```
 
 ### Processing Individual Log Entries
@@ -196,7 +132,7 @@ logger.setLevel('DEBUG')
 
 - **Method Coverage**: Percentage of reachable methods executed
 - **Activity Coverage**: Percentage of activities accessed
-- **MOP Method Coverage**: Coverage of security-relevant methods
+- **MOP Method Coverage**: Coverage of monitored operations methods
 - **Called Methods**: Total number of unique methods called
 - **Total Errors**: Number of formal property violations detected
 

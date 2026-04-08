@@ -126,15 +126,25 @@ PYTHONPATH=../rv-android-core/src:../rv-tools/src:src uv run pytest tests/config
 ```
 tests/
     __init__.py
+    test_platform.py                # Platform-level tests
     components/
         __init__.py
-        test_tool_execution.py
+        test_coverage.py            # CoverageComponent tests
+        test_emulator.py            # EmulatorComponent tests
+        test_logcat.py              # LogcatComponent tests
+        test_result_processor.py    # ResultProcessorComponent tests
+        test_static_analysis.py     # StaticAnalysisComponent tests
+        test_tool_execution.py      # ToolExecutionComponent tests
     config/
-        test_platform_config.py
+        test_platform_config.py     # PlatformConfig validation tests
     execution/
         __init__.py
-        test_executor.py
-        test_resume.py          # Resume and result consolidation tests (U1-U10, U15-U17)
+        test_executor.py            # TaskExecutor tests
+        test_resume.py              # Resume and result consolidation tests
+        test_resume_integration.py  # Resume integration tests
+    storage/
+        __init__.py
+        test_task_storage.py        # TaskStorage tests
     manual_tests/
         debug_executor.py
 ```

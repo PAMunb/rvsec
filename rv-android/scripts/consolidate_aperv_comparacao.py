@@ -36,8 +36,15 @@ COLUMN_MAP = {
 }
 
 OUTPUT_COLUMNS = [
-    "apk", "tool", "rep", "status", "duration_s",
-    "method_coverage", "activity_coverage", "mop_coverage", "total_errors",
+    "apk",
+    "tool",
+    "rep",
+    "status",
+    "duration_s",
+    "method_coverage",
+    "activity_coverage",
+    "mop_coverage",
+    "total_errors",
 ]
 
 
@@ -102,12 +109,24 @@ def load_container_data(container: str) -> pd.DataFrame:
     # Add FAILED/ERROR tasks that are missing from summary.csv (zero coverage)
     for (apk, tool, rep), state in status_map.items():
         if state != "COMPLETED" and (apk, tool, rep) not in completed_keys:
-            frames.append(pd.DataFrame([{
-                "apk": apk, "rep": rep, "timeout": 600, "tool": tool,
-                "cov_act": 0.0, "cov_method": 0.0, "cov_rv_method": 0.0,
-                "errors": 0, "status": state,
-                "duration_s": duration_map.get((apk, tool, rep), 0),
-            }]))
+            frames.append(
+                pd.DataFrame(
+                    [
+                        {
+                            "apk": apk,
+                            "rep": rep,
+                            "timeout": 600,
+                            "tool": tool,
+                            "cov_act": 0.0,
+                            "cov_method": 0.0,
+                            "cov_rv_method": 0.0,
+                            "errors": 0,
+                            "status": state,
+                            "duration_s": duration_map.get((apk, tool, rep), 0),
+                        }
+                    ]
+                )
+            )
 
     if not frames:
         return pd.DataFrame()
@@ -142,31 +161,33 @@ def print_summary(df: pd.DataFrame) -> None:
         ok = (g["status"] == "COMPLETED").sum()
         err = total - ok
         apks = g["apk"].nunique()
-        print(f"  {tool:20s}: {total:4d} tasks "
-              f"({ok} completed, {err} failed) | {apks} unique APKs")
+        print(
+            f"  {tool:20s}: {total:4d} tasks "
+            f"({ok} completed, {err} failed) | {apks} unique APKs"
+        )
 
     # Coverage stats
     print("\n--- Coverage Statistics (COMPLETED tasks only) ---")
-    print(f"  {'tool':20s} {'metric':22s} "
-          f"{'mean':>8s} {'median':>8s} {'std':>8s} {'min':>8s} {'max':>8s}")
+    print(
+        f"  {'tool':20s} {'metric':22s} "
+        f"{'mean':>8s} {'median':>8s} {'std':>8s} {'min':>8s} {'max':>8s}"
+    )
     print("  " + "-" * 78)
     for tool in sorted(completed["tool"].unique()):
         g = completed[completed["tool"] == tool]
         for m in metrics:
             vals = g[m]
-            print(f"  {tool:20s} {m:22s} "
-                  f"{vals.mean():8.2f} {vals.median():8.2f} {vals.std():8.2f} "
-                  f"{vals.min():8.2f} {vals.max():8.2f}")
+            print(
+                f"  {tool:20s} {m:22s} "
+                f"{vals.mean():8.2f} {vals.median():8.2f} {vals.std():8.2f} "
+                f"{vals.min():8.2f} {vals.max():8.2f}"
+            )
         print()
 
     # Per-APK mean coverage comparison (averaged across reps first, then across APKs)
     print("--- Per-APK Mean Coverage (averaged across reps, then across APKs) ---")
     apk_means = (
-        completed
-        .groupby(["tool", "apk"])[metrics[:3]]
-        .mean()
-        .groupby("tool")
-        .mean()
+        completed.groupby(["tool", "apk"])[metrics[:3]].mean().groupby("tool").mean()
     )
     print(apk_means.to_string())
     print()
@@ -175,13 +196,10 @@ def print_summary(df: pd.DataFrame) -> None:
     print("--- Head-to-Head (method_coverage, threshold ±2pp) ---")
     tools = sorted(completed["tool"].unique())
     apk_tool_means = (
-        completed
-        .groupby(["apk", "tool"])["method_coverage"]
-        .mean()
-        .unstack("tool")
+        completed.groupby(["apk", "tool"])["method_coverage"].mean().unstack("tool")
     )
     for i, t1 in enumerate(tools):
-        for t2 in tools[i + 1:]:
+        for t2 in tools[i + 1 :]:
             if t1 not in apk_tool_means.columns or t2 not in apk_tool_means.columns:
                 continue
             valid = apk_tool_means[[t1, t2]].dropna()
@@ -189,9 +207,11 @@ def print_summary(df: pd.DataFrame) -> None:
             wins_t1 = (delta > 2).sum()
             wins_t2 = (delta < -2).sum()
             ties = len(delta) - wins_t1 - wins_t2
-            print(f"  {t1} vs {t2}: "
-                  f"{t1} wins {wins_t1}, {t2} wins {wins_t2}, ties {ties} "
-                  f"(of {len(delta)} APKs)")
+            print(
+                f"  {t1} vs {t2}: "
+                f"{t1} wins {wins_t1}, {t2} wins {wins_t2}, ties {ties} "
+                f"(of {len(delta)} APKs)"
+            )
     print()
 
 

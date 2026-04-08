@@ -50,17 +50,67 @@ Scenarios from `openspec/specs/core/spec.md` that validate this architecture:
 
 ## Key Architectural Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Application Type | Library (no standalone execution) | Foundation layer consumed by all other modules; never runs independently |
-| Structuring | Package-by-feature within a flat layer | Groups related concerns (domain, commands, tools, util) without deep nesting; each package is self-contained |
-| Primary Pattern | Singleton + Registry | ErrorHandler, LoggingManager, and PerformanceMonitor use thread-safe singletons for consistent cross-module behavior; ErrorHandler uses a registry for handler lookup |
-| Control Strategy | Call-based (synchronous) | Direct method invocation; no event loop or message passing within the core module itself |
-| Validation Strategy | Environment-controlled (RV_PYDANTIC) | Full validation in development, reduced overhead in production; all models inherit from BaseValidatedModel |
-| Distribution | Single-process library | Runs in the same process as the consuming module; subprocess creation only for external tool invocation |
-| Error Philosophy | Classify and recover, not fail-fast | ErrorHandler provides per-type handlers with options to suppress or re-raise; validation errors are the exception (always propagate) |
-| Tool Contract | Template Method pattern | AbstractTool.execute() defines the workflow; subclasses implement only execute_tool_specific_logic() |
-| Process Management | Recursive tree kill via psutil | Command timeout kills the entire process tree, not just the root process, to prevent orphaned processes |
+### AD-1: Library Module with Zero Internal Dependencies
+
+**Choice**: rv-android-core is a pure library with no standalone execution capability and zero dependencies on other rv-android modules.
+
+**Why**: As the foundation layer consumed by all 12 other modules, any dependency on a higher-level module would create a circular dependency. The zero-dependency constraint ensures rv-android-core can be imported by any module without pulling in the full dependency graph. This is why `domain/task.py` uses `TYPE_CHECKING` guards for imports of `App` and `LogcatRepository` -- the types are needed for annotations but the actual modules are not required at import time.
+
+### AD-2: Thread-Safe Singletons for Cross-Cutting Services
+
+**Choice**: ErrorHandler, LoggingManager, and PerformanceMonitor use double-checked locking singletons with `_instance` and `_lock`.
+
+**Why**: These services must maintain consistent state across the entire framework. When rv-platform's background coverage tracking thread logs an error, it must use the same ErrorHandler instance (with the same error statistics) as the main execution thread. When rv-agent's LLM client logs a metric, it must go to the same PerformanceMonitor that rv-platform's executor uses. Singletons guarantee this consistency. The double-checked locking pattern avoids acquiring the lock on every access while remaining thread-safe.
+
+**Invariant cross-reference**: INV-CORE-06 (ErrorHandler singleton), INV-CORE-21 (LoggingManager singleton), INV-CORE-22 (PerformanceMonitor singleton).
+
+### AD-3: Registry with Exact-Type Error Dispatch
+
+**Choice**: ErrorHandler uses exact type matching (`type(e) == error_type`) for handler lookup, not `isinstance()`.
+
+**Why**: The exception hierarchy has ~40 types organized in a tree (e.g., `RVToolError` -> `RVToolTimeoutError`). Using `isinstance()` would mean that a `RVToolTimeoutError` matches both its own handler and the parent `RVToolError` handler, requiring careful ordering to avoid wrong handler invocation. Exact type matching eliminates this ambiguity -- each exception type gets exactly one handler, and the most specific behavior is guaranteed. The trade-off is that every exception type in the hierarchy needs an explicit handler registration, but this is done once at initialization time.
+
+**Invariant cross-reference**: INV-CORE-07 mandates exact type matching. INV-CORE-09 ensures validation errors always propagate (the catch-all handler returns `False` for ValueError, ConfigurationError, RVValidationError).
+
+### AD-4: Environment-Controlled Validation
+
+**Choice**: All domain models inherit from `BaseValidatedModel` (Pydantic v2) with validation depth controlled by the `RV_PYDANTIC` environment variable.
+
+**Why**: Full Pydantic validation (field type checking, extra field rejection, whitespace stripping) catches configuration errors early during development but adds overhead in production. The environment toggle allows the same code to run with full validation during development and testing (`RV_PYDANTIC=true`) while minimizing overhead during long-running experiments. The `@validated_model` decorator adds positional argument support, maintaining compatibility with pre-Pydantic constructors that used positional arguments.
+
+**Invariant cross-reference**: INV-CORE-10 enforces `extra='forbid'`, `str_strip_whitespace=True`, `validate_assignment=True`. INV-CORE-12 governs the environment variable reading.
+
+### AD-5: Template Method for Tool Contract
+
+**Choice**: `AbstractTool.execute()` is the template method that orchestrates tool lifecycle; subclasses implement only `execute_tool_specific_logic()`.
+
+**Why**: All 8+ testing tools (Monkey, DroidBot, APE, ARES, QTesting, Humanoid, rv-agent, APE-RV) share the same execution lifecycle: validate configuration, invoke the tool, handle timeout conversion (`RVCommandTimeoutError` to `RVToolTimeoutError`), and clean up related processes. Duplicating this logic in each tool would be error-prone. The template method centralizes the shared workflow in `AbstractTool.execute()` while allowing each tool to implement only its unique testing logic.
+
+**Invariant cross-reference**: INV-CORE-23 requires `execute()` to convert `RVCommandTimeoutError` to `RVToolTimeoutError`.
+
+### AD-6: Recursive Process Tree Kill
+
+**Choice**: `Command.invoke()` kills the entire process tree (via psutil) on timeout, not just the root process.
+
+**Why**: Testing tools (especially DroidBot and rv-agent) spawn child processes -- DroidBot runs `adb shell input` commands via subprocess, rv-agent manages ADB interactions through nested processes. Killing only the root process would orphan these children, which continue consuming emulator resources and can cause port conflicts for subsequent tasks. The recursive tree kill via `psutil.Process(pid).children(recursive=True)` ensures complete cleanup.
+
+**Invariant cross-reference**: INV-CORE-14 requires process tree kill before raising `RVCommandTimeoutError`.
+
+### AD-7: Dual Package Identity for Android APKs
+
+**Choice**: `App` exposes both `package_name` (from AndroidManifest.xml) and `code_package` (detected via `PackageDetector`).
+
+**Why**: In ~27.5% of APKs (empirically measured across 188 APKs in the ICST study), the manifest package name differs from the actual implementation package. For example, Godot engine games declare `ir.hsn6.trans` in the manifest but implement all code under `org.godotengine.godot`. Device operations (install, launch, force-stop) require the manifest package name; static analysis class filtering requires the implementation package. Using a single package name would cause either ADB operations to fail or coverage tracking to miss all methods.
+
+**Invariant cross-reference**: INV-CORE-17 validates APK existence, INV-CORE-18 documents the mismatch detection.
+
+### AD-8: Circuit Breaker for Command Resilience
+
+**Choice**: `CommandCircuitBreaker` tracks failures per command signature (SHA-256 hash) and blocks execution after `failure_threshold` consecutive failures.
+
+**Why**: During experiment execution, transient failures (ADB connection drops, emulator crashes) can cause the same command to fail repeatedly. Without a circuit breaker, each retry consumes the full timeout duration before failing again, wasting significant execution time. The circuit breaker (CLOSED -> OPEN after threshold failures, HALF_OPEN for test recovery) prevents this cascading waste by blocking known-failing commands and periodically testing for recovery.
+
+**Invariant cross-reference**: INV-CORE-16 defines the failure tracking and state transitions.
 
 ## Architectural Patterns
 
@@ -474,6 +524,128 @@ sequenceDiagram
         ErrH-->>Code: Re-raise exception
     end
 ```
+
+---
+
+## Data Flow
+
+rv-android-core is a library module, so data flow describes how consuming modules interact with its services and models. Three primary data flows traverse the module.
+
+### Command Execution Data Flow
+
+The Command subsystem handles all external process invocations across the framework. Data flows from the calling module through validation, execution, and result processing:
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Caller["Calling Module"]
+        ToolCode["Tool logic\nor ADB ops"]
+    end
+
+    subgraph Validation["Command Creation"]
+        CmdCreate["Command(command, args, timeout)\nPydantic validation"]
+        CBCheck["CircuitBreaker\nis_execution_allowed()"]
+    end
+
+    subgraph Execution["OS Execution"]
+        Popen["subprocess.Popen"]
+        Communicate["communicate(timeout)"]
+    end
+
+    subgraph Results["Result Processing"]
+        CmdResult["CommandResult\n(code, stdout, stderr)"]
+        TreeKill["kill_process_tree()\nvia psutil"]
+        TimeoutErr["RVCommandTimeoutError"]
+    end
+
+    ToolCode --> CmdCreate
+    CmdCreate --> CBCheck
+    CBCheck -->|allowed| Popen
+    CBCheck -->|blocked| CircuitErr["CircuitBreakerOpenError"]
+    Popen --> Communicate
+    Communicate -->|success| CmdResult
+    Communicate -->|timeout| TreeKill
+    TreeKill --> TimeoutErr
+    CmdResult --> ToolCode
+    TimeoutErr --> ToolCode
+```
+
+1. **Creation**: A `Command` is constructed with validated fields (INV-CORE-13 rejects empty commands).
+2. **Circuit check**: Before execution, the circuit breaker verifies the command signature is not blocked (INV-CORE-16).
+3. **Execution**: `subprocess.Popen` spawns the process; `communicate(timeout)` blocks until completion or timeout.
+4. **Result**: On success, `CommandResult` wraps the exit code and output. On timeout, the process tree is killed (INV-CORE-14) before raising `RVCommandTimeoutError`.
+
+### Tool Execution Data Flow
+
+The AbstractTool template method manages the execution lifecycle for all testing tools:
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    subgraph ToolExec["AbstractTool.execute()"]
+        direction TB
+        Start["receive Task + App"]
+        Config["configure(variant)"]
+        Logic["execute_tool_specific_logic()\n(subclass implementation)"]
+        Cleanup["kill_related_processes()"]
+    end
+
+    subgraph ErrorConversion["Error Handling"]
+        CmdTimeout["RVCommandTimeoutError"] --> ToolTimeout["RVToolTimeoutError\n(INV-CORE-23)"]
+        CmdExec["other exceptions"] --> ToolExec2["RVToolExecutionError"]
+    end
+
+    Start --> Config
+    Config --> Logic
+    Logic -->|success| Cleanup
+    Logic -->|timeout| CmdTimeout
+    Logic -->|error| CmdExec
+    Cleanup --> Done["return to TaskExecutor"]
+    ToolTimeout --> Done
+    ToolExec2 --> Done
+```
+
+The critical data transformation here is the timeout conversion (INV-CORE-23): `RVCommandTimeoutError` (a low-level command error) is converted to `RVToolTimeoutError` (a high-level tool-lifecycle event). This allows rv-platform's `ToolExecutionComponent` to handle tool timeouts uniformly without knowing which specific command timed out.
+
+### Coverage Data Flow
+
+Coverage data flows from the Android device through logcat, parsing, and repository storage:
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Device["Android Device"]
+        InstrAPK["Instrumented APK\n(RV monitors embedded)"]
+    end
+
+    subgraph Capture["Logcat Layer"]
+        LogcatFile["logcat file\n(RVSEC-COV, RVSEC entries)"]
+    end
+
+    subgraph Parsing["Coverage Parsing"]
+        CovLog["RvCoverageLog\n(class, method, sig, time)"]
+        ErrLog["RvErrorLog\n(spec, type, class, msg)"]
+    end
+
+    subgraph Storage["Repository"]
+        Repo["LogcatRepository"]
+        Metrics["CoverageMetrics\n(overall%, MOP%)"]
+    end
+
+    InstrAPK -->|"RVSEC-COV tag"| LogcatFile
+    InstrAPK -->|"RVSEC tag"| LogcatFile
+    LogcatFile --> CovLog
+    LogcatFile --> ErrLog
+    CovLog --> Repo
+    ErrLog --> Repo
+    Repo --> Metrics
+```
+
+1. **Instrumented APK** produces `RVSEC-COV` entries (method coverage) and `RVSEC` entries (specification violations) in Android logcat.
+2. **LogcatManager** captures raw logcat to a file on disk.
+3. **CoverageTracker** (in rv-coverage) parses entries into `RvCoverageLog` and `RvErrorLog` objects (defined here in rv-android-core).
+4. **LogcatRepository** stores these objects and correlates with static analysis data. `register_method_call()` only registers calls to methods present in the static analysis data (INV-CORE-24). `RvErrorLog` instances are deduplicated via `unique_msg` (INV-CORE-25).
+5. **CoverageMetrics** are calculated on demand, providing overall and MOP-specific coverage percentages.
 
 ---
 

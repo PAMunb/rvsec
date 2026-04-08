@@ -2,6 +2,7 @@
 name = "aperv-tool"
 version = "0.1.0"
 description = "APE-RV tool wrapper for rv-platform integration"
+readme = "README.md"
 authors = [{name = "RV-Android Team"}]
 requires-python = ">=3.12"
 dependencies = [

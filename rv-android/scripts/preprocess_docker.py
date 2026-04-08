@@ -175,7 +175,8 @@ def filter_by_sa_completeness(
     failed = []
     for apk_name in apk_files:
         missing = [
-            ext for ext in SA_EXTENSIONS
+            ext
+            for ext in SA_EXTENSIONS
             if not (dataset_dir / f"{apk_name}{ext}").exists()
         ]
         if missing:
@@ -222,10 +223,10 @@ def preflight_checks(apks_dir: str, filter_file: str) -> None:
     min_free_bytes = 20 * 1024 * 1024 * 1024  # 20 GB
     usage = shutil.disk_usage(str(apks_path))
     if usage.free < min_free_bytes:
-        free_gb = usage.free / (1024 ** 3)
+        free_gb = usage.free / (1024**3)
         print(
             f"ERROR: insufficient disk space: {free_gb:.1f} GB free, "
-            f"need at least 20 GB",
+            "need at least 20 GB",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -361,7 +362,7 @@ def main():
     print(f"\nLaunching {n_containers} containers...")
     try:
         subprocess.run(
-            ["docker", "compose", "-f", str(compose_path), "up"],
+            ["docker", "compose", "-", str(compose_path), "up"],
             check=False,
         )
     finally:

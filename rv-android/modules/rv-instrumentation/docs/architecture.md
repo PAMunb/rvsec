@@ -38,14 +38,149 @@ Scenarios from `openspec/specs/instrumentation/spec.md` that validate this archi
 
 ## Key Architectural Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Application Type | Library with CLI wrapper | Primarily consumed programmatically by rv-experiment; CLI provides standalone usage for development and debugging |
-| Structuring | Two-class module (Config + Engine) | Separates path resolution/validation from pipeline execution; keeps the module small and focused |
-| Primary Pattern | Sequential Pipeline | The instrumentation process is inherently sequential -- each phase depends on the output of the previous phase |
-| Control Strategy | Call-based with external process spawning | Each pipeline phase invokes an external tool (dex2jar, ajc, d8, jarsigner) via the `Command` abstraction from rv-android-core |
-| Error Strategy | Error isolation per APK | Batch processing continues after individual APK failures; errors are collected in `InstrumentationResults` for post-processing |
-| Configuration | Priority-based path resolution | Supports multiple deployment scenarios (explicit paths > rvsec_root > RVSEC_HOME env var > working directory defaults) |
+### Decision 1: Two-Class Module (Config + Engine)
+
+**Choice**: Separate configuration resolution/validation (`RVInstrumentationConfig`) from pipeline execution (`RVInstrumentation`).
+
+**Why**: Configuration involves four different resolution strategies, five validation phases, and multiple file-system probes. Mixing this logic with the six-phase pipeline would create a class with too many responsibilities. By isolating config, the engine receives a fully validated object and never performs path resolution -- it just executes the pipeline. This also enables unit testing config logic without requiring external tools.
+
+### Decision 2: Sequential Pipeline (not parallel)
+
+**Choice**: Process pipeline phases strictly in order: decompile -> inject -> weave -> merge -> recompile -> sign.
+
+**Why**: Each phase transforms artifacts produced by the previous phase. You cannot weave aspects before decompiling, and you cannot sign before recompiling. While batch APKs could theoretically be processed in parallel, the external tools (dex2jar, ajc, d8) are not designed for concurrent invocation from the same working directory -- shared temp directories and classpath resources would conflict. The sequential approach keeps the system predictable and debuggable.
+
+### Decision 3: Error Isolation Per APK in Batch Mode
+
+**Choice**: When one APK fails instrumentation, record the error and continue processing the next APK.
+
+**Why**: In the ICST study, the instrumentation pipeline achieved only 34.6% success rate (193 of 557 APKs). If a single failure aborted the batch, most experiments would never complete. Error isolation ensures maximum throughput while collecting structured error data (`InstrumentationResults`) for post-mortem analysis. Each error records the failing tool, phase, and error code.
+
+### Decision 4: Priority-Based Configuration Resolution
+
+**Choice**: Support four configuration levels: explicit paths > rvsec_root > RVSEC_HOME env var > working directory defaults.
+
+**Why**: The module runs in three different contexts: (1) via rv-experiment, which provides an `rvsec_root` from `ExperimentConfig`; (2) via CLI for development/debugging, where `RVSEC_HOME` is typically set; (3) in CI environments, where explicit paths are injected. The priority system accommodates all contexts without code changes.
+
+### Decision 5: Bundled Development Keystore
+
+**Choice**: Ship a default `keystore.jks` in the module's `assets/` directory.
+
+**Why**: APK signing is mandatory for Android deployment, but the research context does not require production-grade signing. A bundled keystore with a known password ("password") eliminates a configuration step for researchers while still producing valid signed APKs that can be installed on emulators. Custom keystores are supported via the `keystore_file` parameter.
+
+### Decision 6: External Tool Execution via Command Abstraction
+
+**Choice**: Invoke all external tools (dex2jar, ajc, d8, jarsigner, Maven) through the `Command` class from rv-android-core.
+
+**Why**: The `Command` abstraction provides consistent logging, timeout handling, and exit-code checking across all tool invocations. It also enables test mocking -- unit tests can mock `utils.execute_command()` without spawning real processes.
+
+## Data Flow
+
+### End-to-End Artifact Transformation
+
+The instrumentation pipeline transforms artifacts through a chain of external tools. Each transformation produces a new artifact type that feeds into the next phase.
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    subgraph Input["Input Artifacts"]
+        APK["Original APK<br/>(classes.dex)"]
+        Monitors[".aj + .java files<br/>(from rv-monitor-generator)"]
+        Libs["Runtime JARs<br/>(rv-monitor-rt, aspectjrt,<br/>rvsec-core)"]
+    end
+
+    subgraph Pipeline["Transformation Pipeline"]
+        direction TB
+        D2J["dex2jar<br/>DEX -> JAR"]
+        Inject["File Copy<br/>monitors -> tmp/"]
+        AJC["ajc<br/>AspectJ weaving"]
+        Merge["Extract + Merge<br/>runtime JARs"]
+        D8["d8 compiler<br/>JAR -> DEX"]
+        Sign["jarsigner<br/>APK signing"]
+    end
+
+    subgraph Output["Output Artifacts"]
+        IAPK["Instrumented APK<br/>(signed, verified)"]
+    end
+
+    APK --> D2J
+    D2J --> Inject
+    Monitors --> Inject
+    Inject --> AJC
+    AJC --> Merge
+    Libs --> Merge
+    Merge --> D8
+    D8 --> Sign
+    Sign --> IAPK
+```
+
+### Temporary Directory Lifecycle
+
+The module creates and destroys temporary directories at specific points to manage disk space during batch processing. Understanding this lifecycle is important because premature cleanup causes pipeline failures, and missing cleanup causes disk exhaustion.
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+stateDiagram-v2
+    [*] --> prepare: prepare_instrumentation()
+
+    state prepare {
+        [*] --> CleanAll: clear(lib_tmp, tmp, rvm_tmp)
+        CleanAll --> MavenResolve: mvn clean compile
+        MavenResolve --> LibsReady: JARs in lib_tmp/
+    }
+
+    prepare --> PerAPK: for each APK
+
+    state PerAPK {
+        [*] --> CreateTmp: create tmp/, rvm_tmp/
+        CreateTmp --> Decompile: dex2jar -> classes in tmp/
+        Decompile --> InjectMonitors: copy .aj/.java to tmp/
+        InjectMonitors --> Weave: ajc reads from tmp/
+        Weave --> MergeLibs: extract JARs from lib_tmp/
+        MergeLibs --> Recompile: d8 reads from rvm_tmp/
+        Recompile --> Sign: jarsigner
+        Sign --> CleanAPK: clear(tmp, rvm_tmp)
+        CleanAPK --> [*]
+    }
+
+    PerAPK --> CleanBatch: clear(lib_tmp)
+    CleanBatch --> [*]
+```
+
+### Configuration Resolution Flow
+
+Configuration data flows through a four-level priority cascade during `RVInstrumentationConfig.__init__()`. Each level fills in paths not already set by a higher-priority level.
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+    Start["RVInstrumentationConfig()"]
+
+    P1{"Priority 1:<br/>All critical paths<br/>explicitly set?"}
+    P2{"Priority 2:<br/>rvsec_root<br/>provided?"}
+    P3{"Priority 3:<br/>RVSEC_HOME<br/>env var set?"}
+    P4["Priority 4:<br/>Working directory<br/>defaults"]
+
+    Defaults["_apply_default_paths()"]
+    FromRoot["_resolve_from_rvsec_root()"]
+    FromWD["_resolve_from_working_dir()"]
+    Validate["_validate_configuration()<br/>(5 phases)"]
+    Error["ConfigurationError"]
+
+    Start --> P1
+    P1 -->|Yes| Defaults
+    P1 -->|No| P2
+    P2 -->|Yes| FromRoot
+    P2 -->|No| P3
+    P3 -->|Yes| FromRoot
+    P3 -->|No| P4
+    P4 --> FromWD
+    FromRoot --> Defaults
+    FromWD --> Defaults
+    Defaults --> Validate
+    Validate -->|Pass| Ready["Config Ready"]
+    Validate -->|Fail| Error
+```
 
 ## Architectural Patterns
 
@@ -76,9 +211,9 @@ Scenarios from `openspec/specs/instrumentation/spec.md` that validate this archi
 **Disadvantages**:
 - Limited control for callers who need to customize individual phases
 
-### Pattern: Configuration Object
+### Pattern: Configuration Object with Fail-Fast Validation
 
-**Description**: `RVInstrumentationConfig` encapsulates all configuration with priority-based path resolution and fail-fast validation during initialization.
+**Description**: `RVInstrumentationConfig` encapsulates all configuration with priority-based path resolution and five-phase validation during initialization.
 
 **When Used**: Configuration is resolved once at initialization. The engine receives a fully validated config object and does not perform additional path resolution.
 
@@ -203,7 +338,7 @@ flowchart TB
         CLIModule["__main__.py<br/>(CLI)"]
     end
     subgraph Configuration["Configuration"]
-        ConfigModule["config.py<br/>(RVInstrumentationConfig)"]
+        ConfigModule["config.py<br/>(RVInstrumentationConfig,<br/>InstrumentationResults,<br/>Dex2jarTools)"]
     end
     subgraph Foundation["rv-android-core"]
         CoreModels["App, Command, constants"]
@@ -317,7 +452,7 @@ stateDiagram-v2
 - `instrument_apks(apks_dir, results_dir, force)`: Batch entry point with error isolation per APK
 - `instrument(app, result_dir, force)`: Single APK pipeline orchestration
 - `prepare_instrumentation(results_dir)`: Environment setup (temp dir cleanup, Maven dependency resolution)
-- `check_if_instrumented(app)`: Post-instrumentation verification via file hash comparison
+- `check_if_instrumented(app)`: Post-instrumentation verification via file hash comparison (INV-INS-06)
 
 **Dependencies**:
 - Internal: `RVInstrumentationConfig`, `InstrumentationResults`, `InstrumentationError`
@@ -339,6 +474,13 @@ stateDiagram-v2
 2. Explicit `rvsec_root` parameter
 3. `RVSEC_HOME` environment variable
 4. Working directory defaults (lowest)
+
+**Validation Phases**:
+1. Critical directory existence and accessibility
+2. Android SDK integration (`android.jar`)
+3. Keystore file accessibility
+4. Monitor artifact presence (.aj and .java)
+5. Output directory creation
 
 **Dependencies**:
 - External (rv-android-core): `BaseValidatedModel`, `ErrorHandler`, `LoggingManager`, `ConfigurationError`, `constants`
@@ -408,6 +550,8 @@ class RVInstrumentation:
 
     def check_if_instrumented(self, app: App) -> None: ...
 ```
+
+### Class Diagram
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
@@ -484,6 +628,18 @@ classDiagram
 3. `instrument_apks()` is called with `force_instrumentation=True`
 4. For each APK where an instrumented version exists, the existing file is deleted and the full pipeline re-executes
 5. `check_if_instrumented()` verifies the new APK differs from the original (INV-INS-06)
+
+### Scenario 3: dex2jar Conversion Failure
+
+**Description**: An APK with obfuscated or multidex bytecode fails during the decompilation phase.
+
+**Flow**:
+1. `__d2j_dex2jar()` executes dex2jar and detects an exception file, raising `CommandException` with tool="dex2jar"
+2. The exception propagates to `instrument_apks()` which catches `CommandException`
+3. An `InstrumentationErrorModel` is created with `phase="command_execution"`, `tool="dex2jar"`, and the error code
+4. The error is stored in `InstrumentationResults.errors[app.name]`
+5. The `finally` block cleans `tmp_dir` and `rvm_tmp_dir`
+6. Processing continues with the next APK
 
 ---
 

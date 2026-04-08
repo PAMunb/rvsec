@@ -1,49 +1,44 @@
 # RV-Instrumentation Module
 
-Modern APK instrumentation system for seamless runtime verification monitor integration with comprehensive pipeline orchestration and dependency injection architecture.
+APK instrumentation for runtime verification monitor weaving.
 
 ## Overview
 
-The RV-Instrumentation module provides sophisticated APK instrumentation capabilities that transform standard Android applications into runtime verification-enabled artifacts through an advanced instrumentation pipeline. It seamlessly integrates generated monitor artifacts from rv-monitor-generator with Android applications, enabling comprehensive monitored operations analysis during application execution with modern error handling and performance optimization.
+The RV-Instrumentation module transforms standard Android APKs into runtime verification-enabled artifacts. It integrates generated monitor artifacts from rv-monitor-generator with Android applications through a pipeline of decompilation, monitor integration, AspectJ weaving, recompilation, and signing.
 
 ### Key Features
 
-- **Advanced Instrumentation Pipeline**: Comprehensive APK transformation with decompilation, monitor integration, AspectJ weaving, recompilation, and signing stages
-- **Seamless Monitor Integration**: Advanced integration with rv-monitor-generator artifacts supporting both JCA cryptography and generic programming pattern specifications
-- **DI-Ready Configuration**: Modern configuration system with multi-source support, validation, and dependency injection preparation
-- **High-Performance Batch Processing**: Optimized batch instrumentation workflows with parallel processing and error recovery mechanisms
-- **Comprehensive Error Handling**: Full error tracking, reporting, and recovery with rv-android-core infrastructure integration
-- **Modern CLI Interface**: Advanced command-line interface with progress reporting, validation, and comprehensive option support
+- **Instrumentation Pipeline**: APK transformation with decompilation (dex2jar), monitor integration, AspectJ weaving, recompilation (d8), and signing stages
+- **Monitor Integration**: Integrates rv-monitor-generator artifacts (AspectJ aspects and Java monitor classes) for both JCA and generic specification sets
+- **Configuration System**: Priority-based path resolution with RVSEC_HOME auto-discovery and explicit overrides
+- **Batch Processing**: Batch instrumentation with error tracking per APK
+- **Error Handling**: Error tracking with rv-android-core infrastructure, JSON error reports for failed APKs
+- **CLI Interface**: Command-line interface with validation, dry-run mode, and summary output
 
 ## Architecture
 
 ### Instrumentation Pipeline
 
-1. **APK Decompilation**: DEX � JAR conversion using dex2jar toolchain
+1. **APK Decompilation**: DEX to JAR conversion using dex2jar toolchain
 2. **Monitor Integration**: Injection of generated AspectJ and Java monitor artifacts
 3. **AspectJ Weaving**: Integration of monitoring pointcuts with application bytecode
 4. **Dependency Integration**: Merge runtime verification support libraries
-5. **Recompilation**: JAR � DEX conversion using Android d8 compiler
+5. **Recompilation**: JAR to DEX conversion using Android d8 compiler
 6. **APK Signing**: Create deployment-ready instrumented APK
 
 ### Core Components
 
-#### Instrumentation Infrastructure
-- **RVInstrumentation**: Modern core instrumentation engine with comprehensive APK transformation capabilities, error handling, and performance optimization
-- **InstrumentationPipeline**: Advanced pipeline orchestrator with stage management, dependency tracking, and rollback capabilities
-- **MonitorIntegrator**: Sophisticated monitor integration system supporting multiple specification types and optimization strategies
-
-#### Configuration and Management
-- **RVInstrumentationConfig**: Advanced configuration management with multi-source support, validation, and DI-ready design
-- **PipelineManager**: High-level pipeline coordination with batch processing and lifecycle management
-- **ArtifactManager**: Comprehensive artifact management with caching, validation, and cleanup capabilities
+- **RVInstrumentation** (`rvandroid.py`): Core instrumentation engine orchestrating the complete pipeline (decompilation, monitor integration, weaving, recompilation, signing)
+- **RVInstrumentationConfig** (`config.py`): Configuration management with priority-based path resolution and validation
+- **Dex2jarTools** (`config.py`): Pydantic model for dex2jar tool suite paths
+- **InstrumentationResults** (`config.py`): Results model with computed success rate
 
 ### Integration Points
 
-- **rv-android-core**: Uses App domain model, ErrorHandler decorators, LoggingManager, and configuration utilities
-- **rv-monitor-generator**: Integrates generated monitor artifacts for comprehensive runtime verification instrumentation
-- **rv-experiment**: Provides instrumentation components for experiment orchestration and automated APK preparation
-- **Android Toolchain**: Seamless integration with Android SDK tools, AspectJ compiler, and DEX processing utilities
+- **rv-android-core**: Uses App domain model, ErrorHandler, LoggingManager, and configuration utilities
+- **rv-monitor-generator**: Integrates generated monitor artifacts (*.aj and *.java files)
+- **rv-experiment**: Called by ExperimentController during the pre-processing phase
+- **Android Toolchain**: dex2jar, AspectJ compiler (ajc), Android d8, jarsigner
 
 ## Installation
 
@@ -189,17 +184,16 @@ config = RVInstrumentationConfig(
 instrumentation = RVInstrumentation(config)
 
 # Instrument APKs
-errors = instrumentation.instrument_apks(
+results = instrumentation.instrument_apks(
     apks_dir="/path/to/apks",
     results_dir="/output/instrumented",
     force_instrumentation=False
 )
 
 # Check results
-if not errors:
-    print("All APKs instrumented successfully")
-else:
-    print(f"Instrumentation failed for {len(errors)} APKs")
+print(f"Success rate: {results.success_rate}%")
+if results.errors:
+    print(f"Failed: {len(results.errors)} APKs")
 ```
 
 ## CLI Options
@@ -333,15 +327,21 @@ rv-instrumentation batch \
 
 ## Dependencies
 
-- `rv-android-core`: Core Android utilities and domain models
-- `rv-monitor-generator`: Monitor generation from MOP specifications
+### Internal (rv-android)
+
+- `rv-android-core`: App domain model, ErrorHandler, LoggingManager, utilities
+
+### External
+
+- `pydantic`: Configuration validation and data models
 - Python 3.12+
-- Android SDK with platform tools
-- Java 8+ for tool execution
+- Android SDK with platform tools (d8 compiler)
+- Java 8+ (jarsigner, AspectJ compiler)
+- dex2jar toolchain
+- Maven (dependency resolution for runtime libraries)
 
-## Contributing
+Note: rv-monitor-generator is not a Python dependency, but its output artifacts (*.aj, *.java) are required input for the instrumentation pipeline.
 
-1. Follow the existing code style and documentation patterns
-2. Add comprehensive tests for new features
-3. Update CLI help and README for new options
-4. Ensure backward compatibility with existing configurations
+## License
+
+Part of the rv-android project.
