@@ -7,19 +7,19 @@ Validates that:
 """
 
 import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 def _make_pre_processor(tmp_path):
     """Create a PreProcessor with mocked config pointing to tmp_path."""
-    with patch(
-        "rv_experiment.experiment.workflow.pre_processor.LoggingManager"
-    ) as mock_logging, patch(
-        "rv_experiment.experiment.workflow.pre_processor.ErrorHandler"
-    ) as mock_eh:
+    with (
+        patch(
+            "rv_experiment.experiment.workflow.pre_processor.LoggingManager"
+        ) as mock_logging,
+        patch(
+            "rv_experiment.experiment.workflow.pre_processor.ErrorHandler"
+        ) as mock_eh,
+    ):
         mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
         mock_eh.get_instance.return_value = MagicMock()
 

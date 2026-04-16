@@ -749,7 +749,9 @@ class RVInstrumentation:
 
         self._logger.debug("Monitor artifacts integration completed successfully")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="aspect_weaving", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="aspect_weaving", reraise=True
+    )
     def __weave_monitors(self, app: App) -> None:
         """
         Execute AspectJ weaving to integrate runtime verification monitors with application code.
@@ -826,7 +828,9 @@ class RVInstrumentation:
             extra={"app_name": app.name, "pipeline_stage": "aspectj_weaving_completed"},
         )
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_creation", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="apk_creation", reraise=True
+    )
     def __create_apk(self, app: App) -> str:
         """
         Create final instrumented APK from woven classes and runtime verification dependencies.
@@ -1050,7 +1054,9 @@ class RVInstrumentation:
         self._logger.debug(f"DEX compilation and integration completed: {unsigned_apk}")
         return unsigned_apk
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_signing", reraise=True)
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="apk_signing", reraise=True
+    )
     def __sign_apk(self, app: App, unsigned_apk: str) -> str:
         """
         Sign instrumented APK for deployment readiness.

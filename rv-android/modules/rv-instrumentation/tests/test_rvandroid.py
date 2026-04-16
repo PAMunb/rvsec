@@ -45,12 +45,15 @@ def _make_config_mock(temp_path):
 
 def _create_rv_instrumentation(config):
     """Create an RVInstrumentation instance with mocked dependencies."""
-    with patch("rv_instrumentation.rvandroid.LoggingManager") as mock_logging, \
-         patch("rv_instrumentation.rvandroid.ErrorHandler") as mock_error_handler:
+    with (
+        patch("rv_instrumentation.rvandroid.LoggingManager") as mock_logging,
+        patch("rv_instrumentation.rvandroid.ErrorHandler") as mock_error_handler,
+    ):
         mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
         mock_error_handler.get_instance.return_value = MagicMock()
 
         from rv_instrumentation.rvandroid import RVInstrumentation
+
         rv = RVInstrumentation(config)
         return rv
 
@@ -216,8 +219,12 @@ class TestInstrumentSkipExisting:
 
         # The method will fail at decompile phase. The ErrorHandler decorator
         # may absorb the exception, so we just verify the file was removed.
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "_RVInstrumentation__decompile_apk", side_effect=Exception("stop")):
+        with (
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(
+                rv, "_RVInstrumentation__decompile_apk", side_effect=Exception("stop")
+            ),
+        ):
             mock_utils.reset_folder = MagicMock()
 
             try:
@@ -243,11 +250,13 @@ class TestInstrumentApksBatch:
         app2.name = "app2.apk"
         app2.path = str(tmp_path / "app2.apk")
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument"), \
-             patch.object(rv, "check_if_instrumented"), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "instrument"),
+            patch.object(rv, "check_if_instrumented"),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [app1, app2]
 
             results = rv.instrument_apks(str(tmp_path), str(tmp_path / "out"))
@@ -262,11 +271,13 @@ class TestInstrumentApksBatch:
         app1.name = "app1.apk"
         app1.path = str(tmp_path / "app1.apk")
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument"), \
-             patch.object(rv, "check_if_instrumented"), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "instrument"),
+            patch.object(rv, "check_if_instrumented"),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [app1]
 
             results = rv.instrument_apks(str(tmp_path), str(tmp_path / "out"))
@@ -284,10 +295,14 @@ class TestInstrumentApksBatch:
         out_dir = tmp_path / "out"
         out_dir.mkdir()
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument", side_effect=CommandException("dex2jar", "-1", "fail")), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(
+                rv, "instrument", side_effect=CommandException("dex2jar", "-1", "fail")
+            ),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [app1]
 
             results = rv.instrument_apks(str(tmp_path), str(out_dir))
@@ -306,10 +321,12 @@ class TestInstrumentApksBatch:
         out_dir = tmp_path / "out"
         out_dir.mkdir()
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument", side_effect=RuntimeError("unexpected")), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "instrument", side_effect=RuntimeError("unexpected")),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [app1]
 
             results = rv.instrument_apks(str(tmp_path), str(out_dir))
@@ -321,8 +338,12 @@ class TestInstrumentApksBatch:
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
 
-        with patch.object(rv, "prepare_instrumentation", side_effect=Exception("maven failed")), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(
+                rv, "prepare_instrumentation", side_effect=Exception("maven failed")
+            ),
+            patch.object(rv, "clear"),
+        ):
             results = rv.instrument_apks(str(tmp_path), str(tmp_path / "out"))
 
         assert "setup_error" in results.errors
@@ -344,10 +365,12 @@ class TestInstrumentApksBatch:
         exc = CommandException("jarsigner", 1, "signing failed")
         exc._error_phase = "apk_signing"
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument", side_effect=exc), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "instrument", side_effect=exc),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [app1]
 
             results = rv.instrument_apks(str(tmp_path), str(out_dir))
@@ -376,17 +399,20 @@ class TestInstrumentApksBatch:
         exc._error_phase = "apk_creation"
 
         call_count = 0
+
         def instrument_side_effect(app, result_dir, force=False):
             nonlocal call_count
             call_count += 1
             if app.name == "bad.apk":
                 raise exc
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument", side_effect=instrument_side_effect), \
-             patch.object(rv, "check_if_instrumented"), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "instrument", side_effect=instrument_side_effect),
+            patch.object(rv, "check_if_instrumented"),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [good_app, bad_app]
 
             results = rv.instrument_apks(str(tmp_path), str(out_dir))
@@ -413,10 +439,12 @@ class TestInstrumentApksBatch:
         out_dir = tmp_path / "out"
         out_dir.mkdir()
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument", side_effect=RuntimeError("always fails")), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "instrument", side_effect=RuntimeError("always fails")),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [app1, app2]
 
             results = rv.instrument_apks(str(tmp_path), str(out_dir))
@@ -440,15 +468,18 @@ class TestInstrumentApksBatch:
         exc = CommandException("ajc", 1, "weaving failed")
         exc._error_phase = "aspect_weaving"
 
-        with patch.object(rv, "prepare_instrumentation"), \
-             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
-             patch.object(rv, "instrument", side_effect=exc), \
-             patch.object(rv, "clear"):
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "instrument", side_effect=exc),
+            patch.object(rv, "clear"),
+        ):
             mock_utils.get_apks.return_value = [app1]
 
             results = rv.instrument_apks(str(tmp_path), str(out_dir))
 
         import json
+
         errors_file = out_dir / "instrument_errors.json"
         assert errors_file.exists()
         with open(errors_file) as f:

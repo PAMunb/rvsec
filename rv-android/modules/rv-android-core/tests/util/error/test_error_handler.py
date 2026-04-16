@@ -210,9 +210,7 @@ class TestErrorHandlerCore:
     def test_decorator_reraise_annotates_error_phase(self, error_handler):
         """Test that reraise=True annotates _error_phase on the exception."""
 
-        @ErrorHandler.handle_errors(
-            component="Test", phase="apk_signing", reraise=True
-        )
+        @ErrorHandler.handle_errors(component="Test", phase="apk_signing", reraise=True)
         def test_function():
             raise RuntimeError("signing failed")
 
@@ -243,9 +241,7 @@ class TestErrorHandlerCore:
         def outer():
             return inner()
 
-        @ErrorHandler.handle_errors(
-            component="Test", phase="apk_signing", reraise=True
-        )
+        @ErrorHandler.handle_errors(component="Test", phase="apk_signing", reraise=True)
         def inner():
             raise RuntimeError("jarsigner failed")
 

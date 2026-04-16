@@ -48,12 +48,12 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run `/rv-qa-lint-fix rv-android-core`
-- [ ] 4.2 Run `/rv-qa-lint-fix rv-instrumentation`
-- [ ] 4.3 Run `/rv-qa-lint-fix rv-experiment`
-- [ ] 4.4 Run `/rv-verify rv-android-core`
-- [ ] 4.5 Run `/rv-verify rv-instrumentation`
-- [ ] 4.6 Run `/rv-verify rv-experiment`
+- [x] 4.1 Run `/rv-qa-lint-fix rv-android-core`
+- [x] 4.2 Run `/rv-qa-lint-fix rv-instrumentation`
+- [x] 4.3 Run `/rv-qa-lint-fix rv-experiment`
+- [x] 4.4 Run `/rv-verify rv-android-core`
+- [x] 4.5 Run `/rv-verify rv-instrumentation`
+- [x] 4.6 Run `/rv-verify rv-experiment`
 - [ ] 4.7 E2E: create test dir with `cryptoapp` + 1 failing APK from error dataset, run `uv run rv-experiment run --tools monkey --specification-set jca --apks-dir <test-dir> --timeout 60`. Verify:
   - `cryptoapp` instrumented, SA produces `.json`, executed with coverage > 0%
   - Failing APK in `instrument_errors.json` with correct phase/tool
