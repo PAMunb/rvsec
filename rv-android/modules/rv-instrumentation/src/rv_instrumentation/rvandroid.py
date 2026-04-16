@@ -274,7 +274,7 @@ class RVInstrumentation:
                     code=ex.code,
                     tool=ex.tool,
                     message=ex.message,
-                    phase="command_execution",
+                    phase=getattr(ex, "_error_phase", "command_execution"),
                 )
                 results.errors[app.name] = error_model
 
@@ -302,7 +302,10 @@ class RVInstrumentation:
                 )
 
                 error_model = InstrumentationErrorModel(
-                    code=-1, message=str(ex), phase="general_error", tool=None
+                    code=-1,
+                    message=str(ex),
+                    phase=getattr(ex, "_error_phase", "general_error"),
+                    tool=None,
                 )
                 results.errors[app.name] = error_model
 
@@ -414,7 +417,9 @@ class RVInstrumentation:
         self._logger.debug("Instrumentation environment prepared successfully")
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="single_apk_instrumentation"
+        component="RVInstrumentation",
+        phase="single_apk_instrumentation",
+        reraise=True,
     )
     def instrument(
         self, app: App, result_dir: str, force_instrumentation: bool = False
@@ -710,7 +715,7 @@ class RVInstrumentation:
         return classpath
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="monitor_integration"
+        component="RVInstrumentation", phase="monitor_integration", reraise=True
     )
     def __include_generated_monitors(self) -> None:
         """
@@ -744,7 +749,7 @@ class RVInstrumentation:
 
         self._logger.debug("Monitor artifacts integration completed successfully")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="aspect_weaving")
+    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="aspect_weaving", reraise=True)
     def __weave_monitors(self, app: App) -> None:
         """
         Execute AspectJ weaving to integrate runtime verification monitors with application code.
@@ -821,7 +826,7 @@ class RVInstrumentation:
             extra={"app_name": app.name, "pipeline_stage": "aspectj_weaving_completed"},
         )
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_creation")
+    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_creation", reraise=True)
     def __create_apk(self, app: App) -> str:
         """
         Create final instrumented APK from woven classes and runtime verification dependencies.
@@ -1045,7 +1050,7 @@ class RVInstrumentation:
         self._logger.debug(f"DEX compilation and integration completed: {unsigned_apk}")
         return unsigned_apk
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_signing")
+    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_signing", reraise=True)
     def __sign_apk(self, app: App, unsigned_apk: str) -> str:
         """
         Sign instrumented APK for deployment readiness.

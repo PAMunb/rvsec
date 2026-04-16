@@ -207,6 +207,54 @@ class TestErrorHandlerCore:
         with pytest.raises(ValueError):
             test_function()
 
+    def test_decorator_reraise_annotates_error_phase(self, error_handler):
+        """Test that reraise=True annotates _error_phase on the exception."""
+
+        @ErrorHandler.handle_errors(
+            component="Test", phase="apk_signing", reraise=True
+        )
+        def test_function():
+            raise RuntimeError("signing failed")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            test_function()
+
+        assert hasattr(exc_info.value, "_error_phase")
+        assert exc_info.value._error_phase == "apk_signing"
+
+    def test_decorator_reraise_false_does_not_annotate(self, error_handler):
+        """Test that reraise=False does NOT annotate _error_phase (returns None)."""
+
+        @ErrorHandler.handle_errors(
+            component="Test", phase="apk_signing", reraise=False
+        )
+        def test_function():
+            raise RuntimeError("signing failed")
+
+        result = test_function()
+        assert result is None
+
+    def test_nested_decorators_inner_phase_wins(self, error_handler):
+        """Test that inner decorator's phase is preserved through nested chain."""
+
+        @ErrorHandler.handle_errors(
+            component="Test", phase="apk_creation", reraise=True
+        )
+        def outer():
+            return inner()
+
+        @ErrorHandler.handle_errors(
+            component="Test", phase="apk_signing", reraise=True
+        )
+        def inner():
+            raise RuntimeError("jarsigner failed")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            outer()
+
+        # Inner decorator sets "apk_signing", outer must NOT overwrite
+        assert exc_info.value._error_phase == "apk_signing"
+
     def test_no_duplicate_handler_execution(self, error_handler, mock_logging_manager):
         """Test that handlers are not executed multiple times for the same error."""
         _, _, mock_logger = mock_logging_manager

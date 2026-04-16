@@ -453,10 +453,14 @@ class ErrorHandler:
                             f"Error handled by decorator in {func.__name__}"
                         )
                         if reraise:
+                            if phase and not hasattr(e, "_error_phase"):
+                                e._error_phase = phase
                             raise
                         else:
                             return None
                     elif reraise:
+                        if phase and not hasattr(e, "_error_phase"):
+                            e._error_phase = phase
                         raise
                     else:
                         handler._logger.warning(

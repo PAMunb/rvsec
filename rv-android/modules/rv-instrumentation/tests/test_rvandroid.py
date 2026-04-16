@@ -327,3 +327,131 @@ class TestInstrumentApksBatch:
 
         assert "setup_error" in results.errors
         assert results.success_count == 0
+
+    def test_error_model_has_correct_phase_from_error_phase(self, tmp_path):
+        """Test that _error_phase attribute on exception propagates to InstrumentationError.phase."""
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app1 = MagicMock()
+        app1.name = "signing_fail.apk"
+        app1.path = str(tmp_path / "signing_fail.apk")
+
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+
+        # Simulate a CommandException with _error_phase set by the decorator
+        exc = CommandException("jarsigner", 1, "signing failed")
+        exc._error_phase = "apk_signing"
+
+        with patch.object(rv, "prepare_instrumentation"), \
+             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
+             patch.object(rv, "instrument", side_effect=exc), \
+             patch.object(rv, "clear"):
+            mock_utils.get_apks.return_value = [app1]
+
+            results = rv.instrument_apks(str(tmp_path), str(out_dir))
+
+        assert "signing_fail.apk" in results.errors
+        assert results.errors["signing_fail.apk"].phase == "apk_signing"
+        assert results.errors["signing_fail.apk"].tool == "jarsigner"
+
+    def test_batch_mixed_results_accurate_counts(self, tmp_path):
+        """Test batch with mix of successes and failures has accurate counts."""
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        good_app = MagicMock()
+        good_app.name = "good.apk"
+        good_app.path = str(tmp_path / "good.apk")
+
+        bad_app = MagicMock()
+        bad_app.name = "bad.apk"
+        bad_app.path = str(tmp_path / "bad.apk")
+
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+
+        exc = CommandException("d8", -1, "d8 failed")
+        exc._error_phase = "apk_creation"
+
+        call_count = 0
+        def instrument_side_effect(app, result_dir, force=False):
+            nonlocal call_count
+            call_count += 1
+            if app.name == "bad.apk":
+                raise exc
+
+        with patch.object(rv, "prepare_instrumentation"), \
+             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
+             patch.object(rv, "instrument", side_effect=instrument_side_effect), \
+             patch.object(rv, "check_if_instrumented"), \
+             patch.object(rv, "clear"):
+            mock_utils.get_apks.return_value = [good_app, bad_app]
+
+            results = rv.instrument_apks(str(tmp_path), str(out_dir))
+
+        assert results.total_count == 2
+        assert results.success_count == 1
+        assert len(results.errors) == 1
+        assert "bad.apk" in results.errors
+        assert results.errors["bad.apk"].phase == "apk_creation"
+
+    def test_success_count_zero_when_all_fail(self, tmp_path):
+        """Test that success_count is 0 when all APKs fail instrumentation."""
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app1 = MagicMock()
+        app1.name = "fail1.apk"
+        app1.path = str(tmp_path / "fail1.apk")
+
+        app2 = MagicMock()
+        app2.name = "fail2.apk"
+        app2.path = str(tmp_path / "fail2.apk")
+
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+
+        with patch.object(rv, "prepare_instrumentation"), \
+             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
+             patch.object(rv, "instrument", side_effect=RuntimeError("always fails")), \
+             patch.object(rv, "clear"):
+            mock_utils.get_apks.return_value = [app1, app2]
+
+            results = rv.instrument_apks(str(tmp_path), str(out_dir))
+
+        assert results.success_count == 0
+        assert results.total_count == 2
+        assert len(results.errors) == 2
+
+    def test_instrument_errors_json_written_on_failure(self, tmp_path):
+        """Test that instrument_errors.json is written when errors exist."""
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app1 = MagicMock()
+        app1.name = "failing.apk"
+        app1.path = str(tmp_path / "failing.apk")
+
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+
+        exc = CommandException("ajc", 1, "weaving failed")
+        exc._error_phase = "aspect_weaving"
+
+        with patch.object(rv, "prepare_instrumentation"), \
+             patch("rv_instrumentation.rvandroid.utils") as mock_utils, \
+             patch.object(rv, "instrument", side_effect=exc), \
+             patch.object(rv, "clear"):
+            mock_utils.get_apks.return_value = [app1]
+
+            results = rv.instrument_apks(str(tmp_path), str(out_dir))
+
+        import json
+        errors_file = out_dir / "instrument_errors.json"
+        assert errors_file.exists()
+        with open(errors_file) as f:
+            data = json.load(f)
+        assert "failing.apk" in data
+        assert data["failing.apk"]["phase"] == "aspect_weaving"

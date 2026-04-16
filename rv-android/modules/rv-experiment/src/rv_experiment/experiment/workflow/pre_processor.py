@@ -7,7 +7,7 @@ Handles monitor generation, APK instrumentation, and static analysis.
 import os
 from typing import List
 
-from rv_android_core.constants import EXTENSION_APK
+from rv_android_core.constants import EXTENSION_APK, EXTENSION_STATIC_ANALYSIS
 from rv_android_core.domain.app import App
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import (
@@ -344,28 +344,53 @@ class PreProcessor:
                 self.error_handler.handle_error(e, error_context)
 
     def _get_target_apks_for_analysis(self) -> List[str]:
-        """Get original APKs for static analysis.
+        """Get original APKs for static analysis, filtered by instrumentation success.
 
-        GATOR/Soot cannot process instrumented APKs because the AspectJ-woven
-        bytecode causes TypeResolver errors. Static analysis always runs on
-        original APKs; the output goes to instrumented_apks/ so rv-platform
-        finds the JSON alongside the instrumented APK.
+        Only returns original APK paths for APKs that have a corresponding
+        instrumented file in instrumented_apks/. GATOR/Soot cannot process
+        instrumented APKs (AspectJ-woven bytecode causes TypeResolver errors),
+        so static analysis runs on originals — but only for APKs that will
+        enter the experiment, which requires successful instrumentation.
         """
-        return self.config.get_apk_list()
+        instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
+
+        if not os.path.exists(instrumented_dir):
+            self.logger.warning(
+                f"Instrumented directory does not exist: {instrumented_dir}"
+            )
+            return []
+
+        instrumented_names = {
+            f for f in os.listdir(instrumented_dir) if f.endswith(EXTENSION_APK)
+        }
+
+        result = []
+        for apk_path in self.config.get_apk_list():
+            apk_name = os.path.basename(apk_path)
+            if apk_name in instrumented_names:
+                result.append(apk_path)
+            else:
+                self.logger.info(
+                    f"Skipping static analysis for {apk_name}: not instrumented"
+                )
+
+        return result
 
     def get_instrumented_apks(self) -> List[App]:
         """
-        Get all instrumented APKs from the instrumented directory.
+        Get instrumented APKs that have static analysis data.
+
+        Only returns APKs from instrumented_apks/ that have a corresponding
+        .apk.json file (static analysis output). APKs without SA data produce
+        meaningless coverage results and are excluded from execution.
 
         Returns:
-            List of App objects representing the instrumented APKs
+            List of App objects for APKs with both instrumentation and SA data
         """
         # Called by ExperimentController._run_execution() to feed APKs into Phase 2.
-        # Two scenarios:
-        # 1. Normal run: instrumented_apks/ contains woven APKs from _instrument_apks()
-        # 2. Resume / skip-instrument: instrumented_apks/ may be empty, so we fall
-        #    back to original APKs from apks_dir. This ensures execution proceeds
-        #    even when pre-processing was entirely skipped.
+        # Filtering by .json presence ensures only APKs with useful SA data
+        # enter the experiment. Falls back to original APKs when no APKs
+        # pass the filter (e.g., --skip-static without pre-existing artifacts).
         with self.logger.with_context(phase="find_instrumented_apks"):
             apks = []
             instrumented_dir = os.path.join(
@@ -375,11 +400,18 @@ class PreProcessor:
             if os.path.exists(instrumented_dir):
                 for file in os.listdir(instrumented_dir):
                     if file.endswith(EXTENSION_APK):
+                        app_path = os.path.join(instrumented_dir, file)
+                        sa_json = app_path + EXTENSION_STATIC_ANALYSIS
+                        if not os.path.exists(sa_json):
+                            self.logger.warning(
+                                f"Excluding {file} from execution: "
+                                f"no static analysis data ({file}{EXTENSION_STATIC_ANALYSIS})"
+                            )
+                            continue
                         try:
-                            app_path = os.path.join(instrumented_dir, file)
                             app = App(app_path=app_path)
                             apks.append(app)
-                            self.logger.debug(f"Found instrumented APK: {file}")
+                            self.logger.debug(f"Found instrumented APK with SA: {file}")
                         except Exception as e:
                             error_context = {
                                 "component": "PreProcessor",
