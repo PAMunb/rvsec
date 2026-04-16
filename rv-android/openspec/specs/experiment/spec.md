@@ -201,36 +201,47 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - **INV-EXP-13**: When resuming an experiment (via `--resume-dir` or via `--name` with an existing `tasks.json`), all three pre-processing skip flags MUST be set to `True` regardless of their CLI values. This invariant ensures that pre-processing artifacts from the original run are reused intact. The `apks_dir` for the platform MUST point to the instrumented APKs directory from the original run — if the user provides `--apks-dir` pointing to non-instrumented APKs during a resume, the pre-processing skip flags mean those APKs will be used as-is (without instrumentation), resulting in 0% coverage. This trade-off is documented in CLAUDE.md under "Reusing Pre-Processed Artifacts."
 
 - **INV-EXP-14**: The experiment results directory MUST be a flat path without internal nesting. `ExperimentController` MUST use `config.results_dir` directly as the results directory — it MUST NOT append `config.name` or any other subdirectory component. The CLI layer (`__main__.py`) is responsible for constructing the complete results path (e.g., `results/my_experiment/` or `results/cli_experiment_20260212_abc123/`) before passing it to `ExperimentConfig.results_dir`. Specifically: when `ExperimentController.__init__()` is called with `config.results_dir = "results/my_experiment"`, then `self.results_dir` MUST be `"results/my_experiment"` (not `"results/my_experiment/my_experiment"`), `tasks.json` MUST be written to `results/my_experiment/tasks.json`, and all result artifacts (summary.csv, errors.csv, etc.) MUST be in `results/my_experiment/`.
-
 ## Requirements
-
 ### Requirement: Three-Phase Workflow (FR15, NFR08)
 
-The Experiment Orchestration domain MUST implement a three-phase sequential workflow that coordinates the complete experiment lifecycle: pre-processing, execution, and post-processing. This design exists because a complete RV-Android experiment involves three distinct concerns -- preparing artifacts (monitors, instrumented APKs, static analysis data), running test generation tools on emulators, and collecting post-experiment metadata -- each requiring different sub-modules with different failure modes and skip capabilities.
+The rv-experiment module MUST provide a three-phase experiment workflow coordinated by the `ExperimentController`. The three phases — pre-processing, execution, and post-processing — MUST execute in strict order.
 
 The `ExperimentController` is the sole orchestrator. It instantiates `PreProcessor`, `ExecutionController`, and `PostProcessor` during `__init__()` and calls them in sequence during `run()`. The controller MUST NOT bypass any phase; however, individual operations within Phase 1 MAY be skipped via boolean flags.
 
-Phase 1 (pre-processing) MUST support three independent operations: monitor generation, APK instrumentation, and static analysis. Each operation MAY be individually skipped without affecting the others. The operations MUST execute in the order: monitor generation, then instrumentation, then static analysis. This ordering exists because instrumentation depends on generated monitors, and static analysis operates on instrumented APKs (preferring them over originals).
+Phase 1 (pre-processing) MUST support three independent operations: monitor generation, APK instrumentation, and static analysis. Each operation MAY be individually skipped without affecting the others. The operations MUST execute in the order: monitor generation, then instrumentation, then static analysis. This ordering exists because instrumentation depends on generated monitors, and static analysis depends on instrumentation results to determine which APKs to analyze.
 
-Phase 2 (execution) MUST translate experiment configuration into a `PlatformConfig`, create a `Platform` instance, and call `Platform.run()`. The `ExecutionController` MUST NOT perform any task management, emulator control, or result processing. It only reads the aggregate result counts (`total_tasks`, `successful_tasks`, `failed_tasks`) returned by `Platform.run()`.
+Static analysis MUST only run for APKs that have a corresponding instrumented version in the `instrumented_apks/` directory (INV-EXP-15). `_get_target_apks_for_analysis()` MUST scan `instrumented_apks/` for `.apk` files and return the original APK paths for those files only. Static analysis uses original APKs (not instrumented) because GATOR needs unmodified DEX bytecode, but the analysis is only meaningful for APKs that will enter the experiment — which requires successful instrumentation.
 
-Phase 3 (post-processing) MUST generate instrumentation errors JSON and completion diagnostics. It MUST NOT generate CSV or JSON result files; those are produced by rv-platform during Phase 2.
+Phase 2 (execution) MUST translate experiment configuration into a `PlatformConfig`, create a `Platform` instance, and call `Platform.run()`. The `ExecutionController` MUST NOT perform any task management, emulator control, or result processing. `get_instrumented_apks()` MUST return only APKs from `instrumented_apks/` that have a corresponding `.apk.json` static analysis output file (INV-EXP-16). APKs without static analysis data produce meaningless coverage results and MUST be excluded from execution.
+
+Phase 3 (post-processing) MUST create basic diagnostics and completion metadata. It does not read back task results — rv-platform handles result processing.
 
 #### Scenario: Full Experiment With All Phases Enabled
 
 - **WHEN** an `ExperimentConfig` is created with `generate_monitors=True`, `instrument_apks=True`, `run_static_analysis=True`, a valid `apks_dir` containing at least one APK, at least one `ToolConfig`, and a valid `RVSEC_HOME` path
 - **THEN** `ExperimentController.run()` MUST execute Phase 1 (PreProcessor.process) with all three operations enabled
 - **AND** Phase 1 MUST produce files in `out/monitors/`, `out/instrumented_apks/`, and static analysis files alongside instrumented APKs
+- **AND** static analysis MUST run only for APKs that have a corresponding `.apk` file in `out/instrumented_apks/`
 - **AND** Phase 2 (ExecutionController) MUST create a PlatformConfig with `apks_dir` pointing to `out/instrumented_apks/`
+- **AND** Phase 2 MUST only include APKs that have both `.apk` and `.apk.json` in `out/instrumented_apks/`
 - **AND** Phase 3 (PostProcessor) MUST create `instrument_errors.json` and `experiment_completion.json` in the results directory
+
+#### Scenario: Mixed instrumentation results filter downstream phases
+
+- **WHEN** `instrument_apks=True` and `run_static_analysis=True` and `apks_dir` contains 10 APKs, of which 3 fail instrumentation
+- **THEN** `_get_target_apks_for_analysis()` MUST return only the 7 original APK paths corresponding to successfully instrumented APKs
+- **AND** 3 APKs MUST be logged as skipped for static analysis due to instrumentation failure
+- **AND** if 1 of the 7 APKs fails static analysis (no `.json` produced), `get_instrumented_apks()` MUST return only 6 APKs for execution
+- **AND** `instrument_errors.json` MUST contain 3 entries with accurate phase information
 
 #### Scenario: Experiment With All Pre-Processing Skipped
 
 - **WHEN** an `ExperimentConfig` is created with `generate_monitors=False`, `instrument_apks=False`, `run_static_analysis=False`
 - **THEN** `PreProcessor.process()` MUST NOT invoke monitor generation, instrumentation, or static analysis
 - **AND** `PreProcessor.process()` MUST log a warning for each skipped step
-- **AND** `PreProcessor.get_instrumented_apks()` MUST return App objects from the original `apks_dir` as fallback
-- **AND** Phase 2 MUST proceed with the original (non-instrumented) APKs
+- **AND** `PreProcessor.get_instrumented_apks()` MUST scan `instrumented_apks/` for APKs with corresponding `.apk.json` files
+- **AND** if no APKs with `.apk.json` are found, MUST fall back to App objects from the original `apks_dir`
+- **AND** Phase 2 MUST proceed with the available APKs
 - **AND** the experiment MUST complete without errors (coverage will be 0% because APKs are not instrumented)
 
 #### Scenario: Pre-Processing Failure Does Not Abort Experiment
@@ -531,3 +542,4 @@ The `get_module_config()` method MUST serve as a generic dispatcher that routes 
 - **WHEN** `generate_monitors=False` is set in ExperimentConfig
 - **THEN** `PreProcessor.process()` MUST NOT call `config.get_monitored_operations_config()`
 - **AND** missing or invalid RVSEC_HOME MUST NOT cause an error if all three pre-processing phases are skipped
+

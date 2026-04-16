@@ -277,9 +277,7 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-11**: The dex2jar tools (`d2j-dex2jar.sh`, `d2j-asm-verify.sh`, `d2j-apk-sign.sh`) MUST exist and be executable in the `dex2jar_home` directory. `Dex2jarTools` field validators MUST raise `ValueError` if any tool is missing or not executable.
 
 - **INV-INS-12**: When `RVSEC_HOME` is not set and no explicit paths are provided, both `RVGeneratorConfig` and `RVInstrumentationConfig` MUST raise a `ConfigurationError` during initialization, not during execution.
-
 ## Requirements
-
 ### Requirement: Monitor Generation from JavaMOP Specifications (FR01, NFR07)
 
 The system MUST generate runtime verification monitors from MOP specification files through a coordinated pipeline of two tools: JavaMOP and RV-Monitor. JavaMOP reads `.mop` files and produces two artifacts: (a) `.aj` AspectJ files that define pointcuts and weaving advice for method interception, and (b) `.rvm` intermediate files containing monitor state machine specifications. RV-Monitor then reads the `.rvm` files and synthesizes `.java` monitor classes that implement the runtime verification logic.
@@ -344,6 +342,10 @@ Before instrumentation begins, `prepare_instrumentation()` MUST clean temporary 
 
 The pipeline supports both single APK instrumentation (`instrument()`) and batch instrumentation (`instrument_apks()`). Batch instrumentation provides error isolation: if one APK fails, processing continues with the next APK. All errors are collected in `InstrumentationResults.errors` and saved to `instrument_errors.json`.
 
+The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `reraise=True` to ensure exceptions propagate to the batch loop: `instrument()`, `__include_generated_monitors()`, `__weave_monitors()`, `__create_apk()`, `__sign_apk()`. The batch loop (`instrument_apks()`) MUST use `reraise=False` (default) to continue processing after per-APK failures.
+
+When a pipeline phase raises an exception with `_error_phase` annotated by the ErrorHandler decorator, the batch loop MUST use `getattr(ex, '_error_phase', fallback)` to populate `InstrumentationError.phase` with the actual pipeline phase (e.g., `"apk_signing"`, `"apk_creation"`, `"aspect_weaving"`) instead of hardcoded generic values.
+
 #### Scenario: Successful single APK instrumentation
 
 - **WHEN** an APK at `app.path` exists and is a valid `.apk` file, and `monitor_output_dir` contains `.aj` and `.java` files, and all external tools are available
@@ -364,21 +366,32 @@ The pipeline supports both single APK instrumentation (`instrument()`) and batch
 - **AND** the full instrumentation pipeline MUST execute
 - **AND** a new signed APK MUST be created at `{instrumented_dir}/{app.name}`
 
-#### Scenario: dex2jar conversion failure
+#### Scenario: Pipeline phase failure with accurate phase reporting
 
-- **WHEN** dex2jar produces an exception file during DEX-to-JAR conversion
-- **THEN** a `CommandException` MUST be raised with tool name `"dex2jar"`, code `"-1"`, and message referencing the exception file
-- **AND** the error MUST be recorded in `InstrumentationResults.errors` with `phase="command_execution"` and `tool="dex2jar"`
-- **AND** temporary directories MUST be cleaned despite the failure
+- **WHEN** `jarsigner` returns a non-zero exit code during APK signing
+- **THEN** the `CommandException` MUST propagate from `__sign_apk()` through `__create_apk()` and `instrument()` decorators (all with `reraise=True`)
+- **AND** the exception MUST carry `_error_phase == "apk_signing"` (set by the innermost decorator)
+- **AND** the batch loop MUST record the error in `InstrumentationResults.errors` with `phase="apk_signing"` and `tool="jarsigner"`
+- **AND** `success_count` MUST NOT be incremented for this APK
+- **AND** "Successfully instrumented APK" MUST NOT be logged for this APK
 
 #### Scenario: Batch instrumentation with mixed results
 
-- **WHEN** `instrument_apks()` processes 10 APKs and 3 fail during different pipeline phases (dex2jar, ajc, d8)
+- **WHEN** `instrument_apks()` processes 10 APKs and 3 fail during different pipeline phases (aspect_weaving, apk_creation, apk_signing)
 - **THEN** `InstrumentationResults.success_count` MUST be 7
 - **AND** `InstrumentationResults.total_count` MUST be 10
 - **AND** `InstrumentationResults.success_rate` MUST be 70.0
-- **AND** `InstrumentationResults.errors` MUST contain 3 entries, each with `code`, `tool`, `message`, and `phase`
+- **AND** `InstrumentationResults.errors` MUST contain 3 entries, each with `code`, `tool`, `message`, and `phase` matching the actual pipeline phase where the failure occurred
 - **AND** `instrument_errors.json` MUST be written to `results_dir` with the serialized error models
+
+#### Scenario: dex2jar conversion failure with phase from outer decorator
+
+- **WHEN** dex2jar produces an exception file during DEX-to-JAR conversion
+- **THEN** a `CommandException` MUST be raised with tool name `"dex2jar"`
+- **AND** since `__decompile_apk()` has no `@handle_errors` decorator, the exception propagates to `instrument()`'s `except` block (line 517), which re-raises
+- **AND** the `instrument()` decorator (`phase="single_apk_instrumentation"`, `reraise=True`) MUST annotate `_error_phase = "single_apk_instrumentation"`
+- **AND** the error MUST be recorded in `InstrumentationResults.errors` with `phase="single_apk_instrumentation"` and `tool="dex2jar"`
+- **AND** temporary directories MUST be cleaned despite the failure
 
 #### Scenario: Instrumentation verification detects unchanged APK
 
@@ -451,3 +464,4 @@ When no `mop_specs_dir` is explicitly provided to `RVGeneratorConfig`, it defaul
 
 - **WHEN** `RVGeneratorConfig` is created with only `rvsec_root` (no explicit `mop_specs_dir`)
 - **THEN** `mop_specs_dir` MUST default to `{rvsec_root}/rvsec/rvsec-mop/src/main/resources/jca/` for backward compatibility
+

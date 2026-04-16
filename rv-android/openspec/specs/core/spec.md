@@ -236,9 +236,7 @@ RvErrorLog(BaseValidatedModel):
 - **INV-CORE-24**: LogcatRepository.register_method_call() MUST only register calls to methods that exist in the static analysis data (classes dictionary). Calls to unknown classes or methods MUST be silently ignored with a debug log.
 
 - **INV-CORE-25**: RvErrorLog.unique_msg MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"`. Two RvErrorLog instances with the same unique_msg MUST be considered equal.
-
 ## Requirements
-
 ### Requirement: Error Handling with Recovery Strategies (FR34, NFR04)
 
 The rv-android-core module MUST provide centralized error handling through the ErrorHandler singleton. The ErrorHandler serves as the framework's unified error management facility, providing consistent error classification, logging, tracking, and optional recovery. It uses a registry-based approach where each exception type has a dedicated handler.
@@ -246,6 +244,8 @@ The rv-android-core module MUST provide centralized error handling through the E
 The ErrorHandler MUST register 27+ type-specific handlers at initialization covering the entire exception hierarchy: RVTaskError, RVToolError (and subclasses: ToolNotFoundError, ToolRegistrationError, ToolVariantError, PluginError, RVToolTimeoutError, RVToolExecutionError), RVExperimentError, RVParsingError, RVPromptError, RVLLMError (and subclasses: RVLLMConnectionError, RVLLMModelError, RVLLMProviderError, RVLLMConfigurationError, RVLLMTemplateError), RVValidationError (and subclasses: CommandValidationError, LogcatValidationError), RVCommandTimeoutError, JarNotFoundError, CircuitBreakerOpenError, FileNotFoundError, and generic fallbacks (RVAndroidError, Exception).
 
 Handler lookup MUST use exact type matching to ensure the most specific handler is selected. The `@ErrorHandler.handle_errors(component, phase, reraise)` decorator MUST provide Spring-like automatic error management for decorated methods.
+
+When `reraise=True`, the decorator MUST annotate the exception with `_error_phase` set to the decorator's `phase` parameter before re-raising. If the exception already has an `_error_phase` attribute (set by an inner decorator), the outer decorator MUST NOT overwrite it. This preserves the most specific phase from nested decorator chains.
 
 The ErrorHandler MUST support a callback system (`register_error_callback` / `unregister_error_callback`) for higher-level modules to react to errors.
 
@@ -262,6 +262,20 @@ The ErrorHandler MUST support a callback system (`register_error_callback` / `un
 - **THEN** the error MUST be logged and handled by `_handle_tool_execution_error`
 - **AND** the exception MUST be re-raised to the caller
 - **AND** the caller MUST receive the original exception
+
+#### Scenario: Decorator with reraise=True annotates exception with phase
+
+- **WHEN** a method decorated with `@ErrorHandler.handle_errors(component="RVInstrumentation", phase="apk_signing", reraise=True)` raises `CommandException`
+- **THEN** the exception MUST have attribute `_error_phase` set to `"apk_signing"` before re-raising
+- **AND** the caller MUST receive the exception with `_error_phase == "apk_signing"`
+
+#### Scenario: Inner decorator phase preserved through nested chain
+
+- **WHEN** an inner method decorated with `@ErrorHandler.handle_errors(phase="apk_signing", reraise=True)` raises `CommandException`
+- **AND** the outer method is decorated with `@ErrorHandler.handle_errors(phase="apk_creation", reraise=True)`
+- **THEN** the inner decorator MUST set `_error_phase = "apk_signing"` on the exception
+- **AND** the outer decorator MUST NOT overwrite `_error_phase` (because `hasattr(e, '_error_phase')` is True)
+- **AND** the final caller MUST receive the exception with `_error_phase == "apk_signing"`
 
 #### Scenario: Validation errors are not suppressed by catch-all
 
@@ -562,3 +576,4 @@ ToolConfig provides `from_dict()` for deserialization from JSON. It accepts only
 - **THEN** both instances MUST have identical `unique_msg` computed properties
 - **AND** `error1 == error2` MUST return True
 - **AND** `hash(error1) == hash(error2)` MUST return True
+
