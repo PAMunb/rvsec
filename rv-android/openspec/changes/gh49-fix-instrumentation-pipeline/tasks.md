@@ -54,8 +54,8 @@
 - [x] 4.4 Run `/rv-verify rv-android-core`
 - [x] 4.5 Run `/rv-verify rv-instrumentation`
 - [x] 4.6 Run `/rv-verify rv-experiment`
-- [ ] 4.7 E2E: create test dir with `cryptoapp` + 1 failing APK from error dataset, run `uv run rv-experiment run --tools monkey --specification-set jca --apks-dir <test-dir> --timeout 60`. Verify:
+- [x] 4.7 E2E: create test dir with `cryptoapp` + 1 failing APK from error dataset, run `uv run rv-experiment run --tools monkey --specification-set jca --apks-dir <test-dir> --timeout 60`. Verify:
   - `cryptoapp` instrumented, SA produces `.json`, executed with coverage > 0%
   - Failing APK in `instrument_errors.json` with correct phase/tool
   - Failing APK has no SA `.json` and no task execution
-- [ ] 4.8 Invoke `/rv-code-reviewer` via Skill tool
+- [x] 4.8 Invoke `/rv-code-reviewer` via Skill tool

@@ -893,7 +893,7 @@ class RVInstrumentation:
         return signed_apk
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="library_integration"
+        component="RVInstrumentation", phase="library_integration", reraise=True
     )
     def __merge_support_classes(self) -> None:
         """
