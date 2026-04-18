@@ -1,6 +1,6 @@
 ## Purpose
 
-Delta spec for the rv-instrumentation pipeline weaving configuration. This change adds configurable class exclusion from AspectJ weaving via `-xmlConfigured` + `aop.xml`, adds `--no-desugaring` to d8, and adds `-proceedOnError` to ajc, significantly improving instrumentation success rate on modern APKs.
+Delta spec for the rv-instrumentation pipeline improvements. This change adds six layered mechanisms to increase instrumentation success rate on modern APKs: (1) ASM stack frame recomputation post-weaving, (2) configurable class exclusion via `-xmlConfigured` + `aop.xml`, (3) `--no-desugaring` on d8, (4) `-proceedOnError` on ajc, (5) dynamic `android.jar` selection by `targetSdkVersion`, and (6) AspectJ 1.9.25.1 upgrade.
 
 ## ADDED Invariants
 
@@ -10,13 +10,17 @@ Delta spec for the rv-instrumentation pipeline weaving configuration. This chang
 
 - **INV-INS-15**: When a `weaving_excludes.yaml` configuration file is available, the instrumentation pipeline MUST generate an `aop.xml` file with `<exclude within="..."/>` entries for each pattern, and pass `-xmlConfigured <path-to-aop.xml>` to ajc as explicit arguments. The `-xmlConfigured` flag in CTW mode requires the file path on the command line — it does NOT auto-discover `META-INF/aop.xml` from the classpath.
 
-- **INV-INS-16**: The default `weaving_excludes.yaml` MUST include at least the following patterns: `com.google..*`, `androidx..*`, `kotlin..*`, `kotlinx..*`, `android.support..*`, `j$..*`, `org.apache..*`, `okhttp3..*`, `okio..*`. Additional patterns (e.g., `com.squareup..*`, `com.facebook..*`, `io.reactivex..*`) MAY be included for broader coverage of common Android libraries.
+- **INV-INS-16**: The default `weaving_excludes.yaml` MUST include at least the following patterns, aligned with `Coverage.aj` exclusions: `com.google..*`, `androidx..*`, `kotlin..*`, `kotlinx..*`, `android.support..*`, `android..*`, `com.android..*`, `j$..*`, `org.apache..*`, `com.facebook..*`, `okhttp3..*`, `okio..*`. Additional patterns (e.g., `com.squareup..*`, `io.reactivex..*`) MAY be included. The patterns MUST NOT match the APK's own code package (verifiable via `App.code_package`).
+
+- **INV-INS-17**: After ajc weaving and before d8 compilation, the pipeline MUST run an ASM-based frame recomputation step (`__compute_stack_frames()`) on all `.class` files in `tmp_dir`. This step uses ASM's `ClassWriter.COMPUTE_FRAMES` flag to recompute all stack map frames from scratch, replacing potentially corrupted frames left by ajc's BCEL-based weaver. Files that fail frame computation MUST be logged and skipped (original woven bytecode preserved). This step is complementary to aop.xml exclusion: aop.xml prevents weaving library classes, COMPUTE_FRAMES fixes frames in classes that were weaved.
+
+- **INV-INS-18**: The `__get_android_jar()` method MUST select the `android.jar` matching the APK's `targetSdkVersion` (obtained from `app.sdk_target`). If the exact platform is not installed, it MUST fall back to the highest available `android-XX/android.jar` in the SDK platforms directory. The minimum fallback MUST be `android-26` (matching `--min-api 26`). This replaces the hardcoded `android-29` (TODO #23).
 
 ## MODIFIED Requirements
 
 ### Requirement: APK Instrumentation with Monitors (FR02)
 
-The system MUST instrument Android APKs with generated runtime verification monitors through a multi-phase pipeline. The pipeline transforms a standard APK into a monitored APK by: (1) decompiling DEX bytecode to Java classes, (2) injecting monitor artifacts, (3) weaving aspects via AspectJ, (4) merging runtime dependencies, (5) recompiling to DEX, and (6) signing the APK.
+The system MUST instrument Android APKs with generated runtime verification monitors through a multi-phase pipeline. The pipeline transforms a standard APK into a monitored APK by: (1) decompiling DEX bytecode to Java classes, (2) injecting monitor artifacts, (3) weaving aspects via AspectJ, (4) recomputing stack map frames via ASM, (5) merging runtime dependencies, (6) recompiling to DEX, and (7) signing the APK.
 
 ```mermaid
 flowchart TD
@@ -26,29 +30,35 @@ flowchart TD
     YAML -->|exists| GEN[Generate aop.xml from YAML]
     YAML -->|absent| AJC_PLAIN[ajc -proceedOnError -Xlint:ignore]
     GEN --> AJC_XML[ajc -xmlConfigured aop.xml -proceedOnError -Xlint:ignore]
-    AJC_PLAIN --> MERGE[Merge support libraries]
-    AJC_XML --> MERGE
-    MERGE --> D8[d8 --no-desugaring --release --min-api 26]
+    AJC_PLAIN --> FRAMES[ASM COMPUTE_FRAMES: recompute stack maps]
+    AJC_XML --> FRAMES
+    FRAMES --> MERGE[Merge support libraries]
+    MERGE --> D8["d8 --no-desugaring --release --min-api 26 --lib android-{targetSdk}.jar"]
     D8 --> SIGN[jarsigner: sign APK]
     SIGN --> OUT[Instrumented APK]
 ```
 
 The instrumentation pipeline relies on several external tools that MUST be available:
 - **dex2jar** (`d2j-dex2jar.sh`): Converts APK DEX bytecode to JAR format. If the conversion produces an exception file, the pipeline MUST raise a `CommandException`.
-- **ajc (AspectJ Compiler)**: Weaves monitor pointcuts into application bytecode. Uses Java 1.8 source compatibility (`-source 1.8`), suppresses lint warnings (`-Xlint:ignore`), proceeds on class-level errors (`-proceedOnError`), and optionally uses `-xmlConfigured <path>` with a generated `aop.xml` for class exclusion. The classpath MUST include `android.jar` and all runtime verification JARs from `lib_tmp_dir`.
-- **d8 (Android DEX compiler)**: Converts the instrumented JAR back to DEX format. Uses `--release` mode with `--min-api 26`, `--no-desugaring`, and `--lib android.jar`.
+- **ajc (AspectJ Compiler 1.9.25.1)**: Weaves monitor pointcuts into application bytecode. Uses Java 1.8 source compatibility (`-source 1.8`), suppresses lint warnings (`-Xlint:ignore`), proceeds on class-level errors (`-proceedOnError`), and optionally uses `-xmlConfigured <path>` with a generated `aop.xml` for class exclusion. The classpath MUST include the `android.jar` matching the APK's `targetSdkVersion` and all runtime verification JARs from `lib_tmp_dir`.
+- **rv-frame-computer.jar**: Recomputes stack map frames on all `.class` files in `tmp_dir` using ASM's `ClassWriter.COMPUTE_FRAMES`. Runs after ajc weaving, before library merging.
+- **d8 (Android DEX compiler)**: Converts the instrumented JAR back to DEX format. Uses `--release` mode with `--min-api 26`, `--no-desugaring`, and `--lib` pointing to the dynamically selected `android.jar`.
 - **jarsigner**: Signs the APK with the configured keystore using `SHA256withRSA` signature algorithm and `SHA-256` digest algorithm.
 - **Maven**: Resolves and downloads runtime dependencies (`rv-monitor-rt.jar`, `rvsec-core.jar`, `rvsec-logger-logcat.jar`, `aspectjrt.jar`) into `lib_tmp_dir`.
 
 Before AspectJ weaving, the pipeline MUST check for a `weaving_excludes.yaml` configuration. If present, it MUST generate an `aop.xml` file in the temporary directory with `<exclude within="..."/>` entries for each pattern and pass `-xmlConfigured <aop_xml_path>` to the ajc command as explicit arguments. If absent, ajc runs without class exclusion (current behavior preserved).
 
+After AspectJ weaving and before merging support libraries, the pipeline MUST run the ASM frame recomputation step on all woven `.class` files. This step addresses stack map frame corruption left by ajc's BCEL-based bytecode manipulation, which is the root cause of d8 AIOOBE (ArrayIndexOutOfBoundsException) failures.
+
+MOP coverage trade-off: excluding library packages from weaving removes monitoring of calls originating inside excluded libraries, because all 168 MOP specs use `call()` semantics (caller-site interception). Calls from app code to monitored APIs remain monitored. This is a scope decision aligned with `Coverage.aj` and the research objective of detecting misuse in developer code. `App.code_package` (via `PackageDetector`) provides verification that exclusions never cover the app's own package.
+
 Before instrumentation begins, `prepare_instrumentation()` MUST clean temporary directories from previous runs and execute Maven dependency resolution. After each APK, temporary directories (`tmp_dir`, `rvm_tmp_dir`) MUST be cleaned. After the entire batch, `lib_tmp_dir` MUST be cleaned.
 
 The pipeline supports both single APK instrumentation (`instrument()`) and batch instrumentation (`instrument_apks()`). Batch instrumentation provides error isolation: if one APK fails, processing continues with the next APK. All errors are collected in `InstrumentationResults.errors` and saved to `instrument_errors.json`.
 
-The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `reraise=True` to ensure exceptions propagate to the batch loop: `instrument()`, `__include_generated_monitors()`, `__weave_monitors()`, `__create_apk()`, `__sign_apk()`, `__merge_support_classes()`. The batch loop (`instrument_apks()`) MUST use `reraise=False` (default) to continue processing after per-APK failures. (`__merge_support_classes` was added in gh49.)
+The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `reraise=True` to ensure exceptions propagate to the batch loop: `instrument()`, `__include_generated_monitors()`, `__weave_monitors()`, `__compute_stack_frames()`, `__create_apk()`, `__merge_support_classes()`, `__sign_apk()`. The batch loop (`instrument_apks()`) MUST use `reraise=False` (default) to continue processing after per-APK failures.
 
-When a pipeline phase raises an exception with `_error_phase` annotated by the ErrorHandler decorator, the batch loop MUST use `getattr(ex, '_error_phase', fallback)` to populate `InstrumentationError.phase` with the actual pipeline phase (e.g., `"apk_signing"`, `"apk_creation"`, `"aspect_weaving"`) instead of hardcoded generic values.
+When a pipeline phase raises an exception with `_error_phase` annotated by the ErrorHandler decorator, the batch loop MUST use `getattr(ex, '_error_phase', fallback)` to populate `InstrumentationError.phase` with the actual pipeline phase (e.g., `"apk_signing"`, `"apk_creation"`, `"aspect_weaving"`, `"frame_computation"`) instead of hardcoded generic values.
 
 #### Scenario: Successful instrumentation with d8 --no-desugaring
 
@@ -85,6 +95,27 @@ When a pipeline phase raises an exception with `_error_phase` annotated by the E
 - **WHEN** `weaving_excludes.yaml` is not found in the assets directory
 - **THEN** ajc MUST be invoked WITHOUT `-xmlConfigured` flag
 - **AND** weaving behavior MUST be identical to previous versions (all classes in `-inpath` are woven)
+
+#### Scenario: ASM frame recomputation post-weaving
+
+- **WHEN** ajc weaving completes (with or without `-xmlConfigured`)
+- **THEN** `__compute_stack_frames()` MUST invoke `rv-frame-computer.jar` on `tmp_dir`
+- **AND** all `.class` files in `tmp_dir` (recursively) MUST have their stack map frames recomputed using ASM `ClassWriter.COMPUTE_FRAMES`
+- **AND** files that fail frame computation (e.g., unresolvable type hierarchy) MUST be logged and preserved with their original bytecode
+- **AND** the count of successfully recomputed and failed files MUST be logged
+
+#### Scenario: Dynamic android.jar selection by targetSdkVersion
+
+- **WHEN** an APK with `targetSdkVersion=34` is being instrumented and `android-34/android.jar` exists in the SDK platforms directory
+- **THEN** `__get_android_jar(app)` MUST return the path to `android-34/android.jar`
+- **AND** ajc MUST use this `android.jar` in its classpath
+- **AND** d8 MUST use this `android.jar` as `--lib` argument
+
+#### Scenario: Dynamic android.jar fallback to highest available
+
+- **WHEN** an APK with `targetSdkVersion=36` is being instrumented but `android-36/android.jar` does not exist, and the highest available is `android-34`
+- **THEN** `__get_android_jar(app)` MUST return the path to `android-34/android.jar`
+- **AND** a log message MUST indicate the fallback: "Platform android-36 not available, using android-34"
 
 #### Scenario: Successful single APK instrumentation
 
