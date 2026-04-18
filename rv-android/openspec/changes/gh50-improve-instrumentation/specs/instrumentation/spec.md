@@ -8,9 +8,9 @@ Delta spec for the rv-instrumentation pipeline weaving configuration. This chang
 
 - **INV-INS-14**: The ajc command MUST include the `-proceedOnError` flag. This allows partial weaving to continue when individual classes cause compilation errors, producing woven output for all successfully processed classes instead of aborting the entire APK.
 
-- **INV-INS-15**: When a `weaving_excludes.yaml` configuration file is available, the instrumentation pipeline MUST generate a `META-INF/aop.xml` file with `<exclude within="..."/>` entries for each pattern, and pass the `-xmlConfigured` flag to ajc. This prevents weaving into library packages whose bytecode is incompatible with AspectJ's stack frame recomputation.
+- **INV-INS-15**: When a `weaving_excludes.yaml` configuration file is available, the instrumentation pipeline MUST generate an `aop.xml` file with `<exclude within="..."/>` entries for each pattern, and pass `-xmlConfigured <path-to-aop.xml>` to ajc as explicit arguments. The `-xmlConfigured` flag in CTW mode requires the file path on the command line — it does NOT auto-discover `META-INF/aop.xml` from the classpath.
 
-- **INV-INS-16**: The default `weaving_excludes.yaml` MUST include at least the following patterns: `com.google..*`, `androidx..*`, `kotlin..*`, `kotlinx..*`, `android.support..*`, `j$..*`, `org.apache..*`, `okhttp3..*`, `okio..*`. These patterns cover the library packages that cause the majority of d8 compilation failures after weaving.
+- **INV-INS-16**: The default `weaving_excludes.yaml` MUST include at least the following patterns: `com.google..*`, `androidx..*`, `kotlin..*`, `kotlinx..*`, `android.support..*`, `j$..*`, `org.apache..*`, `okhttp3..*`, `okio..*`. Additional patterns (e.g., `com.squareup..*`, `com.facebook..*`, `io.reactivex..*`) MAY be included for broader coverage of common Android libraries.
 
 ## MODIFIED Requirements
 
@@ -18,20 +18,37 @@ Delta spec for the rv-instrumentation pipeline weaving configuration. This chang
 
 The system MUST instrument Android APKs with generated runtime verification monitors through a multi-phase pipeline. The pipeline transforms a standard APK into a monitored APK by: (1) decompiling DEX bytecode to Java classes, (2) injecting monitor artifacts, (3) weaving aspects via AspectJ, (4) merging runtime dependencies, (5) recompiling to DEX, and (6) signing the APK.
 
+```mermaid
+flowchart TD
+    APK[Original APK] --> DEX2JAR[dex2jar: DEX → JAR]
+    DEX2JAR --> INJECT[Inject monitors: .aj + .java → tmp/]
+    INJECT --> YAML{weaving_excludes.yaml?}
+    YAML -->|exists| GEN[Generate aop.xml from YAML]
+    YAML -->|absent| AJC_PLAIN[ajc -proceedOnError -Xlint:ignore]
+    GEN --> AJC_XML[ajc -xmlConfigured aop.xml -proceedOnError -Xlint:ignore]
+    AJC_PLAIN --> MERGE[Merge support libraries]
+    AJC_XML --> MERGE
+    MERGE --> D8[d8 --no-desugaring --release --min-api 26]
+    D8 --> SIGN[jarsigner: sign APK]
+    SIGN --> OUT[Instrumented APK]
+```
+
 The instrumentation pipeline relies on several external tools that MUST be available:
 - **dex2jar** (`d2j-dex2jar.sh`): Converts APK DEX bytecode to JAR format. If the conversion produces an exception file, the pipeline MUST raise a `CommandException`.
-- **ajc (AspectJ Compiler)**: Weaves monitor pointcuts into application bytecode. Uses Java 1.8 source compatibility (`-source 1.8`), suppresses lint warnings (`-Xlint:ignore`), proceeds on class-level errors (`-proceedOnError`), and optionally uses `-xmlConfigured` with a generated `aop.xml` for class exclusion. The classpath MUST include `android.jar` and all runtime verification JARs from `lib_tmp_dir`.
+- **ajc (AspectJ Compiler)**: Weaves monitor pointcuts into application bytecode. Uses Java 1.8 source compatibility (`-source 1.8`), suppresses lint warnings (`-Xlint:ignore`), proceeds on class-level errors (`-proceedOnError`), and optionally uses `-xmlConfigured <path>` with a generated `aop.xml` for class exclusion. The classpath MUST include `android.jar` and all runtime verification JARs from `lib_tmp_dir`.
 - **d8 (Android DEX compiler)**: Converts the instrumented JAR back to DEX format. Uses `--release` mode with `--min-api 26`, `--no-desugaring`, and `--lib android.jar`.
 - **jarsigner**: Signs the APK with the configured keystore using `SHA256withRSA` signature algorithm and `SHA-256` digest algorithm.
 - **Maven**: Resolves and downloads runtime dependencies (`rv-monitor-rt.jar`, `rvsec-core.jar`, `rvsec-logger-logcat.jar`, `aspectjrt.jar`) into `lib_tmp_dir`.
 
-Before AspectJ weaving, the pipeline MUST check for a `weaving_excludes.yaml` configuration. If present, it MUST generate an `aop.xml` file in the temporary directory with `<exclude within="..."/>` entries for each pattern and pass `-xmlConfigured` to the ajc command. If absent, ajc runs without class exclusion (current behavior preserved).
+Before AspectJ weaving, the pipeline MUST check for a `weaving_excludes.yaml` configuration. If present, it MUST generate an `aop.xml` file in the temporary directory with `<exclude within="..."/>` entries for each pattern and pass `-xmlConfigured <aop_xml_path>` to the ajc command as explicit arguments. If absent, ajc runs without class exclusion (current behavior preserved).
 
 Before instrumentation begins, `prepare_instrumentation()` MUST clean temporary directories from previous runs and execute Maven dependency resolution. After each APK, temporary directories (`tmp_dir`, `rvm_tmp_dir`) MUST be cleaned. After the entire batch, `lib_tmp_dir` MUST be cleaned.
 
 The pipeline supports both single APK instrumentation (`instrument()`) and batch instrumentation (`instrument_apks()`). Batch instrumentation provides error isolation: if one APK fails, processing continues with the next APK. All errors are collected in `InstrumentationResults.errors` and saved to `instrument_errors.json`.
 
-The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `reraise=True` to ensure exceptions propagate to the batch loop: `instrument()`, `__include_generated_monitors()`, `__weave_monitors()`, `__create_apk()`, `__sign_apk()`, `__merge_support_classes()`. The batch loop (`instrument_apks()`) MUST use `reraise=False` (default) to continue processing after per-APK failures.
+The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `reraise=True` to ensure exceptions propagate to the batch loop: `instrument()`, `__include_generated_monitors()`, `__weave_monitors()`, `__create_apk()`, `__sign_apk()`, `__merge_support_classes()`. The batch loop (`instrument_apks()`) MUST use `reraise=False` (default) to continue processing after per-APK failures. (`__merge_support_classes` was added in gh49.)
+
+When a pipeline phase raises an exception with `_error_phase` annotated by the ErrorHandler decorator, the batch loop MUST use `getattr(ex, '_error_phase', fallback)` to populate `InstrumentationError.phase` with the actual pipeline phase (e.g., `"apk_signing"`, `"apk_creation"`, `"aspect_weaving"`) instead of hardcoded generic values.
 
 #### Scenario: Successful instrumentation with d8 --no-desugaring
 
@@ -59,7 +76,7 @@ The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `rera
     </weaver>
   </aspectj>
   ```
-- **AND** ajc MUST be invoked with `-xmlConfigured` flag
+- **AND** ajc MUST be invoked with `-xmlConfigured <path-to-aop.xml>` as explicit arguments (not classpath auto-discovery)
 - **AND** classes matching excluded patterns MUST NOT receive woven advice
 - **AND** classes NOT matching excluded patterns MUST be woven normally
 
@@ -76,12 +93,27 @@ The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `rera
 - **AND** the instrumented APK hash MUST differ from the original APK hash
 - **AND** temporary directories (`tmp_dir`, `rvm_tmp_dir`) MUST be cleaned after completion
 
+#### Scenario: Skip existing instrumented APK
+
+- **WHEN** an instrumented APK already exists at `{result_dir}/{app.name}` and `force_instrumentation` is `False`
+- **THEN** the pipeline MUST skip this APK without error
+- **AND** a log message "Skipping already instrumented APK" MUST be emitted
+
+#### Scenario: Force re-instrumentation
+
+- **WHEN** an instrumented APK already exists at `{result_dir}/{app.name}` and `force_instrumentation` is `True`
+- **THEN** the existing APK MUST be deleted
+- **AND** the full instrumentation pipeline MUST execute
+- **AND** a new signed APK MUST be created at `{instrumented_dir}/{app.name}`
+
 #### Scenario: Pipeline phase failure with accurate phase reporting
 
 - **WHEN** `jarsigner` returns a non-zero exit code during APK signing
 - **THEN** the `CommandException` MUST propagate from `__sign_apk()` through `__create_apk()` and `instrument()` decorators (all with `reraise=True`)
 - **AND** the exception MUST carry `_error_phase == "apk_signing"` (set by the innermost decorator)
 - **AND** the batch loop MUST record the error in `InstrumentationResults.errors` with `phase="apk_signing"` and `tool="jarsigner"`
+- **AND** `success_count` MUST NOT be incremented for this APK
+- **AND** "Successfully instrumented APK" MUST NOT be logged for this APK
 
 #### Scenario: Batch instrumentation with mixed results
 
@@ -92,17 +124,14 @@ The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `rera
 - **AND** `InstrumentationResults.errors` MUST contain 3 entries, each with `code`, `tool`, `message`, and `phase` matching the actual pipeline phase where the failure occurred
 - **AND** `instrument_errors.json` MUST be written to `results_dir` with the serialized error models
 
-#### Scenario: Skip existing instrumented APK
-
-- **WHEN** an instrumented APK already exists at `{result_dir}/{app.name}` and `force_instrumentation` is `False`
-- **THEN** the pipeline MUST skip this APK without error
-- **AND** a log message "Skipping already instrumented APK" MUST be emitted
-
 #### Scenario: dex2jar conversion failure with phase from outer decorator
 
 - **WHEN** dex2jar produces an exception file during DEX-to-JAR conversion
 - **THEN** a `CommandException` MUST be raised with tool name `"dex2jar"`
+- **AND** since `__decompile_apk()` has no `@handle_errors` decorator, the exception propagates to `instrument()`'s `except` block, which re-raises
+- **AND** the `instrument()` decorator (`phase="single_apk_instrumentation"`, `reraise=True`) MUST annotate `_error_phase = "single_apk_instrumentation"`
 - **AND** the error MUST be recorded in `InstrumentationResults.errors` with `phase="single_apk_instrumentation"` and `tool="dex2jar"`
+- **AND** temporary directories MUST be cleaned despite the failure
 
 #### Scenario: Instrumentation verification detects unchanged APK
 

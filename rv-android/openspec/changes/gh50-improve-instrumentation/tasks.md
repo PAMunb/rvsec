@@ -2,7 +2,7 @@
 
 - [ ] 1.1 Create `modules/rv-instrumentation/src/rv_instrumentation/assets/weaving_excludes.yaml` with default exclude patterns: `com.google..*`, `androidx..*`, `kotlin..*`, `kotlinx..*`, `android.support..*`, `j$..*`, `org.apache..*`, `okhttp3..*`, `okio..*`, `com.squareup..*`, `com.facebook..*`, `io.reactivex..*`
 - [ ] 1.2 Add `_load_weaving_excludes()` method to `RVInstrumentation` in `rvandroid.py`: loads YAML from `assets/weaving_excludes.yaml` via `importlib.resources`, returns list of pattern strings. Returns empty list if file not found (backward compatible).
-- [ ] 1.3 Add `_generate_aop_xml(excludes, output_dir)` method to `RVInstrumentation` in `rvandroid.py`: creates `META-INF/aop.xml` in `output_dir` with `<exclude within="..."/>` entries. Returns path to aop.xml or None if no patterns.
+- [ ] 1.3 Add `_generate_aop_xml(excludes, output_dir)` method to `RVInstrumentation` in `rvandroid.py`: writes `aop.xml` directly in `output_dir` (no `META-INF/` subdirectory — `-xmlConfigured` takes explicit path). Returns path to aop.xml or None if no patterns.
 - [ ] 1.4 Add unit tests for `_load_weaving_excludes()` and `_generate_aop_xml()`:
   - Test YAML loading returns correct patterns
   - Test empty list when YAML not found

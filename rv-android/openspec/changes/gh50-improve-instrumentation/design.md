@@ -6,17 +6,15 @@ References: FR02, NFR04. Main file: `modules/rv-instrumentation/src/rv_instrumen
 
 ## Architecture
 
-```
-weaving_excludes.yaml (assets/)
-    │
-    ▼ _generate_aop_xml() [NEW]
-aop.xml (generated in tmp/)
-    │
-    ▼
-ajc -xmlConfigured -proceedOnError -Xlint:ignore -inpath ... -d ... -source 1.8
-    │
-    ▼
-d8 --no-desugaring --release --min-api 26 --lib android.jar
+```mermaid
+flowchart TD
+    YAML[weaving_excludes.yaml<br/>assets/] --> LOAD[_load_weaving_excludes]
+    LOAD --> GEN[_generate_aop_xml<br/>→ tmp_dir/aop.xml]
+    GEN --> AJC["ajc -xmlConfigured tmp/aop.xml<br/>-proceedOnError -Xlint:ignore<br/>-inpath tmp/ -d tmp/ -source 1.8"]
+    AJC --> D8["d8 --no-desugaring --release<br/>--min-api 26 --lib android.jar"]
+
+    style YAML fill:#f9f,stroke:#333
+    style GEN fill:#bbf,stroke:#333
 ```
 
 ### Key Components
@@ -34,9 +32,10 @@ d8 --no-desugaring --release --min-api 26 --lib android.jar
 |------------------------|----------------|------|
 | INV-INS-13: d8 --no-desugaring | `rvandroid.py:__d8()` — add flag | `test_d8_includes_no_desugaring` |
 | INV-INS-14: ajc -proceedOnError | `rvandroid.py:__weave_monitors()` — add flag | `test_ajc_includes_proceed_on_error` |
-| INV-INS-15: -xmlConfigured + aop.xml | `rvandroid.py:__weave_monitors()` + `_generate_aop_xml()` | `test_aop_xml_generated_from_yaml` |
+| INV-INS-15: -xmlConfigured path/aop.xml | `rvandroid.py:__weave_monitors()` + `_generate_aop_xml()` | `test_aop_xml_generated_from_yaml` |
 | INV-INS-16: default exclude patterns | `assets/weaving_excludes.yaml` | `test_default_excludes_loaded` |
 | Backward compat: no YAML = no flag | `__weave_monitors()` conditional | `test_no_yaml_no_xml_configured` |
+| `__merge_support_classes` reraise=True | Already implemented in gh49 (commit `8a25e7ec`) | Covered by existing tests |
 
 ## Goals / Non-Goals
 
@@ -62,11 +61,11 @@ d8 --no-desugaring --release --min-api 26 --lib android.jar
 
 **Rationale**: YAML is more readable and maintainable than XML. Runtime generation allows researchers to modify patterns without understanding AspectJ XML syntax. The `aop.xml` is a build artifact, not a configuration artifact.
 
-### D2: Where to place generated `aop.xml`
+### D2: Where to place generated `aop.xml` and how to pass it
 
-**Choice**: In `tmp_dir` (same directory as `-inpath` and `-d`).
+**Choice**: Write `aop.xml` directly in `tmp_dir` (no `META-INF/` subdirectory needed). Pass the file path explicitly to ajc: `ajc -xmlConfigured {tmp_dir}/aop.xml ...`.
 
-**Rationale**: `-xmlConfigured` looks for `META-INF/aop.xml` on the classpath. Since `tmp_dir` is in `-inpath`, placing `META-INF/aop.xml` inside `tmp_dir` puts it on the classpath automatically. Cleaned up with other temp files after each APK.
+**Rationale**: The `-xmlConfigured` flag in CTW mode requires the XML file path as an **explicit argument** on the command line — it does NOT auto-discover `META-INF/aop.xml` from the classpath (that is LTW-only behavior). The generated file is cleaned up with other temp files after each APK.
 
 ### D3: `-proceedOnError` risk assessment
 
@@ -82,15 +81,16 @@ d8 --no-desugaring --release --min-api 26 --lib android.jar
 
 ```python
 def _generate_aop_xml(self, excludes: List[str], output_dir: str) -> Optional[str]:
-    """Generate META-INF/aop.xml with exclude patterns for -xmlConfigured.
+    """Generate aop.xml with exclude patterns for ajc -xmlConfigured.
+    
+    The file is written directly in output_dir (no META-INF/ needed —
+    -xmlConfigured takes an explicit file path argument, not classpath discovery).
     
     Returns path to generated aop.xml, or None if no patterns provided.
     """
     if not excludes:
         return None
-    meta_inf = os.path.join(output_dir, "META-INF")
-    os.makedirs(meta_inf, exist_ok=True)
-    aop_xml = os.path.join(meta_inf, "aop.xml")
+    aop_xml = os.path.join(output_dir, "aop.xml")
     # Write XML with <exclude within="..."/> for each pattern
     return aop_xml
 ```
@@ -114,11 +114,11 @@ RVInstrumentationConfig
 _load_weaving_excludes() → ["com.google..*", "androidx..*", ...]
     │
     ▼
-_generate_aop_xml(excludes, tmp_dir) → tmp_dir/META-INF/aop.xml
+_generate_aop_xml(excludes, tmp_dir) → tmp_dir/aop.xml
     │
     ▼
 __weave_monitors():
-    ajc -xmlConfigured -proceedOnError -Xlint:ignore
+    ajc -xmlConfigured tmp_dir/aop.xml -proceedOnError -Xlint:ignore
         -inpath tmp/ -d tmp/ -source 1.8 -sourceroots tmp/
     │
     ▼
