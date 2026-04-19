@@ -118,8 +118,9 @@ ajc uses BCEL for bytecode manipulation. BCEL's stack frame computation is known
 **Changes required**:
 - `rvsec/pom.xml:32`: `<aspectj.version>1.9.25.1</aspectj.version>`
 - `docker/base/Dockerfile`: Update download URL, version, and `-Xmx` from 4096M to 8192M (modern APKs require more memory for weaving)
-- Local development: download new AspectJ binary, update symlink, set `-Xmx8192M` in `ajc` script
-- Rebuild Docker base image (+ all child images)
+- `docker/android/Dockerfile`: Add `platforms;android-36` to SDK packages (modern APKs target API 35-36; GATOR fails silently without the matching android.jar — no JSON produced, no error reported)
+- Local development: download new AspectJ binary, update symlink, set `-Xmx8192M` in `ajc` script; install `platforms;android-35` and `platforms;android-36` via sdkmanager
+- Rebuild Docker images (base + android + tools + rvandroid chain)
 
 ### D7: MOP coverage trade-off
 
