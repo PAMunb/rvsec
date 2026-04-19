@@ -54,6 +54,7 @@ package = false
 
 [tool.uv.workspace]
 members = ["modules/*"]
+exclude = ["modules/rvsmart-tool"]
 
 [tool.uv.sources]
 rv-android-core = { workspace = true }
