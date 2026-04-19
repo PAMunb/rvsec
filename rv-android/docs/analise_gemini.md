@@ -1,98 +1,67 @@
-# Análise: Change gh50-improve-instrumentation
-Data: 2026-04-18
-Modelo: Gemini 2.0 Flash Thinking
+# Relatório de Análise: Atualização GATOR/Soot para APKs Modernos
 
-## 1. Resumo executivo
+## 1. Resumo Executivo
+Este relatório analisa o pré-plano de atualização do módulo GATOR (Soot-based static analysis) para suportar APKs modernos (Kotlin, Compose, TargetSDK 35+). O diagnóstico aponta que o GATOR crasha em 72.4% dos APKs devido a um `InternalTypingException` no Soot 3.3.0 ao processar bytecode Kotlin. A estratégia proposta combina: (1) opções defensivas no Soot, (2) tratamento de erros gracioso no FlowGraph, e (3) upgrade para Soot 4.7.0. A análise confirma a viabilidade técnica e o alto impacto esperado (aumento da taxa de sucesso de 27.6% para >50%), alinhando-se às necessidades da tese de doutorado.
 
-A change `gh50-improve-instrumentation` propõe uma abordagem pragmática e tecnicamente sólida para resolver o principal gargalo do projeto RV-Android: a baixa taxa de sucesso na instrumentação de APKs modernos (17.5% para JCA). Através da combinação de exclusão seletiva de pacotes de biblioteca (`-xmlConfigured`), permissividade em erros de weaving (`-proceedOnError`) e eliminação de redundâncias no compilador DEX (`--no-desugaring`), a proposta endereça diretamente a corrupção de stack map tables causada pelo AspectJ. A análise confirma que o impacto na cobertura MOP é aceitável, pois foca na exclusão de código de terceiros, preservando o monitoramento do código da aplicação.
+## 2. Análise de Consistência
+O pré-plano é altamente consistente e demonstra um entendimento profundo da causa raiz.
+- **Rastreabilidade**: O fluxo do crash foi mapeado desde o entrypoint do GATOR até o `TypeResolver` do Soot.
+- **Alinhamento com Spec**: As mudanças propostas respeitam a especificação de análise estática (`analysis/spec.md`), garantindo que a "reachability" continue sendo o denominador de cobertura (FR04-FR06).
+- **Evidência Empírica**: A validação com CogniCrypt 5.0.1 (Soot 4.6.0) provou que o upgrade de versão, combinado com flags defensivas, elimina o crash fatal nos mesmos APKs que falham no GATOR atual.
 
-## 2. Análise de consistência dos artefatos
+## 3. Análise Técnica dos Fixes
 
-### 2.1 Rastreabilidade
-A rastreabilidade entre os artefatos é **EXCELENTE**.
-- **Proposal → Delta Spec**: Todas as 3 mudanças técnicas e o mecanismo de YAML estão refletidos nos novos invariantes (INV-INS-13 a 16).
-- **Delta Spec → Design**: O Design Mapping Table correlaciona cada invariante a um local de implementação e a testes unitários específicos.
-- **Design → Tasks**: As tarefas em `tasks.md` cobrem 100% dos componentes e testes listados no design.
+### FIX 1: Opções Soot Defensivas
+- **Eficácia**: Desabilitar `jb.sils` e `jb.dae` é uma prática recomendada em APKs problemáticos, pois essas sub-fases de transformação do Jimple Body são conhecidas por disparar erros de inferência de tipos em bytecode complexo.
+- **Efeito Colateral**: Pode haver uma leve degradação na "limpeza" do código Jimple gerado, mas para fins de Call Graph (CHA), o impacto na precisão é negligenciável.
+- **Exclusões**: Excluir `kotlin.*` e `kotlinx.*` do processamento de corpos (bodies) é crítico para evitar o `InternalTypingException` na biblioteca padrão do Kotlin, mantendo a análise focada no código da aplicação.
 
-### 2.2 Consistência com specs existentes
-- **Headers e IDs**: Os headers de MODIFIED requirements batem com a spec principal. Os novos IDs (INV-INS-13..16) seguem a sequência correta (a spec principal termina em INV-INS-12).
-- **Integração gh49**: A delta spec incorpora corretamente as mudanças da gh49 (`reraise=True`, `_error_phase`), garantindo que a nova funcionalidade não cause regressões na captura de erros.
-- **Cenários FR02**: Todos os 8 cenários originais de instrumentação foram preservados, e 4 novos cenários específicos da gh50 foram adicionados com critérios de aceitação claros.
+### FIX 2: Tratamento Gracioso (Flowgraph.java)
+- **Segurança**: Trocar `throw` por `continue` no loop de métodos é seguro. O GATOR é projetado para lidar com grafos de interface parcialmente construídos. Perder um statement GUI é preferível a perder a análise completa do APK.
+- **JSON íntegro**: Como o `RvsecAnalysisClient` escreve o JSON em seções com `flush()`, garantir que ele chegue ao estágio de escrita é o objetivo primordial.
 
-### 2.3 Consistência técnica
-- **`-xmlConfigured`**: Confirmado via pesquisa que o `ajc` aceita um path explícito para o `aop.xml` no modo CTW. A decisão de gerá-lo dinamicamente a partir de YAML é acertada para usabilidade por pesquisadores.
-- **Localização `aop.xml`**: O design especifica a escrita em `tmp_dir/aop.xml`. Como o path é passado explicitamente ao `ajc`, a ausência da estrutura `META-INF/` não é um problema técnico.
+### FIX 3: Upgrade Soot 4.7.0
+- **Compatibilidade**: A API core do Soot (Scene, SootClass, SootMethod) é estável entre 3.x e 4.x. A maior mudança está no pipeline Dexpler e no suporte a Java 8+ bytecode.
+- **Unificação**: Mover de `ca.mcgill.sable` (morto) para `org.soot-oss` resolve conflitos de classpath e permite remover as exclusões manuais no `pom.xml` do client.
+- **Risco de API**: `soot.dexpler.Util` (usado no `EpiccBasedIntentAnalysis`) deve ser verificado, mas o uso é simples (`splitParameters`, `getType`) e costuma ser preservado.
 
-### 2.4 Formato e completude
-- A documentação segue rigorosamente o padrão do projeto (4 hashtags para cenários, Gherkin-style WHEN/THEN, task lists formatadas).
-- **Gap identificado**: O design menciona um "Pre-filtering fallback" como não-objetivo inicial, mas ele consta no `proposal.md` como condicional. Recomenda-se manter como tarefa futura (TODO) dependendo dos resultados empíricos da etapa 3 das tasks.
+## 4. Impacto na Análise Estática
+- **JCA Specs**: Impacto positivo. O aumento na taxa de sucesso da análise permitirá medir a cobertura de criptografia em centenas de novos APKs.
+- **Reachability**: A precisão do Call Graph CHA não deve ser afetada negativamente pelas flags defensivas.
+- **WTG**: O FlowGraph parcial pode gerar WTGs com menos arestas em métodos Kotlin complexos, mas a estrutura principal da aplicação (Activities, Services, Providers) será preservada.
 
-**Veredicto: [PASS]**
+## 5. Estado da Arte (Referências)
+- **FlowDroid 2.14.1+**: Utiliza Soot 4.6.0+ e as mesmas flags defensivas (`ignore_resolution_errors`, `no_bodies_for_excluded`) por padrão para lidar com Android moderno.
+- **Soot Issues**: Conforme verificado nas issues [#1071](https://github.com/soot-oss/soot/issues/1071) e [#262](https://github.com/soot-oss/soot/issues/262), o bug do `TypeResolver` ainda existe tecnicamente em 4.x, mas melhorias no `LocalSplitter` e `Dexpler` tornam sua ocorrência muito mais rara, especialmente com as flags do FIX 1.
+- **CryptoAnalysis (CogniCrypt)**: O sucesso documentado no teste empírico (2026-04-19) confirma que a stack Soot 4.x é o padrão atual para análise robusta de APKs.
 
----
+## 6. Riscos e Mitigações
 
-## 3. Análise de impacto das exclusões MOP
+| Risco | Probabilidade | Impacto | Mitigação |
+|-------|---------------|---------|-----------|
+| Quebra de API em classes internas (`soot.jimple.toolkits.*`) | Média | Médio | Corrigir refs pontualmente durante compilação. |
+| Incompatibilidade com FlowDroid 2.10.0 | Alta | Médio | Se necessário, atualizar FlowDroid para 2.14.1 simultaneamente. |
+| Perda de arestas no WTG por `continue` | Baixa | Baixo | Logar statements pulados para monitorar volume de perda. |
+| Conflitos de dependências (Guava/Slf4j) | Média | Baixo | Ajustar versões no parent pom para serem compatíveis com Soot 4.7.0. |
 
-### 3.1 Impacto por spec set
-A análise dos pointcuts MOP revelou o seguinte:
-- **JCA (javax.crypto.*, java.security.*)**: Usa predominantemente `call()`. A exclusão de `com.google..*`, `androidx..*`, etc., impedirá a detecção de misuses que ocorram **DENTRO** dessas bibliotecas. No entanto, chamadas feitas pelo **CÓDIGO DO APP** a essas APIs continuarão sendo monitoradas normalmente.
-- **Generic / Generic New (java.util.*, java.io.*)**: Segue o mesmo padrão. Se um app usa uma biblioteca que, por sua vez, usa um `InputStream` de forma incorreta, isso não será detectado.
-- **Trade-off**: Dado que o objetivo da pesquisa é o "App Security Analysis", focar no código do desenvolvedor do app e ignorar bibliotecas de renome (que provavelmente já possuem seus próprios testes e correções) é um trade-off altamente favorável para garantir a viabilidade da instrumentação em larga escala.
+## 7. Pontos Positivos
+- **Diagnóstico Preciso**: Identificou a linha exata do crash e a causa semântica (Kotlin type inference).
+- **Abordagem Multi-camada**: Não aposta em um único fix; a combinação de upgrade + flags + try-catch é muito resiliente.
+- **Validação Antecipada**: O teste com CogniCrypt remove a incerteza sobre a eficácia do upgrade de versão.
 
-### 3.2 Quantificação
-- **Histórico**: A análise de `exp01_jca_instrument_errors.json` mostrou que falhas de `ArrayIndexOutOfBoundsException` no `d8` ocorrem frequentemente em classes de biblioteca (ex: `okio/Buffer.class`, `com/jcraft/jsch/...`). A exclusão dessas classes do weaving AspectJ deve eliminar quase 100% dessa família de erros (64% do total de falhas).
-- **Melhoria Estimada**: A taxa de sucesso de 17.5% deve subir para a faixa de 60-80%, aproximando-se da taxa de sucesso do set `generic_new` (54%), que falha menos por ter menos pointcuts que interceptam bibliotecas críticas.
+## 8. Pontos Negativos / Gaps
+- **FlowDroid**: O plano não detalha se a atualização do Soot obrigará a atualização do FlowDroid. Como o FlowDroid 2.10.0 é antigo, o risco de incompatibilidade é real.
+- **Deprecação**: O plano menciona comentar módulos deprecados (`rvsec-methods-extractor`), o que é bom, mas deveria ser feito ANTES de tentar compilar o upgrade.
+- **Androguard**: O fallback Androguard (W5) é excelente, mas o custo de implementação é alto. Deveria ser mantido estritamente como plano B.
 
-### 3.3 Coverage.aj interação
-- O `Coverage.aj` já exclui esses mesmos pacotes do seu pointcut `traced()`. Portanto, a exclusão via `aop.xml` apenas torna essa decisão **consistente em todo o pipeline**.
-- Atualmente, o AspectJ tenta (e falha) tecer monitores em classes que o próprio `Coverage.aj` diz que não quer rastrear. A mudança elimina essa inconsistência.
+## 9. Sugestões de Melhoria Priorizadas
+- **P1 (Crítico)**: Unificar a versão do Soot no `rvsec/pom.xml` para **4.7.0** e garantir que todos os sub-módulos usem `${soot.version}`.
+- **P1 (Crítico)**: Aplicar o `continue` no `Flowgraph.java` imediatamente; é o "safety net" mais rápido.
+- **P2 (Importante)**: Atualizar o FlowDroid para **2.14.1** ou **2.15.1** para garantir compatibilidade com o Soot novo.
+- **P3 (Nice-to-have)**: Adicionar um contador de "Skipped Statements" no log do GATOR para quantificar a perda de dados parcial.
 
-**Veredicto: [ACEITÁVEL]** - O benefício na taxa de instrumentação supera vastamente a perda de visibilidade interna em bibliotecas de terceiros.
-
----
-
-## 4. Android SDK e compatibilidade
-
-### 4.1 API dinâmica: análise
-- O uso fixo de `android-29/android.jar` é um risco moderado. APKs que usam APIs introduzidas no Android 30-34 podem causar erros de "Type not found" no `ajc` se essas classes não estiverem no classpath.
-- **Recomendação**: Implementar a seleção dinâmica do `android.jar` baseada no `targetSdkVersion` do APK (detectado via manifest). O SDK local já possui plataformas até a 34, facilitando essa transição.
-
-### 4.2 Build tools: atualização
-- O `d8` nas `build-tools/35.0.1` possui melhorias significativas na validação de stack map tables comparado às versões 29.x.
-- **Recomendação**: Atualizar o pipeline para usar o `d8` da versão 35.0.1. Isso pode resolver falhas remanescentes de bytecode mesmo em classes não excluídas.
-
-### 4.3 Compatibilidade retroativa
-- As mudanças (`--no-desugaring`, `-proceedOnError`) são compatíveis com APKs antigos (Android 8-11), pois o `d8` é retrocompatível e a ausência de desugaring em API 26+ é o comportamento padrão esperado para bytecode Java 8 estável.
-
----
-
-## 5. Estado da arte
-
-- **AspectJ + Android**: O uso de AspectJ CTW em Android é considerado "deprecated" pela comunidade em favor de ASM/ByteBuddy via AGP Instrumentation API. No entanto, para fins de pesquisa em RV, o AspectJ continua sendo a ferramenta mais expressiva para gerar monitores a partir de especificações formais. As flags propostas alinham o projeto com as melhores práticas de "sobrevivência" do AspectJ em ambientes modernos.
-- **d8/R8**: A flag `--no-desugaring` é a solução padrão recomendada quando se lida com bytecode que já passou por processos de transformação ou quando a API mínima de destino já suporta as funcionalidades nativamente.
-- **Alternativas**: Ferramentas como `Enjarify` são mais lentas e menos mantidas que o `dex2jar`. O foco em melhorar o pipeline atual com flags de resiliência é mais eficiente do que trocar a ferramenta base.
+## 10. Conclusão e Recomendação Final
+O plano é **aprovado para implementação**. A estratégia é sólida, tecnicamente fundamentada e resolve um gargalo crítico do projeto. Recomenda-se iniciar pelo **FF SDD (Fast-Forward)** aplicando os FIX 1 e 2, seguido pelo upgrade de versão (FIX 3) em uma tarefa dedicada de integração.
 
 ---
-
-## 6. Riscos e mitigações
-
-| Mudança | Risco | Probabilidade | Impacto | Mitigação |
-|---------|-------|---------------|---------|-----------|
-| `--no-desugaring` | Falha em APKs que usam Java 11+ features não suportadas nativamente em API 26 | Baixa | Médio | Validar se o APK realmente requer desugaring via manifest. |
-| `-proceedOnError` | Classes corrompidas podem passar para o APK final | Média | Baixo | O `d8` e a verificação do Android no dispositivo rejeitarão o APK se o bytecode for fatalmente inválido. |
-| `aop.xml` Exclusão | Perda de detecção em bibliotecas críticas de segurança | Média | Médio | Manter a lista de exclusões mínima e bem documentada; permitir override via YAML. |
-| Incompatibilidade API | `ajc` falhar por não encontrar classes de API 30+ no `android-29.jar` | Alta | Alto | Implementar seleção dinâmica de `android.jar` baseada no SDK. |
-
----
-
-## 7. Conclusão e recomendação final
-
-A change `gh50-improve-instrumentation` é **ALTAMENTE RECOMENDADA** para implementação imediata. Ela resolve a causa raiz da maioria das falhas de instrumentação sem comprometer a integridade científica da detecção de misuse no código da aplicação.
-
-### Sugestões de Melhoria (Priorizadas)
-1. **Prioridade 1**: Implementar a seleção dinâmica do `android.jar` (API 26 a 34) em `config.py` para evitar erros de resolução de tipo no `ajc`.
-2. **Prioridade 2**: Atualizar o path do `d8` para usar a versão 35.0.1 das `build-tools`.
-3. **Prioridade 3**: Validar se a exclusão de `j$..*` é suficiente ou se pacotes adicionais de runtime de desugaring (ex: `com.android.tools.r8.desugar`) também devem ser excluídos.
-
----
-*Análise realizada de forma autônoma e rigorosa, validando rastreabilidade, consistência técnica e impacto na pesquisa.*
+*Análise realizada pelo Gemini CLI em 2026-04-19.*

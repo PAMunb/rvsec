@@ -1,574 +1,437 @@
-# Análise: Change gh50-improve-instrumentation
+# Análise Crítica — Pré-plano GATOR/Soot 4.7.x
 
-**Data**: 2026-04-18
-**Modelo**: Claude Opus 4.7 (1M context)
-**Metodologia**: análise multidimensional via 4 subagentes paralelos (consistência de artefatos, impacto MOP, dados históricos + código, SDK + estado da arte)
-**Caminho da change**: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/openspec/changes/gh50-improve-instrumentation/`
-
----
-
-## 1. Resumo executivo
-
-A change `gh50-improve-instrumentation` propõe três modificações no pipeline AspectJ/d8 para aumentar a taxa de instrumentação de APKs: (1) `--no-desugaring` em d8, (2) `-proceedOnError` em ajc, (3) `-xmlConfigured` + `aop.xml` para excluir pacotes de bibliotecas do weaving. Os artefatos estão **bem construídos, rastreáveis e tecnicamente fundamentados**, com pequenas inconsistências (drift do baseline da gh49, divergência textual de line numbers) que não comprometem a qualidade.
-
-A análise quantitativa dos erros (557 APKs ASE journal + 400 APKs F-Droid 2026) mostra que **as três correções têm impacto desigual e parcial**:
-
-| Fix | APKs resgatados (estimativa) | Principal limitação |
-|-----|------------------------------|---------------------|
-| `--no-desugaring` | ~7-15% | Só resolve o bucket `j$.` (27+28+28 casos no ASE); NÃO resolve d8 AIOOE (215+185+21 casos) |
-| `-proceedOnError` | ~5-10% | Com risco de cobertura silenciosamente parcial |
-| `-xmlConfigured` + aop.xml | **Maior potencial no dataset novo** — até 30-37% de failures são stack-map warnings | Pode inflar o bucket "zero-pointcut match" (já afeta 32.5% de generic_new) |
-
-**Taxa realista pós-fix**: JCA passa de 17.5% → ~33% (2x), generic_new de 54% → ~59%. O gap restante é dominado por (a) bug interno do d8/R8 (AIOOE em código crypto/okio) e (b) weaving de zero matches (que aop.xml pode piorar) — **nenhum dos dois é endereçado por gh50**.
-
-O impacto das exclusões sobre as 168 specs MOP analisadas (100% usando `call()` no site do caller) é **aceitável e favorável à pesquisa**, pois: (i) código de aplicação Android não reside nos pacotes excluídos, (ii) Coverage.aj já estabelece o mesmo escopo para cobertura, e (iii) o objetivo da tese é detectar misuse em código de app, não em bibliotecas.
-
-**Recomendação final**: aprovar a change com **ajustes** (ver seção 10), mas **não** como silver bullet — gh50 reduz o gap mas não o fecha. Ações complementares necessárias (não cobertas por gh50): seleção dinâmica de android.jar, `--min-api` dinâmico, investigação do bug d8 AIOOE (issue separada), e fallback de pré-filtragem Python se `-xmlConfigured` não prevenir frame corruption (já antecipado no proposal).
+**Data**: 2026-04-19
+**Documento analisado**: `docs/20260419_gator.md`
+**Spec relacionada**: `openspec/specs/analysis/spec.md`
+**Revisor**: Claude (Opus 4.7)
 
 ---
 
-## 2. Análise de consistência dos artefatos
+## 1. Resumo Executivo
 
-### 2.1 Rastreabilidade proposal → spec → design → tasks
+O pré-plano identifica corretamente o problema (SA = 27.6%, causa raiz no `TypeResolver` do Soot 3.3.0 com bytecode Kotlin moderno) e propõe uma direção tecnicamente sólida (opções defensivas + tratamento gracioso + upgrade de Soot). A validação empírica com CogniCrypt 5.0.1 (Soot 4.6.0) é forte evidência de que o upgrade resolve o crash na prática.
 
-**Proposal → Delta Spec (capabilities)** — **PASS com nota**.
+Porém, o documento contém **três problemas materiais** que comprometem a execução:
 
-O proposal lista 5 mudanças (`proposal.md:7-11`): d8 `--no-desugaring`, ajc `-proceedOnError`, `-xmlConfigured`+aop.xml, YAML configurável, pre-filtering fallback (condicional). Os primeiros 4 mapeiam para INV-INS-13..16; o pre-filtering é explicitamente marcado como "conditional" (`design.md:52`, "Non-Goal") e não aparece na delta spec — decisão correta, pois está contingente em resultado empírico.
+1. **FIX 2 mal-localizado**: o stack trace aponta crash em `CHATransformer.internalTransform → OnFlyCallGraphBuilder` (fase `cg.cha`, **antes** do `wjtp.gui`), enquanto FIX 2 modifica `Flowgraph.java:343` (que só executa **depois** de o call graph estar pronto). Se o crash for de fato no CHA, FIX 2 **não previne nada**. O pré-plano também cita "linha 191" — a posição real é 343.
+2. **FIX 1 com afirmações imprecisas**: `set_ignore_resolution_errors` e `throw_analysis_dalvik` **não capturam `InternalTypingException`**; só `jb.sils enabled:false` tem evidência de issue Soot ([#1641](https://github.com/soot-oss/soot/issues/1641)) ligando-o ao trigger do bug. As exclusões `kotlin.*`/`kotlinx.*` são *avoidance*, não *fix*.
+3. **FIX 3 subestimado**: o plano estima 4-8h; análise da superfície de API GATOR mostra **3-5 dias** (Options API setters em `Configs.java`, `soot.dexpler.Util` em `EpiccBasedIntentAnalysis.java`, mudança `getMethods() : Chain → List`). A versão alvo correta é **4.7.1** (2025-02-23), não 4.7.0.
 
-**Delta Spec → Design mapping table** — **PARTIAL PASS**.
-
-| Invariant/Requirement | Design table row | Tasks |
-|-----------------------|------------------|-------|
-| INV-INS-13 (`--no-desugaring`) | row 1 | tasks.md:15 (2.1), 2.4 |
-| INV-INS-14 (`-proceedOnError`) | row 2 | tasks.md:16 (2.2), 2.4 |
-| INV-INS-15 (`_generate_aop_xml`) | row 3 | tasks.md:5, 17, 1.4 |
-| INV-INS-16 (YAML default) | row 4 | tasks.md:3, 4, 1.4 |
-| Backward compat | row 5 | tasks.md:22 |
-| gh49 merge_support | row 6 | — ("already implemented") |
-
-Os **8 cenários FR02 preservados** do baseline não aparecem explicitamente na mapping table. Aceitável (são unchanged from baseline) mas **recomendável** adicionar uma linha "Preserved FR02 scenarios (8) — unchanged from baseline" para rastreabilidade explícita.
-
-Tasks 3.x (empirical validation) e 4.x (verification) não mapeiam a invariantes — são tasks de workflow padrão. OK.
-
-### 2.2 Consistência com specs existentes
-
-**Header do requirement MODIFIED** — **PASS**. Delta (`spec.md:17`) e baseline (`specs/instrumentation/spec.md:330`) batem exatamente: `### Requirement: APK Instrumentation with Monitors (FR02)`.
-
-**Cenários FR02 completos** — **PASS na completude, MINOR FAIL textual**.
-
-Os 8 cenários do baseline estão todos presentes na delta:
-1. Successful single APK instrumentation (delta line 89)
-2. Skip existing instrumented APK (line 96)
-3. Force re-instrumentation (line 102)
-4. Pipeline phase failure with accurate phase reporting (line 109)
-5. Batch instrumentation with mixed results (line 118)
-6. dex2jar conversion failure with phase from outer decorator (line 127)
-7. Instrumentation verification detects unchanged APK (line 136)
-8. Maven dependency resolution failure (line 141)
-
-Plus 4 cenários novos (3 para INV-INS-13..15 + 1 backward compat).
-
-**Divergência textual** encontrada: baseline scenario #6 cita `"propagates to instrument()'s except block (line 517), which re-raises"`; a delta remove `(line 517)`. Isto é uma **melhoria P4** (remover line numbers voláteis) mas cria diff silencioso não sinalizado. Decisão: aceitar como cleanup deliberado, ou restaurar line numbers para match exato.
-
-**INV-INS-13..16 IDs** — **PASS**. Baseline tem INV-INS-01..12; os novos IDs (13..16) continuam sem colisão.
-
-**Incorporação de gh49 (reraise=True, _error_phase, __merge_support_classes)** — **FAIL (do gh49, não de gh50)**.
-
-- Delta spec (line 49) inclui `__merge_support_classes()` na enumeração de reraise=True — **correto**.
-- Baseline spec (line 345) NÃO lista `__merge_support_classes()` — **deveria**, pois o commit `a05b5cfe docs(gh49): archive change, sync delta specs to main specs` declara que a sync foi feita.
-
-**Ação recomendada**: antes de abrir PR da gh50, investigar se o `opsx:sync` do gh49 de fato aplicou completamente sobre FR02. A delta de gh50 está correta; o baseline é que está desatualizado.
-
-`_error_phase` e `reraise=True` estão corretamente em ambos.
-
-### 2.3 Consistência técnica
-
-**`-xmlConfigured` aceita path direto** — **PASS**.
-
-Fonte oficial: [AspectJ ajc manual](https://eclipse.dev/aspectj/doc/latest/devguide/ajc.html):
-
-> "There is no magical file name like aop.xml for LTW, i.e. an XML configuration file for CTW needs to be specified on the command line explicitly."
-
-Isto confirma `design.md:68` e INV-INS-15: o arquivo pode estar em `tmp_dir/aop.xml` (sem `META-INF/`) desde que o path seja passado explicitamente.
-
-**Complementaridade `aop.xml` vs `Coverage.aj`** — **PASS com nuance técnica importante**.
-
-- **Pointcut-level exclusion** (Coverage.aj `within(...)`): o weaver lê a classe, avalia pointcuts, decide que não há match, reescreve. Stack map frames podem ser corrompidas nesse read-write cycle.
-- **Weaver-level exclusion** (`aop.xml` `<exclude within="..."/>`): classes são totalmente puladas pelo weaver — não lidas, não processadas, não reescritas. Bytecode passa intocado.
-
-O design assume que o weaver-level previne frame corruption onde o pointcut-level não preveniu. **Tecnicamente correto**, mas com ressalva: em algumas versões do ajc, classes excluídas ainda podem ser lidas do `-inpath` antes da regra de exclusão ser aplicada. Este risco está corretamente capturado em `design.md:140` (Risk 2) e como fallback condicional no proposal — **gestão de risco adequada**.
-
-Fontes:
-- [AspectJ ajc manual](https://eclipse.dev/aspectj/doc/latest/devguide/ajc.html)
-- [AspectJ LTW configuration](https://eclipse.dev/aspectj/doc/released/devguide/ltw-configuration.html)
-
-### 2.4 Formato e completude
-
-| Check | Status | Evidência |
-|-------|--------|-----------|
-| Cenários usam `####` | PASS | Verificado em lines 53, 59, 66, 83, 89, 96, 102, 109, 118, 127, 136, 141 |
-| WHEN/THEN/AND com valores concretos | PASS | Ex.: scenario d8 inclui string exata `"Merging DEX file containing classes with prefix 'j$.'"` |
-| Tasks `- [ ] X.Y` | PASS (com nota) | Sub-bullets sob 1.4/2.4 não usam `- [ ]` — aceitável mas inconsistente |
-| Invariantes com testes | PASS | Os 4 novos invariants têm test explícito em mapping table |
-
-### Veredicto da Seção 2: **PASS com minor issues**
-
-Issues consolidadas (por severidade):
-
-1. **MINOR (drift baseline da gh49)**: baseline `specs/instrumentation/spec.md:345` não lista `__merge_support_classes()` apesar de gh49 ter feito sync. **Ação**: verificar/reaplicar sync da gh49.
-2. **MINOR (divergência textual)**: cenário dex2jar remove `(line 517)` — aceitar como cleanup ou restaurar para match exato.
-3. **MINOR (estilo)**: sub-bullets em 1.4/2.4 sem `- [ ]`.
-4. **OBSERVATION**: mapping table não lista cenários FR02 preservados. Recomenda-se adicionar linha "Preserved scenarios (8)".
-
-Nenhum issue bloqueante. Os 4 novos invariantes são bem formados, rastreáveis e testados. A fundamentação técnica de `-xmlConfigured` está validada por documentação oficial.
+**Recomendação**: aplicar FIX 1 (somente `jb.sils enabled:false` + excludes + `no_bodies_for_excluded`) **+** FIX 2 reposicionado para envolver `retrieveActiveBody()` em `Flowgraph.java:274` (e/ou em `RvsecAnalysisClient` se houver lazy CG) **+** FIX 3 com escopo realista. Tratar FIX 3 como **load-bearing** (única intervenção empiricamente validada) e FIX 1/2 como mitigações complementares.
 
 ---
 
-## 3. Análise de impacto das exclusões sobre specs MOP
+## 2. Análise de Consistência
 
-### 3.1 Levantamento das 168 specs nos 3 conjuntos
+### 2.1 Consistência interna
 
-**JCA** (23 specs em `/rvsec/rvsec-mop/src/main/resources/jca/`):
-- **100% pointcuts `call()`** (nenhum `execution()`)
-- Exemplos (verbatim):
-  - `CipherSpec.mop` g1: `call(public static Cipher Cipher.getInstance(String)) && args(transformation) && condition(isValid(transformation))`
-  - `MessageDigestSpec.mop` update: `call(void MessageDigest.update(..)) && target(digest)`
-  - `KeyGeneratorSpec.mop` gk1: `call(public SecretKey KeyGenerator.generateKey()) && target(k)`
+| Tópico | Status | Observação |
+|--------|--------|------------|
+| Diagnóstico vs solução | ⚠️ **Inconsistente** | §1.1 mostra stack trace terminando em `CHATransformer.internalTransform`. §1.2 redesenha o fluxo passando pelo `Flowgraph.createOpNode()`. As duas narrativas são incompatíveis: CHA roda na fase `cg.cha` (pré-Flowgraph); a fase `wjtp.gui` (que invoca Flowgraph) só é alcançada se o CG terminar. |
+| Numeração de linhas | ❌ **Incorreta** | §1.2 e §4.2 dizem "Flowgraph.java ~linha 191"; o `throw new RuntimeException(e)` real está em **linha 343** (verificado). Linha 191 é `modelOnCreateOrPrepareOptionsMenuAndItsFlowToItemSelected()`. |
+| Versão alvo Soot | ⚠️ **Defasada** | §4.3 fala "Soot 4.7.0 mais recente estável". A última estável é **4.7.1** (2025-02-23, fix de build sobre 4.7.0). |
+| Tabela §2.3 (versões fragmentadas) | ✅ **Correta** | Confirmado: parent usa `org.soot-oss:4.4.1`; FlowDroid 2.10.0 puxa Soot ~4.3.0; gator usa `ca.mcgill.sable:3.3.0`; client tem exclusion explícita. |
+| Tabela §2.1 (comparação CryptoAnalysis vs FlowDroid vs GATOR) | ⚠️ **Parcialmente verificável** | FlowDroid `SootConfigForAndroid.java` (verificado em `develop`) só configura `set_no_bodies_for_excluded(true)` + lista de excludes (`java.*`, `javax.*`, `sun.*`, `android.*`, `androidx.*`, `org.apache.*`, `org.eclipse.*`, `soot.*`) — **não inclui `kotlin.*`**. Outras opções vêm de `AbstractInfoflow`/`SetupApplication`. As alegações sobre CryptoAnalysis precisam ser verificadas no JAR local (`HeadlessAndroidScanner-5.0.1-jar-with-dependencies.jar`). |
+| Issues Soot | ✅ **Consistente** | #1071 confirmado **aberto** em 2026-04-19 (não houve PR fundido). #1641 documenta `jb.sils` como gatilho. |
 
-**generic** (118 specs FSM1.mop .. FSM376.mop):
-- **100% `call()`**
-- Exemplos:
-  - `FSM1.mop` (ReentrantLock): `call(* ReentrantLock.unlock()) && target(r)`
-  - `FSM17.mop` (AbstractMap): `call(* AbstractMap.put(Object, Object)) && target(a) && args(o, o1)`
-  - `FSM101.mop` (Future): `call(* Future.isDone()) && target(f)`
-  - `FSM254.mop` (CountDownLatch): `call(* CountDownLatch.await(long, TimeUnit)) && target(c) && args(t)`
+### 2.2 Coerência com a spec `analysis/spec.md`
 
-**generic_new** (27 specs com nomes descritivos):
-- **100% `call()`**
-- Exemplos:
-  - `InputStream_ManipulateAfterClose.mop`: `(call(* InputStream+.read(..)) || call(* InputStream+.available(..))) && target(i) && !target(ByteArrayInputStream)`
-  - `Closeable_MeaninglessClose.mop`: `call(* Closeable+.close()) && (target(ByteArrayInputStream) || target(ByteArrayOutputStream) || ...)`
-  - `Map_UnsafeIterator.mop`: `call(Set Map+.keySet()) || call(Set Map+.entrySet())`
+A spec atual já tem mecanismos para JSON parcial:
 
-**Confirmação via grep sobre os 3 diretórios**:
-- Specs com `execution()`: **0**
-- Specs com `call()`: **168 (100%)**
-- Specs com `within()` de exclusão explícita: **0**
+- **INV-ANA-06**: parser deve retornar coleções vazias por seção em caso de falha — não propaga exceção.
+- **Cenário "Timeout with partial JSON"** + **"components section missing"**: parser tenta recuperar até o último `]` completo.
+- Ordem de escrita das seções (reachability → windows → transitions → components) já é "priority order para timeout graceful degradation".
 
-### 3.2 Impacto das exclusões por spec set
+**Implicação**: o problema **não é** o lado Python (já robusto). O problema é o lado Java (GATOR) que **mata o processo antes de produzir QUALQUER JSON**. Os fixes propostos atacam essa lacuna de forma correta em direção, com as ressalvas de §3 abaixo.
 
-A semântica `call()` intercepta no **caller site**. Se o chamador estiver em pacote excluído, a chamada não é monitorada.
+A spec **não menciona** falhas em `cg.cha`/`wjtp.gui` nem comportamento esperado quando o Soot crasha pré-emissão. Convém adicionar um cenário cobrindo:
 
-| Padrão de exclusão | Invasividade | Justificativa |
-|--------------------|--------------|---------------|
-| `kotlin..*` | **ALTA** para generic_new | Stdlib Kotlin usa `Iterator`, `Map`, `Collection`, `Closeable` massivamente |
-| `androidx..*` | **MÉDIA-ALTA** | Componentes usam `Future`, `ReentrantLock`, `InputStream` |
-| `com.google..*` (Guava, Gson, Play) | **MÉDIA** | Guava chama `AbstractMap`/`TreeMap`; Play Services chama JCA |
-| `com.squareup..*` (OkHttp/Retrofit) | **MÉDIA** | Usam `SSLContext`, `InputStream`, `URLConnection` |
-| `org.apache..*` | **BAIXA-MÉDIA** | Legado; apps novos raramente dependem |
-| `j$..*` | **IRRELEVANTE** | Stubs de desugaring, sem lógica |
-| `com.android..*`, `android..*` | **BAIXA** | Já excluídos por Coverage.aj; essencialmente sistema |
+> WHEN GATOR crasha em fase Soot interna (cg.cha, jb.*, wjtp.gui) antes de `RvsecAnalysisClient.run()` ser invocado
+> THEN o exit code do wrapper Python deve ser não-zero, o `StaticAnalysisException` MUST ser registrada com a mensagem original do Soot, e nenhum arquivo `.json` deve existir (resultado já tratado como falha pela `StaticAnalyzer`).
 
-**Estimativa quantitativa de perda de detecções**:
-- **JCA**: ~<5% (APIs crypto raramente chamadas internamente por libs não-crypto; quando o são, não é alvo da pesquisa)
-- **generic**: ~15-25% (muitas specs monitoram APIs usadas por frameworks)
-- **generic_new**: ~25-40% (maior vulnerabilidade — monitora APIs de uso geral ubíquas em libs)
+### 2.3 Rastreabilidade problema → causa → fix → teste
 
-**Observação crucial sobre Kotlin**: código escrito pelo dev em Kotlin compila para o package do app (ex.: `com.example.myapp.*`), NÃO para `kotlin..*`. O namespace `kotlin..*` contém apenas a runtime library. Portanto, código de negócio em Kotlin permanece entrelaçado — as exclusões afetam apenas chamadas internas da stdlib.
-
-### 3.3 Interação com Coverage.aj
-
-`Coverage.aj` já exclui via `within(...)` em `excludedPackages()`: `java..*`, `javax..*`, `android..*`, `androidx..*`, `kotlin..*`, `com.google..*`, `com.google.android..*`, `com.android..*`, `com.facebook..*`, `org.apache..*`, `sun..*`, `libcore..*` e runtime JavaMOP.
-
-**Sobreposição com aop.xml proposto**: `androidx..*`, `kotlin..*`, `com.google..*`, `com.android..*`, `com.facebook..*`, `org.apache..*` já estão em **ambos**.
-**Novos padrões da aop.xml** (não no Coverage.aj): `com.squareup..*`, `j$..*`, específicos do YAML.
-
-**Consequência semântica**: hoje, Coverage.aj não conta métodos de `androidx..*` como "cobertos", mas specs MOP **ainda detectam** violações nessas libs. Com a aop.xml, **nem cobertura nem detecção MOP** ocorrem para classes excluídas. **Comportamento fica consistente** — bibliotecas ficam totalmente fora do escopo de análise.
-
-**Isso é desejável?** Para a pesquisa sim: há **inconsistência atual** (cobertura ignora libs, mas MOP detecta violações nelas). A mudança alinha ambos. O sinal perdido (violações em libs) já era descartado pelo filtro de cobertura, e bugs em `androidx`/`kotlin`/`com.google` não são responsabilidade do desenvolvedor do app.
-
-### 3.4 Trade-off analysis
-
-| Dimensão | Antes (sem aop.xml) | Depois (com aop.xml) |
-|----------|---------------------|----------------------|
-| Taxa de instrumentação JCA | 17.5% | ~33% (estimativa realista) |
-| Taxa de instrumentação generic_new | 54% | ~59% |
-| Detecções MOP em libs | Incluídas (mas ruído) | Excluídas |
-| Consistência com Coverage.aj | Inconsistente | Alinhada |
-| Escopo da análise | Misto | App-code-only |
-
-O trade-off é **amplamente positivo**:
-- **Ganho**: 2-4x mais APKs utilizáveis → validade estatística dos experimentos.
-- **Perda**: detecções fora do escopo da pesquisa (ruído).
-- **Consistência**: pipeline passa a ter semântica uniforme.
-
-**Caveat metodológico (registrar na tese)**: as exclusões são uma **decisão de escopo explícita** — análise cobre código de aplicação, não bibliotecas. Isto é padrão em literatura de análise Android (CogniCrypt, CrySL) — limitação documentada, não defeito.
-
-### Veredicto da Seção 3: **ACEITÁVEL**, fortemente favorável à pesquisa
-
-Justificativas:
-1. 100% das 168 specs usam `call()` — semântica de caller-site suporta a exclusão.
-2. Código do app não está nos packages excluídos.
-3. Coverage.aj já estabelece o mesmo padrão de escopo.
-4. Objetivo da tese alinha com escopo "código do desenvolvedor".
-5. Trade-off quantitativo favorável (+200-400% APKs vs. 5-40% detecções em libs fora do escopo).
-
-**Ressalvas a registrar**:
-- Tornar `weaving_excludes.yaml` configurável (já contemplado) para experimentos com escopo diferente.
-- Documentar na tese/paper como threats to validity: `URLEncoder_EncodeUTF8` e `Closeable_MeaninglessClose` sofrem maior perda relativa.
-- Se `-xmlConfigured` sozinho não prevenir frame corruption, o fallback Python de pré-filtragem (já previsto em proposal) é necessário.
+| Etapa | Rastreável? |
+|-------|-------------|
+| Sintoma (97/352 SA) | ✅ §1, §1.4 |
+| Causa raiz (`ClassHierarchy.typeNode()` retorna null para tipos não mapeados) | ✅ §1.1, confirmada via leitura do código upstream |
+| Fix mapeado para causa | ⚠️ FIX 2 não cobre o caminho do stack trace (§3.2) |
+| Critério de teste | ⚠️ §6 diz "≥7/10 produzem JSON" mas não nomeia os 10 APKs nem inclui regressão sobre os 97 que já funcionam |
 
 ---
 
-## 4. Android SDK e compatibilidade
+## 3. Análise Técnica dos Fixes
 
-### 4.1 Inventário do SDK instalado
+### 3.1 FIX 1 — Opções Soot defensivas
 
-**Local**: `/home/pedro/desenvolvimento/aplicativos/android/sdk/`
+A tabela abaixo combina o que o pré-plano afirma com a evidência verificável. Os dois últimos casos representam afirmações **incorretas ou exageradas** no plano original.
 
-| Componente | Versões instaladas | Projeto usa |
-|------------|---------------------|-------------|
-| platforms/ | android-4, 10, 14-19, 21-34 (sem 20, 35) | **android-29** (fixo) |
-| build-tools/ | 25.0.2..35.0.1 (16 versões) | d8 de 35.0.1 (`D8 8.6.2-dev`) |
-| cmdline-tools/ | 9.0, 10.0, 11.0 (latest) | - |
+| Opção | Plano alega | Evidência | Veredicto |
+|-------|-------------|-----------|-----------|
+| `-p jb.sils enabled:false` | Evita typing errors no static inlining | Soot [#1641](https://github.com/soot-oss/soot/issues/1641) confirma que `SharedInitializationLocalSplitter` (jb.sils) é gatilho frequente de crashes de typing pós-`jb.tr` | **Provavelmente eficaz** para uma fração dos crashes |
+| `-p jb.dae enabled:false` | Evita typing errors em DAE | Sem issue Soot direto. CryptoAnalysis pode ou não usar (não verificado no JAR). DAE roda *antes* de TypeAssigner em alguns paths — desabilitar pode preservar locais que mascaram bug | **Plausível**, evidência fraca |
+| `-no-bodies-for-excluded` + `exclude kotlin.*`/`kotlinx.*` | Evita jimplificar stdlib Kotlin | FlowDroid `SootConfigForAndroid` confirma `set_no_bodies_for_excluded(true)` mas **NÃO** inclui `kotlin.*` na lista de excludes (apenas `java.*`, `javax.*`, `android.*`, `androidx.*`, `org.apache.*`, `org.eclipse.*`, `soot.*`, `sun.*`). | **Eficaz como avoidance** — não é "fix" do bug, mas elimina bodies que disparam o crash |
+| `set_ignore_resolution_errors(true)` | Trata tipos não-resolvíveis graciosamente | Esta flag controla **resolução de classes ausentes**, não tipagem de inteiros. `InternalTypingException` é lançada **dentro** do `TypeResolver`, fora do escopo desta flag | ❌ **Afirmação incorreta**: não previne o crash documentado |
+| `set_throw_analysis(throw_analysis_dalvik)` | Análise de exceções correta para DEX | Resolve casos `UnitThrowAnalysis` (ex.: Soot [#2083](https://github.com/soot-oss/soot/issues/2083)) — **não** o `Integer1Type` | ❌ **Não relacionado** ao crash em questão |
 
-**Docker (`phtcosta/rvandroid_tools:0.8.0`)** — cadeia de 3 camadas:
-1. `rvsec_base`: Python 3.12, JDK 25.0.2, Maven 3.9.14, **AspectJ 1.9.24**, uv
-2. `rvsec_android`: Android SDK com `build-tools;35.0.1`, `platforms;android-10..35`, cmdline-tools `8512546_latest`, AVD "RVSec"
-3. `rvandroid_tools`: droidbot, androguard 3.4.0a1
+**Risco colateral**: excluir `kotlin.*`/`kotlinx.*` reduz o universo de método para reachability. Para JCA isso é tolerável (JCA é APIs `javax.crypto`/`java.security` chamadas pelo código do app). Para `generic`/`generic_new` (Iterator/Map/InputStream) o impacto pode ser **maior**, porque Kotlin reescreve coleções: muitas iterações sobre `List<T>` no Kotlin viram `kotlin.collections.CollectionsKt$iterator$...`. Recomenda-se **medir** antes de aceitar como custo-benefício.
 
-Docker e host **alinhados** em build-tools 35.0.1 / d8 8.6.2-dev.
+**Sugestão concreta**: começar com **somente**:
+```java
+"-p", "jb.sils", "enabled:false",
+"-no-bodies-for-excluded",
+"-exclude", "kotlin.",
+"-exclude", "kotlinx.",
+```
+Adicionar `jb.dae`, `ignore_resolution_errors`, `throw_analysis_dalvik` apenas se causarem efeito mensurável em testes A/B; caso contrário, ruído de configuração.
 
-### 4.2 Seleção dinâmica de `android.jar` por targetSdkVersion
+### 3.2 FIX 2 — `continue` em vez de `throw`
 
-**Situação**: `RVInstrumentationConfig` hardcoda `android_platform = "android-29"` (`config.py:444`). Também TODO(#23) em `rvandroid.py:1159` pede exatamente isto.
+#### Estrutura do código (verificada)
 
-**Quando causa falha**:
-- APK referencia classes novas do framework (ex.: `android.window.SplashScreen` em API 31+) → ajc compila "binary weaving" contra bootclasspath fornecido → classe ausente → erro.
-- APIs Java ampliadas em API 30+ (`Duration.toSeconds()` etc.) podem disparar mismatches.
+`Flowgraph.java:267-381` itera classes/métodos/statements. No corpo do statement existem **dois** pontos de invocação relevantes ao crash:
 
-**Para d8, não importa**: `--lib` serve apenas como dicionário de desugaring ([d8 docs](https://developer.android.com/tools/d8), [dotnet/android D8andR8 guide](https://github.com/dotnet/android/blob/main/Documentation/guides/D8andR8.md)). AAPT2 não é invocado no pipeline (o APK é recompilado via substituição de classes.dex).
+```java
+// linha 274 — RETRIEVE BODY (FORA de qualquer try-catch)
+Body b = currentMethod.retrieveActiveBody();
 
-**Recomendação**: implementar seleção dinâmica baseada em `apk.targetSdkVersion` (já extraído por androguard). Fallback: `max(android-XX disponível)`. **Não requer rebuild Docker** — todos os platforms já estão instalados.
+// linha 312-320 — try com Soot ClassResolutionFailedException
+try {
+    if (... .getInvokeExpr().getMethod() == null) { ... }
+} catch (SootMethodRefImpl.ClassResolutionFailedException e) { continue; }
 
-### 4.3 `--min-api` dinâmico
+// linha 338-344 — try com Exception genérica em createOpNode (FIX 2 alvo)
+try {
+    opNode = createOpNode(currentStmt);
+} catch (Exception e) {
+    Logger.verb(...); e.printStackTrace();
+    throw new RuntimeException(e);   // ← FIX 2 quer trocar por `continue`
+}
+```
 
-**Situação**: fixo em 26 (`rvandroid.py:1011-1012`).
+#### Onde o crash de fato ocorre
 
-**Efeito de `--min-api N`**: com N maior, d8 emite menos código de compatibilidade (menos desugaring code), DEX menor, potencialmente menos superfície para stack-map issues ([Jake Wharton — Android's Java 8 Support](https://jakewharton.com/androids-java-8-support/)).
+O stack trace exibido em §1.1 termina em:
+```
+soot.jimple.toolkits.callgraph.CHATransformer.internalTransform(CHATransformer.java:51)
+```
 
-**Se APK tem `minSdkVersion=30`, usar `--min-api 30`**:
-- DEX menor
-- Menos stack-map warnings (reduz incidência do padrão observado em [didi/DroidAssist#38](https://github.com/didi/DroidAssist/issues/38) e [growingio#90](https://github.com/growingio/growingio-sdk-android-autotracker/issues/90))
+Isso indica que o crash dispara durante a **construção do call graph** (fase `cg.cha`). No branch `withCHA` do `Main.java:201-218`, esta fase roda **antes** do `wjtp.gui`, ou seja, antes de `Flowgraph.build()` ser invocado. Portanto, **se o crash acontece na fase `cg.cha`, FIX 2 não é executado**, porque `Flowgraph.build()` nunca chega a ser chamado.
 
-**Cuidado**: nunca regredir abaixo de 26 (preserva invariantes assumidos pelo AspectJ 1.9.24 weaver). Fórmula segura: `--min-api = max(26, apk.minSdkVersion)`.
+Existe um segundo caminho de crash possível: `Flowgraph.java:274` (`retrieveActiveBody()` chamado pelo próprio Flowgraph). Esse caminho está **fora** do try-catch que FIX 2 modifica. Se o crash acontece aqui, FIX 2 também é ineficaz.
 
-### 4.4 Atualização de build-tools
+O `throw new RuntimeException(e)` na linha 343 só é alcançado quando:
+1. CHA não crashou (já passamos da fase `cg.cha`),
+2. `retrieveActiveBody()` da linha 274 não crashou,
+3. `createOpNode()` da linha 339 dispara exceção.
 
-- **Latest publicado**: build-tools 36.0.0 (AGP 9.0.1 default) / 36.1.0 (AGP 9.1).
-- **Instalado**: 35.0.1 (jan/2025).
-- **Release notes sobre stack maps**: **nenhuma referência explícita** em 35.0.x → 36.0.0. Mudanças em AGP 9.0/9.1 são sobre L8 desugaring e repackaging, não stack map handling.
-- **Benefício vs atual**: **marginal**. d8 8.6.2-dev de 35.0.1 já é moderno. O problema de stack map é causado pelo bytecode **pré-d8** (gerado pelo ajc após weaving), não por regressão do d8.
+Esse cenário pode ocorrer em uma fração dos APKs, mas **não é o cenário dominante** representado pelo stack trace mostrado no plano. O log de "exit code 0/1" (§1.3) é compatível com ambos os caminhos — não desambigua.
 
-**Recomendação**: **não** priorizar update. Considerar apenas se evidência empírica mostrar benefício.
+#### Veredicto
 
-### 4.5 Impacto na imagem Docker
+FIX 2 **isolado é insuficiente** para o crash documentado. As três correções alinhadas ao stack trace seriam:
 
-| Mudança | Rebuild Docker? | Esforço |
-|---------|------------------|---------|
-| Seleção dinâmica de android.jar | **Não** (platforms já instalados) | Baixo (~1-2 dias código Python) |
-| `--min-api` dinâmico | **Não** | Baixo (~0.5 dia) |
-| dex2jar 2.4 | Talvez (pom ou script) | Baixo |
-| build-tools 36.x | Sim (1 camada) | Médio (~15-30 min rebuild) |
+1. **Envolver `retrieveActiveBody()` da linha 274** em `try { Body b = currentMethod.retrieveActiveBody(); } catch (Exception e) { Logger.warn(...); continue; }`. Isso captura o caminho descrito pelo stack trace **se** ele atravessar Flowgraph (improvável dado o trace, mas possível em paths alternativos).
+2. **Adicionar try-catch em `RvsecAnalysisClient.run()`** envolvendo cada seção (já alinhado com a spec INV-ANA-06 e o pattern de flush incremental — basta capturar exceção entre `writeReachability`/`writeWindows`/`writeTransitions`/`writeComponents` e prosseguir).
+3. **Para o crash em `cg.cha`** (caminho dominante do stack trace): a única mitigação prática é **FIX 1 + FIX 3** (impedir que os bodies problemáticos cheguem ao TypeResolver, ou usar Soot 4.6+ onde o Dexpler é mais robusto). Não há gancho convencional para sobreviver a uma exceção dentro de `OnFlyCallGraphBuilder.processNewMethod` sem patch ao próprio Soot.
 
----
+A troca proposta no plano (`throw → continue` em `:343`) **não é nociva** e deve ser aplicada — apenas não resolve o caso descrito.
 
-## 5. Estado da arte
+#### Efeito downstream do `continue`
 
-### 5.1 AspectJ + Android
+O `Flowgraph` é a base de todas as análises seguintes (Fixpoint, GUIAnalysisOutput, WTGBuilder). Pular um statement perde:
 
-**Ecosystem status (2026)**:
-- [HujiangTechnology/gradle_plugin_android_aspectjx](https://github.com/HujiangTechnology/gradle_plugin_android_aspectjx) — **arquivado** (dependente de Transform API, removida no AGP 8.0).
-- Fork ativo: [wurensen/gradle_plugin_android_aspectjx](https://github.com/wurensen/gradle_plugin_android_aspectjx) — migrou para ASM instrumentation API do AGP.
-- [Ibotta/gradle-aspectj-pipeline-plugin](https://github.com/Ibotta/gradle-aspectj-pipeline-plugin) — mais moderno; usa ASM API.
-- [JD Porterfield blog](https://jdvp.me/articles/Switching-AspectJ-Plugins-Android) confirma migração geral dos plugins "jx" para ASM API.
+- Edges de fluxo Jimple → Jimple naquele método.
+- Possíveis registros de listeners (callbacks de UI dentro do método ignorado).
+- Em método com 200 statements e 2 que crasham, perde 1% do flowgraph daquele método.
 
-**Pipeline do RV-Android (dex2jar → ajc → d8)** é **fora da corrente principal**. A comunidade moderna integra-se ao build Gradle do app e atua sobre `.class` antes do d8. A escolha do RV-Android é **correta** para o caso de uso (sem acesso a source/build do app sob teste), mas tem pouco suporte da comunidade para resolver stack map issues.
+**Impacto qualitativo**:
+- **Reachability**: pouco impacto (call graph é externo ao Flowgraph; usa CG do Scene).
+- **Widgets**: impacto moderado se o statement pulado for um `findViewById` ou `setOnClickListener` (Flowgraph extrai listeners interprocedurally).
+- **WTG**: pode perder transições de janela se o statement perdido for o que dispara a navegação (`startActivity`).
 
-**`-xmlConfigured` em CTW** ([AspectJ LTW chapter](https://eclipse.dev/aspectj/doc/released/devguide/ltw.html)): primariamente desenhado para LTW (load-time). Em CTW pode controlar precedência e escopo via `<include within>`/`<exclude within>`. **Não afeta stack map generation**.
+Para JCA esse trade-off é aceitável; para experimentos que dependem fortemente do WTG (modos `multimode`/`llm_only` com `NavigationGuidance`) há perda mensurável a medir.
 
-**AspectJ 1.9.24** é a última versão (out/2024) — [Maven Central](https://mvnrepository.com/artifact/org.aspectj/aspectjtools/1.9.24). Nenhum issue aberto específico em [eclipse-aspectj/aspectj](https://github.com/eclipse-aspectj/aspectj) sobre stack map + Android. `StackMapAdder.java` ainda delega geração ao ASM após weaving — melhorias históricas pontuais.
+### 3.3 FIX 3 — Upgrade Soot 3.3.0 → 4.7.x
 
-### 5.2 d8/R8
+#### Versão alvo
 
-**`--no-desugaring` com `--min-api 26`** — **seguro** no contexto do RV-Android:
-- [d8 docs](https://developer.android.com/tools/d8): `--no-desugaring` força desugar off.
-- Com `--min-api 24+`, lambdas já não são desugared nativamente ([Jake Wharton](https://jakewharton.com/androids-java-8-support/)).
-- APKs processados pelo pipeline são **produtivos** (já dexificados antes) → raramente usam APIs Java 8+ não-desugaradas.
+A última estável é **4.7.1 (2025-02-23)**. 4.7.0 (2025-02-13) tem um bug menor de build resolvido em 4.7.1. Adotar **4.7.1** diretamente. (4.8.0 ainda é `SNAPSHOT` no `master`.)
 
-**`--debug` vs `--release`**: nenhuma documentação oficial descreve divergência em stack map validation. Empiricamente ([bazel #15751](https://github.com/bazelbuild/bazel/issues/15751)): d8 loga warnings em ambos modos mas tolera; aborta apenas em casos extremos.
+#### O bug `Integer1Type` *não* foi corrigido em 4.7.x
 
-**Tolerância recente de d8 a stack maps inválidos**: **sem release note específica**. A melhoria necessária é upstream no ajc, não no d8.
+Inspecionando o `master` do Soot, `ClassHierarchy.typeNode()` mantém o `throw new InternalTypingException(type)` na fall-through e a mesma cadeia de 5 tipos. Issue [#1071](https://github.com/soot-oss/soot/issues/1071) segue **aberta** sem PR. Issue #1058 também aberta.
 
-### 5.3 Alternativas ao dex2jar
+A "vantagem" do 4.x é que o **Dexpler** ([6 anos de melhorias](https://github.com/soot-oss/soot/commits/master/src/main/java/soot/dexpler)) emite menos bodies que disparam o caminho problemático. A validação empírica com CogniCrypt 5.0.1 (Soot 4.6.0) registrada em §4.7 do plano confirma esse efeito **na prática**, não que o bug tenha sido corrigido na origem.
 
-- **google/enjarify**: **arquivado em 29/dez/2022** ([github.com/google/enjarify](https://github.com/google/enjarify)). Fork [Storyyeller/enjarify](https://github.com/Storyyeller/enjarify) também pouco ativo. **Não viável em 2026**.
-- **pxb1988/dex2jar v2.4** (3/out/2024): [release notes](https://github.com/pxb1988/dex2jar/releases/tag/v2.4) — "bugfix". **Estado da arte**.
-- **jadx, apktool**: decompiladores para engenharia reversa, não DEX→JAR para recompilação.
+**Implicação para o plano**: descrever FIX 3 como "upgrade reduz drasticamente a frequência do crash" (correto) e não como "Soot 4.x não crasha" (impreciso). FIX 2 é load-bearing exatamente porque o bug persiste.
 
-**Ação recomendada**: verificar versão atual do dex2jar usada pelo projeto. Se < 2.4, **atualizar é win barato**.
+#### Riscos de API verificados em código GATOR
 
-### 5.4 Runtime verification em Android (2024-2026)
+Análise direta dos imports e padrões usados em `rvsec-gator/sootandroid/`:
 
-- **AspectJ** é padrão histórico com limitações conhecidas: "restricted join point model and the inability of weaving certain classes, particularly the Java and Android class libraries" ([HAL paper](https://inria.hal.science/hal-03533152/document)).
-- **DiSL**: "ensures weaving with complete bytecode coverage for Java and Android". Compilador AspectJ → DiSL existe, permitindo reuso das specs atuais. Alternativa viável se cobertura em libs tornar-se crítica.
-- **BISM** ([Springer 2020](https://link.springer.com/chapter/10.1007/978-3-030-60508-7_18); DSL extension [Springer 2023](https://link.springer.com/chapter/10.1007/978-3-031-44267-4_17)): "bytecode-level instrumentation, lightweight, expressive high-level language". Outperforma DiSL e AspectJ em benchmarks. **Não nativo Android** — adaptar demandaria porta para DEX pipeline.
-- **TraceMOP**: sem evidência de atividade em 2024-2026. JavaMOP/RV-Monitor continua sendo a base.
+| Quebra | Local | Severidade | Justificativa |
+|--------|-------|-----------|---------------|
+| `Options.v().set_force_android_jar(...)` e `set_src_prec(...)` | `Configs.java:235-237` | **CRÍTICO** | API de setters do `Options` foi reestruturada em 4.x; vários setters foram depreciados/removidos. Migrar para `Options.v().parseOptions(args)` ou ajustar para os novos nomes. |
+| `soot.dexpler.Util.splitParameters()` / `Util.getType()` | `EpiccBasedIntentAnalysis.java:125-128` | **CRÍTICO** | `soot.dexpler.Util` sofreu refatoração ampla em 4.x. Verificar se as utilities ainda existem na assinatura usada. |
+| `SootClass.getMethods() → Chain → List` | `Flowgraph.java:267`, `Hierarchy.java:536` | **MÉDIO** | A retorno mudou de `Chain` para `List` em 4.4+. O código já usa `Lists.newArrayList(c.getMethods()).iterator()` o que é defensivo, mas semântica de iteração precisa ser revalidada. |
+| `Scene.v().addBasicClass(..., SootClass.SIGNATURES)` | `PrerunEntrypoint.java:40-50` | **BAIXO** | Constantes preservadas. |
+| Phase options (`-p cg cha all-reachable:true`) | `Main.java:206-208` | **BAIXO** | String format de phase options estável entre 3.3 e 4.7. |
+| `OnFlyCallGraphBuilder` (uso transitivo) | — | **BAIXO** | Não chamado diretamente pelo GATOR; só indiretamente via `Scene.v().getCallGraph()` em `RvsecAnalysisClient`. |
 
-**Conclusão**: **nenhuma alternativa em 2026 é drop-in replacement** para o pipeline atual. BISM é a direção de ponta mas custo de adaptação é alto. Para deadline 2026-04-13, o caminho pragmático é a melhoria incremental proposta em gh50.
+**APIs preservadas (~126 ocorrências)**: `Scene.v().getSootClass()`, `getApplicationClasses()`, `getClasses()`, `SootMethod.retrieveActiveBody()`, `SootMethod.isConcrete()`, `Body.getUnits()`, todas as classes Jimple (Stmt, Jimple, etc.), `SceneTransformer`, `Pack`, `PackManager`, `Transform`, `IntegerConstantValueTag`, `LineNumberTag`.
 
----
+#### Estimativa realista de esforço
 
-## 6. Análise quantitativa de impacto (dados históricos)
+| Tarefa | Plano | Análise |
+|--------|-------|---------|
+| Atualizar 5 `pom.xml` | 30 min | ✅ 30 min |
+| Migrar Options API setters em `Configs.java` | (não previsto) | **2-4 h** |
+| Validar/migrar `soot.dexpler.Util` em EpiccBasedIntentAnalysis | (não previsto) | **2-4 h** |
+| Compilação inicial + caça a outros breaks | (não previsto) | **3-6 h** |
+| Smoke test em 5 APKs conhecidos (mix funciona/falha) | 30 min | ✅ 1-2 h |
+| Regressão nos 97 APKs que hoje funcionam (evitar `cryptoapp.apk` baseline regredir) | (não previsto) | **2-4 h** |
+| Eventual fix de comportamento divergente (ex.: contagens de reachable diferentes — spec já tolera ±10%) | (não previsto) | **0-8 h** |
+| **Total realista** | **4-8 h** | **3-5 dias** |
 
-### 6.1 Dataset A — ASE journal (557 APKs, 2025)
+O plano subestima por ~5×. Recomendo replanejar a janela.
 
-| Categoria de erro | JCA | % | generic | % | generic_new | % | Fix alvo |
-|-------------------|-----|---|---------|---|-------------|---|----------|
-| d8 AIOOE (bug r8/d8 interno) | 215 | 59.1% | 185 | 52.6% | 21 | 11.1% | **NENHUM** |
-| ajc Kotlin `Function3` paramtype | 62 | 17.0% | 62 | 17.6% | 63 | 33.3% | `-proceedOnError` (parcial) |
-| ajc internal (SO, BCException) | 46 | 12.6% | 53 | 15.1% | 44 | 23.3% | `-proceedOnError` (parcial) |
-| `j$.` desugared DEX merge | **27** | **7.4%** | **28** | **8.0%** | **28** | **14.8%** | `--no-desugaring` ✓ |
-| d8 stack-map warnings | 11 | 3.0% | 16 | 4.5% | 24 | 12.7% | `-xmlConfigured` (parcial) |
-| Outros | 3 | 0.8% | 8 | 2.3% | 9 | 4.8% | misto |
-| **Total erros** | **364** | 100% | **352** | 100% | **189** | 100% | |
-| **Sucesso (557 - erros)** | 193 | 34.6% | 205 | 36.8% | 368 | 66.1% | |
+### 3.4 Interação dos três fixes combinados
 
-**Finding crítico**: dos 234 casos d8 AIOOE totais (215 JCA + 185 generic + 21 generic_new — não deduplicado entre specs), **nenhum** menciona `j$.` na mensagem de erro (verificado via grep). É um bug distinto de r8/d8 8.2.2-dev acionado em padrões de bytecode específicos. Concentração forte em classes crypto (okio HMAC, BouncyCastle, SpongyCastle, PBKDF2, AESObfuscator). **`--no-desugaring` NÃO resolve estes casos.**
+Boa notícia: os três fixes são **independentes** e podem ser aplicados em qualquer ordem.
 
-Exemplos de mensagens (truncadas):
-- d8 AIOOE: `Error in ...okio/Buffer.class at Lokio/Buffer;hmac(...): java.lang.ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 0`
-- j$.: `Error: com.android.tools.r8.internal.Sb: Merging DEX file containing classes with prefix 'j$.' with other classes, except classes with prefix 'java.', is not allowed`
-- ajc Kotlin: `Type 'kotlin.jvm.functions.Function3' [error] Mismatch when building parameterization map`
-- ajc code 255: `Internal compiler error: java.lang.StackOverflowError at org.aspectj.weaver.UnresolvedType.signatureToName(UnresolvedType.java:636) ABORT`
+- FIX 1 reduz a *carga* de bodies passados ao TypeResolver.
+- FIX 2 reduz o *blast radius* de uma exceção sobrevivente.
+- FIX 3 reduz a *frequência* de crashes via Dexpler mais maduro.
 
-### 6.2 Dataset B — F-Droid 2026 (400 APKs)
-
-| Categoria (tool, code) | JCA | % | generic_new | % | Fix alvo |
-|------------------------|-----|---|-------------|---|----------|
-| d8 code=0 (stack-map warnings) | 151 | 37.75% | 123 | 30.75% | `-xmlConfigured` (parcial) |
-| d8 code=1 (hard fail — AIOOE/j$./lambda) | 122 | 30.5% | 48 | 12.0% | parte `--no-desugaring`; parte nenhum |
-| ajc code=255 (abort interno) | 47 | 11.75% | 10 | 2.5% | `-proceedOnError` (parcial) |
-| ajc code=2 | 6 | 1.5% | 1 | 0.25% | `-proceedOnError` (parcial) |
-| ajc outros | 2 | 0.5% | 3 | 0.75% | `-proceedOnError` (parcial) |
-| dex2jar fail | 3 | 0.75% | 1 | 0.25% | NENHUM |
-| **instrumentation_verification = -1** (zero matches) | 0 | 0.0% | **130** | **32.5%** | aop.xml **irrelevante ou prejudicial** |
-| **APK produzido (sucesso)** | **70** | 17.5% | **216** | 54.0% | |
-| **Em pasta final (pós-filtro)** | **38** | 9.5% | **64** | 16.0% | |
-
-Dataset F-Droid confirma APKs modernos: 379/400 updated in 2026, 21/400 in 2025.
-
-**APKs em categorias NÃO endereçadas por gh50**:
-- **NEW-JCA**: d8 code=1 hard fails (122 APKs, 30.5%) + dex2jar (3) → **~31% sem cobertura da fix**.
-- **NEW-GENERIC_NEW**: instrumentation_verification=-1 (130 APKs, **32.5%**) + d8 code=1 parte (48) + dex2jar (1) → **~45% sem cobertura**. O bucket de "zero pointcut matches" **pode piorar** com aop.xml.
-
-### 6.3 Estimativa de melhoria pós-fix
-
-| Spec set | Baseline | Best case | Likely | Worst case |
-|----------|----------|-----------|--------|------------|
-| JCA | 17.5% (70/400) | ~48% (192/400) | **~33% (132/400)** | ~22% (88/400) |
-| generic_new | 54% (216/400) | ~65% (260/400) | **~59% (236/400)** | ~54% (216/400) |
-
-**Cenário "likely" (JCA)**:
-- `--no-desugaring`: +27 APKs (bucket j$. do ASE — boa proxy)
-- `-proceedOnError`: +20 APKs (ajc 255 quando um aspecto falha mas outros passam)
-- `-xmlConfigured`: +15 APKs (subset dos 151 stack-map cujo warning origina de libs excluíveis)
-- Ganho ≈ 62. Total: 132/400 = **33%** (2× baseline).
-
-**Cenário "likely" (generic_new)**:
-- `-proceedOnError`: +14 APKs (todas as 14 falhas ajc)
-- `--no-desugaring` + `-xmlConfigured`: +10-20 APKs juntos
-- Ganho ≈ 20. Total: 236/400 = **59%**.
-
-**Comparação old vs new**:
-- Proporção de falhas d8 aumentou drasticamente: OLD 69% / NEW 83% (JCA).
-- Stack-map warnings saltaram de 3% → 37.75% (JCA). **`-xmlConfigured` é mais valioso para APKs modernos**.
-- ajc failures diminuíram (bug Kotlin `Function3` sendo corrigido upstream). `-proceedOnError` é **menos valioso para dataset novo**.
-- `--no-desugaring` é **mais valioso para modern** (mais surface de desugaring conflict com AGP 8.x+).
-
-### 6.4 Código: integração e gaps
-
-**`rvandroid.py` — integrações**:
-- `__d8` (linhas 1004-1014): `--no-desugaring` entra limpo; semanticamente seguro com `--min-api 26` hardcoded.
-- `__weave_monitors` (linhas 801-816): `-proceedOnError` mecanicamente trivial. **Concern**: com proceedOnError, ajc sai com código 0 mesmo tendo emitido errors. Safety net atual = `check_if_instrumented` (linhas 1217-1264) via hash. **Safety net permanece válido** (detecta no-op weaving) **mas não detecta cobertura semanticamente parcial** (weaver produz modified APK que passa o hash, mas os aspects de interesse falharam).
-- `aop.xml` generation: não trivial (~50 LOC novo). Requer ler lista de globs do config, gerar `{tmp_dir}/META-INF/aop.xml` (ou path direto via `-xmlConfigured`), listar aspect names (dependência nova: rv-monitor-generator output). Integração limpa via novo `__prepare_aop_xml()` antes de ajc.
-
-**`config.py` — campos novos necessários**:
-1. `no_desugaring: bool = Field(default=True, ...)` — win puro com min-api ≥ 24.
-2. `ajc_proceed_on_error: bool = Field(default=False, ...)` — default False pelo risco; opt-in per experiment.
-3. `aop_xml_excluded_packages: List[str] = Field(default_factory=list, ...)` — empty default mantém backward compat.
-4. `@validated_model` decorator: não precisa update (campos novos são bool/list sem path validation).
-5. `ConfigurationSummary.get_configuration_summary()` (linha 679): deve expor novos flags para reprodutibilidade.
-
-**TODOs pré-existentes em `rvandroid.py`** (todos referenciando issue #23):
-- Linha 707: Classpath com Android SDK JAR dinâmico.
-- Linha 887: zipalign optimization.
-- Linha 1159: android.jar dinâmico por targetSdkVersion (comentado há implementação de referência).
-
-**Gaps relevantes para gh50**:
-- `--min-api 26` hardcoded → impede usar `--no-desugaring` condicionalmente se min-api < 24 (hipotético).
-- `android_platform="android-29"` hardcoded → causa ajc fail em APKs com APIs novas.
-- Sem mecanismo para injetar arquivos em `tmp_dir` antes de ajc (necessário para aop.xml).
-- `__d8` não expõe error output → sem hook diagnóstico para distinguir "AIOOE não endereçável" de "j$. corrigível". Considerar adicionar `failure_category` classificador.
-- `check_if_instrumented` usa hash de arquivo; com `-proceedOnError`, weaver que drop todos aspects para uma classe ainda muda bytecode (ajc reordena constants), fazendo o hash ainda mudar. **Detecção de cobertura semanticamente parcial exigiria grep por símbolos rv-monitor no classes.dex produzido** (não está no escopo de gh50 mas deve ser flagged).
+Não vejo interação destrutiva. Há um caso particular: aplicar FIX 1 em `cg.cha` (e não só em `jb.*`) não muda nada porque CHA não roda sub-fases jb diretamente — então a opção `jb.sils enabled:false` só tem efeito quando `retrieveActiveBody()` é chamado a posteriori (durante `wjtp.gui`/Flowgraph). Para o caminho do stack trace (CHA), a única defesa de FIX 1 é o **exclude + no_bodies_for_excluded** (que evitam que CHA tente jimplificar bodies de `kotlin.*`).
 
 ---
 
-## 7. Riscos e mitigações
+## 4. Impacto na Análise Estática
 
-### 7.1 Riscos por mudança proposta
+### 4.1 Por spec set
 
-| Mudança | Risco | Probabilidade | Impacto | Mitigação |
-|---------|-------|---------------|---------|-----------|
-| `--no-desugaring` | APK com `--min-api` < 24 usando API Java 8+ quebra em runtime | Muito baixa (hardcoded em 26) | Baixo (APKs produtivos já desugared antes) | Manter `--min-api` ≥ 26; adicionar assertion em `__d8` |
-| `--no-desugaring` | Não resolve d8 AIOOE (234 casos no ASE, ~30% no novo) | **Alta** (evidência empírica) | **Alto** — fix resolve só ~7-15% | Documentar como limitação conhecida; abrir issue separada para d8 AIOOE |
-| `-proceedOnError` | Cobertura silenciosamente parcial (ajc aborta aspects específicos mas continua) | **Média** | **Médio** — resultados experimentais podem ser degradados sem saber | Logar todos os errors do ajc; adicionar verificação de símbolos rv-monitor no DEX produzido |
-| `-proceedOnError` | Bug ajc genuíno mascarado como "weave parcial" | Média | Médio | Limitar proceedOnError a bugs conhecidos (ex.: Function3); revisar stderr em cada run |
-| `-xmlConfigured` + aop.xml | ajc ainda lê classes excluídas via `-inpath` antes de aplicar regra | Média | Alto se ocorrer | Fallback de pré-filtragem Python (já previsto em proposal.md:11) |
-| `-xmlConfigured` + aop.xml | Pode inflar bucket "zero pointcut matches" (já 32.5% de generic_new) | **Média-alta** | **Alto para generic_new** | Configurar aop.xml conservadoramente por spec set; validar empiricamente por spec set |
-| `-xmlConfigured` + aop.xml | Monitor aspects precisam ser listados explicitamente (nova dependência de rv-monitor-generator) | Baixa | Médio | Gerar lista de aspects dinamicamente em `__prepare_aop_xml` |
-| YAML `weaving_excludes.yaml` configurável | Sem validação → padrões errados silenciam monitoramento do próprio app | Baixa | Alto | Validar em `_validate_configuration` que nenhum padrão cobre pacote do app sob teste |
-| Não implementar pre-filtering | Se `-xmlConfigured` sozinho não prevenir frame corruption, gh50 não entrega | Média | Alto | Já previsto como fallback condicional — executar validação empírica em 3.x antes de fechar a change |
+| Spec set | Métodos monitorados | Impacto FIX 1 (excludes Kotlin) | Impacto FIX 2 (continue) | Impacto FIX 3 (Soot 4.7.1) |
+|----------|---------------------|-------------------------------|------------------------|----------------------------|
+| **JCA** | `javax.crypto.*`, `java.security.*` | **Mínimo** — chamadas vêm do código do app, não de stdlib Kotlin | Mínimo se método não tiver chamada JCA | **Positivo** — mais APKs analisáveis |
+| **generic** | `Iterator`, `InputStream`, `Map` | **Moderado** — Kotlin coleções viram `kotlin.collections.*`; perde reachability nesses paths | Mínimo | **Positivo** — mais APKs analisáveis |
+| **generic_new** | (mesma família + adicionais FSM) | **Moderado-Alto** | Mínimo | **Positivo** |
 
-### 7.2 Riscos cruzados
+**Recomendação**: medir reachability set para um APK Java puro (que tem ~zero impacto de excludes Kotlin) vs APK Kotlin/Compose representativo, **antes e depois** dos excludes — quantificar a perda.
 
-- **`-proceedOnError` + `aop.xml`**: combinados, ajc pode silenciosamente ignorar aspects em classes de lib (OK) **e** em classes de app que dão problema (não OK). Diferença ficaria invisível. **Mitigação**: logar todos os errors separadamente por tipo (lib/app).
+### 4.2 Quanto à propriedade `reaches_mop`
 
-- **`--no-desugaring` + d8 AIOOE**: AIOOE não é causado por desugaring. Se o time acredita que `--no-desugaring` resolve AIOOE por confusão semântica, expectativa vai frustrar. **Mitigação**: documentar claramente que os 234 AIOOE cases são bug independente e exigem issue separada.
+Como `MopScorer` em `rv-agent` atribui +100 para `directly_reaches_mop=true` e +50 para `reaches_mop=true`, qualquer perda no cálculo de reachability afeta a priorização da exploração LLM-driven. O efeito agregado sobre coverage real é **modesto** se o método "perdido" não chama JCA (e a maioria dos métodos `kotlin.*` não chama). Convém ter um teste de regressão que compare top-10 ações priorizadas antes/depois para 3-5 APKs JCA-pesados.
 
-- **Dataset B (APKs modernos) + aop.xml conservadora**: 32.5% de APKs já têm zero pointcut matches em generic_new; aop.xml pode piorar. **Mitigação**: teste empírico por spec set antes de tornar exclusões default.
+### 4.3 Quanto ao `withCHA` ON por padrão
 
----
+A spec menciona que GATOR suporta `-withCHA` "se reachability for insuficiente". O comando padrão da spec inclui `-withCHA`. Como CHA é exatamente onde o crash ocorre (stack trace), uma mitigação **pragmática e barata** seria:
 
-## 8. Pontos positivos
+> Tentar primeiro **com** `-withCHA`. Se exit code != 0 (ou crash detectado), retentar **sem** `-withCHA` — perdendo precisão de reachability mas obtendo *algo*.
 
-1. **Metodologia rigorosa**: proposta, spec delta, design e tasks são rastreáveis end-to-end. Os 4 invariantes novos (INV-INS-13..16) são bem formados e testados.
-2. **Gestão de risco explícita**: design.md:140 antecipa o risco de `-xmlConfigured` sozinho não resolver frame corruption e prevê fallback Python.
-3. **Alinhamento com Coverage.aj**: exclusões via aop.xml tornam a semântica do pipeline consistente (cobertura e MOP ambos restritos a app-code).
-4. **Trade-off de escopo bem fundamentado**: análise de 168 specs (100% `call()`) confirma que exclusões preservam monitoramento do código do app.
-5. **Fix de menor risco (`--no-desugaring`) vem primeiro**: pode ser entregue e validado antes das outras, reduzindo risk no path crítico.
-6. **YAML configurável** (INV-INS-16) permite re-experimentos com escopo diferente sem code change — essencial para validade empírica do trade-off.
-7. **Backward compatibility explícita**: cenário "No weaving_excludes.yaml" garante que ambiente sem YAML mantém comportamento atual.
-
-## 9. Pontos negativos / gaps
-
-1. **d8 AIOOE não endereçado**: maior categoria de falhas no ASE journal (234 casos, ~59% de JCA errors). gh50 resolve 0% destes. **Recomendar abrir issue separada** para investigar bug do r8/d8 8.2.2-dev em okio HMAC e crypto providers.
-
-2. **Zero-pointcut matches (32.5% de generic_new no F-Droid)** não é addressed. Pior, `-xmlConfigured` pode piorar — aop.xml reduz superfície de matches. Este é um problema separado (ProGuard/R8 rename? app não usa APIs? spec misconfigured?) que gh50 não investiga.
-
-3. **Baseline spec FR02 desatualizada**: `specs/instrumentation/spec.md:345` não lista `__merge_support_classes()`, apesar de gh49 ter supostamente feito sync. **Ação**: verificar opsx:sync do gh49 antes de abrir PR da gh50.
-
-4. **Hardcoded SDK version** (android-29, --min-api 26) limita escopo dos fixes. Seleção dinâmica é TODO(#23), não prevista em gh50 mas é **complementar crítico** — sem ela, gh50 tem limite de upside.
-
-5. **`-proceedOnError` pode mascarar cobertura parcial**: safety net atual (hash) detecta no-op total mas não no-op **dos aspects de interesse**. Fix exige detecção de símbolos rv-monitor no DEX — não escopado em gh50.
-
-6. **Divergência textual silenciosa** na delta (remoção de `(line 517)` sem marcação).
-
-7. **Sub-bullets em tasks 1.4 e 2.4** inconsistentes (sem `- [ ]`).
-
-8. **aop.xml exige listar aspect names**: introduz dependência nova rv-monitor-generator → rv-instrumentation (para descobrir aspect names dinamicamente). Design aborda mas tasks poderiam ser mais explícitos nisso.
-
-9. **Sem métrica de "cobertura semanticamente parcial"**: após `-proceedOnError`, não há forma de reportar "APK foi instrumentado com N/M aspects aplicados". Métrica útil para análise de threats to validity.
+Isso é compatível com a spec e oferece um fallback seguro. Pode ser implementado na `StaticAnalyzer` (lado Python) sem alterar o GATOR.
 
 ---
 
-## 10. Sugestões de melhoria priorizadas
+## 5. Estado da Arte (2026-04-19)
 
-### P1 — ações complementares a gh50 (bloqueiam upside pleno)
+### 5.1 Soot
 
-1. **Implementar seleção dinâmica de `android.jar`** por `targetSdkVersion` (TODO(#23)). Benefício alto, risco baixo, esforço baixo (~1-2 dias), sem rebuild Docker. Sem isto, `-proceedOnError` continuará mascarando erros de classe ausente que seriam facilmente resolvidos.
+- **Mantido ativamente** sob `org.soot-oss:soot`. Última estável: **4.7.1** (2025-02-23). `master` em `4.8.0-SNAPSHOT`. Cadência ~2 releases/ano.
+- Bug `Integer1Type` (issue [#1071](https://github.com/soot-oss/soot/issues/1071)) **não foi corrigido**. Mesma estrutura `ClassHierarchy.typeNode()` em 3.3.0 e 4.7.x.
+- Há issue específica ([#1641](https://github.com/soot-oss/soot/issues/1641)) confirmando que `jb.sils` é fase gatilho de problemas de typing.
 
-2. **Implementar `--min-api` dinâmico** = `max(26, apk.minSdkVersion)`. Benefício médio (DEX menor, menos stack-map surface), risco baixo, esforço baixo (~0.5 dia).
+### 5.2 SootUp 2.0+
 
-3. **Verificar e corrigir sync da gh49 sobre FR02**: `__merge_support_classes()` falta no baseline. Bloqueia consistência da delta de gh50.
+- Liberado 2025-02 (`sootup-core 2.0.0`); frontend Android (`sootup-apk-frontend 2.0.0`) Mar 2025.
+- Documentação oficial admite: *"SootUp currently allows one to analyze Android applications with the help of dex2jar, but this is an interim solution as dex2jar is no longer actively maintained, and work is underway on a more robust solution based on Dexpler."* ([fonte](https://deepwiki.com/soot-oss/SootUp/4.3-apk-frontend))
+- ServiceNow Security Lab (Nov 2024) avalia: API mais limpa, mas "muita da API ainda não documentada".
+- **Veredicto**: **não viável** para o GATOR/rv-android no horizonte da tese (deadline 2026-04-13 já passou; estamos em modo finalização).
 
-### P2 — melhorias diretas na gh50
+### 5.3 FlowDroid 2.15.x
 
-4. **Adicionar detecção de cobertura semanticamente parcial**: pós-weaving, grep no classes.dex por símbolos rv-monitor (ex.: `MultiSpec_*MonitorAspect`). Reportar `coverage_fraction` no result. Essencial para validade dos experimentos com `-proceedOnError`.
+- Última estável: **2.15.1** (Fev/2025). Desenvolvimento em `develop` rastreia Soot `master`.
+- `pom.xml` `develop` declara `<soot.version>4.8.0-SNAPSHOT</soot.version>`.
+- `SootConfigForAndroid` é mais enxuto do que sugere a tabela §2.1 do plano: configura **apenas** excludes (`java.*`, `javax.*`, `sun.*`, `android.*`, `androidx.*`, `org.apache.*`, `org.eclipse.*`, `soot.*`) + `set_no_bodies_for_excluded(true)`. Outras opções vêm de `AbstractInfoflow`/`SetupApplication`.
+- **Não usa fork/patch privado de Soot** — usa upstream.
 
-5. **Pilotar `-xmlConfigured` primeiro em JCA (menos vulnerável)** antes de generic_new. O bucket de zero-matches em generic_new (32.5%) merece investigação separada antes de aplicar aop.xml massivamente lá.
+### 5.4 Alternativas a Soot
 
-6. **Logar errors completos do ajc** mesmo com `-proceedOnError`, categorizados por tipo (class not found / aspect internal / bytecode malformed). Permite medir o efeito real da mudança.
+- **WALA** + Droidel (`cuplv/droidel`): sem manutenção desde ~2017. Inviável.
+- **Doop**: só JVM bytecode, sem frontend APK.
+- **OPAL**: sem suporte Android.
+- **Androguard** (Python): leitura DEX direta, sem Jimple. Bom para reachability/CFG; **não substitui WTG** nem widgets analisados via interprocedural data flow. Já é o W5 do plano.
+- **JADX-based**: decompilador, não framework de análise.
 
-7. **Adicionar campo `failure_category` nos error models** da rv-instrumentation. Facilita análise quantitativa futura (hoje requer grep manual em strings).
+**Conclusão**: Soot continua sendo o único framework Java maduro para análise Jimple-completa de APK em 2026.
 
-### P3 — correções menores de qualidade
+### 5.5 CryptoAnalysis 5.0.1
 
-8. Restaurar line numbers no cenário dex2jar ou marcar explicitamente como P4 cleanup no proposal.
-9. Adicionar checkbox `- [ ]` em sub-bullets de tasks 1.4 e 2.4.
-10. Adicionar linha "Preserved FR02 scenarios (8) — unchanged from baseline" na mapping table do design.
-
-### P4 — itens de trabalho futuro (fora de gh50)
-
-11. **Abrir issue para d8 AIOOE**: investigar bug r8/d8 8.2.2-dev em okio HMAC e crypto providers (215+185+21 casos no ASE). Potencialmente: tentar r8 9.x (build-tools 36.0.0) **apenas para estes casos**.
-
-12. **Abrir issue para zero-pointcut matches em generic_new**: investigar por que 130/400 APKs modernos não fazem match de specs. ProGuard/R8 renaming? Spec misconfig? APKs não usam APIs monitoradas?
-
-13. **Atualizar dex2jar para v2.4** (3/out/2024) — bug-fix release. Win barato se projeto usa < 2.4.
-
-14. **Atualizar build-tools 35.0.1 → 36.x**: baixa prioridade. Só se evidência empírica mostrar benefício. Requer rebuild Docker.
-
-15. **Exploração de DiSL ou BISM** como alternativa de longo prazo: apenas se abordagem AspectJ + d8 se mostrar fundamentalmente limitada. Custo alto de mudança de stack. **Não é ação para deadline 2026-04-13**.
-
----
-
-## Conclusão e recomendação final
-
-A change `gh50-improve-instrumentation` está **bem estruturada e tecnicamente fundamentada**. A análise de consistência de artefatos (§2) indica PASS com minor issues corrigíveis. A análise de impacto sobre specs MOP (§3) conclui que as exclusões propostas são ACEITÁVEIS e favoráveis à pesquisa, dado que: (a) 100% das 168 specs usam `call()`, (b) código de aplicação Android não está nos pacotes excluídos, (c) Coverage.aj já estabelece o mesmo escopo.
-
-Entretanto, a análise quantitativa (§6) expõe que **gh50 não é bala de prata**:
-- `--no-desugaring` resolve ~7-15% das falhas (bucket `j$.` bem delimitado).
-- `-proceedOnError` resolve ~5-10% com risco de cobertura silenciosamente parcial.
-- `-xmlConfigured` tem maior potencial no dataset moderno (30-37% de failures são stack-map) mas pode inflar o bucket "zero pointcut match" em generic_new.
-- **Taxa realista pós-fix**: JCA 17.5% → ~33%, generic_new 54% → ~59%. Dobra JCA, melhora marginal em generic_new.
-- **Gap remanescente (40-60%)** é dominado por d8 AIOOE (bug r8/d8 interno) e zero-matches — **nenhum endereçado por gh50**.
-
-**Recomendação final**: **aprovar gh50 com ajustes** (P2) e acompanhar de perto com as ações complementares P1 e P4. Especificamente:
-
-1. **Aprovar a aplicar** `--no-desugaring` (baixo risco, baixo custo, fix seguro para ~15% das falhas).
-2. **Aprovar a aplicar** `-proceedOnError` mas com detecção de cobertura parcial (P2#4) obrigatória antes de considerar completo.
-3. **Aprovar pilotar** `-xmlConfigured` primeiro em JCA; validar empiricamente em generic_new antes de expandir (P2#5).
-4. **Bloquear fechamento de gh50** até (a) sync gh49 ser verificada (P1#3), (b) métrica de cobertura parcial implementada (P2#4), (c) resultado empírico piloto confirmar que `-xmlConfigured` não piora zero-matches de generic_new.
-5. **Abrir issues paralelas** para d8 AIOOE (P4#11) e zero-matches generic_new (P4#12). Sem estas, gh50 entrega apenas 1/3 do upside possível.
-6. **Paralelo**: implementar P1#1 e P1#2 (android.jar dinâmico + --min-api dinâmico). Sem eles, o upside de gh50 é limitado — muitas das falhas ajc seriam resolvíveis apenas com bootclasspath correto.
-
-Dado o deadline de tese (2026-04-13) e o foco em finalização (memória do projeto: "business code frozen"), as mudanças de código devem ser mínimas e focadas. gh50 atende a esse critério (3 pequenas mudanças + config). **Proceed with gh50, com disciplina nas mitigações**.
+- `pom.xml` declara `<soot.version>4.6.0</soot.version>` — confirmado.
+- Sem fork/patch de Soot.
+- As opções específicas que `HeadlessAndroidScanner` aplica **não foram inspecionadas no JAR local** durante esta análise. Antes de citar como evidência canônica para FIX 1, **descompactar** `HeadlessAndroidScanner-5.0.1-jar-with-dependencies.jar` e inspecionar a classe `de.fraunhofer.iem.crysl.headlessandroidscanner` (ou similar).
 
 ---
 
-### Fontes citadas
+## 6. Riscos e Mitigações
 
-- [AspectJ ajc manual](https://eclipse.dev/aspectj/doc/latest/devguide/ajc.html)
-- [AspectJ LTW configuration](https://eclipse.dev/aspectj/doc/released/devguide/ltw-configuration.html)
-- [AspectJ 1.9.24 on Maven Central](https://mvnrepository.com/artifact/org.aspectj/aspectjtools/1.9.24)
-- [AspectJ StackMapAdder.java](https://github.com/eclipse-aspectj/aspectj/blob/master/weaver/src/main/java/org/aspectj/weaver/bcel/asm/StackMapAdder.java)
-- [Android d8 documentation](https://developer.android.com/tools/d8)
-- [SDK Build Tools release notes](https://developer.android.com/tools/releases/build-tools)
-- [AGP 9.0.1 release notes](https://developer.android.com/build/releases/agp-9-0-0-release-notes)
-- [AGP 9.1.1 release notes](https://developer.android.com/build/releases/agp-9-1-0-release-notes)
-- [Jake Wharton — Android's Java 8 Support](https://jakewharton.com/androids-java-8-support/)
-- [Jake Wharton — D8 Library Desugaring](https://jakewharton.com/d8-library-desugaring/)
-- [dotnet/android D8 and R8 guide](https://github.com/dotnet/android/blob/main/Documentation/guides/D8andR8.md)
-- [HujiangTechnology/gradle_plugin_android_aspectjx (archived)](https://github.com/HujiangTechnology/gradle_plugin_android_aspectjx)
-- [wurensen/gradle_plugin_android_aspectjx](https://github.com/wurensen/gradle_plugin_android_aspectjx)
-- [Ibotta/gradle-aspectj-pipeline-plugin](https://github.com/Ibotta/gradle-aspectj-pipeline-plugin)
-- [JD Porterfield — Switching AspectJ Plugins in Android](https://jdvp.me/articles/Switching-AspectJ-Plugins-Android)
-- [google/enjarify (archived)](https://github.com/google/enjarify)
-- [pxb1988/dex2jar v2.4](https://github.com/pxb1988/dex2jar/releases/tag/v2.4)
-- [DiSL/AspectJ comparison (HAL)](https://inria.hal.science/hal-03533152/document)
-- [BISM (Springer 2020)](https://link.springer.com/chapter/10.1007/978-3-030-60508-7_18)
-- [BISM DSL (Springer 2023)](https://link.springer.com/chapter/10.1007/978-3-031-44267-4_17)
-- [didi/DroidAssist #38 — stack map table D8](https://github.com/didi/DroidAssist/issues/38)
-- [growingio #90 — stack map D8](https://github.com/growingio/growingio-sdk-android-autotracker/issues/90)
-- [bazel #15751 — D8 excessive stack map warnings](https://github.com/bazelbuild/bazel/issues/15751)
-- [AAPT2 × SDK 35 mismatch](https://medium.com/@tosebikan/fixing-the-aapt2-crash-after-moving-to-android-15-sdk-35-7bcff92a9800)
+### Tabela de risco
+
+| ID | Risco | Probabilidade | Impacto | Mitigação |
+|----|-------|---------------|---------|-----------|
+| R1 | **FIX 2 não captura o crash do stack trace (CHA path)** | **Alta** | **Alto** | Reposicionar FIX 2 para envolver `retrieveActiveBody()` em `Flowgraph.java:274` E adicionar fallback "retry sem `-withCHA`" no `StaticAnalyzer` Python |
+| R2 | **FIX 3 demanda 3-5 dias, não 4-8 h** | **Alta** | Médio | Replanejar janela; usar timebox de 4h só para discovery (compilar e listar erros), depois decidir |
+| R3 | **Soot 4.7.x ainda crasha em alguns APKs** (bug não corrigido upstream) | Média | Médio | FIX 2 reposicionado se torna load-bearing; aceitar SA parcial |
+| R4 | **Excludes Kotlin perdem reachability em generic/generic_new** | Média | Médio para JCA ✓ ; Alto para generic | Medir antes/depois; se necessário, manter excludes só em modo `--spec-set jca` |
+| R5 | **Conflito FlowDroid 2.10.0 + Soot 4.7.1** (FlowDroid 2.10 é de 2022, espera Soot ~4.3.0) | **Alta** | Alto | Atualizar FlowDroid para **2.14.1** (a mesma do CryptoAnalysis 5.0.1, validada com Soot 4.6.0). Ou 2.15.1 se também alinhada com 4.7.1 |
+| R6 | **Memória**: Soot 4.x consome mais RAM que 3.x | Média | Médio | Setar `-Xmx16g` em `lib/gator/gator` script |
+| R7 | **Race condition #1189** em multi-thread | Baixa | Baixo | Manter `-worker 1` (já é default no GATOR per `Configs.workerNum=1`) |
+| R8 | **Regressão nos 97 APKs hoje funcionando** | Média | Alto | Antes de merge: rodar SA paralela completa antes/depois e comparar JSONs (counts de classes, métodos, reachable, transitions). Cenário de spec já tolera ±10% em `reachable`/`reachesMop` mas exige `directlyReachesMop` exato. |
+| R9 | **`soot.dexpler.Util.splitParameters` removido em 4.7** | Média | Alto se removido | Verificar; se removido, reescrever `EpiccBasedIntentAnalysis.processIntentExtras()` (essa classe é um cliente analítico que não é o `RvsecAnalysisClient` — pode ser desativado se não usado pela análise unified) |
+| R10 | **Pre-plan cita CryptoAnalysis options sem inspecionar JAR** | Baixa | Médio | Inspecionar JAR local antes de basear decisões nele |
+| R11 | **Plano não define rollback** | Baixa | Alto se R3+R5 ocorrerem | Branch `gh51-gator-soot47` separada; merge só após validação completa; tag estável anterior preservada |
+
+### Plano de rollback (faltante no original)
+
+1. Trabalhar em branch `gh51-gator-soot47` (separada de `master` e `modules`).
+2. Antes de iniciar: rodar SA completa paralela em 100 APKs e salvar baseline JSONs em `data/baselines/sa_pre_gator_upgrade/`.
+3. Após cada fase (FIX 1, FIX 2, FIX 3), commit isolado para permitir revert pontual.
+4. Critério de merge: `(novos APKs analisáveis) > 50 AND (regressão sobre baseline) < 5 APKs`.
+5. Se R5 (FlowDroid quebrar) materializar: reverter FIX 3 e manter FIX 1+FIX 2 — ainda capturam parte do crash em Flowgraph.
+
+---
+
+## 7. Pontos Positivos
+
+1. **Diagnóstico técnico detalhado** com stack trace, fluxo de phases, comparação com FlowDroid/CryptoAnalysis.
+2. **Reconhece versões fragmentadas** no parent pom — unificar é genuinamente positivo (ainda mais com `ca.mcgill.sable` deprecado).
+3. **Validação empírica** com CogniCrypt 5.0.1 antes de propor (excelente prática).
+4. **Identifica módulos deprecados** (rvsec-methods-extractor, rvsec-taint) para limpar antes do upgrade — reduz superfície de quebra.
+5. **Estratégia em camadas** (avoidance + graceful degradation + version uplift) é correta em princípio: cada fix ataca o problema em uma camada distinta.
+6. **Preserva backward-compatibility consciente** ao notar que NÃO excluir `android.*`/`androidx.*` (diferente do CryptoAnalysis) porque GATOR precisa do framework para WTG. **Decisão técnica correta**.
+7. **Analogia explícita com gh50** (instrumentação) ajuda a calibrar expectativas e padroniza o approach (`continue > throw`, `proceedOnError`, etc.).
+8. **Lista questões abertas** explicitamente (§9), em vez de esconder dúvidas.
+9. **Trade-off WTG documentado** (§5.3) — esclarece que `pure_algorithm` e APE-RV não dependem dele.
+
+---
+
+## 8. Pontos Negativos / Gaps
+
+### P1 — Bloqueantes para execução
+
+1. **Discrepância stack trace ↔ localização do FIX 2**: o crash documentado ocorre em `cg.cha`, não em `Flowgraph.createOpNode`. FIX 2 não cobre esse caminho. Esclarecer ou reposicionar.
+2. **Linha errada citada (191 vs 343)**: confunde quem for executar o fix.
+3. **Estimativa de esforço de FIX 3 irrealista** (4-8h vs 3-5 dias) — gera planejamento defeituoso.
+4. **Versão alvo desatualizada** (4.7.0 vs 4.7.1).
+5. **Afirmações imprecisas em FIX 1**: `ignore_resolution_errors` e `throw_analysis_dalvik` não capturam o crash em questão.
+
+### P2 — Importantes mas não bloqueantes
+
+6. **CryptoAnalysis options não verificadas no JAR** — base do FIX 1 é parcialmente pendurada em premissa não inspecionada.
+7. **FlowDroid 2.10 ↔ Soot 4.7.1**: incompatibilidade transitiva não tratada (R5). Plano ignora que upgrade Soot pode quebrar `rvsec-reachability` (já comentado no pom, ok) mas também `rvsec-apk` que importa `soot-infoflow-android`.
+8. **Sem regressão sobre os 97 APKs** que hoje funcionam — risco de baseline regredir invisivelmente.
+9. **Sem plano de rollback** explícito.
+10. **Sem mensuração da perda de reachability** em `generic`/`generic_new` por excludes Kotlin.
+11. **Sem avaliação de memória** (Soot 4.x mais pesado).
+12. **Critério de teste vago** ("≥7/10") sem nomear os 10 APKs.
+
+### P3 — Melhorias de polish
+
+13. **Falta cenário na spec** cobrindo "GATOR crasha em fase Soot interna" (sugerido em §2.2).
+14. **Falta proposta de fallback "retry sem -withCHA"** que poderia ser implementado em horas no Python sem tocar o Java.
+15. **Tabela §2.1** poderia separar "FlowDroid em SootConfigForAndroid" vs "FlowDroid em AbstractInfoflow/SetupApplication" — hoje sugere que tudo está num lugar.
+16. **§4.5 (W5 Androguard)** mistura objetivos: poderia ser change separada para não inflar escopo.
+
+---
+
+## 9. Sugestões de Melhoria Priorizadas
+
+### P1 (críticas — antes de começar)
+
+- **Esclarecer o stack trace**: gerar o crash localmente (rodar GATOR manualmente em 3 APKs Kotlin/Compose: `app.siftrecipes_6.apk`, `ac.mdiq.podcini.X_256.apk`, `app.fluffy_730.apk`) e capturar o stack trace **completo**. Verificar se Flowgraph aparece (ou não). Documentar com data e ambiente.
+- **Reescrever FIX 2** para incluir, no mínimo, try-catch em `Flowgraph.java:274` (`retrieveActiveBody`). Considerar também por-seção try-catch em `RvsecAnalysisClient` para garantir que mesmo crashes pós-Flowgraph emitam JSON parcial.
+- **Atualizar versão alvo**: Soot **4.7.1** (não 4.7.0) e considerar bump simultâneo de FlowDroid para 2.14.1 (validada com Soot 4.6.0) ou 2.15.1.
+- **Replanejar FIX 3** como 3-5 dias: dia 1 (poms + compile + lista de breaks), dia 2 (Options API + Dexpler.Util), dia 3 (compile clean + smoke 5 APKs), dia 4-5 (regressão sobre 97 APKs + ajustes).
+
+### P2 (recomendadas)
+
+- **Adicionar fallback "retry sem -withCHA"** no `StaticAnalyzer` Python como mitigação imediata, antes mesmo do upgrade Soot. Custo: ~2h. Pode reduzir os 27.6% para algo melhor já agora.
+- **Inspecionar `HeadlessAndroidScanner-5.0.1-jar-with-dependencies.jar`** (basta `jar xf` + `javap -c`) e listar as opções Soot reais. Substituir as alegações §2.1 do plano com evidência concreta.
+- **Comparar reachability** em 3 APKs (Java puro, Kotlin pequeno, Kotlin/Compose grande) **antes e depois** dos excludes Kotlin. Quantificar perda em `reachable`, `reachesMop`, `directlyReachesMop`.
+- **Baseline + regressão**: rodar SA paralela pré-fix para os 97 que funcionam, salvar JSONs, comparar pós-fix. Critério: `directlyReachesMop` deve ter ±0 (per spec INV existente); `reachesMop` ±10%.
+- **Definir critério de teste explícito**: nomear 10 APKs (mix funciona/falha), métrica binária (produz JSON?), métrica qualitativa (reachable count > 0?).
+
+### P3 (polish)
+
+- **Adicionar cenário na spec** cobrindo crash pré-RvsecAnalysisClient.
+- **Separar W5 (Androguard)** em pré-plano dedicado.
+- **Adicionar plano de rollback** explícito (branch separada, baseline, critério de merge).
+- **Memória**: bumpar `-Xmx16g` em `lib/gator/gator` quando rodar Soot 4.7.1.
+- **Documentar `-worker 1`** como invariante — evita race condition #1189.
+
+---
+
+## 10. Conclusão e Recomendação Final
+
+O pré-plano está **na direção certa em estratégia geral**, mas tem **três imprecisões técnicas** que podem comprometer a execução:
+
+1. FIX 2 está mal-localizado para o crash documentado.
+2. FIX 1 inclui opções que não atuam sobre `InternalTypingException`.
+3. FIX 3 é subestimado em esforço por ~5×.
+
+A validação empírica com CogniCrypt 5.0.1 é a peça mais forte do documento — confirma que **FIX 3 (upgrade Soot)** é o ingrediente load-bearing. FIX 1 e FIX 2 são complementos úteis mas insuficientes isoladamente.
+
+### Recomendação executiva
+
+**Aprovar com revisão**. Antes da execução:
+
+- **Tarefa de discovery (4-8 h)**:
+  1. Reproduzir o crash e capturar stack trace completo em 3 APKs.
+  2. Inspecionar JAR do CryptoAnalysis 5.0.1.
+  3. Implementar fallback "retry sem `-withCHA`" no Python.
+  4. Validar que essa mitigação imediata melhora a taxa de SA (mesmo sem upgrade Soot).
+
+- **Decisão go/no-go** após discovery:
+  - Se a mitigação Python sozinha levar a SA ≥ 50%, **adiar FIX 3** (tese em finalização, deadline já em 2026-04-13).
+  - Se SA continuar < 40%, **aprovar FIX 1 + FIX 2 reposicionado + FIX 3** com timebox de 5 dias.
+
+- **Critério de sucesso**:
+  - SA ≥ 200/352 (57%) sem regressão dos 97 atuais.
+  - `directlyReachesMop` exato em baseline `cryptoapp.apk`.
+  - Tempo médio de SA ≤ 2× baseline.
+
+Recomendo também acoplar este trabalho ao roadmap **#48 (gh48)** com prioridade média (não bloqueante para a entrega da tese, dado que JCA é foco principal e tem impacto mínimo de excludes Kotlin), tratando como **investimento de robustez** e não como bug-fix urgente.
+
+---
+
+## Anexo A — Verificações empíricas executadas
+
+| Verificação | Resultado |
+|-------------|-----------|
+| `Flowgraph.java` linha do `throw new RuntimeException(e)` | **343** (não 191) |
+| Estrutura do try-catch que envolve `createOpNode` | Confirmada (linhas 338-344). `continue` é sintaticamente válido (loop `while (stmts.hasNext())`). |
+| Estrutura de `Flowgraph.java:274` (`retrieveActiveBody`) | **Fora** de qualquer try-catch. |
+| Fluxo `Main.setupAndInvokeSoot()` (withCHA branch) | `cg.cha` roda antes de `wjtp.gui` → AnalysisEntrypoint → GUIAnalysis → Flowgraph. |
+| Versão estável atual do Soot (`org.soot-oss`) | **4.7.1** (2025-02-23). 4.8.0 ainda SNAPSHOT. |
+| Status do bug #1071 (Integer1Type) | **Aberto**. Sem PR fundido. Idêntico em 3.3.0 e 4.7.x. |
+| FlowDroid `SootConfigForAndroid` (`develop`) | Só configura excludes (sem `kotlin.*`) + `no_bodies_for_excluded`. |
+| Fork/patch privado de Soot em CryptoAnalysis | **Não existe** — usa upstream `org.soot-oss:4.6.0`. |
+| Exclusão de Soot no `rvsec-gator/client/pom.xml` | Confirmada (exclui ambos `ca.mcgill.sable:soot` e `org.soot-oss:soot`). |
+| Soot APIs em risco no GATOR | `Options.v().set_*()` em `Configs.java:235-237`, `soot.dexpler.Util.*` em `EpiccBasedIntentAnalysis.java:125-128`, `getMethods() : Chain → List` em `Flowgraph.java:267` e `Hierarchy.java:536`. |
+
+## Anexo B — Fontes externas consultadas
+
+- [Soot releases](https://github.com/soot-oss/soot/releases) — 4.7.1 confirmado em 2025-02-23.
+- [Soot ClassHierarchy.java (master)](https://github.com/soot-oss/soot/blob/master/src/main/java/soot/jimple/toolkits/typing/integer/ClassHierarchy.java) — bug `typeNode()` inalterado.
+- [Soot #1071 Integer1Type](https://github.com/soot-oss/soot/issues/1071) — aberto, sem PR.
+- [Soot #1641 jb.sils trigger](https://github.com/soot-oss/soot/issues/1641) — confirma fase trigger.
+- [SootUp 2.0 releases](https://github.com/soot-oss/SootUp/releases) — Mar/2025.
+- [SootUp APK Frontend status](https://deepwiki.com/soot-oss/SootUp/4.3-apk-frontend) — admite limitações Android.
+- [SootUp vs Soot, ServiceNow Security Lab](https://securitylab.servicenow.com/research/2024-11-12-sootup-vs-soot/) — Nov/2024.
+- [FlowDroid SootConfigForAndroid (develop)](https://github.com/secure-software-engineering/FlowDroid/blob/develop/soot-infoflow-android/src/soot/jimple/infoflow/android/config/SootConfigForAndroid.java) — config real verificada.
+- [FlowDroid releases](https://github.com/secure-software-engineering/FlowDroid/releases) — 2.15.1 estável.
+
+---
+
+*Fim da análise*
