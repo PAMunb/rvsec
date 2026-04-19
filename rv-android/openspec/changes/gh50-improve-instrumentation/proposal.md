@@ -25,7 +25,8 @@ The instrumentation pipeline achieves only 17.5% success rate on modern F-Droid 
 ## Impact
 
 **Modules affected**:
-- rv-instrumentation (`rvandroid.py`, `config.py`, new `assets/weaving_excludes.yaml`, new `assets/rv-frame-computer.jar`) — pipeline changes
+- rv-instrumentation (`rvandroid.py`, `config.py`, `pyproject.toml`, new `assets/weaving_excludes.yaml`) — pipeline changes
+- rvsec-frame-computer (new Maven module under `rvsec/rvsec-android/`) — ASM COMPUTE_FRAMES utility, fat JAR with `org.ow2.asm:asm:9.7.1`, copied to `rv-android/lib/frame-computer/` via `maven-resources-plugin`
 - rvsec parent (`pom.xml`) — AspectJ version property
 - Docker base image (`docker/base/Dockerfile`) — AspectJ binary download URL
 - Docker development environment — local AspectJ binary update

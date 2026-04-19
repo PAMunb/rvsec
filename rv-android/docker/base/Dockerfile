@@ -30,13 +30,13 @@ RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.14/binaries/apache-maven-3.9
     unzip apache-maven-3.9.14-bin.zip && \
     rm apache-maven-3.9.14-bin.zip
 
-# Install AspectJ compiler — version must match aspectj.version in rvsec/pom.xml (1.9.24)
+# Install AspectJ compiler — version must match aspectj.version in rvsec/pom.xml (1.9.25.1)
 RUN mkdir $ASPECTJ_HOME && \
-    wget 'https://github.com/eclipse-aspectj/aspectj/releases/download/V1_9_24/aspectj-1.9.24.jar' -O aspectj-1.9.24.jar && \
-    java -jar aspectj-1.9.24.jar -to $ASPECTJ_HOME && \
-    sed -i 's/-Xmx64M/-Xmx4096M/g' $ASPECTJ_HOME/bin/ajc && \
+    wget 'https://github.com/eclipse-aspectj/aspectj/releases/download/V1_9_25_1/aspectj-1.9.25.1.jar' -O aspectj-1.9.25.1.jar && \
+    java -jar aspectj-1.9.25.1.jar -to $ASPECTJ_HOME && \
+    sed -i 's/-Xmx64M/-Xmx8192M/g' $ASPECTJ_HOME/bin/ajc && \
     chmod a+x $ASPECTJ_HOME/bin/ajc && \
-    rm aspectj-1.9.24.jar
+    rm aspectj-1.9.25.1.jar
 
 # Install uv as a core build tool
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh

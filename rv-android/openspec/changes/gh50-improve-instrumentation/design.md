@@ -28,7 +28,7 @@ flowchart TD
 |-----------|---------------|-------|--------|
 | `_load_weaving_excludes()` [NEW] | Load exclude patterns from YAML | `weaving_excludes.yaml` | List of pattern strings |
 | `_generate_aop_xml()` [NEW] | Generate aop.xml from YAML patterns | List of patterns | `aop.xml` in `tmp_dir` |
-| `__compute_stack_frames()` [NEW] | Run ASM COMPUTE_FRAMES on woven classes | `tmp_dir` with .class files | Same files with recomputed frames |
+| `__compute_stack_frames()` [NEW] | Run rv-frame-computer.jar (ASM COMPUTE_FRAMES) on woven classes | `tmp_dir` with .class files | Same files with recomputed frames |
 | `__get_android_jar()` [MODIFIED] | Select android.jar by APK's targetSdkVersion | `app.sdk_target` | Path to best-matching android.jar |
 | `__weave_monitors()` [MODIFIED] | Add `-proceedOnError` and `-xmlConfigured` to ajc | ajc command | woven classes (partial on error) |
 | `__d8()` [MODIFIED] | Add `--no-desugaring` to d8 | d8 command | DEX bytecode |
@@ -87,7 +87,7 @@ flowchart TD
 
 ### D4: ASM COMPUTE_FRAMES as complementary fix
 
-**Choice**: Add an ASM-based frame recomputation step after ajc weaving, using a small Java utility (`rv-frame-computer.jar`).
+**Choice**: Add an ASM-based frame recomputation step after ajc weaving, using a new Maven module (`rvsec-frame-computer`) that produces a fat JAR (`rv-frame-computer.jar`) with `org.ow2.asm:asm:9.7.1` bundled. The JAR is copied to `rv-android/lib/frame-computer/` during `mvn install`, following the same pattern as `rvsec-reachability` → `lib/reach/` and `rvsec-mop-extractor` → `lib/mop-extractor/`.
 
 **Alternative considered**: Rely solely on `aop.xml` exclusion.
 
@@ -95,9 +95,13 @@ flowchart TD
 - **aop.xml** prevents the weaver from touching library classes → their frames stay intact → eliminates one source of AIOOBE
 - **COMPUTE_FRAMES** recomputes frames on classes the weaver DID modify (app code) → fixes frames the weaver corrupted → eliminates another source of AIOOBE
 
-ajc uses BCEL for bytecode manipulation. BCEL's stack frame computation is known to be insufficient for modern bytecode patterns (try-with-resources, lambdas, switch expressions). ASM's `COMPUTE_FRAMES` does a full recomputation from the control flow graph, producing frames that d8 accepts.
+ajc uses BCEL for bytecode manipulation. BCEL's stack frame computation is known to be insufficient for modern bytecode patterns (try-with-resources, lambdas, switch expressions). Additionally, dex2jar uses `ClassWriter.COMPUTE_MAXS` (not `COMPUTE_FRAMES`), so decompiled classes may lack StackMapTable entirely. ASM's `COMPUTE_FRAMES` does a full recomputation from the control flow graph, producing frames that d8 accepts.
 
-**Risk**: `ClassWriter.COMPUTE_FRAMES` needs to resolve the type hierarchy to compute frames. It requires the correct classpath (android.jar + runtime jars). This is the same classpath already assembled for ajc — passed to the jar via argument.
+**Critical implementation detail**: The `ClassWriter` constructor must NOT receive the `ClassReader` as argument. With `new ClassWriter(reader, COMPUTE_FRAMES)`, ASM optimizes by copying frames from the reader — if the original had no StackMapTable, the copy is empty (no-op). The correct form is `new ClassWriter(COMPUTE_FRAMES)` without reader, which forces full recomputation.
+
+**Risk**: `ClassWriter.COMPUTE_FRAMES` without reader needs to resolve the type hierarchy to compute frames. It requires the correct classpath (android.jar + runtime jars). A custom `FrameComputingClassWriter` subclass overrides `getCommonSuperClass()` to resolve types via a `URLClassLoader` built from the same classpath already assembled for ajc. Types not found fall back to `java/lang/Object`. Additionally, dex2jar can produce classes with illegal modifiers that trigger `ClassFormatError` (a JVM `Error`, not `Exception`) when `Class.forName()` tries to load them. Both `getCommonSuperClass()` and `processClassFile()` catch `Throwable` to handle this — failed files are preserved with original bytecode.
+
+**Additional fix**: d8 emits non-fatal "Expected stack map table" warnings to stderr even on success (exit code 0). The `execute_command` utility treats any stderr as error. Fix: add `skip_stderr=True` to d8 call (same pattern as dex2jar).
 
 ### D5: Dynamic `android.jar` selection
 
@@ -113,8 +117,8 @@ ajc uses BCEL for bytecode manipulation. BCEL's stack frame computation is known
 
 **Changes required**:
 - `rvsec/pom.xml:32`: `<aspectj.version>1.9.25.1</aspectj.version>`
-- `docker/base/Dockerfile`: Update download URL and version
-- Local development: download new AspectJ binary
+- `docker/base/Dockerfile`: Update download URL, version, and `-Xmx` from 4096M to 8192M (modern APKs require more memory for weaving)
+- Local development: download new AspectJ binary, update symlink, set `-Xmx8192M` in `ajc` script
 - Rebuild Docker base image (+ all child images)
 
 ### D7: MOP coverage trade-off
@@ -139,16 +143,18 @@ This is defensible because: (1) `Coverage.aj` already excludes the same packages
 def __compute_stack_frames(self, app: App) -> None:
     """Recompute stack map frames on woven .class files using ASM.
 
-    Runs rv-frame-computer.jar on tmp_dir. The jar walks all .class files,
-    reads each with ClassReader, writes with ClassWriter(COMPUTE_FRAMES),
-    and overwrites in place. Requires classpath for type hierarchy resolution.
+    Runs rv-frame-computer.jar (from lib/frame-computer/) on tmp_dir.
+    The jar walks all .class files, reads each with ClassReader, writes
+    with ClassWriter(COMPUTE_FRAMES), and overwrites in place.
+    Requires classpath for type hierarchy resolution.
     """
+    jar = self._get_frame_computer_jar()
+    if not jar:
+        self._logger.warning("rv-frame-computer.jar not found, skipping")
+        return
     classpath = ":".join(self.__get_classpath(app))
-    cmd = Command("java", [
-        "-jar", self.config.frame_computer_jar_path,
-        self.config.tmp_dir,
-        "--classpath", classpath,
-    ])
+    cmd = Command("java", ["-jar", jar, self.config.tmp_dir,
+                            "--classpath", classpath])
     utils.execute_command(cmd, "frame_computer")
 ```
 
@@ -231,7 +237,7 @@ __d8():
 | `weaving_excludes.yaml` not found | `_load_weaving_excludes()` | Return empty list, log info | ajc runs without -xmlConfigured (backward compatible) |
 | `aop.xml` generation fails | `_generate_aop_xml()` | Log warning, skip -xmlConfigured | ajc runs without exclusion |
 | ajc class-level error with -proceedOnError | ajc execution | ajc continues, produces partial output | Other classes are woven normally |
-| Frame computation fails on a .class file | `__compute_stack_frames()` | Log warning, skip file | File preserved with original (woven) bytecode |
+| Frame computation fails on a .class file (ClassFormatError, ClassNotFoundException, etc.) | `__compute_stack_frames()` | Log warning, skip file (catch Throwable) | File preserved with original (woven) bytecode |
 | rv-frame-computer.jar not found | `__compute_stack_frames()` | Log warning, skip step | Pipeline continues without frame recomputation |
 | android.jar not found for target SDK | `__get_android_jar()` | Log info, fallback to highest available | Uses best available platform |
 | No android.jar found at all | `__get_android_jar()` | Use hardcoded fallback (android-29) | Backward compatible |

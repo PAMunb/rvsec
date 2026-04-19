@@ -2,7 +2,10 @@ import json
 import os
 import shutil
 import time
+from pathlib import Path
 from typing import List, Optional
+
+import yaml
 
 from rv_android_core import constants
 from rv_android_core.commands.command import Command
@@ -489,14 +492,16 @@ class RVInstrumentation:
         try:
             self.create_temp_directories()
 
-            # Execute the six-phase instrumentation pipeline:
+            # Execute the seven-phase instrumentation pipeline:
             # Phase 1: DEX -> JAR (dex2jar) -- decompile bytecode to Java classes
             self.__decompile_apk(app)
             # Phase 2: Copy AspectJ/Java monitor files into the class directory
             self.__include_generated_monitors()
             # Phase 3: AspectJ weaving -- integrate monitoring pointcuts at bytecode level
             self.__weave_monitors(app)
-            # Phases 4-6: Merge support libs, recompile to DEX (d8), sign APK
+            # Phase 4: Recompute stack map frames corrupted by ajc (ASM COMPUTE_FRAMES)
+            self.__compute_stack_frames(app)
+            # Phases 5-7: Merge support libs, recompile to DEX (d8), sign APK
             signed_apk = self.__create_apk(app)
 
             # Validate successful APK creation
@@ -798,22 +803,28 @@ class RVInstrumentation:
         # Both point to tmp_dir because monitor sources were copied there in Phase 2.
         # Output (-d) goes back to tmp_dir, overwriting the original classes with
         # woven versions. Java 1.8 source level ensures broad Android compatibility.
-        ajc_cmd = Command(
-            "ajc",
-            [
-                "-cp",
-                classpath_str,
-                "-Xlint:ignore",
-                "-inpath",
-                self.config.tmp_dir,
-                "-d",
-                self.config.tmp_dir,
-                "-source",
-                "1.8",
-                "-sourceroots",
-                self.config.tmp_dir,
-            ],
-        )
+        ajc_args = [
+            "-cp",
+            classpath_str,
+            "-Xlint:ignore",
+            "-proceedOnError",
+            "-inpath",
+            self.config.tmp_dir,
+            "-d",
+            self.config.tmp_dir,
+            "-source",
+            "1.8",
+            "-sourceroots",
+            self.config.tmp_dir,
+        ]
+
+        # Generate aop.xml from weaving_excludes.yaml for class exclusion
+        excludes = self._load_weaving_excludes()
+        aop_xml_path = self._generate_aop_xml(excludes, self.config.tmp_dir)
+        if aop_xml_path:
+            ajc_args.extend(["-xmlConfigured", aop_xml_path])
+
+        ajc_cmd = Command("ajc", ajc_args)
 
         utils.execute_command(ajc_cmd, "ajc")
 
@@ -827,6 +838,65 @@ class RVInstrumentation:
             "AspectJ monitor weaving completed successfully",
             extra={"app_name": app.name, "pipeline_stage": "aspectj_weaving_completed"},
         )
+
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="frame_computation", reraise=True
+    )
+    def __compute_stack_frames(self, app: App) -> None:
+        """
+        Recompute stack map frames on woven .class files using ASM COMPUTE_FRAMES.
+
+        Runs rv-frame-computer.jar on tmp_dir after ajc weaving. The jar walks all
+        .class files, reads each with ClassReader, writes with ClassWriter(COMPUTE_FRAMES),
+        and overwrites in place. Files that fail are logged and skipped.
+
+        This fixes stack map frame corruption left by ajc's BCEL-based weaver, which is
+        the root cause of d8 AIOOBE (ArrayIndexOutOfBoundsException) failures.
+
+        Args:
+            app: Android application object for classpath construction
+        """
+        frame_computer_jar = self._get_frame_computer_jar()
+        if not frame_computer_jar:
+            self._logger.warning(
+                "rv-frame-computer.jar not found, skipping frame recomputation"
+            )
+            return
+
+        classpath = self.__get_classpath(app)
+        classpath_str = ":".join(classpath)
+
+        self._logger.info(
+            f"Recomputing stack map frames for: {app.name}",
+            extra={"app_name": app.name, "pipeline_stage": "frame_computation"},
+        )
+
+        frame_cmd = Command(
+            "java",
+            [
+                "-jar",
+                frame_computer_jar,
+                self.config.tmp_dir,
+                "--classpath",
+                classpath_str,
+            ],
+        )
+        utils.execute_command(frame_cmd, "frame_computer")
+
+        self._logger.debug(
+            "Stack map frame recomputation completed",
+            extra={"app_name": app.name, "pipeline_stage": "frame_computation_completed"},
+        )
+
+    def _get_frame_computer_jar(self) -> Optional[str]:
+        """Locate rv-frame-computer.jar in rv-android/lib/frame-computer/."""
+        # Navigate from rvandroid.py → rv_instrumentation/ → src/ → rv-instrumentation/
+        # → modules/ → rv-android/ → lib/frame-computer/
+        rv_android_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+        jar_path = rv_android_root / "lib" / "frame-computer" / "rv-frame-computer.jar"
+        if jar_path.exists():
+            return str(jar_path)
+        return None
 
     @ErrorHandler.handle_errors(
         component="RVInstrumentation", phase="apk_creation", reraise=True
@@ -998,14 +1068,15 @@ class RVInstrumentation:
         )
 
         # d8 converts the instrumented JAR to DEX bytecode. --release enables
-        # optimizations, --lib provides the Android framework stubs. min-api 26
-        # is conservative and covers Android 8.0+; a future enhancement (#23) will
-        # read the app's actual minSdkVersion to produce more optimized bytecode.
+        # optimizations, --lib provides the Android framework stubs, --no-desugaring
+        # avoids j$ prefix conflicts with pre-desugared classes, --min-api 26
+        # covers Android 8.0+ with native Java 8 support.
         d8_cmd = Command(
             "d8",
             [
                 monitored_jar,
                 "--release",
+                "--no-desugaring",
                 "--lib",
                 self.__get_android_jar(app),
                 "--min-api",
@@ -1013,7 +1084,10 @@ class RVInstrumentation:
             ],
         )
 
-        utils.execute_command(d8_cmd, "d8")
+        # skip_stderr=True because d8 emits non-fatal "Expected stack map table"
+        # warnings to stderr even on success (exit code 0). These warnings indicate
+        # input classes with missing/imperfect frames but d8 still produces valid DEX.
+        utils.execute_command(d8_cmd, "d8", True)
 
         # Create working copy of original APK
         unsigned_apk_name = f"unsigned_{app.name}"
@@ -1154,28 +1228,115 @@ class RVInstrumentation:
 
     def __get_android_jar(self, app: App) -> str:
         """
-        Get Android SDK JAR path for compilation and classpath construction.
+        Select android.jar matching the APK's targetSdkVersion.
 
-        TODO(#23): Implement dynamic Android JAR selection based on app target SDK
+        Tries the exact platform first, then falls back to the highest available.
+        Minimum fallback is android-26 (matching --min-api 26).
 
         Args:
-            app: Android application object (for future SDK targeting)
+            app: Android application object with sdk_target from androguard
 
         Returns:
-            Path to Android SDK JAR file
+            Path to best-matching Android SDK JAR file
         """
-        # Currently uses configured Android JAR path
-        # Future enhancement: dynamic selection based on app.sdk_target
+        target = getattr(app, "sdk_target", None)
+        platforms_dir = self.config.android_platforms_dir
+
+        if target and platforms_dir:
+            # Try exact match first
+            exact_jar = os.path.join(platforms_dir, f"android-{target}", "android.jar")
+            if os.path.exists(exact_jar):
+                self._logger.debug(
+                    f"Using android.jar for target SDK {target}",
+                    extra={"android_jar": exact_jar},
+                )
+                return exact_jar
+
+            # Fallback: highest available platform
+            highest = self._find_highest_android_platform(platforms_dir)
+            if highest:
+                self._logger.info(
+                    f"Platform android-{target} not available, using {highest}",
+                    extra={"requested": target, "fallback": highest},
+                )
+                return os.path.join(platforms_dir, highest, "android.jar")
+
         return self.config.android_jar_path
 
-        # Future implementation for dynamic SDK targeting:
-        # platform = f"android-{app.sdk_target}"
-        # android_jar = os.path.join(self.config.android_platforms_dir, platform, 'android.jar')
-        #
-        # if os.path.exists(android_jar):
-        #     return android_jar
-        # else:
-        #     return self.config.android_jar_path
+    def _find_highest_android_platform(self, platforms_dir: str) -> Optional[str]:
+        """Find the highest numbered android-XX platform directory."""
+        if not os.path.isdir(platforms_dir):
+            return None
+        platforms = []
+        for name in os.listdir(platforms_dir):
+            if name.startswith("android-"):
+                try:
+                    level = int(name.split("-")[1])
+                    if level >= 26:
+                        platforms.append((level, name))
+                except (ValueError, IndexError):
+                    continue
+        if not platforms:
+            return None
+        platforms.sort(reverse=True)
+        return platforms[0][1]
+
+    def _load_weaving_excludes(self) -> List[str]:
+        """Load exclude patterns from weaving_excludes.yaml in assets/.
+
+        Returns empty list if file not found (backward compatible).
+        """
+        assets_dir = Path(__file__).parent.parent.parent / "assets"
+        yaml_path = assets_dir / "weaving_excludes.yaml"
+
+        if not yaml_path.exists():
+            self._logger.info("No weaving_excludes.yaml found, skipping class exclusion")
+            return []
+
+        try:
+            with open(yaml_path) as f:
+                data = yaml.safe_load(f)
+            excludes = data.get("excludes", [])
+            self._logger.debug(
+                f"Loaded {len(excludes)} weaving exclude patterns",
+                extra={"patterns": excludes},
+            )
+            return excludes
+        except Exception as e:
+            self._logger.warning(f"Failed to load weaving_excludes.yaml: {e}")
+            return []
+
+    def _generate_aop_xml(
+        self, excludes: List[str], output_dir: str
+    ) -> Optional[str]:
+        """Generate aop.xml with exclude patterns for ajc -xmlConfigured.
+
+        The file is written directly in output_dir (no META-INF/ needed —
+        -xmlConfigured takes an explicit file path argument, not classpath discovery).
+
+        Returns path to generated aop.xml, or None if no patterns provided.
+        """
+        if not excludes:
+            return None
+
+        aop_xml_path = os.path.join(output_dir, "aop.xml")
+        lines = ['<aspectj>', '  <weaver>']
+        for pattern in excludes:
+            lines.append(f'    <exclude within="{pattern}"/>')
+        lines.append('  </weaver>')
+        lines.append('</aspectj>')
+
+        try:
+            with open(aop_xml_path, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            self._logger.debug(
+                f"Generated aop.xml with {len(excludes)} exclude patterns",
+                extra={"aop_xml_path": aop_xml_path},
+            )
+            return aop_xml_path
+        except Exception as e:
+            self._logger.warning(f"Failed to generate aop.xml: {e}")
+            return None
 
     def __jarsigner(self, signed_apk: str) -> None:
         """
