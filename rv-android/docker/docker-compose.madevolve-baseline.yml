@@ -1,0 +1,154 @@
+# madevolve baseline: aperv:sata_mop × 169 APKs × 3 reps × 180s
+# No LLM, no calibrated params — default sata_mop to establish
+# the baseline fitness for the madevolve evolution pipeline (gh6).
+#
+# Usage:
+#   cd rv-android
+#   docker compose -f docker/docker-compose.madevolve-baseline.yml up -d
+#   watch -n 60 bash scripts/monitor_comparacao.sh data/results baseline_180s
+#   docker compose -f docker/docker-compose.madevolve-baseline.yml down
+#
+# Estimated time: ~3h (169 APKs × 3 reps × 210s / 10 containers)
+# No GPU required (sata_mop does not use LLM).
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop"
+    RV_TIMEOUTS: "180"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  bl00:
+    <<: *rvandroid-base
+    container_name: baseline_180s_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_00:/opt/rvsec/rv-android/results
+
+  bl01:
+    <<: *rvandroid-base
+    container_name: baseline_180s_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_01:/opt/rvsec/rv-android/results
+
+  bl02:
+    <<: *rvandroid-base
+    container_name: baseline_180s_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_02:/opt/rvsec/rv-android/results
+
+  bl03:
+    <<: *rvandroid-base
+    container_name: baseline_180s_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_03:/opt/rvsec/rv-android/results
+
+  bl04:
+    <<: *rvandroid-base
+    container_name: baseline_180s_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_04:/opt/rvsec/rv-android/results
+
+  bl05:
+    <<: *rvandroid-base
+    container_name: baseline_180s_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_05:/opt/rvsec/rv-android/results
+
+  bl06:
+    <<: *rvandroid-base
+    container_name: baseline_180s_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_06:/opt/rvsec/rv-android/results
+
+  bl07:
+    <<: *rvandroid-base
+    container_name: baseline_180s_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_07:/opt/rvsec/rv-android/results
+
+  bl08:
+    <<: *rvandroid-base
+    container_name: baseline_180s_08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_08.txt"
+      RV_DELAY: "80"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_08:/opt/rvsec/rv-android/results
+
+  bl09:
+    <<: *rvandroid-base
+    container_name: baseline_180s_09
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: baseline_180s_09
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp4_batch_09.txt"
+      RV_DELAY: "90"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/baseline_180s_09:/opt/rvsec/rv-android/results

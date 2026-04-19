@@ -1,0 +1,183 @@
+# Revalidation REDISTRIBUTION: split remaining work from 2 stuck containers into 10 parallel containers.
+#
+# Context: reval_baseline_01 and reval_island1_02 got stuck with emulator timeout errors, then
+# after resume the per-task time made them the bottleneck. To finish faster, we stopped them and
+# redistributed their remaining work across 10 new containers running in parallel.
+#
+# Old containers (stopped) kept their completed results:
+#   - reval_baseline_01: 33 APKs fully completed (ignored 1 partial, will redo)
+#   - reval_island1_02:  17 APKs fully completed
+#
+# New containers (this compose):
+#   - Baseline group (4 cont): process 23 APKs pending from baseline_01 batch
+#   - Island1 group (6 cont):  process 39 APKs pending from island1_02 batch
+#
+# Estimated wall time (max container): 21 tasks × 340s = ~1.98h
+# Resource usage: 10 cont × 4 CPUs × 10GB = 40 CPUs + 100GB RAM
+#
+# Usage:
+#   cd /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android
+#   docker compose -f docker/docker-compose.revalidate-redist.yml up -d
+#   watch -n 60 'docker ps --filter "name=reval_.*_sub_" --format "table {{.Names}}\t{{.Status}}"'
+#   # after ~2h:
+#   docker compose -f docker/docker-compose.revalidate-redist.yml down
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  # ------------------------------------------------------------------
+  # BASELINE redistribution (4 containers, 23 APKs from baseline_01)
+  # JAR: ape-rv-baseline.jar (master @ 5bd97f7)
+  # ------------------------------------------------------------------
+  reval_baseline_01_sub_b:
+    <<: *rvandroid-base
+    container_name: reval_baseline_01_sub_b
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_baseline_01_sub_b
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_baseline_01_sub_b.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_baseline_01_sub_b:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_baseline_01_sub_c:
+    <<: *rvandroid-base
+    container_name: reval_baseline_01_sub_c
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_baseline_01_sub_c
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_baseline_01_sub_c.txt"
+      RV_DELAY: "8"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_baseline_01_sub_c:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_baseline_01_sub_d:
+    <<: *rvandroid-base
+    container_name: reval_baseline_01_sub_d
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_baseline_01_sub_d
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_baseline_01_sub_d.txt"
+      RV_DELAY: "16"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_baseline_01_sub_d:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_baseline_01_sub_e:
+    <<: *rvandroid-base
+    container_name: reval_baseline_01_sub_e
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_baseline_01_sub_e
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_baseline_01_sub_e.txt"
+      RV_DELAY: "24"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_baseline_01_sub_e:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  # ------------------------------------------------------------------
+  # ISLAND1 redistribution (6 containers, 39 APKs from island1_02)
+  # JAR: ape-rv-island1.jar (evolve/island-1 @ be91ea1b, fitness 35.89)
+  # ------------------------------------------------------------------
+  reval_island1_02_sub_b:
+    <<: *rvandroid-base
+    container_name: reval_island1_02_sub_b
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_island1_02_sub_b
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_island1_02_sub_b.txt"
+      RV_DELAY: "32"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_island1_02_sub_b:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-island1.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_island1_02_sub_c:
+    <<: *rvandroid-base
+    container_name: reval_island1_02_sub_c
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_island1_02_sub_c
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_island1_02_sub_c.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_island1_02_sub_c:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-island1.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_island1_02_sub_d:
+    <<: *rvandroid-base
+    container_name: reval_island1_02_sub_d
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_island1_02_sub_d
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_island1_02_sub_d.txt"
+      RV_DELAY: "48"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_island1_02_sub_d:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-island1.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_island1_02_sub_e:
+    <<: *rvandroid-base
+    container_name: reval_island1_02_sub_e
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_island1_02_sub_e
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_island1_02_sub_e.txt"
+      RV_DELAY: "56"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_island1_02_sub_e:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-island1.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_island1_02_sub_f:
+    <<: *rvandroid-base
+    container_name: reval_island1_02_sub_f
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_island1_02_sub_f
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_island1_02_sub_f.txt"
+      RV_DELAY: "64"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_island1_02_sub_f:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-island1.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  reval_island1_02_sub_g:
+    <<: *rvandroid-base
+    container_name: reval_island1_02_sub_g
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: reval_island1_02_sub_g
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_island1_02_sub_g.txt"
+      RV_DELAY: "72"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/reval_island1_02_sub_g:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-island1.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro

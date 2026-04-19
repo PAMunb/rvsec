@@ -59,11 +59,22 @@ uv workspace: single `uv sync` at root installs ALL modules in editable mode. So
 
 ### Testing and Quality
 ```bash
-uv run pytest                                    # All tests
-uv run pytest modules/MODULE_NAME/tests/ -v      # Specific module
-uv run pytest -m "not slow" -v                   # Fast unit tests only
-uv run black modules/ && uv run flake8 modules/  # Format + lint
+# Run all tests per-module (matches CI pipeline — .github/workflows/ci.yml):
+for module in modules/*/; do
+  [ -d "$module/tests" ] && uv run pytest "$module/tests" \
+    -m "not (slow or online or sglang or performance or dataset)" \
+    --import-mode=importlib --tb=short -q -o "addopts="
+done
+
+# Single module:
+uv run pytest modules/MODULE_NAME/tests/ \
+  --import-mode=importlib -o "addopts=" -v
+
+# Lint:
+uv run black modules/ && uv run flake8 modules/
 ```
+
+**Important**: Always use `--import-mode=importlib` and `-o "addopts="` to match CI behavior. Without these flags, conftest isolation breaks across modules causing collection errors. The CI runs each module's tests in isolation with these flags.
 
 ### Experiment Execution
 ```bash

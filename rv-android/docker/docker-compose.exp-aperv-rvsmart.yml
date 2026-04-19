@@ -1,0 +1,150 @@
+# Experiment: aperv:sata_mop (new weights) + rvsmart:mvp on 169 APKs.
+# 10 containers, ~17 APKs each, 600s timeout, 3 reps, JCA specs.
+# Complements previous experiment (ape, aperv:sata, aperv:sata_mop old weights).
+#
+# Usage:
+#   docker compose -f docker/docker-compose.exp-aperv-rvsmart.yml up -d
+#   bash scripts/monitor_comparacao.sh data/results
+#   docker compose -f docker/docker-compose.exp-aperv-rvsmart.yml down
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop,rvsmart:mvp"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  exp2_00:
+    <<: *rvandroid-base
+    container_name: exp2_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_00:/opt/rvsec/rv-android/results
+
+  exp2_01:
+    <<: *rvandroid-base
+    container_name: exp2_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_01:/opt/rvsec/rv-android/results
+
+  exp2_02:
+    <<: *rvandroid-base
+    container_name: exp2_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_02:/opt/rvsec/rv-android/results
+
+  exp2_03:
+    <<: *rvandroid-base
+    container_name: exp2_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_03:/opt/rvsec/rv-android/results
+
+  exp2_04:
+    <<: *rvandroid-base
+    container_name: exp2_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_04:/opt/rvsec/rv-android/results
+
+  exp2_05:
+    <<: *rvandroid-base
+    container_name: exp2_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_05:/opt/rvsec/rv-android/results
+
+  exp2_06:
+    <<: *rvandroid-base
+    container_name: exp2_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_06:/opt/rvsec/rv-android/results
+
+  exp2_07:
+    <<: *rvandroid-base
+    container_name: exp2_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_07:/opt/rvsec/rv-android/results
+
+  exp2_08:
+    <<: *rvandroid-base
+    container_name: exp2_08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_08.txt"
+      RV_DELAY: "80"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_08:/opt/rvsec/rv-android/results
+
+  exp2_09:
+    <<: *rvandroid-base
+    container_name: exp2_09
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp2_09
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp2_batch_09.txt"
+      RV_DELAY: "90"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp2_09:/opt/rvsec/rv-android/results
