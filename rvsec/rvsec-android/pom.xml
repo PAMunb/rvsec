@@ -17,11 +17,7 @@
 	<modules>
 		<module>rvsec-apk</module>
 		<module>rvsec-logger-logcat</module>
-		<module>rvsec-methods-extractor</module> <!-- deprecated ??? -->
-		<!-- <module>rvsec-gesda</module> -->
-		<!-- <module>rvsec-reachability</module> -->
 		<module>rvsec-gator</module>
-		<module>rvsec-taint</module> <!-- deprecated ... apenas para testes -->
 		<module>rvsmart</module>
 		<module>rvsec-frame-computer</module>
 	</modules>

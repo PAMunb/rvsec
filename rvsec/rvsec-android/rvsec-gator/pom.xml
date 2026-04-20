@@ -20,7 +20,6 @@
 		<classindex.version>3.4</classindex.version>
 		<guava.version>27.1-jre</guava.version>
 		<slf4j.version>1.7.26</slf4j.version>
-		<gator.soot.version>3.3.0</gator.soot.version>
 		<velocity.version>1.7</velocity.version>
 		<junit.version>4.12</junit.version>
 	</properties>
@@ -34,9 +33,9 @@
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
-				<groupId>ca.mcgill.sable</groupId>
+				<groupId>org.soot-oss</groupId>
 				<artifactId>soot</artifactId>
-				<version>${gator.soot.version}</version>
+				<version>${soot.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.slf4j</groupId>

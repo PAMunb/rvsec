@@ -15,7 +15,7 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>ca.mcgill.sable</groupId>
+			<groupId>org.soot-oss</groupId>
 			<artifactId>soot</artifactId>
 		</dependency>
 		<dependency>

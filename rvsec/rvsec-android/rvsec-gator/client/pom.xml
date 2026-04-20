@@ -36,20 +36,10 @@
 			<artifactId>jgrapht-core</artifactId>
 		</dependency>
 
-		<!-- MOP spec parser (exclude BOTH Soot groupIds to avoid conflict with GATOR's Soot 3.3.0) -->
+		<!-- MOP spec parser -->
 		<dependency>
 			<groupId>br.unb.cic</groupId>
 			<artifactId>rvsec-mop-extractor</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>ca.mcgill.sable</groupId>
-					<artifactId>soot</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.soot-oss</groupId>
-					<artifactId>soot</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 
 		<!-- APK metadata reader (exclude FlowDroid/Soot) -->
