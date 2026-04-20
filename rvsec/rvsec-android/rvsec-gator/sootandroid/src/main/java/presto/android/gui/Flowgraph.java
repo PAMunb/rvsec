@@ -270,8 +270,16 @@ public class Flowgraph implements MethodNames {
         if (!currentMethod.isConcrete()) {
           continue;
         }
+        Body b;
+        try {
+          b = currentMethod.retrieveActiveBody();
+        } catch (Exception e) {
+          Logger.warn(this.getClass().getSimpleName(),
+              "Skipping method (body load failed): " + currentMethod.getSignature()
+              + " (" + e.getMessage() + ")");
+          continue;
+        }
         numMtd += 1;
-        Body b = currentMethod.retrieveActiveBody();
         Iterator<Unit> stmts = b.getUnits().iterator();
         while (stmts.hasNext()) {
           currentStmt = (Stmt) stmts.next();
@@ -338,9 +346,10 @@ public class Flowgraph implements MethodNames {
             try {
               opNode = createOpNode(currentStmt);
             } catch (Exception e) {
-              Logger.verb(this.getClass().getSimpleName(), "Stmt: " + currentStmt.toString());
-              e.printStackTrace();
-              throw new RuntimeException(e);
+              Logger.warn(this.getClass().getSimpleName(),
+                  "Skipping statement (OpNode creation failed): " + currentStmt.toString()
+                  + " (" + e.getMessage() + ")");
+              continue;
             }
             if (opNode != null && opNode != NOpNode.NullOpNode) {
               allNNodes.add(opNode);

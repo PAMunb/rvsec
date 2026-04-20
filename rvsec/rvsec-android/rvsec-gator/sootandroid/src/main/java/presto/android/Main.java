@@ -15,6 +15,7 @@ import soot.Pack;
 import soot.PackManager;
 import soot.SceneTransformer;
 import soot.Transform;
+import soot.options.Options;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -206,10 +207,16 @@ public class Main {
               "-p", "cg", "all-reachable:true",
               "-p", "cg.cha", "enabled:true",
               "-p", phaseName, "enabled:true",
+              "-p", "jb.sils", "enabled:false",
+              "-p", "jb.dae", "enabled:false",
               "-f", "n",
               "-keep-line-number",
               "-process-multiple-dex",
               "-allow-phantom-refs",
+              "-no-bodies-for-excluded",
+              "-exclude", "kotlin.",
+              "-exclude", "kotlinx.",
+              "-exclude", "androidx.compose.",
               "-process-dir", Configs.bytecodes,
               "-cp", classpath,
       };
@@ -222,11 +229,16 @@ public class Main {
       String[] sootArgs = {
               "-w",
               "-p", phaseName, "enabled:true",
+              "-p", "jb.sils", "enabled:false",
+              "-p", "jb.dae", "enabled:false",
               "-f", "n",
               "-keep-line-number",
               "-allow-phantom-refs",
               "-process-multiple-dex",
-              //      "-coffi",
+              "-no-bodies-for-excluded",
+              "-exclude", "kotlin.",
+              "-exclude", "kotlinx.",
+              "-exclude", "androidx.compose.",
               "-process-dir", Configs.bytecodes,
               "-cp", classpath,
       };
@@ -261,11 +273,9 @@ public class Main {
     // Added for Experiment
     Timer.reset();
 
-
-    // Finally, invoke Soot
-
-    //readAndApplySignatureList();
-
+    // Defensive Soot options (INV-ANA-16): handle unresolvable classes and use correct DEX throw semantics
+    Options.v().set_ignore_resolution_errors(true);
+    Options.v().set_throw_analysis(Options.throw_analysis_dalvik);
 
     soot.Main.main(sootArgs);
   }
