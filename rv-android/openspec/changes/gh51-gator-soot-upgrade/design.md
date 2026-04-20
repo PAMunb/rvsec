@@ -43,25 +43,30 @@ flowchart TB
 
 | Component | Responsibility | Change |
 |-----------|---------------|--------|
-| `Main.java` (sootandroid) | Soot initialization and argument setup | FIX 1: Add defensive options to `sootArgs` and `Options.v()` |
-| `Flowgraph.java` (sootandroid) | GUI flowgraph construction from Jimple bodies | FIX 2: Wrap `retrieveActiveBody()` at line 274, replace throw at line 343 |
+| `Main.java` (sootandroid) | Soot initialization and argument setup | FIX 1: defensive sootArgs + Options.v(). FIX 3: `-process-multiple-dex` → `-search-dex-in-archives` |
+| `Flowgraph.java` (sootandroid) | GUI flowgraph construction from Jimple bodies | FIX 2: try-catch line 274, continue line 343, null-check `rcv_var` |
+| `FlowgraphRebuilder.java` (sootandroid, `gui/wtg/flowgraph/`) | WTG flowgraph rebuild with virtual dispatch | FIX 2: null-check `rcv_var` at lines 133 and 967 |
+| `IntentAnalysis.java` (sootandroid, `gui/wtg/intent/`) | Intent target resolution fixpoint | FIX 2: `HashSet<Pair> visited` to prevent infinite loop |
+| `RvsecAnalysisClient.java` (client) | JSON output writer | FIX 2: write-first strategy (reachability before WTG), tolerate `wtg == null` |
 | `rvsec/pom.xml` (artifactId=`rvsec-parent`) | Parent POM with `soot.version` property (line 38) | FIX 3: `4.4.1` → `4.7.1` |
 | `rvsec-gator/pom.xml` + children | GATOR Soot dependency declaration | FIX 3: `ca.mcgill.sable:soot:3.3.0` → `${soot.version}` from parent |
-| `rvsec-gator/client/pom.xml` | Fat JAR — Soot exclusions in `<dependencies>` (lines 43-51, `rvsec-mop-extractor` dependency) | FIX 3: Remove `org.soot-oss:soot` exclusion (no more groupId conflict) |
-| `Configs.java` (sootandroid) | Soot Options API calls | FIX 3: Fix API breaks if `set_force_android_jar()` / `set_src_prec()` changed |
-| `EpiccBasedIntentAnalysis.java` (sootandroid, `gui/clients/ata/`) | Intent analysis using `soot.dexpler.Util` | FIX 3: Fix if `Util.splitParameters()` / `Util.getType()` removed in 4.x |
+| `rvsec-gator/client/pom.xml` | Fat JAR — Soot exclusions in `<dependencies>` (lines 43-51) | FIX 3: Remove both Soot exclusions (no more groupId conflict) |
+| `Configs.java` (sootandroid) | Soot Options API calls | FIX 3: No changes needed — API preserved in 4.7.1 |
+| `EpiccBasedIntentAnalysis.java` (sootandroid, `gui/clients/ata/`) | Intent analysis using `soot.dexpler.Util` | FIX 3: No changes needed — API preserved in 4.7.1 |
 
 ## Mapping: Spec → Implementation → Test
 
 | Requirement / Invariant | Implementation | Test |
 |--------------------------|---------------|------|
-| INV-ANA-16 (defensive Soot options) | `Main.java:204-232` — add to sootArgs + Options.v() | Smoke test: 10 APKs that crash → verify JSON produced |
-| INV-ANA-17 (Flowgraph graceful degradation) | `Flowgraph.java:274` (try-catch), `Flowgraph.java:343` (continue) | Smoke test: APKs that crash in Flowgraph → verify partial JSON |
-| INV-ANA-18 (Soot 4.7.1 unified) | 5 pom.xml files | `mvn clean compile` succeeds |
+| INV-ANA-16 (defensive Soot options) | `Main.java:204-232` — sootArgs + Options.v() + `-search-dex-in-archives` (renamed from `-process-multiple-dex`) | Smoke test: 10 APKs that crash → verify JSON produced |
+| INV-ANA-17 (Flowgraph graceful degradation) | `Flowgraph.java` (try-catch + null receiver), `FlowgraphRebuilder.java` (null receiver x2), `IntentAnalysis.java` (visited set) | Smoke test: APKs that crash in Flowgraph → verify partial JSON |
+| INV-ANA-17b (Write-first JSON) | `RvsecAnalysisClient.java` — write reachability before WTG, rewrite if WTG completes | Smoke test: timeout APKs still produce JSON with reachability |
+| INV-ANA-18 (Soot 4.7.1 unified) | 5 pom.xml files | `mvn clean compile` succeeds — zero API breaks |
 | Scenario: CHA crash | No code change — crash is prevented by FIX 1 + FIX 3 | Smoke test: APKs that previously crashed |
-| Scenario: Flowgraph skips method | `Flowgraph.java:274` | Smoke test: verify JSON has reachability data |
+| Scenario: Flowgraph skips method | `Flowgraph.java` try-catch + null-check | Smoke test: verify JSON has reachability data |
+| Scenario: WTG timeout | `RvsecAnalysisClient.java` write-first | APK `dev.robin.flip_2_dnd_903`: timeout but JSON with reachability produced |
 | Scenario: Kotlin exclusion impact | `Main.java` excludes | Compare reachability counts before/after for Java-pure APK |
-| Scenario: Output equivalence | All fixes combined | `cryptoapp.apk` baseline comparison |
+| Scenario: Output equivalence | All fixes combined | `cryptoapp.apk` baseline: directlyReachesMop=21 (exact match), windows=5, transitions=35 |
 
 ## Goals / Non-Goals
 
@@ -110,6 +115,20 @@ The `androidx.compose.*` exclusion is critical: ~71% of crashing APKs are Kotlin
 
 **Rationale**: These modules have zero references from Python code (confirmed in pre-plan §7.1). Removing them entirely (P3: No Backward Compatibility) reduces the compilation surface — any API breaks in these modules are irrelevant. Only `rvsec-gator`, `rvsec-apk`, and `rvsec-frame-computer` need to compile. Directories are backed up (not deleted) in case of future reference.
 
+### D5: Call Graph algorithm as parameter
+
+**Choice**: Parameterize the call graph algorithm via `-cgAlgorithm` flag. Default: `cha`.
+
+**Options and Soot mapping**:
+- `cha`: `-p cg.cha enabled:true` (current behavior — fastest, least precise)
+- `rta`: `-p cg.spark enabled:true -p cg.spark rta:true` (faster than full SPARK, considers only instantiated types)
+- `vta`: `-p cg.spark enabled:true -p cg.spark vta:true` (considers only assigned types)
+- `spark`: `-p cg.spark enabled:true` (full points-to analysis — slowest, most precise)
+
+Note: RTA, VTA, and SPARK all use the SPARK framework internally. Only CHA is a separate implementation. See [Soot options docs](https://soot-oss.github.io/soot/docs/4.3.0/options/soot_options.html) and [issue #1828](https://github.com/soot-oss/soot/issues/1828) for details on SPARK sub-modes.
+
+**Implementation**: Replace the boolean `-withCHA` flag with `-cgAlgorithm <cha|rta|vta|spark>` in `Main.java`. Pass from Python side via the GATOR script. Keep backward compatibility: if `-withCHA` is passed, treat as `-cgAlgorithm cha`.
+
 ## Data Flow
 
 No change to data flow. The existing pipeline is preserved:
@@ -127,7 +146,11 @@ The change affects the GATOR process internally (Soot configuration, error handl
 | `InternalTypingException` during CHA | `CHATransformer` via `retrieveActiveBody()` | FIX 1 (excludes, disabled sub-phases) + FIX 3 (Soot 4.7.1 Dexpler) reduce frequency | No recovery — GATOR process dies. SA fails for this APK |
 | `InternalTypingException` in Flowgraph | `Flowgraph.processApplicationClasses()` line 274 | FIX 2: try-catch → log + continue | Partial Flowgraph; JSON produced with incomplete WTG |
 | Exception in `createOpNode()` | `Flowgraph.processApplicationClasses()` line 343 | FIX 2: catch → log + continue (replaces throw) | Missing OpNode for that statement; loop continues |
-| API break during compilation | Soot 3.3.0 → 4.7.1 API changes | Fix compilation errors in `Configs.java`, `EpiccBasedIntentAnalysis.java` | Adjust API calls to 4.x equivalents |
+| `NullPointerException` on `rcv_var.getType()` | `Flowgraph.java` and `FlowgraphRebuilder.java` — `jimpleUtil.receiver(ie)` returns null for excluded-package virtual calls | Null-check before `.getType()` | Skip virtual call dispatch for that statement |
+| `IntentAnalysis` infinite loop | `IntentAnalysis.resolveStartActivityIntentContent()` — fixpoint loop re-adds pairs when `intentContent.get(allocNode)` is null | `HashSet<Pair> visited` prevents re-processing | Loop terminates; intent targets for affected nodes are incomplete |
+| WTG timeout (external kill) | `WTGBuilder.build()` takes >timeout for complex APKs (18K+ vertices) | Write-first strategy: JSON with reachability written BEFORE WTG starts; rewritten with full data if WTG completes | Reachability always preserved; windows/transitions empty on timeout |
+| API break during compilation | Soot 3.3.0 → 4.7.1 API changes | Fix compilation errors in `Configs.java`, `EpiccBasedIntentAnalysis.java` | **No breaks found** — all APIs preserved in 4.7.1 |
+| `-process-multiple-dex` invalid option | Soot 4.x renamed the flag | Replace with `-search-dex-in-archives` | Compile-time discovery |
 | FlowDroid 2.10.0 incompatibility | `rvsec-apk` transitively pulls Soot ~4.3.0 | Maven nearest-definition resolves to 4.7.1 | If compile or runtime broken: upgrade FlowDroid to 2.14.1 (validated with CryptoAnalysis) or 2.15.1 (latest) |
 
 ## Risks / Trade-offs
@@ -178,9 +201,13 @@ Source: `APKS_JCA/errors/instrument_and_sa_errors.json` (32 total APKs with inst
 
 1. ~~**FlowDroid version**~~: Resolved — if `rvsec-apk` fails to compile or has runtime errors with Soot 4.7.1, upgrade FlowDroid to 2.14.1 (validated with CryptoAnalysis) or 2.15.1 (latest stable, both confirmed on Maven Central). Covered by task 2.12.
 
-## Resolved Decisions (from multi-LLM review 2026-04-20)
+## Resolved Decisions (from multi-LLM review 2026-04-20 + implementation findings)
 
 - **`all-reachable:true`**: Keep enabled. Disabling it is a Python-side change (command builder), not Java-side. It would reduce the method universe for reachability, potentially affecting coverage metrics. If CHA crashes persist after FIX 1+3, this can be revisited as a Python-side quick win in a separate change.
 - **`SootClass.getMethods()` Chain→List**: False alarm — `getMethods()` already returned `List<SootMethod>` in Soot 3.3.0. The code's `Lists.newArrayList()` is redundant but harmless. Risk removed from table.
 - **Issue #1641 characterization**: The issue is about `jb.sils` interfering with `use-original-names`, not directly about typing crashes. However, disabling `jb.sils` IS a documented workaround for typing crashes (confirmed in #1641 and #1975). The INV-ANA-16 text has been corrected to reflect this nuance.
 - **Compose coverage gap**: Added `-exclude androidx.compose.` to FIX 1 to cover the dominant failure category (~71% of crashing APKs are Kotlin+Compose). Trade-off: loses Compose widget bodies for GUI analysis — acceptable because Compose widgets are not discoverable via traditional `findViewById`/XML layout analysis anyway.
+- **API breaks Soot 3.3.0→4.7.1**: ZERO breaks found in `Configs.java`, `EpiccBasedIntentAnalysis.java`, or any other file. Only rename was `-process-multiple-dex` → `-search-dex-in-archives`. Risks overestimated.
+- **CHA vs SPARK**: CHA is correct for GATOR's use case (reachability BFS, not precision-sensitive). SPARK would be slower AND trigger the same jimplification crashes. See Decision D5.
+- **Write-first JSON**: Critical discovery — external timeout kills the Java process without triggering `catch`. Reachability must be written to disk BEFORE WTG starts so it survives the kill.
+- **Null receivers in virtual dispatch**: Soot 4.7.1 with `-no-bodies-for-excluded` creates phantom method refs where `jimpleUtil.receiver()` returns null. This is expected behavior for excluded packages — null-check is the correct fix (not a bug).

@@ -123,26 +123,34 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				+ ", reachesMop: " + reachesMopSet.size()
 				+ ", directlyReachesMop: " + directMopSet.size());
 
-		// 5. Build WTG
-		WTGBuilder wtgBuilder = new WTGBuilder();
-		wtgBuilder.build(output);
-		WTGAnalysisOutput wtgAO = new WTGAnalysisOutput(output, wtgBuilder);
-		WTG wtg = wtgAO.getWTG();
-
-		// Build name→nodeId map from WTG nodes so windows and transitions
-		// use consistent IDs (WTGNode wraps NObjectNode whose .id is used
-		// for transition sourceId/targetId)
-		Map<String, Integer> windowNodeIds = new HashMap<>();
-		for (WTGNode node : wtg.getNodes()) {
-			NObjectNode win = node.getWindow();
-			windowNodeIds.put(win.getClassType().getName(), win.id);
-		}
-
-		// 6. Write JSON with flush between sections
+		// 5. Write JSON with reachability FIRST (survives timeout during WTG)
 		SootClass mainActivity = output.getMainActivity();
 		String appPackage = output.getAppPackageName();
 		writeJson(outputPath, appPackage, mainActivity, appClasses, output,
-				reachableSet, reachesMopSet, directMopSet, wtg, windowNodeIds);
+				reachableSet, reachesMopSet, directMopSet, null, new HashMap<>());
+		System.out.println("[RvsecAnalysisClient] Reachability JSON written (WTG pending): " + outputPath);
+
+		// 6. Build WTG (may timeout on complex APKs — reachability already saved)
+		WTG wtg = null;
+		Map<String, Integer> windowNodeIds = new HashMap<>();
+		try {
+			WTGBuilder wtgBuilder = new WTGBuilder();
+			wtgBuilder.build(output);
+			WTGAnalysisOutput wtgAO = new WTGAnalysisOutput(output, wtgBuilder);
+			wtg = wtgAO.getWTG();
+
+			for (WTGNode node : wtg.getNodes()) {
+				NObjectNode win = node.getWindow();
+				windowNodeIds.put(win.getClassType().getName(), win.id);
+			}
+
+			// 7. Rewrite JSON with full data (reachability + WTG)
+			writeJson(outputPath, appPackage, mainActivity, appClasses, output,
+					reachableSet, reachesMopSet, directMopSet, wtg, windowNodeIds);
+		} catch (Exception e) {
+			System.out.println("[RvsecAnalysisClient] WTG construction failed: " + e.getMessage()
+					+ " — JSON already contains reachability data");
+		}
 
 		System.out.println("[RvsecAnalysisClient] Analysis complete. File saved: " + outputPath);
 	}
@@ -873,17 +881,29 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			writeReachability(w, appClasses, output, reachableSet, reachesMopSet, directMopSet);
 			w.flush();
 
-			// Section 2: windows
-			List<Map<String, Object>> windows = extractWindows(output, windowNodeIds, wtg);
-			enrichFromXml(windows);
-			w.name("windows");
-			writeWindows(w, windows);
-			w.flush();
+			// Section 2: windows (requires WTG)
+			if (wtg != null) {
+				List<Map<String, Object>> windows = extractWindows(output, windowNodeIds, wtg);
+				enrichFromXml(windows);
+				w.name("windows");
+				writeWindows(w, windows);
+				w.flush();
+			} else {
+				w.name("windows");
+				w.beginArray().endArray();
+				w.flush();
+			}
 
-			// Section 3: transitions
-			w.name("transitions");
-			writeTransitions(w, wtg);
-			w.flush();
+			// Section 3: transitions (requires WTG)
+			if (wtg != null) {
+				w.name("transitions");
+				writeTransitions(w, wtg);
+				w.flush();
+			} else {
+				w.name("transitions");
+				w.beginArray().endArray();
+				w.flush();
+			}
 
 			// Section 4: components (activities, services, receivers, providers)
 			w.name("components");

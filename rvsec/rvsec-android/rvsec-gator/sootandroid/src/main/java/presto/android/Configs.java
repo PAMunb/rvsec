@@ -71,7 +71,7 @@ public class Configs {
 
   public static Set<String> clients = Sets.newHashSet();
 
-  public static boolean withCHA = false;
+  public static String cgAlgorithm = "cha"; // cha, rta, vta, spark
 
   // [wtg analysis] xml file describing the calls related with wtg
   public static String wtgSpecFile;

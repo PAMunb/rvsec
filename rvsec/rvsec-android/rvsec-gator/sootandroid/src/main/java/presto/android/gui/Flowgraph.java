@@ -374,6 +374,11 @@ public class Flowgraph implements MethodNames {
 
             // flow graph edges at virtual calls
             Local rcv_var = jimpleUtil.receiver(ie);
+            if (rcv_var == null) {
+              Logger.warn(this.getClass().getSimpleName(),
+                  "Skipping virtual call (null receiver): " + currentStmt.toString());
+              continue;
+            }
             Type rcv_t = rcv_var.getType();
             // could be ArrayType, for clone() calls
             if (!(rcv_t instanceof RefType)) {

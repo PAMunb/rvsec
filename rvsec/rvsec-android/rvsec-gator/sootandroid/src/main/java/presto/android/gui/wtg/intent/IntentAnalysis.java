@@ -31,6 +31,7 @@ import soot.toolkits.scalar.Pair;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -430,17 +431,15 @@ public class IntentAnalysis {
         }
       }
     }
+    Set<Pair<NAllocNode, NSetIntentContentOpNode>> visited = new HashSet<>();
     while (!workingList.isEmpty()) {
       Pair<NAllocNode, NSetIntentContentOpNode> flowThroughAll = workingList.remove(0);
+      if (!visited.add(flowThroughAll)) {
+        continue;
+      }
       NAllocNode intentAllocNode = flowThroughAll.getO1();
       IntentAnalysisInfo rcvContentInfo = intentContent.get(intentAllocNode);
       if (rcvContentInfo == null) {
-        Logger.verb("WARNING", "rcvContentInfo is null, which should not happen");
-        String fullClassName = Thread.currentThread().getStackTrace()[2].getClassName();
-        String methodName = Thread.currentThread().getStackTrace()[2].getMethodName();
-        int lineNumber = Thread.currentThread().getStackTrace()[2].getLineNumber();
-        Logger.verb("WARNING", String.format("At %s at %s at line %d",
-                fullClassName, methodName, lineNumber));
         continue;
       }
       NSetIntentContentOpNode setIntentContent = flowThroughAll.getO2();

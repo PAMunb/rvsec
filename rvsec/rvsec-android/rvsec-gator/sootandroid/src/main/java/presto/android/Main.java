@@ -22,6 +22,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -69,7 +70,9 @@ public class Main {
       } else if ("-client".equals(s)) {
         Configs.clients.add(args[++i]);
       } else if ("-withCHA".equals(s)) {
-        Configs.withCHA = true;
+        Configs.cgAlgorithm = "cha";
+      } else if ("-cgAlgorithm".equals(s)) {
+        Configs.cgAlgorithm = args[++i];
       } else if ("-listenerSpecFile".equals(s)) {
         Configs.listenerSpecFile = args[++i];
       } else if ("-wtgSpecFile".equals(s)) {
@@ -197,55 +200,59 @@ public class Main {
   static void setupAndInvokeSoot() {
     String classpath = computeClasspath();
     Logger.trace("SETUP", "classpath : " + classpath);
-    // Setup an artificial phase to call into our analysis entrypoint. We can
-    // run it with or without call graph construction (CHA is chosen here).
-    if (Configs.withCHA) {
-      String packName = "wjtp";
-      String phaseName = "wjtp.gui";
-      String[] sootArgs = {
-              "-w",
-              "-p", "cg", "all-reachable:true",
-              "-p", "cg.cha", "enabled:true",
-              "-p", phaseName, "enabled:true",
-              "-p", "jb.sils", "enabled:false",
-              "-p", "jb.dae", "enabled:false",
-              "-f", "n",
-              "-keep-line-number",
-              "-process-multiple-dex",
-              "-allow-phantom-refs",
-              "-no-bodies-for-excluded",
-              "-exclude", "kotlin.",
-              "-exclude", "kotlinx.",
-              "-exclude", "androidx.compose.",
-              "-process-dir", Configs.bytecodes,
-              "-cp", classpath,
-      };
-      readWidgetMap();
-      PrerunEntrypoint.v().run();
-      setupAndInvokeSootHelper(packName, phaseName, sootArgs);
-    } else {
-      String packName = "cg";
-      String phaseName = "cg.gui";
-      String[] sootArgs = {
-              "-w",
-              "-p", phaseName, "enabled:true",
-              "-p", "jb.sils", "enabled:false",
-              "-p", "jb.dae", "enabled:false",
-              "-f", "n",
-              "-keep-line-number",
-              "-allow-phantom-refs",
-              "-process-multiple-dex",
-              "-no-bodies-for-excluded",
-              "-exclude", "kotlin.",
-              "-exclude", "kotlinx.",
-              "-exclude", "androidx.compose.",
-              "-process-dir", Configs.bytecodes,
-              "-cp", classpath,
-      };
-      readWidgetMap();
-      PrerunEntrypoint.v().run();
-      setupAndInvokeSootHelper(packName, phaseName, sootArgs);
+
+    String algo = Configs.cgAlgorithm;
+    boolean useCG = algo != null && !algo.isEmpty();
+
+    // With a CG algorithm, the analysis runs in whole-program mode (wjtp pack).
+    // Without, it runs as a CG phase (cg pack) — legacy mode, no call graph.
+    String packName = useCG ? "wjtp" : "cg";
+    String phaseName = useCG ? "wjtp.gui" : "cg.gui";
+
+    List<String> args = new ArrayList<>();
+    args.addAll(java.util.Arrays.asList(
+            "-w",
+            "-p", phaseName, "enabled:true",
+            "-p", "jb.sils", "enabled:false",
+            "-p", "jb.dae", "enabled:false",
+            "-f", "n",
+            "-keep-line-number",
+            "-search-dex-in-archives",
+            "-allow-phantom-refs",
+            "-no-bodies-for-excluded",
+            "-exclude", "kotlin.",
+            "-exclude", "kotlinx.",
+            "-exclude", "androidx.compose.",
+            "-process-dir", Configs.bytecodes,
+            "-cp", classpath
+    ));
+
+    // Call graph algorithm selection
+    if (useCG) {
+      args.addAll(java.util.Arrays.asList("-p", "cg", "all-reachable:true"));
+      switch (algo) {
+        case "cha":
+          args.addAll(java.util.Arrays.asList("-p", "cg.cha", "enabled:true"));
+          break;
+        case "rta":
+          args.addAll(java.util.Arrays.asList("-p", "cg.spark", "enabled:true", "-p", "cg.spark", "rta:true"));
+          break;
+        case "vta":
+          args.addAll(java.util.Arrays.asList("-p", "cg.spark", "enabled:true", "-p", "cg.spark", "vta:true"));
+          break;
+        case "spark":
+          args.addAll(java.util.Arrays.asList("-p", "cg.spark", "enabled:true"));
+          break;
+        default:
+          Logger.warn("MAIN", "Unknown CG algorithm '" + algo + "', falling back to CHA");
+          args.addAll(java.util.Arrays.asList("-p", "cg.cha", "enabled:true"));
+      }
     }
+
+    String[] sootArgs = args.toArray(new String[0]);
+    readWidgetMap();
+    PrerunEntrypoint.v().run();
+    setupAndInvokeSootHelper(packName, phaseName, sootArgs);
   }
 
   /**

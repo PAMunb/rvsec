@@ -49,6 +49,34 @@ flowchart LR
 - [x] 4.3 Verify compilation: `mvn clean compile -pl rvsec-gator/sootandroid` — BUILD SUCCESS
 - [x] 4.4 **Git commit**: FIX 2 checkpoint (Flowgraph graceful degradation) — 65444e26 (combined with FIX 1)
 
+## 4b. FIX 2 Additional — Null Receiver + IntentAnalysis Loop (discovered during testing)
+
+- [x] 4b.1 In `Flowgraph.java`, add null-check for `jimpleUtil.receiver(ie)` before `rcv_var.getType()` (NPE on excluded-package virtual calls)
+- [x] 4b.2 In `FlowgraphRebuilder.java`, add same null-check at line 133 (rebuildFlow method) and line 967 (buildCallGraph method)
+- [x] 4b.3 In `IntentAnalysis.java`, add `HashSet<Pair> visited` to the fixpoint `while (!workingList.isEmpty())` loop to prevent infinite re-processing when `intentContent.get(allocNode)` returns null
+- [x] 4b.4 Verify compilation — BUILD SUCCESS
+
+## 4c. FIX 2 Additional — Write-First JSON Strategy (discovered during testing)
+
+- [x] 4c.1 In `RvsecAnalysisClient.java`, write JSON with reachability (empty windows/transitions) BEFORE starting WTG construction. If WTG completes, rewrite with full data. Guarantees reachability survives external timeout (Python kills process).
+- [x] 4c.2 Make `writeJson()` tolerate `wtg == null` (writes empty arrays for windows/transitions)
+- [x] 4c.3 Verify compilation — BUILD SUCCESS
+- [x] 4c.4 Test: `cryptoapp.apk` still produces full JSON (reachability + windows + transitions) — CONFIRMED: identical to baseline
+
+## 4d. FIX 3 Additional — Soot Option Rename (discovered during testing)
+
+- [x] 4d.1 Replace `-process-multiple-dex` with `-search-dex-in-archives` in both sootArgs branches of `Main.java` (option renamed in Soot 4.x)
+- [x] 4d.2 Verify compilation — BUILD SUCCESS
+
+## 4e. Call Graph Algorithm Parameter (D5)
+
+- [ ] 4e.1 In `Configs.java`, replace `public static boolean withCHA = false` with `public static String cgAlgorithm = "cha"` (values: `cha`, `rta`, `vta`, `spark`)
+- [ ] 4e.2 In `Main.java`, replace `-withCHA` arg parsing with `-cgAlgorithm <value>`. Keep `-withCHA` as alias for `-cgAlgorithm cha` (backward compat during transition)
+- [ ] 4e.3 In `Main.java`, replace the two hardcoded branches (withCHA/non-CHA) with a single sootArgs construction that selects CG phase options based on `Configs.cgAlgorithm`: `cha` → `-p cg.cha enabled:true`, `rta` → `-p cg.spark enabled:true -p cg.spark rta:true`, `vta` → `-p cg.spark enabled:true -p cg.spark vta:true`, `spark` → `-p cg.spark enabled:true`
+- [ ] 4e.4 In GATOR Python script (`lib/gator/gator`), replace `-withCHA` with `-cgAlgorithm` argument (default `cha`)
+- [ ] 4e.5 In `rv-static-analysis/config.py`, update `get_tool_command()` to pass `-cgAlgorithm` instead of `-withCHA`
+- [ ] 4e.6 Verify compilation and test with `cryptoapp.apk` using `cha` (default)
+
 ## 5. Build Fat JAR
 
 - [x] 5.1 Build `rvsec-analysis-client.jar`: `mvn clean package -pl rvsec-gator/client -am -DskipTests` — BUILD SUCCESS

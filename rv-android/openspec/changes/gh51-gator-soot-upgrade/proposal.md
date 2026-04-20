@@ -7,11 +7,11 @@ GATOR static analysis succeeds on only 97/352 instrumented APKs (27.6%). The roo
 ## What Changes
 
 - **GATOR Soot configuration**: Add defensive options to `Main.java` — disable `jb.sils` and `jb.dae` sub-phases (documented workaround for typing crashes, soot#1641/#1975), exclude `kotlin.*`/`kotlinx.*`/`androidx.compose.*` from body loading, enable `no_bodies_for_excluded`, `ignore_resolution_errors`, and `throw_analysis_dalvik`
-- **GATOR error handling**: Protect two crash points in `Flowgraph.java` — wrap unguarded `retrieveActiveBody()` at line 274 in try-catch, and replace fatal `throw RuntimeException` at line 343 with `continue`
-- **Soot version upgrade**: Unify GATOR from `ca.mcgill.sable:soot:3.3.0` (discontinued 2019) to `org.soot-oss:soot:4.7.1` (latest stable, Feb 2026), aligning with the parent pom's `org.soot-oss` group
+- **GATOR error handling**: Protect crash/hang points across the GUI analysis pipeline — `Flowgraph.java` (try-catch + null receiver), `FlowgraphRebuilder.java` (null receiver x2), `IntentAnalysis.java` (visited set to prevent infinite loop), and `RvsecAnalysisClient.java` (write reachability JSON before WTG so external timeout preserves data)
+- **Soot version upgrade**: Unify GATOR from `ca.mcgill.sable:soot:3.3.0` (discontinued 2019) to `org.soot-oss:soot:4.7.1` (latest stable, Feb 2026), aligning with the parent pom's `org.soot-oss` group. Replace `-process-multiple-dex` with `-search-dex-in-archives` (renamed in Soot 4.x)
 - **Deprecated module removal**: Remove `rvsec-methods-extractor` and `rvsec-taint` from `rvsec-android/pom.xml` and move directories to `backup/` before upgrade to reduce compilation surface
 - **Soot exclusion in FIX 1**: Add `-exclude androidx.compose.` alongside `kotlin.*`/`kotlinx.*` to cover the dominant failure category (Kotlin+Compose APKs are ~71% of crashes)
-- **CHA description update**: The call graph strategy description is updated to reflect the actual operational state — CHA with `-withCHA` flag is always used (was described as optional in the spec, but the execution command always includes it)
+- **Call graph algorithm parameter**: Replace boolean `-withCHA` flag with `-cgAlgorithm <cha|rta|vta|spark>` parameter in `Main.java`, GATOR Python script, and `rv-static-analysis` config. Default: `cha`. RTA/VTA/SPARK use the SPARK framework internally with different precision levels
 - **Fat JAR rebuild**: Remove Soot exclusion from `rvsec-gator/client/pom.xml` dependency exclusions in `rvsec-mop-extractor` (lines 43-51; no more groupId conflict) and rebuild `rvsec-analysis-client.jar`
 
 ## Capabilities

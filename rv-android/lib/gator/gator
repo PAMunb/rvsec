@@ -226,7 +226,7 @@ def main():
                                 help='specify API level')
     
     parser_analyze.add_argument('--client-jar',
-                                dest='classpath',                                
+                                dest='classpath',
                                 required=False,
                                 default='',
                                 help='additional classpath (jars with clients)')

@@ -84,6 +84,10 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
     analysis_timeout: int = Field(
         default=600, description="Analysis timeout in seconds"
     )
+    cg_algorithm: str = Field(
+        default="cha",
+        description="Call graph algorithm: cha, rta, vta, spark",
+    )
     validate_on_init: bool = Field(
         default=True, description="Whether to validate configuration on initialization"
     )
@@ -284,7 +288,8 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "RvsecAnalysisClient",
             "-clientParam",
             f"mopDir={self.mop_dir}",
-            "-withCHA",
+            "-cgAlgorithm",
+            self.cg_algorithm,
             "--timeout",
             str(timeout),
             "--jvm-memory",

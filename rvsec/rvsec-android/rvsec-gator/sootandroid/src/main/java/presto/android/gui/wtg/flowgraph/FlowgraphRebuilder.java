@@ -130,6 +130,9 @@ public class FlowgraphRebuilder {
             }
             // flow graph edges at virtual calls
             Local rcv_var = jimpleUtil.receiver(ie);
+            if (rcv_var == null) {
+              continue;
+            }
             Type rcv_t = rcv_var.getType();
             // could be ArrayType, for clone() calls
             if (!(rcv_t instanceof RefType)) {
@@ -964,6 +967,9 @@ public class FlowgraphRebuilder {
     }
     // flow graph edges at virtual calls
     Local rcv_var = jimpleUtil.receiver(ie);
+    if (rcv_var == null) {
+      return;
+    }
     Type rcv_t = rcv_var.getType();
     // could be ArrayType, for clone() calls
     if (!(rcv_t instanceof RefType)) {
