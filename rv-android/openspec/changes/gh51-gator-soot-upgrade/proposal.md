@@ -6,11 +6,13 @@ GATOR static analysis succeeds on only 97/352 instrumented APKs (27.6%). The roo
 
 ## What Changes
 
-- **GATOR Soot configuration**: Add defensive options to `Main.java` — disable `jb.sils` and `jb.dae` sub-phases (known typing crash triggers per soot#1641), exclude `kotlin.*`/`kotlinx.*` from body loading, enable `no_bodies_for_excluded`, `ignore_resolution_errors`, and `throw_analysis_dalvik`
+- **GATOR Soot configuration**: Add defensive options to `Main.java` — disable `jb.sils` and `jb.dae` sub-phases (documented workaround for typing crashes, soot#1641/#1975), exclude `kotlin.*`/`kotlinx.*`/`androidx.compose.*` from body loading, enable `no_bodies_for_excluded`, `ignore_resolution_errors`, and `throw_analysis_dalvik`
 - **GATOR error handling**: Protect two crash points in `Flowgraph.java` — wrap unguarded `retrieveActiveBody()` at line 274 in try-catch, and replace fatal `throw RuntimeException` at line 343 with `continue`
-- **Soot version upgrade**: Unify GATOR from `ca.mcgill.sable:soot:3.3.0` (discontinued 2019) to `org.soot-oss:soot:4.7.1` (latest stable, Feb 2025), aligning with the parent pom's `org.soot-oss` group
+- **Soot version upgrade**: Unify GATOR from `ca.mcgill.sable:soot:3.3.0` (discontinued 2019) to `org.soot-oss:soot:4.7.1` (latest stable, Feb 2026), aligning with the parent pom's `org.soot-oss` group
 - **Deprecated module cleanup**: Comment out `rvsec-methods-extractor` and `rvsec-taint` in `rvsec-android/pom.xml` before upgrade to reduce compilation surface
-- **Fat JAR rebuild**: Remove Soot exclusion from `rvsec-gator/client/pom.xml` assembly (no more groupId conflict) and rebuild `rvsec-analysis-client.jar`
+- **Soot exclusion in FIX 1**: Add `-exclude androidx.compose.` alongside `kotlin.*`/`kotlinx.*` to cover the dominant failure category (Kotlin+Compose APKs are ~71% of crashes)
+- **CHA description update**: The call graph strategy description is updated to reflect the actual operational state — CHA with `-withCHA` flag is always used (was described as optional in the spec, but the execution command always includes it)
+- **Fat JAR rebuild**: Remove Soot exclusion from `rvsec-gator/client/pom.xml` dependency exclusions in `rvsec-mop-extractor` (lines 43-51; no more groupId conflict) and rebuild `rvsec-analysis-client.jar`
 
 ## Capabilities
 
@@ -33,4 +35,4 @@ GATOR static analysis succeeds on only 97/352 instrumented APKs (27.6%). The roo
 
 **Related FRs**: FR04 (reachability), FR05 (WTG), FR06 (GUI elements) — all benefit from higher SA success rate.
 
-**Risk**: Soot API breaks in `Configs.java` (Options setters), `EpiccBasedIntentAnalysis.java` (`soot.dexpler.Util`), `SootClass.getMethods()` return type (`Chain` → `List`). FlowDroid 2.10.0 compatibility with Soot 4.7.1 needs validation.
+**Risk**: Soot API breaks in `Configs.java` (Options setters), `EpiccBasedIntentAnalysis.java` (`soot.dexpler.Util`). FlowDroid 2.10.0 compatibility with Soot 4.7.1 needs runtime validation (compile ≠ runtime — `NoSuchMethodError` possible). Guava version conflict (GATOR uses 27.1-jre, parent uses 19.0).

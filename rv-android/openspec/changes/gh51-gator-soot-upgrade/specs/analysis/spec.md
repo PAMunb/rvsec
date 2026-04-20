@@ -33,12 +33,12 @@ Conclusion: Soot 4.6.0 with defensive options does NOT crash — the timeouts ar
 |-------------|---------------|-------------------------------|------------------------|--------|
 | `no_bodies_for_excluded` | **No** | **Yes** | **Yes** | Skips jimplification of excluded packages |
 | Exclude `android.*`, `androidx.*` | **No** | **Yes** | **Yes** | Avoids framework body processing |
-| Exclude `kotlin.*`, `kotlinx.*` | **No** | No | No | Avoids Kotlin stdlib crashes |
+| Exclude `kotlin.*`, `kotlinx.*`, `androidx.compose.*` | **No** | No | No | Avoids Kotlin stdlib and Compose runtime crashes (~71% of failing APKs) |
 | `ignore_resolution_errors` | **No** | **Yes** | **Yes** | Handles unresolvable classes gracefully (does NOT prevent `InternalTypingException`) |
 | `jb.sils` disabled | **No** | **Yes** | No | Avoids typing errors in static inlining (soot#1641) |
 | `jb.dae` disabled | **No** | **Yes** | No | Avoids typing errors in dead assignment elimination |
 | `throw_analysis_dalvik` | **No** | **Yes** | **Yes** | Correct exception semantics for DEX (does NOT prevent `InternalTypingException`) |
-| Soot version | **3.3.0** | **4.6.0** | **4.8.0** | Dexpler improvements reduce crash frequency |
+| Soot version | **3.3.0** | **4.6.0** | **4.8.0** | Dexpler improvements reduce crash frequency. Note: issues #2185/#2228 (Kotlin/Compose typing fix) merged post-4.7.1 |
 
 **Note**: GATOR MUST NOT exclude `android.*`/`androidx.*` (unlike CryptoAnalysis/FlowDroid) because it needs framework bodies for widget and listener analysis (WTG construction).
 
@@ -48,11 +48,11 @@ No changes to data contracts. The analysis JSON format, `StaticAnalysisData` mod
 
 ## Invariants
 
-- **INV-ANA-16**: The GATOR `Main.java` MUST configure Soot with the following defensive options in both `withCHA` and non-CHA branches: `-p jb.sils enabled:false`, `-p jb.dae enabled:false`, `-no-bodies-for-excluded`, `-exclude kotlin.`, `-exclude kotlinx.`. Programmatically: `Options.v().set_ignore_resolution_errors(true)` and `Options.v().set_throw_analysis(Options.throw_analysis_dalvik)`. The options `jb.sils` and `jb.dae` are the primary crash triggers (soot-oss/soot#1641). The excludes and `no_bodies_for_excluded` prevent jimplification of Kotlin stdlib classes. The remaining options (`ignore_resolution_errors`, `throw_analysis_dalvik`) are general robustness practices that do NOT prevent the `InternalTypingException` specifically.
+- **INV-ANA-16**: The GATOR `Main.java` MUST configure Soot with the following defensive options in both `withCHA` and non-CHA branches: `-p jb.sils enabled:false`, `-p jb.dae enabled:false`, `-no-bodies-for-excluded`, `-exclude kotlin.`, `-exclude kotlinx.`, `-exclude androidx.compose.`. Programmatically: `Options.v().set_ignore_resolution_errors(true)` and `Options.v().set_throw_analysis(Options.throw_analysis_dalvik)`. Disabling `jb.sils` and `jb.dae` is a documented workaround for Jimple body typing failures (soot-oss/soot#1641, #1975) — the issues themselves concern `use-original-names` interference, but disabling these sub-phases avoids the `LocalSplitter`/`TypeResolver` interaction that triggers `InternalTypingException`. The excludes (`kotlin.`, `kotlinx.`, `androidx.compose.`) and `no_bodies_for_excluded` prevent jimplification of Kotlin stdlib and Compose runtime classes (the dominant crash category — ~71% of failing APKs are Kotlin+Compose). The remaining options (`ignore_resolution_errors`, `throw_analysis_dalvik`) are general robustness practices that do NOT prevent the `InternalTypingException` specifically.
 
-- **INV-ANA-17**: The GATOR `Flowgraph.processApplicationClasses()` MUST wrap the `currentMethod.retrieveActiveBody()` call (line 274) in a try-catch that logs the skipped method and continues to the next method. The existing catch block around `createOpNode()` (line 343) MUST replace `throw new RuntimeException(e)` with a log message and `continue`. Both catch blocks MUST log the skipped method signature and exception message using `Logger.verb()`. This ensures partial Flowgraph construction when individual methods fail to jimplify.
+- **INV-ANA-17**: The GATOR `Flowgraph.processApplicationClasses()` MUST wrap the `currentMethod.retrieveActiveBody()` call (line 274) in a try-catch that logs the skipped method and continues to the next method. The existing catch block around `createOpNode()` (line 343) MUST replace `throw new RuntimeException(e)` with a log message and `continue`. Both catch blocks MUST log the skipped method signature and exception message using `Logger.warn()` (not `verb()` — skipping methods is a degraded-analysis signal, not debug trace). This ensures partial Flowgraph construction when individual methods fail to jimplify.
 
-- **INV-ANA-18**: The GATOR module (`rvsec-gator`) MUST use `org.soot-oss:soot` with version `${soot.version}` from the parent pom (4.7.1), replacing `ca.mcgill.sable:soot:3.3.0`. The `rvsec-gator/client/pom.xml` MUST NOT exclude Soot from the assembly plugin (the groupId conflict no longer exists). The parent `rvsec/pom.xml` MUST set `<soot.version>4.7.1</soot.version>`.
+- **INV-ANA-18**: The GATOR module (`rvsec-gator`) MUST use `org.soot-oss:soot` with version `${soot.version}` from the parent pom (4.7.1), replacing `ca.mcgill.sable:soot:3.3.0`. The `rvsec-gator/client/pom.xml` MUST NOT exclude `org.soot-oss:soot` from the `rvsec-mop-extractor` dependency exclusions (lines 43-51; the groupId conflict no longer exists). The parent `rvsec/pom.xml` (artifactId=`rvsec-parent`, line 38) MUST set `<soot.version>4.7.1</soot.version>`.
 
 ## MODIFIED Requirements
 
@@ -64,7 +64,7 @@ The analysis tool is a GATOR client (`RvsecAnalysisClient`) that implements the 
 
 The `Flowgraph.processApplicationClasses()` method MUST handle individual method failures gracefully (INV-ANA-17). When `retrieveActiveBody()` or `createOpNode()` throws an exception for a specific method, the Flowgraph MUST skip that method and continue processing remaining methods. The resulting Flowgraph may be incomplete (missing OpNodes, widgets, or listeners for skipped methods), but the GUIAnalysis pipeline MUST complete and the `RvsecAnalysisClient` MUST produce JSON output. Reachability data (computed from `Scene.v().getCallGraph()` via BFS) is NOT affected by Flowgraph incompleteness — it depends on the Soot call graph, not on the Flowgraph.
 
-The GATOR MUST use Soot 4.7.1 (`org.soot-oss:soot`, INV-ANA-18) with defensive configuration (INV-ANA-16). The `ClassHierarchy.typeNode()` bug (soot-oss/soot#1071) is not fixed in Soot 4.7.1, but the improved Dexpler in 4.x reduces crash frequency. The defensive options (excluding `kotlin.*` from body loading, disabling `jb.sils`/`jb.dae`) further reduce the crash surface. Together, these changes form a layered defense: prevention (FIX 1), recovery (FIX 2), and fundamental improvement (FIX 3).
+The GATOR MUST use Soot 4.7.1 (`org.soot-oss:soot`, INV-ANA-18) with defensive configuration (INV-ANA-16). The `ClassHierarchy.typeNode()` bug (soot-oss/soot#1071) is not fixed in Soot 4.7.1, but the improved Dexpler in 4.x reduces crash frequency. The defensive options (excluding `kotlin.*`, `kotlinx.*`, and `androidx.compose.*` from body loading, disabling `jb.sils`/`jb.dae`) further reduce the crash surface. Together, these changes form a layered defense: prevention (FIX 1), recovery (FIX 2), and fundamental improvement (FIX 3).
 
 The execution order inside `run()`:
 
@@ -86,7 +86,7 @@ The reachability section defines the **method universe** — the total set of re
 
 The reachability section also provides MOP prioritization data consumed by rv-agent. The `MopScorer` in rv-agent's `ActionRanker` assigns +100 score to actions with `directly_reaches_mop=true` and +50 to actions with `reaches_mop=true`, directing exploration toward MOP-relevant code paths.
 
-The call graph is built using CHA (`-withCHA` flag) with `all-reachable:true`, which resolves all virtual calls based on the class hierarchy. If CHA crashes due to residual `InternalTypingException` (after defensive options and Soot 4.7.1), the analysis fails for that APK — there is no Flowgraph-level recovery for CHA-phase crashes. JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) appear as call targets whenever any application method invokes them — they do not need to be entry points.
+The call graph is built using CHA (`-withCHA` flag) with `all-reachable:true`, which resolves all virtual calls based on the class hierarchy. Note: CHA is the operational default — all execution commands include `-withCHA`, and the previous spec description of it as "optional" did not match actual usage. If CHA crashes due to residual `InternalTypingException` (after defensive options and Soot 4.7.1), the analysis fails for that APK — there is no Flowgraph-level recovery for CHA-phase crashes. JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) appear as call targets whenever any application method invokes them — they do not need to be entry points.
 
 **Module**: rv-static-analysis (launcher + parser — unchanged), rvsec-gator (analysis client — modified)
 **Key components**: `Main.java` (Soot config), `Flowgraph.java` (error handling), `RvsecAnalysisClient` (unchanged), `XMLParser`, `DefaultXMLParser`, `IntentFilterManager`, `StaticAnalysisParser` (unchanged), `Clazz`
@@ -110,7 +110,7 @@ The call graph is built using CHA (`-withCHA` flag) with `all-reachable:true`, w
 
 - **WHEN** `Flowgraph.processApplicationClasses()` calls `currentMethod.retrieveActiveBody()` and Soot throws an exception (e.g., `InternalTypingException`) for a specific method
 - **THEN** the exception MUST be caught by the try-catch around `retrieveActiveBody()` (INV-ANA-17)
-- **AND** a log MUST be emitted via `Logger.verb()` with the skipped method's signature and exception message
+- **AND** a log MUST be emitted via `Logger.warn()` with the skipped method's signature and exception message
 - **AND** the loop MUST continue to the next method via `continue`
 - **AND** the Flowgraph MUST complete with partial data (missing OpNodes for the skipped method)
 - **AND** the `RvsecAnalysisClient.run()` MUST execute and produce a JSON file
@@ -119,21 +119,21 @@ The call graph is built using CHA (`-withCHA` flag) with `all-reachable:true`, w
 
 - **WHEN** `Flowgraph.processApplicationClasses()` calls `createOpNode(currentStmt)` and the method throws an exception for a specific statement
 - **THEN** the exception MUST be caught by the existing catch block (line 343, INV-ANA-17)
-- **AND** a log MUST be emitted via `Logger.verb()` with the skipped statement and exception message
+- **AND** a log MUST be emitted via `Logger.warn()` with the skipped statement and exception message
 - **AND** the loop MUST continue to the next statement via `continue`
 - **AND** the resulting Flowgraph MUST be missing the OpNode for that statement but otherwise complete
 
 #### Scenario: Kotlin stdlib exclusion impact on reachability
 
-- **WHEN** GATOR analyzes an APK with Kotlin dependencies and `-exclude kotlin.` and `-exclude kotlinx.` are active
-- **THEN** classes in `kotlin.*` and `kotlinx.*` packages MUST NOT have their bodies jimplified
-- **AND** the call graph MUST still contain edges from application code to `kotlin.*` methods (as phantom refs)
-- **AND** the `reachability` section of the output JSON MUST NOT include `kotlin.*` classes (they are not application classes)
-- **AND** for JCA specifications (`javax.crypto.*`, `java.security.*`), reachability MUST NOT be affected because JCA APIs are called by application code, not by Kotlin stdlib
+- **WHEN** GATOR analyzes an APK with Kotlin dependencies and `-exclude kotlin.`, `-exclude kotlinx.`, and `-exclude androidx.compose.` are active
+- **THEN** classes in `kotlin.*`, `kotlinx.*`, and `androidx.compose.*` packages MUST NOT have their bodies jimplified
+- **AND** the call graph MUST still contain edges from application code to excluded package methods (as phantom refs)
+- **AND** the `reachability` section of the output JSON MUST NOT include excluded-package classes (they are not application classes)
+- **AND** for JCA specifications (`javax.crypto.*`, `java.security.*`), reachability MUST NOT be affected because JCA APIs are called by application code, not by Kotlin stdlib or Compose runtime
 
 #### Scenario: Analysis output baseline comparison after Soot upgrade
 
-- **WHEN** the analysis tool analyzes `cryptoapp.apk` with Soot 4.7.1 and its output is compared against the saved baseline (produced with Soot 3.3.0)
+- **WHEN** the analysis tool analyzes `cryptoapp.apk` with Soot 4.7.1 (Feb 2026) and its output is compared against the saved baseline (produced with Soot 3.3.0)
 - **THEN** window count MUST match exactly (±0)
 - **AND** transition count MUST match exactly (±0)
 - **AND** total method count MUST match exactly (±0)
