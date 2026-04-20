@@ -2,22 +2,20 @@
 
 The instrumentation pipeline has very low success rates on modern APKs (17.5% JCA, 54% generic_new). Analysis of 1164 APKs across 3 datasets identified d8 rejecting ajc-corrupted stack frames as the dominant failure family (37-64%), followed by `j$` prefix conflicts (~7-15%) and ajc internal crashes (~5-25%). Additionally, the hardcoded `android-29/android.jar` causes type resolution failures on APKs targeting API 30+. GitHub Issue: #50, builds on #49 (error masking fix).
 
+Post-landing empirical validation on `cryptoapp.apk` (Apr 2026) revealed that two of the originally-planned mitigations silently broke runtime instrumentation while producing valid-looking APKs (d8 succeeded, JSON reports looked consistent, but logcat had zero coverage events). Those two mitigations were reverted — see D-REVERT below and Section 8 of `tasks.md`.
+
 References: FR02, NFR04. Main file: `modules/rv-instrumentation/src/rv_instrumentation/rvandroid.py`.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    YAML[weaving_excludes.yaml<br/>assets/] --> LOAD[_load_weaving_excludes]
-    LOAD --> GEN[_generate_aop_xml<br/>→ tmp_dir/aop.xml]
     SDK[app.sdk_target] --> JAR[__get_android_jar<br/>→ android-XX/android.jar]
-    GEN --> AJC["ajc -xmlConfigured tmp/aop.xml<br/>-proceedOnError -Xlint:ignore<br/>-cp android-XX.jar<br/>-inpath tmp/ -d tmp/ -source 1.8"]
+    JAR --> AJC["ajc -proceedOnError -Xlint:ignore<br/>-cp android-XX.jar<br/>-inpath tmp/ -d tmp/ -source 1.8<br/>-sourceroots tmp/"]
     AJC --> FRAMES["rv-frame-computer.jar<br/>ASM COMPUTE_FRAMES<br/>on tmp/**/*.class"]
     FRAMES --> MERGE[__merge_support_classes]
-    MERGE --> D8["d8 --no-desugaring --release<br/>--min-api 26 --lib android-XX.jar"]
+    MERGE --> D8["d8 --release<br/>--min-api 26 --lib android-XX.jar<br/>(skip_stderr=True)"]
 
-    style YAML fill:#f9f,stroke:#333
-    style GEN fill:#bbf,stroke:#333
     style FRAMES fill:#bfb,stroke:#333
     style JAR fill:#fbb,stroke:#333
 ```
@@ -26,56 +24,68 @@ flowchart TD
 
 | Component | Responsibility | Input | Output |
 |-----------|---------------|-------|--------|
-| `_load_weaving_excludes()` [NEW] | Load exclude patterns from YAML | `weaving_excludes.yaml` | List of pattern strings |
-| `_generate_aop_xml()` [NEW] | Generate aop.xml from YAML patterns | List of patterns | `aop.xml` in `tmp_dir` |
 | `__compute_stack_frames()` [NEW] | Run rv-frame-computer.jar (ASM COMPUTE_FRAMES) on woven classes | `tmp_dir` with .class files | Same files with recomputed frames |
 | `__get_android_jar()` [MODIFIED] | Select android.jar by APK's targetSdkVersion | `app.sdk_target` | Path to best-matching android.jar |
-| `__weave_monitors()` [MODIFIED] | Add `-proceedOnError` and `-xmlConfigured` to ajc | ajc command | woven classes (partial on error) |
-| `__d8()` [MODIFIED] | Add `--no-desugaring` to d8 | d8 command | DEX bytecode |
-| `RVInstrumentationConfig` [MODIFIED] | Resolve paths for YAML and frame computer jar | config | excludes path, jar path |
+| `__weave_monitors()` [MODIFIED] | Add `-proceedOnError` to ajc | ajc command | woven classes (partial on error) |
+| `__d8()` [MODIFIED] | Use `skip_stderr=True` on execute_command | d8 command | DEX bytecode |
+| `RVInstrumentationConfig` [MODIFIED] | Resolve path for frame computer jar | config | jar path |
 
 ## Mapping: Spec → Implementation → Test
 
 | Requirement / Invariant | Implementation | Test |
 |------------------------|----------------|------|
-| INV-INS-13: d8 --no-desugaring | `rvandroid.py:__d8()` — add flag | `test_d8_includes_no_desugaring` |
 | INV-INS-14: ajc -proceedOnError | `rvandroid.py:__weave_monitors()` — add flag | `test_ajc_includes_proceed_on_error` |
-| INV-INS-15: -xmlConfigured path/aop.xml | `rvandroid.py:__weave_monitors()` + `_generate_aop_xml()` | `test_aop_xml_generated_from_yaml` |
-| INV-INS-16: default exclude patterns (aligned with Coverage.aj) | `assets/weaving_excludes.yaml` | `test_default_excludes_loaded` |
 | INV-INS-17: ASM COMPUTE_FRAMES post-weaving | `rvandroid.py:__compute_stack_frames()` + `rv-frame-computer.jar` | `test_compute_frames_invoked_after_weaving` |
 | INV-INS-18: dynamic android.jar by targetSdkVersion | `rvandroid.py:__get_android_jar()` | `test_android_jar_matches_target_sdk` |
-| Backward compat: no YAML = no flag | `__weave_monitors()` conditional | `test_no_yaml_no_xml_configured` |
+| INV-INS-19: d8 skip_stderr=True | `rvandroid.py:__d8()` — skip_stderr param | `test_d8_skip_stderr` |
 | `__merge_support_classes` reraise=True | Already implemented in gh49 (commit `8a25e7ec`) | Covered by existing tests |
 | Preserved FR02 scenarios (8) | Unchanged from baseline | Covered by existing tests |
+
+INV-INS-13 (`--no-desugaring`), INV-INS-15 (`-xmlConfigured`), INV-INS-16 (`weaving_excludes.yaml`) from the initial draft were removed after empirical validation — see D-REVERT.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Improve instrumentation success rate (estimate: JCA 17.5% → ~33%, generic_new 54% → ~59%)
-- Fix corrupted stack map frames at two levels: prevent via aop.xml (library classes) + repair via COMPUTE_FRAMES (woven classes)
+- Improve instrumentation success rate (estimate: JCA 17.5% → ~30%, generic_new 54% → ~58%, revised downward from original plan after revert)
+- Fix corrupted stack map frames via ASM COMPUTE_FRAMES on all woven classes
 - Resolve ajc type resolution failures via dynamic `android.jar` selection
-- Preserve MOP monitoring of app code (library-internal calls excluded — documented as scope decision)
-- Maintain backward compatibility when `weaving_excludes.yaml` is absent
-- Configurable exclude patterns (researchers can tune per experiment)
+- Preserve MOP monitoring of app code (library exclusion happens at runtime via `Coverage.aj`'s `excludedPackages()` pointcut)
+- Preserve JDK 11+ nest-mate semantics (d8 desugaring must remain enabled for `--min-api < 30`)
 
 **Non-Goals:**
 - Fixing dex2jar conversion issues (separate tool, <1% of failures)
-- Dynamic per-APK exclude lists (static YAML is sufficient)
+- Static/configurable compile-time library exclusion (reverted — see D-REVERT)
 - Full d8 AIOOBE resolution (some cases are d8 internal bugs unrelated to stack frames)
 
 ## Decisions
 
-### D1: `aop.xml` generation vs static file
+### D-REVERT: Revert `-xmlConfigured` and `--no-desugaring` after empirical failure (Apr 2026)
 
-**Choice**: Generate `aop.xml` at runtime from YAML patterns.
+**Choice**: Remove the `-xmlConfigured` + `aop.xml` + `weaving_excludes.yaml` path and remove `--no-desugaring` from the d8 command. Keep `-proceedOnError`, COMPUTE_FRAMES, dynamic android.jar, AspectJ 1.9.25.1, and `skip_stderr=True`.
 
-**Rationale**: YAML is more readable and maintainable than XML. Runtime generation allows researchers to modify patterns without understanding AspectJ XML syntax.
+**Trigger**: End-to-end run of `rv-experiment` on `cryptoapp.apk` (baseline: previously worked, heavily monitored) produced an instrumented APK with **zero `RVSEC-COV` events** in logcat and **app crash on launch**.
 
-### D2: Where to place generated `aop.xml` and how to pass it
+**Evidence collected** (`scripts/` + direct `adb` probes on emulator, `results/gh50_val/`):
 
-**Choice**: Write `aop.xml` directly in `tmp_dir`. Pass the file path explicitly to ajc: `ajc -xmlConfigured {tmp_dir}/aop.xml ...`.
+1. **`-xmlConfigured` regression**: The generated `aop.xml` contained `<weaver>...<exclude/>...</weaver>` only, with no `<aspects>` declaration. `dexdump -d` on `cryptoapp.apk` instrumented with the flag:
+   - `classes.dex` contains `Coverage` and `MultiSpec_1MonitorAspect` as classes (compiled from `.aj`)
+   - `classes2-6.dex` (app + androidx): **0 `aspectOf` invocations** — no bytecode in app methods references the aspects, so no pointcut fires at runtime
+   - Logcat for full 60s run: zero `RVSEC-COV` events
+   - After removal of `-xmlConfigured`: `classes.dex` shows `MultiSpec_1MonitorAspect.ajc$afterReturning$...(Ljava/security/MessageDigest;)V` injected directly after `MessageDigest.getInstance()` in `MessageDigestUtil`; logcat shows both `RVSEC-COV` (12 app-method coverage events during manual actions) and `RVSEC` (2 MOP violations: `UnsafeAlgorithm MD5`, `InvalidSequenceOfMethodCalls`) events
 
-**Rationale**: The `-xmlConfigured` flag in CTW mode requires the XML file path as an **explicit argument** on the command line — it does NOT auto-discover `META-INF/aop.xml` from the classpath (that is LTW-only behavior). Sources: [AspectJ ajc manual](https://eclipse.dev/aspectj/doc/latest/devguide/ajc.html).
+2. **`--no-desugaring` regression**: With `--no-desugaring`, d8 skips synthetic-accessor generation for JDK 11+ nest-mate access. `rv-monitor-rt.jar` (the monitor runtime) is compiled with JDK 11+ bytecode, so `TerminatedMonitorCleaner$Runner.updateEntries()` emits `sget-object TerminatedMonitorCleaner.removedEntries` directly against a private static field of its outer class. Dalvik on `--min-api 26` (Android 8.0-10.0) does not support nest-based access control; it raises `java.lang.IllegalAccessError: Field 'com.runtimeverification.rvmonitor.java.rt.tablebase.TerminatedMonitorCleaner.removedEntries' is inaccessible to class '...TerminatedMonitorCleaner$Runner'` on the first `MonitorCleaner` thread tick, force-closing the app. `dexdump` confirmed no `access$XXX` synthetic method existed on the outer class.
+   - After removal of `--no-desugaring`: app launches without crash; `MonitorCleaner` runs normally; logcat shows expected events.
+
+**Rationale for keeping the other gh50 mitigations**:
+- `-proceedOnError`: orthogonal to the two reverted flags; still useful to continue past individual class-level weaver failures.
+- COMPUTE_FRAMES: the original AIOOBE fix via `ClassWriter.COMPUTE_FRAMES` still applies to every class the weaver touches; it does not depend on aop.xml. The original analysis framed aop.xml as a complementary preventive measure ("don't weave libraries"), but (a) aop.xml was inactive in practice because of the missing `<aspects>` declaration, and (b) `Coverage.aj`'s `excludedPackages()` pointcut already excludes library calls from the coverage tag at runtime. Net effect of removing aop.xml is negligible; net effect of COMPUTE_FRAMES on correctly woven classes is preserved.
+- Dynamic `android.jar`: orthogonal; still required for APKs targeting API 30+.
+- AspectJ 1.9.25.1: orthogonal bytecode fix.
+- d8 `skip_stderr=True`: orthogonal; still required to prevent non-fatal stderr from masking success.
+
+**Rationale for dropping `weaving_excludes.yaml`** (instead of fixing it): Even if the aop.xml were extended with a correct `<aspects>` list, library-level exclusion would only duplicate what `Coverage.aj` already does at runtime via `excludedPackages()`. Keeping a parallel, out-of-sync, untestable YAML + generator adds complexity without measurable benefit. P1 (simplicity) + P3 (no backward-compat shims).
+
+**Residual risk**: None observed on `cryptoapp`. The `j$` family (~7-15%) was the stated motivation for `--no-desugaring`; that family was never directly reproduced on our current datasets, so the revert is expected to have no net negative impact. If `j$` conflicts resurface in large-scale validation, the correct fix is investigating which upstream classes are pre-desugared rather than disabling d8 desugaring globally.
 
 ### D3: `-proceedOnError` risk assessment
 
@@ -85,21 +95,15 @@ flowchart TD
 
 **Mitigation**: Log all ajc errors even with `-proceedOnError`. Partial monitoring > no APK at all.
 
-### D4: ASM COMPUTE_FRAMES as complementary fix
+### D4: ASM COMPUTE_FRAMES as primary AIOOBE fix
 
 **Choice**: Add an ASM-based frame recomputation step after ajc weaving, using a new Maven module (`rvsec-frame-computer`) that produces a fat JAR (`rv-frame-computer.jar`) with `org.ow2.asm:asm:9.7.1` bundled. The JAR is copied to `rv-android/lib/frame-computer/` during `mvn install`, following the same pattern as `rvsec-reachability` → `lib/reach/` and `rvsec-mop-extractor` → `lib/mop-extractor/`.
 
-**Alternative considered**: Rely solely on `aop.xml` exclusion.
-
-**Rationale**: The two mechanisms are complementary, not competing:
-- **aop.xml** prevents the weaver from touching library classes → their frames stay intact → eliminates one source of AIOOBE
-- **COMPUTE_FRAMES** recomputes frames on classes the weaver DID modify (app code) → fixes frames the weaver corrupted → eliminates another source of AIOOBE
-
-ajc uses BCEL for bytecode manipulation. BCEL's stack frame computation is known to be insufficient for modern bytecode patterns (try-with-resources, lambdas, switch expressions). Additionally, dex2jar uses `ClassWriter.COMPUTE_MAXS` (not `COMPUTE_FRAMES`), so decompiled classes may lack StackMapTable entirely. ASM's `COMPUTE_FRAMES` does a full recomputation from the control flow graph, producing frames that d8 accepts.
+**Rationale**: ajc uses BCEL for bytecode manipulation. BCEL's stack frame computation is insufficient for modern bytecode patterns (try-with-resources, lambdas, switch expressions). dex2jar uses `ClassWriter.COMPUTE_MAXS` (not `COMPUTE_FRAMES`), so decompiled classes may lack StackMapTable entirely. ASM's `COMPUTE_FRAMES` does a full recomputation from the control flow graph, producing frames that d8 accepts.
 
 **Critical implementation detail**: The `ClassWriter` constructor must NOT receive the `ClassReader` as argument. With `new ClassWriter(reader, COMPUTE_FRAMES)`, ASM optimizes by copying frames from the reader — if the original had no StackMapTable, the copy is empty (no-op). The correct form is `new ClassWriter(COMPUTE_FRAMES)` without reader, which forces full recomputation.
 
-**Risk**: `ClassWriter.COMPUTE_FRAMES` without reader needs to resolve the type hierarchy to compute frames. It requires the correct classpath (android.jar + runtime jars). A custom `FrameComputingClassWriter` subclass overrides `getCommonSuperClass()` to resolve types via a `URLClassLoader` built from the same classpath already assembled for ajc. Types not found fall back to `java/lang/Object`. Additionally, dex2jar can produce classes with illegal modifiers that trigger `ClassFormatError` (a JVM `Error`, not `Exception`) when `Class.forName()` tries to load them. Both `getCommonSuperClass()` and `processClassFile()` catch `Throwable` to handle this — failed files are preserved with original bytecode.
+**Risk**: `ClassWriter.COMPUTE_FRAMES` without reader needs the type hierarchy. A custom `FrameComputingClassWriter` subclass overrides `getCommonSuperClass()` to resolve types via a `URLClassLoader` built from the same classpath already assembled for ajc. Types not found fall back to `java/lang/Object`. dex2jar can produce classes with illegal modifiers that trigger `ClassFormatError` (a JVM `Error`, not `Exception`) when `Class.forName()` tries to load them. Both `getCommonSuperClass()` and `processClassFile()` catch `Throwable` so failed files are preserved with original bytecode.
 
 **Additional fix**: d8 emits non-fatal "Expected stack map table" warnings to stderr even on success (exit code 0). The `execute_command` utility treats any stderr as error. Fix: add `skip_stderr=True` to d8 call (same pattern as dex2jar).
 
@@ -122,16 +126,13 @@ ajc uses BCEL for bytecode manipulation. BCEL's stack frame computation is known
 - Local development: download new AspectJ binary, update symlink, set `-Xmx8192M` in `ajc` script; install `platforms;android-35` and `platforms;android-36` via sdkmanager
 - Rebuild Docker images (base + android + tools + rvandroid chain)
 
-### D7: MOP coverage trade-off
+### D7: MOP coverage — runtime exclusion only
 
-**Choice**: Exclude library packages from weaving, accepting reduced MOP visibility in libraries.
+**Choice**: No compile-time (ajc) library exclusion. All library exclusion is handled at runtime by `Coverage.aj`'s `excludedPackages()` pointcut.
 
-**Rationale**: All 168 MOP specs use `call()` (caller-site interception). Excluding library packages means calls FROM excluded packages are not monitored. Calls from app code to monitored APIs remain 100% monitored. The impact varies by spec set:
-- JCA (~5% loss): crypto APIs rarely called internally by non-crypto libs
-- generic (~15-25% loss): APIs used by frameworks (ReentrantLock, Iterator)
-- generic_new (~25-40% loss): ubiquitous APIs (InputStream, Closeable, Map)
+**Rationale**: After D-REVERT, library bytecode is weaved by ajc like any other class. At runtime, `Coverage.aj`'s `before() : traced()` advice uses `within(…)` checks to short-circuit on `sun..*`, `java..*`, `androidx..*`, `kotlin..*`, `com.google..*`, `com.facebook..*`, `org.apache..*`, `libcore..*`, `mop..*`, `javamop..*`, `rvmonitorrt..*`, etc., before any expensive signature-building runs. The practical effect on coverage/MOP tagging is identical to a compile-time exclusion, while keeping the build pipeline simpler and avoiding the `-xmlConfigured` regression.
 
-This is defensible because: (1) `Coverage.aj` already excludes the same packages, (2) the research targets misuse in developer code, (3) `App.code_package` validates exclusions don't cover app code.
+**Trade-off**: Woven library classes are slightly larger in size and carry an unused branch in each method. Measured overhead is negligible against the dex2jar/ajc/d8 cost dominating the pipeline.
 
 ## API Design
 
@@ -159,26 +160,6 @@ def __compute_stack_frames(self, app: App) -> None:
     utils.execute_command(cmd, "frame_computer")
 ```
 
-### `_generate_aop_xml(excludes: List[str], output_dir: str) -> Optional[str]`
-
-```python
-def _generate_aop_xml(self, excludes: List[str], output_dir: str) -> Optional[str]:
-    """Generate aop.xml with exclude patterns for ajc -xmlConfigured.
-
-    Returns path to generated aop.xml, or None if no patterns provided.
-    """
-```
-
-### `_load_weaving_excludes() -> List[str]`
-
-```python
-def _load_weaving_excludes(self) -> List[str]:
-    """Load exclude patterns from weaving_excludes.yaml in assets/.
-
-    Returns empty list if file not found (backward compatible).
-    """
-```
-
 ### `__get_android_jar(app: App) -> str` (modified)
 
 ```python
@@ -204,18 +185,12 @@ def __get_android_jar(self, app: App) -> str:
 
 ```
 RVInstrumentationConfig
-    │ assets/weaving_excludes.yaml
-    ▼
-_load_weaving_excludes() → ["com.google..*", "androidx..*", ...]
-    │
-    ▼
-_generate_aop_xml(excludes, tmp_dir) → tmp_dir/aop.xml
     │
     │  app.sdk_target → __get_android_jar(app) → android-XX/android.jar
     │
     ▼
 __weave_monitors():
-    ajc -xmlConfigured tmp_dir/aop.xml -proceedOnError -Xlint:ignore
+    ajc -proceedOnError -Xlint:ignore
         -cp android-XX.jar -inpath tmp/ -d tmp/ -source 1.8 -sourceroots tmp/
     │
     ▼
@@ -228,45 +203,41 @@ __merge_support_classes():
     │
     ▼
 __d8():
-    d8 monitored.jar --no-desugaring --release --min-api 26 --lib android-XX.jar
+    d8 monitored.jar --release --min-api 26 --lib android-XX.jar
+    (execute_command skip_stderr=True)
 ```
 
 ## Error Handling
 
 | Error | Source | Strategy | Recovery |
 |-------|--------|----------|----------|
-| `weaving_excludes.yaml` not found | `_load_weaving_excludes()` | Return empty list, log info | ajc runs without -xmlConfigured (backward compatible) |
-| `aop.xml` generation fails | `_generate_aop_xml()` | Log warning, skip -xmlConfigured | ajc runs without exclusion |
 | ajc class-level error with -proceedOnError | ajc execution | ajc continues, produces partial output | Other classes are woven normally |
 | Frame computation fails on a .class file (ClassFormatError, ClassNotFoundException, etc.) | `__compute_stack_frames()` | Log warning, skip file (catch Throwable) | File preserved with original (woven) bytecode |
 | rv-frame-computer.jar not found | `__compute_stack_frames()` | Log warning, skip step | Pipeline continues without frame recomputation |
 | android.jar not found for target SDK | `__get_android_jar()` | Log info, fallback to highest available | Uses best available platform |
 | No android.jar found at all | `__get_android_jar()` | Use hardcoded fallback (android-29) | Backward compatible |
+| d8 emits non-fatal stderr warnings | `__d8()` | `skip_stderr=True` on execute_command | Real errors still caught via exit code != 0 |
 
 ## Risks / Trade-offs
 
 - **[Risk: COMPUTE_FRAMES classpath resolution]** → `ClassWriter.COMPUTE_FRAMES` needs the type hierarchy. We pass the same classpath already assembled for ajc (android.jar + runtime jars). If a type is unresolvable, that specific file is skipped — not the entire APK.
-- **[Risk: -xmlConfigured may not prevent all frame corruption]** → Complemented by COMPUTE_FRAMES. Together they address both excluded (untouched) and included (recomputed) classes.
 - **[Risk: -proceedOnError produces partially woven classes]** → Mitigated by d8 rejecting truly invalid bytecode. Partial monitoring > no APK.
-- **[Risk: AspectJ upgrade introduces regressions]** → 1.9.25.1 is a minor release. Risk is low; empirical validation will confirm.
-- **[Trade-off: Excluded library code is not monitored]** → Acceptable. All 168 specs use `call()`. App code monitoring preserved. Library-internal calls are not the research target. `App.code_package` validates exclusions.
+- **[Risk: AspectJ upgrade introduces regressions]** → 1.9.25.1 is a minor release. Risk is low; empirical validation confirmed.
+- **[Risk: weaving library bytecode (no compile-time exclusion)]** → Overhead from extra woven advice in library classes; runtime short-circuit via `Coverage.aj:excludedPackages()` keeps the tag emission path fast. No correctness impact observed.
 
 ## Testing Strategy
 
 | Layer | What to test | How | Count |
 |-------|-------------|-----|-------|
-| Unit | d8 --no-desugaring flag | Mock Command, verify args | 1 |
 | Unit | ajc -proceedOnError flag | Mock Command, verify args | 1 |
-| Unit | aop.xml generation from YAML | Write YAML, call _generate_aop_xml, parse result | 2 |
-| Unit | _load_weaving_excludes | Test with/without YAML file | 2 |
-| Unit | __weave_monitors with -xmlConfigured | Mock, verify flag presence when YAML exists | 1 |
-| Unit | __weave_monitors without YAML (backward compat) | Mock, verify flag absent | 1 |
-| Unit | __compute_stack_frames invocation | Mock Command, verify jar + classpath args | 1 |
-| Unit | __get_android_jar dynamic selection | Mock filesystem, test exact/fallback/missing | 3 |
+| Unit | `__compute_stack_frames` invocation | Mock Command, verify jar + classpath args | 1 |
+| Unit | `__get_android_jar` dynamic selection | Mock filesystem, test exact/fallback/missing | 3 |
+| Unit | d8 skip_stderr=True | Mock execute_command, verify skip_stderr arg | 1 |
+| Empirical | cryptoapp end-to-end validation | Instrument + launch + logcat | 1 manual (done, Apr 2026) |
 | Empirical | 10 previously-failing JCA APKs | Run instrumentation, measure success | 1 manual |
 
-**Total**: ~12 unit tests + 1 empirical validation
+**Total**: ~6 unit tests + 2 empirical validations
 
 ## Open Questions
 
-None — design is complete. Empirical test after implementation will confirm actual improvement rates.
+- Whether the `j$` family (~7-15% of failures) that motivated `--no-desugaring` still manifests on the current dataset after D-REVERT. Deferred to large-scale re-validation.

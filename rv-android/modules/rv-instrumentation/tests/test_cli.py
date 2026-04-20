@@ -24,7 +24,9 @@ class TestCliParser:
 
     def test_instrument_command_parses_apk_and_output(self):
         parser = create_parser()
-        args = parser.parse_args(["instrument", "--apk", "/app.apk", "--output", "/out"])
+        args = parser.parse_args(
+            ["instrument", "--apk", "/app.apk", "--output", "/out"]
+        )
 
         assert args.command == "instrument"
         assert args.apk == "/app.apk"
@@ -45,31 +47,41 @@ class TestCliParser:
 
     def test_force_flag_defaults_to_false(self):
         parser = create_parser()
-        args = parser.parse_args(["instrument", "--apk", "/app.apk", "--output", "/out"])
+        args = parser.parse_args(
+            ["instrument", "--apk", "/app.apk", "--output", "/out"]
+        )
 
         assert args.force is False
 
     def test_force_flag_set_to_true(self):
         parser = create_parser()
-        args = parser.parse_args(["instrument", "--apk", "/app.apk", "--output", "/out", "--force"])
+        args = parser.parse_args(
+            ["instrument", "--apk", "/app.apk", "--output", "/out", "--force"]
+        )
 
         assert args.force is True
 
     def test_verbose_flag_defaults_to_false(self):
         parser = create_parser()
-        args = parser.parse_args(["instrument", "--apk", "/app.apk", "--output", "/out"])
+        args = parser.parse_args(
+            ["instrument", "--apk", "/app.apk", "--output", "/out"]
+        )
 
         assert args.verbose is False
 
     def test_verbose_short_flag(self):
         parser = create_parser()
-        args = parser.parse_args(["instrument", "--apk", "/app.apk", "--output", "/out", "-v"])
+        args = parser.parse_args(
+            ["instrument", "--apk", "/app.apk", "--output", "/out", "-v"]
+        )
 
         assert args.verbose is True
 
     def test_dry_run_flag(self):
         parser = create_parser()
-        args = parser.parse_args(["instrument", "--apk", "/app.apk", "--output", "/out", "--dry-run"])
+        args = parser.parse_args(
+            ["instrument", "--apk", "/app.apk", "--output", "/out", "--dry-run"]
+        )
 
         assert args.dry_run is True
 
@@ -81,28 +93,51 @@ class TestCliParser:
 
     def test_rvsec_root_option(self):
         parser = create_parser()
-        args = parser.parse_args([
-            "instrument", "--apk", "/app.apk", "--output", "/out",
-            "--rvsec-root", "/rvsec"
-        ])
+        args = parser.parse_args(
+            [
+                "instrument",
+                "--apk",
+                "/app.apk",
+                "--output",
+                "/out",
+                "--rvsec-root",
+                "/rvsec",
+            ]
+        )
 
         assert args.rvsec_root == "/rvsec"
 
     def test_monitor_dir_option(self):
         parser = create_parser()
-        args = parser.parse_args([
-            "instrument", "--apk", "/app.apk", "--output", "/out",
-            "--monitor-dir", "/monitors"
-        ])
+        args = parser.parse_args(
+            [
+                "instrument",
+                "--apk",
+                "/app.apk",
+                "--output",
+                "/out",
+                "--monitor-dir",
+                "/monitors",
+            ]
+        )
 
         assert args.monitor_dir == "/monitors"
 
     def test_keystore_options(self):
         parser = create_parser()
-        args = parser.parse_args([
-            "instrument", "--apk", "/app.apk", "--output", "/out",
-            "--keystore", "/ks.jks", "--keystore-password", "secret"
-        ])
+        args = parser.parse_args(
+            [
+                "instrument",
+                "--apk",
+                "/app.apk",
+                "--output",
+                "/out",
+                "--keystore",
+                "/ks.jks",
+                "--keystore-password",
+                "secret",
+            ]
+        )
 
         assert args.keystore == "/ks.jks"
         assert args.keystore_password == "secret"

@@ -488,89 +488,6 @@ class TestInstrumentApksBatch:
         assert data["failing.apk"]["phase"] == "aspect_weaving"
 
 
-class TestLoadWeavingExcludes:
-    """Tests for RVInstrumentation._load_weaving_excludes."""
-
-    def test_loads_patterns_from_yaml(self, tmp_path):
-        config = _make_config_mock(tmp_path)
-        rv = _create_rv_instrumentation(config)
-
-        # The method reads from assets/weaving_excludes.yaml relative to rvandroid.py.
-        # We patch Path resolution to use a temp file.
-        yaml_content = "excludes:\n  - 'com.google..*'\n  - 'androidx..*'\n"
-        yaml_path = tmp_path / "weaving_excludes.yaml"
-        yaml_path.write_text(yaml_content)
-
-        with patch(
-            "rv_instrumentation.rvandroid.Path.__truediv__",
-        ) as mock_div:
-            # Directly call the internal implementation logic
-            import yaml
-
-            data = yaml.safe_load(yaml_content)
-            excludes = data.get("excludes", [])
-
-        assert excludes == ["com.google..*", "androidx..*"]
-
-    def test_returns_empty_list_when_yaml_not_found(self, tmp_path):
-        config = _make_config_mock(tmp_path)
-        rv = _create_rv_instrumentation(config)
-
-        # Point to a nonexistent assets dir
-        with patch("rv_instrumentation.rvandroid.Path") as mock_path_cls:
-            mock_path = MagicMock()
-            mock_path.__truediv__ = MagicMock(return_value=mock_path)
-            mock_path.exists.return_value = False
-            mock_path_cls.return_value = mock_path
-            mock_path_cls.__truediv__ = MagicMock(return_value=mock_path)
-
-            result = rv._load_weaving_excludes()
-
-        assert result == []
-
-
-class TestGenerateAopXml:
-    """Tests for RVInstrumentation._generate_aop_xml."""
-
-    def test_generates_xml_with_exclude_patterns(self, tmp_path):
-        config = _make_config_mock(tmp_path)
-        rv = _create_rv_instrumentation(config)
-
-        output_dir = str(tmp_path / "output")
-        os.makedirs(output_dir)
-
-        result = rv._generate_aop_xml(
-            ["com.google..*", "androidx..*", "kotlin..*"], output_dir
-        )
-
-        assert result is not None
-        assert result.endswith("aop.xml")
-        assert os.path.exists(result)
-
-        content = open(result).read()
-        assert '<exclude within="com.google..*"/>' in content
-        assert '<exclude within="androidx..*"/>' in content
-        assert '<exclude within="kotlin..*"/>' in content
-        assert "<aspectj>" in content
-        assert "<weaver>" in content
-
-    def test_returns_none_for_empty_list(self, tmp_path):
-        config = _make_config_mock(tmp_path)
-        rv = _create_rv_instrumentation(config)
-
-        result = rv._generate_aop_xml([], str(tmp_path))
-
-        assert result is None
-
-    def test_returns_none_for_none_input(self, tmp_path):
-        config = _make_config_mock(tmp_path)
-        rv = _create_rv_instrumentation(config)
-
-        result = rv._generate_aop_xml(None, str(tmp_path))
-
-        assert result is None
-
-
 class TestWeaveMonitorsFlags:
     """Tests for __weave_monitors ajc command construction."""
 
@@ -585,8 +502,11 @@ class TestWeaveMonitorsFlags:
 
         with (
             patch("rv_instrumentation.rvandroid.utils") as mock_utils,
-            patch.object(rv, "_load_weaving_excludes", return_value=[]),
-            patch.object(rv, "_RVInstrumentation__get_classpath", return_value=["/fake/android.jar"]),
+            patch.object(
+                rv,
+                "_RVInstrumentation__get_classpath",
+                return_value=["/fake/android.jar"],
+            ),
         ):
             mock_utils.execute_command = capture_execute
 
@@ -596,58 +516,16 @@ class TestWeaveMonitorsFlags:
 
         assert "-proceedOnError" in captured_cmd["args"]
 
-    def test_ajc_includes_xml_configured_when_yaml_exists(self, tmp_path):
-        config = _make_config_mock(tmp_path)
-        rv = _create_rv_instrumentation(config)
-
-        os.makedirs(config.tmp_dir, exist_ok=True)
-        captured_cmd = {}
-
-        def capture_execute(cmd, tool_name):
-            captured_cmd["args"] = cmd.args
-
-        with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
-            patch.object(
-                rv, "_load_weaving_excludes", return_value=["com.google..*"]
-            ),
-            patch.object(rv, "_RVInstrumentation__get_classpath", return_value=["/fake/android.jar"]),
-        ):
-            mock_utils.execute_command = capture_execute
-
-            app = MagicMock()
-            app.name = "test.apk"
-            rv._RVInstrumentation__weave_monitors(app)
-
-        assert "-xmlConfigured" in captured_cmd["args"]
-
-    def test_ajc_no_xml_configured_when_yaml_absent(self, tmp_path):
-        config = _make_config_mock(tmp_path)
-        rv = _create_rv_instrumentation(config)
-
-        captured_cmd = {}
-
-        def capture_execute(cmd, tool_name):
-            captured_cmd["args"] = cmd.args
-
-        with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
-            patch.object(rv, "_load_weaving_excludes", return_value=[]),
-            patch.object(rv, "_RVInstrumentation__get_classpath", return_value=["/fake/android.jar"]),
-        ):
-            mock_utils.execute_command = capture_execute
-
-            app = MagicMock()
-            app.name = "test.apk"
-            rv._RVInstrumentation__weave_monitors(app)
-
-        assert "-xmlConfigured" not in captured_cmd["args"]
-
 
 class TestD8Flags:
     """Tests for __d8 command construction."""
 
-    def test_d8_includes_no_desugaring(self, tmp_path):
+    def test_d8_skip_stderr_enabled(self, tmp_path):
+        # d8 prints non-fatal "Expected stack map table" warnings to stderr
+        # even on exit code 0, so execute_command must skip stderr capture
+        # to avoid false failures. Exit code still gates real errors.
+        # Desugaring is left enabled (no --no-desugaring) so d8 generates
+        # synthetic accessors for JDK 11+ nest-mate access in rv-monitor-rt.
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
 
@@ -655,9 +533,9 @@ class TestD8Flags:
         captured_calls = []
 
         def capture_execute(cmd, tool_name, skip_stderr=False, stdout=None):
-            captured_calls.append({
-                "tool": tool_name, "args": cmd.args, "skip_stderr": skip_stderr
-            })
+            captured_calls.append(
+                {"tool": tool_name, "args": cmd.args, "skip_stderr": skip_stderr}
+            )
 
         app = MagicMock()
         app.name = "test.apk"
@@ -666,7 +544,11 @@ class TestD8Flags:
 
         with (
             patch("rv_instrumentation.rvandroid.utils") as mock_utils,
-            patch.object(rv, "_RVInstrumentation__get_android_jar", return_value="/fake/android.jar"),
+            patch.object(
+                rv,
+                "_RVInstrumentation__get_android_jar",
+                return_value="/fake/android.jar",
+            ),
             patch.object(rv, "_RVInstrumentation__d2j_asm_verify"),
         ):
             mock_utils.execute_command = capture_execute
@@ -677,8 +559,8 @@ class TestD8Flags:
                 pass
 
         d8_call = next(c for c in captured_calls if c["tool"] == "d8")
-        assert "--no-desugaring" in d8_call["args"]
         assert d8_call["skip_stderr"] is True
+        assert "--no-desugaring" not in d8_call["args"]
 
 
 class TestGetAndroidJar:
@@ -768,9 +650,15 @@ class TestComputeStackFrames:
         with (
             patch("rv_instrumentation.rvandroid.utils") as mock_utils,
             patch.object(
-                rv, "_get_frame_computer_jar", return_value="/fake/rv-frame-computer.jar"
+                rv,
+                "_get_frame_computer_jar",
+                return_value="/fake/rv-frame-computer.jar",
             ),
-            patch.object(rv, "_RVInstrumentation__get_classpath", return_value=["/fake/android.jar"]),
+            patch.object(
+                rv,
+                "_RVInstrumentation__get_classpath",
+                return_value=["/fake/android.jar"],
+            ),
         ):
             mock_utils.execute_command = capture_execute
 

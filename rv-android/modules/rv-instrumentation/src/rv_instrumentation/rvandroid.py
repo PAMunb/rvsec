@@ -5,8 +5,6 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-import yaml
-
 from rv_android_core import constants
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
@@ -818,12 +816,6 @@ class RVInstrumentation:
             self.config.tmp_dir,
         ]
 
-        # Generate aop.xml from weaving_excludes.yaml for class exclusion
-        excludes = self._load_weaving_excludes()
-        aop_xml_path = self._generate_aop_xml(excludes, self.config.tmp_dir)
-        if aop_xml_path:
-            ajc_args.extend(["-xmlConfigured", aop_xml_path])
-
         ajc_cmd = Command("ajc", ajc_args)
 
         utils.execute_command(ajc_cmd, "ajc")
@@ -885,7 +877,10 @@ class RVInstrumentation:
 
         self._logger.debug(
             "Stack map frame recomputation completed",
-            extra={"app_name": app.name, "pipeline_stage": "frame_computation_completed"},
+            extra={
+                "app_name": app.name,
+                "pipeline_stage": "frame_computation_completed",
+            },
         )
 
     def _get_frame_computer_jar(self) -> Optional[str]:
@@ -1068,15 +1063,14 @@ class RVInstrumentation:
         )
 
         # d8 converts the instrumented JAR to DEX bytecode. --release enables
-        # optimizations, --lib provides the Android framework stubs, --no-desugaring
-        # avoids j$ prefix conflicts with pre-desugared classes, --min-api 26
-        # covers Android 8.0+ with native Java 8 support.
+        # optimizations and --min-api 26 covers Android 8.0+. Desugaring is
+        # left enabled so d8 can emit synthetic accessors for JDK 11+ nest-mate
+        # field access used by rv-monitor-rt's inner classes.
         d8_cmd = Command(
             "d8",
             [
                 monitored_jar,
                 "--release",
-                "--no-desugaring",
                 "--lib",
                 self.__get_android_jar(app),
                 "--min-api",
@@ -1280,63 +1274,6 @@ class RVInstrumentation:
             return None
         platforms.sort(reverse=True)
         return platforms[0][1]
-
-    def _load_weaving_excludes(self) -> List[str]:
-        """Load exclude patterns from weaving_excludes.yaml in assets/.
-
-        Returns empty list if file not found (backward compatible).
-        """
-        assets_dir = Path(__file__).parent.parent.parent / "assets"
-        yaml_path = assets_dir / "weaving_excludes.yaml"
-
-        if not yaml_path.exists():
-            self._logger.info("No weaving_excludes.yaml found, skipping class exclusion")
-            return []
-
-        try:
-            with open(yaml_path) as f:
-                data = yaml.safe_load(f)
-            excludes = data.get("excludes", [])
-            self._logger.debug(
-                f"Loaded {len(excludes)} weaving exclude patterns",
-                extra={"patterns": excludes},
-            )
-            return excludes
-        except Exception as e:
-            self._logger.warning(f"Failed to load weaving_excludes.yaml: {e}")
-            return []
-
-    def _generate_aop_xml(
-        self, excludes: List[str], output_dir: str
-    ) -> Optional[str]:
-        """Generate aop.xml with exclude patterns for ajc -xmlConfigured.
-
-        The file is written directly in output_dir (no META-INF/ needed —
-        -xmlConfigured takes an explicit file path argument, not classpath discovery).
-
-        Returns path to generated aop.xml, or None if no patterns provided.
-        """
-        if not excludes:
-            return None
-
-        aop_xml_path = os.path.join(output_dir, "aop.xml")
-        lines = ['<aspectj>', '  <weaver>']
-        for pattern in excludes:
-            lines.append(f'    <exclude within="{pattern}"/>')
-        lines.append('  </weaver>')
-        lines.append('</aspectj>')
-
-        try:
-            with open(aop_xml_path, "w") as f:
-                f.write("\n".join(lines) + "\n")
-            self._logger.debug(
-                f"Generated aop.xml with {len(excludes)} exclude patterns",
-                extra={"aop_xml_path": aop_xml_path},
-            )
-            return aop_xml_path
-        except Exception as e:
-            self._logger.warning(f"Failed to generate aop.xml: {e}")
-            return None
 
     def __jarsigner(self, signed_apk: str) -> None:
         """
