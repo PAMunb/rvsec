@@ -15,7 +15,7 @@ flowchart LR
 
 - [ ] 1.1 Remove `rvsec-methods-extractor` module entry from `rvsec/rvsec-android/pom.xml` and move `rvsec-methods-extractor/` directory to `backup/`
 - [ ] 1.2 Remove `rvsec-taint` module entry from `rvsec/rvsec-android/pom.xml` and move `rvsec-taint/` directory to `backup/`
-- [ ] 1.3 Verify `mvn clean compile -pl rvsec-gator -am` still works with current Soot 3.3.0
+- [ ] 1.3 Verify `mvn clean compile -pl rvsec-gator -am -DskipTests -DskipMopAgent` still works with current Soot 3.3.0
 
 ## 2. FIX 3 — Soot Version Upgrade (INV-ANA-18)
 
@@ -24,13 +24,13 @@ flowchart LR
 - [ ] 2.3 Update `rvsec-gator/sootandroid/pom.xml`: same groupId/version change if Soot is redeclared
 - [ ] 2.4 Update `rvsec-gator/commons/pom.xml`: same change if Soot is declared
 - [ ] 2.5 Update `rvsec-gator/client/pom.xml`: remove BOTH Soot exclusions from `rvsec-mop-extractor` dependency (lines 43-51 — both `ca.mcgill.sable:soot` and `org.soot-oss:soot`; neither groupId conflict exists anymore)
-- [ ] 2.6 Run `mvn clean compile -pl rvsec-gator -am` — list all compilation errors
+- [ ] 2.6 Run `mvn clean compile -pl rvsec-gator -am -DskipTests -DskipMopAgent` — list all compilation errors
 - [ ] 2.7 Fix API breaks in `Configs.java` (`Options.v().set_force_android_jar()`, `set_src_prec()` — lines 235-237)
 - [ ] 2.8 Fix API breaks in `EpiccBasedIntentAnalysis.java` (`gui/clients/ata/EpiccBasedIntentAnalysis.java` — `soot.dexpler.Util.splitParameters()`, `Util.getType()` — lines 125-128)
 - [ ] 2.9 Fix any remaining compilation errors found in 2.6
-- [ ] 2.10 Verify `mvn clean compile -pl rvsec-gator -am` succeeds
+- [ ] 2.10 Verify `mvn clean compile -pl rvsec-gator -am -DskipTests -DskipMopAgent` succeeds
 - [ ] 2.11 Run `mvn dependency:tree -pl rvsec-gator/client` — verify no Guava/SLF4J version conflicts
-- [ ] 2.12 Verify `mvn clean compile -pl rvsec-apk` succeeds (FlowDroid 2.10.0 + Soot 4.7.1 compile compatibility)
+- [ ] 2.12 Verify `mvn clean compile -pl rvsec-apk -DskipTests -DskipMopAgent` succeeds (FlowDroid 2.10.0 + Soot 4.7.1 compile compatibility)
 - [ ] 2.13 Runtime smoke test: execute `rvsec-apk` on 1 APK to detect `NoSuchMethodError` (compile ≠ runtime)
 - [ ] 2.14 If 2.12 or 2.13 fails: upgrade FlowDroid to 2.14.1 (validated with CryptoAnalysis) or 2.15.1 (both confirmed on Maven Central)
 - [ ] 2.15 **Git commit**: FIX 3 checkpoint (Soot upgrade + dependency changes)
@@ -78,6 +78,6 @@ flowchart LR
 
 ## 7. Verification
 
-- [ ] 7.1 Run `mvn clean compile` on all active RVSEC modules (`rvsec-gator`, `rvsec-apk`, `rvsec-frame-computer`)
+- [ ] 7.1 Run `mvn clean compile -DskipTests -DskipMopAgent` on all active RVSEC modules (`rvsec-gator`, `rvsec-apk`, `rvsec-frame-computer`)
 - [ ] 7.2 Run full SA via `rv-experiment` on 1 APK to verify end-to-end pipeline (Python wrapper → GATOR → JSON → parser)
 - [ ] 7.3 Document results: number of new APKs analyzed, any regressions, any API changes made
