@@ -104,11 +104,11 @@ The `androidx.compose.*` exclusion is critical: ~71% of crashing APKs are Kotlin
 
 **Rationale**: The `RvsecAnalysisClient` already writes JSON incrementally with flush between sections. If the Flowgraph completes (even partially), `RvsecAnalysisClient.run()` will produce JSON. Adding try-catch inside `RvsecAnalysisClient` would mask failures in the WTG construction pipeline, which is a different problem. Keep changes minimal (P1).
 
-### D4: Deprecated modules commented out before upgrade
+### D4: Deprecated modules removed before upgrade
 
-**Choice**: Comment out `rvsec-methods-extractor` and `rvsec-taint` in `rvsec-android/pom.xml` before attempting the Soot upgrade.
+**Choice**: Remove `rvsec-methods-extractor` and `rvsec-taint` from `rvsec-android/pom.xml` and move their directories to `backup/`.
 
-**Rationale**: These modules have zero references from Python code (confirmed in pre-plan §7.1). Commenting them out reduces the compilation surface — any API breaks in these modules are irrelevant. Only `rvsec-gator`, `rvsec-apk`, and `rvsec-frame-computer` need to compile.
+**Rationale**: These modules have zero references from Python code (confirmed in pre-plan §7.1). Removing them entirely (P3: No Backward Compatibility) reduces the compilation surface — any API breaks in these modules are irrelevant. Only `rvsec-gator`, `rvsec-apk`, and `rvsec-frame-computer` need to compile. Directories are backed up (not deleted) in case of future reference.
 
 ## Data Flow
 

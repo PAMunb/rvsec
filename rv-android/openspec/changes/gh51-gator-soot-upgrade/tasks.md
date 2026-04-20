@@ -11,10 +11,10 @@ flowchart LR
     G6 --> G7["7. Verify"]
 ```
 
-## 1. Prerequisites — Comment Out Deprecated Modules
+## 1. Prerequisites — Remove Deprecated Modules
 
-- [ ] 1.1 Comment out `rvsec-methods-extractor` module in `rvsec/rvsec-android/pom.xml`
-- [ ] 1.2 Comment out `rvsec-taint` module in `rvsec/rvsec-android/pom.xml`
+- [ ] 1.1 Remove `rvsec-methods-extractor` module entry from `rvsec/rvsec-android/pom.xml` and move `rvsec-methods-extractor/` directory to `backup/`
+- [ ] 1.2 Remove `rvsec-taint` module entry from `rvsec/rvsec-android/pom.xml` and move `rvsec-taint/` directory to `backup/`
 - [ ] 1.3 Verify `mvn clean compile -pl rvsec-gator -am` still works with current Soot 3.3.0
 
 ## 2. FIX 3 — Soot Version Upgrade (INV-ANA-18)
@@ -23,7 +23,7 @@ flowchart LR
 - [ ] 2.2 Update `rvsec-gator/pom.xml`: remove `<gator.soot.version>3.3.0</gator.soot.version>`, replace `ca.mcgill.sable:soot:${gator.soot.version}` with `org.soot-oss:soot:${soot.version}`
 - [ ] 2.3 Update `rvsec-gator/sootandroid/pom.xml`: same groupId/version change if Soot is redeclared
 - [ ] 2.4 Update `rvsec-gator/commons/pom.xml`: same change if Soot is declared
-- [ ] 2.5 Update `rvsec-gator/client/pom.xml`: remove `org.soot-oss:soot` exclusion from `rvsec-mop-extractor` dependency (lines 43-51; the `ca.mcgill.sable:soot` exclusion can also be removed since that groupId is no longer used)
+- [ ] 2.5 Update `rvsec-gator/client/pom.xml`: remove BOTH Soot exclusions from `rvsec-mop-extractor` dependency (lines 43-51 — both `ca.mcgill.sable:soot` and `org.soot-oss:soot`; neither groupId conflict exists anymore)
 - [ ] 2.6 Run `mvn clean compile -pl rvsec-gator -am` — list all compilation errors
 - [ ] 2.7 Fix API breaks in `Configs.java` (`Options.v().set_force_android_jar()`, `set_src_prec()` — lines 235-237)
 - [ ] 2.8 Fix API breaks in `EpiccBasedIntentAnalysis.java` (`gui/clients/ata/EpiccBasedIntentAnalysis.java` — `soot.dexpler.Util.splitParameters()`, `Util.getType()` — lines 125-128)
