@@ -2,16 +2,20 @@ FROM phtcosta/rvsec_base:0.8.0
 
 
 # Arguments that can be overriden at build-time.
-# gh50 Section 17 (INV-INS-24): bumped from API 29 x86 to API 30 x86_64.
-# API 30 lifts `min_sdk` compat from 91.0% to 95.8% on the JCA-400 dataset
-# (see PLANILHA.csv). Stopped at API 30 to stay below the API 31+ Foreground
-# Service restriction that would kill monkey/aperv exploration.
-# x86_64 covers the modern `arm64-v8a + x86_64` ABI triplet most 2024+ APKs
-# ship (x86-only images reject them).
-ARG API_LEVEL=30
+# gh50 Section 17 (INV-INS-24) attempted API 29 x86 → API 30 x86_64 to gain
+# 19 APKs with minSdk>=30. Rolled back 2026-04-21: first-boot of API 30 x86_64
+# inside Docker requires OverlayFS-based writable-system with a multi-step
+# sequence (root → disable-verity → reboot → wait → root → remount) that the
+# current `android.py:213-245` boot code does not implement. Upgrading the
+# boot code is follow-up work (docs/20260421_problema_dex2jar.md §7.6 Option B).
+# Meanwhile API 29 x86 is the proven setup used in all JCA/generic experiments
+# for the past year. Trade-off: lose 19/400 APKs (4.75%) with minSdk>=30.
+# Local dev can override with `--build-arg API_LEVEL=30 --build-arg ARCHITECTURE=x86_64`
+# once the boot code is updated.
+ARG API_LEVEL=29
 ARG IMG_TYPE=google_apis
-#ARG ARCHITECTURE=x86
-ARG ARCHITECTURE=x86_64
+ARG ARCHITECTURE=x86
+#ARG ARCHITECTURE=x86_64
 #ARG CMD_LINE_VERSION=11076708_latest
 ARG CMD_LINE_VERSION=8512546_latest
 ARG DEVICE_ID=pixel
