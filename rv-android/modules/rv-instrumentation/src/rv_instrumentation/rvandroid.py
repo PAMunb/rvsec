@@ -5,6 +5,8 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
+import yaml
+
 from rv_android_core import constants
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
@@ -490,16 +492,31 @@ class RVInstrumentation:
         try:
             self.create_temp_directories()
 
-            # Execute the seven-phase instrumentation pipeline:
+            # Execute the instrumentation pipeline:
             # Phase 1: DEX -> JAR (dex2jar) -- decompile bytecode to Java classes
             self.__decompile_apk(app)
+            # Phase 1b: Remove pre-desugared j$.* shims so d8 can later merge the
+            # result with our non-java.* instrumentation classes without hitting
+            # the "Merging DEX ... prefix 'j$.'" rejection.
+            self.__strip_desugared_shims(app)
+            # Phase 1c: Quarantine known-problematic library classes so ajc and
+            # d8 do not see them during weaving / DEX compilation. Restored in
+            # Phase 4b with their original bytecode preserved.
+            self.__quarantine_problematic_classes(app)
             # Phase 2: Copy AspectJ/Java monitor files into the class directory
             self.__include_generated_monitors()
+            # Phase 2b: Pre-ajc ASM COMPUTE_FRAMES so BCEL receives well-formed
+            # StackMapTables and does not crash with "Index -1 out of bounds"
+            # on modern bytecode patterns (try-with-resources, lambdas, ...).
+            self.__pre_compute_stack_frames(app)
             # Phase 3: AspectJ weaving -- integrate monitoring pointcuts at bytecode level
             self.__weave_monitors(app)
             # Phase 4: Recompute stack map frames corrupted by ajc (ASM COMPUTE_FRAMES)
             self.__compute_stack_frames(app)
-            # Phases 5-7: Merge support libs, recompile to DEX (d8), sign APK
+            # Phase 4b: Restore the quarantined classes back into tmp_dir so the
+            # final APK ships them (with their ORIGINAL bytecode, not woven).
+            self.__restore_quarantined_classes(app)
+            # Phases 5-7: Merge support libs, recompile to DEX (d8), zipalign, sign APK
             signed_apk = self.__create_apk(app)
 
             # Validate successful APK creation
@@ -658,20 +675,6 @@ class RVInstrumentation:
         asm_verify_cmd = Command(dex2jar_tools.asm_verify, [jar_file])
         utils.execute_command(asm_verify_cmd, "asm_verify")
 
-    def __d2j_apk_sign(self, signed_apk: str, unsigned_apk: str) -> None:
-        """
-        Sign APK using dex2jar APK signing tool.
-
-        Args:
-            signed_apk: Target path for signed APK
-            unsigned_apk: Source path for unsigned APK
-        """
-        dex2jar_tools = self.config.get_dex2jar_tools()
-        apk_sign_cmd = Command(
-            dex2jar_tools.apk_sign, ["-f", "-o", signed_apk, unsigned_apk]
-        )
-        utils.execute_command(apk_sign_cmd, "apk_sign")
-
     @ErrorHandler.handle_errors(component="RVInstrumentation", phase="maven_execution")
     def __execute_maven(self) -> None:
         """
@@ -693,7 +696,13 @@ class RVInstrumentation:
         )
 
         maven_cmd = Command("mvn", ["clean", "compile"])
-        utils.execute_command(maven_cmd, "maven")
+        # Modern JVMs (JDK 21+) emit native-access / deprecation warnings on
+        # stderr even for BUILD SUCCESS — e.g. "WARNING: A restricted method
+        # in java.lang.System has been called", "sun.misc.Unsafe::objectFieldOffset".
+        # They are not errors; exit code remains 0. Same pattern as d8,
+        # rv-frame-computer and ajc — see INV-INS-19. Real Maven failures
+        # (dependency resolution, compile errors) still return non-zero.
+        utils.execute_command(maven_cmd, "maven", skip_stderr=True)
 
         self._logger.debug("Maven dependency resolution completed successfully")
 
@@ -716,6 +725,224 @@ class RVInstrumentation:
                 classpath.append(os.path.join(self.config.lib_tmp_dir, lib))
 
         return classpath
+
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="strip_desugared_shims", reraise=True
+    )
+    def __strip_desugared_shims(self, app: App) -> None:
+        """
+        Delete pre-desugared ``j$.*`` shim classes from ``tmp_dir``.
+
+        APKs built with older AGP that applied Java 8+ desugaring ship
+        ``j$.time.*``, ``j$.util.stream.*``, ``j$.util.function.*``, etc. —
+        shim copies of ``java.*`` APIs for pre-API-24 runtimes. d8 refuses
+        to merge ``j$.*`` classes with non-``java.*`` classes in the same
+        DEX (error: ``Merging DEX file containing classes with prefix 'j$.'
+        with other classes, except classes with prefix 'java.', is not
+        allowed``). Our instrumentation necessarily adds non-``java.*``
+        classes (``Coverage``, ``MultiSpec_*Aspect``, ``aspectjrt``,
+        ``rv-monitor-rt``), so every APK that still ships ``j$.*`` classes
+        hits this error.
+
+        Since ``--min-api 26`` (Android 8.0+) provides all Java 8+ APIs
+        natively, the shims are redundant; removing them unblocks d8
+        without affecting runtime behaviour.
+
+        Args:
+            app: Android application object (used for structured logging).
+        """
+        tmp_dir = Path(self.config.tmp_dir)
+        shim_root = tmp_dir / "j$"
+        if not shim_root.exists():
+            self._logger.debug(
+                "No j$.* shims to strip",
+                extra={"app_name": app.name, "pipeline_stage": "strip_desugared_shims"},
+            )
+            return
+
+        removed = 0
+        for class_file in shim_root.rglob("*.class"):
+            class_file.unlink()
+            removed += 1
+
+        # Remove now-empty directories under j$/, then j$/ itself.
+        shutil.rmtree(shim_root, ignore_errors=True)
+
+        self._logger.info(
+            f"Stripped {removed} desugared j$.* shim classes from {app.name}",
+            extra={
+                "app_name": app.name,
+                "pipeline_stage": "strip_desugared_shims",
+                "shims_removed": removed,
+            },
+        )
+
+    def _load_quarantine_patterns(self) -> List[str]:
+        """
+        Load glob patterns from ``assets/weaving_excludes.yaml``.
+
+        Each pattern is a relative glob under ``tmp_dir`` (e.g.
+        ``"okio/**/*.class"``). Returns an empty list when the YAML is missing
+        or unreadable, so the pipeline runs normally in that case
+        (backward-compatible).
+        """
+        assets_dir = Path(__file__).parent.parent.parent / "assets"
+        yaml_path = assets_dir / "weaving_excludes.yaml"
+        if not yaml_path.exists():
+            return []
+        try:
+            with open(yaml_path) as f:
+                data = yaml.safe_load(f) or {}
+            patterns = data.get("patterns", []) or []
+            return [p for p in patterns if p]
+        except Exception as e:
+            self._logger.warning(
+                f"Failed to load weaving_excludes.yaml: {e}",
+                extra={"pipeline_stage": "quarantine"},
+            )
+            return []
+
+    def _quarantine_root(self) -> Path:
+        """
+        Path of the quarantine directory — a SIBLING of ``tmp_dir``.
+
+        Must NOT live inside ``tmp_dir``, because ajc's ``-inpath`` and
+        ``rv-frame-computer.jar``'s ``Files.walkFileTree`` both recurse into
+        hidden subdirectories (a ``tmp_dir/.quarantine/`` would still be
+        visited and rewritten, defeating the point). A sibling path is
+        outside the walker's scope and therefore safe.
+        """
+        tmp_dir = Path(self.config.tmp_dir)
+        return tmp_dir.parent / (tmp_dir.name + "_quarantine")
+
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="quarantine", reraise=True
+    )
+    def __quarantine_problematic_classes(self, app: App) -> None:
+        """
+        Move known-problematic library classes out of ``tmp_dir`` before weaving.
+
+        Some third-party bytecode (``okio.*``, ``androidx.media3.datasource.*``,
+        ``org.apache.tika.parser.*``, ``com.google.android.vending.licensing.AESObfuscator``,
+        etc.) crashes ajc's BCEL (exit 255) and d8's R8 (exit 1) with
+        ``ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 0``.
+        These are ABORT-level failures that ``-proceedOnError`` /
+        ``skip_stderr=True`` / ASM ``COMPUTE_FRAMES`` cannot recover.
+
+        To unblock the pipeline, the matching ``.class`` files are moved to a
+        sibling ``<tmp_dir>_quarantine/`` directory (preserving the relative
+        subtree). They are restored in ``__restore_quarantined_classes`` so
+        the final APK keeps them with their original bytecode — the library
+        runs normally at runtime, the only loss is MOP visibility into its
+        internal JCA calls. Since MOP specs use ``call()`` semantics,
+        ``app → library.crypto_call()`` is still captured at the caller site.
+
+        A pattern that would match the APK's own ``code_package`` MUST NOT
+        quarantine those files; a WARNING is logged and the match is
+        skipped so developer code is never un-instrumented.
+
+        Args:
+            app: Android application object (``app.code_package`` used for
+                the safety check).
+        """
+        patterns = self._load_quarantine_patterns()
+        if not patterns:
+            self._logger.debug(
+                "No quarantine patterns configured, skipping",
+                extra={"pipeline_stage": "quarantine"},
+            )
+            return
+
+        tmp_dir = Path(self.config.tmp_dir)
+        quarantine_root = self._quarantine_root()
+
+        code_pkg = getattr(app, "code_package", None) or ""
+        code_pkg_path = code_pkg.replace(".", "/") if code_pkg else ""
+
+        quarantined = 0
+        skipped_app_code = 0
+        for pattern in patterns:
+            for match in tmp_dir.glob(pattern):
+                if not match.is_file():
+                    continue
+                rel = match.relative_to(tmp_dir)
+                rel_str = str(rel)
+                # Safety: never quarantine app code.
+                if code_pkg_path and rel_str.startswith(code_pkg_path + "/"):
+                    skipped_app_code += 1
+                    self._logger.warning(
+                        f"Quarantine pattern '{pattern}' matched app code "
+                        f"({rel_str}); leaving in place",
+                        extra={
+                            "app_name": app.name,
+                            "pipeline_stage": "quarantine",
+                            "pattern": pattern,
+                            "relative_path": rel_str,
+                        },
+                    )
+                    continue
+                target = quarantine_root / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(match), str(target))
+                quarantined += 1
+
+        self._logger.info(
+            f"Quarantined {quarantined} library classes from {app.name}"
+            + (f" (skipped {skipped_app_code} app-code matches)" if skipped_app_code else ""),
+            extra={
+                "app_name": app.name,
+                "pipeline_stage": "quarantine",
+                "quarantined_count": quarantined,
+                "app_code_skipped": skipped_app_code,
+            },
+        )
+
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="restore_quarantine", reraise=True
+    )
+    def __restore_quarantined_classes(self, app: App) -> None:
+        """
+        Restore quarantined library classes back into ``tmp_dir``.
+
+        Walks ``<tmp_dir>_quarantine/**`` (sibling of ``tmp_dir``, not a
+        subdirectory — see ``_quarantine_root``) and moves every file back to
+        its original relative location under ``tmp_dir``. OVERWRITES any file
+        present at the target path, because the weaver may have produced a
+        partial woven variant that we want to discard in favor of the
+        original library bytecode. Finally removes the quarantine subtree.
+
+        Args:
+            app: Android application object (used for structured logging).
+        """
+        quarantine_root = self._quarantine_root()
+        if not quarantine_root.exists():
+            self._logger.debug(
+                "No quarantine directory to restore",
+                extra={"app_name": app.name, "pipeline_stage": "restore_quarantine"},
+            )
+            return
+
+        tmp_dir = Path(self.config.tmp_dir)
+        restored = 0
+        for src in quarantine_root.rglob("*.class"):
+            rel = src.relative_to(quarantine_root)
+            target = tmp_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                target.unlink()  # OVERWRITE: prefer original library bytecode
+            shutil.move(str(src), str(target))
+            restored += 1
+
+        shutil.rmtree(quarantine_root, ignore_errors=True)
+
+        self._logger.info(
+            f"Restored {restored} quarantined classes for {app.name}",
+            extra={
+                "app_name": app.name,
+                "pipeline_stage": "restore_quarantine",
+                "restored_count": restored,
+            },
+        )
 
     @ErrorHandler.handle_errors(
         component="RVInstrumentation", phase="monitor_integration", reraise=True
@@ -818,7 +1045,15 @@ class RVInstrumentation:
 
         ajc_cmd = Command("ajc", ajc_args)
 
-        utils.execute_command(ajc_cmd, "ajc")
+        # ajc with -proceedOnError deliberately continues past per-class failures
+        # (e.g., "AspectJ Internal Error: unable to add stackmap attributes to
+        # class 'X'. Index -1 out of bounds for length 0") and still exits 0 with
+        # a valid partial output. It prints those errors to stderr — and without
+        # skip_stderr=True, execute_command turns the stderr into an APK-wide
+        # failure, wiping out all successfully woven classes. Same pattern as
+        # d8 (INV-INS-19) and rv-frame-computer. Real ajc crashes (OOM, invalid
+        # options, missing classpath) still surface through exit code != 0.
+        utils.execute_command(ajc_cmd, "ajc", skip_stderr=True)
 
         # Remove .java and .aj source files after weaving -- only the compiled
         # .class files are needed for DEX conversion. Leaving them would bloat
@@ -831,27 +1066,28 @@ class RVInstrumentation:
             extra={"app_name": app.name, "pipeline_stage": "aspectj_weaving_completed"},
         )
 
-    @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="frame_computation", reraise=True
-    )
-    def __compute_stack_frames(self, app: App) -> None:
+    def _run_frame_computer(self, app: App, phase_label: str) -> None:
         """
-        Recompute stack map frames on woven .class files using ASM COMPUTE_FRAMES.
+        Invoke rv-frame-computer.jar on tmp_dir with the given phase label.
 
-        Runs rv-frame-computer.jar on tmp_dir after ajc weaving. The jar walks all
-        .class files, reads each with ClassReader, writes with ClassWriter(COMPUTE_FRAMES),
-        and overwrites in place. Files that fail are logged and skipped.
-
-        This fixes stack map frame corruption left by ajc's BCEL-based weaver, which is
-        the root cause of d8 AIOOBE (ArrayIndexOutOfBoundsException) failures.
+        Shared helper for both pre-ajc and post-ajc stack map recomputation.
+        The jar walks all .class files under tmp_dir, reads each with
+        ClassReader, writes with ClassWriter(COMPUTE_FRAMES), and overwrites
+        in place. Per-class failures are logged to stderr and skipped; the
+        JVM exits 0 regardless, so skip_stderr=True is used to avoid
+        treating single-class warnings as APK-wide failures.
 
         Args:
-            app: Android application object for classpath construction
+            app: Android application object for classpath construction.
+            phase_label: Used for structured logging (values: "pre_frame_computation"
+                or "frame_computation") so pre- and post-ajc invocations are
+                distinguishable in log aggregation.
         """
         frame_computer_jar = self._get_frame_computer_jar()
         if not frame_computer_jar:
             self._logger.warning(
-                "rv-frame-computer.jar not found, skipping frame recomputation"
+                "rv-frame-computer.jar not found, skipping frame recomputation",
+                extra={"pipeline_stage": phase_label},
             )
             return
 
@@ -859,8 +1095,8 @@ class RVInstrumentation:
         classpath_str = ":".join(classpath)
 
         self._logger.info(
-            f"Recomputing stack map frames for: {app.name}",
-            extra={"app_name": app.name, "pipeline_stage": "frame_computation"},
+            f"Recomputing stack map frames ({phase_label}) for: {app.name}",
+            extra={"app_name": app.name, "pipeline_stage": phase_label},
         )
 
         frame_cmd = Command(
@@ -873,15 +1109,64 @@ class RVInstrumentation:
                 classpath_str,
             ],
         )
-        utils.execute_command(frame_cmd, "frame_computer")
+        # FrameComputer deliberately treats per-class failures as non-fatal:
+        # it catches Throwable, prints "Warning: frame computation failed for
+        # X.class: ..." to stderr, and continues to the next file. The JVM
+        # still exits 0 after processing the batch. Without skip_stderr=True,
+        # any single-class warning causes execute_command to raise, even
+        # though the rest of the APK was recomputed successfully. Real Java
+        # crashes (OOM, missing jar) are still detected via exit code != 0.
+        utils.execute_command(frame_cmd, "frame_computer", skip_stderr=True)
 
         self._logger.debug(
-            "Stack map frame recomputation completed",
+            f"Stack map frame recomputation ({phase_label}) completed",
             extra={
                 "app_name": app.name,
-                "pipeline_stage": "frame_computation_completed",
+                "pipeline_stage": f"{phase_label}_completed",
             },
         )
+
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="pre_frame_computation", reraise=True
+    )
+    def __pre_compute_stack_frames(self, app: App) -> None:
+        """
+        Recompute stack map frames BEFORE ajc weaving.
+
+        ajc 1.9.25.1 uses BCEL, which crashes with
+        ``AspectJ Internal Error: unable to add stackmap attributes to class
+        '<X>'. Index -1 out of bounds for length 0`` on modern bytecode whose
+        StackMapTable is missing or uses patterns BCEL cannot parse (nested
+        try-with-resources, lambdas with captures, switch expressions).
+        ``-proceedOnError`` classifies those as ABORT and does NOT skip — the
+        whole APK fails.
+
+        Running ASM ``COMPUTE_FRAMES`` before ajc feeds the weaver
+        well-formed StackMapTables, so BCEL only needs to append advice
+        rather than reconstruct frames from scratch. Empirically eliminates
+        the majority of "Index -1" aborts (see gh50 Section 12).
+
+        Args:
+            app: Android application object for classpath construction.
+        """
+        self._run_frame_computer(app, "pre_frame_computation")
+
+    @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="frame_computation", reraise=True
+    )
+    def __compute_stack_frames(self, app: App) -> None:
+        """
+        Recompute stack map frames AFTER ajc weaving.
+
+        Fixes stack map frame corruption left by ajc's BCEL-based weaver,
+        which is the root cause of d8 AIOOBE (ArrayIndexOutOfBoundsException)
+        failures downstream. Pair with ``__pre_compute_stack_frames`` to
+        catch both sources of corruption.
+
+        Args:
+            app: Android application object for classpath construction.
+        """
+        self._run_frame_computer(app, "frame_computation")
 
     def _get_frame_computer_jar(self) -> Optional[str]:
         """Locate rv-frame-computer.jar in rv-android/lib/frame-computer/."""
@@ -949,9 +1234,16 @@ class RVInstrumentation:
                 f"Failed to create unsigned APK: {unsigned_apk}", None
             )
 
-        # TODO(#23): Implement zipalign optimization for better performance
+        # Align native libraries to 16 KiB pages BEFORE signing. Modern APKs
+        # (API 23+) default to android:extractNativeLibs="false" and store
+        # .so files uncompressed; PackageManager aborts installation with
+        # INSTALL_FAILED_INVALID_APK (res=-2) when those entries are not
+        # page-aligned. apksigner's v2/v3 scheme preserves the zipalign-
+        # produced alignment, so aligning before signing keeps it intact
+        # in the final APK (Google's official guidance).
+        self.__zipalign(unsigned_apk)
 
-        # Sign APK for deployment readiness
+        # Sign APK with APK Signature Scheme v1+v2+v3 via apksigner.
         signed_apk = self.__sign_apk(app, unsigned_apk)
 
         self._logger.debug(f"Instrumented APK creation completed: {signed_apk}")
@@ -1123,72 +1415,130 @@ class RVInstrumentation:
         return unsigned_apk
 
     @ErrorHandler.handle_errors(
+        component="RVInstrumentation", phase="zipalign", reraise=True
+    )
+    def __zipalign(self, apk_path: str) -> None:
+        """
+        Page-align uncompressed entries in the APK before apksigner signing.
+
+        APKs that declare ``android:extractNativeLibs="false"`` (the default
+        since API 23) store ``.so`` libraries uncompressed inside the APK.
+        The Android PackageManager mmap()s those entries directly at install
+        time and therefore requires them to start at a page-aligned offset.
+        ``__d8`` rewrites the APK via the ``zip`` utility to inject the
+        instrumented DEX, destroying any pre-existing alignment. Installing
+        an unaligned APK fails with ``INSTALL_FAILED_INVALID_APK``
+        (``res=-2`` — "Failed to extract native libraries").
+
+        Running ``zipalign -P 16 4`` on the unsigned APK restores the
+        alignment:
+            * ``-P 16`` targets 16 KiB pages for uncompressed ``.so`` files
+              (mandatory on API 35+, safe on older APIs because 16 KiB
+              alignment also satisfies 4 KiB). ``-p`` (the legacy
+              4 KiB-only flag) is mutually exclusive with ``-P`` and is
+              therefore NOT passed.
+            * the positional ``4`` aligns all other entries on 4-byte
+              boundaries (standard ZIP alignment)
+            * ``-f`` overwrites the destination file in place
+
+        Must run BEFORE ``__sign_apk``. apksigner's APK Signing Block (v2/v3)
+        lives between the ZIP central directory and the file entries; it
+        does not modify entry offsets, so the alignment established here is
+        preserved in the final signed APK. Google's official guidance
+        explicitly requires this ordering when v2/v3 signing is used.
+
+        Args:
+            apk_path: Absolute path to the UNSIGNED APK. The file is
+                rewritten in place with an aligned copy.
+        """
+        aligned_apk = apk_path + ".aligned"
+        self._logger.info(
+            f"Aligning native libraries (zipalign -P 16 4, pre-sign): {apk_path}"
+        )
+        zipalign_cmd = Command(
+            "zipalign",
+            ["-f", "-P", "16", "4", apk_path, aligned_apk],
+            timeout=60,
+        )
+        utils.execute_command(zipalign_cmd, "zipalign")
+        os.replace(aligned_apk, apk_path)
+
+    @ErrorHandler.handle_errors(
         component="RVInstrumentation", phase="apk_signing", reraise=True
     )
     def __sign_apk(self, app: App, unsigned_apk: str) -> str:
         """
-        Sign instrumented APK for deployment readiness.
+        Sign the instrumented APK with APK Signature Schemes v1+v2+v3.
 
-        This method executes the complete APK signing process using both dex2jar
-        signing tools and Java jarsigner for comprehensive signature validation.
-        The signing process ensures the instrumented APK can be deployed on Android
-        devices for runtime verification testing.
+        Copies the unsigned APK to the instrumentation output directory, runs
+        ``apksigner sign`` in place, then ``apksigner verify`` to confirm the
+        result. The input unsigned APK is removed after a successful sign.
 
-        ### APK Signing Process:
-        1. **Output Directory Preparation:** Ensure target directory exists
-        2. **Initial Signing:** Use dex2jar APK signing for basic signature
-        3. **Manifest Cleanup:** Remove conflicting META-INF entries
-        4. **Keystore Signing:** Apply final signature using configured keystore
-        5. **Signature Verification:** Validate successful signing completion
+        apksigner (Android SDK ``build-tools/<ver>/apksigner``, version 0.9+)
+        writes v1, v2, and v3 signatures in a single invocation and preserves
+        zipalign-produced alignment, so ``__zipalign`` MUST run BEFORE this
+        method. API 30+ emulators reject v1-only signatures with
+        ``INSTALL_PARSE_FAILED_NO_CERTIFICATES``; including v2+v3 fixes it.
 
         Args:
-            app: Android application object containing metadata
-            unsigned_apk: Path to unsigned APK requiring signature
+            app: Android application object — ``app.name`` is the APK
+                filename written under ``instrumented_dir``.
+            unsigned_apk: Path to the aligned, unsigned APK.
 
         Returns:
-            Path to final signed instrumented APK ready for deployment
+            Path to the signed APK in ``instrumented_dir``.
 
         Raises:
-            CommandException: If any signing step fails
-            InstrumentationError: If signed APK validation fails
+            CommandException: If ``apksigner sign`` or ``apksigner verify``
+                fail with non-zero exit code.
+            InstrumentationError: If the signed APK does not exist after
+                ``apksigner sign`` (sanity check for silent failures).
         """
-        # Ensure output directory exists
         utils.create_folder_if_not_exists(self.config.instrumented_dir)
+        signed_apk = os.path.join(self.config.instrumented_dir, app.name)
 
         self._logger.info(
             f"Starting APK signing process: {app.name}",
             extra={
                 "app_name": app.name,
                 "unsigned_apk": unsigned_apk,
+                "signed_apk": signed_apk,
                 "pipeline_stage": "apk_signing",
             },
         )
 
-        # Define target path for signed APK
-        signed_apk = os.path.join(self.config.instrumented_dir, app.name)
+        shutil.copy2(unsigned_apk, signed_apk)
 
-        # Two-stage signing: first d2j_apk_sign adds a basic signature (required for
-        # the APK to be parseable), then we strip META-INF and re-sign with jarsigner
-        # using our keystore. The d2j signature alone is not accepted by modern Android
-        # because it uses an outdated algorithm; jarsigner applies SHA-256.
-        self.__d2j_apk_sign(signed_apk, unsigned_apk)
-
-        os.remove(unsigned_apk)
+        sign_cmd = Command(
+            "apksigner",
+            [
+                "sign",
+                "--ks",
+                self.config.keystore_file,
+                "--ks-pass",
+                f"pass:{self.config.keystore_password}",
+                "--ks-key-alias",
+                self.config.keystore_alias,
+                signed_apk,
+            ],
+        )
+        # apksigner runs under modern JVMs (JDK 21+) which emit native-access
+        # restriction warnings ("WARNING: A restricted method in java.lang.System
+        # has been called by org.conscrypt.NativeLibraryUtil ...") to stderr on
+        # every invocation. Exit code is 0 on a successful sign; only the
+        # code must gate failure. Same pattern as d8, rv-frame-computer, ajc,
+        # and mvn — see INV-INS-19.
+        utils.execute_command(sign_cmd, "apksigner", skip_stderr=True)
 
         if not os.path.exists(signed_apk):
             raise InstrumentationError(
-                f"dex2jar APK signing failed: {signed_apk}", None
+                f"apksigner produced no output at {signed_apk}", None
             )
 
-        # Strip the d2j signature so jarsigner can apply a clean one.
-        # Without this, jarsigner would fail with "duplicate entry" errors.
-        zip_cmd = Command("zip", ["-q", "-d", signed_apk, "META-INF*"])
-        utils.execute_command(zip_cmd, "zip_sign_apk")
+        verify_cmd = Command("apksigner", ["verify", signed_apk])
+        utils.execute_command(verify_cmd, "apksigner_verify", skip_stderr=True)
 
-        self.__jarsigner(signed_apk)
-
-        # Verify signature integrity
-        self.__jarsigner_verify(signed_apk)
+        os.remove(unsigned_apk)
 
         self._logger.info(
             f"APK signing completed successfully: {signed_apk}",
@@ -1274,40 +1624,6 @@ class RVInstrumentation:
             return None
         platforms.sort(reverse=True)
         return platforms[0][1]
-
-    def __jarsigner(self, signed_apk: str) -> None:
-        """
-        Apply keystore signature to APK using Java jarsigner.
-
-        Args:
-            signed_apk: Path to APK file requiring signature
-        """
-        jarsigner_cmd = Command(
-            "jarsigner",
-            [
-                "-sigalg",
-                "SHA256withRSA",
-                "-digestalg",
-                "SHA-256",
-                "-keystore",
-                self.config.keystore_file,
-                signed_apk,
-                "server",
-                "-storepass",
-                self.config.keystore_password,
-            ],
-        )
-        utils.execute_command(jarsigner_cmd, "jarsigner")
-
-    def __jarsigner_verify(self, signed_apk: str) -> None:
-        """
-        Verify APK signature integrity using Java jarsigner.
-
-        Args:
-            signed_apk: Path to signed APK for verification
-        """
-        jarsigner_cmd = Command("jarsigner", ["-verify", "-certs", signed_apk])
-        utils.execute_command(jarsigner_cmd, "jarsigner_verify")
 
     @ErrorHandler.handle_errors(
         component="RVInstrumentation", phase="instrumentation_verification"

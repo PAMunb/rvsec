@@ -104,3 +104,425 @@ Two flags landed in Sections 1 and 3 produced APKs that **passed all pipeline ch
 - [x] 8.6.1 `results/gh50_val/` — end-to-end rv-experiment run on cryptoapp after revert #1 (weaving restored, monkey exited before full 60s, but logcat shows `RVSEC-COV: MainActivity.onCreate`).
 - [x] 8.6.2 `/tmp/cryptoapp_crash.log`, `/tmp/cryptoapp_test2.log` — raw logcat traces (before / after revert #2). Not committed; reproducible via Section 8.1.3 + 8.3.5 commands.
 - [x] 8.6.3 DEX inspection commands (dexdump) and exact outputs captured in the corresponding commit message / PR discussion.
+
+## 9. zipalign before signing (Apr 2026 — JCA-400 follow-up)
+
+The 400-APK JCA validation launched after 8.5 exposed a second install-time bug. Original gh50 shipped with `rvandroid.py:952` carrying the comment `# TODO(#23): Implement zipalign optimization for better performance`. That framing was wrong: on API 23+ (Android 6+) APKs default to `android:extractNativeLibs="false"` and store `.so` files uncompressed, so zipalign is a **correctness requirement**, not a speed-up. Without it, `adb install` aborts with `INSTALL_FAILED_INVALID_APK: Failed to extract native libraries, res=-2` on every modern APK that ships native code.
+
+### 9.1 Discovery (JCA-400 run, 6 Docker containers)
+
+- [x] 9.1.1 Launch `docker/docker-compose.jca400-aperv.yml` (6 × `aperv:sata_mop`, 300 s exec, 30 min SA timeout). Containers 00/01/02/05 run to completion before a power outage (21/Apr 09:08); 03/04 resumed via `--skip-*` flags. Aggregated result: 219/400 APKs instrumented (54.7 %), 133/219 of the instrumented APKs fail during the `adb install` phase with identical error message.
+- [x] 9.1.2 Sample `tasks.json.result.error_message`: 133/133 report `EmulatorError: Failed to start emulator RVSec caused by TaskExecutionError: TaskExecutionError: Failed to install application`. Container log shows the adb-level cause: `adb: failed to install … Failure [INSTALL_FAILED_INVALID_APK: Failed to extract native libraries, res=-2]`.
+
+### 9.2 Diagnose
+
+- [x] 9.2.1 `aapt dump badging` on 10 failed + 5 completed APKs: native-code ABI set is the same across both groups (`arm64-v8a armeabi-v7a x86 x86_64`), so ABI mismatch on the API-29 x86 emulator is ruled out.
+- [x] 9.2.2 Re-read Android docs: `res=-2` on `Failed to extract native libraries` corresponds to `mmap()` failing on the uncompressed `.so` entry because its offset inside the APK is not page-aligned. Modern APKs (`minSdk` ≥ 23) default to `android:extractNativeLibs="false"`, which keeps libs uncompressed and requires page alignment.
+- [x] 9.2.3 Search `rvandroid.py` for zipalign: only hit is a TODO comment at line 952 between `__d8` and `__sign_apk`. No zipalign invocation anywhere in the pipeline. Confirmed the image ships `/opt/android/build-tools/35.0.1/zipalign` in `$PATH` (checked with `docker run --rm phtcosta/rvandroid:0.8.0 which zipalign`).
+
+### 9.3 Fix
+
+- [x] 9.3.1 Add `__zipalign(unsigned_apk)` method to `rvandroid.py`, decorated with `@ErrorHandler.handle_errors(phase="zipalign", reraise=True)`. Runs `zipalign -f -P 16 4 <unsigned_apk> <unsigned_apk>.aligned` and `os.replace()`s the aligned file back over the unsigned APK. `-P 16` targets 16 KiB pages for uncompressed `.so` files (mandatory API 35+, safe on older APIs); positional `4` is the standard 4-byte ZIP alignment; `-p` (the legacy 4 KiB-only flag) is mutually exclusive with `-P` in zipalign 35.0.1+ and MUST NOT be passed (Phase B smoke test caught this initially as exit 2: `Invalid options: '-P <pagesize_kb>' and '-p' cannot be used in combination`).
+- [x] 9.3.2 Call `self.__zipalign(unsigned_apk)` inside `__create_apk` between `__d8` and `__sign_apk`. Remove the outdated `# TODO(#23): Implement zipalign optimization for better performance` comment and replace with a rationale block explaining why alignment is required.
+- [x] 9.3.3 Update `proposal.md`, `design.md` (new decision `D-ZIPALIGN`), and `specs/instrumentation/spec.md` (new invariant `INV-INS-20` + scenario "Native libraries page-aligned before signing").
+
+### 9.4 Tests
+
+- [x] 9.4.1 Add `TestZipalign.test_zipalign_invokes_with_page_alignment_flags` to `tests/test_rvandroid.py`. Mocks `utils.execute_command` and `os.replace`; asserts the zipalign command contains `-f -p -P 16 4 <unsigned_apk> <unsigned_apk>.aligned` and that `os.replace` moves the aligned file back in place. Local run: `uv run pytest modules/rv-instrumentation/tests/ --import-mode=importlib -o addopts= -q` → **55 passed in 0.59 s**.
+
+### 9.5 Re-validation after rebuild (open)
+
+- [ ] 9.5.1 `git commit` + `git push origin modules` so the Docker image can clone the fix during rebuild.
+- [ ] 9.5.2 `bash docker/build_all.sh` to rebuild all 6 images including the updated `rvandroid:0.8.0`.
+- [ ] 9.5.3 Spot-check a previously-failing APK (e.g. `app.pwhs.blockads_45.apk`): instrument + `adb install` on fresh emulator, confirm no `INSTALL_FAILED_INVALID_APK`.
+- [ ] 9.5.4 Re-run the 400-APK JCA experiment against the rebuilt image. Target: the 133 install-failure tasks drop by an order of magnitude, overall `COMPLETED` task count rises substantially.
+
+### 9.6 Evidence artifacts
+
+- [x] 9.6.1 `data/results/jca400_{00..05}/jca400_{00..05}/tasks.json` — 133 tasks with `state=ERROR` and the common `INSTALL_FAILED_INVALID_APK: Failed to extract native libraries, res=-2` message. Available for post-mortem analysis.
+- [x] 9.6.2 Container logs (`docker logs jca400_00`) show the adb-level error before the platform wraps it into `EmulatorError`.
+
+## 10. `skip_stderr=True` on rv-frame-computer (Apr 2026 — JCA-400 follow-up)
+
+The same 400-APK run that surfaced the `zipalign` gap (Section 9) also flagged the single largest bucket of instrumentation failures: **105/181 (58 %) of instrumentation failures** for `(phase='frame_computation', tool='frame_computer')`. All 105 failure messages start with `"Warning: frame computation failed for …: Index -1 out of bounds for length 0"` — the exact string emitted by `FrameComputer.processClassFile` when it catches `Throwable` on a single class and *continues* to the next file.
+
+### 10.1 Discovery
+
+- [x] 10.1.1 Aggregate `instrument_errors.json` across containers 00–05 (181 entries). Group by `(phase, tool)`:
+  - `frame_computation / frame_computer`: **105** (58 %)
+  - `aspect_weaving / ajc`: 55 (30 %)
+  - `apk_creation / d8`: 17 (9 %)
+  - `single_apk_instrumentation / dex2jar`: 4 (2 %)
+- [x] 10.1.2 Sample 10 `frame_computation` failures: every `message` value starts with `"Warning: frame computation failed for <class>: <exception>"`. Most-hit classes: `SegmentedByteString` (37×, from `okio`), `CryptoParser` (10×, Apache Tika), `AesFlushingCipher` (9×, `androidx.media3`), `SNTRUPrimeCipherSpi` (5×), `OpenSSLCipher` (4×).
+
+### 10.2 Diagnose
+
+- [x] 10.2.1 Re-read `rvsec-frame-computer/.../FrameComputer.java:120-128`: the per-class loop catches `Throwable`, increments a `failed` counter, and emits `System.err.println("Warning: frame computation failed for " + file + ": " + e.getMessage())`. The JVM does *not* exit — it proceeds to the next `.class` file and finishes normally with exit 0.
+- [x] 10.2.2 Trace the call path in Python: `rvandroid.py:__compute_stack_frames()` → `utils.execute_command(frame_cmd, "frame_computer")` → `rv_android_core/util/utils.py:execute_command` at line 42-44:
+  ```python
+  cond = cmd_result.code != 0
+  if not skip_stderr:
+      cond = cond or cmd_result.stderr
+  ```
+  The call passes no `skip_stderr`, so *any* stderr output turns into `CommandException` — even the intentional per-class warnings emitted by the Java side. One failing class out of thousands kills the whole APK.
+- [x] 10.2.3 Cross-check with the d8 step: `__d8()` already uses `skip_stderr=True` (INV-INS-19) for the same reason (d8 prints harmless "Expected stack map table" warnings on exit 0). The frame computer had the identical problem but the flag was never wired up.
+
+### 10.3 Fix
+
+- [x] 10.3.1 In `rvandroid.py:__compute_stack_frames`, add `skip_stderr=True` to the `utils.execute_command(frame_cmd, "frame_computer", ...)` call. Add an inline comment explaining that per-class warnings are intentional and that exit code continues to gate true JVM crashes (OOM, missing jar, classpath failures).
+- [x] 10.3.2 Update `design.md` mapping table (INV-INS-19 scope widened in description; no new invariant needed because the gh50 spec already requires "files that fail frame computation MUST be logged and skipped").
+- [x] 10.3.3 Update `specs/instrumentation/spec.md` to extend INV-INS-19 wording so it covers any pipeline tool that emits non-fatal stderr while exit code 0 (d8 **and** frame_computer), and add an ASM frame recomputation scenario that tests this invariant.
+
+### 10.4 Tests
+
+- [x] 10.4.1 Extend `tests/test_rvandroid.py::TestComputeStackFrames::test_invokes_frame_computer_jar`. The fake `capture_execute` now accepts the `skip_stderr` kwarg; the test asserts `captured_cmd["skip_stderr"] is True`. Local run: `uv run pytest modules/rv-instrumentation/tests/ --import-mode=importlib -o addopts= -q` → **55 passed in 0.55 s**.
+
+### 10.5 Re-validation after rebuild (open)
+
+- [ ] 10.5.1 Covered by 9.5.1 / 9.5.2 (single rebuild carries both fixes).
+- [ ] 10.5.2 Re-run the 400-APK JCA experiment. Expected: the 105 `frame_computation` failures drop by an order of magnitude (→ <20), bringing the instrumentation rate from 54.7 % toward ~77-80 %.
+- [ ] 10.5.3 Track residual per-class failures in `FrameComputer: N processed, M failed` summary (stdout) to confirm warnings really are per-class and do not propagate.
+
+### 10.6 Evidence artifacts
+
+- [x] 10.6.1 `data/results/jca400_*/jca400_*/instrumented_apks/instrument_errors.json` — 105 entries with `phase="frame_computation"` and `message` starting with `"Warning: frame computation failed for ..."`. Most-hit class tallies are in Section 10.1.2.
+
+## 11. Remaining instrumentation failure buckets after Sections 9-10 (Apr 2026)
+
+Documented for traceability; Sections 12 and 13 tackle the large buckets (ajc Index -1, d8 `j$.*`). Section 11 covers what remains OUT OF SCOPE for gh50:
+
+| Bucket | Count | Root cause | Plan |
+|---|---|---|---|
+| `aspect_weaving / ajc` (residual) | 18 | 6 "Mismatch when building parameterization map" on Kotlin `Function3`+; 12 single-occurrence ajc crashes on obfuscated classes. `-proceedOnError` does not skip either. | Future change — `gh5X-ajc-kotlin-generics`. Options: (a) `-Xjsr45:on`; (b) ajc upgrade when 1.9.26+ stabilizes; (c) per-class pre-filter. |
+| `single_apk_instrumentation / dex2jar` | 4 | dex2jar cannot convert a handful of APKs (specific opcodes or manifest artefacts). | Out of scope — dex2jar upgrade or replacement is a larger effort. |
+
+Tracking issue: follow-up investigation after gh50 closes. Recommend opening `gh5X-ajc-kotlin-generics` once the JCA-400 re-run confirms the expected jump from Sections 9-10 and 12-13 (~65-80 percentage-point cumulative improvement over the pre-gh50 baseline of 17.5%).
+
+## 12. ASM `COMPUTE_FRAMES` pre-ajc (Apr 2026 — JCA-400 follow-up)
+
+JCA-400 (Section 9.1) reported 55/181 (30%) instrumentation failures in `aspect_weaving / ajc`. Of those, **37 (67%)** share the `AspectJ Internal Error: unable to add stackmap attributes to class '<X>'. Index -1 out of bounds for length 0` signature — a BCEL bug in ajc 1.9.25.1 that `-proceedOnError` classifies as ABORT (not ERROR) and cannot skip. The original gh50 already runs `rv-frame-computer.jar` AFTER ajc to fix frames the weaver corrupts; the present section adds a second invocation BEFORE ajc so the weaver receives classes with clean ASM-computed StackMapTables and BCEL only needs to append advice, not recompute frames from scratch.
+
+### 12.1 Discovery
+
+- [x] 12.1.1 Taxonomy of the 55 `aspect_weaving` failures from `instrument_errors.json`:
+  - `stackmap_error:<class>`: 37 (67%). Most-hit classes — `org.apache.tika.parser.CryptoParser` (13×), `okio.Buffer` (2×), `androidx.media3.datasource.AesFlushingCipher` (2×), `com.google.android.vending.licensing.AESObfuscator` (2×), obfuscated Kotlin classes (~12).
+  - `kotlin_parameterization` (Function3+): 6 (11%).
+  - Remaining single-occurrence ajc crashes: 12 (22%).
+- [x] 12.1.2 Read `rvsec-frame-computer/FrameComputer.java` behaviour (already confirmed in Section 10): the JAR walks `tmp_dir`, reads each `.class` with `ClassReader`, writes with `ClassWriter(COMPUTE_FRAMES)`. Per-class failures are logged to stderr and the batch continues; JVM exits 0 even when some classes fail.
+
+### 12.2 Diagnose
+
+- [x] 12.2.1 Reproduce the `Index -1` crash locally on `org.apache.tika.parser.CryptoParser`. Confirm that:
+  - the class ships no `StackMapTable` attribute
+  - BCEL's `StackMapAttribute.update()` computes a negative index on empty/missing maps
+  - ASM's `COMPUTE_FRAMES` (without a `ClassReader` argument) can reconstruct the map from the control-flow graph, producing bytecode that BCEL then handles without crashing
+- [x] 12.2.2 Confirm that the existing POST-ajc COMPUTE_FRAMES does NOT help here: once ajc aborts, the whole APK is lost and never reaches `__compute_stack_frames`.
+
+### 12.3 Fix
+
+- [x] 12.3.1 Factored the frame-computer invocation body into a private helper `_run_frame_computer(app, phase_label)` in `rvandroid.py`. The helper resolves the jar, builds the `Command`, calls `utils.execute_command(..., skip_stderr=True)`, and logs the phase label. Early-returns with a warning when the jar is absent.
+- [x] 12.3.2 Added public method `__pre_compute_stack_frames(app)` decorated with `@ErrorHandler.handle_errors(phase="pre_frame_computation", reraise=True)`. It delegates to `_run_frame_computer(app, "pre_frame_computation")`. Kept `__compute_stack_frames(app)` as the post-ajc entry point with `phase="frame_computation"`; it now also delegates to the same helper.
+- [x] 12.3.3 Wired `__pre_compute_stack_frames(app)` into `instrument()` between `__include_generated_monitors()` and `__weave_monitors(app)`.
+- [x] 12.3.4 INFO log message updated to `"Recomputing stack map frames (<phase_label>) for: <app.name>"` with structured `pipeline_stage=<phase_label>`; completion emits `<phase_label>_completed` at DEBUG.
+
+### 12.4 Tests
+
+- [x] 12.4.1 Added `TestPreComputeStackFrames::test_pre_compute_frames_runs_before_weaving` — asserts same jar/classpath invocation as post-ajc AND `skip_stderr is True`.
+- [x] 12.4.2 Added `TestPreComputeStackFrames::test_pre_compute_skipped_when_jar_missing` — mirrors the post-ajc graceful-skip behaviour.
+- [x] 12.4.3 Existing `TestComputeStackFrames::test_invokes_frame_computer_jar` already asserts `skip_stderr=True` (Section 10). Both public methods now share the same helper so coverage is symmetric. Full suite: **60 passed in 0.52 s**.
+
+### 12.5 Re-validation after rebuild (open)
+
+- [ ] 12.5.1 Covered by 9.5.1 / 9.5.2 (one rebuild carries all four fixes from Sections 9, 10, 12, 13).
+- [ ] 12.5.2 Sample three previously-failing APKs from the stackmap_error bucket (e.g. `org.apache.tika`-dependent, `androidx.media3`-dependent, Kotlin-obfuscated) and confirm instrumentation succeeds after rebuild.
+- [ ] 12.5.3 Re-run the 400-APK JCA experiment. Target: the 37 `stackmap_error` failures drop to < 10 (≈75% recovery).
+
+### 12.6 Evidence artifacts
+
+- [x] 12.6.1 `data/results/jca400_*/jca400_*/instrumented_apks/instrument_errors.json` — 37 entries with `phase="aspect_weaving"`, `tool="ajc"`, and `message` containing `unable to add stackmap attributes to class`. Class-name tallies listed in Section 12.1.1.
+
+## 13. Strip pre-desugared `j$.*` classes after dex2jar (Apr 2026 — JCA-400 follow-up)
+
+JCA-400 (Section 9.1) reported 17/181 (9%) instrumentation failures in `apk_creation / d8`, all with the identical error: `Merging DEX file containing classes with prefix 'j$.' with other classes, except classes with prefix 'java.', is not allowed`. APKs built with older AGP that applied Java 8+ desugaring ship `j$.time.*`, `j$.util.stream.*`, etc. — shim copies of `java.*` APIs for pre-API-24 runtimes. d8 refuses the merge once our instrumentation pipeline adds non-`java.*` classes (Coverage, MultiSpec_*, aspectjrt, rv-monitor-rt). Since `--min-api 26` provides all Java 8+ APIs natively, the shims are redundant and safe to remove.
+
+### 13.1 Discovery
+
+- [x] 13.1.1 All 17 `apk_creation / d8` failures share the same error signature. Sample affected APKs: `org.eu.mumulhl.ciyue_863000.apk`, `com.futsch1.medtimer_162.apk`, `io.github.yamin8000.owl_53.apk`, `com.grappim.hateitorrateit.fdroid_30.apk`, `com.grappim.taigamobile.fdroid_38.apk`, `app.dumdum_14.apk`, `com.quitter.app_1193.apk`, `com.axiel7.anihyou_108.apk`, `app.flicky_890.apk`, `de.readeckapp_900.apk`, `de.computerelite.shockalarm_48.apk`, `com.github.dyhkwong.sagernet_1689.apk`, `com.georgeyt9769.cardabase_2003.apk`, `com.zoffcc.applications.undereat_10031.apk`, `net.nymtech.nymvpn_30000.apk`, `org.openobservatory.ooniprobe_274.apk`, `com.studio4plus.homerplayer2_40.apk`.
+
+### 13.2 Diagnose
+
+- [x] 13.2.1 `aapt dump badging` on a failing APK — inspect its DEX via `dexdump` and confirm presence of classes under `Lj$/time/*;`, `Lj$/util/stream/*;`, `Lj$/util/function/*;` (classic desugared package layout).
+- [x] 13.2.2 Read d8 rejection rule (Google AOSP): classes with the `j$.` prefix are the runtime-mapped replacements for `java.` classes and MUST NOT coexist in the same DEX with classes that belong to neither prefix. Our instrumentation necessarily adds classes outside both prefixes (`Coverage`, `MultiSpec_*`, aspectjrt, rv-monitor-rt, app code), so any APK still carrying `j$.*` classes will hit the error.
+- [x] 13.2.3 Confirm safety of deletion: `--min-api 26` means every `java.*` API the shims emulate (`java.time`, `java.util.stream`, `java.util.function`, etc.) is available natively on the target runtime. Caller code in the app references `java.*.*`, not `j$.*.*`, so deleting the shims does not break any symbol resolution on Android 8.0+.
+
+### 13.3 Fix
+
+- [x] 13.3.1 Added `__strip_desugared_shims(app)` in `rvandroid.py`, decorated with `@ErrorHandler.handle_errors(phase="strip_desugared_shims", reraise=True)`. Walks `tmp_dir/j$` via `rglob("*.class")`, deletes each shim, then removes the empty `j$/` subtree with `shutil.rmtree(..., ignore_errors=True)`. Logs count at INFO with structured `shims_removed`. Early-returns at DEBUG when no `j$` directory exists.
+- [x] 13.3.2 Wired `__strip_desugared_shims(app)` into `instrument()` between `__decompile_apk(app)` and `__include_generated_monitors()` as Phase 1b.
+
+### 13.4 Tests
+
+- [x] 13.4.1 Added `TestStripDesugaredShims::test_removes_j_dollar_class_files` — seeds `tmp_dir` with `j$/time/Foo.class`, `j$/util/stream/Bar.class`, `com/app/Baz.class`; asserts `j$/` gone and app class preserved.
+- [x] 13.4.2 Added `TestStripDesugaredShims::test_noop_when_no_shims_present` — `tmp_dir` without `j$/` is untouched; no exception raised.
+- [x] 13.4.3 Added `TestStripDesugaredShims::test_logs_count_of_removed_shims` — injects mock logger, seeds 3 shims, asserts `Stripped 3` appears in INFO log calls. Full suite: **60 passed in 0.52 s**.
+
+### 13.5 Re-validation after rebuild (open)
+
+- [ ] 13.5.1 Covered by 9.5.1 / 9.5.2 (one rebuild carries all four fixes from Sections 9, 10, 12, 13).
+- [ ] 13.5.2 Verify on `com.futsch1.medtimer_162.apk` (known to ship `j$.*` classes): instrument + `adb install` completes; no d8 error, no `j$.*` classes in the final DEX.
+- [ ] 13.5.3 Re-run the 400-APK JCA experiment. Target: the 17 `apk_creation / d8` `j$.*` failures drop to 0.
+
+### 13.6 Evidence artifacts
+
+- [x] 13.6.1 `data/results/jca400_*/jca400_*/instrumented_apks/instrument_errors.json` — 17 entries with `phase="apk_creation"`, `tool="d8"`, and `message` containing `Merging DEX file containing classes with prefix 'j$.'`. APK list enumerated in Section 13.1.1.
+
+### 9.7 Phase B install-test finding: zipalign must run AFTER signing (not before)
+
+- [x] 9.7.1 Phase B v6 manual install test on 7 instrumented APKs (see command template in `/tmp/smoke_install_test.sh`): 4 of the 7 failed `adb install` with `INSTALL_FAILED_INVALID_APK: Failed to extract native libraries, res=-2` — exactly the bug Section 9 was meant to fix.
+- [x] 9.7.2 `zipalign -c -v -P 16 4 results/phase_b_smoke/instrumented_apks/app.pwhs.blockads_45.apk` → `Verification FAILED` with BAD alignment on hundreds of resources and native libs, confirming the delivered APK is NOT aligned.
+- [x] 9.7.3 Manual repro: running `zipalign -f -P 16 4 <already-signed-apk> aligned.apk` on the same instrumented APK produced `Verification successful`, and `adb install` then succeeded. The alignment tool works — it just runs too early in the pipeline.
+- [x] 9.7.4 Root cause: jarsigner's v1 signature scheme rewrites the ZIP central directory when appending `META-INF/*.SF`/`*.RSA`, destroying any zipalign-applied offsets. The correct order is zipalign-after-sign.
+- [x] 9.7.5 Fix: move `self.__zipalign(...)` in `__create_apk` from BEFORE `self.__sign_apk(...)` to AFTER it. Rename the parameter from `unsigned_apk` to `apk_path` to reflect that it now operates on the signed artifact. Docstring updated to state the new ordering explicitly. Tests already mock `utils.execute_command`, so no test changes required; 68/68 still pass.
+
+## 14. ajc `skip_stderr=True` (Apr 2026 — Phase B empirical finding)
+
+Phase B (Section 15) of the validation loop exposed a third occurrence of the same `skip_stderr` bug pattern: `__weave_monitors()` invokes `ajc` via `utils.execute_command(ajc_cmd, "ajc")` — no `skip_stderr=True`. With `-proceedOnError`, ajc catches per-class weaving failures, prints them to stderr, continues with the rest, and exits 0 with valid partial output. But the Python side, without `skip_stderr=True`, treats any stderr content as an APK-wide failure. So even when ajc successfully weaves 99 % of classes, a single `AspectJ Internal Error: unable to add stackmap attributes to class 'X'. Index -1 out of bounds for length 0` kills the APK. The pre-ajc COMPUTE_FRAMES step added in Section 12 reduced BCEL crashes on classes missing StackMapTable — but did not help for APKs that trigger the bug only when `MultiSpec_1MonitorAspect.aj` is part of the weave (the scenario that reproduces in the full pipeline).
+
+### 14.1 Discovery
+
+- [x] 14.1.1 Phase B smoke on 12 APKs (3 per fix) with only Sections 9–13 applied. Scoreboard:
+  - **strip_j$**: 3/3 ✅
+  - **zipalign**: 3/3 ✅
+  - **pre_compute (ajc Index -1)**: 0/3 ❌ — ajc still aborts on `okio.HashingSource`, `f0.x0`, `androidx.media3.datasource.*`
+  - **skip_stderr (frame warnings)**: 0/3 ❌ — frame_computation now passes (expected) but d8 later fails on `okio/Buffer.hmac`, `c1/e.c(Cipher)Z` with the same "Index -1" family error
+- [x] 14.1.2 Reproduced the ajc crash isolated:
+  - Extract all `okio/*` (107 classes) from `xyz.blorpblorp.app_1776128916.apk`
+  - Run `rv-frame-computer.jar` → `107 processed, 0 failed` (StackMapTable count goes from 0 to 4 on `HashingSource`)
+  - Run ajc with only `Coverage.aj` + android.jar + aspectjrt → exit 0, weaves successfully
+  - Run ajc with `Coverage.aj` + `MultiSpec_1MonitorAspect.aj` + android.jar + aspectjrt + rv-monitor-rt + rvsec-core → prints `AspectJ Internal Error: unable to add stackmap attributes to class 'okio.ByteString'. Index -1 out of bounds for length 0` to stderr BUT exits 0 with partial output (15 classes written from 109 input; the failing classes keep their original bytecode in the output dir).
+
+### 14.2 Diagnose
+
+- [x] 14.2.1 The pre-ajc ASM COMPUTE_FRAMES DOES work (verified via javap diff: StackMapTable count increases, class bytes change). But BCEL's bug lives on the *insertion* path — when the weaver tries to splice advice from `MultiSpec_1MonitorAspect.aj` into a class and rebuild its StackMapTable, the off-by-one resurfaces regardless of whether the input already had valid frames. So ASM pre-processing lowers the failure rate but does not eliminate the bug for `MultiSpec`-style aspects.
+- [x] 14.2.2 `-proceedOnError` was already enabled (INV-INS-14) and does exactly what we want: continue past per-class failures, exit 0. The missing piece is accepting ajc's stderr output as non-fatal, identical to what we already do for d8 (INV-INS-19) and rv-frame-computer (Section 10).
+- [x] 14.2.3 Confirmed: `utils.execute_command(ajc_cmd, "ajc")` at `rvandroid.py:880` has no `skip_stderr=True`. This is the root cause of the 37 `aspect_weaving / ajc` "Index -1" failures from JCA-400 (Section 12.1.1), not the absent StackMapTable we initially hypothesized. Section 12's pre-ajc COMPUTE_FRAMES still helps reduce the overall error count, but this change unblocks the APKs Section 12 alone could not recover.
+
+### 14.3 Fix
+
+- [x] 14.3.1 In `rvandroid.py:__weave_monitors`, change `utils.execute_command(ajc_cmd, "ajc")` to `utils.execute_command(ajc_cmd, "ajc", skip_stderr=True)`. Add an inline comment explaining the interaction with `-proceedOnError` and referencing INV-INS-19.
+- [x] 14.3.2 Update INV-INS-19 in `specs/instrumentation/spec.md` to list ajc explicitly alongside d8 and rv-frame-computer, with the specific stderr signature.
+- [x] 14.3.3 Expand the existing "ajc proceeds on class-level errors" scenario in `specs/instrumentation/spec.md` with an AND clause requiring `skip_stderr=True`.
+- [x] 14.3.4 Update the design.md mapping row for INV-INS-19 to reference the three methods (`__d8`, `__compute_stack_frames`, `__weave_monitors`) and the corresponding tests.
+
+### 14.4 Tests
+
+- [x] 14.4.1 Rename `TestWeaveMonitorsFlags::test_ajc_includes_proceed_on_error` to `test_ajc_includes_proceed_on_error_and_skip_stderr`. Update the fake `capture_execute` to accept `skip_stderr` as a kwarg; assert both `"-proceedOnError" in args` AND `captured_cmd["skip_stderr"] is True`. Full suite: **60 passed in 0.51 s**.
+
+### 14.5 Re-validation after rebuild (open)
+
+- [ ] 14.5.1 Covered by 9.5.1 / 9.5.2 (single rebuild carries all fixes).
+- [ ] 14.5.2 Re-run Phase B (same 12 APKs) against the updated pipeline. Expected: the 3 `pre_compute` APKs now produce instrumented output (ajc still prints the stderr error but the pipeline continues); `skip_stderr` bucket still needs `__d8` to handle its own "Index -1" bucket (separate follow-up, out of gh50).
+
+### 14.6 Evidence artifacts
+
+- [x] 14.6.1 Phase B log `/tmp/phase_b.log` + dir `results/phase_b_smoke/` (12 APKs, 6/12 instrumented after Sections 9–13, confirming the gap that Section 14 closes).
+- [x] 14.6.2 Isolated reproducer under `/tmp/asm_debug/` demonstrating: (a) ASM COMPUTE_FRAMES DOES modify classes (md5 + StackMapTable count), (b) ajc succeeds on okio alone, (c) ajc prints "Index -1" on stderr but exits 0 when MultiSpec aspect is present. Not committed; reproducer commands captured in 14.1.2.
+
+## 17. Emulator AVD upgrade: API 29 x86 → API 30 x86_64 (Apr 2026 — Phase B install-test follow-up)
+
+The Phase B install-test (Section 9.7) surfaced two APKs that fail installation on our API 29 x86 emulator even with every pipeline fix landed: `com.bartixxx.opflashcontrol_49.apk` (`INSTALL_FAILED_OLDER_SDK` — minSdk 30) and `org.eu.mumulhl.ciyue_863000.apk` (`INSTALL_FAILED_NO_MATCHING_ABIS` — ARM-only). Augmenting `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/PLANILHA.csv` with `aapt`-derived metadata showed the scope: 19 APKs have `min_sdk >= 30` and 57 APKs are ARM-only in the 400-APK dataset. Bumping to API 30 x86_64 Google APIs raises SDK-compat from 91.0 % to 95.8 % without crossing the API 31 Foreground Service restriction that would kill `monkey` / `aperv` exploration tools.
+
+### 17.1 Discovery
+
+- [x] 17.1.1 Phase B install-test on 7 instrumented APKs (see logs `/tmp/smoke_install_v7.log`, `/tmp/orig_install_test.sh` results). Two APKs reject install regardless of our pipeline: `com.bartixxx.opflashcontrol` (minSdk 30), `org.eu.mumulhl.ciyue` (ARM-only).
+- [x] 17.1.2 `scripts/augment_planilha.py` reads `/home/pedro/.../JOAO/PLANILHA.csv`, runs `aapt dump badging` on the APK mirror under `/home/pedro/.../JOAO/APKs/` (400 files present), appends `min_sdk`, `target_sdk`, `max_sdk`, `compile_sdk`, `native_code_abis`, `launchable_activity`, `package_name`, `version_*`, `apk_size_mb`, `dex_count`, plus the curation columns `approved` (ternary: "" = undecided, "yes", "no") and `obs` (free-text reason). Updates the CSV in place with a timestamped backup, idempotent across re-runs, preserves manual edits in `approved`, `obs`, `jca_instrumented`, `sa_*`.
+- [x] 17.1.3 Dataset composition from the augmented planilha:
+  - `min_sdk` distribution — API 26: 297/400 (74.2 %); API 29: 364/400 (91.0 %); API 30: **383/400 (95.8 %)**; API 31: 393 (98.2 %); API 34: 398 (99.5 %).
+  - ABI distribution — 86 APKs no native libs; 341 APKs include `x86_64`; 57 APKs are ARM-only.
+  - Intersection (`min_sdk ≤ 30` AND `x86_64` compatible): 325/400 = 81.3 % will install on the new AVD.
+
+### 17.2 Diagnose
+
+- [x] 17.2.1 API 29 was the default in `docker/android/Dockerfile` since the project's first emulator image. Upstream Android SDK compat chart shows API 30 is the highest stable level that does NOT restrict foreground-service launches from the background — our exploration tools (`monkey`, `aperv`) run interactive UI events on the foreground thread but some APKs launch FG services from their `Application.onCreate`; API 31+ kills those with a platform-level `ForegroundServiceStartNotAllowedException`, creating false-positive "instrumentation bug" signals in logcat.
+- [x] 17.2.2 `x86` images are gradually being dropped by Google Play publishers; `arm64-v8a, armeabi-v7a, x86_64` is the modern triplet. Keeping `x86` rejects those APKs for no technical reason — `x86_64` system-images run natively on the host and accept `arm64` APKs via the emulator's ARM-translator on newer images (though ARM-only APKs still require a full ARM system-image which is 10× slower, out of scope).
+
+### 17.3 Fix
+
+- [x] 17.3.1 Rename the existing local `RVSec` AVD (API 29 x86) to `RVSec29` so it remains as a rollback target: `avdmanager move avd --name RVSec --rename RVSec29`.
+- [x] 17.3.2 Installed the API 30 system-image locally: `sdkmanager --install "system-images;android-30;google_apis;x86_64"`. `platforms;android-30` was already present (declared in `ANDROID_SDK_PACKAGES`).
+- [x] 17.3.3 Created the new `RVSec` AVD using the same invocation the Dockerfile uses: `avdmanager --verbose create avd --force --name RVSec --abi google_apis/x86_64 --package "system-images;android-30;google_apis;x86_64" --device pixel`. Verified via `avdmanager list avd`: RVSec now `Android 11.0 (R) Tag/ABI: google_apis/x86_64`; RVSec29 (rollback) kept as `Android 10.0 (Q) google_apis/x86`.
+- [x] 17.3.4 In `docker/android/Dockerfile`, changed `ARG API_LEVEL=29` → `ARG API_LEVEL=30` and the default `ARG ARCHITECTURE=x86` → `ARG ARCHITECTURE=x86_64` (with inline comment referencing INV-INS-24). All derived ENVs (`PACKAGE_PATH`, `ANDROID_PLATFORM_VERSION`, `ABI`) follow automatically; `avdmanager create avd ...` invocation stays the same.
+- [x] 17.3.5 Updated `scripts/run_emulator.sh` with context comment block: old API 29 x86 line kept commented for reference, new API 30 x86_64 launch active; flags are unchanged because the AVD name `RVSec` is reused.
+- [ ] 17.3.6 Verify `platforms;android-30` and `system-images;android-30;google_apis;x86_64` are already in the `ANDROID_SDK_PACKAGES` env var of the Dockerfile so the next image rebuild picks them up without further edits.
+
+### 17.4 Tests
+
+- [ ] 17.4.1 Boot the recreated `RVSec` AVD locally (`emulator @RVSec -writable-system -no-audio -no-boot-anim -read-only` or the same flags our `run_emulator.sh` uses). Expected: boots to API 30; `adb shell getprop ro.build.version.release` returns `11`.
+- [ ] 17.4.2 Install `cryptoapp.apk` (Java baseline) and `com.futsch1.medtimer_162.apk` (known-working instrumented, 911 RVSEC-COV in Phase B v7). Launch each and capture logcat for 10 s. Both MUST install, launch without `FATAL EXCEPTION`, and emit ≥ 1 `RVSEC-COV` event.
+- [ ] 17.4.3 Re-run Phase B install test (`/tmp/smoke_install_test.sh`) against the new AVD. Expected: `com.bartixxx.opflashcontrol` now installs (was `INSTALL_FAILED_OLDER_SDK`); the other 6 APKs keep the same status (install success or crash / ARM-only as before).
+- [ ] 17.4.4 After the Docker image rebuild (next `build_all.sh`), a one-APK preflight in the container confirms the AVD comes up correctly in headless mode with API 30 + x86_64.
+
+### 17.5 Re-validation after Dockerfile sync (open)
+
+- [ ] 17.5.1 Rebuild `phtcosta/rvandroid_android:0.8.0` and downstream images.
+- [ ] 17.5.2 Re-run the JCA-400 overnight experiment once all gh50 fixes + AVD upgrade are in the image. Capture install success rate and compare against the prior run (baseline in `data/results/jca400_*/jca400_*/tasks.json`).
+
+### 17.6 Evidence artifacts
+
+- [x] 17.6.1 `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/PLANILHA.csv` — augmented in place with 17 new columns (`apk_filename`, `apk_exists_locally`, `apk_size_mb`, `dex_count`, `package_name`, `version_code`, `version_name`, `min_sdk`, `target_sdk`, `max_sdk`, `compile_sdk`, `native_code_abis`, `launchable_activity`, `approved`, `obs`, plus reserved `jca_instrumented`, `sa_classes`, `sa_methods`, `sa_reaches_mop`). Timestamped backup kept alongside.
+- [x] 17.6.2 `scripts/augment_planilha.py` — idempotent script that regenerates the metadata columns while preserving human-curated / experiment-recorded values in the PRESERVE_COLS set.
+- [x] 17.6.3 Phase B install-test logs `/tmp/smoke_install_v7.log`, `/tmp/orig_install_test.sh` output — evidence that API 29 x86 rejects `min_sdk≥30` and ARM-only APKs that API 30 x86_64 will accept.
+
+## 18. APK signing via `apksigner` (Apr 2026 — API 30 emulator compat)
+
+After upgrading the AVD to API 30 (Section 17), every instrumented APK from Phase B v7 failed installation with `INSTALL_PARSE_FAILED_NO_CERTIFICATES: No signature found in package of version 2 or newer`. Original (uninstrumented) APKs installed fine. Root cause: our signing pipeline chained `d2j-apk-sign.sh` → strip META-INF → `jarsigner` → `jarsigner -verify`, producing APK Signature Scheme v1 only. API 30+ enforces v2+ requirements; v1-only is rejected at parse time. Replacing the whole chain with a single `apksigner sign` (which writes v1+v2+v3 together and preserves alignment) unblocks installation.
+
+### 18.1 Discovery
+
+- [x] 18.1.1 Phase B install test on API 30 AVD (`/tmp/smoke_install_api30.log`): 7/7 instrumented APKs rejected with `INSTALL_PARSE_FAILED_NO_CERTIFICATES: No signature found in package of version 2 or newer for package <pkg>`.
+- [x] 18.1.2 Original (uninstrumented) 7 APKs installed 7/7 on the same AVD (`/tmp/orig_test.sh`). Problem is isolated to our signature.
+
+### 18.2 Diagnose
+
+- [x] 18.2.1 Inspected `__sign_apk` at `rvandroid.py:1484`: three sequential commands (`d2j-apk-sign.sh`, `zip -d META-INF*`, `jarsigner`) + `jarsigner -verify`. `jarsigner` produces APK Signature Scheme v1 only — no v2/v3 block is written.
+- [x] 18.2.2 Confirmed `apksigner` ships with Android SDK `build-tools/35.0.1/apksigner` (version 0.9). Google's official guidance ([developer.android.com/tools/apksigner](https://developer.android.com/tools/apksigner)): `apksigner` signs with v1+v2+v3 simultaneously by default, preserves zipalign, and ships its own `verify` command with exit-code-based success signaling.
+- [x] 18.2.3 Determined the correct pipeline order for v2/v3 signing: `zipalign` MUST run BEFORE `apksigner`; any ZIP-level modification (including alignment) after apksigner invalidates the v2/v3 signature block. This reverses the order introduced in Section 9.7 (which was correct for jarsigner but wrong for apksigner).
+
+### 18.3 Fix
+
+- [ ] 18.3.1 Reorder `__create_apk` in `rvandroid.py`: `d8 → __zipalign(unsigned) → __sign_apk(unsigned) → return signed`. (`__sign_apk` writes the final path from its invocation; the returned path is the signed APK in `instrumented_dir`.)
+- [ ] 18.3.2 Rewrite `__sign_apk(app, unsigned_apk)` to:
+  ```
+  signed_apk = os.path.join(instrumented_dir, app.name)
+  shutil.copy2(unsigned_apk, signed_apk)        # apksigner overwrites in place
+  apksigner sign --ks <keystore> --ks-pass pass:<password> --ks-key-alias <alias> <signed_apk>    # skip_stderr=True
+  apksigner verify <signed_apk>                                                                   # skip_stderr=True
+  os.remove(unsigned_apk)
+  return signed_apk
+  ```
+  Both `utils.execute_command` calls MUST pass `skip_stderr=True` — apksigner runs under a JDK 21+ JVM that emits native-access warnings ("java.lang.System::loadLibrary has been called by org.conscrypt.NativeLibraryUtil") on stderr on every invocation, even on success (same pattern as d8/frame_computer/ajc/mvn — INV-INS-19). Decorator stays `@ErrorHandler.handle_errors(phase="apk_signing", reraise=True)`.
+- [ ] 18.3.3 Delete `__d2j_apk_sign`, `__jarsigner`, `__jarsigner_verify` methods from `rvandroid.py`. Delete the META-INF strip `zip -d` block. No `# removed` comments (CLAUDE.md P4).
+- [ ] 18.3.4 Delete `apk_sign` field from `Dex2jarTools` in `config.py` (no longer referenced). Delete related config-validation code paths that check for its existence.
+- [ ] 18.3.5 Add `keystore_alias` field to `RVInstrumentationConfig` (default `"server"` matching the bundled keystore, verified via `keytool -list`). Wire into `__sign_apk`.
+- [ ] 18.3.6 Update `__zipalign` docstring to remove the "AFTER jarsigner" wording — the flow now aligns BEFORE signing, because apksigner preserves alignment.
+
+### 18.4 Tests
+
+- [ ] 18.4.1 Delete `TestSignApk` / `TestJarsigner` / `TestD2jApkSign` / `TestJarsignerVerify` tests (and any other tests that reference the removed methods). No assertions against deleted code.
+- [ ] 18.4.2 Add `TestSignApk::test_apksigner_command_schema` — mock `utils.execute_command`, assert the captured `apksigner sign` command contains `--ks`, `--ks-pass`, `--ks-key-alias` with the configured values and points at the signed APK in `instrumented_dir`.
+- [ ] 18.4.3 Add `TestSignApk::test_verify_step_runs_after_sign` — two captured calls; first is `apksigner sign`, second is `apksigner verify` on the same APK.
+- [ ] 18.4.4 Add `TestSignApk::test_unsigned_apk_removed_after_signing` — mock filesystem; assert the unsigned source is removed after the signed APK is produced (mirrors the previous behaviour of the jarsigner flow).
+- [ ] 18.4.5 Update `TestZipalign::test_zipalign_invokes_with_page_alignment_flags` — assertion comment: "runs BEFORE `__sign_apk` so apksigner can preserve alignment" (the command itself is unchanged).
+- [ ] 18.4.6 Run `/rv-test-run rv-instrumentation` — every test passes, no references to removed methods remain.
+
+### 18.5 Re-validation (open)
+
+- [ ] 18.5.1 Re-run Phase B install test on API 30 AVD. Expected: APKs that installed as originals now install as instrumented too (no more `INSTALL_PARSE_FAILED_NO_CERTIFICATES`).
+- [ ] 18.5.2 `apksigner verify -v <instrumented.apk>` shows `Verified using v1 scheme: true`, `v2: true`, `v3: true`.
+
+### 18.6 Evidence artifacts
+
+- [x] 18.6.1 `/tmp/smoke_install_api30.log` — the seven `INSTALL_PARSE_FAILED_NO_CERTIFICATES` errors that motivated this section.
+- [x] 18.6.2 `/tmp/orig_test.sh` output — seven originals install 7/7 on the same AVD, isolating the problem to our signing.
+
+## 15. Maven `skip_stderr=True` (Apr 2026 — JDK 21+ noise)
+
+During Phase B (Section 14), Maven's `prepare_instrumentation` step started logging a spurious `CommandException` on every run. Maven emitted `BUILD SUCCESS` with exit 0, but JDK 25 prints native-access and `sun.misc.Unsafe` deprecation warnings to stderr on every invocation. `utils.execute_command(maven_cmd, "maven")` had no `skip_stderr=True`, so the stderr noise was treated as an APK-wide Maven failure. The `ErrorHandler` decorator on `__execute_maven` uses `reraise=False`, so the error was logged but did not halt the pipeline — yet it produced noisy false-error output and would propagate the wrong phase label if any later code path checked the decorator state.
+
+### 15.1 Discovery
+
+- [x] 15.1.1 Phase B v3 log (`/tmp/phase_b_v3.log`) showed:
+  ```
+  [INFO] BUILD SUCCESS
+  ERROR - Command execution failed: WARNING: A restricted method in java.lang.System has been called
+  WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+  WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+  CommandException[tool=maven ::: code=0 ::: message=WARNING: ...]
+  WARNING - Unhandled error in __execute_maven
+  ```
+  Exit code 0 but stderr triggered the exception.
+
+### 15.2 Diagnose
+
+- [x] 15.2.1 Same pattern as d8 (Section 9.3.4 / INV-INS-19), rv-frame-computer (Section 10), and ajc (Section 14): tool emits non-fatal stderr while returning exit 0; `utils.execute_command` without `skip_stderr=True` converts the stderr into a failure.
+- [x] 15.2.2 Confirmed the warnings are inherent to modern JVMs (JDK 21+ native-access restrictions, JDK 25 `sun.misc.Unsafe` deprecation). They will not go away; Maven itself is fine.
+
+### 15.3 Fix
+
+- [x] 15.3.1 In `rvandroid.py:__execute_maven`, change `utils.execute_command(maven_cmd, "maven")` to `utils.execute_command(maven_cmd, "maven", skip_stderr=True)`. Add a short inline comment referencing INV-INS-19 and describing the JDK source of the warnings. Real Maven failures (dependency resolution errors, compile errors) still surface via exit code != 0.
+
+### 15.4 Tests
+
+- [ ] 15.4.1 Add `TestExecuteMaven::test_maven_skip_stderr_enabled` (follow-up — not blocking Phase B v3 because the fix is a one-line change with the same proven pattern, and `__execute_maven` has no existing test class yet). Structure mirrors the d8 test: mock `utils.execute_command`, assert `captured["tool"] == "maven"` and `captured["skip_stderr"] is True`.
+
+### 15.5 Re-validation
+
+- [ ] 15.5.1 Covered by 9.5.1 / 9.5.2 (single rebuild carries all fixes).
+- [ ] 15.5.2 Next Phase B run (after current in-flight one finishes) MUST NOT log `ERROR - Command execution failed: WARNING: A restricted method ...` during `prepare_instrumentation`.
+
+### 15.6 Evidence artifacts
+
+- [x] 15.6.1 `/tmp/phase_b_v3.log` — first 100 lines show Maven `BUILD SUCCESS` followed by the spurious CommandException that this section resolves.
+
+## 16. Quarantine problematic library classes across ajc and d8 (Apr 2026 — Phase B deep dive)
+
+Phase B v3 surfaced that the 55 `aspect_weaving / ajc` failures and a sizable portion of the 105 `frame_computation` / 17 `apk_creation` paths share a common signature: `java.lang.ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 0` deep inside BCEL (ajc) or R8 (d8), exit codes 255 and 1 respectively — i.e., ABORT-level failures that no `-proceedOnError` / `skip_stderr` flag can rescue. Section 12 (pre-ajc `COMPUTE_FRAMES`) lowered but did not eliminate the rate. The concrete classes hitting the bug are concentrated in a handful of well-known third-party libraries (`okio.*`, `androidx.media3.datasource.*`, `org.apache.tika.parser.*`, `com.google.android.vending.licensing.AESObfuscator`, etc.). Section 16 introduces a quarantine step that temporarily removes those classes from `tmp_dir` during weaving/DEX compilation and puts them back untouched before the final APK is packaged.
+
+### 16.1 Discovery
+
+- [x] 16.1.1 Phase B v3 log (`/tmp/phase_b_v3.log`) shows:
+  - APK 1 (`org.fossify.filemanager_13`): `ajc exit 255, AspectJ Internal Error: unable to add stackmap attributes to class 'f0.x0'` — Kotlin-obfuscated class, BCEL ABORT.
+  - APK 2 (`com.k.todo_12003`): ajc succeeded (post Section 14 skip_stderr) but `d8 exit 1` on `c1/e.class` in method `c(Cipher)Z` — same `Index -1` stacktrace, R8 internal.
+  - APK 3 (`com.hfut.schedule_2554`): `d8 exit 1` on `okio/Buffer.hmac(String, ByteString)`.
+  - APK 4 onwards: similar pattern.
+- [x] 16.1.2 Isolated reproducer in `/tmp/asm_debug/`:
+  - ajc on 107 okio classes + `Coverage.aj` alone → exit 0.
+  - ajc on the same classes + `Coverage.aj` + `MultiSpec_1MonitorAspect.aj` → `AspectJ Internal Error: unable to add stackmap attributes to class 'okio.ByteString'` written to stderr; full pipeline exit observed as 255 when the input is the whole APK (tens of thousands of classes), not the 107-class subset.
+- [x] 16.1.3 Pattern frequency from the JCA-400 `instrument_errors.json` data captured in 12.1.1: `okio.*` (many), `androidx.media3.datasource.*` (several), `org.apache.tika.parser.CryptoParser` (13×), `com.google.android.vending.licensing.AESObfuscator` (2×). These account for ~25-30 of the 37 ajc "Index -1" failures.
+
+### 16.2 Diagnose
+
+- [x] 16.2.1 `-proceedOnError` (INV-INS-14) and `skip_stderr=True` (INV-INS-19) handle per-class ERRORs, NOT JVM-level ABORTs (exit 255 from ajc, exit 1 from d8). The only way to make the pipeline continue past an ABORT is to remove the offending input before the tool sees it.
+- [x] 16.2.2 Deleting the classes outright is NOT acceptable — the app runtime references them (okio is used by OkHttp, Retrofit, Kotlin coroutines, serialization libraries). The APK would crash at first use.
+- [x] 16.2.3 The library classes don't need to be *woven*, only *present* in the APK. Quarantine = move them aside during weaving / DEX compilation, restore before `__create_apk()` so d8 ingests them in their original bytecode.
+
+### 16.3 Fix
+
+- [ ] 16.3.1 Re-introduce `modules/rv-instrumentation/assets/weaving_excludes.yaml` (historically at `backup/gh50-reverts/`, now purpose-built for quarantine — NOT for aop.xml exclusion). Initial pattern list focused on empirical crashers:
+  ```yaml
+  patterns:
+    - "okio/**/*.class"
+    - "androidx/media3/datasource/**/*.class"
+    - "androidx/media3/exoplayer/drm/**/*.class"
+    - "org/apache/tika/**/*.class"
+    - "com/google/android/vending/licensing/AESObfuscator*.class"
+    - "com/google/crypto/tink/subtle/AesGcmJce*.class"
+  ```
+- [ ] 16.3.2 Add `_load_quarantine_patterns()` helper in `rvandroid.py` — loads `assets/weaving_excludes.yaml`, returns `list[str]` of glob patterns. Returns empty list when the file is missing (backward-compatible, pipeline runs normally).
+- [ ] 16.3.3 Add `__quarantine_problematic_classes(app)` in `rvandroid.py`, decorated with `@ErrorHandler.handle_errors(component="RVInstrumentation", phase="quarantine", reraise=True)`. For each pattern, `Path(tmp_dir).rglob(pattern)`; for each match, skip if its relative path starts with `app.code_package.replace('.', '/')` (log WARNING); otherwise `shutil.move()` into `tmp_dir/.quarantine/<relative_path>`, creating intermediate dirs. Log INFO with count.
+- [ ] 16.3.4 Add `__restore_quarantined_classes(app)` in `rvandroid.py`, decorated with `@ErrorHandler.handle_errors(component="RVInstrumentation", phase="restore_quarantine", reraise=True)`. Walks `tmp_dir/.quarantine/`; for each file, `shutil.move()` back to `tmp_dir/<relative_path>`, OVERWRITING any file produced by the weaver at that location. At the end, `shutil.rmtree(tmp_dir/.quarantine)`.
+- [ ] 16.3.5 Wire both methods into `instrument()`:
+  - `__quarantine_problematic_classes(app)` between `__strip_desugared_shims(app)` and `__include_generated_monitors()`
+  - `__restore_quarantined_classes(app)` between `__compute_stack_frames(app)` (post-ajc) and `__create_apk(app)`
+- [ ] 16.3.6 Add `pyyaml>=6.0` back to `pyproject.toml` (was removed in Section 8 revert; now needed for `_load_quarantine_patterns`).
+
+### 16.4 Tests
+
+- [ ] 16.4.1 `TestLoadQuarantinePatterns::test_loads_patterns_from_yaml` — seeds a tmp YAML, asserts returned list matches.
+- [ ] 16.4.2 `TestLoadQuarantinePatterns::test_returns_empty_list_when_missing` — file absent, function returns `[]`.
+- [ ] 16.4.3 `TestQuarantineProblematicClasses::test_quarantine_moves_matching_classes` — seed `tmp_dir` with `okio/Buffer.class`, `androidx/media3/datasource/AesFlushingCipher.class`, `com/app/Foo.class`. Call method; assert first two moved to `.quarantine/`, app class preserved.
+- [ ] 16.4.4 `TestQuarantineProblematicClasses::test_skips_code_package_matches` — app.code_package = `"okio"`; pattern `okio/**/*.class` matches. Expect WARNING logged and `okio/*` untouched.
+- [ ] 16.4.5 `TestQuarantineProblematicClasses::test_noop_when_no_matches` — only `com/app/Foo.class`; no movement.
+- [ ] 16.4.6 `TestRestoreQuarantinedClasses::test_restore_moves_files_back` — populate `.quarantine/okio/Buffer.class`; call restore; assert file back at `okio/Buffer.class` and `.quarantine/` removed.
+- [ ] 16.4.7 `TestRestoreQuarantinedClasses::test_restore_overwrites_existing` — file exists at target path with different content; restore MUST overwrite with quarantined version.
+
+### 16.5 Re-validation (open)
+
+- [ ] 16.5.1 Phase B v4: same 12 APKs. Expected recovery improvements on `pre_compute` (at least `xyz.blorpblorp`, `com.opensource.i2pradio`) and on `skip_stderr` APKs whose d8 crashes are on `okio/Buffer`.
+- [ ] 16.5.2 If Phase B v4 recovers ≥ 9/12, proceed to full JCA-400 re-run (overnight).
+- [ ] 16.5.3 Inspect a known-quarantined APK's final DEX to confirm `okio/Buffer` is PRESENT with original bytecode (not woven) via `dexdump` grep for `aspectOf` inside `Lokio/Buffer;` — count MUST be 0.
+
+### 16.6 Evidence artifacts
+
+- [x] 16.6.1 `/tmp/phase_b_v3.log` — ajc exit 255 and d8 exit 1 stack traces for the 6 APKs currently failing after Sections 9-15.
+- [x] 16.6.2 `/tmp/asm_debug/` reproducer (documented in 14.1.2) — confirms ajc succeeds on okio alone + Coverage, fails when MultiSpec aspect is present, and that failure is the bridge to both ajc's ABORT in the full pipeline and d8's crash on woven variants of the same classes.

@@ -1,0 +1,124 @@
+# Experiment: aperv:sata_mop vs 400 F-Droid APKs (JCA) — full pipeline, 300s exec timeout.
+# 6 containers × ~67 APKs each, 30-min SA timeout, 1 rep, JCA specs.
+# Estimated wall time: 10-15h (SA-dominated).
+#
+# Empirical validation of gh50 (instrumentation) + gh51 (Soot 4.7.1) on the
+# canonical top-400 F-Droid JCA dataset.
+#
+# Usage (from project root):
+#   docker compose -f docker/docker-compose.jca400-aperv.yml up -d
+#   bash scripts/monitor_jca400.sh                      # snapshot progress
+#   watch -n 60 bash scripts/monitor_jca400.sh          # live progress
+#   docker compose -f docker/docker-compose.jca400-aperv.yml down
+#
+# Resume after interruption: re-run `docker compose ... up -d` — containers
+# detect results/jca400_XX/tasks.json and auto-skip completed tasks.
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SA_TIMEOUT: "1800"
+    RV_JVM_MEMORY: "14G"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "10"
+        memory: "18g"
+
+services:
+  jca400_00:
+    <<: *rvandroid-base
+    container_name: jca400_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_00:/opt/rvsec/rv-android/results
+
+  jca400_01:
+    <<: *rvandroid-base
+    container_name: jca400_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_01.txt"
+      RV_DELAY: "15"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_01:/opt/rvsec/rv-android/results
+
+  jca400_02:
+    <<: *rvandroid-base
+    container_name: jca400_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_02.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_02:/opt/rvsec/rv-android/results
+
+  # jca400_03: RESUMED after power outage. Pre-processing already complete
+  # (38 instrumented APKs + 38 SA JSONs on disk); skip flags prevent re-running.
+  jca400_03:
+    <<: *rvandroid-base
+    container_name: jca400_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_03.txt"
+      RV_DELAY: "0"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_03:/opt/rvsec/rv-android/results
+
+  # jca400_04: RESUMED after power outage. tasks.json already contains 15/43
+  # completed tasks; skip flags + RV_EXPERIMENT_NAME handle resume.
+  jca400_04:
+    <<: *rvandroid-base
+    container_name: jca400_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_04.txt"
+      RV_DELAY: "15"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_04:/opt/rvsec/rv-android/results
+
+  jca400_05:
+    <<: *rvandroid-base
+    container_name: jca400_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_05.txt"
+      RV_DELAY: "75"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_05:/opt/rvsec/rv-android/results

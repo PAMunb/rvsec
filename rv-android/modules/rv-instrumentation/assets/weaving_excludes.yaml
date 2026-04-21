@@ -1,0 +1,39 @@
+# Quarantine patterns (NOT weaving excludes for aop.xml — see gh50 Section 16).
+#
+# Classes matching these patterns are temporarily MOVED to tmp_dir/.quarantine/
+# before ajc / frame_computer / d8 run, and then restored into tmp_dir before
+# the final APK is packaged. Goal: prevent ABORT-level failures in BCEL (ajc)
+# and R8 (d8) on bytecode patterns these tools cannot reliably rewrite.
+#
+# Scope trade-off: quarantined classes ship in the APK with their original
+# bytecode, but their internal JCA calls are not monitored. MOP specs use
+# call()-semantics, so app-code calls INTO these libraries are still captured
+# at the caller site. See gh50 design.md D-QUARANTINE.
+#
+# Each pattern is a relative glob under tmp_dir (e.g. "okio/**/*.class"
+# matches tmp_dir/okio/anything/*.class). App classes matching a pattern
+# are left in place (a WARNING is logged) so the user's own code is never
+# un-instrumented.
+#
+# Keep the list narrow: add entries only after an empirical crasher is
+# identified in an instrument_errors.json bucket.
+patterns:
+  # okio — network I/O library used by OkHttp, Retrofit, coroutines.
+  # Classes like okio.Buffer, okio.HashingSource, okio.ByteString trigger
+  # BCEL Index -1 on the HMAC / hashing codepaths.
+  - "okio/**/*.class"
+  # Media3 datasource layer (and DRM) — AesFlushingCipher and companions
+  # repeatedly crash ajc / d8 with the same "Index -1" signature.
+  - "androidx/media3/datasource/**/*.class"
+  - "androidx/media3/exoplayer/drm/**/*.class"
+  # Apache Tika parser subtree — CryptoParser is the top offender
+  # (13/37 ajc stackmap_error failures in the JCA-400 run).
+  - "org/apache/tika/**/*.class"
+  # Google Play Licensing AES obfuscator — triggers BCEL crash reliably.
+  - "com/google/android/vending/licensing/AESObfuscator*.class"
+  # Tink AES-GCM subtle implementation — similar pattern.
+  - "com/google/crypto/tink/subtle/AesGcmJce*.class"
+  # BouncyCastle JCA provider — Shacal2$AlgParamGen and siblings trip the
+  # same BCEL / R8 "Index -1" bug during ajc weaving / d8 DEX compilation.
+  # Added during Phase B v5 follow-up to recover com.vermont.possin.apk.
+  - "org/bouncycastle/**/*.class"

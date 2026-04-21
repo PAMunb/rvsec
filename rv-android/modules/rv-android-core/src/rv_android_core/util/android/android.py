@@ -278,7 +278,16 @@ class Android:
             RuntimeError: If APK installation fails.
         """
         cls.install_apk(app, device_name)
-        cls.grant_permissions(app, device_name)
+        # install_apk already passes `-g`, which grants every runtime permission
+        # the manifest declares. The per-permission loop below issues a stream
+        # of `adb shell pm grant` calls that (a) duplicate what -g did and
+        # (b) noisily fail with exit 255 on install-time permissions
+        # (FOREGROUND_SERVICE_DATA_SYNC, RECEIVE_BOOT_COMPLETED) or on
+        # permissions ART already reports as granted. Disabled for now; if
+        # we ever need it for custom/runtime-only permissions not covered by
+        # -g, reintroduce with a filter on `protection=dangerous` and
+        # already-granted detection.
+        # cls.grant_permissions(app, device_name)
 
     @classmethod
     def install_apk(cls, app: App, device_name: str = "emulator-5554"):

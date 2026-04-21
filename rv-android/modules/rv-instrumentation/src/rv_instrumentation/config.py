@@ -32,7 +32,6 @@ class Dex2jarTools(BaseValidatedModel):
     ### Tool Components:
     - dex2jar: Primary DEX to JAR conversion tool
     - asm_verify: JAR structural verification utility
-    - apk_sign: APK signing tool for deployment preparation
     """
 
     dex2jar: str = Field(
@@ -41,9 +40,8 @@ class Dex2jarTools(BaseValidatedModel):
     asm_verify: str = Field(
         ..., description="Path to ASM verify tool for JAR validation"
     )
-    apk_sign: str = Field(..., description="Path to APK signing tool for deployment")
 
-    @field_validator("dex2jar", "asm_verify", "apk_sign")
+    @field_validator("dex2jar", "asm_verify")
     @classmethod
     def validate_tool_exists(cls, v: str) -> str:
         """
@@ -269,6 +267,10 @@ class RVInstrumentationConfig(BaseValidatedModel):
     )
     keystore_password: Optional[str] = Field(
         default=None, description="Password for keystore access"
+    )
+    keystore_alias: str = Field(
+        default="server",
+        description="Key alias inside the keystore (bundled keystore uses 'server')",
     )
 
     # Tools
@@ -651,7 +653,6 @@ class RVInstrumentationConfig(BaseValidatedModel):
         return Dex2jarTools(
             dex2jar=os.path.join(self.dex2jar_home, "d2j-dex2jar.sh"),
             asm_verify=os.path.join(self.dex2jar_home, "d2j-asm-verify.sh"),
-            apk_sign=os.path.join(self.dex2jar_home, "d2j-apk-sign.sh"),
         )
 
     @ErrorHandler.handle_errors(

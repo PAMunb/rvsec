@@ -491,14 +491,20 @@ class TestInstrumentApksBatch:
 class TestWeaveMonitorsFlags:
     """Tests for __weave_monitors ajc command construction."""
 
-    def test_ajc_includes_proceed_on_error(self, tmp_path):
+    def test_ajc_includes_proceed_on_error_and_skip_stderr(self, tmp_path):
+        # -proceedOnError lets ajc continue past per-class failures and still
+        # exit 0 with a valid partial output. Those failures are printed to
+        # stderr, so skip_stderr=True is also required (same pattern as d8
+        # and rv-frame-computer, INV-INS-19). Real ajc crashes still surface
+        # through non-zero exit code.
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
 
         captured_cmd = {}
 
-        def capture_execute(cmd, tool_name):
+        def capture_execute(cmd, tool_name, skip_stderr=False, stdout=None):
             captured_cmd["args"] = cmd.args
+            captured_cmd["skip_stderr"] = skip_stderr
 
         with (
             patch("rv_instrumentation.rvandroid.utils") as mock_utils,
@@ -515,6 +521,7 @@ class TestWeaveMonitorsFlags:
             rv._RVInstrumentation__weave_monitors(app)
 
         assert "-proceedOnError" in captured_cmd["args"]
+        assert captured_cmd["skip_stderr"] is True
 
 
 class TestD8Flags:
@@ -561,6 +568,50 @@ class TestD8Flags:
         d8_call = next(c for c in captured_calls if c["tool"] == "d8")
         assert d8_call["skip_stderr"] is True
         assert "--no-desugaring" not in d8_call["args"]
+
+
+class TestZipalign:
+    """Tests for __zipalign page-alignment step."""
+
+    def test_zipalign_invokes_with_page_alignment_flags(self, tmp_path):
+        # -P 16 targets 16 KiB pages for uncompressed .so files (mandatory
+        # on API 35+, safe on older APIs). The legacy -p flag is mutually
+        # exclusive with -P in zipalign 35.0.1+, so it MUST NOT be passed
+        # (doing so makes zipalign exit 2 with "Invalid options: -P and -p
+        # cannot be used in combination"). The positional 4 aligns all
+        # other entries on 4-byte boundaries. -f overwrites the destination.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        unsigned_apk = str(tmp_path / "unsigned_test.apk")
+        (tmp_path / "unsigned_test.apk").write_bytes(b"fake")
+
+        captured = {}
+
+        def capture_execute(cmd, tool_name):
+            captured["tool"] = tool_name
+            captured["args"] = cmd.args
+
+        with (
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation.rvandroid.os.replace") as mock_replace,
+        ):
+            mock_utils.execute_command = capture_execute
+            rv._RVInstrumentation__zipalign(unsigned_apk)
+
+        assert captured["tool"] == "zipalign"
+        assert "-f" in captured["args"]
+        # -p and -P are mutually exclusive; only -P must be present
+        assert "-p" not in captured["args"]
+        assert "-P" in captured["args"]
+        p_idx = captured["args"].index("-P")
+        assert captured["args"][p_idx + 1] == "16"
+        # positional alignment value comes right after the -P <kb> pair
+        assert "4" in captured["args"]
+        # source and destination paths
+        assert unsigned_apk in captured["args"]
+        assert unsigned_apk + ".aligned" in captured["args"]
+        mock_replace.assert_called_once_with(unsigned_apk + ".aligned", unsigned_apk)
 
 
 class TestGetAndroidJar:
@@ -634,15 +685,21 @@ class TestComputeStackFrames:
     """Tests for __compute_stack_frames."""
 
     def test_invokes_frame_computer_jar(self, tmp_path):
+        # skip_stderr must be True: FrameComputer prints per-class "Warning:
+        # frame computation failed for X.class" entries to stderr and keeps
+        # processing the remaining classes. Without skip_stderr, a single
+        # warning would make execute_command raise and mark the whole APK
+        # failed. Real JVM crashes still surface through exit code != 0.
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
 
         captured_cmd = {}
 
-        def capture_execute(cmd, tool_name):
+        def capture_execute(cmd, tool_name, skip_stderr=False, stdout=None):
             captured_cmd["tool"] = tool_name
             captured_cmd["args"] = cmd.args
             captured_cmd["command"] = cmd.command
+            captured_cmd["skip_stderr"] = skip_stderr
 
         app = MagicMock()
         app.name = "test.apk"
@@ -669,6 +726,7 @@ class TestComputeStackFrames:
         assert "/fake/rv-frame-computer.jar" in captured_cmd["args"]
         assert "--classpath" in captured_cmd["args"]
         assert captured_cmd["tool"] == "frame_computer"
+        assert captured_cmd["skip_stderr"] is True
 
     def test_skips_when_jar_not_found(self, tmp_path):
         config = _make_config_mock(tmp_path)
@@ -686,3 +744,469 @@ class TestComputeStackFrames:
             rv._RVInstrumentation__compute_stack_frames(app)
 
             mock_utils.execute_command.assert_not_called()
+
+
+class TestPreComputeStackFrames:
+    """Tests for __pre_compute_stack_frames (pre-ajc invocation)."""
+
+    def test_pre_compute_frames_runs_before_weaving(self, tmp_path):
+        # Pre-ajc invocation must use the same helper as the post-ajc
+        # method (same jar, same classpath, same skip_stderr=True) but with
+        # phase label "pre_frame_computation" for log aggregation.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        captured_cmd = {}
+
+        def capture_execute(cmd, tool_name, skip_stderr=False, stdout=None):
+            captured_cmd["tool"] = tool_name
+            captured_cmd["args"] = cmd.args
+            captured_cmd["command"] = cmd.command
+            captured_cmd["skip_stderr"] = skip_stderr
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        with (
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(
+                rv,
+                "_get_frame_computer_jar",
+                return_value="/fake/rv-frame-computer.jar",
+            ),
+            patch.object(
+                rv,
+                "_RVInstrumentation__get_classpath",
+                return_value=["/fake/android.jar"],
+            ),
+        ):
+            mock_utils.execute_command = capture_execute
+
+            rv._RVInstrumentation__pre_compute_stack_frames(app)
+
+        assert captured_cmd["command"] == "java"
+        assert "-jar" in captured_cmd["args"]
+        assert "/fake/rv-frame-computer.jar" in captured_cmd["args"]
+        assert captured_cmd["tool"] == "frame_computer"
+        assert captured_cmd["skip_stderr"] is True
+
+    def test_pre_compute_skipped_when_jar_missing(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        with (
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch.object(rv, "_get_frame_computer_jar", return_value=None),
+        ):
+            mock_utils.execute_command = MagicMock()
+
+            rv._RVInstrumentation__pre_compute_stack_frames(app)
+
+            mock_utils.execute_command.assert_not_called()
+
+
+class TestStripDesugaredShims:
+    """Tests for __strip_desugared_shims (pre-desugared j$.* cleanup)."""
+
+    def test_removes_j_dollar_class_files(self, tmp_path):
+        # APKs built with older AGP ship j$.time.*, j$.util.stream.*, etc.
+        # These shims are incompatible with d8 merge when non-java.* classes
+        # are present in the same DEX, so the pipeline must remove them
+        # before instrumentation.
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+
+        # Seed tmp_dir with j$.* shims + a regular app class
+        j_dollar_time = Path(config.tmp_dir) / "j$" / "time"
+        j_dollar_stream = Path(config.tmp_dir) / "j$" / "util" / "stream"
+        app_pkg = Path(config.tmp_dir) / "com" / "app"
+        j_dollar_time.mkdir(parents=True)
+        j_dollar_stream.mkdir(parents=True)
+        app_pkg.mkdir(parents=True)
+        (j_dollar_time / "Foo.class").write_bytes(b"shim")
+        (j_dollar_stream / "Bar.class").write_bytes(b"shim")
+        (app_pkg / "Baz.class").write_bytes(b"app")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+
+        rv._RVInstrumentation__strip_desugared_shims(app)
+
+        # j$/ subtree removed entirely, app class preserved
+        assert not (Path(config.tmp_dir) / "j$").exists()
+        assert (app_pkg / "Baz.class").exists()
+
+    def test_noop_when_no_shims_present(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+
+        app_pkg = Path(config.tmp_dir) / "com" / "app"
+        app_pkg.mkdir(parents=True)
+        (app_pkg / "Baz.class").write_bytes(b"app")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+
+        # Should not raise and should leave the tree untouched
+        rv._RVInstrumentation__strip_desugared_shims(app)
+
+        assert (app_pkg / "Baz.class").exists()
+
+    def test_logs_count_of_removed_shims(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        shim_dir = Path(config.tmp_dir) / "j$" / "time"
+        shim_dir.mkdir(parents=True)
+        (shim_dir / "A.class").write_bytes(b"")
+        (shim_dir / "B.class").write_bytes(b"")
+        (shim_dir / "C.class").write_bytes(b"")
+
+        rv = _create_rv_instrumentation(config)
+        rv._logger = MagicMock()
+        app = MagicMock()
+        app.name = "test.apk"
+
+        rv._RVInstrumentation__strip_desugared_shims(app)
+
+        # _logger.info called with a message containing the count
+        info_calls = [
+            str(c) for c in rv._logger.info.call_args_list if "Stripped" in str(c)
+        ]
+        assert any("Stripped 3" in c for c in info_calls)
+
+
+class TestLoadQuarantinePatterns:
+    """Tests for RVInstrumentation._load_quarantine_patterns."""
+
+    def test_loads_patterns_from_yaml(self, tmp_path):
+        # Exercise the YAML parsing by mocking Path.exists + yaml.safe_load so
+        # we test the helper's logic without touching the shipped assets file.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        fake_yaml = {
+            "patterns": [
+                "okio/**/*.class",
+                "org/apache/tika/**/*.class",
+            ]
+        }
+        with (
+            patch("rv_instrumentation.rvandroid.Path.exists", return_value=True),
+            patch("builtins.open", create=True),
+            patch(
+                "rv_instrumentation.rvandroid.yaml.safe_load",
+                return_value=fake_yaml,
+            ),
+        ):
+            result = rv._load_quarantine_patterns()
+
+        assert "okio/**/*.class" in result
+        assert "org/apache/tika/**/*.class" in result
+
+    def test_returns_empty_list_when_missing(self, tmp_path):
+        # When assets/weaving_excludes.yaml does not exist, the helper must
+        # return [] so the pipeline runs unchanged (backward-compatible).
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        with patch("rv_instrumentation.rvandroid.Path.exists", return_value=False):
+            result = rv._load_quarantine_patterns()
+
+        assert result == []
+
+
+class TestQuarantineProblematicClasses:
+    """Tests for __quarantine_problematic_classes."""
+
+    def test_quarantine_moves_matching_classes(self, tmp_path):
+        # Seed tmp_dir with okio/Buffer, androidx/media3/datasource/X, and
+        # com/app/Foo. Only the first two match quarantine patterns; app code
+        # stays in place.
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        okio_dir = Path(config.tmp_dir) / "okio"
+        media_dir = Path(config.tmp_dir) / "androidx" / "media3" / "datasource"
+        app_dir = Path(config.tmp_dir) / "com" / "app"
+        okio_dir.mkdir(parents=True)
+        media_dir.mkdir(parents=True)
+        app_dir.mkdir(parents=True)
+        (okio_dir / "Buffer.class").write_bytes(b"okio")
+        (media_dir / "AesFlushingCipher.class").write_bytes(b"media")
+        (app_dir / "Foo.class").write_bytes(b"app")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"
+
+        patterns = [
+            "okio/**/*.class",
+            "androidx/media3/datasource/**/*.class",
+        ]
+        with patch.object(rv, "_load_quarantine_patterns", return_value=patterns):
+            rv._RVInstrumentation__quarantine_problematic_classes(app)
+
+        assert not (okio_dir / "Buffer.class").exists()
+        assert not (media_dir / "AesFlushingCipher.class").exists()
+        assert (app_dir / "Foo.class").exists()
+        # Quarantine root is a SIBLING of tmp_dir, NOT a subdir, so ajc and
+        # frame_computer walkers cannot descend into it.
+        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        assert (qroot / "okio" / "Buffer.class").exists()
+        assert (
+            qroot
+            / "androidx"
+            / "media3"
+            / "datasource"
+            / "AesFlushingCipher.class"
+        ).exists()
+
+    def test_skips_code_package_matches(self, tmp_path):
+        # If a pattern accidentally matches the APK's own code package, the
+        # file MUST stay in place and a WARNING MUST be logged.
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        # Imagine an app whose code_package is "okio" (extreme edge case) —
+        # the okio/**/*.class pattern matches but must skip.
+        okio_app = Path(config.tmp_dir) / "okio" / "MyAppClass.class"
+        okio_app.parent.mkdir(parents=True)
+        okio_app.write_bytes(b"app")
+
+        rv = _create_rv_instrumentation(config)
+        rv._logger = MagicMock()
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "okio"
+
+        with patch.object(
+            rv, "_load_quarantine_patterns", return_value=["okio/**/*.class"]
+        ):
+            rv._RVInstrumentation__quarantine_problematic_classes(app)
+
+        assert okio_app.exists()
+        # WARNING logged
+        warnings = [str(c) for c in rv._logger.warning.call_args_list]
+        assert any("matched app code" in w for w in warnings)
+
+    def test_noop_when_no_matches(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        app_dir = Path(config.tmp_dir) / "com" / "app"
+        app_dir.mkdir(parents=True)
+        (app_dir / "Foo.class").write_bytes(b"app")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"
+
+        with patch.object(
+            rv, "_load_quarantine_patterns", return_value=["okio/**/*.class"]
+        ):
+            rv._RVInstrumentation__quarantine_problematic_classes(app)
+
+        assert (app_dir / "Foo.class").exists()
+        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        # quarantine root may exist but is empty if any dir was created; main
+        # invariant is no class file under it
+        assert not list(qroot.rglob("*.class")) if qroot.exists() else True
+
+
+class TestRestoreQuarantinedClasses:
+    """Tests for __restore_quarantined_classes."""
+
+    def test_restore_moves_files_back(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        quarantine = qroot / "okio"
+        quarantine.mkdir(parents=True)
+        (quarantine / "Buffer.class").write_bytes(b"quarantined")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+
+        rv._RVInstrumentation__restore_quarantined_classes(app)
+
+        assert (Path(config.tmp_dir) / "okio" / "Buffer.class").exists()
+        assert (Path(config.tmp_dir) / "okio" / "Buffer.class").read_bytes() == b"quarantined"
+        # quarantine subtree removed
+        assert not qroot.exists()
+
+    def test_restore_overwrites_existing(self, tmp_path):
+        # If the weaver produced a partial variant of a quarantined class at
+        # the target path, restore MUST overwrite it with the quarantined
+        # (original) bytecode so the final APK ships the library untouched.
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        okio_dir = Path(config.tmp_dir) / "okio"
+        okio_dir.mkdir()
+        (okio_dir / "Buffer.class").write_bytes(b"woven_variant")  # stale
+        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        quarantine = qroot / "okio"
+        quarantine.mkdir(parents=True)
+        (quarantine / "Buffer.class").write_bytes(b"original")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+
+        rv._RVInstrumentation__restore_quarantined_classes(app)
+
+        assert (okio_dir / "Buffer.class").read_bytes() == b"original"
+
+    def test_noop_when_quarantine_absent(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+
+        # Should not raise
+        rv._RVInstrumentation__restore_quarantined_classes(app)
+
+
+class TestSignApk:
+    """Tests for __sign_apk (apksigner-based)."""
+
+    def test_apksigner_command_schema(self, tmp_path):
+        # apksigner sign must carry --ks, --ks-pass, --ks-key-alias and the
+        # final APK path (apksigner overwrites in place). v1/v2/v3 schemes
+        # are enabled by default in apksigner 0.9+, so no --v*-signing-enabled
+        # flags are passed.
+        config = _make_config_mock(tmp_path)
+        config.keystore_file = str(tmp_path / "keystore.jks")
+        config.keystore_password = "password"
+        config.keystore_alias = "server"
+        os.makedirs(tmp_path / "instrumented", exist_ok=True)
+        unsigned = tmp_path / "unsigned_test.apk"
+        unsigned.write_bytes(b"fake")
+
+        rv = _create_rv_instrumentation(config)
+
+        captured = []
+
+        def capture_execute(cmd, tool_name, skip_stderr=False, stdout=None):
+            captured.append(
+                {"tool": tool_name, "args": cmd.args, "skip_stderr": skip_stderr}
+            )
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+            mock_utils.execute_command = capture_execute
+            mock_utils.create_folder_if_not_exists = MagicMock()
+
+            # apksigner verify is also captured; we stub os.path.exists to True
+            with (
+                patch(
+                    "rv_instrumentation.rvandroid.os.path.exists", return_value=True
+                ),
+                patch("rv_instrumentation.rvandroid.os.remove"),
+                patch("rv_instrumentation.rvandroid.shutil.copy2"),
+            ):
+                rv._RVInstrumentation__sign_apk(app, str(unsigned))
+
+        sign_call = next(c for c in captured if c["tool"] == "apksigner")
+        args = sign_call["args"]
+        assert "sign" in args
+        ks_idx = args.index("--ks")
+        assert args[ks_idx + 1] == config.keystore_file
+        kspass_idx = args.index("--ks-pass")
+        assert args[kspass_idx + 1] == "pass:password"
+        alias_idx = args.index("--ks-key-alias")
+        assert args[alias_idx + 1] == "server"
+        # Last positional arg is the APK path under instrumented_dir
+        signed_apk = os.path.join(config.instrumented_dir, app.name)
+        assert signed_apk in args
+        # JDK 21+ emits native-access warnings to stderr on every apksigner
+        # invocation (INV-INS-19); both sign and verify must skip stderr.
+        assert sign_call["skip_stderr"] is True
+        verify_call = next(c for c in captured if c["tool"] == "apksigner_verify")
+        assert verify_call["skip_stderr"] is True
+
+    def test_verify_step_runs_after_sign(self, tmp_path):
+        # The full flow invokes two apksigner commands: sign then verify.
+        # Both target the same signed APK in instrumented_dir.
+        config = _make_config_mock(tmp_path)
+        config.keystore_file = str(tmp_path / "keystore.jks")
+        config.keystore_password = "password"
+        config.keystore_alias = "server"
+        unsigned = tmp_path / "unsigned_test.apk"
+        unsigned.write_bytes(b"fake")
+
+        rv = _create_rv_instrumentation(config)
+        captured = []
+
+        def capture_execute(cmd, tool_name, skip_stderr=False, stdout=None):
+            captured.append({"tool": tool_name, "args": cmd.args})
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+            mock_utils.execute_command = capture_execute
+            mock_utils.create_folder_if_not_exists = MagicMock()
+            with (
+                patch(
+                    "rv_instrumentation.rvandroid.os.path.exists", return_value=True
+                ),
+                patch("rv_instrumentation.rvandroid.os.remove"),
+                patch("rv_instrumentation.rvandroid.shutil.copy2"),
+            ):
+                rv._RVInstrumentation__sign_apk(app, str(unsigned))
+
+        # Both calls go to apksigner (first tool_name apksigner, then apksigner_verify)
+        tools = [c["tool"] for c in captured]
+        assert tools == ["apksigner", "apksigner_verify"]
+        verify_call = captured[1]
+        assert "verify" in verify_call["args"]
+        signed_apk = os.path.join(config.instrumented_dir, app.name)
+        assert signed_apk in verify_call["args"]
+
+    def test_unsigned_apk_removed_after_signing(self, tmp_path):
+        # After a successful apksigner sign + verify, the unsigned source
+        # must be removed so tmp_dir does not accumulate stale artifacts
+        # between APKs in batch mode.
+        config = _make_config_mock(tmp_path)
+        config.keystore_file = str(tmp_path / "keystore.jks")
+        config.keystore_password = "password"
+        config.keystore_alias = "server"
+        unsigned = tmp_path / "unsigned_test.apk"
+        unsigned.write_bytes(b"fake")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+
+        with (
+            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch(
+                "rv_instrumentation.rvandroid.os.path.exists", return_value=True
+            ),
+            patch("rv_instrumentation.rvandroid.os.remove") as mock_remove,
+            patch("rv_instrumentation.rvandroid.shutil.copy2"),
+        ):
+            mock_utils.execute_command = MagicMock()
+            mock_utils.create_folder_if_not_exists = MagicMock()
+            rv._RVInstrumentation__sign_apk(app, str(unsigned))
+
+        mock_remove.assert_called_once_with(str(unsigned))
+
+    def test_no_jarsigner_or_d2j_apk_sign_methods(self, tmp_path):
+        # Regression: the legacy v1-only signing chain (jarsigner, jarsigner
+        # verify, d2j_apk_sign) must not exist on the class — they would
+        # produce v1-only APKs rejected by API 30+ emulators.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+        assert not hasattr(rv, "_RVInstrumentation__jarsigner")
+        assert not hasattr(rv, "_RVInstrumentation__jarsigner_verify")
+        assert not hasattr(rv, "_RVInstrumentation__d2j_apk_sign")

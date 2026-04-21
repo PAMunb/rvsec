@@ -2776,6 +2776,7 @@ version = "0.1.0"
 source = { editable = "modules/rv-instrumentation" }
 dependencies = [
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "rv-android-core" },
 ]
 
@@ -2788,6 +2789,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
 ]
 

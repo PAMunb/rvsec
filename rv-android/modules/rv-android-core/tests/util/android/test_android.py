@@ -170,13 +170,17 @@ class TestAndroid:
             mock_logging.info.assert_called_with("Starting reboot simulation")
 
     def test_install_with_permissions(self, mock_command_class):
+        # install_apk already passes `-g` to grant runtime permissions at
+        # install time; the explicit grant_permissions loop is disabled
+        # because it duplicated -g and produced noisy exit 255 errors on
+        # install-time permissions. This test pins that behaviour.
         mock_app = MagicMock(spec=App)
         with patch.object(Android, "install_apk") as mock_install_apk, patch.object(
             Android, "grant_permissions"
         ) as mock_grant_permissions:
             Android.install_with_permissions(mock_app, "emulator-5554")
             mock_install_apk.assert_called_once_with(mock_app, "emulator-5554")
-            mock_grant_permissions.assert_called_once_with(mock_app, "emulator-5554")
+            mock_grant_permissions.assert_not_called()
 
     def test_install_apk(self, mock_command_class, mock_logging):
         mock_app = MagicMock(spec=App)

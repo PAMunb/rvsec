@@ -156,14 +156,8 @@ class TestRVInstrumentationConfig(unittest.TestCase):
             dex2jar_home = Path(temp_dir) / "dex2jar"
             dex2jar_home.mkdir()
 
-            # Create tool files
-            tools_files = {
-                "d2j-dex2jar.sh": "dex2jar",
-                "d2j-asm-verify.sh": "asm_verify",
-                "d2j-apk-sign.sh": "apk_sign",
-            }
-
-            for filename in tools_files:
+            # Create tool files (apk_sign removed; signing now uses apksigner)
+            for filename in ("d2j-dex2jar.sh", "d2j-asm-verify.sh"):
                 tool_path = dex2jar_home / filename
                 tool_path.touch()
                 tool_path.chmod(0o755)
@@ -172,14 +166,12 @@ class TestRVInstrumentationConfig(unittest.TestCase):
             tools = Dex2jarTools(
                 dex2jar=str(dex2jar_home / "d2j-dex2jar.sh"),
                 asm_verify=str(dex2jar_home / "d2j-asm-verify.sh"),
-                apk_sign=str(dex2jar_home / "d2j-apk-sign.sh"),
             )
 
             # Verify Pydantic model behavior
             self.assertIsInstance(tools.model_dump(), dict)
             self.assertEqual(tools.dex2jar, str(dex2jar_home / "d2j-dex2jar.sh"))
             self.assertEqual(tools.asm_verify, str(dex2jar_home / "d2j-asm-verify.sh"))
-            self.assertEqual(tools.apk_sign, str(dex2jar_home / "d2j-apk-sign.sh"))
 
     def test_dex2jar_tools_validation_failure(self):
         """Test that Dex2jarTools model validates tool existence."""
@@ -188,7 +180,6 @@ class TestRVInstrumentationConfig(unittest.TestCase):
             Dex2jarTools(
                 dex2jar="/nonexistent/path",
                 asm_verify="/another/nonexistent/path",
-                apk_sign="/third/nonexistent/path",
             )
 
         self.assertIn("dex2jar tool not found", str(context.exception))

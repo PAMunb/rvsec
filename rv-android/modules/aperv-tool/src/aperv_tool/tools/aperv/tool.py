@@ -88,6 +88,8 @@ APERV_PROPERTY_MAPPING = {
     "mop_weight_direct": "ape.mopWeightDirect",
     "mop_weight_transitive": "ape.mopWeightTransitive",
     "mop_weight_activity": "ape.mopWeightActivity",
+    "mop_weight_wtg": "ape.mopWeightWtg",
+    "coverage_boost_weight": "ape.coverageBoostWeight",
     # LLM parameters
     "llm_url": "ape.llmUrl",
     "llm_on_new_state": "ape.llmOnNewState",
