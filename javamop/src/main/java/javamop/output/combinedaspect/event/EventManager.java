@@ -20,6 +20,14 @@ import java.util.List;
 public class EventManager {
 
     private ArrayList<AdviceAndPointCut> advices = new ArrayList<AdviceAndPointCut>();
+
+    /**
+     * The list of aggregated advice/pointcut entries produced during construction.
+     * Exposed for descriptor emission (Fase 1 do prototipo-dexlib2).
+     */
+    public List<AdviceAndPointCut> getAdvices() {
+        return advices;
+    }
     private final ArrayList<EndObject> endObjectEvents = new ArrayList<EndObject>();
     private final ArrayList<EndThread> endThreadEvents = new ArrayList<EndThread>();
     private final ArrayList<StartThread> startThreadEvents = new ArrayList<StartThread>();
