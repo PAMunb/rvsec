@@ -69,6 +69,11 @@ public class JavaMOPOptions {
     @Parameter(names={"-emop"}, description = "Flag for emop.")
     public boolean emop = false;
 
+    @Parameter(names={"--emit-descriptor","-emit-descriptor"},
+            description = "Emit a JSON descriptor (.json) alongside the .aj file. "
+                    + "Used by prototipo-dexlib2 to drive DEX-native bytecode weaving.")
+    public boolean emitDescriptor = false;
+
     @Parameter(names={"-h","-help"}, description = "Show this help message.", help = true)
     private boolean help = false;
 

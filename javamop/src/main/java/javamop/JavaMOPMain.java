@@ -49,6 +49,7 @@ public final class JavaMOPMain {
 
     private static final String RVM_FILE_SUFFIX = ".rvm";
     private static final String AJ_FILE_SUFFIX = "MonitorAspect.aj";
+    private static final String DESCRIPTOR_FILE_SUFFIX = "MonitorAspect.json";
 
     /**
      * Because the JavaMOP's main method may be invoked multiple times to handle
@@ -126,6 +127,11 @@ public final class JavaMOPMain {
         writeFile(processor.generateRVFile(spec), location, RVM_FILE_SUFFIX, null);
 
         writeFile(processor.generateAJFile(spec), location, AJ_FILE_SUFFIX, options.aspectname);
+
+        if (options.emitDescriptor) {
+            writeFile(processor.generateDescriptorFile(spec), location,
+                    DESCRIPTOR_FILE_SUFFIX, options.aspectname);
+        }
     }
 
     /**
@@ -187,6 +193,39 @@ public final class JavaMOPMain {
         }
         MOPSpecFile combinedSpec = FileCombiner.combineSpecFiles(specs);
         writeCombinedAspectFile(processor.generateAJFile(combinedSpec), aspectName);
+
+        if (options.emitDescriptor) {
+            writeCombinedDescriptorFile(processor.generateDescriptorFile(combinedSpec), aspectName);
+        }
+    }
+
+    /**
+     * Write the JSON descriptor for a combined/merged aspect. Sibling of
+     * {@link #writeCombinedAspectFile(String, String)} (Fase 1 do prototipo-dexlib2).
+     */
+    protected static void writeCombinedDescriptorFile(String descriptorContent, String aspectName)
+            throws MOPException {
+        if (descriptorContent == null || descriptorContent.length() == 0)
+            return;
+
+        final String path = options.outputDir.getAbsolutePath() + File.separator +
+                aspectName + DESCRIPTOR_FILE_SUFFIX;
+        FileWriter f = null;
+        try {
+            f = new FileWriter(path);
+            f.write(descriptorContent);
+        } catch (Exception e) {
+            throw new MOPException("Failed to write Combined Descriptor", e);
+        } finally {
+            if (f != null) {
+                try {
+                    f.close();
+                } catch (IOException ioe) {
+                    ioe.printStackTrace();
+                }
+            }
+        }
+        System.out.println(" " + aspectName + DESCRIPTOR_FILE_SUFFIX + " is generated");
     }
 
     /**

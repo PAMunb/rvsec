@@ -58,6 +58,13 @@ public class CombinedAspect {
     public String getFileName() {
         return name.substring(0, name.length() - "MonitorAspect".length());
     }
+
+    /**
+     * The event manager (exposes AdviceAndPointCut list for descriptor emission).
+     */
+    public EventManager getEventManager() {
+        return eventManager;
+    }
     
     /**
      * Code to use the combined aspect with the backing of RV-Montior.
