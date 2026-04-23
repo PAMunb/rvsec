@@ -350,18 +350,21 @@ ARG ARCHITECTURE=x86_64  # was x86
 
 ### D-AJC-XSS: Increase ajc JVM stack size to tolerate Kotlin deep generic hierarchies (Apr 2026)
 
-**Choice**: Prepend `-J-Xss8m` to the `ajc` command in `__weave_monitors()`. `-J` is ajc's standard prefix for forwarding flags to the JVM launcher. 8 MB = 16× the JDK default of 512 KB on 64-bit Linux.
+**Choice**: Bake `-Xss8m` directly into the `ajc` shell launcher at image-build time, alongside the existing `-Xmx8192M` tuning. In `docker/base/Dockerfile`, the installer-generated `$ASPECTJ_HOME/bin/ajc` script already receives a `sed 's/-Xmx64M/-Xmx8192M/g'` patch; the same substitution is extended to emit `-Xmx8192M -Xss8m` in one shot. 8 MB = 16× the JDK default of 512 KB on 64-bit Linux.
 
 **Trigger**: 7 JCA-557 APKs failed with `java.lang.StackOverflowError` inside ajc 1.9.25.1 while traversing deeply nested generic parameterizations emitted by modern Kotlin compilers (data class over sealed hierarchy × Flow/Channel/Continuation). ajc's `UnresolvedType` resolution recurses through generic bounds; 512 KB default stack overflows on the type graph some apps produce. The pipeline reports `BCException` wrapping the StackOverflowError and aborts weaving for the whole APK.
 
-**Why `-J-Xss8m` specifically**:
+**Why `-Xss8m` at launcher level, not as CLI arg**:
+- The AspectJ 1.9.25.1 shell launcher (`$ASPECTJ_HOME/bin/ajc`) is a thin wrapper: `java -cp ... -Xmx... org.aspectj.tools.ajc.Main "$@"`. It does NOT process `-J-` flags — those would be handed directly to `Main`, which treats them as unrecognized compiler options and silently ignores them. An initial attempt to add `-J-Xss8m` to `ajc_args` in `__weave_monitors()` was verified empirically to have zero effect.
+- Baking the flag into the launcher matches the same strategy used for `-Xmx8192M` (bumped from the installer default of 64 MB) and keeps the tuning in one audit-friendly location. The launcher is reproducible because the Dockerfile rewrites it via `sed` on every build.
 - 8 MB is the smallest power-of-two that comfortably covers the observed overflow depth. Kotlin compiler internals (`kotlinc`) default `-Xss` to 6 MB in recent versions for the same reason.
-- Memory cost is per-thread and negligible: ajc is single-threaded in our invocation, so the increase is a one-time 7.5 MB above baseline — irrelevant against ajc's normal 1-2 GB heap.
-- `-J-` prefix scopes the setting to ajc's JVM only; d8, Maven, the frame-computer, and the Python harness remain at their own defaults.
+- Memory cost is per-thread and negligible: ajc is single-threaded in our invocation, so the increase is a one-time 7.5 MB above baseline — irrelevant against ajc's normal 1–2 GB heap.
 
-**Alternative rejected — `JAVA_TOOL_OPTIONS`**: environment-wide setting leaks into d8, Maven, and any JVM child process the pipeline spawns. Unnecessary and harder to audit. The scoped ajc flag is the minimum change that solves the symptom.
+**Alternative rejected — `JAVA_TOOL_OPTIONS` env var**: `JAVA_TOOL_OPTIONS=-Xss8m` would be inherited by every JVM child process in the container, including d8, Maven, the frame-computer, and any test-runner. Unnecessary blast radius and harder to audit per tool. Scoping to ajc's launcher contains the change to its intended tool.
 
-**Trade-off**: none measurable. Cost is a one-line flag added to a command array.
+**Alternative rejected — patch `rvandroid.py` to invoke the launcher differently (e.g., direct `java ... -Xss8m ... Main`)**: loses the AspectJ-maintained launcher's argument handling, future-incompatible with newer AspectJ releases that might introduce launcher-level features.
+
+**Trade-off**: none measurable. Cost is two extra characters in one `sed` expression inside the Dockerfile.
 
 ## API Design
 

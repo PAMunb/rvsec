@@ -31,10 +31,14 @@ RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.14/binaries/apache-maven-3.9
     rm apache-maven-3.9.14-bin.zip
 
 # Install AspectJ compiler — version must match aspectj.version in rvsec/pom.xml (1.9.25.1)
+# JVM tuning bakes -Xmx8192M (default is 64M, far too small for whole-APK weaving)
+# and -Xss8m (default 512K overflows on Kotlin deep generic parameterizations;
+# 7 JCA-557 APKs failed with StackOverflowError during UnresolvedType recursion
+# on Flow/Channel/Continuation hierarchies). See gh50 tasks.md §20.
 RUN mkdir $ASPECTJ_HOME && \
     wget 'https://github.com/eclipse-aspectj/aspectj/releases/download/V1_9_25_1/aspectj-1.9.25.1.jar' -O aspectj-1.9.25.1.jar && \
     java -jar aspectj-1.9.25.1.jar -to $ASPECTJ_HOME && \
-    sed -i 's/-Xmx64M/-Xmx8192M/g' $ASPECTJ_HOME/bin/ajc && \
+    sed -i 's/-Xmx64M/-Xmx8192M -Xss8m/g' $ASPECTJ_HOME/bin/ajc && \
     chmod a+x $ASPECTJ_HOME/bin/ajc && \
     rm aspectj-1.9.25.1.jar
 

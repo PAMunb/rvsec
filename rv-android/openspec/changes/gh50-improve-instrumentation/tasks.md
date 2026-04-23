@@ -612,12 +612,13 @@ The JCA-557 experiment (Torres et al. 2023 dataset of 557 F-Droid ~2020 APKs, re
 ### 20.2 Diagnose
 
 - [x] 20.2.1 ajc's `UnresolvedType` resolution recurses through generic bounds; Kotlin compilers emit deeply nested parameterizations (e.g., `Function3<List<Pair<A, B>>, Continuation<? super Flow<C>>, CoroutineScope>`) that overflow the default 512 KB stack on modern JDKs. The classes and specs themselves are valid; only the JVM stack is the bottleneck.
-- [x] 20.2.2 Option A: `-J-Xss<N>m` passed via ajc command invocation (ajc forwards `-J` prefixed args to the JVM launcher). Option B: set `JAVA_TOOL_OPTIONS` in the environment. Option A is preferred because it scopes the setting to ajc only, avoiding unintended effects on other JVM processes (d8, maven, frame-computer).
+- [x] 20.2.2 Options considered: (A) `-J-Xss8m` as a CLI arg to `ajc`; (B) modify the `ajc` shell launcher to include `-Xss8m`; (C) `JAVA_TOOL_OPTIONS` env var. Option (A) **fails** because the AspectJ 1.9.25.1 `ajc` shell launcher (`$ASPECTJ_HOME/bin/ajc`, a simple wrapper that invokes `java -cp ... -Xmx... org.aspectj.tools.ajc.Main "$@"`) does NOT process `-J-` flags — they are passed through to `Main` which does not forward them to the JVM. Option (C) would affect every JVM child process (d8, maven, frame-computer). Option (B) is adopted: bake `-Xss8m` directly into the shell launcher at image-build time, alongside the existing `-Xmx8192M` tuning (already patched by the current Dockerfile via `sed`). Scope is ajc-only by construction.
 
 ### 20.3 Fix
 
-- [ ] 20.3.1 Modify the `ajc_args` list construction in `rvandroid.py` `__weave_monitors()` (around line 1031) to prepend `-J-Xss8m` (8 MB stack, 16× default). Keep the rest of the args unchanged.
-- [ ] 20.3.2 Add a concise comment citing this section and the observed StackOverflowError pattern so future readers understand the constant's origin.
+- [x] 20.3.1 Extend the existing `sed` in `docker/base/Dockerfile` (line 37) that patches the AspectJ installer script: `sed -i 's/-Xmx64M/-Xmx8192M/g'` becomes `sed -i 's/-Xmx64M/-Xmx8192M -Xss8m/g'`. Both JVM flags are injected in one substitution so the shell launcher invokes the JVM with 8 MB heap AND 8 MB stack per thread.
+- [x] 20.3.2 Add a comment above the AspectJ install step documenting the dual JVM tuning and linking to this section.
+- [x] 20.3.3 No code change in `rvandroid.py`. Initial attempt to prepend `-J-Xss8m` to `ajc_args` was reverted once 20.2.2 established that the launcher does not forward `-J-` to the JVM. A stub comment in `__weave_monitors()` points to the Dockerfile so future maintainers find the setting.
 
 ### 20.4 Tests
 
