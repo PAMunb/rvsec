@@ -1028,7 +1028,15 @@ class RVInstrumentation:
         # Both point to tmp_dir because monitor sources were copied there in Phase 2.
         # Output (-d) goes back to tmp_dir, overwriting the original classes with
         # woven versions. Java 1.8 source level ensures broad Android compatibility.
+        # -J-Xss8m: forward 8 MB thread stack to ajc's JVM. JDK default is
+        # 512 KB, which overflows ajc's UnresolvedType recursion on Kotlin
+        # apps with deeply nested generic parameterizations (Flow, Channel,
+        # Continuation, sealed class hierarchies). 7 JCA-557 APKs failed
+        # with StackOverflowError without this flag. The -J- prefix scopes
+        # the setting to ajc's JVM only — d8, Maven, and rv-frame-computer
+        # are unaffected. See gh50 tasks.md §20 and design.md D-AJC-XSS.
         ajc_args = [
+            "-J-Xss8m",
             "-cp",
             classpath_str,
             "-Xlint:ignore",

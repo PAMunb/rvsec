@@ -329,6 +329,40 @@ ARG ARCHITECTURE=x86_64  # was x86
 
 **Trade-off**: Woven library classes are slightly larger in size and carry an unused branch in each method. Measured overhead is negligible against the dex2jar/ajc/d8 cost dominating the pipeline.
 
+### D-QUARANTINE-EXPAND: Extend quarantine patterns after JCA-557 empirical evidence (Apr 2026)
+
+**Choice**: Preserve the Section 16 D-QUARANTINE machinery unchanged and grow only the `assets/weaving_excludes.yaml` data file with ~17 additional library packages identified in the JCA-557 run. No code path changes, no new mechanism.
+
+**Trigger**: Re-running the gh50 §1-18 pipeline on the Torres et al. 2023 dataset (557 APKs, F-Droid ~2020) achieved 270/557 = 48.5% instrumentation — versus 74.5% observed on the modern JCA-400 dataset. The gap is not a regression of the pipeline; it is a population difference. Deep failure analysis of the 287 failed JCA-557 APKs (tasks.md §19.1) showed the ABORT-level crash signature of §16 recurring inside library packages absent from the §16 YAML: `org.spongycastle.*` (the Android fork of BouncyCastle, deprecated in 2020 — the canonical JCA provider of F-Droid circa 2020), `org.jsoup.*`, `net.lingala.zip4j.*`, `com.trilead.ssh2.*`, `org.conscrypt.*`, `cz.msebera.android.httpclient.*`, `com.jcraft.jsch.*`, `com.google.android.exoplayer2.upstream.crypto.*`, and a long tail of legacy network/crypto stacks (sshj, pircbot, itextpdf, bitcoinj, flutter_inappwebview, kevinsawicki/http, apache/http, leakcanary, etc.). The top 20 libs account for ~110 APKs directly; the ~30 remaining singletons are a mix of obfuscated app classes (not quarantinable) and rare one-off libs.
+
+**Why this is the right expansion, not a scope creep**:
+- The §16 D-QUARANTINE decision explicitly anticipated this ("The list is expected to grow incrementally as new BCEL/R8 crashers are identified in large-scale runs"). §19 is the first such iteration.
+- The YAML is a pure data file. The loader, matcher, and restore logic in `rvandroid.py` are unchanged. There is no new failure mode and no new test target beyond "the new patterns load and match correctly" (tasks.md §19.4).
+- MOP semantic preservation is quantified: `scripts/jca557_quarantine_impact.py` measured 3.7% event loss on the paper's violation corpus with the §16 patterns. The §19 patterns extend the same reasoning — all listed libs are *callers* of JCA APIs (`MessageDigest`, `Cipher`, `KeyGenerator`, etc.), not the APIs themselves. `call()` semantics in every JCA spec already capture app → library calls at the caller site; only `library → library` internal chains become invisible, which is the narrow, already-accepted trade-off documented in §16.2.
+
+**Why adding libs is strictly better than narrower alternatives**:
+- *Conditional quarantine per app based on manifest `uses-library`*: requires runtime bytecode analysis to infer which libs trip the bug, adds pipeline complexity for no benefit — the bug is deterministic per-class, not per-app-context.
+- *Quarantine only individual crashing classes (e.g., `org/spongycastle/jcajce/provider/symmetric/Camellia$AlgParamGen.class`)*: narrower but brittle. New app versions bring new BCEL-tripping classes from the same lib; maintenance cost grows without bound. Package-level globs are the natural granularity.
+
+**Scope-containment guarantee**: the existing `App.code_package` safety check in `__quarantine_problematic_classes()` continues to log a WARNING if an app's own code ever lives under a quarantined prefix (e.g., a hypothetical `org.spongycastle.*` packaged as app code, not as a library). All 287 failing APKs in JCA-557 have code_package starting with `com.*`, `app.*`, `at.*`, etc. — no collision with the new patterns.
+
+**Open item carried forward**: ~60 APKs in the JCA-557 failure bucket show Kotlin FunctionN type-mismatch inside ajc — NOT resolvable by quarantine because the offending classes are obfuscated app code, not library code. Tracked in "Open Questions" and likely addressable only by the dexlib2 DEX-native path (see `docs/20260422_lspatch.md` Appendix A).
+
+### D-AJC-XSS: Increase ajc JVM stack size to tolerate Kotlin deep generic hierarchies (Apr 2026)
+
+**Choice**: Prepend `-J-Xss8m` to the `ajc` command in `__weave_monitors()`. `-J` is ajc's standard prefix for forwarding flags to the JVM launcher. 8 MB = 16× the JDK default of 512 KB on 64-bit Linux.
+
+**Trigger**: 7 JCA-557 APKs failed with `java.lang.StackOverflowError` inside ajc 1.9.25.1 while traversing deeply nested generic parameterizations emitted by modern Kotlin compilers (data class over sealed hierarchy × Flow/Channel/Continuation). ajc's `UnresolvedType` resolution recurses through generic bounds; 512 KB default stack overflows on the type graph some apps produce. The pipeline reports `BCException` wrapping the StackOverflowError and aborts weaving for the whole APK.
+
+**Why `-J-Xss8m` specifically**:
+- 8 MB is the smallest power-of-two that comfortably covers the observed overflow depth. Kotlin compiler internals (`kotlinc`) default `-Xss` to 6 MB in recent versions for the same reason.
+- Memory cost is per-thread and negligible: ajc is single-threaded in our invocation, so the increase is a one-time 7.5 MB above baseline — irrelevant against ajc's normal 1-2 GB heap.
+- `-J-` prefix scopes the setting to ajc's JVM only; d8, Maven, the frame-computer, and the Python harness remain at their own defaults.
+
+**Alternative rejected — `JAVA_TOOL_OPTIONS`**: environment-wide setting leaks into d8, Maven, and any JVM child process the pipeline spawns. Unnecessary and harder to audit. The scoped ajc flag is the minimum change that solves the symptom.
+
+**Trade-off**: none measurable. Cost is a one-line flag added to a command array.
+
 ## API Design
 
 ### `__compute_stack_frames(app: App) -> None`

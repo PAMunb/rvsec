@@ -526,3 +526,107 @@ Phase B v3 surfaced that the 55 `aspect_weaving / ajc` failures and a sizable po
 
 - [x] 16.6.1 `/tmp/phase_b_v3.log` — ajc exit 255 and d8 exit 1 stack traces for the 6 APKs currently failing after Sections 9-15.
 - [x] 16.6.2 `/tmp/asm_debug/` reproducer (documented in 14.1.2) — confirms ajc succeeds on okio alone + Coverage, fails when MultiSpec aspect is present, and that failure is the bridge to both ajc's ABORT in the full pipeline and d8's crash on woven variants of the same classes.
+
+---
+
+## 19. Expanded quarantine after JCA-557 empirical discovery (Apr 2026 — oldset re-run)
+
+The JCA-557 experiment (Torres et al. 2023 dataset of 557 F-Droid ~2020 APKs, re-executed with the gh50 §1-18 pipeline on 2026-04-22) reached **270/557 = 48.5% instrumentation success**, up from the paper's baseline of 193/557 = 34.6% but meaningfully lower than the 74.5% achieved on the modern F-Droid 2026 dataset (JCA-400). Deep failure analysis of the 287 failed APKs revealed **additional library families** whose bytecode crashes ajc/d8 in the same "Index -1" ABORT pattern addressed by §16, but whose identifiers are absent from the Section 16 quarantine patterns because they were rare or absent in the modern dataset. Section 19 extends the quarantine YAML to cover these legacy libraries, recovering an estimated ~110-140 APKs from the JCA-557 failure bucket.
+
+### 19.1 Discovery
+
+- [x] 19.1.1 Failure breakdown per tool across 287 JCA-557 instrumentation failures: **d8 176 (61%) — 100% `ArrayIndexOutOfBoundsException`**; ajc 107 (37%) — mix of BCException 19, AIOOBE 19, StackOverflowError 7, Kotlin type-mismatch ~60; dex2jar 4 (1.4%). Raw distribution computed from `data/results/jca557_*/instrumented_apks/instrument_errors.json` across all 10 containers.
+- [x] 19.1.2 Top library packages responsible for d8 AIOOBE failures (each row = `package: distinct APKs`):
+  - `google/crypto/tink/subtle/AesCtrHmacStreaming*`: 8
+  - `google/android/exoplayer2/upstream/crypto/AesFlushingCipher*`: 8
+  - `spongycastle/jcajce/provider/symmetric/Camellia*` + `spongycastle/openpgp/...`: 13
+  - `jsoup/helper/HttpConnection$Response*`: 10
+  - `net/lingala/zip4j/crypto/PBKDF2/MacBasedPRF*`: 8
+  - `trilead/ssh2/crypto/digest/HMAC*`: 6
+  - `conscrypt/OpenSSLCipher*`: 6
+  - `cz/msebera/android/httpclient/impl/auth/NTLMEngineImpl*`: 5
+  - `jcraft/jsch/jce/AES192CBC` + `ARCFOUR128`: 5
+  - Tail: `schmizz/sshj`, `jibble/pircbot`, `kevinsawicki/http`, `pichillilorenzo/flutter_inappwebview`, `itextpdf/text` + `itextpdf/kernel`, `bitcoinj/core`, `apache/http`, `gudy/azureus2`, `de/slackspace/openkeepass`, `eu/siacs/conversations`, `rfo/basic`, `xabber/android`, `ghostsq/commander`, `paranoiaworks/unicus`, `arialyy/aria`. Aggregate ≈ 110 APKs across identifiable libs; additional ~30-40 hit one-off classes (mostly obfuscated R8 output, not lib-scoped).
+- [x] 19.1.3 ajc BCException `Whilst processing type 'L<obfuscated>'` appears in 19 APKs; type names include `Li4/f`, `Li/e/b`, `La4/h`, `Lleakca...` (LeakCanary), `Lscala/...` (Scala-based app). Some of these map to known libraries (leakcanary, scala runtime) amenable to quarantine; others are genuine R8-obfuscated app code that quarantine cannot address.
+- [x] 19.1.4 Validation that JCA-400 (F-Droid 2026) tolerated the gh50 §1-18 quarantine set while JCA-557 did not: the 7 libs that §16 already excludes (okio, media3, tika, licensing, bouncycastle, tink subtle subset, and a few vending subclasses) are prevalent in modern apps; `spongycastle` (the Android fork of BouncyCastle, deprecated in 2020) and the assorted SSH/SSL/HTTP legacy libs above are more common in apps shipped on F-Droid circa 2020 — exactly the JCA-557 population. This explains the instrumentation rate gap (48.5% vs 74.5%) without invoking a new class of ABORT bug.
+
+### 19.2 Diagnose
+
+- [x] 19.2.1 Same root cause as §16.2: d8/R8 `ArrayIndexOutOfBoundsException` and ajc BCEL `AspectJ Internal Error` are ABORT-level failures that neither `-proceedOnError` nor `skip_stderr` can rescue. The fix — per-library exclusion from the weaving input — is the established quarantine mechanism; this section only changes the **input set**.
+- [x] 19.2.2 MOP semantic preservation analysis via `scripts/jca557_quarantine_impact.py` executed against the original Torres et al. violation dataset: quantified event loss from the current (§16) patterns at **3.7%** of paper violations. Expanding the patterns to the libraries listed in 19.1.2 raises the loss minimally because: (a) these libs are *callers* of JCA APIs (`MessageDigest`, `Cipher`, etc.), not the APIs themselves, so the `call()` MOP semantics still capture violations at the caller site inside app code; (b) most app violations historically flagged by the paper occurred in app-code, not inside these libs.
+- [x] 19.2.3 Kotlin FunctionN type mismatch family in ajc (~60 APKs) is NOT resolvable via quarantine — these are obfuscated app classes, not library classes. Out of scope for §19. Documented as follow-up (see "Open Questions" in design.md).
+
+### 19.3 Fix
+
+- [ ] 19.3.1 Expand `modules/rv-instrumentation/assets/weaving_excludes.yaml` `patterns:` list with the following library packages (all derived from 19.1.2 empirical breakdown):
+  - `org/spongycastle/**/*.class`
+  - `org/jsoup/**/*.class`
+  - `net/lingala/zip4j/**/*.class`
+  - `com/trilead/ssh2/**/*.class`
+  - `org/conscrypt/**/*.class`
+  - `cz/msebera/android/httpclient/**/*.class`
+  - `com/jcraft/jsch/**/*.class`
+  - `net/schmizz/sshj/**/*.class`
+  - `org/jibble/pircbot/**/*.class`
+  - `com/pichillilorenzo/flutter_inappwebview/**/*.class`
+  - `com/github/kevinsawicki/http/**/*.class`
+  - `com/itextpdf/**/*.class`
+  - `org/bitcoinj/**/*.class`
+  - `com/squareup/leakcanary/**/*.class` (covers `Lleakca` BCException)
+  - Widen existing Tink pattern: `com/google/crypto/tink/**/*.class` (from the current `AesGcmJce*.class` narrow match)
+  - Widen ExoPlayer: `com/google/android/exoplayer2/upstream/crypto/**/*.class`
+  - Tail libs: `org/apache/http/**/*.class`, `com/gudy/azureus2/**/*.class`, `de/slackspace/openkeepass/**/*.class`
+- [ ] 19.3.2 Update the top-of-file comment in `weaving_excludes.yaml` to note that §19 patterns were derived from the JCA-557 re-run, linking this section for traceability. Retain the existing "narrow list — empirically justified" guidance.
+- [ ] 19.3.3 No code changes required in `rvandroid.py`: `_load_quarantine_patterns()` already returns `list[str]` and `__quarantine_problematic_classes()` already iterates all patterns generically. Only the data file changes.
+
+### 19.4 Tests
+
+- [ ] 19.4.1 `TestLoadQuarantinePatterns::test_expanded_list_loaded` — seed the production YAML, assert returned list length matches the new count (current + new entries) and that all expected prefixes (e.g., `org/spongycastle/**/*.class`) are present.
+- [ ] 19.4.2 `TestQuarantineProblematicClasses::test_spongycastle_moved` — seed `tmp_dir` with `org/spongycastle/jcajce/Camellia$AlgParamGen.class`, call method, assert moved to `.quarantine/`.
+- [ ] 19.4.3 Regression: re-run the existing §16 quarantine test suite unchanged; no behavior change to the quarantine mechanism itself, only to the configured input.
+
+### 19.5 Re-validation (open)
+
+- [ ] 19.5.1 Rebuild `phtcosta/rvandroid:0.8.0` with the updated YAML.
+- [ ] 19.5.2 Build `data/jca557_filters/jca557_failed_287.txt` by diffing each `jca557_batch_<i>.txt` against the set of APKs that reached `instrumented_apks/` in the first run.
+- [ ] 19.5.3 Launch `docker/docker-compose.jca557-oldset.yml` pointing each container at the filter subset from 19.5.2. Auto-skip must short-circuit the 270 already-instrumented APKs so only the 287 are reprocessed.
+- [ ] 19.5.4 Acceptance criterion: instrumentation recovery of ≥100 additional APKs (conservative). Target ~140 based on 19.1.2 estimate.
+- [ ] 19.5.5 Document the final JCA-557 numbers (absolute + percentage) in `docs/20260422_executar_dataset_antigo.md` under a new "§8 Re-run resultado" section.
+
+### 19.6 Evidence artifacts
+
+- [x] 19.6.1 Failure distribution summary: produced in-situ via `python3` scripts over the 10 `instrument_errors.json` files at 2026-04-23.
+- [ ] 19.6.2 Pre-/post- comparison CSV: `data/results/jca557_recovery.csv` with columns `apk, pre_run_status, post_run_status, lib_matched_pattern` — to be produced after 19.5.
+- [ ] 19.6.3 Updated `scripts/jca557_quarantine_impact.py` output measuring event loss from the expanded pattern set against Torres et al. violations (expected ≤ 5%).
+
+---
+
+## 20. Increase ajc JVM stack size to tolerate deep Kotlin hierarchies (Apr 2026 — JCA-557 follow-up)
+
+7 of the 287 JCA-557 failures surfaced `java.lang.StackOverflowError` inside ajc 1.9.25.1 when processing Kotlin-heavy apps with deeply nested generic parameterization (data classes composed over sealed hierarchies, Flow / Channel types, etc.). The JVM default stack size is 512 KB on 64-bit Linux; raising it is the textbook mitigation.
+
+### 20.1 Discovery
+
+- [x] 20.1.1 Affected APKs (extracted from `ajc.*StackOverflowError` pattern in `instrument_errors.json`): `com.aravi.dot_30105.apk`, `com.bytesforge.linkasanote_30499.apk`, and 5 others. Stack trace origin in ajc: `org.aspectj.weaver.UnresolvedType` and `java.lang.AbstractStr...` — recursive type resolution.
+
+### 20.2 Diagnose
+
+- [x] 20.2.1 ajc's `UnresolvedType` resolution recurses through generic bounds; Kotlin compilers emit deeply nested parameterizations (e.g., `Function3<List<Pair<A, B>>, Continuation<? super Flow<C>>, CoroutineScope>`) that overflow the default 512 KB stack on modern JDKs. The classes and specs themselves are valid; only the JVM stack is the bottleneck.
+- [x] 20.2.2 Option A: `-J-Xss<N>m` passed via ajc command invocation (ajc forwards `-J` prefixed args to the JVM launcher). Option B: set `JAVA_TOOL_OPTIONS` in the environment. Option A is preferred because it scopes the setting to ajc only, avoiding unintended effects on other JVM processes (d8, maven, frame-computer).
+
+### 20.3 Fix
+
+- [ ] 20.3.1 Modify the `ajc_args` list construction in `rvandroid.py` `__weave_monitors()` (around line 1031) to prepend `-J-Xss8m` (8 MB stack, 16× default). Keep the rest of the args unchanged.
+- [ ] 20.3.2 Add a concise comment citing this section and the observed StackOverflowError pattern so future readers understand the constant's origin.
+
+### 20.4 Tests
+
+- [ ] 20.4.1 No unit test: the change is a single command flag and its effect (no StackOverflowError on a deep-Kotlin APK) is only observable end-to-end. Covered by 20.5 re-validation on the 7 known-failing APKs.
+
+### 20.5 Re-validation (open)
+
+- [ ] 20.5.1 Part of the §19.5 re-run: the 7 APKs from 20.1.1 are in the 287-APK failed set. Expected: StackOverflowError gone, APKs either succeed or fail for an unrelated reason documented at that point.
+
+### 20.6 Evidence artifacts
+
+- [x] 20.6.1 Stack-trace excerpts quoted in 20.1.1, extracted from the JCA-557 `instrument_errors.json` files.
