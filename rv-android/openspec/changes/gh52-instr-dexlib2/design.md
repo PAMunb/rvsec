@@ -153,7 +153,9 @@ flowchart TB
 | `validator.FeatureMappingChecker` | Enforce INV-INS-17 (every inventory construct has test or limitation entry) | inventory.md, mapping.md, limitations.md, validator/test/ | `MappingReport` |
 | `validator.ConstructionInventoryGenerator` | Generate `AJ_CONSTRUCTIONS_INVENTORY.md` from .mop / .aj corpus | `Path rvsecMopRoot` | `inventory.md` |
 | `validator.BootValidator` | adb install + monkey + logcat parse for `VerifyError` | `Path apk, String pkg, int seconds` | `Layer2Report` |
-| `validator.BatchValidator` | Orchestrate JCA-400 × 3 tools × 3 reps via Docker | `Path apksDir, ToolList, int reps` | `Layer4Report` (statistical analysis) |
+| `validator.BatchValidator` | Orchestrate JCA-400 × 3 tools × 3 reps via Docker; compute Wilcoxon signed-rank TOST per spec against pre-registered Δ bounds (INV-INS-21) | `Path apksDir, ToolList, int reps` | `Layer4Report` (per-spec TOST p-values, point estimates, 90% CI, effect size) |
+| `validator.MethodRefAuditor` | Layer-4 preflight: project post-weaving method-ref counts per DEX; gate batch on no unhandled overflow (INV-INS-25) | `Path apksDir, Path descriptor` | `Layer4PreAuditReport` |
+| `validator.OracleLoader` | Load ≥3 oracle YAMLs (INV-INS-22) and feed them into `TraceComparator`; fail-fast if fewer than 3 present | `Path oraclesDir` | `List<Oracle>` |
 | `validator.CoverageValidator` | Compare RVSEC-COV recall between variants | 2 logcat files | `Layer5Report` |
 | `validator.DescriptorAjParityChecker` | Assert JSON descriptor mirrors `.aj` semantically (INV-INS-19) | `MultiSpec_*MonitorAspect.{aj,json}` pair | `ParityReport` |
 | `rv-instrumentation-dexlib2-py.DexlibInstrumentation` | Python wrapper preserving `instrument_apks` contract | `apks_dir, results_dir` | `InstrumentationResults` |
@@ -169,13 +171,18 @@ flowchart TB
 | **AspectJ-to-Dexlib2 Mapping Documentation** | `docs/AJ_CONSTRUCTIONS_INVENTORY.md`, `AJ_TO_DEXLIB2_MAPPING.md`, `LIMITATIONS.md` + `validator.FeatureMappingChecker` | `validator/src/test/FeatureMappingCheckerTest` |
 | **MODIFIED: Monitor Generation** (descriptor emission) | `rv-monitor-generator.RuntimeVerificationGenerator` invokes `javamop --emit-descriptor` by default | `rv-monitor-generator/tests/test_descriptor_emission.py` |
 | INV-INS-13 (descriptor presence at preparation time) | `DexlibInstrumentation.prepare_instrumentation()` | `tests/test_prepare_missing_descriptor.py` |
-| INV-INS-14 (existing INV-INS-01..12 preserved) | inherited; unchanged for ajc; mirrored for dexlib2 | regression matrix in CI |
+| INV-INS-14 (variant-conditional conformance to INV-INS-01..12) | legacy `RVInstrumentation` unchanged for `ajc`; `DexlibInstrumentation` preserves tool-agnostic invariants (INV-INS-06/08/09); INV-INS-10 (signing) satisfied by `apksigner v3` alone in `multidex-merger`; INV-INS-11 (dex2jar tool check) replaced by dexlib2-specific validator asserting `apksigner` / `zipalign` / `d8` are executable | regression matrix in CI + `DexlibInstrumentationConfig` validator tests |
 | INV-INS-15 (multidex preservation) | `dex-mutator.DexWeaver.weaveDexFile()` per-DEX iteration | `dex-mutator/src/test/MultidexPreservationTest` |
 | INV-INS-16 (4-bit overflow expansion preserves coverage) | `dex-mutator.RegisterShifter.expand4BitOverflow()` | `dex-mutator/src/test/RegisterShifterTest` |
 | INV-INS-17 (every construct mapped or limitation-justified) | `validator.FeatureMappingChecker` | `validator/src/test/FeatureMappingCheckerTest` |
 | INV-INS-18 (API parity across variants) | `DexlibInstrumentation` mirrors `RVInstrumentation` signature | `tests/test_api_parity.py` (parametrized over both classes) |
 | INV-INS-19 (descriptor mirrors .aj semantically) | `validator.DescriptorAjParityChecker` (Layer 1 sub-check) | `validator/src/test/DescriptorAjParityTest` |
 | INV-INS-20 (per-experiment variant selection) | dispatch in `PreProcessor`; `InstrumentationResults.variant` recorded | `rv-experiment/tests/test_variant_isolation.py` |
+| INV-INS-21 (Wilcoxon TOST equivalence + non-inferiority gate) | `validator.BatchValidator` statistical engine + `validator/oracles/layer4-thresholds.yaml` (pre-registered Δ bounds) | `validator/src/test/Layer4TOSTTest` (synthetic paired samples crossing Δ) + `git log` audit of thresholds commit preceding any batch run |
+| INV-INS-22 (≥3 oracle profiles before equivalence claim) | `validator.TraceComparator` loads multiple oracle YAMLs from `validator/oracles/*-oracle.yaml`; gate fails with <3 oracles for Phase-5 ratification | `validator/src/test/OracleDiversityTest` + 3 YAML fixtures (cryptoapp, hateitorrateit, multidex candidate) committed before Layer-3 |
+| INV-INS-23 (thread-safe Coverage runtime state) | generated `mop.Coverage` class emitted with `ConcurrentHashMap.newKeySet()` by `monitor-builder` (or coverage-weaver's Coverage emitter, wherever the source lives) | `coverage-weaver/src/test/CoverageThreadSafetyTest` — ≥4-thread entry fuzz with exact logcat reconciliation |
+| INV-INS-24 (Kotlin `suspend` pointcut matching inside `invokeSuspend`) | `pointcut-engine.PointcutMatcher` extended with a CPS-aware resolution pass that recognizes Kotlin state-machine classes and matches pointcuts against their lowered call sites | `advice-emitter/src/test/KotlinSuspendFixtureTest` (direct-suspend-invoke + continuation-captured cases); unmatched patterns go into `LIMITATIONS.md` |
+| INV-INS-25 (pre-batch 64k method-ref audit) | `validator.MethodRefAuditor` (Layer-4 preflight) projects post-weaving ref counts per DEX; gates the batch on no unhandled overflow | `validator/src/test/MethodRefAuditorTest` (synthetic DEX at 64,900 refs + monitor projection) + integration test over 10-APK JCA-400 sample |
 
 ## Goals / Non-Goals
 
@@ -248,7 +255,17 @@ flowchart TB
 
 **Why:** JavaMOP is vendored in the rvsec monorepo and the patch is non-invasive (one new flag, additive output, no behavior change for existing flags). Carrying the patch on the change branch keeps the change atomic — `gh52-instr-dexlib2` contains everything needed to weave with descriptors. When the change is merged into `modules`, the JavaMOP patch travels with it; future RV-Android work on `modules` consumes it transparently.
 
-**Alternatives considered:** (a) Separate PR to `rvsec/master` first — rejected: fragments the change across two PRs, slows critical path, and `gh52` would still need the commits cherry-picked locally to build. (b) Long-lived `emit-descriptor` branch — rejected: merge-debt, no clear ownership. (c) Upstream PR to JavaMOP main repo — rejected: out of our control, paper deadline pressure.
+**Alternatives considered:** (a) Separate PR to `rvsec/master` first — rejected: fragments the change across two PRs and `gh52` would still need the commits cherry-picked locally to build. (b) Long-lived `emit-descriptor` branch — rejected: merge-debt, no clear ownership. (c) Upstream PR to JavaMOP main repo — rejected: out of our control.
+
+### D7: AGP ASM API (`Instrumentation.transformClassesWith`) considered and deferred
+
+**Choice:** Do NOT adopt the Android Gradle Plugin's official bytecode-instrumentation API (`androidComponents.onVariants { it.instrumentation.transformClassesWith(...) }` using ASM) as the primary path for this change. Remain on `dexlib2` direct-DEX mutation. AGP ASM is recorded here as a deferred alternative whose value depends on a separate sub-experiment.
+
+**Why considered:** The AGP ASM API hooks *before* R8 and D8 run, operating on `.class` files inside the Gradle build. For APKs we build ourselves from source, it avoids the JVMS §4.10.1.9 round-trip entirely because no round-trip exists — we never leave JVM bytecode to return to it. This is the only approach that yields unambiguous ground truth against the original source, which would strengthen paper reviews that ask for reproducibility against unoptimized baselines.
+
+**Why deferred:** (1) We instrument *third-party* APKs from F-Droid, not source we control — most JCA-400 APKs are shipped binaries, not buildable artifacts under our Gradle. Source-build coverage is a subset of the dataset, not a replacement. (2) AGP ASM does not help R8 APKs we only have as binaries (the bulk of the problem). (3) Switching the primary path now would invalidate the prototype work already committed and the patched JavaMOP descriptor contract. The right framing is: AGP ASM is a candidate *complementary* sub-experiment for the F-Droid subset with `reproducible_builds: yes`, to provide a ground-truth baseline that the `dexlib2` path is then compared against. Tracked as a post-gh52 idea; not in this change's scope.
+
+**Alternatives (for reference):** (a) Wholesale replace dexlib2 with AGP ASM — rejected: does not apply to binary-only APKs. (b) Use AGP ASM only where source exists and dexlib2 elsewhere — possible, not pursued here because it doubles implementation surface and is orthogonal to the core claim.
 
 ## API Design
 
@@ -440,7 +457,7 @@ flowchart TB
     LOG1[ajc logs]
     LOG2[dexlib2 logs]
     AGG[aggregate counts<br/>per (apk, spec)]
-    STAT["Mann-Whitney U<br/>per spec, α=0.05"]
+    STAT["Paired Wilcoxon signed-rank TOST<br/>Δ=2pp cov_method, Δ=0.02 F1<br/>α=0.05 (per spec)"]
     RPT["Layer4Report.json"]
     GATE{"recovery_rate ≥ 90%<br/>AND no significant<br/>regression?"}
     OK([Phase 6<br/>substitution allowed])
@@ -485,9 +502,12 @@ flowchart TB
 | **R5**: Coverage exclusion filter drift between ajc Coverage.aj and dexlib2 PackageFilter | Layer-5 RVSEC-COV recall gate (≥ 0.99); shared canonical list constant |
 | **R6**: 4-bit overflow expansion bug silently drops advices | `RegisterShifter` MUST raise on unknown formats; INV-INS-16 enforced; targeted unit tests in `dex-mutator` |
 | **R7**: Docker images need new dependencies (apksigner v3, dexlib2 jars in classpath) | Phase 4 task updates `docker-compose.jca400-aperv.yml` and Dockerfiles; image rebuild in CI |
-| **R8**: Timeline pressure — 6-9 weeks in finalization window (gh48) | Subagent orchestration in Phase 4 (5 parallel groups); Layer-4 schedules over weekend; paper writing parallelizable with Phase 5 |
+| **R8**: Implementation wallclock (estimated 6-9 weeks engineer-time) dominated by register spill, advice emitter coverage, and Layer-4 wallclock (~36h) | Subagent orchestration in Phase 4 (5 parallel groups); Layer-4 schedules over a weekend; documentation and paper writing parallelizable with Phase 5 batch runs |
 | **R9**: Reviewers ask for ground-truth comparison vs source-built APKs (pre-R8) | Documented as deferred sub-experiment; current rigor framework does not depend on it |
 | **R10**: rv-experiment downstream consumers don't expect `variant` field in `InstrumentationResults` | `variant` is additive (default `'ajc'` for legacy results); deserializers tolerant |
+| **R11**: Kotlin `suspend` functions / coroutines — pointcuts targeting user-facing signatures may not match the compiler-generated `invokeSuspend(Object, Throwable)` state machine where the actual crypto call runs, causing silent advice skip on coroutine-heavy Kotlin apps | Oracle #2 (hateitorrateit Kotlin/R8) and oracle #3 (multidex candidate — INV-INS-22) must cover this; `advice-emitter` gains a CPS-aware resolution pass; test fixture `advice-emitter/src/test/KotlinSuspendFixtureTest` with direct-suspend-invoke + continuation-captured cases (INV-INS-24); patterns that cannot be matched go into `LIMITATIONS.md` with smali-level reproducer |
+| **R12**: Monitor + wrapper classes push one or more host DEXes over the 65,536 method-ref limit without triggering new-DEX creation, risking ref-table corruption or silent overflow | Pre-Phase-5 audit over all Layer-4 candidate APKs (INV-INS-25) emits `Layer4PreAuditReport.json`; `multidex-merger` warns at 62k refs pre-weave, errors at 65k post-weave projection; extra DEX emitted automatically; Layer-4 batch run is gated on zero unhandled overflows |
+| **R13**: Thread-safety of the generated Coverage runtime state — if `mop.Coverage` stores signatures in non-thread-safe `HashSet<String>`, concurrent method entries race and may drop events under `monkey --concurrent-threads` or coroutine-heavy apps | INV-INS-23 mandates `ConcurrentHashMap.newKeySet()` (or equivalent lock-free set); `coverage-weaver/src/test/CoverageThreadSafetyTest` runs a ≥4-thread entry fuzz and reconciles in-memory set against logcat `RVSEC-COV` event count (exact match required) |
 
 ## Testing Strategy
 
@@ -523,4 +543,4 @@ flowchart TB
 - `docs/20260423_javamop.md` (descriptor strategy)
 - `docs/20260423_plano_prototipo.md` (prototype plan)
 - `docs/20260423_plano_validacao.md` (6-layer validation framework operationalized in `validator/`)
-- ADR to be created in tasks: `ADR-DEX-NATIVE.md` (architectural decision record for D1-D6)
+- ADR to be created in tasks: `ADR-DEX-NATIVE.md` (architectural decision record for D1-D7)

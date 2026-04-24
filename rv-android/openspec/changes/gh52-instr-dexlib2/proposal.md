@@ -96,7 +96,7 @@ flowchart LR
 - Documented gaps for non-supported AspectJ constructs (canonical 8: `around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`, `initialization`, `preinitialization` — 0 usos confirmados em todo conjunto de specs)
 
 **Coordination**:
-- Issue #48 (project finalization) — gh52 runs in finalization window; coordinate scheduling of Layer-4 validation (~36h compute)
+- Layer-4 validation (JCA-400 × 3 tools × 3 reps) needs ~36h of compute — schedule over a weekend or a block of idle time on the experimental host; Docker infrastructure defined in Phase 4 tasks (new `aperv-dexlib2` service alongside existing `aperv-ajc` in `docker-compose.jca400-aperv.yml`)
 - Issue #50 (instrumentation flags) — symptom-mitigation that gh52 supersedes architecturally
 - Branch: `gh52-instr-dexlib2` from `modules`, remote since 2026-04-24 (commit `abc61d90`)
 

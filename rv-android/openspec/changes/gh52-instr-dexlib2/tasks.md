@@ -60,7 +60,7 @@ GitHub Issue: #52
 - [ ] 3.3 Port `TypeResolver`: input simple name + imports → DEX type descriptor; respect descriptor's `imports` array as authority; never probe external classpath
 - [ ] 3.4 Port `AndroidClassIndex`: ASM-based index of `android.jar`; methods `staticMethods(classFqn, methodName)`, `isAssignableFrom(parent, child)`; lazy-load + thread-safe
 - [ ] 3.5 Implement `InheritanceResolver`: combines `AndroidClassIndex` with current APK's class hierarchy for `X+` semantics
-- [ ] 3.6 Implement `PointcutMatcher`: takes `PointcutExpression` + `ClassDef` + `Method` + `Instruction` → `Optional<Match>` (with arg bindings)
+- [ ] 3.6 Implement `PointcutMatcher`: takes `PointcutExpression` + `ClassDef` + `Method` + `Instruction` → `Optional<Match>` (with arg bindings). Include a CPS-aware resolution pass (INV-INS-24): when the enclosing class is a Kotlin state machine (extends `kotlin.coroutines.jvm.internal.BaseContinuationImpl` or `SuspendLambda`, or class name ends with `$<digit>`), match pointcuts against the call sites inside `invokeSuspend(Object, Throwable)` by resolving the source suspend-fun name from the `@DebugMetadata` annotation (when present) or by smali-level pattern recognition; patterns that cannot be matched must surface an `UnsupportedKotlinSuspendPatternError` captured in `LIMITATIONS.md`
 - [ ] 3.7 Unit tests for each parser case (one fixture per AspectJ construct from `AJ_CONSTRUCTIONS_INVENTORY` — Group 15)
 - [ ] 3.8 Unit tests for type resolution (Cipher → `Ljavax/crypto/Cipher;`, etc.)
 - [ ] 3.9 Unit tests for AndroidClassIndex overload expansion (Cipher.getInstance returns 4 overloads)
@@ -82,7 +82,7 @@ GitHub Issue: #52
 
 - [ ] 5.1 Create `dex-mutator/pom.xml` (depends on advice-emitter + dexlib2; consumes `EmitPlan`/`RegisterRequest` types from advice-emitter per design D1)
 - [ ] 5.2 Implement `InstructionInjector` primitives: `insertBefore(idx, EmitPlan)`, `insertAfter(idx, EmitPlan)`, `replaceInvoke(idx, MethodReference)`
-- [ ] 5.3 Port `RegisterShifter` from prototype: bump `MutableMethodImplementation.registerCount` via reflection, shift register refs ≥ threshold by delta, expand 4-bit overflows to `from16`/`from32` formats
+- [ ] 5.3 Port `RegisterShifter` from prototype: bump `MutableMethodImplementation.registerCount` via reflection (NOT via setter — the prototype proved reflection is the only working path for mutable impls), shift register refs ≥ threshold by delta, expand 4-bit overflows to `from16`/`from32` formats. Cover explicitly: (a) MOVE/MOVE-OBJECT/MOVE-WIDE → MOVE_FROM16 promotion when receiver or result register crosses 15; (b) try-catch range endpoints adjustment when shifted instructions cross a catch handler boundary; (c) wide-op special cases (MOVE_WIDE consumes 2 adjacent registers — shifting must preserve pair alignment); (d) reconstruction of `MutableMethodImplementation` via a fresh builder instance rather than in-place setters when the instruction list is rewritten (dexlib2's MutableMethodImplementation is not fully mutation-safe when register counts change)
 - [ ] 5.4 Implement `RegisterAllocator`: encapsulates scratch register allocation + spill decisions; uses `RegisterShifter` only when needed
 - [ ] 5.5 Implement `DexWeaver.weave(DexFile, AspectDescriptor) → MutableDexFile`: orchestrates ClassDef × Method × Instruction iteration; for each match, calls `RegisterAllocator` + `InstructionInjector`
 - [ ] 5.6 Implement `DexWeaver.weaveDexFile()` per-DEX iteration to preserve multidex split (INV-INS-15)
@@ -90,6 +90,7 @@ GitHub Issue: #52
 - [ ] 5.8 Integration test: weave a tiny APK fixture, run baksmali on output, assert hook count + format correctness
 - [ ] 5.9 Integration test: weave `cryptoapp` APK (committed as test fixture), assert 7 events in subsequent boot (smoke)
 - [ ] 5.10 `mvn -pl dex-mutator verify` — all green (unit + IT)
+- [ ] 5.11 Kotlin `suspend` / coroutines fixture (INV-INS-24): add `advice-emitter/src/test/KotlinSuspendFixtureTest` exercising two cases — (a) direct-suspend-invoke: a `suspend fun` whose body calls `Cipher.getInstance(...)` and returns synchronously, advice MUST match inside `invokeSuspend`; (b) continuation-captured: a `suspend fun` that awaits before the crypto call (forces state-machine expansion), advice MUST still match at the DEX-level call site. Each case ships a minimal Kotlin source + pre-built DEX as test resource. If the weaver cannot match a case, the test MUST be marked `@Disabled` with a comment citing the `LIMITATIONS.md` entry that justifies the gap (smali-level reproducer required in that entry).
 
 ## 6. `coverage-weaver` Maven submodule (Java)
 
@@ -100,6 +101,7 @@ GitHub Issue: #52
 - [ ] 6.5 Unit tests: signature formatting on canonical method shapes (constructor, static, varargs, generics)
 - [ ] 6.6 Integration test: weave `hateitorrateit` APK (Kotlin/R8) via Coverage; assert 21478/21478 methods instrumented (matches prototype baseline); 0 VerifyError on boot
 - [ ] 6.7 `mvn -pl coverage-weaver verify` — all green
+- [ ] 6.8 Thread-safety of generated `mop.Coverage` runtime state (INV-INS-23): (a) make `monitor-builder` (or the Coverage-class emitter, wherever the generated class source lives for the dexlib2 variant) produce a `mop.Coverage` with `private static final Set<String> SEEN = ConcurrentHashMap.newKeySet();` — NOT `HashSet<String>`; (b) add `coverage-weaver/src/test/CoverageThreadSafetyTest` that instruments a small fixture APK, boots it with ≥4 concurrent entry threads (UIAutomator driver or in-process stub), counts `RVSEC-COV` tags in logcat, and asserts the in-memory set size matches the logcat event count exactly (zero dropped events)
 
 ## 7. `monitor-builder` Maven submodule (Java)
 
@@ -138,13 +140,18 @@ GitHub Issue: #52
 - [ ] 10.3 Implement `BaksmaliDiffer` (Layer 1): take 2 APKs (ajc, dexlib2 from same input), extract `(class, method, spec_name)` sets via baksmali, compute per-spec recall; emit `Layer1Report.json`; CLI exit 0 iff recall ≥ 0.95 in ≥90% of subset
 - [ ] 10.4 Implement `BootValidator` (Layer 2): adb wrapper — install + monkey 1 event + 30s logcat capture; parse for `VerifyError`; emit `Layer2Report.json`; CLI exit 0 iff zero regressions vs ajc baseline
 - [ ] 10.5 Implement `TraceComparator` (Layer 3): run both pipelines on the same APK with the same input UI script (cryptoapp oracle), parse RVSEC events from both logcats, compute per-spec F1 + Cohen's kappa; emit `Layer3Report.json`; CLI exit 0 iff F1 ≥ 0.98 + kappa ≥ 0.9
-- [ ] 10.6 Implement `BatchValidator` (Layer 4): orchestrate JCA-400 × 3 tools × 3 reps via Docker (`docker compose -f rv-android/docker/docker-compose.jca400-aperv.yml`); aggregate; Mann-Whitney U per spec at α=0.05; emit `Layer4Report.json`; CLI exit 0 iff recovery_rate ≥ 90% + no statistically significant regression
+- [ ] 10.6 Implement `BatchValidator` (Layer 4): orchestrate JCA-400 × 3 tools × 3 reps via Docker (`docker compose -f rv-android/docker/docker-compose.jca400-aperv.yml`); aggregate; paired Wilcoxon signed-rank TOST per spec with pre-registered bounds Δ=2pp for `cov_method` and Δ=0.02 for F1 at α=0.05 (equivalence gate) plus single-sided lower-bound TOST (non-inferiority gate); emit `Layer4Report.json` with both p-values, point estimate, and 90% CI per spec; CLI exit 0 iff recovery_rate ≥ 90% AND non-inferiority holds AND equivalence holds on ≥80% of specs (see INV-INS-21)
 - [ ] 10.7 Implement `CoverageValidator` (Layer 5): compare RVSEC-COV recall between variants; emit `Layer5Report.json`; CLI exit 0 iff recall ≥ 0.99 + delta ≤ 1pp
 - [ ] 10.8 Implement `FeatureMappingChecker`: cross-reference `AJ_CONSTRUCTIONS_INVENTORY.md` ⊆ (`AJ_TO_DEXLIB2_MAPPING.md` ∪ `LIMITATIONS.md`); enforce INV-INS-17; CLI exit 0 iff mapping closed
 - [ ] 10.9 Implement `DescriptorAjParityChecker`: parse both `MultiSpec_1MonitorAspect.aj` and `.json`; assert semantic equivalence (advice count, names, expressions, monitorCalls); emit per-spec parity report
 - [ ] 10.10 `ValidationCli` (Picocli): subcommands `inventory`, `mapping`, `parity`, `layer1` ... `layer5`; each writes a JSON report
 - [ ] 10.11 Unit tests + IT for each layer (small fixtures)
-- [ ] 10.12 `mvn -pl validator verify` — all green
+- [ ] 10.12 Create `validator/oracles/cryptoapp-oracle.yaml` from `docs/20260423_plano_validacao.md` §3.4 (8 known violations — MessageDigest/Cipher/KeyGenerator/KeyPairGenerator/KeyPair/SecretKeySpec)
+- [ ] 10.13 Create `validator/oracles/hateitorrateit-oracle.yaml` with prototype-validated events (Kotlin/R8 profile — INV-INS-22 oracle #2)
+- [ ] 10.14 Select one multidex real-world APK from JCA-400 (INV-INS-22 oracle #3), hand-validate its expected events via paired UIAutomator + logcat capture, commit `validator/oracles/<apk_name>-oracle.yaml` with provenance cited in the commit message (file:line of source events or manual UI steps — NEVER "observed in run X")
+- [ ] 10.15 Pre-register `validator/oracles/layer4-thresholds.yaml` declaring Δ=2pp for `cov_method`, Δ=0.02 for per-spec F1, Δ=0.05 for per-spec κ, α=0.05 (INV-INS-21); commit BEFORE any Layer 4 batch run to make the pre-registration auditable via git log
+- [ ] 10.16 Implement `validator.MethodRefAuditor` (INV-INS-25): projects the post-weaving method-ref count per DEX (host DEX existing refs + monitor class refs + wrapper refs from advice-emitter) for every APK in the candidate set; emit `Layer4PreAuditReport.json` with per-APK per-DEX counts, warning at >62k and error at >65k; CLI `validator preflight-refs --apks <dir> --descriptor <json>`; unit test with crafted synthetic DEX at 64,900 refs + monitor-ref projection triggers error gate; integration test over a 10-APK sample from JCA-400
+- [ ] 10.17 `mvn -pl validator verify` — all green
 
 ## 11. `rv-monitor-generator` (Python) — emit descriptor
 
@@ -195,7 +202,7 @@ GitHub Issue: #52
 - [ ] 15.5 Update `rv-android/docs/PRD.md` if any FR/NFR text needs adjustment for the new variant
 - [ ] 15.6 Update `rv-android/docs/rv_android_architecture.md` with the new module decomposition diagram (mermaid from design.md)
 - [ ] 15.7 Add `rv-android/docs/20260424_dexlib2_promotion.md` summarizing the change for future readers (one-page)
-- [ ] 15.8 Author `rv-android/openspec/changes/gh52-instr-dexlib2/ADR-DEX-NATIVE.md` — architectural decision record for D1-D6 (decisions in design.md), one section per decision: context / decision / status / consequences (template at `.claude/skills/rv-doc-adr/templates/adr.md`)
+- [ ] 15.8 Author `rv-android/openspec/changes/gh52-instr-dexlib2/ADR-DEX-NATIVE.md` — architectural decision record for D1-D7 (decisions in design.md, including D7 AGP ASM deferred alternative), one section per decision: context / decision / status / consequences (template at `.claude/skills/rv-doc-adr/templates/adr.md`)
 
 ## 16. Phase 5 — Validation execution
 
@@ -205,7 +212,8 @@ GitHub Issue: #52
 - [ ] 16.4 Run `validator layer1` (BaksmaliDiffer) over 30-APK subset — gate: recall ≥ 0.95 in ≥27/30 APKs
 - [ ] 16.5 Run `validator layer2` (BootValidator) over 30-APK subset — gate: zero regressions vs ajc
 - [ ] 16.6 Run `validator layer3` (TraceComparator) on cryptoapp + 30-APK subset — gate: F1 ≥ 0.98, kappa ≥ 0.9
-- [ ] 16.7 Schedule `validator layer4` (BatchValidator JCA-400 × 3 × 3, ~36h) — single-shot weekend run for Phase-5 ratification; weekly thereafter for regression detection — gate: recovery_rate ≥ 90%, no significant regression
+- [ ] 16.6a Pre-batch 64k method-ref audit (INV-INS-25): run the projected-post-weaving ref counter over every APK in the Layer-4 candidate set, emit `Layer4PreAuditReport.json`; APKs projected to cross 65,000 host-DEX refs MUST be flagged; `multidex-merger` config MUST be set to emit an extra DEX for each flagged APK; batch run is BLOCKED while any APK carries unhandled overflow — never proceed assuming the host will accept a >65,536-ref DEX
+- [ ] 16.7 Schedule `validator layer4` (BatchValidator JCA-400 × 3 × 3, ~36h) — single-shot weekend run for Phase-5 ratification; weekly thereafter for regression detection — gates: recovery_rate ≥ 90%; paired Wilcoxon signed-rank TOST per spec with pre-registered Δ=2pp (`cov_method`) / Δ=0.02 (F1) / Δ=0.05 (κ) at α=0.05 reject the lower-bound one-sided test (non-inferiority, mandatory); equivalence (both TOSTs reject) on ≥80% of specs (mandatory); thresholds file `validator/oracles/layer4-thresholds.yaml` committed before the run (INV-INS-21)
 - [ ] 16.8 Run `validator layer5` (CoverageValidator) — gate: RVSEC-COV recall ≥ 0.99, delta ≤ 1pp
 - [ ] 16.9 Aggregate reports into `docs/20260MM_dexlib2_validation_results.md` (post-Layer-4 dated)
 - [ ] 16.10 Run `openspec verify gh52-instr-dexlib2` — must report all spec-aligned

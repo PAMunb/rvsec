@@ -96,13 +96,18 @@ flowchart LR
 ## Invariants
 
 - **INV-INS-13**: When `instrumentation_variant == "dexlib2"`, the resolved `monitor_output_dir` MUST contain at least one `MultiSpec_*MonitorAspect.json` file before `instrument_apks()` begins. Validation MUST occur at preparation time, not per-APK.
-- **INV-INS-14**: Both pipelines MUST satisfy the existing INV-INS-01..INV-INS-12 invariants for any APK they successfully process. Specifically: hash(signed) ≠ hash(original) (INV-INS-06), temp directories cleaned per APK (INV-INS-08), specification sets never mixed (INV-INS-09), APK signed before placement in `instrumented_dir` (INV-INS-10).
+- **INV-INS-14**: Each pipeline MUST satisfy the subset of INV-INS-01..INV-INS-12 that applies to its tool chain. Both variants MUST satisfy the tool-agnostic invariants: hash(signed) ≠ hash(original) (INV-INS-06), temp directories cleaned per APK (INV-INS-08), specification sets never mixed (INV-INS-09), and the semantic content of INV-INS-10 that the APK is signed before placement in `instrumented_dir`. The tool-specific wording of INV-INS-10 (`d2j-apk-sign` + `jarsigner`) applies ONLY to the `ajc` variant; for the `dexlib2` variant, "APK signed" is satisfied by `apksigner v3` alone (no `d2j-apk-sign`, no `jarsigner`). INV-INS-11 (dex2jar tools must exist and be executable) applies ONLY to the `ajc` variant. For the `dexlib2` variant, `DexlibInstrumentationConfig` validators MUST instead assert that `apksigner` v3, `zipalign`, and `d8` are present and executable — the dex2jar suite is NOT required and MUST NOT be probed at preparation time.
 - **INV-INS-15**: The DEX-native pipeline MUST preserve the multidex split decisions of the input APK. If the input has `classes.dex` + `classes2.dex` + `classes3.dex`, the output MUST contain the same partitioning of application classes; the weaver MAY add a single additional DEX file for monitor classes when the host DEX would otherwise exceed the 65,536 method-id limit.
 - **INV-INS-16**: Coverage weaving MUST instrument every method in app code (i.e., every `Lcom/example/...;` class not matched by the canonical exclusion filter), with zero exceptions for register pressure. When a method's register count would exceed Dalvik's 4-bit limit after injection, `RegisterShifter` MUST expand instructions to the corresponding wide format (`/from16`, `move-object/from16`, etc.) preserving semantics.
 - **INV-INS-17**: The `validator/FeatureMappingChecker` MUST assert that every AspectJ construct enumerated in `docs/AJ_CONSTRUCTIONS_INVENTORY.md` has either (a) at least one positive test in `validator/src/test/` proving the dexlib2 mapping, or (b) an explicit entry in `docs/LIMITATIONS.md` declaring the construct as out of scope with empirical evidence of zero usage in RVSEC specifications. A construct present in inventory but absent from both MUST fail the check.
 - **INV-INS-18**: The Python public API `instrument_apks(apks_dir, results_dir) → InstrumentationResults` MUST behave identically (return type, exception types, side-effect surface) regardless of the variant chosen. Differences MUST be confined to `InstrumentationResults.variant`, error messages, and the contents of the produced APKs. The `variant` field MUST be a required attribute (no Pydantic default) on the producing path — every pipeline writes its own variant tag explicitly. Backward-compatible deserialization of legacy `InstrumentationResults` JSON (written before this change) MUST be provided via a Pydantic `model_validator(mode="before")` that injects `variant="ajc"` when the key is absent. This separation prevents silent mis-tagging when `ExperimentConfig.instrumentation_variant` defaults switch in Phase 6.
 - **INV-INS-19**: When the `--emit-descriptor` flag is passed to `rv-monitor-generator`, the resulting JSON descriptor for each merged aspect MUST mirror the semantic content of the corresponding `.aj` file. Specifically, for every `AdviceAndPointCut` entry the JSON MUST encode: advice position (before/after/around), pointcut expression as parsed AST, parameter list, returning/throwing bindings, and the full `monitorCalls` list. Validation MUST be possible by `validator/DescriptorAjParityChecker` comparing JSON tree against `.aj` text round-trip.
 - **INV-INS-20**: During the coexistence phase (Phase 4 → Phase 5), failure of one variant on a given APK MUST NOT prevent the other variant from being attempted on that APK in a separate run. Variant selection is per-experiment-run, not per-APK; cross-variant comparison is an external batch operation owned by the `validator/` harness.
+- **INV-INS-21**: Statistical equivalence and non-inferiority claims for Layer-4 MUST use paired Wilcoxon signed-rank Two One-Sided Tests (TOST) against pre-registered equivalence bounds, declared in `validator/oracles/layer4-thresholds.yaml` before the batch runs: Δ=2pp for `cov_method`, Δ=0.02 for per-spec F1, Δ=0.05 for per-spec Cohen's kappa, all at α=0.05. Equivalence holds when both one-sided TOSTs reject; non-inferiority (the weaker claim accepted for Phase-6 promotion) holds when the lower-bound TOST alone rejects. Mann-Whitney U MUST NOT be used as the primary gate — as an unpaired test on paired samples it violates model assumptions, and failing to reject its H0 ("same distribution") is not evidence of equivalence. MWU MAY figure as a supplementary distributional check only. The Layer-4 report MUST include, per spec: point estimate of the paired median difference, bootstrapped 90% CI (≥10,000 resamples), both TOST p-values, and the Wilcoxon effect size `r`.
+- **INV-INS-22**: The Ground-Truth Oracle Diversity requirement (below) MUST be satisfied before any Layer-3 or Layer-4 report can be cited as evidence for Phase-6 promotion. A single oracle (cryptoapp alone) is insufficient: it exercises one bytecode profile (Java, pre-R8, non-multidex) and 8 known violations, generalizing poorly to the Kotlin/R8/multidex universe that motivates this change.
+- **INV-INS-23**: The generated `mop.Coverage` runtime class (produced for the `dexlib2` variant) MUST back its seen-signatures state with a thread-safe lock-free collection — `ConcurrentHashMap.newKeySet()` is the canonical choice. Plain `HashSet<String>` (or any non-thread-safe set) MUST NOT be used. Validation: `coverage-weaver/src/test/CoverageThreadSafetyTest` MUST run a ≥4-thread entry fuzz against an instrumented fixture and reconcile the in-memory signature set with the `RVSEC-COV` logcat event count; reconciliation MUST be exact (zero dropped events). This invariant is specific to the `dexlib2` variant; the `ajc` variant's `Coverage.aj` is outside this change's scope.
+- **INV-INS-24**: When the `dexlib2` pipeline instruments a Kotlin APK containing a `suspend` function whose body invokes a method targeted by a MOP pointcut, the advice MUST fire at least once on the effective DEX-level call inside the compiler-generated `invokeSuspend(Object, Throwable)` state machine. The weaver MUST match pointcuts against the Kotlin-to-JVM lowering of suspend bodies, not only against user-visible method signatures. If a specific suspend pattern (e.g., non-trivial continuation captures, tail-call optimizations under `-Xjvm-default=all`) cannot be matched, `docs/LIMITATIONS.md` MUST name the pattern with a minimal reproducer and a smali-level excerpt showing where matching fails. Validation: `advice-emitter/src/test/KotlinSuspendFixtureTest` asserts matching against at least a direct-suspend-invoke case and a continuation-captured case.
+- **INV-INS-25**: Before the Layer-4 batch executes, a pre-batch method-ref audit MUST run over the candidate APK set and emit `Layer4PreAuditReport.json` identifying any APK whose host DEX (projected post-weaving) would cross 65,000 method refs. APKs that would exceed the 65,536 Dalvik limit without an additional DEX partition MUST be flagged, and `multidex-merger` MUST emit an extra DEX rather than allowing ref-table corruption or silent overflow. The audit is a hard gate for the Layer-4 run: no batch proceeds while any candidate APK carries an unhandled overflow.
 
 ## ADDED Requirements
 
@@ -211,7 +216,7 @@ The patch enabling this emission MUST be applied to the vendored `rvsec/javamop/
 
 The change MUST include a Maven submodule `validator/` that operationalizes the 6-layer validation framework documented in `docs/20260423_plano_validacao.md`. Each layer MUST be runnable independently as a CLI subcommand and MUST emit a JSON report at a predictable path; gates MUST be defined as machine-checkable thresholds so that CI can block merges on regression.
 
-The harness MUST include: (a) `BaksmaliDiffer` performing static hook diff between an `ajc`-instrumented APK and a `dexlib2`-instrumented APK from the same input + same descriptor, computing per-spec hook recall (Layer 1 gate: recall ≥ 0.95 in ≥90% of subset); (b) `BootValidator` exercising install + monkey-launch and parsing logcat for `VerifyError` and the `RVSEC` / `RVSEC-COV` event tags (Layer 2 gate: zero regressions vs ajc baseline); (c) `TraceComparator` running both pipelines on the cryptoapp oracle and on a 30-APK subset, computing per-spec F1 + Cohen's kappa (Layer 3 gate: F1 ≥ 0.98, kappa ≥ 0.9); (d) `BatchValidator` orchestrating the 945-task JCA-400 × 3 tools × 3 reps execution via Docker (Layer 4 gate: recovery_rate ≥ 90%, no statistically significant regression at α=0.05 via Mann-Whitney U); (e) `CoverageValidator` measuring RVSEC-COV recall against ajc baseline (Layer 5 gate: recall ≥ 0.99, delta ≤ 1pp); (f) `FeatureMappingChecker` enforcing INV-INS-17.
+The harness MUST include: (a) `BaksmaliDiffer` performing static hook diff between an `ajc`-instrumented APK and a `dexlib2`-instrumented APK from the same input + same descriptor, computing per-spec hook recall (Layer 1 gate: recall ≥ 0.95 in ≥90% of subset); (b) `BootValidator` exercising install + monkey-launch and parsing logcat for `VerifyError` and the `RVSEC` / `RVSEC-COV` event tags (Layer 2 gate: zero regressions vs ajc baseline); (c) `TraceComparator` running both pipelines against the three mandatory oracles (INV-INS-22: cryptoapp, hateitorrateit, and one multidex APK) and on a 30-APK subset, computing per-spec F1 + Cohen's kappa (Layer 3 gate: F1 ≥ 0.98, kappa ≥ 0.9 on every oracle AND on the aggregate of the 30-APK subset); (d) `BatchValidator` orchestrating the 945-task JCA-400 × 3 tools × 3 reps execution via Docker (Layer 4 gate: recovery_rate ≥ 90%, paired Wilcoxon signed-rank TOST non-inferiority lower-bound rejects per INV-INS-21 across all specs, equivalence holds in ≥80% of specs; thresholds file pre-registered before the run); (e) `CoverageValidator` measuring RVSEC-COV recall against ajc baseline (Layer 5 gate: recall ≥ 0.99, delta ≤ 1pp); (f) `FeatureMappingChecker` enforcing INV-INS-17.
 
 #### Scenario: Layer 1 baksmali diff passes threshold
 
@@ -220,12 +225,18 @@ The harness MUST include: (a) `BaksmaliDiffer` performing static hook diff betwe
 - **AND** at least 27 of the 30 APKs (≥90%) MUST have recall ≥ 0.95
 - **AND** the CLI MUST exit with code 0
 
-#### Scenario: Layer 4 large-scale gate fails on statistical regression
+#### Scenario: Layer 4 large-scale gate fails on non-inferiority
 
-- **WHEN** `BatchValidator` runs the 945-task batch and the resulting per-APK violation counts show a statistically significant regression (Mann-Whitney U p < 0.05) for the `dexlib2` variant against the `ajc` baseline
+- **WHEN** `BatchValidator` runs the 945-task batch and, for any spec, the paired Wilcoxon signed-rank lower-bound TOST fails to reject at α=0.05 against the pre-registered bound (Δ=2pp for `cov_method`, Δ=0.02 for F1, Δ=0.05 for κ), i.e., we cannot rule out that `dexlib2` median is more than Δ below `ajc` median
 - **THEN** the CLI MUST exit with code 1
-- **AND** the JSON report MUST identify the affected specs and the test statistic
+- **AND** the JSON report MUST identify the affected specs, the point estimate of the paired median difference, the bootstrapped 90% CI, both TOST p-values, and the Wilcoxon effect size `r`
 - **AND** CI MUST block the Phase 6 substitution merge
+
+#### Scenario: Layer 4 passes non-inferiority but not full equivalence
+
+- **WHEN** `BatchValidator` runs the batch, the lower-bound TOST rejects for every spec (non-inferiority holds), but the upper-bound TOST rejects on fewer than 80% of specs (full equivalence does not hold globally)
+- **THEN** the CLI MUST exit with code 0 (non-inferiority alone is sufficient for Phase-6 promotion per INV-INS-21)
+- **AND** the JSON report MUST flag each spec where full equivalence did NOT hold, recording point estimate + CI + TOST p-values, so reviewers can see where `dexlib2` drifts positively against `ajc`
 
 #### Scenario: FeatureMappingChecker fails on missing mapping
 
@@ -254,6 +265,35 @@ Three documents MUST be produced and kept current with the implementation: `docs
 - **WHEN** `FeatureMappingChecker` is run after a new spec is added that uses `cflow()`
 - **THEN** the check MUST fail because `cflow` is in `LIMITATIONS.md` but the new spec triggers it
 - **AND** the report MUST direct the developer either to remove the `cflow` use, implement support, or move the construct out of the LIMITATIONS list with new evidence
+
+### Requirement: Ground-Truth Oracle Diversity for Equivalence Claims
+
+The claim that `dexlib2` is behaviorally equivalent to `ajc` on APKs that `ajc` handles correctly MUST be supported by at least three ground-truth oracle APKs exercising disjoint bytecode profiles, each with a hand-validated expected-event list committed to `validator/oracles/<name>-oracle.yaml` BEFORE Layer-3 or Layer-4 execution (so that oracles are not retrofitted to observed behavior). The three mandatory profiles are:
+
+1. **Java-only, single DEX, pre-R8** — baseline profile. Canonical APK: `cryptoapp` with 8 known violations (see `docs/20260423_plano_validacao.md` §3.4 oracle table).
+2. **Kotlin + R8-optimized, single or multi DEX** — the profile that motivates this change. Canonical APK: `hateitorrateit` (validated by the prototype at 100% method instrumentation, zero `VerifyError`).
+3. **Multidex real-world APK from JCA-400** — exercises monitor-refs spillover and `classes.dex` + `classes2.dex` preservation (INV-INS-15). Concrete APK MUST be selected from JCA-400 and recorded in `validator/oracles/<name>-oracle.yaml` before Phase 5 execution.
+
+Additional oracles MAY be added, but dropping below three is permitted only if `LIMITATIONS.md` carries an explicit entry naming the unverified profile and acknowledging the reviewer scrutiny that concession invites. A single oracle (cryptoapp alone) is insufficient for Phase-6 promotion.
+
+#### Scenario: Layer 3 runs against three oracles
+
+- **WHEN** `TraceComparator` is invoked for the Phase-5 ratification gate
+- **THEN** at least three oracle YAMLs MUST be present in `validator/oracles/`
+- **AND** each oracle MUST satisfy its expected event list with F1 ≥ 0.98 and κ ≥ 0.9 under both variants
+- **AND** the report MUST name the three oracles and their bytecode profiles in its header
+
+#### Scenario: Oracle added after execution
+
+- **WHEN** a new oracle YAML is committed after a Layer-3 run already produced a report
+- **THEN** the report MUST be regenerated with the new oracle before any gate ratification
+- **AND** the commit message MUST cite the expected events and their provenance explicitly (source files, line numbers, or manual UI validation steps) — never "observed in run X"
+
+#### Scenario: Multidex oracle profile unavailable
+
+- **WHEN** the Phase-5 ratification gate is scheduled but no multidex oracle has been committed to `validator/oracles/`
+- **THEN** the gate MUST be held
+- **AND** either (a) a multidex oracle MUST be selected from JCA-400 and its expected-event list committed, OR (b) `docs/LIMITATIONS.md` MUST be updated with an entry "multidex profile unverified" naming the scrutiny this invites — no silent continuation is allowed
 
 ## MODIFIED Requirements
 
