@@ -22,6 +22,8 @@
         <module>advice-emitter</module>
         <module>dex-mutator</module>
         <module>coverage-weaver</module>
+        <module>monitor-builder</module>
+        <module>multidex-merger</module>
     </modules>
 
     <properties>
