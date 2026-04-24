@@ -18,6 +18,7 @@
 
     <modules>
         <module>descriptor-reader</module>
+        <module>pointcut-engine</module>
     </modules>
 
     <properties>
