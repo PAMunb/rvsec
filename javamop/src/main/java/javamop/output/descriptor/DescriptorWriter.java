@@ -6,6 +6,8 @@ import javamop.output.combinedaspect.CombinedAspect;
 import javamop.output.combinedaspect.event.EventManager;
 import javamop.output.combinedaspect.event.advice.AdviceAndPointCut;
 import javamop.output.combinedaspect.event.advice.AdviceBody;
+import javamop.parser.ast.ImportDeclaration;
+import javamop.parser.ast.MOPSpecFile;
 import javamop.parser.ast.mopspec.EventDefinition;
 import javamop.parser.ast.mopspec.MOPParameter;
 import javamop.parser.ast.mopspec.MOPParameters;
@@ -42,10 +44,27 @@ public final class DescriptorWriter {
      *                        pipeline (after {@code new CombinedAspect(...)}).
      */
     public static Map<String, Object> buildAspect(String aspectName, CombinedAspect combinedAspect) {
+        return buildAspect(aspectName, combinedAspect, null);
+    }
+
+    /**
+     * Full entry point — includes the {@code package} and {@code imports} resolved from the
+     * {@link MOPSpecFile} so the weaver can map simple type names like {@code Cipher} into
+     * FQN / DEX descriptors.
+     */
+    public static Map<String, Object> buildAspect(String aspectName, CombinedAspect combinedAspect,
+                                                  MOPSpecFile mopSpecFile) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("aspectName", combinedAspect.getAspectName());
         root.put("fileName", combinedAspect.getFileName());
         root.put("shortName", aspectName);
+        if (mopSpecFile != null) {
+            root.put("package", extractPackage(mopSpecFile));
+            root.put("imports", extractImports(mopSpecFile));
+        } else {
+            root.put("package", "");
+            root.put("imports", new ArrayList<String>());
+        }
         root.put("commonPointcut",
                 "!within(com.runtimeverification.rvmonitor.java.rt.RVMObject+) "
                         + "&& !adviceexecution() && BaseAspect.notwithin()");
@@ -175,6 +194,36 @@ public final class DescriptorWriter {
 
     private static String nullIfBlank(String s) {
         return (s == null || s.trim().isEmpty()) ? null : s;
+    }
+
+    private static String extractPackage(MOPSpecFile spec) {
+        return spec.getPakage() == null ? "" : spec.getPakage().toString().trim();
+    }
+
+    /**
+     * Import list as printed in the generated .aj (includes user imports + required set, minus
+     * the {@code import } keyword). Mirrors {@link javamop.output.Imports}.
+     */
+    private static List<String> extractImports(MOPSpecFile spec) {
+        List<String> result = new ArrayList<>();
+        if (spec.getImports() != null) {
+            for (ImportDeclaration imp : spec.getImports()) {
+                StringBuilder sb = new StringBuilder();
+                if (imp.isStatic()) sb.append("static ");
+                sb.append(imp.getName().toString().trim());
+                if (imp.isAsterisk()) sb.append(".*");
+                String s = sb.toString();
+                if (!result.contains(s)) result.add(s);
+            }
+        }
+        String[] required = {
+                "java.util.concurrent.*", "java.util.concurrent.locks.*",
+                "java.util.*", "javamoprt.*", "java.lang.ref.*", "org.aspectj.lang.*"
+        };
+        for (String req : required) {
+            if (!result.contains(req)) result.add(req);
+        }
+        return result;
     }
 
     /**
