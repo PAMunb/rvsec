@@ -25,6 +25,7 @@
         <module>monitor-builder</module>
         <module>multidex-merger</module>
         <module>cli</module>
+        <module>validator</module>
     </modules>
 
     <properties>

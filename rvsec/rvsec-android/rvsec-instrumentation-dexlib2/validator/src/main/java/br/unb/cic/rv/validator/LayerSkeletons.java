@@ -1,0 +1,82 @@
+package br.unb.cic.rv.validator;
+
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Skeletons for the five layered validators whose full implementation
+ * depends on Phase 5 infrastructure (Docker batch, emulator via
+ * rv-platform, captured logcat traces). Each entry point has a stable
+ * signature + returns a {@link Report} so the cli / Python wrapper can
+ * wire them now; the bodies fail-fast with a documented pending status.
+ *
+ * <p>When Phase 5 infra is in place, each method's body is replaced with
+ * the full layer logic. The signatures + report shape stay stable so
+ * callers never rebreak.
+ */
+public final class LayerSkeletons {
+
+    private LayerSkeletons() {}
+
+    /**
+     * Layer 1 — {@code BaksmaliDiffer}: disassembles ajc-instrumented and
+     * dexlib2-instrumented APKs, diffs hook sets per spec, computes recall.
+     */
+    public static Report layer1BaksmaliDiffer(Path ajcApkDir, Path dexlibApkDir) {
+        return pending("layer-1-baksmali-differ",
+                "needs Phase 5 APK fixtures: ajc + dexlib2 outputs from same input. "
+                        + "Contract: per-spec hook recall ≥ 0.95 in ≥90% of 30-APK subset.");
+    }
+
+    /**
+     * Layer 2 — {@code BootValidator}: adb install + monkey 1 event + 30s
+     * logcat; parses for VerifyError / RVSEC event tags.
+     */
+    public static Report layer2BootValidator(Path apkDir, int seconds) {
+        return pending("layer-2-boot-validator",
+                "needs rv-platform emulator lifecycle (CLAUDE.md rule: never drive "
+                        + "emulator manually). Contract: zero VerifyError regressions "
+                        + "vs ajc baseline over the 30-APK subset.");
+    }
+
+    /**
+     * Layer 3 — {@code TraceComparator}: runs both pipelines on each oracle
+     * and the 30-APK subset, computes per-spec F1 + Cohen's kappa.
+     */
+    public static Report layer3TraceComparator(Path oracleDir, Path apkSubsetDir) {
+        return pending("layer-3-trace-comparator",
+                "needs ≥3 oracles (INV-INS-22) + paired logcat traces. Contract: "
+                        + "F1 ≥ 0.98, kappa ≥ 0.9 on every oracle AND aggregate.");
+    }
+
+    /**
+     * Layer 4 — {@code BatchValidator}: orchestrates JCA-400 × 3 tools × 3
+     * reps via Docker; aggregates; runs Wilcoxon signed-rank TOST per
+     * INV-INS-21 with pre-registered Δ bounds.
+     */
+    public static Report layer4BatchValidator(Path thresholdsYaml, Path batchResultsDir) {
+        return pending("layer-4-batch-validator",
+                "needs Docker batch results (945 tasks, ~36h wallclock) + pre-registered "
+                        + "thresholds YAML (INV-INS-21: Δ=2pp cov_method, Δ=0.02 F1, Δ=0.05 κ, "
+                        + "α=0.05). Contract: recovery_rate ≥ 90% AND paired Wilcoxon "
+                        + "TOST non-inferiority rejects for every spec.");
+    }
+
+    /**
+     * Layer 5 — {@code CoverageValidator}: compares RVSEC-COV recall
+     * between variants on the 30-APK subset.
+     */
+    public static Report layer5CoverageValidator(Path ajcLogcatDir, Path dexlibLogcatDir) {
+        return pending("layer-5-coverage-validator",
+                "needs paired logcat traces tagged RVSEC-COV from both variants. "
+                        + "Contract: recall ≥ 0.99 AND delta ≤ 1pp.");
+    }
+
+    private static Report pending(String layer, String message) {
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        metrics.put("status", "pending");
+        metrics.put("phase", "phase-5-infra");
+        return new Report(layer, false, message, metrics);
+    }
+}

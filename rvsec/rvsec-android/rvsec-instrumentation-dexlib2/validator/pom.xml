@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.unb.cic</groupId>
+        <artifactId>rvsec-instrumentation-dexlib2</artifactId>
+        <version>0.8.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>validator</artifactId>
+    <name>RVSec :: Android :: Instrumentation (dexlib2) :: validator</name>
+    <description>Layered validation harness (docs/20260423_plano_validacao.md). Six CLI subcommands + Python hooks enforcing INV-INS-17/19/21/22/25 on every PR and before the Phase 5 gate.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>descriptor-reader</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>pointcut-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>dex-mutator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.android.tools.smali</groupId>
+            <artifactId>smali-dexlib2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.android.tools.smali</groupId>
+            <artifactId>smali-baksmali</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+    </dependencies>
+</project>
