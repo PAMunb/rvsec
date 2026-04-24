@@ -54,6 +54,7 @@ flowchart TB
         BV[BootValidator]
         BTV[BatchValidator]
         CV[CoverageValidator]
+        DPC[DescriptorAjParityChecker]
     end
 
     subgraph GEN["rv-monitor-generator (MODIFIED)"]
@@ -104,17 +105,14 @@ flowchart TB
     PARENT --> M9["validator<br/>(rigor harness — Layers 1-5)"]
 
     M2 --> M1
-    M3 --> M1
     M3 --> M2
     M4 --> M3
-    M4 --> M2
     M5 --> M4
     M8 --> M4
     M8 --> M5
     M8 --> M6
     M8 --> M7
     M9 --> M8
-    M9 --> M5
 
     classDef root fill:#eef,stroke:#33c
     classDef pure fill:#fff,stroke:#999
@@ -157,6 +155,7 @@ flowchart TB
 | `validator.BootValidator` | adb install + monkey + logcat parse for `VerifyError` | `Path apk, String pkg, int seconds` | `Layer2Report` |
 | `validator.BatchValidator` | Orchestrate JCA-400 × 3 tools × 3 reps via Docker | `Path apksDir, ToolList, int reps` | `Layer4Report` (statistical analysis) |
 | `validator.CoverageValidator` | Compare RVSEC-COV recall between variants | 2 logcat files | `Layer5Report` |
+| `validator.DescriptorAjParityChecker` | Assert JSON descriptor mirrors `.aj` semantically (INV-INS-19) | `MultiSpec_*MonitorAspect.{aj,json}` pair | `ParityReport` |
 | `rv-instrumentation-dexlib2-py.DexlibInstrumentation` | Python wrapper preserving `instrument_apks` contract | `apks_dir, results_dir` | `InstrumentationResults` |
 
 ## Mapping: Spec → Implementation → Test
@@ -203,7 +202,9 @@ flowchart TB
 
 **Why:** The prototype's monolithic `DexWeaver` (~3400 LOC) mixes parsing, matching, register allocation, and DEX mutation. Single-responsibility submodules make components testable in isolation, replaceable independently (e.g., swap `pointcut-engine` for an ANTLR-based parser later), and verifiable as a graph (no module knows more than its inputs). This pays off most clearly in `validator/`, which must be auditable separately from `dex-mutator`.
 
-**Alternatives:** (a) Single `rv-instrumentation-dexlib2.jar` with internal packages — rejected: same monolithic problem, just inside one jar. (b) Gradle build — rejected: rvsec already uses Maven; one build system per repo.
+**Module dependency direction (no cycles):** `descriptor-reader` is a pure POJO module with no dependencies; `pointcut-engine` depends on `descriptor-reader` only; `advice-emitter` depends on `pointcut-engine` and on `dexlib2` directly (not on `dex-mutator`) — it owns the value classes `EmitPlan` and `RegisterRequest` that describe what to inject and what registers it needs; `dex-mutator` depends on `advice-emitter` (and consumes its `EmitPlan` values via `InstructionInjector`); `coverage-weaver` depends on `dex-mutator`; `cli` aggregates `dex-mutator`, `coverage-weaver`, `monitor-builder`, `multidex-merger`; `validator` depends on `cli`. This direction makes `advice-emitter` a pure planner (no DEX mutation knowledge) and `dex-mutator` the sole executor of plans — tested separately, no circular dependency, no need for an extra `*-api` stub submodule.
+
+**Alternatives:** (a) Single `rv-instrumentation-dexlib2.jar` with internal packages — rejected: same monolithic problem, just inside one jar. (b) Gradle build — rejected: rvsec already uses Maven; one build system per repo. (c) Extract a `dex-mutator-api` submodule for shared value types — rejected: would introduce a 10th submodule purely to dodge a non-existent cycle once `EmitPlan`/`RegisterRequest` live in `advice-emitter`.
 
 ### D2: Descriptor JSON, not .aj parsing
 
@@ -342,6 +343,19 @@ classDiagram
     AdviceDescriptor "1" --> "*" MonitorCallDescriptor
 ```
 
+**Emitter dispatch from descriptor**: the JSON `Position` enum is `before|after|around` (3 values). The advice-emitter dispatches to one of 6 concrete emitters by deriving the advice kind from the tuple `(position, returning≠null, throwing≠null, isStaticInit, hasIfGuard)`:
+
+| `position` | `returning` | `throwing` | other flags | dispatched emitter |
+|---|---|---|---|---|
+| `before` | null | null | — | `BeforeEmitter` |
+| `after` | null | null | — | `AfterEmitter` |
+| `after` | not null | null | — | `AfterReturningEmitter` |
+| `after` | null | not null | — | `AfterThrowingEmitter` |
+| (any) | (any) | (any) | `expression` matches `staticinitialization(...)` | `StaticInitializationEmitter` (overrides) |
+| (any) | (any) | (any) | `expression` contains `if(...)` | additional `IfGuardEmitter` wraps the chosen emitter's plan |
+
+`around` is not implemented (out-of-scope per `LIMITATIONS.md`); a descriptor with `position=around` triggers `UnsupportedAspectConstructError`.
+
 ## Data Flow
 
 ### Per-APK happy path
@@ -429,8 +443,8 @@ flowchart TB
     STAT["Mann-Whitney U<br/>per spec, α=0.05"]
     RPT["Layer4Report.json"]
     GATE{"recovery_rate ≥ 90%<br/>AND no significant<br/>regression?"}
-    OK([✅ Phase 6<br/>substitution allowed])
-    FAIL([❌ block merge<br/>iterate])
+    OK([Phase 6<br/>substitution allowed])
+    FAIL([BLOCK merge<br/>iterate])
 
     START --> LOOP
     LOOP --> AJC
@@ -488,12 +502,12 @@ flowchart TB
 | Integration (Java) | InstrumentationCli end-to-end (cryptoapp, hateitorrateit) | JUnit 5 IT (slow tag) | ~5 |
 | Integration (Python) | `instrument_apks` parity test (parametrized over `RVInstrumentation` and `DexlibInstrumentation`) | pytest + small fixture APK | ~10 |
 | Validator (CI gate) | Layer 0-2 (conformance, baksmali, boot) on 30-APK subset | `validator/` IT runs in CI | per-PR |
-| Validator (scheduled) | Layer 4 (945 tasks JCA-400 batch) | nightly / weekly Docker run | weekly |
+| Validator (scheduled) | Layer 4 (945 tasks JCA-400 batch) | weekend single-shot Docker run for Phase-5 ratification; weekly thereafter for regression detection | initial: 1 run; ongoing: weekly |
 | Validator (CI gate) | FeatureMappingChecker on every PR touching `pointcut-engine` or `advice-emitter` | `validator/FeatureMappingCheckerTest` | per-PR |
 
 ## Open Questions
 
-- **Q1**: Should `instrument_apks` accept variant per-call (overriding config), or strictly per-experiment? — Default is per-experiment (INV-INS-20). Per-call would complicate `InstrumentationResults` aggregation. Tracked in tasks; default is per-experiment.
+- **Q1 (decided)**: Should `instrument_apks` accept variant per-call (overriding config), or strictly per-experiment? — Decided per INV-INS-20: strictly per-experiment-run. Per-call override would complicate `InstrumentationResults` aggregation and contradict the variant-isolation requirement. A future change can introduce per-call override if a need arises.
 - **Q2**: Is `apksigner v3` strictly required, or does v2 suffice for our target API levels? — Prototype uses v3 successfully; investigate if v2 gives smaller APK / faster sign for batch mode.
 - **Q3**: Should the validator harness publish a JUnit XML report in addition to JSON, for CI display? — Likely yes; defer to Phase 4 task.
 - **Q4**: When the legacy `rv-instrumentation` is quarantined in Phase 6, do we keep the Python module callable as a museum piece, or fully remove the Python wrapper? — Default per P3: full removal of the wrapper; legacy code preserved only under `backup/`.

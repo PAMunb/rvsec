@@ -68,7 +68,7 @@ GitHub Issue: #52
 
 ## 4. `advice-emitter` Maven submodule (Java)
 
-- [ ] 4.1 Create `advice-emitter/pom.xml` (depends on pointcut-engine + dex-mutator-api stub if circular; otherwise depends on dexlib2 model only)
+- [ ] 4.1 Create `advice-emitter/pom.xml` (depends on pointcut-engine + dexlib2 model directly; per design D1, `EmitPlan` and `RegisterRequest` value classes live in this module — `dex-mutator` consumes them, no circular dep)
 - [ ] 4.2 Define `EmitPlan` value class (List<Instruction> toInsert, InsertionPoint point, RegisterRequest regs)
 - [ ] 4.3 Define `AdviceEmitter` interface; concrete: `BeforeEmitter`, `AfterEmitter`, `AfterReturningEmitter`, `AfterThrowingEmitter` (uses `addCatch` for try/handler), `StaticInitializationEmitter` (synthesize `<clinit>` if absent), `IfGuardEmitter` (emit `if-eqz` before invoke), `ThisJoinPointEmitter` (pre-compute string constant)
 - [ ] 4.4 Port `WrapperEmitter` from prototype's `WrapperGenerator`: generate `mop.MonitorWrappers.java` with one static method per `after returning` overload to avoid register aliasing
@@ -80,7 +80,7 @@ GitHub Issue: #52
 
 ## 5. `dex-mutator` Maven submodule (Java)
 
-- [ ] 5.1 Create `dex-mutator/pom.xml` (depends on advice-emitter + dexlib2)
+- [ ] 5.1 Create `dex-mutator/pom.xml` (depends on advice-emitter + dexlib2; consumes `EmitPlan`/`RegisterRequest` types from advice-emitter per design D1)
 - [ ] 5.2 Implement `InstructionInjector` primitives: `insertBefore(idx, EmitPlan)`, `insertAfter(idx, EmitPlan)`, `replaceInvoke(idx, MethodReference)`
 - [ ] 5.3 Port `RegisterShifter` from prototype: bump `MutableMethodImplementation.registerCount` via reflection, shift register refs ≥ threshold by delta, expand 4-bit overflows to `from16`/`from32` formats
 - [ ] 5.4 Implement `RegisterAllocator`: encapsulates scratch register allocation + spill decisions; uses `RegisterShifter` only when needed
@@ -195,6 +195,7 @@ GitHub Issue: #52
 - [ ] 15.5 Update `rv-android/docs/PRD.md` if any FR/NFR text needs adjustment for the new variant
 - [ ] 15.6 Update `rv-android/docs/rv_android_architecture.md` with the new module decomposition diagram (mermaid from design.md)
 - [ ] 15.7 Add `rv-android/docs/20260424_dexlib2_promotion.md` summarizing the change for future readers (one-page)
+- [ ] 15.8 Author `rv-android/openspec/changes/gh52-instr-dexlib2/ADR-DEX-NATIVE.md` — architectural decision record for D1-D6 (decisions in design.md), one section per decision: context / decision / status / consequences (template at `.claude/skills/rv-doc-adr/templates/adr.md`)
 
 ## 16. Phase 5 — Validation execution
 
@@ -204,7 +205,7 @@ GitHub Issue: #52
 - [ ] 16.4 Run `validator layer1` (BaksmaliDiffer) over 30-APK subset — gate: recall ≥ 0.95 in ≥27/30 APKs
 - [ ] 16.5 Run `validator layer2` (BootValidator) over 30-APK subset — gate: zero regressions vs ajc
 - [ ] 16.6 Run `validator layer3` (TraceComparator) on cryptoapp + 30-APK subset — gate: F1 ≥ 0.98, kappa ≥ 0.9
-- [ ] 16.7 Schedule `validator layer4` (BatchValidator JCA-400 × 3 × 3, ~36h) over a weekend — gate: recovery_rate ≥ 90%, no significant regression
+- [ ] 16.7 Schedule `validator layer4` (BatchValidator JCA-400 × 3 × 3, ~36h) — single-shot weekend run for Phase-5 ratification; weekly thereafter for regression detection — gate: recovery_rate ≥ 90%, no significant regression
 - [ ] 16.8 Run `validator layer5` (CoverageValidator) — gate: RVSEC-COV recall ≥ 0.99, delta ≤ 1pp
 - [ ] 16.9 Aggregate reports into `docs/20260MM_dexlib2_validation_results.md` (post-Layer-4 dated)
 - [ ] 16.10 Run `openspec verify gh52-instr-dexlib2` — must report all spec-aligned

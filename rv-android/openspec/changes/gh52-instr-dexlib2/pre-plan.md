@@ -60,18 +60,18 @@ O protótipo prova a tese central: **ajc crasha imediato em SDK ≥ 36; dexlib2 
 6. **Documentos rigor-paper**:
    - `docs/AJ_CONSTRUCTIONS_INVENTORY.md` — toda construção AspectJ usada em produção (JCA + generic_new + custom aspects), com file:line.
    - `docs/AJ_TO_DEXLIB2_MAPPING.md` — tabela 1:1 construção → componente/função/smali pattern; gaps explícitos.
-   - `docs/LIMITATIONS.md` — features AspectJ não suportadas (around, cflow, handler, get/set) com defesa por inventário ("0 usos no nosso domínio").
+   - `docs/LIMITATIONS.md` — features AspectJ não suportadas (lista canônica de 8: `around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`, `initialization`, `preinitialization`) com defesa por inventário ("0 usos no nosso domínio").
 7. **Re-execução do dataset JCA-400** com baseline ajc vs dexlib2 (Layer 4 do plano de validação), análise estatística (Mann-Whitney U, F1 ≥ 0.98, recovery rate ≥ 90%).
 8. **Atualização de `openspec/specs/instrumentation/spec.md`** com novos FRs/INVs cobrindo o pipeline DEX-nativo (não substitui FRs antigos enquanto coexistir; após substituição, FRs antigos viram REMOVED).
 9. **Quarentena do `rv-instrumentation` antigo** após Layer 4 ratificada: mover para `backup/2026-MM-DD-rv-instrumentation-ajc/` (P3).
-10. **Patch JavaMOP `--emit-descriptor` pushed remoto** (branch `emit-descriptor` → mergeada em `master` do rvsec ou mantida como integration branch da gh52 — decisão técnica em Phase 2).
+10. **Patch JavaMOP `--emit-descriptor` carregado diretamente em `gh52-instr-dexlib2`** (commits `6fca1f8a` cherry-pick de `79547700` + `927e78c1` com as 2 mods que estavam uncommitted em `emit-descriptor`). Decisão D6 do design.md superou a alternativa "PR separado para `rvsec/master`" — change atômica, branch `emit-descriptor` aposentada.
 
 ### Fora de escopo
 
 - LSPatch / Xposed (rejeitado em `docs/20260422_lspatch.md`, gap Coverage.aj).
 - Source-build de APKs F-Droid (gray-box, deferido para post-defesa).
 - Otimização de estratégia de exploração UI (orthogonal, em `docs/20260421_exploration_strategy_analysis.md`).
-- Suporte a `around()`, `cflow()`, `cflowbelow()`, `handler()`, `get()`/`set()` (0 usos confirmados em todo o conjunto de specs do RVSEC; documentado em `LIMITATIONS.md`).
+- Suporte a `around()`, `cflow()`, `cflowbelow()`, `handler()`, `get()`, `set()`, `initialization()`, `preinitialization()` (lista canônica de 8 itens; 0 usos confirmados em todo o conjunto de specs do RVSEC; documentado em `LIMITATIONS.md`).
 - Reformulação de `rv-monitor-generator` (continua gerando .aj + .java; .aj agora **somente** consumido pelo pipeline ajc legado durante coexistência; descritor JSON usado pelo dexlib2).
 
 ### Restrições / não-negociáveis
@@ -241,13 +241,14 @@ Reusa integralmente o framework de 6 camadas de `docs/20260423_plano_validacao.m
 
 | Layer | Componente validator | Gate | Onde no SDD |
 |---|---|---|---|
-| 0 — Conformance (INV-INS-*) | `validator/ConformanceChecker` | 12/12 invariantes verdes | Phase 4 (built-in) |
+| 0 — Conformance (INV-INS-01..12) | (sem componente novo — INV-INS-14 mandata que dexlib2 honre os 12 invariantes existentes; CI roda os testes existentes) | 12/12 invariantes verdes | Phase 4 (built-in) |
 | 1 — Static hook diff (baksmali) | `BaksmaliDiffer` | recall ≥ 0.95 em ≥90% de 30 APK subset | Phase 5 |
 | 2 — Install & boot | `BootValidator` (adb wrapper) | 0 regressões vs ajc baseline | Phase 5 |
 | 3 — Trace equivalence | `TraceComparator` | F1 ≥ 0.98, Kappa ≥ 0.9, MWU p > 0.05 | Phase 5 |
 | 4 — Large-scale JCA-400 | `BatchValidator` (945 tasks, ~36h) | recovery_rate ≥ 90%, sem regressão estatística | Phase 5 (paralelo a doc) |
 | 5 — Coverage.aj recall | `CoverageValidator` | recall RVSEC-COV ≥ 0.99, delta ≤ 1pp | Phase 5 |
-| 6 — OpenSpec sync | `/opsx:archive` | specs atualizados, change archived | Phase 6 |
+| 6 — OpenSpec sync | `openspec sync` + `openspec archive` | specs atualizados, change archived | Phase 6 |
+| Static checks (atemporal) | `FeatureMappingChecker`, `ConstructionInventoryGenerator`, `DescriptorAjParityChecker` | INV-INS-17 + INV-INS-19 + inventário regenerado byte-igual | CI gate por PR |
 
 ### Documentos mandatórios para defesa do paper
 
@@ -264,12 +265,12 @@ Reusa integralmente o framework de 6 camadas de `docs/20260423_plano_validacao.m
    ```
    - **Toda linha tem teste em `validator/`** que prova mapping (FeatureMappingChecker assert).
 
-3. **`docs/LIMITATIONS.md`** — gaps explícitos:
-   - `around()`: 0 usos no nosso domínio (citação ConstructionInventory) → não suportado, defensável.
+3. **`docs/LIMITATIONS.md`** — gaps explícitos (lista canônica de 8 itens, todos com 0 usos no nosso domínio per `ConstructionInventoryGenerator`):
+   - `around()`: não suportado, defensável.
    - `cflow()`, `cflowbelow()`: idem.
    - `handler()`: idem.
    - `get()`, `set()`: idem.
-   - `initialization()`, `preinitialization()`: subsumido por `call(T.new(..))`, ok.
+   - `initialization()`, `preinitialization()`: idem — explicitamente listados como out-of-scope (NÃO subsumidos por `call(T.new(..))`, pois a semântica AspectJ de `initialization`/`preinitialization` intercepta a inicialização do objeto entre `new` e `<init>`, o que dexlib2 não implementa).
    - Cada item: rationale + condições para suporte futuro.
 
 ---

@@ -30,8 +30,8 @@ flowchart LR
         B3 -->|repack + sign| B4
     end
 
-    LEGACY -.->|"63.6% boot VerifyError<br/>on R8 APKs"| FAIL((❌))
-    NEW -.->|"100% boot OK on<br/>same R8 APKs (prototype)"| OK((✅))
+    LEGACY -.->|"63.6% boot VerifyError<br/>on R8 APKs"| FAIL((BROKEN))
+    NEW -.->|"100% boot OK on<br/>same R8 APKs (prototype)"| OK((WORKS))
 
     classDef red fill:#fee,stroke:#c33;
     classDef green fill:#efe,stroke:#3c3;
@@ -45,9 +45,9 @@ flowchart LR
 - **NEW** Python wrapper module `rv-android/modules/rv-instrumentation-dexlib2-py/` exposing the same `instrument_apks(apks_dir, results_dir) → InstrumentationResults` contract that `rv-experiment` consumes today
 - **MODIFIED** `rv-monitor-generator` to invoke JavaMOP with the new `--emit-descriptor` flag, producing `MultiSpec_*MonitorAspect.json` alongside the existing `.aj`/`.java` artifacts
 - **MODIFIED** `rv-experiment` to add `instrumentation_variant: Literal["ajc","dexlib2"]` to its config and dispatch to the chosen pipeline; default stays `ajc` until Layer-4 validation ratifies
-- **MODIFIED** `rvsec/javamop` upstream to merge the `--emit-descriptor` patch (commit 79547700 on `emit-descriptor` branch + 2 uncommitted mods on `DescriptorWriter.java` and `AspectJDescriptor.java` that add `package` + `imports` to the JSON descriptor)
-- **NEW** validation harness as Maven module `validator/` (BaksmaliDiffer, TraceComparator, FeatureMappingChecker, ConstructionInventoryGenerator) that operationalizes the 6-layer rigor framework from `docs/20260423_plano_validacao.md`
-- **NEW** paper-grade documents `docs/AJ_CONSTRUCTIONS_INVENTORY.md`, `docs/AJ_TO_DEXLIB2_MAPPING.md`, `docs/LIMITATIONS.md` proving construction-by-construction equivalence and explicit gap documentation
+- **MODIFIED** vendored `rvsec/javamop` carries the `--emit-descriptor` patch directly on the change branch (per design D6, no separate upstream PR); pinned commits on `gh52-instr-dexlib2`: `6fca1f8a` (cherry-pick of `79547700` from the legacy `emit-descriptor` branch) and `927e78c1` (the 2 mods that were uncommitted on that branch's working tree, adding `package` + `imports` to `DescriptorWriter.java` and `AspectJDescriptor.java`)
+- **NEW** validation harness as Maven module `validator/` (`BaksmaliDiffer`, `BootValidator`, `TraceComparator`, `BatchValidator`, `CoverageValidator`, `FeatureMappingChecker`, `ConstructionInventoryGenerator`, `DescriptorAjParityChecker`) that operationalizes the rigor framework from `docs/20260423_plano_validacao.md` — Layers 1-5 plus the static mapping/inventory/parity checks; Layers 0 (conformance to INV-INS-01..12) and 6 (OpenSpec spec sync) are covered by existing invariants and the OpenSpec archive flow respectively, not by new validator components
+- **NEW** paper-grade documents `docs/AJ_CONSTRUCTIONS_INVENTORY.md`, `docs/AJ_TO_DEXLIB2_MAPPING.md`, `docs/LIMITATIONS.md` proving construction-by-construction equivalence and explicit gap documentation. The canonical out-of-scope set (zero usages confirmed across `rvsec/rvsec-mop/src/main/resources/{jca,generic,generic_new,aspect}/`) is: `around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`, `initialization`, `preinitialization`
 - **REMOVED** (Phase 6, after Layer-4 ratifies) — legacy `rv-instrumentation` (ajc-based) moved to `backup/2026-MM-DD-rv-instrumentation-ajc/` per P3; `instrumentation_variant` default switches to `dexlib2`
 
 **BREAKING (Phase 6 only)**: legacy ajc pipeline is removed once validation ratifies. The Python contract (`instrument_apks`) is preserved across the transition; only the implementation behind it changes.
