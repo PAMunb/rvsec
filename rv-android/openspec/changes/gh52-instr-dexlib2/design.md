@@ -22,7 +22,7 @@ flowchart TB
         EXP["PreProcessor._instrument_apks()"]
     end
 
-    subgraph PY["rv-instrumentation-dexlib2-py (NEW)"]
+    subgraph PY["rv-instrumentation-dexlib2 (NEW — Python wrapper)"]
         DI["DexlibInstrumentation<br/>instrument_apks() / instrument()"]
         PYC[DexlibInstrumentationConfig]
     end
@@ -93,7 +93,13 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    PARENT["rv-instrumentation-dexlib2 (parent pom)"]
+    RVSECPARENT["rvsec-parent (Java 21)"]
+    RVSEC["rvsec (aggregator)"]
+    RVSECANDROID["rvsec-android (aggregator)"]
+    PARENT["rvsec-instrumentation-dexlib2 (parent pom — NEW)"]
+    RVSECPARENT --> RVSEC
+    RVSEC --> RVSECANDROID
+    RVSECANDROID --> PARENT
     PARENT --> M1["descriptor-reader<br/>(POJO + Jackson)"]
     PARENT --> M2["pointcut-engine<br/>(parser + matcher + resolver)"]
     PARENT --> M3["advice-emitter<br/>(per-kind emitters + WrapperEmitter)"]
@@ -158,7 +164,7 @@ flowchart TB
 | `validator.OracleLoader` | Load ≥3 oracle YAMLs (INV-INS-22) and feed them into `TraceComparator`; fail-fast if fewer than 3 present | `Path oraclesDir` | `List<Oracle>` |
 | `validator.CoverageValidator` | Compare RVSEC-COV recall between variants | 2 logcat files | `Layer5Report` |
 | `validator.DescriptorAjParityChecker` | Assert JSON descriptor mirrors `.aj` semantically (INV-INS-19) | `MultiSpec_*MonitorAspect.{aj,json}` pair | `ParityReport` |
-| `rv-instrumentation-dexlib2-py.DexlibInstrumentation` | Python wrapper preserving `instrument_apks` contract | `apks_dir, results_dir` | `InstrumentationResults` |
+| `rv-instrumentation-dexlib2.DexlibInstrumentation` (Python, at `rv-android/modules/rv-instrumentation-dexlib2/`) | Python wrapper preserving `instrument_apks` contract; shells out to the Java CLI jar copied to `lib/instr-cli.jar` | `apks_dir, results_dir` | `InstrumentationResults` |
 
 ## Mapping: Spec → Implementation → Test
 
@@ -211,7 +217,7 @@ flowchart TB
 
 **Module dependency direction (no cycles):** `descriptor-reader` is a pure POJO module with no dependencies; `pointcut-engine` depends on `descriptor-reader` only; `advice-emitter` depends on `pointcut-engine` and on `dexlib2` directly (not on `dex-mutator`) — it owns the value classes `EmitPlan` and `RegisterRequest` that describe what to inject and what registers it needs; `dex-mutator` depends on `advice-emitter` (and consumes its `EmitPlan` values via `InstructionInjector`); `coverage-weaver` depends on `dex-mutator`; `cli` aggregates `dex-mutator`, `coverage-weaver`, `monitor-builder`, `multidex-merger`; `validator` depends on `cli`. This direction makes `advice-emitter` a pure planner (no DEX mutation knowledge) and `dex-mutator` the sole executor of plans — tested separately, no circular dependency, no need for an extra `*-api` stub submodule.
 
-**Alternatives:** (a) Single `rv-instrumentation-dexlib2.jar` with internal packages — rejected: same monolithic problem, just inside one jar. (b) Gradle build — rejected: rvsec already uses Maven; one build system per repo. (c) Extract a `dex-mutator-api` submodule for shared value types — rejected: would introduce a 10th submodule purely to dodge a non-existent cycle once `EmitPlan`/`RegisterRequest` live in `advice-emitter`.
+**Alternatives:** (a) Single `rvsec-instrumentation-dexlib2.jar` with internal packages — rejected: same monolithic problem, just inside one jar. (b) Gradle build — rejected: rvsec already uses Maven (parent `rvsec-parent`, Java 21); one build system per repo. (c) Extract a `dex-mutator-api` submodule for shared value types — rejected: would introduce a 10th submodule purely to dodge a non-existent cycle once `EmitPlan`/`RegisterRequest` live in `advice-emitter`.
 
 ### D2: Descriptor JSON, not .aj parsing
 
@@ -223,7 +229,7 @@ flowchart TB
 
 ### D3: Coexistence + variant flag, not immediate replacement
 
-**Choice:** Phase 4-5 keep `rv-instrumentation` (ajc) and `rv-instrumentation-dexlib2-py` (new) side by side; `instrumentation_variant` selects between them. Phase 6 quarantines the legacy.
+**Choice:** Phase 4-5 keep `rv-instrumentation` (legacy ajc-based Python module) and `rv-instrumentation-dexlib2` (new Python wrapper invoking the Java jar) side by side; `instrumentation_variant` selects between them. Phase 6 quarantines the legacy.
 
 **Why:** Layer 3 of the validation framework (`docs/20260423_plano_validacao.md`) requires *paired* execution of both pipelines on the same APK to compute F1/kappa equivalence. Without coexistence, comparison is against a frozen historical baseline rather than a live counterfactual — much weaker evidence for reviewers. Coexistence costs minimal code (one dispatch line in `PreProcessor` + one new config field) and bounded duration (Phase 5 only).
 
@@ -231,7 +237,7 @@ flowchart TB
 
 ### D4: Validator as a Maven submodule, not a sidecar script
 
-**Choice:** `validator/` is a Maven submodule of `rv-instrumentation-dexlib2` with a CLI per layer.
+**Choice:** `validator/` is a Maven submodule of the Java aggregator `rvsec-instrumentation-dexlib2` with a CLI per layer.
 
 **Why:** The 6-layer validation framework needs to be runnable *and* maintainable as software, not as a collection of bash scripts. Java + Maven keeps it in the same toolchain as the weaver; a CLI per layer (BaksmaliDiffer, BootValidator, ...) keeps each layer independently runnable and testable; JSON outputs make CI gating mechanical.
 
@@ -266,6 +272,30 @@ flowchart TB
 **Why deferred:** (1) We instrument *third-party* APKs from F-Droid, not source we control — most JCA-400 APKs are shipped binaries, not buildable artifacts under our Gradle. Source-build coverage is a subset of the dataset, not a replacement. (2) AGP ASM does not help R8 APKs we only have as binaries (the bulk of the problem). (3) Switching the primary path now would invalidate the prototype work already committed and the patched JavaMOP descriptor contract. The right framing is: AGP ASM is a candidate *complementary* sub-experiment for the F-Droid subset with `reproducible_builds: yes`, to provide a ground-truth baseline that the `dexlib2` path is then compared against. Tracked as a post-gh52 idea; not in this change's scope.
 
 **Alternatives (for reference):** (a) Wholesale replace dexlib2 with AGP ASM — rejected: does not apply to binary-only APKs. (b) Use AGP ASM only where source exists and dexlib2 elsewhere — possible, not pursued here because it doubles implementation surface and is orthogonal to the core claim.
+
+### D8: Java module under `rvsec-android`, Python wrapper under `rv-android/modules/`
+
+**Choice:** Place the Java aggregator at `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` (sibling of `rvsec-apk`, `rvsec-gator`, `rvsec-logger-logcat`) inheriting parent chain `rvsec-parent → rvsec → rvsec-android`. Place the Python wrapper at `rv-android/modules/rv-instrumentation-dexlib2/` as a uv workspace member alongside `rv-instrumentation`, `rv-monitor-generator`, etc. The two modules carry different names (`rvsec-instrumentation-dexlib2` vs `rv-instrumentation-dexlib2`) because each follows its language-tree's naming convention.
+
+**Why:** The monorepo has two fully separate sub-projects that happen to live under the same git root: `rvsec/` is the Java/Maven tree (parent `br.unb.cic:rvsec-parent`, Java 21, aggregator modules like `rvsec-apk`, `rvsec-gator`, `rvsec-agent`), and `rv-android/` is the Python uv workspace (modules named `rv-*` like `rv-experiment`, `rv-instrumentation`). Mixing them — e.g., putting Java code under `rv-android/modules/` — breaks both: uv workspace scanning sees unfamiliar artifacts, the Maven reactor cannot find the parent chain, and CI builds diverge. The Java aggregator MUST live in the Java tree; the Python wrapper MUST live in the Python tree. Naming follows each tree's local convention (`rvsec-*` prefix in the Maven aggregator neighborhood, `rv-*` prefix in the uv workspace neighborhood).
+
+**Why different names:** using identical names across trees is technically possible but harmful in practice — logs, error messages, stack traces, and docs would be ambiguous ("which `rv-instrumentation-dexlib2` failed?"). The `rvsec-` vs `rv-` prefix is a cheap, unambiguous disambiguator that each tree already uses consistently.
+
+**Alternatives:** (a) Both under `rv-android/modules/` (what I initially attempted) — rejected: violates monorepo structure, breaks Maven parent chain resolution. (b) Both under `rvsec/` — rejected: Python can't be a uv workspace member there, would need a separate `pyproject.toml` with non-uv dependency resolution. (c) Same name in both trees — rejected: ambiguous in logs and docs.
+
+### D9: Build-time fat-jar copy into the Python wrapper's `lib/` directory
+
+**Choice:** During the Maven build of the Java `cli` submodule (Phase `package`), copy the fat jar `rvsec-instrumentation-dexlib2/cli/target/instr-cli.jar` to `rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` via `maven-resources-plugin:copy-resources`. The Python wrapper's default `cli_jar_path` resolves to that copy relative to the Python module's install location (`Path(__file__).parent.parent.parent / "lib" / "instr-cli.jar"`), making the wrapper self-locating with no absolute paths, no environment variable, and no manual copy step.
+
+**Why:** The Python wrapper needs to invoke the jar. Three alternatives were considered:
+
+- **Require absolute path via config** — works but brittle; every workstation and Docker image needs the same path; any refactor of the Maven tree breaks callers silently.
+- **Require an environment variable (e.g., `RVSEC_INSTR_DEXLIB2_JAR`)** — works but adds a documentation burden, a setup step, and a common class of "forgot to export" support requests.
+- **Build-time copy into the Python module's `lib/`** — the Maven build is already the source of truth for the jar; copying to a predictable location inside the consumer means the Python wrapper can locate the jar by path relative to itself, exactly like any library consumes its vendored assets. No config, no env var, no absolute path.
+
+**Implementation:** add `<execution>` to `cli/pom.xml` running `maven-resources-plugin:copy-resources` in phase `package`, with `${main.basedir}/rv-android/modules/rv-instrumentation-dexlib2/lib/` as target. `${main.basedir}` is already provided by `directory-maven-plugin` (configured in `rvsec-parent`). The `lib/*.jar` path is gitignored — the jar is a build output, never versioned.
+
+**Alternatives considered:** (a) Symlink `lib/instr-cli.jar` → jar target — rejected: symlinks don't survive Docker builds and Windows; extra setup step on each checkout. (b) Use Python `importlib.resources` with the jar bundled inside the Python package's data — rejected: `pyproject.toml` would need to declare external binary data; forces rebuild of the Python package on every jar change; conflicts with uv workspace editable installs.
 
 ## API Design
 
@@ -543,4 +573,4 @@ flowchart TB
 - `docs/20260423_javamop.md` (descriptor strategy)
 - `docs/20260423_plano_prototipo.md` (prototype plan)
 - `docs/20260423_plano_validacao.md` (6-layer validation framework operationalized in `validator/`)
-- ADR to be created in tasks: `ADR-DEX-NATIVE.md` (architectural decision record for D1-D7)
+- ADR to be created in tasks: `ADR-DEX-NATIVE.md` (architectural decision record for D1-D9)

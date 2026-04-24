@@ -1,0 +1,2881 @@
+{
+  "aspectName" : "MultiSpec_1MonitorAspect",
+  "fileName" : "MultiSpec_1",
+  "shortName" : "MultiSpec_1",
+  "package" : "package mop;",
+  "imports" : [ "javax.crypto.CipherInputStream", "java.io.InputStream", "javax.crypto.Cipher", "br.unb.cic.mop.eh.*", "br.unb.cic.mop.ExecutionContext", "br.unb.cic.mop.Property", "javax.crypto.CipherOutputStream", "java.io.OutputStream", "java.security.Provider", "java.security.Key", "java.security.SecureRandom", "java.security.spec.AlgorithmParameterSpec", "java.security.cert.Certificate", "java.nio.ByteBuffer", "static br.unb.cic.mop.jca.util.CipherTransformationUtil.*", "javax.crypto.spec.DHGenParameterSpec", "javax.crypto.spec.GCMParameterSpec", "javax.xml.crypto.dsig.spec.HMACParameterSpec", "javax.crypto.spec.IvParameterSpec", "javax.crypto.KeyGenerator", "javax.crypto.SecretKey", "javax.net.ssl.KeyManagerFactory", "javax.net.ssl.ManagerFactoryParameters", "javax.net.ssl.KeyManager", "java.security.KeyStore", "java.security.KeyPair", "java.security.KeyPairGenerator", "java.security.PrivateKey", "java.security.PublicKey", "java.security.KeyStore.ProtectionParameter", "java.security.KeyStore.Entry", "javax.crypto.Mac", "java.security.MessageDigest", "java.util.List", "javax.crypto.spec.PBEKeySpec", "javax.crypto.spec.PBEParameterSpec", "java.util.stream.IntStream", "javax.crypto.spec.SecretKeySpec", "java.security.Signature", "javax.net.ssl.SSLContext", "javax.net.ssl.SSLEngine", "javax.net.ssl.TrustManager", "javax.net.ssl.TrustManagerFactory", "java.util.concurrent.*", "java.util.concurrent.locks.*", "java.util.*", "javamoprt.*", "java.lang.ref.*", "org.aspectj.lang.*" ],
+  "commonPointcut" : "!within(com.runtimeverification.rvmonitor.java.rt.RVMObject+) && !adviceexecution() && BaseAspect.notwithin()",
+  "baseAspectExclusions" : [ "sun..*", "java..*", "javax..*", "com.sun..*", "org.dacapo.harness..*", "org.apache.commons..*", "org.apache.geronimo..*", "net.sf.cglib..*", "mop..*", "javamoprt..*", "rvmonitorrt..*", "com.runtimeverification..*" ],
+  "advices" : [ {
+    "name" : "CipherInputStreamSpec_c1",
+    "specName" : "CipherInputStreamSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public CipherInputStream.new(InputStream, Cipher))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherInputStreamSpec_c1Event",
+      "specName" : "CipherInputStreamSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherInputStreamSpec_r1",
+    "specName" : "CipherInputStreamSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int CipherInputStream.read()) || call(public int CipherInputStream.read(byte[]))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherInputStreamSpec_r1Event",
+      "specName" : "CipherInputStreamSpec",
+      "eventId" : "r1",
+      "uniqueId" : "r1",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherInputStreamSpec_r2",
+    "specName" : "CipherInputStreamSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "arr"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int CipherInputStream.read(byte[], int, int)) && args(arr, offset, len)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherInputStreamSpec_r2Event",
+      "specName" : "CipherInputStreamSpec",
+      "eventId" : "r2",
+      "uniqueId" : "r2",
+      "args" : [ "arr", "offset", "len" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherInputStreamSpec_cl1",
+    "specName" : "CipherInputStreamSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void CipherInputStream.close())",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherInputStreamSpec_cl1Event",
+      "specName" : "CipherInputStreamSpec",
+      "eventId" : "cl1",
+      "uniqueId" : "cl1",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherOutputStreamSpec_c1",
+    "specName" : "CipherOutputStreamSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public CipherOutputStream.new(OutputStream, Cipher))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherOutputStreamSpec_c1Event",
+      "specName" : "CipherOutputStreamSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherOutputStreamSpec_w1",
+    "specName" : "CipherOutputStreamSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void CipherOutputStream.write(int)) || call(public void CipherOutputStream.write(byte[]))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherOutputStreamSpec_w1Event",
+      "specName" : "CipherOutputStreamSpec",
+      "eventId" : "w1",
+      "uniqueId" : "w1",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherOutputStreamSpec_w2",
+    "specName" : "CipherOutputStreamSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "b"
+    }, {
+      "type" : "int",
+      "name" : "off"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void CipherOutputStream.write(byte[], int, int)) && args(b, off, len)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherOutputStreamSpec_w2Event",
+      "specName" : "CipherOutputStreamSpec",
+      "eventId" : "w2",
+      "uniqueId" : "w2",
+      "args" : [ "b", "off", "len" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherOutputStreamSpec_fl",
+    "specName" : "CipherOutputStreamSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void CipherOutputStream.flush())",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherOutputStreamSpec_flEvent",
+      "specName" : "CipherOutputStreamSpec",
+      "eventId" : "fl",
+      "uniqueId" : "fl",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherOutputStreamSpec_cl",
+    "specName" : "CipherOutputStreamSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void CipherOutputStream.close())",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherOutputStreamSpec_clEvent",
+      "specName" : "CipherOutputStreamSpec",
+      "eventId" : "cl",
+      "uniqueId" : "cl",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_g1",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "transformation"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static Cipher Cipher.getInstance(String)) && args(transformation)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_g1Event",
+      "specName" : "CipherSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "transformation", "c" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_g3Event",
+      "specName" : "CipherSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "transformation", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_g2",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "transformation"
+    }, {
+      "type" : "Object",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static Cipher Cipher.getInstance(String, Object+)) && args(transformation, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_g2Event",
+      "specName" : "CipherSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "transformation", "provider", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_i1",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "mode"
+    }, {
+      "type" : "Certificate",
+      "name" : "cert"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Cipher.init(int, Certificate, ..)) && args(mode, cert, ..) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_i1Event",
+      "specName" : "CipherSpec",
+      "eventId" : "i1",
+      "uniqueId" : "i1",
+      "args" : [ "mode", "cert", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_i2",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "mode"
+    }, {
+      "type" : "Key",
+      "name" : "key"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Cipher.init(int, Key, ..)) && args(mode, key, ..) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_i2Event",
+      "specName" : "CipherSpec",
+      "eventId" : "i2",
+      "uniqueId" : "i2",
+      "args" : [ "mode", "key", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_u1",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "plainText"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] Cipher.update(byte[])) && args(plainText) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_u1Event",
+      "specName" : "CipherSpec",
+      "eventId" : "u1",
+      "uniqueId" : "u1",
+      "args" : [ "plainText", "c", "cipherText" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_u2",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "plainText"
+    }, {
+      "type" : "int",
+      "name" : "prePlainTextOffset"
+    }, {
+      "type" : "int",
+      "name" : "prePlainTextLen"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] Cipher.update(byte[], int, int)) && args(plainText, prePlainTextOffset, prePlainTextLen) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_u2Event",
+      "specName" : "CipherSpec",
+      "eventId" : "u2",
+      "uniqueId" : "u2",
+      "args" : [ "plainText", "prePlainTextOffset", "prePlainTextLen", "c", "cipherText" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_u3",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "plainText"
+    }, {
+      "type" : "int",
+      "name" : "prePlainTextOffset"
+    }, {
+      "type" : "int",
+      "name" : "prePlainTextLen"
+    }, {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int Cipher.update(byte[], int, int, byte[])) && args(plainText, prePlainTextOffset, prePlainTextLen, cipherText) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_u3Event",
+      "specName" : "CipherSpec",
+      "eventId" : "u3",
+      "uniqueId" : "u3",
+      "args" : [ "plainText", "prePlainTextOffset", "prePlainTextLen", "cipherText", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_u4",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "plainText"
+    }, {
+      "type" : "int",
+      "name" : "prePlainTextOffset"
+    }, {
+      "type" : "int",
+      "name" : "prePlainTextLen"
+    }, {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    }, {
+      "type" : "int",
+      "name" : "outputOffset"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int Cipher.update(byte[], int, int, byte[], int)) && args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, outputOffset) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_u4Event",
+      "specName" : "CipherSpec",
+      "eventId" : "u4",
+      "uniqueId" : "u4",
+      "args" : [ "plainText", "prePlainTextOffset", "prePlainTextLen", "cipherText", "outputOffset", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_u5",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "ByteBuffer",
+      "name" : "plainBuffer"
+    }, {
+      "type" : "ByteBuffer",
+      "name" : "cipherBuffer"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int Cipher.update(ByteBuffer, ByteBuffer)) && args(plainBuffer, cipherBuffer) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_u5Event",
+      "specName" : "CipherSpec",
+      "eventId" : "u5",
+      "uniqueId" : "u5",
+      "args" : [ "plainBuffer", "cipherBuffer", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_wkb1",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "wrappedKeyBytes"
+    } ],
+    "throwing" : null,
+    "expression" : "call(byte[] Cipher.wrap(Key)) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_wkb1Event",
+      "specName" : "CipherSpec",
+      "eventId" : "wkb1",
+      "uniqueId" : "wkb1",
+      "args" : [ "c", "wrappedKeyBytes" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_f1",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] Cipher.doFinal()) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_f1Event",
+      "specName" : "CipherSpec",
+      "eventId" : "f1",
+      "uniqueId" : "f1",
+      "args" : [ "c", "cipherText" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_f2",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] Cipher.doFinal(..)) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_f2Event",
+      "specName" : "CipherSpec",
+      "eventId" : "f2",
+      "uniqueId" : "f2",
+      "args" : [ "c", "cipherText" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_f3",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int Cipher.doFinal(byte[], int)) && args(cipherText, offset) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_f3Event",
+      "specName" : "CipherSpec",
+      "eventId" : "f3",
+      "uniqueId" : "f3",
+      "args" : [ "cipherText", "offset", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_f5",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "plainText"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    }, {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int Cipher.doFinal(byte[], int, int, byte[])) && args(plainText, offset, len, cipherText) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_f5Event",
+      "specName" : "CipherSpec",
+      "eventId" : "f5",
+      "uniqueId" : "f5",
+      "args" : [ "plainText", "offset", "len", "cipherText", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_f6",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "plainText"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    }, {
+      "type" : "byte[]",
+      "name" : "cipherText"
+    }, {
+      "type" : "int",
+      "name" : "cipherOffset"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int Cipher.doFinal(byte[], int, int, byte[], int)) && args(plainText, offset, len, cipherText, cipherOffset) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_f6Event",
+      "specName" : "CipherSpec",
+      "eventId" : "f6",
+      "uniqueId" : "f6",
+      "args" : [ "plainText", "offset", "len", "cipherText", "cipherOffset", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CipherSpec_f7",
+    "specName" : "CipherSpec",
+    "parameters" : [ {
+      "type" : "ByteBuffer",
+      "name" : "plainTextBuffer"
+    }, {
+      "type" : "ByteBuffer",
+      "name" : "cipherTextBuffer"
+    }, {
+      "type" : "Cipher",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int Cipher.doFinal(ByteBuffer, ByteBuffer)) && args(plainTextBuffer, cipherTextBuffer) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CipherSpec_f7Event",
+      "specName" : "CipherSpec",
+      "eventId" : "f7",
+      "uniqueId" : "f7",
+      "args" : [ "plainTextBuffer", "cipherTextBuffer", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "DHGenParameterSpecSpec_c1",
+    "specName" : "DHGenParameterSpecSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "primeSize"
+    }, {
+      "type" : "int",
+      "name" : "exponentSize"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "DHGenParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public DHGenParameterSpec.new(int, int)) && args(primeSize, exponentSize)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.DHGenParameterSpecSpec_c1Event",
+      "specName" : "DHGenParameterSpecSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ "primeSize", "exponentSize", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "GCMParameterSpecSpec_c1_3",
+    "specName" : "GCMParameterSpecSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "tagLen"
+    }, {
+      "type" : "byte[]",
+      "name" : "src"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "GCMParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public GCMParameterSpec.new(int, byte[])) && args(tagLen, src)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.GCMParameterSpecSpec_c1Event",
+      "specName" : "GCMParameterSpecSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1_3",
+      "args" : [ "tagLen", "src", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "GCMParameterSpecSpec_c1_4",
+    "specName" : "GCMParameterSpecSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "tagLen"
+    }, {
+      "type" : "byte[]",
+      "name" : "src"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "GCMParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public GCMParameterSpec.new(int, byte[], int, int)) && args(tagLen, src, offset, len)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.GCMParameterSpecSpec_c1Event",
+      "specName" : "GCMParameterSpecSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1_4",
+      "args" : [ "tagLen", "src", "offset", "len", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "HMACParameterSpecSpec_c",
+    "specName" : "HMACParameterSpecSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "HMACParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public HMACParameterSpec.new(int))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.HMACParameterSpecSpec_cEvent",
+      "specName" : "HMACParameterSpecSpec",
+      "eventId" : "c",
+      "uniqueId" : "c",
+      "args" : [ "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "IvParameterSpecSpec_c1",
+    "specName" : "IvParameterSpecSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "iv"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "IvParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public IvParameterSpec.new(byte[])) && args(iv)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c1Event",
+      "specName" : "IvParameterSpecSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ "iv", "s" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c3Event",
+      "specName" : "IvParameterSpecSpec",
+      "eventId" : "c3",
+      "uniqueId" : "c3",
+      "args" : [ "iv", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "IvParameterSpecSpec_c2",
+    "specName" : "IvParameterSpecSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "iv"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "IvParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public IvParameterSpec.new(byte[], int, int)) && args(iv, offset, len)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c2Event",
+      "specName" : "IvParameterSpecSpec",
+      "eventId" : "c2",
+      "uniqueId" : "c2",
+      "args" : [ "iv", "offset", "len", "s" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c4Event",
+      "specName" : "IvParameterSpecSpec",
+      "eventId" : "c4",
+      "uniqueId" : "c4",
+      "args" : [ "iv", "offset", "len", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyGeneratorSpec_g1",
+    "specName" : "KeyGeneratorSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyGenerator",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyGenerator KeyGenerator.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyGeneratorSpec_g1Event",
+      "specName" : "KeyGeneratorSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyGeneratorSpec_g3Event",
+      "specName" : "KeyGeneratorSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyGeneratorSpec_g2",
+    "specName" : "KeyGeneratorSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    }, {
+      "type" : "Object",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyGenerator",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyGenerator KeyGenerator.getInstance(String, Object+)) && args(alg, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyGeneratorSpec_g2Event",
+      "specName" : "KeyGeneratorSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "provider", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyGeneratorSpec_init",
+    "specName" : "KeyGeneratorSpec",
+    "parameters" : [ {
+      "type" : "KeyGenerator",
+      "name" : "k"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(public void KeyGenerator.init(int)) || call(public void KeyGenerator.init(int, SecureRandom)) || call(public void KeyGenerator.init(AlgorithmParameterSpec)) || call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) || call(public void KeyGenerator.init(SecureRandom))) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyGeneratorSpec_initEvent",
+      "specName" : "KeyGeneratorSpec",
+      "eventId" : "init",
+      "uniqueId" : "init",
+      "args" : [ "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyGeneratorSpec_gk1",
+    "specName" : "KeyGeneratorSpec",
+    "parameters" : [ {
+      "type" : "KeyGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecretKey",
+      "name" : "key"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public SecretKey KeyGenerator.generateKey()) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyGeneratorSpec_gk1Event",
+      "specName" : "KeyGeneratorSpec",
+      "eventId" : "gk1",
+      "uniqueId" : "gk1",
+      "args" : [ "k", "key" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyManagerFactorySpec_g1",
+    "specName" : "KeyManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyManagerFactory",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyManagerFactorySpec_g1Event",
+      "specName" : "KeyManagerFactorySpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyManagerFactorySpec_g3Event",
+      "specName" : "KeyManagerFactorySpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyManagerFactorySpec_g2",
+    "specName" : "KeyManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyManagerFactory",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..)) && args(alg, *)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyManagerFactorySpec_g2Event",
+      "specName" : "KeyManagerFactorySpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyManagerFactorySpec_init",
+    "specName" : "KeyManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "KeyManagerFactory",
+      "name" : "k"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(public void KeyManagerFactory.init(KeyStore, char[])) || call(public void KeyManagerFactory.init(ManagerFactoryParameters))) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyManagerFactorySpec_initEvent",
+      "specName" : "KeyManagerFactorySpec",
+      "eventId" : "init",
+      "uniqueId" : "init",
+      "args" : [ "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyManagerFactorySpec_gkm1",
+    "specName" : "KeyManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "KeyManagerFactory",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyManager[]",
+      "name" : "keyManager"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public KeyManager[] KeyManagerFactory.getKeyManagers()) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyManagerFactorySpec_gkm1Event",
+      "specName" : "KeyManagerFactorySpec",
+      "eventId" : "gkm1",
+      "uniqueId" : "gkm1",
+      "args" : [ "k", "keyManager" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_g1",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_g1Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_g3Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_g2",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    }, {
+      "type" : "String",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)) && args(alg, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_g2Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "provider", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init1",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "keySize"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(int)) && args(keySize) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_init1Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init1",
+      "uniqueId" : "init1",
+      "args" : [ "keySize", "k" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_initErrorEvent",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "initError",
+      "uniqueId" : "initError",
+      "args" : [ "keySize", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init2",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "keySize"
+    }, {
+      "type" : "SecureRandom",
+      "name" : "random"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(int, SecureRandom)) && args(keySize, random) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_init2Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init2",
+      "uniqueId" : "init2",
+      "args" : [ "keySize", "random", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init3",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "AlgorithmParameterSpec",
+      "name" : "params"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) && args(params) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_init3Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init3",
+      "uniqueId" : "init3",
+      "args" : [ "params", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init4",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "AlgorithmParameterSpec",
+      "name" : "params"
+    }, {
+      "type" : "SecureRandom",
+      "name" : "random"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) && args(params, random) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_init4Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init4",
+      "uniqueId" : "init4",
+      "args" : [ "params", "random", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_gen",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyPair",
+      "name" : "keyPair"
+    } ],
+    "throwing" : null,
+    "expression" : "(call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairGeneratorSpec_genEvent",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "gen",
+      "uniqueId" : "gen",
+      "args" : [ "k", "keyPair" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairSpec_c1",
+    "specName" : "KeyPairSpec",
+    "parameters" : [ {
+      "type" : "PublicKey",
+      "name" : "publicKey"
+    }, {
+      "type" : "PrivateKey",
+      "name" : "privateKey"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyPair",
+      "name" : "kp"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public KeyPair.new(PublicKey, PrivateKey)) && args(publicKey, privateKey)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairSpec_c1Event",
+      "specName" : "KeyPairSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ "publicKey", "privateKey", "kp" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairSpec_gpu",
+    "specName" : "KeyPairSpec",
+    "parameters" : [ {
+      "type" : "KeyPair",
+      "name" : "keyPair"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "PublicKey",
+      "name" : "publicKey"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public PublicKey KeyPair.getPublic()) && target(keyPair)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairSpec_gpuEvent",
+      "specName" : "KeyPairSpec",
+      "eventId" : "gpu",
+      "uniqueId" : "gpu",
+      "args" : [ "keyPair", "publicKey" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairSpec_gpr",
+    "specName" : "KeyPairSpec",
+    "parameters" : [ {
+      "type" : "KeyPair",
+      "name" : "keyPair"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "PrivateKey",
+      "name" : "privateKey"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public PrivateKey KeyPair.getPrivate()) && target(keyPair)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyPairSpec_gprEvent",
+      "specName" : "KeyPairSpec",
+      "eventId" : "gpr",
+      "uniqueId" : "gpr",
+      "args" : [ "keyPair", "privateKey" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyStoreSpec_g1",
+    "specName" : "KeyStoreSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "ksType"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyStore",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyStore KeyStore.getInstance(String)) && args(ksType)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyStoreSpec_g1Event",
+      "specName" : "KeyStoreSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "ksType", "k" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyStoreSpec_g2Event",
+      "specName" : "KeyStoreSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "ksType", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyStoreSpec_load",
+    "specName" : "KeyStoreSpec",
+    "parameters" : [ {
+      "type" : "KeyStore",
+      "name" : "k"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyStore.load(..)) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyStoreSpec_loadEvent",
+      "specName" : "KeyStoreSpec",
+      "eventId" : "load",
+      "uniqueId" : "load",
+      "args" : [ "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyStoreSpec_store",
+    "specName" : "KeyStoreSpec",
+    "parameters" : [ {
+      "type" : "KeyStore",
+      "name" : "k"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyStore.store(..)) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyStoreSpec_storeEvent",
+      "specName" : "KeyStoreSpec",
+      "eventId" : "store",
+      "uniqueId" : "store",
+      "args" : [ "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyStoreSpec_ge1",
+    "specName" : "KeyStoreSpec",
+    "parameters" : [ {
+      "type" : "KeyStore",
+      "name" : "k"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public Entry KeyStore.getEntry(String, ProtectionParameter)) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyStoreSpec_ge1Event",
+      "specName" : "KeyStoreSpec",
+      "eventId" : "ge1",
+      "uniqueId" : "ge1",
+      "args" : [ "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyStoreSpec_se1",
+    "specName" : "KeyStoreSpec",
+    "parameters" : [ {
+      "type" : "KeyStore",
+      "name" : "k"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyStore.setEntry(String, Entry, ProtectionParameter)) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyStoreSpec_se1Event",
+      "specName" : "KeyStoreSpec",
+      "eventId" : "se1",
+      "uniqueId" : "se1",
+      "args" : [ "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyStoreSpec_gk1",
+    "specName" : "KeyStoreSpec",
+    "parameters" : [ {
+      "type" : "KeyStore",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Key",
+      "name" : "key"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public Key KeyStore.getKey(String, char[])) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.KeyStoreSpec_gk1Event",
+      "specName" : "KeyStoreSpec",
+      "eventId" : "gk1",
+      "uniqueId" : "gk1",
+      "args" : [ "k", "key" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MacSpec_g1",
+    "specName" : "MacSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Mac",
+      "name" : "m"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static Mac Mac.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_g1Event",
+      "specName" : "MacSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "m" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_g3Event",
+      "specName" : "MacSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "m" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MacSpec_g2",
+    "specName" : "MacSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    }, {
+      "type" : "String",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Mac",
+      "name" : "m"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static Mac Mac.getInstance(String, String)) && args(alg, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_g2Event",
+      "specName" : "MacSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "provider", "m" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MacSpec_i1",
+    "specName" : "MacSpec",
+    "parameters" : [ {
+      "type" : "java.security.Key",
+      "name" : "key"
+    }, {
+      "type" : "Mac",
+      "name" : "m"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Mac.init(java.security.Key)) && args(key) && target(m)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_i1Event",
+      "specName" : "MacSpec",
+      "eventId" : "i1",
+      "uniqueId" : "i1",
+      "args" : [ "key", "m" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MacSpec_i2",
+    "specName" : "MacSpec",
+    "parameters" : [ {
+      "type" : "java.security.Key",
+      "name" : "key"
+    }, {
+      "type" : "java.security.spec.AlgorithmParameterSpec",
+      "name" : "params"
+    }, {
+      "type" : "Mac",
+      "name" : "m"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) && args(key, params) && target(m)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_i2Event",
+      "specName" : "MacSpec",
+      "eventId" : "i2",
+      "uniqueId" : "i2",
+      "args" : [ "key", "params", "m" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MacSpec_update",
+    "specName" : "MacSpec",
+    "parameters" : [ {
+      "type" : "Mac",
+      "name" : "m"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Mac.update(..)) && target(m)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_updateEvent",
+      "specName" : "MacSpec",
+      "eventId" : "update",
+      "uniqueId" : "update",
+      "args" : [ "m" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MacSpec_f1",
+    "specName" : "MacSpec",
+    "parameters" : [ {
+      "type" : "Mac",
+      "name" : "m"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "output"
+    } ],
+    "throwing" : null,
+    "expression" : "(call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) && target(m)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_f1Event",
+      "specName" : "MacSpec",
+      "eventId" : "f1",
+      "uniqueId" : "f1",
+      "args" : [ "m", "output" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MacSpec_f2",
+    "specName" : "MacSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "output"
+    }, {
+      "type" : "int",
+      "name" : "outOffset"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(void Mac.doFinal(byte[], int)) && args(output, outOffset) && target(m)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MacSpec_f2Event",
+      "specName" : "MacSpec",
+      "eventId" : "f2",
+      "uniqueId" : "f2",
+      "args" : [ "output", "outOffset" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_g1",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static MessageDigest MessageDigest.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_g1Event",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "digest" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_g4Event",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "g4",
+      "uniqueId" : "g4",
+      "args" : [ "alg", "digest" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_g2",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    }, {
+      "type" : "String",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static MessageDigest MessageDigest.getInstance(String, String)) && args(alg, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_g2Event",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "provider", "digest" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_g3",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    }, {
+      "type" : "Provider",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static MessageDigest MessageDigest.getInstance(String, Provider)) && args(alg, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_g3Event",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "provider", "digest" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_update",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(void MessageDigest.update(..)) && target(digest)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_updateEvent",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "update",
+      "uniqueId" : "update",
+      "args" : [ "digest" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_reset",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(void MessageDigest.reset()) && target(digest)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_resetEvent",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "reset",
+      "uniqueId" : "reset",
+      "args" : [ "digest" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_d1",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "out"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] MessageDigest.digest()) && target(digest)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_d1Event",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "d1",
+      "uniqueId" : "d1",
+      "args" : [ "digest", "out" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_d2",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "out"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] MessageDigest.digest(byte[])) && target(digest)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_d2Event",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "d2",
+      "uniqueId" : "d2",
+      "args" : [ "digest", "out" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "MessageDigestSpec_d3",
+    "specName" : "MessageDigestSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "out"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    }, {
+      "type" : "MessageDigest",
+      "name" : "digest"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int MessageDigest.digest(byte[], int, int)) && args(out, offset, len) && target(digest)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.MessageDigestSpec_d3Event",
+      "specName" : "MessageDigestSpec",
+      "eventId" : "d3",
+      "uniqueId" : "d3",
+      "args" : [ "out", "offset", "len", "digest" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "PBEKeySpecSpec_f1",
+    "specName" : "PBEKeySpecSpec",
+    "parameters" : [ {
+      "type" : "char[]",
+      "name" : "password"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public PBEKeySpec.new(char[])) && args(password)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_f1Event",
+      "specName" : "PBEKeySpecSpec",
+      "eventId" : "f1",
+      "uniqueId" : "f1",
+      "args" : [ "password" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "PBEKeySpecSpec_f2",
+    "specName" : "PBEKeySpecSpec",
+    "parameters" : [ {
+      "type" : "char[]",
+      "name" : "password"
+    }, {
+      "type" : "byte[]",
+      "name" : "salt"
+    }, {
+      "type" : "int",
+      "name" : "keyLength"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public PBEKeySpec.new(char[], byte[], int)) && args(password, salt, keyLength)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_f2Event",
+      "specName" : "PBEKeySpecSpec",
+      "eventId" : "f2",
+      "uniqueId" : "f2",
+      "args" : [ "password", "salt", "keyLength" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "PBEKeySpecSpec_c1",
+    "specName" : "PBEKeySpecSpec",
+    "parameters" : [ {
+      "type" : "char[]",
+      "name" : "password"
+    }, {
+      "type" : "byte[]",
+      "name" : "salt"
+    }, {
+      "type" : "int",
+      "name" : "iterationCount"
+    }, {
+      "type" : "int",
+      "name" : "keyLength"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "PBEKeySpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public PBEKeySpec.new(char[], byte[], int, int)) && args(password, salt, iterationCount, keyLength)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_c1Event",
+      "specName" : "PBEKeySpecSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ "password", "salt", "iterationCount", "keyLength", "s" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_err1Event",
+      "specName" : "PBEKeySpecSpec",
+      "eventId" : "err1",
+      "uniqueId" : "err1",
+      "args" : [ "password", "salt", "iterationCount", "keyLength", "s" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_err2Event",
+      "specName" : "PBEKeySpecSpec",
+      "eventId" : "err2",
+      "uniqueId" : "err2",
+      "args" : [ "password", "salt", "iterationCount", "keyLength", "s" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_err3Event",
+      "specName" : "PBEKeySpecSpec",
+      "eventId" : "err3",
+      "uniqueId" : "err3",
+      "args" : [ "password", "salt", "iterationCount", "keyLength", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "PBEKeySpecSpec_c2",
+    "specName" : "PBEKeySpecSpec",
+    "parameters" : [ {
+      "type" : "PBEKeySpec",
+      "name" : "s"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void PBEKeySpec.clearPassword()) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_c2Event",
+      "specName" : "PBEKeySpecSpec",
+      "eventId" : "c2",
+      "uniqueId" : "c2",
+      "args" : [ "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "PBEParameterSpecSpec_c1",
+    "specName" : "PBEParameterSpecSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "salt"
+    }, {
+      "type" : "int",
+      "name" : "iterationCount"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "PBEParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public PBEParameterSpec.new(byte[], int)) && args(salt, iterationCount)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEParameterSpecSpec_c1Event",
+      "specName" : "PBEParameterSpecSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ "salt", "iterationCount", "s" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEParameterSpecSpec_c3Event",
+      "specName" : "PBEParameterSpecSpec",
+      "eventId" : "c3",
+      "uniqueId" : "c3",
+      "args" : [ "salt", "iterationCount", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "PBEParameterSpecSpec_c2",
+    "specName" : "PBEParameterSpecSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "salt"
+    }, {
+      "type" : "int",
+      "name" : "iterationCount"
+    }, {
+      "type" : "AlgorithmParameterSpec",
+      "name" : "paramSpec"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "PBEParameterSpec",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) && args(salt, iterationCount, paramSpec)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.PBEParameterSpecSpec_c2Event",
+      "specName" : "PBEParameterSpecSpec",
+      "eventId" : "c2",
+      "uniqueId" : "c2",
+      "args" : [ "salt", "iterationCount", "paramSpec", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "RandomStringPasswordSpec_vo",
+    "specName" : "RandomStringPasswordSpec",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "obj"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "String",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static String String.valueOf(Object)) && args(obj)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.RandomStringPasswordSpec_voEvent",
+      "specName" : "RandomStringPasswordSpec",
+      "eventId" : "vo",
+      "uniqueId" : "vo",
+      "args" : [ "obj", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "RandomStringPasswordSpec_gb",
+    "specName" : "RandomStringPasswordSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "s"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "char[]",
+      "name" : "chars"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public char[] String.toCharArray()) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.RandomStringPasswordSpec_gbEvent",
+      "specName" : "RandomStringPasswordSpec",
+      "eventId" : "gb",
+      "uniqueId" : "gb",
+      "args" : [ "s", "chars" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecretKeySpec_e1",
+    "specName" : "SecretKeySpec",
+    "parameters" : [ {
+      "type" : "SecretKey",
+      "name" : "secretKey"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "key"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] SecretKey.getEncoded()) && target(secretKey)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecretKeySpec_e1Event",
+      "specName" : "SecretKeySpec",
+      "eventId" : "e1",
+      "uniqueId" : "e1",
+      "args" : [ "secretKey", "key" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecretKeySpecSpec_c1",
+    "specName" : "SecretKeySpecSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "keyMaterial"
+    }, {
+      "type" : "String",
+      "name" : "keyAlgorithm"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecretKeySpec",
+      "name" : "secretKeySpec"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public SecretKeySpec.new(byte[], String)) && args(keyMaterial, keyAlgorithm)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c1Event",
+      "specName" : "SecretKeySpecSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ "keyMaterial", "keyAlgorithm", "secretKeySpec" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c3Event",
+      "specName" : "SecretKeySpecSpec",
+      "eventId" : "c3",
+      "uniqueId" : "c3",
+      "args" : [ "keyMaterial", "keyAlgorithm", "secretKeySpec" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecretKeySpecSpec_c2",
+    "specName" : "SecretKeySpecSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "keyMaterial"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    }, {
+      "type" : "String",
+      "name" : "keyAlgorithm"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecretKeySpec",
+      "name" : "secretKeySpec"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public SecretKeySpec.new(byte[], int, int, String)) && args(keyMaterial, offset, len, keyAlgorithm)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c2Event",
+      "specName" : "SecretKeySpecSpec",
+      "eventId" : "c2",
+      "uniqueId" : "c2",
+      "args" : [ "keyMaterial", "offset", "len", "keyAlgorithm", "secretKeySpec" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c4Event",
+      "specName" : "SecretKeySpecSpec",
+      "eventId" : "c4",
+      "uniqueId" : "c4",
+      "args" : [ "keyMaterial", "offset", "len", "keyAlgorithm", "secretKeySpec" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_c1",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public SecureRandom.new())",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_c1Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "c1",
+      "uniqueId" : "c1",
+      "args" : [ "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_c2",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "seed"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public SecureRandom.new(byte[])) && args(seed)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_c2Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "c2",
+      "uniqueId" : "c2",
+      "args" : [ "seed", "r" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_c3Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "c3",
+      "uniqueId" : "c3",
+      "args" : [ "seed", "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_g1",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static SecureRandom SecureRandom.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_g1Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_g2",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static SecureRandom SecureRandom.getInstance(String, ..)) && args(alg, *)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_g2Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_g3",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static SecureRandom SecureRandom.getInstanceStrong())",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_g3Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_g4",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static SecureRandom SecureRandom.getInstance(String, ..)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_g4Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "g4",
+      "uniqueId" : "g4",
+      "args" : [ "alg", "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_setSeed1",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void SecureRandom.setSeed(long)) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_setSeed1Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "setSeed1",
+      "uniqueId" : "setSeed1",
+      "args" : [ "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_setSeed2",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "seed"
+    }, {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void SecureRandom.setSeed(byte[])) && args(seed) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_setSeed2Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "setSeed2",
+      "uniqueId" : "setSeed2",
+      "args" : [ "seed", "r" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_setSeed3Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "setSeed3",
+      "uniqueId" : "setSeed3",
+      "args" : [ "seed", "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_genSeed",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "seed"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte[] SecureRandom.generateSeed(int)) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_genSeedEvent",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "genSeed",
+      "uniqueId" : "genSeed",
+      "args" : [ "r", "seed" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_next1",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    }, {
+      "type" : "int",
+      "name" : "randIntInRange"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public int SecureRandom.nextInt(int)) && args(randIntInRange) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_next1Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "next1",
+      "uniqueId" : "next1",
+      "args" : [ "r", "randIntInRange" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_next2",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    }, {
+      "type" : "byte[]",
+      "name" : "bytes"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void SecureRandom.nextBytes(byte[])) && args(bytes) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_next2Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "next2",
+      "uniqueId" : "next2",
+      "args" : [ "r", "bytes" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_next3",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "int",
+      "name" : "randInt"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public int SecureRandom.nextInt()) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_next3Event",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "next3",
+      "uniqueId" : "next3",
+      "args" : [ "r", "randInt" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SecureRandomSpec_ints",
+    "specName" : "SecureRandomSpec",
+    "parameters" : [ {
+      "type" : "SecureRandom",
+      "name" : "r"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "IntStream",
+      "name" : "stream"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public IntStream SecureRandom.ints(..)) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SecureRandomSpec_intsEvent",
+      "specName" : "SecureRandomSpec",
+      "eventId" : "ints",
+      "uniqueId" : "ints",
+      "args" : [ "r", "stream" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_g1",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static Signature Signature.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_g1Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "s" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_g3Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_g2",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    }, {
+      "type" : "String",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static Signature Signature.getInstance(String, String)) && args(alg, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_g2Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "provider", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_i1",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "PrivateKey",
+      "name" : "privateKey"
+    }, {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Signature.initSign(PrivateKey)) && args(privateKey) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_i1Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "i1",
+      "uniqueId" : "i1",
+      "args" : [ "privateKey", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_i2",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "PrivateKey",
+      "name" : "privateKey"
+    }, {
+      "type" : "SecureRandom",
+      "name" : "random"
+    }, {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Signature.initSign(PrivateKey, SecureRandom)) && args(privateKey, random) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_i2Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "i2",
+      "uniqueId" : "i2",
+      "args" : [ "privateKey", "random", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_i3",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "Certificate",
+      "name" : "cert"
+    }, {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Signature.initVerify(Certificate)) && args(cert) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_i3Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "i3",
+      "uniqueId" : "i3",
+      "args" : [ "cert", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_i4",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "PublicKey",
+      "name" : "key"
+    }, {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Signature.initVerify(PublicKey)) && args(key) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_i4Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "i4",
+      "uniqueId" : "i4",
+      "args" : [ "key", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_update",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void Signature.update(..)) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_updateEvent",
+      "specName" : "SignatureSpec",
+      "eventId" : "update",
+      "uniqueId" : "update",
+      "args" : [ "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_s1",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "byte[]",
+      "name" : "output"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public byte Signature.sign()) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_s1Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "s1",
+      "uniqueId" : "s1",
+      "args" : [ "s", "output" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_s2",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "output"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    }, {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public byte Signature.sign(byte[], int, int)) && args(output, offset, len) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_s2Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "s2",
+      "uniqueId" : "s2",
+      "args" : [ "output", "offset", "len", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_v1",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "sign"
+    }, {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "boolean",
+      "name" : "signed"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public boolean Signature.verify(byte[])) && args(sign) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_v1Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "v1",
+      "uniqueId" : "v1",
+      "args" : [ "sign", "s", "signed" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SignatureSpec_v2",
+    "specName" : "SignatureSpec",
+    "parameters" : [ {
+      "type" : "byte[]",
+      "name" : "sign"
+    }, {
+      "type" : "int",
+      "name" : "offset"
+    }, {
+      "type" : "int",
+      "name" : "len"
+    }, {
+      "type" : "Signature",
+      "name" : "s"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "boolean",
+      "name" : "signed"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public boolean Signature.verify(byte[], int, int)) && args(sign, offset, len) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SignatureSpec_v2Event",
+      "specName" : "SignatureSpec",
+      "eventId" : "v2",
+      "uniqueId" : "v2",
+      "args" : [ "sign", "offset", "len", "s", "signed" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SSLContextSpec_g1",
+    "specName" : "SSLContextSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "protocol"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SSLContext",
+      "name" : "ctx"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static SSLContext SSLContext.getInstance(String)) && args(protocol)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SSLContextSpec_g1Event",
+      "specName" : "SSLContextSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "protocol", "ctx" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SSLContextSpec_g2",
+    "specName" : "SSLContextSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "protocol"
+    }, {
+      "type" : "String",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SSLContext",
+      "name" : "ctx"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static SSLContext SSLContext.getInstance(String, String)) && args(protocol, provider)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SSLContextSpec_g2Event",
+      "specName" : "SSLContextSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "protocol", "provider", "ctx" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SSLContextSpec_g1",
+    "specName" : "SSLContextSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "protocol"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public static SSLContext SSLContext.getInstance(String)) && args(protocol)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SSLContextSpec_unsafe_protocolEvent",
+      "specName" : "SSLContextSpec",
+      "eventId" : "unsafe_protocol",
+      "uniqueId" : "unsafe_protocol",
+      "args" : [ "protocol" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SSLContextSpec_init",
+    "specName" : "SSLContextSpec",
+    "parameters" : [ {
+      "type" : "SSLContext",
+      "name" : "ctx"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) && target(ctx)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SSLContextSpec_initEvent",
+      "specName" : "SSLContextSpec",
+      "eventId" : "init",
+      "uniqueId" : "init",
+      "args" : [ "ctx" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SSLContextSpec_engine",
+    "specName" : "SSLContextSpec",
+    "parameters" : [ {
+      "type" : "SSLContext",
+      "name" : "ctx"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "SSLEngine",
+      "name" : "eng"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public void SSLContext.createSSLEngine(..)) && target(ctx)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SSLContextSpec_engineEvent",
+      "specName" : "SSLContextSpec",
+      "eventId" : "engine",
+      "uniqueId" : "engine",
+      "args" : [ "ctx", "eng" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TrustManagerFactorySpec_g1",
+    "specName" : "TrustManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "TrustManagerFactory",
+      "name" : "mf"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static TrustManagerFactory TrustManagerFactory.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_g1Event",
+      "specName" : "TrustManagerFactorySpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "mf" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TrustManagerFactorySpec_g2",
+    "specName" : "TrustManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "TrustManagerFactory",
+      "name" : "mf"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..)) && args(alg, *)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_g2Event",
+      "specName" : "TrustManagerFactorySpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "mf" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TrustManagerFactorySpec_g1",
+    "specName" : "TrustManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "TrustManagerFactory",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static TrustManagerFactory TrustManagerFactory.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_g3Event",
+      "specName" : "TrustManagerFactorySpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TrustManagerFactorySpec_init",
+    "specName" : "TrustManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "TrustManagerFactory",
+      "name" : "mf"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(public void TrustManagerFactory.init(KeyStore)) || call(public void TrustManagerFactory.init(ManagerFactoryParameters))) && target(mf)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_initEvent",
+      "specName" : "TrustManagerFactorySpec",
+      "eventId" : "init",
+      "uniqueId" : "init",
+      "args" : [ "mf" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TrustManagerFactorySpec_gtm1",
+    "specName" : "TrustManagerFactorySpec",
+    "parameters" : [ {
+      "type" : "TrustManagerFactory",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "TrustManager[][]",
+      "name" : "trustManager"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public KeyManager[] TrustManagerFactory.getTrustManagers()) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_gtm1Event",
+      "specName" : "TrustManagerFactorySpec",
+      "eventId" : "gtm1",
+      "uniqueId" : "gtm1",
+      "args" : [ "k", "trustManager" ],
+      "countCond" : null
+    } ]
+  } ]
+}

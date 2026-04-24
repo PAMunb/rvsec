@@ -41,8 +41,8 @@ flowchart LR
 
 ## What Changes
 
-- **NEW** Java multi-module `rv-android/modules/rv-instrumentation-dexlib2/` (descriptor-reader, pointcut-engine, advice-emitter, dex-mutator, coverage-weaver, monitor-builder, multidex-merger, cli, validator) that weaves AspectJ semantics natively over DEX bytecode without any JVM round-trip
-- **NEW** Python wrapper module `rv-android/modules/rv-instrumentation-dexlib2-py/` exposing the same `instrument_apks(apks_dir, results_dir) → InstrumentationResults` contract that `rv-experiment` consumes today
+- **NEW** Java Maven multi-module aggregator `rvsec-instrumentation-dexlib2` at `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` (9 submodules: descriptor-reader, pointcut-engine, advice-emitter, dex-mutator, coverage-weaver, monitor-builder, multidex-merger, cli, validator) that weaves AspectJ semantics natively over DEX bytecode without any JVM round-trip. Sits under the `rvsec-android` Maven aggregator as a sibling of `rvsec-apk`, `rvsec-gator`, `rvsec-logger-logcat`, etc., inheriting the parent chain `rvsec-parent → rvsec → rvsec-android`
+- **NEW** Python wrapper module `rv-instrumentation-dexlib2` at `rv-android/modules/rv-instrumentation-dexlib2/` — uv workspace member that exposes the existing `instrument_apks(apks_dir, results_dir) → InstrumentationResults` contract consumed by `rv-experiment`. Invokes the Java CLI jar (`rvsec-instrumentation-dexlib2/cli/target/instr-cli.jar`) via subprocess; the jar is automatically copied into this module's `lib/` directory during the Maven build (see design D9)
 - **MODIFIED** `rv-monitor-generator` to invoke JavaMOP with the new `--emit-descriptor` flag, producing `MultiSpec_*MonitorAspect.json` alongside the existing `.aj`/`.java` artifacts
 - **MODIFIED** `rv-experiment` to add `instrumentation_variant: Literal["ajc","dexlib2"]` to its config and dispatch to the chosen pipeline; default stays `ajc` until Layer-4 validation ratifies
 - **MODIFIED** vendored `rvsec/javamop` carries the `--emit-descriptor` patch directly on the change branch (per design D6, no separate upstream PR); pinned commits on `gh52-instr-dexlib2`: `6fca1f8a` (cherry-pick of `79547700` from the legacy `emit-descriptor` branch) and `927e78c1` (the 2 mods that were uncommitted on that branch's working tree, adding `package` + `imports` to `DescriptorWriter.java` and `AspectJDescriptor.java`)
@@ -70,14 +70,17 @@ flowchart LR
 - `rv-experiment` (variant flag in config, dispatch in pre-processor)
 - `rv-android-core` (possibly extend `InstrumentationResults` with `variant` field for traceability)
 
+**Naming note**: the Java aggregator follows the `rvsec-android` sibling convention (prefix `rvsec-`, matching `rvsec-apk`, `rvsec-gator`); the Python wrapper follows the `rv-android/modules/` sibling convention (prefix `rv-`, matching `rv-instrumentation`, `rv-monitor-generator`). The two modules intentionally carry different names (`rvsec-instrumentation-dexlib2` vs `rv-instrumentation-dexlib2`) because they live in different language trees with different naming norms. Disambiguation in docs is always done by root path, never by suffix.
+
 **Modules created (uv workspace + Maven)**:
 - `rv-instrumentation-dexlib2/` (Java multi-module, 9 submodules)
-- `rv-instrumentation-dexlib2-py/` (Python wrapper)
+- `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` (Java Maven multi-module aggregator, 9 submodules)
+- `rv-android/modules/rv-instrumentation-dexlib2/` (Python wrapper — uv workspace member)
 
 **Cross-module dependencies**:
-- `rv-experiment → rv-instrumentation-dexlib2-py` (new) via Python interface
+- `rv-experiment → rv-instrumentation-dexlib2` (Python wrapper, new) via Python interface
 - `rv-monitor-generator → rv-instrumentation*` boundary moves a JSON descriptor (filesystem) alongside the existing `.aj`/`.java` artifacts
-- `rv-instrumentation-dexlib2-py → rv-instrumentation-dexlib2/cli` via subprocess (Java CLI)
+- `rv-instrumentation-dexlib2` (Python) → `rvsec-instrumentation-dexlib2/cli` (Java CLI jar) via subprocess — the jar is copied to `rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` by the Maven build
 - `rvsec/javamop` (vendored) gains `--emit-descriptor` flag — pinned upstream commit recorded
 
 **External dependencies**:
@@ -106,7 +109,7 @@ flowchart TB
     CFG{"ExperimentConfig<br/>.instrumentation_variant"}
     GEN["rv-monitor-generator<br/>(JavaMOP --emit-descriptor + RV-Monitor)"]
     AJC["rv-instrumentation<br/>(legacy ajc — coexists Phase 4-5,<br/>quarantined Phase 6)"]
-    DEX["rv-instrumentation-dexlib2-py<br/>+ rv-instrumentation-dexlib2 (Java)"]
+    DEX["rv-instrumentation-dexlib2 (Python wrapper)<br/>+ rvsec-instrumentation-dexlib2 (Java, under rvsec-android)"]
     PLAT["rv-platform<br/>(consumer)"]
 
     EXP --> GEN

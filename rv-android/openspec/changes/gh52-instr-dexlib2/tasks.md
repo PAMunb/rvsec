@@ -17,7 +17,7 @@ GitHub Issue: #52
          - Group 7 (monitor-builder)  — fully independent
          - Group 8 (multidex-merger)  — fully independent
          - Group 11 (rv-monitor-generator) — needs descriptor schema (Group 2) only
-         - Group 12 (rv-instrumentation-dexlib2-py) — can start with stub CLI; finalize after Group 9
+         - Group 12 (rv-instrumentation-dexlib2 Python wrapper) — can start with stub CLI; finalize after Group 9
          - Group 15 (documentation) — can start anytime; FeatureMappingChecker test (Group 10) closes the loop
 
      Parallel wave (after Group 9):
@@ -41,17 +41,18 @@ GitHub Issue: #52
 - [x] 1.8 `design.md` committed (Phase 3)
 - [x] 1.9 Apply JavaMOP `--emit-descriptor` patch directly on `gh52-instr-dexlib2`: cherry-pick `79547700` from `emit-descriptor` (became `6fca1f8a` on this branch) + follow-up commit `927e78c1` carrying the 2 mods that were sitting uncommitted on `emit-descriptor`'s working tree (`AspectJDescriptor.java` + `DescriptorWriter.java` adding `package` + `imports` to JSON). Decision D6 in `design.md` revised: patch carried on the change branch (atomic), no separate PR to `rvsec/master`.
 - [x] 1.10 Pin the JavaMOP commit hashes in `design.md` §Decisions D6: `6fca1f8a` (cherry-picked) + `927e78c1` (mods)
-- [ ] 1.11 Run `openspec validate gh52-instr-dexlib2` — must report `is valid`
+- [x] 1.11 Run `openspec validate gh52-instr-dexlib2` — must report `is valid`
 
 ## 2. `descriptor-reader` Maven submodule (Java)
 
-- [ ] 2.1 Create `rv-android/modules/rv-instrumentation-dexlib2/` parent `pom.xml` (packaging `pom`, Java 11, Jackson 2.18.2, JUnit 5, Picocli, dexlib2 3.0.8, ASM 9.7.1)
-- [ ] 2.2 Create `descriptor-reader/pom.xml` (Jackson + slf4j only)
-- [ ] 2.3 Implement POJOs: `AspectDescriptor`, `AdviceDescriptor`, `MonitorCallDescriptor`, `ParameterDescriptor`, `Position` enum, `PointcutExpression` (interface) + `CallPC`, `ExecutionPC`, `ArgsPC`, `TargetPC`, `NotWithinPC`, `CombinedPC`, `IfPC`, `StaticInitPC`
-- [ ] 2.4 Implement `DescriptorReader.read(Path) → AspectDescriptor` (Jackson `ObjectMapper` config: fail on unknown properties, JSON pointer in errors)
-- [ ] 2.5 Unit tests: load fixture `MultiSpec_1MonitorAspect.json` from `prototipo-dexlib2` test-fixtures; assert 115 advices, package, imports, common pointcut, base aspect exclusions
-- [ ] 2.6 Negative tests: missing `imports`, empty `advices`, malformed `position` value → `DescriptorParseError` with JSON pointer
-- [ ] 2.7 `mvn -pl descriptor-reader test` — all green
+- [x] 2.0 Register the new aggregator in `rvsec/rvsec-android/pom.xml`: added `<module>rvsec-instrumentation-dexlib2</module>` to `<modules>` (after `rvsec-frame-computer`)
+- [x] 2.1 Created `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/pom.xml` (parent `br.unb.cic:rvsec-android:0.8.0-SNAPSHOT`, artifactId `rvsec-instrumentation-dexlib2`, packaging `pom`, Java 21 inherited). `<modules>` contains only `descriptor-reader` initially. `<dependencyManagement>`: Jackson 2.18.2, dexlib2 3.0.8, smali-baksmali 3.0.8, Picocli 4.7.6, ASM 9.7.1, SLF4J 2.0.16 + slf4j-simple, JUnit Jupiter 5.11.3 — scope-limited per D8. `<repositories>` declares `google` for dexlib2/baksmali.
+- [x] 2.2 Created `descriptor-reader/pom.xml` (Jackson + slf4j + JUnit Jupiter inherited from aggregator `dependencyManagement`)
+- [x] 2.3 Implemented 4 JSON POJOs in `descriptor-reader/src/main/java/br/unb/cic/rv/descriptor/`: `AspectDescriptor`, `AdviceDescriptor`, `MonitorCallDescriptor`, `ParameterDescriptor` + `package-info.java` + `DescriptorParseError`. **Design note**: `Position` enum and `PointcutExpression` AST types (Call/Execution/Args/Target/NotWithin/Combined/If/StaticInit) are NOT in descriptor-reader — they belong to `pointcut-engine` per design D1 ("descriptor-reader is a pure POJO module with no dependencies"); the parser in task 3.2 creates them. `position` is a plain `String` in the POJO (matches JSON literal `"before"|"after"|"around"` emitted by JavaMOP DescriptorWriter). `isAround` is a separate boolean field (matches JSON emission) with explicit `@JsonProperty("isAround")` because Jackson's default naming would drop the `is` prefix.
+- [x] 2.4 Implemented `DescriptorReader.read(File|Path|InputStream|String)` with `ObjectMapper.configure(FAIL_ON_UNKNOWN_PROPERTIES, true)`; wraps `JsonMappingException` in `DescriptorParseError` including `getPathReference()` (e.g. `AspectDescriptor["advices"]->java.util.ArrayList[0]->AdviceDescriptor["isAround"]`) when available.
+- [x] 2.5 Unit test `DescriptorReaderTest.readsJcaMultiSpecDescriptor` loads fixture from test classpath and asserts 115 advices, aspectName, package="package mop;", baseAspectExclusions includes java..*/mop..*, CipherSpec_g1 present with `position="after"`, `isAround=false`, `returning=[Cipher]`, `monitorCalls[0].method="MultiSpec_1RuntimeMonitor.CipherSpec_g1Event"`.
+- [x] 2.6 `DescriptorReaderNegativeTest` covers 4 cases: unknown property fails fast citing field name; malformed JSON raises DescriptorParseError; type mismatch cites JSON path; empty `{}` deserializes to defaults (empty lists).
+- [x] 2.7 `mvn test` from `rvsec-instrumentation-dexlib2/descriptor-reader/` — BUILD SUCCESS, 5/5 tests pass (1 positive + 4 negative).
 
 ## 3. `pointcut-engine` Maven submodule (Java)
 
@@ -131,6 +132,7 @@ GitHub Issue: #52
 - [ ] 9.5 IT: `instrument` end-to-end on `cryptoapp` (small Java APK) + `hateitorrateit` (Kotlin/R8) fixtures
 - [ ] 9.6 IT: `batch` over a 3-APK fixture directory; assert correct `InstrumentationResults` shape
 - [ ] 9.7 Build fat jar: `mvn -pl cli package` — produces `cli/target/instr-cli.jar`
+- [ ] 9.7b Configure `cli/pom.xml` with `maven-resources-plugin:copy-resources` (phase `package`) that copies the fat jar to `${main.basedir}/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` — see design D9. `${main.basedir}` is resolved by `directory-maven-plugin` in `rvsec-parent`. Add `rv-android/modules/rv-instrumentation-dexlib2/lib/*.jar` to the monorepo `.gitignore` (build output, never versioned).
 - [ ] 9.8 `mvn -pl cli verify` — all green
 
 ## 10. `validator` Maven submodule (Java)
@@ -162,17 +164,17 @@ GitHub Issue: #52
 - [ ] 11.5 Add negative test: when `emit_descriptor=False`, no `.json` files emitted
 - [ ] 11.6 Run `/rv-test-run rv-monitor-generator`
 
-## 12. `rv-instrumentation-dexlib2-py` Python wrapper
+## 12. `rv-instrumentation-dexlib2` Python wrapper (uv workspace member)
 
-- [ ] 12.1 Create `rv-android/modules/rv-instrumentation-dexlib2-py/` with `pyproject.toml` (uv workspace member; deps: rv-android-core, pydantic v2)
-- [ ] 12.2 Implement `DexlibInstrumentationConfig` (Pydantic, mirrors `RVInstrumentationConfig` shape; adds `cli_jar_path: Path`, `descriptor_glob: str`)
+- [ ] 12.1 Create `rv-android/modules/rv-instrumentation-dexlib2/` with `pyproject.toml` (uv workspace member; deps: rv-android-core, pydantic v2)
+- [ ] 12.2 Implement `DexlibInstrumentationConfig` (Pydantic, mirrors `RVInstrumentationConfig` shape; adds `cli_jar_path: Path` with default resolving to `Path(__file__).parent.parent.parent / "lib" / "instr-cli.jar"` per design D9 — the jar is auto-copied there by the Maven build, no env var or absolute path needed; `descriptor_glob: str`)
 - [ ] 12.3 Implement `DexlibInstrumentation` class: `prepare_instrumentation()`, `instrument(app, result_dir)`, `instrument_apks(apks_dir, results_dir)`; subprocess to Java CLI; preserve `_error_phase` from CLI exit codes
-- [ ] 12.4 Implement `MissingDescriptorError`, `DescriptorParseError`, `UnsupportedAspectConstructError` (in `rv-instrumentation-dexlib2-py.errors`)
+- [ ] 12.4 Implement `MissingDescriptorError`, `DescriptorParseError`, `UnsupportedAspectConstructError` (in `rv_instrumentation_dexlib2.errors`)
 - [ ] 12.5 Add `variant: Literal["ajc","dexlib2"]` field to `InstrumentationResults` in `rv-android-core` (default `"ajc"` for legacy compatibility)
 - [ ] 12.6 Unit tests: config validation, `MissingDescriptorError` raised when no `.json` in `monitor_output_dir`
 - [ ] 12.7 Integration test: parametrized `test_api_parity.py` runs both `RVInstrumentation` and `DexlibInstrumentation` over the same fixture APK; asserts identical `InstrumentationResults` shape (INV-INS-18)
-- [ ] 12.8 Run `/rv-doc-code modules/rv-instrumentation-dexlib2-py/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py`
-- [ ] 12.9 Run `/rv-test-run rv-instrumentation-dexlib2-py`
+- [ ] 12.8 Run `/rv-doc-code modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py`
+- [ ] 12.9 Run `/rv-test-run rv-instrumentation-dexlib2`
 
 ## 13. `rv-experiment` — variant flag
 
@@ -202,7 +204,7 @@ GitHub Issue: #52
 - [ ] 15.5 Update `rv-android/docs/PRD.md` if any FR/NFR text needs adjustment for the new variant
 - [ ] 15.6 Update `rv-android/docs/rv_android_architecture.md` with the new module decomposition diagram (mermaid from design.md)
 - [ ] 15.7 Add `rv-android/docs/20260424_dexlib2_promotion.md` summarizing the change for future readers (one-page)
-- [ ] 15.8 Author `rv-android/openspec/changes/gh52-instr-dexlib2/ADR-DEX-NATIVE.md` — architectural decision record for D1-D7 (decisions in design.md, including D7 AGP ASM deferred alternative), one section per decision: context / decision / status / consequences (template at `.claude/skills/rv-doc-adr/templates/adr.md`)
+- [ ] 15.8 Author `rv-android/openspec/changes/gh52-instr-dexlib2/ADR-DEX-NATIVE.md` — architectural decision record for D1-D9 (decisions in design.md, including D7 AGP ASM deferred, D8 module location split, D9 build-time fat-jar copy), one section per decision: context / decision / status / consequences (template at `.claude/skills/rv-doc-adr/templates/adr.md`)
 
 ## 16. Phase 5 — Validation execution
 
@@ -221,7 +223,7 @@ GitHub Issue: #52
 ## 17. Phase 6 — Substitution (P3)
 
 - [ ] 17.1 Move legacy `rv-android/modules/rv-instrumentation/` → `rv-android/backup/2026-MM-DD-rv-instrumentation-ajc/`
-- [ ] 17.2 Rename `rv-android/modules/rv-instrumentation-dexlib2/` files appropriately (keep submodule layout); rename Python module `rv-instrumentation-dexlib2-py` → `rv-instrumentation-py` (or keep as-is, decide based on consumer references)
+- [ ] 17.2 Rename consideration: Python wrapper currently at `rv-android/modules/rv-instrumentation-dexlib2/` could be promoted to `rv-instrumentation` after legacy removal; decide based on consumer references. Java aggregator stays at `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` regardless.
 - [ ] 17.3 Update `rv-experiment.PreProcessor._instrument_apks()` dispatch: now default to `dexlib2`; legacy `ajc` branch removed (unless retained as opt-in)
 - [ ] 17.4 Change default of `ExperimentConfig.instrumentation_variant` to `"dexlib2"`
 - [ ] 17.5 Grep entire repo for remaining references to legacy `RVInstrumentation` class — update or remove
@@ -230,11 +232,11 @@ GitHub Issue: #52
 
 ## 18. Verification, code review, PR, archive
 
-- [ ] 18.1 Run `/rv-qa-lint-fix rv-instrumentation-dexlib2-py`
+- [ ] 18.1 Run `/rv-qa-lint-fix rv-instrumentation-dexlib2` (Python wrapper)
 - [ ] 18.2 Run `/rv-qa-lint-fix rv-monitor-generator`
 - [ ] 18.3 Run `/rv-qa-lint-fix rv-experiment`
 - [ ] 18.4 Run `mvn verify` over `rv-instrumentation-dexlib2/` — full Java test suite green
-- [ ] 18.5 Run `/rv-verify rv-instrumentation-dexlib2-py`
+- [ ] 18.5 Run `/rv-verify rv-instrumentation-dexlib2` (Python wrapper)
 - [ ] 18.6 Run `/rv-verify rv-monitor-generator`
 - [ ] 18.7 Run `/rv-verify rv-experiment`
 - [ ] 18.8 Invoke `/rv-code-reviewer` via Skill tool — review entire change against pre-plan + design + spec

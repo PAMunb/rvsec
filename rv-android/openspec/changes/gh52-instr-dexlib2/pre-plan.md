@@ -51,8 +51,8 @@ O protótipo prova a tese central: **ajc crasha imediato em SDK ≥ 36; dexlib2 
 
 ### Em escopo
 
-1. **Novo módulo Maven multi-módulo**: `rv-android/modules/rv-instrumentation-dexlib2/` (Java) — graduação refatorada do protótipo.
-2. **Wrapper Python**: novo módulo `rv-android/modules/rv-instrumentation-dexlib2-py/` com classe `DexlibInstrumentation` que honra contrato `instrument_apks(apks_dir, results_dir) → InstrumentationResults` (mesma assinatura usada hoje por rv-experiment).
+1. **Novo aggregator Maven Java** (`rvsec-instrumentation-dexlib2`): `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` — graduação refatorada do protótipo; sob o aggregator `rvsec-android` como irmão de `rvsec-apk`, `rvsec-gator`, etc.
+2. **Wrapper Python** (`rv-instrumentation-dexlib2`): novo módulo `rv-android/modules/rv-instrumentation-dexlib2/` (uv workspace) com classe `DexlibInstrumentation` que honra contrato `instrument_apks(apks_dir, results_dir) → InstrumentationResults` (mesma assinatura usada hoje por rv-experiment). Os dois módulos têm nomes diferentes por design — cada um segue a convenção de sua árvore.
 3. **Variant flag em `rv-experiment`**: `--instrumentation-variant ajc|dexlib2` (default `ajc` enquanto valida; vira `dexlib2` após Layer 4 ratificada).
 4. **Patch JavaMOP `--emit-descriptor`** integrado ao build oficial do `rvsec/javamop`. Commit 79547700 promovido + documentado.
 5. **Validation harness** como módulo Maven `validator/` dentro do novo módulo: BaksmaliDiffer, TraceComparator, FeatureMappingChecker, ConstructionInventoryGenerator.
@@ -109,7 +109,7 @@ A arquitetura a seguir **refatora** o protótipo (que colapsava muitas responsab
 ### 4.1 Decomposição de módulos Maven
 
 ```
-rv-android/modules/rv-instrumentation-dexlib2/         ← multi-module Maven parent
+rvsec/rvsec-android/rvsec-instrumentation-dexlib2/     ← Maven aggregator (parent: rvsec-android)
 │
 ├── descriptor-reader/         ← POJO + Jackson (ZERO lógica de weaving)
 │   └── domain: AspectDescriptor, AdviceDescriptor, MonitorCallDescriptor,
@@ -164,7 +164,7 @@ rv-android/modules/rv-instrumentation-dexlib2/         ← multi-module Maven pa
 ### 4.2 Componentes Python (interface com rv-experiment)
 
 ```
-rv-android/modules/rv-instrumentation-dexlib2-py/
+rv-android/modules/rv-instrumentation-dexlib2/       ← Python wrapper (uv workspace member)
 └── src/rv_instrumentation_dexlib2/
     ├── dexlib_instrumentation.py   ← classe DexlibInstrumentation
     │     ├── instrument_apks(apks_dir, results_dir) → InstrumentationResults
@@ -215,7 +215,7 @@ results = instrumentation.instrument_apks(apks_dir, results_dir)
 Phase 4 (Implement) — final state
 ├── modules/rv-instrumentation/                  (legacy ajc — INTACTO)
 ├── modules/rv-instrumentation-dexlib2/          (NEW — Java multi-module)
-└── modules/rv-instrumentation-dexlib2-py/       (NEW — Python wrapper)
+└── modules/rv-instrumentation-dexlib2/          (NEW — Python wrapper, uv workspace)
 
 rv-experiment configuração:
 └── instrumentation_variant: "ajc" | "dexlib2"  (default "ajc")
@@ -308,7 +308,7 @@ Reusa integralmente o framework de 6 camadas de `docs/20260423_plano_validacao.m
 | **Phase 2 (Propose)** | `/opsx:new gh52-instr-dexlib2`; redigir `proposal.md` (FRs, NFRs, impactos); delta specs em `specs/instrumentation/spec.md` (REQ-INS-13+, INV-INS-13+ para pipeline DEX-nativo + variant flag) | proposal.md, delta specs | 2-3 dias |
 | **Phase 3 (Design)** | `design.md` (arquitetura §4 deste pre-plan, expandida); `tasks.md` (decomposição por módulo, anotações `/rv-doc-code`); `/rv-doc-adr ADR-DEX-NATIVE` registrando decisão arquitetural; `/rv-risk gh52-instr-dexlib2` | design.md, tasks.md, ADR | 2-3 dias |
 | **Phase 4 (Implement)** | `/opsx:apply` com subagent orchestration (5 grupos paralelos: Java modules, Python wrapper, JavaMOP patch promotion, rv-experiment variant, validator harness); `/rv-test-add` por componente; `/rv-doc-code` por classe nova | código + testes | 3-4 semanas |
-| **Phase 5 (Verify)** | `/rv-verify rv-instrumentation-dexlib2`; `/rv-verify rv-instrumentation-dexlib2-py`; rodar Layers 1-5 do validator; `/opsx:verify`; `/rv-code-reviewer` | reports validação, testes verdes | 2-3 semanas (Layer 4 = ~36h compute) |
+| **Phase 5 (Verify)** | `mvn -pl rvsec-android/rvsec-instrumentation-dexlib2 verify` (Java); `/rv-verify rv-instrumentation-dexlib2` (Python wrapper); rodar Layers 1-5 do validator; `/opsx:verify`; `/rv-code-reviewer` | reports validação, testes verdes | 2-3 semanas (Layer 4 = ~36h compute) |
 | **Phase 6 (Archive)** | Quarentenar `rv-instrumentation` legado (P3, mover para backup/); rename module dirs; `/opsx:sync` + `/opsx:archive`; `/rv-docs-sync`; PR para modules; `/rv-retrospective` | specs main atualizados, change archived, PR mergeado | 3-5 dias |
 
 **Total estimado**: 6-9 semanas. Executar em paralelo com outros trabalhos em curso no projeto; Phase 5 batch (~36h de wallclock) roda off-hours e não bloqueia desenvolvimento das fases seguintes.
@@ -358,8 +358,9 @@ Reusa integralmente o framework de 6 camadas de `docs/20260423_plano_validacao.m
 | `rv-android/openspec/changes/gh52-instr-dexlib2/design.md` | Phase 3 |
 | `rv-android/openspec/changes/gh52-instr-dexlib2/tasks.md` | Phase 3 |
 | `rv-android/openspec/changes/gh52-instr-dexlib2/ADR-DEX-NATIVE.md` | Phase 3 |
-| `rv-android/modules/rv-instrumentation-dexlib2/` | Módulo Java multi-module (Phase 4) |
-| `rv-android/modules/rv-instrumentation-dexlib2-py/` | Wrapper Python (Phase 4) |
+| `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` | Aggregator Maven Java + 9 submódulos (Phase 4) — parent: `rvsec-android` |
+| `rv-android/modules/rv-instrumentation-dexlib2/` | Wrapper Python (Phase 4) — uv workspace member |
+| `rvsec/rvsec-android/pom.xml` | Registrar `<module>rvsec-instrumentation-dexlib2</module>` (Phase 4 task 2.0) |
 | `rv-android/docs/AJ_CONSTRUCTIONS_INVENTORY.md` | Phase 4 (gerado) |
 | `rv-android/docs/AJ_TO_DEXLIB2_MAPPING.md` | Phase 4 |
 | `rv-android/docs/LIMITATIONS.md` | Phase 4 |
@@ -372,7 +373,7 @@ Reusa integralmente o framework de 6 camadas de `docs/20260423_plano_validacao.m
 
 ```bash
 # Por componente
-cd rv-android/modules/rv-instrumentation-dexlib2
+cd rvsec/rvsec-android/rvsec-instrumentation-dexlib2
 mvn -pl descriptor-reader test
 mvn -pl pointcut-engine test
 mvn -pl advice-emitter test

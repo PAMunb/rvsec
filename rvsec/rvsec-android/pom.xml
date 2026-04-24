@@ -20,6 +20,7 @@
 		<module>rvsec-gator</module>
 		<module>rvsmart</module>
 		<module>rvsec-frame-computer</module>
+		<module>rvsec-instrumentation-dexlib2</module>
 	</modules>
 
 	<properties>
