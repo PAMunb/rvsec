@@ -24,6 +24,7 @@
         <module>coverage-weaver</module>
         <module>monitor-builder</module>
         <module>multidex-merger</module>
+        <module>cli</module>
     </modules>
 
     <properties>
