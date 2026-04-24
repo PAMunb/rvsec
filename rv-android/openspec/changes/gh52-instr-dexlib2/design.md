@@ -1,0 +1,508 @@
+# Design — DEX-native instrumentation pipeline (dexlib2)
+
+GitHub Issue: #52 — Change: `gh52-instr-dexlib2` — Branch: `gh52-instr-dexlib2` (from `modules`)
+
+## Context
+
+The current `rv-instrumentation` module weaves AspectJ aspects over Java bytecode via `dex2jar → ajc → d8`. The diagnostic in `docs/20260421_problema_dex2jar.md` proves this round-trip is structurally irreparable for R8-optimized DEX bytecode under JVMS §4.10.1.9. The `proposal.md` (Phase 2) and the modified `instrumentation` capability spec (Phase 2) establish what changes; this design document describes how.
+
+The new pipeline is a Maven multi-module Java project that operates exclusively on DEX bytecode using `dexlib2`. The prototype `prototipo-dexlib2` validated the thesis end-to-end, but its `DexWeaver` class collapses parsing, matching, register allocation, and injection into one ~3400-LOC class — fine for prototyping, unfit for production. The design refactors that monolith into single-responsibility components that can be tested and extended independently. It also operationalizes the 6-layer validation framework from `docs/20260423_plano_validacao.md` as a runnable `validator/` submodule, because paper reviewers will scrutinize the equivalence of the substitution and require evidence that no AspectJ construct used in production is silently dropped.
+
+The change strategy is coexistence-then-substitution. Phase 4 stands up the new module alongside the legacy ajc pipeline. Phase 5 runs both in parallel on the JCA-400 dataset and gates the substitution on five quantitative thresholds. Phase 6 quarantines the legacy implementation to `backup/` per Development Principle P3 and switches the default variant. Throughout, the Python public API `instrument_apks(apks_dir, results_dir) → InstrumentationResults` is preserved so that consumers (`rv-experiment`, `rv-platform`) need no changes.
+
+References: PRD `FR-INS-01..03`, `NFR-INS-*`, `NFR-REP-*`. Insumos: `docs/20260421_problema_dex2jar.md`, `docs/20260422_lspatch.md`, `docs/20260423_javamop.md`, `docs/20260423_plano_prototipo.md`, `docs/20260423_plano_validacao.md`, prototype at `workspace-rv/prototipo-dexlib2/`.
+
+## Architecture
+
+### High-level component view
+
+```mermaid
+flowchart TB
+    subgraph EXT["External (rv-experiment)"]
+        EXP["PreProcessor._instrument_apks()"]
+    end
+
+    subgraph PY["rv-instrumentation-dexlib2-py (NEW)"]
+        DI["DexlibInstrumentation<br/>instrument_apks() / instrument()"]
+        PYC[DexlibInstrumentationConfig]
+    end
+
+    subgraph CLI["cli (Java — Picocli)"]
+        ICLI[InstrumentationCli]
+        BR[BatchRunner]
+        CR[ConfigResolver]
+    end
+
+    subgraph WEAVER["dex weaving stack"]
+        DR[descriptor-reader]
+        PE[pointcut-engine]
+        AE[advice-emitter]
+        DM[dex-mutator]
+        CW[coverage-weaver]
+    end
+
+    subgraph BUILD["build & assembly"]
+        MB[monitor-builder<br/>javac + d8]
+        MM[multidex-merger<br/>apksigner v3]
+    end
+
+    subgraph VAL["validator (rigor harness)"]
+        BD[BaksmaliDiffer]
+        TC[TraceComparator]
+        FMC[FeatureMappingChecker]
+        CIG[ConstructionInventoryGenerator]
+        BV[BootValidator]
+        BTV[BatchValidator]
+        CV[CoverageValidator]
+    end
+
+    subgraph GEN["rv-monitor-generator (MODIFIED)"]
+        JM[javamop --emit-descriptor]
+    end
+
+    EXP -->|subprocess| DI
+    DI --> PYC
+    DI -->|java -jar| ICLI
+    ICLI --> CR
+    ICLI --> BR
+    BR --> DR
+    DR --> PE
+    PE --> AE
+    AE --> DM
+    CW --> DM
+    DM --> MB
+    DM --> MM
+    MB --> MM
+    MM -->|signed APK<br/>+ JSON results| DI
+    DI -->|InstrumentationResults| EXP
+
+    JM -->|".aj + .json"| DR
+    JM -->|".java"| MB
+
+    VAL -.->|"reads outputs<br/>(Phase 5 gates)"| MM
+    VAL -.->|"compares vs"| LEGACY[("rv-instrumentation<br/>legacy ajc")]
+
+    classDef new fill:#efe,stroke:#3c3
+    classDef changed fill:#ffe,stroke:#cc3
+    class PY,CLI,WEAVER,BUILD,VAL new
+    class GEN changed
+```
+
+### Maven multi-module layout
+
+```mermaid
+flowchart TB
+    PARENT["rv-instrumentation-dexlib2 (parent pom)"]
+    PARENT --> M1["descriptor-reader<br/>(POJO + Jackson)"]
+    PARENT --> M2["pointcut-engine<br/>(parser + matcher + resolver)"]
+    PARENT --> M3["advice-emitter<br/>(per-kind emitters + WrapperEmitter)"]
+    PARENT --> M4["dex-mutator<br/>(DexWeaver + InstructionInjector + Register*)"]
+    PARENT --> M5["coverage-weaver<br/>(catch-all + filter + signature)"]
+    PARENT --> M6["monitor-builder<br/>(javac + d8 wrapper)"]
+    PARENT --> M7["multidex-merger<br/>(apksigner + zipalign)"]
+    PARENT --> M8["cli<br/>(InstrumentationCli + BatchRunner)"]
+    PARENT --> M9["validator<br/>(rigor harness — Layers 1-5)"]
+
+    M2 --> M1
+    M3 --> M1
+    M3 --> M2
+    M4 --> M3
+    M4 --> M2
+    M5 --> M4
+    M8 --> M4
+    M8 --> M5
+    M8 --> M6
+    M8 --> M7
+    M9 --> M8
+    M9 --> M5
+
+    classDef root fill:#eef,stroke:#33c
+    classDef pure fill:#fff,stroke:#999
+    classDef io fill:#ffe,stroke:#cc3
+    class PARENT root
+    class M1,M2,M3 pure
+    class M4,M5 io
+    class M6,M7,M8 io
+    class M9 io
+```
+
+### Key Components
+
+| Component | Responsibility | Input | Output |
+|-----------|---------------|-------|--------|
+| `descriptor-reader.DescriptorReader` | Parse JSON descriptor → POJO model | `Path descriptorJson` | `AspectDescriptor` |
+| `pointcut-engine.PointcutExpressionParser` | Parse textual pointcut expression → typed AST | `String expression` | `PointcutExpression` |
+| `pointcut-engine.TypeResolver` | Map simple type name + imports → DEX type descriptor | `String simpleName, List<String> imports` | `String dexType` (e.g., `Ljavax/crypto/Cipher;`) |
+| `pointcut-engine.AndroidClassIndex` | ASM index of `android.jar`; expand `X+` and `..` overloads | `String classFqn, String methodName` | `List<MethodSignature>` |
+| `pointcut-engine.InheritanceResolver` | `X+` semantics across `android.jar` + APK classes | `String parentType, DexFile apk` | `Set<String> concreteSubtypes` |
+| `pointcut-engine.PointcutMatcher` | Match `PointcutExpression` against a DEX class+method+instruction | `PointcutExpression, ClassDef, Method, Instruction` | `Optional<Match>` (with arg bindings) |
+| `advice-emitter.BeforeEmitter` etc. | Build instruction list to inject for one advice kind | `Match, AdviceDescriptor` | `EmitPlan` |
+| `advice-emitter.WrapperEmitter` | Generate `mop.MonitorWrappers.java` for register-aliasing-safe replacement | `List<AdviceDescriptor>` | `Path wrappersJava` + `Map<MethodRef, MethodRef>` rewrites |
+| `dex-mutator.InstructionInjector` | Primitive: insertBefore/insertAfter/replaceInvoke on `MutableMethodImplementation` | `MutableMethodImplementation, int idx, EmitPlan` | (mutates in-place) |
+| `dex-mutator.RegisterAllocator` | Decide scratch registers; coordinate with shifter | `Method, EmitPlan` | `RegisterAllocation` |
+| `dex-mutator.RegisterShifter` | Bump `registerCount` + shift refs ≥ threshold; expand 4-bit overflows | `MutableMethodImplementation, int delta, int threshold` | (mutates in-place; expanded format) |
+| `dex-mutator.DexWeaver` | Orchestrate ClassDef/Method iteration; apply emitters | `DexFile, AspectDescriptor` | `MutableDexFile` |
+| `coverage-weaver.CoverageWeaver` | Inject `mop.Coverage.log(sig)` at every app-code method entry | `DexFile` | `MutableDexFile` |
+| `coverage-weaver.PackageFilter` | Canonical exclusion (java/, android/, kotlin/, mop/, ...) | `String classDescriptor` | `boolean excluded` |
+| `coverage-weaver.SignatureFormatter` | Soot-style `<FQN: ReturnType method(params)>` | `ClassDef, Method` | `String signature` |
+| `monitor-builder.MonitorBuilder` | javac → `.class` → d8 → `.dex` for monitor + wrappers | `List<Path> sources, List<Path> deps, Path out` | `Path monitorDex` (possibly multidex) |
+| `multidex-merger.MultidexMerger` | Replace/add DEX entries in APK + zipalign + apksigner | `Path inputApk, Map<String,Path> dexEntries, Path keystore` | `Path signedApk` |
+| `cli.InstrumentationCli` | Picocli entry: `instrument <apk> -d <descriptor> -o <out> [--coverage]` | CLI args | exit 0 / signed APK |
+| `cli.BatchRunner` | Iterate over apks_dir; emit `InstrumentationResults` JSON | `Path apksDir, Path resultsDir, Path descriptor` | `Path resultsJson` |
+| `cli.ConfigResolver` | Resolve effective config: CLI > env > file > defaults | (CLI/env/file inputs) | `EffectiveConfig` |
+| `validator.BaksmaliDiffer` | Diff hooks between ajc-instrumented and dexlib2-instrumented APK | 2 APKs | `Layer1Report` (per-spec recall) |
+| `validator.TraceComparator` | Diff RV / RVSEC / RVSEC-COV events captured during paired runs | 2 logcat files + oracle | `Layer3Report` (F1, kappa) |
+| `validator.FeatureMappingChecker` | Enforce INV-INS-17 (every inventory construct has test or limitation entry) | inventory.md, mapping.md, limitations.md, validator/test/ | `MappingReport` |
+| `validator.ConstructionInventoryGenerator` | Generate `AJ_CONSTRUCTIONS_INVENTORY.md` from .mop / .aj corpus | `Path rvsecMopRoot` | `inventory.md` |
+| `validator.BootValidator` | adb install + monkey + logcat parse for `VerifyError` | `Path apk, String pkg, int seconds` | `Layer2Report` |
+| `validator.BatchValidator` | Orchestrate JCA-400 × 3 tools × 3 reps via Docker | `Path apksDir, ToolList, int reps` | `Layer4Report` (statistical analysis) |
+| `validator.CoverageValidator` | Compare RVSEC-COV recall between variants | 2 logcat files | `Layer5Report` |
+| `rv-instrumentation-dexlib2-py.DexlibInstrumentation` | Python wrapper preserving `instrument_apks` contract | `apks_dir, results_dir` | `InstrumentationResults` |
+
+## Mapping: Spec → Implementation → Test
+
+| Requirement / Invariant | Implementation | Test |
+|---|---|---|
+| **DEX-Native APK Instrumentation Pipeline** | `cli.InstrumentationCli` + entire weaving stack | `cli/src/test/it/InstrumentationCliIT` (cryptoapp + hateitorrateit) |
+| **Instrumentation Variant Selection** | `rv-experiment.PreProcessor._instrument_apks()` dispatch | `rv-experiment/tests/test_pre_processor_variant.py` |
+| **JavaMOP Descriptor Format and Emission** | `rvsec/javamop` `--emit-descriptor` (commit 79547700 + 2 mods) + `descriptor-reader.AspectDescriptor` schema | `descriptor-reader/src/test/DescriptorReaderTest` + `validator.DescriptorAjParityChecker` |
+| **Validator Harness for Layered Equivalence Gates** | `validator/` submodule + 6 CLI subcommands | `validator/src/test/{Layer1..Layer5}IT` |
+| **AspectJ-to-Dexlib2 Mapping Documentation** | `docs/AJ_CONSTRUCTIONS_INVENTORY.md`, `AJ_TO_DEXLIB2_MAPPING.md`, `LIMITATIONS.md` + `validator.FeatureMappingChecker` | `validator/src/test/FeatureMappingCheckerTest` |
+| **MODIFIED: Monitor Generation** (descriptor emission) | `rv-monitor-generator.RuntimeVerificationGenerator` invokes `javamop --emit-descriptor` by default | `rv-monitor-generator/tests/test_descriptor_emission.py` |
+| INV-INS-13 (descriptor presence at preparation time) | `DexlibInstrumentation.prepare_instrumentation()` | `tests/test_prepare_missing_descriptor.py` |
+| INV-INS-14 (existing INV-INS-01..12 preserved) | inherited; unchanged for ajc; mirrored for dexlib2 | regression matrix in CI |
+| INV-INS-15 (multidex preservation) | `dex-mutator.DexWeaver.weaveDexFile()` per-DEX iteration | `dex-mutator/src/test/MultidexPreservationTest` |
+| INV-INS-16 (4-bit overflow expansion preserves coverage) | `dex-mutator.RegisterShifter.expand4BitOverflow()` | `dex-mutator/src/test/RegisterShifterTest` |
+| INV-INS-17 (every construct mapped or limitation-justified) | `validator.FeatureMappingChecker` | `validator/src/test/FeatureMappingCheckerTest` |
+| INV-INS-18 (API parity across variants) | `DexlibInstrumentation` mirrors `RVInstrumentation` signature | `tests/test_api_parity.py` (parametrized over both classes) |
+| INV-INS-19 (descriptor mirrors .aj semantically) | `validator.DescriptorAjParityChecker` (Layer 1 sub-check) | `validator/src/test/DescriptorAjParityTest` |
+| INV-INS-20 (per-experiment variant selection) | dispatch in `PreProcessor`; `InstrumentationResults.variant` recorded | `rv-experiment/tests/test_variant_isolation.py` |
+
+## Goals / Non-Goals
+
+**Goals:**
+- Eliminate the JVM round-trip that causes `VerifyError` on R8-optimized APKs.
+- Recover ≥30% of the JCA-400 dataset that currently fails silently (boot success and event emission).
+- Preserve the Python public contract (`instrument_apks`) so consumers need no changes.
+- Make every AspectJ construct used in production *provably* mapped to a dexlib2 mechanism, with the rest *provably* out of scope (paper-grade defense).
+- Keep instrumentation overhead at or below historical baseline (~25.9%).
+- Make the substitution reversible during validation via the variant flag.
+
+**Non-Goals:**
+- Implementing AspectJ constructs unused in our corpus (`around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`). Empirical evidence (zero usages) is documented in `LIMITATIONS.md`.
+- Redesigning the monitor state machines (those live in JavaMOP/RV-Monitor; this change only changes how their hook points are reached at runtime).
+- Improving exploration tooling (UI tools / record-and-replay) — orthogonal, tracked in `docs/20260421_exploration_strategy_analysis.md`.
+- Source-build comparison from F-Droid (deferred per investigation docs; would be a separate sub-experiment).
+- LSPatch / Xposed integration — explicitly rejected in `docs/20260422_lspatch.md` due to the Coverage scalability gap.
+
+## Decisions
+
+### D1: Java Maven multi-module, not single jar
+
+**Choice:** Decompose into 9 submodules with single responsibility.
+
+**Why:** The prototype's monolithic `DexWeaver` (~3400 LOC) mixes parsing, matching, register allocation, and DEX mutation. Single-responsibility submodules make components testable in isolation, replaceable independently (e.g., swap `pointcut-engine` for an ANTLR-based parser later), and verifiable as a graph (no module knows more than its inputs). This pays off most clearly in `validator/`, which must be auditable separately from `dex-mutator`.
+
+**Alternatives:** (a) Single `rv-instrumentation-dexlib2.jar` with internal packages — rejected: same monolithic problem, just inside one jar. (b) Gradle build — rejected: rvsec already uses Maven; one build system per repo.
+
+### D2: Descriptor JSON, not .aj parsing
+
+**Choice:** Add a `--emit-descriptor` flag to JavaMOP that emits structured JSON; weaver consumes only JSON.
+
+**Why:** The investigation in `docs/20260423_javamop.md` evaluated 6 alternatives (ANTLR, AspectJ tool API, AJC internals, JavaMOP's own `aspectj.jj`, regex, hook the AST). Hooking the AST won because (a) JavaMOP already has a typed `PointCut` AST hierarchy that holds everything we need, (b) `.aj` text is generated by `toString()` calls — so a `toJSON()` mirror is the canonical inversion point, (c) parsing the textual `.aj` requires reverse-engineering format conventions and is fragile across JavaMOP versions.
+
+**Alternatives:** Each rejected with reason in `docs/20260423_javamop.md` §5.
+
+### D3: Coexistence + variant flag, not immediate replacement
+
+**Choice:** Phase 4-5 keep `rv-instrumentation` (ajc) and `rv-instrumentation-dexlib2-py` (new) side by side; `instrumentation_variant` selects between them. Phase 6 quarantines the legacy.
+
+**Why:** Layer 3 of the validation framework (`docs/20260423_plano_validacao.md`) requires *paired* execution of both pipelines on the same APK to compute F1/kappa equivalence. Without coexistence, comparison is against a frozen historical baseline rather than a live counterfactual — much weaker evidence for reviewers. Coexistence costs minimal code (one dispatch line in `PreProcessor` + one new config field) and bounded duration (Phase 5 only).
+
+**Alternatives:** (a) Immediate replacement (P3 purist). Rejected: loses paired comparison. (b) Permanent coexistence. Rejected: violates P3, doubles maintenance.
+
+### D4: Validator as a Maven submodule, not a sidecar script
+
+**Choice:** `validator/` is a Maven submodule of `rv-instrumentation-dexlib2` with a CLI per layer.
+
+**Why:** The 6-layer validation framework needs to be runnable *and* maintainable as software, not as a collection of bash scripts. Java + Maven keeps it in the same toolchain as the weaver; a CLI per layer (BaksmaliDiffer, BootValidator, ...) keeps each layer independently runnable and testable; JSON outputs make CI gating mechanical.
+
+**Alternatives:** Python sidecar — rejected: would re-implement DEX parsing for BaksmaliDiffer in another stack. Bash scripts — rejected: not testable.
+
+### D5: Wrapper replacement for register-aliasing, not always-spill
+
+**Choice:** When an `after returning` advice would alias the receiver/arg registers with the result register, generate a `mop.MonitorWrappers.<wrapper>()` static method that wraps the original call + emits the event + returns the result. Rewrite the call-site invoke to point at the wrapper.
+
+**Why:** Always spilling registers (bumping `registerCount` and shifting all references) is correct but expensive and bloats DEX size. Wrapper replacement keeps the call site small and pushes the bookkeeping into the wrapper class (which is in `mop.*` and so doesn't affect app code coverage filters). The prototype validated this approach yields zero VerifyError and minimal DEX growth.
+
+**Alternatives:** Always-spill (slower, bigger DEX). Skip-on-alias (silent gaps, paper-disqualifying).
+
+### D6: `rvsec/javamop` patch promoted, not vendored as fork
+
+**Choice:** Push commit 79547700 + the 2 uncommitted mods (DescriptorWriter+AspectJDescriptor with package/imports) into `rvsec/javamop` master via a separate small PR. Pin the resulting commit hash in this design document.
+
+**Why:** JavaMOP is already vendored in the rvsec monorepo. The patch is non-invasive (one new flag, additive output, no behavior change for existing flags). Keeping it on a long-lived feature branch creates merge-debt; promoting to master means future RV-Android work consumes it transparently.
+
+**Alternatives:** Long-lived `emit-descriptor` branch (debt). Upstream PR to JavaMOP main repo (out of our control, slow).
+
+## API Design
+
+### Python public API (preserved across variant boundary)
+
+```python
+class DexlibInstrumentation:
+    def __init__(self, config: DexlibInstrumentationConfig) -> None: ...
+
+    def prepare_instrumentation(self) -> None:
+        """Validate config, locate descriptors, prepare dependency JARs.
+        Raises:
+          MissingDescriptorError: if any MultiSpec_*MonitorAspect.json is absent (INV-INS-13).
+          ConfigurationError: per existing INV-INS-12.
+        """
+
+    def instrument(self, app: App, result_dir: Path) -> Path:
+        """Instrument one APK. Returns path to signed APK.
+        Raises:
+          CommandException: tool failure with _error_phase populated (mirrors INV-INS-08 in legacy).
+          DescriptorParseError, UnsupportedAspectConstructError: per spec.
+        Side-effects:
+          Writes signed APK to {instrumented_dir}/{app.name}.
+          Cleans per-APK temp dirs whether success or failure.
+        """
+
+    def instrument_apks(self, apks_dir: Path, results_dir: Path) -> InstrumentationResults:
+        """Batch instrumentation with error isolation per APK.
+        Returns InstrumentationResults with variant='dexlib2' (INV-INS-18).
+        """
+```
+
+### Java CLI surface
+
+```text
+Usage: instr-cli instrument <APK> [options]
+Options:
+  -d, --descriptor=<path>       MultiSpec_*MonitorAspect.json (required)
+  -o, --output=<dir>            Output directory (signed APK lands here)
+  --coverage                    Enable Coverage weaving (default: true)
+  --keystore=<path>             Keystore (default: rv-android assets/keystore.jks)
+  --android-jar=<path>          android.jar for AndroidClassIndex (required)
+  --runtime-deps=<paths>        rv-monitor-rt.jar, rvsec-core.jar, ... (comma-sep)
+  --wrappers-out=<dir>          Where MonitorWrappers.java goes (intermediate)
+  --tmp=<dir>                   Working directory
+  --json-results=<path>         Emit per-APK result JSON (for batch mode)
+
+Usage: instr-cli batch <APKS_DIR> [options]      # iterates + emits InstrumentationResults JSON
+Usage: instr-cli validate <layer> [options]      # delegates to validator/ subcommands
+```
+
+### JSON descriptor schema (consumer view)
+
+```mermaid
+classDiagram
+    class AspectDescriptor {
+        +String aspectName
+        +String fileName
+        +String shortName
+        +String packageDecl
+        +List~String~ imports
+        +String commonPointcut
+        +List~String~ baseAspectExclusions
+        +List~AdviceDescriptor~ advices
+    }
+    class AdviceDescriptor {
+        +String name
+        +String specName
+        +List~ParameterDescriptor~ parameters
+        +Position position
+        +ParameterDescriptor returning
+        +ParameterDescriptor throwing
+        +String expression
+        +List~MonitorCallDescriptor~ monitorCalls
+    }
+    class ParameterDescriptor {
+        +String type
+        +String name
+    }
+    class MonitorCallDescriptor {
+        +String method
+        +String specName
+        +String eventId
+        +String uniqueId
+        +List~String~ args
+        +String countCond
+    }
+    AspectDescriptor "1" --> "*" AdviceDescriptor
+    AdviceDescriptor "1" --> "*" ParameterDescriptor : parameters
+    AdviceDescriptor "0..1" --> "1" ParameterDescriptor : returning
+    AdviceDescriptor "0..1" --> "1" ParameterDescriptor : throwing
+    AdviceDescriptor "1" --> "*" MonitorCallDescriptor
+```
+
+## Data Flow
+
+### Per-APK happy path
+
+```mermaid
+sequenceDiagram
+    actor Exp as rv-experiment
+    participant Py as DexlibInstrumentation (py)
+    participant Cli as InstrumentationCli (java)
+    participant DR as DescriptorReader
+    participant PE as PointcutMatcher
+    participant AE as AdviceEmitter
+    participant DM as DexWeaver
+    participant CW as CoverageWeaver
+    participant MB as MonitorBuilder
+    participant MM as MultidexMerger
+
+    Exp->>Py: instrument_apks(apks_dir, results_dir)
+    Py->>Py: prepare_instrumentation()<br/>(validate descriptors INV-INS-13)
+    loop for each APK
+        Py->>Cli: java -jar instr-cli instrument <apk> ...
+        Cli->>DR: read MultiSpec_*MonitorAspect.json
+        DR-->>Cli: AspectDescriptor
+        Cli->>DM: load APK as MutableDexFile
+        loop for each ClassDef × Method × Instruction
+            Cli->>PE: match(advice, classDef, method, instruction)
+            PE-->>Cli: Optional<Match>
+            Cli->>AE: emit(match, advice)
+            AE-->>Cli: EmitPlan
+            Cli->>DM: inject(method, idx, plan)
+        end
+        Cli->>CW: weave(MutableDexFile, packageFilter)
+        CW->>DM: prepend Coverage.log() to every app method
+        Cli->>MB: build monitor DEX (javac + d8)
+        MB-->>Cli: monitor.dex (possibly multi-DEX)
+        Cli->>MM: merge(originalApk, wovenAppDexes, monitorDexes)
+        MM-->>Cli: signed APK
+        Cli-->>Py: exit 0 + json result
+    end
+    Py-->>Exp: InstrumentationResults(variant='dexlib2')
+```
+
+### Failure path: register pressure forces format expansion
+
+```mermaid
+sequenceDiagram
+    participant DM as DexWeaver
+    participant AE as AdviceEmitter
+    participant RA as RegisterAllocator
+    participant RS as RegisterShifter
+    participant MMI as MutableMethodImplementation
+
+    DM->>AE: emit(match, advice)
+    AE->>RA: requestRegisters(scratchCount=2)
+    RA->>RA: compute<br/>required vs available
+    alt sufficient (no spill)
+        RA-->>AE: scratch={vN, vN+1}
+    else needs new registers
+        RA->>RS: shift(threshold=15, delta=2)
+        RS->>MMI: bump registerCount via reflection
+        loop for each instruction
+            RS->>RS: rewrite reg refs ≥ threshold
+            alt format would overflow 4 bits
+                RS->>RS: expand to /from16 variant
+            end
+        end
+        RS-->>RA: ok
+        RA-->>AE: scratch={vM, vM+1}
+    end
+    AE-->>DM: EmitPlan
+    DM->>MMI: inject EmitPlan
+```
+
+### Validator: Layer 4 batch flow
+
+```mermaid
+flowchart TB
+    START([JCA-400 + 3 tools + 3 reps = 945 tasks])
+    LOOP{"for each<br/>(apk, tool, rep)"}
+    AJC["docker run aperv-ajc<br/>(legacy variant)"]
+    DEX["docker run aperv-dexlib2<br/>(new variant)"]
+    LOG1[ajc logs]
+    LOG2[dexlib2 logs]
+    AGG[aggregate counts<br/>per (apk, spec)]
+    STAT["Mann-Whitney U<br/>per spec, α=0.05"]
+    RPT["Layer4Report.json"]
+    GATE{"recovery_rate ≥ 90%<br/>AND no significant<br/>regression?"}
+    OK([✅ Phase 6<br/>substitution allowed])
+    FAIL([❌ block merge<br/>iterate])
+
+    START --> LOOP
+    LOOP --> AJC
+    LOOP --> DEX
+    AJC --> LOG1
+    DEX --> LOG2
+    LOG1 --> AGG
+    LOG2 --> AGG
+    AGG --> STAT
+    STAT --> RPT
+    RPT --> GATE
+    GATE -->|yes| OK
+    GATE -->|no| FAIL
+```
+
+## Error Handling
+
+| Error | Source | Strategy | Recovery |
+|---|---|---|---|
+| `MissingDescriptorError` | `prepare_instrumentation()` | Raise at preparation, before APK loop (INV-INS-13) | Re-run `rv-monitor-generator` with `emit_descriptor=True` |
+| `DescriptorParseError` | `DescriptorReader` (Jackson) | Raise with JSON pointer to failing field | Inspect descriptor; possibly re-emit |
+| `UnsupportedAspectConstructError` | `pointcut-engine.PointcutExpressionParser` | Raise with construct name + cite `LIMITATIONS.md` | Add support OR remove construct from spec OR document in LIMITATIONS |
+| `CommandException(tool="dexlib2-cli")` | Java subprocess non-zero exit | Map subprocess stderr → `CommandException`; preserve `_error_phase` | Per-APK isolation in batch loop (mirrors legacy INV-INS-08) |
+| `CommandException(tool="d8")` | Monitor build d8 failure | Raise with d8 stderr | Inspect monitor sources; check classpath |
+| `CommandException(tool="apksigner")` | Multidex merge sign failure | Raise with apksigner stderr | Inspect keystore; check zipalign |
+| `IllegalStateException` | `RegisterShifter` reflection failure | Raise; do NOT silently skip | dexlib2 version mismatch — pin and document |
+| Layer-5 coverage recall < 0.99 | `CoverageValidator` | Exit code 1; CI blocks merge | Investigate weaver gaps in `coverage-weaver` |
+| Layer-4 statistical regression | `BatchValidator` | Exit code 1; CI blocks merge | Per-spec analysis; iterate on weaver or document gap |
+
+## Risks / Trade-offs
+
+| Risk | Mitigation |
+|---|---|
+| **R1**: `staticinitialization(T+)` injection into synthetic `<clinit>` breaks class init order | Phase 4 task with isolated test fixtures; Layer-2 boot validator catches at install time |
+| **R2**: Layer-4 batch (945 tasks, ~36h) reveals subset of APKs where dexlib2 underperforms ajc | Per-category analysis in Layer-4 report; document gap in `LIMITATIONS.md`; keep `ajc` variant available indefinitely if needed |
+| **R3**: Multidex split decisions diverge between input and output | Test in `dex-mutator` with > 65k method APK; INV-INS-15 enforced |
+| **R4**: JavaMOP upstream releases new version invalidating descriptor patch | rvsec/javamop is vendored; patch is small and reapplicable; pinned commit hash in design |
+| **R5**: Coverage exclusion filter drift between ajc Coverage.aj and dexlib2 PackageFilter | Layer-5 RVSEC-COV recall gate (≥ 0.99); shared canonical list constant |
+| **R6**: 4-bit overflow expansion bug silently drops advices | `RegisterShifter` MUST raise on unknown formats; INV-INS-16 enforced; targeted unit tests in `dex-mutator` |
+| **R7**: Docker images need new dependencies (apksigner v3, dexlib2 jars in classpath) | Phase 4 task updates `docker-compose.jca400-aperv.yml` and Dockerfiles; image rebuild in CI |
+| **R8**: Timeline pressure — 6-9 weeks in finalization window (gh48) | Subagent orchestration in Phase 4 (5 parallel groups); Layer-4 schedules over weekend; paper writing parallelizable with Phase 5 |
+| **R9**: Reviewers ask for ground-truth comparison vs source-built APKs (pre-R8) | Documented as deferred sub-experiment; current rigor framework does not depend on it |
+| **R10**: rv-experiment downstream consumers don't expect `variant` field in `InstrumentationResults` | `variant` is additive (default `'ajc'` for legacy results); deserializers tolerant |
+
+## Testing Strategy
+
+| Layer | What to test | How | Count (est.) |
+|---|---|---|---|
+| Unit (Java) | Descriptor parsing, pointcut AST, type resolution, signature formatting | JUnit 5; in-memory fixtures; no I/O | ~80 |
+| Unit (Java) | Register allocator decisions; shifter format expansion; injector primitives | JUnit 5; mock `MutableMethodImplementation` | ~60 |
+| Unit (Java) | Per-emitter EmitPlan generation (Before/After/AfterReturning/AfterThrowing/StaticInit/IfGuard) | JUnit 5 + table-driven tests | ~40 |
+| Unit (Python) | `DexlibInstrumentation` config validation; CLI subprocess wrapper; error mapping | pytest + monkeypatch | ~30 |
+| Integration (Java) | DexWeaver end-to-end on synthetic small APK fixture | JUnit 5 IT + dexlib2 fixtures | ~20 |
+| Integration (Java) | CoverageWeaver on Java + Kotlin/R8 fixture | JUnit 5 IT | ~10 |
+| Integration (Java) | InstrumentationCli end-to-end (cryptoapp, hateitorrateit) | JUnit 5 IT (slow tag) | ~5 |
+| Integration (Python) | `instrument_apks` parity test (parametrized over `RVInstrumentation` and `DexlibInstrumentation`) | pytest + small fixture APK | ~10 |
+| Validator (CI gate) | Layer 0-2 (conformance, baksmali, boot) on 30-APK subset | `validator/` IT runs in CI | per-PR |
+| Validator (scheduled) | Layer 4 (945 tasks JCA-400 batch) | nightly / weekly Docker run | weekly |
+| Validator (CI gate) | FeatureMappingChecker on every PR touching `pointcut-engine` or `advice-emitter` | `validator/FeatureMappingCheckerTest` | per-PR |
+
+## Open Questions
+
+- **Q1**: Should `instrument_apks` accept variant per-call (overriding config), or strictly per-experiment? — Default is per-experiment (INV-INS-20). Per-call would complicate `InstrumentationResults` aggregation. Tracked in tasks; default is per-experiment.
+- **Q2**: Is `apksigner v3` strictly required, or does v2 suffice for our target API levels? — Prototype uses v3 successfully; investigate if v2 gives smaller APK / faster sign for batch mode.
+- **Q3**: Should the validator harness publish a JUnit XML report in addition to JSON, for CI display? — Likely yes; defer to Phase 4 task.
+- **Q4**: When the legacy `rv-instrumentation` is quarantined in Phase 6, do we keep the Python module callable as a museum piece, or fully remove the Python wrapper? — Default per P3: full removal of the wrapper; legacy code preserved only under `backup/`.
+- **Q5**: `prototipo-dexlib2` workspace: archive to `backup/` after Phase 6, or delete entirely? — Recommend archive (developer-facing reference for paper appendix).
+
+## Related Documents
+
+- `pre-plan.md` (Phase 0 ideation; this design refines §4 of the pre-plan)
+- `proposal.md` (Phase 2)
+- `specs/instrumentation/spec.md` (Phase 2 delta)
+- `docs/20260421_problema_dex2jar.md` (root cause)
+- `docs/20260422_lspatch.md` (LSPatch alternative, rejected)
+- `docs/20260423_javamop.md` (descriptor strategy)
+- `docs/20260423_plano_prototipo.md` (prototype plan)
+- `docs/20260423_plano_validacao.md` (6-layer validation framework operationalized in `validator/`)
+- ADR to be created in tasks: `ADR-DEX-NATIVE.md` (architectural decision record for D1-D6)
