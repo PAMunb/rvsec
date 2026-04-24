@@ -21,6 +21,7 @@
         <module>pointcut-engine</module>
         <module>advice-emitter</module>
         <module>dex-mutator</module>
+        <module>coverage-weaver</module>
     </modules>
 
     <properties>

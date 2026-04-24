@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.unb.cic</groupId>
+        <artifactId>rvsec-instrumentation-dexlib2</artifactId>
+        <version>0.8.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>coverage-weaver</artifactId>
+    <name>RVSec :: Android :: Instrumentation (dexlib2) :: coverage-weaver</name>
+    <description>Coverage.aj equivalent: prepends invoke-static to mop.Coverage.log(signature) at every non-excluded application-code method entry. Spec-set agnostic. Thread-safe storage via ConcurrentHashMap.newKeySet in the generated Coverage class (INV-INS-23).</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>dex-mutator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.android.tools.smali</groupId>
+            <artifactId>smali-dexlib2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+    </dependencies>
+</project>

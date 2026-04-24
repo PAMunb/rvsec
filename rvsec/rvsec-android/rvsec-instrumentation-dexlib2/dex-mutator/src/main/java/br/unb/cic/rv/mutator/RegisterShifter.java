@@ -52,12 +52,16 @@ import java.lang.reflect.Field;
  * non-optimized APKs (odex-only) or are exceptional enough that spill of the surrounding method
  * can be aborted by the caller.
  */
-final class RegisterShifter {
+public final class RegisterShifter {
 
+    // Public so sibling modules (coverage-weaver) can grow a method's
+    // registerCount without re-implementing the reflection shim. Only
+    // bumpRegisterCount is safe to call cross-module; per-instruction
+    // shift() remains package-private.
     private RegisterShifter() {}
 
     /** Bump {@code mmi.registerCount} by {@code delta} via reflection on the final field. */
-    static void bumpRegisterCount(MutableMethodImplementation mmi, int delta) {
+    public static void bumpRegisterCount(MutableMethodImplementation mmi, int delta) {
         try {
             Field f = MutableMethodImplementation.class.getDeclaredField("registerCount");
             f.setAccessible(true);
