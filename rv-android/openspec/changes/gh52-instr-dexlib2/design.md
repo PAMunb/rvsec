@@ -188,7 +188,7 @@ flowchart TB
 - Make the substitution reversible during validation via the variant flag.
 
 **Non-Goals:**
-- Implementing AspectJ constructs unused in our corpus (`around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`). Empirical evidence (zero usages) is documented in `LIMITATIONS.md`.
+- Implementing AspectJ constructs unused in our corpus (canonical 8: `around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`, `initialization`, `preinitialization`). Empirical evidence (zero usages) is documented in `LIMITATIONS.md`.
 - Redesigning the monitor state machines (those live in JavaMOP/RV-Monitor; this change only changes how their hook points are reached at runtime).
 - Improving exploration tooling (UI tools / record-and-replay) — orthogonal, tracked in `docs/20260421_exploration_strategy_analysis.md`.
 - Source-build comparison from F-Droid (deferred per investigation docs; would be a separate sub-experiment).

@@ -93,7 +93,7 @@ flowchart LR
 **Validation rigor (paper-grade)**:
 - 6-layer framework per `docs/20260423_plano_validacao.md` operationalized in `validator/`
 - Construction-by-construction mapping from AspectJ to dexlib2 documented and asserted by `FeatureMappingChecker`
-- Documented gaps for non-supported AspectJ constructs (`around`, `cflow`, `handler`, `get`/`set` — 0 usos confirmados em todo conjunto de specs)
+- Documented gaps for non-supported AspectJ constructs (canonical 8: `around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`, `initialization`, `preinitialization` — 0 usos confirmados em todo conjunto de specs)
 
 **Coordination**:
 - Issue #48 (project finalization) — gh52 runs in finalization window; coordinate scheduling of Layer-4 validation (~36h compute)
