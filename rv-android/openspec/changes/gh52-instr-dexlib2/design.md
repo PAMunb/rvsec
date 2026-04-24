@@ -237,13 +237,17 @@ flowchart TB
 
 **Alternatives:** Always-spill (slower, bigger DEX). Skip-on-alias (silent gaps, paper-disqualifying).
 
-### D6: `rvsec/javamop` patch promoted, not vendored as fork
+### D6: JavaMOP patch carried directly on `gh52-instr-dexlib2`
 
-**Choice:** Push commit 79547700 + the 2 uncommitted mods (DescriptorWriter+AspectJDescriptor with package/imports) into `rvsec/javamop` master via a separate small PR. Pin the resulting commit hash in this design document.
+**Choice:** Apply the JavaMOP `--emit-descriptor` patch directly on the change branch (cherry-pick + follow-up commit) so that the change is self-contained and Phase 4 implementation has the descriptor support immediately. The legacy `emit-descriptor` branch (which originally hosted the WIP patch) is no longer needed and can be retired.
 
-**Why:** JavaMOP is already vendored in the rvsec monorepo. The patch is non-invasive (one new flag, additive output, no behavior change for existing flags). Keeping it on a long-lived feature branch creates merge-debt; promoting to master means future RV-Android work consumes it transparently.
+**Pinned commits on `gh52-instr-dexlib2`:**
+- `6fca1f8a` — `javamop: emit --emit-descriptor JSON alongside .aj` (cherry-picked from `79547700` on `emit-descriptor`)
+- `927e78c1` — `javamop: include package + imports in --emit-descriptor JSON (refs #52)` (the 2 mods that were sitting uncommitted on `emit-descriptor`'s working tree)
 
-**Alternatives:** Long-lived `emit-descriptor` branch (debt). Upstream PR to JavaMOP main repo (out of our control, slow).
+**Why:** JavaMOP is vendored in the rvsec monorepo and the patch is non-invasive (one new flag, additive output, no behavior change for existing flags). Carrying the patch on the change branch keeps the change atomic — `gh52-instr-dexlib2` contains everything needed to weave with descriptors. When the change is merged into `modules`, the JavaMOP patch travels with it; future RV-Android work on `modules` consumes it transparently.
+
+**Alternatives considered:** (a) Separate PR to `rvsec/master` first — rejected: fragments the change across two PRs, slows critical path, and `gh52` would still need the commits cherry-picked locally to build. (b) Long-lived `emit-descriptor` branch — rejected: merge-debt, no clear ownership. (c) Upstream PR to JavaMOP main repo — rejected: out of our control, paper deadline pressure.
 
 ## API Design
 

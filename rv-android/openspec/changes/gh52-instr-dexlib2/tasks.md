@@ -39,8 +39,8 @@ GitHub Issue: #52
 - [x] 1.6 `proposal.md` committed (Phase 2)
 - [x] 1.7 `specs/instrumentation/spec.md` delta committed (Phase 2)
 - [x] 1.8 `design.md` committed (Phase 3)
-- [ ] 1.9 Promote JavaMOP `--emit-descriptor` patch: cherry-pick `79547700` from `emit-descriptor` into a new branch off `rvsec/master`, then add a follow-up commit with the 2 uncommitted mods (`AspectJDescriptor.java` + `DescriptorWriter.java` adding `package` + `imports` to JSON), open PR to `rvsec/master`, merge after review
-- [ ] 1.10 Pin the merged JavaMOP commit hash in `design.md` §Decisions D6 (replace `<commit-hash-pinned-here>` placeholder)
+- [x] 1.9 Apply JavaMOP `--emit-descriptor` patch directly on `gh52-instr-dexlib2`: cherry-pick `79547700` from `emit-descriptor` (became `6fca1f8a` on this branch) + follow-up commit `927e78c1` carrying the 2 mods that were sitting uncommitted on `emit-descriptor`'s working tree (`AspectJDescriptor.java` + `DescriptorWriter.java` adding `package` + `imports` to JSON). Decision D6 in `design.md` revised: patch carried on the change branch (atomic), no separate PR to `rvsec/master`.
+- [x] 1.10 Pin the JavaMOP commit hashes in `design.md` §Decisions D6: `6fca1f8a` (cherry-picked) + `927e78c1` (mods)
 - [ ] 1.11 Run `openspec validate gh52-instr-dexlib2` — must report `is valid`
 
 ## 2. `descriptor-reader` Maven submodule (Java)
