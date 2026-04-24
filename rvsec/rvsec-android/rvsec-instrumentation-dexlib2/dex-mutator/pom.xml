@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.unb.cic</groupId>
+        <artifactId>rvsec-instrumentation-dexlib2</artifactId>
+        <version>0.8.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>dex-mutator</artifactId>
+    <name>RVSec :: Android :: Instrumentation (dexlib2) :: dex-mutator</name>
+    <description>DEX mutation engine: InstructionInjector primitives, RegisterShifter (4-bit overflow + format expansion), RegisterAllocator, and the DexWeaver orchestrator. Consumes EmitPlan values produced by advice-emitter.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>advice-emitter</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>pointcut-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>descriptor-reader</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.android.tools.smali</groupId>
+            <artifactId>smali-dexlib2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.android.tools.smali</groupId>
+            <artifactId>smali-baksmali</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+    </dependencies>
+</project>
