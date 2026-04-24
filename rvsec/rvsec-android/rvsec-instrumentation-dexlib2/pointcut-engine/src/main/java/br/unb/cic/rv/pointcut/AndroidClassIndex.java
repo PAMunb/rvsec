@@ -41,7 +41,7 @@ public final class AndroidClassIndex {
 
     public static final class MethodInfo {
         public final String name;
-        /** DEX-style internal descriptor: {@code (Ljava/lang/String;)Ljavax/crypto/Cipher;}. */
+        /** DEX-style internal descriptor: {@code (Ljava/lang/String;)Ljava/lang/Object;}. */
         public final String descriptor;
         public final int access;
         /** Java FQN of each parameter (arrays use {@code T[]}); primitives as {@code int} etc. */
@@ -61,7 +61,7 @@ public final class AndroidClassIndex {
     }
 
     private static final class ClassInfo {
-        final String internalName;           // "java/security/SecureRandom"
+        final String internalName;           // e.g. "java/util/ArrayList"
         final String superInternal;          // null for java/lang/Object
         final List<String> interfaceInternals;
         final List<MethodInfo> methods;

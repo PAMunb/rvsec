@@ -10,9 +10,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class DescriptorReaderTest {
 
     /**
-     * Fixture is the JSON produced by running the patched JavaMOP
-     * ({@code --emit-descriptor}) over the 22 JCA specs in
-     * {@code rvsec/rvsec-mop/src/main/resources/jca/}.
+     * Fixture is one concrete descriptor produced by running the patched
+     * JavaMOP ({@code --emit-descriptor}) over one of the two specification
+     * sets in use by this project — specifically the JCA set merged from
+     * {@code rvsec/rvsec-mop/src/main/resources/jca/} (22 source specs →
+     * 115 advices). The descriptor-reader is set-agnostic; this fixture is
+     * the first concrete payload we had from the patched compiler, and the
+     * generic-spec fixture exercises identical code paths.
      */
     private static final String FIXTURE = "/MultiSpec_1MonitorAspect.json";
 
@@ -37,13 +41,18 @@ class DescriptorReaderTest {
         assertTrue(exclusions.contains("java..*"), "baseAspectExclusions must include java..*");
         assertTrue(exclusions.contains("mop..*"), "baseAspectExclusions must include mop..*");
 
-        // The merge of the 22 JCA specs in rvsec/rvsec-mop/src/main/resources/jca/ yields
-        // 115 advice entries — see docs/20260423_javamop.md §D2.
+        // The JCA merge used as test fixture contains 115 advice entries; any
+        // other spec-set fixture would carry its own advice count. See
+        // docs/20260423_javamop.md §D2 for provenance.
         List<AdviceDescriptor> advices = desc.getAdvices();
         assertEquals(115, advices.size(),
-                "expected 115 advice entries from the JCA merge");
+                "expected 115 advice entries in the bundled test fixture");
 
-        // Sanity-check: CipherSpec_g1 is an "after returning Cipher" advice we know is present.
+        // Sanity-check against a specific advice we know is in the fixture.
+        // CipherSpec_g1 happens to come from the JCA set — for a generic-set
+        // fixture the probe would target an Iterator/InputStream advice name
+        // instead; the check exists to prove the POJO tree is reachable by
+        // name and fields are populated, not to assert any spec-set identity.
         AdviceDescriptor cipherG1 = advices.stream()
                 .filter(a -> "CipherSpec_g1".equals(a.getName()))
                 .findFirst()

@@ -7,9 +7,9 @@ import java.util.Map;
 
 /**
  * Resolves a simple AspectJ type name (as it appears in a pointcut expression,
- * e.g. {@code "Cipher"}, {@code "byte[]"}, {@code "String"}) into the fully-qualified
- * DEX descriptor (e.g. {@code "Ljavax/crypto/Cipher;"}, {@code "[B"},
- * {@code "Ljava/lang/String;"}).
+ * e.g. {@code "Iterator"}, {@code "byte[]"}, {@code "String"}) into the
+ * fully-qualified DEX descriptor (e.g. {@code "Ljava/util/Iterator;"},
+ * {@code "[B"}, {@code "Ljava/lang/String;"}).
  *
  * <p>Resolution strategy, in order:
  * <ol>
@@ -70,7 +70,7 @@ public final class TypeResolver {
     private final List<String> imports;
 
     /**
-     * @param imports list as emitted by DescriptorWriter (e.g. {@code "javax.crypto.Cipher"},
+     * @param imports list as emitted by DescriptorWriter (e.g. {@code "java.util.Iterator"},
      *                {@code "java.util.*"}). Static imports are accepted with the
      *                {@code "static "} prefix — the resolver strips it during matching.
      */
@@ -79,9 +79,9 @@ public final class TypeResolver {
     }
 
     /**
-     * @param simpleType e.g. {@code "Cipher"}, {@code "byte[]"},
+     * @param simpleType e.g. {@code "Iterator"}, {@code "byte[]"},
      *                   {@code "java.lang.String"}, {@code "int"}, {@code "void"}.
-     * @return DEX descriptor (e.g. {@code "Ljavax/crypto/Cipher;"}, {@code "[B"},
+     * @return DEX descriptor (e.g. {@code "Ljava/util/Iterator;"}, {@code "[B"},
      *         {@code "I"}).
      */
     public String toDescriptor(String simpleType) {

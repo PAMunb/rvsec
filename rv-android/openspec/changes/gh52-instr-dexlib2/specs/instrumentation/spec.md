@@ -191,13 +191,13 @@ The `imports` field MUST include both the user's imports and the JavaMOP-require
 
 The patch enabling this emission MUST be applied to the vendored `rvsec/javamop/` and pinned at the commit recorded in this change's design document.
 
-#### Scenario: Descriptor emitted alongside .aj for JCA specifications
+#### Scenario: Descriptor emitted alongside .aj for any specification set
 
-- **WHEN** `RuntimeVerificationGenerator.generate_monitors(output_dir)` is invoked with `mop_specs_dir` pointing to JCA specs (23 files), `javamop_bin` is the patched JavaMOP, and the configuration enables descriptor emission
+- **WHEN** `RuntimeVerificationGenerator.generate_monitors(output_dir)` is invoked with `mop_specs_dir` pointing to any supported specification set (JCA, Generic, or a future addition), `javamop_bin` is the patched JavaMOP, and the configuration enables descriptor emission
 - **THEN** `output_dir` MUST contain `MultiSpec_1MonitorAspect.aj` (existing behavior)
 - **AND** `output_dir` MUST contain `MultiSpec_1MonitorAspect.json`
 - **AND** the JSON MUST validate against the `AspectDescriptor` schema declared in `descriptor-reader`
-- **AND** the JSON `advices` array MUST have exactly the same length as the `.aj` advice count (115 for the JCA merged spec, as validated empirically in the prototype)
+- **AND** the JSON `advices` array MUST have exactly the same length as the `.aj` advice count (115 for the JCA merge — empirically validated in the prototype; each spec set has its own count). The descriptor-reader does NOT depend on that count; the scenario enforces a per-set invariant, not a constant.
 
 #### Scenario: Descriptor imports include both user and required sets
 
@@ -311,15 +311,16 @@ After JavaMOP completes, custom AspectJ files from the `aspects_dir` MUST be cop
 
 After RV-Monitor completes, all intermediate `.rvm` files MUST be deleted from the output directory, as they are no longer needed.
 
-#### Scenario: Successful generation with JCA specifications and descriptor emission
+#### Scenario: Successful generation with a specification set and descriptor emission
 
-- **WHEN** `mop_specs_dir` points to `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca/` containing 23 `.mop` files, and `javamop_bin` is the patched JavaMOP supporting `--emit-descriptor`, and `rvmonitor_bin` is a valid executable, and `aspects_dir` contains `coverage.aj` and `logging.aj`
+- **WHEN** `mop_specs_dir` points to one of the specification-set directories under `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/` (`jca/` with 23 `.mop` files in the current corpus, or `generic/` / `generic_new/` with their own counts), and `javamop_bin` is the patched JavaMOP supporting `--emit-descriptor`, and `rvmonitor_bin` is a valid executable, and `aspects_dir` contains `coverage.aj` and `logging.aj`
 - **THEN** `RuntimeVerificationGenerator.generate_monitors(output_dir)` MUST return `True`
 - **AND** the output directory MUST contain at least one `.aj` file (merged aspects from JavaMOP)
 - **AND** the output directory MUST contain at least one `MultiSpec_*MonitorAspect.json` file (descriptor emitted under the new flag)
 - **AND** the output directory MUST contain at least one `.java` file (monitor classes from RV-Monitor)
 - **AND** the output directory MUST contain `coverage.aj` (copied from aspects_dir)
 - **AND** the output directory MUST NOT contain any `.rvm` files (intermediaries cleaned up)
+- **AND** an experiment run uses exactly one set at a time — the caller selects which set via the Python wrapper's configuration, and descriptor emission is identical in structure across sets
 
 #### Scenario: Generation with empty specification directory
 
