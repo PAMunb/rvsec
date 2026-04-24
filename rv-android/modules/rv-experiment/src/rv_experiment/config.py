@@ -127,6 +127,17 @@ class ExperimentConfig(BaseValidatedModel):
     # already exist from the first run. Re-running would overwrite them.
     generate_monitors: bool = Field(default=True, description="Generate monitors")
     instrument_apks: bool = Field(default=True, description="Instrument APKs")
+    # gh52 variant switch: which instrumentation backend to use.
+    #   "ajc"     — legacy dex2jar+ajc+d8 pipeline (rv-instrumentation).
+    #   "dexlib2" — DEX-native pipeline (rv-instrumentation-dexlib2 wrapping
+    #               the Java CLI under rvsec/rvsec-android/rvsec-instrumentation-dexlib2/).
+    # Default stays "ajc" during Phase 4-5 coexistence. After Phase 5 gate
+    # ratifies parity, Phase 6 flips the default to "dexlib2" and quarantines
+    # the legacy module. Both variants honor the same instrument_apks contract.
+    instrumentation_variant: str = Field(
+        default="ajc",
+        description="Instrumentation backend: 'ajc' (legacy) or 'dexlib2' (gh52 DEX-native).",
+    )
     run_static_analysis: bool = Field(default=True, description="Run static analysis")
     # Controls whether Phase 2 (execution) runs. Useful for pre-processing-only
     # workflows where you want to generate artifacts without running tools.

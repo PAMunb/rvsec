@@ -150,6 +150,16 @@ class InstrumentationResults(BaseValidatedModel):
     total_count: int = Field(
         default=0, ge=0, description="Total number of APKs processed"
     )
+    variant: str = Field(
+        default="ajc",
+        description=(
+            "Instrumentation variant that produced this result: 'ajc' (legacy "
+            "dex2jar+ajc+d8 pipeline) or 'dexlib2' (gh52 DEX-native pipeline). "
+            "Tagged by the producing pipeline and consumed by downstream "
+            "analysis/reporting. Legacy JSON without this field deserializes "
+            "as 'ajc' to preserve backward compatibility."
+        ),
+    )
 
     @computed_field
     @property

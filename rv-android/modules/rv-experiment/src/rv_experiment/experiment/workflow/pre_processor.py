@@ -181,14 +181,32 @@ class PreProcessor:
                 )
                 os.makedirs(instrumented_dir, exist_ok=True)
 
-                # get_rv_instrumentation_config() creates an RVInstrumentationConfig
-                # just-in-time, resolving tool paths from RVSEC_HOME.
-                instrumentation_config = self.config.get_rv_instrumentation_config()
+                # Dispatch on the gh52 variant flag. "ajc" runs the legacy
+                # pipeline; "dexlib2" shells out to the Java CLI via the
+                # Python wrapper. Both satisfy the same instrument_apks
+                # contract, so downstream logic doesn't branch further.
+                variant = getattr(self.config, "instrumentation_variant", "ajc")
+                if variant == "dexlib2":
+                    from rv_instrumentation_dexlib2 import (
+                        DexlibInstrumentation,
+                        DexlibInstrumentationConfig,
+                    )
+                    # The dexlib2 wrapper's config has a simpler surface than
+                    # RVInstrumentationConfig; it delegates tool discovery to
+                    # the Java CLI's ConfigResolver via ANDROID_HOME / JAVA_HOME.
+                    instrumentation_config = DexlibInstrumentationConfig(
+                        monitor_output_dir=self.config.monitor_output_dir,
+                        instrumented_dir=instrumented_dir,
+                        working_dir=self.config.output_dir,
+                    )
+                    instrumenter = DexlibInstrumentation(instrumentation_config)
+                else:
+                    # get_rv_instrumentation_config() creates an RVInstrumentationConfig
+                    # just-in-time, resolving tool paths from RVSEC_HOME.
+                    instrumentation_config = self.config.get_rv_instrumentation_config()
+                    from rv_instrumentation import RVInstrumentation
+                    instrumenter = RVInstrumentation(instrumentation_config)
 
-                # Import instrumentation module
-                from rv_instrumentation import RVInstrumentation
-
-                instrumenter = RVInstrumentation(instrumentation_config)
                 apk_list = self.config.get_apk_list()
 
                 if not apk_list:

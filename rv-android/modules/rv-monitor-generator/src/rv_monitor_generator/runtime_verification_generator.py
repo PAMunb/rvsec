@@ -198,13 +198,21 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
             },
         )
 
-        # Construct JavaMOP command with merge option for unified artifact generation
+        # Construct JavaMOP command with merge option for unified artifact
+        # generation. When emit_descriptor is enabled (default), append the
+        # patched-JavaMOP --emit-descriptor flag so that a
+        # MultiSpec_*MonitorAspect.json is written alongside each .aj. The
+        # descriptor is consumed by the dexlib2 instrumentation variant
+        # (rvsec-instrumentation-dexlib2 Maven aggregator at
+        # rvsec/rvsec-android/). The legacy ajc variant ignores it — additive.
         mop_files_pattern = os.path.join(
             self.config.mop_specs_dir, "*" + constants.EXTENSION_MOP
         )
-        javamop_cmd = Command(
-            self.config.javamop_bin, ["-d", output_dir, "-merge", mop_files_pattern]
-        )
+        javamop_args = ["-d", output_dir, "-merge"]
+        if self.config.emit_descriptor:
+            javamop_args.append("--emit-descriptor")
+        javamop_args.append(mop_files_pattern)
+        javamop_cmd = Command(self.config.javamop_bin, javamop_args)
 
         utils.execute_command(javamop_cmd, "javamop")
 
@@ -299,11 +307,17 @@ class RuntimeVerificationGenerator(BaseValidatedModel):
             os.path.join(output_dir, f"*{constants.EXTENSION_AJ}")
         )
         java_files = glob.glob(os.path.join(output_dir, f"*{constants.EXTENSION_JAVA}"))
+        # Descriptor JSON files emitted by patched JavaMOP when
+        # emit_descriptor is enabled. Count 0 when the flag is off OR the
+        # JavaMOP on PATH doesn't carry the patch (the files simply won't be
+        # there); the summary surfaces this so callers can spot misconfiguration.
+        descriptor_files = glob.glob(os.path.join(output_dir, "*MonitorAspect.json"))
 
         return {
             "output_directory": output_dir,
             "aspectj_files": len(aspectj_files),
             "monitor_classes": len(java_files),
+            "descriptors": len(descriptor_files),
             "specs_processed": {
                 "source_directory": self.config.mop_specs_dir,
                 "count": len(self._get_mop_specs()),
