@@ -19,6 +19,7 @@
     <modules>
         <module>descriptor-reader</module>
         <module>pointcut-engine</module>
+        <module>advice-emitter</module>
     </modules>
 
     <properties>

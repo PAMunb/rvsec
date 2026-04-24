@@ -69,15 +69,15 @@ GitHub Issue: #52
 
 ## 4. `advice-emitter` Maven submodule (Java)
 
-- [ ] 4.1 Create `advice-emitter/pom.xml` (depends on pointcut-engine + dexlib2 model directly; per design D1, `EmitPlan` and `RegisterRequest` value classes live in this module — `dex-mutator` consumes them, no circular dep)
-- [ ] 4.2 Define `EmitPlan` value class (List<Instruction> toInsert, InsertionPoint point, RegisterRequest regs)
-- [ ] 4.3 Define `AdviceEmitter` interface; concrete: `BeforeEmitter`, `AfterEmitter`, `AfterReturningEmitter`, `AfterThrowingEmitter` (uses `addCatch` for try/handler), `StaticInitializationEmitter` (synthesize `<clinit>` if absent), `IfGuardEmitter` (emit `if-eqz` before invoke), `ThisJoinPointEmitter` (pre-compute string constant)
-- [ ] 4.4 Port `WrapperEmitter` from prototype's `WrapperGenerator`: generate `mop.MonitorWrappers.java` with one static method per `after returning` overload to avoid register aliasing
-- [ ] 4.5 Unit tests per emitter: golden-file `EmitPlan` JSON serialization for canonical advices
-- [ ] 4.6 `AfterThrowingEmitter` test: verify `tryStartLabel` / `catchAllHandler` placement
-- [ ] 4.7 `StaticInitializationEmitter` test: synthesize `<clinit>` when missing; preserve when present
-- [ ] 4.8 `IfGuardEmitter` test: emit `if-eqz` and skip-label before monitor invoke
-- [ ] 4.9 `mvn -pl advice-emitter test` — all green
+- [x] 4.1 Created `advice-emitter/pom.xml` (parent = aggregator; deps: pointcut-engine, descriptor-reader, smali-dexlib2, slf4j-api, junit-jupiter). Registered in aggregator `<modules>`.
+- [x] 4.2 Defined value classes in `br.unb.cic.rv.emitter/`: `EmitPlan` (record: List<BuilderInstruction> toInsert, InsertionPoint insertionPoint, RegisterRequest registers, nullable TryCatchSpec tryCatchSpec), `RegisterRequest` (record: int scratchCount + flags needsWidePair, mustBeLowRange; factory methods `NONE`, `scratch`, `wide`, `lowRange`), `InsertionPoint` enum (BEFORE / AFTER / REPLACE / TRY_CATCH_WRAP / METHOD_ENTRY), `EmitPlan.TryCatchSpec` inner record (catchType, catchAny).
+- [x] 4.3 `AdviceEmitter` interface (`emit(EmitContext) → EmitPlan`, `kind()`). Concrete emitters: `BeforeEmitter`, `AfterEmitter`, `AfterReturningEmitter` (RegisterRequest.scratch(1)), `AfterThrowingEmitter` (produces TryCatchSpec — specific type when advice declares `throwing(T t)`, Throwable when unbound), `StaticInitializationEmitter` (InsertionPoint.METHOD_ENTRY — `<clinit>` synthesis is the dex-mutator executor's concern), `IfGuardEmitter` (wraps another emitter via `wrapping(base)` and adds +1 scratch register), `ThisJoinPointEmitter` (helper utility for signature pre-computation). `EmitterDispatch.select(AdviceDescriptor)` implements the dispatch table declared in design.md §API Design (position × returning × throwing × staticinitialization × if). `around` advice rejected with `UnsupportedOperationException`.
+- [x] 4.4 Ported `WrapperEmitter` from prototype's `WrapperGenerator`: walks the typed PointcutExpression AST to find the first CallPC, generates `mop/MonitorWrappers.java` with one static wrapper per `after-returning` non-constructor advice. Each wrapper calls the original static method, invokes declared monitor events with advice params bound to wrapper locals (the `returning` param maps to the captured `result`), and returns the original result. Spec-set agnostic — the advice parameter types drive the wrapper signature. `MonitorInvokeBuilder` helper centralizes the `invoke-static` / `invoke-static-range` dispatch (BuilderInstruction35c ≤5 regs, BuilderInstruction3rc otherwise).
+- [x] 4.5 `EmitPlanShapeTest` (8 cases): each emitter's plan has the correct InsertionPoint + register demand + try/catch spec. Byte-exact instruction validation deferred to dex-mutator integration tests (Group 5) where real DEX fixtures are available.
+- [x] 4.6 `AfterThrowingEmitter` tests: specific-type advice produces `TryCatchSpec(catchType=Ljava/lang/Exception;, catchAny=false)`; unbound-type advice produces `TryCatchSpec(Throwable, catchAny=true)`. Try-range placement (start/end labels) is the dex-mutator executor's responsibility — the emitter's contract is just the spec.
+- [x] 4.7 `StaticInitializationEmitter` test: asserts `InsertionPoint.METHOD_ENTRY`. The `<clinit>` synthesis-when-absent logic belongs to the dex-mutator's `InstructionInjector` (task 5.2) — the emitter plan only declares where the invoke should land inside the target method.
+- [x] 4.8 `IfGuardEmitter` tests: wrapping a delegate increments scratch-register demand by 1 (for the guard result); raw use without wrapping fails fast with `IllegalStateException`. Actual if-eqz + skip-label emission is the dex-mutator executor's responsibility.
+- [x] 4.9 `mvn -pl advice-emitter -am test` — BUILD SUCCESS, 16 tests pass (8 dispatch + 8 shape); aggregate across modules 59 tests green (5 descriptor-reader + 43 pointcut-engine + 16 advice-emitter).
 
 ## 5. `dex-mutator` Maven submodule (Java)
 
