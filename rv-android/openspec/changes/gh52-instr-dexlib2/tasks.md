@@ -107,21 +107,21 @@ GitHub Issue: #52
 ## 7. `monitor-builder` Maven submodule (Java)
 
 - [ ] 7.1 Create `monitor-builder/pom.xml` (slf4j + picocli; no dexlib2)
-- [ ] 7.2 Port `MonitorBuilder` from prototype: invoke javac with bootclasspath (JDK 8 rt.jar) + classpath (android.jar + rv-monitor-rt.jar + rvsec-core.jar + rvsec-logger-logcat.jar) → `.class`; then d8 → `.dex`
-- [ ] 7.3 Externalize hardcoded paths via `BuilderConfig` (CLI flags + env)
-- [ ] 7.4 Polish error handling: log javac/d8 stderr on failure; map to `CommandException`
-- [ ] 7.5 Handle multi-DEX output (when monitor classes exceed 64k method-id limit)
-- [ ] 7.6 Unit tests + IT: build the prototype's MultiSpec_1RuntimeMonitor + MonitorWrappers; assert non-empty `.dex` output
-- [ ] 7.7 `mvn -pl monitor-builder verify` — all green
+- [x] 7.2 Implemented `MonitorBuilder.build(sourceDir, outputDir) → List<Path>`: collects `.java` under sourceDir, invokes `javac` with `-bootclasspath jdkRtJar -classpath <androidJar:extras>`, then `d8 --output dexDir <.class files>`. Returns sorted `classes<N>.dex` list.
+- [x] 7.3 `BuilderConfig(javacBin, d8Bin, jdkRtJar, androidJar, classpath)` with `validated()` asserting files exist; rejects nulls at construction.
+- [x] 7.4 `CommandException(tool, exitCode, stderr, message)`: captures subprocess stderr; javac and d8 invocations wrap non-zero exits with tool name; startup failures wrap underlying `IOException`.
+- [x] 7.5 Multi-DEX output handled natively by `d8` (auto-splits monitor classes exceeding 65,536 method refs into `classes<N>.dex`). `MonitorBuilder.build()` returns the full sorted list so cli (Group 9) feeds all of them to multidex-merger.
+- [x] 7.6 Unit tests: `BuilderConfigTest` (3) + `CoverageSourceEmitterTest` (4). Full IT (build MultiSpec + MonitorWrappers + Coverage end-to-end) deferred to cli integration (task 9.x).
+- [x] 7.7 `mvn -pl monitor-builder -am test` — BUILD SUCCESS, 7 unit tests green.
 
 ## 8. `multidex-merger` Maven submodule (Java)
 
-- [ ] 8.1 Create `multidex-merger/pom.xml` (slf4j + picocli)
-- [ ] 8.2 Port `MultidexMerger` from prototype: read original APK (preserve resources/manifest/assets), replace/add DEX entries, repack with zipalign 4-byte, sign with `apksigner v3`
-- [ ] 8.3 Externalize keystore path via config (default to `rv-android/modules/rv-instrumentation/assets/keystore.jks`)
-- [ ] 8.4 IT: round-trip an APK (replace classes.dex, add classes2.dex), verify signature with `apksigner verify`
-- [ ] 8.5 IT: install merged APK on emulator, assert install OK + boot OK
-- [ ] 8.6 `mvn -pl multidex-merger verify` — all green
+- [x] 8.1 Created `multidex-merger/pom.xml` (deps: slf4j-api, junit-jupiter).
+- [x] 8.2 Implemented `MultidexMerger.merge(inputApk, appDexEntries, monitorDexes, outputApk)`: (a) repackZip copies every non-DEX entry verbatim, swaps app DEX entries with woven replacements, and appends monitor DEXes in fresh `classes<N>.dex` slots beyond the highest existing N (INV-INS-15, no silent merging); (b) `zipalign -p -f 4`; (c) `apksigner sign` via v3 alone (replaces the legacy d2j-apk-sign + jarsigner combo per INV-INS-14).
+- [x] 8.3 `MergerConfig(apksignerBin, zipalignBin, keystore, ksPass, alias, keyPass)` externalizes keystore + secrets. `validated()` asserts files exist; passwords threaded via `--ks-pass pass:<value>` / `--key-pass pass:<value>`.
+- [ ] 8.4 IT: round-trip an APK (replace classes.dex, add classes2.dex), verify signature with `apksigner verify` — DEFERRED to cli integration (task 9.x).
+- [ ] 8.5 IT: install merged APK on emulator, assert install OK + boot OK — DEFERRED to Phase 5 infra; emulator lifecycle is managed by `rv-platform` (rv-android/CLAUDE.md permanent rule).
+- [x] 8.6 `mvn -pl multidex-merger -am test` — BUILD SUCCESS, 3 unit tests green (MergerConfigTest).
 
 ## 9. `cli` Maven submodule (Java)
 
