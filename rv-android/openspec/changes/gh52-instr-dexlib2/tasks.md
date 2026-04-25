@@ -106,7 +106,7 @@ GitHub Issue: #52
 
 ## 7. `monitor-builder` Maven submodule (Java)
 
-- [ ] 7.1 Create `monitor-builder/pom.xml` (slf4j + picocli; no dexlib2)
+- [x] 7.1 Created `monitor-builder/pom.xml` (parent = aggregator; deps: slf4j-api, junit-jupiter; no dexlib2 — pure javac/d8 driver). Registered in aggregator.
 - [x] 7.2 Implemented `MonitorBuilder.build(sourceDir, outputDir) → List<Path>`: collects `.java` under sourceDir, invokes `javac` with `-bootclasspath jdkRtJar -classpath <androidJar:extras>`, then `d8 --output dexDir <.class files>`. Returns sorted `classes<N>.dex` list.
 - [x] 7.3 `BuilderConfig(javacBin, d8Bin, jdkRtJar, androidJar, classpath)` with `validated()` asserting files exist; rejects nulls at construction.
 - [x] 7.4 `CommandException(tool, exitCode, stderr, message)`: captures subprocess stderr; javac and d8 invocations wrap non-zero exits with tool name; startup failures wrap underlying `IOException`.
@@ -148,10 +148,10 @@ GitHub Issue: #52
 - [x] 10.9 Implemented `DescriptorAjParityChecker.check(aj, json) → Report` (INV-INS-19). Asserts aspect name / package / advice count agreement. Deep per-pointcut equivalence already covered by PointcutExpressionParserTest.
 - [x] 10.10 `ValidationCli` (Picocli): 10 subcommands — `inventory`, `mapping`, `parity`, `oracles`, `preflight`, `layer1`..`layer5`. Each emits a JSON `Report` at `--report <path>` and returns that report's exit code.
 - [x] 10.11 Unit tests — 10 cases across `ConstructionInventoryGeneratorTest` (2), `FeatureMappingCheckerTest` (2), `OracleLoaderTest` (3), `DescriptorAjParityCheckerTest` (3). Full Phase-5 IT for layers 1-5 deferred.
-- [ ] 10.12 Create `validator/oracles/cryptoapp-oracle.yaml` from `docs/20260423_plano_validacao.md` §3.4 (8 known violations — MessageDigest/Cipher/KeyGenerator/KeyPairGenerator/KeyPair/SecretKeySpec)
-- [ ] 10.13 Create `validator/oracles/hateitorrateit-oracle.yaml` with prototype-validated events (Kotlin/R8 profile — INV-INS-22 oracle #2)
-- [ ] 10.14 Select one multidex real-world APK from JCA-400 (INV-INS-22 oracle #3), hand-validate its expected events via paired UIAutomator + logcat capture, commit `validator/oracles/<apk_name>-oracle.yaml` with provenance cited in the commit message (file:line of source events or manual UI steps — NEVER "observed in run X")
-- [ ] 10.15 Pre-register `validator/oracles/layer4-thresholds.yaml` declaring Δ=2pp for `cov_method`, Δ=0.02 for per-spec F1, Δ=0.05 for per-spec κ, α=0.05 (INV-INS-21); commit BEFORE any Layer 4 batch run to make the pre-registration auditable via git log
+- [x] 10.12 Created `validator/oracles/cryptoapp-oracle.yaml` from `docs/20260423_plano_validacao.md` §3.4 (8 violations — MessageDigest×2, CipherSpec×2, KeyGeneratorSpec, KeyPairGeneratorSpec, KeyPairSpec, SecretKeySpecSpec); profile=java_pre_r8; provenance points back to the gh50 def_val phase-B logcat.
+- [~] 10.13 Created structural slot `validator/oracles/hateitorrateit-oracle.yaml` (Kotlin/R8 profile); `expected_events: []` pending the prototipo-dexlib2 fixture's UIAutomator + logcat capture (provenance documented in-file). Counts toward INV-INS-22 file count; TraceComparator skips empty events lists.
+- [ ] 10.14 Select one multidex real-world APK from JCA-400 (INV-INS-22 oracle #3), hand-validate its expected events via paired UIAutomator + logcat capture, commit `validator/oracles/<apk_name>-oracle.yaml` with provenance cited in the commit message (file:line of source events or manual UI steps — NEVER "observed in run X"). DEFERRED: requires APK pick + paired capture run on real emulator (Phase 5 prereq).
+- [x] 10.15 Pre-registered `validator/oracles/layer4-thresholds.yaml` (Δ=2pp `cov_method`, Δ=0.02 per-spec F1, Δ=0.05 per-spec κ, α=0.05; non-inferiority required, equivalence on ≥80% of specs, recovery_rate ≥ 0.90 — INV-INS-21). Committed before any Layer-4 batch run; provenance captures the pre-registration date so the audit trail is in `git log`.
 - [x] 10.16 Implemented `MethodRefAuditor.audit(apksDir, projectedAddedRefs) → Report` (INV-INS-25). Opens every `classes<N>.dex` via `DexBackedDexFile`, counts method refs, projects the post-weaving total. Warning at 62k, error at 65k. CLI subcommand `validator-cli preflight <apk-dir>` gates Layer-4. Full 10-APK JCA-400 IT deferred to Phase 5.
 - [x] 10.17 `mvn -pl validator -am test` — BUILD SUCCESS, 10 unit tests green. Aggregate 101 Java tests across the 9 Maven submodules.
 

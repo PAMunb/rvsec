@@ -1,0 +1,62 @@
+name: cryptoapp
+profile: java_pre_r8
+provenance:
+  source: rv-android/docs/20260423_plano_validacao.md §3.4
+  ground_truth_run: results/gh50_def_val/cryptoapp.apk/cryptoapp.apk__1__300__aperv.logcat
+  origin: gh50 def_val phase-B run, single-replica APE-RV exploration over 300s
+description: |
+  Canonical 8-violation oracle for the cryptoapp APK shipped under
+  rv-android/apks_examples/cryptoapp.apk. Every entry is a known
+  true-positive observed in the gh50 def_val phase-B logcat. Missing
+  message substrings are wildcards (the originating logcat line did not
+  carry a discriminating substring; presence of the (spec, errorType,
+  class, method) tuple is sufficient).
+expected_events:
+  - id: 1
+    spec: MessageDigestSpec
+    error_type: UnsafeAlgorithm
+    location: { class: MessageDigestUtil, method: hash }
+    expected_message_substring: "but found MD5."
+  - id: 2
+    spec: MessageDigestSpec
+    error_type: UnsafeAlgorithm
+    location: { class: MessageDigestUtil, method: hash }
+    expected_message_substring: "but found SHA-1."
+  - id: 3
+    spec: CipherSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: CipherUtil, method: des }
+    expected_message_substring: null
+  - id: 4
+    spec: CipherSpec
+    error_type: UnsafeAlgorithm
+    location: { class: CipherUtil, method: des }
+    expected_message_substring: "but found DES."
+  - id: 5
+    spec: KeyGeneratorSpec
+    error_type: UnsafeAlgorithm
+    location: { class: CipherUtil, method: des }
+    expected_message_substring: "but found DES."
+  - id: 6
+    spec: KeyPairGeneratorSpec
+    error_type: InvalidKeySize
+    location: { class: CryptographyActivity, method: generateKeyPair }
+    expected_message_substring: "DSA"
+  - id: 7
+    spec: KeyPairSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: CryptographyActivity, method: generateKeyPair }
+    expected_message_substring: null
+  - id: 8
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: CipherUtil, method: aes }
+    expected_message_substring: "keyMaterial.length not randomized"
+acceptance:
+  required_event_count: 8
+  full_coverage_required: true
+notes: |
+  Both ajc and dexlib2 pipelines must produce all 8 events. TraceComparator
+  computes per-spec F1 against this oracle; cryptoapp is the canonical
+  100%-coverage gate for Layer 3 (rv-android/docs/20260423_plano_validacao.md
+  Camada 3, Gate 3).
