@@ -76,14 +76,21 @@ public final class MonitorBuilder {
         }
 
         String classpath = Stream.concat(
-                Stream.of(config.jdkRtJar.toString(), config.androidJar.toString()),
+                Stream.of(config.androidJar.toString()),
                 config.classpath.stream().map(Path::toString)
         ).collect(Collectors.joining(java.io.File.pathSeparator));
 
         List<String> cmd = new ArrayList<>();
         cmd.add(config.javacBin.toString());
         cmd.add("-d"); cmd.add(classesDir.toString());
-        cmd.add("-bootclasspath"); cmd.add(config.jdkRtJar.toString());
+        // Target Java 8 bytecode for d8 compatibility. Modern javac (≥9)
+        // rejects -bootclasspath at target ≥9, and Android's d8 only
+        // accepts ≤Java 11 class files anyway. --source/-target 1.8 is the
+        // canonical Android-toolchain invocation. android.jar is on the
+        // -classpath so android.* types resolve; java.* types come from
+        // the JDK's default boot classpath.
+        cmd.add("-source"); cmd.add("1.8");
+        cmd.add("-target"); cmd.add("1.8");
         cmd.add("-classpath"); cmd.add(classpath);
         cmd.addAll(sources);
 
