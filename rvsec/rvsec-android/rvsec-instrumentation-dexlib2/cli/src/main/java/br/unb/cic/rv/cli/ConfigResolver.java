@@ -25,29 +25,39 @@ public final class ConfigResolver {
     private ConfigResolver() {}
 
     public static EffectiveConfig resolve(InstrumentationCli args) {
+        // Read-side prerequisites are always required: runPipeline reads the
+        // descriptor + opens the APK + matches against android.jar.
         Path androidJar = requirePath(args.androidJar,
                 resolveAndroidJarFromEnv(), "--android-jar / ANDROID_HOME");
-        Path javac = requirePath(args.javacBin,
-                resolveJavacFromEnv(), "--javac / JAVA_HOME");
-        Path d8 = requirePath(args.d8Bin,
-                resolveD8FromEnv(), "--d8 / ANDROID_HOME");
-        Path zipalign = requirePath(args.zipalignBin,
-                resolveZipalignFromEnv(), "--zipalign / ANDROID_HOME");
-        Path apksigner = requirePath(args.apksignerBin,
-                resolveApksignerFromEnv(), "--apksigner / ANDROID_HOME");
-        Path keystore = requirePath(args.keystore,
-                envPath("RVSEC_KEYSTORE"), "--keystore / RVSEC_KEYSTORE");
-        Path rtJar = requirePath(args.jdkRtJar,
-                resolveJdkRtFromEnv(), "--jdk-rt / JAVA_HOME");
+
+        // Mutation/build/sign prerequisites are best-effort here. The
+        // current runPipeline runs the read-side pipeline only (task 9.5
+        // partial); when the mutation+sign path lands, those calls will
+        // validate their own MergerConfig / BuilderConfig at use time.
+        // Resolving them eagerly with safe nullable fallbacks lets
+        // dry-run invocations succeed without a keystore on PATH.
+        Path javac = optional(args.javacBin, resolveJavacFromEnv());
+        Path d8 = optional(args.d8Bin, resolveD8FromEnv());
+        Path zipalign = optional(args.zipalignBin, resolveZipalignFromEnv());
+        Path apksigner = optional(args.apksignerBin, resolveApksignerFromEnv());
+        Path keystore = optional(args.keystore, envPath("RVSEC_KEYSTORE"));
+        Path rtJar = optional(args.jdkRtJar, resolveJdkRtFromEnv());
 
         String keystorePass = firstNonNull(args.keystorePass, System.getenv("RVSEC_KEYSTORE_PASS"), "android");
         String keyAlias = firstNonNull(args.keyAlias, System.getenv("RVSEC_KEY_ALIAS"), "androiddebugkey");
         String keyPass = firstNonNull(args.keyPass, System.getenv("RVSEC_KEY_PASS"), "android");
 
-        BuilderConfig builder = new BuilderConfig(javac, d8, rtJar, androidJar,
-                args.extraClasspath == null ? List.of() : args.extraClasspath);
-        MergerConfig merger = new MergerConfig(apksigner, zipalign, keystore,
-                keystorePass, keyAlias, keyPass);
+        // BuilderConfig and MergerConfig are populated only when their tool
+        // paths resolved; otherwise null fields are passed forward and the
+        // mutation-side code surfaces a precise error if it ever runs
+        // without the binaries.
+        BuilderConfig builder = (javac != null && d8 != null && rtJar != null)
+                ? new BuilderConfig(javac, d8, rtJar, androidJar,
+                        args.extraClasspath == null ? List.of() : args.extraClasspath)
+                : null;
+        MergerConfig merger = (apksigner != null && zipalign != null && keystore != null)
+                ? new MergerConfig(apksigner, zipalign, keystore, keystorePass, keyAlias, keyPass)
+                : null;
         return new EffectiveConfig(
                 args.descriptorPath,
                 androidJar,
@@ -60,6 +70,11 @@ public final class ConfigResolver {
                 keystore,
                 args.logLevel == null ? "INFO" : args.logLevel
         );
+    }
+
+    /** Pick from CLI flag first, then env var. Returns null when neither is set. */
+    private static Path optional(Path fromCli, Path fromEnv) {
+        return fromCli != null ? fromCli : fromEnv;
     }
 
     private static Path requirePath(Path fromCli, Path fromEnv, String label) {
