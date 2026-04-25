@@ -72,12 +72,7 @@ class DexlibInstrumentation:
         self._run_cli([
             "instrument",
             str(app.apk_path),
-            "--descriptor",
-            str(self._first_descriptor()),
-            "--output",
-            str(result_dir),
-            "--work-dir",
-            str(self.config.working_dir),
+            *self._common_cli_args(result_dir),
         ])
         return result_dir / f"{app.name}.apk"
 
@@ -97,16 +92,33 @@ class DexlibInstrumentation:
         self._run_cli([
             "batch",
             str(apks_dir),
-            "--descriptor",
-            str(self._first_descriptor()),
-            "--output",
-            str(results_dir),
-            "--work-dir",
-            str(self.config.working_dir),
+            *self._common_cli_args(results_dir),
             "--results-json",
             str(results_json),
         ])
         return self._parse_results_json(results_json)
+
+    def _common_cli_args(self, output_dir: Path) -> List[str]:
+        """CLI args shared between ``instrument`` and ``batch`` subcommands.
+
+        ``--monitor-src-dir`` points at the rv-monitor-generator output (the
+        same directory holding the descriptor JSON + ``mop/*RuntimeMonitor.java``
+        + ``mop/MonitorWrappers.java``). MonitorBuilder walks it recursively
+        for .java sources. With it set, the Java CLI runs the full
+        compile+merge+sign pipeline; without it the CLI stops at written
+        DEXes (phase=dex_only).
+        """
+        args = [
+            "--descriptor", str(self._first_descriptor()),
+            "--output", str(output_dir),
+            "--work-dir", str(self.config.working_dir),
+            "--monitor-src-dir", str(self.config.monitor_output_dir),
+        ]
+        if self.config.keystore_file is not None:
+            args += ["--keystore", str(self.config.keystore_file)]
+        if self.config.keystore_password is not None:
+            args += ["--keystore-pass", self.config.keystore_password]
+        return args
 
     # --- internals --------------------------------------------------------
 

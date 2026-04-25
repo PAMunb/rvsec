@@ -2,11 +2,13 @@
 
 End-to-end tests against a real fixture APK + real Java CLI are covered by
 integration tests under task 9.5. The tests here exercise only the Python
-side: config shape, error paths, and results-JSON parsing.
+side: config shape, error paths, results-JSON parsing, and the CLI argv
+contract (task 12.7 — wrapper-side parity check, no real subprocess).
 """
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -119,3 +121,97 @@ def test_parse_results_json_absent(tmp_workspace):
     assert results.variant == "dexlib2"
     assert results.success_count == 0
     assert "__run__" in results.errors
+
+
+# --- task 12.7: wrapper → Java CLI argv contract ----------------------------
+# The wrapper assembles the argv passed to instr-cli; these tests pin the
+# contract so a future refactor cannot silently drop --monitor-src-dir or
+# --keystore (which would downgrade the pipeline to phase=dex_only without
+# any error surfacing).
+
+
+def _seed_descriptor(workspace):
+    desc = workspace["monitors"] / "MultiSpec_1MonitorAspect.json"
+    desc.write_text("{}")
+    return desc
+
+
+def test_batch_argv_includes_monitor_src_dir(tmp_workspace):
+    _seed_descriptor(tmp_workspace)
+    results_dir = tmp_workspace["root"] / "results"
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        # Synthesize the results JSON the wrapper expects to parse.
+        results_dir.mkdir(parents=True, exist_ok=True)
+        (results_dir / "instrument_results.json").write_text(
+            json.dumps({"variant": "dexlib2", "results": []})
+        )
+        class _R:
+            returncode = 0
+            stderr = ""
+            stdout = ""
+        return _R()
+
+    with patch("subprocess.run", side_effect=fake_run):
+        inst.instrument_apks(tmp_workspace["root"] / "apks", results_dir)
+
+    cmd = captured["cmd"]
+    assert "batch" in cmd
+    # Critical: --monitor-src-dir must point at monitor_output_dir, otherwise
+    # the Java CLI stops at phase=dex_only and never produces a signed APK.
+    i = cmd.index("--monitor-src-dir")
+    assert Path(cmd[i + 1]) == tmp_workspace["monitors"]
+    # --descriptor + --output + --work-dir + --results-json must also be present.
+    for flag in ("--descriptor", "--output", "--work-dir", "--results-json"):
+        assert flag in cmd, f"{flag} dropped from argv"
+
+
+def test_instrument_argv_includes_keystore_when_configured(tmp_workspace):
+    _seed_descriptor(tmp_workspace)
+    keystore = tmp_workspace["root"] / "debug.keystore"
+    keystore.write_bytes(b"stub")
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+        keystore_file=keystore,
+        keystore_password="android",
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        class _R:
+            returncode = 0
+            stderr = ""
+            stdout = ""
+        return _R()
+
+    # Build a minimal App-shaped object — the wrapper only reads .apk_path
+    # and .name, so a SimpleNamespace suffices.
+    from types import SimpleNamespace
+    app = SimpleNamespace(
+        apk_path=tmp_workspace["root"] / "fake.apk",
+        name="fake",
+    )
+    with patch("subprocess.run", side_effect=fake_run):
+        inst.instrument(app, tmp_workspace["instrumented"])
+
+    cmd = captured["cmd"]
+    assert "--keystore" in cmd, "keystore_file set but --keystore not forwarded"
+    assert "--keystore-pass" in cmd, "keystore_password set but --keystore-pass not forwarded"
+    i = cmd.index("--keystore")
+    assert Path(cmd[i + 1]) == keystore

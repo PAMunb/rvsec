@@ -172,7 +172,7 @@ GitHub Issue: #52
 - [x] 12.4 `rv_instrumentation_dexlib2.errors`: `MissingDescriptorError`, `DescriptorParseError`, `UnsupportedAspectConstructError` — each with docstring naming its INV/LIMITATIONS reference.
 - [x] 12.5 Added `variant: str = Field(default="ajc", ...)` to `InstrumentationResults` in `rv-instrumentation/config.py` (not `rv-android-core` — that module doesn't carry `InstrumentationResults`). Legacy JSON deserializes as `"ajc"` automatically.
 - [x] 12.6 `test_dexlib_instrumentation.py` (5): config defaults, `MissingDescriptorError`, `FileNotFoundError` when jar missing, results-JSON parse, results-JSON absent fallback.
-- [ ] 12.7 Parametrized `test_api_parity.py` — DEFERRED to task 9.5 where a fixture APK + CLI integration are available.
+- [~] 12.7 Wrapper-side argv parity tests landed in `tests/test_dexlib_instrumentation.py`: `test_batch_argv_includes_monitor_src_dir` (asserts `--monitor-src-dir` always points at `monitor_output_dir`, otherwise the Java CLI silently downgrades to `phase=dex_only`) + `test_instrument_argv_includes_keystore_when_configured` (asserts `--keystore` / `--keystore-pass` propagate when `keystore_file` is set). Real-APK ajc-vs-dexlib2 parametrized parity DEFERRED until both legacy and dexlib2 instrument the same fixture set under Phase 5.
 - [x] 12.8 Docstrings written in-line on all public classes and methods.
 - [x] 12.9 `uv run pytest modules/rv-instrumentation-dexlib2/tests/` — 5 tests pass.
 
