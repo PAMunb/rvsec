@@ -119,6 +119,7 @@ public final class BatchRunner {
             int matchesApplied = 0;
             int plansSkipped = 0;
             int coverageInstrumented = 0;
+            int coverageSpillFailed = 0;
             int classesSeen = 0;
             int methodsSeen = 0;
 
@@ -141,6 +142,7 @@ public final class BatchRunner {
                     CoverageWeaver.CoverageReport cr =
                             coverageWeaver.weave(dx, mutator::forMethod);
                     coverageInstrumented += cr.methodsInstrumented();
+                    coverageSpillFailed += cr.methodsSpillFailed();
                 }
 
                 // 4c. Serialize. DexPool accepts the original DexFile for
@@ -156,7 +158,10 @@ public final class BatchRunner {
             counts.put("methodsSeen", methodsSeen);
             counts.put("matchesApplied", matchesApplied);
             counts.put("plansSkipped", plansSkipped);
-            if (coverageWeaver != null) counts.put("coverageInstrumented", coverageInstrumented);
+            if (coverageWeaver != null) {
+                counts.put("coverageInstrumented", coverageInstrumented);
+                counts.put("coverageSpillFailed", coverageSpillFailed);
+            }
             counts.put("wovenDexes", appDexEntries.size());
 
             // Phase 5: monitor-builder javac+d8. Skipped unless the caller has

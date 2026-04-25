@@ -315,8 +315,8 @@ public final class RegisterShifter {
      * format (non-move 12x ops, 22c with BOTH regs overflowing, 35c invokes with non-contiguous
      * high registers, etc.). Caller handles via skip.
      */
-    static List<BuilderInstruction> shiftExpanding(BuilderInstruction in, int threshold, int delta,
-                                                   int scratchReg) {
+    public static List<BuilderInstruction> shiftExpanding(BuilderInstruction in, int threshold,
+                                                          int delta, int scratchReg) {
         try {
             BuilderInstruction shifted = shift(in, threshold, delta);
             return shifted == null ? Collections.singletonList(in) : Collections.singletonList(shifted);
@@ -326,6 +326,60 @@ public final class RegisterShifter {
             throw overflow;
         }
     }
+
+    /**
+     * Free up {@code count} low-end register slots by shifting every existing register
+     * reference up by {@code count} and growing the frame by {@code count}.
+     *
+     * <p>This is the **canonical way** to add scratch registers to a DEX method without
+     * breaking the calling convention. Android DEX places method parameters in the
+     * <i>highest</i> {@code paramRegisterCount} registers; growing {@code registerCount}
+     * alone moves those slots implicitly while the bytecode still references the old
+     * positions, leaving the new param slots uninitialized at method entry — which the
+     * runtime verifier rejects with {@code java.lang.VerifyError: tried to get class from
+     * non-reference register vN (type=Undefined)}.
+     *
+     * <p>Strategy:
+     * <ol>
+     *   <li>Walk every instruction; rewrite each register reference {@code r} →
+     *       {@code r + count} via {@link #shiftExpanding} (which converts 4-bit slots to
+     *       wider {@code /from16} forms when needed, using {@code scratchReg=0} as a
+     *       guaranteed-dead spill slot since every original register is now &ge; count).</li>
+     *   <li>Grow {@code registerCount} by {@code count}.</li>
+     * </ol>
+     * After this returns, registers {@code 0..count-1} are free for the caller to use.
+     * Param registers, after the shift, end up at {@code regCount - paramRegs..regCount-1}
+     * — exactly where the runtime initializes them after the bump.
+     *
+     * <p>Throws {@link RegisterOverflow4Bit} if any instruction's format cannot be widened
+     * (e.g. non-move 12x ops, 22c with both operands overflowing). Callers should catch
+     * and skip the offending method (the rest of the class is unaffected because the
+     * caller works on a {@link MutableMethodImplementation}, which is per-method).
+     *
+     * @see <a href="https://source.android.com/docs/core/runtime/dex-format#instruction-format">
+     *      Dalvik instruction format reference</a>
+     */
+    public static void spillLowRegisters(MutableMethodImplementation mut, int count) {
+        if (count <= 0) return;
+        int i = 0;
+        while (i < mut.getInstructions().size()) {
+            BuilderInstruction insn = mut.getInstructions().get(i);
+            List<BuilderInstruction> expanded = shiftExpanding(
+                    insn, /*threshold=*/ 0, /*delta=*/ count, /*scratchReg=*/ 0);
+            if (expanded.size() == 1 && expanded.get(0) == insn) {
+                // No-op (payload or no-register instruction).
+                i++;
+                continue;
+            }
+            mut.replaceInstruction(i, expanded.get(0));
+            for (int k = 1; k < expanded.size(); k++) {
+                mut.addInstruction(i + k, expanded.get(k));
+            }
+            i += expanded.size();
+        }
+        bumpRegisterCount(mut, count);
+    }
+
 
     private static List<BuilderInstruction> expandOverflow(BuilderInstruction in, int threshold,
                                                            int delta, int scratchReg) {

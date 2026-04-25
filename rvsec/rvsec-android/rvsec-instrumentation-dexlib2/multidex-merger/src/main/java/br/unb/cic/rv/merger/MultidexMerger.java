@@ -100,9 +100,22 @@ public final class MultidexMerger {
                     // Write the woven replacement in place of the original.
                     writeEntry(out, n, appDexEntries.get(n));
                 } else {
-                    // Verbatim copy (resources, manifest, assets).
+                    // Preserve the original entry's storage method and metadata.
+                    // Critical for API 30+ install: resources.arsc must remain
+                    // STORED (uncompressed). Recompressing with the default
+                    // DEFLATED triggers PackageManager parse failure -124
+                    // ("Targeting R+ requires resources.arsc stored uncompressed").
+                    // For STORED entries the size/crc must be set on the
+                    // destination entry; ZipOutputStream computes them itself
+                    // for DEFLATED so they can be left unset.
                     ZipEntry dst = new ZipEntry(n);
+                    dst.setMethod(src.getMethod());
                     dst.setTime(src.getTime());
+                    if (src.getMethod() == ZipEntry.STORED) {
+                        dst.setSize(src.getSize());
+                        dst.setCompressedSize(src.getCompressedSize());
+                        dst.setCrc(src.getCrc());
+                    }
                     out.putNextEntry(dst);
                     try (InputStream is = in.getInputStream(src)) {
                         is.transferTo(out);

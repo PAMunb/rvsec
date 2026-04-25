@@ -189,6 +189,8 @@ flowchart TB
 | INV-INS-23 (thread-safe Coverage runtime state) | generated `mop.Coverage` class emitted with `ConcurrentHashMap.newKeySet()` by `monitor-builder` (or coverage-weaver's Coverage emitter, wherever the source lives) | `coverage-weaver/src/test/CoverageThreadSafetyTest` — ≥4-thread entry fuzz with exact logcat reconciliation |
 | INV-INS-24 (Kotlin `suspend` pointcut matching inside `invokeSuspend`) | `pointcut-engine.PointcutMatcher` extended with a CPS-aware resolution pass that recognizes Kotlin state-machine classes and matches pointcuts against their lowered call sites | `advice-emitter/src/test/KotlinSuspendFixtureTest` (direct-suspend-invoke + continuation-captured cases); unmatched patterns go into `LIMITATIONS.md` |
 | INV-INS-25 (pre-batch 64k method-ref audit) | `validator.MethodRefAuditor` (Layer-4 preflight) projects post-weaving ref counts per DEX; gates the batch on no unhandled overflow | `validator/src/test/MethodRefAuditorTest` (synthetic DEX at 64,900 refs + monitor projection) + integration test over 10-APK JCA-400 sample |
+| INV-INS-26 (calling-convention-safe scratch register allocation) | `dex-mutator.RegisterShifter.spillLowRegisters` (canonical shift+bump), consumed by `coverage-weaver.CoverageWeaver` and (pending — INV-INS-26 follow-up in tasks.md §5.4) by `dex-mutator.RegisterAllocator` | cli-level smoke installs woven cryptoapp on emulator without `VerifyError` (proxied via `validator layer2`); unit-level `coverage-weaver/src/test/SpillStrategyTest` covers free-locals + shift+bump branches over synthetic methods |
+| INV-INS-27 (advice insertion past `move-result*`) | `advice-emitter` and `dex-mutator.InstructionInjector` MUST detect when the matched invoke is followed by `move-result*` and insert the advice's monitor invoke past the move-result, not before it; bug surfaced in gh52 cryptoapp smoke against `androidx.core.util.Preconditions.checkArgument` | `advice-emitter/src/test/MoveResultGuardTest` (synthetic match contexts) + cli-level smoke install/boot of cryptoapp; reproducer canonical in tasks.md §5.4 |
 
 ## Goals / Non-Goals
 
@@ -447,33 +449,55 @@ sequenceDiagram
 
 ### Failure path: register pressure forces format expansion
 
+The DEX calling convention places method parameters in the **highest** `paramRegs`
+slots. Naively growing `registerCount` (`bumpRegisterCount(+N)` alone) implicitly
+relocates that window without rewriting the bytecode that references the old
+positions, leaving every parameter slot Undefined at the verifier level. Symptom:
+`java.lang.VerifyError: tried to get class from non-reference register vN
+(type=Undefined)` on the first instruction that touches a parameter — i.e. on
+essentially every coverage-instrumented method that has parameters. This was the
+gh52 cryptoapp + 3-APK smoke regression that surfaced INV-INS-26.
+
+Canonical strategy when `count` low-end scratch slots are needed (implemented in
+`RegisterShifter.spillLowRegisters(mut, count)`):
+
+1. Walk every instruction; rewrite each register reference `r → r + count`
+   via `shiftExpanding(threshold=0, delta=count, scratchReg=0)`. The expander
+   converts 4-bit slots to wider `/from16` forms when needed, using `v0` as a
+   guaranteed-dead spill slot (every original register is now ≥ count after
+   the shift completes).
+2. Grow `registerCount` by `count`.
+After this, registers `0..count-1` are free for the caller to use; parameters
+end up at `regCount - paramRegs..regCount - 1`, matching where the runtime
+initializes them after the bump. The caller's scratch references `v0..v(count-1)`
+work without any further register-rewriting.
+
+When the method already has at least `count` free local registers
+(`localCount >= count`), no shift/bump is needed; the caller uses the existing
+low locals as scratch — the cheap path most coverage-instrumented methods take.
+
 ```mermaid
 sequenceDiagram
-    participant DM as DexWeaver
-    participant AE as AdviceEmitter
-    participant RA as RegisterAllocator
+    participant CW as CoverageWeaver / RegisterAllocator
     participant RS as RegisterShifter
     participant MMI as MutableMethodImplementation
 
-    DM->>AE: emit(match, advice)
-    AE->>RA: requestRegisters(scratchCount=2)
-    RA->>RA: compute<br/>required vs available
-    alt sufficient (no spill)
-        RA-->>AE: scratch={vN, vN+1}
-    else needs new registers
-        RA->>RS: shift(threshold=15, delta=2)
-        RS->>MMI: bump registerCount via reflection
-        loop for each instruction
-            RS->>RS: rewrite reg refs ≥ threshold
-            alt format would overflow 4 bits
-                RS->>RS: expand to /from16 variant
+    CW->>MMI: read paramRegs, registerCount
+    CW->>CW: localCount = registerCount - paramRegs
+    alt localCount >= scratchCount (free locals)
+        Note over CW: use v0..v(scratchCount-1) directly
+    else localCount < scratchCount (must spill)
+        CW->>RS: spillLowRegisters(mut, delta = scratchCount - localCount)
+        loop for each existing instruction
+            RS->>RS: rewrite reg refs (r → r + delta), threshold=0
+            alt 4-bit slot would overflow
+                RS->>RS: widen to /from16 via scratchReg=0
             end
         end
-        RS-->>RA: ok
-        RA-->>AE: scratch={vM, vM+1}
+        RS->>MMI: bump registerCount by delta (via reflection)
+        Note over RS,MMI: params slide to r[regCount-paramRegs..regCount-1]<br/>matching the runtime's new init positions
     end
-    AE-->>DM: EmitPlan
-    DM->>MMI: inject EmitPlan
+    CW->>MMI: inject const-string v0 + invoke-static {v0}
 ```
 
 ### Validator: Layer 4 batch flow
