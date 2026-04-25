@@ -632,6 +632,37 @@ class ExperimentConfig(BaseValidatedModel):
         """
         return self.get_instrumentation_config()
 
+    def get_dexlib_instrumentation_config(self):
+        """Build a DexlibInstrumentationConfig for the gh52 variant.
+
+        Mirrors :meth:`get_instrumentation_config` for the legacy ajc path:
+        resolves the canonical ``output_dir/MONITORS_DIR`` +
+        ``output_dir/INSTRUMENTED_APKS_DIR`` + working_dir triple from the
+        same experiment fields. The dexlib2 wrapper does not need
+        ``rvsec_root`` (the Java CLI auto-resolves android.jar/javac/d8 from
+        ANDROID_HOME / JAVA_HOME) but does need the monitor source
+        directory, since ``--monitor-src-dir`` controls whether the Java
+        pipeline runs the build+sign phase or stops at written DEXes.
+        """
+        # Lazy import — keeps the legacy install path independent of the
+        # gh52 wrapper module being present.
+        from rv_instrumentation_dexlib2 import DexlibInstrumentationConfig
+        from pathlib import Path
+
+        if not self.output_dir:
+            raise ConfigurationError(
+                "ExperimentConfig.output_dir is unset; cannot derive monitor / "
+                "instrumented dirs for the dexlib2 instrumentation variant"
+            )
+        monitor_output_dir = Path(self.output_dir) / MONITORS_DIR
+        instrumented_dir = Path(self.output_dir) / INSTRUMENTED_APKS_DIR
+        working_dir = Path(self.output_dir)
+        return DexlibInstrumentationConfig(
+            monitor_output_dir=monitor_output_dir,
+            instrumented_dir=instrumented_dir,
+            working_dir=working_dir,
+        )
+
     def get_static_analysis_config(self) -> RVStaticAnalysisConfig:
         """Create static analysis configuration on demand.
 

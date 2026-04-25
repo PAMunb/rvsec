@@ -189,16 +189,15 @@ class PreProcessor:
                 if variant == "dexlib2":
                     from rv_instrumentation_dexlib2 import (
                         DexlibInstrumentation,
-                        DexlibInstrumentationConfig,
                     )
-                    # The dexlib2 wrapper's config has a simpler surface than
-                    # RVInstrumentationConfig; it delegates tool discovery to
-                    # the Java CLI's ConfigResolver via ANDROID_HOME / JAVA_HOME.
-                    instrumentation_config = DexlibInstrumentationConfig(
-                        monitor_output_dir=self.config.monitor_output_dir,
-                        instrumented_dir=instrumented_dir,
-                        working_dir=self.config.output_dir,
-                    )
+                    # ExperimentConfig.get_dexlib_instrumentation_config()
+                    # mirrors get_rv_instrumentation_config(): both resolve
+                    # the canonical (output_dir/MONITORS_DIR,
+                    # output_dir/INSTRUMENTED_APKS_DIR, working_dir) triple
+                    # from the experiment's effective root, so the dispatch
+                    # only differs in the constructor + (optional) wrapper-
+                    # specific overrides like cli_jar_path / keystore.
+                    instrumentation_config = self.config.get_dexlib_instrumentation_config()
                     instrumenter = DexlibInstrumentation(instrumentation_config)
                 else:
                     # get_rv_instrumentation_config() creates an RVInstrumentationConfig

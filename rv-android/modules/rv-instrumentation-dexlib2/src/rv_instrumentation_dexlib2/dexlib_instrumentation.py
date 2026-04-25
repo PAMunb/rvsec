@@ -77,17 +77,87 @@ class DexlibInstrumentation:
         return result_dir / f"{app.name}.apk"
 
     def instrument_apks(
-        self, apks_dir: Path, results_dir: Path
+        self,
+        apks_dir,
+        results_dir,
+        force_instrumentation: bool = False,
+        apk_paths: Optional[List[str]] = None,
     ) -> InstrumentationResults:
         """Instrument every ``.apk`` under ``apks_dir`` in one subprocess call.
 
-        Emits the batch summary to ``results_dir/instrument_results.json`` per
-        the Java CLI's ``--results-json`` flag, then parses it into an
+        Signature mirrors ``RVInstrumentation.instrument_apks`` so
+        rv-experiment's PreProcessor can dispatch to either variant via the
+        same kwargs.
+
+        Args:
+            apks_dir: Directory containing the APKs to instrument.
+            results_dir: Where the signed instrumented APKs land.
+            force_instrumentation: Reserved — the Java CLI always re-runs;
+                idempotency is the caller's responsibility (rv-experiment
+                deletes the results dir on resume rather than relying on
+                this flag).
+            apk_paths: Optional subset of basenames to process. When set,
+                each named APK is run through the single-APK ``instrument``
+                subcommand (one JVM per APK). When ``None``, the ``batch``
+                subcommand processes the entire ``apks_dir`` in one JVM.
+
+        Emits the batch summary to ``results_dir/instrument_results.json``
+        per the Java CLI's ``--results-json`` flag, then parses it into an
         ``InstrumentationResults`` tagged with ``variant="dexlib2"``.
         """
+        from pathlib import Path
+
         self.prepare_instrumentation()
+        apks_dir = Path(apks_dir)
+        results_dir = Path(results_dir)
         results_json = results_dir / "instrument_results.json"
         results_dir.mkdir(parents=True, exist_ok=True)
+
+        if apk_paths:
+            # Per-APK invocation. The Java CLI's batch path filters by
+            # globbing the directory, so to honor a strict subset we
+            # invoke single-APK runs and aggregate the results manually.
+            # Slower (1 JVM per APK) but the only way to respect apk_paths
+            # without staging a symlink farm.
+            from rv_instrumentation.config import (
+                InstrumentationError,
+                InstrumentationResults,
+            )
+
+            success = 0
+            errors: dict[str, InstrumentationError] = {}
+            for name in apk_paths:
+                apk = apks_dir / name
+                if not apk.is_file():
+                    errors[name] = InstrumentationError(
+                        code=2,
+                        phase="apk_lookup",
+                        tool="instr-cli",
+                        message=f"APK not found at {apk}",
+                    )
+                    continue
+                try:
+                    self._run_cli([
+                        "instrument", str(apk),
+                        *self._common_cli_args(results_dir),
+                    ])
+                    # The single-APK subcommand prints the PerApkResult to
+                    # stdout but does not write the aggregate JSON; we
+                    # treat a clean exit as success.
+                    success += 1
+                except RuntimeError as ex:
+                    errors[name] = InstrumentationError(
+                        code=1,
+                        phase="dexlib2_pipeline",
+                        tool="instr-cli",
+                        message=str(ex),
+                    )
+            return InstrumentationResults(
+                success_count=success,
+                total_count=len(apk_paths),
+                errors=errors,
+                variant="dexlib2",
+            )
 
         self._run_cli([
             "batch",
