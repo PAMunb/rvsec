@@ -116,6 +116,18 @@ public final class MonitorBuilder {
         cmd.add("--output"); cmd.add(dexDir.toString());
         cmd.addAll(classFiles);
 
+        // Include the runtime support jars (rv-monitor-rt, rvsec-agent, …)
+        // so d8 dexes their classes alongside the generated monitor +
+        // wrappers. Without this, the runtime monitor's parent class
+        // `com.runtimeverification.rvmonitor.java.rt.RVMObject` resolves
+        // at javac time but is missing in the merged APK at runtime,
+        // surfacing as `ClassNotFoundException: RVMObject` on first
+        // monitor-method call. The classpath is the same set we feed
+        // javac for compilation.
+        for (Path cpJar : config.classpath) {
+            cmd.add(cpJar.toString());
+        }
+
         runSubprocess("d8", cmd);
 
         // d8 writes classes.dex (+ optional classes2.dex, classes3.dex) in dexDir.

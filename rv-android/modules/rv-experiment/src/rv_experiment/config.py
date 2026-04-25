@@ -671,20 +671,17 @@ class ExperimentConfig(BaseValidatedModel):
         keystore_file = bundled_keystore if bundled_keystore.is_file() else None
 
         # The rv-monitor-emitted MultiSpec_*RuntimeMonitor.java imports
-        # com.runtimeverification.rvmonitor.java.rt.* (from rv-monitor-rt)
-        # and br.unb.cic.mop.* (from rvsec-agent). Both are produced by
-        # `mvn install -DskipTests` at the rvsec/ root and consumed here
-        # so the dexlib2 MonitorBuilder javac step can resolve them.
+        # com.runtimeverification.rvmonitor.java.rt.* AND br.unb.cic.mop.*.
+        # `rvsec-agent` shades rv-monitor-rt internally, so we pass ONLY
+        # the agent jar — passing both produces "Type ... defined multiple
+        # times" errors at d8 time when the wrapper-system pass also dexes
+        # the runtime support jars (INV-INS-29 follow-up).
         rvsec_root_path = Path(rvsec_root)
-        rt_jar = (
-            rvsec_root_path / "rv-monitor" / "rv-monitor-rt" / "target"
-            / "rv-monitor-rt-0.8.0-SNAPSHOT.jar"
-        )
         agent_jar = (
             rvsec_root_path / "rvsec" / "rvsec-agent" / "target"
             / "rvsec-agent-0.8.0-SNAPSHOT.jar"
         )
-        extra_classpath = [j for j in (rt_jar, agent_jar) if j.is_file()]
+        extra_classpath = [agent_jar] if agent_jar.is_file() else []
 
         return DexlibInstrumentationConfig(
             monitor_output_dir=monitor_output_dir,

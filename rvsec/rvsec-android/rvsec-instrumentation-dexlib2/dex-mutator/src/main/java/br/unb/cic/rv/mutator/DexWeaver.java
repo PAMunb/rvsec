@@ -14,12 +14,25 @@ import br.unb.cic.rv.pointcut.PointcutExpressionParser;
 import br.unb.cic.rv.pointcut.PointcutMatcher;
 import br.unb.cic.rv.pointcut.TypeResolver;
 
+import br.unb.cic.rv.emitter.WrapperEmitter;
+
+import com.android.tools.smali.dexlib2.Opcode;
+import com.android.tools.smali.dexlib2.builder.BuilderInstruction;
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.MethodImplementation;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction;
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction;
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import java.util.List;
 import java.util.Objects;
@@ -54,14 +67,86 @@ public final class DexWeaver {
 
     private final EmitterDispatch emitterDispatch;
     private final RegisterAllocator allocator;
+    /**
+     * Original {@link MethodReference} → wrapper {@link MethodReference}.
+     * When an invoke instruction matches a key, the weaver REPLACES the
+     * invoke's reference with the wrapper (instead of inserting an inline
+     * hook), eliminating the register-aliasing class of bug (INV-INS-29):
+     * the wrapper is a static method that calls the original AND fires the
+     * monitor events, all using its own local register frame, so the
+     * caller's registers stay byte-identical.
+     */
+    private final Map<String, MethodReference> wrapperReplacements;
 
     public DexWeaver() {
-        this(new EmitterDispatch(), new RegisterAllocator());
+        this(new EmitterDispatch(), new RegisterAllocator(),
+                Collections.emptyList());
     }
 
     public DexWeaver(EmitterDispatch emitterDispatch, RegisterAllocator allocator) {
+        this(emitterDispatch, allocator, Collections.emptyList());
+    }
+
+    public DexWeaver(EmitterDispatch emitterDispatch, RegisterAllocator allocator,
+                     java.util.List<WrapperEmitter.WrapperEntry> wrappers) {
         this.emitterDispatch = Objects.requireNonNull(emitterDispatch);
         this.allocator = Objects.requireNonNull(allocator);
+        this.wrapperReplacements = new LinkedHashMap<>();
+        for (WrapperEmitter.WrapperEntry w : wrappers) {
+            registerWrapper(w);
+        }
+    }
+
+    private void registerWrapper(WrapperEmitter.WrapperEntry w) {
+        String origClassDesc = fqnToDescriptor(w.originalClassFqn);
+        java.util.List<String> origParamDescs = new ArrayList<>(w.originalParamFqn.size());
+        for (String p : w.originalParamFqn) origParamDescs.add(fqnToDescriptor(p));
+        String origReturnDesc = fqnToDescriptor(w.originalReturnFqn);
+        String key = origClassDesc + "#" + w.originalMethodName + "("
+                + String.join(",", origParamDescs) + ")" + origReturnDesc;
+        MethodReference wrapperRef = new ImmutableMethodReference(
+                WrapperEmitter.WRAPPER_CLASS_DESC, w.wrapperName,
+                origParamDescs, origReturnDesc);
+        wrapperReplacements.put(key, wrapperRef);
+    }
+
+    private static String fqnToDescriptor(String fqn) {
+        if (fqn == null || fqn.isEmpty() || "void".equals(fqn)) return "V";
+        String base = fqn;
+        int arr = 0;
+        while (base.endsWith("[]")) { arr++; base = base.substring(0, base.length() - 2); }
+        String d;
+        switch (base) {
+            case "boolean": d = "Z"; break;
+            case "byte":    d = "B"; break;
+            case "short":   d = "S"; break;
+            case "char":    d = "C"; break;
+            case "int":     d = "I"; break;
+            case "long":    d = "J"; break;
+            case "float":   d = "F"; break;
+            case "double":  d = "D"; break;
+            default:        d = "L" + base.replace('.', '/') + ";";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < arr; i++) sb.append('[');
+        sb.append(d);
+        return sb.toString();
+    }
+
+    private static String refKey(MethodReference r) {
+        java.util.List<String> params = new ArrayList<>();
+        for (CharSequence p : r.getParameterTypes()) params.add(p.toString());
+        return r.getDefiningClass() + "#" + r.getName() + "("
+                + String.join(",", params) + ")" + r.getReturnType();
+    }
+
+    private MethodReference findWrapperReplacement(Instruction insn) {
+        if (wrapperReplacements.isEmpty()) return null;
+        if (!(insn instanceof ReferenceInstruction)) return null;
+        if (insn.getOpcode() != Opcode.INVOKE_STATIC) return null;
+        Object refObj = ((ReferenceInstruction) insn).getReference();
+        if (!(refObj instanceof MethodReference)) return null;
+        return wrapperReplacements.get(refKey((MethodReference) refObj));
     }
 
     /**
@@ -83,6 +168,8 @@ public final class DexWeaver {
         int methodsSeen = 0;
         int matchesApplied = 0;
         int plansSkipped = 0;
+        int plansSkippedAliasing = 0;
+        int wrappersSubstituted = 0;
 
         for (ClassDef classDef : dexFile.getClasses()) {
             classesSeen++;
@@ -92,7 +179,40 @@ public final class DexWeaver {
                 if (impl == null) continue;
                 List<Instruction> instructions = new java.util.ArrayList<>();
                 for (Instruction ins : impl.getInstructions()) instructions.add(ins);
+
+                // Materialize a mutable view eagerly only if there is at
+                // least one wrapper substitution candidate in this method;
+                // the materialization itself is cheap, but the supplier may
+                // be lazy and we want to avoid pinning every method.
+                MutableMethodImplementation mutCached = null;
+
+                // Pass 1: wrapper substitution. `replaceInstruction` is
+                // size-stable so the snapshot's indices remain valid for the
+                // entire pass. We track which indices were substituted so
+                // pass 2 (inline advice) can skip them — the wrapper already
+                // handles the events for those call sites.
+                java.util.Set<Integer> substitutedIndices = new java.util.HashSet<>();
                 for (int idx = 0; idx < instructions.size(); idx++) {
+                    Instruction ins = instructions.get(idx);
+                    MethodReference wrapper = findWrapperReplacement(ins);
+                    if (wrapper != null) {
+                        if (mutCached == null) mutCached = mutableSupplier.forMethod(method);
+                        if (mutCached != null) {
+                            new InstructionInjector(mutCached).replaceInvoke(idx, wrapper);
+                            substitutedIndices.add(idx);
+                            wrappersSubstituted++;
+                        }
+                    }
+                }
+
+                // Pass 2: inline advice. Iterate from right to left so each
+                // applyPlan insertion (BEFORE/AFTER/METHOD_ENTRY) shifts only
+                // indices we have already processed — never the indices we
+                // are about to visit. Snapshot indices remain valid against
+                // BOTH the snapshot list AND mut's current state at the
+                // moment of access.
+                for (int idx = instructions.size() - 1; idx >= 0; idx--) {
+                    if (substitutedIndices.contains(idx)) continue;
                     Instruction ins = instructions.get(idx);
                     for (AdviceDescriptor advice : descriptor.getAdvices()) {
                         PointcutExpression pe = parseCached(advice);
@@ -111,11 +231,30 @@ public final class DexWeaver {
                                 monitorOwnerFor(descriptor));
                         EmitPlan plan = emitter.emit(ctx);
 
-                        MutableMethodImplementation mut = mutableSupplier.forMethod(method);
+                        // INV-INS-29: AFTER advice that didn't get wrapper
+                        // substitution (because the matched invoke is not
+                        // a static call we can route through a wrapper —
+                        // typically virtual / interface calls) is skipped
+                        // defensively. The argBindings captured at match
+                        // time (pre-call register values) would be read by
+                        // an inline post-call hook AFTER the matched
+                        // invoke's `move-result*` has overwritten them →
+                        // VerifyError on every such site. BEFORE advice is
+                        // unaffected (it fires pre-call, before any
+                        // overwrites) and is emitted inline as designed.
+                        if (plan.insertionPoint() == InsertionPoint.AFTER) {
+                            plansSkippedAliasing++;
+                            continue;
+                        }
+
+                        MutableMethodImplementation mut = mutCached != null
+                                ? mutCached
+                                : mutableSupplier.forMethod(method);
                         if (mut == null) {
                             plansSkipped++;
                             continue;
                         }
+                        if (mutCached == null) mutCached = mut;
                         allocator.allocate(mut, plan.registers());
                         applyPlan(mut, idx, plan);
                         matchesApplied++;
@@ -123,7 +262,54 @@ public final class DexWeaver {
                 }
             }
         }
-        return new WeaveReport(classesSeen, methodsSeen, matchesApplied, plansSkipped);
+        return new WeaveReport(classesSeen, methodsSeen, matchesApplied,
+                plansSkipped, plansSkippedAliasing, wrappersSubstituted);
+    }
+
+    /**
+     * Decide whether the {@code move-result*} that immediately follows the
+     * matched invoke (when present) overwrites a register that the advice's
+     * binding (args / target) reads — the canonical aliasing condition that
+     * makes an inline {@code after} hook produce a verifier-rejected class.
+     *
+     * <p>Example (cryptoapp regression that surfaced INV-INS-29):
+     * <pre>
+     *     const-string v0, "RSA/ECB/PKCS1Padding"      ; v0 = String
+     *     invoke-static {v0}, Cipher.getInstance(String) ; matched
+     *     move-result-object v0                         ; v0 = Cipher (overwritten!)
+     *     invoke-static {v0}, monitor.afterEvent(String) ; would read Cipher, expect String
+     * </pre>
+     *
+     * <p>Returns {@code true} when ANY register in the binding (every value of
+     * {@code argBindings} plus {@code targetRegister}) equals the destination
+     * register of the next-instruction {@code move-result*}, which is the
+     * exact set of registers the runtime overwrites between the matched
+     * invoke and the post-call hook.
+     */
+    private static boolean resultRegisterAliasesBindings(
+            Instruction matched, List<Instruction> instructions, int idx, Match match) {
+        if (idx + 1 >= instructions.size()) return false;
+        Instruction next = instructions.get(idx + 1);
+        if (!isMoveResult(next)) return false;
+        if (!(next instanceof OneRegisterInstruction)) return false;
+        int resultReg = ((OneRegisterInstruction) next).getRegisterA();
+        for (Integer reg : match.argBindings.values()) {
+            if (reg != null && reg == resultReg) return true;
+        }
+        if (match.targetRegister >= 0 && match.targetRegister == resultReg) return true;
+        return false;
+    }
+
+    private static boolean isMoveResult(Instruction in) {
+        if (in == null) return false;
+        switch (in.getOpcode()) {
+            case MOVE_RESULT:
+            case MOVE_RESULT_OBJECT:
+            case MOVE_RESULT_WIDE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /** Callback that returns a mutable view of the method's implementation. */
@@ -176,5 +362,7 @@ public final class DexWeaver {
     }
 
     public record WeaveReport(int classesSeen, int methodsSeen,
-                               int matchesApplied, int plansSkipped) {}
+                               int matchesApplied, int plansSkipped,
+                               int plansSkippedAliasing,
+                               int wrappersSubstituted) {}
 }

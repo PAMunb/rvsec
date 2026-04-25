@@ -6,7 +6,11 @@ import br.unb.cic.rv.emitter.InsertionPoint;
 import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.builder.BuilderInstruction;
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction35c;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction3rc;
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
+import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 
 import java.util.List;
@@ -106,17 +110,60 @@ public final class InstructionInjector {
         insertAll(0, plan.toInsert());
     }
 
+    /**
+     * Rewrite the invoke instruction at {@code index} to call {@code newRef}
+     * with the same register operands. dexlib2 has no direct
+     * "swap-the-reference" API, so we reconstruct the instruction with the
+     * same opcode + same registers + new reference. The arity of {@code newRef}
+     * MUST match the original invoke's register count (the DexWeaver
+     * guarantees this when it sources {@code newRef} from
+     * {@code WrapperEmitter.WrapperEntry}, which preserves the original
+     * parameter list and adds no implicit receiver — wrappers are static).
+     *
+     * <p>Supports {@code invoke-static} (Format35c) and
+     * {@code invoke-static/range} (Format3rc); other invoke kinds are
+     * currently rejected because the wrapper system only generates
+     * static-method substitutions.
+     */
     public void replaceInvoke(int index, MethodReference newRef) {
-        // Dexlib2 does not expose a direct "swap the MethodReference of an
-        // existing invoke" API, so we reconstruct the instruction with the
-        // new reference and swap it in. The DexWeaver's WrapperEmitter path
-        // is the only caller and it knows the old invoke's shape.
-        // For now this method intentionally throws until the weaver pipeline
-        // lands — wiring wrappers end-to-end requires the RegisterAllocator +
-        // invoke-shape analysis that group-9 cli assembles.
-        throw new UnsupportedOperationException(
-                "replaceInvoke wiring is task 9.x (cli integration); "
-                        + "callers should not use it directly yet");
+        BuilderInstruction current = impl.getInstructions().get(index);
+        Opcode op = current.getOpcode();
+        BuilderInstruction rewritten;
+        switch (op) {
+            case INVOKE_STATIC:
+            case INVOKE_VIRTUAL:
+            case INVOKE_DIRECT:
+            case INVOKE_SUPER:
+            case INVOKE_INTERFACE:
+            {
+                FiveRegisterInstruction f = (FiveRegisterInstruction) current;
+                rewritten = new BuilderInstruction35c(
+                        Opcode.INVOKE_STATIC,
+                        f.getRegisterCount(),
+                        f.getRegisterC(), f.getRegisterD(), f.getRegisterE(),
+                        f.getRegisterF(), f.getRegisterG(),
+                        newRef);
+                break;
+            }
+            case INVOKE_STATIC_RANGE:
+            case INVOKE_VIRTUAL_RANGE:
+            case INVOKE_DIRECT_RANGE:
+            case INVOKE_SUPER_RANGE:
+            case INVOKE_INTERFACE_RANGE:
+            {
+                RegisterRangeInstruction r = (RegisterRangeInstruction) current;
+                rewritten = new BuilderInstruction3rc(
+                        Opcode.INVOKE_STATIC_RANGE,
+                        r.getStartRegister(),
+                        r.getRegisterCount(),
+                        newRef);
+                break;
+            }
+            default:
+                throw new IllegalStateException(
+                        "replaceInvoke called on non-invoke opcode: " + op);
+        }
+        impl.replaceInstruction(index, rewritten);
     }
 
     private void insertAll(int at, List<BuilderInstruction> instructions) {

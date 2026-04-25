@@ -5,9 +5,12 @@ import br.unb.cic.rv.builder.MonitorBuilder;
 import br.unb.cic.rv.coverage.CoverageWeaver;
 import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.DescriptorReader;
+import br.unb.cic.rv.emitter.EmitterDispatch;
+import br.unb.cic.rv.emitter.WrapperEmitter;
 import br.unb.cic.rv.merger.MultidexMerger;
 import br.unb.cic.rv.mutator.DexFileMutator;
 import br.unb.cic.rv.mutator.DexWeaver;
+import br.unb.cic.rv.mutator.RegisterAllocator;
 import br.unb.cic.rv.pointcut.AndroidClassIndex;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
 import br.unb.cic.rv.pointcut.TypeResolver;
@@ -113,11 +116,27 @@ public final class BatchRunner {
                     : Files.createTempDirectory("rvsec-dexlib2-");
             Files.createDirectories(workDir);
 
-            DexWeaver weaver = new DexWeaver();
+            // Generate mop/MonitorWrappers.java alongside the rv-monitor
+            // sources so monitor-builder picks it up. The wrapper entries
+            // returned tell the DexWeaver which call sites to redirect.
+            // When --monitor-src-dir is unset, we still compute wrappers
+            // (in a tmp dir) so the substitution map is populated for the
+            // dex_only / build_only paths' weave-counts to be accurate.
+            Path wrapperOutDir = cfg.monitorSrcDir() != null
+                    ? cfg.monitorSrcDir()
+                    : workDir.resolve("monitor-src");
+            Files.createDirectories(wrapperOutDir);
+            List<WrapperEmitter.WrapperEntry> wrappers =
+                    WrapperEmitter.generate(descriptor, wrapperOutDir);
+            counts.put("wrappersGenerated", wrappers.size());
+            DexWeaver weaver = new DexWeaver(
+                    new EmitterDispatch(), new RegisterAllocator(), wrappers);
             CoverageWeaver coverageWeaver = cfg.enableCoverage() ? new CoverageWeaver() : null;
             Map<String, Path> appDexEntries = new LinkedHashMap<>();
             int matchesApplied = 0;
             int plansSkipped = 0;
+            int plansSkippedAliasing = 0;
+            int wrappersSubstituted = 0;
             int coverageInstrumented = 0;
             int coverageSpillFailed = 0;
             int classesSeen = 0;
@@ -134,6 +153,8 @@ public final class BatchRunner {
                         dx, descriptor, typeResolver, inheritance, mutator::forMethod);
                 matchesApplied += wr.matchesApplied();
                 plansSkipped += wr.plansSkipped();
+                plansSkippedAliasing += wr.plansSkippedAliasing();
+                wrappersSubstituted += wr.wrappersSubstituted();
                 classesSeen += wr.classesSeen();
                 methodsSeen += wr.methodsSeen();
 
@@ -158,6 +179,8 @@ public final class BatchRunner {
             counts.put("methodsSeen", methodsSeen);
             counts.put("matchesApplied", matchesApplied);
             counts.put("plansSkipped", plansSkipped);
+            counts.put("plansSkippedAliasing", plansSkippedAliasing);
+            counts.put("wrappersSubstituted", wrappersSubstituted);
             if (coverageWeaver != null) {
                 counts.put("coverageInstrumented", coverageInstrumented);
                 counts.put("coverageSpillFailed", coverageSpillFailed);
