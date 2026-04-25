@@ -66,6 +66,7 @@ public final class ConfigResolver {
                 List.of(),
                 builder,
                 merger,
+                args.monitorSrcDir,
                 args.enableCoverage,
                 keystore,
                 args.logLevel == null ? "INFO" : args.logLevel

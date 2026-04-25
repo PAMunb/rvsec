@@ -1,22 +1,21 @@
 package br.unb.cic.rv.cli;
 
-import br.unb.cic.rv.descriptor.AdviceDescriptor;
+import br.unb.cic.rv.builder.CoverageSourceEmitter;
+import br.unb.cic.rv.builder.MonitorBuilder;
+import br.unb.cic.rv.coverage.CoverageWeaver;
 import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.DescriptorReader;
+import br.unb.cic.rv.merger.MultidexMerger;
+import br.unb.cic.rv.mutator.DexFileMutator;
+import br.unb.cic.rv.mutator.DexWeaver;
 import br.unb.cic.rv.pointcut.AndroidClassIndex;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
-import br.unb.cic.rv.pointcut.PointcutExpression;
-import br.unb.cic.rv.pointcut.PointcutExpressionParser;
-import br.unb.cic.rv.pointcut.PointcutMatcher;
 import br.unb.cic.rv.pointcut.TypeResolver;
 
 import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
-import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.DexFile;
-import com.android.tools.smali.dexlib2.iface.Method;
-import com.android.tools.smali.dexlib2.iface.MethodImplementation;
-import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
+import com.android.tools.smali.dexlib2.writer.pool.DexPool;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -35,22 +34,31 @@ import java.util.zip.ZipFile;
  * Walks one or more APKs through the end-to-end weaving pipeline and emits an
  * aggregate {@link PerApkResult} summary.
  *
- * <p>This class composes all the other submodules:
+ * <p>Pipeline phases (each surfaces in {@link PerApkResult#phase} on failure
+ * and in {@link PerApkResult#weaveCounts} on success):
  * <ol>
- *   <li>{@code descriptor-reader} — parse the JSON descriptor.</li>
- *   <li>{@code pointcut-engine} — build AST + AndroidClassIndex +
- *       InheritanceResolver + matcher.</li>
- *   <li>{@code advice-emitter} — produce EmitPlans.</li>
- *   <li>{@code dex-mutator} — apply plans to mutable DEX implementations.</li>
- *   <li>{@code coverage-weaver} — inject Coverage.log call at every non-excluded
- *       app method entry.</li>
- *   <li>{@code monitor-builder} — compile generated sources to .dex.</li>
- *   <li>{@code multidex-merger} — repack + zipalign + apksigner v3.</li>
+ *   <li>Descriptor read.</li>
+ *   <li>Type resolver + Android class index.</li>
+ *   <li>DEX extraction from APK.</li>
+ *   <li>Per-DEX advice weave + coverage weave + DexPool serialization.</li>
+ *   <li>(Optional, when {@code monitorSrcDir} is configured)
+ *       monitor-builder javac+d8 → monitor DEX(es).</li>
+ *   <li>(Optional, when {@code mergerConfig} is configured)
+ *       multidex-merger repack + zipalign + apksigner.</li>
  * </ol>
  *
- * <p>Fully end-to-end integration is flagged in the class body for the cli
- * integration tests (tasks 9.5-9.6). The method surface here is what the
- * Python wrapper invokes via subprocess.
+ * <p>Phase outcomes:
+ * <ul>
+ *   <li>{@code phase=signed} + {@code success=true}: full pipeline ran;
+ *       output APK is at {@code outputDir / apkName}.</li>
+ *   <li>{@code phase=dex_only} + {@code success=false}: DEX mutation succeeded
+ *       but build/sign was skipped (caller didn't supply
+ *       {@code --monitor-src-dir} or builder/merger paths). The mutated DEXes
+ *       live under {@code workDir} for downstream consumption.</li>
+ *   <li>{@code phase=apk_read|io_error|config_validation|uncaught} +
+ *       {@code success=false}: well-formed failure; the Python wrapper
+ *       continues onto the next APK.</li>
+ * </ul>
  */
 public final class BatchRunner {
 
@@ -79,18 +87,6 @@ public final class BatchRunner {
     }
 
     static PerApkResult runPipeline(EffectiveConfig cfg, Path apk) {
-        // Pipeline (current shape — all read+match phases live; mutation +
-        // signing remain stubs called out in the report so reviewers see
-        // exactly where the work stops):
-        //   1. Read descriptor JSON via descriptor-reader.
-        //   2. Build TypeResolver from descriptor.imports.
-        //   3. Build AndroidClassIndex against cfg.androidJar.
-        //   4. Extract every classes<N>.dex from the APK.
-        //   5. Per DEX: parse via dexlib2, build InheritanceResolver, run
-        //      PointcutMatcher per advice × class × method × instruction;
-        //      count matches without mutating (mutation needs the full
-        //      DexBuilder pipeline; tracked under the "mutation" stub).
-        //   6. Return PerApkResult with detailed per-phase counts.
         Map<String, Integer> counts = new LinkedHashMap<>();
         try {
             // Phase 1: descriptor.
@@ -104,74 +100,110 @@ public final class BatchRunner {
             TypeResolver typeResolver = new TypeResolver(descriptor.getImports());
             AndroidClassIndex androidIndex = new AndroidClassIndex(cfg.androidJar());
 
-            // Phase 3: extract DEX files from APK.
-            List<DexFile> dexes = extractDexes(apk);
-            counts.put("dexFiles", dexes.size());
-            if (dexes.isEmpty()) {
+            // Phase 3: extract DEX files from APK (preserving entry names).
+            ExtractedDex[] dexes = extractDexes(apk);
+            counts.put("dexFiles", dexes.length);
+            if (dexes.length == 0) {
                 return failed(apk, "no classes*.dex entries in APK", "apk_read");
             }
 
-            // Phase 4: parse pointcut ASTs once (cached across all advices).
-            List<PointcutExpression> pcAsts = new ArrayList<>();
-            for (AdviceDescriptor a : descriptor.getAdvices()) {
-                String expr = a.getExpression();
-                if (expr == null || expr.isBlank()) continue;
-                try {
-                    pcAsts.add(PointcutExpressionParser.parse(expr));
-                } catch (RuntimeException ex) {
-                    // unparseable expression — skipped (would surface in a
-                    // FeatureMappingChecker run before this point).
-                }
-            }
-            counts.put("parsedPointcuts", pcAsts.size());
+            // Phase 4: weave + serialize per DEX.
+            Path workDir = cfg.workDir() != null
+                    ? cfg.workDir()
+                    : Files.createTempDirectory("rvsec-dexlib2-");
+            Files.createDirectories(workDir);
 
-            // Phase 5: walk every dex × class × method × instruction, run
-            // matcher, count hits. The matcher is the same one that the
-            // dex-mutator will drive at injection time, so this dry-run
-            // produces an accurate weave-count projection.
+            DexWeaver weaver = new DexWeaver();
+            CoverageWeaver coverageWeaver = cfg.enableCoverage() ? new CoverageWeaver() : null;
+            Map<String, Path> appDexEntries = new LinkedHashMap<>();
+            int matchesApplied = 0;
+            int plansSkipped = 0;
+            int coverageInstrumented = 0;
             int classesSeen = 0;
             int methodsSeen = 0;
-            int matches = 0;
-            for (DexFile dx : dexes) {
+
+            for (ExtractedDex ed : dexes) {
+                DexFile dx = ed.dex;
                 InheritanceResolver inheritance = new InheritanceResolver(androidIndex, dx);
-                PointcutMatcher matcher = new PointcutMatcher(typeResolver, inheritance);
-                for (ClassDef cd : dx.getClasses()) {
-                    classesSeen++;
-                    for (Method m : cd.getMethods()) {
-                        methodsSeen++;
-                        MethodImplementation impl = m.getImplementation();
-                        if (impl == null) continue;
-                        int idx = 0;
-                        int total = -1; // unknown without iterating; not needed by current matcher
-                        for (Instruction inst : impl.getInstructions()) {
-                            for (PointcutExpression pe : pcAsts) {
-                                if (matcher.match(pe, cd, m, inst, idx, total).isPresent()) {
-                                    matches++;
-                                }
-                            }
-                            idx++;
-                        }
-                    }
+                DexFileMutator mutator = new DexFileMutator(dx);
+
+                // 4a. Advice weave (counts also accumulate the read-side stats
+                // matchesApplied = matches that produced an emit + injection).
+                DexWeaver.WeaveReport wr = weaver.weave(
+                        dx, descriptor, typeResolver, inheritance, mutator::forMethod);
+                matchesApplied += wr.matchesApplied();
+                plansSkipped += wr.plansSkipped();
+                classesSeen += wr.classesSeen();
+                methodsSeen += wr.methodsSeen();
+
+                // 4b. Coverage weave (optional).
+                if (coverageWeaver != null) {
+                    CoverageWeaver.CoverageReport cr =
+                            coverageWeaver.weave(dx, mutator::forMethod);
+                    coverageInstrumented += cr.methodsInstrumented();
                 }
+
+                // 4c. Serialize. DexPool accepts the original DexFile for
+                // pass-through dexes (when no method was mutated) and the
+                // rewritten DexFile when mutations exist.
+                Path outDex = workDir.resolve("woven_" + ed.entryName);
+                Files.createDirectories(outDex.getParent() == null ? workDir : outDex.getParent());
+                DexPool.writeTo(outDex.toString(), mutator.toDexFile());
+                appDexEntries.put(ed.entryName, outDex);
             }
+
             counts.put("classesSeen", classesSeen);
             counts.put("methodsSeen", methodsSeen);
-            counts.put("matchesProjected", matches);
+            counts.put("matchesApplied", matchesApplied);
+            counts.put("plansSkipped", plansSkipped);
+            if (coverageWeaver != null) counts.put("coverageInstrumented", coverageInstrumented);
+            counts.put("wovenDexes", appDexEntries.size());
 
-            // Phase 6: mutation + monitor build + APK assembly.
-            // These remain documented stubs — the integration is feasible but
-            // requires fixture APK landings + the DexBuilder write-back path
-            // that's the next implementation step. The report explicitly
-            // names "matching ran; mutation pending" so reviewers see the
-            // boundary without inspecting the code.
-            String message = "matching ran (" + matches + " projected hits across "
-                    + methodsSeen + " methods); mutation+sign pending (next step)";
+            // Phase 5: monitor-builder javac+d8. Skipped unless the caller has
+            // supplied both --monitor-src-dir AND a fully-resolved BuilderConfig
+            // (javac/d8/rt.jar). When skipped, we stop here and report dex_only.
+            boolean canBuild = cfg.builderConfig() != null && cfg.monitorSrcDir() != null;
+            boolean canMerge = cfg.mergerConfig() != null && cfg.outputDir() != null;
+
+            if (!canBuild) {
+                return new PerApkResult(
+                        apk.getFileName().toString(), false,
+                        "DEXes woven (" + appDexEntries.size() + ") under " + workDir
+                                + "; monitor build skipped (need --monitor-src-dir + "
+                                + "--javac/--d8/--jdk-rt configured)",
+                        "dex_only", counts);
+            }
+
+            // 5a. Emit Coverage.java alongside the rv-monitor-emitted sources.
+            if (cfg.enableCoverage()) {
+                CoverageSourceEmitter.emit(cfg.monitorSrcDir());
+            }
+
+            // 5b. javac + d8 → monitor DEX(es).
+            MonitorBuilder mb = new MonitorBuilder(cfg.builderConfig().validated());
+            Path monitorOut = workDir.resolve("monitor-build");
+            List<Path> monitorDexes = mb.build(cfg.monitorSrcDir(), monitorOut);
+            counts.put("monitorDexes", monitorDexes.size());
+
+            if (!canMerge) {
+                return new PerApkResult(
+                        apk.getFileName().toString(), false,
+                        "DEXes woven + monitor DEX built (" + monitorDexes.size()
+                                + "); merge skipped (need --apksigner/--zipalign/--keystore + --output)",
+                        "build_only", counts);
+            }
+
+            // Phase 6: repack + sign.
+            Files.createDirectories(cfg.outputDir());
+            Path outApk = cfg.outputDir().resolve(apk.getFileName());
+            new MultidexMerger(cfg.mergerConfig().validated())
+                    .merge(apk, appDexEntries, monitorDexes, outApk);
+
             return new PerApkResult(
-                    apk.getFileName().toString(),
-                    /*success=*/ false,  // explicit: signed APK NOT produced
-                    message,
-                    "matched_pending_mutation",
-                    counts);
+                    apk.getFileName().toString(), true,
+                    "instrumented + signed → " + outApk,
+                    "signed", counts);
+
         } catch (IOException ex) {
             return failed(apk, "I/O error: " + ex.getMessage(), "io_error");
         } catch (RuntimeException ex) {
@@ -185,11 +217,11 @@ public final class BatchRunner {
 
     /**
      * Extract every {@code classes<N>.dex} from the APK as in-memory
-     * {@link DexBackedDexFile} objects. Resources / manifest / assets are
-     * left untouched in the input file; the merger reattaches them later.
+     * {@link DexBackedDexFile} objects, preserving the original ZIP entry
+     * name so the merger can drop the woven version into the same slot.
      */
-    private static List<DexFile> extractDexes(Path apk) throws IOException {
-        List<DexFile> out = new ArrayList<>();
+    private static ExtractedDex[] extractDexes(Path apk) throws IOException {
+        List<ExtractedDex> out = new ArrayList<>();
         try (ZipFile zf = new ZipFile(apk.toFile())) {
             var entries = zf.entries();
             while (entries.hasMoreElements()) {
@@ -198,12 +230,18 @@ public final class BatchRunner {
                 if (!n.startsWith("classes") || !n.endsWith(".dex")) continue;
                 try (InputStream in = zf.getInputStream(e);
                      java.io.BufferedInputStream buf = new java.io.BufferedInputStream(in)) {
-                    out.add(DexBackedDexFile.fromInputStream(Opcodes.getDefault(), buf));
+                    out.add(new ExtractedDex(
+                            n,
+                            DexBackedDexFile.fromInputStream(Opcodes.getDefault(), buf)));
                 }
             }
         }
-        return out;
+        // Sort by entry name so classes.dex precedes classes2.dex precedes ...
+        out.sort((a, b) -> a.entryName.compareTo(b.entryName));
+        return out.toArray(new ExtractedDex[0]);
     }
+
+    private record ExtractedDex(String entryName, DexBackedDexFile dex) {}
 
     private static void writeResultsJson(List<PerApkResult> results, Path out) {
         try {

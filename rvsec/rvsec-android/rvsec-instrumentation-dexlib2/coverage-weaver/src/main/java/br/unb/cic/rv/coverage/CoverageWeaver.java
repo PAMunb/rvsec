@@ -5,6 +5,7 @@ import com.android.tools.smali.dexlib2.builder.BuilderInstruction;
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction21c;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction35c;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction3rc;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.iface.Method;
@@ -97,14 +98,30 @@ public final class CoverageWeaver {
         int scratch = oldCount;
 
         // const-string vScratch, "<sig>"
+        // CONST_STRING (Format21c) uses an 8-bit register field (v0-v255),
+        // safe for any reasonable scratch index. Larger frames would need
+        // CONST_STRING_JUMBO + a 16-bit register (Format31c); deferred.
         BuilderInstruction constStr = new BuilderInstruction21c(
                 Opcode.CONST_STRING, scratch,
                 new ImmutableStringReference(signature));
+
         // invoke-static {vScratch}, Lmop/Coverage;->log(Ljava/lang/String;)V
-        BuilderInstruction invoke = new BuilderInstruction35c(
-                Opcode.INVOKE_STATIC, 1,
-                scratch, 0, 0, 0, 0,
-                coverageMethod);
+        // Format35c packs up to 5 register references into 4-bit fields each
+        // (v0-v15). When the scratch register exceeds the 4-bit window we
+        // switch to invoke-static/range (Format3rc), which uses a 16-bit
+        // start register + 8-bit count and supports the full register space.
+        BuilderInstruction invoke;
+        if (scratch < 16) {
+            invoke = new BuilderInstruction35c(
+                    Opcode.INVOKE_STATIC, 1,
+                    scratch, 0, 0, 0, 0,
+                    coverageMethod);
+        } else {
+            invoke = new BuilderInstruction3rc(
+                    Opcode.INVOKE_STATIC_RANGE,
+                    scratch, 1,
+                    coverageMethod);
+        }
 
         impl.addInstruction(0, constStr);
         impl.addInstruction(1, invoke);

@@ -45,7 +45,7 @@ class BatchRunnerSmokeTest {
         Path apk = Files.createFile(tmp.resolve("sample.apk"));
         EffectiveConfig cfg = new EffectiveConfig(
                 null, null, null, null, List.of(),
-                null, null, true, null, "INFO");
+                null, null, null, true, null, "INFO");
         BatchRunner.PerApkResult r = BatchRunner.runPipeline(cfg, apk);
         assertEquals("sample.apk", r.apkName());
         assertFalse(r.success(),

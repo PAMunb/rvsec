@@ -18,6 +18,7 @@ public record EffectiveConfig(
         List<Path> apkDexes,         // extracted from the input APK before weaving
         BuilderConfig builderConfig,
         MergerConfig mergerConfig,
+        Path monitorSrcDir,          // rv-monitor-generated .java sources (null → skip build+sign)
         boolean enableCoverage,
         Path keystorePath,
         String logLevel

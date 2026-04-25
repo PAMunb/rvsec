@@ -90,8 +90,8 @@ public final class DexWeaver {
                 methodsSeen++;
                 MethodImplementation impl = method.getImplementation();
                 if (impl == null) continue;
-                List<? extends Instruction> instructions = List.copyOf(
-                        (List<? extends Instruction>) impl.getInstructions());
+                List<Instruction> instructions = new java.util.ArrayList<>();
+                for (Instruction ins : impl.getInstructions()) instructions.add(ins);
                 for (int idx = 0; idx < instructions.size(); idx++) {
                     Instruction ins = instructions.get(idx);
                     for (AdviceDescriptor advice : descriptor.getAdvices()) {

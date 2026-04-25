@@ -88,6 +88,13 @@ public final class InstrumentationCli implements Runnable {
             scope = CommandLine.ScopeType.INHERIT)
     Path workDir;
 
+    @Option(names = "--monitor-src-dir",
+            description = "Directory with rv-monitor-emitted .java sources (e.g. mop/MultiSpec_1RuntimeMonitor.java); "
+                    + "when set, monitor-builder runs javac+d8 and multidex-merger produces a signed APK. "
+                    + "When omitted, the pipeline stops at written DEXes (phase=dex_only).",
+            scope = CommandLine.ScopeType.INHERIT)
+    Path monitorSrcDir;
+
     @Option(names = "--coverage", description = "Enable Coverage catch-all weaving (default true)",
             scope = CommandLine.ScopeType.INHERIT, defaultValue = "true", negatable = true)
     boolean enableCoverage;
