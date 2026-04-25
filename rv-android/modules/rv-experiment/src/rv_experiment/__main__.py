@@ -337,6 +337,16 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     help="Instrument APKs with monitors (default: enabled)",
 )
 @click.option(
+    "--instrumentation-variant",
+    default="ajc",
+    type=click.Choice(["ajc", "dexlib2"]),
+    help=(
+        "Instrumentation backend (gh52). 'ajc' = legacy dex2jar+ajc+d8 pipeline; "
+        "'dexlib2' = DEX-native pipeline via the rvsec-instrumentation-dexlib2 Java CLI. "
+        "Default 'ajc' during Phase 4-5 coexistence."
+    ),
+)
+@click.option(
     "--static-analysis/--skip-static",
     default=True,
     help="Run static analysis on APKs (default: enabled)",
@@ -393,6 +403,7 @@ def run(
     custom_aspects_dir: Optional[str],
     generate_monitors: bool,
     instrument_apks: bool,
+    instrumentation_variant: str,
     static_analysis: bool,
     output_dir: Optional[str],
     no_window: bool,
@@ -482,6 +493,7 @@ def run(
                     apks_filter,
                     name,
                     resume_dir,
+                    instrumentation_variant=instrumentation_variant,
                 )
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
@@ -893,6 +905,9 @@ def _create_experiment_config_from_cli(
     apks_filter: Optional[str] = None,
     name: Optional[str] = None,
     resume_dir: Optional[str] = None,
+    # gh52 variant flag — kwarg with default to keep callers (and tests)
+    # written before gh52 source-compatible. CLI plumbing always passes it.
+    instrumentation_variant: str = "ajc",
 ) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
@@ -1002,6 +1017,7 @@ def _create_experiment_config_from_cli(
             no_window=no_window,
             generate_monitors=generate_monitors,
             instrument_apks=instrument_apks,
+            instrumentation_variant=instrumentation_variant,
             run_static_analysis=static_analysis,
             run_execution=run_execution,
             specification_set=specification_set,
