@@ -371,3 +371,68 @@ takes the inline path and D13's binding resolution surfaces as the
 verifier rejecting the well-formed-but-aliasing inline event invoke;
 without D13, even D12-substituted call sites that ARE wrapped still
 have the inline-fallback path emitting broken events.
+
+## D14 — Instance-method wrappers via AndroidClassIndex overload enumeration (INV-INS-31)
+
+**Context**: D12's wrapper system (INV-INS-29) covered static-call
+advices but defensively skipped instance-method advices, ambiguous-
+`Object` parameter advices, and `..` varargs / `T+` supertype patterns
+— anything the descriptor parser couldn't lower to a single concrete
+Java signature. The cryptoapp + 3-APK smoke run reported 52
+`plansSkippedAliasing` from this defensive skip. Most of those sites
+are common JCA instance methods (`Cipher.doFinal`, `Cipher.init`,
+`Mac.doFinal`, `MessageDigest.update`, etc.) where the descriptor's
+`call(public byte[] Cipher.doFinal(byte[]))` is unambiguous on the
+target side but the matched invoke is `invoke-virtual`, which the old
+`targetLooksStatic` filter rejected because the wrapper would have
+called `Cipher.doFinal(...)` statically and produced a runtime
+`MethodNotFoundError`.
+
+**Decision**: enumerate concrete Android API overloads via
+`AndroidClassIndex.methods(declFqn, methodName, /*onlyStatic=*/false)`
+(ported from prototipo's `WrapperGenerator.expandSupertypes`). For each
+overload returned (carrying `paramFqns`, `returnFqn`, `isStatic()`):
+- Match the parser's declared paramTypes against the overload's
+  `paramFqns` with subtype-aware semantics (`T+` ⇒
+  `index.isAssignableFrom(T, actual)`; `..` trailing varargs ⇒ accept
+  any concrete tail; literal exact match otherwise).
+- Emit one wrapper Java method per concrete overload. Static targets
+  keep the original form; instance targets take the receiver as the
+  first wrapper parameter (`<DeclaringFqn> recv`) and the wrapper body
+  becomes `recv.<method>(p0, ...)`. Advice `target(name)` bindings map
+  to `recv` and `args(n1, n2, ...)` map to `p0..pN`.
+- Register the wrapper's DEX `MethodReference` with the receiver
+  descriptor prepended for instance entries; keep the lookup key on
+  the original (un-prepended) signature so it matches the call site's
+  `getDefiningClass()#name(params)` exactly. `findWrapperReplacement`
+  drops its `INVOKE_STATIC`-only filter and accepts every invoke
+  opcode. `InstructionInjector.replaceInvoke` already normalizes any
+  invoke kind to `INVOKE_STATIC` while preserving register operands —
+  so the original receiver register at register C transparently
+  becomes the wrapper's first arg.
+
+`WrapperEmitter.generate` gains a 3-arg overload `(descriptor,
+outputDir, AndroidClassIndex)` and `WrapperEntry` gains an `isStatic`
+field. `BatchRunner` threads the existing `androidIndex` instance into
+this call. The `hasWildcardParam` / `hasAmbiguousObjectParam` /
+`targetLooksStatic` skip filters are removed from the index-driven
+path — `expandCallTarget` returns concrete overloads or an empty list,
+both of which the caller already handles correctly. The literal
+fallback (when `androidIndex` is null) keeps the legacy filters as a
+defensive backstop.
+
+**Consequences**: codified as INV-INS-31. Wrappers can now cover
+instance-method advices end-to-end, which is the dominant shape of
+the JCA spec set's after-side hooks (`Cipher.doFinal`, `Mac.doFinal`,
+`MessageDigest.update/digest`, `Signature.update/sign/verify`,
+`KeyAgreement.doPhase`, ...). Trailing `..` varargs and `Object`
+ambiguous params no longer block wrapper emission either. A side
+effect of using the API index as the source of truth on `isStatic` is
+that the parser's lexical heuristics (the old `targetLooksStatic`)
+become unnecessary — the static / instance verdict comes from
+android.jar directly. Validation: `WrapperEmitterTest` (4 cases:
+static expansion, instance expansion, `..` varargs expansion, null-
+index fallback) plus the smoke gate of strictly-decreasing
+`plansSkippedAliasing` on cryptoapp + the 3-APK set with zero new
+`VerifyError`. Smoke verification on a real emulator is captured in
+task 16.x once the next aperv:sata_mop pass lands.
