@@ -250,3 +250,124 @@ must produce a verifying class (currently the dominant failure mode).
 Tracked alongside D10 in tasks.md §5.4 — both fixes land together,
 because exercising INV-INS-27 in isolation requires the allocator's
 shift to be in place to keep paramRegs intact.
+
+## D12 — Wrapper substitution as the canonical handler for after-side aliasing (INV-INS-29)
+
+**Context**: AFTER advice on calls that have `args()` / `target()` /
+`returning()` bindings would, when emitted inline, read register state
+after the matched invoke + its `move-result*` have already overwritten
+those registers. Java compilers freely reuse registers, so the binding
+source register frequently equals the result destination register. The
+verifier observes the resulting type confusion ("register v0 has type
+Reference: javax.crypto.Cipher but expected Precise Reference:
+java.lang.String") and rejects the class.
+
+**Decision**: every after-side advice that exists in the descriptor MUST
+be made available as a static wrapper in `mop.MonitorWrappers` (emitted
+by `WrapperEmitter` from the descriptor before weaving begins). The
+`DexWeaver`'s first pass walks every `INVOKE_STATIC` instruction in
+each method, looks up its `MethodReference` in a wrapper-replacements
+map, and rewrites the invoke's reference to call the wrapper instead
+(`InstructionInjector.replaceInvoke`, Format35c + Format3rc). The
+wrapper calls the original method with the same arguments, fires every
+`MultiSpec_<X>RuntimeMonitor.<event>(...)` declared by the advices that
+wrapped this call, and returns the original result. The matched call's
+register state is preserved exactly (the caller never sees the wrapper
+internals), so no aliasing risk exists.
+
+**Why two passes**: `replaceInstruction` is size-stable, so substitution
+can iterate left-to-right safely. Inline advice (`applyPlan` insertions
+for non-substituted invokes — typically `before(...)` advices) mutates
+the instruction list size, so it MUST run as a separate pass iterating
+right-to-left, where each insertion only shifts already-processed
+indices. Mixing the passes (substitution + inline in the same loop) was
+the bug that surfaced as "replaceInvoke called on non-invoke opcode:
+CONST_STRING" during the smoke runs prior to this ADR landing.
+
+**Eligibility filter**: only advices that satisfy ALL of these go to the
+wrapper:
+- `position == "after"` AND (`returning != null` OR expression has
+  `args(...)`) — the canonical aliasing-prone shape;
+- target call is static (`targetLooksStatic` reads the expression's
+  modifier prefix; the parser strips it from the AST so we lex it back
+  out); instance-method wrappers are deferred until D12 receives an
+  AndroidClassIndex-driven extension that emits a static wrapper that
+  takes the receiver as its first parameter (tracked with INV-INS-29);
+- not a constructor (the new-instance result is always at register 0
+  of the matched invoke, no aliasing);
+- no varargs / wildcard `..` / generic `Object` in non-zero positions
+  (would require `AndroidClassIndex` overload expansion to lower to a
+  concrete Java signature — also deferred).
+Advices that fail the filter route to the inline path (`before` is
+inline-safe; non-eligible AFTER is recorded as `plansSkippedAliasing`
+and skipped without emitting broken bytecode).
+
+**Generated wrapper file**: `mop/MonitorWrappers.java`. Imports come from
+the descriptor's `imports` list (filtered to drop AspectJ / MOP runtime
+packages that wouldn't resolve at javac time). Each wrapper method
+declares `throws Exception` (catch-all so checked exceptions like
+`NoSuchAlgorithmException` propagate transparently — the call site
+already handled them, the wrapper just preserves the flow). Type names
+in WrapperEntry are resolved to FQNs via `TypeResolver` so the
+DexWeaver's refKey lookup matches the call site's
+`MethodReference.getDefiningClass()` (otherwise simple names like
+"String" round-trip to "LString;" instead of "Ljava/lang/String;" and
+no substitution ever happens).
+
+**Build-side support**: `MonitorBuilder` invokes `d8` over the compiled
+monitor class files PLUS every jar in `BuilderConfig.classpath` so the
+runtime support classes (`com.runtimeverification.rvmonitor.java.rt.*`,
+`br.unb.cic.mop.*`) get dexed alongside the generated monitor +
+wrappers. Without this, the runtime monitor's parent class `RVMObject`
+resolves at javac time but is missing in the merged APK at runtime,
+surfacing as `ClassNotFoundException`. `rvsec-agent.jar` is the single
+classpath entry (it shades `rv-monitor-rt.jar`) — passing both produced
+"Type ... defined multiple times" errors at d8.
+
+**Consequences**: codified as INV-INS-29. Cli-level smoke on cryptoapp +
+3 small JCA-400 APKs goes from 882 VerifyError → 0; cov_method on
+cryptoapp doubled from 26.42% → 48.11%; cov_rv_method (MOP-reachable
+methods reached) jumped from 22.95% → 50.82%. The 52 plansSkippedAliasing
+on the smoke run reflect instance-method advice that the current static-
+only wrapper filter cannot route — INV-INS-29 follow-up will land an
+instance-method wrapper extension once `AndroidClassIndex.expandSupertypes`
+is ported from the prototype.
+
+## D13 — Binding resolution by name, not by ordinal (INV-INS-30)
+
+**Context**: the runtime monitor's event method signature follows the
+`monitorCall.args` order — the names the .mop spec declares. Advices
+freely mix binding clauses: a `KeyGenerator.init(int)` advice may
+declare `parameters: [{type: KeyGenerator, name: k}]` and bind `k` via
+`target(k)`, with `monitorCalls.args = ["k"]`. The previous
+`MonitorInvokeBuilder.registersFor` walked advice parameters by ordinal
+and looked up `arg00`, `arg01`, ... in `match.argBindings` — which
+silently mis-bound every advice that wasn't pure `args(...)`. The
+KeyGenerator advice ended up calling its event with the int key-size
+register instead of the receiver, producing `VerifyError: register v2
+has type Imprecise Constant: 32767 but expected Reference:
+javax.crypto.KeyGenerator`.
+
+**Decision**: build a `Map<String, Integer>` from advice-parameter NAME
+to register, populated by parsing each binding clause from the
+expression:
+- `target(name)` → `match.targetRegister`;
+- `args(n1, n2, ...)` → `match.argBindings.get("argNN")` per positional
+  slot;
+- `returning(name)` / `throwing(name)` → 0 (best-effort; the wrapper
+  system D12 is the canonical handler — these branches are reached only
+  when the wrapper filter rejected the advice and we fell back to the
+  inline path, which is itself a defensive skip).
+For each `monitorCall.args[i]` (the names the runtime monitor expects
+in declaration order), look up the corresponding register from the map.
+The same monitorCall.args order also drives `buildMethodReference`'s
+parameter descriptor list, so the emitted `invoke-static` arity and
+type signature align with the runtime monitor's actual method signature
+emitted by rv-monitor.
+
+**Consequences**: codified as INV-INS-30. The two fixes (D12 + D13)
+land together because each masks the other: without D12, every advice
+takes the inline path and D13's binding resolution surfaces as the
+verifier rejecting the well-formed-but-aliasing inline event invoke;
+without D13, even D12-substituted call sites that ARE wrapped still
+have the inline-fallback path emitting broken events.
