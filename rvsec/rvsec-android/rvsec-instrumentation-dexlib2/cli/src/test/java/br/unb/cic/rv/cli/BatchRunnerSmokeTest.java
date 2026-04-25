@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -35,14 +36,27 @@ class BatchRunnerSmokeTest {
     }
 
     @Test
-    void pipelineReturnsNonSuccessUntilIntegrationLands(@TempDir Path tmp) throws Exception {
+    void pipelineReturnsWellFormedFailureOnInvalidInput(@TempDir Path tmp) throws Exception {
+        // Empty APK + minimal config — runPipeline must NEVER throw; it must
+        // return a PerApkResult so the Python wrapper's batch loop keeps
+        // processing the remaining APKs. The exact failure phase depends
+        // on which validation triggers first; today the descriptor null
+        // check fires before any I/O happens.
         Path apk = Files.createFile(tmp.resolve("sample.apk"));
-        BatchRunner.PerApkResult r = BatchRunner.runPipeline(null, apk);
+        EffectiveConfig cfg = new EffectiveConfig(
+                null, null, null, null, List.of(),
+                null, null, true, null, "INFO");
+        BatchRunner.PerApkResult r = BatchRunner.runPipeline(cfg, apk);
         assertEquals("sample.apk", r.apkName());
-        // Contract: while the pipeline scaffold is in place (task 9.5 pending),
-        // the result is a well-formed failure rather than an exception so the
-        // Python wrapper's batch loop keeps processing other APKs.
-        assertEquals(false, r.success());
-        assertTrue(r.message().toLowerCase().contains("pending"));
+        assertFalse(r.success(),
+                "with no descriptor configured, pipeline must return a non-success report");
+        // config_validation when descriptor null; io_error if it tries to read
+        // the empty zip; uncaught for unexpected runtime errors. All three
+        // are well-formed failures, never exceptions.
+        assertTrue(
+                r.phase().equals("config_validation")
+                        || r.phase().equals("io_error")
+                        || r.phase().equals("uncaught"),
+                "unexpected failure phase: " + r.phase() + " (msg: " + r.message() + ")");
     }
 }
