@@ -66,9 +66,29 @@ class DexlibInstrumentationConfig(BaseModel):
         default=None,
         description="Keystore password (fallback env: RVSEC_KEYSTORE_PASS).",
     )
+    keystore_alias: Optional[str] = Field(
+        default=None,
+        description=(
+            "Key alias inside the keystore. None falls back to the Java CLI's "
+            "default ('androiddebugkey'); rv-experiment's bundled keystore uses 'server'."
+        ),
+    )
+    key_password: Optional[str] = Field(
+        default=None,
+        description="Password for the signing key (defaults to keystore_password when None).",
+    )
     extra_java_args: List[str] = Field(
         default_factory=list,
         description="Additional -D / -X / -J args passed to the Java CLI runtime.",
+    )
+    extra_classpath: List[Path] = Field(
+        default_factory=list,
+        description=(
+            "Additional jars added to the MonitorBuilder javac classpath via "
+            "--classpath. Required for compiling the rv-monitor-emitted "
+            "MultiSpec_*RuntimeMonitor.java which imports javamoprt + rvsec "
+            "runtime classes (rv-monitor-rt + rvsec-agent typically)."
+        ),
     )
     timeout_seconds: int = Field(
         default=600,

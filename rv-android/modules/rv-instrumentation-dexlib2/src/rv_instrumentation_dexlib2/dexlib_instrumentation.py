@@ -188,6 +188,16 @@ class DexlibInstrumentation:
             args += ["--keystore", str(self.config.keystore_file)]
         if self.config.keystore_password is not None:
             args += ["--keystore-pass", self.config.keystore_password]
+        if self.config.keystore_alias is not None:
+            args += ["--key-alias", self.config.keystore_alias]
+        # Java CLI defaults --key-pass to the keystore password when omitted,
+        # but the legacy bundled keystore uses the same secret for both, so we
+        # forward keystore_password as key_password when the latter is unset.
+        kpass = self.config.key_password or self.config.keystore_password
+        if kpass is not None:
+            args += ["--key-pass", kpass]
+        if self.config.extra_classpath:
+            args += ["--classpath", ",".join(str(p) for p in self.config.extra_classpath)]
         return args
 
     # --- internals --------------------------------------------------------
