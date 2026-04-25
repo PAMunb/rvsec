@@ -179,17 +179,17 @@ GitHub Issue: #52
 ## 13. `rv-experiment` — variant flag
 
 - [x] 13.1 Added `instrumentation_variant: str = Field(default="ajc", ...)` to `ExperimentConfig`.
-- [ ] 13.2 `--instrumentation-variant` argparse flag — DEFERRED (one-line wire next time the CLI is touched).
+- [x] 13.2 Added `--instrumentation-variant {ajc,dexlib2}` click option to the `rv-experiment run` command. Plumbed through `_create_experiment_config_from_cli` as a kwarg with `default="ajc"` (kwarg shape preserves source compatibility with tests written before gh52).
 - [x] 13.3 `PreProcessor._instrument_apks()` dispatches on `self.config.instrumentation_variant`: `"dexlib2"` → `DexlibInstrumentation(DexlibInstrumentationConfig(...))`; default → legacy `RVInstrumentation`.
 - [ ] 13.4 Factor `get_dexlib_instrumentation_config()` — DEFERRED; dexlib2 wrapper's config is intentionally simpler.
-- [ ] 13.5 Targeted dispatch unit test — DEFERRED. Existing 170 rv-experiment tests pass without regression.
-- [ ] 13.6 Invalid variant → ValueError test — DEFERRED with 13.5.
+- [x] 13.5 `test_pre_processor_variant.py` (3 cases): ajc → `RVInstrumentation`, dexlib2 → `DexlibInstrumentation`, unknown → ajc fallback.
+- [x] 13.6 Unknown-variant fallback test landed alongside 13.5; Pydantic field stays `str` (not `Literal`) deliberately to keep legacy ExperimentConfig JSON files (without the field) deserializable.
 - [ ] 13.7 End-to-end IT — DEFERRED to task 9.5 / Phase 5 infra.
 - [x] 13.8 `uv run pytest modules/rv-experiment/tests/` — 170 tests pass, no regression.
 
 ## 14. Docker images update
 
-- [ ] 14.1 Update `docker-compose.jca400-aperv.yml` with `aperv-dexlib2` service — DEFERRED to Phase 5 infra prep; adding the service requires coordinating with the existing `aperv-ajc` service config (volume mounts + the instrumented APK output paths) that lives alongside other experiment compositions. The service template drops straight in: image = Android SDK + Java 21 + mount the fat jar from `rv-android/modules/rv-instrumentation-dexlib2/lib/` (produced by design D9) at `/opt/instr-cli.jar`, entrypoint `java -jar /opt/instr-cli.jar`.
+- [x] 14.1 Authored `docker/docker-compose.dexlib2-validation.template.yml` — paired-comparison Layer-4 template with `x-rvandroid-ajc` and `x-rvandroid-dexlib2` anchors. Both run the same APK batch under identical conditions; only `RV_INSTRUMENTATION_VARIANT` differs. Mounts the auto-copied fat jar at `/opt/instr-cli.jar` per design D9. The `.template.yml` suffix marks it as not directly runnable: the JCA-400 batch breakdown gets regenerated per-run by `setup_dexlib2_validation.sh` (TBD with fixture APK landings).
 - [ ] 14.2 Dockerfile for `aperv-dexlib2` service — DEFERRED with 14.1. Base should be the same as the existing `aperv-ajc` Dockerfile plus JDK 21 + apksigner v3. No Android SDK change beyond what apksigner needs.
 - [ ] 14.3 Document Docker image rebuild — DEFERRED; the rebuild steps are identical to the existing `aperv-ajc` flow (see `docker/build_all.sh`).
 - [ ] 14.4 Smoke test `docker compose run ...` — DEFERRED to Phase 5 IT.
