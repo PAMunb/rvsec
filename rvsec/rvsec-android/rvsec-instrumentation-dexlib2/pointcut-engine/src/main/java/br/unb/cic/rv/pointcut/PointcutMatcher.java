@@ -168,13 +168,24 @@ public final class PointcutMatcher {
         // consumes these to satisfy args()/target() bindings at injection time
         // (task 4.x).
         int[] regs = extractInvokeRegisters(ctx.instruction);
-        return Optional.of(buildCallMatch(cp, mr, regs));
+        boolean isStaticInvoke = isStaticInvocation(ctx.instruction);
+        return Optional.of(buildCallMatch(cp, mr, regs, isStaticInvoke));
     }
 
-    private static Match buildCallMatch(CallPC cp, MethodReference mr, int[] regs) {
-        boolean isStatic = cp.isConstructor() ? false : isLikelyStatic(cp);
-        int baseOffset = (cp.isConstructor() || isStatic) ? 0 : 1;
-        int targetRegister = cp.isConstructor() || isStatic ? -1
+    private static Match buildCallMatch(CallPC cp, MethodReference mr, int[] regs,
+                                          boolean isStaticInvoke) {
+        // Static-ness comes from the actual invoke opcode, not the AspectJ
+        // modifier (which is stripped at parse time). For invoke-static* the
+        // first register operand is the first arg; for invoke-virtual /
+        // -direct / -super / -interface the first register is the receiver
+        // and args start at offset 1.
+        //
+        // Constructors (`<init>`) are direct invokes; the existing pointcut
+        // model treats them with offset 0 (preserved here to keep behavior
+        // unchanged — separate from this fix).
+        boolean treatAsZeroOffset = cp.isConstructor() || isStaticInvoke;
+        int baseOffset = treatAsZeroOffset ? 0 : 1;
+        int targetRegister = treatAsZeroOffset ? -1
                 : (regs.length > 0 ? regs[0] : -1);
         Map<String, Integer> paramRegs = new LinkedHashMap<>();
         List<String> paramTypes = cp.paramTypes();
@@ -188,16 +199,25 @@ public final class PointcutMatcher {
     }
 
     /**
-     * The AspectJ modifier prefix (public/static/...) was stripped at parse
-     * time, so the AST alone cannot tell us whether a call is static. The
-     * advice-emitter reconciles static-ness from the matched
-     * {@code MethodReference}'s {@code ACC_STATIC} flag at injection time —
-     * here we conservatively return {@code false} and let the emitter shift
-     * registers when needed. The register mapping is always recomputed
-     * downstream, so this heuristic never silently misplaces a binding.
+     * Returns whether the matched invoke instruction is one of the static-
+     * invocation opcodes ({@code invoke-static} / {@code invoke-static/range}).
+     * For static invokes the register operand list is the argument list with
+     * no implicit receiver; for non-static invokes the first register is the
+     * receiver. This determines the `argBindings` offset in
+     * {@link #buildCallMatch}, which had previously defaulted to assuming a
+     * receiver and was silently mis-binding `args()` for static calls
+     * (cryptoapp `String.valueOf(Object)` regression — INV-INS-28).
      */
-    private static boolean isLikelyStatic(CallPC cp) {
-        return false;
+    private static boolean isStaticInvocation(
+            com.android.tools.smali.dexlib2.iface.instruction.Instruction instr) {
+        if (instr == null) return false;
+        switch (instr.getOpcode()) {
+            case INVOKE_STATIC:
+            case INVOKE_STATIC_RANGE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private Optional<Match> matchExecution(ExecutionPC ex, Context ctx) {

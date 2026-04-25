@@ -22,16 +22,25 @@ public final class AfterReturningEmitter implements AdviceEmitter {
 
     @Override
     public EmitPlan emit(EmitContext ctx) {
-        // The return-value capture (move-result/-object/-wide) is emitted by
-        // InstructionInjector — it knows the matched invoke's return shape.
-        // This emitter contributes only the monitor invoke, which the injector
-        // places immediately after the return capture.
+        // The matched invoke's existing `move-result*` already captures the
+        // return value into a register; the matcher records that register in
+        // `match.argBindings` for the bound `returning(<type> r)` parameter,
+        // and `MonitorInvokeBuilder.buildInvoke` forwards it directly. The
+        // injector skips past the existing `move-result*` (INV-INS-27) so we
+        // land AFTER the capture.
+        //
+        // Therefore no scratch register is required for the common case where
+        // the matched invoke has an existing `move-result*` and its destination
+        // is in the 35c-friendly v0..v15 range. A future emitter that needs to
+        // capture a return into a fresh register (e.g. when the matched call
+        // discards the result, or the destination is at a high index that
+        // exceeds Format35c's 4-bit field) will need to coordinate a real
+        // spill via the allocator (INV-INS-26 follow-up); raising
+        // RegisterRequest.scratch(1) without a corresponding emit-time use of
+        // that register only triggered the buggy bumpRegisterCount path
+        // (cryptoapp Preconditions VerifyError) without buying anything.
         List<BuilderInstruction> ins = MonitorInvokeBuilder.buildInvoke(ctx);
-        RegisterRequest req = ctx.advice.getReturning() != null
-                && !ctx.advice.getReturning().isEmpty()
-                ? RegisterRequest.scratch(1)
-                : RegisterRequest.NONE;
-        return EmitPlan.of(ins, InsertionPoint.AFTER, req);
+        return EmitPlan.of(ins, InsertionPoint.AFTER, RegisterRequest.NONE);
     }
 
     @Override

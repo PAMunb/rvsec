@@ -3,8 +3,10 @@ package br.unb.cic.rv.mutator;
 import br.unb.cic.rv.emitter.EmitPlan;
 import br.unb.cic.rv.emitter.InsertionPoint;
 
+import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.builder.BuilderInstruction;
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
+import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 
 import java.util.List;
@@ -51,7 +53,53 @@ public final class InstructionInjector {
             throw new IllegalArgumentException(
                     "plan declared InsertionPoint.BEFORE but insertAfter was called");
         }
-        insertAll(index + 1, plan.toInsert());
+        // INV-INS-27: when the matched invoke is followed by `move-result*`,
+        // skip past the move-result so the inserted instructions don't
+        // separate the invoke from its pseudo-result. The DEX `move-result*`
+        // family is only valid as the immediate successor of an invoke that
+        // returns a value; any non-`move-result` instruction in between makes
+        // the move-result read from the wrong invoke (verifier-rejected when
+        // the new invoke returns void, value-corrupted otherwise).
+        int insertAt = index + 1;
+        if (isInvokeOpcode(instructionAt(index)) && isMoveResult(instructionAt(insertAt))) {
+            insertAt++;
+        }
+        insertAll(insertAt, plan.toInsert());
+    }
+
+    private Instruction instructionAt(int idx) {
+        if (idx < 0) return null;
+        List<BuilderInstruction> ins = impl.getInstructions();
+        return idx < ins.size() ? ins.get(idx) : null;
+    }
+
+    private static boolean isInvokeOpcode(Instruction in) {
+        if (in == null) return false;
+        Opcode op = in.getOpcode();
+        switch (op) {
+            case INVOKE_VIRTUAL: case INVOKE_VIRTUAL_RANGE:
+            case INVOKE_SUPER:   case INVOKE_SUPER_RANGE:
+            case INVOKE_DIRECT:  case INVOKE_DIRECT_RANGE:
+            case INVOKE_STATIC:  case INVOKE_STATIC_RANGE:
+            case INVOKE_INTERFACE: case INVOKE_INTERFACE_RANGE:
+            case INVOKE_POLYMORPHIC: case INVOKE_POLYMORPHIC_RANGE:
+            case INVOKE_CUSTOM:  case INVOKE_CUSTOM_RANGE:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static boolean isMoveResult(Instruction in) {
+        if (in == null) return false;
+        switch (in.getOpcode()) {
+            case MOVE_RESULT:
+            case MOVE_RESULT_OBJECT:
+            case MOVE_RESULT_WIDE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public void insertAtMethodEntry(EmitPlan plan) {
