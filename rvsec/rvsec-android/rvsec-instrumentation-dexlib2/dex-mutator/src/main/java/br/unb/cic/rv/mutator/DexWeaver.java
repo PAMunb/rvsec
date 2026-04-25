@@ -102,12 +102,32 @@ public final class DexWeaver {
         java.util.List<String> origParamDescs = new ArrayList<>(w.originalParamFqn.size());
         for (String p : w.originalParamFqn) origParamDescs.add(fqnToDescriptor(p));
         String origReturnDesc = fqnToDescriptor(w.originalReturnFqn);
+        // Lookup key uses the ORIGINAL signature (no implicit receiver in
+        // params) — that is exactly what dexlib2 reports as the call site's
+        // MethodReference for both invoke-static and invoke-virtual /
+        // invoke-direct / invoke-interface.
         String key = origClassDesc + "#" + w.originalMethodName + "("
                 + String.join(",", origParamDescs) + ")" + origReturnDesc;
+        // The wrapper is always emitted as a static method. For instance
+        // wrappers we prepend the receiver descriptor so the wrapper's arity
+        // matches the original invoke's register count: the receiver register
+        // (first register of an invoke-virtual / invoke-direct / invoke-
+        // interface) becomes the wrapper's first formal parameter when the
+        // weaver rewrites the opcode to invoke-static.
+        java.util.List<String> wrapperParamDescs = w.isStatic
+                ? origParamDescs
+                : prepend(origClassDesc, origParamDescs);
         MethodReference wrapperRef = new ImmutableMethodReference(
                 WrapperEmitter.WRAPPER_CLASS_DESC, w.wrapperName,
-                origParamDescs, origReturnDesc);
+                wrapperParamDescs, origReturnDesc);
         wrapperReplacements.put(key, wrapperRef);
+    }
+
+    private static java.util.List<String> prepend(String head, java.util.List<String> tail) {
+        java.util.List<String> out = new ArrayList<>(tail.size() + 1);
+        out.add(head);
+        out.addAll(tail);
+        return out;
     }
 
     private static String fqnToDescriptor(String fqn) {
@@ -143,10 +163,27 @@ public final class DexWeaver {
     private MethodReference findWrapperReplacement(Instruction insn) {
         if (wrapperReplacements.isEmpty()) return null;
         if (!(insn instanceof ReferenceInstruction)) return null;
-        if (insn.getOpcode() != Opcode.INVOKE_STATIC) return null;
+        // Accept every invoke opcode the InstructionInjector knows how to
+        // rewrite; the injector normalizes all of them to invoke-static while
+        // preserving the register list (the receiver, when present, becomes
+        // the first wrapper argument).
+        if (!isInvokeOpcode(insn.getOpcode())) return null;
         Object refObj = ((ReferenceInstruction) insn).getReference();
         if (!(refObj instanceof MethodReference)) return null;
         return wrapperReplacements.get(refKey((MethodReference) refObj));
+    }
+
+    private static boolean isInvokeOpcode(Opcode op) {
+        switch (op) {
+            case INVOKE_VIRTUAL: case INVOKE_VIRTUAL_RANGE:
+            case INVOKE_SUPER:   case INVOKE_SUPER_RANGE:
+            case INVOKE_DIRECT:  case INVOKE_DIRECT_RANGE:
+            case INVOKE_STATIC:  case INVOKE_STATIC_RANGE:
+            case INVOKE_INTERFACE: case INVOKE_INTERFACE_RANGE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**

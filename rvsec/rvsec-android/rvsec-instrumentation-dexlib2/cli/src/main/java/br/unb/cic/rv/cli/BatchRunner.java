@@ -127,7 +127,7 @@ public final class BatchRunner {
                     : workDir.resolve("monitor-src");
             Files.createDirectories(wrapperOutDir);
             List<WrapperEmitter.WrapperEntry> wrappers =
-                    WrapperEmitter.generate(descriptor, wrapperOutDir);
+                    WrapperEmitter.generate(descriptor, wrapperOutDir, androidIndex);
             counts.put("wrappersGenerated", wrappers.size());
             DexWeaver weaver = new DexWeaver(
                     new EmitterDispatch(), new RegisterAllocator(), wrappers);

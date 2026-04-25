@@ -4,6 +4,7 @@ import br.unb.cic.rv.descriptor.AdviceDescriptor;
 import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.MonitorCallDescriptor;
 import br.unb.cic.rv.descriptor.ParameterDescriptor;
+import br.unb.cic.rv.pointcut.AndroidClassIndex;
 import br.unb.cic.rv.pointcut.CallPC;
 import br.unb.cic.rv.pointcut.CombinedPC;
 import br.unb.cic.rv.pointcut.PointcutExpression;
@@ -15,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,27 +31,34 @@ import java.util.Map;
  *
  * <p>Each wrapper:
  * <ol>
- *   <li>Calls the original static method with the same arguments.</li>
+ *   <li>Calls the original method with the same arguments. For instance-target
+ *       advices the wrapper is still emitted as a {@code public static} method
+ *       and prepends the receiver as its first parameter; the weaver rewrites
+ *       the original {@code invoke-virtual / invoke-direct / invoke-interface}
+ *       call site to {@code invoke-static} keeping the same register list, so
+ *       the original receiver register slots in as the wrapper's first
+ *       argument.</li>
  *   <li>Invokes every {@code <RuntimeMonitor>.<Event>(...)} declared by the
  *       advice's {@code monitorCalls} list.</li>
  *   <li>Returns the original result.</li>
  * </ol>
  *
  * <p>At weave time, the {@code dex-mutator} rewrites the call-site's
- * {@code invoke-static} method reference from {@code ClassName.method(args)R}
- * to {@code mop.MonitorWrappers.<wrapperName>(args)R}. The original registers
- * and the {@code move-result*} are kept untouched — no spill needed.
+ * {@code invoke-*} method reference to {@code mop.MonitorWrappers.<wrapperName>(args)R}.
+ * The original registers and the {@code move-result*} are kept untouched —
+ * no spill needed.
  *
  * <p>Spec-set agnostic: emits wrappers for any {@code after-returning} advice
  * regardless of whether the underlying specification set is JCA or Generic.
  *
- * <p>Implementation note: the prototype's {@code WrapperGenerator} included an
- * android.jar-backed overload-resolution pass so that wrappers respected the
- * Android API's actual parameter types (not the host JDK's). That pass is
- * re-integrated by the {@code dex-mutator} in Group 5 via its
- * {@link br.unb.cic.rv.pointcut.AndroidClassIndex}; the version here uses the
- * advice parameter declarations as the source of truth, which matches how
- * rv-monitor emits the descriptor in both specification sets.
+ * <p>Implementation note: when an {@link AndroidClassIndex} is supplied we
+ * enumerate concrete overloads from android.jar so wrappers respect the actual
+ * Android API parameter types — this lifts the previous defensive skips for
+ * {@code ..} varargs, {@code T+} subtype patterns and "ambiguous Object"
+ * params (ported from prototipo-dexlib2's {@code WrapperGenerator}). When the
+ * index is null the emitter falls back to the descriptor's literal types
+ * (preserving the old behavior so unit tests without an android.jar still
+ * exercise the static-only path).
  */
 public final class WrapperEmitter {
 
@@ -64,14 +73,42 @@ public final class WrapperEmitter {
         public final String originalMethodName;
         public final List<String> originalParamFqn;
         public final String originalReturnFqn;
+        /**
+         * {@code true} when the wrapped method is a static method: the wrapper
+         * calls {@code Cls.method(args)} directly. {@code false} for instance
+         * methods: the wrapper accepts the receiver as its first parameter and
+         * calls {@code recv.method(args)}; the dex-mutator preserves the
+         * original receiver register as the first invoke argument so this is
+         * register-stable.
+         */
+        public final boolean isStatic;
 
         public WrapperEntry(String wrapperName, String cls, String meth,
-                            List<String> params, String ret) {
+                            List<String> params, String ret, boolean isStatic) {
             this.wrapperName = wrapperName;
             this.originalClassFqn = cls;
             this.originalMethodName = meth;
             this.originalParamFqn = params;
             this.originalReturnFqn = ret;
+            this.isStatic = isStatic;
+        }
+    }
+
+    /** One concrete (Android API-resolved) overload to wrap. */
+    public static final class ConcreteCall {
+        public final String declFqn;
+        public final String methodName;
+        public final List<String> paramFqns;
+        public final String returnFqn;
+        public final boolean isStatic;
+
+        public ConcreteCall(String declFqn, String methodName,
+                            List<String> paramFqns, String returnFqn, boolean isStatic) {
+            this.declFqn = declFqn;
+            this.methodName = methodName;
+            this.paramFqns = paramFqns;
+            this.returnFqn = returnFqn;
+            this.isStatic = isStatic;
         }
     }
 
@@ -100,11 +137,9 @@ public final class WrapperEmitter {
 
     /**
      * Lexical check: does the {@code call(...)} expression for this target
-     * contain the {@code static} modifier prefix? Ported from prototype's
-     * {@code WrapperGenerator.targetLooksStatic}. Wrappers emitted for non-
-     * static targets would call the original as a static method, producing
-     * a {@code MethodNotFoundError} at runtime — so we filter them out and
-     * let the inline path (or future per-instance wrapper) handle them.
+     * contain the {@code static} modifier prefix? Used as a fallback when
+     * {@code AndroidClassIndex} is not available — with the index we read
+     * the {@code ACC_STATIC} bit from android.jar directly.
      */
     static boolean targetLooksStatic(String expression, CallPC ct) {
         if (expression == null) return false;
@@ -118,11 +153,28 @@ public final class WrapperEmitter {
     }
 
     /**
-     * Generate {@code mop/MonitorWrappers.java} under {@code outputDir} and
-     * return the wrapper entries the {@code dex-mutator} needs.
+     * Back-compat overload that omits the android.jar index. Falls back to
+     * the descriptor-literal path (no overload expansion, instance targets
+     * filtered out, varargs / wildcard / ambiguous-Object params skipped).
      */
     public static List<WrapperEntry> generate(AspectDescriptor descriptor, Path outputDir)
             throws IOException {
+        return generate(descriptor, outputDir, null);
+    }
+
+    /**
+     * Generate {@code mop/MonitorWrappers.java} under {@code outputDir} and
+     * return the wrapper entries the {@code dex-mutator} needs.
+     *
+     * @param androidIndex when non-null, drives concrete-overload expansion via
+     *                     android.jar (lifts the defensive skips for varargs,
+     *                     {@code T+} patterns and ambiguous Object params, and
+     *                     enables wrappers for instance-method advices). When
+     *                     null the emitter behaves identically to the legacy
+     *                     {@code generate(descriptor, outputDir)} two-arg form.
+     */
+    public static List<WrapperEntry> generate(AspectDescriptor descriptor, Path outputDir,
+                                              AndroidClassIndex androidIndex) throws IOException {
         List<WrapperEntry> entries = new ArrayList<>();
         StringBuilder src = new StringBuilder();
         TypeResolver resolver = new TypeResolver(descriptor.getImports());
@@ -162,38 +214,29 @@ public final class WrapperEmitter {
                 // first register.
                 continue;
             }
-            if (target.varargs() || hasWildcardParam(target.paramTypes())) {
-                // AspectJ ".." varargs / wildcard parameters can't be
-                // expressed as a concrete Java signature without enumerating
-                // every overload (which the prototipo's WrapperGenerator
-                // does via AndroidClassIndex). That overload-expansion is a
-                // separate port; for now we skip varargs / wildcard targets.
-                continue;
+
+            List<ConcreteCall> overloads = expandCallTarget(
+                    target, resolver, androidIndex, /*instanceAllowed=*/ true);
+            if (overloads.isEmpty()) {
+                // Fallback path used when no android.jar index is available
+                // OR the index has no matching overloads. Mirrors the legacy
+                // behavior: only static targets, no varargs, no ambiguous
+                // Object params; instance targets are dropped.
+                ConcreteCall fallback = literalFallback(advice, target, resolver);
+                if (fallback == null) continue;
+                overloads = Collections.singletonList(fallback);
             }
-            // Only emit wrappers for static calls. Instance-target advices
-            // would require the wrapper to take the receiver as the first
-            // parameter and rewrite `target(name)` bindings to map to that
-            // parameter — that is a separate port (tracked under task 5.4
-            // INV-INS-29 follow-up). Without static filtering, the emitter
-            // would call instance methods statically and produce a
-            // MethodNotFoundError at runtime.
-            if (!targetLooksStatic(advice.getExpression(), target)) continue;
-            if (!bodyStarted) {
-                src.append("public final class ").append(WRAPPER_CLASS_NAME).append(" {\n");
-                src.append("    private ").append(WRAPPER_CLASS_NAME).append("() {}\n\n");
-                bodyStarted = true;
+
+            for (ConcreteCall cc : overloads) {
+                if (!bodyStarted) {
+                    src.append("public final class ").append(WRAPPER_CLASS_NAME).append(" {\n");
+                    src.append("    private ").append(WRAPPER_CLASS_NAME).append("() {}\n\n");
+                    bodyStarted = true;
+                }
+                WrapperEntry entry = buildEntry(cc, nameCounts);
+                entries.add(entry);
+                appendWrapperMethod(src, advice, entry);
             }
-            WrapperEntry entry = buildEntry(target, nameCounts, resolver);
-            if (hasAmbiguousObjectParam(entry)) {
-                // Without AndroidClassIndex-driven overload expansion (a
-                // separate port from prototipo's WrapperGenerator), the
-                // wrapper would emit `Cipher.getInstance(String, Object)`
-                // which doesn't match any actual Cipher overload. Skip
-                // until the expansion lands.
-                continue;
-            }
-            entries.add(entry);
-            appendWrapperMethod(src, advice, entry);
         }
         if (!bodyStarted) {
             // Emit an empty class so monitor-builder compiles uniformly
@@ -207,6 +250,167 @@ public final class WrapperEmitter {
         Files.createDirectories(dir);
         Files.writeString(dir.resolve(WRAPPER_CLASS_NAME + ".java"), src.toString());
         return entries;
+    }
+
+    // --- expansion -----------------------------------------------------------
+
+    /**
+     * Expand an AspectJ call target into the concrete (Android API-resolved)
+     * overloads it can match. Ported from prototipo-dexlib2's
+     * {@code WrapperGenerator.expandSupertypes}.
+     *
+     * <p>{@code instanceAllowed} controls whether non-static overloads are
+     * kept: {@code WrapperEmitter} passes {@code true} (instance and static
+     * advices are both wrapped). The dex-mutator will rewrite the call site
+     * to {@code invoke-static} and route through the wrapper either way; the
+     * wrapper itself is the one piece that needs to know whether to emit
+     * {@code Cls.method(p0,p1)} or {@code recv.method(p0,p1)}.
+     *
+     * <p>Returns an empty list when:
+     * <ul>
+     *   <li>{@code androidIndex == null} and the target uses any pattern that
+     *       can't be resolved without it (varargs, {@code T+}, etc.).</li>
+     *   <li>The declared class is not present in android.jar, or has no
+     *       method with the requested name and matching arity / patterns.</li>
+     * </ul>
+     * The caller's fallback (when index is null) handles the non-pattern
+     * static-only case.
+     */
+    public static List<ConcreteCall> expandCallTarget(CallPC ct, TypeResolver resolver,
+                                                      AndroidClassIndex index,
+                                                      boolean instanceAllowed) {
+        if (ct == null || ct.isConstructor()) return Collections.emptyList();
+
+        boolean hasTrailingVarargs = ct.varargs();
+        boolean needsExpansion = hasTrailingVarargs;
+        for (int i = 0; i < ct.paramTypes().size(); i++) {
+            String p = ct.paramTypes().get(i);
+            if (p == null) continue;
+            if (p.endsWith("+")) needsExpansion = true;
+            if ("..".equals(p)) {
+                needsExpansion = true;
+                if (i == ct.paramTypes().size() - 1) hasTrailingVarargs = true;
+                else {
+                    // Middle-position ".." cannot be lowered to a Java
+                    // signature; the prototipo logged + skipped.
+                    return Collections.emptyList();
+                }
+            }
+        }
+        boolean returnIsSubtypePattern = ct.returnType() != null
+                && ct.returnType().endsWith("+");
+        if (returnIsSubtypePattern) needsExpansion = true;
+
+        if (index == null) {
+            // No android.jar — caller will run the descriptor-literal
+            // fallback; we cannot expand patterns safely here.
+            if (needsExpansion) return Collections.emptyList();
+            return Collections.emptyList();
+        }
+
+        String declFqn = stripSubtypePlus(ct.declaringType());
+        if (!declFqn.contains(".")) {
+            String resolved = resolver.resolveFqn(declFqn);
+            if (resolved != null) declFqn = resolved;
+        }
+
+        List<AndroidClassIndex.MethodInfo> methods =
+                index.methods(declFqn, ct.methodName(), /*onlyStatic=*/ false);
+        if (methods.isEmpty()) return Collections.emptyList();
+
+        int fixedPrefix = hasTrailingVarargs
+                ? ct.paramTypes().size() - 1
+                : ct.paramTypes().size();
+        // When the param list is just "(..)" the parser leaves paramTypes
+        // empty AND sets varargs=true; fixedPrefix becomes -1 so clamp it.
+        if (fixedPrefix < 0) fixedPrefix = 0;
+
+        List<ConcreteCall> out = new ArrayList<>();
+        for (AndroidClassIndex.MethodInfo m : methods) {
+            if (!instanceAllowed && !m.isStatic()) continue;
+            if (hasTrailingVarargs) {
+                if (m.paramFqns.size() < fixedPrefix) continue;
+            } else if (m.paramFqns.size() != ct.paramTypes().size()) {
+                continue;
+            }
+            boolean paramsOk = true;
+            for (int i = 0; i < fixedPrefix; i++) {
+                if (!patternMatchesFqn(ct.paramTypes().get(i), m.paramFqns.get(i),
+                        resolver, index)) {
+                    paramsOk = false; break;
+                }
+            }
+            if (!paramsOk) continue;
+            if (ct.returnType() != null && !ct.returnType().isEmpty()) {
+                if (!patternMatchesFqn(ct.returnType(), m.returnFqn, resolver, index)) continue;
+            }
+            out.add(new ConcreteCall(declFqn, ct.methodName(),
+                    new ArrayList<>(m.paramFqns), m.returnFqn, m.isStatic()));
+        }
+        return out;
+    }
+
+    /**
+     * Match an AspectJ type pattern against a fully-qualified Java type.
+     * <ul>
+     *   <li>"X+" (subtype): {@code X} is a supertype of {@code actualFqn} per
+     *       {@link AndroidClassIndex#isAssignableFrom}.</li>
+     *   <li>"X" (exact): {@code actualFqn} equals the resolved FQN of {@code X}.</li>
+     *   <li>Primitives and arrays handled by string comparison.</li>
+     * </ul>
+     */
+    private static boolean patternMatchesFqn(String pattern, String actualFqn,
+                                             TypeResolver resolver, AndroidClassIndex index) {
+        if (pattern == null || actualFqn == null) return false;
+        boolean supertype = pattern.endsWith("+");
+        String raw = supertype ? pattern.substring(0, pattern.length() - 1) : pattern;
+
+        int arrays = 0;
+        while (raw.endsWith("[]")) { arrays++; raw = raw.substring(0, raw.length() - 2); }
+
+        String actualBase = actualFqn;
+        for (int i = 0; i < arrays; i++) {
+            if (!actualBase.endsWith("[]")) return false;
+            actualBase = actualBase.substring(0, actualBase.length() - 2);
+        }
+        if (actualBase.endsWith("[]") && arrays == 0) return false;
+
+        if (isPrimitiveFqn(raw)) return actualBase.equals(raw);
+        if ("*".equals(raw)) return !isPrimitiveFqn(actualBase);
+
+        String patternFqn = raw.contains(".") ? raw : resolver.resolveFqn(raw);
+        if (patternFqn == null) return false;
+        if (!supertype) return actualBase.equals(patternFqn);
+        return index.isAssignableFrom(patternFqn, actualBase);
+    }
+
+    private static boolean isPrimitiveFqn(String fqn) {
+        switch (fqn) {
+            case "void": case "boolean": case "byte": case "short": case "char":
+            case "int":  case "long":    case "float": case "double": return true;
+            default: return false;
+        }
+    }
+
+    /**
+     * Build a {@link ConcreteCall} from the descriptor's literal types — used
+     * when no {@link AndroidClassIndex} is available. Mirrors the legacy
+     * (pre-expansion) behavior: only static targets, no varargs / wildcard
+     * params, and the heuristic "ambiguous Object" filter.
+     */
+    private static ConcreteCall literalFallback(AdviceDescriptor advice, CallPC target,
+                                                TypeResolver resolver) {
+        if (target.varargs() || hasWildcardParam(target.paramTypes())) return null;
+        if (!targetLooksStatic(advice.getExpression(), target)) return null;
+
+        String cls = resolveFqn(resolver, stripSubtypePlus(target.declaringType()));
+        List<String> params = new ArrayList<>();
+        for (String p : target.paramTypes()) {
+            params.add(resolveFqn(resolver, stripSubtypePlus(p)));
+        }
+        String ret = resolveFqn(resolver, stripSubtypePlus(target.returnType()));
+        if (hasAmbiguousObjectParam(params)) return null;
+        return new ConcreteCall(cls, target.methodName(), params, ret, /*isStatic=*/ true);
     }
 
     // --- helpers -------------------------------------------------------------
@@ -237,27 +441,13 @@ public final class WrapperEmitter {
         return null;
     }
 
-    private static WrapperEntry buildEntry(CallPC target, Map<String, Integer> nameCounts,
-                                            TypeResolver resolver) {
-        // Resolve simple names ("String", "Cipher") to fully-qualified names
-        // via the descriptor's `imports`. The DexWeaver's wrapperReplacements
-        // map uses dexlib2 descriptors as keys and we build those from FQNs;
-        // simple names like "String" do not round-trip through fqnToDescriptor
-        // (would yield "LString;" instead of "Ljava/lang/String;") and the
-        // map lookup misses every call site.
-        String cls = resolveFqn(resolver, stripSubtypePlus(target.declaringType()));
-        String meth = target.methodName();
-        String baseName = cls.replace('.', '_') + "_" + meth;
+    private static WrapperEntry buildEntry(ConcreteCall cc, Map<String, Integer> nameCounts) {
+        String baseName = cc.declFqn.replace('.', '_') + "_" + cc.methodName;
         int count = nameCounts.getOrDefault(baseName, 0);
         nameCounts.put(baseName, count + 1);
         String wrapperName = count == 0 ? baseName : baseName + "_" + count;
-
-        List<String> params = new ArrayList<>();
-        for (String p : target.paramTypes()) {
-            params.add(resolveFqn(resolver, stripSubtypePlus(p)));
-        }
-        String ret = resolveFqn(resolver, stripSubtypePlus(target.returnType()));
-        return new WrapperEntry(wrapperName, cls, meth, params, ret);
+        return new WrapperEntry(wrapperName, cc.declFqn, cc.methodName,
+                cc.paramFqns, cc.returnFqn, cc.isStatic);
     }
 
     /**
@@ -307,16 +497,14 @@ public final class WrapperEmitter {
     private static String stripSubtypePlus(String type) {
         if (type == null) return null;
         if (type.endsWith("+")) return type.substring(0, type.length() - 1);
-        // Could appear inside arrays: "X+[]"; conservatively just trim the
-        // trailing '+' if present.
         return type;
     }
 
     /**
      * Returns true if any parameter type is the AspectJ wildcard
-     * {@code ..} (matches "any sequence of types from this point"). Such
-     * patterns cannot be lowered to a concrete Java signature without
-     * enumerating overloads via {@code AndroidClassIndex} — deferred port.
+     * {@code ..} (matches "any sequence of types from this point"). Used by
+     * the literal fallback path; the index-driven path handles {@code ..}
+     * directly via {@link #expandCallTarget}.
      */
     private static boolean hasWildcardParam(List<String> paramTypes) {
         if (paramTypes == null) return false;
@@ -343,20 +531,26 @@ public final class WrapperEmitter {
     }
 
     /**
-     * Returns true if any wrapper-method type ({@code Object} treated as a
-     * "lost overload" sentinel — the descriptor encodes ".." varargs as a
-     * solitary {@code Object} parameter when the parser can't enumerate
-     * concrete overloads) would produce an ambiguous javac call. Used to
-     * skip wrappers that, without {@code AndroidClassIndex}-driven overload
-     * expansion, would emit a call like {@code Cipher.getInstance(String,
-     * Object)} that does not match any actual Cipher overload.
+     * Heuristic used by the literal fallback (no android.jar): the descriptor
+     * encodes ".." varargs as a solitary {@code Object} parameter when the
+     * parser can't enumerate concrete overloads. Skipping wrappers in that
+     * shape avoids emitting a call like {@code Cipher.getInstance(String,
+     * Object)} that does not match any actual Cipher overload. Kept as a
+     * static helper so the unit tests that exercise the no-index path still
+     * see the same defensive behavior.
      */
-    static boolean hasAmbiguousObjectParam(WrapperEntry entry) {
-        for (int i = 1; i < entry.originalParamFqn.size(); i++) {
-            String p = entry.originalParamFqn.get(i);
+    static boolean hasAmbiguousObjectParam(List<String> params) {
+        for (int i = 1; i < params.size(); i++) {
+            String p = params.get(i);
             if ("Object".equals(p) || "java.lang.Object".equals(p)) return true;
         }
         return false;
+    }
+
+    /** @deprecated use {@link #hasAmbiguousObjectParam(List)} on the FQN list. */
+    @Deprecated
+    static boolean hasAmbiguousObjectParam(WrapperEntry entry) {
+        return hasAmbiguousObjectParam(entry.originalParamFqn);
     }
 
     private static void appendWrapperMethod(StringBuilder src, AdviceDescriptor advice,
@@ -365,8 +559,18 @@ public final class WrapperEmitter {
         src.append("    public static ").append(ret).append(' ').append(entry.wrapperName)
                 .append('(');
         List<String> paramNames = new ArrayList<>();
+        boolean first = true;
+        if (!entry.isStatic) {
+            // Receiver: occupies the same DEX register slot the original
+            // invoke-virtual / invoke-direct put it in. Named "recv" so the
+            // monitor-arg builder can map advice's `target(name)` binding to
+            // it.
+            src.append(entry.originalClassFqn).append(" recv");
+            first = false;
+        }
         for (int i = 0; i < entry.originalParamFqn.size(); i++) {
-            if (i > 0) src.append(", ");
+            if (!first) src.append(", ");
+            first = false;
             String p = entry.originalParamFqn.get(i);
             String name = "p" + i;
             paramNames.add(name);
@@ -378,29 +582,47 @@ public final class WrapperEmitter {
         // throws KeyStoreException, ...). The original call sites already
         // handle these — the wrapper just propagates them transparently.
         src.append(") throws Exception {\n");
-        src.append("        ").append(ret).append(" result = ").append(entry.originalClassFqn)
-                .append('.').append(entry.originalMethodName).append('(')
+        boolean isVoid = "void".equals(ret);
+        src.append("        ");
+        if (!isVoid) src.append(ret).append(" result = ");
+        if (entry.isStatic) {
+            src.append(entry.originalClassFqn).append('.');
+        } else {
+            src.append("recv.");
+        }
+        src.append(entry.originalMethodName).append('(')
                 .append(String.join(", ", paramNames)).append(");\n");
 
         for (MonitorCallDescriptor mc : advice.getMonitorCalls()) {
             src.append("        ").append(mc.getMethod()).append('(');
-            src.append(buildMonitorArgs(advice, mc, paramNames));
+            src.append(buildMonitorArgs(advice, mc, paramNames, entry.isStatic));
             src.append(");\n");
         }
-        src.append("        return result;\n");
+        if (!isVoid) src.append("        return result;\n");
         src.append("    }\n\n");
     }
 
     private static String buildMonitorArgs(AdviceDescriptor advice, MonitorCallDescriptor mc,
-                                            List<String> wrapperParamNames) {
+                                            List<String> wrapperParamNames, boolean isStatic) {
         Collection<String> args = new ArrayList<>();
         Map<String, String> byName = new LinkedHashMap<>();
-        for (int i = 0; i < advice.getParameters().size(); i++) {
-            ParameterDescriptor pd = advice.getParameters().get(i);
-            String local = i < wrapperParamNames.size()
-                    ? wrapperParamNames.get(i)
+        // For instance wrappers we map the advice's `target(<name>)` binding
+        // (parsed lexically from the expression) to "recv"; the rest of the
+        // advice parameters slot into wrapper params p0..pN positionally.
+        // For static wrappers every advice parameter maps positionally to
+        // wrapper params.
+        String targetName = !isStatic ? extractTargetBinding(advice.getExpression()) : null;
+        int wrapperIdx = 0;
+        for (ParameterDescriptor pd : advice.getParameters()) {
+            if (targetName != null && targetName.equals(pd.getName())) {
+                byName.put(pd.getName(), "recv");
+                continue;
+            }
+            String local = wrapperIdx < wrapperParamNames.size()
+                    ? wrapperParamNames.get(wrapperIdx)
                     : pd.getName();
             byName.put(pd.getName(), local);
+            wrapperIdx++;
         }
         if (advice.getReturning() != null) {
             for (ParameterDescriptor pd : advice.getReturning()) {
@@ -411,5 +633,24 @@ public final class WrapperEmitter {
             args.add(byName.getOrDefault(argName, argName));
         }
         return String.join(", ", args);
+    }
+
+    /**
+     * Lexically pull the parameter name from a {@code target(<name>)} clause.
+     * Returns {@code null} when the expression has no {@code target(...)},
+     * leaving the monitor-arg builder to fall back to positional mapping —
+     * which is correct because in that case the advice doesn't reference the
+     * receiver at all.
+     */
+    private static String extractTargetBinding(String expr) {
+        if (expr == null) return null;
+        int idx = expr.indexOf("target(");
+        if (idx < 0) return null;
+        int start = idx + "target(".length();
+        int end = expr.indexOf(')', start);
+        if (end < 0) return null;
+        String inner = expr.substring(start, end).trim();
+        if (inner.isEmpty()) return null;
+        return inner;
     }
 }
