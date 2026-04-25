@@ -154,6 +154,7 @@ GitHub Issue: #52
 - [x] 10.15 Pre-registered `validator/oracles/layer4-thresholds.yaml` (Δ=2pp `cov_method`, Δ=0.02 per-spec F1, Δ=0.05 per-spec κ, α=0.05; non-inferiority required, equivalence on ≥80% of specs, recovery_rate ≥ 0.90 — INV-INS-21). Committed before any Layer-4 batch run; provenance captures the pre-registration date so the audit trail is in `git log`.
 - [x] 10.16 Implemented `MethodRefAuditor.audit(apksDir, projectedAddedRefs) → Report` (INV-INS-25). Opens every `classes<N>.dex` via `DexBackedDexFile`, counts method refs, projects the post-weaving total. Warning at 62k, error at 65k. CLI subcommand `validator-cli preflight <apk-dir>` gates Layer-4. Full 10-APK JCA-400 IT deferred to Phase 5.
 - [x] 10.17 `mvn -pl validator -am test` — BUILD SUCCESS, 10 unit tests green. Aggregate 101 Java tests across the 9 Maven submodules.
+- [x] 10.18 Added `rv-android/scripts/drive_cryptoapp.py` — deterministic UIAutomator2 driver that walks MessageDigest (MD5+SHA-1), Cipher (30 encrypt clicks → DES+AES branches via the `random.nextInt(10) > 6` coin flip), and CryptographyActivity (Key Pair tab → DSA → Generate). Reproduces all 8 events in `cryptoapp-oracle.yaml` deterministically; APE-RV's stochastic exploration is too input-shy to reach the unsafe branches in a 300s budget, so this script is the canonical Layer-3 reproducer for INV-INS-22 (paired with TraceComparator in 10.5). CLI exits 0 iff every oracle event is matched in the post-run logcat dump.
 
 ## 11. `rv-monitor-generator` (Python) — emit descriptor
 
