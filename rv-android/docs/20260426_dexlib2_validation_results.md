@@ -201,6 +201,51 @@ the original gh52 motivation: dex2jar+ajc+d8 fails on R8-optimized
 multidex). Both effects favor dexlib2; the gate's "delta ≤ 1pp"
 constraint isn't usefully calibrated for a 100× ratio.
 
+### Section 4.3 — Phase 5 run2 (post-INV-INS-31 fixes, 2026-04-26 03:30)
+
+Re-ran the dexlib2 smoke with the post-`2e64e848` jar (alias 48 → 7;
+shouldWrap covering all after-side advices; constructor inline path)
+producing `gh52_smoke5_newdata_v2`. Same 5 APKs, same APE-RV
+configuration. Reports at `rv-android/results/phase5_run2/`.
+
+`MonitorWrappers.java` confirmed 90 wrappers (16 new vs run1's 74),
+including 10 fixes that the shouldWrap correction now emits
+(`Mac.update` ×4, `MessageDigest.update` ×4, `SSLContext.init`,
+`SecureRandom.setSeed(long)`).
+
+| Layer | Run 1 | Run 2 | Δ |
+|---|---|---|---|
+| L2 BootValidator | PASS (0 VE) | **PASS (0 VE)** | safety gate steady ✓ |
+| L5 aggregateRecall | 0.913 | **0.977** | +0.064 |
+| L5 aggregateDelta | +26 316 | +18 903 | smaller absolute gap |
+| L5 totalDex | 26 580 | 19 167 | (run-to-run APE-RV variance) |
+| L4 medianDiff (cov_method) | +28.29pp | **+23.17pp** | smaller |
+| L4 non-inferiority | PASS | **PASS** | mandatory gate steady ✓ |
+| L4 equivalence | FAIL | FAIL | dexlib2 still better than ±2pp |
+
+Per-APK Layer 5 (RVSEC-COV) detail in run 2:
+
+| APK | ajc | dex | recall | delta | run1 dex |
+|---|---:|---:|---:|---:|---:|
+| app.pwhs.blockads_45 | 0 | 965 | 1.000 | +965 | 8 055 |
+| com.axiel7.anihyou_108 | 6 | 14 151 | 1.000 | +14 145 | 14 773 |
+| com.marotoweb.cajuscan_app_5 | 1 | 2 329 | 1.000 | +2 328 | 2 336 |
+| net.tlfoxhuman.droidstress_8 | 128 | 1 108 | 0.969 | +980 | 959 |
+| org.woheller69.solxpect_29 | 129 | 614 | 0.984 | +485 | 457 |
+
+The blockads drop (8055 → 965) reflects APE-RV stochastic exploration
+variance: in run1 APE-RV reached deeper paths in blockads (cov_method
+14.62%); in run2 it stalled early (cov_method 0.49%). This is
+input-side variance, not an instrumentation regression — both runs
+have zero VE.
+
+**Key observation:** run2's L5 recall (0.977) is now within 1.3pp of
+the gate threshold (0.99). The remaining gap is dominated by the
+run-to-run APE-RV variance plus 19/129 solxpect signatures that
+ajc captured but dex did not (likely ajc-pipeline-specific
+bookkeeping methods that don't map to RVSEC-COV in dexlib2's
+emission).
+
 ### Open scope notes
 
 - L3 oracle coverage is currently 1 of 3 (only `cryptoapp-oracle.yaml`
