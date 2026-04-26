@@ -116,23 +116,27 @@ public final class WrapperEmitter {
 
     /**
      * Decide whether an advice should be routed through a wrapper.
-     * Criteria:
-     * <ol>
-     *   <li>Position is {@code after} (only after-side advice has the
-     *       register-aliasing risk that wrappers exist to fix).</li>
-     *   <li>A {@code returning(R r)} clause is present OR an {@code args(...)}
-     *       clause is present — both need pre-call register state preserved
-     *       across the {@code move-result*}.</li>
-     * </ol>
-     * Position is the only thing the descriptor reports directly; the args /
-     * returning information is read from the advice fields.
+     *
+     * <p>Every after-side advice is wrapped, regardless of which binding
+     * clauses (args, target, returning, throwing) it carries. The
+     * register-aliasing risk that motivates the wrapper system applies to
+     * any after-side hook: between the matched invoke and the inline hook,
+     * the verifier can observe register-type changes (move-result
+     * overwrite, compiler-driven reuse of the receiver register, etc.) that
+     * make the inline path unsafe even when the advice has no bindings at
+     * all. The earlier {@code returning || args} filter accidentally let
+     * {@code target(...)}-only advices fall through to inline-AFTER and
+     * then get defensively skipped in {@code DexWeaver}, costing the
+     * monitor every {@code Mac.update}, {@code MessageDigest.update},
+     * {@code SSLContext.init}, {@code SecureRandom.setSeed(long)}, etc.
+     * event on the JCA-400 corpus.
+     *
+     * <p>Before-side advice is handled by the inline path (no aliasing
+     * risk; {@code BeforeEmitter} reads pre-call registers directly).
+     * Around-advice is rejected upstream by {@code EmitterDispatch}.
      */
     public static boolean shouldWrap(AdviceDescriptor a) {
-        if (!"after".equals(a.getPosition())) return false;
-        boolean hasReturning = a.getReturning() != null && !a.getReturning().isEmpty();
-        boolean hasArgs = a.getExpression() != null
-                && a.getExpression().contains("args(");
-        return hasReturning || hasArgs;
+        return "after".equals(a.getPosition());
     }
 
     /**
