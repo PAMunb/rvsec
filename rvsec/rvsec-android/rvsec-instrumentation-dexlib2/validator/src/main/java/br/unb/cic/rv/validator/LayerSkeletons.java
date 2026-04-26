@@ -22,16 +22,8 @@ public final class LayerSkeletons {
     // Layer 1 (BaksmaliDiffer) is implemented in BaksmaliDiffer.diff;
     // see ValidationCli.Layer1 for the wired CLI path.
 
-    /**
-     * Layer 2 — {@code BootValidator}: adb install + monkey 1 event + 30s
-     * logcat; parses for VerifyError / RVSEC event tags.
-     */
-    public static Report layer2BootValidator(Path apkDir, int seconds) {
-        return pending("layer-2-boot-validator",
-                "needs rv-platform emulator lifecycle (CLAUDE.md rule: never drive "
-                        + "emulator manually). Contract: zero VerifyError regressions "
-                        + "vs ajc baseline over the 30-APK subset.");
-    }
+    // Layer 2 (BootValidator) is implemented in BootValidator.analyze / .capture;
+    // see ValidationCli.Layer2 for the wired CLI path.
 
     // Layer 3 (TraceComparator) is implemented in TraceComparator.compare;
     // see ValidationCli.Layer3 for the wired CLI path.

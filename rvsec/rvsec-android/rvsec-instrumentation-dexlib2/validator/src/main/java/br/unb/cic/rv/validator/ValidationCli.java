@@ -151,13 +151,57 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "layer2", description = "BootValidator (Phase 5 skeleton).")
+    @Command(name = "layer2",
+            description = "BootValidator: zero VerifyError regressions vs ajc baseline. "
+                    + "Default: analyze mode (compare two logcat trees). "
+                    + "With --capture: drive adb install/monkey/logcat for every APK in --apk-dir "
+                    + "(emulator must already be running; rv-platform manages its lifecycle).")
     public static final class Layer2 implements Runnable {
-        @Parameters(index = "0") Path apkDir;
-        @Option(names = "--seconds", defaultValue = "30") int seconds;
+        @Option(names = "--ajc",
+                description = "ajc-baseline logcat dir (analyze mode)") Path ajcLogs;
+        @Option(names = "--dexlib2",
+                description = "dexlib2-pipeline logcat dir (analyze mode)") Path dexlibLogs;
+
+        @Option(names = "--capture",
+                description = "Switch to capture mode: drive adb against an attached emulator")
+        boolean capture;
+        @Option(names = "--apk-dir", description = "APK directory (capture mode)") Path apkDir;
+        @Option(names = "--output", description = "Logcat output directory (capture mode)") Path outputDir;
+        @Option(names = "--serial", description = "adb device serial (capture mode)") String serial;
+        @Option(names = "--seconds", defaultValue = "30",
+                description = "Capture window in seconds (capture mode)") int seconds;
+
         @picocli.CommandLine.ParentCommand ValidationCli parent;
+
         @Override public void run() {
-            emitAndExit(parent, LayerSkeletons.layer2BootValidator(apkDir, seconds));
+            try {
+                if (capture) {
+                    if (apkDir == null || outputDir == null) {
+                        System.err.println("layer2 --capture requires --apk-dir and --output");
+                        System.exit(2);
+                    }
+                    BootValidator.BootCaptureOptions opts = new BootValidator.BootCaptureOptions();
+                    opts.adbSerial = serial;
+                    opts.captureSeconds = seconds;
+                    BootValidator.CaptureReport cr = BootValidator.capture(apkDir, outputDir, opts);
+                    boolean ok = cr.failures.isEmpty();
+                    Report r = new Report(BootValidator.LAYER_NAME, ok,
+                            String.format(java.util.Locale.ROOT,
+                                    "capture: %d/%d apks succeeded",
+                                    cr.succeeded, cr.totalApks),
+                            cr.toMetrics());
+                    emitAndExit(parent, r);
+                } else {
+                    if (ajcLogs == null || dexlibLogs == null) {
+                        System.err.println("layer2 analyze mode requires --ajc and --dexlib2");
+                        System.exit(2);
+                    }
+                    emitAndExit(parent, BootValidator.analyze(ajcLogs, dexlibLogs));
+                }
+            } catch (IOException e) {
+                System.err.println("layer2 failed: " + e.getMessage());
+                System.exit(2);
+            }
         }
     }
 
