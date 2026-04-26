@@ -181,13 +181,18 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "layer5", description = "CoverageValidator (Phase 5 skeleton).")
+    @Command(name = "layer5", description = "CoverageValidator: RVSEC-COV recall >= 0.99, |delta| <= 1pp.")
     public static final class Layer5 implements Runnable {
         @Option(names = "--ajc", required = true) Path ajcLogs;
         @Option(names = "--dexlib2", required = true) Path dexlibLogs;
         @picocli.CommandLine.ParentCommand ValidationCli parent;
         @Override public void run() {
-            emitAndExit(parent, LayerSkeletons.layer5CoverageValidator(ajcLogs, dexlibLogs));
+            try {
+                emitAndExit(parent, CoverageValidator.compare(ajcLogs, dexlibLogs));
+            } catch (IOException e) {
+                System.err.println("layer5 failed: " + e.getMessage());
+                System.exit(2);
+            }
         }
     }
 

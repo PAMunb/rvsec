@@ -56,15 +56,8 @@ public final class LayerSkeletons {
                         + "TOST non-inferiority rejects for every spec.");
     }
 
-    /**
-     * Layer 5 — {@code CoverageValidator}: compares RVSEC-COV recall
-     * between variants on the 30-APK subset.
-     */
-    public static Report layer5CoverageValidator(Path ajcLogcatDir, Path dexlibLogcatDir) {
-        return pending("layer-5-coverage-validator",
-                "needs paired logcat traces tagged RVSEC-COV from both variants. "
-                        + "Contract: recall ≥ 0.99 AND delta ≤ 1pp.");
-    }
+    // Layer 5 (CoverageValidator) is implemented in CoverageValidator.compare;
+    // see ValidationCli.Layer5 for the wired CLI path.
 
     private static Report pending(String layer, String message) {
         Map<String, Object> metrics = new LinkedHashMap<>();
