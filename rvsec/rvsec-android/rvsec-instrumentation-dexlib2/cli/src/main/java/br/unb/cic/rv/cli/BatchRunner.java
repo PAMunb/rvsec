@@ -131,12 +131,29 @@ public final class BatchRunner {
             counts.put("wrappersGenerated", wrappers.size());
             DexWeaver weaver = new DexWeaver(
                     new EmitterDispatch(), new RegisterAllocator(), wrappers);
+
+            // Build a single InheritanceResolver covering EVERY DEX of the APK
+            // BEFORE the per-DEX weave loop. This serves two purposes:
+            //   (1) wrapper subtype expansion (INV-INS-31 phase 2) — the
+            //       resolver must see app-internal subclasses that may live in
+            //       a different DEX than the call site (e.g. classes2.dex
+            //       declares the subclass, classes.dex contains the call).
+            //   (2) downstream pointcut matching during weave gets the same
+            //       multi-DEX view (pointcuts that test T+ across DEX
+            //       boundaries no longer miss).
+            DexFile[] allDexes = new DexFile[dexes.length];
+            for (int i = 0; i < dexes.length; i++) allDexes[i] = dexes[i].dex;
+            InheritanceResolver inheritance =
+                    new InheritanceResolver(androidIndex, allDexes);
+            weaver.expandWrapperReplacementsForApk(inheritance);
+
             CoverageWeaver coverageWeaver = cfg.enableCoverage() ? new CoverageWeaver() : null;
             Map<String, Path> appDexEntries = new LinkedHashMap<>();
             int matchesApplied = 0;
             int plansSkipped = 0;
             int plansSkippedAliasing = 0;
             int wrappersSubstituted = 0;
+            int wrappersAliasedToSubtype = 0;
             int coverageInstrumented = 0;
             int coverageSpillFailed = 0;
             int classesSeen = 0;
@@ -144,7 +161,6 @@ public final class BatchRunner {
 
             for (ExtractedDex ed : dexes) {
                 DexFile dx = ed.dex;
-                InheritanceResolver inheritance = new InheritanceResolver(androidIndex, dx);
                 DexFileMutator mutator = new DexFileMutator(dx);
 
                 // 4a. Advice weave (counts also accumulate the read-side stats
@@ -155,6 +171,11 @@ public final class BatchRunner {
                 plansSkipped += wr.plansSkipped();
                 plansSkippedAliasing += wr.plansSkippedAliasing();
                 wrappersSubstituted += wr.wrappersSubstituted();
+                // wrappersAliasedToSubtype is APK-scoped (set once by
+                // expandWrapperReplacementsForApk above) but the report carries
+                // the same value for every DEX; record it once via the first
+                // DEX's report.
+                wrappersAliasedToSubtype = wr.wrappersAliasedToSubtype();
                 classesSeen += wr.classesSeen();
                 methodsSeen += wr.methodsSeen();
 
@@ -181,6 +202,7 @@ public final class BatchRunner {
             counts.put("plansSkipped", plansSkipped);
             counts.put("plansSkippedAliasing", plansSkippedAliasing);
             counts.put("wrappersSubstituted", wrappersSubstituted);
+            counts.put("wrappersAliasedToSubtype", wrappersAliasedToSubtype);
             if (coverageWeaver != null) {
                 counts.put("coverageInstrumented", coverageInstrumented);
                 counts.put("coverageSpillFailed", coverageSpillFailed);

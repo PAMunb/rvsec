@@ -77,6 +77,20 @@ public final class DexWeaver {
      * caller's registers stay byte-identical.
      */
     private final Map<String, MethodReference> wrapperReplacements;
+    /**
+     * Tracks the original wrapper entries (instance, non-static) so subtype
+     * expansion can be performed after construction once a multi-DEX
+     * {@link InheritanceResolver} is available. We retain ALL entries (including
+     * statics) for simplicity, but {@link #expandWrapperReplacementsForApk}
+     * filters to instance-only — statics aren't dispatched through subtypes.
+     */
+    private final java.util.List<WrapperEmitter.WrapperEntry> registeredWrappers;
+    /**
+     * Number of additional lookup keys registered by
+     * {@link #expandWrapperReplacementsForApk} (i.e. subtype keys beyond the
+     * original parent FQN key). Surfaced via {@link WeaveReport#wrappersAliasedToSubtype}.
+     */
+    private int wrappersAliasedToSubtype;
 
     public DexWeaver() {
         this(new EmitterDispatch(), new RegisterAllocator(),
@@ -92,6 +106,8 @@ public final class DexWeaver {
         this.emitterDispatch = Objects.requireNonNull(emitterDispatch);
         this.allocator = Objects.requireNonNull(allocator);
         this.wrapperReplacements = new LinkedHashMap<>();
+        this.registeredWrappers = new ArrayList<>(wrappers);
+        this.wrappersAliasedToSubtype = 0;
         for (WrapperEmitter.WrapperEntry w : wrappers) {
             registerWrapper(w);
         }
@@ -121,6 +137,59 @@ public final class DexWeaver {
                 WrapperEmitter.WRAPPER_CLASS_DESC, w.wrapperName,
                 wrapperParamDescs, origReturnDesc);
         wrapperReplacements.put(key, wrapperRef);
+    }
+
+    /**
+     * Register additional lookup keys for every APK-internal subtype of each
+     * instance wrapper's parent class, so that virtual / interface dispatch
+     * sites whose defining class is the subtype (e.g.
+     * {@code Lcom/myapp/CustomCipher;->doFinal([B)[B} extending
+     * {@code Ljavax/crypto/Cipher;}) also resolve to the same wrapper.
+     *
+     * <p>The wrapper {@link MethodReference} itself is unchanged — it still
+     * points at {@code mop.MonitorWrappers.X(...)} declaring the parent type
+     * as the receiver formal. The DEX verifier accepts the substitution
+     * because subtypes are assignable to their supertypes.
+     *
+     * <p>Static wrappers are skipped: an {@code invoke-static MyCipher.create(...)}
+     * resolves to {@code MyCipher}'s own static, not the parent's, so subtype
+     * expansion would over-match.
+     *
+     * <p>The expansion is idempotent: keys already present in the lookup map
+     * (notably the parent FQN key, plus any subtype keys from earlier calls)
+     * are not double-counted toward {@code wrappersAliasedToSubtype}.
+     *
+     * <p>Hot-path note: lookup is O(1) (single map get); registration is
+     * O(N×M) where N = wrappers and M = APK class count, and runs once per
+     * APK before the per-DEX weave loop.
+     *
+     * @param inheritance multi-DEX inheritance resolver covering every DEX of
+     *                    the APK being instrumented.
+     */
+    public void expandWrapperReplacementsForApk(InheritanceResolver inheritance) {
+        Objects.requireNonNull(inheritance);
+        for (WrapperEmitter.WrapperEntry w : registeredWrappers) {
+            if (w.isStatic) continue;  // statics aren't dispatched via subtypes
+            String origClassDesc = fqnToDescriptor(w.originalClassFqn);
+            java.util.List<String> origParamDescs = new ArrayList<>(w.originalParamFqn.size());
+            for (String p : w.originalParamFqn) origParamDescs.add(fqnToDescriptor(p));
+            String origReturnDesc = fqnToDescriptor(w.originalReturnFqn);
+            String paramSig = String.join(",", origParamDescs);
+            // The wrapper's own MethodReference is parent-typed; reuse the
+            // exact ref we already registered under the parent key.
+            String parentKey = origClassDesc + "#" + w.originalMethodName + "("
+                    + paramSig + ")" + origReturnDesc;
+            MethodReference wrapperRef = wrapperReplacements.get(parentKey);
+            if (wrapperRef == null) continue;  // shouldn't happen, defensive
+            for (String subFqn : inheritance.subtypesOf(w.originalClassFqn)) {
+                String subDesc = fqnToDescriptor(subFqn);
+                String subKey = subDesc + "#" + w.originalMethodName + "("
+                        + paramSig + ")" + origReturnDesc;
+                if (wrapperReplacements.containsKey(subKey)) continue;  // idempotent
+                wrapperReplacements.put(subKey, wrapperRef);
+                wrappersAliasedToSubtype++;
+            }
+        }
     }
 
     private static java.util.List<String> prepend(String head, java.util.List<String> tail) {
@@ -300,7 +369,8 @@ public final class DexWeaver {
             }
         }
         return new WeaveReport(classesSeen, methodsSeen, matchesApplied,
-                plansSkipped, plansSkippedAliasing, wrappersSubstituted);
+                plansSkipped, plansSkippedAliasing, wrappersSubstituted,
+                wrappersAliasedToSubtype);
     }
 
     /**
@@ -401,5 +471,6 @@ public final class DexWeaver {
     public record WeaveReport(int classesSeen, int methodsSeen,
                                int matchesApplied, int plansSkipped,
                                int plansSkippedAliasing,
-                               int wrappersSubstituted) {}
+                               int wrappersSubstituted,
+                               int wrappersAliasedToSubtype) {}
 }
