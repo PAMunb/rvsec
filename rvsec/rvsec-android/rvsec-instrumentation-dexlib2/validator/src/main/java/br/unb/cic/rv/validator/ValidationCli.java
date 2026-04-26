@@ -261,6 +261,11 @@ public final class ValidationCli implements Runnable {
                 description = "ajc-baseline results dir containing summary.csv (analyze mode)") Path ajcResults;
         @Option(names = "--dexlib2",
                 description = "dexlib2 results dir containing summary.csv (analyze mode)") Path dexlibResults;
+        @Option(names = "--per-spec-csv",
+                description = "Optional per-(apk, rep, tool, spec) metrics CSV "
+                        + "(produced by `layer3 --batch`); when supplied, analyze mode "
+                        + "additionally runs per-spec F1 and kappa TOST")
+        Path perSpecCsv;
 
         // orchestrate mode
         @Option(names = "--orchestrate",
@@ -314,7 +319,8 @@ public final class ValidationCli implements Runnable {
                         System.err.println("layer4 analyze mode requires --thresholds, --ajc, --dexlib2");
                         System.exit(2);
                     }
-                    emitAndExit(parent, BatchValidator.analyze(ajcResults, dexlibResults, thresholdsYaml));
+                    emitAndExit(parent, BatchValidator.analyze(
+                            ajcResults, dexlibResults, thresholdsYaml, perSpecCsv));
                 }
             } catch (IOException e) {
                 System.err.println("layer4 failed: " + e.getMessage());

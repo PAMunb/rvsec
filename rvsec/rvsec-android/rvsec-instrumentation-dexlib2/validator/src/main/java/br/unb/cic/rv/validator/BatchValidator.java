@@ -46,16 +46,25 @@ import java.util.concurrent.TimeUnit;
  * recovery-rate (paired-keys / max(per-variant-keys)) clears
  * {@code gates.recovery_rate_min}.
  *
- * <h2>Scope (honest)</h2>
- * The original Layer-4 spec covers {@code cov_method}, {@code per_spec_f1}
- * and {@code per_spec_kappa} TOST. <b>Only {@code cov_method} is
- * implemented in this commit.</b> Per-spec F1/κ TOST require a
- * Layer-3-batch-mode CSV (one row per {@code (apk, rep, tool, spec)}) that
- * the current {@link TraceComparator} does not yet emit (it returns a
- * single aggregate {@link Report} per invocation). Per-spec analysis is a
- * documented future enhancement triggered by Layer 3 gaining a
- * {@code --batch-mode} CSV output. The
- * {@code metrics.scopeNote} field of the report records this explicitly.
+ * <h2>Scope</h2>
+ * The Layer-4 spec covers {@code cov_method}, {@code per_spec_f1} and
+ * {@code per_spec_kappa} TOST. The 3-arg overload {@link #analyze(Path, Path,
+ * Path)} computes only {@code cov_method} (legacy behavior, preserved for
+ * backward compatibility). The 4-arg overload {@link #analyze(Path, Path,
+ * Path, Path)} additionally consumes the per-spec metrics CSV produced by
+ * {@link TraceComparator#batchAnalyze} and applies per-spec F1 and κ TOST
+ * with their own gates. The {@code metrics.scopeNote} field of the report
+ * records which scope was used.
+ *
+ * <h3>Kappa one-sample test convention (methodological note)</h3>
+ * Cohen's κ is itself a two-rater agreement metric — Layer 3 already
+ * computes it across the ajc and dexlib2 pipelines for each
+ * {@code (apk, rep, tool, spec)} cell. Treating κ as a paired difference
+ * across pipelines would double-count the agreement. We therefore use a
+ * one-sample location test: shift the κ values by {@code -(1 - delta)} and
+ * apply the lower-bound TOST against zero (H1: shifted median > 0, i.e.
+ * median κ > 1 - delta). This is the conservative interpretation
+ * documented in the pre-registered methodology.
  *
  * <h2>Thin-IO orchestrator ({@link #orchestrate})</h2>
  * Drives {@code docker compose run} for every (variant, tool, rep) cell,
@@ -111,18 +120,38 @@ public final class BatchValidator {
     // --- analyze (pure data) ------------------------------------------------
 
     /**
+     * Pure-data analyzer (legacy 3-arg overload). Equivalent to
+     * {@link #analyze(Path, Path, Path, Path)} with
+     * {@code perSpecMetricsCsv = null}: only the {@code cov_method} TOST
+     * block is computed and gated.
+     */
+    public static Report analyze(Path ajcResultsDir, Path dexlibResultsDir,
+                                 Path thresholdsYaml) throws IOException {
+        return analyze(ajcResultsDir, dexlibResultsDir, thresholdsYaml, null);
+    }
+
+    /**
      * Pure-data analyzer. Reads {@code <ajcResultsDir>/summary.csv} and
      * {@code <dexlibResultsDir>/summary.csv}, pairs by
      * {@code (apk, rep, tool)}, runs Wilcoxon signed-rank TOST on the
      * paired diff vector for {@code cov_method}, and applies the
-     * pre-registered gate.
+     * pre-registered gate. When {@code perSpecMetricsCsv} is non-null and
+     * readable, the analyzer additionally consumes the Layer-3-batch CSV
+     * (schema documented at {@link TraceComparator#batchAnalyze}) and
+     * applies per-spec F1 TOST and per-spec κ one-sample lower-bound TOST,
+     * gated by {@code equivalence_bounds.per_spec_f1.delta},
+     * {@code equivalence_bounds.per_spec_kappa.delta},
+     * {@code gates.equivalence_specs_min_pct} and
+     * {@code gates.non_inferiority}.
      */
     public static Report analyze(Path ajcResultsDir, Path dexlibResultsDir,
-                                 Path thresholdsYaml) throws IOException {
+                                 Path thresholdsYaml, Path perSpecMetricsCsv) throws IOException {
         Map<String, Object> metrics = new LinkedHashMap<>();
         metrics.put("thresholdsYaml", thresholdsYaml.toString());
         metrics.put("ajcResultsDir", ajcResultsDir.toString());
         metrics.put("dexlibResultsDir", dexlibResultsDir.toString());
+        metrics.put("perSpecMetricsCsv",
+                perSpecMetricsCsv == null ? null : perSpecMetricsCsv.toString());
 
         Thresholds th = parseThresholds(thresholdsYaml);
         metrics.put("alpha", th.alpha);
@@ -173,42 +202,7 @@ public final class BatchValidator {
 
         // TOST on cov_method.
         double delta = th.deltaCovMethod;
-        double pLower;
-        double pUpper;
-        double medianDiff;
-        double ciLower;
-        double ciUpper;
-        boolean nonInferiorityPassed;
-        boolean equivalencePassed;
-
-        if (diffs.length == 0) {
-            pLower = 1.0;
-            pUpper = 1.0;
-            medianDiff = 0.0;
-            ciLower = 0.0;
-            ciUpper = 0.0;
-            nonInferiorityPassed = false;
-            equivalencePassed = false;
-        } else {
-            // Lower-bound TOST: H1: median(diff) > -delta. Shift diffs by +delta;
-            // alternative becomes "shifted median > 0" => greater-than zero one-sided test.
-            double[] shiftedLower = shift(diffs, +delta);
-            pLower = oneSidedPValueGreaterThan(shiftedLower);
-            // Upper-bound TOST: H1: median(diff) < +delta. Shift diffs by -delta;
-            // alternative becomes "shifted median < 0" => less-than zero one-sided test.
-            double[] shiftedUpper = shift(diffs, -delta);
-            pUpper = oneSidedPValueLessThan(shiftedUpper);
-
-            medianDiff = median(diffs);
-            double[] ci = bootstrapMedianCi90(diffs, BOOTSTRAP_ITERATIONS, BOOTSTRAP_SEED);
-            ciLower = ci[0];
-            ciUpper = ci[1];
-
-            nonInferiorityPassed = pLower < th.alpha;
-            equivalencePassed = (pLower < th.alpha) && (pUpper < th.alpha);
-        }
-
-        boolean passed = nonInferiorityPassed && equivalencePassed && recoveryRatePassed;
+        TostBlock cov = tostBlock(diffs, delta, th.alpha);
 
         // Truncated diff vector preview for the report.
         List<Double> diffPreview = new ArrayList<>();
@@ -220,13 +214,13 @@ public final class BatchValidator {
         covMethod.put("delta", round4(delta));
         covMethod.put("pairCount", diffs.length);
         covMethod.put("diffVector", diffPreview);
-        covMethod.put("medianDiff", round4(medianDiff));
-        covMethod.put("ci90Lower", round4(ciLower));
-        covMethod.put("ci90Upper", round4(ciUpper));
-        covMethod.put("pValueLower", round4(pLower));
-        covMethod.put("pValueUpper", round4(pUpper));
-        covMethod.put("nonInferiorityPassed", nonInferiorityPassed);
-        covMethod.put("equivalencePassed", equivalencePassed);
+        covMethod.put("medianDiff", round4(cov.median));
+        covMethod.put("ci90Lower", round4(cov.ci90Lower));
+        covMethod.put("ci90Upper", round4(cov.ci90Upper));
+        covMethod.put("pValueLower", round4(cov.pValueLower));
+        covMethod.put("pValueUpper", round4(cov.pValueUpper));
+        covMethod.put("nonInferiorityPassed", cov.nonInferiorityPassed);
+        covMethod.put("equivalencePassed", cov.equivalencePassed);
 
         metrics.put("covMethod", covMethod);
         metrics.put("recoveryRate", round4(recoveryRate));
@@ -236,14 +230,221 @@ public final class BatchValidator {
         metrics.put("totalDexlibKeys", dexRows.size());
         metrics.put("pairedKeys", pairedKeys.size());
         metrics.put("unpairedKeys", unpaired);
-        metrics.put("scopeNote", "per-spec F1 and kappa TOST deferred — see Javadoc");
+
+        // Per-spec analysis (optional second scope).
+        boolean perSpecRequested = perSpecMetricsCsv != null
+                && Files.isReadable(perSpecMetricsCsv);
+        PerSpecOutcome perSpecOutcome = null;
+        if (perSpecRequested) {
+            perSpecOutcome = analyzePerSpec(perSpecMetricsCsv, th);
+            metrics.put("perSpec", perSpecOutcome.perSpec);
+            metrics.put("perSpecSummary", perSpecOutcome.summary);
+            metrics.put("scopeNote", "per-spec F1 and kappa TOST included");
+        } else {
+            metrics.put("scopeNote", "cov_method TOST only (per-spec CSV not provided)");
+        }
+
+        boolean passed = cov.nonInferiorityPassed
+                && cov.equivalencePassed
+                && recoveryRatePassed
+                && (perSpecOutcome == null || perSpecOutcome.gatePassed);
 
         String message = String.format(Locale.ROOT,
-                "batch comparison: rec=%.2f, non_inf=%s, equiv=%s",
+                "batch comparison: rec=%.2f, non_inf=%s, equiv=%s%s",
                 recoveryRate,
-                nonInferiorityPassed ? "pass" : "fail",
-                equivalencePassed ? "pass" : "fail");
+                cov.nonInferiorityPassed ? "pass" : "fail",
+                cov.equivalencePassed ? "pass" : "fail",
+                perSpecOutcome == null ? ""
+                        : (", per_spec=" + (perSpecOutcome.gatePassed ? "pass" : "fail")));
         return new Report(LAYER_NAME, passed, message, metrics);
+    }
+
+    // --- TOST helper (shared by cov_method and per-spec F1) -----------------
+
+    /**
+     * Runs the paired Wilcoxon signed-rank TOST on a diff vector against
+     * an equivalence bound {@code delta}. Returns the lower/upper p-values,
+     * the median, the 90% bootstrap CI, and the non-inferiority /
+     * equivalence flags decided against {@code alpha}.
+     *
+     * <p>Empty input returns an empty block ({@code p=1.0}, both flags
+     * false). The kappa one-sample test reuses this with the diff vector
+     * pre-shifted by {@code -(1 - delta)} (see {@link #kappaTostBlock}).
+     */
+    static TostBlock tostBlock(double[] diffs, double delta, double alpha) {
+        if (diffs.length == 0) {
+            return new TostBlock(0.0, 0.0, 0.0, 1.0, 1.0, false, false);
+        }
+        // Lower-bound TOST: H1: median(diff) > -delta. Shift diffs by +delta;
+        // alternative becomes "shifted median > 0" => greater-than zero one-sided test.
+        double[] shiftedLower = shift(diffs, +delta);
+        double pLower = oneSidedPValueGreaterThan(shiftedLower);
+        // Upper-bound TOST: H1: median(diff) < +delta. Shift diffs by -delta;
+        // alternative becomes "shifted median < 0" => less-than zero one-sided test.
+        double[] shiftedUpper = shift(diffs, -delta);
+        double pUpper = oneSidedPValueLessThan(shiftedUpper);
+
+        double med = median(diffs);
+        double[] ci = bootstrapMedianCi90(diffs, BOOTSTRAP_ITERATIONS, BOOTSTRAP_SEED);
+
+        boolean nonInf = pLower < alpha;
+        boolean equiv = (pLower < alpha) && (pUpper < alpha);
+        return new TostBlock(med, ci[0], ci[1], pLower, pUpper, nonInf, equiv);
+    }
+
+    /**
+     * Kappa one-sample lower-bound TOST: shift κ values by {@code -(1 - delta)}
+     * so values close to 1 become positive, then test
+     * {@code H1: median(shifted) > 0} (equivalent to {@code median(κ) > 1 - delta}).
+     * Returns a {@link KappaTostBlock} with the same p-value / CI shape as
+     * {@link #tostBlock} but only the lower-bound side is used (κ is bounded
+     * above by 1 by construction, so the upper-bound TOST is trivial).
+     */
+    static KappaTostBlock kappaTostBlock(double[] kappas, double delta, double alpha) {
+        if (kappas.length == 0) {
+            return new KappaTostBlock(0.0, 0.0, 0.0, 1.0, false);
+        }
+        double shiftPoint = 1.0 - delta;
+        // Shift kappas by -(1 - delta): values >= (1 - delta) become >= 0.
+        double[] shifted = shift(kappas, -shiftPoint);
+        double pLower = oneSidedPValueGreaterThan(shifted);
+        double med = median(kappas);
+        double[] ci = bootstrapMedianCi90(kappas, BOOTSTRAP_ITERATIONS, BOOTSTRAP_SEED);
+        boolean passed = pLower < alpha;
+        return new KappaTostBlock(med, ci[0], ci[1], pLower, passed);
+    }
+
+    // --- per-spec analyzer --------------------------------------------------
+
+    private static PerSpecOutcome analyzePerSpec(Path csv, Thresholds th) throws IOException {
+        Map<String, List<SpecRow>> bySpec = readPerSpecCsv(csv);
+
+        Map<String, Object> perSpecOut = new LinkedHashMap<>();
+        int f1NonInfPassedCount = 0;
+        int f1EquivPassedCount = 0;
+        int kappaPassedCount = 0;
+        int totalSpecs = bySpec.size();
+
+        for (Map.Entry<String, List<SpecRow>> e : bySpec.entrySet()) {
+            String spec = e.getKey();
+            List<SpecRow> rows = e.getValue();
+            int n = rows.size();
+
+            double[] f1Diffs = new double[n];
+            double[] kappas = new double[n];
+            for (int i = 0; i < n; i++) {
+                f1Diffs[i] = rows.get(i).dexF1 - rows.get(i).ajcF1;
+                kappas[i] = rows.get(i).kappa;
+            }
+
+            TostBlock f1Tost = tostBlock(f1Diffs, th.deltaPerSpecF1, th.alpha);
+            KappaTostBlock kappaTost = kappaTostBlock(kappas, th.deltaPerSpecKappa, th.alpha);
+
+            if (f1Tost.nonInferiorityPassed) f1NonInfPassedCount++;
+            if (f1Tost.equivalencePassed) f1EquivPassedCount++;
+            if (kappaTost.passed) kappaPassedCount++;
+
+            boolean specPassed = f1Tost.nonInferiorityPassed
+                    && f1Tost.equivalencePassed
+                    && kappaTost.passed;
+
+            Map<String, Object> f1Block = new LinkedHashMap<>();
+            f1Block.put("delta", round4(th.deltaPerSpecF1));
+            f1Block.put("pairCount", n);
+            f1Block.put("medianDiff", round4(f1Tost.median));
+            f1Block.put("ci90Lower", round4(f1Tost.ci90Lower));
+            f1Block.put("ci90Upper", round4(f1Tost.ci90Upper));
+            f1Block.put("pValueLower", round4(f1Tost.pValueLower));
+            f1Block.put("pValueUpper", round4(f1Tost.pValueUpper));
+            f1Block.put("nonInferiorityPassed", f1Tost.nonInferiorityPassed);
+            f1Block.put("equivalencePassed", f1Tost.equivalencePassed);
+
+            Map<String, Object> kappaBlock = new LinkedHashMap<>();
+            kappaBlock.put("delta", round4(th.deltaPerSpecKappa));
+            kappaBlock.put("shiftPoint", round4(1.0 - th.deltaPerSpecKappa));
+            kappaBlock.put("rowCount", n);
+            kappaBlock.put("median", round4(kappaTost.median));
+            kappaBlock.put("ci90Lower", round4(kappaTost.ci90Lower));
+            kappaBlock.put("ci90Upper", round4(kappaTost.ci90Upper));
+            kappaBlock.put("pValueLower", round4(kappaTost.pValueLower));
+            kappaBlock.put("passed", kappaTost.passed);
+
+            Map<String, Object> specBlock = new LinkedHashMap<>();
+            specBlock.put("rowCount", n);
+            specBlock.put("f1", f1Block);
+            specBlock.put("kappa", kappaBlock);
+            specBlock.put("specPassed", specPassed);
+            perSpecOut.put(spec, specBlock);
+        }
+
+        // Aggregate gate evaluation. equivalence_specs_min_pct is treated as
+        // an inclusive lower bound (>=) so that the documented 0.80 threshold
+        // is met by exactly 4-of-5 specs (4/5 == 0.80).
+        double f1NonInfRatioRequired = 1.0; // gates.non_inferiority == required
+        double f1EquivRatioRequired = th.equivalenceSpecsMinPct;
+        double kappaRatioRequired = th.equivalenceSpecsMinPct;
+        boolean f1NonInfGate;
+        boolean f1EquivGate;
+        boolean kappaGate;
+        if (totalSpecs == 0) {
+            f1NonInfGate = false;
+            f1EquivGate = false;
+            kappaGate = false;
+        } else {
+            f1NonInfGate = (f1NonInfPassedCount == totalSpecs);
+            f1EquivGate = ((double) f1EquivPassedCount / (double) totalSpecs) >= f1EquivRatioRequired;
+            kappaGate = ((double) kappaPassedCount / (double) totalSpecs) >= kappaRatioRequired;
+        }
+        boolean perSpecGatePassed = f1NonInfGate && f1EquivGate && kappaGate;
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalSpecs", totalSpecs);
+        summary.put("f1NonInferiorityPassedCount", f1NonInfPassedCount);
+        summary.put("f1NonInferiorityRequiredFraction", round4(f1NonInfRatioRequired));
+        summary.put("f1EquivalencePassedCount", f1EquivPassedCount);
+        summary.put("f1EquivalenceRequiredFraction", round4(f1EquivRatioRequired));
+        summary.put("kappaPassedCount", kappaPassedCount);
+        summary.put("kappaRequiredFraction", round4(kappaRatioRequired));
+        summary.put("f1NonInferiorityPassed", f1NonInfGate);
+        summary.put("f1EquivalencePassed", f1EquivGate);
+        summary.put("kappaPassed", kappaGate);
+        summary.put("perSpecGatePassed", perSpecGatePassed);
+
+        return new PerSpecOutcome(perSpecOut, summary, perSpecGatePassed);
+    }
+
+    /**
+     * Reads the per-spec metrics CSV produced by
+     * {@link TraceComparator#batchAnalyze}. Header is
+     * {@code apk,rep,tool,spec,ajcF1,dexF1,kappa,ajcTp,ajcFp,ajcFn,dexTp,dexFp,dexFn};
+     * we use positional indices and silently skip malformed rows.
+     */
+    static Map<String, List<SpecRow>> readPerSpecCsv(Path csv) throws IOException {
+        Map<String, List<SpecRow>> out = new TreeMap<>();
+        try (BufferedReader r = new BufferedReader(
+                new InputStreamReader(Files.newInputStream(csv), StandardCharsets.UTF_8))) {
+            String header = r.readLine();
+            if (header == null
+                    || !header.startsWith("apk,rep,tool,spec,ajcF1,dexF1,kappa")) {
+                throw new IOException("unexpected per-spec CSV header in " + csv + ": " + header);
+            }
+            String line;
+            while ((line = r.readLine()) != null) {
+                if (line.isBlank()) continue;
+                String[] parts = line.split(",", -1);
+                if (parts.length < 7) continue;
+                String apk = parts[0].trim();
+                String rep = parts[1].trim();
+                String tool = parts[2].trim();
+                String spec = parts[3].trim();
+                double ajcF1 = parseDouble(parts[4], 0.0);
+                double dexF1 = parseDouble(parts[5], 0.0);
+                double kappa = parseDouble(parts[6], 0.0);
+                out.computeIfAbsent(spec, k -> new ArrayList<>())
+                        .add(new SpecRow(apk, rep, tool, spec, ajcF1, dexF1, kappa));
+            }
+        }
+        return out;
     }
 
     // --- orchestrate (thin IO) ----------------------------------------------
@@ -336,12 +537,16 @@ public final class BatchValidator {
 
     /**
      * Hand-rolled YAML parser scoped to the {@code layer4-thresholds.yaml}
-     * schema actually committed under {@code validator/oracles/}. We only
-     * consume {@code statistical_test.alpha},
-     * {@code equivalence_bounds.cov_method.delta} and
-     * {@code gates.recovery_rate_min}; everything else is informational
-     * for the human reviewer and ignored here. Mirrors the parser pattern
-     * established by {@link TraceComparator#parseOracle}.
+     * schema actually committed under {@code validator/oracles/}. Consumes:
+     * {@code statistical_test.alpha},
+     * {@code equivalence_bounds.cov_method.delta},
+     * {@code equivalence_bounds.per_spec_f1.delta},
+     * {@code equivalence_bounds.per_spec_kappa.delta},
+     * {@code gates.recovery_rate_min},
+     * {@code gates.equivalence_specs_min_pct},
+     * {@code gates.non_inferiority}; everything else is informational and
+     * ignored. Mirrors the parser pattern established by
+     * {@link TraceComparator#parseOracle}.
      */
     static Thresholds parseThresholds(Path yaml) throws IOException {
         Thresholds out = new Thresholds();
@@ -352,8 +557,8 @@ public final class BatchValidator {
 
         // Section tracking: top-level key whose body is a block-style map.
         String section = null;
-        // Sub-section under equivalence_bounds: e.g. "cov_method".
-        String covSubsection = null;
+        // Sub-section under equivalence_bounds: e.g. "cov_method", "per_spec_f1".
+        String boundSubsection = null;
         int sectionIndent = -1;
 
         for (String raw : lines) {
@@ -369,7 +574,7 @@ public final class BatchValidator {
                 if (colon < 0) continue;
                 section = content.substring(0, colon).trim();
                 sectionIndent = 0;
-                covSubsection = null;
+                boundSubsection = null;
                 continue;
             }
 
@@ -388,17 +593,38 @@ public final class BatchValidator {
                     if (indent == sectionIndent + 2) {
                         // Bound name line, e.g. "  cov_method:".
                         if (kv != null) {
-                            covSubsection = kv[0];
+                            boundSubsection = kv[0];
                         }
-                    } else if (indent > sectionIndent + 2 && covSubsection != null) {
-                        if (kv != null && "delta".equals(kv[0]) && "cov_method".equals(covSubsection)) {
-                            out.deltaCovMethod = parseDouble(kv[1], out.deltaCovMethod);
+                    } else if (indent > sectionIndent + 2 && boundSubsection != null) {
+                        if (kv != null && "delta".equals(kv[0])) {
+                            switch (boundSubsection) {
+                                case "cov_method" ->
+                                        out.deltaCovMethod = parseDouble(kv[1], out.deltaCovMethod);
+                                case "per_spec_f1" ->
+                                        out.deltaPerSpecF1 = parseDouble(kv[1], out.deltaPerSpecF1);
+                                case "per_spec_kappa" ->
+                                        out.deltaPerSpecKappa = parseDouble(kv[1], out.deltaPerSpecKappa);
+                                default -> { /* ignore unknown bound */ }
+                            }
                         }
                     }
                 }
                 case "gates" -> {
-                    if (kv != null && "recovery_rate_min".equals(kv[0])) {
-                        out.recoveryRateMin = parseDouble(kv[1], out.recoveryRateMin);
+                    if (kv == null) break;
+                    switch (kv[0]) {
+                        case "recovery_rate_min" ->
+                                out.recoveryRateMin = parseDouble(kv[1], out.recoveryRateMin);
+                        case "equivalence_specs_min_pct" ->
+                                out.equivalenceSpecsMinPct =
+                                        parseDouble(kv[1], out.equivalenceSpecsMinPct);
+                        case "non_inferiority" -> {
+                            String v = kv[1] == null ? "" : kv[1].trim();
+                            if (v.length() >= 2 && (v.charAt(0) == '"' || v.charAt(0) == '\'')) {
+                                v = v.substring(1, v.length() - 1);
+                            }
+                            out.nonInferiorityRequired = "required".equalsIgnoreCase(v);
+                        }
+                        default -> { /* ignore */ }
                     }
                 }
                 default -> {
@@ -586,7 +812,83 @@ public final class BatchValidator {
     static final class Thresholds {
         double alpha = 0.05;
         double deltaCovMethod = 0.02;
+        double deltaPerSpecF1 = 0.02;
+        double deltaPerSpecKappa = 0.05;
         double recoveryRateMin = 0.90;
+        double equivalenceSpecsMinPct = 0.80;
+        boolean nonInferiorityRequired = true;
+    }
+
+    /** TOST output for a paired diff vector. */
+    static final class TostBlock {
+        final double median;
+        final double ci90Lower;
+        final double ci90Upper;
+        final double pValueLower;
+        final double pValueUpper;
+        final boolean nonInferiorityPassed;
+        final boolean equivalencePassed;
+        TostBlock(double median, double ci90Lower, double ci90Upper,
+                  double pValueLower, double pValueUpper,
+                  boolean nonInferiorityPassed, boolean equivalencePassed) {
+            this.median = median;
+            this.ci90Lower = ci90Lower;
+            this.ci90Upper = ci90Upper;
+            this.pValueLower = pValueLower;
+            this.pValueUpper = pValueUpper;
+            this.nonInferiorityPassed = nonInferiorityPassed;
+            this.equivalencePassed = equivalencePassed;
+        }
+    }
+
+    /** One-sample lower-bound TOST output for a κ vector. */
+    static final class KappaTostBlock {
+        final double median;
+        final double ci90Lower;
+        final double ci90Upper;
+        final double pValueLower;
+        final boolean passed;
+        KappaTostBlock(double median, double ci90Lower, double ci90Upper,
+                       double pValueLower, boolean passed) {
+            this.median = median;
+            this.ci90Lower = ci90Lower;
+            this.ci90Upper = ci90Upper;
+            this.pValueLower = pValueLower;
+            this.passed = passed;
+        }
+    }
+
+    /** One row of the per-spec metrics CSV, restricted to fields used here. */
+    static final class SpecRow {
+        final String apk;
+        final String rep;
+        final String tool;
+        final String spec;
+        final double ajcF1;
+        final double dexF1;
+        final double kappa;
+        SpecRow(String apk, String rep, String tool, String spec,
+                double ajcF1, double dexF1, double kappa) {
+            this.apk = apk;
+            this.rep = rep;
+            this.tool = tool;
+            this.spec = spec;
+            this.ajcF1 = ajcF1;
+            this.dexF1 = dexF1;
+            this.kappa = kappa;
+        }
+    }
+
+    /** Bundled output of the per-spec analyzer (per-spec details + summary + gate). */
+    static final class PerSpecOutcome {
+        final Map<String, Object> perSpec;
+        final Map<String, Object> summary;
+        final boolean gatePassed;
+        PerSpecOutcome(Map<String, Object> perSpec, Map<String, Object> summary, boolean gatePassed) {
+            this.perSpec = perSpec;
+            this.summary = summary;
+            this.gatePassed = gatePassed;
+        }
     }
 
     /** One row of {@code summary.csv}, restricted to fields used by the analyzer. */
