@@ -33,15 +33,8 @@ public final class LayerSkeletons {
                         + "vs ajc baseline over the 30-APK subset.");
     }
 
-    /**
-     * Layer 3 — {@code TraceComparator}: runs both pipelines on each oracle
-     * and the 30-APK subset, computes per-spec F1 + Cohen's kappa.
-     */
-    public static Report layer3TraceComparator(Path oracleDir, Path apkSubsetDir) {
-        return pending("layer-3-trace-comparator",
-                "needs ≥3 oracles (INV-INS-22) + paired logcat traces. Contract: "
-                        + "F1 ≥ 0.98, kappa ≥ 0.9 on every oracle AND aggregate.");
-    }
+    // Layer 3 (TraceComparator) is implemented in TraceComparator.compare;
+    // see ValidationCli.Layer3 for the wired CLI path.
 
     /**
      * Layer 4 — {@code BatchValidator}: orchestrates JCA-400 × 3 tools × 3

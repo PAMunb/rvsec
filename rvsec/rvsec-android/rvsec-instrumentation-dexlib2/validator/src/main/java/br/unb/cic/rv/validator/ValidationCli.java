@@ -161,13 +161,18 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "layer3", description = "TraceComparator (Phase 5 skeleton).")
+    @Command(name = "layer3", description = "TraceComparator: per-spec F1 >= 0.98, kappa >= 0.9.")
     public static final class Layer3 implements Runnable {
         @Option(names = "--oracles", required = true) Path oracleDir;
         @Option(names = "--apks", required = true) Path apkDir;
         @picocli.CommandLine.ParentCommand ValidationCli parent;
         @Override public void run() {
-            emitAndExit(parent, LayerSkeletons.layer3TraceComparator(oracleDir, apkDir));
+            try {
+                emitAndExit(parent, TraceComparator.compare(oracleDir, apkDir));
+            } catch (IOException e) {
+                System.err.println("layer3 failed: " + e.getMessage());
+                System.exit(2);
+            }
         }
     }
 
