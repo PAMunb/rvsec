@@ -436,3 +436,63 @@ index fallback) plus the smoke gate of strictly-decreasing
 `plansSkippedAliasing` on cryptoapp + the 3-APK set with zero new
 `VerifyError`. Smoke verification on a real emulator is captured in
 task 16.x once the next aperv:sata_mop pass lands.
+
+**Phase 2 (subtype dispatch correction)**: even with full Phase 1
+coverage, a call site that dispatches through an APK-internal subtype
+(e.g. `Lcom/myapp/CustomCipher;->doFinal(...)` where `CustomCipher
+extends Cipher`) was missed by `findWrapperReplacement` because the
+lookup key uses the call site's exact `getDefiningClass()`. The fix
+is to expand the lookup table BEFORE weaving: `DexWeaver.expandWrapper-
+ReplacementsForApk(InheritanceResolver)` walks each instance wrapper's
+`subtypesOf(parentFqn)` and registers additional keys pointing at the
+SAME static `MethodReference`. The wrapper signature stays receiver-
+typed as the parent type; the DEX verifier accepts the substitution
+because subtypes are assignable to their supertypes (JVMS §4.10.1.9
+exit-on-pass for direct-superclass relations). Static wrappers are
+NOT expanded — invoking `MyCipher.create(...)` statically is a
+distinct dispatch path from `Cipher.create(...)` and substitution
+would be incorrect. `BatchRunner` constructs one multi-DEX
+`InheritanceResolver` across every `classes*.dex` once before the
+per-DEX weave loop; `WeaveReport.wrappersAliasedToSubtype` records
+the additional key count for observability. Validation:
+`DexWeaverWrapperSubtypeTest` (2 cases: instance wrapper aliases to a
+synthetic subtype; static wrapper is correctly skipped) over
+synthetic `ImmutableDexFile` fixtures.
+
+**Empirical finding on gh52_smoke5_newdata (5-APK set)**: Phase 2's
+`wrappersAliasedToSubtype` is 0 on this dataset because no APK
+declares its own subtypes of the wrapped JCA classes
+(`subtypesOf(parentFqn)` returns no APK classes for any of `Cipher`,
+`Mac`, `MessageDigest`, `KeyGenerator`, etc.). The 48 residual
+`plansSkippedAliasing` are NOT subtype-dispatch sites. Their actual
+causes are:
+
+1. **Constructor advice (`<init>`)**: WrapperEmitter explicitly skips
+   constructors by design — constructors return void and create the
+   object, so there is no "after-call value" we can substitute. The
+   wrapper's body would have to allocate-and-return, which changes
+   call-site semantics. Affected sites: `IvParameterSpec.<init>`,
+   `SecretKeySpec.<init>`, `GCMParameterSpec.<init>`,
+   `CipherInputStream.<init>`, `SecureRandom.<init>(...)`. A future
+   redesign for constructor advice (most likely a separate, non-
+   wrapper-shaped substitution path) is tracked as an INV-INS-31
+   follow-up but is out of scope for this change.
+
+2. **Method overloads not enumerated**: e.g. `Mac.update([B)V` exists
+   in android.jar but the descriptor's pointcut may match only specific
+   arity variants. `expandCallTarget` enumerates every overload that
+   `AndroidClassIndex.methods(decl, name, false)` returns; if the
+   parser-derived `paramTypes` filter is too strict (literal exact
+   match on each param), some legitimate overloads are filtered. A
+   review of the parser's pattern-matching for `..` mid-position and
+   wildcard params might recover these.
+
+3. **Specific advice targets where the wrapper was filtered out**:
+   `SSLContext.init`, `SecureRandom.setSeed(J)`, `MessageDigest.update
+   (Ljava/nio/ByteBuffer;)`. Likely the same root cause as (2) — the
+   exact pattern in the descriptor doesn't pass `expandCallTarget`'s
+   per-param check.
+
+This is captured as an INV-INS-31 follow-up. Phase 2 is structurally
+complete and correct (proven by unit tests on synthetic fixtures);
+on this specific dataset the bottleneck simply lies elsewhere.
