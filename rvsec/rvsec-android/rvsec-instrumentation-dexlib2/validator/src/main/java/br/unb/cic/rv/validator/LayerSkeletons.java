@@ -19,15 +19,8 @@ public final class LayerSkeletons {
 
     private LayerSkeletons() {}
 
-    /**
-     * Layer 1 — {@code BaksmaliDiffer}: disassembles ajc-instrumented and
-     * dexlib2-instrumented APKs, diffs hook sets per spec, computes recall.
-     */
-    public static Report layer1BaksmaliDiffer(Path ajcApkDir, Path dexlibApkDir) {
-        return pending("layer-1-baksmali-differ",
-                "needs Phase 5 APK fixtures: ajc + dexlib2 outputs from same input. "
-                        + "Contract: per-spec hook recall ≥ 0.95 in ≥90% of 30-APK subset.");
-    }
+    // Layer 1 (BaksmaliDiffer) is implemented in BaksmaliDiffer.diff;
+    // see ValidationCli.Layer1 for the wired CLI path.
 
     /**
      * Layer 2 — {@code BootValidator}: adb install + monkey 1 event + 30s

@@ -133,13 +133,21 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "layer1", description = "BaksmaliDiffer (Phase 5 skeleton).")
+    @Command(name = "layer1", description = "BaksmaliDiffer: per-spec hook recall ≥ 0.95.")
     public static final class Layer1 implements Runnable {
         @Option(names = "--ajc", required = true) Path ajcApks;
         @Option(names = "--dexlib2", required = true) Path dexlibApks;
+        @Option(names = "--descriptor", required = true,
+                description = "MultiSpec_*MonitorAspect.json — spec catalog for wrapper attribution")
+        Path descriptorJson;
         @picocli.CommandLine.ParentCommand ValidationCli parent;
         @Override public void run() {
-            emitAndExit(parent, LayerSkeletons.layer1BaksmaliDiffer(ajcApks, dexlibApks));
+            try {
+                emitAndExit(parent, BaksmaliDiffer.diff(ajcApks, dexlibApks, descriptorJson));
+            } catch (IOException e) {
+                System.err.println("layer1 failed: " + e.getMessage());
+                System.exit(2);
+            }
         }
     }
 
