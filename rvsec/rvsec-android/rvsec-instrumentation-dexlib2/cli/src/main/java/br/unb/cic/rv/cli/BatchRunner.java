@@ -154,6 +154,8 @@ public final class BatchRunner {
             int plansSkippedAliasing = 0;
             int wrappersSubstituted = 0;
             int wrappersAliasedToSubtype = 0;
+            int constructorInlineApplied = 0;
+            int constructorInlineSkippedAliasing = 0;
             int coverageInstrumented = 0;
             int coverageSpillFailed = 0;
             int classesSeen = 0;
@@ -176,6 +178,8 @@ public final class BatchRunner {
                 // the same value for every DEX; record it once via the first
                 // DEX's report.
                 wrappersAliasedToSubtype = wr.wrappersAliasedToSubtype();
+                constructorInlineApplied += wr.constructorInlineApplied();
+                constructorInlineSkippedAliasing += wr.constructorInlineSkippedAliasing();
                 classesSeen += wr.classesSeen();
                 methodsSeen += wr.methodsSeen();
 
@@ -203,6 +207,8 @@ public final class BatchRunner {
             counts.put("plansSkippedAliasing", plansSkippedAliasing);
             counts.put("wrappersSubstituted", wrappersSubstituted);
             counts.put("wrappersAliasedToSubtype", wrappersAliasedToSubtype);
+            counts.put("constructorInlineApplied", constructorInlineApplied);
+            counts.put("constructorInlineSkippedAliasing", constructorInlineSkippedAliasing);
             if (coverageWeaver != null) {
                 counts.put("coverageInstrumented", coverageInstrumented);
                 counts.put("coverageSpillFailed", coverageSpillFailed);

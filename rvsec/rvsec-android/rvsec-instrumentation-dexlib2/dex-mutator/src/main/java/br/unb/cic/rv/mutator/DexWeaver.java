@@ -276,6 +276,8 @@ public final class DexWeaver {
         int plansSkipped = 0;
         int plansSkippedAliasing = 0;
         int wrappersSubstituted = 0;
+        int constructorInlineApplied = 0;
+        int constructorInlineSkippedAliasing = 0;
 
         for (ClassDef classDef : dexFile.getClasses()) {
             classesSeen++;
@@ -348,9 +350,29 @@ public final class DexWeaver {
                         // VerifyError on every such site. BEFORE advice is
                         // unaffected (it fires pre-call, before any
                         // overwrites) and is emitted inline as designed.
+                        //
+                        // gh52 §5.13(a): constructor invokes (invoke-direct
+                        // {recv, ...args}, T.<init>(...)V) return void →
+                        // there is no `move-result*` after them, so the
+                        // receiver and argument registers remain valid for
+                        // the inline post-call hook. We allow inline-AFTER
+                        // for that narrow case. The defensive
+                        // resultRegisterAliasesBindings() check below
+                        // surfaces any unexpected aliasing under a
+                        // dedicated counter.
                         if (plan.insertionPoint() == InsertionPoint.AFTER) {
-                            plansSkippedAliasing++;
-                            continue;
+                            if (isConstructorInvoke(ins)) {
+                                if (resultRegisterAliasesBindings(
+                                        ins, instructions, idx, m.get())) {
+                                    constructorInlineSkippedAliasing++;
+                                    continue;
+                                }
+                                // fall through to apply the inline plan
+                                constructorInlineApplied++;
+                            } else {
+                                plansSkippedAliasing++;
+                                continue;
+                            }
                         }
 
                         MutableMethodImplementation mut = mutCached != null
@@ -370,7 +392,27 @@ public final class DexWeaver {
         }
         return new WeaveReport(classesSeen, methodsSeen, matchesApplied,
                 plansSkipped, plansSkippedAliasing, wrappersSubstituted,
-                wrappersAliasedToSubtype);
+                wrappersAliasedToSubtype,
+                constructorInlineApplied, constructorInlineSkippedAliasing);
+    }
+
+    /**
+     * Decide whether {@code insn} is a constructor invocation
+     * ({@code invoke-direct} / {@code invoke-direct/range} of {@code <init>}).
+     * Constructor invokes return {@code void}, so they are never followed by
+     * {@code move-result*} and never alias their bindings — making them safe
+     * targets for inline-AFTER advice even though the wrapper system cannot
+     * cover them (a wrapper would have to allocate-and-construct, changing
+     * call-site semantics).
+     */
+    private static boolean isConstructorInvoke(Instruction insn) {
+        if (insn == null) return false;
+        Opcode op = insn.getOpcode();
+        if (op != Opcode.INVOKE_DIRECT && op != Opcode.INVOKE_DIRECT_RANGE) return false;
+        if (!(insn instanceof ReferenceInstruction)) return false;
+        Object refObj = ((ReferenceInstruction) insn).getReference();
+        if (!(refObj instanceof MethodReference)) return false;
+        return "<init>".equals(((MethodReference) refObj).getName());
     }
 
     /**
@@ -472,5 +514,7 @@ public final class DexWeaver {
                                int matchesApplied, int plansSkipped,
                                int plansSkippedAliasing,
                                int wrappersSubstituted,
-                               int wrappersAliasedToSubtype) {}
+                               int wrappersAliasedToSubtype,
+                               int constructorInlineApplied,
+                               int constructorInlineSkippedAliasing) {}
 }
