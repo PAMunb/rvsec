@@ -1,11 +1,14 @@
 package br.unb.cic.rv.validator;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -51,10 +54,16 @@ public final class TraceComparator {
 
     public static final String LAYER_NAME = "layer3-trace-comparator";
 
+    /** Layer name used by {@link #batchAnalyze} reports. */
+    public static final String BATCH_LAYER_NAME = "layer3-trace-comparator-batch";
+
     /** Per-spec dexlib2 F1 floor. */
     private static final double GATE_F1_THRESHOLD = 0.98;
     /** Per-spec inter-pipeline kappa floor. */
     private static final double GATE_KAPPA_THRESHOLD = 0.9;
+
+    /** Cap on the {@code skippedUnpaired} list emitted into the batch report. */
+    private static final int MAX_UNPAIRED_DIAGNOSTIC = 50;
 
     /**
      * Same regex used by {@code rv-android/scripts/drive_cryptoapp.py}: an
@@ -63,6 +72,15 @@ public final class TraceComparator {
      */
     private static final Pattern RVSEC_LINE = Pattern.compile(
             "(?:RVSEC:\\s*)?\\[(?<spec>\\w+)\\]\\s+(?<etype>\\w+)\\s*[:\\-]\\s*(?<msg>.*)$");
+
+    /**
+     * Filename grammar emitted by rv-experiment:
+     * {@code <apk>.apk__<rep>__<timeout>__<tool>.logcat}. The {@code tool}
+     * group accepts colons (e.g. {@code aperv:sata_mop}) but not dots
+     * because the {@code .logcat} extension is the terminator.
+     */
+    private static final Pattern RESULT_LOGCAT = Pattern.compile(
+            "^(?<apk>.+\\.apk)__(?<rep>\\d+)__(?<timeout>\\d+)__(?<tool>[^.]+)\\.logcat$");
 
     private TraceComparator() {}
 
@@ -154,6 +172,245 @@ public final class TraceComparator {
                 overallPassed ? "passed" : "failed",
                 minDexF1, minKappa, evaluatedSpecCount);
         return new Report(LAYER_NAME, overallPassed, message, metrics);
+    }
+
+    // --- batch analyze (per (apk, rep, tool) CSV) ----------------------------
+
+    /**
+     * Batch entry point that fans out the analyze pipeline over a directory
+     * tree of paired logcats and emits one CSV row per
+     * {@code (apk, rep, tool, spec)} combination. The CSV is the input
+     * format the Layer-4 BatchValidator's per-spec F1 / Cohen's-κ TOST will
+     * consume in a follow-up commit; the existing {@link #compare} entry
+     * point remains the spec-gate path and is unchanged.
+     *
+     * <h3>Input layout</h3>
+     * Both {@code ajcResultsDir} and {@code dexlibResultsDir} mirror the
+     * canonical rv-experiment results tree:
+     * <pre>{@code
+     *   <resultsDir>/<apk>.apk/<apk>.apk__<rep>__<timeout>__<tool>.logcat
+     * }</pre>
+     * Filenames are parsed with the regex
+     * {@code ^(?<apk>.+\.apk)__(?<rep>\d+)__(?<timeout>\d+)__(?<tool>[^.]+)\.logcat$}.
+     * Logcats are paired by the {@code (apk, rep, tool)} triple; the
+     * timeout is informational. If two logcats on the same side share a
+     * triple but differ in timeout, the one with the longest timeout wins
+     * (operators sometimes re-run with longer windows and we want the
+     * most-data variant).
+     *
+     * <h3>Oracle resolution</h3>
+     * Each APK maps to {@code oracleDir/<apkBaseName>-oracle.yaml}, where
+     * {@code apkBaseName} strips {@code .apk} and any trailing
+     * {@code _<digits>} version suffix (e.g. {@code app.pwhs.blockads_45.apk}
+     * resolves {@code app.pwhs.blockads-oracle.yaml}). APKs without an
+     * oracle land in {@code metrics.skippedNoOracle}.
+     *
+     * <h3>CSV schema</h3>
+     * Header (this exact order; downstream Layer-4 reads positionally):
+     * <pre>{@code
+     *   apk,rep,tool,spec,ajcF1,dexF1,kappa,ajcTp,ajcFp,ajcFn,dexTp,dexFp,dexFn
+     * }</pre>
+     * F1 and κ are rounded to four decimals via
+     * {@code Math.round(x*10000)/10000.0} with {@link Locale#ROOT} number
+     * formatting. Rows are sorted lexicographically by {@code (apk, tool,
+     * spec)} with {@code rep} sorted numerically (so rep=10 follows
+     * rep=2, not rep=1).
+     */
+    public static Report batchAnalyze(Path oracleDir,
+                                      Path ajcResultsDir,
+                                      Path dexlibResultsDir,
+                                      Path outputCsv) throws IOException {
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        metrics.put("oracleDir", oracleDir.toString());
+        metrics.put("ajcResultsDir", ajcResultsDir.toString());
+        metrics.put("dexlibResultsDir", dexlibResultsDir.toString());
+        metrics.put("outputCsv", outputCsv.toString());
+
+        Map<String, ResultLogcat> ajcByTriple = collectByTriple(ajcResultsDir);
+        Map<String, ResultLogcat> dexByTriple = collectByTriple(dexlibResultsDir);
+        int totalLogcats = ajcByTriple.size() + dexByTriple.size();
+
+        TreeSet<String> allTriples = new TreeSet<>();
+        allTriples.addAll(ajcByTriple.keySet());
+        allTriples.addAll(dexByTriple.keySet());
+
+        TreeSet<String> pairedTriples = new TreeSet<>(ajcByTriple.keySet());
+        pairedTriples.retainAll(dexByTriple.keySet());
+
+        List<String> skippedUnpaired = new ArrayList<>();
+        TreeSet<String> unpairedSet = new TreeSet<>(allTriples);
+        unpairedSet.removeAll(pairedTriples);
+        for (String t : unpairedSet) {
+            if (skippedUnpaired.size() >= MAX_UNPAIRED_DIAGNOSTIC) break;
+            String side = ajcByTriple.containsKey(t) ? " (missing in dexlib2)" : " (missing in ajc)";
+            skippedUnpaired.add(t + side);
+        }
+
+        // Group paired triples by APK so we can resolve the oracle once per APK.
+        Map<String, List<String>> triplesByApk = new TreeMap<>();
+        for (String t : pairedTriples) {
+            String apk = t.substring(0, t.indexOf('|'));
+            triplesByApk.computeIfAbsent(apk, k -> new ArrayList<>()).add(t);
+        }
+
+        TreeSet<String> skippedNoOracleSet = new TreeSet<>();
+        TreeSet<String> uniqueApksWithRows = new TreeSet<>();
+        TreeSet<String> uniqueSpecs = new TreeSet<>();
+        List<CsvRow> rows = new ArrayList<>();
+
+        for (Map.Entry<String, List<String>> entry : triplesByApk.entrySet()) {
+            String apk = entry.getKey();
+            Path oracleYaml = resolveOracleForApk(oracleDir, apk);
+            if (oracleYaml == null) {
+                skippedNoOracleSet.add(apk);
+                continue;
+            }
+            List<OracleEvent> oracle = parseOracle(oracleYaml);
+            if (oracle.isEmpty()) {
+                // Empty oracle yields no rows but is not "missing" — silently skip.
+                continue;
+            }
+            for (String triple : entry.getValue()) {
+                ResultLogcat ajc = ajcByTriple.get(triple);
+                ResultLogcat dex = dexByTriple.get(triple);
+                List<ObservedEvent> ajcObs = parseObserved(ajc.path);
+                List<ObservedEvent> dexObs = parseObserved(dex.path);
+                Map<String, Object> scored = scoreOracle(oracle, ajcObs, dexObs);
+                @SuppressWarnings("unchecked")
+                Map<String, Map<String, Object>> perSpec =
+                        (Map<String, Map<String, Object>>) scored.get("perSpec");
+                for (Map.Entry<String, Map<String, Object>> sp : perSpec.entrySet()) {
+                    Map<String, Object> v = sp.getValue();
+                    rows.add(new CsvRow(
+                            ajc.apk, ajc.rep, ajc.tool, sp.getKey(),
+                            ((Number) v.get("ajcF1")).doubleValue(),
+                            ((Number) v.get("dexF1")).doubleValue(),
+                            ((Number) v.get("kappa")).doubleValue(),
+                            ((Number) v.get("ajcTp")).intValue(),
+                            ((Number) v.get("ajcFp")).intValue(),
+                            ((Number) v.get("ajcFn")).intValue(),
+                            ((Number) v.get("dexTp")).intValue(),
+                            ((Number) v.get("dexFp")).intValue(),
+                            ((Number) v.get("dexFn")).intValue()));
+                    uniqueSpecs.add(sp.getKey());
+                }
+                uniqueApksWithRows.add(ajc.apk);
+            }
+        }
+
+        // Also flag APKs whose triples were unpaired but never reached the oracle check.
+        for (String t : unpairedSet) {
+            String apk = t.substring(0, t.indexOf('|'));
+            if (resolveOracleForApk(oracleDir, apk) == null) {
+                skippedNoOracleSet.add(apk);
+            }
+        }
+
+        rows.sort(Comparator
+                .comparing((CsvRow r) -> r.apk)
+                .thenComparingInt(r -> r.repInt)
+                .thenComparing(r -> r.tool)
+                .thenComparing(r -> r.spec));
+
+        if (outputCsv.getParent() != null) {
+            Files.createDirectories(outputCsv.getParent());
+        }
+        writeCsv(outputCsv, rows);
+
+        metrics.put("totalLogcats", totalLogcats);
+        metrics.put("pairedTriples", pairedTriples.size());
+        metrics.put("rowsWritten", rows.size());
+        metrics.put("skippedNoOracle", new ArrayList<>(skippedNoOracleSet));
+        metrics.put("skippedUnpaired", skippedUnpaired);
+        metrics.put("uniqueApks", uniqueApksWithRows.size());
+        metrics.put("uniqueSpecs", uniqueSpecs.size());
+
+        boolean passed = !rows.isEmpty();
+        String message = String.format(Locale.ROOT,
+                "batch-mode wrote %d rows over %d (apk, rep, tool) triples",
+                rows.size(), pairedTriples.size());
+        return new Report(BATCH_LAYER_NAME, passed, message, metrics);
+    }
+
+    /**
+     * Resolve {@code <apkBaseName>-oracle.yaml} for a given {@code <apk>.apk}
+     * file name. Strips the {@code .apk} suffix and any trailing
+     * {@code _<digits>} version suffix; returns {@code null} if no matching
+     * file exists. Caveat: APK package names that legitimately end with
+     * {@code _<digits>} would be misclassified, but our F-Droid corpus
+     * uses {@code _<versionCode>.apk} as the universal naming convention.
+     */
+    private static Path resolveOracleForApk(Path oracleDir, String apkFilename) {
+        String base = apkFilename.endsWith(".apk")
+                ? apkFilename.substring(0, apkFilename.length() - 4)
+                : apkFilename;
+        // Strip a trailing _<digits> version suffix introduced by rv-experiment.
+        int us = base.lastIndexOf('_');
+        if (us > 0 && us < base.length() - 1) {
+            String tail = base.substring(us + 1);
+            boolean allDigits = !tail.isEmpty();
+            for (int i = 0; i < tail.length(); i++) {
+                if (!Character.isDigit(tail.charAt(i))) { allDigits = false; break; }
+            }
+            if (allDigits) base = base.substring(0, us);
+        }
+        Path candidate = oracleDir.resolve(base + "-oracle.yaml");
+        return Files.isRegularFile(candidate) ? candidate : null;
+    }
+
+    /**
+     * Walk {@code root} (one level: {@code <apk>.apk/<filename>.logcat})
+     * and return a map keyed by {@code "<apk>|<rep>|<tool>"}. When two
+     * files match the same key (different timeouts), the longer-timeout
+     * file wins.
+     */
+    private static Map<String, ResultLogcat> collectByTriple(Path root) throws IOException {
+        Map<String, ResultLogcat> out = new TreeMap<>();
+        if (!Files.isDirectory(root)) return out;
+        try (Stream<Path> walk = Files.walk(root)) {
+            walk.filter(Files::isRegularFile)
+                .filter(p -> p.getFileName().toString().endsWith(".logcat"))
+                .forEach(p -> {
+                    String fname = p.getFileName().toString();
+                    Matcher m = RESULT_LOGCAT.matcher(fname);
+                    if (!m.matches()) return;
+                    String apk = m.group("apk");
+                    String rep = m.group("rep");
+                    int timeout = Integer.parseInt(m.group("timeout"));
+                    String tool = m.group("tool");
+                    String key = apk + "|" + rep + "|" + tool;
+                    ResultLogcat existing = out.get(key);
+                    if (existing == null || timeout > existing.timeout) {
+                        out.put(key, new ResultLogcat(p, apk, rep, timeout, tool));
+                    }
+                });
+        }
+        return out;
+    }
+
+    private static void writeCsv(Path outputCsv, List<CsvRow> rows) throws IOException {
+        try (BufferedWriter w = Files.newBufferedWriter(outputCsv, StandardCharsets.UTF_8)) {
+            // Column order is part of the Layer-4 contract — see Javadoc.
+            w.write("apk,rep,tool,spec,ajcF1,dexF1,kappa,ajcTp,ajcFp,ajcFn,dexTp,dexFp,dexFn");
+            w.newLine();
+            for (CsvRow r : rows) {
+                w.write(String.format(Locale.ROOT,
+                        "%s,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d",
+                        r.apk, r.rep, r.tool, r.spec,
+                        formatScore(r.ajcF1),
+                        formatScore(r.dexF1),
+                        formatScore(r.kappa),
+                        r.ajcTp, r.ajcFp, r.ajcFn,
+                        r.dexTp, r.dexFp, r.dexFn));
+                w.newLine();
+            }
+        }
+    }
+
+    private static String formatScore(double x) {
+        if (Double.isNaN(x)) return "NaN";
+        if (Double.isInfinite(x)) return x > 0 ? "Infinity" : "-Infinity";
+        return String.format(Locale.ROOT, "%s", round4(x));
     }
 
     // --- scoring -------------------------------------------------------------
@@ -503,6 +760,60 @@ public final class TraceComparator {
     record OracleEvent(String spec, String errorType,
                        String locationClass, String locationMethod,
                        String expectedMessageSubstring) {}
+
+    /** A {@code .logcat} file plus its parsed {@code (apk, rep, timeout, tool)} key. */
+    private static final class ResultLogcat {
+        final Path path;
+        final String apk;
+        final String rep;
+        final int timeout;
+        final String tool;
+        ResultLogcat(Path path, String apk, String rep, int timeout, String tool) {
+            this.path = path;
+            this.apk = apk;
+            this.rep = rep;
+            this.timeout = timeout;
+            this.tool = tool;
+        }
+    }
+
+    /** One row of the per-(apk, rep, tool, spec) CSV emitted by {@link #batchAnalyze}. */
+    private static final class CsvRow {
+        final String apk;
+        final String rep;
+        final int repInt;
+        final String tool;
+        final String spec;
+        final double ajcF1;
+        final double dexF1;
+        final double kappa;
+        final int ajcTp;
+        final int ajcFp;
+        final int ajcFn;
+        final int dexTp;
+        final int dexFp;
+        final int dexFn;
+
+        CsvRow(String apk, String rep, String tool, String spec,
+               double ajcF1, double dexF1, double kappa,
+               int ajcTp, int ajcFp, int ajcFn,
+               int dexTp, int dexFp, int dexFn) {
+            this.apk = apk;
+            this.rep = rep;
+            this.repInt = Integer.parseInt(rep);
+            this.tool = tool;
+            this.spec = spec;
+            this.ajcF1 = ajcF1;
+            this.dexF1 = dexF1;
+            this.kappa = kappa;
+            this.ajcTp = ajcTp;
+            this.ajcFp = ajcFp;
+            this.ajcFn = ajcFn;
+            this.dexTp = dexTp;
+            this.dexFp = dexFp;
+            this.dexFn = dexFn;
+        }
+    }
 
     // Visible for tests that want to introspect spec listings.
     static List<String> distinctSpecs(List<OracleEvent> events) {

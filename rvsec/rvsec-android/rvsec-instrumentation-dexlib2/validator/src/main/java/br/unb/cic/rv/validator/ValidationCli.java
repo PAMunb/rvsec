@@ -205,14 +205,42 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "layer3", description = "TraceComparator: per-spec F1 >= 0.98, kappa >= 0.9.")
+    @Command(name = "layer3",
+            description = "TraceComparator: per-spec F1 >= 0.98, kappa >= 0.9. "
+                    + "Default: analyze mode (single-rep oracle gate). "
+                    + "With --batch: emit per-(apk, rep, tool, spec) metrics CSV "
+                    + "for downstream Layer-4 per-spec TOST.")
     public static final class Layer3 implements Runnable {
         @Option(names = "--oracles", required = true) Path oracleDir;
-        @Option(names = "--apks", required = true) Path apkDir;
+        @Option(names = "--apks", description = "APK subset dir (analyze mode)") Path apkDir;
+
+        @Option(names = "--batch",
+                description = "Switch to batch mode: emit per-(apk, rep, tool, spec) CSV")
+        boolean batch;
+        @Option(names = "--ajc-results",
+                description = "ajc-baseline results dir (batch mode)") Path ajcResults;
+        @Option(names = "--dexlib2-results",
+                description = "dexlib2 results dir (batch mode)") Path dexlibResults;
+        @Option(names = "--output-csv",
+                description = "Output CSV path (batch mode)") Path outputCsv;
+
         @picocli.CommandLine.ParentCommand ValidationCli parent;
         @Override public void run() {
             try {
-                emitAndExit(parent, TraceComparator.compare(oracleDir, apkDir));
+                if (batch) {
+                    if (ajcResults == null || dexlibResults == null || outputCsv == null) {
+                        System.err.println("layer3 --batch requires --ajc-results, --dexlib2-results, --output-csv");
+                        System.exit(2);
+                    }
+                    emitAndExit(parent,
+                            TraceComparator.batchAnalyze(oracleDir, ajcResults, dexlibResults, outputCsv));
+                } else {
+                    if (apkDir == null) {
+                        System.err.println("layer3 analyze mode requires --apks");
+                        System.exit(2);
+                    }
+                    emitAndExit(parent, TraceComparator.compare(oracleDir, apkDir));
+                }
             } catch (IOException e) {
                 System.err.println("layer3 failed: " + e.getMessage());
                 System.exit(2);
