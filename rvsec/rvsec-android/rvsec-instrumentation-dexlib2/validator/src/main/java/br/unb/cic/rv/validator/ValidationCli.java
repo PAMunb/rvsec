@@ -220,13 +220,78 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "layer4", description = "BatchValidator (Phase 5 skeleton).")
+    @Command(name = "layer4",
+            description = "BatchValidator: Wilcoxon signed-rank TOST on cov_method vs ajc baseline. "
+                    + "Default: analyze mode (paired summary.csv comparison). "
+                    + "With --orchestrate: drive `docker compose run` for every (variant, tool, rep) "
+                    + "cell (operator-only; not unit-tested).")
     public static final class Layer4 implements Runnable {
-        @Option(names = "--thresholds", required = true) Path thresholdsYaml;
-        @Option(names = "--results", required = true) Path batchResultsDir;
+        // analyze mode
+        @Option(names = "--thresholds",
+                description = "Pre-registered thresholds YAML (analyze mode)") Path thresholdsYaml;
+        @Option(names = "--ajc",
+                description = "ajc-baseline results dir containing summary.csv (analyze mode)") Path ajcResults;
+        @Option(names = "--dexlib2",
+                description = "dexlib2 results dir containing summary.csv (analyze mode)") Path dexlibResults;
+
+        // orchestrate mode
+        @Option(names = "--orchestrate",
+                description = "Switch to orchestrate mode: drive docker compose for every cell")
+        boolean orchestrate;
+        @Option(names = "--apks",
+                description = "APK directory (orchestrate mode)") Path apksDir;
+        @Option(names = "--output",
+                description = "Output directory for per-variant summary.csv (orchestrate mode)") Path outputDir;
+        @Option(names = "--variants",
+                description = "Comma-separated variant list (orchestrate mode)",
+                split = ",") java.util.List<String> variants;
+        @Option(names = "--tools",
+                description = "Comma-separated tool list (orchestrate mode)",
+                split = ",") java.util.List<String> tools;
+        @Option(names = "--reps", defaultValue = "3",
+                description = "Replicates per cell (orchestrate mode)") int reps;
+        @Option(names = "--timeout", defaultValue = "300",
+                description = "Per-run timeout seconds (orchestrate mode)") int timeoutSeconds;
+        @Option(names = "--docker-compose",
+                description = "docker-compose.yml file (orchestrate mode)") Path dockerComposeFile;
+
         @picocli.CommandLine.ParentCommand ValidationCli parent;
+
         @Override public void run() {
-            emitAndExit(parent, LayerSkeletons.layer4BatchValidator(thresholdsYaml, batchResultsDir));
+            try {
+                if (orchestrate) {
+                    if (apksDir == null || outputDir == null) {
+                        System.err.println("layer4 --orchestrate requires --apks and --output");
+                        System.exit(2);
+                    }
+                    BatchValidator.BatchOrchestrationOptions opts =
+                            new BatchValidator.BatchOrchestrationOptions();
+                    if (variants != null && !variants.isEmpty()) opts.variants = variants;
+                    if (tools != null && !tools.isEmpty()) opts.tools = tools;
+                    opts.reps = reps;
+                    opts.timeoutSeconds = timeoutSeconds;
+                    opts.dockerComposeFile = dockerComposeFile;
+
+                    BatchValidator.OrchestrationReport orep =
+                            BatchValidator.orchestrate(apksDir, outputDir, opts);
+                    boolean ok = orep.failures.isEmpty();
+                    Report r = new Report(BatchValidator.LAYER_NAME, ok,
+                            String.format(java.util.Locale.ROOT,
+                                    "orchestrate: %d/%d cells succeeded",
+                                    orep.succeededCells, orep.totalCells),
+                            orep.toMetrics());
+                    emitAndExit(parent, r);
+                } else {
+                    if (thresholdsYaml == null || ajcResults == null || dexlibResults == null) {
+                        System.err.println("layer4 analyze mode requires --thresholds, --ajc, --dexlib2");
+                        System.exit(2);
+                    }
+                    emitAndExit(parent, BatchValidator.analyze(ajcResults, dexlibResults, thresholdsYaml));
+                }
+            } catch (IOException e) {
+                System.err.println("layer4 failed: " + e.getMessage());
+                System.exit(2);
+            }
         }
     }
 

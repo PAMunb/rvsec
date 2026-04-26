@@ -1,19 +1,10 @@
 package br.unb.cic.rv.validator;
 
-import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 /**
- * Skeletons for the five layered validators whose full implementation
- * depends on Phase 5 infrastructure (Docker batch, emulator via
- * rv-platform, captured logcat traces). Each entry point has a stable
- * signature + returns a {@link Report} so the cli / Python wrapper can
- * wire them now; the bodies fail-fast with a documented pending status.
- *
- * <p>When Phase 5 infra is in place, each method's body is replaced with
- * the full layer logic. The signatures + report shape stay stable so
- * callers never rebreak.
+ * Historical placeholder for Phase-5-pending layer skeletons. Every layer
+ * (1-5) is now implemented as a dedicated class; this file remains only as
+ * a stable navigational anchor for code archaeology and is intentionally
+ * empty of behaviour.
  */
 public final class LayerSkeletons {
 
@@ -28,26 +19,9 @@ public final class LayerSkeletons {
     // Layer 3 (TraceComparator) is implemented in TraceComparator.compare;
     // see ValidationCli.Layer3 for the wired CLI path.
 
-    /**
-     * Layer 4 — {@code BatchValidator}: orchestrates JCA-400 × 3 tools × 3
-     * reps via Docker; aggregates; runs Wilcoxon signed-rank TOST per
-     * INV-INS-21 with pre-registered Δ bounds.
-     */
-    public static Report layer4BatchValidator(Path thresholdsYaml, Path batchResultsDir) {
-        return pending("layer-4-batch-validator",
-                "needs Docker batch results (945 tasks, ~36h wallclock) + pre-registered "
-                        + "thresholds YAML (INV-INS-21: Δ=2pp cov_method, Δ=0.02 F1, Δ=0.05 κ, "
-                        + "α=0.05). Contract: recovery_rate ≥ 90% AND paired Wilcoxon "
-                        + "TOST non-inferiority rejects for every spec.");
-    }
+    // Layer 4 (BatchValidator) is implemented in BatchValidator.analyze / .orchestrate;
+    // see ValidationCli.Layer4 for the wired CLI path.
 
     // Layer 5 (CoverageValidator) is implemented in CoverageValidator.compare;
     // see ValidationCli.Layer5 for the wired CLI path.
-
-    private static Report pending(String layer, String message) {
-        Map<String, Object> metrics = new LinkedHashMap<>();
-        metrics.put("status", "pending");
-        metrics.put("phase", "phase-5-infra");
-        return new Report(layer, false, message, metrics);
-    }
 }
