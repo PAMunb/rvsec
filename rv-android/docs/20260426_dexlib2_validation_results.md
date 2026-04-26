@@ -257,10 +257,20 @@ APKs (seed=42, excluding the 5 already-covered APKs). User parameters:
 **0 VerifyError across every executed APK**. The two attrition cases
 are environment, not pipeline:
 
-- `com.alovoa.expo_48.apk` (88 MB) — instrumentation declined; the
-  exact diagnostic lives in the python wrapper's
-  `instrumentation_errors.json` (deferred to a separate investigation;
-  not blocking).
+- `com.alovoa.expo_48.apk` (88 MB) — instrumentation declined with
+  `Invalid register: v19. Must be between v0 and v15, inclusive.`
+  Diagnosed by re-running instr-cli manually on the staged APK
+  (results.json captures `phase=uncaught`, message exact). Root cause:
+  `MonitorInvokeBuilder.buildInvokeStatic` picks `Format35c` (4-bit
+  register fields) for ≤ 5-arg invokes; when the matched site's
+  bindings include a register >v15 (large method with ≥ 16 locals
+  after the constructor inline path lands), the dexlib2 builder
+  rejects the instruction. **Failure mode is correct** (the APK is
+  skipped, not silently miswoven), but the recovery path is to extend
+  the emitter to use `Format3rc` (16-bit register fields) for high
+  registers OR spill via `RegisterShifter`. Spec'd as **INV-INS-32**
+  in `specs/instrumentation/spec.md`; tracked in TaskCreate as a
+  follow-up.
 - `pl.lebihan.authnkey_10.apk` (2 MB) — instrumented and SA succeeded
   but `adb install` returned `INSTALL_FAILED_OLDER_SDK: Requires newer
   sdk version #34 (current version is #30)`. Test emulator is API 30;
