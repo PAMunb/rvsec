@@ -1,20 +1,34 @@
 # gh52: rvandroid image variant for the dexlib2 instrumentation backend.
 #
-# Layered on top of the canonical rvandroid:0.8.0 image. The base already
-# runs `mvn clean install -DskipTests` over the rvsec tree, which builds
-# the rvsec-instrumentation-dexlib2 aggregator and auto-copies the fat
-# CLI jar to rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
-# (design D9). All this layer adds is the variant env-var so rv-experiment
-# selects the dexlib2 PreProcessor branch.
+# Layered on top of an rvandroid base image whose rvsec clone was made
+# from the gh52-instr-dexlib2 branch. The base build already runs
+# `mvn clean install -DskipTests` over that branch's rvsec tree, which
+# builds the rvsec-instrumentation-dexlib2 aggregator and auto-copies
+# the fat CLI jar to
+# rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
+# (design D9). This layer just flips the variant env-var so
+# rv-experiment selects the dexlib2 PreProcessor branch.
 #
-# Build:
-#   docker build -f docker/rvandroid_dexlib2/Dockerfile \
-#                -t phtcosta/rvandroid:0.8.0-dexlib2 .
+# Two-step build (do them in order from rv-android/docker/):
+#
+#   1. base image with the gh52 branch checked out (parametrized via
+#      ARG RVSEC_BRANCH; default is `modules`):
+#
+#        docker build -f rvandroid/Dockerfile \
+#                     --build-arg RVSEC_BRANCH=gh52-instr-dexlib2 \
+#                     -t phtcosta/rvandroid:0.8.0-dexlib2-base \
+#                     rvandroid/
+#
+#   2. dexlib2 variant on top (this file):
+#
+#        docker build -f rvandroid_dexlib2/Dockerfile \
+#                     -t phtcosta/rvandroid:0.8.0-dexlib2 \
+#                     rvandroid_dexlib2/
 #
 # Run (paired with the ajc variant for Layer-4 validation):
 #   docker compose -f docker/docker-compose.dexlib2-validation.template.yml up -d
 
-FROM phtcosta/rvandroid:0.8.0
+FROM phtcosta/rvandroid:0.8.0-dexlib2-base
 
 LABEL gh.issue="52"
 LABEL gh.change="gh52-instr-dexlib2"
