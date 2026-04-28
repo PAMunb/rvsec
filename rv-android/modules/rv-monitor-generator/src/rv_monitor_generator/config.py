@@ -67,6 +67,17 @@ class RVGeneratorConfig(BaseValidatedModel):
         default=None,
         description="Root directory of RVSEC installation for automatic path resolution",
     )
+    emit_descriptor: bool = Field(
+        default=True,
+        description=(
+            "When True, invoke patched JavaMOP with --emit-descriptor so that a "
+            "MultiSpec_*MonitorAspect.json descriptor is written alongside each "
+            ".aj. Required by the dexlib2 instrumentation variant (rvsec-"
+            "instrumentation-dexlib2); harmless for the legacy ajc variant since "
+            "the .json is additive. Set False only when running with an unpatched "
+            "JavaMOP that lacks the flag."
+        ),
+    )
 
     def model_post_init(self, __context) -> None:
         """

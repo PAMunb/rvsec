@@ -127,6 +127,17 @@ class ExperimentConfig(BaseValidatedModel):
     # already exist from the first run. Re-running would overwrite them.
     generate_monitors: bool = Field(default=True, description="Generate monitors")
     instrument_apks: bool = Field(default=True, description="Instrument APKs")
+    # gh52 variant switch: which instrumentation backend to use.
+    #   "ajc"     — legacy dex2jar+ajc+d8 pipeline (rv-instrumentation).
+    #   "dexlib2" — DEX-native pipeline (rv-instrumentation-dexlib2 wrapping
+    #               the Java CLI under rvsec/rvsec-android/rvsec-instrumentation-dexlib2/).
+    # Default stays "ajc" during Phase 4-5 coexistence. After Phase 5 gate
+    # ratifies parity, Phase 6 flips the default to "dexlib2" and quarantines
+    # the legacy module. Both variants honor the same instrument_apks contract.
+    instrumentation_variant: str = Field(
+        default="ajc",
+        description="Instrumentation backend: 'ajc' (legacy) or 'dexlib2' (gh52 DEX-native).",
+    )
     run_static_analysis: bool = Field(default=True, description="Run static analysis")
     # Controls whether Phase 2 (execution) runs. Useful for pre-processing-only
     # workflows where you want to generate artifacts without running tools.
@@ -620,6 +631,68 @@ class ExperimentConfig(BaseValidatedModel):
             InstrumentationConfigError: If RVInstrumentationConfig validation fails
         """
         return self.get_instrumentation_config()
+
+    def get_dexlib_instrumentation_config(self):
+        """Build a DexlibInstrumentationConfig for the gh52 variant.
+
+        Mirrors :meth:`get_instrumentation_config` for the legacy ajc path:
+        resolves the canonical ``output_dir/MONITORS_DIR`` +
+        ``output_dir/INSTRUMENTED_APKS_DIR`` + working_dir triple from the
+        same experiment fields. The dexlib2 wrapper does not need
+        ``rvsec_root`` (the Java CLI auto-resolves android.jar/javac/d8 from
+        ANDROID_HOME / JAVA_HOME) but does need the monitor source
+        directory, since ``--monitor-src-dir`` controls whether the Java
+        pipeline runs the build+sign phase or stops at written DEXes.
+        """
+        # Lazy import — keeps the legacy install path independent of the
+        # gh52 wrapper module being present.
+        from rv_instrumentation_dexlib2 import DexlibInstrumentationConfig
+        from pathlib import Path
+
+        if not self.output_dir:
+            raise ConfigurationError(
+                "ExperimentConfig.output_dir is unset; cannot derive monitor / "
+                "instrumented dirs for the dexlib2 instrumentation variant"
+            )
+        monitor_output_dir = Path(self.output_dir) / MONITORS_DIR
+        instrumented_dir = Path(self.output_dir) / INSTRUMENTED_APKS_DIR
+        working_dir = Path(self.output_dir)
+
+        # Match the legacy ajc pipeline's keystore defaults so the dexlib2
+        # variant produces signed APKs without extra plumbing. The bundled
+        # keystore at modules/rv-instrumentation/assets/keystore.jks uses
+        # alias 'server' and password 'password' (RVInstrumentationConfig
+        # ._apply_default_paths sets the same).
+        rvsec_root = self.get_effective_rvsec_root()
+        bundled_keystore = (
+            Path(rvsec_root) / "rv-android" / "modules" / "rv-instrumentation"
+            / "assets" / "keystore.jks"
+        )
+        keystore_file = bundled_keystore if bundled_keystore.is_file() else None
+
+        # The rv-monitor-emitted MultiSpec_*RuntimeMonitor.java imports
+        # com.runtimeverification.rvmonitor.java.rt.* AND br.unb.cic.mop.*.
+        # `rvsec-agent` shades rv-monitor-rt internally, so we pass ONLY
+        # the agent jar — passing both produces "Type ... defined multiple
+        # times" errors at d8 time when the wrapper-system pass also dexes
+        # the runtime support jars (INV-INS-29 follow-up).
+        rvsec_root_path = Path(rvsec_root)
+        agent_jar = (
+            rvsec_root_path / "rvsec" / "rvsec-agent" / "target"
+            / "rvsec-agent-0.8.0-SNAPSHOT.jar"
+        )
+        extra_classpath = [agent_jar] if agent_jar.is_file() else []
+
+        return DexlibInstrumentationConfig(
+            monitor_output_dir=monitor_output_dir,
+            instrumented_dir=instrumented_dir,
+            working_dir=working_dir,
+            keystore_file=keystore_file,
+            keystore_password="password",
+            keystore_alias="server",
+            key_password="password",
+            extra_classpath=extra_classpath,
+        )
 
     def get_static_analysis_config(self) -> RVStaticAnalysisConfig:
         """Create static analysis configuration on demand.

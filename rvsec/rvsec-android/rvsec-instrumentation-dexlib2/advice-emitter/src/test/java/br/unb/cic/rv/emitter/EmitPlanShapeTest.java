@@ -1,0 +1,91 @@
+package br.unb.cic.rv.emitter;
+
+import br.unb.cic.rv.descriptor.AdviceDescriptor;
+import org.junit.jupiter.api.Test;
+
+import static br.unb.cic.rv.emitter.EmitterTestFixtures.adviceAfter;
+import static br.unb.cic.rv.emitter.EmitterTestFixtures.adviceAfterReturning;
+import static br.unb.cic.rv.emitter.EmitterTestFixtures.adviceAfterThrowing;
+import static br.unb.cic.rv.emitter.EmitterTestFixtures.adviceBefore;
+import static br.unb.cic.rv.emitter.EmitterTestFixtures.adviceStaticInit;
+import static br.unb.cic.rv.emitter.EmitterTestFixtures.ctx;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Per-emitter shape assertions (task 4.5). Verifies that each emitter returns
+ * an {@link EmitPlan} with the correct {@link InsertionPoint}, register
+ * demand, and (where relevant) try/catch spec. Byte-exact instruction
+ * validation is covered by {@code dex-mutator}'s integration tests once a
+ * real DEX fixture is available.
+ */
+class EmitPlanShapeTest {
+
+    @Test
+    void beforeEmitterTargetsBeforeInsertionPoint() {
+        EmitPlan plan = new BeforeEmitter().emit(ctx(adviceBefore("before")));
+        assertEquals(InsertionPoint.BEFORE, plan.insertionPoint());
+        assertEquals(RegisterRequest.NONE, plan.registers());
+        assertNull(plan.tryCatchSpec());
+        assertFalse(plan.toInsert().isEmpty(), "plan must emit at least the monitor invoke");
+    }
+
+    @Test
+    void afterEmitterTargetsAfterInsertionPoint() {
+        EmitPlan plan = new AfterEmitter().emit(ctx(adviceAfter("after")));
+        assertEquals(InsertionPoint.AFTER, plan.insertionPoint());
+    }
+
+    @Test
+    void afterReturningEmitterAsksForScratchRegister() {
+        EmitPlan plan = new AfterReturningEmitter().emit(ctx(adviceAfterReturning("aret")));
+        assertEquals(InsertionPoint.AFTER, plan.insertionPoint());
+        assertEquals(1, plan.registers().scratchCount(),
+                "AfterReturning needs a scratch register to hold the captured return value");
+    }
+
+    @Test
+    void afterThrowingEmitterProducesTryCatchSpec() {
+        AdviceDescriptor a = adviceAfterThrowing("ath", "Exception");
+        EmitPlan plan = new AfterThrowingEmitter().emit(ctx(a));
+        assertEquals(InsertionPoint.TRY_CATCH_WRAP, plan.insertionPoint());
+        assertNotNull(plan.tryCatchSpec());
+        assertFalse(plan.tryCatchSpec().catchAny(),
+                "specific thrown type must not produce a catch-any");
+        assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
+    }
+
+    @Test
+    void afterThrowingWithoutBoundTypeCatchesAnyThrowable() {
+        AdviceDescriptor a = adviceAfterThrowing("ath", "Throwable");
+        a.setThrowing(java.util.Collections.emptyList());
+        EmitPlan plan = new AfterThrowingEmitter().emit(ctx(a));
+        assertEquals(InsertionPoint.TRY_CATCH_WRAP, plan.insertionPoint());
+        assertNotNull(plan.tryCatchSpec());
+        assertTrue(plan.tryCatchSpec().catchAny());
+        assertEquals("Ljava/lang/Throwable;", plan.tryCatchSpec().catchType());
+    }
+
+    @Test
+    void staticInitEmitterTargetsMethodEntry() {
+        AdviceDescriptor a = adviceStaticInit("si", "java.util.ArrayList+");
+        EmitPlan plan = new StaticInitializationEmitter().emit(ctx(a));
+        assertEquals(InsertionPoint.METHOD_ENTRY, plan.insertionPoint());
+    }
+
+    @Test
+    void ifGuardEmitterAddsScratchOnTopOfDelegate() {
+        BeforeEmitter base = new BeforeEmitter();
+        IfGuardEmitter guard = new IfGuardEmitter().wrapping(base);
+        EmitPlan plan = guard.emit(ctx(EmitterTestFixtures.adviceWithIfGuard("g")));
+        assertEquals(InsertionPoint.BEFORE, plan.insertionPoint());
+        assertEquals(1, plan.registers().scratchCount(),
+                "IfGuard adds one scratch on top of the underlying emitter's demand");
+    }
+
+    @Test
+    void rawIfGuardEmitterWithoutDelegateFailsFast() {
+        IfGuardEmitter guard = new IfGuardEmitter();
+        assertThrows(IllegalStateException.class,
+                () -> guard.emit(ctx(EmitterTestFixtures.adviceBefore("x"))));
+    }
+}

@@ -27,6 +27,7 @@ public class AspectJDescriptor {
 
     private final String name;
     private final CombinedAspect aspect;
+    private final MOPSpecFile mopSpecFile;
 
     /**
      * Build the descriptor from the same inputs as {@link AspectJCode}.
@@ -36,6 +37,7 @@ public class AspectJDescriptor {
      */
     public AspectJDescriptor(String name, MOPSpecFile mopSpecFile) throws MOPException {
         this.name = name;
+        this.mopSpecFile = mopSpecFile;
         boolean versionedStack = false;
         for (JavaMOPSpec mopSpec : mopSpecFile.getSpecs()) {
             for (PropertyAndHandlers prop : mopSpec.getPropertiesAndHandlers()) {
@@ -49,7 +51,7 @@ public class AspectJDescriptor {
      * Produce the descriptor tree (unserialized).
      */
     public Map<String, Object> toTree() {
-        return DescriptorWriter.buildAspect(name, aspect);
+        return DescriptorWriter.buildAspect(name, aspect, mopSpecFile);
     }
 
     /**

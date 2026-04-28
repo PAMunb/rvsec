@@ -1,0 +1,111 @@
+# gh52 dexlib2 vs ajc paired-comparison template (Layer-4 batch).
+#
+# Layer 4 of the validation framework (docs/20260423_plano_validacao.md)
+# requires running BOTH variants on the same input set under identical
+# conditions so the BatchValidator can compute paired Wilcoxon TOST per
+# spec (INV-INS-21).
+#
+# This file is a TEMPLATE — drop it into a numbered exp file when Phase 5
+# is scheduled (e.g., docker-compose.exp7-dexlib2-validation.yml). It is
+# not directly runnable as-is because the JCA-400 batch breakdown
+# (aperv_batch_00.txt ... aperv_batch_NN.txt) is generated per-run by
+# scripts/setup_aperv_comparacao.sh; copy this file, regenerate the batches,
+# and run.
+#
+# Pre-requisites:
+#   1. mvn -pl rvsec-android/rvsec-instrumentation-dexlib2/cli -am package
+#      from rvsec/ — produces rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
+#      via design D9 (auto-copy).
+#   2. Image phtcosta/rvandroid:0.8.0-dexlib2 rebuilt with the fat jar
+#      mounted at /opt/instr-cli.jar (Dockerfile + build_all.sh adjusted in
+#      a follow-up commit when fixture APK landings are sequenced).
+#   3. validator/oracles/layer4-thresholds.yaml committed (INV-INS-21
+#      pre-registration).
+#
+# Usage (after the prereqs land):
+#   cd rv-android
+#   docker compose -f docker/docker-compose.dexlib2-validation.yml up -d
+#   watch -n 60 bash scripts/monitor_dexlib2_validation.sh
+#   docker compose -f docker/docker-compose.dexlib2-validation.yml down
+
+x-rvandroid-ajc: &rvandroid-ajc
+  # Legacy variant — runs the dex2jar+ajc+d8 pipeline.
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-ajc-env
+    RV_TOOLS: "ape,aperv:sata,aperv:sata_mop"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_INSTRUMENTATION_VARIANT: "ajc"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+x-rvandroid-dexlib2: &rvandroid-dexlib2
+  # gh52 variant — runs the DEX-native pipeline via the Java CLI.
+  # Same image as ajc but with the instr-cli jar mounted; the variant
+  # flag tells rv-experiment which instrumentation backend to use.
+  image: phtcosta/rvandroid:0.8.0-dexlib2
+  environment: &rvandroid-dexlib2-env
+    RV_TOOLS: "ape,aperv:sata,aperv:sata_mop"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_JCA_SPEC: "true"
+    RV_INSTRUMENTATION_VARIANT: "dexlib2"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    # Java CLI jar location — auto-copied by Maven build (design D9).
+    RVSEC_INSTR_DEXLIB2_JAR: "/opt/instr-cli.jar"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+  volumes:
+    - ${RVSEC_HOME:-../}/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar:/opt/instr-cli.jar:ro
+
+# Replicate the aperv_NN service-per-batch convention from the existing
+# aperv-comparacao composition. Layer-4 validation pairs each batch under
+# both variants — same APKs, same seed, same timeouts.
+services:
+  # === ajc variant: 5 containers × ~80 APKs × 3 reps = 1200 tasks ===
+  ajc_00:
+    <<: *rvandroid-ajc
+    container_name: rvsec_dexlib2val_ajc_00
+    environment:
+      <<: *rvandroid-ajc-env
+      RV_EXPERIMENT_NAME: ajc_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/dexlib2val_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/dexlib2val_ajc_00:/opt/rvsec/rv-android/results
+
+  # === dexlib2 variant: same 5 containers × same APK batches ===
+  dexlib2_00:
+    <<: *rvandroid-dexlib2
+    container_name: rvsec_dexlib2val_dexlib2_00
+    environment:
+      <<: *rvandroid-dexlib2-env
+      RV_EXPERIMENT_NAME: dexlib2_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/dexlib2val_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/dexlib2val_dexlib2_00:/opt/rvsec/rv-android/results
+      - ${RVSEC_HOME:-../}/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar:/opt/instr-cli.jar:ro
+
+# Add ajc_01..ajc_04 + dexlib2_01..dexlib2_04 by repeating the pattern when
+# the JCA-400 batch breakdown is regenerated. The setup script in
+# scripts/setup_dexlib2_validation.sh (TBD with fixture APK landings)
+# templates this expansion automatically.
