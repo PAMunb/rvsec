@@ -6,10 +6,15 @@ import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.builder.BuilderInstruction;
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction35c;
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,10 +58,30 @@ class InstructionInjectorTest {
     }
 
     @Test
-    void replaceInvokeIsNotYetWired() {
-        MutableMethodImplementation impl = new MutableMethodImplementation(1);
+    void replaceInvokeRewritesInvokeStaticToNewReference() {
+        // Build a method with a single invoke-static of {v0, v1}, calling
+        // OldOwner.foo(I, I)V. Then replaceInvoke swaps in NewOwner.bar so
+        // the rewritten instruction has the new method reference but the
+        // same register operands.
+        MutableMethodImplementation impl = new MutableMethodImplementation(2);
+        MethodReference original = new ImmutableMethodReference(
+                "Lpkg/OldOwner;", "foo", List.of("I", "I"), "V");
+        impl.addInstruction(new BuilderInstruction35c(
+                Opcode.INVOKE_STATIC, 2, 0, 1, 0, 0, 0, original));
         InstructionInjector inj = new InstructionInjector(impl);
-        assertThrows(UnsupportedOperationException.class,
-                () -> inj.replaceInvoke(0, null));
+
+        MethodReference replacement = new ImmutableMethodReference(
+                "Lpkg/NewOwner;", "bar", List.of("I", "I"), "V");
+        inj.replaceInvoke(0, replacement);
+
+        BuilderInstruction rewritten = impl.getInstructions().get(0);
+        assertInstanceOf(BuilderInstruction35c.class, rewritten);
+        assertEquals(Opcode.INVOKE_STATIC, rewritten.getOpcode());
+        BuilderInstruction35c r = (BuilderInstruction35c) rewritten;
+        assertEquals(2, r.getRegisterCount());
+        assertEquals(0, r.getRegisterC());
+        assertEquals(1, r.getRegisterD());
+        assertEquals("Lpkg/NewOwner;", ((MethodReference) r.getReference()).getDefiningClass());
+        assertEquals("bar", ((MethodReference) r.getReference()).getName());
     }
 }

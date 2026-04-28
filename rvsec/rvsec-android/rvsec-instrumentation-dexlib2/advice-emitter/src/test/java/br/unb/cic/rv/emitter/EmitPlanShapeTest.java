@@ -36,11 +36,17 @@ class EmitPlanShapeTest {
     }
 
     @Test
-    void afterReturningEmitterAsksForScratchRegister() {
+    void afterReturningEmitterRequestsNoScratchRegister() {
+        // INV-INS-29 / D5: AFTER advice with returning() flows through the
+        // wrapper-substitution path (mop.MonitorWrappers.X), which captures
+        // the original return value in the wrapper's local frame. The inline
+        // emitter therefore does NOT need to allocate a caller-side scratch
+        // register — that was the buggy behavior that earlier surfaced as
+        // VerifyError on cryptoapp (commit 54307992 removed the request).
         EmitPlan plan = new AfterReturningEmitter().emit(ctx(adviceAfterReturning("aret")));
         assertEquals(InsertionPoint.AFTER, plan.insertionPoint());
-        assertEquals(1, plan.registers().scratchCount(),
-                "AfterReturning needs a scratch register to hold the captured return value");
+        assertEquals(0, plan.registers().scratchCount(),
+                "AfterReturning routes through wrapper system; no inline scratch needed");
     }
 
     @Test
