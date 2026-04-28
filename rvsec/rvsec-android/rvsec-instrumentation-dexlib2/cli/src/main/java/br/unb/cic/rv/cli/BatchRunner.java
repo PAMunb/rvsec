@@ -156,6 +156,7 @@ public final class BatchRunner {
             int wrappersAliasedToSubtype = 0;
             int constructorInlineApplied = 0;
             int constructorInlineSkippedAliasing = 0;
+            int plansSkippedHighRegister = 0;
             int coverageInstrumented = 0;
             int coverageSpillFailed = 0;
             int classesSeen = 0;
@@ -180,6 +181,7 @@ public final class BatchRunner {
                 wrappersAliasedToSubtype = wr.wrappersAliasedToSubtype();
                 constructorInlineApplied += wr.constructorInlineApplied();
                 constructorInlineSkippedAliasing += wr.constructorInlineSkippedAliasing();
+                plansSkippedHighRegister += wr.plansSkippedHighRegister();
                 classesSeen += wr.classesSeen();
                 methodsSeen += wr.methodsSeen();
 
@@ -209,6 +211,7 @@ public final class BatchRunner {
             counts.put("wrappersAliasedToSubtype", wrappersAliasedToSubtype);
             counts.put("constructorInlineApplied", constructorInlineApplied);
             counts.put("constructorInlineSkippedAliasing", constructorInlineSkippedAliasing);
+            counts.put("plansSkippedHighRegister", plansSkippedHighRegister);
             if (coverageWeaver != null) {
                 counts.put("coverageInstrumented", coverageInstrumented);
                 counts.put("coverageSpillFailed", coverageSpillFailed);

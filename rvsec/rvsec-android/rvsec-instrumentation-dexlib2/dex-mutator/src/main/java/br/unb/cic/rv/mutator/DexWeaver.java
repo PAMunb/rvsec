@@ -278,6 +278,7 @@ public final class DexWeaver {
         int wrappersSubstituted = 0;
         int constructorInlineApplied = 0;
         int constructorInlineSkippedAliasing = 0;
+        int plansSkippedHighRegister = 0;
 
         for (ClassDef classDef : dexFile.getClasses()) {
             classesSeen++;
@@ -337,7 +338,19 @@ public final class DexWeaver {
                         }
                         EmitContext ctx = new EmitContext(advice, m.get(), typeResolver,
                                 monitorOwnerFor(descriptor));
-                        EmitPlan plan = emitter.emit(ctx);
+                        EmitPlan plan;
+                        try {
+                            plan = emitter.emit(ctx);
+                        } catch (br.unb.cic.rv.emitter.MonitorInvokeBuilder.HighRegisterNonContiguous ex) {
+                            // INV-INS-32: bindings include a register > v15 and
+                            // are non-contiguous, so neither Format35c (4-bit)
+                            // nor Format3rc (contiguous) can encode the invoke.
+                            // Defensive skip + counter; future fix is to emit
+                            // move-from16 preambles into a contiguous low
+                            // window before the invoke.
+                            plansSkippedHighRegister++;
+                            continue;
+                        }
 
                         // INV-INS-29: AFTER advice that didn't get wrapper
                         // substitution (because the matched invoke is not
@@ -393,7 +406,8 @@ public final class DexWeaver {
         return new WeaveReport(classesSeen, methodsSeen, matchesApplied,
                 plansSkipped, plansSkippedAliasing, wrappersSubstituted,
                 wrappersAliasedToSubtype,
-                constructorInlineApplied, constructorInlineSkippedAliasing);
+                constructorInlineApplied, constructorInlineSkippedAliasing,
+                plansSkippedHighRegister);
     }
 
     /**
@@ -516,5 +530,6 @@ public final class DexWeaver {
                                int wrappersSubstituted,
                                int wrappersAliasedToSubtype,
                                int constructorInlineApplied,
-                               int constructorInlineSkippedAliasing) {}
+                               int constructorInlineSkippedAliasing,
+                               int plansSkippedHighRegister) {}
 }

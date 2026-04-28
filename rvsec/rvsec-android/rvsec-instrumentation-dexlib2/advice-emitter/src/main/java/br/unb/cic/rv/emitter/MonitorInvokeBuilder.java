@@ -25,7 +25,7 @@ import java.util.List;
  * between advice kinds are about placement (before/after/try-catch) and about
  * which registers hold the bound args, not about the invoke shape.
  */
-final class MonitorInvokeBuilder {
+public final class MonitorInvokeBuilder {
 
     private MonitorInvokeBuilder() {}
 
@@ -220,9 +220,39 @@ final class MonitorInvokeBuilder {
         return out;
     }
 
+    /**
+     * Build the {@code invoke-static} instruction for the monitor event call.
+     *
+     * <p>DEX format choice (INV-INS-32):
+     * <ul>
+     *   <li>{@code Format35c} — 4-bit register fields, addresses v0–v15
+     *       only; preferred for ≤5-arg invokes when ALL operand registers
+     *       fit in the 4-bit window.</li>
+     *   <li>{@code Format3rc} (range) — 16-bit register fields, addresses
+     *       v0–v65535 but requires CONTIGUOUS ASCENDING operands.</li>
+     * </ul>
+     *
+     * <p>When any binding register is &gt; v15, Format35c cannot encode it
+     * and the dexlib2 builder rejects the instruction at construction time
+     * ({@code Invalid register: vN. Must be between v0 and v15, inclusive.}).
+     * The fix: if the operands are already contiguous + ascending (the
+     * usual case when the matched invoke was itself in {@code 3rc} form
+     * with high registers and {@code monitorCall.args} preserves the
+     * source order), escalate to Format3rc regardless of arg count. When
+     * operands are non-contiguous AND any reg is high, throw the marker
+     * exception {@link HighRegisterNonContiguous}; the caller in
+     * {@code DexWeaver} catches it and increments
+     * {@code plansSkippedHighRegister} so the failure is surfaced at a
+     * counter rather than as an uncaught exception. A future enhancement
+     * (move-from16 preambles into a contiguous low window) is the
+     * canonical fix for the non-contiguous case.
+     */
     private static BuilderInstruction buildInvokeStatic(MethodReference ref, int[] regs) {
-        // Short-form invoke-static/range for ≤5 registers; /range for more.
-        if (regs.length <= 5) {
+        boolean anyHighReg = false;
+        for (int r : regs) {
+            if (r > 15) { anyHighReg = true; break; }
+        }
+        if (regs.length <= 5 && !anyHighReg) {
             int[] padded = new int[5];
             System.arraycopy(regs, 0, padded, 0, regs.length);
             return new BuilderInstruction35c(
@@ -230,10 +260,34 @@ final class MonitorInvokeBuilder {
                     padded[0], padded[1], padded[2], padded[3], padded[4],
                     ref);
         }
-        // For >5 args we need contiguous registers; the RegisterAllocator
-        // arranges that, so the call is safe here.
-        int start = regs[0];
-        return new BuilderInstruction3rc(
-                Opcode.INVOKE_STATIC_RANGE, start, regs.length, ref);
+        if (regs.length == 0 || isContiguousAscending(regs)) {
+            int start = regs.length > 0 ? regs[0] : 0;
+            return new BuilderInstruction3rc(
+                    Opcode.INVOKE_STATIC_RANGE, start, regs.length, ref);
+        }
+        throw new HighRegisterNonContiguous(regs);
+    }
+
+    private static boolean isContiguousAscending(int[] regs) {
+        for (int i = 1; i < regs.length; i++) {
+            if (regs[i] != regs[0] + i) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Marker exception for the INV-INS-32 non-contiguous-high-registers
+     * case. {@code DexWeaver}'s after-side advice loop catches this and
+     * increments the {@code plansSkippedHighRegister} counter, so the
+     * failure is surfaced as a tracked diagnostic rather than aborting
+     * the whole APK's instrumentation.
+     */
+    public static final class HighRegisterNonContiguous extends RuntimeException {
+        public final int[] regs;
+        public HighRegisterNonContiguous(int[] regs) {
+            super("non-contiguous high registers " + java.util.Arrays.toString(regs)
+                    + " — Format35c overflow + Format3rc requires contiguity");
+            this.regs = regs.clone();
+        }
     }
 }
