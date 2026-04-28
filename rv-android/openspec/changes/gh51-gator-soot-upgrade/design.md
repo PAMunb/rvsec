@@ -117,17 +117,29 @@ The `androidx.compose.*` exclusion is critical: ~71% of crashing APKs are Kotlin
 
 ### D5: Call Graph algorithm as parameter
 
-**Choice**: Parameterize the call graph algorithm via `-cgAlgorithm` flag. Default: `cha`.
+**Choice**: Parameterize the call graph algorithm via `-cgAlgorithm` flag. Default: **`spark`**.
 
 **Options and Soot mapping**:
-- `cha`: `-p cg.cha enabled:true` (current behavior — fastest, least precise)
+- `cha`: `-p cg.cha enabled:true` (fastest, least precise — type-hierarchy only)
 - `rta`: `-p cg.spark enabled:true -p cg.spark rta:true` (faster than full SPARK, considers only instantiated types)
 - `vta`: `-p cg.spark enabled:true -p cg.spark vta:true` (considers only assigned types)
-- `spark`: `-p cg.spark enabled:true` (full points-to analysis — slowest, most precise)
+- `spark`: `-p cg.spark enabled:true` (full points-to analysis — slowest, most precise) — **default**
 
 Note: RTA, VTA, and SPARK all use the SPARK framework internally. Only CHA is a separate implementation. See [Soot options docs](https://soot-oss.github.io/soot/docs/4.3.0/options/soot_options.html) and [issue #1828](https://github.com/soot-oss/soot/issues/1828) for details on SPARK sub-modes.
 
-**Implementation**: Replace the boolean `-withCHA` flag with `-cgAlgorithm <cha|rta|vta|spark>` in `Main.java`. Pass from Python side via the GATOR script. Keep backward compatibility: if `-withCHA` is passed, treat as `-cgAlgorithm cha`.
+**Why SPARK as default** (revised choice; the previous version of this section recommended `cha`):
+
+1. **Precision of `reachesMop`** — CHA over-approximates virtual dispatches by enumerating every override in the type hierarchy, regardless of whether a target type is actually instantiated at runtime. On Android codebases with deep inheritance and pervasive interfaces (especially Kotlin's `Function0..Function22` and lambda materialization), this inflates the set of methods that "reach MOP". SPARK's points-to analysis filters dispatches down to types effectively instantiated in the call graph, producing a `reachesMop` set closer to runtime reality.
+
+2. **Quality of coverage metrics** — `cov_reaches_mop` uses the reachable-to-MOP set as denominator. A CHA-inflated denominator depresses the metric and makes apps look less covered than they actually are, undermining cross-app comparison. SPARK gives a tighter, semantically meaningful denominator.
+
+3. **Quality of MOP-aware navigation** — `aperv:sata_mop` prioritizes UI widgets whose handlers reach MOP-monitored APIs. With CHA, more widgets are flagged as MOP-relevant than truly are; the tool wastes exploration budget on UI paths that never invoke crypto. With SPARK, the prioritized widget set is smaller and more accurate, focusing exploration on paths that genuinely matter for runtime verification.
+
+4. **Crash concerns mitigated by gh51 fixes** — the earlier draft of this section argued "SPARK would trigger the same jimplification crashes". That argument was formulated against Soot 3.3.0 without defensive options. Soot 4.7.1 (FIX 3) plus the FIX 1 defensive options (`-p jb.sils enabled:false`, `-no-bodies-for-excluded`, Kotlin/Compose excludes) and FIX 2 graceful Flowgraph error handling resolve the dominant crash family. SPARK now completes on the same APKs CHA does, with the same robustness.
+
+5. **Performance trade-off acceptable** — SPARK is typically 2–5× slower than CHA on large Android apps. Static analysis is offline and runs under a 30-minute per-APK budget (`RV_SA_TIMEOUT=1800`); the wall-clock cost is amortizable. The improvement in `reachesMop` quality drives better-targeted runtime exploration, recovering wall-clock at the runtime tool layer (less budget wasted on irrelevant widgets).
+
+**Implementation**: Replace the boolean `-withCHA` flag with `-cgAlgorithm <cha|rta|vta|spark>` in `Main.java`. Pass from Python side via the GATOR script with `spark` as default. Keep backward compatibility: if `-withCHA` is passed, treat as `-cgAlgorithm cha` (so legacy invocations still resolve to a valid algorithm). Existing experiments that explicitly pinned CHA via `-withCHA` continue to work; new invocations get SPARK unless overridden.
 
 ## Data Flow
 
@@ -208,6 +220,6 @@ Source: `APKS_JCA/errors/instrument_and_sa_errors.json` (32 total APKs with inst
 - **Issue #1641 characterization**: The issue is about `jb.sils` interfering with `use-original-names`, not directly about typing crashes. However, disabling `jb.sils` IS a documented workaround for typing crashes (confirmed in #1641 and #1975). The INV-ANA-16 text has been corrected to reflect this nuance.
 - **Compose coverage gap**: Added `-exclude androidx.compose.` to FIX 1 to cover the dominant failure category (~71% of crashing APKs are Kotlin+Compose). Trade-off: loses Compose widget bodies for GUI analysis — acceptable because Compose widgets are not discoverable via traditional `findViewById`/XML layout analysis anyway.
 - **API breaks Soot 3.3.0→4.7.1**: ZERO breaks found in `Configs.java`, `EpiccBasedIntentAnalysis.java`, or any other file. Only rename was `-process-multiple-dex` → `-search-dex-in-archives`. Risks overestimated.
-- **CHA vs SPARK**: CHA is correct for GATOR's use case (reachability BFS, not precision-sensitive). SPARK would be slower AND trigger the same jimplification crashes. See Decision D5.
+- **CHA vs SPARK** (revised after gh51 stabilization): The earlier review concluded CHA was correct on grounds of speed and shared crash surface with SPARK. That conclusion was reversed in D5: with Soot 4.7.1 + FIX 1+2+3 the crash argument no longer holds, and the precision argument (impact on `reachesMop` accuracy → coverage metrics → MOP-aware navigation quality) tips the trade-off toward SPARK as default. CHA remains available via `-cgAlgorithm cha` for experiments where speed dominates over precision. See Decision D5.
 - **Write-first JSON**: Critical discovery — external timeout kills the Java process without triggering `catch`. Reachability must be written to disk BEFORE WTG starts so it survives the kill.
 - **Null receivers in virtual dispatch**: Soot 4.7.1 with `-no-bodies-for-excluded` creates phantom method refs where `jimpleUtil.receiver()` returns null. This is expected behavior for excluded packages — null-check is the correct fix (not a bug).

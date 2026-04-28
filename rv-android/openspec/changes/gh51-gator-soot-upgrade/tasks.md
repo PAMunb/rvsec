@@ -70,12 +70,12 @@ flowchart LR
 
 ## 4e. Call Graph Algorithm Parameter (D5)
 
-- [ ] 4e.1 In `Configs.java`, replace `public static boolean withCHA = false` with `public static String cgAlgorithm = "cha"` (values: `cha`, `rta`, `vta`, `spark`)
+- [ ] 4e.1 In `Configs.java`, replace `public static boolean withCHA = false` with `public static String cgAlgorithm = "spark"` (values: `cha`, `rta`, `vta`, `spark`; `spark` is the default per design.md D5 — full points-to analysis for accurate `reachesMop`)
 - [ ] 4e.2 In `Main.java`, replace `-withCHA` arg parsing with `-cgAlgorithm <value>`. Keep `-withCHA` as alias for `-cgAlgorithm cha` (backward compat during transition)
 - [ ] 4e.3 In `Main.java`, replace the two hardcoded branches (withCHA/non-CHA) with a single sootArgs construction that selects CG phase options based on `Configs.cgAlgorithm`: `cha` → `-p cg.cha enabled:true`, `rta` → `-p cg.spark enabled:true -p cg.spark rta:true`, `vta` → `-p cg.spark enabled:true -p cg.spark vta:true`, `spark` → `-p cg.spark enabled:true`
-- [ ] 4e.4 In GATOR Python script (`lib/gator/gator`), replace `-withCHA` with `-cgAlgorithm` argument (default `cha`)
-- [ ] 4e.5 In `rv-static-analysis/config.py`, update `get_tool_command()` to pass `-cgAlgorithm` instead of `-withCHA`
-- [ ] 4e.6 Verify compilation and test with `cryptoapp.apk` using `cha` (default)
+- [ ] 4e.4 In GATOR Python script (`lib/gator/gator`), replace `-withCHA` with `-cgAlgorithm` argument (default `spark`)
+- [ ] 4e.5 In `rv-static-analysis/config.py`, update `get_tool_command()` to pass `-cgAlgorithm` instead of `-withCHA`. Also flip the Pydantic default for `cg_algorithm` from `"cha"` to `"spark"` to match the D5 default
+- [ ] 4e.6 Verify compilation and test with `cryptoapp.apk` using `spark` (default). Smoke MUST also include 1 invocation with explicit `-cgAlgorithm cha` to confirm the alternative path still functions
 
 ## 5. Build Fat JAR
 

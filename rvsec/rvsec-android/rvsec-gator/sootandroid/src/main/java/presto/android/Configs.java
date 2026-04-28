@@ -71,7 +71,7 @@ public class Configs {
 
   public static Set<String> clients = Sets.newHashSet();
 
-  public static String cgAlgorithm = "cha"; // cha, rta, vta, spark
+  public static String cgAlgorithm = "spark"; // cha, rta, vta, spark — default per gh51 D5
 
   // [wtg analysis] xml file describing the calls related with wtg
   public static String wtgSpecFile;

@@ -85,8 +85,8 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         default=600, description="Analysis timeout in seconds"
     )
     cg_algorithm: str = Field(
-        default="cha",
-        description="Call graph algorithm: cha, rta, vta, spark",
+        default="spark",
+        description="Call graph algorithm: cha, rta, vta, spark (default: spark per gh51 D5 — full points-to gives accurate reachesMop)",
     )
     validate_on_init: bool = Field(
         default=True, description="Whether to validate configuration on initialization"

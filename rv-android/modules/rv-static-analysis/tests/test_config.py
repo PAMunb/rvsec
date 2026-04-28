@@ -109,9 +109,12 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             self.assertIn("--client-jar", cmd)
             self.assertIn("-client", cmd)
             self.assertIn("RvsecAnalysisClient", cmd)
-            # gh51: Soot 4.7.1 replaced -withCHA with explicit `-cgAlgorithm cha`
+            # gh51: Soot 4.7.1 replaced -withCHA with explicit `-cgAlgorithm <algo>`.
+            # Default flipped from "cha" → "spark" per design.md D5 (precision over speed).
             self.assertIn("-cgAlgorithm", cmd)
-            self.assertIn("cha", cmd)
+            # Verify the value follows the flag (positional contract with the Java side)
+            cg_idx = cmd.index("-cgAlgorithm")
+            self.assertEqual(cmd[cg_idx + 1], "spark")
 
     def test_unsupported_tool_command_error(self):
         """Test error handling for unsupported tool names."""
