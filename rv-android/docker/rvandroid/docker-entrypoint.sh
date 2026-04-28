@@ -94,6 +94,14 @@ if [ -n "$RV_DEVICE_PORT" ]; then
     CMD="$CMD --device-port $RV_DEVICE_PORT"
 fi
 
+# gh52: instrumentation variant (ajc | dexlib2). The CLI default is "ajc"
+# so the dexlib2 image needs this env var translated to a flag for
+# rv-experiment to dispatch to the dexlib2 PreProcessor branch. Forgetting
+# this silently runs ajc despite the variant label on the image.
+if [ -n "$RV_INSTRUMENTATION_VARIANT" ]; then
+    CMD="$CMD --instrumentation-variant $RV_INSTRUMENTATION_VARIANT"
+fi
+
 # APK filter file
 if [ -n "$RV_APKS_FILTER" ]; then
     CMD="$CMD --apks-filter $RV_APKS_FILTER"
