@@ -9,6 +9,7 @@ dependencies = [
     "rv-android-core",
     "rv-monitor-generator",
     "rv-instrumentation",
+    "rv-instrumentation-dexlib2",
     "rv-static-analysis",
     "rv-screen-parser",
     "rv-coverage",
