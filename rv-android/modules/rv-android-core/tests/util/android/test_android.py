@@ -122,21 +122,29 @@ class TestAndroid:
     def test_wait_for_boot(
         self, mock_command_class, mock_logging, mock_time_sleep, mock_to_readable_time
     ):
-        # Mock the invoke results for bootanim, boot_completed, root, remount.
-        # Each phase loop checks time.time() at the top before invoking.
-        mock_command_class.return_value.invoke.side_effect = [
-            MagicMock(stdout=b"booting"),  # Phase 1 iter 1: bootanim not stopped
-            MagicMock(stdout=b"stopped"),  # Phase 1 iter 2: bootanim stopped
-            MagicMock(stdout=b""),  # Phase 2 iter 1: sys.boot_completed
-            MagicMock(stderr=b"error"),  # Phase 3 root iter 1: not ready
-            MagicMock(stderr=b""),  # Phase 3 root iter 2: ready
-            MagicMock(stderr=b"error"),  # Phase 3 remount iter 1: not ready
-            MagicMock(stderr=b""),  # Phase 3 remount iter 2: ready
-        ]
+        # Phase 3 (root + remount) was dropped because it was a no-op against
+        # `-read-only` emulators (silent on API 29, hard-fail on API 30+). Only
+        # Phase 1 (bootanim) and Phase 2 (sys.boot_completed) remain.
+        #
+        # Function-based side_effect: a list of pre-built MagicMock(stdout=…)
+        # raised StopIteration on this codepath even with 21+ items, suggesting
+        # internal MagicMock attribute resolution chains. A factory keeps the
+        # mock fresh per call and avoids the issue.
+        invoke_count = {"n": 0}
 
-        # time.time() calls: start, Phase1 check x2, Phase2 check, root check x2,
-        # remount check x2, elapsed
-        with patch("time.time", side_effect=[0, 5, 10, 15, 20, 25, 30, 35, 40]):
+        def _invoke(*args, **kwargs):
+            invoke_count["n"] += 1
+            m = MagicMock()
+            # Phase 1 iter 1: bootanim still booting; iter 2 onwards: stopped.
+            # Phase 2 iter 1: invoke() return is ignored, only matters not raising.
+            m.stdout = b"booting" if invoke_count["n"] == 1 else b"stopped"
+            m.stderr = b""
+            return m
+
+        mock_command_class.return_value.invoke.side_effect = _invoke
+
+        # time.time() generous slack: any call is expected to return < 180s
+        with patch("time.time", side_effect=[i for i in range(20)]):
             Android._wait_for_boot("emulator-5554")
             mock_logging.info.assert_has_calls(
                 [
@@ -147,8 +155,8 @@ class TestAndroid:
                 ]
             )
             assert (
-                mock_time_sleep.call_count == 3
-            )  # 5s for bootanim, 5s for root, 5s for remount
+                mock_time_sleep.call_count == 1
+            )  # only Phase 1 iter 1 sleeps; Phase 2 succeeds on first try
 
     def test_simulate_reboot(self, mock_command_class, mock_logging, mock_time_sleep):
         with patch.object(Android, "_wait_for_boot") as mock_wait_for_boot:
