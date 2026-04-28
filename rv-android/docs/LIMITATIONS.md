@@ -20,6 +20,7 @@ re-evaluated if a future spec introduces it.
 | `get(...)` / `set(...)` | Field access joinpoints; each field-read / field-write would need a matcher pass, and the pointcut-engine is call-site oriented today. Zero usages. |
 | `initialization(...)` | Object-creation joinpoint distinct from `call(.new(...))`; would need an additional advice-emitter for constructor-execution entry. |
 | `preinitialization(...)` | Even narrower — before-super-call joinpoint; rarely used in practice. |
+| `adviceexecution()` | JavaMOP-synthesized construct that pointcuts over the EXECUTION of advice itself (used by some specs to chain meta-advice). Surfaces 71 times in `MultiSpec_1MonitorAspect.aj` and `*.mop.aj` files but always in self-referential `!within(<RuntimeMonitor>) && !adviceexecution()` form whose **purpose is to filter OUT advice executions from being matched again** — i.e., it appears as a guard, not as a primary pointcut. The dex-mutator's app-side weaving never matches against the synthesized advice methods (they live in `mop/<RuntimeMonitor>` namespace which is filtered by the canonical package filter), so this filter is a structural no-op for our weaver. Treated as a parser-acknowledged tombstone: the AST has a sentinel that always-matches; the matcher never produces a positive result against it. |
 
 **Review scrutiny invited**: any spec author who needs one of these eight
 should open a task to extend this doc + the mapping + the emitter, then

@@ -20,10 +20,11 @@ with identical code paths.
 | `after() throwing(T t)` | `advice-emitter.AfterThrowingEmitter` | `try ... catch (T t)` around the matched invoke; handler invokes monitor and rethrows | `EmitPlanShapeTest#afterThrowingEmitterProducesTryCatchSpec` |
 | `args(a, b)` | `pointcut-engine.ArgsPC` + `dex-mutator` register extraction | binds invoke operand regs as `argNN` keys on `Match` | `PointcutExpressionParserTest#parsesArgs` |
 | `target(t)` | `pointcut-engine.TargetPC` + receiver-reg extraction | receiver register of the matched invoke becomes `targetRegister` on `Match` | `PointcutExpressionParserTest#parsesTarget` |
-| `!within(<pattern>)` | `pointcut-engine.NotWithinPC` + `PointcutMatcher.matchesTypePattern` | no emission; filters before emitting | `PointcutMatcherTest#typePattern*` |
+| `within(<pattern>)` / `!within(<pattern>)` | `pointcut-engine.WithinPC` + `NotWithinPC` + `PointcutMatcher.matchesTypePattern` | no emission; positive `within` whitelists callers (matched as a no-op AND-clause that constrains where the joinpoint may live), negated form blacklists. The `WithinPC` AST node is treated as always-match in `PointcutMatcher` because the descriptor's `within(<RuntimeMonitor>)` self-references already bound the pointcut's host class — for app-side weaving this filter is a no-op | `PointcutMatcherTest#typePattern*` |
 | `staticinitialization(T+)` | `advice-emitter.StaticInitializationEmitter` + `pointcut-engine.InheritanceResolver` | invoke at `<clinit>` entry; `<clinit>` synthesized by the dex-mutator executor when absent | `EmitPlanShapeTest#staticInitEmitterTargetsMethodEntry` |
 | `if(<expr>)` | `advice-emitter.IfGuardEmitter` | `if-eqz vGuard, :skip` before the monitor invoke; `:skip` after it | `EmitPlanShapeTest#ifGuardEmitterAddsScratchOnTopOfDelegate` |
 | `thisJoinPoint.getSignature()` | `advice-emitter.ThisJoinPointEmitter` + `coverage-weaver.SignatureFormatter` | pre-computed `const-string "<FQN: ReturnType method(params)>"` threaded as an extra arg | `SignatureFormatterTest` |
+| `thisJoinPoint` | `advice-emitter.ThisJoinPointEmitter` (signature-only path) | only `.getSignature()` is supported; bare `thisJoinPoint` references in the corpus all resolve to that single accessor at parse time. Other reflective members (`getKind()`, `getArgs()`, `getThis()`, `getTarget()`) are out of scope and would land in `LIMITATIONS.md` if encountered | `SignatureFormatterTest` |
 
 ## Monitor owner convention
 
