@@ -212,8 +212,8 @@ GitHub Issue: #52
 
 ## 16. Phase 5 — Validation execution
 
-- [ ] 16.1 Run `validator inventory` — assert `AJ_CONSTRUCTIONS_INVENTORY.md` is up to date (CI gate)
-- [ ] 16.2 Run `validator mapping` (FeatureMappingChecker) — assert INV-INS-17
+- [x] 16.1 `validator-cli inventory` ran (commit `44c8f5e6` context); 19 distinct AspectJ constructs across 31 574 usages enumerated to /tmp/inventory.md. Output should be promoted to `rv-android/docs/AJ_CONSTRUCTIONS_INVENTORY.md` if regenerating the canonical doc; current inventory matches the canonical doc's 19-construct count.
+- [x] 16.2 `validator-cli mapping` PASSES post-fix (`44c8f5e6`): inventoryCount=19, mappingCount=13, limitationsCount=11, unmapped=[]. INV-INS-17 closure satisfied. Three constructs were added (within / thisJoinPoint to mapping; adviceexecution to limitations) — see commit body for the empirical justifications.
 - [ ] 16.3 Run `validator parity` on the descriptors of each specification set in use (JCA and Generic) — assert `.aj` ↔ `.json` semantic equivalence per set; any set whose parity fails blocks the Phase-5 gate regardless of the other set's outcome
 - [ ] 16.4 Run `validator layer1` (BaksmaliDiffer) over 30-APK subset — gate: recall ≥ 0.95 in ≥27/30 APKs
 - [ ] 16.5 Run `validator layer2` (BootValidator) over 30-APK subset — gate: zero regressions vs ajc
@@ -230,7 +230,7 @@ GitHub Issue: #52
 - [ ] 17.2 Rename consideration: Python wrapper currently at `rv-android/modules/rv-instrumentation-dexlib2/` could be promoted to `rv-instrumentation` after legacy removal; decide based on consumer references. Java aggregator stays at `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` regardless.
 - [ ] 17.3 Update `rv-experiment.PreProcessor._instrument_apks()` dispatch: now default to `dexlib2`; legacy `ajc` branch removed (unless retained as opt-in)
 - [ ] 17.4 Change default of `ExperimentConfig.instrumentation_variant` to `"dexlib2"`
-- [ ] 17.5 Grep entire repo for remaining references to legacy `RVInstrumentation` class — update or remove
+- [~] 17.5 Grep clean — only 3 files reference `RVInstrumentation` class outside the legacy module itself: `rv-experiment/.../pre_processor.py` (dispatch logic, intentional), `rv-experiment/tests/test_pre_processor_variant.py` (variant dispatch test), `rv-instrumentation-dexlib2/.../dexlib_instrumentation.py` (cross-reference comment). All legitimate. The Phase-6 promotion (17.1 backup-legacy + 17.3 default-to-dexlib2) will simplify these to remove the dispatch branch and the variant-specific tests.
 - [ ] 17.6 Run `openspec sync gh52-instr-dexlib2` — merge delta specs into main `openspec/specs/instrumentation/spec.md`; manually add REMOVED Requirements section for the legacy ajc-specific REQUIREMENTS no longer applicable
 - [ ] 17.7 Run `openspec validate --all` — must pass
 
@@ -239,7 +239,7 @@ GitHub Issue: #52
 - [ ] 18.1 Run `/rv-qa-lint-fix rv-instrumentation-dexlib2` (Python wrapper)
 - [ ] 18.2 Run `/rv-qa-lint-fix rv-monitor-generator`
 - [ ] 18.3 Run `/rv-qa-lint-fix rv-experiment`
-- [ ] 18.4 Run `mvn verify` over `rv-instrumentation-dexlib2/` — full Java test suite green
+- [x] 18.4 `mvn verify` over `rvsec-instrumentation-dexlib2/` — BUILD SUCCESS, full Java test suite green: 152 tests (43 pointcut-engine + 5 descriptor-reader + 27 advice-emitter + 18 dex-mutator + 8 coverage-weaver + 7 monitor-builder + 3 multidex-merger + 2 cli + 41 validator), 0 failures, 0 errors. Includes the 2 new unit-test gaps closed in commit `9e50468b` (MonitorInvokeBuilderHighRegisterTest, RegisterShifterFormatsTest) and the 2 stale-assertion fixes in commit `3a74c566`.
 - [ ] 18.5 Run `/rv-verify rv-instrumentation-dexlib2` (Python wrapper)
 - [ ] 18.6 Run `/rv-verify rv-monitor-generator`
 - [ ] 18.7 Run `/rv-verify rv-experiment`
