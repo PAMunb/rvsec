@@ -196,7 +196,7 @@ GitHub Issue: #52
 - [x] 14.1 Authored `docker/docker-compose.dexlib2-validation.template.yml` — paired-comparison Layer-4 template with `x-rvandroid-ajc` and `x-rvandroid-dexlib2` anchors. Both run the same APK batch under identical conditions; only `RV_INSTRUMENTATION_VARIANT` differs. Mounts the auto-copied fat jar at `/opt/instr-cli.jar` per design D9. The `.template.yml` suffix marks it as not directly runnable: the JCA-400 batch breakdown gets regenerated per-run by `setup_dexlib2_validation.sh` (TBD with fixture APK landings).
 - [x] 14.2 Authored `docker/rvandroid_dexlib2/Dockerfile` — minimal layer over the canonical `phtcosta/rvandroid:0.8.0` image: sets `RV_INSTRUMENTATION_VARIANT=dexlib2`, points `RVSEC_INSTR_DEXLIB2_JAR` at the auto-copied D9 jar inside the image, and asserts the jar's presence at build time (fails the layer if the base image predates D9). JDK 21 + apksigner v3 are already in the base; no SDK changes needed.
 - [ ] 14.3 Document Docker image rebuild — DEFERRED; the rebuild steps are identical to the existing `aperv-ajc` flow (see `docker/build_all.sh`).
-- [ ] 14.4 Smoke test `docker compose run ...` — DEFERRED to Phase 5 IT.
+- [~] 14.4 Smoke test `docker compose` — partial. Two smokes ran end-to-end against `phtcosta/rvandroid:0.8.0-dexlib2` (built from gh52 branch, now part of modules): (a) initial v1/v2 surfaced two pipeline gaps — `RV_INSTRUMENTATION_VARIANT` env-to-CLI translation missing in entrypoint (fixed in commit `1ffeaca3` post-merge) and `rv-instrumentation-dexlib2` missing from rv-android pyproject deps so `uv sync` skipped it (fixed in `f344b93c`); (b) v3 with both fixes applied: 5 containers × 4 APKs from JCA-400 any-reach + API≤30 cohort, 1 rep, 180s exec, 1800s SA timeout — instrumentation phase confirmed working (sizes increased per APK, `classes2.dex` contains MOP monitor classes, APKs signed with `idsig`). End-to-end runtime metrics PENDING smoke v3 completion.
 - [ ] 14.5 CI workflow build — DEFERRED; current CI does not build Docker images per-PR, so this is a no-op until the policy changes.
 
 ## 15. Paper-grade documentation
@@ -221,7 +221,7 @@ GitHub Issue: #52
 - [ ] 16.6a Pre-batch 64k method-ref audit (INV-INS-25): run the projected-post-weaving ref counter over every APK in the Layer-4 candidate set, emit `Layer4PreAuditReport.json`; APKs projected to cross 65,000 host-DEX refs MUST be flagged; `multidex-merger` config MUST be set to emit an extra DEX for each flagged APK; batch run is BLOCKED while any APK carries unhandled overflow — never proceed assuming the host will accept a >65,536-ref DEX
 - [ ] 16.7 Schedule `validator layer4` (BatchValidator JCA-400 × 3 × 3, ~36h) — single-shot weekend run for Phase-5 ratification; weekly thereafter for regression detection — gates: recovery_rate ≥ 90%; paired Wilcoxon signed-rank TOST per spec with pre-registered Δ=2pp (`cov_method`) / Δ=0.02 (F1) / Δ=0.05 (κ) at α=0.05 reject the lower-bound one-sided test (non-inferiority, mandatory); equivalence (both TOSTs reject) on ≥80% of specs (mandatory); thresholds file `validator/oracles/layer4-thresholds.yaml` committed before the run (INV-INS-21)
 - [ ] 16.8 Run `validator layer5` (CoverageValidator) — gate: RVSEC-COV recall ≥ 0.99, delta ≤ 1pp
-- [ ] 16.9 Aggregate reports into `docs/20260MM_dexlib2_validation_results.md` (post-Layer-4 dated)
+- [~] 16.9 Validation results doc landed at `rv-android/docs/20260426_dexlib2_validation_results.md` (commit `36c4c5e2` scaffold; subsequent commits filled run1, run2, smoke20, INV-INS-32 fix sections). Captures: 136-test validator suite snapshot; INV-INS-31 alias evolution 48→28→7; 20-APK extended smoke (18/18 zero VE); 20-APK re-instrumentation post-INV-INS-32 fix (20/20 success); per-layer interpretation of Phase-5 run1+run2 (L2 PASS, L5 recall 0.913→0.977). Section 5 conclusions for the canonical Phase-5 ratification (Layer-4 batch JCA-400 × 3 × 3) PENDING — fills when 16.7 lands.
 - [ ] 16.10 Run `openspec verify gh52-instr-dexlib2` — must report all spec-aligned
 
 ## 17. Phase 6 — Substitution (P3)
@@ -246,7 +246,7 @@ GitHub Issue: #52
 - [ ] 18.8 Invoke `/rv-code-reviewer` via Skill tool — review entire change against pre-plan + design + spec
 - [ ] 18.9 Address review findings; commit fixes
 - [ ] 18.10 Run `/rv-docs-sync` — propagate API/architecture changes into all consumer docs
-- [ ] 18.11 Open PR `gh52-instr-dexlib2 → modules` with body referencing #52 and validation reports
+- [x] 18.11 Branch merged into `modules` (operator's local merge, no formal GitHub PR opened — replaced by direct merge given the team workflow). Merge brought all 70 gh52 commits + the 2 ahead-of-merge pyproject (`f344b93c`) and entrypoint (`1ffeaca3`) fixes into modules. Conflict resolution: 2 add/add files (`AspectJDescriptor.java`, `DescriptorWriter.java`) reconciled by taking the gh52 version (already contained the modules-side patch + the gh52-side `927e78c1` extension). Validation reports linked from `rv-android/docs/20260426_dexlib2_validation_results.md`.
 - [ ] 18.12 Move card #52 to In Review on Kanban
 - [ ] 18.13 After PR approved + merged: close #52 (commit `closes #52` in merge commit body or via `gh issue close`); move card to Done
 - [ ] 18.14 Run `openspec archive gh52-instr-dexlib2` — moves change to `openspec/changes/archive/YYYY-MM-DD-gh52-instr-dexlib2/`
