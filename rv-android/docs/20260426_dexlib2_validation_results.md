@@ -246,6 +246,60 @@ ajc captured but dex did not (likely ajc-pipeline-specific
 bookkeeping methods that don't map to RVSEC-COV in dexlib2's
 emission).
 
+### Section 4.5 — 20-APK re-instrumentation post INV-INS-32 fix (2026-04-28)
+
+After commit `31277e0e` (`MonitorInvokeBuilder.buildInvokeStatic`
+escalates to `Format3rc` when any binding register exceeds v15),
+re-ran the static instrumentation step on all 20 APKs from
+`gh52-smoke20-newdata` to verify the fix.
+
+| Pre-fix | Post-fix |
+|---|---|
+| 19/20 instrumented (alovoa.expo failed) | **20/20 instrumented** |
+| 1 uncaught error | 0 errors |
+| n/a | 0 `plansSkippedHighRegister` (contiguous path covered every case) |
+
+Aggregate weave counters across the 20 APKs:
+
+- `wrappersSubstituted`: **2 203**
+- `matchesApplied` (inline): not separately reported by this run
+- `constructorInlineApplied`: **450**
+- `plansSkippedAliasing` residual: 103 (non-constructor virtual-call
+  sites; future register-saving inline path)
+- `plansSkippedHighRegister`: **0** (defensive tripwire; never fired)
+
+Per-APK detail (alias / highR / wrS / ctor):
+
+| APK | alias | highR | wrS | ctor |
+|---|---:|---:|---:|---:|
+| app.siftrecipes_6 | 6 | 0 | 103 | 9 |
+| app.traced_it_15 | 0 | 0 | 27 | 0 |
+| app.wispar.wispar_36 | 1 | 0 | 210 | 51 |
+| com.akslabs.cloudgallery_6 | 1 | 0 | 107 | 20 |
+| **com.alovoa.expo_48** | 61 | **0** | **508** | **182** |
+| com.app.equran_283 | 0 | 0 | 14 | 3 |
+| com.bartixxx.oneplusarbchecker_13 | 4 | 0 | 61 | 5 |
+| com.dd3boh.outertune_71 | 0 | 0 | 129 | 4 |
+| com.guruswarupa.launchh_14 | 5 | 0 | 75 | 33 |
+| com.illiouchine.jm_19 | 0 | 0 | 22 | 1 |
+| com.itsfrz.tictactoe_2 | 0 | 0 | 22 | 0 |
+| com.jstappdev.e6bflightcomputer_20 | 0 | 0 | 9 | 0 |
+| com.module.notelycompose.android_33 | 4 | 0 | 108 | 6 |
+| com.zoffcc.applications.toloshare_10020 | 16 | 0 | 337 | 70 |
+| io.github.micw.openphotoframe_103 | 0 | 0 | 24 | 0 |
+| me.ahmetcetinkaya.whph_78 | 0 | 0 | 63 | 1 |
+| network.loki.messenger.fdroid_4515 | 3 | 0 | 247 | 54 |
+| org.fossify.home_16 | 0 | 0 | 49 | 0 |
+| org.woheller69.whobird_51 | 1 | 0 | 35 | 3 |
+| pl.lebihan.authnkey_10 | 1 | 0 | 53 | 8 |
+
+**Pipeline reliability claim updated**: across all 20 APKs from the
+extended smoke, the dexlib2 instrumentation pipeline (post commits
+`39f8720b`, `2e64e848`, `b7dfece4`, `31277e0e`) succeeds end-to-end
+with phase=signed. The single `INSTALL_FAILED_OLDER_SDK` from the
+runtime-side smoke remains an emulator-config issue (API 30 vs APK
+requiring API 34), unrelated to instrumentation.
+
 ### Section 4.4 — 20-APK extended smoke (`gh52_smoke20_newdata`, 2026-04-26)
 
 A larger pilot to widen the dexlib2 evidence base over fresh JCA-400
