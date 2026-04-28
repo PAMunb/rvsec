@@ -52,6 +52,23 @@
 			<artifactId>surefire-booter</artifactId>
 			<version>3.0.0-M7</version>
 		</dependency>
+
+		<!--
+			Kotlin standard library — added for ajc type resolution.
+			Without it, ajc fails on APKs containing Kotlin code with
+			"Mismatch when building parameterization map" for kotlin.jvm.functions.FunctionN
+			because Signature attributes are stripped from APK-extracted .class files
+			(R8 release builds remove generic Signature attributes; dex2jar can't recover them).
+			Adding the original stdlib jar from Maven gives ajc a well-formed copy of
+			Function0..Function22 with correct generic declarations to resolve from.
+			Hypothesis derived from JCA-557 2nd-phase failure analysis: 60 APKs failed ajc
+			with this exact error pattern (Function3 the most common). Smoke-test pending.
+		-->
+		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-stdlib</artifactId>
+			<version>2.0.21</version>
+		</dependency>
 	</dependencies>
 
 	<build>
