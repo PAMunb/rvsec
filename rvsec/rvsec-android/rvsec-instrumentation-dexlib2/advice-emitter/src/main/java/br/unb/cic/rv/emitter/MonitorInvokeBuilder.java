@@ -246,8 +246,11 @@ public final class MonitorInvokeBuilder {
      * counter rather than as an uncaught exception. A future enhancement
      * (move-from16 preambles into a contiguous low window) is the
      * canonical fix for the non-contiguous case.
+     *
+     * <p>Package-private for unit testing — see
+     * MonitorInvokeBuilderHighRegisterTest (INV-INS-32).
      */
-    private static BuilderInstruction buildInvokeStatic(MethodReference ref, int[] regs) {
+    static BuilderInstruction buildInvokeStatic(MethodReference ref, int[] regs) {
         boolean anyHighReg = false;
         for (int r : regs) {
             if (r > 15) { anyHighReg = true; break; }
