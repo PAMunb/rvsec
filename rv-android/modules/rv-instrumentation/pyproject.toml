@@ -1,18 +1,15 @@
 [project]
 name = "rv-instrumentation"
 version = "0.1.0"
-description = "APK instrumentation with runtime verification monitors"
+description = "Parent canonical: factory dispatching to ajc/dexlib2 variants + shared keystore asset"
 authors = [{name = "RV-Android Team"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "rv-android-core",
-    "pydantic>=2.9.0",
-    "pyyaml>=6.0",
+    "rv-instrumentation-core",
+    "rv-instrumentation-ajc",
+    "rv-instrumentation-dexlib2",
 ]
-
-[project.scripts]
-rv-instrumentation = "rv_instrumentation.__main__:main"
 
 [dependency-groups]
 dev = [
@@ -21,7 +18,9 @@ dev = [
 ]
 
 [tool.uv.sources]
-rv-android-core = { workspace = true }
+rv-instrumentation-core = { workspace = true }
+rv-instrumentation-ajc = { workspace = true }
+rv-instrumentation-dexlib2 = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rv_instrumentation"]
@@ -29,19 +28,12 @@ packages = ["src/rv_instrumentation"]
 [tool.hatch.build.targets.wheel.force-include]
 "assets" = "rv_instrumentation/assets"
 
-[tool.pytest.ini_options]
-addopts = "--cov=src"
-
 [tool.coverage.run]
 source = ["src"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
 ]
-
-[tool.coverage.report]
-# show_missing = true
-# fail_under = 80
 
 [build-system]
 requires = ["hatchling"]

@@ -1,0 +1,34 @@
+[project]
+name = "rv-instrumentation-core"
+version = "0.1.0"
+description = "Pure abstractions for instrumentation: ABC Instrumenter + shared Pydantic result types"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9.0",
+    "rv-android-core",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_instrumentation_core"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -95,7 +95,8 @@ def prepare_instrumentation(rvsec_root: str, monitors_dir: str, output_dir: str)
     Returns:
         Dict with shared paths for workers.
     """
-    from rv_instrumentation import RVInstrumentation, RVInstrumentationConfig
+    from rv_instrumentation_ajc.ajc_instrumentation import AjcInstrumentation
+    from rv_instrumentation_ajc.config import AjcInstrumentationConfig
 
     rv_android_dir = os.path.join(rvsec_root, "rv-android")
     instrumented_dir = os.path.join(output_dir, "instrumented_apks")
@@ -103,14 +104,14 @@ def prepare_instrumentation(rvsec_root: str, monitors_dir: str, output_dir: str)
 
     log.info("Phase 2: Preparing instrumentation environment (Maven + lib_tmp)")
 
-    config = RVInstrumentationConfig(
+    config = AjcInstrumentationConfig(
         rvsec_root=rvsec_root,
         monitor_output_dir=monitors_dir,
         working_dir=rv_android_dir,
         instrumented_dir=instrumented_dir,
     )
 
-    instr = RVInstrumentation(config)
+    instr = AjcInstrumentation(config)
     instr.prepare_instrumentation(instrumented_dir)
 
     # Return shared paths for workers (picklable plain dict)
@@ -145,7 +146,8 @@ def instrument_apk_worker(args: tuple) -> dict:
     """
     apk_path, shared = args
 
-    from rv_instrumentation import RVInstrumentation, RVInstrumentationConfig
+    from rv_instrumentation_ajc.ajc_instrumentation import AjcInstrumentation
+    from rv_instrumentation_ajc.config import AjcInstrumentationConfig
     from rv_android_core.domain.app import App
 
     apk_name = os.path.basename(apk_path)
@@ -156,7 +158,7 @@ def instrument_apk_worker(args: tuple) -> dict:
     os.chdir(worker_dir)  # Isolate d8 output (classes.dex) per worker
 
     try:
-        config = RVInstrumentationConfig(
+        config = AjcInstrumentationConfig(
             rvsec_root=shared["rvsec_root"],
             monitor_output_dir=shared["monitors_dir"],
             working_dir=worker_dir,
@@ -169,7 +171,7 @@ def instrument_apk_worker(args: tuple) -> dict:
             keystore_password=shared["keystore_password"],
         )
 
-        instr = RVInstrumentation(config)
+        instr = AjcInstrumentation(config)
         app = App(apk_path)
         config.validate_apk_input(app.path)
         instr.instrument(app, shared["instrumented_dir"])

@@ -1,12 +1,12 @@
 """
-Unit tests for rv-instrumentation CLI argument parsing.
+Unit tests for rv-instrumentation-ajc CLI argument parsing.
 
 These tests verify the CLI argument parser configuration and argument mapping
 without executing actual instrumentation commands.
 """
 
 import pytest
-from rv_instrumentation.__main__ import create_parser
+from rv_instrumentation_ajc.__main__ import create_parser
 
 
 class TestCliParser:

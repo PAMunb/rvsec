@@ -14,7 +14,10 @@ set -euo pipefail  # Strict error handling
 declare -ra MODULES=(
     "rv-android-core"           # Foundation - core utilities and domain models
     "rv-monitor-generator"      # Monitor generation from MOP specifications
-    "rv-instrumentation"        # APK instrumentation with monitors
+    "rv-instrumentation-core"   # Pure abstractions: Instrumenter ABC + shared types
+    "rv-instrumentation"        # Parent canonical: factory + shared keystore
+    "rv-instrumentation-ajc"    # AspectJ-based instrumentation variant
+    "rv-instrumentation-dexlib2" # DEX-native instrumentation variant (gh52)
     "rv-static-analysis"        # Static analysis tools (GATOR, GESDA, REACH)
     "rv-coverage"               # Coverage analysis tools
     "rv-screen-parser"          # Screen parsing utilities
@@ -341,7 +344,10 @@ MODULES:
     Available modules:
         rv-android-core           Core utilities and domain models
         rv-monitor-generator      Monitor generation from MOP specifications
-        rv-instrumentation        APK instrumentation with monitors
+        rv-instrumentation-core   Pure abstractions (Instrumenter ABC + types)
+        rv-instrumentation        Parent canonical (factory + shared keystore)
+        rv-instrumentation-ajc    AspectJ-based instrumentation variant
+        rv-instrumentation-dexlib2 DEX-native instrumentation variant (gh52)
         rv-static-analysis        Static analysis tools (GATOR, GESDA, REACH)
         rv-coverage              Coverage analysis tools
         rv-screen-parser         Screen parsing utilities

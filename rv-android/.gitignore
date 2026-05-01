@@ -13,6 +13,11 @@
 # rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli.
 modules/rv-instrumentation-dexlib2/lib/*.jar
 
+# AspectJ compiler crash dumps — produced by ajc when weaving fails on
+# specific classes. Useful for debugging individual instrumentation runs
+# but transient; not part of the source tree.
+ajcore.*.txt
+
 # Calibration datasets (instrumented APKs + SA JSONs, ~658MB)
 modules/rv-agent-validation/data/calibration_dataset/
 modules/rv-agent-validation/data/calibration_dataset_v2/

@@ -20,6 +20,8 @@ members = [
     "rv-coverage",
     "rv-experiment",
     "rv-instrumentation",
+    "rv-instrumentation-ajc",
+    "rv-instrumentation-core",
     "rv-instrumentation-dexlib2",
     "rv-monitor-generator",
     "rv-platform",
@@ -2593,6 +2595,8 @@ dependencies = [
     { name = "rv-coverage" },
     { name = "rv-experiment" },
     { name = "rv-instrumentation" },
+    { name = "rv-instrumentation-ajc" },
+    { name = "rv-instrumentation-core" },
     { name = "rv-instrumentation-dexlib2" },
     { name = "rv-monitor-generator" },
     { name = "rv-platform" },
@@ -2638,6 +2642,8 @@ requires-dist = [
     { name = "rv-coverage", editable = "modules/rv-coverage" },
     { name = "rv-experiment", editable = "modules/rv-experiment" },
     { name = "rv-instrumentation", editable = "modules/rv-instrumentation" },
+    { name = "rv-instrumentation-ajc", editable = "modules/rv-instrumentation-ajc" },
+    { name = "rv-instrumentation-core", editable = "modules/rv-instrumentation-core" },
     { name = "rv-instrumentation-dexlib2", editable = "modules/rv-instrumentation-dexlib2" },
     { name = "rv-monitor-generator", editable = "modules/rv-monitor-generator" },
     { name = "rv-platform", editable = "modules/rv-platform" },
@@ -2740,6 +2746,8 @@ dependencies = [
     { name = "rv-android-core" },
     { name = "rv-coverage" },
     { name = "rv-instrumentation" },
+    { name = "rv-instrumentation-ajc" },
+    { name = "rv-instrumentation-dexlib2" },
     { name = "rv-monitor-generator" },
     { name = "rv-platform" },
     { name = "rv-screen-parser" },
@@ -2760,6 +2768,8 @@ requires-dist = [
     { name = "rv-android-core", editable = "modules/rv-android-core" },
     { name = "rv-coverage", editable = "modules/rv-coverage" },
     { name = "rv-instrumentation", editable = "modules/rv-instrumentation" },
+    { name = "rv-instrumentation-ajc", editable = "modules/rv-instrumentation-ajc" },
+    { name = "rv-instrumentation-dexlib2", editable = "modules/rv-instrumentation-dexlib2" },
     { name = "rv-monitor-generator", editable = "modules/rv-monitor-generator" },
     { name = "rv-platform", editable = "modules/rv-platform" },
     { name = "rv-screen-parser", editable = "modules/rv-screen-parser" },
@@ -2778,8 +2788,65 @@ name = "rv-instrumentation"
 version = "0.1.0"
 source = { editable = "modules/rv-instrumentation" }
 dependencies = [
-    { name = "pydantic" },
+    { name = "rv-instrumentation-ajc" },
+    { name = "rv-instrumentation-core" },
+    { name = "rv-instrumentation-dexlib2" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "rv-instrumentation-ajc", editable = "modules/rv-instrumentation-ajc" },
+    { name = "rv-instrumentation-core", editable = "modules/rv-instrumentation-core" },
+    { name = "rv-instrumentation-dexlib2", editable = "modules/rv-instrumentation-dexlib2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+]
+
+[[package]]
+name = "rv-instrumentation-ajc"
+version = "0.1.0"
+source = { editable = "modules/rv-instrumentation-ajc" }
+dependencies = [
     { name = "pyyaml" },
+    { name = "rv-android-core" },
+    { name = "rv-instrumentation-core" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "rv-android-core", editable = "modules/rv-android-core" },
+    { name = "rv-instrumentation-core", editable = "modules/rv-instrumentation-core" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+]
+
+[[package]]
+name = "rv-instrumentation-core"
+version = "0.1.0"
+source = { editable = "modules/rv-instrumentation-core" }
+dependencies = [
+    { name = "pydantic" },
     { name = "rv-android-core" },
 ]
 
@@ -2792,7 +2859,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9.0" },
-    { name = "pyyaml", specifier = ">=6.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
 ]
 
@@ -2809,7 +2875,7 @@ source = { editable = "modules/rv-instrumentation-dexlib2" }
 dependencies = [
     { name = "pydantic" },
     { name = "rv-android-core" },
-    { name = "rv-instrumentation" },
+    { name = "rv-instrumentation-core" },
 ]
 
 [package.dev-dependencies]
@@ -2822,7 +2888,7 @@ dev = [
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
-    { name = "rv-instrumentation", editable = "modules/rv-instrumentation" },
+    { name = "rv-instrumentation-core", editable = "modules/rv-instrumentation-core" },
 ]
 
 [package.metadata.requires-dev]

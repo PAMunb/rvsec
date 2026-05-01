@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rv_experiment.experiment.workflow.workflow_factory import WorkflowFactory
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -69,13 +68,17 @@ class TestCreatePreProcessor:
 
     def test_create_pre_processor_returns_instance(self, workflow_factory):
         """Test that create_pre_processor returns PreProcessor instance."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.PreProcessor") as mock_pp:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.PreProcessor"
+        ) as mock_pp:
             workflow_factory.create_pre_processor("/tmp/results")
             mock_pp.assert_called_once()
 
     def test_create_pre_processor_uses_config(self, workflow_factory, mock_config):
         """Test that pre-processor uses config from factory."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.PreProcessor") as mock_pp:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.PreProcessor"
+        ) as mock_pp:
             workflow_factory.create_pre_processor("/tmp/results")
             # Should use config, not results_dir parameter
             call_args = mock_pp.call_args[0][0]
@@ -83,7 +86,9 @@ class TestCreatePreProcessor:
 
     def test_create_pre_processor_ignores_results_dir_param(self, workflow_factory):
         """Test that results_dir parameter is ignored (uses config)."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.PreProcessor") as mock_pp:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.PreProcessor"
+        ) as mock_pp:
             workflow_factory.create_pre_processor("/ignored/path")
             # Should use config.output_dir
             assert mock_pp.called
@@ -99,20 +104,28 @@ class TestCreateExecutionController:
 
     def test_create_execution_controller_returns_instance(self, workflow_factory):
         """Test that create_execution_controller returns ExecutionController instance."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.ExecutionController") as mock_ec:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.ExecutionController"
+        ) as mock_ec:
             workflow_factory.create_execution_controller()
             mock_ec.assert_called_once()
 
-    def test_create_execution_controller_uses_config(self, workflow_factory, mock_config):
+    def test_create_execution_controller_uses_config(
+        self, workflow_factory, mock_config
+    ):
         """Test that execution controller uses config from factory."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.ExecutionController") as mock_ec:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.ExecutionController"
+        ) as mock_ec:
             workflow_factory.create_execution_controller()
             call_args = mock_ec.call_args[0][0]
             assert call_args is mock_config
 
     def test_create_execution_controller_no_params(self, workflow_factory, mock_config):
         """Test that execution controller requires no additional params."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.ExecutionController") as mock_ec:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.ExecutionController"
+        ) as mock_ec:
             workflow_factory.create_execution_controller()
             # Controller is called with config from factory
             assert mock_ec.called
@@ -129,13 +142,19 @@ class TestCreatePostProcessor:
 
     def test_create_post_processor_returns_instance(self, workflow_factory):
         """Test that create_post_processor returns PostProcessor instance."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.PostProcessor") as mock_pp:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.PostProcessor"
+        ) as mock_pp:
             workflow_factory.create_post_processor("/tmp/results")
             mock_pp.assert_called_once()
 
-    def test_create_post_processor_uses_config_output_dir(self, workflow_factory, mock_config):
+    def test_create_post_processor_uses_config_output_dir(
+        self, workflow_factory, mock_config
+    ):
         """Test that post-processor uses config.output_dir."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.PostProcessor") as mock_pp:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.PostProcessor"
+        ) as mock_pp:
             workflow_factory.create_post_processor("/tmp/results")
             # Should use config.output_dir, not parameter
             call_args = mock_pp.call_args[0][0]
@@ -143,7 +162,9 @@ class TestCreatePostProcessor:
 
     def test_create_post_processor_ignores_param(self, workflow_factory):
         """Test that results_dir parameter is ignored."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.PostProcessor") as mock_pp:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.PostProcessor"
+        ) as mock_pp:
             workflow_factory.create_post_processor("/ignored/path")
             # Should use config.output_dir
             call_args = mock_pp.call_args[0][0]
@@ -160,27 +181,37 @@ class TestCreateResultManager:
 
     def test_create_result_manager_returns_instance(self, workflow_factory):
         """Test that create_result_manager returns ResultManager instance."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.ResultManager") as mock_rm:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.ResultManager"
+        ) as mock_rm:
             workflow_factory.create_result_manager("/tmp/results")
             mock_rm.assert_called_once()
 
-    def test_create_result_manager_uses_config_output_dir(self, workflow_factory, mock_config):
+    def test_create_result_manager_uses_config_output_dir(
+        self, workflow_factory, mock_config
+    ):
         """Test that result manager uses config.output_dir."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.ResultManager") as mock_rm:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.ResultManager"
+        ) as mock_rm:
             workflow_factory.create_result_manager("/tmp/results")
             call_args = mock_rm.call_args[0]
             assert call_args[0] == mock_config.output_dir
 
     def test_create_result_manager_uses_storage(self, workflow_factory, mock_storage):
         """Test that result manager uses storage from factory."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.ResultManager") as mock_rm:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.ResultManager"
+        ) as mock_rm:
             workflow_factory.create_result_manager("/tmp/results")
             call_args = mock_rm.call_args[0]
             assert call_args[1] is mock_storage
 
     def test_create_result_manager_ignores_param(self, workflow_factory):
         """Test that results_dir parameter is ignored."""
-        with patch("rv_experiment.experiment.workflow.workflow_factory.ResultManager") as mock_rm:
+        with patch(
+            "rv_experiment.experiment.workflow.workflow_factory.ResultManager"
+        ) as mock_rm:
             workflow_factory.create_result_manager("/ignored/path")
             # Should use config.output_dir
             call_args = mock_rm.call_args[0]

@@ -1,9 +1,10 @@
 """
-CLI entry point for rv-instrumentation.
+CLI entry point for rv-instrumentation-ajc.
 
 This module provides command-line interface for instrumenting Android APKs with
-runtime verification monitors, transforming standard APKs into monitored
-operations-enabled artifacts ready for runtime verification testing.
+runtime verification monitors via the AspectJ-based pipeline (legacy
+dex2jar+ajc+d8), transforming standard APKs into monitored operations-enabled
+artifacts ready for runtime verification testing.
 """
 
 import argparse
@@ -11,8 +12,11 @@ import os
 import sys
 from typing import Any, Dict
 
-from rv_instrumentation.config import ConfigurationError, RVInstrumentationConfig
-from rv_instrumentation.rvandroid import RVInstrumentation
+from rv_instrumentation_ajc.ajc_instrumentation import AjcInstrumentation
+from rv_instrumentation_ajc.config import (
+    AjcInstrumentationConfig,
+    ConfigurationError,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -23,7 +27,7 @@ def create_parser() -> argparse.ArgumentParser:
         Configured ArgumentParser instance with all command options
     """
     parser = argparse.ArgumentParser(
-        prog="rv-instrumentation",
+        prog="rv-instrumentation-ajc",
         description="Instrument Android APKs with runtime verification monitors for monitored operations analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -223,20 +227,20 @@ def configure_logging(verbose: bool) -> None:
     )
 
 
-def create_instrumentation_config(args) -> RVInstrumentationConfig:
+def create_instrumentation_config(args) -> AjcInstrumentationConfig:
     """
-    Create RVInstrumentationConfig from command line arguments.
+    Create AjcInstrumentationConfig from command line arguments.
 
     Args:
         args: Parsed command line arguments
 
     Returns:
-        Configured RVInstrumentationConfig instance
+        Configured AjcInstrumentationConfig instance
 
     Raises:
         ConfigurationError: If configuration validation fails
     """
-    return RVInstrumentationConfig(
+    return AjcInstrumentationConfig(
         rvsec_root=args.rvsec_root,
         monitor_output_dir=args.monitor_dir,
         android_jar_path=args.android_jar,
@@ -316,7 +320,7 @@ def handle_instrument_command(args) -> int:
         config.validate_apk_input(args.apk)
 
         # Initialize instrumentation engine
-        instrumentation = RVInstrumentation(config)
+        instrumentation = AjcInstrumentation(config)
 
         # Execute single APK instrumentation
         print(f"Instrumenting APK: {os.path.basename(args.apk)}")
@@ -403,7 +407,7 @@ def handle_batch_command(args) -> int:
             raise FileNotFoundError(f"APKs directory not found: {args.apks_dir}")
 
         # Initialize instrumentation engine
-        instrumentation = RVInstrumentation(config)
+        instrumentation = AjcInstrumentation(config)
 
         # Execute batch instrumentation
         print(f"Batch instrumenting APKs from: {args.apks_dir}")
@@ -421,7 +425,7 @@ def handle_batch_command(args) -> int:
         try:
             apks = utils.get_apks(args.apks_dir)
             total_apks = len(apks)
-        except:
+        except Exception:
             total_apks = len(errors) if errors else 1
 
         # Display results

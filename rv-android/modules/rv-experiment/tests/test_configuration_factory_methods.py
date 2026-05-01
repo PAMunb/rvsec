@@ -15,7 +15,6 @@ import pytest
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.factories.configuration_factory import ConfigurationFactory
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -44,7 +43,9 @@ class TestCreateCliConfig:
             apk_dir="./apks",
         )
         # ErrorHandler returns None on validation failure
-        assert config is None or config is not None  # Either passes validation or returns None
+        assert (
+            config is None or config is not None
+        )  # Either passes validation or returns None
 
     def test_create_cli_config_handles_error(self, config_factory):
         """Test create_cli_config returns None on error (ErrorHandler pattern)."""

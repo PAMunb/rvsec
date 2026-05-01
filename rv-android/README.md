@@ -9,12 +9,14 @@ A modular platform for Android application testing that integrates runtime verif
 
 ## Architecture Overview
 
-RV-Android uses a uv workspace with 13 independent modules organized in four layers:
+RV-Android uses a uv workspace with 16 production modules organized in four layers (the temporary `aperv-llm-validation` module is excluded from the canonical count):
 
 ```
-Experiment Orchestration:  rv-experiment, rv-agent-validation
-LLM Testing:               rv-agent, rvagent-tool
-Analysis and Processing:   rv-monitor-generator, rv-instrumentation, rv-static-analysis,
+Experiment Orchestration:  rv-experiment
+LLM Testing:               rv-agent, rvagent-tool, aperv-tool
+Analysis and Processing:   rv-monitor-generator, rv-instrumentation-core,
+                           rv-instrumentation, rv-instrumentation-ajc,
+                           rv-instrumentation-dexlib2, rv-static-analysis,
                            rv-coverage, rv-screen-parser
 Core Infrastructure:       rv-android-core, rv-platform, rv-tools, rv-uiautomator
 ```
@@ -28,14 +30,17 @@ Core Infrastructure:       rv-android-core, rv-platform, rv-tools, rv-uiautomato
 | **rv-tools** | Testing tool plugin system with registry and factory patterns |
 | **rv-uiautomator** | Shared UIAutomator2 components for Android device interaction |
 | **rv-monitor-generator** | JavaMOP/RV-Monitor integration for generating runtime verification monitors |
-| **rv-instrumentation** | APK instrumentation with monitor and coverage aspect weaving |
+| **rv-instrumentation-core** | Pure abstractions: `Instrumenter` ABC + shared Pydantic result types |
+| **rv-instrumentation** | Parent canonical: `get_instrumenter()` factory + shared keystore asset |
+| **rv-instrumentation-ajc** | AspectJ-based instrumentation variant (legacy dex2jar+ajc+d8 pipeline) |
+| **rv-instrumentation-dexlib2** | DEX-native instrumentation variant (gh52) |
 | **rv-static-analysis** | Unified GATOR-based static analysis: reachability, windows, transitions |
 | **rv-coverage** | Coverage analysis and tracking for monitored operations |
 | **rv-screen-parser** | Android UI parsing with visitor patterns for state analysis |
 | **rv-agent** | LLM-driven testing tool using Qwen3-VL vision model with LangGraph workflow |
 | **rvagent-tool** | Bridge module registering rv-agent as a tool in the rv-tools plugin system |
+| **aperv-tool** | rv-platform plugin wrapping the APE-RV binary (ape-rv.jar) for model-based UI exploration |
 | **rv-experiment** | Experiment orchestration: pre-processing, execution coordination, post-processing |
-| **rv-agent-validation** | Validation framework for rv-agent calibration and benchmarking |
 
 ### Pipeline
 

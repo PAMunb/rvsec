@@ -20,7 +20,6 @@ from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_experiment.config import ExperimentConfig
 from rv_experiment.experiment.experiment_controller import ExperimentController
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -47,7 +46,9 @@ def mock_config():
 def controller(mock_config):
     """Create ExperimentController instance."""
     with patch("rv_experiment.experiment.experiment_controller.PreProcessor"):
-        with patch("rv_experiment.experiment.experiment_controller.ExecutionController"):
+        with patch(
+            "rv_experiment.experiment.experiment_controller.ExecutionController"
+        ):
             with patch("rv_experiment.experiment.experiment_controller.PostProcessor"):
                 return ExperimentController(mock_config, experiment_id="test_001")
 
@@ -71,8 +72,12 @@ class TestInitialization:
     def test_init_generates_id_if_none(self, mock_config):
         """Test that experiment_id is generated if not provided."""
         with patch("rv_experiment.experiment.experiment_controller.PreProcessor"):
-            with patch("rv_experiment.experiment.experiment_controller.ExecutionController"):
-                with patch("rv_experiment.experiment.experiment_controller.PostProcessor"):
+            with patch(
+                "rv_experiment.experiment.experiment_controller.ExecutionController"
+            ):
+                with patch(
+                    "rv_experiment.experiment.experiment_controller.PostProcessor"
+                ):
                     c = ExperimentController(mock_config)
                     assert c.experiment_id is not None
 
@@ -82,9 +87,15 @@ class TestInitialization:
 
     def test_init_creates_components(self, mock_config):
         """Test that components are created."""
-        with patch("rv_experiment.experiment.experiment_controller.PreProcessor") as mock_pp:
-            with patch("rv_experiment.experiment.experiment_controller.ExecutionController") as mock_ec:
-                with patch("rv_experiment.experiment.experiment_controller.PostProcessor") as mock_post:
+        with patch(
+            "rv_experiment.experiment.experiment_controller.PreProcessor"
+        ) as mock_pp:
+            with patch(
+                "rv_experiment.experiment.experiment_controller.ExecutionController"
+            ) as mock_ec:
+                with patch(
+                    "rv_experiment.experiment.experiment_controller.PostProcessor"
+                ) as mock_post:
                     ExperimentController(mock_config, experiment_id="test_001")
                     mock_pp.assert_called_once()
                     mock_ec.assert_called_once()
@@ -181,7 +192,9 @@ class TestRunExecution:
 
     def test_run_execution_returns_success(self, controller):
         """Test _run_execution returns success."""
-        controller.pre_processor.get_instrumented_apks = MagicMock(return_value=[MagicMock()])
+        controller.pre_processor.get_instrumented_apks = MagicMock(
+            return_value=[MagicMock()]
+        )
         controller._get_configured_tools = MagicMock(return_value=[MagicMock()])
         controller.execution_controller.setup = MagicMock()
         controller.execution_controller.run = MagicMock(return_value=True)
@@ -202,7 +215,9 @@ class TestRunExecution:
 
     def test_run_execution_no_tools(self, controller):
         """Test _run_execution with no tools."""
-        controller.pre_processor.get_instrumented_apks = MagicMock(return_value=[MagicMock()])
+        controller.pre_processor.get_instrumented_apks = MagicMock(
+            return_value=[MagicMock()]
+        )
         controller._get_configured_tools = MagicMock(return_value=[])
 
         result = controller._run_execution()
@@ -211,7 +226,9 @@ class TestRunExecution:
 
     def test_run_execution_failure(self, controller):
         """Test _run_execution with platform failure."""
-        controller.pre_processor.get_instrumented_apks = MagicMock(return_value=[MagicMock()])
+        controller.pre_processor.get_instrumented_apks = MagicMock(
+            return_value=[MagicMock()]
+        )
         controller._get_configured_tools = MagicMock(return_value=[MagicMock()])
         controller.execution_controller.setup = MagicMock()
         controller.execution_controller.run = MagicMock(return_value=False)

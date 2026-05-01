@@ -38,8 +38,8 @@ class Android:
 
     - Called by EmulatorComponent in rv-platform for emulator lifecycle management
     - Handles APK installation and permission granting during task execution
-    - Provides boot wait logic with two-phase verification (boot animation
-      stop + sys.boot_completed)
+    - Provides boot wait logic with multi-phase verification (boot animation,
+      sys.boot_completed, root, remount)
 
     ### Key Features:
 
@@ -147,21 +147,19 @@ class Android:
         sys.boot_completed property. Each phase retries on ADB command
         timeouts until the overall boot_timeout is exceeded.
 
-        Phase 3 (`adb root` + `adb remount`) was removed: it had been a
-        silent no-op since the emulator is launched with `-read-only`, which
-        rejects remount at the qemu layer regardless of adbd state. On API
-        29 emulators that rejection produced an empty stderr, so the
-        original `if not stderr.strip(): break` check passed by accident and
-        the boot wait moved on. The Apr 2026 AVD upgrade to API 30 changed
-        adb to populate stderr on the same rejection ("remount failed") —
-        which exposed the dead code as a 180s hang. None of the runtime
-        tools (APE, APE-RV, Monkey, FastBot) require system-partition
-        writes; everything goes to /data/local/tmp/ or /sdcard/, both
-        world-writable on stock images.
+        Phase 3 (`adb root` + `adb remount`) was intentionally removed
+        (commit c0274def, gh50 §17). The emulator is launched with
+        `-read-only`, which causes the qemu layer to reject root/remount;
+        on API 30+ that rejection populates stderr with "remount failed",
+        making the prior `if not stderr.strip(): break` check loop forever
+        until boot_timeout. None of the runtime tools (APE, APE-RV, Monkey,
+        FastBot) require system-partition writes — all targets land in
+        `/data/local/tmp/` or `/sdcard/`, both world-writable on stock
+        images.
 
         Args:
             device_name: ADB device serial (default: "emulator-5554").
-            boot_timeout: Maximum total seconds to wait across all phases
+            boot_timeout: Maximum total seconds to wait across both phases
                 (default: 180).
 
         Raises:

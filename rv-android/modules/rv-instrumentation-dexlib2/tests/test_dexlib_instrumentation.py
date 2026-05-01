@@ -91,15 +91,29 @@ def test_parse_results_json_success(tmp_workspace):
     )
     inst = DexlibInstrumentation(cfg)
     path = tmp_workspace["instrumented"] / "instrument_results.json"
-    path.write_text(json.dumps({
-        "variant": "dexlib2",
-        "results": [
-            {"apkName": "one.apk", "success": True, "message": "ok",
-             "phase": "dexlib2_pipeline", "weaveCounts": {}},
-            {"apkName": "two.apk", "success": False, "message": "parse failed",
-             "phase": "descriptor_read", "weaveCounts": {}},
-        ],
-    }))
+    path.write_text(
+        json.dumps(
+            {
+                "variant": "dexlib2",
+                "results": [
+                    {
+                        "apkName": "one.apk",
+                        "success": True,
+                        "message": "ok",
+                        "phase": "dexlib2_pipeline",
+                        "weaveCounts": {},
+                    },
+                    {
+                        "apkName": "two.apk",
+                        "success": False,
+                        "message": "parse failed",
+                        "phase": "descriptor_read",
+                        "weaveCounts": {},
+                    },
+                ],
+            }
+        )
+    )
     results = inst._parse_results_json(path)
     assert results.variant == "dexlib2"
     assert results.success_count == 1
@@ -156,13 +170,20 @@ def test_batch_argv_includes_monitor_src_dir(tmp_workspace):
         (results_dir / "instrument_results.json").write_text(
             json.dumps({"variant": "dexlib2", "results": []})
         )
+
         class _R:
             returncode = 0
             stderr = ""
             stdout = ""
+
         return _R()
 
-    with patch("subprocess.run", side_effect=fake_run):
+    # prepare_instrumentation is exercised separately; this test pins only
+    # the argv contract going INTO instr-cli. Stub it out so the new
+    # mvn-driven runtime-libs resolution doesn't run during the argv check.
+    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch(
+        "subprocess.run", side_effect=fake_run
+    ):
         inst.instrument_apks(tmp_workspace["root"] / "apks", results_dir)
 
     cmd = captured["cmd"]
@@ -194,15 +215,18 @@ def test_instrument_argv_includes_keystore_when_configured(tmp_workspace):
 
     def fake_run(cmd, **kwargs):
         captured["cmd"] = cmd
+
         class _R:
             returncode = 0
             stderr = ""
             stdout = ""
+
         return _R()
 
     # Build a minimal App-shaped object — the wrapper only reads .apk_path
     # and .name, so a SimpleNamespace suffices.
     from types import SimpleNamespace
+
     app = SimpleNamespace(
         apk_path=tmp_workspace["root"] / "fake.apk",
         name="fake",
@@ -212,6 +236,267 @@ def test_instrument_argv_includes_keystore_when_configured(tmp_workspace):
 
     cmd = captured["cmd"]
     assert "--keystore" in cmd, "keystore_file set but --keystore not forwarded"
-    assert "--keystore-pass" in cmd, "keystore_password set but --keystore-pass not forwarded"
+    assert (
+        "--keystore-pass" in cmd
+    ), "keystore_password set but --keystore-pass not forwarded"
     i = cmd.index("--keystore")
     assert Path(cmd[i + 1]) == keystore
+
+
+# --- 9.22f4 wrapper guard: silent CLI failure detection -------------------
+# The Java CLI's ``instrument`` subcommand can exit 0 even when javac/d8
+# silently dropped the APK. Without the guard, the wrapper credits phantom
+# successes (root cause of gh53 dexlib2 smoke producing 0% coverage).
+
+
+def _seed_apk(workspace, apk_name="cryptoapp.apk"):
+    apks_dir = workspace["root"] / "apks_in"
+    apks_dir.mkdir(exist_ok=True)
+    apk = apks_dir / apk_name
+    apk.write_bytes(b"PK\x03\x04stub-apk")
+    return apks_dir, apk
+
+
+def test_wrapper_guard_apk_paths_demotes_when_apk_missing(tmp_workspace):
+    """_run_cli succeeds (mock) but no APK is written → success_count=0."""
+    _seed_descriptor(tmp_workspace)
+    apks_dir, _apk = _seed_apk(tmp_workspace)
+    results_dir = tmp_workspace["root"] / "results"
+    results_dir.mkdir()
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
+        DexlibInstrumentation, "_run_cli", return_value=None
+    ):
+        res = inst.instrument_apks(
+            apks_dir=apks_dir,
+            results_dir=results_dir,
+            apk_paths=["cryptoapp.apk"],
+        )
+    assert res.success_count == 0
+    assert "cryptoapp.apk" in res.errors
+    assert "not created" in res.errors["cryptoapp.apk"].message
+
+
+def test_wrapper_guard_apk_paths_succeeds_when_apk_present(tmp_workspace):
+    """_run_cli succeeds AND CLI 'wrote' the APK → success_count=1."""
+    _seed_descriptor(tmp_workspace)
+    apks_dir, _apk = _seed_apk(tmp_workspace)
+    results_dir = tmp_workspace["root"] / "results"
+    results_dir.mkdir()
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    def write_apk(args):
+        # Simulate the CLI writing the output APK
+        (results_dir / "cryptoapp.apk").write_bytes(b"PK\x03\x04stub-apk-out")
+
+    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
+        DexlibInstrumentation, "_run_cli", side_effect=write_apk
+    ):
+        res = inst.instrument_apks(
+            apks_dir=apks_dir,
+            results_dir=results_dir,
+            apk_paths=["cryptoapp.apk"],
+        )
+    assert res.success_count == 1
+    assert res.errors == {}
+
+
+def test_wrapper_guard_batch_path_demotes_when_results_json_lies(tmp_workspace):
+    """JSON says success: true but APK isn't there → demote to error."""
+    _seed_descriptor(tmp_workspace)
+    apks_dir = tmp_workspace["root"] / "apks_in"
+    apks_dir.mkdir()
+    results_dir = tmp_workspace["root"] / "results"
+    results_dir.mkdir()
+
+    # Simulate the CLI writing the results JSON with claimed success but
+    # without producing the APK on disk.
+    (results_dir / "instrument_results.json").write_text(
+        json.dumps(
+            {
+                "variant": "dexlib2",
+                "results": [
+                    {
+                        "apkName": "ghost.apk",
+                        "success": True,
+                        "phase": "signed",
+                        "message": "ok",
+                        "weaveCounts": {},
+                    }
+                ],
+            }
+        )
+    )
+
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
+        DexlibInstrumentation, "_run_cli", return_value=None
+    ):
+        res = inst.instrument_apks(
+            apks_dir=apks_dir,
+            results_dir=results_dir,
+            # no apk_paths → batch path
+        )
+    assert res.success_count == 0
+    assert "ghost.apk" in res.errors
+    assert "not created" in res.errors["ghost.apk"].message
+
+
+# --- 9.22f3 prepare_instrumentation Template Method integration -----------
+
+
+def _seed_rvsec_root(tmp_path):
+    """Create a minimal rvsec workspace layout that satisfies pom-existence checks."""
+    rvsec_root = tmp_path / "rvsec_root"
+    (rvsec_root / "rv-android").mkdir(parents=True)
+    (rvsec_root / "rv-android" / "pom.xml").touch()
+    return rvsec_root
+
+
+def _fake_mvn_writes(jar_names):
+    """side_effect that emulates ``mvn copy-dependencies`` populating the output dir."""
+
+    def _run(cmd, **kwargs):
+        out_dir = next(
+            Path(a.split("=", 1)[1]) for a in cmd if a.startswith("-DoutputDirectory=")
+        )
+        for name in jar_names:
+            (out_dir / name).touch()
+
+        class _R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _R()
+
+    return _run
+
+
+def test_prepare_instrumentation_appends_runtime_jars_to_extra_classpath(
+    tmp_workspace, monkeypatch
+):
+    """prepare_instrumentation appends the 3 runtime jars (no aspectjrt)."""
+    _seed_descriptor(tmp_workspace)
+    rvsec_root = _seed_rvsec_root(tmp_workspace["root"])
+    monkeypatch.setenv("RVSEC_HOME", str(rvsec_root))
+
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    mvn_jars = [
+        "rv-monitor-rt-0.8.0-SNAPSHOT.jar",
+        "rvsec-core-0.8.0-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.8.0-SNAPSHOT.jar",
+        "aspectjrt-1.9.7.jar",
+    ]
+    with patch("subprocess.run", side_effect=_fake_mvn_writes(mvn_jars)):
+        inst.prepare_instrumentation()
+
+    classpath_names = {p.name for p in cfg.extra_classpath}
+    assert classpath_names == {
+        "rv-monitor-rt-0.8.0-SNAPSHOT.jar",
+        "rvsec-core-0.8.0-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.8.0-SNAPSHOT.jar",
+    }
+
+
+def test_prepare_instrumentation_allowlists_runtime_jars_regression(
+    tmp_workspace, monkeypatch
+):
+    """Regression: dexlib2 keeps ONLY rv-monitor-rt + rvsec-core +
+    rvsec-logger-logcat in extra_classpath. Everything else (aspectjrt,
+    aspectjweaver, aspectjtools, kotlin-stdlib, surefire-*, annotations)
+    pulled by ``mvn copy-dependencies`` is dropped — the Java CLI dexes
+    every classpath entry into the APK, so noise jars would either
+    inflate the APK or trigger d8 "Type defined multiple times" errors."""
+    _seed_descriptor(tmp_workspace)
+    rvsec_root = _seed_rvsec_root(tmp_workspace["root"])
+    monkeypatch.setenv("RVSEC_HOME", str(rvsec_root))
+
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    # Mirror the realistic mvn output captured from a real run (13 jars).
+    mvn_jars = [
+        "annotations-13.0.jar",
+        "aspectjrt-1.9.25.1.jar",
+        "aspectjtools-1.9.25.1.jar",
+        "aspectjweaver-1.9.25.1.jar",
+        "kotlin-stdlib-2.0.21.jar",
+        "rv-monitor-rt-0.8.0-SNAPSHOT.jar",
+        "rvsec-core-0.8.0-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.8.0-SNAPSHOT.jar",
+        "surefire-api-3.0.0-M7.jar",
+        "surefire-booter-3.0.0-M7.jar",
+        "surefire-extensions-spi-3.0.0-M7.jar",
+        "surefire-logger-api-3.0.0-M7.jar",
+        "surefire-shared-utils-3.0.0-M7.jar",
+    ]
+    with patch("subprocess.run", side_effect=_fake_mvn_writes(mvn_jars)):
+        inst.prepare_instrumentation()
+
+    names = {p.name for p in cfg.extra_classpath}
+    assert names == {
+        "rv-monitor-rt-0.8.0-SNAPSHOT.jar",
+        "rvsec-core-0.8.0-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.8.0-SNAPSHOT.jar",
+    }
+
+
+def test_prepare_instrumentation_calls_resolve_runtime_libs(
+    tmp_workspace, monkeypatch
+):
+    """Confirm that prepare_instrumentation routes through the ABC's Template Method."""
+    _seed_descriptor(tmp_workspace)
+    rvsec_root = _seed_rvsec_root(tmp_workspace["root"])
+    monkeypatch.setenv("RVSEC_HOME", str(rvsec_root))
+
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    sentinel_jars = [tmp_workspace["work"] / "lib_tmp" / "rv-monitor-rt-stub.jar"]
+    with patch.object(
+        DexlibInstrumentation, "_resolve_runtime_libs", return_value=sentinel_jars
+    ) as spy:
+        inst.prepare_instrumentation()
+    assert spy.called
+    args = spy.call_args.args
+    # Args: (rvsec_root, lib_tmp_dir)
+    assert args[0] == rvsec_root
+    assert args[1] == tmp_workspace["work"] / "lib_tmp"

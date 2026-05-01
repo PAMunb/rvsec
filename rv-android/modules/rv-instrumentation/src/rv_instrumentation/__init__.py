@@ -1,17 +1,22 @@
-"""
-RV-Instrumentation module for Android APK runtime verification instrumentation.
+"""Parent canonical module for instrumentation.
 
-This module provides comprehensive APK instrumentation capabilities for integrating
-runtime verification monitors with Android applications. It transforms standard APKs
-into monitored operations-enabled artifacts through a sophisticated pipeline that
-includes decompilation, monitor weaving, recompilation, and signing.
-
-Key Components:
-- RVInstrumentation: Core instrumentation engine for APK transformation
-- RVInstrumentationConfig: Configuration management for flexible deployment
+Re-exports the abstractions from ``rv-instrumentation-core`` and exposes the
+``get_instrumenter`` factory that dispatches to concrete variants
+(``rv-instrumentation-ajc``, ``rv-instrumentation-dexlib2``). The shared
+``assets/keystore.jks`` resource lives here.
 """
 
-from .config import ConfigurationError, RVInstrumentationConfig
-from .rvandroid import RVInstrumentation
+from rv_instrumentation_core import (
+    Instrumenter,
+    InstrumentationError,
+    InstrumentationResults,
+)
 
-__all__ = ["RVInstrumentation", "RVInstrumentationConfig", "ConfigurationError"]
+from rv_instrumentation.factory import get_instrumenter
+
+__all__ = [
+    "Instrumenter",
+    "InstrumentationError",
+    "InstrumentationResults",
+    "get_instrumenter",
+]

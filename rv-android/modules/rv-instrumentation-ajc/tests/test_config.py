@@ -1,5 +1,5 @@
 """
-Unit tests for RVInstrumentationConfig Pydantic models.
+Unit tests for AjcInstrumentationConfig Pydantic models.
 
 These tests verify configuration initialization, path resolution, and Pydantic model validation
 without requiring external dependencies or full instrumentation setup.
@@ -12,24 +12,29 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from rv_android_core.util.error.exceptions import ConfigurationError
-from rv_instrumentation.config import ConfigurationSummary, Dex2jarTools
-from rv_instrumentation.config import InstrumentationError as InstrumentationErrorModel
-from rv_instrumentation.config import InstrumentationResults, RVInstrumentationConfig
+from rv_instrumentation_ajc.config import ConfigurationSummary, Dex2jarTools
+from rv_instrumentation_ajc.config import (
+    InstrumentationError as InstrumentationErrorModel,
+)
+from rv_instrumentation_ajc.config import (
+    InstrumentationResults,
+    AjcInstrumentationConfig,
+)
 
 
-class TestRVInstrumentationConfig(unittest.TestCase):
-    """Tests for RVInstrumentationConfig Pydantic model functionality."""
+class TestAjcInstrumentationConfig(unittest.TestCase):
+    """Tests for AjcInstrumentationConfig Pydantic model functionality."""
 
     def test_config_initialization_with_defaults(self):
         """Test that configuration initializes with default values and validates properly."""
         # Mock environment variables to avoid dependency on actual environment
         with patch.dict(os.environ, {}, clear=True):
-            with patch("rv_instrumentation.config.os.getcwd") as mock_getcwd:
+            with patch("rv_instrumentation_ajc.config.os.getcwd") as mock_getcwd:
                 mock_getcwd.return_value = "/mock/working/dir"
 
                 # This will fail validation but we just want to test initialization
                 with self.assertRaises(ConfigurationError):
-                    RVInstrumentationConfig()
+                    AjcInstrumentationConfig()
 
     def test_config_with_explicit_paths(self):
         """Test configuration with all explicit paths provided using Pydantic validation."""
@@ -68,13 +73,13 @@ class TestRVInstrumentationConfig(unittest.TestCase):
             working_dir = temp_path / "working"
 
             # Mock LoggingManager and ErrorHandler to avoid dependency issues
-            with patch("rv_instrumentation.config.LoggingManager") as mock_logging:
+            with patch("rv_instrumentation_ajc.config.LoggingManager") as mock_logging:
                 mock_logging.get_instance.return_value.get_logger.return_value = (
                     MagicMock()
                 )
 
                 # Test configuration with explicit paths (both positional and named work)
-                config = RVInstrumentationConfig(
+                config = AjcInstrumentationConfig(
                     monitor_output_dir=str(monitor_dir),
                     android_jar_path=str(android_jar),
                     android_platforms_dir=str(android_platforms),
@@ -94,7 +99,7 @@ class TestRVInstrumentationConfig(unittest.TestCase):
 
                 # Test that model is a proper Pydantic instance
                 self.assertTrue(hasattr(config, "model_dump"))
-                self.assertTrue(hasattr(RVInstrumentationConfig, "model_fields"))
+                self.assertTrue(hasattr(AjcInstrumentationConfig, "model_fields"))
 
     def test_positional_constructor_compatibility(self):
         """Test that @validated_model decorator enables positional arguments."""
@@ -123,13 +128,13 @@ class TestRVInstrumentationConfig(unittest.TestCase):
                 tool_path.touch()
                 tool_path.chmod(0o755)
 
-            with patch("rv_instrumentation.config.LoggingManager") as mock_logging:
+            with patch("rv_instrumentation_ajc.config.LoggingManager") as mock_logging:
                 mock_logging.get_instance.return_value.get_logger.return_value = (
                     MagicMock()
                 )
 
                 # Test positional constructor (legacy compatibility)
-                config = RVInstrumentationConfig(
+                config = AjcInstrumentationConfig(
                     None,  # rvsec_root
                     str(monitor_dir),  # monitor_output_dir
                     str(android_jar),  # android_jar_path
@@ -265,12 +270,12 @@ class TestRVInstrumentationConfig(unittest.TestCase):
                 tool_path.touch()
                 tool_path.chmod(0o755)
 
-            with patch("rv_instrumentation.config.LoggingManager") as mock_logging:
+            with patch("rv_instrumentation_ajc.config.LoggingManager") as mock_logging:
                 mock_logging.get_instance.return_value.get_logger.return_value = (
                     MagicMock()
                 )
 
-                config = RVInstrumentationConfig(
+                config = AjcInstrumentationConfig(
                     monitor_output_dir=str(monitor_dir),
                     android_jar_path=str(android_jar),
                     android_platforms_dir=str(android_platforms),
@@ -315,12 +320,12 @@ class TestRVInstrumentationConfig(unittest.TestCase):
                 tool_path.touch()
                 tool_path.chmod(0o755)
 
-            with patch("rv_instrumentation.config.LoggingManager") as mock_logging:
+            with patch("rv_instrumentation_ajc.config.LoggingManager") as mock_logging:
                 mock_logging.get_instance.return_value.get_logger.return_value = (
                     MagicMock()
                 )
 
-                config = RVInstrumentationConfig(
+                config = AjcInstrumentationConfig(
                     monitor_output_dir=str(monitor_dir),
                     android_jar_path=str(android_jar),
                     android_platforms_dir=str(android_platforms),
@@ -372,12 +377,12 @@ class TestRVInstrumentationConfig(unittest.TestCase):
                 tool_path.touch()
                 tool_path.chmod(0o755)
 
-            with patch("rv_instrumentation.config.LoggingManager") as mock_logging:
+            with patch("rv_instrumentation_ajc.config.LoggingManager") as mock_logging:
                 mock_logging.get_instance.return_value.get_logger.return_value = (
                     MagicMock()
                 )
 
-                config = RVInstrumentationConfig(
+                config = AjcInstrumentationConfig(
                     monitor_output_dir=str(monitor_dir),
                     android_jar_path=str(android_jar),
                     android_platforms_dir=str(android_platforms),

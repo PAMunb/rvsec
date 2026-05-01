@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-
 from rv_android_core import constants
 from rv_android_core.commands.command import Command
 from rv_android_core.commands.command_exception import CommandException
@@ -16,16 +15,19 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import InstrumentationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_instrumentation.config import InstrumentationError as InstrumentationErrorModel
-from rv_instrumentation.config import InstrumentationResults, RVInstrumentationConfig
+from rv_instrumentation_core import Instrumenter
+from rv_instrumentation_core import InstrumentationError as InstrumentationErrorModel
+from rv_instrumentation_core import InstrumentationResults
+
+from rv_instrumentation_ajc.config import AjcInstrumentationConfig
 
 
-class RVInstrumentation:
+class AjcInstrumentation(Instrumenter):
     """
     A specialized system for instrumenting and preparing Android APKs for runtime verification
     with monitored operations integration.
 
-    The RVInstrumentation serves as the core instrumentation engine that transforms standard
+    The AjcInstrumentation serves as the core instrumentation engine that transforms standard
     Android APKs into runtime verification-enabled artifacts. It orchestrates a sophisticated
     pipeline that integrates decompilation, monitor weaving, recompilation, and signing to
     produce instrumented APKs ready for monitored operations analysis.
@@ -77,22 +79,22 @@ class RVInstrumentation:
     - Minimizes memory footprint through streaming file operations
     """
 
-    def __init__(self, config: Optional[RVInstrumentationConfig] = None):
+    def __init__(self, config: Optional[AjcInstrumentationConfig] = None):
         """
-        Initialize RVInstrumentation with configuration and logging integration.
+        Initialize AjcInstrumentation with configuration and logging integration.
 
         Args:
             config: Configuration object. If None, will be created with default settings
                    from environment variables or explicit paths.
         """
-        self.config = config or RVInstrumentationConfig()
+        self.config = config or AjcInstrumentationConfig()
 
         # Initialize structured logging through LoggingManager
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
-            "rv_instrumentation.RVInstrumentation",
+            "rv_instrumentation_ajc.AjcInstrumentation",
             {
-                CONTEXT_COMPONENT: "RVInstrumentation",
+                CONTEXT_COMPONENT: "AjcInstrumentation",
                 "component_module": "rv-instrumentation",
             },
         )
@@ -101,14 +103,14 @@ class RVInstrumentation:
         self._error_handler = ErrorHandler.get_instance()
 
         self._logger.info(
-            "RVInstrumentation initialized",
+            "AjcInstrumentation initialized",
             extra={
                 "config_summary": self.config.get_configuration_summary().model_dump()
             },
         )
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="batch_instrumentation"
+        component="AjcInstrumentation", phase="batch_instrumentation"
     )
     def instrument_apks(
         self,
@@ -168,7 +170,7 @@ class RVInstrumentation:
             )
 
             context = {
-                "component": "RVInstrumentation",
+                "component": "AjcInstrumentation",
                 "operation": "prepare_instrumentation",
                 "results_dir": results_dir,
             }
@@ -204,7 +206,7 @@ class RVInstrumentation:
             )
 
             context = {
-                "component": "RVInstrumentation",
+                "component": "AjcInstrumentation",
                 "operation": "get_apks",
                 "apks_dir": apks_dir,
             }
@@ -283,7 +285,7 @@ class RVInstrumentation:
 
                 # Use centralized error handling
                 context = {
-                    "component": "RVInstrumentation",
+                    "component": "AjcInstrumentation",
                     "operation": "instrument",
                     "app_name": app.name,
                     "tool": ex.tool,
@@ -314,7 +316,7 @@ class RVInstrumentation:
 
                 # Use centralized error handling
                 context = {
-                    "component": "RVInstrumentation",
+                    "component": "AjcInstrumentation",
                     "operation": "instrument",
                     "app_name": app.name,
                 }
@@ -379,7 +381,7 @@ class RVInstrumentation:
 
         return results
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="preparation")
+    @ErrorHandler.handle_errors(component="AjcInstrumentation", phase="preparation")
     def prepare_instrumentation(self, results_dir: str) -> None:
         """
         Prepare the instrumentation environment by cleaning temporary directories,
@@ -411,8 +413,18 @@ class RVInstrumentation:
         ]
         self.clear(temp_dirs)
 
-        # Execute Maven for dependency resolution
-        self.__execute_maven()
+        # Resolve runtime dependencies (rv-monitor-rt, rvsec-core,
+        # rvsec-logger-logcat, aspectjrt) via the ABC's Template Method —
+        # shared with dexlib2's prepare_instrumentation. AJC consumes ALL
+        # four jars: aspectjrt is required for AspectJ weaving at this
+        # variant's compile step (the .aj aspect file pulled by ajc).
+        rvsec_root = self.config.rvsec_root or os.environ.get("RVSEC_HOME")
+        if not rvsec_root:
+            raise InstrumentationError(
+                "RVSEC_HOME environment variable is not set and "
+                "config.rvsec_root is None; cannot resolve runtime libraries."
+            )
+        self._resolve_runtime_libs(Path(rvsec_root), Path(self.config.lib_tmp_dir))
 
         # Create output directory structure
         utils.create_folder_if_not_exists(results_dir)
@@ -420,7 +432,7 @@ class RVInstrumentation:
         self._logger.debug("Instrumentation environment prepared successfully")
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation",
+        component="AjcInstrumentation",
         phase="single_apk_instrumentation",
         reraise=True,
     )
@@ -675,37 +687,6 @@ class RVInstrumentation:
         asm_verify_cmd = Command(dex2jar_tools.asm_verify, [jar_file])
         utils.execute_command(asm_verify_cmd, "asm_verify")
 
-    @ErrorHandler.handle_errors(component="RVInstrumentation", phase="maven_execution")
-    def __execute_maven(self) -> None:
-        """
-        Execute Maven build to resolve and copy runtime verification dependencies.
-
-        This method runs Maven to download and prepare all required runtime verification
-        libraries (rv-monitor-rt, aspectjrt, etc.) into the temporary library directory
-        for subsequent integration during the instrumentation process.
-
-        Raises:
-            CommandException: If Maven execution fails
-        """
-        self._logger.info(
-            "Executing Maven dependency resolution",
-            extra={
-                "lib_tmp_dir": self.config.lib_tmp_dir,
-                "pipeline_stage": "maven_dependencies",
-            },
-        )
-
-        maven_cmd = Command("mvn", ["clean", "compile"])
-        # Modern JVMs (JDK 21+) emit native-access / deprecation warnings on
-        # stderr even for BUILD SUCCESS — e.g. "WARNING: A restricted method
-        # in java.lang.System has been called", "sun.misc.Unsafe::objectFieldOffset".
-        # They are not errors; exit code remains 0. Same pattern as d8,
-        # rv-frame-computer and ajc — see INV-INS-19. Real Maven failures
-        # (dependency resolution, compile errors) still return non-zero.
-        utils.execute_command(maven_cmd, "maven", skip_stderr=True)
-
-        self._logger.debug("Maven dependency resolution completed successfully")
-
     def __get_classpath(self, app: App) -> list:
         """
         Build comprehensive classpath for AspectJ weaving including Android SDK and dependencies.
@@ -727,7 +708,7 @@ class RVInstrumentation:
         return classpath
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="strip_desugared_shims", reraise=True
+        component="AjcInstrumentation", phase="strip_desugared_shims", reraise=True
     )
     def __strip_desugared_shims(self, app: App) -> None:
         """
@@ -816,7 +797,7 @@ class RVInstrumentation:
         return tmp_dir.parent / (tmp_dir.name + "_quarantine")
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="quarantine", reraise=True
+        component="AjcInstrumentation", phase="quarantine", reraise=True
     )
     def __quarantine_problematic_classes(self, app: App) -> None:
         """
@@ -888,7 +869,11 @@ class RVInstrumentation:
 
         self._logger.info(
             f"Quarantined {quarantined} library classes from {app.name}"
-            + (f" (skipped {skipped_app_code} app-code matches)" if skipped_app_code else ""),
+            + (
+                f" (skipped {skipped_app_code} app-code matches)"
+                if skipped_app_code
+                else ""
+            ),
             extra={
                 "app_name": app.name,
                 "pipeline_stage": "quarantine",
@@ -898,7 +883,7 @@ class RVInstrumentation:
         )
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="restore_quarantine", reraise=True
+        component="AjcInstrumentation", phase="restore_quarantine", reraise=True
     )
     def __restore_quarantined_classes(self, app: App) -> None:
         """
@@ -945,7 +930,7 @@ class RVInstrumentation:
         )
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="monitor_integration", reraise=True
+        component="AjcInstrumentation", phase="monitor_integration", reraise=True
     )
     def __include_generated_monitors(self) -> None:
         """
@@ -980,7 +965,7 @@ class RVInstrumentation:
         self._logger.debug("Monitor artifacts integration completed successfully")
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="aspect_weaving", reraise=True
+        component="AjcInstrumentation", phase="aspect_weaving", reraise=True
     )
     def __weave_monitors(self, app: App) -> None:
         """
@@ -1132,7 +1117,7 @@ class RVInstrumentation:
         )
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="pre_frame_computation", reraise=True
+        component="AjcInstrumentation", phase="pre_frame_computation", reraise=True
     )
     def __pre_compute_stack_frames(self, app: App) -> None:
         """
@@ -1157,7 +1142,7 @@ class RVInstrumentation:
         self._run_frame_computer(app, "pre_frame_computation")
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="frame_computation", reraise=True
+        component="AjcInstrumentation", phase="frame_computation", reraise=True
     )
     def __compute_stack_frames(self, app: App) -> None:
         """
@@ -1184,7 +1169,7 @@ class RVInstrumentation:
         return None
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="apk_creation", reraise=True
+        component="AjcInstrumentation", phase="apk_creation", reraise=True
     )
     def __create_apk(self, app: App) -> str:
         """
@@ -1255,7 +1240,7 @@ class RVInstrumentation:
         return signed_apk
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="library_integration", reraise=True
+        component="AjcInstrumentation", phase="library_integration", reraise=True
     )
     def __merge_support_classes(self) -> None:
         """
@@ -1420,7 +1405,7 @@ class RVInstrumentation:
         return unsigned_apk
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="zipalign", reraise=True
+        component="AjcInstrumentation", phase="zipalign", reraise=True
     )
     def __zipalign(self, apk_path: str) -> None:
         """
@@ -1469,7 +1454,7 @@ class RVInstrumentation:
         os.replace(aligned_apk, apk_path)
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="apk_signing", reraise=True
+        component="AjcInstrumentation", phase="apk_signing", reraise=True
     )
     def __sign_apk(self, app: App, unsigned_apk: str) -> str:
         """
@@ -1631,7 +1616,7 @@ class RVInstrumentation:
         return platforms[0][1]
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentation", phase="instrumentation_verification"
+        component="AjcInstrumentation", phase="instrumentation_verification"
     )
     def check_if_instrumented(self, app: App) -> None:
         """

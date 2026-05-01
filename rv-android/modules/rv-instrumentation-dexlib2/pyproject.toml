@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "rv-android-core",
-    "rv-instrumentation",
+    "rv-instrumentation-core",
     "pydantic>=2.9.0",
 ]
 
@@ -22,7 +22,7 @@ dev = [
 
 [tool.uv.sources]
 rv-android-core = { workspace = true }
-rv-instrumentation = { workspace = true }
+rv-instrumentation-core = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rv_instrumentation_dexlib2"]

@@ -1,5 +1,5 @@
 """
-Unit tests for RVInstrumentation pipeline.
+Unit tests for AjcInstrumentation pipeline.
 
 These tests verify the instrumentation pipeline methods with mocked subprocess
 calls, ensuring correct command construction and error handling without
@@ -17,7 +17,7 @@ from rv_android_core.util.error.exceptions import InstrumentationError
 
 
 def _make_config_mock(temp_path):
-    """Create a mock RVInstrumentationConfig with paths pointing to temp_path."""
+    """Create a mock AjcInstrumentationConfig with paths pointing to temp_path."""
     config = MagicMock()
     config.tmp_dir = str(temp_path / "tmp")
     config.rvm_tmp_dir = str(temp_path / "rvm_tmp")
@@ -44,22 +44,26 @@ def _make_config_mock(temp_path):
 
 
 def _create_rv_instrumentation(config):
-    """Create an RVInstrumentation instance with mocked dependencies."""
+    """Create an AjcInstrumentation instance with mocked dependencies."""
     with (
-        patch("rv_instrumentation.rvandroid.LoggingManager") as mock_logging,
-        patch("rv_instrumentation.rvandroid.ErrorHandler") as mock_error_handler,
+        patch(
+            "rv_instrumentation_ajc.ajc_instrumentation.LoggingManager"
+        ) as mock_logging,
+        patch(
+            "rv_instrumentation_ajc.ajc_instrumentation.ErrorHandler"
+        ) as mock_error_handler,
     ):
         mock_logging.get_instance.return_value.get_logger.return_value = MagicMock()
         mock_error_handler.get_instance.return_value = MagicMock()
 
-        from rv_instrumentation.rvandroid import RVInstrumentation
+        from rv_instrumentation_ajc.ajc_instrumentation import AjcInstrumentation
 
-        rv = RVInstrumentation(config)
+        rv = AjcInstrumentation(config)
         return rv
 
 
 class TestCreateTempDirectories:
-    """Tests for RVInstrumentation.create_temp_directories."""
+    """Tests for AjcInstrumentation.create_temp_directories."""
 
     def test_creates_tmp_dir_when_missing(self, tmp_path):
         config = _make_config_mock(tmp_path)
@@ -91,7 +95,7 @@ class TestCreateTempDirectories:
 
 
 class TestClear:
-    """Tests for RVInstrumentation.clear."""
+    """Tests for AjcInstrumentation.clear."""
 
     def test_removes_existing_folders(self, tmp_path):
         config = _make_config_mock(tmp_path)
@@ -101,7 +105,7 @@ class TestClear:
         folder.mkdir()
         (folder / "file.txt").write_text("test")
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             rv.clear([str(folder)])
 
         assert not os.path.exists(str(folder))
@@ -110,7 +114,7 @@ class TestClear:
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             # Should not raise
             rv.clear([str(tmp_path / "nonexistent")])
 
@@ -118,13 +122,13 @@ class TestClear:
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             rv.clear([])
             mock_utils.delete_files_by_extension.assert_called_once()
 
 
 class TestCheckIfInstrumented:
-    """Tests for RVInstrumentation.check_if_instrumented."""
+    """Tests for AjcInstrumentation.check_if_instrumented."""
 
     def test_logs_error_when_hashes_match(self, tmp_path):
         """When hashes match, check_if_instrumented raises CommandException internally.
@@ -137,7 +141,7 @@ class TestCheckIfInstrumented:
         app.name = "test.apk"
         app.path = str(tmp_path / "original.apk")
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             mock_utils.file_hash.return_value = "abc123"
 
             # The method either raises CommandException or the decorator absorbs it.
@@ -158,7 +162,7 @@ class TestCheckIfInstrumented:
         app.name = "test.apk"
         app.path = str(tmp_path / "original.apk")
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             mock_utils.file_hash.side_effect = ["abc123", "def456"]
 
             # Should not raise
@@ -172,7 +176,7 @@ class TestCheckIfInstrumented:
         app.name = "test.apk"
         app.path = "/original/test.apk"
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             mock_utils.file_hash.side_effect = ["aaa", "bbb"]
 
             rv.check_if_instrumented(app)
@@ -184,7 +188,7 @@ class TestCheckIfInstrumented:
 
 
 class TestInstrumentSkipExisting:
-    """Tests for RVInstrumentation.instrument skip logic."""
+    """Tests for AjcInstrumentation.instrument skip logic."""
 
     def test_skips_already_instrumented_apk(self, tmp_path):
         config = _make_config_mock(tmp_path)
@@ -198,7 +202,7 @@ class TestInstrumentSkipExisting:
         os.makedirs(result_dir)
         (Path(result_dir) / "test.apk").write_bytes(b"existing")
 
-        with patch("rv_instrumentation.rvandroid.utils"):
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils"):
             # Should return without calling create_temp_directories
             rv.instrument(app, result_dir, force_instrumentation=False)
 
@@ -220,9 +224,9 @@ class TestInstrumentSkipExisting:
         # The method will fail at decompile phase. The ErrorHandler decorator
         # may absorb the exception, so we just verify the file was removed.
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(
-                rv, "_RVInstrumentation__decompile_apk", side_effect=Exception("stop")
+                rv, "_AjcInstrumentation__decompile_apk", side_effect=Exception("stop")
             ),
         ):
             mock_utils.reset_folder = MagicMock()
@@ -236,7 +240,7 @@ class TestInstrumentSkipExisting:
 
 
 class TestInstrumentApksBatch:
-    """Tests for RVInstrumentation.instrument_apks batch processing."""
+    """Tests for AjcInstrumentation.instrument_apks batch processing."""
 
     def test_returns_results_with_correct_total_count(self, tmp_path):
         config = _make_config_mock(tmp_path)
@@ -252,7 +256,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "instrument"),
             patch.object(rv, "check_if_instrumented"),
             patch.object(rv, "clear"),
@@ -273,7 +277,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "instrument"),
             patch.object(rv, "check_if_instrumented"),
             patch.object(rv, "clear"),
@@ -297,7 +301,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(
                 rv, "instrument", side_effect=CommandException("dex2jar", "-1", "fail")
             ),
@@ -323,7 +327,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "instrument", side_effect=RuntimeError("unexpected")),
             patch.object(rv, "clear"),
         ):
@@ -367,7 +371,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "instrument", side_effect=exc),
             patch.object(rv, "clear"),
         ):
@@ -408,7 +412,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "instrument", side_effect=instrument_side_effect),
             patch.object(rv, "check_if_instrumented"),
             patch.object(rv, "clear"),
@@ -441,7 +445,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "instrument", side_effect=RuntimeError("always fails")),
             patch.object(rv, "clear"),
         ):
@@ -470,7 +474,7 @@ class TestInstrumentApksBatch:
 
         with (
             patch.object(rv, "prepare_instrumentation"),
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "instrument", side_effect=exc),
             patch.object(rv, "clear"),
         ):
@@ -507,10 +511,10 @@ class TestWeaveMonitorsFlags:
             captured_cmd["skip_stderr"] = skip_stderr
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(
                 rv,
-                "_RVInstrumentation__get_classpath",
+                "_AjcInstrumentation__get_classpath",
                 return_value=["/fake/android.jar"],
             ),
         ):
@@ -518,7 +522,7 @@ class TestWeaveMonitorsFlags:
 
             app = MagicMock()
             app.name = "test.apk"
-            rv._RVInstrumentation__weave_monitors(app)
+            rv._AjcInstrumentation__weave_monitors(app)
 
         assert "-proceedOnError" in captured_cmd["args"]
         assert captured_cmd["skip_stderr"] is True
@@ -550,18 +554,18 @@ class TestD8Flags:
         (tmp_path / "test.apk").write_bytes(b"fake")
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(
                 rv,
-                "_RVInstrumentation__get_android_jar",
+                "_AjcInstrumentation__get_android_jar",
                 return_value="/fake/android.jar",
             ),
-            patch.object(rv, "_RVInstrumentation__d2j_asm_verify"),
+            patch.object(rv, "_AjcInstrumentation__d2j_asm_verify"),
         ):
             mock_utils.execute_command = capture_execute
 
             try:
-                rv._RVInstrumentation__d8(app, "/fake/monitored.jar")
+                rv._AjcInstrumentation__d8(app, "/fake/monitored.jar")
             except Exception:
                 pass
 
@@ -593,11 +597,13 @@ class TestZipalign:
             captured["args"] = cmd.args
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
-            patch("rv_instrumentation.rvandroid.os.replace") as mock_replace,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.os.replace"
+            ) as mock_replace,
         ):
             mock_utils.execute_command = capture_execute
-            rv._RVInstrumentation__zipalign(unsigned_apk)
+            rv._AjcInstrumentation__zipalign(unsigned_apk)
 
         assert captured["tool"] == "zipalign"
         assert "-f" in captured["args"]
@@ -629,7 +635,7 @@ class TestGetAndroidJar:
         app = MagicMock()
         app.sdk_target = 34
 
-        result = rv._RVInstrumentation__get_android_jar(app)
+        result = rv._AjcInstrumentation__get_android_jar(app)
 
         assert result == str(platform_dir / "android.jar")
 
@@ -647,7 +653,7 @@ class TestGetAndroidJar:
         app = MagicMock()
         app.sdk_target = 36
 
-        result = rv._RVInstrumentation__get_android_jar(app)
+        result = rv._AjcInstrumentation__get_android_jar(app)
 
         assert "android-33" in result
 
@@ -658,7 +664,7 @@ class TestGetAndroidJar:
 
         app = MagicMock(spec=[])  # no sdk_target attribute
 
-        result = rv._RVInstrumentation__get_android_jar(app)
+        result = rv._AjcInstrumentation__get_android_jar(app)
 
         assert result == config.android_jar_path
 
@@ -675,7 +681,7 @@ class TestGetAndroidJar:
         app = MagicMock()
         app.sdk_target = 36
 
-        result = rv._RVInstrumentation__get_android_jar(app)
+        result = rv._AjcInstrumentation__get_android_jar(app)
 
         # Should fallback to config default since no platform >= 26
         assert result == config.android_jar_path
@@ -705,7 +711,7 @@ class TestComputeStackFrames:
         app.name = "test.apk"
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(
                 rv,
                 "_get_frame_computer_jar",
@@ -713,13 +719,13 @@ class TestComputeStackFrames:
             ),
             patch.object(
                 rv,
-                "_RVInstrumentation__get_classpath",
+                "_AjcInstrumentation__get_classpath",
                 return_value=["/fake/android.jar"],
             ),
         ):
             mock_utils.execute_command = capture_execute
 
-            rv._RVInstrumentation__compute_stack_frames(app)
+            rv._AjcInstrumentation__compute_stack_frames(app)
 
         assert captured_cmd["command"] == "java"
         assert "-jar" in captured_cmd["args"]
@@ -736,12 +742,12 @@ class TestComputeStackFrames:
         app.name = "test.apk"
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "_get_frame_computer_jar", return_value=None),
         ):
             mock_utils.execute_command = MagicMock()
 
-            rv._RVInstrumentation__compute_stack_frames(app)
+            rv._AjcInstrumentation__compute_stack_frames(app)
 
             mock_utils.execute_command.assert_not_called()
 
@@ -768,7 +774,7 @@ class TestPreComputeStackFrames:
         app.name = "test.apk"
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(
                 rv,
                 "_get_frame_computer_jar",
@@ -776,13 +782,13 @@ class TestPreComputeStackFrames:
             ),
             patch.object(
                 rv,
-                "_RVInstrumentation__get_classpath",
+                "_AjcInstrumentation__get_classpath",
                 return_value=["/fake/android.jar"],
             ),
         ):
             mock_utils.execute_command = capture_execute
 
-            rv._RVInstrumentation__pre_compute_stack_frames(app)
+            rv._AjcInstrumentation__pre_compute_stack_frames(app)
 
         assert captured_cmd["command"] == "java"
         assert "-jar" in captured_cmd["args"]
@@ -798,12 +804,12 @@ class TestPreComputeStackFrames:
         app.name = "test.apk"
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch.object(rv, "_get_frame_computer_jar", return_value=None),
         ):
             mock_utils.execute_command = MagicMock()
 
-            rv._RVInstrumentation__pre_compute_stack_frames(app)
+            rv._AjcInstrumentation__pre_compute_stack_frames(app)
 
             mock_utils.execute_command.assert_not_called()
 
@@ -834,7 +840,7 @@ class TestStripDesugaredShims:
         app = MagicMock()
         app.name = "test.apk"
 
-        rv._RVInstrumentation__strip_desugared_shims(app)
+        rv._AjcInstrumentation__strip_desugared_shims(app)
 
         # j$/ subtree removed entirely, app class preserved
         assert not (Path(config.tmp_dir) / "j$").exists()
@@ -853,7 +859,7 @@ class TestStripDesugaredShims:
         app.name = "test.apk"
 
         # Should not raise and should leave the tree untouched
-        rv._RVInstrumentation__strip_desugared_shims(app)
+        rv._AjcInstrumentation__strip_desugared_shims(app)
 
         assert (app_pkg / "Baz.class").exists()
 
@@ -871,7 +877,7 @@ class TestStripDesugaredShims:
         app = MagicMock()
         app.name = "test.apk"
 
-        rv._RVInstrumentation__strip_desugared_shims(app)
+        rv._AjcInstrumentation__strip_desugared_shims(app)
 
         # _logger.info called with a message containing the count
         info_calls = [
@@ -881,7 +887,7 @@ class TestStripDesugaredShims:
 
 
 class TestLoadQuarantinePatterns:
-    """Tests for RVInstrumentation._load_quarantine_patterns."""
+    """Tests for AjcInstrumentation._load_quarantine_patterns."""
 
     def test_loads_patterns_from_yaml(self, tmp_path):
         # Exercise the YAML parsing by mocking Path.exists + yaml.safe_load so
@@ -896,10 +902,13 @@ class TestLoadQuarantinePatterns:
             ]
         }
         with (
-            patch("rv_instrumentation.rvandroid.Path.exists", return_value=True),
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.Path.exists",
+                return_value=True,
+            ),
             patch("builtins.open", create=True),
             patch(
-                "rv_instrumentation.rvandroid.yaml.safe_load",
+                "rv_instrumentation_ajc.ajc_instrumentation.yaml.safe_load",
                 return_value=fake_yaml,
             ),
         ):
@@ -914,7 +923,9 @@ class TestLoadQuarantinePatterns:
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
 
-        with patch("rv_instrumentation.rvandroid.Path.exists", return_value=False):
+        with patch(
+            "rv_instrumentation_ajc.ajc_instrumentation.Path.exists", return_value=False
+        ):
             result = rv._load_quarantine_patterns()
 
         assert result == []
@@ -949,21 +960,19 @@ class TestQuarantineProblematicClasses:
             "androidx/media3/datasource/**/*.class",
         ]
         with patch.object(rv, "_load_quarantine_patterns", return_value=patterns):
-            rv._RVInstrumentation__quarantine_problematic_classes(app)
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
 
         assert not (okio_dir / "Buffer.class").exists()
         assert not (media_dir / "AesFlushingCipher.class").exists()
         assert (app_dir / "Foo.class").exists()
         # Quarantine root is a SIBLING of tmp_dir, NOT a subdir, so ajc and
         # frame_computer walkers cannot descend into it.
-        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
         assert (qroot / "okio" / "Buffer.class").exists()
         assert (
-            qroot
-            / "androidx"
-            / "media3"
-            / "datasource"
-            / "AesFlushingCipher.class"
+            qroot / "androidx" / "media3" / "datasource" / "AesFlushingCipher.class"
         ).exists()
 
     def test_skips_code_package_matches(self, tmp_path):
@@ -986,7 +995,7 @@ class TestQuarantineProblematicClasses:
         with patch.object(
             rv, "_load_quarantine_patterns", return_value=["okio/**/*.class"]
         ):
-            rv._RVInstrumentation__quarantine_problematic_classes(app)
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
 
         assert okio_app.exists()
         # WARNING logged
@@ -1008,10 +1017,12 @@ class TestQuarantineProblematicClasses:
         with patch.object(
             rv, "_load_quarantine_patterns", return_value=["okio/**/*.class"]
         ):
-            rv._RVInstrumentation__quarantine_problematic_classes(app)
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
 
         assert (app_dir / "Foo.class").exists()
-        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
         # quarantine root may exist but is empty if any dir was created; main
         # invariant is no class file under it
         assert not list(qroot.rglob("*.class")) if qroot.exists() else True
@@ -1023,7 +1034,9 @@ class TestRestoreQuarantinedClasses:
     def test_restore_moves_files_back(self, tmp_path):
         config = _make_config_mock(tmp_path)
         os.makedirs(config.tmp_dir)
-        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
         quarantine = qroot / "okio"
         quarantine.mkdir(parents=True)
         (quarantine / "Buffer.class").write_bytes(b"quarantined")
@@ -1032,10 +1045,12 @@ class TestRestoreQuarantinedClasses:
         app = MagicMock()
         app.name = "test.apk"
 
-        rv._RVInstrumentation__restore_quarantined_classes(app)
+        rv._AjcInstrumentation__restore_quarantined_classes(app)
 
         assert (Path(config.tmp_dir) / "okio" / "Buffer.class").exists()
-        assert (Path(config.tmp_dir) / "okio" / "Buffer.class").read_bytes() == b"quarantined"
+        assert (
+            Path(config.tmp_dir) / "okio" / "Buffer.class"
+        ).read_bytes() == b"quarantined"
         # quarantine subtree removed
         assert not qroot.exists()
 
@@ -1048,7 +1063,9 @@ class TestRestoreQuarantinedClasses:
         okio_dir = Path(config.tmp_dir) / "okio"
         okio_dir.mkdir()
         (okio_dir / "Buffer.class").write_bytes(b"woven_variant")  # stale
-        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
         quarantine = qroot / "okio"
         quarantine.mkdir(parents=True)
         (quarantine / "Buffer.class").write_bytes(b"original")
@@ -1057,7 +1074,7 @@ class TestRestoreQuarantinedClasses:
         app = MagicMock()
         app.name = "test.apk"
 
-        rv._RVInstrumentation__restore_quarantined_classes(app)
+        rv._AjcInstrumentation__restore_quarantined_classes(app)
 
         assert (okio_dir / "Buffer.class").read_bytes() == b"original"
 
@@ -1070,7 +1087,7 @@ class TestRestoreQuarantinedClasses:
         app.name = "test.apk"
 
         # Should not raise
-        rv._RVInstrumentation__restore_quarantined_classes(app)
+        rv._AjcInstrumentation__restore_quarantined_classes(app)
 
 
 class TestSignApk:
@@ -1101,19 +1118,20 @@ class TestSignApk:
         app = MagicMock()
         app.name = "test.apk"
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             mock_utils.execute_command = capture_execute
             mock_utils.create_folder_if_not_exists = MagicMock()
 
             # apksigner verify is also captured; we stub os.path.exists to True
             with (
                 patch(
-                    "rv_instrumentation.rvandroid.os.path.exists", return_value=True
+                    "rv_instrumentation_ajc.ajc_instrumentation.os.path.exists",
+                    return_value=True,
                 ),
-                patch("rv_instrumentation.rvandroid.os.remove"),
-                patch("rv_instrumentation.rvandroid.shutil.copy2"),
+                patch("rv_instrumentation_ajc.ajc_instrumentation.os.remove"),
+                patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.copy2"),
             ):
-                rv._RVInstrumentation__sign_apk(app, str(unsigned))
+                rv._AjcInstrumentation__sign_apk(app, str(unsigned))
 
         sign_call = next(c for c in captured if c["tool"] == "apksigner")
         args = sign_call["args"]
@@ -1152,17 +1170,18 @@ class TestSignApk:
         app = MagicMock()
         app.name = "test.apk"
 
-        with patch("rv_instrumentation.rvandroid.utils") as mock_utils:
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
             mock_utils.execute_command = capture_execute
             mock_utils.create_folder_if_not_exists = MagicMock()
             with (
                 patch(
-                    "rv_instrumentation.rvandroid.os.path.exists", return_value=True
+                    "rv_instrumentation_ajc.ajc_instrumentation.os.path.exists",
+                    return_value=True,
                 ),
-                patch("rv_instrumentation.rvandroid.os.remove"),
-                patch("rv_instrumentation.rvandroid.shutil.copy2"),
+                patch("rv_instrumentation_ajc.ajc_instrumentation.os.remove"),
+                patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.copy2"),
             ):
-                rv._RVInstrumentation__sign_apk(app, str(unsigned))
+                rv._AjcInstrumentation__sign_apk(app, str(unsigned))
 
         # Both calls go to apksigner (first tool_name apksigner, then apksigner_verify)
         tools = [c["tool"] for c in captured]
@@ -1188,16 +1207,19 @@ class TestSignApk:
         app.name = "test.apk"
 
         with (
-            patch("rv_instrumentation.rvandroid.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
             patch(
-                "rv_instrumentation.rvandroid.os.path.exists", return_value=True
+                "rv_instrumentation_ajc.ajc_instrumentation.os.path.exists",
+                return_value=True,
             ),
-            patch("rv_instrumentation.rvandroid.os.remove") as mock_remove,
-            patch("rv_instrumentation.rvandroid.shutil.copy2"),
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.os.remove"
+            ) as mock_remove,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.copy2"),
         ):
             mock_utils.execute_command = MagicMock()
             mock_utils.create_folder_if_not_exists = MagicMock()
-            rv._RVInstrumentation__sign_apk(app, str(unsigned))
+            rv._AjcInstrumentation__sign_apk(app, str(unsigned))
 
         mock_remove.assert_called_once_with(str(unsigned))
 
@@ -1207,6 +1229,6 @@ class TestSignApk:
         # produce v1-only APKs rejected by API 30+ emulators.
         config = _make_config_mock(tmp_path)
         rv = _create_rv_instrumentation(config)
-        assert not hasattr(rv, "_RVInstrumentation__jarsigner")
-        assert not hasattr(rv, "_RVInstrumentation__jarsigner_verify")
-        assert not hasattr(rv, "_RVInstrumentation__d2j_apk_sign")
+        assert not hasattr(rv, "_AjcInstrumentation__jarsigner")
+        assert not hasattr(rv, "_AjcInstrumentation__jarsigner_verify")
+        assert not hasattr(rv, "_AjcInstrumentation__d2j_apk_sign")

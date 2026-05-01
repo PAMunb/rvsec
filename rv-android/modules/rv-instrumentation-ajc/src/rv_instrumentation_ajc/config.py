@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pydantic import Field, computed_field, field_validator
+from pydantic import Field, field_validator
 from rv_android_core import constants
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import ConfigurationError
@@ -11,6 +11,19 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
+
+# Shared types live in rv-instrumentation-core. Re-exported so existing import
+# paths in this module (and external consumers) keep resolving.
+from rv_instrumentation_core import InstrumentationError, InstrumentationResults
+
+__all__ = [
+    "Dex2jarTools",
+    "ConfigurationSummary",
+    "InstrumentationError",
+    "InstrumentationResults",
+    "AjcInstrumentationConfig",
+    "ConfigurationError",
+]
 
 
 class Dex2jarTools(BaseValidatedModel):
@@ -99,82 +112,6 @@ class ConfigurationSummary(BaseValidatedModel):
     validation_status: str = Field(..., description="Configuration validation status")
 
 
-class InstrumentationError(BaseValidatedModel):
-    """
-    Structured representation of instrumentation pipeline errors.
-
-    ### Architectural Decisions:
-    - Provides consistent error structure for instrumentation failure tracking
-    - Integrates with existing error handling and logging infrastructure
-    - Supports detailed error classification for debugging and analysis
-    - Enables automated error reporting and recovery strategies
-
-    ### Role in the System:
-    - Standardizes error information across instrumentation pipeline phases
-    - Enables structured error logging and analysis for debugging
-    - Supports automated error recovery and retry strategies
-    - Provides consistent error interface for experiment orchestration
-    """
-
-    code: int = Field(..., description="Numeric error code for programmatic handling")
-    tool: Optional[str] = Field(
-        default=None, description="Name of tool that failed during execution"
-    )
-    message: str = Field(..., description="Human-readable error description")
-    phase: str = Field(..., description="Pipeline phase where error occurred")
-
-
-class InstrumentationResults(BaseValidatedModel):
-    """
-    Comprehensive results and metrics from instrumentation pipeline execution.
-
-    ### Architectural Decisions:
-    - Aggregates instrumentation outcomes for batch processing analysis
-    - Provides computed metrics for success rate calculation and reporting
-    - Structures error information for detailed failure analysis
-    - Integrates with experiment orchestration for batch operation tracking
-
-    ### Role in the System:
-    - Tracks instrumentation success and failure metrics across batches
-    - Provides structured data for experiment result analysis
-    - Enables automated quality assessment of instrumentation operations
-    - Supports debugging and optimization of instrumentation workflows
-    """
-
-    errors: Dict[str, InstrumentationError] = Field(
-        default_factory=dict, description="Detailed error information keyed by APK name"
-    )
-    success_count: int = Field(
-        default=0, ge=0, description="Number of successfully instrumented APKs"
-    )
-    total_count: int = Field(
-        default=0, ge=0, description="Total number of APKs processed"
-    )
-    variant: str = Field(
-        default="ajc",
-        description=(
-            "Instrumentation variant that produced this result: 'ajc' (legacy "
-            "dex2jar+ajc+d8 pipeline) or 'dexlib2' (gh52 DEX-native pipeline). "
-            "Tagged by the producing pipeline and consumed by downstream "
-            "analysis/reporting. Legacy JSON without this field deserializes "
-            "as 'ajc' to preserve backward compatibility."
-        ),
-    )
-
-    @computed_field
-    @property
-    def success_rate(self) -> float:
-        """
-        Calculate instrumentation success rate as percentage.
-
-        Returns:
-            Success rate percentage (0.0 to 100.0)
-        """
-        if self.total_count == 0:
-            return 0.0
-        return (self.success_count / self.total_count) * 100
-
-
 @validated_model(
     [
         "rvsec_root",
@@ -191,11 +128,11 @@ class InstrumentationResults(BaseValidatedModel):
         "dex2jar_home",
     ]
 )
-class RVInstrumentationConfig(BaseValidatedModel):
+class AjcInstrumentationConfig(BaseValidatedModel):
     """
-    Configuration management for RVInstrumentation with comprehensive path validation.
+    Configuration management for AjcInstrumentation with comprehensive path validation.
 
-    The RVInstrumentationConfig provides a configuration system that supports
+    The AjcInstrumentationConfig provides a configuration system that supports
     multiple deployment scenarios from development environments to production systems.
     It implements an intelligent path resolution strategy with fallback mechanisms for
     Android APK instrumentation workflows.
@@ -290,7 +227,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
 
     def __init__(self, **data: Any):
         """
-        Initialize RVInstrumentationConfig with intelligent path resolution and validation.
+        Initialize AjcInstrumentationConfig with intelligent path resolution and validation.
 
         The initialization process follows a strict priority order for path resolution,
         ensuring predictable behavior across different deployment scenarios. All paths
@@ -308,8 +245,8 @@ class RVInstrumentationConfig(BaseValidatedModel):
         # Set up logging
         logging_manager = LoggingManager.get_instance()
         self._logger = logging_manager.get_logger(
-            "rv_instrumentation.config.RVInstrumentationConfig",
-            {CONTEXT_COMPONENT: "RVInstrumentationConfig"},
+            "rv_instrumentation.config.AjcInstrumentationConfig",
+            {CONTEXT_COMPONENT: "AjcInstrumentationConfig"},
         )
 
         # Resolve paths based on priority
@@ -319,7 +256,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
         self._validate_configuration()
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentationConfig", phase="path_resolution", reraise=True
+        component="AjcInstrumentationConfig", phase="path_resolution", reraise=True
     )
     def _resolve_paths(self, rvsec_root: Optional[str]) -> None:
         """
@@ -430,7 +367,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
         self._apply_default_paths()
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentationConfig",
+        component="AjcInstrumentationConfig",
         phase="android_sdk_resolution",
         reraise=True,
     )
@@ -472,9 +409,12 @@ class RVInstrumentationConfig(BaseValidatedModel):
         """
         # Default keystore configuration for APK signing
         if self.keystore_file is None:
-            # Use bundled keystore from rv-instrumentation assets
-            module_dir = Path(__file__).parent.parent.parent
-            assets_dir = module_dir / "assets"
+            # Bundled keystore lives in rv-instrumentation parent assets (shared
+            # between ajc and dexlib2 variants — INV-INS-39). Resolve from this
+            # module's location: modules/rv-instrumentation-ajc/src/<pkg>/config.py
+            # → modules/rv-instrumentation/assets/keystore.jks.
+            modules_dir = Path(__file__).parent.parent.parent.parent
+            assets_dir = modules_dir / "rv-instrumentation" / "assets"
             self.keystore_file = str(assets_dir / "keystore.jks")
 
         if self.keystore_password is None:
@@ -500,7 +440,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
             self.dex2jar_home = os.path.join(lib_dir, "dex2jar")
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentationConfig",
+        component="AjcInstrumentationConfig",
         phase="configuration_validation",
         reraise=True,
     )
@@ -666,7 +606,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
         )
 
     @ErrorHandler.handle_errors(
-        component="RVInstrumentationConfig", phase="apk_validation", reraise=True
+        component="AjcInstrumentationConfig", phase="apk_validation", reraise=True
     )
     def validate_apk_input(self, apk_path: str) -> None:
         """
@@ -739,7 +679,7 @@ class RVInstrumentationConfig(BaseValidatedModel):
     def __str__(self) -> str:
         """Detailed string representation for debugging and logging."""
         return (
-            f"RVInstrumentationConfig(\n"
+            f"AjcInstrumentationConfig(\n"
             f"  Working Directory: {self.working_dir}\n"
             f"  Monitor Output: {self.monitor_output_dir}\n"
             f"  Android JAR: {self.android_jar_path}\n"

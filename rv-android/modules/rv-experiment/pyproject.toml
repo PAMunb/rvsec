@@ -13,6 +13,8 @@ dependencies = [
     "rv-android-core",
     "rv-monitor-generator",
     "rv-instrumentation",
+    "rv-instrumentation-ajc",
+    "rv-instrumentation-dexlib2",
     "rv-static-analysis",
     "rv-screen-parser",
     "rv-coverage",
@@ -33,6 +35,8 @@ rv-platform = { workspace = true }
 rv-android-core = { workspace = true }
 rv-monitor-generator = { workspace = true }
 rv-instrumentation = { workspace = true }
+rv-instrumentation-ajc = { workspace = true }
+rv-instrumentation-dexlib2 = { workspace = true }
 rv-static-analysis = { workspace = true }
 rv-screen-parser = { workspace = true }
 rv-coverage = { workspace = true }

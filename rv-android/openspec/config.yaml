@@ -5,7 +5,7 @@ context: |
   Type: Modular framework for Android app testing with runtime verification
   Language: Python 3.11+
   Stack: uv workspace, Pydantic v2, LangGraph, SGLang/Qwen3-VL, JavaMOP/RV-Monitor
-  Architecture: 14 uv workspace modules in editable mode (shared venv)
+  Architecture: 16 uv workspace modules in editable mode (shared venv)
   Academic context: PhD thesis on detecting cryptographic API misuses via RV
 
   CRITICAL RULE — Existing system (brownfield):
@@ -24,7 +24,7 @@ context: |
   - platform: rv-platform (task execution engine, components, storage, results)
   - experiment: rv-experiment (orchestration, CLI, 3-phase workflow)
   - agent: rv-agent (LLM exploration, LangGraph, strategies, memory)
-  - instrumentation: rv-monitor-generator + rv-instrumentation (RV pipeline)
+  - instrumentation: rv-monitor-generator + rv-instrumentation-core + rv-instrumentation + rv-instrumentation-ajc + rv-instrumentation-dexlib2 (RV pipeline)
   - analysis: rv-static-analysis + rv-coverage + rv-screen-parser
   - tools: rv-tools + rv-uiautomator (tool infrastructure, device interaction)
 

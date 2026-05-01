@@ -30,8 +30,10 @@ from rv_experiment.constants import (
     MONITORS_DIR,
     RESULTS_DIR,
 )
-from rv_instrumentation.config import ConfigurationError as InstrumentationConfigError
-from rv_instrumentation.config import RVInstrumentationConfig
+from rv_instrumentation_ajc.config import (
+    ConfigurationError as InstrumentationConfigError,
+)
+from rv_instrumentation_ajc.config import AjcInstrumentationConfig
 from rv_monitor_generator.config import ConfigurationError as MonitorConfigError
 from rv_monitor_generator.config import RVGeneratorConfig
 from rv_static_analysis.config import RVStaticAnalysisConfig
@@ -51,7 +53,7 @@ class ExperimentConfig(BaseValidatedModel):
     sub-module configuration creation.
 
     ### Architectural Decisions:
-    - Sub-module configurations (RVGeneratorConfig, RVInstrumentationConfig,
+    - Sub-module configurations (RVGeneratorConfig, AjcInstrumentationConfig,
       RVStaticAnalysisConfig) are created on-demand via get_*_config() methods,
       not at initialization. This avoids validation failures when modules
       are not needed (e.g., skip-monitors flag).
@@ -70,7 +72,7 @@ class ExperimentConfig(BaseValidatedModel):
     ### Integration Points:
     - ExperimentController: Consumes config for workflow orchestration
     - RVGeneratorConfig: Created by get_monitored_operations_config()
-    - RVInstrumentationConfig: Created by get_instrumentation_config()
+    - AjcInstrumentationConfig: Created by get_instrumentation_config()
     - RVStaticAnalysisConfig: Created by get_static_analysis_config()
     - CLI (__main__.py): Creates config from command-line arguments
     """
@@ -571,7 +573,7 @@ class ExperimentConfig(BaseValidatedModel):
                 f"Monitor generation configuration failed: {e}"
             ) from e
 
-    def get_instrumentation_config(self) -> RVInstrumentationConfig:
+    def get_instrumentation_config(self) -> AjcInstrumentationConfig:
         """
         Just-in-time configuration for APK instrumentation.
 
@@ -581,15 +583,15 @@ class ExperimentConfig(BaseValidatedModel):
         module independence through simple parameter passing.
 
         ### Implementation:
-        Returns a typed RVInstrumentationConfig instance that provides type safety,
+        Returns a typed AjcInstrumentationConfig instance that provides type safety,
         validation, and integration with the configuration architecture.
 
         Returns:
-            RVInstrumentationConfig instance with instrumentation configuration
+            AjcInstrumentationConfig instance with instrumentation configuration
 
         Raises:
             ConfigurationError: If APK configuration is invalid
-            InstrumentationConfigError: If RVInstrumentationConfig validation fails
+            InstrumentationConfigError: If AjcInstrumentationConfig validation fails
         """
         rvsec_root = self.get_effective_rvsec_root()
 
@@ -604,8 +606,8 @@ class ExperimentConfig(BaseValidatedModel):
         )
 
         try:
-            # Create RVInstrumentationConfig instance with tool paths
-            return RVInstrumentationConfig(
+            # Create AjcInstrumentationConfig instance with tool paths
+            return AjcInstrumentationConfig(
                 rvsec_root=rvsec_root,
                 monitor_output_dir=monitor_output_dir,
                 working_dir=rv_android_dir,  # Use rv-android dir where lib/ exists
@@ -617,18 +619,18 @@ class ExperimentConfig(BaseValidatedModel):
                 f"Instrumentation configuration failed: {e}"
             ) from e
 
-    def get_rv_instrumentation_config(self) -> RVInstrumentationConfig:
+    def get_rv_instrumentation_config(self) -> AjcInstrumentationConfig:
         """Delegate to get_instrumentation_config().
 
         Alias used by PreProcessor for consistent naming with other
         get_*_config() methods.
 
         Returns:
-            RVInstrumentationConfig instance with instrumentation configuration
+            AjcInstrumentationConfig instance with instrumentation configuration
 
         Raises:
             ConfigurationError: If APK configuration is invalid
-            InstrumentationConfigError: If RVInstrumentationConfig validation fails
+            InstrumentationConfigError: If AjcInstrumentationConfig validation fails
         """
         return self.get_instrumentation_config()
 
@@ -661,27 +663,25 @@ class ExperimentConfig(BaseValidatedModel):
         # Match the legacy ajc pipeline's keystore defaults so the dexlib2
         # variant produces signed APKs without extra plumbing. The bundled
         # keystore at modules/rv-instrumentation/assets/keystore.jks uses
-        # alias 'server' and password 'password' (RVInstrumentationConfig
+        # alias 'server' and password 'password' (AjcInstrumentationConfig
         # ._apply_default_paths sets the same).
         rvsec_root = self.get_effective_rvsec_root()
         bundled_keystore = (
-            Path(rvsec_root) / "rv-android" / "modules" / "rv-instrumentation"
-            / "assets" / "keystore.jks"
+            Path(rvsec_root)
+            / "rv-android"
+            / "modules"
+            / "rv-instrumentation"
+            / "assets"
+            / "keystore.jks"
         )
         keystore_file = bundled_keystore if bundled_keystore.is_file() else None
 
-        # The rv-monitor-emitted MultiSpec_*RuntimeMonitor.java imports
-        # com.runtimeverification.rvmonitor.java.rt.* AND br.unb.cic.mop.*.
-        # `rvsec-agent` shades rv-monitor-rt internally, so we pass ONLY
-        # the agent jar — passing both produces "Type ... defined multiple
-        # times" errors at d8 time when the wrapper-system pass also dexes
-        # the runtime support jars (INV-INS-29 follow-up).
-        rvsec_root_path = Path(rvsec_root)
-        agent_jar = (
-            rvsec_root_path / "rvsec" / "rvsec-agent" / "target"
-            / "rvsec-agent-0.8.0-SNAPSHOT.jar"
-        )
-        extra_classpath = [agent_jar] if agent_jar.is_file() else []
+        # Runtime libs (rv-monitor-rt, rvsec-core, rvsec-logger-logcat) are
+        # populated by DexlibInstrumentation.prepare_instrumentation() via
+        # the ABC's _resolve_runtime_libs Template Method (paridade com AJC).
+        # Each variant owns its own working_dir/lib_tmp/, populated on demand.
+        # No jar is wired here — rv-experiment is variant-agnostic.
+        extra_classpath: List[Path] = []
 
         return DexlibInstrumentationConfig(
             monitor_output_dir=monitor_output_dir,
@@ -845,7 +845,7 @@ class ExperimentConfig(BaseValidatedModel):
 
     def get_module_config(self, module_name: str) -> Union[
         RVGeneratorConfig,
-        RVInstrumentationConfig,
+        AjcInstrumentationConfig,
         RVStaticAnalysisConfig,
         Dict[str, Any],
     ]:

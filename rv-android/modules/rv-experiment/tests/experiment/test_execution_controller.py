@@ -19,7 +19,6 @@ from rv_android_core.util.error.exceptions import RVExperimentExecutionError
 from rv_experiment.config import ExperimentConfig
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -102,7 +101,9 @@ class TestSetup:
 
     def test_setup_creates_platform(self, controller, mock_apks, mock_tools):
         """Test that setup creates platform."""
-        with patch("rv_experiment.experiment.workflow.execution_controller.Platform") as mock_platform:
+        with patch(
+            "rv_experiment.experiment.workflow.execution_controller.Platform"
+        ) as mock_platform:
             controller.setup(
                 apks=mock_apks,
                 repetitions=2,
@@ -143,7 +144,9 @@ class TestGetCoverageReport:
 
     def test_coverage_report_after_execution(self, controller, mock_apks, mock_tools):
         """Test coverage report after execution."""
-        with patch("rv_experiment.experiment.workflow.execution_controller.Platform") as mock_platform_cls:
+        with patch(
+            "rv_experiment.experiment.workflow.execution_controller.Platform"
+        ) as mock_platform_cls:
             mock_platform = MagicMock()
             mock_platform.run.return_value = {
                 "total_tasks": 5,
@@ -185,14 +188,20 @@ class TestGetCoverageReport:
 class TestCreatePlatformConfig:
     """Test _create_platform_config() with APK directory selection."""
 
-    def test_config_uses_instrumented_apks_when_available(self, controller, mock_apks, mock_tools):
+    def test_config_uses_instrumented_apks_when_available(
+        self, controller, mock_apks, mock_tools
+    ):
         """Test config uses instrumented APKs when available."""
         # Create instrumented APKs dir
-        instrumented_dir = os.path.join(controller.config.output_dir, "instrumented_apks")
+        instrumented_dir = os.path.join(
+            controller.config.output_dir, "instrumented_apks"
+        )
         os.makedirs(instrumented_dir, exist_ok=True)
 
-        with patch("os.path.exists", return_value=True), \
-             patch("os.listdir", return_value=["test.apk"]):
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("os.listdir", return_value=["test.apk"]),
+        ):
             config = controller._create_platform_config(
                 apks=mock_apks,
                 repetitions=1,

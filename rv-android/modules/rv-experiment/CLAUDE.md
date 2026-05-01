@@ -129,7 +129,13 @@ Examples:
 
 ### Phase 1: Pre-Processing (PreProcessor)
 - **Monitor Generation**: Creates JavaMOP/RV-Monitor monitors from specification files
-- **APK Instrumentation**: Instruments APKs with runtime verification monitors
+- **APK Instrumentation**: Instruments APKs with runtime verification monitors. Variant
+  selection (`ajc` vs `dexlib2`) flows through the canonical
+  `rv_instrumentation.get_instrumenter(variant, config)` factory (INV-INS-36) — the
+  PreProcessor does not import variant impls directly. Both variants implement the
+  `Instrumenter` ABC defined in `rv-instrumentation-core`. (Closes gh52 task §15.4 —
+  CLAUDE.md now documents the multi-variant architecture without anticipating the
+  default flip.)
 - **Static Analysis**: Runs GATOR, GESDA, REACH analysis on APKs
 
 ### Phase 2: Execution (ExecutionController)

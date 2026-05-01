@@ -25,23 +25,26 @@ The system consists of the following modules:
 
 **Analysis and Processing:**
 5. **rv-monitor-generator**: JavaMOP/RV-Monitor integration for generating runtime verification monitors
-6. **rv-instrumentation**: APK instrumentation with monitor weaving capabilities
-7. **rv-static-analysis**: Unified GATOR-based static analysis for Android applications
-8. **rv-coverage**: Coverage analysis and tracking for monitored operations
-9. **rv-screen-parser**: Android UI parsing with visitor patterns for state analysis
+6. **rv-instrumentation-core**: Pure abstractions — `Instrumenter` ABC + shared Pydantic result types
+7. **rv-instrumentation**: Parent canonical — `get_instrumenter()` factory + shared keystore asset; re-exports the public API from `rv-instrumentation-core`
+8. **rv-instrumentation-ajc**: AspectJ-based instrumentation variant (legacy dex2jar+ajc+d8 pipeline)
+9. **rv-instrumentation-dexlib2**: DEX-native instrumentation variant (gh52)
+10. **rv-static-analysis**: Unified GATOR-based static analysis for Android applications
+11. **rv-coverage**: Coverage analysis and tracking for monitored operations
+12. **rv-screen-parser**: Android UI parsing with visitor patterns for state analysis
 
 **LLM Testing:**
-10. **rv-agent**: Main LLM-driven testing tool using LangGraph for workflow orchestration
+13. **rv-agent**: Main LLM-driven testing tool using LangGraph for workflow orchestration
 
 **Tool Plugins (rv-platform):**
-11. **rvagent-tool**: rv-platform plugin wrapping rv-agent as an AbstractTool
-12. **aperv-tool**: rv-platform plugin wrapping the APE-RV binary (ape-rv.jar) for model-based UI exploration
+14. **rvagent-tool**: rv-platform plugin wrapping rv-agent as an AbstractTool
+15. **aperv-tool**: rv-platform plugin wrapping the APE-RV binary (ape-rv.jar) for model-based UI exploration
 
 **Experiment Orchestration:**
-13. **rv-experiment**: Experiment orchestration and coordination system
+16. **rv-experiment**: Experiment orchestration and coordination system
 
 **Temporary/Validation:**
-14. **aperv-llm-validation**: Offline validation for APE-RV LLM coordinate mapping pipeline (temporary module)
+- **aperv-llm-validation**: Offline validation for APE-RV LLM coordinate mapping pipeline (temporary module — excluded from the canonical 16 production modules)
 
 ## Development Commands
 
@@ -127,7 +130,10 @@ See `.claude/project-info.md` for Docker commands, monitor generation, and full 
 - **rv-platform**: Central execution engine used by rv-experiment
 - **rv-experiment**: Experiment orchestration with pre/post processing
 - **rv-agent**: Main LLM-driven testing tool
-- **rv-instrumentation**: APK instrumentation using monitors from rv-monitor-generator
+- **rv-instrumentation-core**: ABC `Instrumenter` + shared types; depended on by every variant impl. Zero deps on impls (avoids cycle).
+- **rv-instrumentation** (parent): `get_instrumenter(variant, config)` factory dispatching to ajc/dexlib2; shared `assets/keystore.jks`; re-exports the public API from `-core`.
+- **rv-instrumentation-ajc**: AspectJ-based variant (`AjcInstrumentation`); depends on `-core` only — no parent dep, no sibling dep.
+- **rv-instrumentation-dexlib2**: DEX-native variant (`DexlibInstrumentation`); depends on `-core` only.
 
 ## Configuration Management
 
@@ -347,7 +353,7 @@ The system is documented via Spec-Driven Development. Specs document current beh
 | Platform | `openspec/specs/platform/spec.md` | rv-platform | FR07-FR11, FR14 |
 | Experiment | `openspec/specs/experiment/spec.md` | rv-experiment | FR15-FR17 |
 | Agent | `openspec/specs/agent/spec.md` | rv-agent | FR21-FR32 |
-| Instrumentation | `openspec/specs/instrumentation/spec.md` | rv-monitor-generator, rv-instrumentation | FR01-FR03 |
+| Instrumentation | `openspec/specs/instrumentation/spec.md` | rv-monitor-generator, rv-instrumentation-core, rv-instrumentation, rv-instrumentation-ajc, rv-instrumentation-dexlib2 | FR01-FR03 |
 | Analysis | `openspec/specs/analysis/spec.md` | rv-static-analysis, rv-coverage, rv-screen-parser | FR04-FR06, FR12-FR13 |
 | Tools | `openspec/specs/tools/spec.md` | rv-tools, rv-uiautomator, rvagent-tool, aperv-tool | FR18-FR20 |
 
@@ -370,6 +376,53 @@ All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for
 ## Development Workflows
 
 **Full reference**: `docs/WORKFLOW.md` | **Skills/Agents**: `.claude/AGENTS.md` | **Backlog**: [GitHub Kanban](https://github.com/orgs/PAMunb/projects/7)
+
+### MANDATORY: Use OpenSpec Skills, Never Write Artifacts Manually
+
+**This rule is non-negotiable and overrides all other instincts.** When working on any change tracked under `openspec/changes/gh<N>-*/`, you MUST follow `docs/WORKFLOW.md` rigorously and invoke the skills via the `Skill` tool. Do NOT use `Write`/`Edit` directly to create or rewrite OpenSpec artifacts.
+
+**Forbidden** (these are common failure modes — do NOT do them):
+- Writing `proposal.md`, `specs/<domain>/spec.md`, `design.md`, `tasks.md`, `plan.md`, or any ADR file directly via `Write`/`Edit` when an OpenSpec skill exists for that artifact.
+- Skipping `/opsx:explore`, `/rv-impact-analyzer`, `/rv-analyze-dependencies` and going straight to writing artifacts.
+- Skipping `/rv-doc-adr` for architectural decisions; skipping `/rv-risk` for designs with new dependencies, external APIs, or multi-module coordination.
+- Skipping `/opsx:apply` during Phase 4 (Implement) and editing source files freelance.
+- Skipping `/rv-verify` + `/opsx:verify` during Phase 5 (Verify).
+- Skipping `/opsx:archive` (or the `/opsx:sync` + `/opsx:archive --skip-specs` pair) during Phase 6 (Archive).
+
+**Correct phase → skill mapping** (Full SDD `rv-sdd` schema; see `WORKFLOW.md §6`):
+
+| Phase | What you produce | Skill to invoke (via `Skill` tool) |
+|-------|------------------|-------------------------------------|
+| 1. Explore | Understanding, impact, dependency map | `/opsx:explore` + `/rv-analyze-module` + `/rv-impact-analyzer` + `/rv-analyze-dependencies` |
+| 2. Propose | `proposal.md` + `specs/<domain>/spec.md` (delta) | `/opsx:new` (creates dir) → `/opsx:continue` (proposal) → `/opsx:continue` (specs) |
+| 3. Design | `design.md` + `tasks.md` + ADR (if architectural) + risk register (if multi-module/external) | `/opsx:continue` (design) → `/opsx:continue` (tasks) → `/rv-doc-adr` → `/rv-risk` |
+| 4. Implement | Code changes + tests, checkboxes flipped in `tasks.md` | `/opsx:apply` + component skills (`/rv-test-run`, `/rv-test-add`, `/rv-doc-code`, `/rv-qa-lint-fix`) → `/rv-code-reviewer` |
+| 5. Verify | Tests pass, lint clean, types check, specs match | `/rv-verify` + `/opsx:verify` |
+| 6. Archive | Synced specs, change moved to `archive/`, docs updated | `/opsx:archive` (or `/opsx:sync` then `/opsx:archive --skip-specs`) + `/rv-docs-sync` |
+
+**Fast-Forward SDD** (`/opsx:ff`) collapses Phases 2-3 into one skill invocation; **Quick Path** (`--schema quick-path`) uses `plan.md` + `tasks.md` only. See `WORKFLOW.md §7-§8`.
+
+**OpenSpec CLI commands** (when invoking skills isn't enough — see `WORKFLOW.md §13`):
+
+```bash
+openspec list                                       # List active changes
+openspec status --change "<name>"                   # Artifact completion status
+openspec validate --change "<name>"                 # Structural validation
+openspec instructions <artifact> --change "<name>"  # Template + context for an artifact
+openspec instructions apply --change "<name>"       # Implementation instructions
+openspec archive "<name>"                           # Archive + sync delta specs
+openspec archive "<name>" --skip-specs              # Archive without syncing (Quick Path / docs-only)
+openspec show "<name>" --json                       # Inspect a change/spec
+```
+
+**Resume protocol** (when picking up an in-flight change in a new session):
+1. Read `proposal.md`, `design.md` (or `plan.md` for Quick Path), and `tasks.md` in the change directory.
+2. `openspec status --change "<name>"` to see which artifacts are done.
+3. Count `[x]` vs `[ ]` checkboxes in `tasks.md` to find the first pending task.
+4. Continue with the appropriate skill — `/opsx:continue` if artifacts are missing, `/opsx:apply` if implementation is in progress.
+5. NEVER re-run `/opsx:apply` as if starting fresh — it reads checkboxes automatically.
+
+**If a Phase 0 ideation document exists** (e.g. `docs/<date>_plano_*.md`), treat it as authoritative for decisions already taken — do NOT relitigate them in Phase 1/2 unless the user explicitly asks. Phase 0 outputs are inputs to `/opsx:explore` and `/opsx:new`.
 
 ### Track Selection
 

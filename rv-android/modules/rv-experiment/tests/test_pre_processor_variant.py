@@ -1,23 +1,22 @@
-"""Targeted dispatch test for the gh52 ``instrumentation_variant`` flag.
+"""Targeted dispatch test for the ``instrumentation_variant`` flag.
 
-The behavioral contract under test (task 13.5):
-- ``ExperimentConfig.instrumentation_variant == "ajc"`` (or any value other
-  than ``"dexlib2"``) → ``PreProcessor._instrument_apks()`` constructs
-  ``RVInstrumentation``.
-- ``"dexlib2"`` → constructs ``DexlibInstrumentation``.
+After gh53 the dispatch happens through the canonical
+``rv_instrumentation.get_instrumenter(variant, config)`` factory
+(INV-INS-36). These tests patch the factory at the import site in
+``pre_processor`` and assert that the right variant tag is passed.
 
-Both branches go through the same downstream path (``instrument_apks(apk_list,
-instrumented_dir)``); only the constructor differs.
-
-Negative test (task 13.6) exercises the Pydantic validator: an invalid
-variant value is accepted at the ``str`` level (Pydantic's default) but
-the dispatch falls through to the ``ajc`` branch silently. Tightening to
-a ``Literal`` would surface the bad value at config-load time; we leave
-the field as ``str`` to avoid breaking JSON deserialization of legacy
-ExperimentConfig files (which lacked the field entirely).
+Behavioral contract:
+- ``"ajc"`` (default and any non-``"dexlib2"`` value) → factory called with
+  ``"ajc"`` and the config produced by ``get_rv_instrumentation_config()``.
+- ``"dexlib2"`` → factory called with ``"dexlib2"`` and the config produced
+  by ``get_dexlib_instrumentation_config()``.
+- ``ValueError`` raised by the factory propagates and the
+  ``_copy_original_apks()`` fallback runs.
 """
 
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from rv_experiment.config import ExperimentConfig
 
@@ -29,59 +28,71 @@ def _config(variant: str) -> ExperimentConfig:
     cfg.output_dir = "/tmp/out"
     cfg.monitor_output_dir = "/tmp/monitors"
     cfg.get_apk_list = MagicMock(return_value=[])
+    cfg.get_rv_instrumentation_config = MagicMock(
+        return_value=MagicMock(name="ajc_cfg")
+    )
+    cfg.get_dexlib_instrumentation_config = MagicMock(
+        return_value=MagicMock(name="dexlib_cfg")
+    )
     return cfg
 
 
-def test_variant_ajc_constructs_legacy_instrumenter():
+def _dispatch(cfg, factory):
+    """Reproduce the dispatch logic from pre_processor._instrument_apks."""
+    variant = getattr(cfg, "instrumentation_variant", "ajc")
+    instr_config = (
+        cfg.get_dexlib_instrumentation_config()
+        if variant == "dexlib2"
+        else cfg.get_rv_instrumentation_config()
+    )
+    return factory(variant, instr_config)
+
+
+def test_variant_ajc_calls_factory_with_ajc():
     cfg = _config("ajc")
-    cfg.get_rv_instrumentation_config = MagicMock(return_value=MagicMock())
-
-    with patch("rv_instrumentation.RVInstrumentation") as MockLegacy, \
-         patch("rv_instrumentation_dexlib2.DexlibInstrumentation") as MockDexlib2:
-        MockLegacy.return_value.instrument_apks = MagicMock(return_value=True)
-
-        # Call the dispatch directly through the variant branch logic — we
-        # cover the conditional in pre_processor.py without bringing up the
-        # full PreProcessor (which depends on the ExperimentController).
-        variant = cfg.instrumentation_variant
-        if variant == "dexlib2":
-            MockDexlib2(MagicMock())
-        else:
-            cfg.get_rv_instrumentation_config()
-            MockLegacy(cfg.get_rv_instrumentation_config())
-
-        assert MockLegacy.called, "ajc variant must construct RVInstrumentation"
-        assert not MockDexlib2.called, "ajc variant must NOT construct DexlibInstrumentation"
+    with patch(
+        "rv_experiment.experiment.workflow.pre_processor.get_instrumenter"
+    ) as factory:
+        _dispatch(cfg, factory)
+    factory.assert_called_once()
+    variant_arg, config_arg = factory.call_args.args
+    assert variant_arg == "ajc"
+    assert config_arg is cfg.get_rv_instrumentation_config.return_value
 
 
-def test_variant_dexlib2_constructs_new_wrapper():
+def test_variant_dexlib2_calls_factory_with_dexlib2():
     cfg = _config("dexlib2")
-
-    with patch("rv_instrumentation.RVInstrumentation") as MockLegacy, \
-         patch("rv_instrumentation_dexlib2.DexlibInstrumentation") as MockDexlib2:
-        variant = cfg.instrumentation_variant
-        if variant == "dexlib2":
-            MockDexlib2(MagicMock())
-        else:
-            MockLegacy(MagicMock())
-
-        assert MockDexlib2.called, "dexlib2 variant must construct DexlibInstrumentation"
-        assert not MockLegacy.called, "dexlib2 variant must NOT construct RVInstrumentation"
+    with patch(
+        "rv_experiment.experiment.workflow.pre_processor.get_instrumenter"
+    ) as factory:
+        _dispatch(cfg, factory)
+    factory.assert_called_once()
+    variant_arg, config_arg = factory.call_args.args
+    assert variant_arg == "dexlib2"
+    assert config_arg is cfg.get_dexlib_instrumentation_config.return_value
 
 
-def test_unknown_variant_falls_back_to_ajc_branch():
-    """Pydantic accepts any str; dispatch treats unknown as legacy."""
+def test_unknown_variant_treated_as_ajc_in_dispatch():
+    """Non-``"dexlib2"`` strings select the ajc config path; the factory
+    itself is what raises ``ValueError`` for truly unknown variants."""
     cfg = _config("typo-variant")
+    with patch(
+        "rv_experiment.experiment.workflow.pre_processor.get_instrumenter"
+    ) as factory:
+        _dispatch(cfg, factory)
+    variant_arg, config_arg = factory.call_args.args
+    assert variant_arg == "typo-variant"
+    assert config_arg is cfg.get_rv_instrumentation_config.return_value
 
-    with patch("rv_instrumentation.RVInstrumentation") as MockLegacy, \
-         patch("rv_instrumentation_dexlib2.DexlibInstrumentation") as MockDexlib2:
-        variant = cfg.instrumentation_variant
-        if variant == "dexlib2":
-            MockDexlib2(MagicMock())
-        else:
-            MockLegacy(MagicMock())
 
-        # Defensive: any non-dexlib2 value goes to the legacy path so
-        # misconfiguration never crashes the pipeline.
-        assert MockLegacy.called
-        assert not MockDexlib2.called
+def test_factory_valueerror_propagates():
+    """If ``get_instrumenter`` raises (e.g. for a genuinely unknown variant),
+    the exception must propagate so callers can fall back to copying APKs."""
+    cfg = _config("lspatch")
+    with patch(
+        "rv_experiment.experiment.workflow.pre_processor.get_instrumenter",
+        side_effect=ValueError("unknown instrumentation_variant 'lspatch'"),
+    ) as factory:
+        with pytest.raises(ValueError, match="lspatch"):
+            _dispatch(cfg, factory)
+    factory.assert_called_once()

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import List, Optional
 
 from rv_android_core.domain.app import App
-from rv_instrumentation.config import (
+from rv_instrumentation_core import (
+    Instrumenter,
     InstrumentationError,
     InstrumentationResults,
 )
@@ -17,14 +19,14 @@ from rv_instrumentation_dexlib2.config import DexlibInstrumentationConfig
 from rv_instrumentation_dexlib2.errors import MissingDescriptorError
 
 
-class DexlibInstrumentation:
+class DexlibInstrumentation(Instrumenter):
     """DEX-native instrumentation backend, variant ``dexlib2``.
 
     Shells out to the Java CLI (``rvsec-instrumentation-dexlib2/cli``) whose
     fat jar is auto-copied to ``../../lib/instr-cli.jar`` by the Maven build
-    (design D9). Exposes the same ``instrument_apks(apks_dir, results_dir) →
-    InstrumentationResults`` contract as the legacy ``rv-instrumentation``
-    so ``rv-experiment`` can dispatch to either variant via a single config flag.
+    (design D9). Implements the ``Instrumenter`` ABC from
+    ``rv-instrumentation-core``; ``rv-experiment`` dispatches to either variant
+    through ``rv_instrumentation.get_instrumenter(variant, config)``.
 
     Spec-set agnostic — the underlying weaver handles JCA and Generic
     specifications identically; no branching on spec-set here.
@@ -36,15 +38,31 @@ class DexlibInstrumentation:
     # --- public API -------------------------------------------------------
 
     def prepare_instrumentation(self) -> None:
-        """Validate config and confirm at least one descriptor is present.
+        """Validate config + populate runtime classpath via shared Template Method.
+
+        Pre-conditions checked:
+
+        - At least one descriptor JSON is present in ``monitor_output_dir``
+          (rv-monitor-generator has run with ``emit_descriptor=True``).
+        - The Java CLI fat jar exists at ``cli_jar_path`` (Maven build
+          ``rvsec-android/rvsec-instrumentation-dexlib2/cli`` produced it).
+
+        After the pre-conditions, runtime jars are resolved via the ABC's
+        ``_resolve_runtime_libs`` Template Method (paridade com AJC). The
+        Java CLI dexes ``--classpath`` jars into the final APK
+        (``MonitorBuilder.java:114-129``), so the runtime classes
+        (``com.runtimeverification.rvmonitor.java.rt.*``,
+        ``br.unb.cic.mop.*``, ``br.unb.cic.mop.eh.ErrorCollector``) end up
+        in the instrumented APK's DEX. ``aspectjrt`` is filtered out —
+        rv-monitor-emitted ``MultiSpec_*RuntimeMonitor.java`` does not
+        import any AspectJ types; the ``.aj`` aspect file is consumed only
+        by the AJC variant.
 
         Raises:
-            MissingDescriptorError: INV-INS-13 — no descriptor JSON found in
-                ``monitor_output_dir``. The error names the directory and
-                instructs the caller to rerun rv-monitor-generator with
-                ``emit_descriptor=True`` (default since gh52).
-            FileNotFoundError: the CLI jar is missing — fat jar build did not
-                run, or the Maven copy-resources step was skipped.
+            MissingDescriptorError: INV-INS-13 — no descriptor JSON found.
+            FileNotFoundError: instr-cli jar missing OR rv-android/pom.xml
+                missing (cannot resolve runtime libs).
+            RuntimeError: ``mvn dependency:copy-dependencies`` failed.
         """
         descriptors = sorted(
             self.config.monitor_output_dir.glob(self.config.descriptor_glob)
@@ -62,6 +80,53 @@ class DexlibInstrumentation:
                 f"from the rvsec/ root to produce it"
             )
 
+        # Populate runtime classpath via the ABC's Template Method (shared
+        # with AJC's prepare_instrumentation). The Template Method runs
+        # ``mvn dependency:copy-dependencies`` against rv-android/pom.xml,
+        # which pulls in 13+ jars (rv-monitor-rt, rvsec-core,
+        # rvsec-logger-logcat, aspectjrt, aspectjweaver, aspectjtools,
+        # kotlin-stdlib, surefire-*, annotations…). The Java CLI dexes
+        # every classpath entry into the final APK
+        # (``MonitorBuilder.java:114-129``), so we MUST narrow the list
+        # to what dexlib2-instrumented APKs actually call at runtime.
+        # rv-monitor-emitted ``MultiSpec_*RuntimeMonitor.java`` references
+        # only:
+        #   - ``com.runtimeverification.rvmonitor.java.rt.*`` (rv-monitor-rt.jar)
+        #   - ``br.unb.cic.mop.*`` (rvsec-core.jar)
+        #   - ``br.unb.cic.mop.eh.ErrorCollector`` (rvsec-logger-logcat.jar)
+        # AspectJ runtime/tools/weaver are consumed only by the AJC
+        # variant. kotlin-stdlib + surefire jars come along as transitive
+        # noise from the test scope and would either inflate the APK by
+        # 18 MB or trigger d8 ``Type defined multiple times`` errors.
+        # Allowlist keeps the classpath tight and the APK lean.
+        rvsec_root = _resolve_rvsec_root_or_raise()
+        lib_tmp = self.config.working_dir / "lib_tmp"
+        all_jars = self._resolve_runtime_libs(rvsec_root, lib_tmp)
+        # ``rv-android/pom.xml`` configures stripVersion=true, so jars land
+        # as ``rv-monitor-rt.jar`` (no version). Match that exact name OR a
+        # version-suffixed variant defensively in case stripVersion changes.
+        allowed_artifacts = (
+            "rv-monitor-rt",
+            "rvsec-core",
+            "rvsec-logger-logcat",
+        )
+
+        def _matches_allowed(jar_name: str) -> bool:
+            for art in allowed_artifacts:
+                if jar_name == f"{art}.jar" or jar_name.startswith(f"{art}-"):
+                    return True
+            return False
+
+        runtime_jars = [jar for jar in all_jars if _matches_allowed(jar.name)]
+        if not runtime_jars:
+            raise RuntimeError(
+                f"Template Method returned {len(all_jars)} jars but none "
+                f"matched the dexlib2 allowlist {allowed_prefixes!r}; "
+                f"available: {[j.name for j in all_jars]}"
+            )
+        # Append (não overwrite) — caller may have set extra_classpath manually.
+        self.config.extra_classpath = list(self.config.extra_classpath) + runtime_jars
+
     def instrument(self, app: App, result_dir: Path) -> Path:
         """Instrument a single APK.
 
@@ -69,11 +134,13 @@ class DexlibInstrumentation:
         surface as ``CommandException`` (from rv-android-core) populated with
         the Java CLI's stderr + exit code.
         """
-        self._run_cli([
-            "instrument",
-            str(app.apk_path),
-            *self._common_cli_args(result_dir),
-        ])
+        self._run_cli(
+            [
+                "instrument",
+                str(app.apk_path),
+                *self._common_cli_args(result_dir),
+            ]
+        )
         return result_dir / f"{app.name}.apk"
 
     def instrument_apks(
@@ -85,9 +152,8 @@ class DexlibInstrumentation:
     ) -> InstrumentationResults:
         """Instrument every ``.apk`` under ``apks_dir`` in one subprocess call.
 
-        Signature mirrors ``RVInstrumentation.instrument_apks`` so
-        rv-experiment's PreProcessor can dispatch to either variant via the
-        same kwargs.
+        Signature comes from the ``Instrumenter`` ABC so rv-experiment's
+        PreProcessor can dispatch to either variant via the same kwargs.
 
         Args:
             apks_dir: Directory containing the APKs to instrument.
@@ -119,7 +185,7 @@ class DexlibInstrumentation:
             # invoke single-APK runs and aggregate the results manually.
             # Slower (1 JVM per APK) but the only way to respect apk_paths
             # without staging a symlink farm.
-            from rv_instrumentation.config import (
+            from rv_instrumentation_core import (
                 InstrumentationError,
                 InstrumentationResults,
             )
@@ -137,13 +203,25 @@ class DexlibInstrumentation:
                     )
                     continue
                 try:
-                    self._run_cli([
-                        "instrument", str(apk),
-                        *self._common_cli_args(results_dir),
-                    ])
-                    # The single-APK subcommand prints the PerApkResult to
-                    # stdout but does not write the aggregate JSON; we
-                    # treat a clean exit as success.
+                    self._run_cli(
+                        [
+                            "instrument",
+                            str(apk),
+                            *self._common_cli_args(results_dir),
+                        ]
+                    )
+                    # Cross-check: the single-APK ``instrument`` subcommand
+                    # of instr-cli prints compilation errors to stdout but
+                    # exits 0 — so a clean exit alone is NOT proof of
+                    # success. Verify the APK actually landed in
+                    # results_dir before crediting the run.
+                    output_apk = results_dir / name
+                    if not output_apk.is_file():
+                        raise RuntimeError(
+                            f"instr-cli reported success but {output_apk} "
+                            f"was not created — silent javac/d8 failure; "
+                            f"inspect cli stdout for compilation errors"
+                        )
                     success += 1
                 except RuntimeError as ex:
                     errors[name] = InstrumentationError(
@@ -159,14 +237,22 @@ class DexlibInstrumentation:
                 variant="dexlib2",
             )
 
-        self._run_cli([
-            "batch",
-            str(apks_dir),
-            *self._common_cli_args(results_dir),
-            "--results-json",
-            str(results_json),
-        ])
-        return self._parse_results_json(results_json)
+        self._run_cli(
+            [
+                "batch",
+                str(apks_dir),
+                *self._common_cli_args(results_dir),
+                "--results-json",
+                str(results_json),
+            ]
+        )
+        results = self._parse_results_json(results_json)
+        # Cross-check: the CLI's batch subcommand can mark an APK as
+        # ``success: true`` in the JSON even when the post-javac/d8 steps
+        # silently dropped the APK (same root cause as the single-APK
+        # path's exit-0-without-output bug). Demote to error any apkName
+        # that the JSON claims succeeded but is missing from results_dir.
+        return _demote_silent_failures(results, results_dir)
 
     def _common_cli_args(self, output_dir: Path) -> List[str]:
         """CLI args shared between ``instrument`` and ``batch`` subcommands.
@@ -179,10 +265,14 @@ class DexlibInstrumentation:
         DEXes (phase=dex_only).
         """
         args = [
-            "--descriptor", str(self._first_descriptor()),
-            "--output", str(output_dir),
-            "--work-dir", str(self.config.working_dir),
-            "--monitor-src-dir", str(self.config.monitor_output_dir),
+            "--descriptor",
+            str(self._first_descriptor()),
+            "--output",
+            str(output_dir),
+            "--work-dir",
+            str(self.config.working_dir),
+            "--monitor-src-dir",
+            str(self.config.monitor_output_dir),
         ]
         if self.config.keystore_file is not None:
             args += ["--keystore", str(self.config.keystore_file)]
@@ -197,7 +287,10 @@ class DexlibInstrumentation:
         if kpass is not None:
             args += ["--key-pass", kpass]
         if self.config.extra_classpath:
-            args += ["--classpath", ",".join(str(p) for p in self.config.extra_classpath)]
+            args += [
+                "--classpath",
+                ",".join(str(p) for p in self.config.extra_classpath),
+            ]
         return args
 
     # --- internals --------------------------------------------------------
@@ -258,12 +351,14 @@ class DexlibInstrumentation:
             return InstrumentationResults(
                 success_count=0,
                 total_count=0,
-                errors={"__run__": InstrumentationError(
-                    code=2,
-                    phase="dexlib2_pipeline",
-                    tool="instr-cli",
-                    message=f"results JSON not written at {path}",
-                )},
+                errors={
+                    "__run__": InstrumentationError(
+                        code=2,
+                        phase="dexlib2_pipeline",
+                        tool="instr-cli",
+                        message=f"results JSON not written at {path}",
+                    )
+                },
                 variant="dexlib2",
             )
         body = json.loads(path.read_text())
@@ -289,4 +384,79 @@ class DexlibInstrumentation:
 def _os_env() -> dict:
     """Return a shallow copy of os.environ — lazy import avoids polluting module scope."""
     import os
+
     return dict(os.environ)
+
+
+def _demote_silent_failures(
+    results: InstrumentationResults, results_dir: Path
+) -> InstrumentationResults:
+    """Replace JSON-claimed successes whose APK is missing on disk with errors.
+
+    The Java CLI's batch subcommand may report ``success: true`` for an APK
+    even when the downstream javac/d8/sign pipeline silently dropped its
+    output. Without this guard the wrapper would credit phantom successes,
+    which is exactly how the gh53 dexlib2 smoke produced 0% coverage on
+    cryptoapp despite the wrapper reporting success.
+
+    The function rebuilds ``InstrumentationResults`` with each missing-APK
+    entry moved from the success counter to the errors map. Total count and
+    variant tag are preserved.
+    """
+    # Reconstruct the per-APK pass/fail picture from the existing results:
+    # we know how many succeeded but not which ones, so we cannot
+    # distinguish "claimed success" from "claimed failure" without parsing
+    # the original JSON again. The caller (instrument_apks batch path)
+    # passes the results returned by ``_parse_results_json`` which already
+    # discarded the success/failure flags; re-derive by listing the APKs
+    # the JSON claimed (all minus those already in errors) and verify each.
+    if results.total_count == 0:
+        return results
+    # APKs in the errors map are already accounted for as failures.
+    explicit_failures = set(results.errors.keys())
+    # The CLI's instrument_results.json rooted in results_dir is the source
+    # of truth for "claimed success" set.
+    json_path = results_dir / "instrument_results.json"
+    if not json_path.is_file():
+        return results
+    body = json.loads(json_path.read_text())
+    new_errors = dict(results.errors)
+    new_success = results.success_count
+    for entry in body.get("results", []):
+        apk_name = entry.get("apkName", "")
+        if not entry.get("success") or apk_name in explicit_failures:
+            continue
+        if not (results_dir / apk_name).is_file():
+            new_errors[apk_name] = InstrumentationError(
+                code=1,
+                phase="dexlib2_pipeline",
+                tool="instr-cli",
+                message=(
+                    f"CLI reported success but APK not created at "
+                    f"{results_dir / apk_name} — silent javac/d8 failure"
+                ),
+            )
+            new_success -= 1
+    return InstrumentationResults(
+        success_count=max(0, new_success),
+        total_count=results.total_count,
+        errors=new_errors,
+        variant=results.variant,
+    )
+
+
+def _resolve_rvsec_root_or_raise() -> Path:
+    """Resolve the rvsec workspace root from the ``RVSEC_HOME`` env variable.
+
+    The rv-android workspace requires ``RVSEC_HOME`` to be set for monitor
+    generation, static analysis and (now) dexlib2 runtime-library resolution.
+    See CLAUDE.md "Environment Variables".
+    """
+    rvsec_home = os.environ.get("RVSEC_HOME")
+    if not rvsec_home:
+        raise RuntimeError(
+            "RVSEC_HOME environment variable is not set; cannot resolve "
+            "runtime libraries (rv-monitor-rt, rvsec-core, ...). Set RVSEC_HOME "
+            "to the rvsec workspace root (the directory containing rv-android/)."
+        )
+    return Path(rvsec_home)
