@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import List, Optional
 
 from rv_android_core.domain.app import App
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
 from rv_instrumentation_core import (
     Instrumenter,
     InstrumentationError,
@@ -34,6 +37,12 @@ class DexlibInstrumentation(Instrumenter):
 
     def __init__(self, config: DexlibInstrumentationConfig) -> None:
         self.config = config
+        # Per-APK observability — paridade com AjcInstrumentation. Without
+        # this, batch failures bury per-APK context in a single traceback.
+        self._logger = LoggingManager.get_instance().get_logger(
+            "rv_instrumentation_dexlib2.DexlibInstrumentation",
+            {CONTEXT_COMPONENT: "DexlibInstrumentation"},
+        )
 
     # --- public API -------------------------------------------------------
 
@@ -121,7 +130,7 @@ class DexlibInstrumentation(Instrumenter):
         if not runtime_jars:
             raise RuntimeError(
                 f"Template Method returned {len(all_jars)} jars but none "
-                f"matched the dexlib2 allowlist {allowed_prefixes!r}; "
+                f"matched the dexlib2 allowlist {allowed_artifacts!r}; "
                 f"available: {[j.name for j in all_jars]}"
             )
         # Append (não overwrite) — caller may have set extra_classpath manually.
@@ -190,10 +199,28 @@ class DexlibInstrumentation(Instrumenter):
                 InstrumentationResults,
             )
 
+            total = len(apk_paths)
+            self._logger.info(
+                f"Starting batch instrumentation: {total} APKs (apk_paths mode)",
+                extra={
+                    "pipeline_stage": "batch_start",
+                    "total_apks": total,
+                    "results_dir": str(results_dir),
+                },
+            )
             success = 0
             errors: dict[str, InstrumentationError] = {}
-            for name in apk_paths:
+            for idx, name in enumerate(apk_paths, start=1):
                 apk = apks_dir / name
+                self._logger.info(
+                    f"Processing APK {idx}/{total}: {name}",
+                    extra={
+                        "pipeline_stage": "apk_start",
+                        "app_name": name,
+                        "apk_index": idx,
+                        "total_apks": total,
+                    },
+                )
                 if not apk.is_file():
                     errors[name] = InstrumentationError(
                         code=2,
@@ -201,7 +228,15 @@ class DexlibInstrumentation(Instrumenter):
                         tool="instr-cli",
                         message=f"APK not found at {apk}",
                     )
+                    self._logger.error(
+                        f"APK not found at {apk}",
+                        extra={
+                            "pipeline_stage": "apk_lookup",
+                            "app_name": name,
+                        },
+                    )
                     continue
+                apk_start = time.time()
                 try:
                     self._run_cli(
                         [
@@ -223,20 +258,65 @@ class DexlibInstrumentation(Instrumenter):
                             f"inspect cli stdout for compilation errors"
                         )
                     success += 1
-                except RuntimeError as ex:
+                    apk_elapsed = time.time() - apk_start
+                    self._logger.info(
+                        f"Instrumented {name} in {apk_elapsed:.1f}s",
+                        extra={
+                            "pipeline_stage": "apk_done",
+                            "app_name": name,
+                            "elapsed_seconds": round(apk_elapsed, 1),
+                        },
+                    )
+                except (RuntimeError, subprocess.SubprocessError) as ex:
+                    # Defense in depth: catch SubprocessError as well as
+                    # RuntimeError. Even though we removed the wallclock
+                    # timeout (so ``TimeoutExpired`` should no longer fire),
+                    # any future re-introduction of timeout=, or a
+                    # ``CalledProcessError`` from check=True, must still
+                    # demote per-APK rather than abort the entire batch.
+                    apk_elapsed = time.time() - apk_start
                     errors[name] = InstrumentationError(
                         code=1,
                         phase="dexlib2_pipeline",
                         tool="instr-cli",
                         message=str(ex),
                     )
-            return InstrumentationResults(
+                    self._logger.error(
+                        f"Failed to instrument {name} after {apk_elapsed:.1f}s: {ex}",
+                        extra={
+                            "pipeline_stage": "apk_failed",
+                            "app_name": name,
+                            "elapsed_seconds": round(apk_elapsed, 1),
+                            "error_type": type(ex).__name__,
+                        },
+                    )
+            results = InstrumentationResults(
                 success_count=success,
-                total_count=len(apk_paths),
+                total_count=total,
                 errors=errors,
                 variant="dexlib2",
             )
+            self._logger.info(
+                f"Batch complete: {success}/{total} successful, "
+                f"{len(errors)} errors",
+                extra={
+                    "pipeline_stage": "batch_done",
+                    "success_count": success,
+                    "total_count": total,
+                    "error_count": len(errors),
+                },
+            )
+            self._persist_errors_json(results, results_dir)
+            return results
 
+        self._logger.info(
+            f"Starting batch instrumentation (batch mode) — apks_dir={apks_dir}",
+            extra={
+                "pipeline_stage": "batch_start",
+                "apks_dir": str(apks_dir),
+                "results_dir": str(results_dir),
+            },
+        )
         self._run_cli(
             [
                 "batch",
@@ -252,7 +332,46 @@ class DexlibInstrumentation(Instrumenter):
         # silently dropped the APK (same root cause as the single-APK
         # path's exit-0-without-output bug). Demote to error any apkName
         # that the JSON claims succeeded but is missing from results_dir.
-        return _demote_silent_failures(results, results_dir)
+        results = _demote_silent_failures(results, results_dir)
+        self._logger.info(
+            f"Batch complete: {results.success_count}/{results.total_count} "
+            f"successful, {len(results.errors)} errors",
+            extra={
+                "pipeline_stage": "batch_done",
+                "success_count": results.success_count,
+                "total_count": results.total_count,
+                "error_count": len(results.errors),
+            },
+        )
+        self._persist_errors_json(results, results_dir)
+        return results
+
+    def _persist_errors_json(
+        self, results: InstrumentationResults, results_dir: Path
+    ) -> None:
+        """Write per-APK errors to ``results_dir/instrument_errors.json``.
+
+        Paridade com AjcInstrumentation (``ajc_instrumentation.py:340-360``).
+        Allows post-mortem of a batch run without re-tailing logs. Mirrors
+        the AJC schema: ``{<apk_name>: {"code": ..., "tool": ..., "message":
+        ..., "phase": ...}, ...}``. Empty errors writes ``{}`` so consumers
+        can rely on the file existing.
+        """
+        errors_path = Path(results_dir) / "instrument_errors.json"
+        payload = {
+            name: error.model_dump() for name, error in results.errors.items()
+        }
+        try:
+            errors_path.write_text(json.dumps(payload, indent=2))
+            self._logger.info(
+                f"Error report saved to: {errors_path}",
+                extra={"errors_file": str(errors_path)},
+            )
+        except OSError as ex:
+            self._logger.error(
+                f"Failed to write {errors_path}: {ex}",
+                extra={"errors_file": str(errors_path)},
+            )
 
     def _common_cli_args(self, output_dir: Path) -> List[str]:
         """CLI args shared between ``instrument`` and ``batch`` subcommands.
@@ -322,12 +441,33 @@ class DexlibInstrumentation(Instrumenter):
             *cli_args,
         ]
         env_extras = self._env_extras()
+        # Truncate cmd preview for log (full classpath bloats log lines).
+        subcmd = cli_args[0] if cli_args else "?"
+        self._logger.info(
+            f"Invoking instr-cli ({subcmd}) — argv length {len(cmd)}",
+            extra={"pipeline_stage": "instr_cli_invoke", "subcommand": subcmd},
+        )
+        start = time.time()
+        # No wallclock timeout — instrumentation is a build operation. Weave
+        # time scales with method count (cf. coverageInstrumented=80160 for
+        # 249k-method APKs) and is bounded only by APK content. Parity with
+        # AJC's mvn/dex2jar/ajc/d8/jarsigner invocations (no timeout). Real
+        # APKs from the JCA-400 corpus legitimately need 10-30+ min.
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=self.config.timeout_seconds,
             env={**_os_env(), **env_extras},
+        )
+        elapsed = time.time() - start
+        self._logger.info(
+            f"instr-cli ({subcmd}) returned exit={proc.returncode} in {elapsed:.1f}s",
+            extra={
+                "pipeline_stage": "instr_cli_done",
+                "subcommand": subcmd,
+                "exit_code": proc.returncode,
+                "elapsed_seconds": round(elapsed, 1),
+            },
         )
         if proc.returncode != 0:
             raise RuntimeError(

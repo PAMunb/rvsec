@@ -208,3 +208,42 @@ Tasks descobertas durante Phase 4 — validação isolada por camada antes do sm
 - [x] 9.25 Run `/opsx:verify gh53-consolidacao-instrumentation` to validate implementation matches delta specs
 - [x] 9.26 Run `/rv-docs-sync` (Group 8 modified 6 CLAUDE.md files — root + `-core` + parent + `-ajc` + `-dexlib2` + `rv-experiment` — plus README + openspec/config.yaml; sync is unconditional)
 - [x] 9.27 Final acceptance summary: confirm AC-IMP-01..10, AC-BHV-01..07, AC-WSP-01..06, AC-DOC-01..03, AC-IMG-01..02, AC-CLN-01..02, AC-DCM-01..04, AC-AST-01..06 from design.md §D7 — every AC must have an [x] checkbox or explicit deviation note
+
+## 9.22g. Bug fix dexlib2 wallclock timeout (Phase 5 amend — Docker E2E surfaced)
+
+Tasks descobertas durante validação Docker em batch real (JCA-400, container 07, 2026-05-01) após push de gh53. Bug pré-existente do gh52 (commit `04f2dd0c`), exposto por gh53 (classpath cresceu — 1 thin jar 124KB → 3 jars reais ~250KB) e por o smoke do gh53 ter coberto apenas cryptoapp (4MB, 30k methods) sem testar APKs reais do dataset.
+
+**Sintoma**: `subprocess.TimeoutExpired: Command [...instr-cli.jar instrument io.github.eucsoh.android_9.apk ...] timed out after 600 seconds` propagado por `except RuntimeError as ex:` (que não captura `TimeoutExpired` — herda de `SubprocessError`, não `RuntimeError`) → batch abortado → `pre_processor._copy_original_apks()` deixou 22 APKs **originais sem instrumentação** em `instrumented_apks/` → Phase 2 rodou aperv:sata_mop sobre binários sem MOP monitors → 0% MOP coverage.
+
+**Baseline empírico (2026-05-01)**: `instr-cli.jar` direct sobre `io.github.eucsoh.android_9.apk` (28MB, 5 dex, 249k methods, 43k classes) sem timeout completou com sucesso em **14m14s** (`phase=signed`, `coverageInstrumented=80160`). 600s é insuficiente para APKs reais do JCA-400 corpus.
+
+**Decisão de design**: remover wallclock timeout — paridade com AJC pipeline (que NÃO tem timeout em dex2jar/ajc/d8/jarsigner; só `zipalign` tem 60s SAFETY_KILL legítimo). Instrumentação é build operation, run-to-completion é semântica correta.
+
+### Logging + observabilidade (3a-prelim do plano)
+
+- [x] 9.22g1 [Logger setup] Adicionar `_logger = LoggingManager.get_instance().get_logger("rv_instrumentation_dexlib2.DexlibInstrumentation", {CONTEXT_COMPONENT: "DexlibInstrumentation"})` em `DexlibInstrumentation.__init__` (paridade com `AjcInstrumentation` em `ajc_instrumentation.py:90-100`). Atualmente DexlibInstrumentation tem ZERO logging — usuário só descobriu o timeout via traceback final, sem contexto de qual APK estava sendo processado nem onde gastou tempo.
+- [x] 9.22g2 [Per-APK logging] Em `instrument_apks` (apk_paths branch e batch branch): logar `INFO` ao iniciar cada APK, `INFO` com duração ao completar, `ERROR` com phase + message ao falhar. Inclui `extra={"app_name": ..., "elapsed_seconds": ...}` para análise estruturada.
+- [x] 9.22g3 [CLI invocation logging] Em `_run_cli`: logar `INFO` antes de invocar Java CLI com cmd args (truncados — primeiros 200 chars do classpath para não poluir log) e duração total no retorno. Permite correlacionar tempo Python-side vs Java-side.
+- [x] 9.22g4 [Persist instrument_errors.json] Em `instrument_apks`: ao final, persistir `instrument_errors.json` em `results_dir` igual AJC faz (`ajc_instrumentation.py:340-360`). Permite post-mortem do batch sem precisar relogar.
+
+### Fix do timeout (3a do plano)
+
+- [x] 9.22g5 [Remove timeout config] Apagar `timeout_seconds: int = Field(default=600, ...)` em `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/config.py:93-97`. Adicionar comentário no commit explicando que field foi removido (paridade com AJC, instrumentação é build).
+- [x] 9.22g6 [Remove timeout from subprocess.run] Remover `timeout=self.config.timeout_seconds` do `subprocess.run(...)` em `dexlib_instrumentation.py:325-329`. Adicionar comentário inline: "No wallclock cap — instrumentation is a build operation; weave time scales with method count and is bounded only by APK content. Parity with AJC's mvn/dex2jar/ajc/d8/jarsigner invocations (no timeout). Real APKs from JCA-400 corpus require 10-30+ min legitimately (e.g. io.github.eucsoh.android_9.apk: 14m14s baseline 2026-05-01)."
+
+### Defesa em profundidade (3b do plano)
+
+- [x] 9.22g7 [Broaden except] Trocar `except RuntimeError as ex:` por `except (RuntimeError, subprocess.SubprocessError) as ex:` em `dexlib_instrumentation.py:226` (apk_paths branch). Mesmo com timeout removido, defende contra futuro re-introduction OU outras subprocess exceptions (CalledProcessError se alguém adicionar `check=True`). Per-APK demote-on-error em vez de matar batch.
+
+### Tests (3c do plano)
+
+- [x] 9.22g8 [Test: subprocess.run sem timeout] Adicionar test em `test_dexlib_instrumentation.py` que mocka `subprocess.run` e verifica que **NÃO** recebe `timeout=` kwarg (regression guard contra re-introduction).
+- [x] 9.22g9 [Test: SubprocessError capturado] Test que `instrument_apks(apk_paths=[...])` com `_run_cli` raising `subprocess.SubprocessError` demote esse APK e continua com os demais (sem batch abort).
+- [x] 9.22g10 [Test: existing tests pass without timeout_seconds] Atualizar tests que setam `timeout_seconds` no `DexlibInstrumentationConfig` (se houver) para refletir o field removido.
+- [x] 9.22g11 [Test: logger called] Test que `instrument_apks` chama `_logger.info` ao iniciar/completar APK (verificação simples de observabilidade).
+
+### Verification
+
+- [x] 9.22g12 [Re-test cryptoapp] Re-rodar `/tmp/test_dexlib2_wrapper.py` (Python wrapper isolado) — confirma que mudanças não regrediram baseline cryptoapp.
+- [x] 9.22g13 [Re-test eucsoh via wrapper] Adaptar script para `io.github.eucsoh.android_9.apk` (28MB) — confirmar que wrapper aguenta 14min+ sem timeout, completa com sucesso, e a instrumentation_errors.json fica vazia.
+- [x] 9.22g14 [Suite completa] `uv run pytest modules/rv-instrumentation-dexlib2/tests/ modules/rv-instrumentation-ajc/tests/ modules/rv-instrumentation/tests/ modules/rv-instrumentation-core/tests/ modules/rv-experiment/tests/ -q` — todos os módulos afetados passam.

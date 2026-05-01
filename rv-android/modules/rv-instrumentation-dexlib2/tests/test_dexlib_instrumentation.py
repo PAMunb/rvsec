@@ -7,6 +7,7 @@ contract (task 12.7 — wrapper-side parity check, no real subprocess).
 """
 
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -48,7 +49,124 @@ def test_config_variant_default_matches_ajc(tmp_workspace):
         working_dir=tmp_workspace["work"],
     )
     assert cfg.descriptor_glob == "MultiSpec_*MonitorAspect.json"
-    assert cfg.timeout_seconds == 600
+    # timeout_seconds was removed in 9.22g (parity with AJC, which has no
+    # wallclock timeout on dex2jar/ajc/d8/jarsigner). The CLI subprocess
+    # now runs to completion regardless of duration.
+    assert not hasattr(cfg, "timeout_seconds")
+
+
+def test_subprocess_run_does_not_receive_timeout_kwarg(tmp_workspace):
+    """Regression guard: ``_run_cli`` must NOT pass ``timeout=`` to
+    ``subprocess.run``. Re-introducing a wallclock cap would silently
+    break large APKs from the JCA-400 corpus (the original Phase 5 bug)."""
+    _seed_descriptor(tmp_workspace)
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    captured_kwargs = {}
+
+    def fake_run(cmd, **kwargs):
+        captured_kwargs.update(kwargs)
+
+        class _R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _R()
+
+    with patch("subprocess.run", side_effect=fake_run):
+        inst._run_cli(["instrument", "/dev/null"])
+
+    assert "timeout" not in captured_kwargs, (
+        "subprocess.run called with timeout=; remove it — instrumentation "
+        "is a build operation, weave time is bounded only by APK content."
+    )
+
+
+def test_subprocess_error_demoted_per_apk_not_propagated(tmp_workspace):
+    """Defense in depth: if any ``SubprocessError`` (incl. TimeoutExpired
+    from a hypothetical re-introduction) escapes ``_run_cli``, the wrapper
+    must demote that single APK to error and continue with the rest, NOT
+    abort the entire batch."""
+    _seed_descriptor(tmp_workspace)
+    apks_dir = tmp_workspace["root"] / "apks_in"
+    apks_dir.mkdir()
+    (apks_dir / "good.apk").write_bytes(b"PK\x03\x04stub")
+    (apks_dir / "bad.apk").write_bytes(b"PK\x03\x04stub")
+    results_dir = tmp_workspace["root"] / "results"
+    results_dir.mkdir()
+
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    def fake_run_cli(args):
+        # Look at the APK arg (positional after "instrument")
+        apk = Path(args[1])
+        if apk.name == "bad.apk":
+            raise subprocess.TimeoutExpired(cmd=["java", "-jar", "x"], timeout=1)
+        # good.apk: simulate CLI writing the output APK
+        (results_dir / "good.apk").write_bytes(b"signed")
+
+    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
+        DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli
+    ):
+        res = inst.instrument_apks(
+            apks_dir=apks_dir,
+            results_dir=results_dir,
+            apk_paths=["good.apk", "bad.apk"],
+        )
+
+    assert res.success_count == 1, "good.apk should still succeed"
+    assert "bad.apk" in res.errors, "bad.apk should be demoted to error"
+    assert res.total_count == 2
+
+
+def test_persist_errors_json_writes_file(tmp_workspace):
+    """``instrument_apks`` should persist ``instrument_errors.json`` to
+    ``results_dir`` (paridade com AJC). Allows post-mortem of a batch run
+    without re-tailing logs."""
+    _seed_descriptor(tmp_workspace)
+    apks_dir = tmp_workspace["root"] / "apks_in"
+    apks_dir.mkdir()
+    (apks_dir / "ok.apk").write_bytes(b"PK\x03\x04stub")
+    results_dir = tmp_workspace["root"] / "results"
+    results_dir.mkdir()
+
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    def fake_run_cli(args):
+        (results_dir / "ok.apk").write_bytes(b"signed")
+
+    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
+        DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli
+    ):
+        inst.instrument_apks(
+            apks_dir=apks_dir,
+            results_dir=results_dir,
+            apk_paths=["ok.apk"],
+        )
+
+    errors_file = results_dir / "instrument_errors.json"
+    assert errors_file.is_file(), "instrument_errors.json must be persisted"
+    payload = json.loads(errors_file.read_text())
+    assert payload == {}, "successful run should produce empty errors map"
 
 
 def test_prepare_raises_when_no_descriptor(tmp_workspace):

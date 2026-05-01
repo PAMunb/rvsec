@@ -90,10 +90,13 @@ class DexlibInstrumentationConfig(BaseModel):
             "runtime classes (rv-monitor-rt + rvsec-agent typically)."
         ),
     )
-    timeout_seconds: int = Field(
-        default=600,
-        gt=0,
-        description="Per-APK subprocess timeout. 10 min is enough for the largest observed APKs.",
-    )
+    # No wallclock timeout for the Java CLI subprocess — instrumentation is a
+    # build operation; weave time scales with method count and is bounded only
+    # by APK content. AJC pipeline runs mvn/dex2jar/ajc/d8/jarsigner without
+    # wallclock caps for the same reason. APKs in the JCA-400 corpus
+    # legitimately take 10-30+ minutes (e.g. io.github.eucsoh.android_9.apk:
+    # 14m14s baseline 2026-05-01, 249k methods, coverageInstrumented=80160).
+    # If a hung CLI ever needs detection, add an inactivity-based watchdog —
+    # NOT a wallclock timeout that aborts legitimate slow runs.
 
     model_config = {"arbitrary_types_allowed": True}
