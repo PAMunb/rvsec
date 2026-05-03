@@ -49,9 +49,14 @@ import presto.android.gui.wtg.WTGBuilder;
 import presto.android.gui.wtg.ds.WTG;
 import presto.android.gui.wtg.ds.WTGEdge;
 import presto.android.gui.wtg.ds.WTGNode;
+import soot.Body;
 import soot.Scene;
 import soot.SootClass;
 import soot.SootMethod;
+import soot.SootMethodRef;
+import soot.Unit;
+import soot.jimple.InvokeExpr;
+import soot.jimple.Stmt;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.jimple.toolkits.callgraph.Edge;
 
@@ -95,9 +100,10 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		System.out.println("[RvsecAnalysisClient] Application classes: " + appClasses.size());
 
 		// 2. Load MOP signatures and resolve to SootMethods
+		Set<MopMethod> mopSignatures = Collections.emptySet();
 		Set<SootMethod> mopMethods = Collections.emptySet();
 		if (mopDir != null) {
-			Set<MopMethod> mopSignatures = loadMopSignatures(mopDir);
+			mopSignatures = loadMopSignatures(mopDir);
 			mopMethods = resolveMopInScene(mopSignatures);
 			System.out.println("[RvsecAnalysisClient] MOP methods resolved: " + mopMethods.size());
 		}
@@ -115,6 +121,22 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		EdgeReversedGraph<SootMethod, DefaultEdge> reversed = new EdgeReversedGraph<>(graph);
 		Set<SootMethod> reachesMopSet = multiSourceBfs(reversed, mopMethods);
 		Set<SootMethod> directMopSet = findDirectMopCallers(graph, mopMethods);
+		int directCgCount = directMopSet.size();
+
+		// 3b. Bytecode-scan complement (BUG-INV-ANA-19): SPARK omits library
+		// targets (java.security.*, javax.crypto.*) from the call graph, so
+		// findDirectMopCallers cannot see app methods that literally invoke
+		// MOP signatures on those classes. Walk every app method body and
+		// match InvokeExpr against MopMethod (className, methodName) pairs —
+		// independent of CG edges. Symmetric with reachesMopSet's transitive
+		// completion in complementWithCallbacks.
+		Set<SootMethod> directBcSet = findDirectMopCallersByBytecodeScan(appClasses, mopSignatures);
+		Set<SootMethod> intersection = new HashSet<>(directMopSet);
+		intersection.retainAll(directBcSet);
+		directMopSet.addAll(directBcSet);
+		System.out.println("[RvsecAnalysisClient] directlyReachesMop: " + directMopSet.size()
+				+ " (CG: " + directCgCount + ", bytecode: " + directBcSet.size()
+				+ ", intersection: " + intersection.size() + ")");
 
 		// 4. Complement with lifecycle and listener callbacks
 		complementWithCallbacks(output, reachableSet, reachesMopSet, directMopSet, graph, mopMethods);
@@ -418,6 +440,113 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * Bytecode-scan complement to {@link #findDirectMopCallers}.
+	 *
+	 * Walks each app method's body and inspects every {@link InvokeExpr},
+	 * matching against MOP signatures by ({@code declaringClass.getName()},
+	 * {@code methodRef.name()}) — the same FQN/name policy used by
+	 * {@link #resolveMopInScene}. Independent of the call graph, so it
+	 * captures app → library calls (e.g. {@code SecureRandom.nextInt}) that
+	 * SPARK quarantines and therefore omits as CG edges (BUG-INV-ANA-19).
+	 *
+	 * Body retrieval is wrapped in try-catch ({@link RuntimeException},
+	 * {@link OutOfMemoryError}) — same resilience policy as Flowgraph.java
+	 * (FIX 2). A single corrupted method does not abort the pass.
+	 *
+	 * @param appClasses application classes (already filtered by package
+	 *                   in {@link #extractClasses}); the caller universe.
+	 * @param mopSignatures MOP signatures loaded from the .mop specs.
+	 * @return app methods whose body contains a literal invocation of any
+	 *         MOP signature, regardless of CG visibility.
+	 */
+	private Set<SootMethod> findDirectMopCallersByBytecodeScan(
+			Map<SootClass, List<SootMethod>> appClasses,
+			Set<MopMethod> mopSignatures) {
+
+		Set<SootMethod> result = new HashSet<>();
+		if (mopSignatures.isEmpty()) {
+			return result;
+		}
+
+		// Build a fast lookup keyed by "fqClassName#methodName" — matches
+		// resolveMopInScene's policy (class FQN + method name, ignoring
+		// parameter overloads). Same MopMethod entry covers all overloads.
+		Set<String> mopKeys = buildMopKeys(mopSignatures);
+
+		int methodsScanned = 0;
+		int bodiesSkipped = 0;
+		for (Map.Entry<SootClass, List<SootMethod>> entry : appClasses.entrySet()) {
+			for (SootMethod method : entry.getValue()) {
+				methodsScanned++;
+				if (!method.isConcrete()) {
+					continue;
+				}
+				Body body;
+				try {
+					body = method.retrieveActiveBody();
+				} catch (RuntimeException | OutOfMemoryError ex) {
+					bodiesSkipped++;
+					System.out.println("[RvsecAnalysisClient] WARN bytecode-scan skipped "
+							+ method.getSignature() + ": " + ex.getMessage());
+					continue;
+				}
+				if (body == null) {
+					continue;
+				}
+				for (Unit unit : body.getUnits()) {
+					if (!(unit instanceof Stmt)) {
+						continue;
+					}
+					Stmt stmt = (Stmt) unit;
+					if (!stmt.containsInvokeExpr()) {
+						continue;
+					}
+					InvokeExpr ie = stmt.getInvokeExpr();
+					SootMethodRef ref = ie.getMethodRef();
+					if (ref == null) {
+						continue;
+					}
+					if (matchesMopSignature(ref.getDeclaringClass().getName(), ref.getName(), mopKeys)) {
+						result.add(method);
+						break;
+					}
+				}
+			}
+		}
+		System.out.println("[RvsecAnalysisClient] Bytecode scan: " + methodsScanned
+				+ " methods scanned, " + bodiesSkipped + " body-retrieval skips, "
+				+ result.size() + " direct MOP callers detected");
+		return result;
+	}
+
+	/**
+	 * Build the {@code "className#methodName"} key set used by the bytecode
+	 * scanner to match {@link InvokeExpr} targets against MOP signatures.
+	 *
+	 * Same matching policy as {@link #resolveMopInScene}: FQN class +
+	 * method name, ignoring parameter overloads. Package-private for unit
+	 * tests that exercise the matching policy without a Soot Scene.
+	 */
+	static Set<String> buildMopKeys(Set<MopMethod> mopSignatures) {
+		Set<String> keys = new HashSet<>();
+		for (MopMethod mop : mopSignatures) {
+			keys.add(mop.getClassName() + "#" + mop.getName());
+		}
+		return keys;
+	}
+
+	/**
+	 * Test whether a given (className, methodName) pair matches any MOP
+	 * signature in the precomputed {@code mopKeys} set.
+	 *
+	 * Package-private for unit tests; production code calls it implicitly
+	 * via {@code mopKeys.contains(...)} after {@link #buildMopKeys}.
+	 */
+	static boolean matchesMopSignature(String className, String methodName, Set<String> mopKeys) {
+		return mopKeys.contains(className + "#" + methodName);
 	}
 
 	// ========================================================================

@@ -144,5 +144,31 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 - **AND** transition count MUST match exactly (±0)
 - **AND** total method count MUST match exactly (±0)
 - **AND** `reachable` and `reachesMop` method counts MAY differ by up to ±10% due to Soot version change (3.3.0 → 4.7.1) — differences MUST be documented
-- **AND** `directlyReachesMop` counts MUST match exactly (±0) because direct call edges are CG-construction-independent
+- **AND** `directlyReachesMop` counts MUST match or strictly INCREASE relative to the saved baseline because the bytecode-scan complement (BUG-INV-ANA-19) recovers literal MOP invocations the call graph alone misses; the baseline is a lower bound, never an upper bound
 - **AND** widget `inputType` and `entries` fields MUST match GESDA output for the same APK
+
+#### Scenario: `directlyReachesMop` detects literal library MOP invocations omitted by SPARK (BUG-INV-ANA-19)
+
+- **WHEN** an application method's bytecode contains a literal `invoke-direct`, `invoke-virtual`, `invoke-static`, or `invoke-interface` whose target's `(declaringClass.getName(), methodRef.name())` matches a MOP signature loaded from the `mopDir` (e.g. `java.security.SecureRandom.<init>` or `java.security.SecureRandom.nextInt` for the `SecureRandomSpec` MOP)
+- **AND** Soot's SPARK call graph does NOT contain that target as a vertex (because library packages like `java.security.*` are quarantined as IGNORED_CLASSES and SPARK omits their edges)
+- **THEN** `findDirectMopCallersByBytecodeScan` MUST detect the invocation by walking the method's `Body.getUnits()`, casting each to `Stmt`, and inspecting `InvokeExpr.getMethodRef()` against the precomputed `Set<String>` of `"className#methodName"` keys
+- **AND** the detection MUST be independent of the call graph — it works even when `graph.containsVertex(target) == false`
+- **AND** the matched method MUST be unioned into `directMopSet` after `findDirectMopCallers` completes
+- **AND** the output JSON MUST report `directlyReachesMop=true` for that method
+- **AND** the implementation MUST log scan statistics: `[RvsecAnalysisClient] Bytecode scan: <S> methods scanned, <B> body-retrieval skips, <K> direct MOP callers detected` and `[RvsecAnalysisClient] directlyReachesMop: <N> (CG: <M>, bytecode: <K>, intersection: <I>)` so users can audit how many additional callers the bytecode complement contributed
+- **AND** match policy MUST mirror `resolveMopInScene` — by FQN class + method name, ignoring parameter overloads — so an `InvokeExpr` of any overload of a MOP-declared method matches the same key
+
+#### Scenario: Bytecode-scan resilience on corrupted method bodies
+
+- **WHEN** the bytecode scanner attempts `method.retrieveActiveBody()` and Soot raises a `RuntimeException` (typing failure, unresolved reference) or `OutOfMemoryError` (deep generic Kotlin types) on a single application method
+- **THEN** the scanner MUST catch the throwable, emit a WARN log including the method signature and exception message, and `continue` to the next method
+- **AND** the body-retrieval skip MUST be counted in the `bodies_skipped` log statistic
+- **AND** the scanner MUST NOT abort the analysis — partial results from successfully scanned methods MUST still be unioned into `directMopSet`
+- **AND** the resilience policy MUST mirror Flowgraph.java FIX 2 (INV-ANA-17) so a single corrupt class does not invalidate the rest of the analysis
+
+#### Scenario: Bytecode-scan scope is limited to application classes
+
+- **WHEN** the bytecode scanner runs as part of `RvsecAnalysisClient.run`
+- **THEN** it MUST iterate only the `appClasses` map produced by `extractClasses` (already filtered by `code_package` to drop libraries and generated `R`/`BuildConfig`)
+- **AND** it MUST NOT iterate every class in `Scene.v().getClasses()` — library callers are out of scope for `directlyReachesMop` semantics (the predicate asks which APP methods directly invoke MOP-monitored APIs)
+- **AND** the union with `directMopSet` MUST therefore never report a library class as a direct MOP caller

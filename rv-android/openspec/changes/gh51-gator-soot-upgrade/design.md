@@ -141,6 +141,28 @@ Note: RTA, VTA, and SPARK all use the SPARK framework internally. Only CHA is a 
 
 **Implementation**: Replace the boolean `-withCHA` flag with `-cgAlgorithm <cha|rta|vta|spark>` in `Main.java`. Pass from Python side via the GATOR script with `spark` as default. Keep backward compatibility: if `-withCHA` is passed, treat as `-cgAlgorithm cha` (so legacy invocations still resolve to a valid algorithm). Existing experiments that explicitly pinned CHA via `-withCHA` continue to work; new invocations get SPARK unless overridden.
 
+### D6: Bytecode-scan complement to `findDirectMopCallers` (BUG-INV-ANA-19)
+
+**Choice**: Add a statement-level scan over each application method's `Body.getUnits()` to detect literal `InvokeExpr` matches against MOP signatures, independent of the call graph. Union the result into `directMopSet` after `findDirectMopCallers` runs.
+
+**Why**:
+
+1. **CG-only detection is unsound for library-targeting MOP signatures** — `findDirectMopCallers` (RvsecAnalysisClient.java:406-421) iterates only vertices in the JGraphT graph, which is built from Soot's `CallGraph`. SPARK's default configuration omits library targets (`java.security.*`, `javax.crypto.*` are quarantined as IGNORED_CLASSES); the corresponding `Edge` objects are not produced, so even when an app method literally invokes `SecureRandom.nextInt`, neither the target vertex nor an outgoing edge to it exists. CG-only logic cannot find that caller.
+
+2. **Asymmetry vs `reachesMopSet` is the observable bug** — `reachesMopSet` reaches the same method through `complementWithCallbacks` transitive completion (line 506-507): any callback whose target is in `reachesMopSet` is added to `reachesMopSet`. There is no analogous transitive completion for `directMopSet` (line 502 only adds direct CG-edge callbacks). The observable JSON inconsistency (`reachable=False, reachesMop=True, directlyReachesMop=False` for the same method) is the symptom of this asymmetry.
+
+3. **Bytecode evidence is ground truth for "directly calls"** — the predicate `directlyReachesMop` semantically asks "does this method's bytecode contain a literal invocation of a MOP-monitored API?". The bytecode itself is authoritative. SPARK's call graph is an *over-approximation* of dispatches but a *under-approximation* of literal invocations (because it filters out library targets). For this specific predicate, bytecode scan is closer to the intended semantics than CG analysis.
+
+4. **Match policy mirrors `resolveMopInScene`** — both consult MOP signatures by `(className, methodName)` ignoring parameter overloads. A precomputed `Set<String>` keyed `"className#methodName"` gives O(1) lookup per `InvokeExpr`. Helpers `buildMopKeys` and `matchesMopSignature` are package-private to enable unit testing without a Soot Scene.
+
+5. **Resilience** — body retrieval is wrapped in try-catch (`RuntimeException`, `OutOfMemoryError`) with a WARN log and `continue`, mirroring the FIX 2 pattern in `Flowgraph.java`. A single corrupted method does not abort the whole pass.
+
+6. **Scope = app classes only** — the scan iterates `appClasses` from `extractClasses` (already filtered by `code_package`), not every class in `Scene.v().getClasses()`. The caller universe matches the existing `extractClasses` semantics; we never report a library method as a "direct MOP caller".
+
+**Why not "fix SPARK"**: Adding `java.security.*` to SPARK's reachable set would require modeling the full JCA implementation (Provider lookup, native crypto bindings, etc.), which is out of scope and would explode CG size on every APK. Bytecode scan is targeted, cheap (O(methods × statements) on app code only), and orthogonal to CG decisions.
+
+**Empirical validation**: `com.myAllVideoBrowser_197.apk` `GeneratedProxyCreds$Companion::generateRandomString` flips from `directlyReachesMop=False` to `True`, matching Androguard's reachability witness. `cryptoapp.apk` baseline preserved at 22 (CG=22, bytecode=21, intersection=21) — bytecode scan adds zero spurious detections on a JCA-heavy benchmark, confirming the union semantics are conservative.
+
 ## Data Flow
 
 No change to data flow. The existing pipeline is preserved:
