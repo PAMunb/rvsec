@@ -1090,6 +1090,101 @@ class TestRestoreQuarantinedClasses:
         rv._AjcInstrumentation__restore_quarantined_classes(app)
 
 
+class TestEnableQuarantineToggle:
+    """Tests for the `enable_quarantine` config flag (gh50 §21)."""
+
+    def test_quarantine_disabled_skips_yaml_load_and_move(self, tmp_path):
+        # When enable_quarantine=False, the early-return must fire BEFORE
+        # `_load_quarantine_patterns` is consulted and BEFORE any file move
+        # is attempted. Tracks regression of the gh50 §21 toggle.
+        config = _make_config_mock(tmp_path)
+        config.enable_quarantine = False
+        os.makedirs(config.tmp_dir)
+        okio_dir = Path(config.tmp_dir) / "okio"
+        okio_dir.mkdir(parents=True)
+        (okio_dir / "Buffer.class").write_bytes(b"okio")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"
+
+        with (
+            patch.object(rv, "_load_quarantine_patterns") as mock_load,
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.shutil.move"
+            ) as mock_move,
+        ):
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
+
+            mock_load.assert_not_called()
+            mock_move.assert_not_called()
+
+        # The class file must remain in place; no quarantine root created.
+        assert (okio_dir / "Buffer.class").exists()
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
+        assert not qroot.exists()
+
+    def test_restore_disabled_is_noop_even_with_stale_dir(self, tmp_path):
+        # If a stale `<tmp_dir>_quarantine/` survives from a previous run
+        # while the current run is disabled, the restore must NOT touch it.
+        # Cleanup of stale state is the caller's responsibility.
+        config = _make_config_mock(tmp_path)
+        config.enable_quarantine = False
+        os.makedirs(config.tmp_dir)
+
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
+        stale_dir = qroot / "okio"
+        stale_dir.mkdir(parents=True)
+        stale_file = stale_dir / "Buffer.class"
+        stale_file.write_bytes(b"stale")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+
+        rv._AjcInstrumentation__restore_quarantined_classes(app)
+
+        # Stale file must be preserved exactly where it was.
+        assert stale_file.exists()
+        assert stale_file.read_bytes() == b"stale"
+        # And nothing must land under tmp_dir.
+        assert not (Path(config.tmp_dir) / "okio" / "Buffer.class").exists()
+
+    def test_quarantine_enabled_path_unchanged(self, tmp_path):
+        # Regression: with the default (truthy MagicMock for the field),
+        # __quarantine_problematic_classes still moves files as before.
+        config = _make_config_mock(tmp_path)
+        # MagicMock is truthy → existing behavior; explicit assignment for
+        # clarity even though it is the implicit default.
+        config.enable_quarantine = True
+        os.makedirs(config.tmp_dir)
+        okio_dir = Path(config.tmp_dir) / "okio"
+        okio_dir.mkdir(parents=True)
+        (okio_dir / "Buffer.class").write_bytes(b"okio")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"
+
+        with patch.object(
+            rv, "_load_quarantine_patterns", return_value=["okio/**/*.class"]
+        ):
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
+
+        # File moved to quarantine root.
+        assert not (okio_dir / "Buffer.class").exists()
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
+        assert (qroot / "okio" / "Buffer.class").exists()
+
+
 class TestSignApk:
     """Tests for __sign_apk (apksigner-based)."""
 

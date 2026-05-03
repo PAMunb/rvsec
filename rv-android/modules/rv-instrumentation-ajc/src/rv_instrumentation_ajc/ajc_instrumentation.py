@@ -826,6 +826,17 @@ class AjcInstrumentation(Instrumenter):
             app: Android application object (``app.code_package`` used for
                 the safety check).
         """
+        if not self.config.enable_quarantine:
+            self._logger.info(
+                "Quarantine disabled by config; pipeline will weave/dex all classes",
+                extra={
+                    "app_name": app.name,
+                    "pipeline_stage": "quarantine",
+                    "enable_quarantine": False,
+                },
+            )
+            return
+
         patterns = self._load_quarantine_patterns()
         if not patterns:
             self._logger.debug(
@@ -899,6 +910,23 @@ class AjcInstrumentation(Instrumenter):
         Args:
             app: Android application object (used for structured logging).
         """
+        if not self.config.enable_quarantine:
+            # Symmetric no-op: when quarantine is disabled, the matching
+            # phase did not move anything, so there is nothing to restore.
+            # A stale quarantine directory (left by a previous enabled run)
+            # is intentionally NOT touched here — cleanup is the caller's
+            # responsibility and treating it as state from this run would
+            # be confusing.
+            self._logger.debug(
+                "Restore skipped: enable_quarantine=False",
+                extra={
+                    "app_name": app.name,
+                    "pipeline_stage": "restore_quarantine",
+                    "enable_quarantine": False,
+                },
+            )
+            return
+
         quarantine_root = self._quarantine_root()
         if not quarantine_root.exists():
             self._logger.debug(

@@ -225,6 +225,18 @@ class AjcInstrumentationConfig(BaseValidatedModel):
         default=None, description="Directory containing dex2jar tool suite"
     )
 
+    # Pipeline toggles
+    enable_quarantine: bool = Field(
+        default=True,
+        description=(
+            "When True (default), the pipeline quarantines library classes "
+            "matched by assets/weaving_excludes.yaml before ajc/d8 and "
+            "restores them afterwards (gh50 §16/§19). When False, both "
+            "phases are no-ops and every class reaches ajc/d8 — useful "
+            "for empirical comparison runs measuring quarantine impact."
+        ),
+    )
+
     def __init__(self, **data: Any):
         """
         Initialize AjcInstrumentationConfig with intelligent path resolution and validation.

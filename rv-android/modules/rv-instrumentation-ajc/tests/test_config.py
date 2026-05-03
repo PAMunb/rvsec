@@ -97,9 +97,56 @@ class TestAjcInstrumentationConfig(unittest.TestCase):
                 self.assertEqual(config.keystore_password, "testpassword")
                 self.assertEqual(config.dex2jar_home, str(dex2jar_home))
 
+                # Quarantine is opt-out: default must be True (gh50 §21).
+                self.assertTrue(config.enable_quarantine)
+
                 # Test that model is a proper Pydantic instance
                 self.assertTrue(hasattr(config, "model_dump"))
                 self.assertTrue(hasattr(AjcInstrumentationConfig, "model_fields"))
+
+    def test_enable_quarantine_can_be_disabled(self):
+        """Test that enable_quarantine=False is accepted (gh50 §21)."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            monitor_dir = temp_path / "monitors"
+            monitor_dir.mkdir()
+            (monitor_dir / "test.aj").touch()
+            (monitor_dir / "test.java").touch()
+
+            android_platforms = temp_path / "android" / "platforms"
+            android_platforms.mkdir(parents=True)
+            android_jar = android_platforms / "android-29" / "android.jar"
+            android_jar.parent.mkdir()
+            android_jar.touch()
+
+            keystore_file = temp_path / "test.jks"
+            keystore_file.touch()
+
+            dex2jar_home = temp_path / "dex2jar"
+            dex2jar_home.mkdir()
+            for tool in ["d2j-dex2jar.sh", "d2j-asm-verify.sh", "d2j-apk-sign.sh"]:
+                tool_path = dex2jar_home / tool
+                tool_path.touch()
+                tool_path.chmod(0o755)
+
+            with patch("rv_instrumentation_ajc.config.LoggingManager") as mock_logging:
+                mock_logging.get_instance.return_value.get_logger.return_value = (
+                    MagicMock()
+                )
+
+                config = AjcInstrumentationConfig(
+                    monitor_output_dir=str(monitor_dir),
+                    android_jar_path=str(android_jar),
+                    android_platforms_dir=str(android_platforms),
+                    keystore_file=str(keystore_file),
+                    keystore_password="password",
+                    working_dir=str(temp_path / "working"),
+                    instrumented_dir=str(temp_path / "instrumented"),
+                    dex2jar_home=str(dex2jar_home),
+                    enable_quarantine=False,
+                )
+
+                self.assertFalse(config.enable_quarantine)
 
     def test_positional_constructor_compatibility(self):
         """Test that @validated_model decorator enables positional arguments."""

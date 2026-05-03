@@ -154,6 +154,17 @@ def _add_configuration_arguments(parser: argparse.ArgumentParser) -> None:
         "--dex2jar-home", help="Directory containing dex2jar tool suite"
     )
 
+    # Pipeline toggles
+    pipeline_group = parser.add_argument_group("Pipeline Toggles")
+    pipeline_group.add_argument(
+        "--no-quarantine",
+        action="store_true",
+        help=(
+            "Disable the library-class quarantine phase (gh50 §16/§19). "
+            "Default: enabled. Use for empirical comparison with full-weave runs."
+        ),
+    )
+
 
 def _add_apk_arguments(
     instrument_parser: argparse.ArgumentParser, batch_parser: argparse.ArgumentParser
@@ -251,6 +262,7 @@ def create_instrumentation_config(args) -> AjcInstrumentationConfig:
         instrumented_dir=args.output,
         tmp_dir=args.tmp_dir,
         dex2jar_home=args.dex2jar_home,
+        enable_quarantine=not getattr(args, "no_quarantine", False),
     )
 
 

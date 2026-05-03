@@ -308,6 +308,12 @@ ARG ARCHITECTURE=x86_64  # was x86
 ```
 `PACKAGE_PATH`, `ANDROID_PLATFORM_VERSION`, and `ABI` all derive from those two, so no other line changes. The `avdmanager create avd ...` invocation is untouched.
 
+**Coupled cleanup — `_wait_for_boot` Phase 3 removal**: The AVD bump from API 29 x86 to API 30 x86_64 exposes a latent bug in `Android._wait_for_boot()` (`modules/rv-android-core/src/rv_android_core/util/android/android.py`). The historical helper had a Phase 3 running `adb root` + `adb remount` with a retry loop that broke on `not stderr.strip().decode("ascii")` (i.e., empty stderr was the success signal). The emulator is launched with `-read-only`, which makes qemu reject root/remount unconditionally:
+- **API 29 x86 (pre-upgrade)**: rejection produced exit ≠ 0 with **empty** stderr — the check passed by accident; Phase 3 was never doing anything but it appeared to "succeed". Silent-fail vestido de silent-pass.
+- **API 30 x86_64 (post-upgrade)**: rejection populates stderr with `"remount failed"` — the check now loops every 5 s until `boot_timeout = 180s` is hit, raising `TimeoutError("remount failed within 180s")` on every emulator boot.
+
+None of the runtime tools (APE, APE-RV, Monkey, FastBot) need `/system` writes — all targets land in `/data/local/tmp/` or `/sdcard/`, both world-writable on stock images. Phase 3 was therefore dead code masquerading as a sanity gate; the API-30 stderr change is what makes the deletion mandatory rather than just clean-up. The fix removes the entire Phase 3 block and reduces the helper to two phases (boot animation stop + `sys.boot_completed`); the docstring keeps the `-read-only`/stderr rationale inline so future maintainers do not re-add the loop. See tasks.md §17.7.
+
 ### D6: AspectJ 1.9.25.1 upgrade
 
 **Choice**: Upgrade from 1.9.24 to 1.9.25.1.
@@ -473,3 +479,28 @@ __d8():
 ## Open Questions
 
 - Whether the `j$` family (~7-15% of failures) that motivated `--no-desugaring` still manifests on the current dataset after D-REVERT. Deferred to large-scale re-validation.
+
+### D-QUARANTINE-TOGGLE: Empirical-comparison toggle for the quarantine phase (May 2026)
+
+**Choice**: Add `enable_quarantine: bool = True` to `AjcInstrumentationConfig` and a `--no-quarantine` CLI flag on both `instrument` and `batch` subcommands. Default behavior unchanged (quarantine remains on).
+
+**Why**:
+
+1. **The quarantine phase is empirically motivated but not empirically isolated** — D-QUARANTINE (§16) and D-QUARANTINE-EXPAND (§19) introduced quarantine to recover APKs that crashed ajc's BCEL or d8/R8 with `Index -1 out of bounds`. The recovery rate was measured indirectly (overall instrumentation success), not by an A/B comparison between quarantine-on and quarantine-off on the same APK set. Without an empirical-comparison toggle, the only way to measure quarantine's effect was to mutate `assets/weaving_excludes.yaml` (intrusive, easy to forget to revert) or comment out method calls (untestable, breaks regression).
+
+2. **Empirical comparison needs MOP visibility loss as the counter-metric** — quarantine sacrifices MOP visibility into the internal calls of quarantined libraries (e.g. `okio` calling `MessageDigest` for hashing). Reasoning about whether the trade-off is favorable on a particular dataset requires running the same APKs both ways and comparing (a) instrumentation success rate, (b) emitted MOP events at runtime. The toggle makes this comparison cheap.
+
+3. **Default-on preserves existing behavior** — `enable_quarantine: bool = True` is the default. All current pipelines, Docker images, and experiment configurations behave exactly as before. Only callers that explicitly pass `enable_quarantine=False` (or `--no-quarantine`) get the bypass. Zero risk of accidental regression.
+
+4. **Symmetric no-op semantics avoid surprising restore behavior** — when the toggle is off, both `__quarantine_problematic_classes` and `__restore_quarantined_classes` short-circuit. The symmetry matters: if the matching phase did not move anything, the restore phase has nothing to restore. A stale `<tmp_dir>_quarantine/` directory left by a previous enabled run is intentionally NOT touched by the disabled-path restore — cleanup of stale state is the caller's responsibility, and treating it as "this run's quarantine" would be misleading. The implementation logs DEBUG explaining the skip so operators auditing logs can see the toggle is honored.
+
+5. **Implementation is a tiny diff** — one new Pydantic field with a docstring, two early-return guards in the existing methods (no rename, no signature change), one CLI flag, four unit tests covering both branches and the stale-state edge case. The change does not touch the YAML loader, the pattern matcher, the safety check against `code_package`, or the call sites in `instrument()`.
+
+**Why not "delete quarantine entirely if enable=False"**: The methods stay in the pipeline order at lines 517 and 530 of `instrument()`. Removing the call sites for the disabled path would create two divergent control flows, complicate the test matrix, and make future re-enabling a bigger change. Early-return inside the existing methods is the smallest diff that yields the desired behavior.
+
+**Why not a Python env var**: A Pydantic config field is composable with the existing experiment configuration framework, type-checked at boundary, serializable for experiment archives, and visible in `get_configuration_summary()`. An env var is invisible to anyone reading the experiment config; it would also need a separate test path. The trade-off favors the field.
+
+**Empirical use cases enabled** (recorded for reference, executed outside this change):
+- A/B comparison on the JCA-400 corpus: how many APKs that succeed with quarantine *also* succeed without?
+- MOP visibility lost to quarantine: count of `okio.*` / `androidx.media3.*` events that disappear when quarantine is on (observed via runtime monitor logs).
+- Per-library leverage: which patterns in `weaving_excludes.yaml` are actually load-bearing vs which are dormant on the current dataset.
