@@ -385,6 +385,7 @@ rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypo
 | `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
 | `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
 | `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |
+| `RV_SKIP_EXECUTION` | `--skip-execution` | Skip task execution phase (preprocessing-only mode) |
 | `RV_DEVICE_PORT` | `--device-port` | Emulator port |
 | `RV_APKS_FILTER` | `--apks-filter` | APK filter file |
 | `RV_EXPERIMENT_NAME` | `--name` | Experiment name (enables implicit resume) |

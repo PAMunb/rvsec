@@ -89,6 +89,10 @@ if [ "$RV_SKIP_STATIC_ANALYSIS" = "true" ] || [ "$RV_SKIP_STATIC_ANALYSIS" = "1"
     CMD="$CMD --skip-static"
 fi
 
+if [ "$RV_SKIP_EXECUTION" = "true" ] || [ "$RV_SKIP_EXECUTION" = "1" ]; then
+    CMD="$CMD --skip-execution"
+fi
+
 # Device port for parallel execution
 if [ -n "$RV_DEVICE_PORT" ]; then
     CMD="$CMD --device-port $RV_DEVICE_PORT"
