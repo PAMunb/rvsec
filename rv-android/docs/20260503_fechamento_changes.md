@@ -510,3 +510,152 @@ Este plano segue diretrizes:
 - ✅ Sem duplicação de trabalho da sessão paralela
 - ✅ Archive ordering respeita constraint gh52→gh53
 - ✅ Sync de specs deferido conforme declaração explícita de gh53
+
+---
+
+## 17. Status final desta sessão (atualizado 2026-05-05)
+
+### Estado das changes
+
+| Change | Antes da sessão | Depois | Notas |
+|---|---|---|---|
+| gh51-gator-soot-upgrade | 61/67 active | **archived** (`archive/2026-05-05-gh51-gator-soot-upgrade/`) | INV-ANA-16/17/18 sincronizados em `openspec/specs/analysis/spec.md` |
+| gh50-improve-instrumentation | 234/256 active | **256/256 ✓ Complete** (valid, NÃO archivada) | Aguarda batch com gh52/gh53; evidências revisadas para ajc-specific (não run_jca100/dexlib2) |
+| gh52-instr-dexlib2 | 125/162 active | **154/168 valid** (NÃO archivada) | Phase 6 default flip DESCARTADO; AJC permanece default; 14 pending (Phase C + 17.6/17.7 + admin) |
+| gh53-consolidacao-instrumentation | ✓ Complete | ✓ Complete | Intacta; aguarda batch |
+
+### Commits desta sessão
+
+```
+f315230c  chore(gh51): archive after empirical validation
+6f113cdf  chore(gh50): close pending tasks; defer JCA-557 oldset
+ca4e3158  chore(gh52): promote partial + DEFERRED tasks
+2aeacc09  chore(gh50): revise evidence blocks with ajc-specific data
+1b4b0357  chore(gh52): static QA — lint-fix + verify on 3 consumer modules
+74f4227e  fix(gh52): C1+C2 from §18.8 review — variant required + retrocompat validator
+45074ccc  docs(gh52): scope decision — AJC retained as opt-in (later superseded)
+645ff426  docs(gh52): scope decision revised — AJC stays default, dexlib2 opt-in
+```
+
+### Decisão crítica desta sessão: AJC retained as default
+
+Após detectar a regressão runtime do AJC (cov_rv_method ~7% vs ASE2024 baseline ~27%), o usuário decidiu:
+- **AJC permanece como Pydantic default** em `ExperimentConfig.instrumentation_variant`
+- **dexlib2 fica como opt-in** via `--instrumentation-variant dexlib2` (ou `RV_INSTRUMENTATION_VARIANT=dexlib2`)
+- Phase 6 "default flip" → **DESCARTADO**; coexistência conservadora
+- Ambos os módulos permanecem live; nenhum vai pra `backup/`
+- Sync de specs sem `REMOVED Requirements`
+
+Memória persistente: `project_ajc_retained_as_optin.md` (canonical).
+
+### AJC regression — investigação em curso (outra sessão)
+
+- Detectada 2026-05-04 via `run_jca_compare` (119 APKs, dex 4.5× ajc, p<0.0001)
+- Confirmada vs ASE2024 baseline: 7.84% vs 27.14% para ape (Δ -19.30pp)
+- 43/61 APKs com violações ativas: AJC captura ZERO quando dex captura
+- Causas descartadas: quarantine (filtra <0.2%), GATOR scope (correto)
+- Hipóteses ativas: quarantine list amplia demais, bug em `__quarantine_problematic_classes`, weaving quebrado em Kotlin/Compose moderno, frame computation corrompe stackmaps
+
+Memória persistente: `project_ajc_regression_2026-05-05.md`.
+
+**Bloqueia o batch archive** — Phase C (Layer 1-5 gates) não faz sentido contra um baseline AJC quebrado.
+
+### Code-reviewer findings (gh52 §18.8)
+
+Audit do agente `feature-dev:code-reviewer` (commit `74f4227e`):
+- **2 CRITICAL fixed**: C1+C2 — `InstrumentationResults.variant` migrado para `Field(...)` required + `model_validator(mode="before")` retrocompat (per spec INV-INS-18)
+- **4 IMPORTANT** (filed as follow-up):
+  - I1: multidex oracle pendente em §16.6/16.6a (Phase C)
+  - I2: `_run_cli` raises `RuntimeError` em vez de `CommandException` mandatado (caught por except union; sem impacto funcional)
+  - I3: `DexlibInstrumentationConfig` sem validators apksigner/zipalign/d8 (Java CLI auto-resolve from PATH)
+  - I4: AJC regression deve ser documentada em `docs/20260426_dexlib2_validation_results.md` §5 antes de archive
+- **2 LOW** (cleanup): warning para múltiplos descriptors; cache mvn dependency resolution
+
+### gh52 — 14 tasks restantes
+
+| Bloco | Tasks | Bloqueio |
+|---|---|---|
+| Phase C ratification | 16.3, 16.4, 16.5, 16.6, 16.6a, 16.7, 16.8, 16.10 + 16.9[~] | Outra sessão (regressão AJC + Layer 1-5) |
+| Phase 6 minimalista | 17.6 (sync delta normal — sem REMOVED), 17.7 (validate --all) | Phase C |
+| Admin | 18.12 (Kanban), 18.13 (close #52 + Done), 18.14 (archive) | Phase 6 |
+| Optional | 18.15 (rv-retrospective) | Pós-archive |
+
+### Próximos passos consolidados
+
+**1. Investigação AJC (outra sessão, em curso)**
+- Smoke ASE2024 dataset com pipeline atual (ON e OFF quarantine)
+- Bisect entre commits gh50/52/53 para isolar regressão
+- Resolução documentada em `docs/20260505_validacao_ajc.md` (a ser criado)
+
+**2. Phase C ratificação (depois de #1)**
+- Layer 1-5 com AJC corrigido como baseline
+- Layer-4 BatchValidator JCA-400 × 3 × 3 (~36h wallclock)
+- Outputs em `docs/20260426_dexlib2_validation_results.md` §5
+
+**3. Batch archive (sessão futura)**
+```bash
+openspec validate gh50-improve-instrumentation
+openspec validate gh52-instr-dexlib2
+openspec validate gh53-consolidacao-instrumentation
+openspec archive gh50-improve-instrumentation         --skip-specs --yes
+openspec archive gh52-instr-dexlib2                   --skip-specs --yes
+openspec archive gh53-consolidacao-instrumentation    --skip-specs --yes
+openspec sync                                          # merge dos 3 deltas
+openspec validate --all
+```
+
+**4. PR único + admin**
+- Template em `docs/templates/pr_batch_archive_gh50_gh52_gh53.md`
+- Move cards #50, #52, #53 para Done no Kanban PAMunb/projects/7 (IDs pré-resolvidos abaixo)
+- (opcional) `/rv-retrospective`
+
+### Kanban — IDs pré-resolvidos para batch archive
+
+Project: `PAMunb/rvagent` (project 7) — `PVT_kwDOAJRqj84BPHtv`
+Status field: `PVTSSF_lADOAJRqj84BPHtvzg9n4kM`
+
+| Status | option_id |
+|---|---|
+| Backlog | `efb2287e` |
+| In Progress | `88b03dd2` |
+| In Review | `eb8dfe26` |
+| Done | `53305933` |
+
+| Issue | item_id | Estado atual (2026-05-05) | Próximo movimento |
+|---|---|---|---|
+| #50 | `PVTI_lADOAJRqj84BPHtvzgqUcM4` | In Progress | → In Review (quando PR aberto) → Done (após merge) |
+| #51 | `PVTI_lADOAJRqj84BPHtvzgqX8E8` | **Done** ✅ (movido 2026-05-05 pós-archive) | — |
+| #52 | `PVTI_lADOAJRqj84BPHtvzgq5qX4` | In Progress | → In Review (quando PR aberto) → Done (após merge) |
+| #53 | `PVTI_lADOAJRqj84BPHtvzgrd5Cg` | In Progress | → In Review (quando PR aberto) → Done (após merge) |
+
+Comando one-liner para mover (substituir `<item_id>` e `<option_id>`):
+
+```bash
+gh project item-edit \
+  --project-id PVT_kwDOAJRqj84BPHtv \
+  --id <item_id> \
+  --field-id PVTSSF_lADOAJRqj84BPHtvzg9n4kM \
+  --single-select-option-id <option_id>
+```
+
+Sequência completa para batch archive PR (executar quando PR aberto):
+
+```bash
+# Mover 3 issues para In Review
+for ITEM in PVTI_lADOAJRqj84BPHtvzgqUcM4 PVTI_lADOAJRqj84BPHtvzgq5qX4 PVTI_lADOAJRqj84BPHtvzgrd5Cg; do
+  gh project item-edit \
+    --project-id PVT_kwDOAJRqj84BPHtv \
+    --id $ITEM \
+    --field-id PVTSSF_lADOAJRqj84BPHtvzg9n4kM \
+    --single-select-option-id eb8dfe26   # In Review
+done
+
+# Após merge: mover para Done
+for ITEM in PVTI_lADOAJRqj84BPHtvzgqUcM4 PVTI_lADOAJRqj84BPHtvzgq5qX4 PVTI_lADOAJRqj84BPHtvzgrd5Cg; do
+  gh project item-edit \
+    --project-id PVT_kwDOAJRqj84BPHtv \
+    --id $ITEM \
+    --field-id PVTSSF_lADOAJRqj84BPHtvzg9n4kM \
+    --single-select-option-id 53305933   # Done
+done
+```
