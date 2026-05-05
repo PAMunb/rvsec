@@ -227,7 +227,7 @@ Bloco padronizado: **"DEFERRED — <razão original do task>. Aceite arquitetura
 | 16.8 | 243 | CoverageValidator Layer-5 |
 | 16.10 | 245 | `openspec verify gh52-instr-dexlib2` |
 
-**Bloco 2 — Phase 6 (default flip; AJC retido como opt-in — decisão 2026-05-05)**: 17.2 (rename consideration), 17.3 (dispatch default → dexlib2; ajc branch retained as opt-in), 17.4 (Pydantic default → "dexlib2"), 17.6 (sync delta — sem REMOVED Requirements; gh50 INV-INS-14..25 ajc-specific permanecem ativos), 17.7 (validate --all). 17.1 marcado N/A (AJC não vai pra backup; já renomeado para `modules/rv-instrumentation-ajc/` pelo gh53).
+**Bloco 2 — Phase 6 (default flip DESCARTADO; coexistência conservadora — decisão 2026-05-05 revisada)**: AJC permanece como Pydantic default; dexlib2 é opt-in via `--instrumentation-variant dexlib2`. 17.1/17.2/17.3/17.4 todas marcadas `[x] N/A` com bloco. Resta apenas: 17.6 (sync delta normal — sem REMOVED Requirements; gh50 INV-INS-14..25 ajc-specific + gh52 INV-INS-13..24 dexlib2-specific coexistem como spec-active) + 17.7 (validate --all). Razão: AJC é o baseline publicado (ASE2024 ~27% cov_mop); flipar default enquanto a regressão AJC está sob investigação confundiria comparações futuras. dexlib2 como opt-in não bloqueia uso em pesquisa.
 
 **Bloco 3 — Final QA + archive**: 18.1, 18.2, 18.3, 18.5, 18.6, 18.7, 18.8, 18.9, 18.10, 18.12, 18.13, 18.14, 18.15
 
