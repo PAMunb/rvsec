@@ -313,17 +313,21 @@ public aspect CoverageAspect {
         output_dir = tempfile.mkdtemp()
 
         try:
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler, patch(
-                "rv_android_core.util.utils.execute_command"
-            ) as mock_execute, patch(
-                "rv_android_core.util.utils.move_files_by_extension"
-            ) as mock_move, patch(
-                "rv_android_core.util.utils.copy_files_by_extension"
-            ) as mock_copy:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+                patch("rv_android_core.util.utils.execute_command") as mock_execute,
+                patch(
+                    "rv_android_core.util.utils.move_files_by_extension"
+                ) as mock_move,
+                patch(
+                    "rv_android_core.util.utils.copy_files_by_extension"
+                ) as mock_copy,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -382,15 +386,18 @@ public aspect CoverageAspect {
                 f.write(f"// Mock RVM file {i}")
 
         try:
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler, patch(
-                "rv_android_core.util.utils.execute_command"
-            ) as mock_execute, patch(
-                "rv_android_core.util.utils.delete_files_by_extension"
-            ) as mock_delete:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+                patch("rv_android_core.util.utils.execute_command") as mock_execute,
+                patch(
+                    "rv_android_core.util.utils.delete_files_by_extension"
+                ) as mock_delete,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -443,13 +450,15 @@ public aspect CoverageAspect {
         output_dir = tempfile.mkdtemp()
 
         try:
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler, patch(
-                "rv_android_core.util.utils.execute_command"
-            ) as mock_execute:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+                patch("rv_android_core.util.utils.execute_command") as mock_execute,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -491,13 +500,15 @@ public aspect CoverageAspect {
         output_dir = tempfile.mkdtemp()
 
         try:
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler, patch(
-                "rv_android_core.util.utils.execute_command"
-            ) as mock_execute:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+                patch("rv_android_core.util.utils.execute_command") as mock_execute,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -557,11 +568,14 @@ public aspect CoverageAspect {
                 with open(os.path.join(output_dir, filename), "w") as f:
                     f.write(content)
 
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -610,11 +624,14 @@ public aspect CoverageAspect {
             ),
         )
 
-        with patch(
-            "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-        ) as mock_logging_mgr, patch(
-            "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-        ) as mock_error_handler:
+        with (
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+            ) as mock_logging_mgr,
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+            ) as mock_error_handler,
+        ):
 
             # Setup mocks
             mock_logger = MagicMock()
@@ -645,11 +662,14 @@ public aspect CoverageAspect {
             ),
         )
 
-        with patch(
-            "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-        ) as mock_logging_mgr, patch(
-            "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-        ) as mock_error_handler:
+        with (
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+            ) as mock_logging_mgr,
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+            ) as mock_error_handler,
+        ):
 
             # Setup mocks
             mock_logger = MagicMock()
@@ -682,13 +702,15 @@ public aspect CoverageAspect {
         output_dir = tempfile.mkdtemp()
 
         try:
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler, patch(
-                "rv_android_core.util.utils.reset_folder"
-            ) as mock_reset:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+                patch("rv_android_core.util.utils.reset_folder") as mock_reset,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()

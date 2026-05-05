@@ -13,11 +13,10 @@ from rv_android_core.domain.app import App
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_instrumentation_core import (
-    Instrumenter,
     InstrumentationError,
     InstrumentationResults,
+    Instrumenter,
 )
-
 from rv_instrumentation_dexlib2.config import DexlibInstrumentationConfig
 from rv_instrumentation_dexlib2.errors import MissingDescriptorError
 
@@ -358,9 +357,7 @@ class DexlibInstrumentation(Instrumenter):
         can rely on the file existing.
         """
         errors_path = Path(results_dir) / "instrument_errors.json"
-        payload = {
-            name: error.model_dump() for name, error in results.errors.items()
-        }
+        payload = {name: error.model_dump() for name, error in results.errors.items()}
         try:
             errors_path.write_text(json.dumps(payload, indent=2))
             self._logger.info(

@@ -21,7 +21,6 @@ from rv_monitor_generator.__main__ import (
 )
 from rv_monitor_generator.config import ConfigurationError
 
-
 # ---------------------------------------------------------------------------
 # Tests: configure_logging()
 # ---------------------------------------------------------------------------
@@ -76,11 +75,15 @@ class TestHandleGenerateCommand:
         args.summary = False
 
         # Mock config and generator
-        with patch("rv_monitor_generator.__main__.RVGeneratorConfig") as mock_config_cls:
-            with patch("rv_monitor_generator.__main__.RuntimeVerificationGenerator") as mock_gen_cls:
+        with patch(
+            "rv_monitor_generator.__main__.RVGeneratorConfig"
+        ) as mock_config_cls:
+            with patch(
+                "rv_monitor_generator.__main__.RuntimeVerificationGenerator"
+            ) as mock_gen_cls:
                 mock_config = MagicMock()
                 mock_config_cls.return_value = mock_config
-                
+
                 mock_gen = MagicMock()
                 mock_gen.generate_monitors.return_value = True
                 mock_gen_cls.return_value = mock_gen
@@ -102,11 +105,15 @@ class TestHandleGenerateCommand:
         args.verbose = False
         args.summary = False
 
-        with patch("rv_monitor_generator.__main__.RVGeneratorConfig") as mock_config_cls:
-            with patch("rv_monitor_generator.__main__.RuntimeVerificationGenerator") as mock_gen_cls:
+        with patch(
+            "rv_monitor_generator.__main__.RVGeneratorConfig"
+        ) as mock_config_cls:
+            with patch(
+                "rv_monitor_generator.__main__.RuntimeVerificationGenerator"
+            ) as mock_gen_cls:
                 mock_config = MagicMock()
                 mock_config_cls.return_value = mock_config
-                
+
                 mock_gen = MagicMock()
                 mock_gen.generate_monitors.return_value = False
                 mock_gen_cls.return_value = mock_gen
@@ -129,7 +136,7 @@ class TestHandleGenerateCommand:
 
         with patch(
             "rv_monitor_generator.__main__.RVGeneratorConfig",
-            side_effect=ConfigurationError("Invalid config")
+            side_effect=ConfigurationError("Invalid config"),
         ):
             result = handle_generate_command(args)
             assert result == 1
@@ -148,7 +155,7 @@ class TestHandleGenerateCommand:
 
         with patch(
             "rv_monitor_generator.__main__.RVGeneratorConfig",
-            side_effect=Exception("Unexpected error")
+            side_effect=Exception("Unexpected error"),
         ):
             result = handle_generate_command(args)
             assert result == 1
@@ -165,11 +172,15 @@ class TestHandleGenerateCommand:
         args.verbose = False
         args.summary = True
 
-        with patch("rv_monitor_generator.__main__.RVGeneratorConfig") as mock_config_cls:
-            with patch("rv_monitor_generator.__main__.RuntimeVerificationGenerator") as mock_gen_cls:
+        with patch(
+            "rv_monitor_generator.__main__.RVGeneratorConfig"
+        ) as mock_config_cls:
+            with patch(
+                "rv_monitor_generator.__main__.RuntimeVerificationGenerator"
+            ) as mock_gen_cls:
                 mock_config = MagicMock()
                 mock_config_cls.return_value = mock_config
-                
+
                 mock_gen = MagicMock()
                 mock_gen.generate_monitors.return_value = True
                 mock_gen.get_generation_summary.return_value = {
@@ -199,17 +210,21 @@ class TestHandleGenerateCommand:
         args.verbose = False
         args.summary = False
 
-        with patch("rv_monitor_generator.__main__.RVGeneratorConfig") as mock_config_cls:
-            with patch("rv_monitor_generator.__main__.RuntimeVerificationGenerator") as mock_gen_cls:
+        with patch(
+            "rv_monitor_generator.__main__.RVGeneratorConfig"
+        ) as mock_config_cls:
+            with patch(
+                "rv_monitor_generator.__main__.RuntimeVerificationGenerator"
+            ) as mock_gen_cls:
                 mock_config = MagicMock()
                 mock_config_cls.return_value = mock_config
-                
+
                 mock_gen = MagicMock()
                 mock_gen.generate_monitors.return_value = True
                 mock_gen_cls.return_value = mock_gen
 
                 handle_generate_command(args)
-                
+
                 captured = capsys.readouterr()
                 assert "completed successfully" in captured.out
 
@@ -225,17 +240,21 @@ class TestHandleGenerateCommand:
         args.verbose = False
         args.summary = False
 
-        with patch("rv_monitor_generator.__main__.RVGeneratorConfig") as mock_config_cls:
-            with patch("rv_monitor_generator.__main__.RuntimeVerificationGenerator") as mock_gen_cls:
+        with patch(
+            "rv_monitor_generator.__main__.RVGeneratorConfig"
+        ) as mock_config_cls:
+            with patch(
+                "rv_monitor_generator.__main__.RuntimeVerificationGenerator"
+            ) as mock_gen_cls:
                 mock_config = MagicMock()
                 mock_config_cls.return_value = mock_config
-                
+
                 mock_gen = MagicMock()
                 mock_gen.generate_monitors.return_value = False
                 mock_gen_cls.return_value = mock_gen
 
                 handle_generate_command(args)
-                
+
                 captured = capsys.readouterr()
                 assert "failed" in captured.out
 
@@ -256,8 +275,12 @@ class TestMain:
 
     def test_main_with_generate_command(self):
         """Test main() with generate subcommand."""
-        with patch("sys.argv", ["rv-monitor-generator", "generate", "--output", "/tmp/out"]):
-            with patch("rv_monitor_generator.__main__.handle_generate_command", return_value=0) as mock_handler:
+        with patch(
+            "sys.argv", ["rv-monitor-generator", "generate", "--output", "/tmp/out"]
+        ):
+            with patch(
+                "rv_monitor_generator.__main__.handle_generate_command", return_value=0
+            ) as mock_handler:
                 result = main()
                 mock_handler.assert_called_once()
                 assert result == 0
@@ -273,25 +296,38 @@ class TestMain:
 
     def test_main_configures_logging(self):
         """Test that main() configures logging."""
-        with patch("sys.argv", ["rv-monitor-generator", "generate", "--output", "/tmp/out"]):
+        with patch(
+            "sys.argv", ["rv-monitor-generator", "generate", "--output", "/tmp/out"]
+        ):
             with patch("rv_monitor_generator.__main__.handle_generate_command"):
-                with patch("rv_monitor_generator.__main__.configure_logging") as mock_log:
+                with patch(
+                    "rv_monitor_generator.__main__.configure_logging"
+                ) as mock_log:
                     main()
                     mock_log.assert_called_once()
 
     def test_main_verbose_configures_debug(self):
         """Test that --verbose flag configures debug logging."""
-        with patch("sys.argv", ["rv-monitor-generator", "generate", "--output", "/tmp/out", "-v"]):
+        with patch(
+            "sys.argv",
+            ["rv-monitor-generator", "generate", "--output", "/tmp/out", "-v"],
+        ):
             with patch("rv_monitor_generator.__main__.handle_generate_command"):
-                with patch("rv_monitor_generator.__main__.configure_logging") as mock_log:
+                with patch(
+                    "rv_monitor_generator.__main__.configure_logging"
+                ) as mock_log:
                     main()
                     mock_log.assert_called_once_with(True)
 
     def test_main_without_verbose_configures_info(self):
         """Test that without --verbose, info logging is configured."""
-        with patch("sys.argv", ["rv-monitor-generator", "generate", "--output", "/tmp/out"]):
+        with patch(
+            "sys.argv", ["rv-monitor-generator", "generate", "--output", "/tmp/out"]
+        ):
             with patch("rv_monitor_generator.__main__.handle_generate_command"):
-                with patch("rv_monitor_generator.__main__.configure_logging") as mock_log:
+                with patch(
+                    "rv_monitor_generator.__main__.configure_logging"
+                ) as mock_log:
                     main()
                     mock_log.assert_called_once_with(False)
 
@@ -325,17 +361,25 @@ class TestCreateParserEdgeCases:
     def test_parser_accepts_all_options(self):
         """Test parser accepts all options."""
         parser = create_parser()
-        args = parser.parse_args([
-            "generate",
-            "--rvsec-root", "/root",
-            "--javamop-bin", "/bin/javamop",
-            "--rvmonitor-bin", "/bin/rvmonitor",
-            "--specs-dir", "/specs",
-            "--aspects-dir", "/aspects",
-            "--output", "/output",
-            "--verbose",
-            "--summary",
-        ])
+        args = parser.parse_args(
+            [
+                "generate",
+                "--rvsec-root",
+                "/root",
+                "--javamop-bin",
+                "/bin/javamop",
+                "--rvmonitor-bin",
+                "/bin/rvmonitor",
+                "--specs-dir",
+                "/specs",
+                "--aspects-dir",
+                "/aspects",
+                "--output",
+                "/output",
+                "--verbose",
+                "--summary",
+            ]
+        )
         assert args.rvsec_root == "/root"
         assert args.output == "/output"
         assert args.verbose is True

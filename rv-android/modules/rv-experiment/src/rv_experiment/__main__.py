@@ -854,7 +854,6 @@ def _split_tool_specifications(tools_string: str) -> list[str]:
     # Strategy: find all tool specs by matching the pattern
     # tool_name[:variant][@params] where params can contain commas
     # A new tool starts with a word that's NOT preceded by = (which would make it a param value)
-
     # Ambiguity: commas separate BOTH tool specs AND parameter key-value pairs.
     # "monkey,droidbot@a=1,b=2" has 3 comma-separated parts but only 2 tools.
     # Strategy: a part starting with a valid identifier (followed by :, @, or end)

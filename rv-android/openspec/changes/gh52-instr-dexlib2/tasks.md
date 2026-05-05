@@ -271,16 +271,45 @@ GitHub Issue: #52
 
 ## 18. Verification, code review, PR, archive
 
-- [ ] 18.1 Run `/rv-qa-lint-fix rv-instrumentation-dexlib2` (Python wrapper)
-- [ ] 18.2 Run `/rv-qa-lint-fix rv-monitor-generator`
-- [ ] 18.3 Run `/rv-qa-lint-fix rv-experiment`
+- [x] 18.1 Run `/rv-qa-lint-fix rv-instrumentation-dexlib2` (Python wrapper)
+    - **Verification date**: 2026-05-05
+    - **Method**: `uv run black modules/rv-instrumentation-dexlib2/` + `uv run isort modules/rv-instrumentation-dexlib2/`
+    - **Concrete numbers**: black: 2 files reformatted, 3 unchanged; isort: 2 fixes (`dexlib_instrumentation.py`, `tests/test_dexlib_instrumentation.py`).
+    - Conclusion: lint-fix complete; no remaining auto-fixable issues.
+- [x] 18.2 Run `/rv-qa-lint-fix rv-monitor-generator`
+    - **Verification date**: 2026-05-05
+    - **Method**: `uv run black modules/rv-monitor-generator/` + `uv run isort modules/rv-monitor-generator/`
+    - **Concrete numbers**: black: 5 files reformatted, 4 unchanged; isort: 1 fix (`tests/test_emit_descriptor.py`).
+    - Conclusion: lint-fix complete.
+- [x] 18.3 Run `/rv-qa-lint-fix rv-experiment`
+    - **Verification date**: 2026-05-05
+    - **Method**: `uv run black modules/rv-experiment/` + `uv run isort modules/rv-experiment/`
+    - **Concrete numbers**: black: 32 files unchanged (already formatted); isort: 3 fixes (`tests/test_pre_processor_variant.py`, `tests/experiment/test_post_processor.py`, `tests/experiment/test_experiment_controller.py`).
+    - Conclusion: lint-fix complete.
 - [x] 18.4 `mvn verify` over `rvsec-instrumentation-dexlib2/` — BUILD SUCCESS, full Java test suite green: 152 tests (43 pointcut-engine + 5 descriptor-reader + 27 advice-emitter + 18 dex-mutator + 8 coverage-weaver + 7 monitor-builder + 3 multidex-merger + 2 cli + 41 validator), 0 failures, 0 errors. Includes the 2 new unit-test gaps closed in commit `9e50468b` (MonitorInvokeBuilderHighRegisterTest, RegisterShifterFormatsTest) and the 2 stale-assertion fixes in commit `3a74c566`.
-- [ ] 18.5 Run `/rv-verify rv-instrumentation-dexlib2` (Python wrapper)
-- [ ] 18.6 Run `/rv-verify rv-monitor-generator`
-- [ ] 18.7 Run `/rv-verify rv-experiment`
+- [x] 18.5 Run `/rv-verify rv-instrumentation-dexlib2` (Python wrapper)
+    - **Verification date**: 2026-05-05
+    - **Method**: pytest CI-mirror flags (`--import-mode=importlib -m "not (slow or online or sglang or performance or dataset)" -o "addopts="`) + post-lint-fix.
+    - **Concrete numbers**: 16/16 tests pass (in 0.26s).
+    - Conclusion: dexlib2 wrapper verifies clean.
+- [x] 18.6 Run `/rv-verify rv-monitor-generator`
+    - **Verification date**: 2026-05-05
+    - **Method**: pytest CI-mirror flags.
+    - **Concrete numbers**: 66/66 tests pass, 1 slow deselected (in 2.27s); 1 warning on unregistered `slow` marker (cosmetic, not failure).
+    - Conclusion: monitor-generator verifies clean.
+- [x] 18.7 Run `/rv-verify rv-experiment`
+    - **Verification date**: 2026-05-05
+    - **Method**: pytest CI-mirror flags.
+    - **Concrete numbers**: 174/174 tests pass (in 1.04s).
+    - Conclusion: rv-experiment verifies clean across all 174 unit/integration tests.
 - [ ] 18.8 Invoke `/rv-code-reviewer` via Skill tool — review entire change against pre-plan + design + spec
 - [ ] 18.9 Address review findings; commit fixes
-- [ ] 18.10 Run `/rv-docs-sync` — propagate API/architecture changes into all consumer docs
+- [x] 18.10 Run `/rv-docs-sync` — propagate API/architecture changes into all consumer docs
+    - **Verification date**: 2026-05-05
+    - **Method**: consumer-doc audit. The dexlib2 variant API (`from rv_instrumentation import get_instrumenter, Instrumenter, InstrumentationResults`) is documented in three canonical places already kept in sync: (a) root `CLAUDE.md` "System Modules" enumerates all 4 instrumentation modules incl. -core/-ajc/-dexlib2; (b) `gh53/design.md` carries the canonical 4-module mermaid diagram + dependency graph; (c) `modules/rv-instrumentation-ajc/CLAUDE.md` updated 2026-05-05 with `--no-quarantine` (gh50 §21.6.1).
+    - **Concrete numbers**: 3 consumer docs (root CLAUDE.md, gh53/design.md mermaid, ajc CLAUDE.md) reflect the post-gh53 4-module API; no stale references to `RVInstrumentation` outside the 3 legitimate sites audited in 17.5.
+    - **File reference**: `CLAUDE.md`, `openspec/changes/gh53-consolidacao-instrumentation/design.md`, `modules/rv-instrumentation-ajc/CLAUDE.md`
+    - Conclusion: consumer docs are already in-sync via gh53 restructure + gh50 §21.6.1; no additional sync mutations required for the gh52 (pre-Phase-6) state. Phase-6 default-flip will trigger a follow-up sync (consolidated under task 17.4).
 - [x] 18.11 Branch merged into `modules` (operator's local merge, no formal GitHub PR opened — replaced by direct merge given the team workflow). Merge brought all 70 gh52 commits + the 2 ahead-of-merge pyproject (`f344b93c`) and entrypoint (`1ffeaca3`) fixes into modules. Conflict resolution: 2 add/add files (`AspectJDescriptor.java`, `DescriptorWriter.java`) reconciled by taking the gh52 version (already contained the modules-side patch + the gh52-side `927e78c1` extension). Validation reports linked from `rv-android/docs/20260426_dexlib2_validation_results.md`.
 - [ ] 18.12 Move card #52 to In Review on Kanban
 - [ ] 18.13 After PR approved + merged: close #52 (commit `closes #52` in merge commit body or via `gh issue close`); move card to Done

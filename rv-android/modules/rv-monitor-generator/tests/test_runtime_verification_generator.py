@@ -86,11 +86,14 @@ class TestRuntimeVerificationGenerator:
 
     def test_initialization_with_config(self, mock_config):
         """Test RuntimeVerificationGenerator initialization with explicit config."""
-        with patch(
-            "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-        ) as mock_logging_mgr, patch(
-            "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-        ) as mock_error_handler:
+        with (
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+            ) as mock_logging_mgr,
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+            ) as mock_error_handler,
+        ):
             # Setup mocks
             mock_logger = MagicMock()
             mock_logging_mgr.get_instance.return_value.get_logger.return_value = (
@@ -114,25 +117,19 @@ class TestRuntimeVerificationGenerator:
 
     def test_initialization_without_config(self):
         """Test RuntimeVerificationGenerator initialization with auto-config."""
-        with patch(
-            "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-        ) as mock_logging_mgr, patch(
-            "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-        ), patch(
-            "rv_monitor_generator.config.os.getenv"
-        ) as mock_getenv, patch(
-            "rv_monitor_generator.config.os.path.exists"
-        ) as mock_exists, patch(
-            "rv_monitor_generator.config.os.path.isfile"
-        ) as mock_isfile, patch(
-            "rv_monitor_generator.config.os.path.isdir"
-        ) as mock_isdir, patch(
-            "rv_monitor_generator.config.os.access"
-        ) as mock_access, patch(
-            "rv_monitor_generator.config.subprocess.run"
-        ) as mock_subprocess, patch(
-            "rv_monitor_generator.config.glob.glob"
-        ) as mock_glob:
+        with (
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+            ) as mock_logging_mgr,
+            patch("rv_monitor_generator.runtime_verification_generator.ErrorHandler"),
+            patch("rv_monitor_generator.config.os.getenv") as mock_getenv,
+            patch("rv_monitor_generator.config.os.path.exists") as mock_exists,
+            patch("rv_monitor_generator.config.os.path.isfile") as mock_isfile,
+            patch("rv_monitor_generator.config.os.path.isdir") as mock_isdir,
+            patch("rv_monitor_generator.config.os.access") as mock_access,
+            patch("rv_monitor_generator.config.subprocess.run") as mock_subprocess,
+            patch("rv_monitor_generator.config.glob.glob") as mock_glob,
+        ):
 
             # Setup mocks for RVGeneratorConfig internal dependencies
             mock_getenv.return_value = "/fake/rvsec/path"
@@ -163,21 +160,25 @@ class TestRuntimeVerificationGenerator:
         output_dir = tempfile.mkdtemp()
 
         try:
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler, patch(
-                "rv_android_core.util.utils.reset_folder"
-            ) as mock_reset, patch(
-                "rv_android_core.util.utils.execute_command"
-            ) as mock_execute, patch(
-                "rv_android_core.util.utils.move_files_by_extension"
-            ) as mock_move, patch(
-                "rv_android_core.util.utils.copy_files_by_extension"
-            ) as mock_copy, patch(
-                "rv_android_core.util.utils.delete_files_by_extension"
-            ) as mock_delete:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+                patch("rv_android_core.util.utils.reset_folder") as mock_reset,
+                patch("rv_android_core.util.utils.execute_command") as mock_execute,
+                patch(
+                    "rv_android_core.util.utils.move_files_by_extension"
+                ) as mock_move,
+                patch(
+                    "rv_android_core.util.utils.copy_files_by_extension"
+                ) as mock_copy,
+                patch(
+                    "rv_android_core.util.utils.delete_files_by_extension"
+                ) as mock_delete,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -211,15 +212,16 @@ class TestRuntimeVerificationGenerator:
         output_dir = tempfile.mkdtemp()
 
         try:
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler, patch(
-                "rv_android_core.util.utils.reset_folder"
-            ), patch(
-                "rv_android_core.util.utils.execute_command"
-            ) as mock_execute:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+                patch("rv_android_core.util.utils.reset_folder"),
+                patch("rv_android_core.util.utils.execute_command") as mock_execute,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -263,11 +265,14 @@ class TestRuntimeVerificationGenerator:
                 with open(os.path.join(output_dir, filename), "w") as f:
                     f.write(content)
 
-            with patch(
-                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-            ) as mock_logging_mgr, patch(
-                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-            ) as mock_error_handler:
+            with (
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+                ) as mock_logging_mgr,
+                patch(
+                    "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+                ) as mock_error_handler,
+            ):
 
                 # Setup mocks
                 mock_logger = MagicMock()
@@ -291,11 +296,14 @@ class TestRuntimeVerificationGenerator:
 
     def test_mop_specs_discovery(self, mock_config):
         """Test MOP specification file discovery."""
-        with patch(
-            "rv_monitor_generator.runtime_verification_generator.LoggingManager"
-        ) as mock_logging_mgr, patch(
-            "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
-        ) as mock_error_handler:
+        with (
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.LoggingManager"
+            ) as mock_logging_mgr,
+            patch(
+                "rv_monitor_generator.runtime_verification_generator.ErrorHandler"
+            ) as mock_error_handler,
+        ):
             # Setup mocks
             mock_logger = MagicMock()
             mock_logging_mgr.get_instance.return_value.get_logger.return_value = (

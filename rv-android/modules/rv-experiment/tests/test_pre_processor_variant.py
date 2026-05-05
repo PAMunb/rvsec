@@ -17,7 +17,6 @@ Behavioral contract:
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_experiment.config import ExperimentConfig
 
 

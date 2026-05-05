@@ -16,7 +16,6 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from rv_monitor_generator.config import RVGeneratorConfig
 from rv_monitor_generator.runtime_verification_generator import (
     RuntimeVerificationGenerator,
@@ -90,9 +89,9 @@ def test_javamop_command_includes_emit_descriptor_when_enabled(
     # One call to JavaMOP; its args must contain --emit-descriptor.
     assert mock_exec.called, "JavaMOP was not invoked"
     cmd = mock_exec.call_args[0][0]
-    assert "--emit-descriptor" in cmd.args, (
-        "emit_descriptor=True MUST pass --emit-descriptor; got " + repr(cmd.args)
-    )
+    assert (
+        "--emit-descriptor" in cmd.args
+    ), "emit_descriptor=True MUST pass --emit-descriptor; got " + repr(cmd.args)
     # Sanity: -d and -merge still present.
     assert "-d" in cmd.args
     assert "-merge" in cmd.args
@@ -125,9 +124,9 @@ def test_javamop_command_omits_emit_descriptor_when_disabled(mock_exec, tmp_path
     gen = RuntimeVerificationGenerator(cfg)
     gen._execute_javamop(str(out))
     cmd = mock_exec.call_args[0][0]
-    assert "--emit-descriptor" not in cmd.args, (
-        "emit_descriptor=False MUST NOT pass the flag; got " + repr(cmd.args)
-    )
+    assert (
+        "--emit-descriptor" not in cmd.args
+    ), "emit_descriptor=False MUST NOT pass the flag; got " + repr(cmd.args)
 
 
 def test_summary_counts_descriptor_files(minimal_config, tmp_path):

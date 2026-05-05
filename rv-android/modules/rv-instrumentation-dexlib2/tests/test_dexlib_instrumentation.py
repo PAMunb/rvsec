@@ -12,7 +12,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from rv_instrumentation_dexlib2 import (
     DexlibInstrumentation,
     DexlibInstrumentationConfig,
@@ -118,8 +117,9 @@ def test_subprocess_error_demoted_per_apk_not_propagated(tmp_workspace):
         # good.apk: simulate CLI writing the output APK
         (results_dir / "good.apk").write_bytes(b"signed")
 
-    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
-        DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch.object(DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli),
     ):
         res = inst.instrument_apks(
             apks_dir=apks_dir,
@@ -154,8 +154,9 @@ def test_persist_errors_json_writes_file(tmp_workspace):
     def fake_run_cli(args):
         (results_dir / "ok.apk").write_bytes(b"signed")
 
-    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
-        DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch.object(DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli),
     ):
         inst.instrument_apks(
             apks_dir=apks_dir,
@@ -299,8 +300,9 @@ def test_batch_argv_includes_monitor_src_dir(tmp_workspace):
     # prepare_instrumentation is exercised separately; this test pins only
     # the argv contract going INTO instr-cli. Stub it out so the new
     # mvn-driven runtime-libs resolution doesn't run during the argv check.
-    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch(
-        "subprocess.run", side_effect=fake_run
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch("subprocess.run", side_effect=fake_run),
     ):
         inst.instrument_apks(tmp_workspace["root"] / "apks", results_dir)
 
@@ -389,8 +391,9 @@ def test_wrapper_guard_apk_paths_demotes_when_apk_missing(tmp_workspace):
     )
     inst = DexlibInstrumentation(cfg)
 
-    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
-        DexlibInstrumentation, "_run_cli", return_value=None
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch.object(DexlibInstrumentation, "_run_cli", return_value=None),
     ):
         res = inst.instrument_apks(
             apks_dir=apks_dir,
@@ -420,8 +423,9 @@ def test_wrapper_guard_apk_paths_succeeds_when_apk_present(tmp_workspace):
         # Simulate the CLI writing the output APK
         (results_dir / "cryptoapp.apk").write_bytes(b"PK\x03\x04stub-apk-out")
 
-    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
-        DexlibInstrumentation, "_run_cli", side_effect=write_apk
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch.object(DexlibInstrumentation, "_run_cli", side_effect=write_apk),
     ):
         res = inst.instrument_apks(
             apks_dir=apks_dir,
@@ -467,8 +471,9 @@ def test_wrapper_guard_batch_path_demotes_when_results_json_lies(tmp_workspace):
     )
     inst = DexlibInstrumentation(cfg)
 
-    with patch.object(DexlibInstrumentation, "prepare_instrumentation"), patch.object(
-        DexlibInstrumentation, "_run_cli", return_value=None
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch.object(DexlibInstrumentation, "_run_cli", return_value=None),
     ):
         res = inst.instrument_apks(
             apks_dir=apks_dir,
@@ -592,9 +597,7 @@ def test_prepare_instrumentation_allowlists_runtime_jars_regression(
     }
 
 
-def test_prepare_instrumentation_calls_resolve_runtime_libs(
-    tmp_workspace, monkeypatch
-):
+def test_prepare_instrumentation_calls_resolve_runtime_libs(tmp_workspace, monkeypatch):
     """Confirm that prepare_instrumentation routes through the ABC's Template Method."""
     _seed_descriptor(tmp_workspace)
     rvsec_root = _seed_rvsec_root(tmp_workspace["root"])

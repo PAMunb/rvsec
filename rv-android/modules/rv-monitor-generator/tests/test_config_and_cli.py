@@ -12,7 +12,6 @@ import pytest
 from rv_monitor_generator.__main__ import create_parser, handle_generate_command, main
 from rv_monitor_generator.config import ConfigurationError, RVGeneratorConfig
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
@@ -93,9 +92,7 @@ class TestRVGeneratorConfigExplicitPaths:
     def test_explicit_paths_skip_rvsec_root_resolution(self, temp_rvsec_root):
         javamop = os.path.join(temp_rvsec_root, "javamop", "bin", "javamop")
         rvmonitor = os.path.join(temp_rvsec_root, "rv-monitor", "bin", "rv-monitor")
-        specs = os.path.join(
-            temp_rvsec_root, "rvsec/rvsec-mop/src/main/resources/jca"
-        )
+        specs = os.path.join(temp_rvsec_root, "rvsec/rvsec-mop/src/main/resources/jca")
         aspects = os.path.join(
             temp_rvsec_root, "rvsec/rvsec-mop/src/main/resources/aspect"
         )
@@ -119,9 +116,7 @@ class TestRVGeneratorConfigExplicitPaths:
         aspects_dir defaults to a sibling 'aspect' directory."""
         javamop = os.path.join(temp_rvsec_root, "javamop", "bin", "javamop")
         rvmonitor = os.path.join(temp_rvsec_root, "rv-monitor", "bin", "rv-monitor")
-        specs = os.path.join(
-            temp_rvsec_root, "rvsec/rvsec-mop/src/main/resources/jca"
-        )
+        specs = os.path.join(temp_rvsec_root, "rvsec/rvsec-mop/src/main/resources/jca")
         expected_aspects = os.path.join(
             temp_rvsec_root, "rvsec/rvsec-mop/src/main/resources/aspect"
         )
@@ -141,19 +136,23 @@ class TestRVGeneratorConfigEnvVariable:
     """Test resolution via RVSEC_HOME environment variable."""
 
     def test_resolves_from_env_when_no_rvsec_root(self, temp_rvsec_root):
-        with patch.dict(os.environ, {"RVSEC_HOME": temp_rvsec_root}), patch(
-            "rv_monitor_generator.config.subprocess.run"
-        ) as mock_run:
+        with (
+            patch.dict(os.environ, {"RVSEC_HOME": temp_rvsec_root}),
+            patch("rv_monitor_generator.config.subprocess.run") as mock_run,
+        ):
             mock_run.return_value = MagicMock(stdout="help", stderr="")
             config = RVGeneratorConfig()
 
         assert config.javamop_bin.startswith(temp_rvsec_root)
 
     def test_raises_when_no_source_available(self):
-        with patch.dict(os.environ, {}, clear=True), patch(
-            "rv_monitor_generator.config.os.getenv", return_value=None
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("rv_monitor_generator.config.os.getenv", return_value=None),
         ):
-            with pytest.raises(ConfigurationError, match="Configuration resolution failed"):
+            with pytest.raises(
+                ConfigurationError, match="Configuration resolution failed"
+            ):
                 RVGeneratorConfig()
 
 
@@ -254,7 +253,9 @@ class TestRVGeneratorConfigValidateOutputDir:
     def test_raises_on_unwritable_path(self, temp_rvsec_root):
         config = _make_config(temp_rvsec_root)
 
-        with pytest.raises(ConfigurationError, match="Cannot write to output directory"):
+        with pytest.raises(
+            ConfigurationError, match="Cannot write to output directory"
+        ):
             config.validate_output_directory("/proc/nonexistent/dir")
 
 
@@ -282,12 +283,18 @@ class TestCLIParser:
         args = parser.parse_args(
             [
                 "generate",
-                "--rvsec-root", "/root",
-                "--javamop-bin", "/bin/javamop",
-                "--rvmonitor-bin", "/bin/rv-monitor",
-                "--specs-dir", "/specs",
-                "--aspects-dir", "/aspects",
-                "--output", "/out",
+                "--rvsec-root",
+                "/root",
+                "--javamop-bin",
+                "/bin/javamop",
+                "--rvmonitor-bin",
+                "/bin/rv-monitor",
+                "--specs-dir",
+                "/specs",
+                "--aspects-dir",
+                "/aspects",
+                "--output",
+                "/out",
                 "--verbose",
                 "--summary",
             ]
@@ -323,8 +330,9 @@ class TestCLIHandleGenerate:
         args.verbose = False
         args.summary = False
 
-        with patch.dict(os.environ, {}, clear=True), patch(
-            "rv_monitor_generator.config.os.getenv", return_value=None
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("rv_monitor_generator.config.os.getenv", return_value=None),
         ):
             result = handle_generate_command(args)
 

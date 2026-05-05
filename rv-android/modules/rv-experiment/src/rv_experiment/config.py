@@ -31,9 +31,11 @@ from rv_experiment.constants import (
     RESULTS_DIR,
 )
 from rv_instrumentation_ajc.config import (
+    AjcInstrumentationConfig,
+)
+from rv_instrumentation_ajc.config import (
     ConfigurationError as InstrumentationConfigError,
 )
-from rv_instrumentation_ajc.config import AjcInstrumentationConfig
 from rv_monitor_generator.config import ConfigurationError as MonitorConfigError
 from rv_monitor_generator.config import RVGeneratorConfig
 from rv_static_analysis.config import RVStaticAnalysisConfig
@@ -648,8 +650,9 @@ class ExperimentConfig(BaseValidatedModel):
         """
         # Lazy import — keeps the legacy install path independent of the
         # gh52 wrapper module being present.
-        from rv_instrumentation_dexlib2 import DexlibInstrumentationConfig
         from pathlib import Path
+
+        from rv_instrumentation_dexlib2 import DexlibInstrumentationConfig
 
         if not self.output_dir:
             raise ConfigurationError(

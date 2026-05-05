@@ -11,7 +11,7 @@ Tests cover:
 
 import json
 import os
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 from rv_experiment.experiment.workflow.post_processor import PostProcessor
