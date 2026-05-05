@@ -184,6 +184,7 @@ rv-instrumentation-ajc instrument --apk /path/to/app.apk --output /tmp --dry-run
 | `--dex2jar-home` | dex2jar tools directory |
 | `--output` | Output directory for instrumented APKs |
 | `--force` | Force re-instrumentation |
+| `--no-quarantine` | Disable the `assets/weaving_excludes.yaml` quarantine + restore step (gh50 §21). Default behavior is enabled — passing this flag bypasses both `__quarantine_problematic_classes` and `__restore_quarantined_classes` so library classes that normally crash ajc/d8 are woven inline. Empirical use only: comparing recovery rate vs MOP visibility loss across datasets. |
 | `--verbose, -v` | Enable verbose logging |
 | `--summary` | Display instrumentation summary |
 | `--dry-run` | Validate configuration only |

@@ -15,11 +15,9 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import InstrumentationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_instrumentation_core import Instrumenter
-from rv_instrumentation_core import InstrumentationError as InstrumentationErrorModel
-from rv_instrumentation_core import InstrumentationResults
-
 from rv_instrumentation_ajc.config import AjcInstrumentationConfig
+from rv_instrumentation_core import InstrumentationError as InstrumentationErrorModel
+from rv_instrumentation_core import InstrumentationResults, Instrumenter
 
 
 class AjcInstrumentation(Instrumenter):

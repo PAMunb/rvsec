@@ -9,7 +9,7 @@ requiring actual JAR execution or Android SDK tools.
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from rv_android_core.commands.command_exception import CommandException
@@ -930,6 +930,45 @@ class TestLoadQuarantinePatterns:
 
         assert result == []
 
+    def test_expanded_list_loaded(self, tmp_path):
+        # gh50 19.4.1 — load the production weaving_excludes.yaml and assert
+        # both wave-1 (gh50 §16) and wave-2 (gh50 §19) entries are returned.
+        # Specifically, org/spongycastle/**/*.class must be present (it is the
+        # canonical wave-2 example), and the total list length must match
+        # the YAML's actual `patterns:` count so additions/removals to the
+        # asset are detected by the test.
+        from pathlib import Path as RealPath
+
+        import yaml
+
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        # Production YAML lives in the module's assets/ dir (resolved via the
+        # ajc_instrumentation module file path, not the test config tmp_dir).
+        import rv_instrumentation_ajc.ajc_instrumentation as _ajc_mod
+
+        prod_yaml = (
+            RealPath(_ajc_mod.__file__).resolve().parent.parent.parent
+            / "assets"
+            / "weaving_excludes.yaml"
+        )
+        assert prod_yaml.exists(), f"production YAML missing: {prod_yaml}"
+        with open(prod_yaml) as fh:
+            expected = yaml.safe_load(fh)["patterns"]
+
+        # _load_quarantine_patterns reads from <module>/assets/weaving_excludes.yaml
+        # via the same resolution; calling it should return the exact YAML list.
+        result = rv._load_quarantine_patterns()
+
+        assert len(result) == len(expected), (
+            f"pattern count mismatch: got {len(result)} expected {len(expected)}"
+        )
+        # Wave-2 §19 canary — added 2026-04 to cover JCA-557 oldset crashes.
+        assert "org/spongycastle/**/*.class" in result
+        # Wave-1 §16 canary — added 2026-04 for JCA-400 modern dataset.
+        assert "okio/**/*.class" in result
+
 
 class TestQuarantineProblematicClasses:
     """Tests for __quarantine_problematic_classes."""
@@ -1001,6 +1040,48 @@ class TestQuarantineProblematicClasses:
         # WARNING logged
         warnings = [str(c) for c in rv._logger.warning.call_args_list]
         assert any("matched app code" in w for w in warnings)
+
+    def test_spongycastle_moved(self, tmp_path):
+        # gh50 19.4.2 — wave-2 canary. Seed tmp_dir with the canonical
+        # JCA-557 crasher (Camellia$AlgParamGen, BCException at ajc weaving),
+        # call __quarantine_problematic_classes with the wave-2 spongycastle
+        # pattern, and assert the file is moved to the sibling
+        # <tmp_dir>_quarantine/ root preserving its relative path.
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        sc_dir = Path(config.tmp_dir) / "org" / "spongycastle" / "jcajce"
+        sc_dir.mkdir(parents=True)
+        sc_class = sc_dir / "Camellia$AlgParamGen.class"
+        sc_class.write_bytes(b"spongycastle-bytecode")
+
+        rv = _create_rv_instrumentation(config)
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"  # NOT under org/spongycastle
+
+        with patch.object(
+            rv,
+            "_load_quarantine_patterns",
+            return_value=["org/spongycastle/**/*.class"],
+        ):
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
+
+        # Original file removed from tmp_dir.
+        assert not sc_class.exists()
+        # Quarantined under <tmp_dir>_quarantine/ with original relative path.
+        qroot = Path(config.tmp_dir).parent / (
+            Path(config.tmp_dir).name + "_quarantine"
+        )
+        assert (
+            qroot / "org" / "spongycastle" / "jcajce" / "Camellia$AlgParamGen.class"
+        ).exists()
+        assert (
+            qroot
+            / "org"
+            / "spongycastle"
+            / "jcajce"
+            / "Camellia$AlgParamGen.class"
+        ).read_bytes() == b"spongycastle-bytecode"
 
     def test_noop_when_no_matches(self, tmp_path):
         config = _make_config_mock(tmp_path)

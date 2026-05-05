@@ -12,13 +12,16 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from rv_android_core.util.error.exceptions import ConfigurationError
-from rv_instrumentation_ajc.config import ConfigurationSummary, Dex2jarTools
+from rv_instrumentation_ajc.config import (
+    AjcInstrumentationConfig,
+    ConfigurationSummary,
+    Dex2jarTools,
+)
 from rv_instrumentation_ajc.config import (
     InstrumentationError as InstrumentationErrorModel,
 )
 from rv_instrumentation_ajc.config import (
     InstrumentationResults,
-    AjcInstrumentationConfig,
 )
 
 
