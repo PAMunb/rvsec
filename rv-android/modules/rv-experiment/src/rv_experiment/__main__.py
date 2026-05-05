@@ -367,6 +367,17 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     help="Execute tasks after preprocessing (default: enabled)",
 )
 @click.option(
+    "--quarantine/--no-quarantine",
+    "enable_quarantine",
+    default=True,
+    help=(
+        "Enable ajc library-class quarantine phase (gh50 §16/§19). "
+        "Default: enabled. Use --no-quarantine for empirical comparison "
+        "of recovery rate vs MOP visibility loss. Only affects the ajc "
+        "variant (dexlib2 has no quarantine phase)."
+    ),
+)
+@click.option(
     "--device-port",
     type=int,
     default=None,
@@ -408,6 +419,7 @@ def run(
     output_dir: Optional[str],
     no_window: bool,
     run_execution: bool,
+    enable_quarantine: bool,
     device_port: Optional[int],
     apks_filter: Optional[str],
     name: Optional[str],
@@ -494,6 +506,7 @@ def run(
                     name,
                     resume_dir,
                     instrumentation_variant=instrumentation_variant,
+                    enable_quarantine=enable_quarantine,
                 )
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
@@ -907,6 +920,9 @@ def _create_experiment_config_from_cli(
     # gh52 variant flag — kwarg with default to keep callers (and tests)
     # written before gh52 source-compatible. CLI plumbing always passes it.
     instrumentation_variant: str = "ajc",
+    # gh50 §22 quarantine toggle — kwarg with default to keep callers (and
+    # tests) written before §22 source-compatible. CLI plumbing always passes it.
+    enable_quarantine: bool = True,
 ) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
@@ -1019,6 +1035,7 @@ def _create_experiment_config_from_cli(
             instrumentation_variant=instrumentation_variant,
             run_static_analysis=static_analysis,
             run_execution=run_execution,
+            enable_quarantine=enable_quarantine,
             specification_set=specification_set,
             custom_specs_dir=custom_specs_dir,
             custom_aspects_dir=custom_aspects_dir,

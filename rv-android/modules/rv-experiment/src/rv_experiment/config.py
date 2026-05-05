@@ -148,6 +148,18 @@ class ExperimentConfig(BaseValidatedModel):
     run_execution: bool = Field(
         default=True, description="Execute tasks after preprocessing"
     )
+    # gh50 §21+§22 quarantine toggle: when False, the ajc instrumentation
+    # pipeline bypasses both `__quarantine_problematic_classes` and
+    # `__restore_quarantined_classes` (assets/weaving_excludes.yaml is not
+    # consulted). Default: True (quarantine enabled — the production path).
+    # Use --no-quarantine in the orchestrator CLI for empirical comparison
+    # of recovery rate vs MOP visibility loss; the flag is propagated to
+    # AjcInstrumentationConfig.enable_quarantine via get_instrumentation_config().
+    # Only the ajc variant honors this — dexlib2 has no quarantine phase.
+    enable_quarantine: bool = Field(
+        default=True,
+        description="Enable ajc library-class quarantine phase (gh50 §16/§19)",
+    )
 
     # --- 5. Specification set ---
     # Determines which .mop files are used for monitor generation in Phase 1.
@@ -615,6 +627,10 @@ class ExperimentConfig(BaseValidatedModel):
                 working_dir=rv_android_dir,  # Use rv-android dir where lib/ exists
                 instrumented_dir=os.path.join(self.output_dir, INSTRUMENTED_APKS_DIR),
                 keystore_password="password",
+                # gh50 §22: propagate orchestrator-level toggle so
+                # `--no-quarantine` at the rv-experiment CLI reaches the ajc
+                # pipeline through the same field already validated by gh50 §21.
+                enable_quarantine=self.enable_quarantine,
             )
         except InstrumentationConfigError as e:
             raise ConfigurationError(

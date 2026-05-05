@@ -93,6 +93,13 @@ if [ "$RV_SKIP_EXECUTION" = "true" ] || [ "$RV_SKIP_EXECUTION" = "1" ]; then
     CMD="$CMD --skip-execution"
 fi
 
+# gh50 §22: quarantine toggle. RV_NO_QUARANTINE=true disables the ajc
+# library-class quarantine phase (gh50 §16/§19). Default is enabled.
+# Only the ajc variant honors this — dexlib2 has no quarantine phase.
+if [ "$RV_NO_QUARANTINE" = "true" ] || [ "$RV_NO_QUARANTINE" = "1" ]; then
+    CMD="$CMD --no-quarantine"
+fi
+
 # Device port for parallel execution
 if [ -n "$RV_DEVICE_PORT" ]; then
     CMD="$CMD --device-port $RV_DEVICE_PORT"

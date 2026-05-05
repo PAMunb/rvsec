@@ -186,3 +186,41 @@ class TestGetModuleConfig:
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(Exception):
                 config.get_module_config("rv-static-analysis")
+
+
+class TestEnableQuarantinePropagation:
+    """gh50 §22: orchestrator-level --no-quarantine propagates to AjcInstrumentationConfig."""
+
+    def test_default_enable_quarantine_true(self, tmp_apk_dir):
+        """Default ExperimentConfig has enable_quarantine=True (production path)."""
+        config = make_config(tmp_apk_dir)
+        assert config.enable_quarantine is True
+
+    def test_field_can_be_set_false(self, tmp_apk_dir):
+        """ExperimentConfig accepts enable_quarantine=False (empirical comparison path)."""
+        config = make_config(tmp_apk_dir, enable_quarantine=False)
+        assert config.enable_quarantine is False
+
+    def test_propagates_default_to_ajc_config(self, tmp_apk_dir, tmp_path):
+        """get_instrumentation_config forwards enable_quarantine=True by default."""
+        rvsec_dir = tmp_path / "rvsec"
+        rvsec_dir.mkdir()
+        config = make_config(tmp_apk_dir, rvsec_root=str(rvsec_dir))
+        with patch("rv_experiment.config.AjcInstrumentationConfig") as mock_cls:
+            config.get_instrumentation_config()
+        call_kwargs = mock_cls.call_args[1]
+        assert call_kwargs["enable_quarantine"] is True
+
+    def test_propagates_false_to_ajc_config(self, tmp_apk_dir, tmp_path):
+        """get_instrumentation_config forwards enable_quarantine=False when overridden."""
+        rvsec_dir = tmp_path / "rvsec"
+        rvsec_dir.mkdir()
+        config = make_config(
+            tmp_apk_dir,
+            rvsec_root=str(rvsec_dir),
+            enable_quarantine=False,
+        )
+        with patch("rv_experiment.config.AjcInstrumentationConfig") as mock_cls:
+            config.get_instrumentation_config()
+        call_kwargs = mock_cls.call_args[1]
+        assert call_kwargs["enable_quarantine"] is False

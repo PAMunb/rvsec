@@ -870,3 +870,44 @@ The quarantine phase (§16, §19) is currently always-on whenever `assets/weavin
 
 - [x] 21.7.1 **Git commit**: `feat(gh50): add enable_quarantine config + --no-quarantine CLI flag for empirical comparison`.
     - **Commit**: `b336a9a9` "feat(gh50): add enable_quarantine config + --no-quarantine CLI flag (refs #50)" (2026-05-03 11:35:19 -0300)
+
+---
+
+## 22. Quarantine toggle propagation: orchestrator + Docker (gh50 §21 follow-up, May 2026)
+
+§21 added `enable_quarantine` to `AjcInstrumentationConfig` plus a `--no-quarantine` flag on the **module-level** ajc CLI (`rv-instrumentation-ajc`). However the **orchestrator** CLI (`rv-experiment`) had no equivalent flag, and the Docker entrypoint (`docker/rvandroid/docker-entrypoint.sh`) had no env var for it. So end-to-end empirical comparison runs (Docker compose × multiple APKs × with/without quarantine) required either (a) overriding the entrypoint manually or (b) running `rv-instrumentation-ajc` directly outside the experiment workflow. §22 closes that gap.
+
+### 22.1 Motivation
+
+- Empirical comparison ("recovery rate vs MOP visibility loss") was filed as future work in §21.5.3 closure note. To run it across the JCA-400 corpus via the standard Docker compose templates, the toggle must be reachable from `rv-experiment run` (single-APK and batch) and from `RV_*` env vars (Docker compose).
+- Conservative scope decision (2026-05-05 — `project_ajc_retained_as_optin` memory) keeps ajc as the default pipeline; the toggle remains valuable for ongoing AJC regression investigation (see `project_ajc_regression_2026-05-05`).
+
+### 22.2 ExperimentConfig field
+
+- [x] 22.2.1 Add `enable_quarantine: bool = Field(default=True, ...)` to `ExperimentConfig` in `modules/rv-experiment/src/rv_experiment/config.py`. Inline comment documents semantics: default True (production), only ajc honors (dexlib2 has no quarantine phase).
+- [x] 22.2.2 Propagate the field via `get_instrumentation_config()` to `AjcInstrumentationConfig(enable_quarantine=self.enable_quarantine)`.
+
+### 22.3 CLI option
+
+- [x] 22.3.1 Add `--quarantine/--no-quarantine` Click option to `rv-experiment run` (anchored at `enable_quarantine`, default True) in `modules/rv-experiment/src/rv_experiment/__main__.py`.
+- [x] 22.3.2 Wire the option through the `_create_experiment_config_from_cli` function signature and the `ExperimentConfig(...)` constructor call. Kwarg with `True` default to preserve source-compat for callers/tests pre-§22.
+
+### 22.4 Docker entrypoint
+
+- [x] 22.4.1 Add `RV_NO_QUARANTINE` env var translation (3-line block, same pattern as `RV_SKIP_*`) to `docker/rvandroid/docker-entrypoint.sh`. When `true`/`1`, appends `--no-quarantine` to the command.
+- [x] 22.4.2 Update `modules/rv-experiment/CLAUDE.md` "Key Environment Variables" table to list `RV_NO_QUARANTINE` (note: only ajc variant honors).
+
+### 22.5 Tests
+
+- [x] 22.5.1 `TestEnableQuarantinePropagation` class in `modules/rv-experiment/tests/test_config_jit.py`:
+    - `test_default_enable_quarantine_true`: `make_config()` defaults the field to True.
+    - `test_field_can_be_set_false`: `make_config(enable_quarantine=False)` is accepted.
+    - `test_propagates_default_to_ajc_config`: `get_instrumentation_config()` calls `AjcInstrumentationConfig(enable_quarantine=True, ...)` by default.
+    - `test_propagates_false_to_ajc_config`: same call but `False` when overridden.
+    - 4/4 tests pass; rv-experiment suite 178/178 (was 174); rv-instrumentation-ajc 78/78 unchanged.
+
+### 22.6 Verification
+
+- [x] 22.6.1 Regression check: `uv run pytest modules/rv-experiment/tests/` → 178/178; `modules/rv-instrumentation-ajc/tests/` → 78/78; `modules/rv-instrumentation-core/tests/` → 11/11. No regressions.
+    - **Verification date**: 2026-05-05
+    - **File reference**: `modules/rv-experiment/tests/test_config_jit.py::TestEnableQuarantinePropagation`
