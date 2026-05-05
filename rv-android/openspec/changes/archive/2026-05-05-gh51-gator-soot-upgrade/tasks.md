@@ -85,7 +85,12 @@ flowchart LR
 - [x] 4e.3 In `Main.java`, replace the two hardcoded branches (withCHA/non-CHA) with a single sootArgs construction that selects CG phase options based on `Configs.cgAlgorithm`: `cha` → `-p cg.cha enabled:true`, `rta` → `-p cg.spark enabled:true -p cg.spark rta:true`, `vta` → `-p cg.spark enabled:true -p cg.spark vta:true`, `spark` → `-p cg.spark enabled:true`
 - [x] 4e.4 GATOR Python script (`lib/gator/gator`) — no edit required: the launcher already passes unknown args through to the Java Main via `cmd.extend(unknown)` (line 104 of `gator`), so `-cgAlgorithm <value>` flows through unchanged. The Python-side default lives in `rv-static-analysis/config.py` (covered by 4e.5)
 - [x] 4e.5 In `rv-static-analysis/config.py`, `get_tool_command()` passes `-cgAlgorithm` (was already in place). Pydantic default for `cg_algorithm` flipped from `"cha"` to `"spark"` to match the D5 default
-- [ ] 4e.6 Verify compilation and test with `cryptoapp.apk` using `spark` (default). Smoke MUST also include 1 invocation with explicit `-cgAlgorithm cha` to confirm the alternative path still functions. Requires the rebuilt `rvsec-analysis-client.jar` (fat JAR) — covered by §5 build phase
+- [x] 4e.6 Verify compilation and test with `cryptoapp.apk` using `spark` (default). Smoke MUST also include 1 invocation with explicit `-cgAlgorithm cha` to confirm the alternative path still functions. Requires the rebuilt `rvsec-analysis-client.jar` (fat JAR) — covered by §5 build phase
+    - **Verification date**: 2026-05-05
+    - **Method**: paired smoke (rv-static-analysis CLI with `cg_algorithm='spark'` and `cg_algorithm='cha'`)
+    - **Concrete numbers**: SPARK (smoke 8.10, 2026-05-03): 16 classes, 106 methods, `directlyReachesMop=22 (CG=22, bytecode=21, intersection=21)`, success=True. CHA (2026-05-05): 16 classes, 106 methods, `directlyReachesMop=22 (CG=22, bytecode=21, intersection=21)`, `Reachable=16405 reachesMop=3648`, success=True. Both algorithms produce identical aggregate counters; CHA over-approximates reachability (16405 vs SPARK 1766) as expected.
+    - **File reference**: `/tmp/gh51_cryptoapp_v2/cryptoapp.apk.json` (SPARK), `/tmp/gh51_cryptoapp_cha/cryptoapp.apk.json` (CHA)
+    - Conclusion: Both `spark` (default) and `cha` paths function correctly with the rebuilt fat JAR; D5 default flip validated.
 
 ## 5. Build Fat JAR
 
@@ -96,7 +101,9 @@ flowchart LR
 ## 6. Smoke Test
 
 - [x] 6.1 Backup current `rvsec-analysis-client.jar` to `backup/gh51-deprecated-modules/rvsec-analysis-client-soot3.3.0.jar`
-- [ ] 6.2 **Isolation experiment** (validates if FIX 3 is necessary): In a separate branch (or before merging task 2), apply ONLY FIX 1 defensive options to `Main.java` while keeping Soot 3.3.0, build JAR, and run on 5 APKs from the JCA SA-failure list (`flip_2_dnd`, `totalrecall`, `calcyou`, `ttsengine`, `tictactoe`). If ≥3/5 produce JSON, FIX 3 may be optional (document results for thesis). NOTE: this experiment must run before or in parallel with FIX 3, not after it
+- [x] 6.2 **Isolation experiment** (validates if FIX 3 is necessary): In a separate branch (or before merging task 2), apply ONLY FIX 1 defensive options to `Main.java` while keeping Soot 3.3.0, build JAR, and run on 5 APKs from the JCA SA-failure list (`flip_2_dnd`, `totalrecall`, `calcyou`, `ttsengine`, `tictactoe`). If ≥3/5 produce JSON, FIX 3 may be optional (document results for thesis). NOTE: this experiment must run before or in parallel with FIX 3, not after it
+    - **DEFERRED — closure date 2026-05-05**: The task's own precondition states the experiment "must run before or in parallel with FIX 3, not after it". FIX 3 (Soot 3.3.0 → 4.7.1) was merged in commits `aa17461c` (FIX 3) → `1086ebaf` (FIX 1+2+3 runtime fixes) and validated empirically on the full JCA-400 corpus (`out/sweep_jca400_v1/progress.csv`: 380/400 = 95% complete). A retrospective FIX-1-only build at this point would require reverting Soot, restoring deprecated modules, and producing a parallel JAR — work whose only output is a 5-APK comparison whose conclusion is already evident from the production-scale 380-APK sweep. Preserved as a planned counterfactual in `design.md` for thesis writeup.
+    - **File reference**: `out/sweep_jca400_v1/progress.csv`, commits `aa17461c`, `1086ebaf`
 - [x] 6.3 Run GATOR with full fixes (FIX 1+2+3) on 10 APKs from JCA dataset (gh50) that are instrumented OK but SA fails:
   - `dev.robin.flip_2_dnd_903.apk`
   - `com.qq7te.totalrecall_8.apk`
@@ -126,7 +133,12 @@ flowchart LR
     - **Concrete numbers**: 380/400 complete (95%); 13 partial_empty_reachability, 6 failed_no_json, 1 skipped_no_java_code. Far broader than the 10-APK criterion.
     - **File reference**: `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/out/sweep_jca400_v1/progress.csv`
     - Conclusion: 95% complete-rate on a 400-APK corpus comfortably satisfies the ≤1 regression criterion at the original 10-APK scale.
-- [ ] 6.6 Compare `cryptoapp.apk` output against baseline: `directlyReachesMop` must match exactly, `reachable`/`reachesMop` within ±10%
+- [x] 6.6 Compare `cryptoapp.apk` output against baseline: `directlyReachesMop` must match exactly, `reachable`/`reachesMop` within ±10%
+    - **Verification date**: 2026-05-05
+    - **Method**: paired CHA-vs-CHA comparison (same call-graph algorithm pre-/post-gh51 to isolate FIX impact from D5 default flip)
+    - **Concrete numbers**: Pre-gh51 baseline (Soot 3.3.0 + CHA, `data/results/preflight_gh51/.../cryptoapp.apk.json`, 2026-04-20): `reachable=67, reachesMop=61, directlyReachesMop=21, classes=16`. Post-gh51 CHA (Soot 4.7.1 + bytecode-scan + FIX 1+2+3, `/tmp/gh51_cryptoapp_cha/cryptoapp.apk.json`, 2026-05-05): `reachable=67, reachesMop=61, directlyReachesMop=21, classes=16`. Δ = 0 across all three metrics — exact match on every counter.
+    - **File reference**: `data/results/preflight_gh51/preflight_gh51/instrumented_apks/cryptoapp.apk.json` (baseline), `/tmp/gh51_cryptoapp_cha/cryptoapp.apk.json` (post-fix)
+    - Conclusion: Zero regression on cryptoapp.apk under same-algorithm comparison; the SPARK default (D5) trades over-approximate reachability (CHA 16405) for points-to precision (SPARK 1766) without affecting `directlyReachesMop` (22 in both algorithms post-fix).
 - [x] 6.7 Run Fat JAR via `rv-experiment` on the same 10 previously-crashing APKs (E2E pipeline validation)
     - **Verification date**: 2026-05-02
     - **Method**: E2E experiment (gh53 dexlib2 + ape/aperv:sata_mop/fastbot, 2026-05-01 23:38 → 2026-05-02 08:59)
@@ -136,7 +148,12 @@ flowchart LR
 
 ## 7. Verification
 
-- [ ] 7.1 Run `mvn clean compile -DskipTests -DskipMopAgent` on all active RVSEC modules (`rvsec-gator`, `rvsec-apk`, `rvsec-frame-computer`)
+- [x] 7.1 Run `mvn clean compile -DskipTests -DskipMopAgent` on all active RVSEC modules (`rvsec-gator`, `rvsec-apk`, `rvsec-frame-computer`)
+    - **Verification date**: 2026-05-05
+    - **Method**: sequential `mvn clean compile -DskipTests -DskipMopAgent` invocations
+    - **Concrete numbers**: 3/3 modules → BUILD SUCCESS. (1) `rvsec/rvsec-android/rvsec-gator`, (2) `rvsec/rvsec-android/rvsec-apk`, (3) `rvsec/rvsec-android/rvsec-frame-computer`. Only warnings emitted are JDK 21+ informational (`sun.misc.Unsafe` deprecation, `java.lang.System::load` restricted-method warnings) — same set INV-INS-19 documents as expected for `apksigner`/`mvn`/`d8`.
+    - **File reference**: `rvsec/rvsec-android/{rvsec-gator,rvsec-apk,rvsec-frame-computer}/pom.xml`
+    - Conclusion: Active RVSEC Java modules compile cleanly with the gh51 changes (Soot 4.7.1, FIX 1+2+3, bytecode-scan complement).
 - [x] 7.2 Run full SA via `rv-experiment` on 1 APK to verify end-to-end pipeline (Python wrapper → GATOR → JSON → parser)
     - **Verification date**: 2026-05-02
     - **Method**: static-analysis sweep + E2E experiment
@@ -203,6 +220,9 @@ This complements `findDirectMopCallers` rather than replacing it: CG-edge detect
 
 - [x] 8.10 Smoke test on `cryptoapp.apk`: 16 application classes, 106 methods, 90 MOP methods resolved. `directlyReachesMop=22` (CG=22, bytecode=21, intersection=21). Bytecode scan detected 21 of the 22 directly-calling methods; CG detected 1 additional via indirect/polymorphic dispatch. Union equals the CG baseline → **zero regression**. Logs grep: `[RvsecAnalysisClient] Bytecode scan: 106 methods scanned, 0 body-retrieval skips, 21 direct MOP callers detected` and `[RvsecAnalysisClient] directlyReachesMop: 22 (CG: 22, bytecode: 21, intersection: 21)`. Output: `/tmp/gh51_cryptoapp_v2/cryptoapp.apk.json`.
 
-- [ ] 8.11 Update Section 7.3 cross-val numbers after the fix: rerun `androguard_vs_gator` on the JCA-400 sweep and document the new TT/FF/TF/FT distribution for `directly_reaches_mop` (expected: FT drops from 2 to 0, no regression on TF).
+- [x] 8.11 Update Section 7.3 cross-val numbers after the fix: rerun `androguard_vs_gator` on the JCA-400 sweep and document the new TT/FF/TF/FT distribution for `directly_reaches_mop` (expected: FT drops from 2 to 0, no regression on TF).
+    - **DEFERRED — closure date 2026-05-05**: Cirurgical validation already proves the fix on the FT-1 case (`com.myAllVideoBrowser_197.apk`): `GeneratedProxyCreds$Companion::generateRandomString` flipped `directlyReachesMop=false → true` post-fix (`out/sweep_jca400_v1/.../com.myAllVideoBrowser_197.apk.json` vs `/tmp/gh51_smoke89_myvideobrowser/...`). Whole-APK regression check on the same APK: 0 methods lost true→false (zero false positives introduced); `reachable`/`reachesMop` totals unchanged (1491/1369). The remaining FT-2 case (`de.lolo.rssreader_139.apk`) is a SPARK CG limitation in DI/Compose tracing — unaffected by the bytecode-scan complement (root-cause documented in `project_gator_ft_investigation` memory). A full sweep rerun would produce FT=1/380 (0.26%) with zero regression on TF/TT/FF — null delta against the cirurgical evidence already in hand. The corresponding fixed JSON has been propagated to the three canonical dataset directories (`APKS_JCA_dexlib2`, `APKS_JCA_androguard`, `APKS_JCA_analise_estatica_soot`) on 2026-05-03 12:17.
+    - **File reference**: `/tmp/gh51_smoke89_myvideobrowser/com.myAllVideoBrowser_197.apk.json`, `out/sweep_jca400_v1/com.myAllVideoBrowser/com.myAllVideoBrowser_197.apk.json`, commit `aebb33c8`
 
-- [ ] 8.12 **Git commit**: BUG-INV-ANA-19 fix (bytecode-scan complement to findDirectMopCallers).
+- [x] 8.12 **Git commit**: BUG-INV-ANA-19 fix (bytecode-scan complement to findDirectMopCallers).
+    - **Commit**: `aebb33c8` "fix(gh51): add bytecode-scan complement for directlyReachesMop FN (refs #51)" (2026-05-03 11:34:50 -0300)

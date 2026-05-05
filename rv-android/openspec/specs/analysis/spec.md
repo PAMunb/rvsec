@@ -345,14 +345,18 @@ rv-screen-parser:
 - **INV-ANA-14**: The `PackageDetector` MUST apply detection heuristics in the following priority order: (1) same-as-manifest, (2) game engine detection, (3) single package, (4) common prefix, (5) most common (60%+ frequency), (6) string similarity (85%+ threshold), (7) manifest fallback. Each strategy returns early if a match is found.
 
 - **INV-ANA-15**: Coverage metrics MUST be calculated with reachability data as the denominator. `method_coverage` = (called methods) / (total reachable methods from the analysis JSON's reachability section). `mop_method_coverage` = (called methods that reach MOP) / (total methods with reaches_mop=true). Without reachability data, percentage-based coverage MUST NOT be reported; only absolute counts are valid.
-
 ## Requirements
-
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
 The system MUST run a single GATOR analysis client to produce a single JSON output file containing four data sections written in priority order: (1) method reachability relative to MOP specifications (coverage denominator), (2) window and widget inventory with event listeners, (3) window transition graph, and (4) non-Activity component data (Services, BroadcastReceivers, ContentProviders) with intent-filters/authorities and MOP reachability.
 
-The analysis tool is a GATOR client (`RvsecAnalysisClient`) that implements the `GUIAnalysisClient` interface. GATOR initializes Soot once, builds its constraint graph and fixpoint analysis, and then invokes the client's `run(GUIAnalysisOutput output)` method. Inside this method, the client writes each JSON section incrementally with explicit flush, so that a timeout or crash after any section produces a parseable partial file. The execution order inside `run()`:
+The analysis tool is a GATOR client (`RvsecAnalysisClient`) that implements the `GUIAnalysisClient` interface. GATOR initializes Soot once with defensive configuration (INV-ANA-16), builds its constraint graph and fixpoint analysis, and then invokes the client's `run(GUIAnalysisOutput output)` method. Inside this method, the client writes each JSON section incrementally with explicit flush, so that a timeout or crash after any section produces a parseable partial file.
+
+The `Flowgraph.processApplicationClasses()` method MUST handle individual method failures gracefully (INV-ANA-17). When `retrieveActiveBody()` or `createOpNode()` throws an exception for a specific method, the Flowgraph MUST skip that method and continue processing remaining methods. The resulting Flowgraph may be incomplete (missing OpNodes, widgets, or listeners for skipped methods), but the GUIAnalysis pipeline MUST complete and the `RvsecAnalysisClient` MUST produce JSON output. Reachability data (computed from `Scene.v().getCallGraph()` via BFS) is NOT affected by Flowgraph incompleteness — it depends on the Soot call graph, not on the Flowgraph.
+
+The GATOR MUST use Soot 4.7.1 (`org.soot-oss:soot`, INV-ANA-18) with defensive configuration (INV-ANA-16). The `ClassHierarchy.typeNode()` bug (soot-oss/soot#1071) is not fixed in Soot 4.7.1, but the improved Dexpler in 4.x reduces crash frequency. The defensive options (excluding `kotlin.*`, `kotlinx.*`, and `androidx.compose.*` from body loading, disabling `jb.sils`/`jb.dae`) further reduce the crash surface. Together, these changes form a layered defense: prevention (FIX 1), recovery (FIX 2), and fundamental improvement (FIX 3).
+
+The execution order inside `run()`:
 
 1. **Enumerates application classes and computes method reachability** using `Scene.v().getApplicationClasses()` for class/method enumeration and `Scene.v().getCallGraph()` + JGraphT for reachability flags. Entry points include: Activity lifecycle handlers and public/protected methods (via `output.getActivities()`), Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`) and public/protected methods (via `XMLParser.getServices()`), BroadcastReceiver lifecycle method (`onReceive`) and public/protected methods (via `XMLParser.getReceivers()`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`) and public/protected methods (via `XMLParser.getProviders()`). Service, Receiver, and Provider class names are resolved to `SootClass` via `Scene.v().getSootClassUnsafe()`, which returns `null` for unresolvable classes (logged as WARNING, skipped). Lifecycle methods are found by iterating `SootClass.getMethods()` and filtering by name. For each application method, it computes: `reachable` (reachable from entry points), `reachesMop` (has path to a monitored API method), and `directlyReachesMop` (directly invokes a monitored API method). MOP method signatures are loaded from `.mop` specification files via `JavamopFacade`. This section is written and flushed first.
 
@@ -372,240 +376,86 @@ The reachability section defines the **method universe** — the total set of re
 
 The reachability section also provides MOP prioritization data consumed by rv-agent. The `MopScorer` in rv-agent's `ActionRanker` assigns +100 score to actions with `directly_reaches_mop=true` and +50 to actions with `reaches_mop=true`, directing exploration toward MOP-relevant code paths.
 
-The call graph is built using Soot's default entry point strategy — Android lifecycle callbacks discovered by FlowDroid's callback analysis. JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) appear as call targets whenever any application method invokes them — they do not need to be entry points. If reachability is insufficient for specific APKs, GATOR supports a `-withCHA` flag that enables CHA (Class Hierarchy Analysis), which resolves all virtual calls based on the class hierarchy.
+The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:true`, which performs full points-to analysis to resolve virtual calls based on types effectively instantiated in the program. SPARK is the operational default per design.md D5 — full points-to analysis tightens `reachesMop` against the over-approximation that pure type-hierarchy resolution (CHA) would produce on Android codebases with deep inheritance and pervasive Kotlin `FunctionN` interfaces. Other algorithms — CHA (`-cgAlgorithm cha`), RTA (`-cgAlgorithm rta`), VTA (`-cgAlgorithm vta`) — remain available; the legacy `-withCHA` flag is accepted as an alias for `-cgAlgorithm cha` for backward compatibility. If the chosen algorithm crashes due to residual `InternalTypingException` (after defensive options and Soot 4.7.1), the analysis fails for that APK — there is no Flowgraph-level recovery for call-graph-phase crashes. JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) appear as call targets whenever any application method invokes them — they do not need to be entry points.
 
-**Module**: rv-static-analysis (launcher + parser), rvsec-gator (analysis client)
-**Key components**: `RvsecAnalysisClient`, `XMLParser`, `DefaultXMLParser`, `IntentFilterManager`, `StaticAnalysisParser`, `Clazz`
+**Module**: rv-static-analysis (launcher + parser — unchanged), rvsec-gator (analysis client — modified)
+**Key components**: `Main.java` (Soot config), `Flowgraph.java` (error handling), `RvsecAnalysisClient` (unchanged), `XMLParser`, `DefaultXMLParser`, `IntentFilterManager`, `StaticAnalysisParser` (unchanged), `Clazz`
 
 #### Scenario: Successful static analysis with valid APK
 
 - **WHEN** `StaticAnalyzer._run_analysis()` is called with a valid APK path and the analysis client JAR exists at `lib/gator/rvsec-analysis-client.jar`
-- **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <analysis_client_jar> --out <output_file> -client RvsecAnalysisClient -clientParam mopDir=<mop_dir> --timeout <timeout> -withCHA`
+- **THEN** the system MUST execute the GATOR Python script with arguments: `python gator a -p <apk_path> --client-jar <analysis_client_jar> --out <output_file> -client RvsecAnalysisClient -clientParam mopDir=<mop_dir> --timeout <timeout> -cgAlgorithm spark` (or another value of `-cgAlgorithm` if the caller overrode the default)
 - **AND** the resulting `.json` file MUST be parseable by `StaticAnalysisParser` into a `StaticAnalysisData` containing non-empty `Classes`, `Windows`, `WindowTransitionGraph`, and `Components`
 - **AND** the `.json` file MUST contain a `components` section (may have empty `receivers[]`, `services[]`, and `providers[]` arrays)
 
-#### Scenario: Static analysis JSON parsing — windows section
+#### Scenario: GATOR crashes during call graph construction
 
-- **WHEN** `StaticAnalysisParser._parse_windows()` processes the `windows` array from the analysis JSON
-- **THEN** each window entry MUST produce a `Window` object with `id`, `name`, `type` (ACTIVITY, DIALOG, OPTIONSMENU), and `isMain` flag
-- **AND** each widget in the window's `widgets` array MUST produce a `Widget` object with `id`, `idName`, `type`, `text`, `hint`, `inputType`, and `entries`
-- **AND** each listener in a widget's `listeners` array MUST produce a `WidgetEvent` with `event_type` mapped from the listener's `eventType` string (click → CLICK, long_click → LONG_CLICK, scroll → SCROLL, selection → SELECTION) and `signature` from the `handler` field
-- **AND** listeners with `eventType` mapping to `OTHER` MUST be excluded
-- **AND** class names MUST be normalized via `SignatureNormalizer` (INV-ANA-02)
-- **AND** windows with class names not containing `code_package` MUST be filtered out (INV-ANA-03)
+- **WHEN** Soot's call-graph builder (`CHATransformer.internalTransform()` for `-cgAlgorithm cha`, or the SPARK pipeline for `rta`/`vta`/`spark`) throws an `InternalTypingException` during call graph construction for a method in a Kotlin class
+- **THEN** the GATOR process MUST terminate with a non-zero exit code
+- **AND** no `.json` output file MUST exist (the crash occurs before `RvsecAnalysisClient.run()` is invoked)
+- **AND** the `StaticAnalyzer` wrapper MUST log the failure as `StaticAnalysisException`
+- **AND** the `StaticAnalysisResult.analysis_file` MUST point to the expected output path (which does not exist)
 
-#### Scenario: Static analysis JSON parsing — transitions section
+#### Scenario: Flowgraph skips method with failing body (Scenario B recovery)
 
-- **WHEN** `StaticAnalysisParser._parse_transitions()` processes the `transitions` array from the analysis JSON
-- **THEN** each transition MUST resolve `sourceId` and `targetId` to `Window` objects from the previously parsed `windows` section
-- **AND** each event in the transition's `events` array MUST produce a `Widget` (if not already created) with `widgetId`, `widgetClass`, and `widgetName`, and a `WidgetEvent` with the handler signature
-- **AND** a `WindowTransition` edge MUST be added to the `WindowTransitionGraph` connecting source to target window
-- **AND** transitions referencing unknown window IDs MUST be logged as warnings and skipped
+- **WHEN** `Flowgraph.processApplicationClasses()` calls `currentMethod.retrieveActiveBody()` and Soot throws an exception (e.g., `InternalTypingException`) for a specific method
+- **THEN** the exception MUST be caught by the try-catch around `retrieveActiveBody()` (INV-ANA-17)
+- **AND** a log MUST be emitted via `Logger.warn()` with the skipped method's signature and exception message
+- **AND** the loop MUST continue to the next method via `continue`
+- **AND** the Flowgraph MUST complete with partial data (missing OpNodes for the skipped method)
+- **AND** the `RvsecAnalysisClient.run()` MUST execute and produce a JSON file
 
-#### Scenario: Static analysis JSON parsing — reachability section with component type
+#### Scenario: Flowgraph skips statement with failing OpNode creation
 
-- **WHEN** `StaticAnalysisParser._parse_classes()` processes the `reachability` array from the analysis JSON
-- **THEN** each class entry MUST produce a `Clazz` object with `name`, `component_type` (string or None), and `is_main` (boolean)
-- **AND** `component_type` MUST be parsed from the JSON `componentType` field (`"activity"`, `"service"`, `"receiver"`, `"provider"`, or `null`)
-- **AND** `is_main` MUST be parsed from the JSON `isMain` field
-- **AND** each method in the class's `methods` array MUST produce a `Method` object with `name`, `signature`, `reachable`, `reachesMop`, and `directlyReachesMop` flags
-- **AND** class names and signatures MUST be normalized via `SignatureNormalizer` (INV-ANA-02)
-- **AND** classes not containing `code_package` in their name MUST be filtered out (INV-ANA-03)
+- **WHEN** `Flowgraph.processApplicationClasses()` calls `createOpNode(currentStmt)` and the method throws an exception for a specific statement
+- **THEN** the exception MUST be caught by the existing catch block (line 343, INV-ANA-17)
+- **AND** a log MUST be emitted via `Logger.warn()` with the skipped statement and exception message
+- **AND** the loop MUST continue to the next statement via `continue`
+- **AND** the resulting Flowgraph MUST be missing the OpNode for that statement but otherwise complete
 
-#### Scenario: Static analysis JSON parsing — components section
+#### Scenario: Kotlin stdlib exclusion impact on reachability
 
-- **WHEN** `StaticAnalysisParser._parse_components()` processes the `components` object from the analysis JSON
-- **THEN** each entry in `activities[]`, `receivers[]`, and `services[]` MUST produce a `ComponentInfo` object with `class_name`, `component_type`, `is_main`, `intent_filters` (list of `IntentFilter`), `exported`, `reaches_mop`, and `mop_methods`
-- **AND** each entry in `providers[]` MUST produce a `ComponentInfo` object with `class_name`, `component_type="provider"`, `is_main=False`, `authorities` (string), `exported`, `reaches_mop`, and `mop_methods`
-- **AND** if the `components` key is missing from the JSON (e.g., timeout before Section 4 was written), `_parse_components()` MUST return an empty `Components` object
-- **AND** if the `components` section contains malformed data, `_parse_components()` MUST log an error and return an empty `Components` object (INV-ANA-06)
-- **AND** the resulting `Components` object MUST be stored in `StaticAnalysisData.components`
+- **WHEN** GATOR analyzes an APK with Kotlin dependencies and `-exclude kotlin.`, `-exclude kotlinx.`, and `-exclude androidx.compose.` are active
+- **THEN** classes in `kotlin.*`, `kotlinx.*`, and `androidx.compose.*` packages MUST NOT have their bodies jimplified
+- **AND** the call graph MUST still contain edges from application code to excluded package methods (as phantom refs)
+- **AND** the `reachability` section of the output JSON MUST NOT include excluded-package classes (they are not application classes)
+- **AND** for JCA specifications (`javax.crypto.*`, `java.security.*`), reachability MUST NOT be affected because JCA APIs are called by application code, not by Kotlin stdlib or Compose runtime
 
-#### Scenario: Static analysis JSON parsing with inner class normalization
+#### Scenario: Analysis output baseline comparison after Soot upgrade
 
-- **WHEN** `StaticAnalysisParser` encounters a class name like `com.example.OuterActivity.InnerFragment` in any section
-- **THEN** `SignatureNormalizer` MUST convert it to `com.example.OuterActivity$InnerFragment`
-- **AND** the normalized name MUST be used for all domain model lookups and storage
-
-#### Scenario: Analysis output file does not exist
-
-- **WHEN** `StaticAnalysisParser.parse_file()` is called with a non-existent file path
-- **THEN** a warning MUST be logged
-- **AND** an empty `StaticAnalysisData` MUST be returned with empty `Classes()`, `Windows()`, `WindowTransitionGraph()`, and `Components()`
-
-#### Scenario: Partial JSON parse failure (per-section graceful degradation)
-
-- **WHEN** the analysis JSON file exists but the `reachability` section contains malformed data
-- **THEN** `StaticAnalysisParser._parse_classes()` MUST catch the exception, log an error, and return empty `Classes()`
-- **AND** the `windows` and `transitions` sections MUST still be parsed successfully
-- **AND** the returned `StaticAnalysisData` MUST contain the successfully parsed `Windows` and `WindowTransitionGraph` with empty `Classes`
-
-#### Scenario: Analysis result is cached
-
-- **WHEN** `StaticAnalyzer._execute_command()` detects that the `.json` output file already exists
-- **THEN** tool execution MUST be skipped
-- **AND** a `CommandResult(0, b"", b"")` MUST be returned
-- **AND** an info log with `execution_status='cached'` MUST be recorded
-
-#### Scenario: Analysis timeout
-
-- **WHEN** the analysis tool execution exceeds `analysis_timeout` (default: 600 seconds)
-- **THEN** `Command` MUST kill the process tree via `kill_process_tree()`
-- **AND** `StaticAnalysisResult.timed_out` MUST be set to `True`
-- **AND** the `StaticAnalyzer` MUST log a warning with the tool name and timeout duration
-- **AND** `StaticAnalysisResult.analysis_file` MUST be set to the expected output path (which may not exist)
-
-#### Scenario: Timeout with partial JSON output
-
-- **WHEN** the analysis tool times out after writing a partial JSON file (e.g., `reachability` section written and flushed, but `windows` and `transitions` sections missing due to timeout)
-- **THEN** `StaticAnalysisParser` MUST attempt to parse the partial file. If `json.loads()` fails due to truncation, the parser MUST attempt recovery by finding the last complete `]` bracket, truncating the content there, closing the JSON object, and retrying
-- **AND** valid sections present in the recovered JSON MUST be parsed successfully into their domain objects
-- **AND** missing or truncated sections MUST result in empty domain objects for those sections (INV-ANA-06)
-- **AND** a warning MUST be logged indicating incomplete file due to timeout
-- **AND** `StaticAnalysisResult.timed_out` MUST be `True`
-
-#### Scenario: Analysis output equivalence to previous 3-tool pipeline
-
-- **WHEN** the analysis tool analyzes `cryptoapp.apk` and its output is compared against saved baseline from the previous 3-tool pipeline (GESDA + GATOR + REACH)
+- **WHEN** the analysis tool analyzes `cryptoapp.apk` with Soot 4.7.1 (Feb 2026) and its output is compared against the saved baseline (produced with Soot 3.3.0)
 - **THEN** window count MUST match exactly (±0)
 - **AND** transition count MUST match exactly (±0)
 - **AND** total method count MUST match exactly (±0)
-- **AND** `reachable` and `reachesMop` method counts MAY differ by up to ±10% due to the removal of `cg all-reachable` — differences MUST be documented
-- **AND** `directlyReachesMop` counts MUST match exactly (±0) because direct call edges are CG-construction-independent
+- **AND** `reachable` and `reachesMop` method counts MAY differ by up to ±10% due to Soot version change (3.3.0 → 4.7.1) — differences MUST be documented
+- **AND** `directlyReachesMop` counts MUST match or strictly INCREASE relative to the saved baseline because the bytecode-scan complement (BUG-INV-ANA-19) recovers literal MOP invocations the call graph alone misses; the baseline is a lower bound, never an upper bound
 - **AND** widget `inputType` and `entries` fields MUST match GESDA output for the same APK
 
-#### Scenario: Service lifecycle methods as entry points
+#### Scenario: `directlyReachesMop` detects literal library MOP invocations omitted by SPARK (BUG-INV-ANA-19)
 
-- **WHEN** an APK declares a Service `com.example.app.MyService` with an overridden `onStartCommand` method
-- **THEN** `getEntryPoints()` MUST include `MyService.onStartCommand` in the returned set
-- **AND** the call graph traversal MUST reach methods called from `onStartCommand`
-- **AND** MOP reachability MUST be computed for these methods
-- **AND** `reachability[]` entry for `com.example.app.MyService` MUST have `componentType="service"`
+- **WHEN** an application method's bytecode contains a literal `invoke-direct`, `invoke-virtual`, `invoke-static`, or `invoke-interface` whose target's `(declaringClass.getName(), methodRef.name())` matches a MOP signature loaded from the `mopDir` (e.g. `java.security.SecureRandom.<init>` or `java.security.SecureRandom.nextInt` for the `SecureRandomSpec` MOP)
+- **AND** Soot's SPARK call graph does NOT contain that target as a vertex (because library packages like `java.security.*` are quarantined as IGNORED_CLASSES and SPARK omits their edges)
+- **THEN** `findDirectMopCallersByBytecodeScan` MUST detect the invocation by walking the method's `Body.getUnits()`, casting each to `Stmt`, and inspecting `InvokeExpr.getMethodRef()` against the precomputed `Set<String>` of `"className#methodName"` keys
+- **AND** the detection MUST be independent of the call graph — it works even when `graph.containsVertex(target) == false`
+- **AND** the matched method MUST be unioned into `directMopSet` after `findDirectMopCallers` completes
+- **AND** the output JSON MUST report `directlyReachesMop=true` for that method
+- **AND** the implementation MUST log scan statistics: `[RvsecAnalysisClient] Bytecode scan: <S> methods scanned, <B> body-retrieval skips, <K> direct MOP callers detected` and `[RvsecAnalysisClient] directlyReachesMop: <N> (CG: <M>, bytecode: <K>, intersection: <I>)` so users can audit how many additional callers the bytecode complement contributed
+- **AND** match policy MUST mirror `resolveMopInScene` — by FQN class + method name, ignoring parameter overloads — so an `InvokeExpr` of any overload of a MOP-declared method matches the same key
 
-#### Scenario: BroadcastReceiver onReceive as entry point
+#### Scenario: Bytecode-scan resilience on corrupted method bodies
 
-- **WHEN** an APK declares a BroadcastReceiver `com.example.app.MyReceiver` with an `onReceive` method
-- **THEN** `getEntryPoints()` MUST include `MyReceiver.onReceive` in the returned set
-- **AND** methods called from `onReceive` MUST appear in `reachability[]` with correct MOP flags
-- **AND** `reachability[]` entry for `com.example.app.MyReceiver` MUST have `componentType="receiver"`
+- **WHEN** the bytecode scanner attempts `method.retrieveActiveBody()` and Soot raises a `RuntimeException` (typing failure, unresolved reference) or `OutOfMemoryError` (deep generic Kotlin types) on a single application method
+- **THEN** the scanner MUST catch the throwable, emit a WARN log including the method signature and exception message, and `continue` to the next method
+- **AND** the body-retrieval skip MUST be counted in the `bodies_skipped` log statistic
+- **AND** the scanner MUST NOT abort the analysis — partial results from successfully scanned methods MUST still be unioned into `directMopSet`
+- **AND** the resilience policy MUST mirror Flowgraph.java FIX 2 (INV-ANA-17) so a single corrupt class does not invalidate the rest of the analysis
 
-#### Scenario: ContentProvider lifecycle methods as entry points
+#### Scenario: Bytecode-scan scope is limited to application classes
 
-- **WHEN** an APK declares a ContentProvider `com.example.app.MyProvider` with overridden `onCreate` and `query` methods
-- **THEN** `getEntryPoints()` MUST include `MyProvider.onCreate` and `MyProvider.query` in the returned set
-- **AND** the call graph traversal MUST reach methods called from these lifecycle methods
-- **AND** MOP reachability MUST be computed for these methods
-- **AND** `reachability[]` entry for `com.example.app.MyProvider` MUST have `componentType="provider"`
-
-#### Scenario: Unresolvable component class
-
-- **WHEN** the manifest declares `<service android:name=".MissingService"/>` but the class does not exist in the APK
-- **THEN** the class MUST be skipped
-- **AND** a WARNING MUST be logged with the class name
-- **AND** no exception MUST propagate
-- **AND** the class MUST NOT appear in `components{}`
-
-#### Scenario: Components section in JSON — app with all component types
-
-- **WHEN** an APK declares Activity `com.example.app.MainActivity` (main launcher) and `com.example.app.DetailActivity` (with action EDIT), Receiver `com.example.app.BootReceiver` with intent-filter action `android.intent.action.BOOT_COMPLETED`, Service `com.example.app.CryptoService` with action `com.example.START_CRYPTO`, and Provider `com.example.app.DataProvider` with authorities `com.example.app.data`
-- **THEN** the JSON MUST contain:
-  ```json
-  "components": {
-    "activities": [{
-      "className": "com.example.app.MainActivity",
-      "isMain": true,
-      "intentFilters": [{"actions": ["android.intent.action.MAIN"], "categories": ["android.intent.category.LAUNCHER"]}],
-      "exported": true,
-      "reachesMop": false,
-      "mopMethods": []
-    }, {
-      "className": "com.example.app.DetailActivity",
-      "isMain": false,
-      "intentFilters": [{"actions": ["android.intent.action.EDIT"], "categories": []}],
-      "exported": true,
-      "reachesMop": false,
-      "mopMethods": []
-    }],
-    "receivers": [{
-      "className": "com.example.app.BootReceiver",
-      "isMain": false,
-      "intentFilters": [{"actions": ["android.intent.action.BOOT_COMPLETED"], "categories": []}],
-      "exported": true,
-      "reachesMop": true,
-      "mopMethods": ["<com.example.app.BootReceiver: void onReceive(android.content.Context,android.content.Intent)>"]
-    }],
-    "services": [{
-      "className": "com.example.app.CryptoService",
-      "isMain": false,
-      "intentFilters": [{"actions": ["com.example.START_CRYPTO"], "categories": []}],
-      "exported": false,
-      "reachesMop": true,
-      "mopMethods": ["<com.example.app.CryptoService: int onStartCommand(android.content.Intent,int,int)>"]
-    }],
-    "providers": [{
-      "className": "com.example.app.DataProvider",
-      "authorities": "com.example.app.data",
-      "exported": false,
-      "reachesMop": true,
-      "mopMethods": ["<com.example.app.DataProvider: android.database.Cursor query(android.net.Uri,java.lang.String[],java.lang.String,java.lang.String[],java.lang.String)>"]
-    }]
-  }
-  ```
-
-#### Scenario: Components section — app with only Activities
-
-- **WHEN** an APK declares no Services, BroadcastReceivers, or ContentProviders
-- **THEN** the JSON MUST contain `"components": {"activities": [...], "receivers": [], "services": [], "providers": []}`
-- **AND** `activities[]` MUST contain entries for all declared Activities with their intent-filters
-- **AND** all other sections (`reachability[]`, `windows[]`, `transitions[]`) MUST be unchanged
-
-#### Scenario: Component without intent-filters
-
-- **WHEN** a Service is declared without any `<intent-filter>` in the manifest
-- **THEN** its entry MUST have `"intentFilters": []`
-- **AND** it MUST still appear in the `services[]` array
-
-#### Scenario: MOP flag propagation for Service/Receiver callbacks
-
-- **WHEN** a Service's `onStartCommand` method calls a method that directly reaches a MOP specification
-- **THEN** `onStartCommand` MUST be marked with `reachesMop=true` in `reachability[]`
-
-#### Scenario: Timeout with partial JSON — components section missing
-
-- **WHEN** the analysis tool times out after writing reachability, windows, and transitions sections but before completing the components section
-- **THEN** `StaticAnalysisParser` MUST parse the partial file successfully for the existing three sections
-- **AND** the missing `components` section MUST NOT cause a parse error
-- **AND** downstream consumers (APE-RV `MopData`) MUST handle absent `components` gracefully (empty lists)
-
-#### Scenario: Provider without intent-filters uses authorities
-
-- **WHEN** a ContentProvider is declared with `android:authorities="com.example.provider"` and no `<intent-filter>`
-- **THEN** its entry MUST have `"authorities": "com.example.provider"` instead of `intentFilters`
-- **AND** it MUST appear in the `providers[]` array
-- **AND** `exported` MUST default to `false` (providers without intent-filters)
-
-#### Scenario: Existing Activity reachability data unchanged
-
-- **WHEN** the analysis JSON is generated for an APK that was previously analyzed without Service/Receiver/Provider entry points
-- **THEN** the `reachability[]` entries for Activity classes and their methods MUST have identical `reachable`, `reachesMop`, and `directlyReachesMop` values
-- **AND** `windows[]` and `transitions[]` sections MUST be unchanged
-- **AND** all `reachability[]` entries MUST use `componentType`/`isMain` instead of the old `isActivity`/`isMainActivity` fields
-- **AND** non-component classes MUST have `componentType=null` and `isMain=false`
-
-#### Scenario: Reachability data used as coverage denominator
-
-- **WHEN** `CoverageTracker` or `CoverageAnalyzer` initializes with `StaticAnalysisData` containing `Classes` parsed from the analysis JSON's `reachability` section
-- **THEN** the repository MUST be initialized with all classes and methods from the static data
-- **AND** `method_coverage` MUST be calculated as: (called_methods) / (total_reachable_methods)
-- **AND** `mop_method_coverage` MUST be calculated as: (called_mop_methods) / (total_methods_with_reaches_mop)
-- **AND** these coverage calculations MUST use the `reachability` section from the analysis JSON as the method universe
-
-#### Scenario: Coverage without reachability data (fallback)
-
-- **WHEN** CoverageAnalyzer is initialized without StaticAnalysisData or with empty Classes
-- **THEN** calculation_mode MUST be set to RUNTIME_ONLY or FALLBACK_MODE
-- **AND** coverage percentage metrics MUST be reported as 0.0 (unavailable)
-- **AND** only absolute counts (called_methods, total_errors) MUST be valid
+- **WHEN** the bytecode scanner runs as part of `RvsecAnalysisClient.run`
+- **THEN** it MUST iterate only the `appClasses` map produced by `extractClasses` (already filtered by `code_package` to drop libraries and generated `R`/`BuildConfig`)
+- **AND** it MUST NOT iterate every class in `Scene.v().getClasses()` — library callers are out of scope for `directlyReachesMop` semantics (the predicate asks which APP methods directly invoke MOP-monitored APIs)
+- **AND** the union with `directMopSet` MUST therefore never report a library class as a direct MOP caller
 
 ### Requirement: Method Coverage Tracking (FR12, NFR06)
 
@@ -761,3 +611,4 @@ Each visitor produces `ScreenItem` objects containing `ItemAction` objects. The 
 - **WHEN** ScreenDescription.get_action_by_id(5) is called
 - **THEN** it MUST return the ItemAction with id=5 if it exists in any ScreenItem
 - **AND** it MUST return None if no action with that ID exists
+
