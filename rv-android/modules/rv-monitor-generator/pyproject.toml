@@ -27,6 +27,9 @@ packages = ["src/rv_monitor_generator"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
+markers = [
+    "slow: integration tests that require valid RVSEC installation; deselected by CI default",
+]
 
 [tool.coverage.run]
 source = ["src"]

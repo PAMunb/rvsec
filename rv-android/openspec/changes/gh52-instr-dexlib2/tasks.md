@@ -302,8 +302,30 @@ GitHub Issue: #52
     - **Method**: pytest CI-mirror flags.
     - **Concrete numbers**: 174/174 tests pass (in 1.04s).
     - Conclusion: rv-experiment verifies clean across all 174 unit/integration tests.
-- [ ] 18.8 Invoke `/rv-code-reviewer` via Skill tool — review entire change against pre-plan + design + spec
-- [ ] 18.9 Address review findings; commit fixes
+- [x] 18.8 Invoke `/rv-code-reviewer` via Skill tool — review entire change against pre-plan + design + spec
+    - **Verification date**: 2026-05-05
+    - **Method**: feature-dev:code-reviewer subagent dispatched against gh52 proposal/design/spec/tasks + implementation in `rv-instrumentation-dexlib2`/`rv-instrumentation-core`. Time-boxed to <1500 words.
+    - **Findings**: 8 prioritized items (2 CRITICAL, 4 IMPORTANT, 2 LOW). Headlines:
+        - **C1/C2** (CRITICAL — addressed in 18.9): INV-INS-18 spec mandates `model_validator(mode="before")` + required `variant` field; implementation used `Field(default="ajc")` instead. Functionally correct today but fragile for Phase 6 default flip.
+        - **I1**: INV-INS-22 multidex oracle requirement still pending (task 16.6/16.6a, blocked on Phase C).
+        - **I2**: `_run_cli` raises `RuntimeError` instead of spec-mandated `CommandException` (`dexlib_instrumentation.py:469-473`). Functionally equivalent (caught by union type), spec deviation.
+        - **I3**: `DexlibInstrumentationConfig` lacks INV-INS-14 tool-presence validators for apksigner/zipalign/d8. Java CLI resolves from PATH at runtime — current behavior works but loses Python-side fast-fail.
+        - **I4**: AJC runtime regression (cov_rv_method 7% vs ASE2024 27%) is a confounding variable for Phase C Layer-4 interpretability — not a gh52 bug but should be documented in `docs/20260426_dexlib2_validation_results.md` §5 before archive.
+        - **L1**: `_first_descriptor` silently picks first match when multiple descriptors present; should warn (`dexlib_instrumentation.py:420-430`).
+        - **L2**: `prepare_instrumentation` re-runs mvn dependency resolution per `instrument_apks` call; cacheable.
+    - **Recommendation**: "not quite ready for batch archive once Phase C ratifies — apply C1+C2 fix; I1/I4 must be documented; I2/I3/L1/L2 may be filed as follow-ups."
+    - **File reference**: review summary applied below in task 18.9 closure.
+- [x] 18.9 Address review findings; commit fixes
+    - **Verification date**: 2026-05-05
+    - **Resolution per finding**:
+        - **C1+C2 (FIXED)**: `modules/rv-instrumentation-core/src/rv_instrumentation_core/results.py` — `variant` field changed from `Field(default="ajc", ...)` to `Field(..., ...)` (required); added `@model_validator(mode="before")` `_inject_legacy_variant_default` that injects `"ajc"` only when deserializing from a dict missing the key. Producing paths (every dexlib2 + ajc construction) already pass `variant` explicitly — no caller change needed. All 11/11 rv-instrumentation-core tests pass; broader regression check: 348/348 pass across 6 instrumentation-related modules (`rv-instrumentation`, `-core`, `-ajc`, `-dexlib2`, `rv-monitor-generator`, `rv-experiment`).
+        - **I1 (DEFERRED)**: depends on Phase C (task 16.6/16.6a — multidex oracle commit before Layer-3). Tracked in tasks.md, not closeable here.
+        - **I2 (FOLLOW-UP)**: `RuntimeError → CommandException` migration filed as future enhancement; current behavior is caught by `except (RuntimeError, subprocess.SubprocessError)` in `instrument_apks` (line 226), no functional impact. Adding a matching `except CommandException` branch is a backward-compatible follow-up.
+        - **I3 (FOLLOW-UP)**: `DexlibInstrumentationConfig` tool-presence validators filed as future enhancement; spec mandate noted, but Java cli auto-resolves from `ANDROID_HOME`/`JAVA_HOME` and surfaces tool-missing errors at sign time. Python-side fast-fail validators are an ergonomic improvement, not a correctness gap.
+        - **I4 (DOC FOLLOW-UP)**: AJC regression note will be added to `docs/20260426_dexlib2_validation_results.md` §5 alongside the Layer-4 conclusions when task 16.9 closes (Phase C deliverable).
+        - **L1+L2 (FOLLOW-UP)**: minor robustness/perf items filed as cleanup, not blocking.
+    - **File reference**: `modules/rv-instrumentation-core/src/rv_instrumentation_core/results.py` (4-line change: import `model_validator` + change `Field(default=...)` to `Field(...)` + add validator method).
+    - Conclusion: 2/8 findings fixed in code (C1+C2); 1/8 deferred to Phase C (I1); 4/8 filed as follow-ups (I2, I3, L1, L2); 1/8 documented for Phase C closure (I4). Test regression check clean (348/348).
 - [x] 18.10 Run `/rv-docs-sync` — propagate API/architecture changes into all consumer docs
     - **Verification date**: 2026-05-05
     - **Method**: consumer-doc audit. The dexlib2 variant API (`from rv_instrumentation import get_instrumenter, Instrumenter, InstrumentationResults`) is documented in three canonical places already kept in sync: (a) root `CLAUDE.md` "System Modules" enumerates all 4 instrumentation modules incl. -core/-ajc/-dexlib2; (b) `gh53/design.md` carries the canonical 4-module mermaid diagram + dependency graph; (c) `modules/rv-instrumentation-ajc/CLAUDE.md` updated 2026-05-05 with `--no-quarantine` (gh50 §21.6.1).

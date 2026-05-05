@@ -9,8 +9,6 @@ Tests cover:
 - create_from_dict() factory method
 """
 
-from unittest.mock import MagicMock, patch
-
 import pytest
 from rv_android_core.domain.task import ToolConfig
 from rv_experiment.factories.configuration_factory import ConfigurationFactory
