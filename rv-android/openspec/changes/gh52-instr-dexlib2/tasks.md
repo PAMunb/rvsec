@@ -258,15 +258,20 @@ GitHub Issue: #52
 - [~] 16.9 Validation results doc landed at `rv-android/docs/20260426_dexlib2_validation_results.md` (commit `36c4c5e2` scaffold; subsequent commits filled run1, run2, smoke20, INV-INS-32 fix sections). Captures: 136-test validator suite snapshot; INV-INS-31 alias evolution 48→28→7; 20-APK extended smoke (18/18 zero VE); 20-APK re-instrumentation post-INV-INS-32 fix (20/20 success); per-layer interpretation of Phase-5 run1+run2 (L2 PASS, L5 recall 0.913→0.977). Section 5 conclusions for the canonical Phase-5 ratification (Layer-4 batch JCA-400 × 3 × 3) PENDING — fills when 16.7 lands.
 - [ ] 16.10 Run `openspec verify gh52-instr-dexlib2` — must report all spec-aligned
 
-## 17. Phase 6 — Substitution (P3)
+## 17. Phase 6 — Default flip (AJC retained as opt-in)
 
-- [ ] 17.1 Move legacy `rv-android/modules/rv-instrumentation/` → `rv-android/backup/2026-MM-DD-rv-instrumentation-ajc/`
+> **Scope decision 2026-05-05**: AJC pipeline is **NOT removed**. It remains as a fully-supported opt-in variant via `--instrumentation-variant ajc`. Phase 6 is therefore a **default flip** (Pydantic default `"ajc"` → `"dexlib2"`), not a substitution. The factory in `rv_instrumentation.get_instrumenter(variant, config)` continues to dispatch both variants (gh53 INV-INS-36); both modules (`rv-instrumentation-ajc` + `rv-instrumentation-dexlib2`) stay live in the workspace; no module moves to `backup/`. This preserves the comparison-study capability long-term and keeps AJC available for the apps where dexlib2 may not yet be appropriate (multidex edge cases, future variants, etc.).
+
+- [x] 17.1 Move legacy `rv-android/modules/rv-instrumentation/` → `rv-android/backup/2026-MM-DD-rv-instrumentation-ajc/`
+    - **N/A — closure date 2026-05-05**: superseded by the scope decision above. AJC is retained as an opt-in pipeline; no module is moved to `backup/`. The legacy module path `modules/rv-instrumentation/` was already renamed to `modules/rv-instrumentation-ajc/` by gh53 (4-module restructure) — that rename is the canonical home, not a backup.
+    - **File reference**: `modules/rv-instrumentation-ajc/` (active), `gh53/design.md §D1` (renamed module layout).
 - [ ] 17.2 Rename consideration: Python wrapper currently at `rv-android/modules/rv-instrumentation-dexlib2/` could be promoted to `rv-instrumentation` after legacy removal; decide based on consumer references. Java aggregator stays at `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` regardless.
 - [ ] 17.3 Update `rv-experiment.PreProcessor._instrument_apks()` dispatch: now default to `dexlib2`; legacy `ajc` branch removed (unless retained as opt-in)
 - [ ] 17.4 Change default of `ExperimentConfig.instrumentation_variant` to `"dexlib2"`
 - [x] 17.5 Grep clean — only 3 files reference `RVInstrumentation` class outside the legacy module itself: `rv-experiment/.../pre_processor.py` (dispatch logic, intentional), `rv-experiment/tests/test_pre_processor_variant.py` (variant dispatch test), `rv-instrumentation-dexlib2/.../dexlib_instrumentation.py` (cross-reference comment). All legitimate. The Phase-6 promotion (17.1 backup-legacy + 17.3 default-to-dexlib2) will simplify these to remove the dispatch branch and the variant-specific tests.
     - **Promoted 2026-05-05** — grep audit complete; further simplification deferred to Phase-6 default flip (tasks 17.1/17.3, blocked on Phase C ratification).
 - [ ] 17.6 Run `openspec sync gh52-instr-dexlib2` — merge delta specs into main `openspec/specs/instrumentation/spec.md`; manually add REMOVED Requirements section for the legacy ajc-specific REQUIREMENTS no longer applicable
+    - **Note 2026-05-05 — REMOVED Requirements section is N/A** under the scope decision in §17 header. Both pipelines remain spec-active; gh50's INV-INS-14..25 (ajc-specific) stay valid alongside gh52's INV-INS-13..24 (dexlib2-specific). The sync is a normal delta merge — no requirements are removed. The "REMOVED Requirements section" wording in this task body is from the original substitution premise and should be ignored when this task is executed.
 - [ ] 17.7 Run `openspec validate --all` — must pass
 
 ## 18. Verification, code review, PR, archive
