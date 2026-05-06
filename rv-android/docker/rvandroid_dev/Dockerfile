@@ -81,7 +81,7 @@ ENV RV_TOOLS=monkey
 ENV RV_TIMEOUTS=300
 ENV RV_REPETITIONS=1
 ENV RV_NO_WINDOW=true
-ENV RV_JCA_SPEC=true
+ENV RV_SPEC_SET=jca
 
 # Volumes for APKs, artifacts, and results
 VOLUME /opt/rvsec/rv-android/apks

@@ -1100,12 +1100,64 @@ openspec validate --all --json
 
 ---
 
-## 14. Related Documents
+## 14. Adding a new environment variable
+
+Adding an `RV_*` (or new L1 cross-layer infra) variable follows the gh55
+ENV_* registry pattern. Skipping any step trips the CI lint
+(`scripts/check_env_vars_drift.py`). Full rationale and alternatives
+considered: `docs/adr/0001-env-var-pattern.md`.
+
+1. **Decide if it's actually necessary**. Prefer a CLI flag or config-file
+   field. Env vars are appropriate when the value is deployment-environment
+   metadata (paths, URLs of co-deployed services) or when scripts pass
+   values into Docker without writing config files.
+
+2. **Add the constant** in
+   `modules/rv-android-core/src/rv_android_core/constants.py`:
+   ```python
+   ENV_NEW_FEATURE = "RV_NEW_FEATURE"
+   ```
+
+3. **Decide the layer**. User-facing values are read at L5 (`rv-experiment`)
+   only; infra paths are read at L1 (`rv-android-core` with one canonical
+   reader location each — `util/validation/config.py`,
+   `util/jar_resolver.py`, or `util/android/android.py`). L2/L3/L4 modules
+   MUST NOT read environment variables (gh55 INV-EXP-30, INV-TOOL-20).
+
+4. **Wire the reader at L5**. In `rv-experiment/src/rv_experiment/config.py`
+   (or `__main__.py`), use `os.environ.get(ENV_NEW_FEATURE)`. Add a CLI
+   flag if the value is per-run tunable; precedence is **CLI > env > default**
+   (gh55 INV-EXP-32). For tool-specific values, inject at L5 via
+   `ToolConfig.parameters` rather than reading at L2 — see
+   `humanoid/tool.py:get_variants` for the variant-default precedent.
+
+5. **Document**. Add an entry to `.env.example` (with comment explaining
+   what the variable does and the CLI flag if any) and to README.md's
+   Environment Variables table.
+
+6. **Run the lint locally**:
+   ```bash
+   uv run python scripts/check_env_vars_drift.py
+   ```
+   Expect 0 violations. CI runs the same check on every PR.
+
+7. **Run tests**:
+   ```bash
+   uv run pytest modules/rv-android-core/tests/test_constants_registry.py -v
+   uv run pytest tests/lint/test_env_vars_drift.py -v
+   ```
+
+If the new variable will be passed via Docker, the entry-point allow-list
+picks it up automatically because `validate_env_vars.sh` reads the registry
+at runtime — no Docker-specific edits required.
+
+## 15. Related Documents
 
 | Document | Purpose |
 |----------|---------|
 | `docs/20260209_plano_spec_driven.md` | SDD adoption plan (Phase 5 references this workflow) |
 | `docs/PRD.md` | Product Requirements Document |
+| `docs/adr/0001-env-var-pattern.md` | ADR: ENV_* registry + Layer Purity (gh55) |
 | `.claude/AGENTS.md` | Full skill documentation |
 | `openspec/config.yaml` | OpenSpec configuration (default schema, context, rules) |
 | `openspec/schemas/rv-sdd/schema.yaml` | Full/FF SDD schema (artifacts, dependencies, instructions, templates) |

@@ -335,11 +335,45 @@ uv run rv-agent run --package <package_name> --mode <mode> --timeout <seconds>
 
 ### Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `RVSEC_HOME` | For instrumentation | Path to RVSEC installation |
-| `ANDROID_HOME` | For emulator | Android SDK path |
-| `RV_PYDANTIC` | No | Set to `true` for development validation |
+The canonical inventory lives in `.env.example` at the repo root and in
+`modules/rv-android-core/src/rv_android_core/constants.py` (one `ENV_*`
+constant per name). The Docker entry point validates every `RV_*` variable
+in the container against this registry and exits 64 on unknown names. CI
+runs `scripts/check_env_vars_drift.py` to catch drift between the registry,
+documentation, and source code. Pattern rationale: `docs/adr/0001-env-var-pattern.md`.
+
+| Name | CLI flag | Default | Read by | Description |
+|------|----------|---------|---------|-------------|
+| `RVSEC_HOME` | — | (required) | rv-android-core (L1, jar_resolver) | RVSEC workspace root (parent of rv-android/) |
+| `ANDROID_HOME` | — | (required) | rv-android-core (L1, util.android.android) | Android SDK root |
+| `TOOLS_DIR` | — | (none) | rv-android-core (L1, jar_resolver) | Optional tool-binary directory (alternative jar search root) |
+| `RV_APKS_DIR` | `--apks-dir` | `./apks_examples` | rv-experiment (L5) | APK source directory |
+| `RV_TOOLS` | `--tools` | `monkey` | rv-experiment (L5) | Tool spec DSL (`name[:variant][@params]`, comma-separated) |
+| `RV_INSTRUMENTATION_VARIANT` | `--instrumentation-variant` | `ajc` | rv-experiment (L5) | Instrumentation pipeline (`ajc` or `dexlib2`) |
+| `RV_SPEC_SET` | `--specification-set` | `jca` | rv-experiment (L5) | Specification set (`jca`, `generic`, `custom`) |
+| `RV_APKS_FILTER` | `--apks-filter` | (none) | rv-experiment (L5) | APK basename filter file (one per line) |
+| `RV_TIMEOUTS` | `--timeout` | `300` | rv-experiment (L5) | Per-task timeout (seconds) |
+| `RV_REPETITIONS` | `--repetitions` | `1` | rv-experiment (L5) | Repetitions per (APK, tool, timeout) |
+| `RV_DEVICE_PORT` | `--device-port` | (auto) | rv-experiment (L5) | Adb device port for parallel containers |
+| `RV_NO_WINDOW` | `--no-window` / `--window` | `true` | rv-experiment (L5) | Headless emulator |
+| `RV_DELAY` | — | (none) | docker-entrypoint.sh | Stagger parallel container starts (seconds) |
+| `RV_EXPERIMENT_NAME` | `--name` | (auto) | rv-experiment (L5) | Experiment identity (enables resume) |
+| `RV_RESUME_DIR` | `--resume-dir` | (none) | rv-experiment (L5) | Explicit resume directory |
+| `RV_SKIP_MONITORS` | `--skip-monitors` | `false` | rv-experiment (L5) | Skip monitor generation phase |
+| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | `false` | rv-experiment (L5) | Skip APK instrumentation phase |
+| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | `false` | rv-experiment (L5) | Skip static analysis phase |
+| `RV_SKIP_EXECUTION` | `--skip-execution` | `false` | rv-experiment (L5) | Skip task execution (preprocessing-only mode) |
+| `RV_NO_QUARANTINE` | `--no-quarantine` | `false` | rv-experiment (L5) | Disable ajc library-class quarantine (gh50 §22; ajc-only) |
+| `RV_SA_DIR` | — | (none) | docker-entrypoint.sh | Pre-computed SA dir mounted in container; copied to `instrumented_apks/` |
+| `RV_SA_TIMEOUT` | `--analysis-timeout` | `600` | rv-experiment (L5) | Static analysis timeout (s); CLI > env > default |
+| `RV_JVM_MEMORY` | `--jvm-memory` | `4g` | rv-experiment (L5) | JVM memory for SA; CLI > env > default |
+| `RV_HUMANOID_URL` | — | `127.0.0.1:50405` | rv-experiment (L5) → ToolConfig.parameters | Humanoid inference server URL (variant default in tool) |
+| `RV_DEBUG` | `--debug` | `false` | rv-experiment (L5) | Verbose logging |
+| `RV_PYDANTIC` | — | `false` | rv-android-core (L1, validation/config) | Full Pydantic validation (development) |
+| `RV_PYDANTIC_STRICT` | — | `false` | rv-android-core (L1, validation/config) | Pydantic strict-mode |
+| `RV_PYDANTIC_LOG` | — | `false` | rv-android-core (L1, validation/config) | Per-validation event logging |
+
+**Removed by gh55** (the entry-point allow-list rejects these deprecated names with exit 64): `RV_JCA_SPEC` (use `RV_SPEC_SET=jca` instead), `RV_MEMORY_FILE`, `RV_RVANDROID_URL`, `RV_SKIP_EXPERIMENT`.
 
 ### Testing
 

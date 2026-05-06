@@ -438,6 +438,34 @@ Brief descriptions of each module's role. For detailed architecture, see module-
 
 Full Pydantic validation runs during development (`RV_PYDANTIC=true`). In production, validation is minimal. This trade-off is controlled by a single environment variable and applies uniformly across all modules through `BaseValidatedModel`.
 
+### Layer Purity for Environment Variables (gh55)
+
+`Maintainability` and `Testability` rest on a single rule: only Layer 5
+(`rv-experiment`) reads user-facing `RV_*` environment variables. L2 plugins
+(`rv-tools/builtin/`, `aperv-tool`, `rvagent-tool`), L3 modules
+(`rv-instrumentation*`), and L4 (`rv-platform`) receive configuration via
+Pydantic models from L5. The narrow exception is the L1 cross-layer infra
+family — six names with exactly one canonical reader each:
+
+| Variable | Reader (L1, single location) | Purpose |
+|----------|------------------------------|---------|
+| `RV_PYDANTIC` | `util/validation/config.py` | Full validation toggle |
+| `RV_PYDANTIC_STRICT` | `util/validation/config.py` | Strict-mode toggle |
+| `RV_PYDANTIC_LOG` | `util/validation/config.py` | Per-validation event logging |
+| `RVSEC_HOME` | `util/jar_resolver.py` | RVSEC workspace root |
+| `TOOLS_DIR` | `util/jar_resolver.py` | Optional tool-binary directory |
+| `ANDROID_HOME` | `util/android/android.py` | Android SDK root |
+
+All names are declared as `ENV_*` constants in
+`modules/rv-android-core/src/rv_android_core/constants.py`. Code MUST
+reference them via the constant — string literals are forbidden by
+INV-CORE-31 and caught by `scripts/check_env_vars_drift.py` (CI lint). The
+Docker entry point validates the runtime environment against this registry
+and exits 64 on unknown names. Adding a new variable: see `docs/WORKFLOW.md` §14.
+
+ADR rationale (alternatives considered, consequences, lifecycle):
+`docs/adr/0001-env-var-pattern.md`.
+
 ---
 
 ## 10. Key Interfaces

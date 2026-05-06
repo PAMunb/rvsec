@@ -13,7 +13,7 @@ x-rvandroid: &rvandroid-base
     RV_TIMEOUTS: "600"
     RV_REPETITIONS: "1"
     RV_NO_WINDOW: "true"
-    RV_JCA_SPEC: "true"
+    RV_SPEC_SET: "jca"
     RV_APKS_DIR: /opt/rvsec/rv-android/apks
     RV_HUMANOID_URL: humanoid:50405
   devices:

@@ -1,0 +1,185 @@
+# Validação ampliada AJC vs DEX — 72 APKs (60 OLD-CLEAN ASE2024 + 6 NEW BROKEN + 6 NEW WORKS)
+#
+# Goal: confirmar que regressão AJC NÃO é total — APKs OLD-CLEAN devem manter média
+# semelhante ao baseline ASE2024 ape@300 (~27% cov_reaches_mop). NEW BROKEN devem
+# reproduzir VerifyError; NEW WORKS devem capturar errors em ambas variants.
+#
+# Pipeline COMPLETO (sem skip): monitor + instrument + SA (15min timeout) + execução.
+# 10 containers paralelos: 5 dexlib2 + 5 ajc paired no MESMO batch_N.txt.
+#
+# Tempo estimado:
+#   - dex container: ~14 APKs × ~50min = ~12h
+#   - ajc container: ~14 APKs × ~75min = ~18h
+#   - Wall clock: ~18-20h (gargalo ajc)
+#
+# APKs source (mistos):
+#   - 60 OLD em /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS/
+#   - 12 NEW em /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs/
+#   Foram stagados em data/validacao_full/input/ pelo setup script.
+#
+# Tools: ape + aperv:sata_mop (drop fastbot vs run_jca_compare)
+# 3 reps × 5min timeout
+# SA timeout: default (JVM/internal — sem env var no entrypoint)
+
+x-rvandroid: &rvandroid-base
+  image: ${RV_IMAGE:-phtcosta/rvandroid:0.8.0}
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:sata_mop"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_SA_TIMEOUT: "900"   # 15min (default 600s); usado em ExperimentConfig.get_static_analysis_config
+    RV_JVM_MEMORY: "8g"    # under container 10g limit (default 12g excederia)
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  # ---------- 5 dexlib2 containers ----------
+  validacao_full_dex_0:
+    <<: *rvandroid-base
+    container_name: validacao_full_dex_0
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_dex_0
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_0.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_dex_0:/opt/rvsec/rv-android/results
+
+  validacao_full_dex_1:
+    <<: *rvandroid-base
+    container_name: validacao_full_dex_1
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_dex_1
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_1.txt"
+      RV_DELAY: "5"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_dex_1:/opt/rvsec/rv-android/results
+
+  validacao_full_dex_2:
+    <<: *rvandroid-base
+    container_name: validacao_full_dex_2
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_dex_2
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_2.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_dex_2:/opt/rvsec/rv-android/results
+
+  validacao_full_dex_3:
+    <<: *rvandroid-base
+    container_name: validacao_full_dex_3
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_dex_3
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_3.txt"
+      RV_DELAY: "15"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_dex_3:/opt/rvsec/rv-android/results
+
+  validacao_full_dex_4:
+    <<: *rvandroid-base
+    container_name: validacao_full_dex_4
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_dex_4
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_4.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_dex_4:/opt/rvsec/rv-android/results
+
+  # ---------- 5 ajc containers (paired same batches) ----------
+  validacao_full_ajc_0:
+    <<: *rvandroid-base
+    container_name: validacao_full_ajc_0
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_ajc_0
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_0.txt"
+      RV_DELAY: "25"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_ajc_0:/opt/rvsec/rv-android/results
+
+  validacao_full_ajc_1:
+    <<: *rvandroid-base
+    container_name: validacao_full_ajc_1
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_ajc_1
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_1.txt"
+      RV_DELAY: "30"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_ajc_1:/opt/rvsec/rv-android/results
+
+  validacao_full_ajc_2:
+    <<: *rvandroid-base
+    container_name: validacao_full_ajc_2
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_ajc_2
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_2.txt"
+      RV_DELAY: "35"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_ajc_2:/opt/rvsec/rv-android/results
+
+  validacao_full_ajc_3:
+    <<: *rvandroid-base
+    container_name: validacao_full_ajc_3
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_ajc_3
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_3.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_ajc_3:/opt/rvsec/rv-android/results
+
+  validacao_full_ajc_4:
+    <<: *rvandroid-base
+    container_name: validacao_full_ajc_4
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_full_ajc_4
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_4.txt"
+      RV_DELAY: "45"
+    volumes:
+      - ../data/validacao_full/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_full/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_full/results/validacao_full_ajc_4:/opt/rvsec/rv-android/results

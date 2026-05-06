@@ -1,18 +1,22 @@
 FROM phtcosta/rvsec_base:0.8.0
 
 
-# Build-time AVD configuration. Default = API 30 x86_64 google_apis (gh55 D8/D10
-# decision; previous default was API 29 x86). Host-side investigation
-# (results/avd_compat_investigation/20260506_133454/, n=80) shows API 30 x86_64
-# boots in 30s with the existing default config (no -writable-system) and gains
-# 7/20 modern APKs with 0 regressions. Docker-container boot smoke (gh55 task
-# 6.4a, ≥3 BOOT_COMPLETED runs) is the pre-merge gate that closes the host-vs-
-# container gap. Override at build time with `--build-arg API_LEVEL=29 --build-arg
-# ARCHITECTURE=x86` to fall back to the legacy AVD if a tool incompatibility
-# emerges on API 30 (case-by-case per task 6.5/6.8).
-ARG API_LEVEL=30
+# Arguments that can be overriden at build-time.
+# gh50 Section 17 (INV-INS-24) attempted API 29 x86 → API 30 x86_64 to gain
+# 19 APKs with minSdk>=30. Rolled back 2026-04-21: first-boot of API 30 x86_64
+# inside Docker requires OverlayFS-based writable-system with a multi-step
+# sequence (root → disable-verity → reboot → wait → root → remount) that the
+# current `android.py:213-245` boot code does not implement. Upgrading the
+# boot code is follow-up work (docs/20260421_problema_dex2jar.md §7.6 Option B).
+# Meanwhile API 29 x86 is the proven setup used in all JCA/generic experiments
+# for the past year. Trade-off: lose 19/400 APKs (4.75%) with minSdk>=30.
+# Local dev can override with `--build-arg API_LEVEL=30 --build-arg ARCHITECTURE=x86_64`
+# once the boot code is updated.
+ARG API_LEVEL=29
 ARG IMG_TYPE=google_apis
-ARG ARCHITECTURE=x86_64
+ARG ARCHITECTURE=x86
+#ARG ARCHITECTURE=x86_64
+#ARG CMD_LINE_VERSION=11076708_latest
 ARG CMD_LINE_VERSION=8512546_latest
 ARG DEVICE_ID=pixel
 ARG GPU_ACCELERATED=false

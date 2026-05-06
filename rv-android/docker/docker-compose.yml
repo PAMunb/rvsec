@@ -24,7 +24,7 @@ services:
       - RV_TIMEOUTS=${RV_TIMEOUTS:-300}
       - RV_REPETITIONS=${RV_REPETITIONS:-1}
       - RV_NO_WINDOW=true
-      - RV_JCA_SPEC=true
+      - RV_SPEC_SET=jca
       - RV_HUMANOID_URL=humanoid:50405
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

@@ -18,7 +18,7 @@ x-rvandroid: &rvandroid-base
     RV_TIMEOUTS: "180"
     RV_REPETITIONS: "3"
     RV_NO_WINDOW: "true"
-    RV_JCA_SPEC: "true"
+    RV_SPEC_SET: "jca"
     RV_SKIP_MONITORS: "true"
     RV_SKIP_INSTRUMENT: "true"
     RV_SKIP_STATIC_ANALYSIS: "true"

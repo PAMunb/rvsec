@@ -29,21 +29,25 @@ RUN test -f /opt/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-c
 # + `docker inspect` reveals what code shipped).
 LABEL rvsec.branch="${RVSEC_BRANCH}"
 
-# Default environment variables
+# Default environment variables (gh55: RV_JCA_SPEC removed; use RV_SPEC_SET).
 ENV RV_TOOLS=monkey
 ENV RV_TIMEOUTS=300
 ENV RV_REPETITIONS=1
 ENV RV_NO_WINDOW=true
-ENV RV_JCA_SPEC=true
+ENV RV_SPEC_SET=jca
 
 # Volumes for APKs, artifacts, and results
 VOLUME /opt/rvsec/rv-android/apks
 VOLUME /opt/rvsec/rv-android/out
 VOLUME /opt/rvsec/rv-android/results
 
-# Entry point script translates env vars to CLI arguments
+# Entry point performs allow-list validation against the canonical ENV_*
+# registry, then execs `rv-experiment run` (gh55: env→flag translation
+# removed). The entrypoint sources scripts/validate_env_vars.sh, so both
+# files must be staged at /opt/ with the same relative layout.
 COPY docker-entrypoint.sh /opt/docker-entrypoint.sh
-RUN chmod +x /opt/docker-entrypoint.sh
+COPY scripts/validate_env_vars.sh /opt/scripts/validate_env_vars.sh
+RUN chmod +x /opt/docker-entrypoint.sh /opt/scripts/validate_env_vars.sh
 
 WORKDIR /opt/rvsec/rv-android
 

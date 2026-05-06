@@ -1,0 +1,60 @@
+# Phase 0 — instrumentation only (2 configs).
+# Generates instrumented .apk for 1 APK using each variant.
+# Output lands at data/validacao_ajc/results_instr_{A,B}/<name>/<name>/instrumented_apks/.
+# Then `staged_X` is built outside (cp .apk + .apk.json side-by-side) for execution phase.
+#
+# Sed-inject pattern: append --skip-execution to the rv-experiment exec line
+# (entrypoint has no RV_SKIP_EXECUTION mapping).
+#
+# Usage:
+#   docker compose -f docker/docker-compose.validacao-ajc-instrument.yml up
+#   (no -d so we see logs; both finish in ~5-10min)
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  entrypoint:
+    - bash
+    - -c
+    - |
+      sed 's#^exec $$CMD$$#exec $$CMD --skip-execution#' /opt/docker-entrypoint.sh > /tmp/entrypoint.sh
+      chmod +x /tmp/entrypoint.sh
+      exec /tmp/entrypoint.sh
+  environment: &rvandroid-env
+    RV_TOOLS: "monkey"
+    RV_TIMEOUTS: "1"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/smoke.txt"
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  validacao_ajc_instr_A_dex:
+    <<: *rvandroid-base
+    container_name: validacao_ajc_instr_A_dex
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_ajc_instr_A_dex
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+    volumes:
+      - ../data/validacao_ajc/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_ajc/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_ajc/results_instr_A:/opt/rvsec/rv-android/results
+
+  validacao_ajc_instr_B_ajc:
+    <<: *rvandroid-base
+    container_name: validacao_ajc_instr_B_ajc
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: validacao_ajc_instr_B_ajc
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+    volumes:
+      - ../data/validacao_ajc/input:/opt/rvsec/rv-android/apks:ro
+      - ../data/validacao_ajc/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/validacao_ajc/results_instr_B:/opt/rvsec/rv-android/results

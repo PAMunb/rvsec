@@ -1,24 +1,49 @@
 #!/bin/bash
+# gh55: Docker entry-point — allow-list validation + exec rv-experiment.
+#
+# Two responsibilities and only two:
+#   1. Validate the env-var allow-list against the canonical ENV_* registry
+#      in rv-android-core/constants.py (delegated to validate_env_vars.sh).
+#      Unknown RV_*/RVSEC_HOME/ANDROID_HOME/TOOLS_DIR fail with exit 64.
+#   2. Exec `rv-experiment run`. The Python layer reads env vars itself via
+#      ENV_* constants — no env→flag translation here.
+#
+# Special cases handled inline:
+#   - bash/shell: drop into interactive shell, skip validation
+#   - RV_DELAY:   sleep before exec, for staggering parallel container starts
+#   - RVSMART_LLM_MODE: socat bridge for the SGLang LLM service network alias
+
 set -e
 
-# Docker entry point for RV-Android experiments.
-# Translates environment variables to rv-experiment CLI arguments.
-
-# Interactive mode: if first arg is "bash" or "shell", drop to shell
+# Interactive mode bypasses validation (operator is debugging).
 if [ "$1" = "bash" ] || [ "$1" = "shell" ]; then
     exec /bin/bash "${@:2}"
 fi
 
-# Startup delay for staggering parallel container launches
+# Allow-list validation. Exits 64 on first unknown RV_* name.
+"$(dirname "$0")/scripts/validate_env_vars.sh"
+
+# Startup delay (RV_DELAY) staggers parallel container launches so they don't
+# all hit the same emulator-boot resource peak.
 if [ -n "$RV_DELAY" ] && [ "$RV_DELAY" -gt 0 ] 2>/dev/null; then
     echo "=== RV-Android Docker: waiting ${RV_DELAY}s before start ==="
     sleep "$RV_DELAY"
 fi
 
-# Pre-computed static analysis files: copy from mounted dir to instrumented_apks/
-# Expected layout: $RV_SA_DIR/<apk_name>.apk/<apk_name>.apk.{gesda,wtg,reach}
-# Target depends on whether --name is used (results/<name>/instrumented_apks)
-# or not (out/instrumented_apks).
+# Socat bridge for LLM hybrid mode (SGLang). Out of scope for the env-var
+# allow-list because RVSMART_LLM_MODE is a docker-compose toggle, not an
+# rv-experiment input — handled here at the entry-point level.
+if [ "${RVSMART_LLM_MODE:-false}" = "true" ]; then
+    echo "Starting socat bridge for SGLang server..."
+    socat TCP-LISTEN:30000,bind=127.0.0.1,fork,reuseaddr TCP:sglang:30000 &
+    SOCAT_PID=$!
+    trap "kill $SOCAT_PID 2>/dev/null" EXIT
+    echo "Socat bridge started (PID: $SOCAT_PID)"
+fi
+
+# Pre-computed static analysis files: copy from mounted dir to instrumented_apks/.
+# Layout: $RV_SA_DIR/<apk_name>.apk/<apk_name>.apk.{gesda,wtg,reach}
+# Target depends on whether --name is used (results/<name>) or not (out/).
 if [ -n "$RV_SA_DIR" ] && [ -d "$RV_SA_DIR" ]; then
     if [ -n "$RV_EXPERIMENT_NAME" ]; then
         SA_TARGET="results/$RV_EXPERIMENT_NAME/instrumented_apks"
@@ -36,115 +61,5 @@ if [ -n "$RV_SA_DIR" ] && [ -d "$RV_SA_DIR" ]; then
     echo "=== RV-Android Docker: copied $copied SA files to $SA_TARGET ==="
 fi
 
-# Build CLI command from environment variables
-CMD="uv run rv-experiment run"
-
-# Tool specification
-if [ -n "$RV_TOOLS" ]; then
-    CMD="$CMD --tools $RV_TOOLS"
-fi
-
-# Execution parameters
-if [ -n "$RV_TIMEOUTS" ]; then
-    CMD="$CMD --timeout $RV_TIMEOUTS"
-fi
-
-if [ -n "$RV_REPETITIONS" ]; then
-    CMD="$CMD --repetitions $RV_REPETITIONS"
-fi
-
-# APK directory
-if [ -n "$RV_APKS_DIR" ]; then
-    CMD="$CMD --apks-dir $RV_APKS_DIR"
-fi
-
-# Emulator window mode
-if [ "$RV_NO_WINDOW" = "true" ] || [ "$RV_NO_WINDOW" = "1" ]; then
-    CMD="$CMD --no-window"
-elif [ "$RV_NO_WINDOW" = "false" ] || [ "$RV_NO_WINDOW" = "0" ]; then
-    CMD="$CMD --window"
-fi
-
-# Specification set: RV_SPEC_SET takes precedence over RV_JCA_SPEC
-if [ -n "$RV_SPEC_SET" ]; then
-    CMD="$CMD --specification-set $RV_SPEC_SET"
-elif [ -n "$RV_JCA_SPEC" ]; then
-    if [ "$RV_JCA_SPEC" = "true" ] || [ "$RV_JCA_SPEC" = "1" ]; then
-        CMD="$CMD --specification-set jca"
-    else
-        CMD="$CMD --specification-set generic"
-    fi
-fi
-
-# Pre-processing skip flags
-if [ "$RV_SKIP_MONITORS" = "true" ] || [ "$RV_SKIP_MONITORS" = "1" ]; then
-    CMD="$CMD --skip-monitors"
-fi
-
-if [ "$RV_SKIP_INSTRUMENT" = "true" ] || [ "$RV_SKIP_INSTRUMENT" = "1" ]; then
-    CMD="$CMD --skip-instrument"
-fi
-
-if [ "$RV_SKIP_STATIC_ANALYSIS" = "true" ] || [ "$RV_SKIP_STATIC_ANALYSIS" = "1" ]; then
-    CMD="$CMD --skip-static"
-fi
-
-if [ "$RV_SKIP_EXECUTION" = "true" ] || [ "$RV_SKIP_EXECUTION" = "1" ]; then
-    CMD="$CMD --skip-execution"
-fi
-
-# gh50 §22: quarantine toggle. RV_NO_QUARANTINE=true disables the ajc
-# library-class quarantine phase (gh50 §16/§19). Default is enabled.
-# Only the ajc variant honors this — dexlib2 has no quarantine phase.
-if [ "$RV_NO_QUARANTINE" = "true" ] || [ "$RV_NO_QUARANTINE" = "1" ]; then
-    CMD="$CMD --no-quarantine"
-fi
-
-# Device port for parallel execution
-if [ -n "$RV_DEVICE_PORT" ]; then
-    CMD="$CMD --device-port $RV_DEVICE_PORT"
-fi
-
-# gh52: instrumentation variant (ajc | dexlib2). The CLI default is "ajc"
-# so the dexlib2 image needs this env var translated to a flag for
-# rv-experiment to dispatch to the dexlib2 PreProcessor branch. Forgetting
-# this silently runs ajc despite the variant label on the image.
-if [ -n "$RV_INSTRUMENTATION_VARIANT" ]; then
-    CMD="$CMD --instrumentation-variant $RV_INSTRUMENTATION_VARIANT"
-fi
-
-# APK filter file
-if [ -n "$RV_APKS_FILTER" ]; then
-    CMD="$CMD --apks-filter $RV_APKS_FILTER"
-fi
-
-# Experiment name (enables resume via --name)
-if [ -n "$RV_EXPERIMENT_NAME" ]; then
-    CMD="$CMD --name $RV_EXPERIMENT_NAME"
-fi
-
-# Explicit resume directory (overrides --name for resume)
-if [ -n "$RV_RESUME_DIR" ]; then
-    CMD="$CMD --resume-dir $RV_RESUME_DIR"
-fi
-
-# Debug logging
-if [ "$RV_DEBUG" = "true" ] || [ "$RV_DEBUG" = "1" ]; then
-    CMD="$CMD --debug"
-fi
-
-# Socat bridge for LLM hybrid mode (rvsmart multimode/llm_only)
-# 'sglang' is the expected Docker Compose service name for the SGLang LLM server
-if [ "${RVSMART_LLM_MODE:-false}" = "true" ]; then
-    echo "Starting socat bridge for SGLang server..."
-    socat TCP-LISTEN:30000,bind=127.0.0.1,fork,reuseaddr TCP:sglang:30000 &
-    SOCAT_PID=$!
-    trap "kill $SOCAT_PID 2>/dev/null" EXIT
-    echo "Socat bridge started (PID: $SOCAT_PID)"
-fi
-
-echo "=== RV-Android Docker ==="
-echo "CMD: $CMD"
-echo "========================="
-
-exec $CMD
+echo "=== RV-Android Docker: validation passed; exec rv-experiment ==="
+exec uv run rv-experiment run

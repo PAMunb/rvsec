@@ -66,9 +66,10 @@ _CalibrationPhase = None
 _compute_aperv_score = None
 _ObjectiveFunction = None
 _get_default_params = None
+_fixed_params_v2 = None  # FIXED_PARAMS_V2 loaded when param_version=v2
 
 
-def _load_tool_modules(tool: str) -> None:
+def _load_tool_modules(tool: str, param_version: str = "v1") -> None:
     """Load parameter space and objective modules for the given tool family.
 
     Dynamically imports the correct parameter space and objective function
@@ -80,24 +81,44 @@ def _load_tool_modules(tool: str) -> None:
         tool: Tool identifier string. If it starts with ``"aperv"``, loads
             from ``aperv_parameter_space`` / ``aperv_objective`` (local scripts).
             Otherwise, loads from ``rv_agent_validation.calibration`` package.
+        param_version: Parameter space version (``"v1"`` or ``"v2"``).
+            v2 uses reduced 10-param search space with fixed params merged
+            by the orchestrator. Only applies to aperv tool family.
     """
     global _suggest_params, _params_to_tool_spec, _CalibrationPhase
     global _compute_aperv_score, _ObjectiveFunction, _get_default_params
+    global _fixed_params_v2
 
     if tool.startswith("aperv"):
         from aperv_objective import compute_score
         from aperv_parameter_space import (
             CalibrationPhase,
-            get_default_params,
             params_to_tool_spec,
-            suggest_params,
         )
 
-        _suggest_params = suggest_params
+        if param_version == "v2":
+            from aperv_parameter_space import (
+                FIXED_PARAMS_V2,
+                get_default_params_v2,
+                suggest_params_v2,
+            )
+
+            _suggest_params = suggest_params_v2
+            _get_default_params = get_default_params_v2
+            _fixed_params_v2 = FIXED_PARAMS_V2
+        else:
+            from aperv_parameter_space import (
+                get_default_params,
+                suggest_params,
+            )
+
+            _suggest_params = suggest_params
+            _get_default_params = get_default_params
+            _fixed_params_v2 = None
+
         _params_to_tool_spec = params_to_tool_spec
         _CalibrationPhase = CalibrationPhase
         _compute_aperv_score = compute_score
-        _get_default_params = get_default_params
         # aperv uses a standalone compute_score function, not a class
         _ObjectiveFunction = None
     else:
@@ -116,6 +137,7 @@ def _load_tool_modules(tool: str) -> None:
         _compute_aperv_score = None
         _get_default_params = get_default_params
         _ObjectiveFunction = ObjectiveFunction
+        _fixed_params_v2 = None
 
 
 logger = logging.getLogger(__name__)
@@ -148,6 +170,9 @@ def generate_calibration_compose(
     memory: str,
     timeout: int,
     extra_hosts: Optional[List[str]] = None,
+    reps: int = 1,
+    jar_path: Optional[str] = None,
+    broadcast_path: Optional[str] = None,
 ) -> dict:
     """
     Build a docker-compose dict for one round of calibration trials.
@@ -168,6 +193,9 @@ def generate_calibration_compose(
         extra_hosts: Docker extra_hosts entries for container-to-host networking.
             Use ``["host.docker.internal:host-gateway"]`` when containers need to
             reach services on the host (e.g. SGLang for multimode).
+        reps: Repetitions per APK per trial (default 1). Sets RV_REPETITIONS.
+        jar_path: Host path to ape-rv.jar for volume mounting (GCP calibration).
+        broadcast_path: Host path to system-broadcast.json for volume mounting.
 
     Returns:
         YAML-serializable dict with a ``services`` key.
@@ -181,8 +209,10 @@ def generate_calibration_compose(
                 "RV_TOOLS": tool_spec,
                 "RV_EXPERIMENT_NAME": f"trial_{trial_num}",
                 "RV_TIMEOUTS": str(timeout),
+                "RV_REPETITIONS": str(reps),
                 "RV_APKS_DIR": "/opt/rvsec/rv-android/apks",
                 "RV_NO_WINDOW": "true",
+                "RV_SPEC_SET": "jca",
                 # Skip pre-processing: APKs in data_dir are already instrumented.
                 # This saves ~5min/APK of monitor generation + instrumentation.
                 "RV_SKIP_MONITORS": "true",
@@ -210,6 +240,14 @@ def generate_calibration_compose(
                 }
             },
         }
+        if jar_path:
+            service["volumes"].append(
+                f"{jar_path}:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro"
+            )
+        if broadcast_path:
+            service["volumes"].append(
+                f"{broadcast_path}:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/system-broadcast.json:ro"
+            )
         if extra_hosts:
             service["extra_hosts"] = list(extra_hosts)
         services[service_name] = service
@@ -446,6 +484,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Calibration phase: macro tunes high-impact params, micro tunes fine-tuning params.",
     )
     parser.add_argument(
+        "--param-version",
+        choices=["v1", "v2"],
+        default="v1",
+        help="Parameter space version. v1: 14 params (original). "
+        "v2: 10 tuned + 6 fixed (calibration v2). Default: v1.",
+    )
+    parser.add_argument(
         "--n-trials",
         type=int,
         required=True,
@@ -477,6 +522,32 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=300,
         help="Per-APK timeout in seconds (default: 300).",
+    )
+    parser.add_argument(
+        "--reps",
+        type=int,
+        default=1,
+        help="Repetitions per APK per trial (default: 1). "
+        "With reps=2, each APK runs twice; scoring averages reps before trimmed mean.",
+    )
+    parser.add_argument(
+        "--storage",
+        type=str,
+        default=None,
+        help="Optuna storage URL. Default: SQLite in output-dir. "
+        "For multi-VM: postgresql://user:pass@host:5432/db",
+    )
+    parser.add_argument(
+        "--jar-path",
+        type=str,
+        default=None,
+        help="Host path to ape-rv.jar for volume mounting (GCP calibration).",
+    )
+    parser.add_argument(
+        "--broadcast-path",
+        type=str,
+        default=None,
+        help="Host path to system-broadcast.json for volume mounting.",
     )
     parser.add_argument(
         "--agent-mode",
@@ -581,7 +652,7 @@ def main() -> None:
     )
 
     # --- Load tool-specific modules ---
-    _load_tool_modules(args.tool)
+    _load_tool_modules(args.tool, param_version=args.param_version)
     is_aperv = args.tool.startswith("aperv")
 
     logger.info("=" * 60)
@@ -616,9 +687,12 @@ def main() -> None:
             baseline_max_errors=baseline_max_errors,
         )
 
-    # --- Optuna study (SQLite for crash-resilient persistence) ---
-    storage_path = output_dir / "optuna_study.db"
-    storage_url = f"sqlite:///{storage_path}"
+    # --- Optuna study (SQLite local or PostgreSQL for multi-VM) ---
+    if args.storage:
+        storage_url = args.storage
+    else:
+        storage_path = output_dir / "optuna_study.db"
+        storage_url = f"sqlite:///{storage_path}"
     study_name = f"calibration_{args.phase}_{args.seed}"
 
     # constant_liar=True: allows asking for N trials before reporting results,
@@ -639,7 +713,7 @@ def main() -> None:
         direction="maximize",
         load_if_exists=True,
     )
-    logger.info(f"Optuna study: {study_name} (storage: {storage_path})")
+    logger.info(f"Optuna study: {study_name} (storage: {storage_url})")
 
     # --- Map phase string to enum ---
     phase = (
@@ -686,11 +760,13 @@ def main() -> None:
     # --- Main optimization loop ---
     round_number = 0
     rounds_without_improvement = 0
-    best_score_so_far = -float("in")
+    best_score_so_far = -float("inf")
     n_apks = count_filter_apks(args.filter_file)
-    round_timeout = compute_round_timeout(args.timeout, n_apks)
+    n_tasks_per_trial = n_apks * args.reps
+    round_timeout = compute_round_timeout(args.timeout, n_tasks_per_trial)
     logger.info(
-        f"Round timeout: {round_timeout}s ({round_timeout / 3600:.1f}h) for {n_apks} APKs"
+        f"Round timeout: {round_timeout}s ({round_timeout / 3600:.1f}h) "
+        f"for {n_apks} APKs × {args.reps} reps = {n_tasks_per_trial} tasks"
     )
 
     while remaining > 0:
@@ -709,13 +785,16 @@ def main() -> None:
             # Suggest parameters for this trial's phase
             params = _suggest_params(trial, phase)
 
-            # For micro phase, merge fixed macro params underneath the tuned micro
-            # params. The spread order matters: micro params override any macro
-            # params with the same name (shouldn't happen, but defensive).
+            # Merge layers (lowest to highest priority):
+            # 1. FIXED_PARAMS_V2 (when --param-version v2): fixed low-impact params
+            # 2. fixed_params (from --best-macro): optimal macro params for micro phase
+            # 3. params (from Optuna): the trial's suggested values
+            merged = {}
+            if _fixed_params_v2:
+                merged.update(_fixed_params_v2)
             if fixed_params:
-                merged = {**fixed_params, **params}
-            else:
-                merged = params
+                merged.update(fixed_params)
+            merged.update(params)
 
             param_str = _params_to_tool_spec(merged)
             # SGLang URL is injected into the tool spec so the container can
@@ -746,6 +825,9 @@ def main() -> None:
             memory=args.memory,
             timeout=args.timeout,
             extra_hosts=extra_hosts,
+            reps=args.reps,
+            jar_path=args.jar_path,
+            broadcast_path=args.broadcast_path,
         )
 
         compose_path = output_dir / f"docker-compose.round-{round_number:02d}.yml"
@@ -762,7 +844,7 @@ def main() -> None:
         # freeing resources (KVM, memory) for the next round.
         try:
             subprocess.run(
-                ["docker", "compose", "-", str(compose_path), "up"],
+                ["docker", "compose", "-f", str(compose_path), "up"],
                 check=False,
                 timeout=round_timeout,
             )
@@ -770,7 +852,7 @@ def main() -> None:
             logger.warning(f"Round {round_number} timed out after {round_timeout}s")
         finally:
             subprocess.run(
-                ["docker", "compose", "-", str(compose_path), "down"],
+                ["docker", "compose", "-f", str(compose_path), "down"],
                 check=False,
             )
 
@@ -793,8 +875,24 @@ def main() -> None:
         completed_count = len(
             [t for t in study.trials if t.state == TrialState.COMPLETE]
         )
+        failed_count = len(
+            [t for t in study.trials if t.state == TrialState.FAIL]
+        )
         remaining = args.n_trials - completed_count
-        logger.info(f"Progress: {completed_count}/{args.n_trials} trials complete")
+        logger.info(
+            f"Progress: {completed_count}/{args.n_trials} complete, {failed_count} failed"
+        )
+
+        # Safety: if too many trials are failing, stop. This catches infrastructure
+        # bugs (docker compose syntax, missing image, etc.) that would otherwise
+        # cause the orchestrator to loop forever asking for replacement trials.
+        max_failures = max(args.n_trials, 10)
+        if failed_count >= max_failures:
+            logger.error(
+                f"Aborting: {failed_count} failed trials exceeds threshold "
+                f"({max_failures}). Check docker, image, and compose syntax."
+            )
+            break
 
         # Convergence monitoring: stop if best score hasn't improved for N rounds
         if args.convergence_rounds > 0 and completed_count > 0:

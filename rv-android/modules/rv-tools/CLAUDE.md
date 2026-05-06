@@ -155,12 +155,44 @@ class SomeTool(AbstractTool):
 | **FastBot** | Reinforcement learning | conservative, aggressive, balanced |
 | **ARES** | Docker-based systematic exploration (spawns a sibling container) | default |
 | **DroidMate** | JAR-based research tool | default |
-| **Humanoid** | DroidBot with Humanoid inference server (`-humanoid <url>`) for human-like input generation | default |
+| **Humanoid** | DroidBot with Humanoid inference server (`-humanoid <url>`) for human-like input generation. Stateless TensorFlow inference — one server instance can be shared across many concurrent containers (Phase 0 finding, gh55) — container-per-APK isolation is unnecessary. | default |
 | **QTesting** | Docker-based Q-learning exploration (spawns a QTesting container) | default |
 
 ### Docker Network Configuration (INV-TOOL-15)
 
 ARES and QTesting are Docker-based tools that spawn sibling containers. Inside Docker (`/.dockerenv` exists), the sibling uses `--network container:$(hostname)` to share the parent's network namespace. Outside Docker, `--network host` is used.
+
+### Variant-default pattern for per-tool URLs/paths (gh55 INV-TOOL-20, INV-TOOL-25)
+
+L2 tool plugins (this module's `builtin/`, plus `aperv-tool` and
+`rvagent-tool`) MUST NOT read environment variables. The canonical default
+for any per-tool URL, path, or image name lives in `get_variants()` —
+matching the ARES (`ares/tool.py:79` `docker_image`) and QTesting
+(`qtesting/tool.py:67`) precedents. The factory merge
+`{**variant_defaults, **tool_config.parameters}` guarantees the key is
+present at `configure(config)` time. L5 (`rv-experiment`) overrides via
+`ToolConfig.parameters` when an env var or CLI flag is set.
+
+Example — Humanoid (canonical implementation):
+
+```python
+@classmethod
+def get_variants(cls) -> Dict[str, Dict[str, Any]]:
+    return {
+        "default": {
+            "policy": "dfs_greedy",
+            "humanoid_url": "127.0.0.1:50405",  # variant default
+            ...
+        }
+    }
+
+def configure(self, config: Dict[str, Any]) -> None:
+    self.url = config["humanoid_url"]   # always present after factory merge
+    # No os.environ access. No literal fallback. No KeyError on the
+    # standard local case — variant default carries through.
+```
+
+ADR rationale: `docs/adr/0001-env-var-pattern.md` (decision D8).
 
 ## Dependencies
 

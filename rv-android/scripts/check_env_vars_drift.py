@@ -158,14 +158,28 @@ def _check_read_forms(violations: list[str]) -> None:
 
 
 def _check_doc_to_registry(registry: dict[str, str], violations: list[str]) -> None:
-    """Cross-check (b): every RV_* in README/.env.example exists in registry."""
+    """Cross-check (b): every RV_* in README/.env.example exists in registry.
+
+    Lines explicitly noting a deprecated/removed/superseded variable
+    (e.g., README's "Removed by gh55" list) are skipped — they document
+    intentional historical names so operators recognize migration messages.
+    """
     rv_in_registry = {value for value in registry.values() if value.startswith("RV_")}
+    deprecation_markers = ("removed", "deprecated", "superseded", "supersede")
 
     for doc_file in (README_FILE, ENV_EXAMPLE_FILE):
         if not doc_file.exists():
             continue  # creation is scheduled in tasks 7.1/7.2; lint is permissive until then
         text = doc_file.read_text(encoding="utf-8")
-        for name in set(RX_RV_NAME_DOC.findall(text)):
+        # Strip lines that explicitly mark deprecation context before extracting names.
+        kept_lines = []
+        for line in text.splitlines():
+            lower = line.lower()
+            if any(marker in lower for marker in deprecation_markers):
+                continue
+            kept_lines.append(line)
+        scan_text = "\n".join(kept_lines)
+        for name in set(RX_RV_NAME_DOC.findall(scan_text)):
             if name not in rv_in_registry:
                 violations.append(
                     f"{doc_file.relative_to(REPO_ROOT)}: documents `{name}` which has no ENV_* constant in registry"
