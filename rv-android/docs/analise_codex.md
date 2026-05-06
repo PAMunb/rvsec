@@ -1,502 +1,229 @@
-# Análise Crítica do Pré-plano: Atualização GATOR/Soot para APKs Modernos
+# Análise da change gh55-env-purity-avd-api30
 
-## 1. Resumo executivo
+**Modelo**: Codex High
+**Data**: 2026-05-06
+**Veredito geral**: BLOQUEADA
 
-O pré-plano está bem estruturado, parte de um problema real e propõe uma direção tecnicamente plausível: endurecer a configuração do Soot, tolerar falhas parciais e sair do Soot 3.3.0. A rastreabilidade geral problema -> causa -> mitigação -> validação empírica existe e é um ponto forte do documento.
+## 1. Sumário executivo
 
-Há, porém, três fragilidades importantes. Primeiro, o **FIX 2 está superestimado**: no código atual, vários `retrieveActiveBody()` ocorrem fora do `catch` proposto, e o `RvsecAnalysisClient` só escreve JSON depois de construir o WTG; portanto, "continue em vez de throw" não garante JSON parcial por si só. Segundo, o **FIX 3 não é backward-compatible por hipótese**: a troca de `ca.mcgill.sable:soot:3.3.0` para `org.soot-oss:soot:4.7.0/4.7.1` mexe em dependências, mediação Maven e possivelmente em APIs e comportamentos internos usados pelo GATOR. Terceiro, a comparação com FlowDroid/CryptoAnalysis está na direção certa, mas algumas afirmações sobre opções defensivas do FlowDroid estão mais fortes do que as fontes públicas confirmam.
+- A estrutura mínima OpenSpec passa no validador local (`openspec validate gh55-env-purity-avd-api30 --strict` retornou `Change 'gh55-env-purity-avd-api30' is valid`), mas a change tem falhas semânticas e de rastreabilidade que o validador não captura.
+- O contrato do Humanoid está contraditório entre proposal/specs/design/tasks: parte da change exige `parameters["url"]`, outra exige `parameters["humanoid_url"]` (`proposal.md:21`, `specs/platform/spec.md:40-42`, `specs/tools/spec.md:42,49`, `design.md:227-228`, `tasks.md:37-38`).
+- A regra de Layer Purity não está operacionalizada de forma robusta: o lint prometido não detecta todos os padrões (`os.getenv`, `os.environ[...]`) e a própria baseline atual já tem leituras fora do escopo anunciado (`modules/rv-android-core/.../validation/config.py:72,77,82`, `modules/rv-instrumentation-ajc/.../config.py:397`, `modules/rv-tools/.../ape/tool.py:278`, `.../droidmate/tool.py:113`, `.../fastbot/tool.py:401`).
+- A frente empírica sustenta apenas uma afirmação limitada: no sample `n=80`, houve 7 ganhos e 0 regressões; ela não sustenta a refutação forte do rollback `07179eb6` no caminho Docker, nem fecha os gates H4 e `>=100 APKs/dataset` (`docs/20260506_plano_env.md:529`, `:566-568`, `:596-611`, `proposal.md:32`, `tasks.md:63-64`).
+- Há inconsistências entre o design e o código real atual em pontos-chave de implementação referenciada, inclusive `PlatformConfig.tool_configs` vs `PlatformConfig.tools` e `rv-platform.tool.factory.ToolFactory.create()` vs `rv_tools.registry.factory.ToolFactory.create_tool()` (`specs/platform/spec.md:5,31`, `design.md:60,77,179-185`, `modules/rv-platform/.../platform_config.py:49-50`, `modules/rv-tools/.../factory.py:37,77-78,127-133`).
 
-Minha recomendação final é: **seguir com a iniciativa**, mas **não implementar os três fixes como um bloco único sem faseamento**. O plano deve ser refinado para: (a) endurecimento defensivo do GATOR com telemetria; (b) tratamento de falha em nível de método/fase, não só em `createOpNode()`; (c) upgrade de dependências alinhando também FlowDroid, preferencialmente para a linha **2.15.1** com Soot **4.7.1**, ou então um piloto isolado do GATOR antes de unificar o RVSEC inteiro.
+## 2. Pontos fortes
 
-## 2. Análise de consistência
+- A change é coesa o suficiente para auditoria conjunta porque concentra duas mudanças que tocam a mesma superfície Docker e explicitam o racional de consolidação em γ (`proposal.md:11`, `design.md:12`, `design.md:116-119`).
+- Os artefatos narram bem o problema principal de drift entre env vars, entrypoint e módulos; o propósito das specs é autocontido e legível, especialmente em `core` e `experiment` (`specs/core/spec.md:1-27`, `specs/experiment/spec.md:1-34`).
+- A change preserva gates explícitos para a decisão do AVD, em vez de esconder risco residual: smoke matrix H4 e amostra maior continuam em aberto (`proposal.md:32`, `design.md:265-266`, `tasks.md:63-64`).
+- Várias referências concretas usadas pela change batem com o estado atual do código, por exemplo `rv_experiment/config.py:745,748`, `rv_tools/builtin/humanoid/tool.py:13,89`, `scripts/run_emulator.sh:4` (`tasks.md:25`, `tasks.md:37`, `tasks.md:61`).
 
-### 2.1 Consistência interna do pré-plano
+## 3. Pontos fracos / Problemas
 
-O documento é majoritariamente consistente nos pontos centrais:
+- **Severidade**: Crítica
+- **Categoria**: semântica
+- **Descrição**: O contrato da chave de configuração do Humanoid é inconsistente entre os artefatos.
+- **Evidência**: `proposal.md:21`, `specs/platform/spec.md:40-42`, `specs/tools/spec.md:42,49`, `design.md:227-228`, `tasks.md:37-38`
+- **Impacto**: Implementação e testes podem convergir para contratos incompatíveis; a change deixa ambíguo o comportamento correto de `HumanoidTool.configure()`.
+- **Sugestão**: Escolher uma única chave canônica e reescrever proposal, specs, design e tasks para o mesmo nome, com um cenário único end-to-end.
 
-- O problema está claro: baixa taxa de análise estática em APKs modernos.
-- A hipótese causal é plausível: Soot 3.3.0 + Dexpler + Kotlin moderno + tratamento fatal de exceções.
-- A validação empírica com CogniCrypt/CryptoAnalysis reforça que a direção "Soot mais novo + configuração mais defensiva" é promissora.
-- O vínculo com a spec de análise faz sentido: o sistema precisa preservar ao menos `reachability`, e idealmente `windows`, `transitions` e `components`.
+- **Severidade**: Crítica
+- **Categoria**: testabilidade
+- **Descrição**: O lint prometido não consegue impor `INV-CORE-31`, `INV-EXP-30` e `INV-TOOL-20` como escritos.
+- **Evidência**: `specs/core/spec.md:26`, `specs/tools/spec.md:25`, `design.md:72,74`; leituras reais que escapam ao grep: `modules/rv-android-core/src/rv_android_core/util/validation/config.py:72,77,82`, `modules/rv-instrumentation-ajc/src/rv_instrumentation_ajc/config.py:397`
+- **Impacto**: A change promete uma garantia arquitetural que o CI não consegue verificar de forma confiável; regressões reais podem passar.
+- **Sugestão**: Especificar o lint em termos de AST/padrões abrangentes (`os.environ.get`, `os.environ[...]`, `os.getenv`) e listar explicitamente o universo de exceções permitidas.
 
-Mas há inconsistências e simplificações que precisam ser corrigidas:
+- **Severidade**: Alta
+- **Categoria**: estrutural
+- **Descrição**: O delta `REMOVED` em `experiment/spec.md` não corresponde a um requirement autônomo da baseline e ainda viola a regra local de requirement com scenario.
+- **Evidência**: `openspec/specs/experiment/spec.md:429-456`, `openspec/changes/gh55-env-purity-avd-api30/specs/experiment/spec.md:143-147`
+- **Impacto**: A operação delta fica semanticamente ambígua; revisores e implementadores não sabem se removem um requirement inteiro ou apenas um cenário/comportamento dentro de `Docker Execution Mode`.
+- **Sugestão**: Reescrever como `MODIFIED Requirement: Docker Execution Mode`, com bloco completo substituto e cenários cobrindo a remoção da tradução env→flag.
 
-1. O pré-plano afirma que o `RvsecAnalysisClient` produzirá JSON parcial com o FIX 2. Isso não é garantido pelo código atual.
-   O `RvsecAnalysisClient.run()` constrói `reachability`, depois chama `WTGBuilder.build(output)`, e só então chama `writeJson(...)`. Se o pipeline quebrar antes do WTG terminar, nenhum JSON é escrito, apesar de o `JsonWriter` dar `flush()` por seção.
+- **Severidade**: Alta
+- **Categoria**: estrutural
+- **Descrição**: `Strict Configuration Validation` foi modelado como requirement novo, mas a baseline já define normativamente `extra='forbid'` em `Pydantic Validation`.
+- **Evidência**: `openspec/specs/core/spec.md:305-325`, `openspec/changes/gh55-env-purity-avd-api30/specs/core/spec.md:59-71`
+- **Impacto**: A delta infla escopo e pode gerar duplicação normativa sobre o mesmo comportamento.
+- **Sugestão**: Converter para `MODIFIED` do requirement existente ou explicar claramente o novo recorte se houver diferença real.
 
-2. O local do fix em `Flowgraph.java` está conceitualmente correto, mas a descrição do efeito é ampla demais.
-   O `continue` proposto cobre apenas a exceção no trecho que envolve `createOpNode(currentStmt)`. Já o método `processApplicationClasses()` faz `Body b = currentMethod.retrieveActiveBody();` antes desse `try/catch`. Se o crash vier daí, o FIX 2 não atua.
+- **Severidade**: Alta
+- **Categoria**: rastreabilidade
+- **Descrição**: A change ancora parte da implementação em superfícies erradas ou inexistentes no repositório atual.
+- **Evidência**: `specs/platform/spec.md:5,31`, `design.md:60,77,179-185`, `tasks.md:39`; código real: `modules/rv-platform/src/rv_platform/config/platform_config.py:49-50`, `modules/rv-tools/src/rv_tools/registry/factory.py:37,77-78,127-133`
+- **Impacto**: A rastreabilidade Spec→Design→Tasks→Código quebra justamente onde deveria orientar a implementação.
+- **Sugestão**: Reancorar o design e as tasks nos símbolos reais do repo atual, ou declarar explicitamente quais paths/nomes serão introduzidos como parte da change.
 
-3. A comparação GATOR vs FlowDroid/CryptoAnalysis está parcialmente apoiada, mas mistura fatos confirmados com inferências.
-   A fonte pública atual de `FlowDroid` que consegui verificar (`SootConfigForAndroid.java`) mostra `exclude(...)` e `set_no_bodies_for_excluded(true)`, inclusive com comentário histórico sobre `android.*`, mas não confirma por si só que FlowDroid use exatamente `ignore_resolution_errors`, `throw_analysis_dalvik`, `jb.sils off` e `jb.dae off` da forma descrita.
+- **Severidade**: Alta
+- **Categoria**: empírica
+- **Descrição**: A change sobredeclara a refutação do commit `07179eb6`; os dados disponíveis são host-side e não reproduzem o cenário Docker citado no rollback.
+- **Evidência**: `proposal.md:9`, `design.md:7`, `docs/20260506_plano_env.md:529`, `:604-611`, `results/avd_compat_investigation/20260506_133454/boot_smoke.csv:1-7`, `git show 07179eb6`
+- **Impacto**: A decisão do AVD pode parecer mais fechada do que realmente está; isso reduz a clareza do gate pré-merge.
+- **Sugestão**: Trocar “refutes” por linguagem mais precisa (“host-side evidence challenges the previous diagnosis”) ou anexar evidência Docker específica.
 
-4. Há uma ambiguidade importante entre "crash no pipeline Dexpler ao processar método corrente" e "crash disparado por análise de chamadas/operadores dentro de `createOpNode()`".
-   O plano trata isso como se fosse a mesma superfície de correção, mas o código mostra múltiplos pontos de `retrieveActiveBody()` em `Flowgraph`, `FlowgraphRebuilder`, `ConstantAnalysis`, `CFGTraversal`, `JimpleUtil` e outras classes.
+- **Severidade**: Média
+- **Categoria**: rastreabilidade
+- **Descrição**: O design e as tasks apontam para vários arquivos de teste/lint/doc que hoje não existem e, em parte, para uma árvore `.github/workflows/` inexistente.
+- **Evidência**: `design.md:71,74-77`, `tasks.md:13,18-20,30,50,53,70,72`; estado atual: `.github` ausente, `tests/` top-level ausente
+- **Impacto**: Parte da mudança fica não verificável no estado atual do repo e a revisão perde precisão sobre “arquivo existe vs NEW”.
+- **Sugestão**: Marcar explicitamente esses caminhos como NEW em design/tasks e separar referências existentes de referências a criar.
 
-### 2.2 Coerência com a spec `analysis/spec.md`
+- **Severidade**: Média
+- **Categoria**: escopo
+- **Descrição**: A regra de Layer Purity parece desenhada com foco excessivo no caso Humanoid e subestima outras leituras de env já existentes em L2/L3.
+- **Evidência**: `proposal.md:7,21`, `tasks.md:42-43`; código atual: `modules/rv-tools/src/rv_tools/builtin/ape/tool.py:278`, `.../droidmate/tool.py:113`, `.../fastbot/tool.py:401`, `modules/rv-static-analysis/src/rv_static_analysis/config.py:109,124`
+- **Impacto**: A implementação pode “cumprir” o texto narrativo e ainda deixar violações relevantes no sistema.
+- **Sugestão**: Transformar o inventário completo de reads atuais em requisito explícito ou adicionar um cenário/critério cobrindo todas as classes detectadas pelo grep inicial.
 
-O plano é coerente com a spec no objetivo macro: recuperar a capacidade de produzir dados estáticos úteis para:
+## 4. Análise por dimensão
 
-- `reachability`, que define o universo de métodos e é o denominador da cobertura.
-- `windows` e `transitions`, usados por exploração guiada.
-- `components`, necessários para componentes não-Activity e MOP reachability.
+### 4.1 Consistência interna
 
-Mas a spec também impõe um ponto que o plano precisa tornar explícito:
+A change não é internamente consistente em pontos centrais. O caso mais claro é o Humanoid: proposal e parte do design falam em canal por `PlatformConfig.tool_configs["humanoid"]["url"]` (`proposal.md:21`), a spec de platform fala em `parameters={"humanoid_url": ...}` (`specs/platform/spec.md:40-42`), e a spec de tools exige `configure({"url": ...})` (`specs/tools/spec.md:40-49`). Essa contradição atravessa proposal, specs, design e tasks, então não é um detalhe editorial; é quebra de contrato.
 
-- A spec trata `reachability` como dado prioritário e admite valor diferenciado entre seções.
-- O código do `RvsecAnalysisClient` escreve seções em ordem prioritária, mas apenas depois de montar tudo o que antecede o `writeJson`.
-- Logo, a arquitetura atual **não implementa realmente o comportamento de degradação progressiva que a spec e o pré-plano pressupõem**.
+### 4.2 Coerência com Phase 0
 
-### 2.3 Ambiguidades que podem levar a implementação incorreta
+Há boa aderência à motivação do Phase 0 na parte de env vars e no reconhecimento explícito dos gates do AVD (`docs/20260506_plano_env.md:397-452`, `proposal.md:15-32`). O problema é a extrapolação empírica: o plano diz que o teste foi no host e recomenda validar Docker antes de mudar o Dockerfile de produção (`docs/20260506_plano_env.md:604-611`), enquanto proposal/design falam em refutação mais categórica do rollback (`proposal.md:9`, `design.md:7`).
 
-- "Trocar `throw` por `continue`" pode induzir a uma falsa sensação de resiliência total. Na prática, só cobre um ponto específico.
-- "Upgrade Soot 3.3.0 -> 4.7.0 no RVSEC inteiro" pode induzir a ignorar o desalinhamento com `flowdroid.version=2.10.0` em `rvsec-android/pom.xml`.
-- "Backward-compatible" está forte demais. A API pública básica do Soot é parecida, mas isso não equivale a compatibilidade de comportamento nem de empacotamento.
-- "Excluir `kotlin.*`/`kotlinx.*`" precisa distinguir claramente:
-  app code em Kotlin não será excluído se o package do app não começar por `kotlin`; o que se exclui é primariamente stdlib/coroutines.
+### 4.3 Ambiguidades
 
-### 2.4 Rastreabilidade
+Há ambiguidades materiais, não só de redação. `PlatformConfig.tool_configs` é tratado como estrutura existente em `specs/platform/spec.md:5,31`, mas o código atual usa `tools: List[ToolConfig]` (`modules/rv-platform/.../platform_config.py:49-50`). Também há “ou sem decisão” em `tasks.md:38`, que permite resolver `RV_HUMANOID_URL` em `__main__.py` “ou `ExecutionController.setup`”, o que deixa a origem canônica da injeção indefinida.
 
-A rastreabilidade está boa, com uma ressalva:
+### 4.4 Rastreabilidade
 
-- `Problema`: baixa taxa de SA.
-- `Causa raiz`: crash de typing no Soot/Dexpler moderno + tratamento fatal.
-- `Fix`: opções defensivas + tolerância a falhas + upgrade.
-- `Teste`: CogniCrypt/CryptoAnalysis não crasha nos APKs problemáticos.
+Os invariantes aparecem nas specs e quase todos entram na tabela de mapping do design (`design.md:71-79`), mas a trilha até o código falha em pontos relevantes. `INV-PLT-25` está mapeado para uma factory no namespace errado e para um campo que não existe na configuração atual. Além disso, vários destinos de teste/lint são NEW e não estão sempre distinguidos como tal na linguagem do design, o que enfraquece a auditoria “arquivo existe em disco?”.
 
-O elo mais fraco dessa cadeia é o FIX 2, porque a prova apresentada não demonstra que ele cubra o caminho real do crash em todos os casos.
+### 4.5 Testabilidade
 
-## 3. Análise técnica dos fixes
+Os critérios A-H do Phase 0 são em geral bem formulados e tendem a ser verificáveis (`docs/20260506_plano_env.md:401-452`), mas a testabilidade cai quando a change define mecanismos insuficientes. Exemplo: `C3/C4`, `E1/E2` e `INV-CORE-31/EXP-30/TOOL-20` dependem de grep simples que não cobre `os.getenv` e nem todo cross-layer read. Outro problema é que alguns critérios pedem “message useful/clear”, que é verificável só parcialmente se o texto mínimo esperado não for especificado.
 
-### 3.1 FIX 1: opções Soot defensivas no `Main.java`
+### 4.6 Soundness
 
-#### Julgamento geral
+A inferência “7 ganhos, 0 regressões” é sound apenas para o sample `n=80`, e os dados disponíveis sustentam isso. Já a inferência “o diagnóstico de OverlayFS do rollback foi refutado” não é sound com os artefatos atuais, porque o rollback era especificamente sobre boot no container e o próprio Phase 0 admite que essa confirmação em Docker ainda falta (`docs/20260506_plano_env.md:604-611`).
 
-O FIX 1 é **razoável e de baixo custo**, mas **não previne de forma confiável** o `InternalTypingException`.
+### 4.7 Completude
 
-#### O que parece tecnicamente sólido
+A change cobre o eixo principal de env vars, mas ainda não trata completamente o universo real de leituras fora de L5. O próprio repositório atual tem leituras em built-ins além do Humanoid e em módulos de instrumentação/static analysis. Sem transformar esse inventário em requisito verificável, a change fica incompleta para a promessa de “Layer Purity rule” global.
 
-- `-no-bodies-for-excluded` é uma prática comum para reduzir superfície de jimplificação.
-- Excluir `kotlin.*` e `kotlinx.*` pode reduzir crashes vindos da stdlib Kotlin e de coroutines.
-- `throw_analysis_dalvik` é semanticamente apropriado para DEX e já aparece como precedente dentro do próprio repositório em `rvsec-taint`.
-- `ignore_resolution_errors` tende a reduzir falhas de resolução e phantom types, o que pode estabilizar a análise em apps modernos e multidex.
+### 4.8 Escopo
 
-#### O que está superestimado
+O escopo γ é defensável, porque a consolidação evita conflitos em superfícies Docker e foi uma decisão consciente do Phase 0 (`docs/20260506_plano_env.md:95-104`, `design.md:116-119`). Mesmo assim, a parte AVD precisa ser apresentada como mudança condicionada por gates ainda abertos, não como decisão praticamente encerrada. O problema aqui não é tanto o bundling, mas o grau de fechamento atribuído à evidência.
 
-1. `ignore_resolution_errors` não corrige o bug de typing em `ClassHierarchy.typeNode()`.
-   Esse flag ajuda em resolução, não em um mapa interno que recebe tipo inesperado/nulo durante inferência.
+### 4.9 Riscos
 
-2. `jb.sils off` e `jb.dae off` podem ajudar, mas a causalidade precisa ser tratada como hipótese, não como fato.
-   O stack trace reportado aponta para `DexBody.jimplify()` e `TypeResolver`, isto é, a inferência de tipos acontece muito cedo. Desabilitar subfases de `jb` pode diminuir transformações subsequentes que reintroduzem typing problemático, mas não há garantia de que o crash principal esteja nelas.
+Os riscos listados no plano e no design são razoáveis (`docs/20260506_plano_env.md:501-509`, `design.md:244-250`), porém a mitigação para drift checker é fraca porque depende de um lint subespecificado. O risco “algum módulo L2/L3/L4 lê env não detectada no grep inicial” já está materializado no estado atual do repo, o que deveria subir sua criticidade.
 
-3. O ganho de excluir `kotlin.*` depende do local real da falha.
-   Se o crash surgir no body de uma classe do app compilada de Kotlin, isso não ajuda. Se surgir em chamadas/auxiliares da stdlib/coroutines, ajuda mais.
+### 4.10 Princípios
 
-#### Efeitos colaterais na qualidade da análise
+Há aderência parcial a P1/P2/P3/P4. P2 é forte na narrativa dos propósitos e decisões. P3 aparece bem na intenção de backups e remoção dura (`proposal.md:39-43`, `tasks.md:5-12,47-53`). Já P1 sofre com duplicação normativa em `Strict Configuration Validation`, e P2/P3 sofrem onde as operações delta não correspondem bem à baseline. P4 ainda é afrontado pelo estado atual referenciado em `scripts/run_emulator.sh:8-25`, que mantém comentários históricos justamente onde a change promete reescrever.
 
-- Para **JCA**, o impacto tende a ser baixo. As APIs monitoradas estão em `javax.crypto.*` e `java.security.*`, geralmente chamadas a partir do código do app.
-- Para **generic/generic_new**, o impacto pode ser relevante. A stdlib Kotlin e `kotlinx.coroutines` encapsulam bastante uso de coleções, iteração, fluxo e wrappers, o que pode esconder caminhos para MOPs genéricos.
-- `ignore_resolution_errors` pode mascarar problemas reais de modelagem e produzir um call graph mais permissivo ou com buracos silenciosos.
-- `throw_analysis_dalvik` tende a ser mais correto para Android, mas pode alterar detalhes do tratamento de exceções e, com isso, influenciar edges do call graph e da propagação de reachability.
+### 4.11 Breaking Changes
 
-#### Conclusão sobre FIX 1
+Os principais breaking changes estão listados: remoção de `RV_MEMORY_FILE`, `RV_RVANDROID_URL`, `RV_SKIP_EXPERIMENT`, `RV_JCA_SPEC`; reescrita do entrypoint; bump do AVD (`proposal.md:18,23,29-32,80-84`). O ponto fraco é a comunicação de impacto sobre compose files e sobre snapshots/configs externos: o design menciona o risco, mas não explicita uma matriz de impacto por artefato consumidor.
 
-Vale a pena implementar, mas com o seguinte enquadramento:
+### 4.12 Infraestrutura de lint
 
-- é um **hardening**, não uma correção definitiva;
-- precisa de **telemetria**;
-- precisa de **avaliação separada por spec set**.
+A infraestrutura de lint proposta não é robusta o suficiente. O texto promete detectar string literals e cross-layer reads, mas os exemplos normativos se baseiam em greps que não cobrem todas as variantes sintáticas. Além disso, `INV-CORE-30` fala em `modules/`, `docker/` e `scripts/`, enquanto `INV-EXP-30` e `INV-TOOL-20` restringem escopo de forma diferente; falta uma definição única de universo auditado por regra.
 
-### 3.2 FIX 2: `continue` em vez de `throw` no `Flowgraph`
+## 5. Riscos + mitigação
 
-#### Julgamento geral
+| Risco | Probabilidade | Impacto | Mitigação proposta | Já contemplado? |
+|---|---|---|---|---|
+| Implementação do Humanoid divergir entre `url` e `humanoid_url` | Alta | Alto | Unificar contrato em todos os artefatos e adicionar cenário único ponta a ponta | Não |
+| Lint deixar passar regressões reais de Layer Purity | Alta | Alto | Especificar detecção abrangente para `os.environ.get`, `os.environ[...]` e `os.getenv`, com allow-list explícita | Parcial |
+| Revisão aprovar “refutação” do rollback sem evidência Docker | Média | Alto | Rebaixar a claim ou anexar teste Docker reproduzível | Não |
+| Tasks apontarem para superfícies erradas do código | Média | Alto | Reancorar mapping/task nos símbolos reais do repo atual | Não |
+| Gates H4 e `>=100` serem esquecidos no merge | Média | Alto | Promover gates a checklist de bloqueio no proposal/design/tasks com linguagem inequívoca | Parcial |
 
-O FIX 2, como está descrito, é **útil, mas insuficiente e potencialmente enganoso**.
+## 6. Auditoria de critérios de aceitação
 
-#### Evidência do código
+### A — Inventário e Doc Truth
 
-Em `Flowgraph.processApplicationClasses()`:
+- É verificável? `parcial` — A1-A3 são verificáveis por contagem/grep, mas A4 (“CLAUDE.md cita o ADR”) depende de arquivo novo ainda inexistente.
+- É determinístico? `sim`
+- Sugestão de melhoria: especificar o comando de contagem de entradas do README e o formato exato esperado da tabela.
 
-- `Body b = currentMethod.retrieveActiveBody();` ocorre antes do bloco que envolve `createOpNode(currentStmt)`.
-- o `catch` que hoje faz `throw new RuntimeException(e)` protege apenas a chamada `createOpNode(currentStmt)`.
+### B — Dead Code Cleanup
 
-Além disso, o mesmo `Flowgraph.java` tem outros `retrieveActiveBody()` em pelo menos mais dois pontos, e o restante do pipeline GATOR/WTG também tem várias chamadas equivalentes.
+- É verificável? `sim`
+- É determinístico? `sim`
+- Sugestão de melhoria: explicitar que hits em `backup/` são excluídos do grep final, senão o critério conflita com B3.
 
-#### Risco principal
+### C — Centralização via `ENV_*`
 
-Se você trocar apenas:
+- É verificável? `parcial` — C1-C2 dependem de um inventário correto; C3-C4, como escritos, não cobrem `os.getenv`.
+- É determinístico? `sim`
+- Sugestão de melhoria: ampliar o critério para todas as formas de leitura de ambiente e listar exceções permitidas.
 
-```java
-throw new RuntimeException(e);
-```
+### D — Flags Faltantes
 
-por:
+- É verificável? `sim`
+- É determinístico? `sim`
+- Sugestão de melhoria: fixar os comandos de teste dos 6 cenários e os valores esperados do config resultante.
 
-```java
-continue;
-```
+### E — Layer Purity
 
-você só torna tolerante um subconjunto pequeno dos erros. Os crashes ainda podem ocorrer:
+- É verificável? `parcial` — E1/E2 dependem de lint insuficiente; E3 ainda introduz exceção adicional que não aparece consistentemente nas specs.
+- É determinístico? `sim`
+- Sugestão de melhoria: alinhar a exceção de `rv-static-analysis` com `INV-EXP-30` e com o universo real de leituras atuais.
 
-- ao carregar o body do método corrente;
-- ao reconstruir flowgraphs auxiliares;
-- em análises do WTG posteriores ao `Flowgraph`.
+### F — Validação Strict
 
-#### Impacto sobre consistência do FlowGraph
+- É verificável? `sim`
+- É determinístico? `sim`
+- Sugestão de melhoria: em F3, fixar o exit code esperado como `64`, não apenas `!= 0`, para manter simetria com F1.
 
-Mesmo quando funcionar, esse `continue` pode introduzir:
+### G — Sem Backward Compat
 
-- widgets sem listeners capturados;
-- edges ausentes;
-- transições incompletas;
-- janelas presentes, mas com inventário de widgets degradado.
+- É verificável? `parcial` — G1-G3 são verificáveis; G4 (“uma commit = um estado consistente”) depende de estratégia de commits, não de propriedade estática do artefato.
+- É determinístico? `não` para G4; `sim` para os demais
+- Sugestão de melhoria: mover G4 para política de implementação/PR, não para critério de aceitação do artefato.
 
-Isso não inviabiliza todo o pipeline, mas significa que:
+### H — Documentação Canônica
 
-- `reachability` pode continuar útil;
-- `windows` e `transitions` podem ficar incompletos;
-- o WTG pode degradar de forma difícil de observar sem métricas.
+- É verificável? `sim`
+- É determinístico? `sim`
+- Sugestão de melhoria: explicitar se a fonte de verdade é README, `.env.example` ou ambos, para evitar drift bidirecional.
 
-#### Impacto no JSON
+## 7. Sugestões de melhoria
 
-O plano afirma que o JSON será produzido mesmo com Flowgraph parcial. No código atual isso é só parcialmente verdadeiro:
+- **O quê**: Unificar o contrato do Humanoid em um único nome de chave e um único fluxo L5→L4→L2.
+- **Onde**: `proposal.md:21`, `specs/platform/spec.md:40-42`, `specs/tools/spec.md:40-49`, `design.md:227-228`, `tasks.md:37-38`
+- **Por quê**: Elimina a contradição mais crítica da change.
 
-- `writeJson()` realmente faz `flush()` por seção.
-- mas `writeJson()` só é chamado depois de `WTGBuilder.build(output)` concluir.
-- logo, se o WTG quebrar, não há JSON algum.
+- **O quê**: Reescrever o delta de `Docker Execution Mode` como `MODIFIED` completo, absorvendo explicitamente a remoção da tradução env→flag.
+- **Onde**: `specs/experiment/spec.md:38-97`, `:143-147`
+- **Por quê**: Corrige a operação delta e a ausência de scenario no bloco removido.
 
-#### Conclusão sobre FIX 2
+- **O quê**: Reclassificar `Strict Configuration Validation` como modificação da baseline de `Pydantic Validation`, ou justificar claramente a novidade normativa.
+- **Onde**: `specs/core/spec.md:59-71`
+- **Por quê**: Evita duplicação e melhora a fidelidade estrutural ao OpenSpec.
 
-Sozinho, o FIX 2 não entrega o benefício prometido. O mínimo tecnicamente seguro seria:
+- **O quê**: Tornar o lint normativo realmente abrangente e alinhado com as exceções aceitas.
+- **Onde**: `specs/core/spec.md:25-27,35-37`, `specs/experiment/spec.md:32-34,127-140`, `specs/tools/spec.md:25-26,53-57`, `design.md:71-79`
+- **Por quê**: Sem isso, a principal garantia arquitetural da change não é auditável.
 
-- capturar falha também em torno de `currentMethod.retrieveActiveBody()`;
-- contabilizar métodos/statements ignorados;
-- isolar falhas do `WTGBuilder`;
-- separar geração de `reachability` da geração de `windows/transitions`.
+- **O quê**: Ajustar o mapping e as tasks para os símbolos reais do repo atual (`PlatformConfig.tools`, `ToolFactory.create_tool`, paths de teste existentes ou explicitamente NEW).
+- **Onde**: `specs/platform/spec.md:5,31`, `design.md:60,77,179-185`, `tasks.md:39,41,53`
+- **Por quê**: Recupera a rastreabilidade Spec→Design→Tasks→Código.
 
-Sem isso, o FIX 2 é mais um paliativo local do que um mecanismo robusto de análise parcial.
+- **O quê**: Rebaixar a claim de “refutação” do rollback ou anexar evidência Docker específica.
+- **Onde**: `proposal.md:9`, `design.md:7`, `docs/20260506_plano_env.md:529,604-611`
+- **Por quê**: Mantém a change epistemicamente correta e alinhada aos dados disponíveis.
 
-### 3.3 FIX 3: upgrade Soot 3.3.0 -> 4.7.0
+## 8. Riscos NÃO mitigados / open questions
 
-#### Julgamento geral
+- A exceção de `rv-static-analysis` standalone em `docs/20260506_plano_env.md:431` não aparece de forma consistente nas specs da change; ela é regra real ou apenas hipótese de implementação?
+- O universo “3 exceções L1” é suficiente? O código atual ainda lê `RV_PYDANTIC_STRICT` e `RV_PYDANTIC_LOG` em L1 (`modules/rv-android-core/.../validation/config.py:77,82`).
+- A change pretende migrar apenas env vars `RV_*` ou também `TOOLS_DIR`/`APERV_LLM_BASE_URL`, que hoje aparecem em tools/plugins?
+- Os testes propostos devem viver em diretórios por módulo ou em um topo `tests/` novo? O design e as tasks misturam os dois modelos.
 
-A direção é correta, mas o plano está otimista demais quanto à compatibilidade e à escolha exata da versão.
+## 9. Aprovação condicional
 
-#### O que favorece o upgrade
-
-- O GATOR está preso em `ca.mcgill.sable:soot:3.3.0`, uma linhagem antiga e descontinuada.
-- O parent já usa `org.soot-oss:soot:4.4.1`.
-- Há evidência empírica local de que CogniCrypt/CryptoAnalysis com Soot 4.6.0 não reproduz o crash imediato nos APKs problemáticos.
-- Em 2026, existe versão mais nova do Soot em Maven Central: **4.7.1**, publicada em **23 de fevereiro de 2026**. Portanto, `4.7.0` já não é a mais recente.
-
-#### Onde o plano está subestimando o risco
-
-1. O upgrade não é só "API core preservada".
-   O problema real é o conjunto:
-   - Maven mediation;
-   - troca de groupId;
-   - transitive dependencies;
-   - diferenças comportamentais em Dexpler, call graph e resolução.
-
-2. O `rvsec-gator-client` foi explicitamente desenhado para conviver com conflito de versões.
-   O `client/pom.xml` exclui `ca.mcgill.sable:soot` e `org.soot-oss:soot` de dependências para empacotar um fat JAR compatível com o runtime atual. Isso mostra que o conflito é estrutural, não acidental.
-
-3. O resto do RVSEC Android ainda referencia `flowdroid.version=2.10.0`.
-   Mesmo que o GATOR vá para 4.7.x, o ecossistema local ainda está ancorado numa linha antiga do FlowDroid. Isso cria risco de mediação Maven imprevisível, principalmente em módulos que puxam Soot transitivamente.
-
-4. Há risco de incompatibilidade de logging e dependências auxiliares.
-   A linha recente do Soot usa dependências mais novas; o ecossistema do GATOR usa `slf4j` 1.7.26 em seus poms. Isso pode não quebrar tudo, mas é uma frente real de teste.
-
-#### Classes/APIs com maior risco
-
-Pelo código local, o GATOR usa amplamente:
-
-- `Scene`, `SootClass`, `SootMethod`, `Transform`, `SceneTransformer`, `PackManager`, `Options`;
-- `soot.jimple.*`;
-- `soot.dexpler.Util` em parte da análise de intents;
-- utilitários e classes de fluxo/CFG do Soot.
-
-Ou seja, não parece um uso "mínimo" da API. Não vi dependência explícita em `TypeResolver` ou `ClassHierarchy` internos, mas o GATOR está bem acoplado ao comportamento do Soot e usa muitas APIs de análise, não apenas o núcleo superficial.
-
-#### Conclusão sobre FIX 3
-
-O upgrade é recomendável, mas **deve ser tratado como mini-migração de plataforma**, não como mera troca de versão.
-
-### 3.4 Interações negativas entre os três fixes
-
-As interações possíveis são:
-
-1. FIX 1 + FIX 2
-   Menos crashes aparentes, mas maior chance de análise "silenciosamente incompleta" sem observabilidade suficiente.
-
-2. FIX 1 + FIX 3
-   Boa sinergia. Soot mais novo + exclusões/flags defensivas é o caminho mais plausível para reduzir falhas em APKs modernos.
-
-3. FIX 2 + FIX 3
-   Pode esconder regressões estruturais do upgrade, convertendo falhas claras em resultados degradados sem alerta.
-
-4. FIX 1 + FIX 2 + FIX 3
-   É a combinação com maior chance de ganho líquido, mas também a mais difícil de depurar se aplicada toda de uma vez.
-
-## 4. Impacto na análise estática
-
-### 4.1 Impacto das exclusões em `kotlin.*` e `kotlinx.*`
-
-#### JCA
-
-Impacto provável: **baixo a moderado**.
-
-- As chamadas de interesse normalmente ficam no código do app ou em APIs Java/Android diretamente invocadas.
-- Excluir stdlib Kotlin tende a ter pouco efeito sobre a descoberta de chamadas criptográficas diretas.
-
-#### generic / generic_new
-
-Impacto provável: **moderado a alto**.
-
-- Kotlin collections, coroutines e helpers encapsulam muito comportamento intermediário.
-- Excluir esses pacotes pode cortar caminhos reais até MOPs genéricos.
-- O efeito pode ser principalmente em `reaches_mop`, não necessariamente em `reachable`.
-
-### 4.2 `ignore_resolution_errors`
-
-Benefício:
-
-- reduz abortos por classes/tipos não resolvidos;
-- é particularmente útil em apps modernos, multidex e com mistura de bibliotecas.
-
-Risco:
-
-- pode mascarar problemas reais que deveriam virar alerta;
-- pode gerar lacunas silenciosas no call graph.
-
-Mitigação mínima:
-
-- registrar contadores de classes/métodos com resolução degradada;
-- incluir um campo de qualidade no artefato JSON ou no log do wrapper.
-
-### 4.3 `throw_analysis_dalvik`
-
-Essa opção é coerente com APK/DEX e tende a melhorar correção semântica no tratamento de exceções em Android. O risco principal não é "incorreção", mas mudança de comportamento observável:
-
-- edges adicionais ou removidos no call graph;
-- diferença em reachability para código que depende fortemente de caminhos excepcionais.
-
-No contexto da spec, isso é aceitável se for:
-
-- testado por regressão;
-- comparado com baseline em APKs que já funcionam hoje.
-
-### 4.4 Qualidade do resultado parcial
-
-O plano precisa distinguir claramente três níveis de sucesso:
-
-1. `reachability` confiável;
-2. `reachability` útil, mas degradado;
-3. `windows/transitions` degradados ou ausentes.
-
-Hoje o documento fala em "análise parcial" como se fosse uma categoria única. Pela spec e pelo pipeline, isso é insuficiente. Para o RV-Android, uma análise parcial pode ser ótima para cobertura e ruim para navegação, ou o contrário.
-
-## 5. Estado da arte
-
-### 5.1 O que outros projetos fazem hoje
-
-Pelas fontes verificadas:
-
-- O `FlowDroid` atual continua ativo e recomenda usar versões recentes; o artefato `soot-infoflow-android` tem versão **2.15.1**, publicada em **23 de fevereiro de 2026**.
-- O `SootConfigForAndroid.java` público do FlowDroid mostra uso explícito de:
-  - exclusões (`java.*`, `javax.*`, `sun.*`, `android.*`, `androidx.*`, etc.);
-  - `set_no_bodies_for_excluded(true)`.
-- O próprio comentário do FlowDroid indica um trade-off histórico importante:
-  excluir `android.*` pode quebrar análise baseada em layout callbacks, mas foi reintroduzido porque removê-lo quebrava stubs do Android.
-
-Isso é relevante para o GATOR: não existe configuração "sem custo". Projetos maduros aceitam excluir partes do framework e compensam com modelagem específica.
-
-### 5.2 Há alternativa melhor que Soot 4.7.0?
-
-Para o seu cenário, sim, existem duas alternativas melhores que "subir cegamente para 4.7.0":
-
-1. **Soot 4.7.1**, não 4.7.0.
-   Em 2026-04-19, a versão mais recente disponível em Maven Central é 4.7.1, publicada em 2026-02-23.
-
-2. **Alinhar também o FlowDroid para 2.15.1** em vez de deixar o ecossistema preso em 2.10.0.
-   Isso reduz risco de incompatibilidade transiente e aproxima o RVSEC do que a cadeia moderna de análise Android realmente usa.
-
-Alternativas conceituais:
-
-- **SootUp 2.0.0** existe e é ativo, mas não é drop-in replacement para o GATOR legado. Para este projeto, é alternativa de pesquisa/reescrita, não de correção rápida.
-- **Androguard** continua sendo a melhor alternativa de fallback para reachability quando a prioridade é robustez de parsing DEX e não WTG.
-
-### 5.3 Como o FlowDroid lida com falhas e parcialidade
-
-Pelas fontes públicas verificadas:
-
-- o FlowDroid explicitamente trabalha com timeouts em etapas como callback collection e result collection;
-- isso mostra uma filosofia de degradação controlada;
-- o `SootConfigForAndroid` endurece o ambiente pela combinação de exclusões e `no_bodies_for_excluded`.
-
-Não encontrei evidência pública suficiente para afirmar, com segurança, que o FlowDroid "resolve internamente" o bug específico do `TypeResolver`. O que as fontes sustentam é:
-
-- ele endurece a configuração;
-- ele usa versões mais novas da pilha;
-- ele aceita operar com incompletude controlada em algumas fases.
-
-### 5.4 Há patch específico para `ClassHierarchy.typeNode()`?
-
-Não encontrei evidência confiável de patch oficial do Soot que corrija especificamente `ClassHierarchy.typeNode()` para esse caso.
-
-O que há é:
-
-- issue aberta desde **2018** para `InternalTypingException for Integer1Type` (`soot-oss/soot#1071`);
-- outras issues em 4.x mostrando variantes próximas;
-- evidência de que o problema foi mitigado em prática por versões mais novas e configurações defensivas, mas não claramente "consertado na raiz".
-
-### 5.5 Fontes
-
-- Soot 4.7.1 no Maven Central / MvnRepository:
-  - https://repo1.maven.org/maven2/org/soot-oss/soot/4.7.1/
-  - https://mvnrepository.com/artifact/org.soot-oss/soot/4.7.1
-- Soot 4.7.0 e histórico de versões:
-  - https://mvnrepository.com/artifact/org.soot-oss/soot/4.7.0
-  - https://repo1.maven.org/maven2/org/soot-oss/soot/
-- FlowDroid versões:
-  - https://mvnrepository.com/artifact/de.fraunhofer.sit.sse.flowdroid/soot-infoflow-android
-- FlowDroid `SootConfigForAndroid.java`:
-  - https://github.com/secure-software-engineering/FlowDroid/blob/develop/soot-infoflow-android/src/soot/jimple/infoflow/android/config/SootConfigForAndroid.java
-- FlowDroid README / configuração geral:
-  - https://github.com/secure-software-engineering/FlowDroid
-- Soot issues:
-  - https://github.com/soot-oss/soot/issues/1071
-  - https://github.com/soot-oss/soot/issues/1279
-  - https://github.com/soot-oss/soot/issues/201
-  - https://github.com/soot-oss/soot/issues/980
-  - https://github.com/soot-oss/soot/issues/2085
-
-## 6. Riscos e mitigações
-
-| Risco | Probabilidade | Impacto | Mitigação proposta |
-|---|---|---:|---|
-| FIX 2 não capturar o crash real porque `retrieveActiveBody()` ocorre fora do `catch` | Alta | Alto | Tratar falhas em nível de método, não apenas em `createOpNode()` |
-| JSON parcial não ser produzido porque o WTG quebra antes de `writeJson()` | Alta | Alto | Escrever `reachability` antes da construção do WTG ou separar pipelines |
-| Exclusão de `kotlin.*`/`kotlinx.*` degradar `generic/generic_new` | Média | Médio/Alto | Medir separadamente por spec set; tornar exclusão configurável |
-| `ignore_resolution_errors` mascarar perda de qualidade | Média | Alto | Registrar contadores de resolução degradada e expor metadados de qualidade |
-| Upgrade do GATOR conflitar com FlowDroid 2.10.0 transitivo | Alta | Alto | Alinhar FlowDroid também, preferencialmente para 2.14.1 ou 2.15.1 |
-| Mudanças de dependências do Soot 4.7.x quebrarem empacotamento do fat JAR | Média | Alto | Validar `dependency:tree`, assembly e execução do launcher antes de rollout |
-| WTG ficar estruturalmente inconsistente após pular statements/métodos | Média | Alto | Adicionar métricas de completude: widgets, listeners, transitions, windows |
-| Regressão em APKs que já funcionam hoje | Média | Alto | Rodar suíte de regressão em APKs "green" antes de ampliar cobertura |
-| Upgrade único em todo RVSEC dificultar isolamento de causa | Alta | Médio/Alto | Fazer piloto no `rvsec-gator` primeiro, depois alinhar o restante |
-| Confusão entre "resultado parcial" e "resultado confiável" | Alta | Médio | Definir critérios explícitos de qualidade por seção do JSON |
-
-### 6.1 O que pode dar errado no upgrade que não está bem documentado
-
-- Mediação Maven escolher combinações imprevistas entre Soot direto e Soot transitivo.
-- Falhas de assembly ou runtime classpath no `rvsec-analysis-client`.
-- Mudanças de comportamento em `Scene`, call graph e phantom resolution afetarem métricas sem quebrar compilação.
-- Regressões em código que usa APIs menos populares do Soot, especialmente fluxo/CFG e utilidades de Android/DEX.
-
-### 6.2 Plano de rollback recomendado
-
-1. Criar branch isolada da migração.
-2. Aplicar primeiro hardening e telemetria sem upgrade.
-3. Fazer upgrade do GATOR em branch separada, com baseline de APKs já funcionais e APKs que falham.
-4. Se a migração degradar qualidade ou estabilidade:
-   - manter FIX 1;
-   - manter endurecimento de tratamento de erro em nível de método;
-   - reverter apenas a mudança de versão do Soot/FlowDroid.
-
-O rollback precisa ser por etapa, não "tudo ou nada".
-
-## 7. Pontos positivos
-
-- O diagnóstico está bem formulado e baseado em stack trace real.
-- A comparação empírica com CogniCrypt/CryptoAnalysis é um excelente indício externo.
-- O plano identifica corretamente a fragmentação de versões do Soot no RVSEC.
-- A preocupação com dados parciais é alinhada com a necessidade prática do pipeline.
-- O documento já antecipa trade-offs por spec set e reconhece o fallback com Androguard.
-
-## 8. Pontos negativos / gaps
-
-- O FIX 2 promete mais do que o código atual permite.
-- O documento trata "partial JSON" como garantido, mas o pipeline não escreve nada antes do WTG.
-- A tabela GATOR vs FlowDroid/CryptoAnalysis mistura fatos verificados com hipóteses plausíveis.
-- A escolha exata de **4.7.0** ficou datada; em 2026-04-19 já existe **4.7.1**.
-- O plano não endereça suficientemente o desalinhamento com `flowdroid.version=2.10.0`.
-- Faltam critérios formais de qualidade mínima para aceitar uma análise parcial.
-- Falta plano de observabilidade: quantos métodos foram pulados, quantos bodies falharam, qual percentual do WTG foi perdido.
-
-## 9. Sugestões de melhoria priorizadas
-
-### P1 crítico
-
-1. Reformular o FIX 2 para nível de método/fase, não só `createOpNode()`.
-   O alvo mínimo deve incluir `currentMethod.retrieveActiveBody()` e registrar métricas de falha.
-
-2. Separar a geração de `reachability` da geração de `windows/transitions`.
-   Se `reachability` é o dado mais crítico segundo a spec, ele precisa ser serializado antes do WTG.
-
-3. Alinhar a migração de dependências com o ecossistema Android real.
-   Em vez de "Soot 4.7.0 no projeto inteiro", prefira:
-   - piloto do GATOR com **Soot 4.7.1**;
-   - depois alinhar FlowDroid para **2.15.1** ou no mínimo **2.14.1**.
-
-4. Tornar os resultados degradados observáveis.
-   Adicionar contadores como:
-   - methods_failed_body_load
-   - statements_skipped
-   - widgets_extracted
-   - listeners_extracted
-   - transitions_extracted
-
-### P2 importante
-
-5. Fazer matriz de testes por spec set.
-   Separar ao menos:
-   - JCA;
-   - generic;
-   - generic_new.
-
-6. Tornar exclusões configuráveis por perfil.
-   Exemplo:
-   - perfil robustez: exclui `kotlin.*`/`kotlinx.*`;
-   - perfil precisão: tenta analisar mais bibliotecas.
-
-7. Validar a qualidade em APKs que já funcionam hoje.
-   O objetivo não é só aumentar throughput, mas preservar fidelidade em casos bons.
-
-8. Atualizar o pré-plano para distinguir claramente:
-   - hipótese;
-   - fato confirmado por código local;
-   - fato confirmado por fonte externa;
-   - inferência a partir de teste empírico.
-
-### P3 nice-to-have
-
-9. Definir um score de qualidade do JSON.
-   Exemplo:
-   - `quality.reachability = full|partial|failed`
-   - `quality.windows = full|partial|failed`
-   - `quality.transitions = full|partial|failed`
-
-10. Formalizar o fallback Androguard como plano B de produção.
-   Isso reduz pressão para fazer o GATOR resolver tudo de uma vez.
-
-## 10. Conclusão e recomendação final
-
-O pré-plano está bem encaminhado e ataca a direção correta, mas **não deve ser executado literalmente como está**. O maior problema é o descompasso entre o que o documento promete e o que o código atual realmente permite, sobretudo no FIX 2 e na ideia de "JSON parcial".
-
-Minha recomendação final é:
-
-- **Aprovar a iniciativa**, porque o problema é real e a solução proposta é plausível.
-- **Rejeitar a implementação em bloco dos três fixes sem refinamento**.
-- **Reescrever o plano de execução** em duas etapas:
-  1. endurecimento + observabilidade + parcialidade real;
-  2. migração de dependências alinhada com FlowDroid moderno.
-
-Se eu tivesse que priorizar um caminho de execução, seria:
-
-1. FIX 1 com instrumentação de métricas;
-2. reescrita do FIX 2 para tolerância em nível de método e serialização antecipada de `reachability`;
-3. piloto do GATOR em **Soot 4.7.1**;
-4. depois alinhamento de `flowdroid.version` para **2.15.1**;
-5. só então considerar unificação do RVSEC inteiro.
-
-Essa abordagem reduz risco, melhora a rastreabilidade e aumenta a chance de obter ganho real sem degradar silenciosamente a análise estática.
+1. Unificar o contrato do Humanoid em todos os artefatos, incluindo nome da chave, local de resolução e cenários de teste.
+2. Corrigir as operações delta da spec de experiment e core para refletirem a baseline real.
+3. Especificar um lint capaz de detectar todas as leituras de ambiente relevantes e listar explicitamente as exceções autorizadas.
+4. Reancorar design/tasks nos símbolos e paths reais do repositório atual, distinguindo claramente arquivos existentes de arquivos NEW.
+5. Reescrever a narrativa empírica do AVD para não ultrapassar a evidência disponível, mantendo H4 e `>=100 APKs/dataset` como bloqueios explícitos de merge.

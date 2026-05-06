@@ -1,67 +1,128 @@
-# Relatório de Análise: Atualização GATOR/Soot para APKs Modernos
+# Análise da change gh55-env-purity-avd-api30
 
-## 1. Resumo Executivo
-Este relatório analisa o pré-plano de atualização do módulo GATOR (Soot-based static analysis) para suportar APKs modernos (Kotlin, Compose, TargetSDK 35+). O diagnóstico aponta que o GATOR crasha em 72.4% dos APKs devido a um `InternalTypingException` no Soot 3.3.0 ao processar bytecode Kotlin. A estratégia proposta combina: (1) opções defensivas no Soot, (2) tratamento de erros gracioso no FlowGraph, e (3) upgrade para Soot 4.7.0. A análise confirma a viabilidade técnica e o alto impacto esperado (aumento da taxa de sucesso de 27.6% para >50%), alinhando-se às necessidades da tese de doutorado.
+**Modelo**: gemini-2.0-flash-thinking-exp
+**Data**: 2026-05-06
+**Veredito geral**: APROVADA COM RESSALVAS
 
-## 2. Análise de Consistência
-O pré-plano é altamente consistente e demonstra um entendimento profundo da causa raiz.
-- **Rastreabilidade**: O fluxo do crash foi mapeado desde o entrypoint do GATOR até o `TypeResolver` do Soot.
-- **Alinhamento com Spec**: As mudanças propostas respeitam a especificação de análise estática (`analysis/spec.md`), garantindo que a "reachability" continue sendo o denominador de cobertura (FR04-FR06).
-- **Evidência Empírica**: A validação com CogniCrypt 5.0.1 (Soot 4.6.0) provou que o upgrade de versão, combinado com flags defensivas, elimina o crash fatal nos mesmos APKs que falham no GATOR atual.
+## 1. Sumário executivo
+- **Consolidação γ**: A decisão de consolidar o refator de Env Vars e o bump de AVD é tecnicamente sound, dado que compartilham artefatos Docker e infraestrutura de CI.
+- **Rigor Empírico**: A claim de "0 regressões" e ganho de 35% em APKs modernos (API 30) foi verificada e confirmada via auditoria dos CSVs de investigação (n=80).
+- **Layer Purity**: A mudança impõe uma disciplina arquitetural necessária (env reads só em L5/L1), eliminando silent failures documentados.
+- **Divergência Menor**: Identificada discrepância quantitativa entre a proposta (10 novas constantes) e as tarefas/plano real (13 novas constantes).
+- **Rastreabilidade**: Excelente mapeamento entre Invariantes, Especificação, Design e Testes.
 
-## 3. Análise Técnica dos Fixes
+## 2. Pontos fortes
+- **Aderência Estrita a P3**: A change não hesita em remover código morto e variáveis obsoletas (`RV_MEMORY_FILE`, `RV_JCA_SPEC`), seguindo o princípio de "No Backward Compatibility" (tasks 1.3, 5.3, 8.8).
+- **Garantias de Runtime**: O uso de `ConfigDict(extra="forbid")` (INV-CORE-32) em conjunto com a validação do entrypoint (INV-EXP-31) cria uma barreira robusta contra typos e configurações zumbis.
+- **Infraestrutura de Teste**: A criação de um lint específico (`check_env_vars_drift.py`) garante que a pureza de camadas não seja degradada por novos commits (INV-EXP-30/INV-TOOL-20).
+- **Evidência Empírica**: A refutação do diagnóstico anterior (OverlayFS como bloqueador) baseia-se em dados frescos e reproduzíveis (`results/avd_compat_investigation/`).
 
-### FIX 1: Opções Soot Defensivas
-- **Eficácia**: Desabilitar `jb.sils` e `jb.dae` é uma prática recomendada em APKs problemáticos, pois essas sub-fases de transformação do Jimple Body são conhecidas por disparar erros de inferência de tipos em bytecode complexo.
-- **Efeito Colateral**: Pode haver uma leve degradação na "limpeza" do código Jimple gerado, mas para fins de Call Graph (CHA), o impacto na precisão é negligenciável.
-- **Exclusões**: Excluir `kotlin.*` e `kotlinx.*` do processamento de corpos (bodies) é crítico para evitar o `InternalTypingException` na biblioteca padrão do Kotlin, mantendo a análise focada no código da aplicação.
+## 3. Pontos fracos / Problemas
 
-### FIX 2: Tratamento Gracioso (Flowgraph.java)
-- **Segurança**: Trocar `throw` por `continue` no loop de métodos é seguro. O GATOR é projetado para lidar com grafos de interface parcialmente construídos. Perder um statement GUI é preferível a perder a análise completa do APK.
-- **JSON íntegro**: Como o `RvsecAnalysisClient` escreve o JSON em seções com `flush()`, garantir que ele chegue ao estágio de escrita é o objetivo primordial.
+- **Problema 1**:
+    - **Severidade**: Baixa
+    - **Categoria**: estrutural
+    - **Descrição**: Inconsistência quantitativa no inventário de constantes.
+    - **Evidência**: `proposal.md` cita "10 new constants", enquanto `tasks.md:1.2` e a conta matemática baseada em `plano_env.md` §3.1 indicam 13 constantes novas.
+    - **Impacto**: Confusão menor durante a conferência manual do commit.
+    - **Sugestão**: Atualizar `proposal.md` para refletir o número correto (13).
 
-### FIX 3: Upgrade Soot 4.7.0
-- **Compatibilidade**: A API core do Soot (Scene, SootClass, SootMethod) é estável entre 3.x e 4.x. A maior mudança está no pipeline Dexpler e no suporte a Java 8+ bytecode.
-- **Unificação**: Mover de `ca.mcgill.sable` (morto) para `org.soot-oss` resolve conflitos de classpath e permite remover as exclusões manuais no `pom.xml` do client.
-- **Risco de API**: `soot.dexpler.Util` (usado no `EpiccBasedIntentAnalysis`) deve ser verificado, mas o uso é simples (`splitParameters`, `getType`) e costuma ser preservado.
+- **Problema 2**:
+    - **Severidade**: Média
+    - **Categoria**: completude
+    - **Descrição**: Violations de Layer Purity adicionais detectadas em ferramentas além da `humanoid`.
+    - **Evidência**: `modules/rv-tools/src/rv_tools/builtin/{ape,droidmate,fastbot}/tool.py` contêm leituras de `TOOLS_DIR` via `os.environ.get`.
+    - **Impacto**: Se não corrigidas, estas ferramentas continuam violando o INV-TOOL-20, mantendo dependências ocultas do ambiente.
+    - **Sugestão**: Expandir a Task 4.8 para citar explicitamente a migração de `TOOLS_DIR` para o canal `parameters` ou registrá-la como exceção L1 (não recomendado).
 
-## 4. Impacto na Análise Estática
-- **JCA Specs**: Impacto positivo. O aumento na taxa de sucesso da análise permitirá medir a cobertura de criptografia em centenas de novos APKs.
-- **Reachability**: A precisão do Call Graph CHA não deve ser afetada negativamente pelas flags defensivas.
-- **WTG**: O FlowGraph parcial pode gerar WTGs com menos arestas em métodos Kotlin complexos, mas a estrutura principal da aplicação (Activities, Services, Providers) será preservada.
+- **Problema 3**:
+    - **Severidade**: Baixa
+    - **Categoria**: rastreabilidade
+    - **Descrição**: Critérios de aceitação detalhados (Grupos A-H) estão ausentes dos artefatos SDD.
+    - **Evidência**: `openspec/changes/gh55-.../` não contém a lista A-H presente em `docs/20260506_plano_env.md` §7.
+    - **Impacto**: O auditor/revisor do PR precisa saltar para documentos de Phase 0 para entender o critério de sucesso final.
+    - **Sugestão**: Referenciar explicitamente os 8 grupos A-H no `design.md` §7.
 
-## 5. Estado da Arte (Referências)
-- **FlowDroid 2.14.1+**: Utiliza Soot 4.6.0+ e as mesmas flags defensivas (`ignore_resolution_errors`, `no_bodies_for_excluded`) por padrão para lidar com Android moderno.
-- **Soot Issues**: Conforme verificado nas issues [#1071](https://github.com/soot-oss/soot/issues/1071) e [#262](https://github.com/soot-oss/soot/issues/262), o bug do `TypeResolver` ainda existe tecnicamente em 4.x, mas melhorias no `LocalSplitter` e `Dexpler` tornam sua ocorrência muito mais rara, especialmente com as flags do FIX 1.
-- **CryptoAnalysis (CogniCrypt)**: O sucesso documentado no teste empírico (2026-04-19) confirma que a stack Soot 4.x é o padrão atual para análise robusta de APKs.
+## 4. Análise por dimensão
 
-## 6. Riscos e Mitigações
+### 4.1 CONSISTÊNCIA INTERNA
+A change é altamente consistente. Os Invariantes declarados nas Specs (INV-CORE-30 a INV-TOOL-21) estão perfeitamente mapeados na tabela de Design e refletidos em tarefas unitárias em `tasks.md`. A única falha é a contagem de constantes em `proposal.md` vs `tasks.md`.
 
-| Risco | Probabilidade | Impacto | Mitigação |
-|-------|---------------|---------|-----------|
-| Quebra de API em classes internas (`soot.jimple.toolkits.*`) | Média | Médio | Corrigir refs pontualmente durante compilação. |
-| Incompatibilidade com FlowDroid 2.10.0 | Alta | Médio | Se necessário, atualizar FlowDroid para 2.14.1 simultaneamente. |
-| Perda de arestas no WTG por `continue` | Baixa | Baixo | Logar statements pulados para monitorar volume de perda. |
-| Conflitos de dependências (Guava/Slf4j) | Média | Baixo | Ajustar versões no parent pom para serem compatíveis com Soot 4.7.0. |
+### 4.2 COERÊNCIA COM PHASE 0
+O alinhamento com `docs/20260506_plano_env.md` é total. As decisões tomadas em Phase 0 (cleanup de mortas, Layer Purity, Opção B para AVD) foram transpostas sem distorções para a change SDD.
 
-## 7. Pontos Positivos
-- **Diagnóstico Preciso**: Identificou a linha exata do crash e a causa semântica (Kotlin type inference).
-- **Abordagem Multi-camada**: Não aposta em um único fix; a combinação de upgrade + flags + try-catch é muito resiliente.
-- **Validação Antecipada**: O teste com CogniCrypt remove a incerteza sobre a eficácia do upgrade de versão.
+### 4.3 AMBIGUIDADES
+O texto é técnico e direto. O uso de "Audit" na Task 4.8 é aceitável pois é seguido de um "migrate similarly", embora a detecção de `TOOLS_DIR` durante a auditoria gemini sugira que a lista de infratores poderia ser pré-populada para evitar escapes.
 
-## 8. Pontos Negativos / Gaps
-- **FlowDroid**: O plano não detalha se a atualização do Soot obrigará a atualização do FlowDroid. Como o FlowDroid 2.10.0 é antigo, o risco de incompatibilidade é real.
-- **Deprecação**: O plano menciona comentar módulos deprecados (`rvsec-methods-extractor`), o que é bom, mas deveria ser feito ANTES de tentar compilar o upgrade.
-- **Androguard**: O fallback Androguard (W5) é excelente, mas o custo de implementação é alto. Deveria ser mantido estritamente como plano B.
+### 4.4 RASTREABILIDADE
+Exemplar. Cada requisito técnico tem um teste correspondente planejado. A estrutura segue rigorosamente o schema `rv-sdd`.
 
-## 9. Sugestões de Melhoria Priorizadas
-- **P1 (Crítico)**: Unificar a versão do Soot no `rvsec/pom.xml` para **4.7.0** e garantir que todos os sub-módulos usem `${soot.version}`.
-- **P1 (Crítico)**: Aplicar o `continue` no `Flowgraph.java` imediatamente; é o "safety net" mais rápido.
-- **P2 (Importante)**: Atualizar o FlowDroid para **2.14.1** ou **2.15.1** para garantir compatibilidade com o Soot novo.
-- **P3 (Nice-to-have)**: Adicionar um contador de "Skipped Statements" no log do GATOR para quantificar a perda de dados parcial.
+### 4.5 TESTABILIDADE
+Os critérios de aceitação definidos no plano (e referenciados) são determinísticos (exit codes, counts, grep matches). Não há termos subjetivos como "melhorado" sem métrica associada.
 
-## 10. Conclusão e Recomendação Final
-O plano é **aprovado para implementação**. A estratégia é sólida, tecnicamente fundamentada e resolve um gargalo crítico do projeto. Recomenda-se iniciar pelo **FF SDD (Fast-Forward)** aplicando os FIX 1 e 2, seguido pelo upgrade de versão (FIX 3) em uma tarefa dedicada de integração.
+### 4.6 SOUNDNESS
+A inferência de que API 30 é viável baseia-se em n=80 com 0 regressões. Isso é estatisticamente robusto o suficiente para o estágio atual, especialmente com o gate de n=200 planejado antes do merge final.
 
----
-*Análise realizada pelo Gemini CLI em 2026-04-19.*
+### 4.7 COMPLETUDE
+A change cobre o ciclo de vida completo: backups, implementação, testes unitários, testes de integração, lint e documentação. A inclusão do ADR 0001 fecha a lacuna de "por quê".
+
+### 4.8 ESCOPO
+A consolidação em uma única change γ é correta. Separar Env Var de AVD exigiria dois ciclos de build de imagem Docker e modificações conflitantes em `docker-entrypoint.sh`.
+
+### 4.9 RISCOS
+Os riscos de incompatibilidade (especialmente `ape`) são mitigados pelo Gate H4 (Task 6.5). O risco de quebra de composes externos é mitigado pelo erro fatal (exit 64) no entrypoint.
+
+### 4.10 PRINCÍPIOS (P1-P4)
+- **P1**: Design simples, aproveitando Pydantic nativo.
+- **P2**: Specs narrativas explicam o problema do "silent failure".
+- **P3**: Remoção agressiva de legado (`JCA_SPEC`) com backups explícitos.
+- **P4**: Task 6.2 limpa histórico de rollback, mantendo foco no estado atual.
+
+### 4.11 BREAKING CHANGES
+Claramente listadas e documentadas. O impacto no `docker-entrypoint.sh` é a maior breaking change, mas o benefício da unificação justifica o custo.
+
+### 4.12 INFRAESTRUTURA DE LINT
+O script `check_env_vars_drift.py` é o "herói não cantado" desta change, pois automatiza a manutenção da Layer Purity, transformando uma regra arquitetural em um gate de CI.
+
+## 5. Riscos + mitigação
+| Risco | Probabilidade | Impacto | Mitigação proposta | Já contemplado? |
+|-------|---------------|---------|--------------------|-----------------|
+| Incompatibilidade de ferramentas (ape/fastbot) em API 30 | Média | Alta | Smoke matrix (Gate H4) com 5 APKs/60min | Sim (Task 6.5) |
+| Regressão em dataset maior (n=200) | Baixa | Média | Rodar investigação ampliada antes de merge | Sim (Task 6.6) |
+| Quebra de scripts externos que usam vars removidas | Média | Baixa | Exit 64 com mensagem de erro clara e sugestão | Sim (INV-EXP-31) |
+| TOOLS_DIR continuar lida via env em L2 | Alta | Baixa | Incluir TOOLS_DIR no saneamento de env vars | Parcial (via task 4.8) |
+
+## 6. Auditoria de critérios de aceitação
+(Baseado em `docs/20260506_plano_env.md` §7)
+- **Grupo A (Inventário)**: Verificável? Sim. Determinístico? Sim. (Via lint).
+- **Grupo B (Cleanup)**: Verificável? Sim. Determinístico? Sim. (Via grep hits=0).
+- **Grupo C (Centralização)**: Verificável? Sim. Determinístico? Sim. (Via grep strings=0).
+- **Grupo D (Flags)**: Verificável? Sim. Determinístico? Sim. (Via testes de precedência).
+- **Grupo E (Layer Purity)**: Verificável? Sim. Determinístico? Sim. (Via lint/grep).
+- **Grupo F (Validação Strict)**: Verificável? Sim. Determinístico? Sim. (Via testes de saída 64).
+- **Grupo G (Sem Backcompat)**: Verificável? Sim. Determinístico? Sim. (Inspecção de tasks).
+- **Grupo H (Doc Canônica)**: Verificável? Sim. Determinístico? Sim. (Checklist de arquivos).
+
+## 7. Sugestões de melhoria
+- **O quê**: Corrigir contagem de constantes (10 -> 13).
+  - **Onde**: `proposal.md` seção "Env var / Layer Purity".
+  - **Por quê**: Precisão documental.
+- **O quê**: Listar explicitamente `TOOLS_DIR` como variável a ser migrada para `parameters`.
+  - **Onde**: `tasks.md` seção 4.8.
+  - **Por quê**: Detectadas violations em `ape`, `droidmate` e `fastbot` durante auditoria.
+- **O quê**: Incluir seção de Acceptance Criteria referenciando Phase 0.
+  - **Onde**: `design.md` após a tabela de Mapping.
+  - **Por quê**: Centralizar critérios de sucesso no artefato de design.
+- **O quê**: Reescrita de comentário histórico em `android.py:151`.
+  - **Onde**: `modules/rv-android-core/src/rv_android_core/util/android/android.py`.
+  - **Por quê**: Conformidade P4 (remover menção a commit de rollback gh50).
+
+## 8. Riscos NÃO mitigados / open questions
+- **Performance**: O bump para API 30 x86_64 pode exigir mais recursos de CPU do host (NDK Translation em runtime, embora não estejamos usando a imagem playstore). Não há teste de performance planejado.
+- **Arm-only APKs**: A change decide manter `google_apis` (sem NDK Translation total). APKs que dependem exclusivamente de bibliotecas nativas ARM não-emuladas continuarão falhando.
+
+## 9. Aprovação condicional
+O veredito passará a **APROVADA** se:
+1. A Task 4.8 for atualizada para tratar especificamente a variável `TOOLS_DIR` encontrada em múltiplos plugins.
+2. A discrepância de contagem (10 vs 13) for resolvida.
+3. Os critérios de aceitação (A-H) forem referenciados ou incluídos no Design.
