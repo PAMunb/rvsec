@@ -494,8 +494,13 @@ git -C . status --short | grep -E "openspec/changes|openspec/specs"
    - Phase B: install validation no emulador (`scripts/validate_ajc_apks_install.py`) ✅ done
    - Phase C: comparison study ajc-vs-dexlib2 (`run_jca_compare`, `validacao_full`) ✅ done — confirma regressão categoria-específica
    - **NOTA**: Phase C da sessão paralela ≠ Phase 5 do gh52 §16. Phase 5 (validator Layer 1-5) **ainda precisa rodar** independentemente.
-3. **Sessão futura (Phase 5 + batch final)**:
-   - gh52 §16 Phase 5 — Validation execution (Layer 1-5 do Maven validator harness)
+3. **Sessão futura (Phase 5 minimal + batch final)**:
+   - **Phase 5 minimal** (decisão 2026-05-06): Layer-3, Layer-4, Layer-5 SUBSTITUÍDOS por evidência empírica de `out/run_jca_combined/` + `out/validacao_full_consolidated/`. Apenas execuções que ficam:
+     - 16.3 parity check `.aj ↔ .json` (~1min)
+     - 16.4 Layer-1 BaksmaliDiffer 30 APKs (~30min)
+     - 16.5 Layer-2 BootValidator 30 APKs (~1h, opcional — pode também ser substituído por 1500+ task install/boot já feitos)
+     - 16.9 promover `[~]→[x]`: atualizar `docs/20260426_dexlib2_validation_results.md` §5 com Layer-1/2 outputs + cite empirical substitution para Layer-3/4/5
+     - 16.10 `openspec verify gh52` (~5min)
    - gh52 17.1-17.7 (Phase 6 default flip)
    - gh52 18.1-18.15 (final QA)
    - Archive batch: gh50 → gh52 → gh53 (ordem obrigatória)
