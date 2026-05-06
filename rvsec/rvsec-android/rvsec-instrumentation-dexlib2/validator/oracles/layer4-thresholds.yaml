@@ -2,7 +2,7 @@ name: layer4-thresholds
 description: |
   Pre-registered per-metric equivalence bounds for the Layer-4 batch run
   (BatchValidator over JCA-400 × 3 tools × 3 reps). Committed BEFORE any
-  batch run so the pre-registration is auditable via git log (INV-INS-21).
+  batch run so the pre-registration is auditable via git log (INV-INS-58).
 
   Methodology: paired Wilcoxon signed-rank Two One-Sided Tests (TOST) per
   spec at α = 0.05. Equivalence is declared when both one-sided null
@@ -12,7 +12,7 @@ description: |
 provenance:
   source: rv-android/docs/20260423_plano_validacao.md §Camada 4
   decision: ADR-DEX-NATIVE D6 (validation methodology)
-  invariant: INV-INS-21
+  invariant: INV-INS-58
   pre_registered_on: 2026-04-25  # date this file was committed
 
 statistical_test:

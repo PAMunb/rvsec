@@ -18,7 +18,7 @@ import java.util.zip.ZipFile;
 /**
  * Layer-4 preflight: projects post-weaving method-ref counts per DEX in
  * every candidate APK and flags any host DEX that would cross 65,000
- * refs after adding the monitor invokes + wrapper class (INV-INS-25).
+ * refs after adding the monitor invokes + wrapper class (INV-INS-62).
  *
  * <p>The per-APK projection adds {@code (numAdvices × 2) +
  * (coverageMethods ≈ 1)} method-ref estimates to the host DEX's

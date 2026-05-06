@@ -26,7 +26,7 @@ public final class AfterReturningEmitter implements AdviceEmitter {
         // return value into a register; the matcher records that register in
         // `match.argBindings` for the bound `returning(<type> r)` parameter,
         // and `MonitorInvokeBuilder.buildInvoke` forwards it directly. The
-        // injector skips past the existing `move-result*` (INV-INS-27) so we
+        // injector skips past the existing `move-result*` (INV-INS-64) so we
         // land AFTER the capture.
         //
         // Therefore no scratch register is required for the common case where
@@ -35,7 +35,7 @@ public final class AfterReturningEmitter implements AdviceEmitter {
         // capture a return into a fresh register (e.g. when the matched call
         // discards the result, or the destination is at a high index that
         // exceeds Format35c's 4-bit field) will need to coordinate a real
-        // spill via the allocator (INV-INS-26 follow-up); raising
+        // spill via the allocator (INV-INS-63 follow-up); raising
         // RegisterRequest.scratch(1) without a corresponding emit-time use of
         // that register only triggered the buggy bumpRegisterCount path
         // (cryptoapp Preconditions VerifyError) without buying anything.

@@ -250,20 +250,20 @@ def get_instrumenter(variant: str, config) -> Instrumenter:
 
 `openspec/specs/instrumentation/spec.md` e `openspec/specs/experiment/spec.md` ainda descrevem o estado pré-gh50/gh52. gh53 **não toca** essas specs, apenas registra delta em `openspec/changes/gh53-consolidacao-instrumentation/specs/instrumentation/spec.md`. Reconciliação via `/opsx:sync` quando todas as changes (gh50, gh51, gh52, gh53) forem arquivadas.
 
-### Dívida herdada gh52 INV-INS-18 — fora do escopo (supersession explícita)
+### Dívida herdada gh52 INV-INS-55 — fora do escopo (supersession explícita)
 
-A spec gh52 INV-INS-18 textualmente exige (a) `variant` required (sem default) E (b) `model_validator(mode="before")` em `InstrumentationResults` para retrocompat de JSONs antigos sem `variant`. **O código real implementa via `variant: str = Field(default="ajc")`** — campo `str` sem `Literal` e sem validator. Verificado em `modules/rv-instrumentation/src/rv_instrumentation/config.py:153-162` (2026-05-01).
+A spec gh52 INV-INS-55 textualmente exige (a) `variant` required (sem default) E (b) `model_validator(mode="before")` em `InstrumentationResults` para retrocompat de JSONs antigos sem `variant`. **O código real implementa via `variant: str = Field(default="ajc")`** — campo `str` sem `Literal` e sem validator. Verificado em `modules/rv-instrumentation/src/rv_instrumentation/config.py:153-162` (2026-05-01).
 
 **Decisão de supersession formal**:
 
 1. **gh53 carrega o estado real (`Field(default="ajc")`) byte-identical** para `rv-instrumentation-core/results.py`. Não introduz `Literal[...]`, não adiciona validator. A delta spec da gh53 (`specs/instrumentation/spec.md` §INV-INS-39 e Migration Requirements) descreve esse mecanismo como o contrato de retrocompat.
-2. **gh52 INV-INS-18 permanece in-flight com texto divergente**. Para evitar duas specs in-flight contraditórias após archive, **uma das duas rotas deve ser executada antes do archive de gh52**:
+2. **gh52 INV-INS-55 permanece in-flight com texto divergente**. Para evitar duas specs in-flight contraditórias após archive, **uma das duas rotas deve ser executada antes do archive de gh52**:
    - **(α)** gh52 implementa o requisito original em Phase 5/6 (promove para `Literal["ajc","dexlib2"]` + adiciona `model_validator`), substituindo o `Field(default="ajc")` que gh53 carrega forward.
-   - **(β)** gh52 amenda INV-INS-18 para descrever o estado real (`Field(default="ajc")`), reconhecendo que o validator nunca foi necessário (o `default` cobre o caso retrocompat funcionalmente).
+   - **(β)** gh52 amenda INV-INS-55 para descrever o estado real (`Field(default="ajc")`), reconhecendo que o validator nunca foi necessário (o `default` cobre o caso retrocompat funcionalmente).
 3. **gh53 NÃO escolhe entre (α) e (β)**. A escolha pertence à gh52 com mais informação (resultados Phase 5).
-4. **Tarefa de saída**: o archive de gh52 (futuro) deve resolver o estado de INV-INS-18 antes de `/opsx:archive`. Esta nota é o ponteiro autoritativo para essa dependência cruzada.
+4. **Tarefa de saída**: o archive de gh52 (futuro) deve resolver o estado de INV-INS-55 antes de `/opsx:archive`. Esta nota é o ponteiro autoritativo para essa dependência cruzada.
 
-Documentação adicional em design.md §"Dívida herdada gh52 INV-INS-18" e RISKS.md §RISK-003.
+Documentação adicional em design.md §"Dívida herdada gh52 INV-INS-55" e RISKS.md §RISK-003.
 
 ## Capabilities
 
@@ -334,6 +334,6 @@ Nenhuma capability nova.
 - Bump de versão Docker
 - Reconciliação de specs autoritativas com gh50+gh52 (esperar archives)
 - Upstream do patch javamop
-- Fechar dívida gh52 INV-INS-18 (`Field` vs `model_validator`)
+- Fechar dívida gh52 INV-INS-55 (`Field` vs `model_validator`)
 - gh52 task §17.2 (rename `rv-instrumentation-dexlib2` → `rv-instrumentation`) — colide com este change; gh52 Phase 6 resolve
 - Promover ABC `Instrumenter` para registry pattern (deferido). Threshold canônico: 3ª variant concreta materializando é gatilho para revisão; 4ª variant é sinal definitivo

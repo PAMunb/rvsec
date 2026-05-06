@@ -61,7 +61,7 @@ class InstrumentationResults(BaseValidatedModel):
             "Instrumentation variant that produced this result: 'ajc' (legacy "
             "dex2jar+ajc+d8 pipeline) or 'dexlib2' (gh52 DEX-native pipeline). "
             "Required attribute on producing paths — every pipeline writes its "
-            "own variant tag explicitly (INV-INS-18). Legacy JSON without this "
+            "own variant tag explicitly (INV-INS-55). Legacy JSON without this "
             "field is handled by the retrocompat validator below."
         ),
     )
@@ -69,7 +69,7 @@ class InstrumentationResults(BaseValidatedModel):
     @model_validator(mode="before")
     @classmethod
     def _inject_legacy_variant_default(cls, data: Any) -> Any:
-        # INV-INS-18: legacy InstrumentationResults JSON written before gh52
+        # INV-INS-55: legacy InstrumentationResults JSON written before gh52
         # carries no `variant` key. Such payloads MUST deserialize as the
         # legacy `ajc` pipeline so downstream consumers do not see undefined
         # variants when re-loading historical results. The required Field

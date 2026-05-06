@@ -37,7 +37,7 @@ class EmitPlanShapeTest {
 
     @Test
     void afterReturningEmitterRequestsNoScratchRegister() {
-        // INV-INS-29 / D5: AFTER advice with returning() flows through the
+        // INV-INS-66 / D5: AFTER advice with returning() flows through the
         // wrapper-substitution path (mop.MonitorWrappers.X), which captures
         // the original return value in the wrapper's local frame. The inline
         // emitter therefore does NOT need to allocate a caller-side scratch

@@ -12,7 +12,7 @@
 
     <artifactId>multidex-merger</artifactId>
     <name>RVSec :: Android :: Instrumentation (dexlib2) :: multidex-merger</name>
-    <description>Repacks woven DEX files into the target APK, runs zipalign for 4-byte alignment, and signs with apksigner v3. Preserves multidex split decisions (INV-INS-15).</description>
+    <description>Repacks woven DEX files into the target APK, runs zipalign for 4-byte alignment, and signs with apksigner v3. Preserves multidex split decisions (INV-INS-52).</description>
 
     <dependencies>
         <dependency>

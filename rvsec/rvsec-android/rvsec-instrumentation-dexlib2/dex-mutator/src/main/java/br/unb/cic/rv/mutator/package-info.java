@@ -9,7 +9,7 @@
  *       (insertBefore / insertAfter / replaceInvoke) on a method implementation.</li>
  *   <li>{@link br.unb.cic.rv.mutator.RegisterShifter} — bumps {@code registerCount}
  *       via reflection and expands 4-bit register-index overflows to the
- *       wider {@code /from16} / {@code /from32} formats (INV-INS-16).</li>
+ *       wider {@code /from16} / {@code /from32} formats (INV-INS-53).</li>
  *   <li>{@link br.unb.cic.rv.mutator.RegisterAllocator} — decides which scratch
  *       registers an {@link br.unb.cic.rv.emitter.EmitPlan} gets; invokes
  *       {@code RegisterShifter} only when the method doesn't already have

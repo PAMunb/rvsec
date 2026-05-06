@@ -20,7 +20,7 @@ import java.util.stream.Stream;
  *
  * <p>Called at Phase-5 time to keep the inventory in sync with the spec
  * corpus. The diff between the regenerated and committed versions must be
- * empty in CI (INV-INS-17).
+ * empty in CI (INV-INS-54).
  *
  * <p>Spec-set agnostic: scans every {@code .mop} / {@code .aj} file under
  * the provided root, including JCA and Generic subdirectories.

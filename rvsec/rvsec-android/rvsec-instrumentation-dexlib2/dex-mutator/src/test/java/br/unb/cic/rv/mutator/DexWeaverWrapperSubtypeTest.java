@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
- * INV-INS-31 phase 2: when an instance wrapper is registered for a parent
+ * INV-INS-68 phase 2: when an instance wrapper is registered for a parent
  * class (e.g. {@code Base.doFinal([B)[B}) and the APK declares a subclass
  * {@code Sub extends Base}, calling
  * {@link DexWeaver#expandWrapperReplacementsForApk(InheritanceResolver)} must

@@ -8,7 +8,7 @@ import java.util.List;
  *
  * <p>Matches the filter baked into the legacy {@code Coverage.aj} so that
  * {@code RVSEC-COV} recall stays equivalent across the {@code ajc} and
- * {@code dexlib2} variants (INV-INS-16 / Layer-5 gate).
+ * {@code dexlib2} variants (INV-INS-53 / Layer-5 gate).
  *
  * <p>Excluded prefixes cover the runtime, the generated monitor namespace,
  * and the Android/Kotlin/Google support libraries — any method inside these

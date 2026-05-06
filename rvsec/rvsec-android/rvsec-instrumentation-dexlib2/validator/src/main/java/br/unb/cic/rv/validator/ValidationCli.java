@@ -66,7 +66,7 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "mapping", description = "Enforce INV-INS-17 mapping closure.")
+    @Command(name = "mapping", description = "Enforce INV-INS-54 mapping closure.")
     public static final class Mapping implements Runnable {
         @Option(names = "--inventory", required = true) Path inventory;
         @Option(names = "--mapping", required = true) Path mapping;
@@ -84,7 +84,7 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "parity", description = "Enforce INV-INS-19 .aj ↔ .json parity.")
+    @Command(name = "parity", description = "Enforce INV-INS-56 .aj ↔ .json parity.")
     public static final class Parity implements Runnable {
         @Option(names = "--aj", required = true) Path aj;
         @Option(names = "--json", required = true) Path json;
@@ -101,7 +101,7 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "oracles", description = "Enforce INV-INS-22 oracle diversity.")
+    @Command(name = "oracles", description = "Enforce INV-INS-59 oracle diversity.")
     public static final class Oracles implements Runnable {
         @Option(names = "--dir", required = true) Path oracleDir;
         @picocli.CommandLine.ParentCommand ValidationCli parent;
@@ -117,7 +117,7 @@ public final class ValidationCli implements Runnable {
         }
     }
 
-    @Command(name = "preflight", description = "INV-INS-25 Layer-4 method-ref audit.")
+    @Command(name = "preflight", description = "INV-INS-62 Layer-4 method-ref audit.")
     public static final class Preflight implements Runnable {
         @Parameters(index = "0", description = "Directory of candidate APKs") Path apkDir;
         @Option(names = "--projected-added-refs", defaultValue = "250") int projected;

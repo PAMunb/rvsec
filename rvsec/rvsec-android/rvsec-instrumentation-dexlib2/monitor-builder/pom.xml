@@ -12,7 +12,7 @@
 
     <artifactId>monitor-builder</artifactId>
     <name>RVSec :: Android :: Instrumentation (dexlib2) :: monitor-builder</name>
-    <description>Compiles the generated monitor + wrapper Java sources to .class via javac then to .dex via the Android SDK d8 tool. Also emits the mop.Coverage runtime class with a ConcurrentHashMap.newKeySet() backing store (INV-INS-23).</description>
+    <description>Compiles the generated monitor + wrapper Java sources to .class via javac then to .dex via the Android SDK d8 tool. Also emits the mop.Coverage runtime class with a ConcurrentHashMap.newKeySet() backing store (INV-INS-60).</description>
 
     <dependencies>
         <dependency>

@@ -12,7 +12,7 @@ import com.android.tools.smali.dexlib2.iface.value.StringEncodedValue;
  * Recognizes Kotlin coroutine state-machine classes so that {@link PointcutMatcher}
  * can lower pointcuts targeting user-facing suspend-fun signatures into matches
  * against the generated {@code invokeSuspend(Object, Throwable)} body
- * (INV-INS-24).
+ * (INV-INS-61).
  *
  * <p>Detection heuristics, in order:
  * <ol>

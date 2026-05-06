@@ -67,7 +67,7 @@ class DexlibInstrumentation(Instrumenter):
         by the AJC variant.
 
         Raises:
-            MissingDescriptorError: INV-INS-13 — no descriptor JSON found.
+            MissingDescriptorError: INV-INS-50 — no descriptor JSON found.
             FileNotFoundError: instr-cli jar missing OR rv-android/pom.xml
                 missing (cannot resolve runtime libs).
             RuntimeError: ``mvn dependency:copy-dependencies`` failed.

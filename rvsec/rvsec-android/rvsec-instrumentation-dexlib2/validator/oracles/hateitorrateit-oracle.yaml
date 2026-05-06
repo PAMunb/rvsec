@@ -5,12 +5,12 @@ provenance:
   ground_truth_run: pending
   origin: |
     The hateitorrateit Kotlin/R8 oracle is the second canonical oracle
-    required by INV-INS-22 (3-oracle minimum across disjoint profiles).
+    required by INV-INS-59 (3-oracle minimum across disjoint profiles).
     The expected events list below is a STRUCTURAL TEMPLATE awaiting
     ground-truth population from a paired UIAutomator + logcat capture
     run on the prototipo-dexlib2 fixture (when that fixture lands).
 description: |
-  Kotlin/R8 profile oracle slot. Required by INV-INS-22 to establish
+  Kotlin/R8 profile oracle slot. Required by INV-INS-59 to establish
   cross-profile validation: cryptoapp covers Java pre-R8, hateitorrateit
   covers Kotlin/R8 (suspend-fns, coroutine state machines, R8 minified
   field/method names), and the multidex slot (oracle #3) covers a
@@ -23,7 +23,7 @@ acceptance:
 notes: |
   The Kotlin/R8 oracle deliberately ships with an empty events list rather
   than placeholder data. OracleLoader counts files (not events) toward the
-  INV-INS-22 ≥3 minimum, so this slot satisfies the structural gate while
+  INV-INS-59 ≥3 minimum, so this slot satisfies the structural gate while
   TraceComparator skips it (zero expected_events → no assertions). Filling
   it requires a manual UIAutomator drive_hateitorrateit.py script + paired
   logcat capture; tracked under task 10.13 follow-up.

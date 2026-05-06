@@ -57,7 +57,7 @@ public final class InstructionInjector {
             throw new IllegalArgumentException(
                     "plan declared InsertionPoint.BEFORE but insertAfter was called");
         }
-        // INV-INS-27: when the matched invoke is followed by `move-result*`,
+        // INV-INS-64: when the matched invoke is followed by `move-result*`,
         // skip past the move-result so the inserted instructions don't
         // separate the invoke from its pseudo-result. The DEX `move-result*`
         // family is only valid as the immediate successor of an invoke that

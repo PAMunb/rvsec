@@ -71,7 +71,7 @@ public final class DexWeaver {
      * Original {@link MethodReference} → wrapper {@link MethodReference}.
      * When an invoke instruction matches a key, the weaver REPLACES the
      * invoke's reference with the wrapper (instead of inserting an inline
-     * hook), eliminating the register-aliasing class of bug (INV-INS-29):
+     * hook), eliminating the register-aliasing class of bug (INV-INS-66):
      * the wrapper is a static method that calls the original AND fires the
      * monitor events, all using its own local register frame, so the
      * caller's registers stay byte-identical.
@@ -342,7 +342,7 @@ public final class DexWeaver {
                         try {
                             plan = emitter.emit(ctx);
                         } catch (br.unb.cic.rv.emitter.MonitorInvokeBuilder.HighRegisterNonContiguous ex) {
-                            // INV-INS-32: bindings include a register > v15 and
+                            // INV-INS-69: bindings include a register > v15 and
                             // are non-contiguous, so neither Format35c (4-bit)
                             // nor Format3rc (contiguous) can encode the invoke.
                             // Defensive skip + counter; future fix is to emit
@@ -352,7 +352,7 @@ public final class DexWeaver {
                             continue;
                         }
 
-                        // INV-INS-29: AFTER advice that didn't get wrapper
+                        // INV-INS-66: AFTER advice that didn't get wrapper
                         // substitution (because the matched invoke is not
                         // a static call we can route through a wrapper —
                         // typically virtual / interface calls) is skipped
@@ -435,7 +435,7 @@ public final class DexWeaver {
      * binding (args / target) reads — the canonical aliasing condition that
      * makes an inline {@code after} hook produce a verifier-rejected class.
      *
-     * <p>Example (cryptoapp regression that surfaced INV-INS-29):
+     * <p>Example (cryptoapp regression that surfaced INV-INS-66):
      * <pre>
      *     const-string v0, "RSA/ECB/PKCS1Padding"      ; v0 = String
      *     invoke-static {v0}, Cipher.getInstance(String) ; matched

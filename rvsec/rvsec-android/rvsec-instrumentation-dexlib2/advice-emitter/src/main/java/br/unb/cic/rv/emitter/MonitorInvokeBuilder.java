@@ -88,7 +88,7 @@ public final class MonitorInvokeBuilder {
                 // A name in monitorCall.args that we cannot resolve: fall
                 // back to Object so the descriptor is structurally valid
                 // (the call would VerifyError at runtime; tracked as a
-                // limitation in INV-INS-29 follow-up since we know this
+                // limitation in INV-INS-66 follow-up since we know this
                 // means the binding system has gaps).
                 type = "java.lang.Object";
             }
@@ -169,7 +169,7 @@ public final class MonitorInvokeBuilder {
         // the move-result destination, so this is left unbound (caller
         // falls back to v0). The wrapper system handles after-returning
         // correctly via D5 substitution; the inline-skipped paths are
-        // tracked under INV-INS-29.
+        // tracked under INV-INS-66.
         if (advice.getReturning() != null) {
             for (ParameterDescriptor p : advice.getReturning()) {
                 map.putIfAbsent(p.getName(), 0);
@@ -223,7 +223,7 @@ public final class MonitorInvokeBuilder {
     /**
      * Build the {@code invoke-static} instruction for the monitor event call.
      *
-     * <p>DEX format choice (INV-INS-32):
+     * <p>DEX format choice (INV-INS-69):
      * <ul>
      *   <li>{@code Format35c} — 4-bit register fields, addresses v0–v15
      *       only; preferred for ≤5-arg invokes when ALL operand registers
@@ -248,7 +248,7 @@ public final class MonitorInvokeBuilder {
      * canonical fix for the non-contiguous case.
      *
      * <p>Package-private for unit testing — see
-     * MonitorInvokeBuilderHighRegisterTest (INV-INS-32).
+     * MonitorInvokeBuilderHighRegisterTest (INV-INS-69).
      */
     static BuilderInstruction buildInvokeStatic(MethodReference ref, int[] regs) {
         boolean anyHighReg = false;
@@ -279,7 +279,7 @@ public final class MonitorInvokeBuilder {
     }
 
     /**
-     * Marker exception for the INV-INS-32 non-contiguous-high-registers
+     * Marker exception for the INV-INS-69 non-contiguous-high-registers
      * case. {@code DexWeaver}'s after-side advice loop catches this and
      * increments the {@code plansSkippedHighRegister} counter, so the
      * failure is surfaced as a tracked diagnostic rather than aborting

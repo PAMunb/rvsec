@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Enforces INV-INS-19: the JSON descriptor emitted by patched JavaMOP
+ * Enforces INV-INS-56: the JSON descriptor emitted by patched JavaMOP
  * mirrors the semantic content of the corresponding {@code .aj} file.
  *
  * <p>Comparison scope (intentionally coarse to avoid brittle textual diff):

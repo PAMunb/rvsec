@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>Constructor calls ({@code invoke-direct {recv, ...args}, T.<init>(...)V})
  * return {@code void}, so they are never followed by {@code move-result*} —
  * the receiver and argument registers remain valid for an inline post-call
- * hook. The defensive AFTER-skip in {@link DexWeaver} (INV-INS-29) was over-
+ * hook. The defensive AFTER-skip in {@link DexWeaver} (INV-INS-66) was over-
  * conservative for this case; the constructor branch lets these advices
  * apply inline (no wrapper, since a wrapper would have to allocate-and-
  * construct, changing call-site semantics).

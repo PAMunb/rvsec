@@ -5,7 +5,7 @@ ADR: `ADR-INSTRUMENTER-ABC.md` (mesmo diretório)
 
 ## Sumário do design
 
-gh53 implementa Phase 0 Option A com refinamento crítico: 4 módulos em vez de 3, separando abstrações puras (`rv-instrumentation-core`) do parent canônico (`rv-instrumentation` com factory). Esse split resolve uma **dependência circular** que surgiria se o parent declarasse simultaneamente o ABC + tipos compartilhados E a factory que dispatcha para os impls. As 9 seções abaixo cobrem: (D1) layout dos 4 módulos e grafo de dependências; (D2) ABC vs Protocol — por que ABC; (D3) por que `-core` separado em vez de tudo no parent; (D4) migração atômica + rename; (D5) factory pública e dispatch; (D6) unificação Docker; (D7) estratégia de testes + critérios de aceitação mecânicos; (D8) trade-off com gh52 task §17.2 e LSPatch futuro; (D9) riscos residuais. Mais uma seção dedicada (§"Dívida herdada gh52 INV-INS-18") explica `Field(default="ajc")` vs `model_validator(mode="before")`.
+gh53 implementa Phase 0 Option A com refinamento crítico: 4 módulos em vez de 3, separando abstrações puras (`rv-instrumentation-core`) do parent canônico (`rv-instrumentation` com factory). Esse split resolve uma **dependência circular** que surgiria se o parent declarasse simultaneamente o ABC + tipos compartilhados E a factory que dispatcha para os impls. As 9 seções abaixo cobrem: (D1) layout dos 4 módulos e grafo de dependências; (D2) ABC vs Protocol — por que ABC; (D3) por que `-core` separado em vez de tudo no parent; (D4) migração atômica + rename; (D5) factory pública e dispatch; (D6) unificação Docker; (D7) estratégia de testes + critérios de aceitação mecânicos; (D8) trade-off com gh52 task §17.2 e LSPatch futuro; (D9) riscos residuais. Mais uma seção dedicada (§"Dívida herdada gh52 INV-INS-55") explica `Field(default="ajc")` vs `model_validator(mode="before")`.
 
 ## D1 — Layout de 4 módulos
 
@@ -157,20 +157,20 @@ D. `modules/rv-instrumentation-dexlib2/` (existente, modificado):
 - `from rv_instrumentation import RVInstrumentation` → quebra
 - API válida pós-change: `from rv_instrumentation import (Instrumenter, InstrumentationResults, InstrumentationError, get_instrumenter)`. Para `AjcInstrumentation`/`AjcInstrumentationConfig`: `from rv_instrumentation_ajc.{ajc_instrumentation,config} import ...`.
 
-**Risco de retrocompat de `instrument_errors.json`**: Pydantic `model_dump_json()` não embute `__module__`. Mover entre módulos não quebra deserialização. Retrocompat de JSONs sem `variant` é via `Field(default="ajc")` em `InstrumentationResults.variant` (verificado em `modules/rv-instrumentation/src/rv_instrumentation/config.py:153-162`); copiado byte-a-byte para `rv-instrumentation-core/results.py`. Ver §"Dívida herdada gh52 INV-INS-18" abaixo.
+**Risco de retrocompat de `instrument_errors.json`**: Pydantic `model_dump_json()` não embute `__module__`. Mover entre módulos não quebra deserialização. Retrocompat de JSONs sem `variant` é via `Field(default="ajc")` em `InstrumentationResults.variant` (verificado em `modules/rv-instrumentation/src/rv_instrumentation/config.py:153-162`); copiado byte-a-byte para `rv-instrumentation-core/results.py`. Ver §"Dívida herdada gh52 INV-INS-55" abaixo.
 
-### Dívida herdada gh52 INV-INS-18 — `Field(default="ajc")` em vez de `model_validator(mode="before")`
+### Dívida herdada gh52 INV-INS-55 — `Field(default="ajc")` em vez de `model_validator(mode="before")`
 
-A spec gh52 INV-INS-18 (`openspec/changes/gh52-instr-dexlib2/specs/instrumentation/spec.md:103`) textualmente exige: (a) `variant` MUST ser required (sem default); (b) retrocompat de JSON legacy via `model_validator(mode="before")` que injeta `variant="ajc"`. **O código real implementa via `variant: str = Field(default="ajc")`** — campo `str` sem `Literal` e sem validator (verificado byte-a-byte em `modules/rv-instrumentation/src/rv_instrumentation/config.py:153-162`, 2026-05-01).
+A spec gh52 INV-INS-55 (`openspec/changes/gh52-instr-dexlib2/specs/instrumentation/spec.md:103`) textualmente exige: (a) `variant` MUST ser required (sem default); (b) retrocompat de JSON legacy via `model_validator(mode="before")` que injeta `variant="ajc"`. **O código real implementa via `variant: str = Field(default="ajc")`** — campo `str` sem `Literal` e sem validator (verificado byte-a-byte em `modules/rv-instrumentation/src/rv_instrumentation/config.py:153-162`, 2026-05-01).
 
 **Decisão de escopo do gh53 (supersession formal)**: descrever a realidade — copiar `variant: str = Field(default="ajc")` byte-identical para `rv-instrumentation-core/results.py`. Promover para `Literal[...]` + `model_validator` é dívida da gh52 (Phase 5/6), **fora do escopo do gh53**.
 
 **Resolução obrigatória antes do archive de gh52** — gh52 deve escolher uma das rotas (gh53 não escolhe):
 
 - **(α)** Implementa o requisito original em Phase 5/6: promove para `Literal["ajc","dexlib2"]` + adiciona `model_validator(mode="before")`, substituindo o `Field(default="ajc")` que gh53 carrega forward em `-core/results.py`.
-- **(β)** Amenda INV-INS-18 (delta + sync da gh52) para descrever o estado real (`Field(default="ajc")`), reconhecendo que o `default` cobre funcionalmente o caso retrocompat sem validator.
+- **(β)** Amenda INV-INS-55 (delta + sync da gh52) para descrever o estado real (`Field(default="ajc")`), reconhecendo que o `default` cobre funcionalmente o caso retrocompat sem validator.
 
-Esta supersession está documentada também em `proposal.md` §"Dívida herdada gh52 INV-INS-18 — fora do escopo (supersession explícita)" e em RISK-003. Implementadores da gh53 NÃO devem fechar INV-INS-18 mid-gh53 (RISK-003 indicator: `grep -n 'model_validator' modules/rv-instrumentation-core/src/` → Red se não-zero).
+Esta supersession está documentada também em `proposal.md` §"Dívida herdada gh52 INV-INS-55 — fora do escopo (supersession explícita)" e em RISK-003. Implementadores da gh53 NÃO devem fechar INV-INS-55 mid-gh53 (RISK-003 indicator: `grep -n 'model_validator' modules/rv-instrumentation-core/src/` → Red se não-zero).
 
 **Verificação**: `tests/test_results.py` em `-core` inclui `test_legacy_json_without_variant_defaults_to_ajc` que carrega JSON sem `variant` e confirma deserialização com `variant=="ajc"`. Robusto à escolha de mecanismo (passa com `Field` hoje; passaria com `model_validator` se a spec fosse fechada).
 
@@ -371,7 +371,7 @@ Detalhamento completo em `RISKS.md` (mesmo diretório, 14 riscos: 5 High, 6 Medi
 | Test mocks de `RVInstrumentation` quebram em outros módulos não cobertos pela varredura | Média | Médio | AC-BHV-07 (suite completa CI); subagent grep amplo |
 | `rv-experiment/pyproject.toml` ainda não declara `rv-instrumentation-dexlib2` nem `rv-instrumentation-ajc` (verificado 2026-05-01) | Média | Médio | task explícita adiciona ambas; AC-WSP-04 verifica |
 | Reescrita do compose template quebra paired-comparison futuro do gh52 Phase 5 | Baixa | Médio | AC-DOC-01 + revisão visual |
-| Coordenação 4 módulos: implementador "fixa" gh52 INV-INS-18 dívida adicionando `model_validator` mid-gh53 | Baixa | Catastrófico | Documentado em design + ADR; `/rv-code-reviewer` flagga |
+| Coordenação 4 módulos: implementador "fixa" gh52 INV-INS-55 dívida adicionando `model_validator` mid-gh53 | Baixa | Catastrófico | Documentado em design + ADR; `/rv-code-reviewer` flagga |
 | gh52 task §17.2 colide com parent canônico criado aqui | N/A — esperado | Baixo | Documentado como consequência aceita; gh52 Phase 6 escolhe rota |
 
 ## Referências
@@ -379,7 +379,7 @@ Detalhamento completo em `RISKS.md` (mesmo diretório, 14 riscos: 5 High, 6 Medi
 - ADR: `ADR-INSTRUMENTER-ABC.md` (mesmo diretório)
 - Phase 0: `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/docs/20260428_plano_consolidacao_pos_gh50_gh51_gh52.md`
 - gh52 ADR (precedente): `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/openspec/changes/gh52-instr-dexlib2/ADR-DEX-NATIVE.md`
-- gh52 INV-INS-18 (variant tag): `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/openspec/changes/gh52-instr-dexlib2/specs/instrumentation/spec.md`
+- gh52 INV-INS-55 (variant tag): `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/openspec/changes/gh52-instr-dexlib2/specs/instrumentation/spec.md`
 - gh52 task §17.2 (rename trade-off): `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/openspec/changes/gh52-instr-dexlib2/tasks.md`
 - LSPatch: `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/docs/20260422_lspatch.md`
 - PRD NFR01, NFR05: `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/docs/PRD.md`

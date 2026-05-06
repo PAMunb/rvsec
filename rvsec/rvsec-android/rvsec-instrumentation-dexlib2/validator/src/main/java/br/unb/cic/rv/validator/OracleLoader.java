@@ -11,7 +11,7 @@ import java.util.stream.Stream;
 
 /**
  * Loads every {@code *-oracle.yaml} under a directory and enforces the
- * minimum-count gate declared by INV-INS-22.
+ * minimum-count gate declared by INV-INS-59.
  *
  * <p>The YAML schema is intentionally simple (no external dep): each file
  * is read as raw text; the {@code name:} top-level key identifies the
@@ -26,7 +26,7 @@ import java.util.stream.Stream;
  */
 public final class OracleLoader {
 
-    /** Minimum oracle count for the Layer-3 / Layer-4 gate (INV-INS-22). */
+    /** Minimum oracle count for the Layer-3 / Layer-4 gate (INV-INS-59). */
     public static final int MINIMUM_ORACLES = 3;
 
     private OracleLoader() {}
@@ -53,9 +53,9 @@ public final class OracleLoader {
                 .map(p -> p.getFileName().toString())
                 .toList());
         String msg = passed
-                ? "≥" + MINIMUM_ORACLES + " oracles present (INV-INS-22 satisfied)"
+                ? "≥" + MINIMUM_ORACLES + " oracles present (INV-INS-59 satisfied)"
                 : "only " + loaded.files.size() + " oracle(s) present; "
-                        + "INV-INS-22 requires ≥" + MINIMUM_ORACLES
+                        + "INV-INS-59 requires ≥" + MINIMUM_ORACLES
                         + " — see validator/oracles/";
         return new Report("oracle-loader", passed, msg, metrics);
     }

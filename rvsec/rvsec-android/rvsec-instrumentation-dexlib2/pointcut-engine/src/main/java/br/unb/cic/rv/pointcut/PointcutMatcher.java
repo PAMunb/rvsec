@@ -38,7 +38,7 @@ import java.util.Optional;
  *       time.</li>
  * </ul>
  *
- * <p>CPS-aware pass (INV-INS-24): when {@link CpsDetector#isStateMachine(ClassDef)}
+ * <p>CPS-aware pass (INV-INS-61): when {@link CpsDetector#isStateMachine(ClassDef)}
  * returns true and the current method is {@code invokeSuspend}, the matcher
  * accepts calls that would normally be matched against the user-facing suspend
  * fun — it unwraps the enclosing state-machine class to the owner reported by
@@ -206,7 +206,7 @@ public final class PointcutMatcher {
      * receiver. This determines the `argBindings` offset in
      * {@link #buildCallMatch}, which had previously defaulted to assuming a
      * receiver and was silently mis-binding `args()` for static calls
-     * (cryptoapp `String.valueOf(Object)` regression — INV-INS-28).
+     * (cryptoapp `String.valueOf(Object)` regression — INV-INS-65).
      */
     private static boolean isStaticInvocation(
             com.android.tools.smali.dexlib2.iface.instruction.Instruction instr) {

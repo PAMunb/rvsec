@@ -12,7 +12,7 @@
 
     <artifactId>validator</artifactId>
     <name>RVSec :: Android :: Instrumentation (dexlib2) :: validator</name>
-    <description>Layered validation harness (docs/20260423_plano_validacao.md). Six CLI subcommands + Python hooks enforcing INV-INS-17/19/21/22/25 on every PR and before the Phase 5 gate.</description>
+    <description>Layered validation harness (docs/20260423_plano_validacao.md). Six CLI subcommands + Python hooks enforcing INV-INS-54/19/21/22/25 on every PR and before the Phase 5 gate.</description>
 
     <dependencies>
         <dependency>

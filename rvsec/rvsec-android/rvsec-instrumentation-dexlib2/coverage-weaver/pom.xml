@@ -12,7 +12,7 @@
 
     <artifactId>coverage-weaver</artifactId>
     <name>RVSec :: Android :: Instrumentation (dexlib2) :: coverage-weaver</name>
-    <description>Coverage.aj equivalent: prepends invoke-static to mop.Coverage.log(signature) at every non-excluded application-code method entry. Spec-set agnostic. Thread-safe storage via ConcurrentHashMap.newKeySet in the generated Coverage class (INV-INS-23).</description>
+    <description>Coverage.aj equivalent: prepends invoke-static to mop.Coverage.log(signature) at every non-excluded application-code method entry. Spec-set agnostic. Thread-safe storage via ConcurrentHashMap.newKeySet in the generated Coverage class (INV-INS-60).</description>
 
     <dependencies>
         <dependency>

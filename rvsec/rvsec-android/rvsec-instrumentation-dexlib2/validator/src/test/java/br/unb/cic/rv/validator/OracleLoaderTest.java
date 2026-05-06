@@ -17,7 +17,7 @@ class OracleLoaderTest {
         Report r = OracleLoader.report(loaded);
         assertFalse(r.passed);
         assertEquals(1, ((Number) r.metrics.get("oracleCount")).intValue());
-        assertTrue(r.message.contains("INV-INS-22"));
+        assertTrue(r.message.contains("INV-INS-59"));
     }
 
     @Test

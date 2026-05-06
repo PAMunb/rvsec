@@ -5,16 +5,16 @@
  * <ul>
  *   <li>{@link br.unb.cic.rv.validator.ConstructionInventoryGenerator} —
  *       regenerates {@code docs/AJ_CONSTRUCTIONS_INVENTORY.md} from the
- *       RVSEC spec corpus (INV-INS-17).</li>
+ *       RVSEC spec corpus (INV-INS-54).</li>
  *   <li>{@link br.unb.cic.rv.validator.FeatureMappingChecker} — enforces
- *       inventory ⊆ (mapping ∪ limitations) (INV-INS-17).</li>
+ *       inventory ⊆ (mapping ∪ limitations) (INV-INS-54).</li>
  *   <li>{@link br.unb.cic.rv.validator.DescriptorAjParityChecker} —
- *       asserts JSON descriptor mirrors .aj semantically (INV-INS-19).</li>
+ *       asserts JSON descriptor mirrors .aj semantically (INV-INS-56).</li>
  *   <li>{@link br.unb.cic.rv.validator.OracleLoader} — loads ≥3 oracle
- *       YAMLs for Layer-3 (INV-INS-22).</li>
+ *       YAMLs for Layer-3 (INV-INS-59).</li>
  *   <li>{@link br.unb.cic.rv.validator.MethodRefAuditor} — Layer-4
  *       preflight: projects post-weaving method-ref counts per DEX,
- *       flags overflow candidates (INV-INS-25).</li>
+ *       flags overflow candidates (INV-INS-62).</li>
  *   <li>{@link br.unb.cic.rv.validator.Layer1BaksmaliDiffer} / Layer2BootValidator /
  *       Layer3TraceComparator / Layer4BatchValidator / Layer5CoverageValidator
  *       — skeletons with clear gate semantics; full execution deferred

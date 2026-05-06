@@ -32,7 +32,7 @@ class FeatureMappingCheckerTest {
         Files.writeString(map, "`call` `execution`\n");
         Path lim = tmp.resolve("LIMITATIONS.md");
         Files.writeString(lim, "`around`\n");
-        // handler appears nowhere — INV-INS-17 violation.
+        // handler appears nowhere — INV-INS-54 violation.
         Report r = FeatureMappingChecker.check(inv, map, lim);
         assertFalse(r.passed);
         assertTrue(r.message.contains("handler"),

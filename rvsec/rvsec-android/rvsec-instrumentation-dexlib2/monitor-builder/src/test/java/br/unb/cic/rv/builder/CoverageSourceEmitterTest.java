@@ -13,9 +13,9 @@ class CoverageSourceEmitterTest {
     void emittedSourceUsesConcurrentHashMapKeySet() {
         String src = CoverageSourceEmitter.sourceText();
         assertTrue(src.contains("ConcurrentHashMap.newKeySet"),
-                "INV-INS-23: backing store must be ConcurrentHashMap.newKeySet()");
+                "INV-INS-60: backing store must be ConcurrentHashMap.newKeySet()");
         assertFalse(src.contains("HashSet"),
-                "INV-INS-23: plain HashSet must not appear in the generated source");
+                "INV-INS-60: plain HashSet must not appear in the generated source");
     }
 
     @Test

@@ -9,7 +9,7 @@ and populate InstrumentationResults.errors with a phase tag.
 class MissingDescriptorError(Exception):
     """No MultiSpec_*MonitorAspect.json found in monitor_output_dir.
 
-    Raised at preparation time, before any APK is processed (INV-INS-13).
+    Raised at preparation time, before any APK is processed (INV-INS-50).
     The message identifies the missing file and mentions the
     ``--emit-descriptor`` flag that rv-monitor-generator must pass to JavaMOP
     for the dexlib2 variant to work.

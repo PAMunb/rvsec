@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Enforces INV-INS-17: every AspectJ construct in
+ * Enforces INV-INS-54: every AspectJ construct in
  * {@code docs/AJ_CONSTRUCTIONS_INVENTORY.md} MUST appear either in
  * {@code docs/AJ_TO_DEXLIB2_MAPPING.md} (with a test reference) or in
  * {@code docs/LIMITATIONS.md} (with rationale). A construct present in the
@@ -44,7 +44,7 @@ public final class FeatureMappingChecker {
         boolean passed = unmapped.isEmpty();
         String msg = passed
                 ? "every inventory construct has mapping or limitation entry"
-                : "unmapped constructs (INV-INS-17 violation): " + unmapped;
+                : "unmapped constructs (INV-INS-54 violation): " + unmapped;
         return new Report("feature-mapping", passed, msg, metrics);
     }
 

@@ -14,7 +14,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * INV-INS-32: validates the format-selection logic in
+ * INV-INS-69: validates the format-selection logic in
  * {@link MonitorInvokeBuilder#buildInvokeStatic(MethodReference, int[])}.
  *
  * <p>The 5-arg-with-high-reg case (covered by

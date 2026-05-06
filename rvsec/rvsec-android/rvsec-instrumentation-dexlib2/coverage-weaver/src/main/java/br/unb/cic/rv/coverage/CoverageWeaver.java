@@ -58,7 +58,7 @@ import java.util.Objects;
  *
  * <h2>Thread-safety of {@code mop.Coverage}</h2>
  * The generated runtime class uses {@code ConcurrentHashMap.newKeySet()}
- * (INV-INS-23). Emitted by {@code monitor-builder.CoverageSourceEmitter}.
+ * (INV-INS-60). Emitted by {@code monitor-builder.CoverageSourceEmitter}.
  *
  * <h2>Spec-set agnostic</h2>
  * Weaves coverage identically whether the MOP advice set is JCA or Generic.

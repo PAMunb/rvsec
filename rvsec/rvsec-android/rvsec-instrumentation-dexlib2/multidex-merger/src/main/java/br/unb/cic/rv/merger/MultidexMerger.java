@@ -33,7 +33,7 @@ import java.util.zip.ZipOutputStream;
  *       {@link MergerConfig}.</li>
  * </ol>
  *
- * <p>Preserves multidex split decisions (INV-INS-15): the original APK's
+ * <p>Preserves multidex split decisions (INV-INS-52): the original APK's
  * {@code classes.dex} + {@code classes2.dex} + ... partitioning is kept
  * exactly; monitor DEX(es) go into new slots beyond the highest existing
  * N. No silent merging ever happens.

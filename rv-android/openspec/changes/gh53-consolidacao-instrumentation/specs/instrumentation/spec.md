@@ -15,7 +15,7 @@ This delta consolidates the post-merge state of `gh50-improve-instrumentation`, 
 
 The four-module split is required to keep dependency declarations honest: each module's `pyproject.toml` lists exactly what it imports, with no implicit lazy-import-without-declared-dep tricks. The parent `rv-instrumentation` declares deps on the implementations because its factory imports them; the implementations do NOT declare deps back on the parent, breaking the cycle. The dependency graph is acyclic with arrows pointing only toward `rv-android-core` at the base. ADR `ADR-INSTRUMENTER-ABC.md` (in this change directory) records the architectural choice and the alternatives considered.
 
-This delta does NOT redefine requirements introduced by gh50, gh51, or gh52. It adds requirements about the new four-module canonical layout and amends the wording of the variant-selection requirement (originally INV-INS-18 in gh52's delta) to point at the new locations. Reconciliation with `openspec/specs/instrumentation/spec.md` is deferred to the synchronization step performed when gh50, gh51, gh52, and gh53 are all archived together.
+This delta does NOT redefine requirements introduced by gh50, gh51, or gh52. It adds requirements about the new four-module canonical layout and amends the wording of the variant-selection requirement (originally INV-INS-55 in gh52's delta) to point at the new locations. Reconciliation with `openspec/specs/instrumentation/spec.md` is deferred to the synchronization step performed when gh50, gh51, gh52, and gh53 are all archived together.
 
 ## Data Contracts
 
@@ -253,15 +253,15 @@ The 22 `ajcore.20260421.*.txt` files at the repository root (residue of gh50's J
 
 ## MODIFIED Requirements
 
-### Requirement: Instrumentation Variant Selection (amended from gh52 INV-INS-18)
+### Requirement: Instrumentation Variant Selection (amended from gh52 INV-INS-55)
 
 This delta amends gh52's "Instrumentation Variant Selection" requirement only with respect to the location of the shared types and the dispatch shape. The functional behavior MUST remain identical: default `ajc`, env `RV_INSTRUMENTATION_VARIANT`, CLI flag `--instrumentation-variant`, and the `InstrumentationResults.variant` field MUST all be preserved exactly as defined by gh52.
 
 The amendments below MUST be applied:
-- The `InstrumentationResults` and `InstrumentationError` Pydantic models referenced by INV-INS-18 MUST be imported from `rv_instrumentation_core` (or equivalently from `rv_instrumentation` parent re-exports), NOT from `rv_instrumentation.config` (which no longer hosts these types).
+- The `InstrumentationResults` and `InstrumentationError` Pydantic models referenced by INV-INS-55 MUST be imported from `rv_instrumentation_core` (or equivalently from `rv_instrumentation` parent re-exports), NOT from `rv_instrumentation.config` (which no longer hosts these types).
 - `PreProcessor._instrument_apks()` MUST delegate selection to `rv_instrumentation.get_instrumenter(variant, config)` (public factory imported from the parent) rather than inlining the `if/else`.
 - The factory MUST type its return value as `Instrumenter` (ABC from `rv_instrumentation_core`), not as a concrete class union or `Any`.
-- Legacy JSONs without the `variant` field MUST deserialize with `variant == "ajc"` via the existing `Field(default="ajc")` mechanism on `InstrumentationResults.variant`. NOTE: gh52 INV-INS-18 textually mandates a `model_validator(mode="before")` for this retrocompat path, but the actual code uses `Field(default="ajc")` instead. This delta carries the existing `Field` mechanism forward unchanged; closing the gh52 spec-vs-code divergence is dívida da gh52 (out of scope here — see design.md §"Dívida herdada gh52 INV-INS-18").
+- Legacy JSONs without the `variant` field MUST deserialize with `variant == "ajc"` via the existing `Field(default="ajc")` mechanism on `InstrumentationResults.variant`. NOTE: gh52 INV-INS-55 textually mandates a `model_validator(mode="before")` for this retrocompat path, but the actual code uses `Field(default="ajc")` instead. This delta carries the existing `Field` mechanism forward unchanged; closing the gh52 spec-vs-code divergence is dívida da gh52 (out of scope here — see design.md §"Dívida herdada gh52 INV-INS-55").
 
 The variant flag, the env variable mapping in `docker/rvandroid/docker-entrypoint.sh:97-103`, the Pydantic field `instrumentation_variant: str = Field(default="ajc", ...)` in `rv-experiment/config.py:137`, and the click option `--instrumentation-variant` in `rv-experiment/__main__.py:340` MUST remain unchanged.
 
@@ -276,4 +276,4 @@ The variant flag, the env variable mapping in `docker/rvandroid/docker-entrypoin
 
 - **WHEN** an `instrument_errors.json` written before gh52 (lacking the `variant` field) is loaded via `rv_instrumentation_core.InstrumentationResults.model_validate_json(legacy_payload)`
 - **THEN** the deserialization MUST succeed
-- **AND** the resulting object MUST have `variant == "ajc"` (via the `Field(default="ajc")` mechanism — see design.md §"Dívida herdada gh52 INV-INS-18")
+- **AND** the resulting object MUST have `variant == "ajc"` (via the `Field(default="ajc")` mechanism — see design.md §"Dívida herdada gh52 INV-INS-55")

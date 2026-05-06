@@ -134,7 +134,7 @@ public final class BatchRunner {
 
             // Build a single InheritanceResolver covering EVERY DEX of the APK
             // BEFORE the per-DEX weave loop. This serves two purposes:
-            //   (1) wrapper subtype expansion (INV-INS-31 phase 2) — the
+            //   (1) wrapper subtype expansion (INV-INS-68 phase 2) — the
             //       resolver must see app-internal subclasses that may live in
             //       a different DEX than the call site (e.g. classes2.dex
             //       declares the subclass, classes.dex contains the call).

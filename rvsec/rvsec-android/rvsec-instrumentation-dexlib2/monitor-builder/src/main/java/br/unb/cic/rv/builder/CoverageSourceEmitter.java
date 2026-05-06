@@ -8,7 +8,7 @@ import java.nio.file.Path;
  * Emits the {@code mop/Coverage.java} runtime class source consumed by
  * {@link MonitorBuilder}. The backing store is
  * {@link java.util.concurrent.ConcurrentHashMap#newKeySet()} so concurrent
- * method entries never drop events (INV-INS-23).
+ * method entries never drop events (INV-INS-60).
  *
  * <p>The emitted class reproduces the API of the legacy {@code Coverage.aj}'s
  * companion runtime:
@@ -45,7 +45,7 @@ public final class CoverageSourceEmitter {
                 + "import java.util.concurrent.ConcurrentHashMap;\n\n"
                 + "public final class " + COVERAGE_CLASS + " {\n"
                 + "    private static final String TAG = \"RVSEC-COV\";\n"
-                + "    // INV-INS-23: thread-safe lock-free set so concurrent method\n"
+                + "    // INV-INS-60: thread-safe lock-free set so concurrent method\n"
                 + "    // entries never drop events under monkey --concurrent-threads or\n"
                 + "    // coroutine-heavy apps.\n"
                 + "    private static final Set<String> SEEN = ConcurrentHashMap.newKeySet();\n\n"
