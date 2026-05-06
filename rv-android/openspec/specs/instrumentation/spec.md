@@ -280,24 +280,28 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 ## Requirements
 ### Requirement: Monitor Generation from JavaMOP Specifications (FR01, NFR07)
 
-The system MUST generate runtime verification monitors from MOP specification files through a coordinated pipeline of two tools: JavaMOP and RV-Monitor. JavaMOP reads `.mop` files and produces two artifacts: (a) `.aj` AspectJ files that define pointcuts and weaving advice for method interception, and (b) `.rvm` intermediate files containing monitor state machine specifications. RV-Monitor then reads the `.rvm` files and synthesizes `.java` monitor classes that implement the runtime verification logic.
+The system MUST generate runtime verification monitors from MOP specification files through a coordinated pipeline of two tools: JavaMOP and RV-Monitor. JavaMOP reads `.mop` files and produces three artifacts: (a) `.aj` AspectJ files that define pointcuts and weaving advice for method interception, (b) `.rvm` intermediate files containing monitor state machine specifications, and (c) — when the patched JavaMOP is invoked with `--emit-descriptor` — `MultiSpec_*MonitorAspect.json` JSON descriptors mirroring the semantic content of each merged `.aj` (see Requirement: JavaMOP Descriptor Format and Emission). RV-Monitor then reads the `.rvm` files and synthesizes `.java` monitor classes that implement the runtime verification logic.
 
 The generation pipeline uses the `-merge` flag for both JavaMOP and RV-Monitor, which combines multiple specification files into unified merged artifacts. This is critical because merged monitors share a single aspect that intercepts all relevant methods, rather than creating individual aspects per specification that would multiply the runtime overhead.
 
+The patched JavaMOP exposes the `--emit-descriptor` flag (commit pinned in the gh52 design document). When the flag is enabled in the generator's invocation, every merged aspect MUST receive a sibling JSON descriptor in `output_dir`. The descriptor emission MUST be additive: existing `.aj`, `.rvm`, and `.java` outputs MUST remain byte-identical to the unflagged invocation. `RuntimeVerificationGenerator` MUST enable `--emit-descriptor` by default to support both instrumentation variants from a single generation run.
+
 A known bug in JavaMOP's `-d` (output directory) option causes `.rvm` files to remain in the source `mop_specs_dir` instead of being placed in the output directory. The generator MUST implement a workaround by explicitly moving `.rvm` files from `mop_specs_dir` to the output directory after JavaMOP execution.
 
-After JavaMOP completes, custom AspectJ files from the `aspects_dir` MUST be copied into the output directory. This includes `Coverage.aj` (method coverage tracking) and `logging.aj` (additional logging). These custom aspects are woven alongside the generated monitor aspects during instrumentation.
+After JavaMOP completes, custom AspectJ files from the `aspects_dir` MUST be copied into the output directory. This includes `Coverage.aj` (method coverage tracking) and `logging.aj` (additional logging). These custom aspects are woven alongside the generated monitor aspects during instrumentation under the `ajc` variant, and the `Coverage.aj` semantics are reimplemented natively in the `coverage-weaver` submodule for the `dexlib2` variant.
 
 After RV-Monitor completes, all intermediate `.rvm` files MUST be deleted from the output directory, as they are no longer needed.
 
-#### Scenario: Successful generation with JCA specifications
+#### Scenario: Successful generation with a specification set and descriptor emission
 
-- **WHEN** `mop_specs_dir` points to `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca/` containing 23 `.mop` files, and `javamop_bin` and `rvmonitor_bin` are valid executables, and `aspects_dir` contains `coverage.aj` and `logging.aj`
+- **WHEN** `mop_specs_dir` points to one of the specification-set directories under `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/` (`jca/` with 23 `.mop` files in the current corpus, or `generic/` / `generic_new/` with their own counts), and `javamop_bin` is the patched JavaMOP supporting `--emit-descriptor`, and `rvmonitor_bin` is a valid executable, and `aspects_dir` contains `coverage.aj` and `logging.aj`
 - **THEN** `RuntimeVerificationGenerator.generate_monitors(output_dir)` MUST return `True`
 - **AND** the output directory MUST contain at least one `.aj` file (merged aspects from JavaMOP)
+- **AND** the output directory MUST contain at least one `MultiSpec_*MonitorAspect.json` file (descriptor emitted under the new flag)
 - **AND** the output directory MUST contain at least one `.java` file (monitor classes from RV-Monitor)
 - **AND** the output directory MUST contain `coverage.aj` (copied from aspects_dir)
 - **AND** the output directory MUST NOT contain any `.rvm` files (intermediaries cleaned up)
+- **AND** an experiment run uses exactly one set at a time — the caller selects which set via the Python wrapper's configuration, and descriptor emission is identical in structure across sets
 
 #### Scenario: Generation with empty specification directory
 
@@ -322,29 +326,161 @@ After RV-Monitor completes, all intermediate `.rvm` files MUST be deleted from t
 - **AND** `generate_monitors()` MUST return `False`
 - **AND** the error MUST be logged via `ErrorHandler.handle_error()` with context including `component`, `operation`, `output_dir`, and `mop_specs_dir`
 
-#### Scenario: Generation summary after successful run
+#### Scenario: Descriptor emission disabled
 
-- **WHEN** `generate_monitors()` has completed successfully in `output_dir`
-- **THEN** `get_generation_summary(output_dir)` MUST return a dictionary with keys `output_directory`, `aspectj_files` (count), `monitor_classes` (count), and `specs_processed` (containing `source_directory` and `count`)
+- **WHEN** `RuntimeVerificationGenerator` is invoked with `emit_descriptor=False` (override of default)
+- **THEN** the output directory MUST contain `.aj` and `.java` artifacts as before
+- **AND** the output directory MUST NOT contain any `.json` descriptor files
+- **AND** subsequent attempts to use `instrumentation_variant == "dexlib2"` MUST raise `MissingDescriptorError` (see DEX-Native Pipeline requirement)
+
+#### Scenario: Generation summary after successful run with descriptor emission
+
+- **WHEN** `generate_monitors()` has completed successfully in `output_dir` with descriptor emission enabled
+- **THEN** `get_generation_summary(output_dir)` MUST return a dictionary with keys `output_directory`, `aspectj_files` (count), `monitor_classes` (count), `descriptors` (count), and `specs_processed` (containing `source_directory` and `count`)
 
 ### Requirement: APK Instrumentation with Monitors (FR02)
 
-The system MUST instrument Android APKs with generated runtime verification monitors through a multi-phase pipeline. The pipeline transforms a standard APK into a monitored APK by: (1) decompiling DEX bytecode to Java classes, (2) injecting monitor artifacts, (3) weaving aspects via AspectJ, (4) merging runtime dependencies, (5) recompiling to DEX, and (6) signing the APK.
+The system MUST instrument Android APKs with generated runtime verification monitors through a multi-phase pipeline. The pipeline transforms a standard APK into a monitored APK by: (1) decompiling DEX bytecode to Java classes, (2) injecting monitor artifacts, (3) weaving aspects via AspectJ, (4) recomputing stack map frames via ASM, (5) merging runtime dependencies, (6) recompiling to DEX, and (7) signing the APK.
+
+```mermaid
+flowchart TD
+    APK[Original APK] --> DEX2JAR[dex2jar: DEX → JAR]
+    DEX2JAR --> INJECT[Inject monitors: .aj + .java → tmp/]
+    INJECT --> AJC[ajc -proceedOnError -Xlint:ignore<br/>-inpath tmp/ -sourceroots tmp/]
+    AJC --> FRAMES[ASM COMPUTE_FRAMES: recompute stack maps]
+    FRAMES --> MERGE[Merge support libraries]
+    MERGE --> D8["d8 --release --min-api 26 --lib android-{targetSdk}.jar<br/>(execute_command skip_stderr=True)"]
+    D8 --> SIGN[jarsigner: sign APK]
+    SIGN --> OUT[Instrumented APK]
+```
 
 The instrumentation pipeline relies on several external tools that MUST be available:
 - **dex2jar** (`d2j-dex2jar.sh`): Converts APK DEX bytecode to JAR format. If the conversion produces an exception file, the pipeline MUST raise a `CommandException`.
-- **ajc (AspectJ Compiler)**: Weaves monitor pointcuts into application bytecode. Uses Java 1.8 source compatibility (`-source 1.8`) and suppresses lint warnings (`-Xlint:ignore`). The classpath MUST include `android.jar` and all runtime verification JARs from `lib_tmp_dir`.
-- **d8 (Android DEX compiler)**: Converts the instrumented JAR back to DEX format. Uses `--release` mode with `--min-api 26` and `--lib android.jar`.
+- **ajc (AspectJ Compiler 1.9.25.1)**: Weaves monitor pointcuts into application bytecode. Uses Java 1.8 source compatibility (`-source 1.8`), suppresses lint warnings (`-Xlint:ignore`), and proceeds on class-level errors (`-proceedOnError`). The classpath MUST include the `android.jar` matching the APK's `targetSdkVersion` and all runtime verification JARs from `lib_tmp_dir`.
+- **rv-frame-computer.jar**: Recomputes stack map frames on all `.class` files in `tmp_dir` using ASM's `ClassWriter.COMPUTE_FRAMES`. Runs after ajc weaving, before library merging.
+- **d8 (Android DEX compiler)**: Converts the instrumented JAR back to DEX format. Uses `--release` mode with `--min-api 26` and `--lib` pointing to the dynamically selected `android.jar`. Invoked with `skip_stderr=True` so non-fatal stderr warnings do not mask a successful build (exit code still gates failure).
 - **jarsigner**: Signs the APK with the configured keystore using `SHA256withRSA` signature algorithm and `SHA-256` digest algorithm.
 - **Maven**: Resolves and downloads runtime dependencies (`rv-monitor-rt.jar`, `rvsec-core.jar`, `rvsec-logger-logcat.jar`, `aspectjrt.jar`) into `lib_tmp_dir`.
+
+After AspectJ weaving and before merging support libraries, the pipeline MUST run the ASM frame recomputation step on all woven `.class` files. This step addresses stack map frame corruption left by ajc's BCEL-based bytecode manipulation, which is the root cause of d8 AIOOBE (ArrayIndexOutOfBoundsException) failures.
+
+MOP coverage scope: library bytecode is weaved by ajc like any other class. At runtime, `Coverage.aj`'s `excludedPackages()` pointcut short-circuits coverage/MOP tag emission for packages such as `sun..*`, `java..*`, `androidx..*`, `kotlin..*`, `com.google..*`, `com.facebook..*`, `org.apache..*`, `libcore..*`, `mop..*`, `javamop..*`, `rvmonitorrt..*`. This preserves app-code monitoring while keeping the pipeline free of compile-time exclusion configuration.
 
 Before instrumentation begins, `prepare_instrumentation()` MUST clean temporary directories from previous runs and execute Maven dependency resolution. After each APK, temporary directories (`tmp_dir`, `rvm_tmp_dir`) MUST be cleaned. After the entire batch, `lib_tmp_dir` MUST be cleaned.
 
 The pipeline supports both single APK instrumentation (`instrument()`) and batch instrumentation (`instrument_apks()`). Batch instrumentation provides error isolation: if one APK fails, processing continues with the next APK. All errors are collected in `InstrumentationResults.errors` and saved to `instrument_errors.json`.
 
-The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `reraise=True` to ensure exceptions propagate to the batch loop: `instrument()`, `__include_generated_monitors()`, `__weave_monitors()`, `__create_apk()`, `__merge_support_classes()`, `__sign_apk()`. The batch loop (`instrument_apks()`) MUST use `reraise=False` (default) to continue processing after per-APK failures.
+The following pipeline methods MUST use `@ErrorHandler.handle_errors` with `reraise=True` to ensure exceptions propagate to the batch loop: `instrument()`, `__include_generated_monitors()`, `__weave_monitors()`, `__compute_stack_frames()`, `__create_apk()`, `__merge_support_classes()`, `__sign_apk()`. The batch loop (`instrument_apks()`) MUST use `reraise=False` (default) to continue processing after per-APK failures.
 
-When a pipeline phase raises an exception with `_error_phase` annotated by the ErrorHandler decorator, the batch loop MUST use `getattr(ex, '_error_phase', fallback)` to populate `InstrumentationError.phase` with the actual pipeline phase (e.g., `"apk_signing"`, `"apk_creation"`, `"aspect_weaving"`) instead of hardcoded generic values.
+When a pipeline phase raises an exception with `_error_phase` annotated by the ErrorHandler decorator, the batch loop MUST use `getattr(ex, '_error_phase', fallback)` to populate `InstrumentationError.phase` with the actual pipeline phase (e.g., `"apk_signing"`, `"apk_creation"`, `"aspect_weaving"`, `"frame_computation"`) instead of hardcoded generic values.
+
+#### Scenario: Effective weaving — aspectOf calls present in app bytecode
+
+- **WHEN** an APK is instrumented and the pipeline completes successfully
+- **THEN** the resulting DEX files MUST contain at least one `aspectOf` invocation inside the application's own package classes (outside `classes.dex`, which holds the aspect definitions themselves)
+- **AND** installing and launching the APK on an Android emulator with `--min-api 26` or higher MUST emit at least one `RVSEC-COV` logcat entry identifying an application method during normal UI navigation
+
+#### Scenario: Runtime nest-mate access for monitor runtime
+
+- **WHEN** the monitor runtime thread `MonitorCleaner` runs on Android with API level ≥ 26 (below the native nest-based access control threshold of API 30)
+- **THEN** inner-class field access from `TerminatedMonitorCleaner$Runner` to `TerminatedMonitorCleaner.removedEntries` MUST succeed without raising `java.lang.IllegalAccessError`
+- **AND** this MUST be achieved by letting d8 generate synthetic accessors (default behavior; `--no-desugaring` is NOT used)
+
+#### Scenario: ajc proceeds on class-level errors
+
+- **WHEN** ajc encounters a class with incompatible bytecode (e.g., invalid stack map frames) during weaving
+- **THEN** ajc MUST continue processing remaining classes instead of aborting (due to `-proceedOnError`)
+- **AND** the problematic class MUST be included in the output with its original bytecode (not woven)
+- **AND** all other classes MUST be woven normally
+- **AND** `utils.execute_command` MUST be called with `skip_stderr=True` so the `"AspectJ Internal Error: unable to add stackmap attributes to class 'X'"` messages ajc writes to stderr do not fail the APK; only a non-zero ajc exit code is treated as failure
+
+#### Scenario: ASM frame recomputation post-weaving
+
+- **WHEN** ajc weaving completes
+- **THEN** `__compute_stack_frames()` MUST invoke `rv-frame-computer.jar` on `tmp_dir`
+- **AND** all `.class` files in `tmp_dir` (recursively) MUST have their stack map frames recomputed using ASM `ClassWriter.COMPUTE_FRAMES`
+- **AND** files that fail frame computation (e.g., unresolvable type hierarchy) MUST be logged and preserved with their original bytecode
+- **AND** the count of successfully recomputed and failed files MUST be logged
+- **AND** `utils.execute_command` MUST be called with `skip_stderr=True` so the per-class "Warning: frame computation failed for …" stderr entries do not mark the entire APK as failed; only a non-zero JVM exit code is treated as failure
+
+#### Scenario: Dynamic android.jar selection by targetSdkVersion
+
+- **WHEN** an APK with `targetSdkVersion=34` is being instrumented and `android-34/android.jar` exists in the SDK platforms directory
+- **THEN** `__get_android_jar(app)` MUST return the path to `android-34/android.jar`
+- **AND** ajc MUST use this `android.jar` in its classpath
+- **AND** d8 MUST use this `android.jar` as `--lib` argument
+
+#### Scenario: Dynamic android.jar fallback to highest available
+
+- **WHEN** an APK with `targetSdkVersion=36` is being instrumented but `android-36/android.jar` does not exist, and the highest available is `android-34`
+- **THEN** `__get_android_jar(app)` MUST return the path to `android-34/android.jar`
+- **AND** a log message MUST indicate the fallback: "Platform android-36 not available, using android-34"
+
+#### Scenario: d8 ignores non-fatal stderr warnings
+
+- **WHEN** d8 emits stderr output such as "Warning: Expected stack map table for method with non-linear control flow." while still returning exit code 0
+- **THEN** the pipeline MUST treat the build as successful
+- **AND** the warnings MUST NOT be reported as errors in `InstrumentationResults.errors`
+
+#### Scenario: Native libraries page-aligned before signing
+
+- **WHEN** the pipeline has produced an unsigned APK via `__d8()` and is about to invoke `__sign_apk()`
+- **THEN** `__zipalign(unsigned_apk)` MUST run `zipalign -f -P 16 4 <unsigned_apk> <unsigned_apk>.aligned` and replace the unsigned APK in place with the aligned output
+- **AND** the subsequent `__sign_apk()` (apksigner) MUST preserve the alignment so the final installed APK has uncompressed `.so` entries at 16 KiB boundaries
+- **AND** installation MUST NOT fail with `INSTALL_FAILED_INVALID_APK: Failed to extract native libraries, res=-2`
+
+#### Scenario: APK signed with v1+v2+v3 schemes via apksigner
+
+- **WHEN** the pipeline has produced an aligned unsigned APK and is ready to sign
+- **THEN** `__sign_apk(app, unsigned_apk)` MUST invoke `apksigner sign --ks <keystore_file> --ks-pass pass:<keystore_password> --ks-key-alias <keystore_alias> <apk_path>` where `<apk_path>` is the unsigned APK (apksigner overwrites in place by default)
+- **AND** the call MUST NOT pass any flag that disables `v2-signing-enabled` or `v3-signing-enabled` — both default to true in apksigner 0.9+
+- **AND** after signing, the pipeline MUST invoke `apksigner verify <apk_path>` and treat a non-zero exit code as failure
+- **AND** the resulting signed APK MUST install on an Android API 30 emulator without `INSTALL_PARSE_FAILED_NO_CERTIFICATES`
+- **AND** the pipeline MUST NOT contain calls to `jarsigner`, `d2j-apk-sign.sh`, or a META-INF strip step
+
+#### Scenario: ASM frame recomputation runs BEFORE ajc as well as after
+
+- **WHEN** `__include_generated_monitors()` has finished copying `.aj`/`.java` sources into `tmp_dir`
+- **THEN** `__pre_compute_stack_frames(app)` MUST run `rv-frame-computer.jar` over `tmp_dir` (ErrorHandler phase `pre_frame_computation`) before `__weave_monitors()` is invoked
+- **AND** after `__weave_monitors()` finishes, the existing `__compute_stack_frames(app)` MUST run the same JAR over `tmp_dir` again (phase `frame_computation`)
+- **AND** both invocations MUST pass `skip_stderr=True` to `utils.execute_command` so per-class warnings ("Warning: frame computation failed for ...") do not fail the APK
+- **AND** APKs that previously failed with `AspectJ Internal Error: unable to add stackmap attributes to class '<X>'. Index -1 out of bounds for length 0` (e.g., `org.apache.tika.parser.CryptoParser`, `okio.Buffer`, `androidx.media3.datasource.AesFlushingCipher`) MUST now weave successfully in the majority of cases
+
+#### Scenario: Pre-desugared `j$.*` shims stripped before instrumentation
+
+- **WHEN** `__decompile_apk()` has produced `tmp_dir` and before `__include_generated_monitors()` runs
+- **THEN** `__strip_desugared_shims(app)` MUST delete every `.class` file under `tmp_dir/j$/**`
+- **AND** the number of removed shims MUST be logged at INFO level
+- **AND** subsequent `__d8()` invocation MUST NOT fail with `Merging DEX file containing classes with prefix 'j$.' with other classes, except classes with prefix 'java.', is not allowed`
+- **AND** the resulting APK MUST run correctly on Android API ≥ 26 (no `j$.*` references remain; the runtime's native `java.*` classes satisfy all calls)
+
+#### Scenario: Problematic library classes quarantined and restored
+
+- **WHEN** `__strip_desugared_shims()` has finished and before `__include_generated_monitors()` runs
+- **THEN** `__quarantine_problematic_classes(app)` MUST move every `.class` file whose path matches a pattern in `assets/weaving_excludes.yaml` (e.g., `okio/**/*.class`, `androidx/media3/datasource/**/*.class`) into a `<tmp_dir>_quarantine/` (a sibling of `tmp_dir`, NOT a subdirectory — ajc's `-inpath` and the frame computer's walker would otherwise descend into any subdirectory and defeat the isolation) subdirectory, preserving the relative subtree
+- **AND** the method MUST NOT quarantine any file whose path starts with the APK's `App.code_package` (if a pattern does match app code, a WARNING MUST be logged and the match MUST be ignored)
+- **AND** the count of quarantined files MUST be logged at INFO
+- **AND** after `__compute_stack_frames()` (post-ajc) and before `__merge_support_classes()`, `__restore_quarantined_classes(app)` MUST move every file from `tmp_dir/.quarantine/**` back into its original relative location under `tmp_dir`, OVERWRITING any file already present at that location
+- **AND** the `<tmp_dir>_quarantine/` directory MUST be empty (or deleted) after restore completes
+- **AND** neither ajc's `AspectJ Internal Error: unable to add stackmap attributes to class '<X>'` nor d8's `Error in ... at L<X>;...: java.lang.ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 0` MUST fail the APK for any `<X>` whose package is in the quarantine list
+
+#### Scenario: Quarantine phase skipped when `enable_quarantine=False`
+
+- **WHEN** `AjcInstrumentationConfig.enable_quarantine` is set to `False` (via Pydantic constructor or via the CLI flag `--no-quarantine` on `instrument` / `batch`)
+- **THEN** `__quarantine_problematic_classes(app)` MUST early-return BEFORE consulting `_load_quarantine_patterns()` and BEFORE attempting any `shutil.move` call
+- **AND** the method MUST emit an INFO log `"Quarantine disabled by config; pipeline will weave/dex all classes"` once per APK with structured extras `{app_name, pipeline_stage="quarantine", enable_quarantine=False}`
+- **AND** no `<tmp_dir>_quarantine/` directory MUST be created by this run
+- **AND** `__restore_quarantined_classes(app)` MUST symmetrically early-return with a DEBUG log explaining the skip — even if a stale `<tmp_dir>_quarantine/` directory survives from a previous (enabled) run, the disabled-path restore MUST NOT touch it (cleanup of stale state is the caller's responsibility)
+- **AND** the call sites in `instrument()` MUST remain unchanged (the methods stay in pipeline order; only their bodies short-circuit)
+- **AND** the default value of `enable_quarantine` MUST be `True` so existing pipelines, Docker images, and experiment configurations preserve current behavior
+
+#### Scenario: `--no-quarantine` CLI flag propagates to AjcInstrumentationConfig
+
+- **WHEN** the user invokes `rv-instrumentation-ajc instrument --apk <path> --output <dir> --no-quarantine` or `rv-instrumentation-ajc batch --apks-dir <dir> --output <dir> --no-quarantine`
+- **THEN** the CLI parser MUST recognise `--no-quarantine` as a boolean flag (action="store_true")
+- **AND** `create_instrumentation_config(args)` MUST construct `AjcInstrumentationConfig(..., enable_quarantine=not args.no_quarantine)`, propagating `enable_quarantine=False` only when the flag was passed
+- **AND** when the flag is omitted, `args.no_quarantine` MUST default to `False`, causing `enable_quarantine=True` (default-on behavior preserved)
+- **AND** the flag MUST be exposed under a "Pipeline Toggles" argument group with help text referencing the empirical-comparison use case (`"Disable the library-class quarantine phase (gh50 §16/§19). Default: enabled. Use for empirical comparison with full-weave runs."`)
 
 #### Scenario: Successful single APK instrumentation
 
@@ -464,4 +600,400 @@ When no `mop_specs_dir` is explicitly provided to `RVGeneratorConfig`, it defaul
 
 - **WHEN** `RVGeneratorConfig` is created with only `rvsec_root` (no explicit `mop_specs_dir`)
 - **THEN** `mop_specs_dir` MUST default to `{rvsec_root}/rvsec/rvsec-mop/src/main/resources/jca/` for backward compatibility
+
+### Requirement: DEX-Native APK Instrumentation Pipeline
+
+The system MUST provide an alternative to the AspectJ-based instrumentation pipeline that operates exclusively over DEX bytecode using `dexlib2`, eliminating the `dex2jar → ajc → d8` round-trip and the JVMS §4.10.1.9 type-consistency conflict it induces on R8-optimized APKs. This pipeline MUST be implemented as a Maven multi-module Java aggregator `rvsec-instrumentation-dexlib2` at `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` (sibling of `rvsec-apk`, `rvsec-gator`, etc. under the `rvsec-android` aggregator) wrapped by a Python module `rv-instrumentation-dexlib2` at `rv-android/modules/rv-instrumentation-dexlib2/` (uv workspace member) that exposes the same `instrument_apks(apks_dir, results_dir) → InstrumentationResults` contract used by the legacy pipeline.
+
+The Java side MUST decompose into single-responsibility submodules: `descriptor-reader` (Jackson POJO model for the JSON descriptor), `pointcut-engine` (parser + matcher + type resolver + android.jar overload index), `advice-emitter` (one emitter per advice kind: before, after, after returning, after throwing, staticinitialization, if-guarded, plus a wrapper emitter for register-aliasing-safe replacement), `dex-mutator` (DexWeaver orchestration + InstructionInjector + RegisterAllocator + RegisterShifter), `coverage-weaver` (the `execution(* *.*(..))` catch-all with canonical package filter and Soot-style signature formatting), `monitor-builder` (javac + d8 over `MultiSpec_*RuntimeMonitor.java`, `mop.MonitorWrappers.java`, and runtime JARs), `multidex-merger` (apksigner v3 + zipalign), `cli` (Picocli unified entry point), and `validator` (the rigor harness — see separate requirement).
+
+The pipeline MUST consume the JSON descriptor produced by `javamop --emit-descriptor` (see modified Monitor Generation requirement) as its sole source of pointcut/advice semantics. It MUST NOT parse the textual `.aj` output. The descriptor's `imports` list MUST be the authority for resolving simple type names (e.g., `Cipher` → `Ljavax/crypto/Cipher;`) into DEX type descriptors.
+
+The pipeline MUST preserve the multidex structure of the input APK (INV-INS-52) and MUST honor the canonical Coverage exclusion filter (INV-INS-53). When register pressure forces `4-bit` instruction format expansion, the weaver MUST emit the corresponding `from16` / `from32` variants and bump `MethodImplementation.registerCount` accordingly, never silently dropping or skipping advice insertions.
+
+#### Scenario: DEX-native instrumentation of an R8-optimized APK previously failing under ajc
+
+- **WHEN** an APK previously known to fail at boot with `VerifyError` under the `ajc` variant (e.g., `hateitorrateit` from the JCA-400 dataset), and the corresponding JSON descriptor is present in `monitor_output_dir`, and `instrumentation_variant == "dexlib2"`
+- **THEN** `DexlibInstrumentation.instrument(app, result_dir)` MUST produce a signed APK at `{instrumented_dir}/{app.name}.apk`
+- **AND** the instrumented APK hash MUST differ from the original APK hash (preserving INV-INS-06)
+- **AND** booting the APK in an emulator MUST NOT raise `VerifyError`
+- **AND** RVSEC-COV events MUST be emitted to logcat for app-code methods exercised during the boot sequence
+- **AND** all AspectJ business advices in the descriptor that match invocations executed during boot MUST trigger the corresponding monitor event
+
+#### Scenario: Missing descriptor when dexlib2 variant is selected
+
+- **WHEN** `instrumentation_variant == "dexlib2"` and `monitor_output_dir` contains `MultiSpec_1MonitorAspect.aj` and `MultiSpec_1RuntimeMonitor.java` but no `MultiSpec_1MonitorAspect.json`
+- **THEN** `DexlibInstrumentation.prepare_instrumentation()` MUST raise `MissingDescriptorError` before any APK processing begins
+- **AND** the error message MUST identify the missing JSON file and mention the `--emit-descriptor` flag
+
+#### Scenario: Multidex preservation under DEX-native weaving
+
+- **WHEN** an input APK contains `classes.dex` + `classes2.dex` (two DEX files due to method-id pressure) and `instrumentation_variant == "dexlib2"`
+- **THEN** the output APK MUST contain at least `classes.dex` + `classes2.dex` with the same application-class assignment to each DEX
+- **AND** if monitor classes (from `MultiSpec_*RuntimeMonitor.java` + `mop.MonitorWrappers.java`) push the host DEX over 65,536 method refs, exactly one additional DEX file MUST be added for the monitor classes
+- **AND** the output APK MUST NOT silently merge multidex partitions
+
+#### Scenario: Register-pressure expansion preserves advice insertion
+
+- **WHEN** the weaver injects a monitor call into a method whose register usage would push an instruction beyond Dalvik's 4-bit register-index limit (e.g., needs `v16` or higher in a `12x` `move` form)
+- **THEN** `RegisterShifter` MUST expand the affected instructions to the wider format (`22x` `move/from16`, `32x` `move/from16`, etc.)
+- **AND** `MethodImplementation.registerCount` MUST be bumped by the number of additional registers consumed
+- **AND** the advice insertion MUST NOT be silently skipped due to register pressure
+
+### Requirement: Instrumentation Variant Selection
+
+`rv-experiment` MUST allow an experiment to select the instrumentation backend by setting `ExperimentConfig.instrumentation_variant: Literal["ajc","dexlib2"]`. The default value MUST be `"ajc"` during Phase 4 → Phase 5 (coexistence and validation) and MUST switch to `"dexlib2"` in Phase 6 once Layer-4 validation ratifies parity.
+
+`PreProcessor._instrument_apks()` MUST dispatch to `RVInstrumentation` for the `"ajc"` value and to `DexlibInstrumentation` for the `"dexlib2"` value. Both implementations MUST honor the same `instrument_apks(apks_dir, results_dir) → InstrumentationResults` contract (INV-INS-55). The `InstrumentationResults` model MUST carry a new `variant: Literal["ajc","dexlib2"]` field recording which pipeline produced the results, persisted to `instrument_errors.json` and any downstream reports.
+
+The variant selection MUST be exposed at the CLI level (`rv-experiment --instrumentation-variant <ajc|dexlib2>`) and via `ExperimentConfig` deserialization for batch / Docker scenarios. Selecting a variant MUST NOT alter `rv-monitor-generator` behavior: the generator always emits both `.aj`/`.java` (consumed by ajc) and `.json` (consumed by dexlib2), so a single monitor-generation run supports both variants.
+
+#### Scenario: Variant flag dispatches to dexlib2 pipeline
+
+- **WHEN** `ExperimentConfig.instrumentation_variant` is `"dexlib2"` and an experiment is run
+- **THEN** `PreProcessor._instrument_apks()` MUST instantiate `DexlibInstrumentation` (not `RVInstrumentation`)
+- **AND** the resulting `InstrumentationResults.variant` MUST equal `"dexlib2"`
+- **AND** `instrument_errors.json` MUST record `variant: "dexlib2"` at its root
+
+#### Scenario: Default variant during coexistence phase
+
+- **WHEN** `ExperimentConfig` is loaded without an explicit `instrumentation_variant` field, before Phase 6 ratification
+- **THEN** `instrumentation_variant` MUST default to `"ajc"`
+- **AND** `InstrumentationResults.variant` MUST equal `"ajc"`
+
+#### Scenario: Default variant after Phase 6 ratification
+
+- **WHEN** the Phase 6 substitution commit has been merged (legacy `rv-instrumentation` quarantined to `backup/`) and `ExperimentConfig` is loaded without an explicit `instrumentation_variant`
+- **THEN** `instrumentation_variant` MUST default to `"dexlib2"`
+
+#### Scenario: Invalid variant value
+
+- **WHEN** `ExperimentConfig.instrumentation_variant` is set to a value not in `["ajc","dexlib2"]`
+- **THEN** `ExperimentConfig.validate()` MUST raise a `ValueError` with message listing the valid variants
+
+**Amendments from gh53 (4-module restructure)** apply to the variant-selection requirement above and MUST be observed by all consumers:
+
+- The `InstrumentationResults` and `InstrumentationError` Pydantic models referenced by INV-INS-55 MUST be imported from `rv_instrumentation_core` (or equivalently from `rv_instrumentation` parent re-exports), NOT from `rv_instrumentation.config` (which no longer hosts these types).
+- `PreProcessor._instrument_apks()` MUST delegate selection to `rv_instrumentation.get_instrumenter(variant, config)` (public factory imported from the parent) rather than inlining the `if/else`.
+- The factory MUST type its return value as `Instrumenter` (ABC from `rv_instrumentation_core`), not as a concrete class union or `Any`.
+- Legacy JSONs without the `variant` field MUST deserialize with `variant == "ajc"` via the existing `Field(default="ajc")` mechanism on `InstrumentationResults.variant`. (Note: gh52 INV-INS-55 textually mandates a `model_validator(mode="before")` for retrocompat; the actual code uses `Field(default="ajc")`. The `Field` mechanism is carried forward unchanged; closing the spec-vs-code divergence is filed as gh52 follow-up.)
+
+The variant flag, the env variable mapping in `docker/rvandroid/docker-entrypoint.sh:97-103`, the Pydantic field `instrumentation_variant: str = Field(default="ajc", ...)` in `rv-experiment/config.py:137`, and the click option `--instrumentation-variant` in `rv-experiment/__main__.py:340` MUST remain unchanged.
+
+#### Scenario: Variant tag propagates through the new -core types
+
+- **WHEN** `_instrument_apks()` runs with `instrumentation_variant == "dexlib2"`
+- **THEN** the resulting `InstrumentationResults` MUST be an instance of `rv_instrumentation_core.InstrumentationResults` (equivalent to `rv_instrumentation.InstrumentationResults` via re-export)
+- **AND** `result.variant` MUST equal `"dexlib2"`
+- **AND** `instrument_errors.json` written by `ResultManager` MUST round-trip via `model_validate_json` without error
+
+#### Scenario: Legacy JSON without variant field deserializes as ajc
+
+- **WHEN** an `instrument_errors.json` written before gh52 (lacking the `variant` field) is loaded via `rv_instrumentation_core.InstrumentationResults.model_validate_json(legacy_payload)`
+- **THEN** the deserialization MUST succeed
+- **AND** the resulting object MUST have `variant == "ajc"` (via the `Field(default="ajc")` mechanism — see gh53 design.md "Dívida herdada gh52 INV-INS-55")
+
+### Requirement: JavaMOP Descriptor Format and Emission
+
+The contract between `rv-monitor-generator` and the DEX-native instrumentation pipeline MUST be a JSON descriptor file emitted by JavaMOP under the `--emit-descriptor` flag. The descriptor MUST be written alongside the existing `.aj` artifact at `{monitor_output_dir}/MultiSpec_<N>MonitorAspect.json` and MUST mirror the semantic content of the AspectJ AST that produced the `.aj` (INV-INS-56). Parsing of the textual `.aj` is forbidden as a contract source; the JSON is the canonical machine-readable form.
+
+The descriptor schema MUST contain at minimum: `aspectName`, `fileName`, `shortName`, `package` (the MOP file's `package` declaration), `imports` (the resolved import list including JavaMOP-required imports), `commonPointcut`, `baseAspectExclusions`, and an `advices` array. Each advice MUST encode `name`, `specName`, `parameters[]`, `position` (`before` | `after` | `around`), `returning` (nullable), `throwing` (nullable), `expression` (the textual pointcut for human readability), and `monitorCalls[]` (target class, method name, args by name).
+
+The `imports` field MUST include both the user's imports and the JavaMOP-required set (`java.util.concurrent.*`, `java.util.concurrent.locks.*`, `java.util.*`, `javamoprt.*`, `java.lang.ref.*`, `org.aspectj.lang.*`) so that the weaver's `TypeResolver` can map any simple type name appearing in a pointcut to a fully-qualified DEX descriptor without recourse to external classpath probing.
+
+The patch enabling this emission MUST be applied to the vendored `rvsec/javamop/` and pinned at the commit recorded in the gh52 design document.
+
+#### Scenario: Descriptor emitted alongside .aj for any specification set
+
+- **WHEN** `RuntimeVerificationGenerator.generate_monitors(output_dir)` is invoked with `mop_specs_dir` pointing to any supported specification set (JCA, Generic, or a future addition), `javamop_bin` is the patched JavaMOP, and the configuration enables descriptor emission
+- **THEN** `output_dir` MUST contain `MultiSpec_1MonitorAspect.aj` (existing behavior)
+- **AND** `output_dir` MUST contain `MultiSpec_1MonitorAspect.json`
+- **AND** the JSON MUST validate against the `AspectDescriptor` schema declared in `descriptor-reader`
+- **AND** the JSON `advices` array MUST have exactly the same length as the `.aj` advice count (115 for the JCA merge — empirically validated in the prototype; each spec set has its own count). The descriptor-reader does NOT depend on that count; the scenario enforces a per-set invariant, not a constant.
+
+#### Scenario: Descriptor imports include both user and required sets
+
+- **WHEN** a MOP spec declares `import javax.crypto.Cipher;` at the top
+- **THEN** the emitted descriptor's `imports` array MUST include `"javax.crypto.Cipher"`
+- **AND** it MUST also include the JavaMOP-required entries: `"java.util.concurrent.*"`, `"java.util.concurrent.locks.*"`, `"java.util.*"`, `"javamoprt.*"`, `"java.lang.ref.*"`, `"org.aspectj.lang.*"`
+- **AND** there MUST be no duplicate entries
+
+#### Scenario: Weaver rejects descriptor missing required fields
+
+- **WHEN** `DexWeaver` loads a JSON descriptor that lacks the `imports` field or has `advices: []`
+- **THEN** `DescriptorReader.read(path)` MUST raise `DescriptorParseError`
+- **AND** the error MUST identify the missing field by JSON pointer
+
+### Requirement: Validator Harness for Layered Equivalence Gates
+
+The change MUST include a Maven submodule `validator/` that operationalizes the 6-layer validation framework documented in `docs/20260423_plano_validacao.md`. Each layer MUST be runnable independently as a CLI subcommand and MUST emit a JSON report at a predictable path; gates MUST be defined as machine-checkable thresholds so that CI can block merges on regression.
+
+The harness MUST include: (a) `BaksmaliDiffer` performing static hook diff between an `ajc`-instrumented APK and a `dexlib2`-instrumented APK from the same input + same descriptor, computing per-spec hook recall (Layer 1 gate: recall ≥ 0.95 in ≥90% of subset); (b) `BootValidator` exercising install + monkey-launch and parsing logcat for `VerifyError` and the `RVSEC` / `RVSEC-COV` event tags (Layer 2 gate: zero regressions vs ajc baseline); (c) `TraceComparator` running both pipelines against the three mandatory oracles (INV-INS-59: cryptoapp, hateitorrateit, and one multidex APK) and on a 30-APK subset, computing per-spec F1 + Cohen's kappa (Layer 3 gate: F1 ≥ 0.98, kappa ≥ 0.9 on every oracle AND on the aggregate of the 30-APK subset); (d) `BatchValidator` orchestrating the 945-task JCA-400 × 3 tools × 3 reps execution via Docker (Layer 4 gate: recovery_rate ≥ 90%, paired Wilcoxon signed-rank TOST non-inferiority lower-bound rejects per INV-INS-58 across all specs, equivalence holds in ≥80% of specs; thresholds file pre-registered before the run); (e) `CoverageValidator` measuring RVSEC-COV recall against ajc baseline (Layer 5 gate: recall ≥ 0.99, delta ≤ 1pp); (f) `FeatureMappingChecker` enforcing INV-INS-54.
+
+#### Scenario: Layer 1 baksmali diff passes threshold
+
+- **WHEN** `BaksmaliDiffer` is run over a 30-APK subset with `ajc` and `dexlib2` outputs both available
+- **THEN** the resulting JSON report MUST contain a per-APK recall value
+- **AND** at least 27 of the 30 APKs (≥90%) MUST have recall ≥ 0.95
+- **AND** the CLI MUST exit with code 0
+
+#### Scenario: Layer 4 large-scale gate fails on non-inferiority
+
+- **WHEN** `BatchValidator` runs the 945-task batch and, for any spec, the paired Wilcoxon signed-rank lower-bound TOST fails to reject at α=0.05 against the pre-registered bound (Δ=2pp for `cov_method`, Δ=0.02 for F1, Δ=0.05 for κ), i.e., we cannot rule out that `dexlib2` median is more than Δ below `ajc` median
+- **THEN** the CLI MUST exit with code 1
+- **AND** the JSON report MUST identify the affected specs, the point estimate of the paired median difference, the bootstrapped 90% CI, both TOST p-values, and the Wilcoxon effect size `r`
+- **AND** CI MUST block the Phase 6 substitution merge
+
+#### Scenario: Layer 4 passes non-inferiority but not full equivalence
+
+- **WHEN** `BatchValidator` runs the batch, the lower-bound TOST rejects for every spec (non-inferiority holds), but the upper-bound TOST rejects on fewer than 80% of specs (full equivalence does not hold globally)
+- **THEN** the CLI MUST exit with code 0 (non-inferiority alone is sufficient for Phase-6 promotion per INV-INS-58)
+- **AND** the JSON report MUST flag each spec where full equivalence did NOT hold, recording point estimate + CI + TOST p-values, so reviewers can see where `dexlib2` drifts positively against `ajc`
+
+#### Scenario: FeatureMappingChecker fails on missing mapping
+
+- **WHEN** `docs/AJ_CONSTRUCTIONS_INVENTORY.md` lists the construct `staticinitialization(T+)` as used in `generic_new` specifications, and the validator finds no test in `validator/src/test/` exercising the dexlib2 mapping for that construct, and `docs/LIMITATIONS.md` does not list it as out-of-scope
+- **THEN** `FeatureMappingChecker` MUST exit with code 1
+- **AND** the JSON report MUST identify the construct and the missing mapping
+
+### Requirement: AspectJ-to-Dexlib2 Mapping Documentation
+
+Three documents MUST be produced and kept current with the implementation: `docs/AJ_CONSTRUCTIONS_INVENTORY.md`, `docs/AJ_TO_DEXLIB2_MAPPING.md`, and `docs/LIMITATIONS.md`. These documents support paper-grade defense of the substitution and are mandatory artifacts of the change.
+
+`AJ_CONSTRUCTIONS_INVENTORY.md` MUST enumerate every AspectJ construct (`call`, `execution`, `before`, `after`, `after returning`, `after throwing`, `target`, `args`, `!within`, `staticinitialization`, `if`, `thisJoinPoint`, `adviceexecution`, `around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`, `initialization`, `preinitialization`) and for each one MUST list every `.mop` or `.aj` file under `rvsec/rvsec-mop/src/main/resources/{jca,generic,generic_new,aspect}/` that uses it, with file:line citations. The inventory MUST be regenerated programmatically by `validator/ConstructionInventoryGenerator` and the diff between regenerated and committed versions MUST be empty in CI.
+
+`AJ_TO_DEXLIB2_MAPPING.md` MUST be a table with columns: AspectJ construct, dexlib2 component (Maven submodule + class), function (method name), smali pattern (bytecode shape emitted), and test reference (validator test file:line). Every row MUST have a corresponding test in `validator/`. INV-INS-54 enforces this.
+
+`LIMITATIONS.md` MUST list every AspectJ construct that the dexlib2 weaver does not support. For each entry the document MUST give a rationale and the empirical evidence (from the inventory) of zero usage in the RVSEC specification corpus, justifying the out-of-scope decision. Currently expected entries: `around`, `cflow`, `cflowbelow`, `handler`, `get`, `set`, `initialization`, `preinitialization`.
+
+#### Scenario: Inventory regeneration matches committed file
+
+- **WHEN** `ConstructionInventoryGenerator` is run with `rvsec/rvsec-mop/src/main/resources/` as input
+- **THEN** the generated `AJ_CONSTRUCTIONS_INVENTORY.md` MUST be byte-identical to the committed `docs/AJ_CONSTRUCTIONS_INVENTORY.md`
+- **AND** if any spec file added a new construct usage since the last commit, the diff MUST identify the construct, the file, and the line
+
+#### Scenario: Limitations document covers every gap
+
+- **WHEN** `FeatureMappingChecker` is run after a new spec is added that uses `cflow()`
+- **THEN** the check MUST fail because `cflow` is in `LIMITATIONS.md` but the new spec triggers it
+- **AND** the report MUST direct the developer either to remove the `cflow` use, implement support, or move the construct out of the LIMITATIONS list with new evidence
+
+### Requirement: Ground-Truth Oracle Diversity for Equivalence Claims
+
+The claim that `dexlib2` is behaviorally equivalent to `ajc` on APKs that `ajc` handles correctly MUST be supported by at least three ground-truth oracle APKs exercising disjoint bytecode profiles, each with a hand-validated expected-event list committed to `validator/oracles/<name>-oracle.yaml` BEFORE Layer-3 or Layer-4 execution (so that oracles are not retrofitted to observed behavior). The three mandatory profiles are:
+
+1. **Java-only, single DEX, pre-R8** — baseline profile. Canonical APK: `cryptoapp` with 8 known violations (see `docs/20260423_plano_validacao.md` §3.4 oracle table).
+2. **Kotlin + R8-optimized, single or multi DEX** — the profile that motivates this change. Canonical APK: `hateitorrateit` (validated by the prototype at 100% method instrumentation, zero `VerifyError`).
+3. **Multidex real-world APK from JCA-400** — exercises monitor-refs spillover and `classes.dex` + `classes2.dex` preservation (INV-INS-52). Concrete APK MUST be selected from JCA-400 and recorded in `validator/oracles/<name>-oracle.yaml` before Phase 5 execution.
+
+Additional oracles MAY be added, but dropping below three is permitted only if `LIMITATIONS.md` carries an explicit entry naming the unverified profile and acknowledging the reviewer scrutiny that concession invites. A single oracle (cryptoapp alone) is insufficient for Phase-6 promotion.
+
+#### Scenario: Layer 3 runs against three oracles
+
+- **WHEN** `TraceComparator` is invoked for the Phase-5 ratification gate
+- **THEN** at least three oracle YAMLs MUST be present in `validator/oracles/`
+- **AND** each oracle MUST satisfy its expected event list with F1 ≥ 0.98 and κ ≥ 0.9 under both variants
+- **AND** the report MUST name the three oracles and their bytecode profiles in its header
+
+#### Scenario: Oracle added after execution
+
+- **WHEN** a new oracle YAML is committed after a Layer-3 run already produced a report
+- **THEN** the report MUST be regenerated with the new oracle before any gate ratification
+- **AND** the commit message MUST cite the expected events and their provenance explicitly (source files, line numbers, or manual UI validation steps) — never "observed in run X"
+
+#### Scenario: Multidex oracle profile unavailable
+
+- **WHEN** the Phase-5 ratification gate is scheduled but no multidex oracle has been committed to `validator/oracles/`
+- **THEN** the gate MUST be held
+- **AND** either (a) a multidex oracle MUST be selected from JCA-400 and its expected-event list committed, OR (b) `docs/LIMITATIONS.md` MUST be updated with an entry "multidex profile unverified" naming the scrutiny this invites — no silent continuation is allowed
+
+### Requirement: Pure Abstractions Module `rv-instrumentation-core`
+
+The system MUST provide a Python module `rv-instrumentation-core` (under `modules/rv-instrumentation-core/`, package name `rv_instrumentation_core`) that holds the pure abstractions of the instrumentation domain. The module MUST contain ONLY:
+
+- `results.py`: `InstrumentationResults` Pydantic model + `InstrumentationError` Pydantic model (relocated from `rv_instrumentation.config`).
+- `instrumenter.py`: abstract base class `Instrumenter` with `instrument_apks` as its sole `@abstractmethod`.
+- `__init__.py`: re-exports `InstrumentationResults`, `InstrumentationError`, `Instrumenter`.
+
+The module MUST NOT contain any concrete instrumentation logic, factory function, asset, or shared mutable state. It MUST be a uv workspace member declared in the root `pyproject.toml`. Its only declared runtime dependencies are `pydantic` and `rv-android-core`. It MUST NOT declare a dependency on `rv-instrumentation`, `rv-instrumentation-ajc`, or `rv-instrumentation-dexlib2` (this would be a cycle).
+
+#### Scenario: Direct imports from -core work after migration
+
+- **WHEN** the change is applied and `python -c "from rv_instrumentation_core import Instrumenter, InstrumentationResults, InstrumentationError"` is run
+- **THEN** the command MUST exit 0
+- **AND** `Instrumenter` MUST be a class with `abc.ABCMeta` as its metaclass
+- **AND** `InstrumentationResults` and `InstrumentationError` MUST be `BaseValidatedModel` subclasses
+
+#### Scenario: -core has no dependency on impl modules
+
+- **WHEN** `python -c "import tomllib; deps = tomllib.loads(open('modules/rv-instrumentation-core/pyproject.toml','rb').read().decode())['project']['dependencies']; ..."` is evaluated
+- **THEN** the dependency list MUST contain ONLY `pydantic` and `rv-android-core` (allowing `>=` version pins)
+- **AND** none of `rv-instrumentation`, `rv-instrumentation-ajc`, `rv-instrumentation-dexlib2` MUST appear
+
+### Requirement: Canonical Parent Module `rv-instrumentation` with Public Factory
+
+The module `rv-instrumentation` MUST serve as the canonical parent for the instrumentation domain. After this change, its `src/rv_instrumentation/` directory MUST contain ONLY:
+
+- `factory.py`: public function `get_instrumenter(variant, config) -> Instrumenter` that dispatches to concrete variant implementations via lazy imports inside each branch (selecting "ajc" does NOT import `rv_instrumentation_dexlib2`; selecting "dexlib2" does NOT import `rv_instrumentation_ajc`). Raises `ValueError` for unknown variants.
+- `__init__.py`: re-exports `Instrumenter`, `InstrumentationResults`, `InstrumentationError` from `rv_instrumentation_core`, AND exposes `get_instrumenter`.
+
+The parent's `assets/` directory MUST contain `keystore.jks` (shared by both variants for APK signing). The parent's `pyproject.toml` MUST declare runtime dependencies on `rv-instrumentation-core`, `rv-instrumentation-ajc`, AND `rv-instrumentation-dexlib2` (the factory imports both implementations at runtime, even if lazily).
+
+The parent MUST NOT contain any concrete instrumentation logic, ABC definition, or Pydantic type definition (those live in `-core`).
+
+#### Scenario: Canonical imports via parent re-exports work
+
+- **WHEN** the change is applied and `python -c "from rv_instrumentation import Instrumenter, InstrumentationResults, InstrumentationError, get_instrumenter"` is run
+- **THEN** the command MUST exit 0
+- **AND** the `Instrumenter` symbol MUST be the same object as imported via `rv_instrumentation_core.Instrumenter` (verifiable via `from rv_instrumentation import Instrumenter as A; from rv_instrumentation_core import Instrumenter as B; assert A is B`)
+
+#### Scenario: Both implementations inherit from Instrumenter
+
+- **WHEN** `AjcInstrumentation` is instantiated with a valid `AjcInstrumentationConfig` and `DexlibInstrumentation` is instantiated with a valid `DexlibInstrumentationConfig`
+- **THEN** `isinstance(ajc_instance, Instrumenter)` MUST return `True` (where `Instrumenter` is imported from `rv_instrumentation` OR `rv_instrumentation_core` — same class)
+- **AND** `isinstance(dexlib_instance, Instrumenter)` MUST return `True`
+
+### Requirement: Atomic Rename of AspectJ Implementation Module
+
+The system MUST atomically rename the current AspectJ implementation:
+- Module directory: `modules/rv-instrumentation/` (impl portion) → `modules/rv-instrumentation-ajc/`
+- Python package: `rv_instrumentation` (impl portion) → `rv_instrumentation_ajc`
+- Class: `RVInstrumentation` → `AjcInstrumentation`
+- Config class: `RVInstrumentationConfig` → `AjcInstrumentationConfig`
+- Asset: `assets/weaving_excludes.yaml` (AspectJ-specific) moves with the module to `modules/rv-instrumentation-ajc/assets/`
+
+The rename MUST be atomic per principle P3 — no aliases, no shims, no `# removed` comments, no backward-compatible re-exports. Every consumer MUST be updated in the same change.
+
+The new `rv-instrumentation-ajc` module MUST depend on `rv-instrumentation-core` (for the ABC and types) and on `rv-android-core` (for `BaseValidatedModel`, `ConfigurationError`, etc.). It MUST NOT depend on `rv-instrumentation` (parent) — this would form a cycle. The class `AjcInstrumentation` MUST inherit from `Instrumenter` (imported from `rv_instrumentation_core`) and override `instrument_apks` with behavior unchanged from the legacy `RVInstrumentation.instrument_apks`.
+
+#### Scenario: Renamed module is importable after migration
+
+- **WHEN** the change is applied and `python -c "from rv_instrumentation_ajc.ajc_instrumentation import AjcInstrumentation; from rv_instrumentation_ajc.config import AjcInstrumentationConfig"` is run
+- **THEN** the command MUST exit 0
+
+#### Scenario: No legacy class names remain
+
+- **WHEN** `grep -rnE 'from rv_instrumentation import RVInstrumentation|RVInstrumentation\(' modules/ scripts/ tests/` is run after the change
+- **THEN** the command MUST return 0 hits
+
+#### Scenario: -ajc does not depend on parent or sibling
+
+- **WHEN** `tomllib`-parsed dependencies of `modules/rv-instrumentation-ajc/pyproject.toml` are inspected
+- **THEN** the dependency list MUST NOT contain `rv-instrumentation` (parent)
+- **AND** MUST NOT contain `rv-instrumentation-dexlib2` (sibling)
+- **AND** MUST contain `rv-instrumentation-core` and `rv-android-core`
+
+### Requirement: dexlib2 Module Updated to Use -core for Abstractions
+
+`rv-instrumentation-dexlib2` MUST be updated such that:
+- All imports of `InstrumentationResults` and `InstrumentationError` come from `rv_instrumentation_core` (not from `rv_instrumentation.config`).
+- `class DexlibInstrumentation` MUST inherit from `Instrumenter` (imported from `rv_instrumentation_core`).
+- `pyproject.toml` MUST replace its current dep on `rv-instrumentation` (which the impl was using as a workaround for shared types) with a dep on `rv-instrumentation-core`. The dep on `rv-instrumentation` (parent) MUST NOT be added — that would form a cycle.
+
+#### Scenario: dexlib2 imports come from -core
+
+- **WHEN** `grep -rnE 'from rv_instrumentation\.config|^import rv_instrumentation\.config' modules/rv-instrumentation-dexlib2/src/` is run
+- **THEN** the command MUST return 0 hits
+- **AND** `grep -rnE 'from rv_instrumentation_core' modules/rv-instrumentation-dexlib2/src/` MUST return 1+ hits
+
+#### Scenario: dexlib2 does not depend on parent or sibling
+
+- **WHEN** `tomllib`-parsed dependencies of `modules/rv-instrumentation-dexlib2/pyproject.toml` are inspected
+- **THEN** the dependency list MUST NOT contain `rv-instrumentation` (parent)
+- **AND** MUST NOT contain `rv-instrumentation-ajc` (sibling)
+- **AND** MUST contain `rv-instrumentation-core`
+
+### Requirement: Public Factory Dispatch
+
+`rv-experiment` MUST replace the inline `if/else` dispatch in `PreProcessor._instrument_apks()` (currently at `pre_processor.py:188-207`) with a call to `rv_instrumentation.get_instrumenter(variant, config)`. The factory call MUST be the unique site of variant selection across the entire `rv-android` codebase. No parallel dispatch helper, no private `_select_instrumenter` (or similar), no inlined `if/else` over variants MUST appear in any module other than `rv_instrumentation.factory`.
+
+The factory MUST use lazy imports: importing the dexlib2 concrete class MUST happen only when `variant == "dexlib2"`, and the ajc concrete class MUST be imported only when `variant == "ajc"`. This prevents environments where one variant's transitive dependencies are unavailable from breaking the other variant.
+
+#### Scenario: Factory dispatches to dexlib2 when variant is "dexlib2"
+
+- **WHEN** `get_instrumenter("dexlib2", dexlib_config)` is called with a valid `DexlibInstrumentationConfig`
+- **THEN** the returned instance MUST be a `DexlibInstrumentation`
+- **AND** `isinstance(returned, Instrumenter)` MUST hold
+- **AND** `rv_instrumentation_ajc` MUST NOT have been imported by this call (verifiable via `sys.modules` snapshot before/after)
+
+#### Scenario: Factory dispatches to ajc when variant is "ajc"
+
+- **WHEN** `get_instrumenter("ajc", ajc_config)` is called with a valid `AjcInstrumentationConfig`
+- **THEN** the returned instance MUST be an `AjcInstrumentation`
+- **AND** `isinstance(returned, Instrumenter)` MUST hold
+- **AND** `rv_instrumentation_dexlib2` MUST NOT have been imported by this call
+
+#### Scenario: Factory rejects unknown variant
+
+- **WHEN** `get_instrumenter("lspatch", config)` is called and `lspatch` is not a registered variant
+- **THEN** the factory MUST raise `ValueError`
+- **AND** the exception message MUST list the valid variants (`ajc`, `dexlib2`)
+
+### Requirement: Canonical Docker Image Rebuild
+
+The Docker image `phtcosta/rvandroid:0.8.0` MUST be rebuildable from branch `modules` (after this change is applied) and the resulting image MUST carry `rv-instrumentation-core`, `rv-instrumentation` (parent), `rv-instrumentation-ajc`, and `rv-instrumentation-dexlib2`. The image MUST resolve `RV_INSTRUMENTATION_VARIANT` at container runtime without rebuild. The temporary build path `docker/rvandroid_dexlib2/Dockerfile` and the tag `phtcosta/rvandroid:0.8.0-dexlib2` MUST be removed.
+
+`docker/rvandroid/Dockerfile` MUST include a build-time gate verifying that the `instr-cli.jar` was auto-copied by Maven (Design D9 from gh52); the gate MUST fail the build with a clear message if the jar is missing. The expected path inside the image is `/opt/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` (matching the existing layout: base image uses `WORKDIR /opt/rvsec` with `git clone ... .`). The `ARG RVSEC_BRANCH=modules` MUST be preserved per Phase 0 §4.3.
+
+#### Scenario: Image rebuild succeeds and supports both variants
+
+- **WHEN** `docker build -t phtcosta/rvandroid:0.8.0 docker/rvandroid/` is run from a clean clone of branch `modules` after this change is applied
+- **THEN** the build MUST exit 0
+- **AND** the resulting image MUST contain `/opt/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar`
+- **AND** running `docker run --rm phtcosta/rvandroid:0.8.0 -e RV_INSTRUMENTATION_VARIANT=ajc rv-experiment run --tools monkey --apks-dir /apks --skip-monitors --skip-static` over a 1-APK fixture MUST exit 0 with `instrument_errors.json` showing `variant: "ajc"`
+- **AND** the same invocation with `RV_INSTRUMENTATION_VARIANT=dexlib2` MUST exit 0 with `instrument_errors.json` showing `variant: "dexlib2"`
+
+#### Scenario: Build fails when instr-cli.jar is missing
+
+- **WHEN** `docker build` is run on a workspace where `mvn clean install` was not executed
+- **THEN** the build MUST fail at the gate step
+- **AND** the error message MUST identify the missing jar path and recommend running `mvn clean install` from `rvsec/`
+
+### Requirement: Removal of Temporary Docker Artifacts
+
+The change MUST remove the following artifacts that became redundant once gh52 was merged into `modules`:
+- `docker/rvandroid_dexlib2/Dockerfile` (53 lines)
+- `docker/rvandroid_dexlib2/` (directory; verified to contain only `Dockerfile`)
+- References to `phtcosta/rvandroid:0.8.0-dexlib2` and `phtcosta/rvandroid:0.8.0-dexlib2-base` in any compose template, build script, or active documentation
+
+`docker/docker-compose.dexlib2-validation.template.yml` MUST be rewritten to use `phtcosta/rvandroid:0.8.0` for both services, distinguishing the variants via `RV_INSTRUMENTATION_VARIANT=ajc` and `RV_INSTRUMENTATION_VARIANT=dexlib2`. The two-service paired-comparison structure required by gh52 Phase 5 (Layer-4 validation) MUST be preserved.
+
+The dead-code example comment in `docker/rvandroid/Dockerfile:8-9` referencing `--build-arg RVSEC_BRANCH=gh52-instr-dexlib2` and the `0.8.0-dexlib2-base` tag MUST be removed or replaced with a current-state example (P4).
+
+#### Scenario: Compose template parses and uses unified image
+
+- **WHEN** `docker compose -f docker/docker-compose.dexlib2-validation.template.yml config` is run after the rewrite
+- **THEN** the command MUST exit 0
+- **AND** the resolved configuration MUST show both services using image `phtcosta/rvandroid:0.8.0`
+- **AND** the two services MUST differ on `RV_INSTRUMENTATION_VARIANT` only (`ajc` vs `dexlib2`)
+
+### Requirement: Asset Migration — Shared Keystore in Parent, AspectJ Excludes in -ajc
+
+The signing keystore `keystore.jks` is a SHARED asset (used by `apksigner` in dexlib2 and `jarsigner` in ajc, both pointing at the same path via `rv-experiment/config.py`'s keystore_file setter). It MUST live in `modules/rv-instrumentation/assets/` (parent canonical), NOT in `rv-instrumentation-core` (which holds no assets). The path that `rv-experiment/config.py:669` resolves at runtime — `Path(rvsec_root) / "rv-android" / "modules" / "rv-instrumentation" / "assets" / "keystore.jks"` — MUST remain unchanged after this change.
+
+The AspectJ weaving exclusion file `weaving_excludes.yaml` is AJC-SPECIFIC. It MUST move from `modules/rv-instrumentation/assets/` to `modules/rv-instrumentation-ajc/assets/`. The script `scripts/jca557_quarantine_impact.py` (lines 14 docstring, 44 code) MUST be updated to reference the new path.
+
+#### Scenario: Keystore stays at parent canonical path
+
+- **WHEN** the change is applied and `[ -f modules/rv-instrumentation/assets/keystore.jks ]` is checked
+- **THEN** the file MUST exist
+- **AND** `grep -n 'rv-instrumentation/assets/keystore.jks' modules/rv-experiment/src/rv_experiment/config.py` MUST return 1+ hit
+
+#### Scenario: weaving_excludes.yaml moves to -ajc module
+
+- **WHEN** the change is applied
+- **THEN** `[ -f modules/rv-instrumentation-ajc/assets/weaving_excludes.yaml ]` MUST be true
+- **AND** `[ ! -f modules/rv-instrumentation/assets/weaving_excludes.yaml ]` MUST be true
+- **AND** `grep -n 'rv-instrumentation/assets/weaving_excludes' scripts/jca557_quarantine_impact.py` MUST return 0 hits
+- **AND** `grep -n 'rv-instrumentation-ajc/assets/weaving_excludes' scripts/jca557_quarantine_impact.py` MUST return 1+ hits
+
+### Requirement: AspectJ Crash-Dump Cleanup
+
+The 22 `ajcore.20260421.*.txt` files at the repository root (residue of gh50's JCA-557 validation) MUST be removed and `.gitignore` MUST be updated to ignore the pattern `ajcore.*.txt` going forward.
+
+#### Scenario: Crash dumps removed and pattern ignored
+
+- **WHEN** the change has been applied and `git status` is run from the repo root
+- **THEN** no `ajcore.*.txt` file MUST appear as tracked or untracked
+- **AND** `.gitignore` MUST contain a line matching `ajcore.*.txt`
 
