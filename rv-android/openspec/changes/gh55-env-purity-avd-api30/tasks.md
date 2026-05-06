@@ -71,12 +71,12 @@
 - [x] 6.1 Backed up `docker/android/Dockerfile` to `backup/2026-05-06_env_var_cleanup/android.Dockerfile.old`.
 - [x] 6.2 Updated `docker/android/Dockerfile`: `ARG API_LEVEL=30`, `ARG ARCHITECTURE=x86_64`, `IMG_TYPE=google_apis` unchanged. Rewrote the gh50 §17 historical comment block per P4 — current-state only, references the gh55 6.4a Docker boot smoke as the pre-merge gate.
 - [x] 6.3 Updated `scripts/run_emulator.sh`: `EMULATOR_NAME="RVSec"`. Removed the OLD/NEW commented-out blocks. Added flag-by-flag rationale for the canonical launch (writable-system, wipe-data, no-boot-anim, noaudio, no-snapshot-save, delay-adb).
-- [ ] 6.4 Build local image `phtcosta/rvandroid:0.9.0-api30` via `docker/rvandroid/build.sh`; tag with API level for traceability
-- [ ] 6.4a **Docker-container boot smoke** (closes the gap left by host-side n=80): start a fresh container from `phtcosta/rvandroid:0.9.0-api30` with default compose config; confirm the API 30 x86_64 emulator boots to BOOT_COMPLETED inside the container within 90s (host-side measured 30s; allow margin for Docker overhead) for ≥3 consecutive runs. This directly addresses the `gh50 §17` rollback context (Docker, not host); without this evidence the OverlayFS-diagnosis challenge in proposal/design remains conjecture.
-- [ ] 6.5 Smoke matrix gate (H4): run `rv-experiment run` with 5 APKs × 5 tools (Monkey, ape, aperv:sata_mop, droidbot, fastbot) × 60min timeout against the new image; record results
-- [ ] 6.6 Larger AVD sample gate: run `scripts/investigate_avd_compat.sh --sample 100 phase2 /home/pedro/desenvolvimento/RV_ANDROID/NOVO/APKS /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs`; confirm 0 regressions trend
-- [ ] 6.7 Update `docs/20260506_plano_env.md` Section 10 with larger-sample data
-- [ ] 6.8 If gates 6.5 + 6.6 pass: tag image as `phtcosta/rvandroid:0.9.0` (the merged candidate). If any tool fails on API 30, document and decide per-tool fallback (escalate as separate change if needed)
+- [ ] 6.4 Build the existing `phtcosta/rvandroid:0.8.0` image **in place** via `docker/rvandroid/build.sh` (NO tag bump — version is preserved per gh55 user direction; content differentiation is by `LABEL rvsec.branch` and image creation timestamp). The `--no-cache` flag in build.sh ensures the new API 30 system image is fetched.
+- [ ] 6.4a **Docker-container boot smoke**: start a fresh container from `phtcosta/rvandroid:0.8.0` (rebuilt) with default compose config; confirm the API 30 x86_64 emulator boots to BOOT_COMPLETED inside the container within 90s for ≥3 consecutive runs. This addresses the `gh50 §17` rollback context (Docker, not host); without this evidence the OverlayFS-diagnosis challenge in proposal/design remains conjecture.
+- [ ] 6.5 Smoke matrix gate (H4): run `rv-experiment run` with 5 APKs × 5 tools (Monkey, ape, aperv:sata_mop, droidbot, fastbot) × 60min timeout against the rebuilt image; record results. **Configuration paused for review** before execution.
+- [ ] 6.6 Larger AVD sample gate: run `scripts/investigate_avd_compat.sh --sample 100 phase2 ...` on both datasets; confirm 0 regressions trend.
+- [ ] 6.7 Update `docs/20260506_plano_env.md` Section 10 with larger-sample data after 6.6.
+- [ ] 6.8 If gates 6.5 + 6.6 pass: **no tag bump** — the existing `phtcosta/rvandroid:0.8.0` is updated in place. If any tool fails on API 30, document and decide per-tool fallback (escalate as separate change if needed); rollback path is a rebuild with `--build-arg API_LEVEL=29 --build-arg ARCHITECTURE=x86`.
 
 ## 7. Documentation: canonical surface
 

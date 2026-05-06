@@ -81,7 +81,7 @@ None. The change refactors the public surface of existing capabilities without i
 
 - Users / scripts setting `RV_MEMORY_FILE`, `RV_RVANDROID_URL`, `RV_SKIP_EXPERIMENT`, or `RV_JCA_SPEC` will be rejected by the new entrypoint with exit 64. Migration: remove them; use `RV_SPEC_SET` instead of `RV_JCA_SPEC`.
 - Users running `docker run -e RV_X=... phtcosta/rvandroid:VERSION` who relied on the entrypoint translating env→flag will see no behavior change for documented variables, but unknown `RV_*` names now fail loudly.
-- Local development against the Docker image must rebuild after `Dockerfile` API_LEVEL bump (image label changes).
+- Local development against the Docker image must rebuild after `Dockerfile` API_LEVEL bump. **Image tag is preserved** (`phtcosta/rvandroid:0.8.0`) — gh55 does not bump the version. The build is in-place via the existing `docker/rvandroid/build.sh`; the `RVSEC_BRANCH` LABEL in the Dockerfile distinguishes content across rebuilds.
 
 **Cross-module dependencies:**
 

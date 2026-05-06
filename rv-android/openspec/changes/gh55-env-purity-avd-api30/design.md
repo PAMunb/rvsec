@@ -377,7 +377,7 @@ CI lint script (NEW — does not exist today). Performs three cross-checks and e
 ## Risks / Trade-offs
 
 - **External scripts may set removed `RV_*` vars** → entry point exit 64 makes this loud; PR description and CHANGELOG list the 4 removed names. Acceptable per P3.
-- **Docker image rebuild required for AVD bump** → new image tag (`phtcosta/rvandroid:0.9.0-api30`) communicated; all compose files updated explicitly in same change. Acceptable.
+- **Docker image rebuild required for AVD bump** → in-place rebuild on the existing `phtcosta/rvandroid:0.8.0` tag via `docker/rvandroid/build.sh`. **No version bump** (per user direction). The `LABEL rvsec.branch="${RVSEC_BRANCH}"` and image creation timestamp differentiate content across rebuilds; operators pull-and-rebuild rather than tag-switching. Acceptable.
 - **`ape` not validated upstream on API 30** → tool smoke matrix is a hard gate before merge. If `ape` fails, fallback options: pin API 29 for `ape`-using compose files (case-by-case), or escalate to a separate ape-fix change.
 - **Pydantic `extra="forbid"` may reject historical config snapshots** → the change updates all in-repo compose files explicitly; external snapshots fail at instantiation with a clear list of unknown keys. Acceptable.
 - **Lint script complexity** → `check_env_vars_drift.py` handles three cross-checks and may produce occasional false positives; mitigated by an explicit per-rule allow-list inside the script (e.g., the three L1 cross-layer exceptions).
