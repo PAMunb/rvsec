@@ -7,7 +7,7 @@ SHELL ["/bin/bash", "-c"]
 
 # Environment variables for installation paths as per your provided Dockerfile
 ENV JAVA_HOME=/opt/openjdk-25.0.2
-ENV MAVEN_HOME=/opt/apache-maven-3.9.14
+ENV MAVEN_HOME=/opt/apache-maven-3.9.15
 ENV ASPECTJ_HOME=/opt/aspectj
 ENV PATH=$ASPECTJ_HOME/bin:$JAVA_HOME/bin:$MAVEN_HOME/bin:$PATH
 
@@ -25,10 +25,14 @@ RUN wget https://download.java.net/java/GA/jdk25.0.2/b1e0dfa218384cb9959bdcb8971
     mv jdk-25.0.2 openjdk-25.0.2 && \
     rm openjdk-25.0.2_linux-x64_bin.tar.gz
 
-# Install Maven exactly as in your provided Dockerfile
-RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.14/binaries/apache-maven-3.9.14-bin.zip && \
-    unzip apache-maven-3.9.14-bin.zip && \
-    rm apache-maven-3.9.14-bin.zip
+# Install Maven 3.9.15. Source URL is dlcdn.apache.org because archive.apache.org
+# is unreachable from Docker containers in this environment (host can reach it,
+# but the Docker network namespace consistently times out on the route — observed
+# during the gh55 build_all run). dlcdn.apache.org carries only the current
+# 3.9.x; bump 3.9.x as upstream evolves.
+RUN wget https://dlcdn.apache.org/maven/maven-3/3.9.15/binaries/apache-maven-3.9.15-bin.zip && \
+    unzip apache-maven-3.9.15-bin.zip && \
+    rm apache-maven-3.9.15-bin.zip
 
 # Install AspectJ compiler — version must match aspectj.version in rvsec/pom.xml (1.9.25.1)
 # JVM tuning bakes -Xmx8192M (default is 64M, far too small for whole-APK weaving)
