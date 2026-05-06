@@ -33,6 +33,20 @@ def humanoid_tool():
     yield tool
 
 
+def _merged_config(**overrides) -> dict:
+    """Build a config dict simulating ToolFactory.create_tool's variant-default
+    merge: `{**variant_defaults, **tool_config.parameters}`. Tests that exercise
+    configure() should call it with this dict, mirroring the production flow.
+
+    Per gh55 D8 (ARES/QTesting precedent), the variant default for `humanoid_url`
+    lives in `get_variants()["default"]["humanoid_url"]`. The factory always
+    merges, so configure() never sees a missing key in production.
+    """
+    base = HumanoidTool.get_variants()["default"].copy()
+    base.update(overrides)
+    return base
+
+
 @pytest.fixture
 def mock_task():
     """Create a mock task with minimal configuration."""
@@ -98,76 +112,72 @@ class TestToolSpecification:
 
 
 class TestConfigure:
-    """Test configure() with URL resolution chain."""
+    """Test configure() under gh55 D8: variant default carries humanoid_url; no env reads at L2."""
 
-    def test_configure_url_from_config(self, humanoid_tool):
-        """Test humanoid URL from config takes highest priority."""
-        config = {"humanoid_url": "http://custom.server:50405"}
+    def test_configure_uses_humanoid_url_from_merged_dict(self, humanoid_tool):
+        """L5-injected URL flows through factory merge into configure()."""
+        config = _merged_config(humanoid_url="http://custom.server:50405")
         humanoid_tool.configure(config)
         assert humanoid_tool.config["humanoid_url"] == "http://custom.server:50405"
 
-    def test_configure_url_from_env(self, humanoid_tool):
-        """Test humanoid URL from environment variable."""
-        with patch.dict(os.environ, {ENV_HUMANOID_URL: "http://env.server:50405"}):
-            config = {}
-            humanoid_tool.configure(config)
-            assert humanoid_tool.config["humanoid_url"] == "http://env.server:50405"
+    def test_configure_uses_variant_default_when_no_l5_override(self, humanoid_tool):
+        """When L5 does not override, variant default 127.0.0.1:50405 carries through."""
+        config = _merged_config()  # = variant default
+        humanoid_tool.configure(config)
+        assert humanoid_tool.config["humanoid_url"] == "127.0.0.1:50405"
 
-    def test_configure_url_default_fallback(self, humanoid_tool):
-        """Test humanoid URL defaults to 127.0.0.1:50405."""
-        with patch.dict(os.environ, {}, clear=False):
-            # Remove env var if exists
-            env_copy = os.environ.copy()
-            if ENV_HUMANOID_URL in env_copy:
-                del os.environ[ENV_HUMANOID_URL]
-            
-            config = {}
+    def test_configure_does_not_consult_environment(self, humanoid_tool):
+        """Layer Purity: configure() must not read RV_HUMANOID_URL at L2.
+        Even with the env var set, the variant-default merged dict wins."""
+        with patch.dict(os.environ, {ENV_HUMANOID_URL: "http://env.server:50405"}):
+            config = _merged_config()  # variant default only
             humanoid_tool.configure(config)
+            # The env var is set but L2 ignored it; default carried through.
             assert humanoid_tool.config["humanoid_url"] == "127.0.0.1:50405"
 
+    def test_configure_raises_keyerror_when_humanoid_url_missing(self, humanoid_tool):
+        """Defensive: configure(dict_without_humanoid_url) raises KeyError.
+        In production this never happens because the factory always merges
+        variant defaults — but the contract is explicit (no env fallback)."""
+        config = {"policy": "dfs_greedy"}  # no humanoid_url
+        with pytest.raises(KeyError):
+            humanoid_tool.configure(config)
+
     def test_configure_custom_policy(self, humanoid_tool):
-        """Test configure with custom policy."""
-        config = {"policy": "random"}
+        config = _merged_config(policy="random")
         humanoid_tool.configure(config)
         assert humanoid_tool.config["policy"] == "random"
 
     def test_configure_default_policy(self, humanoid_tool):
-        """Test configure sets default policy."""
-        config = {}
+        config = _merged_config()
         humanoid_tool.configure(config)
         assert humanoid_tool.config["policy"] == "dfs_greedy"
 
     def test_configure_custom_count(self, humanoid_tool):
-        """Test configure with custom count."""
-        config = {"count": 5000000000}
+        config = _merged_config(count=5000000000)
         humanoid_tool.configure(config)
         assert humanoid_tool.config["count"] == 5000000000
 
     def test_configure_custom_timeout(self, humanoid_tool):
-        """Test configure with custom timeout."""
-        config = {"timeout": 7200}
+        config = _merged_config(timeout=7200)
         humanoid_tool.configure(config)
         assert humanoid_tool.config["timeout"] == 7200
 
     def test_configure_custom_device_serial(self, humanoid_tool):
-        """Test configure with custom device serial."""
-        config = {"device_serial": "emulator-5558"}
+        config = _merged_config(device_serial="emulator-5558")
         humanoid_tool.configure(config)
         assert humanoid_tool.config["device_serial"] == "emulator-5558"
 
     def test_configure_custom_ignore_ad(self, humanoid_tool):
-        """Test configure with custom ignore_ad."""
-        config = {"ignore_ad": False}
+        config = _merged_config(ignore_ad=False)
         humanoid_tool.configure(config)
         assert humanoid_tool.config["ignore_ad"] is False
 
-    def test_config_priority_chain(self, humanoid_tool):
-        """Test URL resolution priority: config > env > default."""
-        # Config should win
-        with patch.dict(os.environ, {ENV_HUMANOID_URL: "http://env.server:50405"}):
-            config = {"humanoid_url": "http://config.server:50405"}
-            humanoid_tool.configure(config)
-            assert humanoid_tool.config["humanoid_url"] == "http://config.server:50405"
+    def test_l5_injection_overrides_variant_default(self, humanoid_tool):
+        """gh55 D8: L5-set parameters merge AFTER variant defaults, so they win."""
+        config = _merged_config(humanoid_url="http://l5-resolved.server:50405")
+        humanoid_tool.configure(config)
+        assert humanoid_tool.config["humanoid_url"] == "http://l5-resolved.server:50405"
 
 
 # ---------------------------------------------------------------------------
@@ -180,14 +190,14 @@ class TestBuildHumanoidCommand:
 
     def test_build_command_uses_droidbot(self, humanoid_tool, mock_app):
         """Test command uses droidbot as base."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert cmd.command == "droidbot"
 
     def test_build_command_includes_device_serial(self, humanoid_tool, mock_app):
         """Test command includes device serial."""
-        humanoid_tool.configure({"device_serial": "emulator-5556"})
+        humanoid_tool.configure(_merged_config(device_serial="emulator-5556"))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert "-d" in cmd.args
@@ -195,7 +205,7 @@ class TestBuildHumanoidCommand:
 
     def test_build_command_includes_apk_path(self, humanoid_tool, mock_app):
         """Test command includes APK path."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert "-a" in cmd.args
@@ -203,7 +213,7 @@ class TestBuildHumanoidCommand:
 
     def test_build_command_includes_humanoid_url(self, humanoid_tool, mock_app):
         """Test command includes humanoid URL."""
-        humanoid_tool.configure({"humanoid_url": "http://test.server:50405"})
+        humanoid_tool.configure(_merged_config(humanoid_url="http://test.server:50405"))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert "-humanoid" in cmd.args
@@ -211,7 +221,7 @@ class TestBuildHumanoidCommand:
 
     def test_build_command_includes_policy(self, humanoid_tool, mock_app):
         """Test command includes policy."""
-        humanoid_tool.configure({"policy": "dfs_greedy"})
+        humanoid_tool.configure(_merged_config(policy="dfs_greedy"))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert "-policy" in cmd.args
@@ -219,7 +229,7 @@ class TestBuildHumanoidCommand:
 
     def test_build_command_includes_count(self, humanoid_tool, mock_app):
         """Test command includes count."""
-        humanoid_tool.configure({"count": 10000000000})
+        humanoid_tool.configure(_merged_config(count=10000000000))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert "-count" in cmd.args
@@ -227,7 +237,7 @@ class TestBuildHumanoidCommand:
 
     def test_build_command_includes_timeout(self, humanoid_tool, mock_app):
         """Test command includes timeout."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 7200)
         
         assert "-timeout" in cmd.args
@@ -235,21 +245,21 @@ class TestBuildHumanoidCommand:
 
     def test_build_command_includes_ignore_ad(self, humanoid_tool, mock_app):
         """Test command includes ignore_ad flag."""
-        humanoid_tool.configure({"ignore_ad": True})
+        humanoid_tool.configure(_merged_config(ignore_ad=True))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert "-ignore_ad" in cmd.args
 
     def test_build_command_includes_is_emulator(self, humanoid_tool, mock_app):
         """Test command includes is_emulator flag."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         assert "-is_emulator" in cmd.args
 
     def test_build_command_default_serial(self, humanoid_tool, mock_app):
         """Test command uses default serial when not configured."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
         
         # Should have emulator-5554 as default
@@ -267,28 +277,28 @@ class TestGetToolInfo:
 
     def test_get_tool_info_returns_base_info(self, humanoid_tool):
         """Test get_tool_info returns base tool information."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
         
         assert "name" in info
 
     def test_get_tool_info_returns_tool_spec(self, humanoid_tool):
         """Test get_tool_info returns tool_spec."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
         
         assert "tool_spec" in info
 
     def test_get_tool_info_returns_humanoid_url(self, humanoid_tool):
         """Test get_tool_info returns humanoid_url."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
         
         assert "humanoid_url" in info
 
     def test_get_tool_info_returns_current_policy(self, humanoid_tool):
         """Test get_tool_info returns current_policy."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
         
         assert "current_policy" in info
@@ -304,7 +314,7 @@ class TestExecuteToolSpecificLogic:
 
     def test_execute_builds_command(self, humanoid_tool, mock_task, mock_app):
         """Test that execute builds humanoid command."""
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         humanoid_tool._build_humanoid_command = MagicMock()
 
         try:
@@ -317,7 +327,7 @@ class TestExecuteToolSpecificLogic:
     def test_execute_uses_task_timeout(self, humanoid_tool, mock_task, mock_app):
         """Test that execute uses timeout from task config."""
         mock_task.config.timeout = 7200
-        humanoid_tool.configure({})
+        humanoid_tool.configure(_merged_config())
         humanoid_tool._build_humanoid_command = MagicMock()
 
         try:
@@ -332,7 +342,7 @@ class TestExecuteToolSpecificLogic:
         """Test that execute falls back to config timeout."""
         # Remove task timeout to force fallback to config
         del mock_task.config.timeout
-        humanoid_tool.configure({"timeout": 5000})
+        humanoid_tool.configure(_merged_config(timeout=5000))
         humanoid_tool._build_humanoid_command = MagicMock()
 
         try:

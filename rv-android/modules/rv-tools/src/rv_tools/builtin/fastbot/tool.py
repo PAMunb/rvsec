@@ -395,11 +395,11 @@ class FastBotTool(AbstractTool):
             "monkeyq": "monkeyq.jar",
         }
 
-        # Common search paths for FastBot jars
+        # Common search paths for FastBot jars (gh55 D10: TOOLS_DIR is an L1
+        # cross-layer infra read; the resolver adds TOOLS_DIR-based paths
+        # internally — L2 must not call os.environ).
         search_paths = [
-            # Environment variable based path
-            os.path.join(os.environ.get("TOOLS_DIR", ""), "fastbot"),
-            # Relative to current module
+            # Relative to current module (Docker images bundle jars here)
             os.path.dirname(__file__),
             # Standard installation paths
             "/opt/rv-android/tools/fastbot",

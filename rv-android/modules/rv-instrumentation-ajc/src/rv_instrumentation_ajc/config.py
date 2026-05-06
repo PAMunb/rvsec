@@ -394,7 +394,7 @@ class AjcInstrumentationConfig(BaseValidatedModel):
         Raises:
             ConfigurationError: If Android SDK is not properly configured or accessible
         """
-        android_home = os.getenv("ANDROID_HOME")
+        android_home = os.getenv(constants.ENV_ANDROID_HOME)
         if not android_home:
             raise ConfigurationError(
                 "ANDROID_HOME environment variable not set. "

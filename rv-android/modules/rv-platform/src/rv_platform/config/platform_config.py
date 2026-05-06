@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 from rv_android_core.domain.task import ToolConfig
 from rv_android_core.util.validation.base import BaseValidatedModel
 
@@ -43,6 +43,11 @@ class PlatformConfig(BaseValidatedModel):
     - rv-experiment creates PlatformConfig and passes it to Platform.
     - ToolConfig instances (from rv-android-core) are embedded in the tools list.
     """
+
+    # gh55 INV-CORE-32: explicit declaration at the boundary class so the
+    # entrypoint allow-list + ENV_* registry contract is auditable here, not
+    # only via the BaseValidatedModel ancestor.
+    model_config = ConfigDict(extra="forbid")
 
     # Required parameters — these define the experiment's Cartesian product:
     # total_tasks = len(APKs) x len(tools) x repetitions x len(timeouts)

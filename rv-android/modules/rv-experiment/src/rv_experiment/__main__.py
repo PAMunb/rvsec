@@ -12,6 +12,7 @@ Supports two execution modes: CLI mode with tool specification DSL
 """
 
 import json
+import os
 import sys
 import uuid
 from datetime import datetime
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import click
+from rv_android_core.constants import ENV_HUMANOID_URL
 from rv_android_core.domain.task import ToolConfig
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import ConfigurationError
@@ -400,6 +402,18 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     default=None,
     help="Resume experiment from existing results directory",
 )
+@click.option(
+    "--analysis-timeout",
+    type=int,
+    default=None,
+    help="Static analysis timeout in seconds. Overrides RV_SA_TIMEOUT (gh55 INV-EXP-32: CLI > env > default).",
+)
+@click.option(
+    "--jvm-memory",
+    type=str,
+    default=None,
+    help="JVM memory for static analysis (e.g. '4g'). Overrides RV_JVM_MEMORY (gh55 INV-EXP-32: CLI > env > default).",
+)
 @pass_context
 @ErrorHandler.handle_errors(component="CLIContext", phase="run_experiment")
 def run(
@@ -424,6 +438,8 @@ def run(
     apks_filter: Optional[str],
     name: Optional[str],
     resume_dir: Optional[str],
+    analysis_timeout: Optional[int],
+    jvm_memory: Optional[str],
 ):
     """
     Execute experiment with modern tool specification parsing and configuration support.
@@ -507,6 +523,8 @@ def run(
                     resume_dir,
                     instrumentation_variant=instrumentation_variant,
                     enable_quarantine=enable_quarantine,
+                    analysis_timeout=analysis_timeout,
+                    jvm_memory=jvm_memory,
                 )
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
@@ -923,6 +941,10 @@ def _create_experiment_config_from_cli(
     # gh50 §22 quarantine toggle — kwarg with default to keep callers (and
     # tests) written before §22 source-compatible. CLI plumbing always passes it.
     enable_quarantine: bool = True,
+    # gh55 INV-EXP-32: precedence CLI > env > default. None means "fall back to
+    # env or RVStaticAnalysisConfig default" (resolved in get_static_analysis_config).
+    analysis_timeout: Optional[int] = None,
+    jvm_memory: Optional[str] = None,
 ) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
@@ -965,6 +987,18 @@ def _create_experiment_config_from_cli(
 
         for tool_spec in tool_specs:
             tool_configs.extend(ctx.parse_tool_specification(tool_spec))
+
+        # gh55 INV-EXP-30 / gh55 D8: resolve RV_HUMANOID_URL at L5 and inject
+        # into ToolConfig.parameters for any humanoid tool entry. The factory
+        # merge ({**variant_defaults, **parameters}) places this value last so
+        # it overrides the variant default ("127.0.0.1:50405"). When the env
+        # var is unset, we DO NOT inject — variant default carries through.
+        # No L2 module reads os.environ; this is the canonical resolution site.
+        humanoid_url_env = os.environ.get(ENV_HUMANOID_URL)
+        if humanoid_url_env:
+            for tc in tool_configs:
+                if tc.name == "humanoid":
+                    tc.parameters["humanoid_url"] = humanoid_url_env
 
         # Resume detection: three mutually exclusive paths determine how the
         # experiment identity and output directory are resolved.
@@ -1042,6 +1076,8 @@ def _create_experiment_config_from_cli(
             apks_dir=apks_dir,
             device_port=device_port,
             apks_filter=apks_filter,
+            analysis_timeout=analysis_timeout,
+            jvm_memory=jvm_memory,
             resume_mode=resume_mode,
             metadata={
                 "created_via": "cli",

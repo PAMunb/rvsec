@@ -6,9 +6,11 @@ to an external Humanoid inference HTTP server for human-like input generation
 during Android application exploration.
 """
 
+import os
 from typing import Any, Dict
 
 from rv_android_core.commands.command import Command
+from rv_android_core.constants import ENV_HUMANOID_URL
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
@@ -29,12 +31,10 @@ class HumanoidTool(AbstractTool):
         droidbot -d <serial> -a <apk> -humanoid <url> -policy <policy>
             -count 10000000000 -timeout <t> -ignore_ad -is_emulator
 
-    Configuration follows the canonical ARES/QTesting variant-default pattern
-    (gh55 D8): the default `humanoid_url` is declared in `get_variants()` and the
-    factory merge `{**variant_defaults, **tool_config.parameters}` guarantees the
-    key is present at `configure(config)` time. L5 (`rv-experiment`) overrides the
-    default by injecting `parameters["humanoid_url"]` whenever `RV_HUMANOID_URL`
-    or `--humanoid-url` is set. No `os.environ` access happens at L2.
+    The Humanoid server URL can be configured via:
+    1. Tool configuration (`humanoid_url` parameter)
+    2. Environment variable `RV_HUMANOID_URL`
+    3. Default fallback: `127.0.0.1:50405`
     """
 
     TOOL_SPEC = ToolSpec.create_builtin_spec(
@@ -67,37 +67,35 @@ class HumanoidTool(AbstractTool):
         Get available Humanoid variants.
 
         Only a single 'default' variant is provided, matching the ICST experiment
-        configuration (dfs_greedy policy with humanoid inference). The
-        `humanoid_url` default carries the canonical localhost endpoint —
-        ARES/QTesting precedent (`builtin/ares/tool.py:79` `docker_image`).
+        configuration (dfs_greedy policy with humanoid inference).
         """
         return {
-            "default": {
-                "policy": "dfs_greedy",
-                "count": 10000000000,
-                "ignore_ad": True,
-                "humanoid_url": "127.0.0.1:50405",
-            }
+            "default": {"policy": "dfs_greedy", "count": 10000000000, "ignore_ad": True}
         }
 
     def configure(self, config: Dict[str, Any]) -> None:
         """
         Configure Humanoid tool parameters.
 
-        `config` is the merged dict produced by `ToolFactory.create_tool` —
-        `{**variant_defaults, **tool_config.parameters}` — so `humanoid_url` is
-        always present (variant default `127.0.0.1:50405` carries through when
-        L5 does not override).
+        Reads `humanoid_url` from config, with fallback to the `RV_HUMANOID_URL`
+        environment variable, then to `127.0.0.1:50405`.
 
         Args:
             config: Configuration dictionary with tool parameters
         """
+        # Resolve humanoid URL: config > env var > default
+        humanoid_url = (
+            config.get("humanoid_url")
+            or os.environ.get(ENV_HUMANOID_URL)
+            or "127.0.0.1:50405"
+        )
+
         self.config = {
             "policy": config.get("policy", "dfs_greedy"),
             "count": config.get("count", 10000000000),
             "timeout": config.get("timeout", 3600),
             "device_serial": config.get("device_serial", "emulator-5554"),
-            "humanoid_url": config["humanoid_url"],  # always present after merge
+            "humanoid_url": humanoid_url,
             "ignore_ad": config.get("ignore_ad", True),
         }
 

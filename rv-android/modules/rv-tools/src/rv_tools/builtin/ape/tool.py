@@ -270,12 +270,14 @@ class APETool(AbstractTool):
         Raises:
             RVToolExecutionError: If APE jar file is not found
         """
-        # Use JarResolver for centralized JAR resolution
-        # Search paths ordered by specificity: configured path first, then
-        # environment-based, then co-located with this module file (Docker
-        # images bundle jars alongside the tool code), then standard installs.
+        # Use JarResolver for centralized JAR resolution (gh55 D10: TOOLS_DIR is
+        # an L1 cross-layer infra read; the resolver consults it internally so
+        # this method must NOT call os.environ at L2). Search paths ordered by
+        # specificity: configured path first (handled below), co-located with
+        # this module file (Docker images bundle jars alongside the tool code),
+        # then standard installs. The resolver also adds RVSEC_HOME-derived and
+        # TOOLS_DIR-derived paths automatically inside _build_search_paths.
         search_paths = [
-            os.path.join(os.environ.get("TOOLS_DIR", ""), "ape"),
             os.path.dirname(__file__),
             "/opt/rv-android/tools/ape",
             "./tools/ape",

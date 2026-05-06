@@ -319,16 +319,14 @@ class ApeRVTool(AbstractTool):
                 f"aperv: invalid strategy '{strategy}'. "
                 f"Valid strategies: {APERV_AVAILABLE_STRATEGIES}"
             )
-        # Defensive copy prevents the caller's dict from being mutated by the
-        # env var override below.
+        # Defensive copy preserves the caller's dict.
         self._tool_config = config.copy()
 
-        # Allow env var override for LLM URL. Inside the emulator, 10.0.2.2 routes
-        # to the host, but Docker containers or physical devices need a real IP.
-        # APERV_LLM_BASE_URL lets operators override without changing variant configs.
-        llm_url_override = os.environ.get("APERV_LLM_BASE_URL")
-        if llm_url_override and "llm_url" in self._tool_config:
-            self._tool_config["llm_url"] = llm_url_override
+        # gh55 D8: LLM URL override flows through `parameters["llm_url"]` (set by
+        # L5 from env / CLI). The factory merge `{**variant_defaults, **parameters}`
+        # ensures the value is present at configure() time. No `os.environ` read
+        # at L2 — operators set `APERV_LLM_BASE_URL` (or the variant default)
+        # and L5 propagates it via `ToolConfig.parameters`.
 
     def _resolve_jar_path(self) -> str:
         """
@@ -345,16 +343,14 @@ class ApeRVTool(AbstractTool):
         Raises:
             RVToolExecutionError: If ape-rv.jar is not found in any search path
         """
-        # Priority order matters: module-local JAR (shipped with the package) takes
-        # precedence over Maven build output, which takes precedence over manual placement.
-        # This ensures reproducible experiments use the packaged JAR by default.
+        # gh55 D10: RVSEC_HOME and TOOLS_DIR are L1 cross-layer infra — read once
+        # inside JarResolver, never at L2. The aperv-specific subdir (`ape/target`
+        # for RVSEC_HOME and `aperv` for TOOLS_DIR) is communicated to the
+        # resolver via the standard `<tool_subdir>/<jar_name>` convention.
+        # The module-local JAR (shipped with the package) takes precedence; the
+        # resolver auto-extends with RVSEC_HOME-based and TOOLS_DIR-based paths
+        # via _build_search_paths.
         search_paths = [os.path.dirname(__file__)]
-        rvsec_home = os.environ.get("RVSEC_HOME", "")
-        if rvsec_home:
-            search_paths.append(os.path.join(rvsec_home, "ape", "target"))
-        tools_dir = os.environ.get("TOOLS_DIR", "")
-        if tools_dir:
-            search_paths.append(os.path.join(tools_dir, "aperv"))
 
         try:
             return self.jar_resolver.resolve_jar_path(APERV_JAR_NAME, search_paths)

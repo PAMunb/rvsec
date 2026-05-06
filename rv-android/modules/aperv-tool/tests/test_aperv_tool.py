@@ -140,7 +140,10 @@ class TestConfigure:
         config["strategy"] = "mutated"
         assert self.tool._tool_config["strategy"] == "sata"
 
-    def test_env_var_overrides_llm_url(self, monkeypatch):
+    def test_env_var_does_not_override_llm_url_at_l2(self, monkeypatch):
+        """gh55 INV-TOOL-20: configure() at L2 must not consult os.environ.
+        APERV_LLM_BASE_URL override is now handled at L5; L2 only reads what
+        the factory-merged config dict provides."""
         monkeypatch.setenv("APERV_LLM_BASE_URL", "http://custom:8080/v1")
         self.tool.configure(
             {
@@ -149,9 +152,12 @@ class TestConfigure:
                 "llm_url": "http://10.0.2.2:30000/v1",
             }
         )
-        assert self.tool._tool_config["llm_url"] == "http://custom:8080/v1"
+        # The env var is ignored at L2; the config value carries through.
+        assert self.tool._tool_config["llm_url"] == "http://10.0.2.2:30000/v1"
 
-    def test_env_var_ignored_without_llm_url(self, monkeypatch):
+    def test_env_var_does_not_inject_llm_url_at_l2(self, monkeypatch):
+        """gh55 INV-TOOL-20: env var with no llm_url in config still produces
+        no llm_url at L2. Injection happens at L5 via parameters."""
         monkeypatch.setenv("APERV_LLM_BASE_URL", "http://custom:8080/v1")
         self.tool.configure({"strategy": "sata", "throttle_ms": 200})
         assert "llm_url" not in self.tool._tool_config
@@ -192,42 +198,11 @@ class TestJarSearchPaths:
 
         assert captured["paths"][0] == os.path.dirname(tool_module.__file__)
 
-    def test_rvsec_home_set_appends_path(self, monkeypatch):
+    def test_l2_supplies_only_module_dir(self, monkeypatch):
+        """gh55 D10: L2 _resolve_jar_path passes ONLY the module directory to
+        the resolver. RVSEC_HOME / TOOLS_DIR-derived paths are added by
+        JarResolver._build_search_paths at L1, not by L2."""
         monkeypatch.setenv("RVSEC_HOME", "/fake/rvsec")
-        monkeypatch.delenv("TOOLS_DIR", raising=False)
-
-        captured = {}
-
-        def fake_resolve(jar_name, search_paths):
-            captured["paths"] = search_paths
-            raise FileNotFoundError("not found")
-
-        self.tool.jar_resolver.resolve_jar_path = fake_resolve
-
-        with pytest.raises(Exception):
-            self.tool._resolve_jar_path()
-
-        assert any("/fake/rvsec/ape/target" in p for p in captured["paths"])
-
-    def test_empty_rvsec_home_not_appended(self, monkeypatch):
-        monkeypatch.setenv("RVSEC_HOME", "")
-        monkeypatch.delenv("TOOLS_DIR", raising=False)
-
-        captured = {}
-
-        def fake_resolve(jar_name, search_paths):
-            captured["paths"] = search_paths
-            raise FileNotFoundError("not found")
-
-        self.tool.jar_resolver.resolve_jar_path = fake_resolve
-
-        with pytest.raises(Exception):
-            self.tool._resolve_jar_path()
-
-        assert len(captured["paths"]) == 1
-
-    def test_tools_dir_set_appends_path(self, monkeypatch):
-        monkeypatch.delenv("RVSEC_HOME", raising=False)
         monkeypatch.setenv("TOOLS_DIR", "/fake/tools")
 
         captured = {}
@@ -241,7 +216,11 @@ class TestJarSearchPaths:
         with pytest.raises(Exception):
             self.tool._resolve_jar_path()
 
-        assert any("/fake/tools/aperv" in p for p in captured["paths"])
+        # L2 only supplies the module dir; the resolver internally extends
+        # the search list with TOOLS_DIR / RVSEC_HOME at L1.
+        assert len(captured["paths"]) == 1
+        import aperv_tool.tools.aperv.tool as tool_module
+        assert captured["paths"][0] == os.path.dirname(tool_module.__file__)
 
 
 class TestBuildCommand:

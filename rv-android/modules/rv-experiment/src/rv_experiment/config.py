@@ -14,8 +14,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import rv_experiment.constants as constants
-from pydantic import Field
-from rv_android_core.constants import ENV_RVSEC_HOME, EXTENSION_MOP
+from pydantic import ConfigDict, Field
+from rv_android_core.constants import (
+    ENV_JVM_MEMORY,
+    ENV_RVSEC_HOME,
+    ENV_SA_TIMEOUT,
+    EXTENSION_MOP,
+)
 from rv_android_core.domain.task import ToolConfig
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import ConfigurationError
@@ -78,6 +83,11 @@ class ExperimentConfig(BaseValidatedModel):
     - RVStaticAnalysisConfig: Created by get_static_analysis_config()
     - CLI (__main__.py): Creates config from command-line arguments
     """
+
+    # gh55 INV-CORE-32: explicit declaration at the boundary class so the
+    # entrypoint allow-list + ENV_* registry contract is auditable here, not
+    # only via the BaseValidatedModel ancestor.
+    model_config = ConfigDict(extra="forbid")
 
     # =========================================================================
     # Field groups:
@@ -191,6 +201,20 @@ class ExperimentConfig(BaseValidatedModel):
     apks_filter: Optional[str] = Field(
         default=None,
         description="Path to text file listing APK filenames to process (one per line)",
+    )
+
+    # gh55 INV-EXP-32: static-analysis tuning surfaced as both CLI flags and env
+    # vars (RV_SA_TIMEOUT / RV_JVM_MEMORY). When set here, the CLI value wins
+    # over the env var and the Pydantic default in get_static_analysis_config().
+    # When None, env var or RVStaticAnalysisConfig default applies (precedence:
+    # CLI > env > default).
+    analysis_timeout: Optional[int] = Field(
+        default=None,
+        description="Static analysis timeout (s). CLI flag --analysis-timeout overrides RV_SA_TIMEOUT.",
+    )
+    jvm_memory: Optional[str] = Field(
+        default=None,
+        description="JVM memory for static analysis (e.g. '4g'). CLI flag --jvm-memory overrides RV_JVM_MEMORY.",
     )
 
     # --- 7. Results and resume ---
@@ -737,17 +761,24 @@ class ExperimentConfig(BaseValidatedModel):
             gator_dir = os.path.join(lib_dir, "gator")
             analysis_client_jar = os.path.join(gator_dir, "rvsec-analysis-client.jar")
 
-            # RV_SA_TIMEOUT and RV_JVM_MEMORY env vars override SA defaults.
-            # Used by preprocess_docker.py --sa-timeout/--jvm-memory for retry runs.
+            # gh55 INV-EXP-32 precedence: CLI flag (self.analysis_timeout /
+            # self.jvm_memory) > env var (RV_SA_TIMEOUT / RV_JVM_MEMORY) > default.
             # GATOR static analysis can be very slow on large APKs (>30 min),
             # so the timeout override allows per-APK tuning in batch runs.
             kwargs = {}
-            sa_timeout = os.environ.get("RV_SA_TIMEOUT")
-            if sa_timeout:
-                kwargs["analysis_timeout"] = int(sa_timeout)
-            jvm_memory = os.environ.get("RV_JVM_MEMORY")
-            if jvm_memory:
-                kwargs["jvm_memory"] = jvm_memory
+            sa_timeout_value = self.analysis_timeout
+            if sa_timeout_value is None:
+                env_sa_timeout = os.environ.get(ENV_SA_TIMEOUT)
+                if env_sa_timeout:
+                    sa_timeout_value = int(env_sa_timeout)
+            if sa_timeout_value is not None:
+                kwargs["analysis_timeout"] = sa_timeout_value
+
+            jvm_memory_value = self.jvm_memory
+            if jvm_memory_value is None:
+                jvm_memory_value = os.environ.get(ENV_JVM_MEMORY)
+            if jvm_memory_value:
+                kwargs["jvm_memory"] = jvm_memory_value
 
             return RVStaticAnalysisConfig(
                 rvsec_root=rvsec_root,

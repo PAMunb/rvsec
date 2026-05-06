@@ -416,7 +416,7 @@ class AjcInstrumentation(Instrumenter):
         # shared with dexlib2's prepare_instrumentation. AJC consumes ALL
         # four jars: aspectjrt is required for AspectJ weaving at this
         # variant's compile step (the .aj aspect file pulled by ajc).
-        rvsec_root = self.config.rvsec_root or os.environ.get("RVSEC_HOME")
+        rvsec_root = self.config.rvsec_root or os.environ.get(constants.ENV_RVSEC_HOME)
         if not rvsec_root:
             raise InstrumentationError(
                 "RVSEC_HOME environment variable is not set and "

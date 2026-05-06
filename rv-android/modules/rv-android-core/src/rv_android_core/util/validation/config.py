@@ -9,6 +9,7 @@ import os
 import threading
 from typing import Optional
 
+from rv_android_core.constants import ENV_PYDANTIC, ENV_PYDANTIC_LOG, ENV_PYDANTIC_STRICT
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
@@ -68,18 +69,18 @@ class ValidationConfig:
         )
 
     def _read_validation_setting(self) -> bool:
-        """Read RV_PYDANTIC environment variable."""
-        env_value = os.getenv("RV_PYDANTIC", "false").lower()
+        """Read RV_PYDANTIC env var (L1 cross-layer infra exception per gh55)."""
+        env_value = os.getenv(ENV_PYDANTIC, "false").lower()
         return env_value in ("true", "1", "yes", "on")
 
     def _read_strict_mode_setting(self) -> bool:
-        """Read RV_PYDANTIC_STRICT environment variable."""
-        env_value = os.getenv("RV_PYDANTIC_STRICT", "false").lower()
+        """Read RV_PYDANTIC_STRICT env var (L1 cross-layer infra exception per gh55)."""
+        env_value = os.getenv(ENV_PYDANTIC_STRICT, "false").lower()
         return env_value in ("true", "1", "yes", "on")
 
     def _read_logging_setting(self) -> bool:
-        """Read RV_PYDANTIC_LOG environment variable."""
-        env_value = os.getenv("RV_PYDANTIC_LOG", "false").lower()
+        """Read RV_PYDANTIC_LOG env var (L1 cross-layer infra exception per gh55)."""
+        env_value = os.getenv(ENV_PYDANTIC_LOG, "false").lower()
         return env_value in ("true", "1", "yes", "on")
 
     @property

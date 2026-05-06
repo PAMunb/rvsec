@@ -107,11 +107,10 @@ class DroidMateTool(AbstractTool):
             self._execute_and_check_command(cmd, stdout=trace_file, stderr=trace_file)
 
     def _resolve_jar(self) -> str:
-        """Resolve DroidMate JAR path. Searches the module directory first."""
-        search_paths = [
-            os.path.dirname(__file__),
-            os.path.join(os.environ.get("TOOLS_DIR", ""), "droidmate"),
-        ]
+        """Resolve DroidMate JAR. The module dir (Docker bundling) is the only
+        L2-supplied search root; TOOLS_DIR-based paths are added by the resolver
+        at L1 (gh55 D10: TOOLS_DIR is an L1 cross-layer infra read)."""
+        search_paths = [os.path.dirname(__file__)]
         return self.jar_resolver.resolve_jar_path(self.JAR_NAME, search_paths)
 
     def _build_droidmate_command(

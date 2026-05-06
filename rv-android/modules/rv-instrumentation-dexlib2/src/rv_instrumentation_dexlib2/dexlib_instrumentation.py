@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
+from rv_android_core.constants import ENV_RVSEC_HOME
 from rv_android_core.domain.app import App
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
@@ -454,7 +455,7 @@ class DexlibInstrumentation(Instrumenter):
             cmd,
             capture_output=True,
             text=True,
-            env={**_os_env(), **env_extras},
+            env=_build_subprocess_env(env_extras),
         )
         elapsed = time.time() - start
         self._logger.info(
@@ -518,11 +519,29 @@ class DexlibInstrumentation(Instrumenter):
         )
 
 
-def _os_env() -> dict:
-    """Return a shallow copy of os.environ — lazy import avoids polluting module scope."""
+def _build_subprocess_env(extras: Optional[dict] = None) -> dict:
+    """Build an explicit subprocess env for the Java CLI (gh55 D9).
+
+    Forwards only the OS-level variables the Java toolchain genuinely needs:
+    PATH (executable lookup), HOME, JAVA_HOME (toolchain location),
+    ANDROID_HOME (SDK paths), RVSEC_HOME (rvsec workspace root). Wholesale
+    propagation of os.environ is forbidden by INV-EXP-30 — it would leak
+    user-facing RV_* values past Layer Purity boundaries into the Java process.
+
+    Args:
+        extras: optional caller-supplied additional env entries (e.g.,
+            CLASSPATH overrides) layered on top of the forwarded set.
+
+    Returns:
+        Dict suitable for ``subprocess.run(..., env=...)``.
+    """
     import os
 
-    return dict(os.environ)
+    forwarded_keys = ("PATH", "HOME", "JAVA_HOME", "ANDROID_HOME", ENV_RVSEC_HOME)
+    forwarded = {k: os.environ[k] for k in forwarded_keys if k in os.environ}
+    if extras:
+        forwarded.update(extras)
+    return forwarded
 
 
 def _demote_silent_failures(
@@ -589,7 +608,7 @@ def _resolve_rvsec_root_or_raise() -> Path:
     generation, static analysis and (now) dexlib2 runtime-library resolution.
     See CLAUDE.md "Environment Variables".
     """
-    rvsec_home = os.environ.get("RVSEC_HOME")
+    rvsec_home = os.environ.get(ENV_RVSEC_HOME)
     if not rvsec_home:
         raise RuntimeError(
             "RVSEC_HOME environment variable is not set; cannot resolve "

@@ -9,6 +9,7 @@ and comprehensive error handling across the testing framework.
 import os
 from typing import Dict, List, Optional
 
+from rv_android_core.constants import ENV_RVSEC_HOME, ENV_TOOLS_DIR
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import JarNotFoundError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
@@ -277,7 +278,7 @@ class JarResolver:
                         search_paths.append(path)
 
         # 2. RVSEC_HOME based paths (second priority)
-        rvsec_home = os.environ.get("RVSEC_HOME", "")
+        rvsec_home = os.environ.get(ENV_RVSEC_HOME, "")
         if rvsec_home:
             rvsec_paths = [
                 os.path.join(
@@ -296,8 +297,8 @@ class JarResolver:
             ]
             search_paths.extend(rvsec_paths)
 
-        # 3. Environment variable based paths
-        tools_dir = os.environ.get("TOOLS_DIR", "")
+        # 3. Environment variable based paths (L1 cross-layer infra read per gh55 D10)
+        tools_dir = os.environ.get(ENV_TOOLS_DIR, "")
         if tools_dir:
             search_paths.append(os.path.join(tools_dir, tool_subdir, jar_name))
 
