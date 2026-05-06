@@ -319,9 +319,17 @@ GitHub Issue: #52
     - **File reference**: `modules/rv-experiment/src/rv_experiment/config.py` (`instrumentation_variant: str = Field(default="ajc", ...)` unchanged).
 - [x] 17.5 Grep clean — only 3 files reference `RVInstrumentation` class outside the legacy module itself: `rv-experiment/.../pre_processor.py` (dispatch logic, intentional), `rv-experiment/tests/test_pre_processor_variant.py` (variant dispatch test), `rv-instrumentation-dexlib2/.../dexlib_instrumentation.py` (cross-reference comment). All legitimate. The Phase-6 promotion (17.1 backup-legacy + 17.3 default-to-dexlib2) will simplify these to remove the dispatch branch and the variant-specific tests.
     - **Promoted 2026-05-05** — grep audit complete; further simplification deferred to Phase-6 default flip (tasks 17.1/17.3, blocked on Phase C ratification).
-- [ ] 17.6 Run `openspec sync gh52-instr-dexlib2` — merge delta specs into main `openspec/specs/instrumentation/spec.md`; manually add REMOVED Requirements section for the legacy ajc-specific REQUIREMENTS no longer applicable
-    - **Note 2026-05-05 (revised) — REMOVED Requirements section is N/A** under the conservative-coexistence scope decision in §17 header. Both pipelines remain spec-active and supported; gh50's INV-INS-51..25 (ajc-specific) stay valid alongside gh52's INV-INS-50..24 (dexlib2-specific). The sync is a normal delta merge — no requirements are removed. AJC remains the spec-level default. The "REMOVED Requirements section" wording in this task body is from the original substitution premise (since superseded) and should be ignored when this task is executed in the batch archive.
-- [ ] 17.7 Run `openspec validate --all` — must pass
+- [x] 17.6 Run `openspec sync gh52-instr-dexlib2` — merge delta specs into main `openspec/specs/instrumentation/spec.md`; manually add REMOVED Requirements section for the legacy ajc-specific REQUIREMENTS no longer applicable
+    - **Note 2026-05-05 (revised) — REMOVED Requirements section is N/A** under the conservative-coexistence scope decision in §17 header. Both pipelines remain spec-active and supported; gh50's INV-INS-13..25 (ajc-specific) stay valid alongside gh52's INV-INS-50..69 (dexlib2-specific, post-renumber). The sync is a normal delta merge — no requirements are removed. AJC remains the spec-level default. The "REMOVED Requirements section" wording in this task body is from the original substitution premise (since superseded) and should be ignored when this task is executed in the batch archive.
+    - **Verification date**: 2026-05-06
+    - **Method**: agent-driven sync via `/opsx:sync` skill, executed delta-by-delta with diff review at each step. The 3 deltas (gh50 + gh52 + gh53) merge cleanly into `openspec/specs/instrumentation/spec.md` after the gh52 renumber commit (`4d9639ce`) eliminated the INV-INS-13..25 collision. No REMOVED Requirements section added (per scope decision). Audit confirmed: 18 requirements total, 75 scenarios, all delta scenarios present in main, no broken INV cross-references, no duplicates, FR03 preserved untouched.
+    - **File reference**: `openspec/specs/instrumentation/spec.md` (999 lines, +544 from sync); commit `4372ff94`.
+    - Conclusion: sync executed and audited rigorously.
+- [x] 17.7 Run `openspec validate --all` — must pass
+    - **Verification date**: 2026-05-06
+    - **Method**: `openspec validate --all`
+    - **Concrete numbers**: 11/11 items pass (8 specs + 3 active changes). Zero failures.
+    - Conclusion: structural integrity gate satisfied across the entire OpenSpec workspace.
 
 ## 18. Verification, code review, PR, archive
 
