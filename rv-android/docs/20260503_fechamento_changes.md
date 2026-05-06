@@ -10,6 +10,12 @@
 
 Quatro OpenSpec changes co-existem em `openspec/changes/`, todas validadas empiricamente nas últimas 48h pelos experimentos `sweep_jca400_v1` (380/400 GATOR), `instrument_jca226_*` (224/226 dexlib2), `run_jca100` + `run_jca124` (1501 tasks bem-sucedidas, 31494 + 33564 RVSEC-COV events). Esta sessão fecha tasks pendentes baseadas em evidência já existente; **não duplica** o trabalho da sessão paralela (Phase A AJC instrumentation em curso → Phase B install validation → Phase C comparison study).
 
+> **Nota de nomenclatura (2026-05-06)**: ao longo do doc original havia confusão entre dois esquemas. Esclarecimento canônico:
+> - **Phase A/B/C** = nomenclatura informal da sessão paralela para o pipeline empírico de comparison study (instrumentation → install → comparison). **Todas concluídas em 2026-05-06** (`validacao_full` é o output final).
+> - **Phase 5 / Layer 1-5** = §16 do `gh52/tasks.md`, "Phase 5 — Validation execution". Roda o Maven validator harness (módulo `validator/` no aggregator Java). **NÃO foi executada ainda** — é o que falta para fechar gh52.
+>
+> Ao longo do doc original "Phase C" foi usada de forma ambígua. Onde se refere ao §16 do gh52 (validator Layer 1-5), agora deve ler-se **Phase 5**. Onde se refere ao pipeline ajc-vs-dexlib2 já executado pela sessão paralela, mantém-se Phase C (concluída).
+
 ### 1.1 Estado atual real (verificado via `openspec list`)
 
 | Change | Tasks | Status | Domínio delta |
@@ -37,11 +43,11 @@ Implicações:
 | Change | Hoje | Aguardando | Archive |
 |---|---|---|---|
 | **gh51** | Fechar 6 tasks | — | **HOJE** (sync inclusive) |
-| **gh50** | Fechar 12 tasks fechíveis + DEFER 7 tasks JCA-557 | Phase C (não bloqueia) | Batch futuro |
-| **gh52** | Promover ~16 tasks `[~]→[x]` e `[ ] DEFERRED→[x]` | Phase C (Layer 1-5 + final QA) | Batch futuro |
+| **gh50** | Fechar 12 tasks fechíveis + DEFER 7 tasks JCA-557 | Phase 5 do gh52 (não bloqueia) | Batch futuro |
+| **gh52** | Promover ~16 tasks `[~]→[x]` e `[ ] DEFERRED→[x]` | Phase 5 (validator Layer 1-5) + final QA | Batch futuro |
 | **gh53** | Nenhuma (já 100%) | gh50 + gh52 prontas | Batch futuro |
 
-**Batch final** (quando Phase C terminar e gh52 fechar): archive `gh50 → gh52 → gh53` em ordem, com `openspec sync` único de specs no fim.
+**Batch final** (quando gh52 §16 Phase 5 fechar): archive `gh50 → gh52 → gh53` em ordem, com `openspec sync` único de specs no fim.
 
 ---
 
@@ -169,7 +175,7 @@ Phase 3 — closing with evidence blocks (~25 min):
 Phase 4 — final state validation (~5 min):
    openspec validate gh50-improve-instrumentation
    openspec status --change gh50-improve-instrumentation
-   Esperado: ratio cresce de 234/256 para ~256/256 OU ~256-N/256 com N tasks ainda dependentes de Phase C
+   Esperado: ratio cresce de 234/256 para ~256/256 OU ~256-N/256 com N tasks ainda dependentes de gh52 §16 Phase 5
 ```
 
 ### 5.4 Critérios de sucesso
@@ -212,11 +218,11 @@ Bloco padronizado: **"DEFERRED — <razão original do task>. Aceite arquitetura
 | 3.16 | 15.6 | 229 | DEFERRED architecture diagram in design.md |
 | 3.17 | 15.7 | 230 | DEFERRED ADR + proposal serve same purpose |
 
-### 6.3 Tasks a NÃO mexer hoje (aguardam Phase C)
+### 6.3 Tasks a NÃO mexer hoje (aguardam gh52 §16 Phase 5)
 
-**Bloco 1 — Layer 1-5 validation** (resolvido por Phase A → B → C da sessão paralela):
+**Bloco 1 — Layer 1-5 validation** (Maven validator harness em `rvsec-instrumentation-dexlib2/validator/`):
 
-| Task | Linha | Phase C dependência |
+| Task | Linha | Phase 5 dependência |
 |---|---|---|
 | 16.3 | 237 | parity validator JCA + Generic |
 | 16.4 | 238 | BaksmaliDiffer Layer-1 (30-APK subset) |
@@ -243,7 +249,7 @@ Phase 2 — promoções DEFERRED (~10 min):
 Phase 3 — validação final (~5 min):
    openspec validate gh52-instr-dexlib2
    openspec status --change gh52-instr-dexlib2
-   Esperado: ratio cresce de 125/162 para ~141/162; restante = Phase C + Phase 6 + Final QA
+   Esperado: ratio cresce de 125/162 para ~141/162; restante = gh52 §16 Phase 5 + Phase 6 + Final QA
 ```
 
 ### 6.5 Critérios de sucesso
@@ -251,7 +257,7 @@ Phase 3 — validação final (~5 min):
 - [ ] `openspec validate gh52-instr-dexlib2` continua passando
 - [ ] Ratio sobe para ~141/162 (do baseline 125/162)
 - [ ] gh52 NÃO archivada hoje
-- [ ] Tasks 16.3-16.10, 17.x, 18.x permanecem `[ ]` (aguardam Phase C / outra sessão)
+- [ ] Tasks 16.3-16.10, 17.x, 18.x permanecem `[ ]` (aguardam gh52 §16 Phase 5 / outra sessão)
 
 ---
 
@@ -265,11 +271,11 @@ Phase 3 — validação final (~5 min):
 
 ## 8. Plano do batch final (futuro, fora desta sessão)
 
-Quando a sessão paralela terminar a Phase C:
+Quando gh52 §16 Phase 5 (validator Layer 1-5) for executada:
 
 ```
 1. Sessão paralela fecha:
-   - gh52 16.3-16.10 com evidência da Phase C
+   - gh52 16.3-16.10 com evidência da Phase 5 (validator Layer 1-5 stratified)
    - gh52 17.1-17.7 (move legacy → backup, default flip ajc→dexlib2, sync)
    - gh52 18.1-18.15 (final QA + retrospective)
 2. Verificações:
@@ -363,7 +369,7 @@ openspec status --change gh52-instr-dexlib2
 | Renome `rv-instrumentation` → `rv-instrumentation-ajc` (pós-gh53) quebra invocações de skill | Média | Baixo | Tentar com nome novo primeiro; fallback path explícito; checar `modules/rv-instrumentation-ajc/` existe |
 | 12.5.2 spot-check sem rastreio de bucket stackmap_error | Média | Baixo | Usar `data/results/instrument_jca226_*/instrument_errors.json`; se ausente = sucesso = evidência |
 | 21.5.3 smoke `--no-quarantine` requer rebuild local | Média | Baixo | Reutilizar evidência commit `b336a9a9` (76/76 tests + cryptoapp validated) |
-| Phase C atrasa, batch final fica sem janela | Baixa | Médio | Usar `--skip-specs` no archive; documentar pending sync |
+| gh52 §16 Phase 5 atrasa, batch final fica sem janela | Baixa | Médio | Usar `--skip-specs` no archive; documentar pending sync |
 | Conflito de delta gh53 vs gh52 surgir durante batch sync | Baixa | Alto | Sync inclui ambos no mesmo `openspec sync` (transação atômica); design.md prevê isso |
 
 ---
@@ -373,7 +379,7 @@ openspec status --change gh52-instr-dexlib2
 - ❌ **Iniciar/parar AVD manualmente** (regra CLAUDE.md "DO NOT TOUCH emulator")
 - ❌ **Duplicar Phase A/B/C** (sessão paralela tem ownership)
 - ❌ **Archivar gh53 sozinha** (quebra sync com gh52)
-- ❌ **Archivar gh52 hoje** (Phase C ainda em curso)
+- ❌ **Archivar gh52 hoje** (gh52 §16 Phase 5 ainda não executada)
 - ❌ **Modificar arquivos em `backup/`** (regra de memória)
 - ❌ **Adicionar `Co-Authored-By` nos commits** (regra de memória)
 - ❌ **Rodar `openspec sync` parcialmente** entre gh50/gh52/gh53 (deferred per gh53 design)
@@ -424,7 +430,7 @@ done
 # Esperado:
 # gh50: 0   (todas fechadas hoje, ou (archived) se já no archive/)
 # gh51: (archived)
-# gh52: ~21 (16.3-16.10 + 17.x + 18.x — Phase C dependente)
+# gh52: ~21 (16.3-16.10 + 17.x + 18.x — Phase 5 + admin dependente)
 # gh53: 0
 ```
 
@@ -433,7 +439,7 @@ done
 ```bash
 openspec list
 # Esperado:
-#   gh50-improve-instrumentation       ~256/256 (ou parcial se algumas tasks dependerem de Phase C)
+#   gh50-improve-instrumentation       ~256/256 (ou parcial se algumas tasks dependerem de Phase 5)
 #   gh52-instr-dexlib2                 ~141/162
 #   gh53-consolidacao-instrumentation  ✓ Complete
 #   (gh51 não aparece — archivada)
@@ -483,11 +489,13 @@ git -C . status --short | grep -E "openspec/changes|openspec/specs"
 ## 15. Próximos passos pós-sessão
 
 1. **Esta sessão**: implementar Phase 1 → 2 → 3 conforme plano acima.
-2. **Sessão paralela (em curso)**:
-   - Phase A: AJC instrumentation (ETA 8-15h)
-   - Phase B: install validation no emulador (`scripts/validate_ajc_apks_install.py`)
-   - Phase C: comparison study ajc-vs-dexlib2 → resolve gh52 16.3-16.10
-3. **Sessão futura (batch final)**:
+2. **Sessão paralela (status 2026-05-06: TODAS COMPLETAS)**:
+   - Phase A: AJC instrumentation ✅ done
+   - Phase B: install validation no emulador (`scripts/validate_ajc_apks_install.py`) ✅ done
+   - Phase C: comparison study ajc-vs-dexlib2 (`run_jca_compare`, `validacao_full`) ✅ done — confirma regressão categoria-específica
+   - **NOTA**: Phase C da sessão paralela ≠ Phase 5 do gh52 §16. Phase 5 (validator Layer 1-5) **ainda precisa rodar** independentemente.
+3. **Sessão futura (Phase 5 + batch final)**:
+   - gh52 §16 Phase 5 — Validation execution (Layer 1-5 do Maven validator harness)
    - gh52 17.1-17.7 (Phase 6 default flip)
    - gh52 18.1-18.15 (final QA)
    - Archive batch: gh50 → gh52 → gh53 (ordem obrigatória)
@@ -496,7 +504,7 @@ git -C . status --short | grep -E "openspec/changes|openspec/specs"
 4. **Commit por phase**:
    - `chore(gh51): close pending tasks for archive (refs #51, closes #51)`
    - `chore(gh50): close JCA-400 tasks; defer JCA-557 oldset (refs #50)`
-   - `chore(gh52): promote DEFERRED tasks pending Phase C (refs #52)`
+   - `chore(gh52): promote DEFERRED tasks pending Phase 5 validator (refs #52)`
 
 ---
 
@@ -521,7 +529,7 @@ Este plano segue diretrizes:
 |---|---|---|---|
 | gh51-gator-soot-upgrade | 61/67 active | **archived** (`archive/2026-05-05-gh51-gator-soot-upgrade/`) | INV-ANA-16/17/18 sincronizados em `openspec/specs/analysis/spec.md` |
 | gh50-improve-instrumentation | 234/256 active | **256/256 ✓ Complete** (valid, NÃO archivada) | Aguarda batch com gh52/gh53; evidências revisadas para ajc-specific (não run_jca100/dexlib2) |
-| gh52-instr-dexlib2 | 125/162 active | **154/168 valid** (NÃO archivada) | Phase 6 default flip DESCARTADO; AJC permanece default; 14 pending (Phase C + 17.6/17.7 + admin) |
+| gh52-instr-dexlib2 | 125/162 active | **154/168 valid** (NÃO archivada) | Phase 6 default flip DESCARTADO; AJC permanece default; 14 pending (Phase 5 validator + 17.6/17.7 + admin) |
 | gh53-consolidacao-instrumentation | ✓ Complete | ✓ Complete | Intacta; aguarda batch |
 
 ### Commits desta sessão
@@ -580,7 +588,7 @@ Memória persistente:
 Audit do agente `feature-dev:code-reviewer` (commit `74f4227e`):
 - **2 CRITICAL fixed**: C1+C2 — `InstrumentationResults.variant` migrado para `Field(...)` required + `model_validator(mode="before")` retrocompat (per spec INV-INS-18)
 - **4 IMPORTANT** (filed as follow-up):
-  - I1: multidex oracle pendente em §16.6/16.6a (Phase C)
+  - I1: multidex oracle pendente em §16.6/16.6a (Phase 5 validator Layer-3)
   - I2: `_run_cli` raises `RuntimeError` em vez de `CommandException` mandatado (caught por except union; sem impacto funcional)
   - I3: `DexlibInstrumentationConfig` sem validators apksigner/zipalign/d8 (Java CLI auto-resolve from PATH)
   - I4: AJC regression deve ser documentada em `docs/20260426_dexlib2_validation_results.md` §5 antes de archive
@@ -590,8 +598,8 @@ Audit do agente `feature-dev:code-reviewer` (commit `74f4227e`):
 
 | Bloco | Tasks | Bloqueio |
 |---|---|---|
-| Phase C ratification | 16.3, 16.4, 16.5, 16.6, 16.6a, 16.7, 16.8, 16.10 + 16.9[~] | Outra sessão (regressão AJC + Layer 1-5) |
-| Phase 6 minimalista | 17.6 (sync delta normal — sem REMOVED), 17.7 (validate --all) | Phase C |
+| Phase 5 validator | 16.3, 16.4, 16.5, 16.6, 16.6a, 16.7, 16.8, 16.10 + 16.9[~] | Maven validator harness (Layer 1-5) |
+| Phase 6 minimalista | 17.6 (sync delta normal — sem REMOVED), 17.7 (validate --all) | Phase 5 |
 | Admin | 18.12 (Kanban), 18.13 (close #52 + Done), 18.14 (archive) | Phase 6 |
 | Optional | 18.15 (rv-retrospective) | Pós-archive |
 
@@ -602,7 +610,7 @@ Audit do agente `feature-dev:code-reviewer` (commit `74f4227e`):
 - Bisect entre commits gh50/52/53 para isolar regressão
 - Resolução documentada em `docs/20260505_validacao_ajc.md` (a ser criado)
 
-**2. Phase C ratificação (depois de #1)**
+**2. gh52 §16 Phase 5 — Validation execution (depois de #1)**
 - Layer 1-5 com AJC corrigido como baseline
 - Layer-4 BatchValidator JCA-400 × 3 × 3 (~36h wallclock)
 - Outputs em `docs/20260426_dexlib2_validation_results.md` §5
