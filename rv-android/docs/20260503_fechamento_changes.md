@@ -548,17 +548,32 @@ Após detectar a regressão runtime do AJC (cov_rv_method ~7% vs ASE2024 baselin
 
 Memória persistente: `project_ajc_retained_as_optin.md` (canonical).
 
-### AJC regression — investigação em curso (outra sessão)
+### AJC regression — investigação concluída (2026-05-06)
 
-- Detectada 2026-05-04 via `run_jca_compare` (119 APKs, dex 4.5× ajc, p<0.0001)
-- Confirmada vs ASE2024 baseline: 7.84% vs 27.14% para ape (Δ -19.30pp)
-- 43/61 APKs com violações ativas: AJC captura ZERO quando dex captura
-- Causas descartadas: quarantine (filtra <0.2%), GATOR scope (correto)
-- Hipóteses ativas: quarantine list amplia demais, bug em `__quarantine_problematic_classes`, weaving quebrado em Kotlin/Compose moderno, frame computation corrompe stackmaps
+**Hipótese inicial (2026-05-05)**: regressão dramática AJC vs ASE2024 (7.84% vs 27.14% ape, Δ −19pp). Detectada via `run_jca_compare` (119 APKs JCA-400 modernas).
 
-Memória persistente: `project_ajc_regression_2026-05-05.md`.
+**Resolução (`validacao_full` 2026-05-06, 72 APKs, 11h09m, 851/864 tasks)**: regressão é **categoria-específica, não universal**.
 
-**Bloqueia o batch archive** — Phase C (Layer 1-5 gates) não faz sentido contra um baseline AJC quebrado.
+| Categoria | dex cov | ajc cov | Δ | Verdict |
+|---|---:|---:|---:|---|
+| **OLD-CLEAN** (60 ASE2024 legacy) | 39.6% | 36.0% | 3.6pp | AJC competitivo (~91% do DEX) |
+| **NEW WORKS** (6) | 30.7% | 32.7% | −2pp | AJC SUPERA DEX |
+| **NEW BROKEN** (6 R8/Compose) | 86.4% | 0.0% | 86pp | AJC quebra total |
+| Global (mix) | 42.65% | 32.67% | 10pp | gap modesto |
+
+**Conclusões**:
+- Regressão é **localizada a R8/Compose modernas (~8% do dataset)**, não generalizada.
+- AJC OLD 36% **supera ASE2024 baseline 27%** em apps tradicionais — pipeline saudável para legacy.
+- Run inicial (`run_jca_compare`) era **enviesado** para apps modernas — exagerou o gap.
+- VerifyError pattern: dex=63 vs ajc=47 (dex acumulou MAIS) — não é exclusivo do AJC.
+- Causas internas descartadas: quarantine (<0.2%), GATOR scope (correto).
+- Causa real: distribution shift do AJC pipeline em padrões Compose/R8 modernos (Kotlin generic types, R8 minificação agressiva).
+
+**Implicação para batch archive**: **NÃO BLOQUEIA**. O gap geral de 10pp em sample realista mista é modesto e documentado. Layer-4 (gh52 §16.7) precisa estratificar por categoria (`{legacy, modern-r8-compose}`) para evitar TOST overall mascarar o achado.
+
+Memória persistente:
+- `project_ajc_validacao_full_2026-05-06.md` (canonical, FINAL)
+- `project_ajc_regression_2026-05-05.md` (initial hypothesis, SUPERSEDED)
 
 ### Code-reviewer findings (gh52 §18.8)
 
