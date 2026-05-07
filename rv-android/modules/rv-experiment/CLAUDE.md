@@ -370,31 +370,45 @@ rv-experiment run --tools ape --apks-dir ./apks_examples --resume-dir ./results/
 
 ## Docker Execution Mode
 
-rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypoint.sh`, which translates environment variables to CLI arguments. This enables declarative experiment configuration through Docker Compose or `docker run`.
+rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypoint.sh`. Post-gh55, the entry-point's responsibilities are:
 
-### Key Environment Variables
+1. **Allow-list validation** (delegated to `validate_env_vars.sh`): verifies every `RV_*` env var is in the canonical `ENV_*` registry from `rv-android-core/constants.py`. Unknown names exit 64.
+2. **Negation-flag translation** (gh55 §9.6 — narrowly scoped): translates 5 boolean-negation env vars to explicit negative CLI flags. This works around the Click `envvar=` inversion gotcha — see `openspec/changes/archive/2026-05-07-gh55-env-purity-avd-api30/design.md` "Known Limitations".
+3. **`exec rv-experiment run`** with the §9.6 SKIP_FLAG_ARGS array as args. Click then resolves all other env vars via per-option `envvar=` declarations (gh55 §9 gambiarra).
 
-| Variable | CLI Argument | Description |
-|----------|--------------|-------------|
-| `RV_TOOLS` | `--tools` | Tool specification DSL |
-| `RV_TIMEOUTS` | `--timeout` | Execution timeout (seconds) |
-| `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
-| `RV_APKS_DIR` | `--apks-dir` | APK directory path |
-| `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode |
-| `RV_SPEC_SET` | `--specification-set` | Specification set name |
-| `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
-| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
-| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |
-| `RV_SKIP_EXECUTION` | `--skip-execution` | Skip task execution phase (preprocessing-only mode) |
-| `RV_NO_QUARANTINE` | `--no-quarantine` | Disable ajc library-class quarantine phase (gh50 §16/§19/§22). Only affects ajc variant. |
-| `RV_DEVICE_PORT` | `--device-port` | Emulator port |
-| `RV_APKS_FILTER` | `--apks-filter` | APK filter file |
-| `RV_EXPERIMENT_NAME` | `--name` | Experiment name (enables implicit resume) |
-| `RV_RESUME_DIR` | `--resume-dir` | Explicit resume directory |
-| `RV_DEBUG` | `--debug` | Debug logging |
-| `RV_DELAY` | (startup delay) | Stagger parallel container launches |
+There is no general-purpose env→flag translator. Each `RV_*` is consumed either by Click's `envvar=` (most flags) or by the §9.6 entry-point translation (5 negation flags only).
+
+### Environment Variables → CLI
+
+| Variable | CLI Argument | Resolved by | Notes |
+|----------|--------------|-------------|-------|
+| `RV_TOOLS` | `--tools` | Click `envvar=` | Tool specification DSL |
+| `RV_TIMEOUTS` | `--timeout` | Click `envvar=` | Execution timeout (seconds) |
+| `RV_REPETITIONS` | `--repetitions` | Click `envvar=` | Number of repetitions |
+| `RV_APKS_DIR` | `--apks-dir` | Click `envvar=` | APK directory path |
+| `RV_NO_WINDOW` | `--no-window / --window` | Click `envvar=` | Emulator headless mode (positive flag — no inversion) |
+| `RV_SPEC_SET` | `--specification-set` | Click `envvar=` | Specification set name |
+| `RV_INSTRUMENTATION_VARIANT` | `--instrumentation-variant` | Click `envvar=` | `ajc` (default) or `dexlib2` |
+| `RV_SKIP_MONITORS` | `--skip-monitors` | **§9.6 entry-point** | Skip monitor generation |
+| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | **§9.6 entry-point** | Skip APK instrumentation |
+| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | **§9.6 entry-point** | Skip static analysis |
+| `RV_SKIP_EXECUTION` | `--skip-execution` | **§9.6 entry-point** | Skip task execution (preprocessing-only mode) |
+| `RV_NO_QUARANTINE` | `--no-quarantine` | **§9.6 entry-point** | Disable ajc library-class quarantine phase (gh50 §16/§19/§22). Only affects ajc variant. |
+| `RV_DEVICE_PORT` | `--device-port` | Click `envvar=` | Emulator port |
+| `RV_APKS_FILTER` | `--apks-filter` | Click `envvar=` | APK filter file |
+| `RV_EXPERIMENT_NAME` | `--name` | Click `envvar=` | Experiment name (enables implicit resume) |
+| `RV_RESUME_DIR` | `--resume-dir` | Click `envvar=` | Explicit resume directory |
+| `RV_DEBUG` | `--debug` | Click `envvar=` | Debug logging |
+| `RV_SA_TIMEOUT` | `--analysis-timeout` | Click `envvar=` + `ExperimentConfig.__post_init__` fallback | Static analysis timeout (seconds) |
+| `RV_JVM_MEMORY` | `--jvm-memory` | Click `envvar=` + `ExperimentConfig.__post_init__` fallback | JVM memory for static analysis (e.g. `4g`) |
+| `RV_HUMANOID_URL` | (no flag — flows via `ToolConfig.parameters["humanoid_url"]`) | `ExperimentConfig.__post_init__` | Humanoid tool URL; passed to L2 via Pydantic config (Layer Purity, gh55) |
+| `RV_DELAY` | (startup sleep, not a CLI flag) | Entry-point sleep | Stagger parallel container launches |
 
 The entrypoint supports interactive mode: pass `bash` or `shell` as the first argument to get a shell instead of running the experiment.
+
+### Standalone Execution (without Docker)
+
+When invoked directly (`uv run rv-experiment run ...`) outside the Docker entry-point, Click's `envvar=` declarations still honor the env vars they cover. The §9.6 entry-point translation does NOT run, so the 5 negation env vars (`RV_SKIP_*`, `RV_NO_QUARANTINE`) silently fail under standalone — they resolve to the option's positive dest (e.g. `RV_SKIP_MONITORS=true` → `generate_monitors=True`, the OPPOSITE of intent). This is a known gambiarra limitation; the architectural fix lives in the follow-up change at `openspec/changes/gh-tbd-env-vars-architecture/`. For standalone runs that need to skip preprocessing, use the explicit CLI flags (`--skip-monitors`, etc.) directly.
 
 ## Key Design Decisions
 

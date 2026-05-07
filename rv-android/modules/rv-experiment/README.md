@@ -251,7 +251,9 @@ uv run rv-experiment run \
 
 ## Docker Execution Mode
 
-rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypoint.sh`, which translates environment variables into CLI arguments. This enables declarative experiment configuration through Docker Compose or `docker run` without modifying the container.
+rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypoint.sh`. Post-gh55, the entry-point validates the `RV_*` env vars against the canonical registry (`rv-android-core/constants.py`), translates 5 boolean-negation flags to explicit CLI args (gh55 §9.6), then `exec`s `rv-experiment run`. Click then resolves all other env vars via per-option `envvar=` declarations (gh55 §9). There is no general-purpose env→flag translator — see `modules/rv-experiment/CLAUDE.md` "Docker Execution Mode" for the full table including which path each variable uses.
+
+Quick reference (subset — see CLAUDE.md for complete coverage and for the standalone-execution gambiarra note):
 
 | Environment Variable | CLI Argument | Description |
 |---------------------|--------------|-------------|
@@ -261,15 +263,21 @@ rv-experiment runs inside Docker containers via `docker/rvandroid/docker-entrypo
 | `RV_APKS_DIR` | `--apks-dir` | APK directory path |
 | `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode (`true`/`false`) |
 | `RV_SPEC_SET` | `--specification-set` | Specification set name |
-| `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
-| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
-| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |
+| `RV_INSTRUMENTATION_VARIANT` | `--instrumentation-variant` | `ajc` (default) or `dexlib2` |
+| `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation (entry-point translation) |
+| `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation (entry-point translation) |
+| `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis (entry-point translation) |
+| `RV_SKIP_EXECUTION` | `--skip-execution` | Skip task execution / preprocessing-only (entry-point translation) |
+| `RV_NO_QUARANTINE` | `--no-quarantine` | Disable ajc library-class quarantine (entry-point translation; ajc-only) |
 | `RV_DEVICE_PORT` | `--device-port` | Emulator port for parallel execution |
 | `RV_APKS_FILTER` | `--apks-filter` | APK filter file path |
 | `RV_EXPERIMENT_NAME` | `--name` | Experiment name (enables implicit resume) |
 | `RV_RESUME_DIR` | `--resume-dir` | Explicit resume directory |
 | `RV_DEBUG` | `--debug` | Debug logging |
-| `RV_DELAY` | (startup delay) | Seconds to wait before starting (for staggering parallel containers) |
+| `RV_SA_TIMEOUT` | `--analysis-timeout` | Static analysis timeout in seconds |
+| `RV_JVM_MEMORY` | `--jvm-memory` | JVM memory for static analysis (e.g. `4g`) |
+| `RV_HUMANOID_URL` | (passed via `ToolConfig.parameters["humanoid_url"]`) | Humanoid tool URL (Layer Purity, gh55) |
+| `RV_DELAY` | (startup sleep, not a CLI flag) | Seconds to wait before starting (staggering parallel containers) |
 
 Pass `bash` or `shell` as the container command for interactive access instead of running the experiment.
 
