@@ -128,10 +128,12 @@ that fix is the follow-up change at `openspec/changes/gh<TBD>-env-vars-architect
 - [x] 9.3 Inline note inside `__main__.py` near the first `envvar=` referencing `design.md` "Known Limitations"
   and the follow-up change so future contributors know NOT to expand this pattern further — new flags should
   go through the proper architecture in the follow-up change.
-- [ ] 9.4 Re-run the smoke 6.5 inside container (cryptoapp + ape + aperv:sata_mop + 180s + dexlib2 + jca);
+- [x] 9.4 Re-run the smoke 6.5 inside container (cryptoapp + ape + aperv:sata_mop + 180s + dexlib2 + jca);
   verify the command logs show `RV_TOOLS=ape,aperv:sata_mop` actually honored (no "monkey" appearance) and
   `Monkey execution timeout: 300 seconds` is replaced by tools' actual 180s timeout.
-- [ ] 9.5 Rebuild only the top `phtcosta/rvandroid:0.8.0` image via `docker/rvandroid/build.sh` (parent layers
+  **Verified 2026-05-06 21:42**: `Tools: ape, aperv` / `Timeout: 180s` / `instrumentation_variant: dexlib2`
+  observed in container logs; 2/2 tasks successful; MOP coverage 18.75% per tool; 0 errors.
+- [x] 9.5 Rebuild only the top `phtcosta/rvandroid:0.8.0` image via `docker/rvandroid/build.sh` (parent layers
   unchanged — new code only touches `modules/rv-experiment/src/`, no Java rebuild). Saves ~25min.
 
 ## 8. Final integration and verification
