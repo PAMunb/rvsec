@@ -17,7 +17,6 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_tools.builtin.droidmate.tool import DroidMateTool
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -141,22 +140,28 @@ class TestResolveJar:
 
     def test_resolve_jar_uses_jar_resolver(self, droidmate_tool):
         """Test that _resolve_jar uses JarResolver."""
-        droidmate_tool.jar_resolver.resolve_jar_path = MagicMock(return_value="/path/to/jar.jar")
-        
+        droidmate_tool.jar_resolver.resolve_jar_path = MagicMock(
+            return_value="/path/to/jar.jar"
+        )
+
         result = droidmate_tool._resolve_jar()
-        
+
         droidmate_tool.jar_resolver.resolve_jar_path.assert_called_once()
         assert result == "/path/to/jar.jar"
 
     def test_resolve_jar_searches_module_directory(self, droidmate_tool):
         """Test that _resolve_jar searches module directory."""
-        droidmate_tool.jar_resolver.resolve_jar_path = MagicMock(return_value="/path/to/jar.jar")
-        
+        droidmate_tool.jar_resolver.resolve_jar_path = MagicMock(
+            return_value="/path/to/jar.jar"
+        )
+
         droidmate_tool._resolve_jar()
-        
+
         call_args = droidmate_tool.jar_resolver.resolve_jar_path.call_args
         search_paths = call_args[0][1]
-        assert os.path.dirname(__file__) in search_paths or any("droidmate" in p for p in search_paths)
+        assert os.path.dirname(__file__) in search_paths or any(
+            "droidmate" in p for p in search_paths
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +178,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/path/to/jar.jar", "/tmp/output", 3600
         )
-        
+
         assert cmd.command == "java"
         assert "-jar" in cmd.args
 
@@ -183,7 +188,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/custom/jar.jar", "/tmp/output", 3600
         )
-        
+
         assert "/custom/jar.jar" in cmd.args
 
     def test_build_command_apk_name_and_dir(self, droidmate_tool, mock_app):
@@ -192,7 +197,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/path/to/jar.jar", "/tmp/output", 3600
         )
-        
+
         assert "--Exploration-apkNames=test_app.apk" in cmd.args
         assert "--Exploration-apksDir=/path/to" in cmd.args
 
@@ -202,7 +207,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/path/to/jar.jar", "/custom/output", 3600
         )
-        
+
         assert "--Output-outputDir=/custom/output" in cmd.args
 
     def test_build_command_timeout_in_millis(self, droidmate_tool, mock_app):
@@ -211,7 +216,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/path/to/jar.jar", "/tmp/output", 5
         )
-        
+
         # 5 seconds = 5000 milliseconds
         assert "--Selectors-timeLimit=5000" in cmd.args
 
@@ -221,7 +226,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/path/to/jar.jar", "/tmp/output", 3600
         )
-        
+
         assert "--Selectors-actionLimit=100000" in cmd.args
 
     def test_build_command_log_level(self, droidmate_tool, mock_app):
@@ -230,7 +235,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/path/to/jar.jar", "/tmp/output", 3600
         )
-        
+
         assert "--Core-logLevel=debug" in cmd.args
 
     def test_build_command_timeout(self, droidmate_tool, mock_app):
@@ -239,7 +244,7 @@ class TestBuildDroidMateCommand:
         cmd = droidmate_tool._build_droidmate_command(
             mock_app, "/path/to/jar.jar", "/tmp/output", 7200
         )
-        
+
         assert cmd.timeout == 7200
 
 
@@ -273,11 +278,13 @@ class TestExecuteToolSpecificLogic:
 
         droidmate_tool._build_droidmate_command.assert_called_once()
 
-    def test_execute_creates_output_dir(self, droidmate_tool, mock_task, mock_app, tmp_path):
+    def test_execute_creates_output_dir(
+        self, droidmate_tool, mock_task, mock_app, tmp_path
+    ):
         """Test that execute creates output directory."""
         trace_file = str(tmp_path / "trace.txt")
         mock_task.result.trace_file = trace_file
-        
+
         droidmate_tool.configure({})
         droidmate_tool._resolve_jar = MagicMock(return_value="/path/to/jar.jar")
         droidmate_tool._build_droidmate_command = MagicMock()
@@ -291,7 +298,7 @@ class TestExecuteToolSpecificLogic:
     def test_execute_uses_task_timeout(self, droidmate_tool, mock_task, mock_app):
         """Test that execute uses timeout from task config."""
         mock_task.config.timeout = 7200
-        
+
         droidmate_tool.configure({})
         droidmate_tool._resolve_jar = MagicMock(return_value="/path/to/jar.jar")
         droidmate_tool._build_droidmate_command = MagicMock()
@@ -307,7 +314,7 @@ class TestExecuteToolSpecificLogic:
         # Remove task timeout to force fallback to config
         del mock_task.config.timeout
         droidmate_tool.configure({"timeout": 5000})
-        
+
         droidmate_tool._resolve_jar = MagicMock(return_value="/path/to/jar.jar")
         droidmate_tool._build_droidmate_command = MagicMock()
         droidmate_tool._execute_and_check_command = MagicMock()
@@ -319,14 +326,16 @@ class TestExecuteToolSpecificLogic:
         timeout_used = call_args[0][3]
         assert timeout_used in [5000, 3600]
 
-    def test_execute_writes_to_trace_file(self, droidmate_tool, mock_task, mock_app, tmp_path):
+    def test_execute_writes_to_trace_file(
+        self, droidmate_tool, mock_task, mock_app, tmp_path
+    ):
         """Test that execute writes output to trace file."""
         trace_file = tmp_path / "trace.txt"
         mock_task.result.trace_file = str(trace_file)
-        
+
         droidmate_tool.configure({})
         droidmate_tool._resolve_jar = MagicMock(return_value="/path/to/jar.jar")
-        
+
         mock_cmd = MagicMock()
         mock_cmd.command = "java"
         mock_cmd.args = ["-jar", "test.jar"]

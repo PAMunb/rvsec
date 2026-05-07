@@ -17,7 +17,6 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_tools.builtin.ares.tool import AresTool
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -198,9 +197,7 @@ class TestCleanupContainer:
 
             ares_tool._cleanup_container("ares_test")
 
-            mock_cmd.assert_called_once_with(
-                "docker", ["rm", "-f", "ares_test"], 30
-            )
+            mock_cmd.assert_called_once_with("docker", ["rm", "-f", "ares_test"], 30)
             mock_instance.invoke.assert_called_once()
 
     def test_cleanup_handles_exception(self, ares_tool):

@@ -16,7 +16,6 @@ from rv_android_core.domain.task import Task
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_tools.builtin.droidbot.tool import DroidBotTool
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -141,7 +140,9 @@ class TestConfigure:
 
     def test_configure_custom_device_serial(self, droidbot_tool):
         """Test configure with custom device serial."""
-        droidbot_tool.configure({"policy": "dfs_naive", "device_serial": "emulator-5556"})
+        droidbot_tool.configure(
+            {"policy": "dfs_naive", "device_serial": "emulator-5556"}
+        )
         assert droidbot_tool.config["device_serial"] == "emulator-5556"
 
     def test_configure_default_values(self, droidbot_tool):
@@ -170,7 +171,9 @@ class TestBuildDroidBotCommand:
 
     def test_build_command_includes_device_serial(self, droidbot_tool, mock_app):
         """Test command includes device serial."""
-        droidbot_tool.configure({"policy": "dfs_naive", "device_serial": "emulator-5556"})
+        droidbot_tool.configure(
+            {"policy": "dfs_naive", "device_serial": "emulator-5556"}
+        )
         cmd = droidbot_tool._build_droidbot_command(mock_app, 300)
 
         assert "-d" in cmd.args

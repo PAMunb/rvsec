@@ -16,7 +16,6 @@ import pytest
 from pydantic import Field
 from rv_android_core.util.validation.base import BaseValidatedModel
 
-
 # ---------------------------------------------------------------------------
 # Test Model
 # ---------------------------------------------------------------------------
@@ -24,6 +23,7 @@ from rv_android_core.util.validation.base import BaseValidatedModel
 
 class SampleModel(BaseValidatedModel):
     """Test model for validation."""
+
     name: str = "default"
     value: int = 0
     optional: Optional[str] = None
@@ -92,7 +92,9 @@ class SampleModelDumpJsonSafe:
         """Test that JSON serialization errors are handled."""
         model = SampleModel(name="test")
         # Force error by breaking model_dump_json
-        with patch.object(model, 'model_dump_json', side_effect=Exception("JSON error")):
+        with patch.object(
+            model, "model_dump_json", side_effect=Exception("JSON error")
+        ):
             result = model.model_dump_json_safe()
             # Should fallback to str(model_dump())
             assert isinstance(result, str)
@@ -123,7 +125,7 @@ class SampleModelDumpSafe:
         """Test that serialization errors are handled."""
         model = SampleModel(name="test")
         # Force error
-        with patch.object(model, 'model_dump', side_effect=Exception("Dump error")):
+        with patch.object(model, "model_dump", side_effect=Exception("Dump error")):
             result = model.model_dump_safe()
             assert "__type__" in result
             assert "__error__" in result
@@ -190,7 +192,7 @@ class TestRepr:
         """Test that __repr__ handles errors gracefully."""
         model = SampleModel(name="test")
         # Force error
-        with patch.object(model, '__repr__', side_effect=Exception("Repr error")):
+        with patch.object(model, "__repr__", side_effect=Exception("Repr error")):
             # The fallback should work
             try:
                 repr_str = repr(model)
@@ -269,7 +271,7 @@ class TestHash:
         """Test that hashed models can be used in dict."""
         model1 = SampleModel(name="test")
         model2 = SampleModel(name="other")
-        
+
         # Note: This may not work if models are mutable
         # Just ensure hash doesn't raise
         hash1 = hash(model1)

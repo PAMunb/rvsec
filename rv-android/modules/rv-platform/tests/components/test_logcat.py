@@ -15,7 +15,6 @@ import pytest
 from rv_android_core.domain.task import Task
 from rv_platform.components.logcat import LogcatComponent
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -79,7 +78,7 @@ class TestLogcatComponentInitialization:
     def test_init_fallback_to_device_id(self, mock_task):
         """Test fallback to task.config.device_id when no parameters."""
         mock_task.config.tool_config.parameters = {}
-        
+
         with patch("rv_platform.components.logcat.LogcatManager") as mock_logcat_mgr:
             LogcatComponent(mock_task)
             mock_logcat_mgr.assert_called_once_with(device_serial="emulator-5554")
@@ -112,7 +111,9 @@ class TestExecuteAndCleanup:
 
     def test_cleanup_handles_exception(self, logcat_component):
         """Test that cleanup() handles exceptions gracefully."""
-        logcat_component.stop_capture = MagicMock(side_effect=Exception("Cleanup error"))
+        logcat_component.stop_capture = MagicMock(
+            side_effect=Exception("Cleanup error")
+        )
         logcat_component.logger.warning = MagicMock()
 
         # Should not raise
@@ -179,7 +180,9 @@ class TestStartCapture:
 
     def test_start_capture_handles_exception(self, logcat_component):
         """Test that exception during start capture returns False."""
-        logcat_component.logcat_manager.start_capture.side_effect = Exception("ADB error")
+        logcat_component.logcat_manager.start_capture.side_effect = Exception(
+            "ADB error"
+        )
         logcat_component.error_handler.handle_error = MagicMock()
 
         result = logcat_component.start_capture()
@@ -233,7 +236,9 @@ class TestStopCapture:
 
     def test_stop_capture_handles_exception(self, logcat_component):
         """Test that exception during stop capture returns False."""
-        logcat_component.logcat_manager.stop_capture.side_effect = Exception("ADB error")
+        logcat_component.logcat_manager.stop_capture.side_effect = Exception(
+            "ADB error"
+        )
         logcat_component.logger.warning = MagicMock()
 
         result = logcat_component.stop_capture()

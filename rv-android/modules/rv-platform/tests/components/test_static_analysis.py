@@ -17,7 +17,6 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_platform.components.static_analysis import StaticAnalysisComponent
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -80,7 +79,9 @@ class TestExecuteAndCleanup:
 
     def test_execute_returns_true(self, static_analysis_component):
         """Test that execute() returns True on success."""
-        static_analysis_component.copy_static_analysis_files = MagicMock(return_value=True)
+        static_analysis_component.copy_static_analysis_files = MagicMock(
+            return_value=True
+        )
         static_analysis_component.load_static_data = MagicMock(return_value=True)
 
         result = static_analysis_component.execute({})
@@ -89,7 +90,9 @@ class TestExecuteAndCleanup:
 
     def test_execute_copies_static_files(self, static_analysis_component):
         """Test that execute copies static analysis files."""
-        static_analysis_component.copy_static_analysis_files = MagicMock(return_value=True)
+        static_analysis_component.copy_static_analysis_files = MagicMock(
+            return_value=True
+        )
         static_analysis_component.load_static_data = MagicMock(return_value=True)
 
         static_analysis_component.execute({})
@@ -98,7 +101,9 @@ class TestExecuteAndCleanup:
 
     def test_execute_loads_static_data(self, static_analysis_component):
         """Test that execute loads static data."""
-        static_analysis_component.copy_static_analysis_files = MagicMock(return_value=True)
+        static_analysis_component.copy_static_analysis_files = MagicMock(
+            return_value=True
+        )
         static_analysis_component.load_static_data = MagicMock(return_value=True)
 
         static_analysis_component.execute({})
@@ -107,7 +112,9 @@ class TestExecuteAndCleanup:
 
     def test_execute_continues_without_static_data(self, static_analysis_component):
         """Test that execute continues when static data loading fails."""
-        static_analysis_component.copy_static_analysis_files = MagicMock(return_value=True)
+        static_analysis_component.copy_static_analysis_files = MagicMock(
+            return_value=True
+        )
         static_analysis_component.load_static_data = MagicMock(return_value=False)
 
         result = static_analysis_component.execute({})
@@ -117,7 +124,9 @@ class TestExecuteAndCleanup:
 
     def test_execute_handles_exception(self, static_analysis_component):
         """Test that execute handles exceptions gracefully."""
-        static_analysis_component.copy_static_analysis_files = MagicMock(side_effect=Exception("Error"))
+        static_analysis_component.copy_static_analysis_files = MagicMock(
+            side_effect=Exception("Error")
+        )
         static_analysis_component.error_handler.handle_error = MagicMock()
 
         result = static_analysis_component.execute({})
@@ -139,7 +148,9 @@ class TestExecuteAndCleanup:
 class TestLoadStaticData:
     """Test load_static_data() with various scenarios."""
 
-    def test_load_static_data_returns_true_if_already_loaded(self, static_analysis_component, mock_task):
+    def test_load_static_data_returns_true_if_already_loaded(
+        self, static_analysis_component, mock_task
+    ):
         """Test that load_static_data returns True if data already loaded."""
         mock_task.static_data = {"existing": "data"}
 
@@ -147,21 +158,34 @@ class TestLoadStaticData:
 
         assert result is True
 
-    def test_load_static_data_returns_true_if_data_found(self, static_analysis_component):
+    def test_load_static_data_returns_true_if_data_found(
+        self, static_analysis_component
+    ):
         """Test that load_static_data returns True if data is found."""
-        with patch("rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files", return_value={"data": "parsed"}):
+        with patch(
+            "rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files",
+            return_value={"data": "parsed"},
+        ):
             result = static_analysis_component.load_static_data({})
             assert result is True
 
     def test_load_static_data_returns_false_if_no_data(self, static_analysis_component):
         """Test that load_static_data returns False if no data found."""
-        with patch("rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files", return_value=None):
+        with patch(
+            "rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files",
+            return_value=None,
+        ):
             result = static_analysis_component.load_static_data({})
             assert result is False
 
-    def test_load_static_data_returns_true_on_exception(self, static_analysis_component):
+    def test_load_static_data_returns_true_on_exception(
+        self, static_analysis_component
+    ):
         """Test that load_static_data returns True on exception (component returns True)."""
-        with patch("rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files", side_effect=Exception("Parser error")):
+        with patch(
+            "rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files",
+            side_effect=Exception("Parser error"),
+        ):
             static_analysis_component.error_handler.handle_error = MagicMock()
             result = static_analysis_component.load_static_data({})
             # The component itself returns False, but execute() wraps it and returns True
@@ -169,7 +193,10 @@ class TestLoadStaticData:
 
     def test_load_static_data_uses_code_package(self, static_analysis_component):
         """Test that load_static_data uses code_package parameter."""
-        with patch("rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files", return_value={"data": "parsed"}) as mock_read:
+        with patch(
+            "rv_platform.components.static_analysis.static_analysis_parser.read_static_analysis_files",
+            return_value={"data": "parsed"},
+        ) as mock_read:
             static_analysis_component.load_static_data({})
             call_args = mock_read.call_args
             # Check code_package was passed
@@ -184,7 +211,9 @@ class TestLoadStaticData:
 class TestCopyStaticAnalysisFiles:
     """Test copy_static_analysis_files() file copy logic."""
 
-    def test_copy_files_returns_true_when_files_exist(self, static_analysis_component, tmp_path):
+    def test_copy_files_returns_true_when_files_exist(
+        self, static_analysis_component, tmp_path
+    ):
         """Test that copy_static_analysis_files returns True when files exist."""
         results_dir = tmp_path / "results"
         results_dir.mkdir()
@@ -203,7 +232,9 @@ class TestCopyStaticAnalysisFiles:
         # File should be copied
         assert (results_dir / "test_app.apk.methods").exists()
 
-    def test_copy_files_returns_false_if_no_files_found(self, static_analysis_component, tmp_path):
+    def test_copy_files_returns_false_if_no_files_found(
+        self, static_analysis_component, tmp_path
+    ):
         """Test that copy_static_analysis_files returns False if no files found."""
         results_dir = tmp_path / "results"
         results_dir.mkdir()

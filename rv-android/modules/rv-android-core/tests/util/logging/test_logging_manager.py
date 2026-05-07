@@ -17,7 +17,6 @@ import pytest
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.logging.context_adapter import ContextAdapter
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -87,7 +86,9 @@ class TestSetupDefaultLogging:
         # Should have at least one handler
         assert len(root_logger.handlers) > 0
         # At least one should be a StreamHandler
-        has_console = any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers)
+        has_console = any(
+            isinstance(h, logging.StreamHandler) for h in root_logger.handlers
+        )
         assert has_console
 
     def test_setup_clears_existing_handlers(self, logging_manager):

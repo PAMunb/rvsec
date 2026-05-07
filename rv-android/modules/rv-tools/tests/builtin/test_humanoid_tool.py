@@ -18,7 +18,6 @@ from rv_android_core.domain.task import Task
 from rv_android_core.constants import ENV_HUMANOID_URL
 from rv_tools.builtin.humanoid.tool import HumanoidTool
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -192,14 +191,14 @@ class TestBuildHumanoidCommand:
         """Test command uses droidbot as base."""
         humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert cmd.command == "droidbot"
 
     def test_build_command_includes_device_serial(self, humanoid_tool, mock_app):
         """Test command includes device serial."""
         humanoid_tool.configure(_merged_config(device_serial="emulator-5556"))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert "-d" in cmd.args
         assert "emulator-5556" in cmd.args
 
@@ -207,7 +206,7 @@ class TestBuildHumanoidCommand:
         """Test command includes APK path."""
         humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert "-a" in cmd.args
         assert "/path/to/test_app.apk" in cmd.args
 
@@ -215,7 +214,7 @@ class TestBuildHumanoidCommand:
         """Test command includes humanoid URL."""
         humanoid_tool.configure(_merged_config(humanoid_url="http://test.server:50405"))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert "-humanoid" in cmd.args
         assert "http://test.server:50405" in cmd.args
 
@@ -223,7 +222,7 @@ class TestBuildHumanoidCommand:
         """Test command includes policy."""
         humanoid_tool.configure(_merged_config(policy="dfs_greedy"))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert "-policy" in cmd.args
         assert "dfs_greedy" in cmd.args
 
@@ -231,7 +230,7 @@ class TestBuildHumanoidCommand:
         """Test command includes count."""
         humanoid_tool.configure(_merged_config(count=10000000000))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert "-count" in cmd.args
         assert "10000000000" in cmd.args
 
@@ -239,7 +238,7 @@ class TestBuildHumanoidCommand:
         """Test command includes timeout."""
         humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 7200)
-        
+
         assert "-timeout" in cmd.args
         assert "7200" in cmd.args
 
@@ -247,21 +246,21 @@ class TestBuildHumanoidCommand:
         """Test command includes ignore_ad flag."""
         humanoid_tool.configure(_merged_config(ignore_ad=True))
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert "-ignore_ad" in cmd.args
 
     def test_build_command_includes_is_emulator(self, humanoid_tool, mock_app):
         """Test command includes is_emulator flag."""
         humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         assert "-is_emulator" in cmd.args
 
     def test_build_command_default_serial(self, humanoid_tool, mock_app):
         """Test command uses default serial when not configured."""
         humanoid_tool.configure(_merged_config())
         cmd = humanoid_tool._build_humanoid_command(mock_app, 3600)
-        
+
         # Should have emulator-5554 as default
         idx = cmd.args.index("-d")
         assert cmd.args[idx + 1] == "emulator-5554"
@@ -279,28 +278,28 @@ class TestGetToolInfo:
         """Test get_tool_info returns base tool information."""
         humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
-        
+
         assert "name" in info
 
     def test_get_tool_info_returns_tool_spec(self, humanoid_tool):
         """Test get_tool_info returns tool_spec."""
         humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
-        
+
         assert "tool_spec" in info
 
     def test_get_tool_info_returns_humanoid_url(self, humanoid_tool):
         """Test get_tool_info returns humanoid_url."""
         humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
-        
+
         assert "humanoid_url" in info
 
     def test_get_tool_info_returns_current_policy(self, humanoid_tool):
         """Test get_tool_info returns current_policy."""
         humanoid_tool.configure(_merged_config())
         info = humanoid_tool.get_tool_info()
-        
+
         assert "current_policy" in info
 
 

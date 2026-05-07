@@ -15,7 +15,6 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_tools.builtin.monkey.tool import MonkeyTool
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -145,18 +144,18 @@ class TestConfigure:
 
     def test_configure_boolean_flags(self, monkey_tool):
         """Test configure with boolean flags."""
-        monkey_tool.configure({
-            "ignore_crashes": True,
-            "ignore_timeouts": True,
-        })
+        monkey_tool.configure(
+            {
+                "ignore_crashes": True,
+                "ignore_timeouts": True,
+            }
+        )
         assert monkey_tool.config["ignore_crashes"] is True
         assert monkey_tool.config["ignore_timeouts"] is True
 
     def test_configure_event_percentages(self, monkey_tool):
         """Test configure with event percentages."""
-        monkey_tool.configure({
-            "event_percentages": {"touch": 50.0, "motion": 30.0}
-        })
+        monkey_tool.configure({"event_percentages": {"touch": 50.0, "motion": 30.0}})
         assert monkey_tool.config["event_percentages"]["touch"] == 50.0
         assert monkey_tool.config["event_percentages"]["motion"] == 30.0
 

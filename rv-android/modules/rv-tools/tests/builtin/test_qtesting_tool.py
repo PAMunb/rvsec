@@ -18,7 +18,6 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_tools.builtin.qtesting.tool import QTestingTool
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -182,7 +181,7 @@ class TestCopyConfigFile:
     def test_copy_config_creates_file(self, qtesting_tool):
         """Test that config file is created."""
         qtesting_tool.configure({})
-        
+
         with patch("rv_tools.builtin.qtesting.tool.Command") as mock_cmd:
             mock_instance = MagicMock()
             mock_cmd.return_value = mock_instance
@@ -195,7 +194,7 @@ class TestCopyConfigFile:
     def test_copy_config_includes_device_serial(self, qtesting_tool):
         """Test that config includes device serial."""
         qtesting_tool.configure({})
-        
+
         # _copy_config_file creates temp file and copies to container
         # Just verify it doesn't raise
         with patch("rv_tools.builtin.qtesting.tool.Command") as mock_cmd:

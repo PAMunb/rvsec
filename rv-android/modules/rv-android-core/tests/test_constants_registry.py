@@ -53,9 +53,9 @@ def test_dead_constants_removed():
         "ENV_SKIP_EXPERIMENT",
         "ENV_JCA_SPEC",
     ):
-        assert not hasattr(constants, dead), (
-            f"{dead} should have been removed (gh55 task 1.3) but still present"
-        )
+        assert not hasattr(
+            constants, dead
+        ), f"{dead} should have been removed (gh55 task 1.3) but still present"
 
 
 def test_l1_infra_family_present():
@@ -70,6 +70,6 @@ def test_l1_infra_family_present():
     }
     for name, value in expected.items():
         assert hasattr(constants, name), f"L1 infra family missing: {name}"
-        assert getattr(constants, name) == value, (
-            f"{name} value mismatch: got {getattr(constants, name)!r}, expected {value!r}"
-        )
+        assert (
+            getattr(constants, name) == value
+        ), f"{name} value mismatch: got {getattr(constants, name)!r}, expected {value!r}"

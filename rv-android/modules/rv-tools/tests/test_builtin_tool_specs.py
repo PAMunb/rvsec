@@ -86,7 +86,9 @@ class TestToolClassMethods:
         """Each variant value is a dictionary."""
         variants = tool_class.get_variants()
         for variant_name, config in variants.items():
-            assert isinstance(config, dict), f"{tool_class.__name__}:{variant_name} is not a dict"
+            assert isinstance(
+                config, dict
+            ), f"{tool_class.__name__}:{variant_name} is not a dict"
 
 
 class TestMonkeyVariantStructure:
@@ -136,8 +138,9 @@ class TestAPEVariantStructure:
         """All APE variant strategies are in AVAILABLE_STRATEGIES."""
         variants = APETool.get_variants()
         for variant_name, config in variants.items():
-            assert config["strategy"] in APETool.AVAILABLE_STRATEGIES, \
-                f"APE:{variant_name} has invalid strategy '{config['strategy']}'"
+            assert (
+                config["strategy"] in APETool.AVAILABLE_STRATEGIES
+            ), f"APE:{variant_name} has invalid strategy '{config['strategy']}'"
 
     def test_all_variants_have_running_minutes(self):
         """Every APE variant specifies running_minutes."""
@@ -182,7 +185,10 @@ class TestFastBotVariantStructure:
     def test_conservative_has_lower_exploration(self):
         """Conservative variant has lower exploration rate than aggressive."""
         variants = FastBotTool.get_variants()
-        assert variants["conservative"]["exploration_rate"] < variants["aggressive"]["exploration_rate"]
+        assert (
+            variants["conservative"]["exploration_rate"]
+            < variants["aggressive"]["exploration_rate"]
+        )
 
     def test_aggressive_has_higher_max_step(self):
         """Aggressive variant has more steps than conservative."""

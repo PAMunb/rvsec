@@ -137,4 +137,3 @@ class TestPhase2BootCompletedRetry:
                 TimeoutError, match="sys.boot_completed not set within 10s"
             ):
                 Android._wait_for_boot("emulator-5554", boot_timeout=10)
-

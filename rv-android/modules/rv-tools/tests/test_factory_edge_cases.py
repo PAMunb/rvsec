@@ -114,7 +114,9 @@ class TestFactoryErrorCases:
 class TestFactoryDoesNotMutateRegistry:
     """Factory operations do not mutate registry state."""
 
-    def test_create_tool_does_not_change_variant_config(self, factory, registry_with_fake):
+    def test_create_tool_does_not_change_variant_config(
+        self, factory, registry_with_fake
+    ):
         """Creating a tool with overrides does not modify registry variant config."""
         original = registry_with_fake.get_variant_config("faketool", "fast")
 

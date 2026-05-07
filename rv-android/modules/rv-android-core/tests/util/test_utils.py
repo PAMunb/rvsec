@@ -45,29 +45,21 @@ def mock_logging_manager(monkeypatch):
 # Mock os and shutil functions
 @pytest.fixture(autouse=True)
 def mock_os_shutil():
-    with patch("os.path.exists") as mock_exists, patch(
-        "os.makedirs"
-    ) as mock_makedirs, patch("os.listdir") as mock_listdir, patch(
-        "os.remove"
-    ) as mock_remove, patch(
-        "os.getenv"
-    ) as mock_getenv, patch(
-        "shutil.rmtree"
-    ) as mock_rmtree, patch(
-        "shutil.move"
-    ) as mock_move, patch(
-        "shutil.copy2"
-    ) as mock_copy2, patch(
-        "os.path.isfile"
-    ) as mock_isfile, patch(
-        "os.path.isdir"
-    ) as mock_isdir, patch(
-        "os.walk"
-    ) as mock_walk, patch(
-        "os.path.relpath"
-    ) as mock_relpath, patch(
-        "os.stat"
-    ) as mock_stat:
+    with (
+        patch("os.path.exists") as mock_exists,
+        patch("os.makedirs") as mock_makedirs,
+        patch("os.listdir") as mock_listdir,
+        patch("os.remove") as mock_remove,
+        patch("os.getenv") as mock_getenv,
+        patch("shutil.rmtree") as mock_rmtree,
+        patch("shutil.move") as mock_move,
+        patch("shutil.copy2") as mock_copy2,
+        patch("os.path.isfile") as mock_isfile,
+        patch("os.path.isdir") as mock_isdir,
+        patch("os.walk") as mock_walk,
+        patch("os.path.relpath") as mock_relpath,
+        patch("os.stat") as mock_stat,
+    ):
         yield {
             "exists": mock_exists,
             "makedirs": mock_makedirs,

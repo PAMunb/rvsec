@@ -623,9 +623,10 @@ class TestAbstractToolLoggingAndErrorHandling:
 
         tool.execute_tool_specific_logic = failing_execute
 
-        with patch.object(
-            tool.error_handler, "handle_error"
-        ) as mock_handle, patch.object(tool.logger, "error") as mock_log_error:
+        with (
+            patch.object(tool.error_handler, "handle_error") as mock_handle,
+            patch.object(tool.logger, "error") as mock_log_error,
+        ):
             with pytest.raises(RuntimeError):
                 tool.execute(task, app)
 

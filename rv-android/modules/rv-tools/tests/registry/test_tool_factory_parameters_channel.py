@@ -35,7 +35,11 @@ class _SpyTool(AbstractTool):
 
     def __init__(self):
         spec = self.get_tool_spec()
-        super().__init__(name=spec.name, description=spec.description, process_pattern=spec.process_pattern)
+        super().__init__(
+            name=spec.name,
+            description=spec.description,
+            process_pattern=spec.process_pattern,
+        )
         self.received_config = None
 
     @classmethod
@@ -102,11 +106,19 @@ def test_factory_does_not_inject_environment():
         "RV_PYDANTIC": "true",
     }
     with patch.dict(os.environ, sentinel_env, clear=False):
-        tc = ToolConfig(name="_spy_tool", variant="default", parameters={"b": "explicit-b"})
+        tc = ToolConfig(
+            name="_spy_tool", variant="default", parameters={"b": "explicit-b"}
+        )
         tool = factory.create_tool(tc)
     assert tool.received_config == {"a": 1, "b": "explicit-b"}
     # No env-derived keys leaked into the dict.
-    for leaked_key in ("RV_TOOLS", "RV_HUMANOID_URL", "TOOLS_DIR", "RVSEC_HOME", "RV_PYDANTIC"):
+    for leaked_key in (
+        "RV_TOOLS",
+        "RV_HUMANOID_URL",
+        "TOOLS_DIR",
+        "RVSEC_HOME",
+        "RV_PYDANTIC",
+    ):
         assert leaked_key not in tool.received_config
 
 

@@ -29,7 +29,7 @@ def _source_contains_extra_forbid(cls) -> bool:
 
 def test_experiment_config_declares_extra_forbid():
     assert _source_contains_extra_forbid(ExperimentConfig), (
-        "ExperimentConfig MUST declare `model_config = ConfigDict(extra=\"forbid\")` "
+        'ExperimentConfig MUST declare `model_config = ConfigDict(extra="forbid")` '
         "at the class body (gh55 INV-CORE-32). Inheriting from BaseValidatedModel "
         "is not enough — the contract must be visible at the boundary."
     )
@@ -37,7 +37,7 @@ def test_experiment_config_declares_extra_forbid():
 
 def test_platform_config_declares_extra_forbid():
     assert _source_contains_extra_forbid(PlatformConfig), (
-        "PlatformConfig MUST declare `model_config = ConfigDict(extra=\"forbid\")` "
+        'PlatformConfig MUST declare `model_config = ConfigDict(extra="forbid")` '
         "at the class body (gh55 INV-CORE-32)."
     )
 

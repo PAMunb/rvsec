@@ -44,11 +44,12 @@ class TestAndroid:
             mock_emulator_proc
         )
 
-        with patch.object(
-            Android, "start_emulator", return_value=mock_emulator_proc
-        ) as mock_start_emulator, patch.object(
-            Android, "kill_emulator"
-        ) as mock_kill_emulator:
+        with (
+            patch.object(
+                Android, "start_emulator", return_value=mock_emulator_proc
+            ) as mock_start_emulator,
+            patch.object(Android, "kill_emulator") as mock_kill_emulator,
+        ):
             with Android.create_emulator("test_avd", device_port=5556):
                 mock_start_emulator.assert_called_once_with("test_avd", False, 5556)
             mock_kill_emulator.assert_called_once_with("test_avd", "emulator-5556")
@@ -61,11 +62,12 @@ class TestAndroid:
             mock_emulator_proc
         )
 
-        with patch.object(
-            Android, "start_emulator", return_value=mock_emulator_proc
-        ) as mock_start_emulator, patch.object(
-            Android, "kill_emulator"
-        ) as mock_kill_emulator:
+        with (
+            patch.object(
+                Android, "start_emulator", return_value=mock_emulator_proc
+            ) as mock_start_emulator,
+            patch.object(Android, "kill_emulator") as mock_kill_emulator,
+        ):
             with pytest.raises(ValueError):
                 with Android.create_emulator("test_avd", device_port=5556):
                     raise ValueError("Test exception")
@@ -183,9 +185,10 @@ class TestAndroid:
         # because it duplicated -g and produced noisy exit 255 errors on
         # install-time permissions. This test pins that behaviour.
         mock_app = MagicMock(spec=App)
-        with patch.object(Android, "install_apk") as mock_install_apk, patch.object(
-            Android, "grant_permissions"
-        ) as mock_grant_permissions:
+        with (
+            patch.object(Android, "install_apk") as mock_install_apk,
+            patch.object(Android, "grant_permissions") as mock_grant_permissions,
+        ):
             Android.install_with_permissions(mock_app, "emulator-5554")
             mock_install_apk.assert_called_once_with(mock_app, "emulator-5554")
             mock_grant_permissions.assert_not_called()

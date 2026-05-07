@@ -13,7 +13,6 @@ Tests cover:
 import pytest
 from rv_android_core.util.android.signature_normalizer import SignatureNormalizer
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -121,7 +120,9 @@ class TestNormalizeClassName:
 
     def test_package_to_inner_class(self, normalizer):
         """Test package with inner class."""
-        result = normalizer.normalize_class_name("android.widget.Button.OnClickListener")
+        result = normalizer.normalize_class_name(
+            "android.widget.Button.OnClickListener"
+        )
         assert result == "android.widget.Button$OnClickListener"
 
 
@@ -135,13 +136,17 @@ class TestNormalizeParameterList:
 
     def test_comma_separated(self, normalizer):
         """Test comma-separated parameters."""
-        result = normalizer.normalize_parameter_list("TabLayout.Tab,View.OnClickListener")
+        result = normalizer.normalize_parameter_list(
+            "TabLayout.Tab,View.OnClickListener"
+        )
         assert "TabLayout$Tab" in result
         assert "View$OnClickListener" in result
 
     def test_semicolon_separated(self, normalizer):
         """Test semicolon-separated parameters."""
-        result = normalizer.normalize_parameter_list("TabLayout.Tab;View.OnClickListener")
+        result = normalizer.normalize_parameter_list(
+            "TabLayout.Tab;View.OnClickListener"
+        )
         assert "TabLayout$Tab" in result
         assert "View$OnClickListener" in result
 
@@ -157,7 +162,9 @@ class TestNormalizeParameterList:
 
     def test_preserves_whitespace(self, normalizer):
         """Test that whitespace is preserved."""
-        result = normalizer.normalize_parameter_list(" TabLayout.Tab , View.OnClickListener ")
+        result = normalizer.normalize_parameter_list(
+            " TabLayout.Tab , View.OnClickListener "
+        )
         # Should preserve spaces around commas
         assert "TabLayout$Tab" in result
         assert "View$OnClickListener" in result
@@ -280,7 +287,9 @@ class TestExtractMethodName:
 
     def test_complex_parameters(self, normalizer):
         """Test method with complex parameters."""
-        result = normalizer.extract_method_name("onClick(View$OnClickListener,android.view.MotionEvent)")
+        result = normalizer.extract_method_name(
+            "onClick(View$OnClickListener,android.view.MotionEvent)"
+        )
         assert result == "onClick"
 
 

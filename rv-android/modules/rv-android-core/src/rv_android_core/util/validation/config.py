@@ -9,7 +9,11 @@ import os
 import threading
 from typing import Optional
 
-from rv_android_core.constants import ENV_PYDANTIC, ENV_PYDANTIC_LOG, ENV_PYDANTIC_STRICT
+from rv_android_core.constants import (
+    ENV_PYDANTIC,
+    ENV_PYDANTIC_LOG,
+    ENV_PYDANTIC_STRICT,
+)
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 

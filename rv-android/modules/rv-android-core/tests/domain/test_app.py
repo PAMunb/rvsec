@@ -16,7 +16,6 @@ from pydantic import ValidationError
 from rv_android_core.domain.app import App
 from rv_android_core.util.error.exceptions import ConfigurationError
 
-
 # ---------------------------------------------------------------------------
 # Tests: Validation
 # ---------------------------------------------------------------------------

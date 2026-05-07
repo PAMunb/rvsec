@@ -21,7 +21,9 @@ from rv_tools.registry.registry import ToolRegistry
 class TestReRegistrationWarning:
     """Re-registration replaces tool and logs warning."""
 
-    def test_re_registration_preserves_latest_class(self, fresh_registry, fake_tool_class):
+    def test_re_registration_preserves_latest_class(
+        self, fresh_registry, fake_tool_class
+    ):
         """Re-registering same tool name keeps the latest class."""
         fresh_registry.register_tool_class(fake_tool_class)
         fresh_registry.register_tool_class(fake_tool_class)
@@ -121,13 +123,17 @@ class TestRegisterToolDirect:
         fresh_registry.register_tool("faketool", fake_tool_class, spec)
         assert fresh_registry.get_tool_spec("faketool") is spec
 
-    def test_register_tool_initializes_empty_variants(self, fresh_registry, fake_tool_class):
+    def test_register_tool_initializes_empty_variants(
+        self, fresh_registry, fake_tool_class
+    ):
         """register_tool initializes empty variants dict for the tool."""
         spec = fake_tool_class.get_tool_spec()
         fresh_registry.register_tool("faketool", fake_tool_class, spec)
         assert fresh_registry.get_tool_variants("faketool") == []
 
-    def test_register_tool_does_not_overwrite_existing_variants(self, fresh_registry, fake_tool_class):
+    def test_register_tool_does_not_overwrite_existing_variants(
+        self, fresh_registry, fake_tool_class
+    ):
         """register_tool preserves existing variants if tool is re-registered."""
         spec = fake_tool_class.get_tool_spec()
         fresh_registry.register_tool("faketool", fake_tool_class, spec)
@@ -184,7 +190,11 @@ class TestGetRegistryInfoMultipleTools:
         """get_registry_info lists variants per tool."""
         fresh_registry.register_tool_class(FakeTool)
         info = fresh_registry.get_registry_info()
-        assert set(info["variants_by_tool"]["faketool"]) == {"default", "fast", "stress"}
+        assert set(info["variants_by_tool"]["faketool"]) == {
+            "default",
+            "fast",
+            "stress",
+        }
 
 
 class TestGetToolVariantsReturnType:

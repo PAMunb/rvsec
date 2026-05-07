@@ -17,7 +17,6 @@ from rv_android_core.domain.task import Task
 from rv_android_core.util.error.exceptions import EmulatorError
 from rv_platform.components.emulator import EmulatorComponent
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -160,13 +159,15 @@ class TestStartEmulator:
 
     def test_start_emulator_handles_exception(self, emulator_component):
         """Test that start_emulator handles and re-raises exceptions."""
-        emulator_component.emulator_manager.start_emulator.side_effect = Exception("AVD not found")
+        emulator_component.emulator_manager.start_emulator.side_effect = Exception(
+            "AVD not found"
+        )
         emulator_component.error_handler.handle_error = MagicMock()
 
         # Exception is re-raised after error handling
         with pytest.raises(Exception, match="AVD not found"):
             emulator_component.start_emulator("InvalidAVD")
-        
+
         # Error handler should have been called
         emulator_component.error_handler.handle_error.assert_called_once()
 
@@ -272,7 +273,9 @@ class TestCleanLogcat:
 
     def test_clean_logcat_exception_returns_false(self, emulator_component):
         """Test that exception during logcat cleaning returns False."""
-        emulator_component.emulator_manager.clear_logcat.side_effect = Exception("ADB error")
+        emulator_component.emulator_manager.clear_logcat.side_effect = Exception(
+            "ADB error"
+        )
 
         result = emulator_component.clean_logcat()
 
@@ -280,7 +283,9 @@ class TestCleanLogcat:
 
     def test_clean_logcat_logs_warning_on_error(self, emulator_component):
         """Test that logcat error logs warning."""
-        emulator_component.emulator_manager.clear_logcat.side_effect = Exception("ADB error")
+        emulator_component.emulator_manager.clear_logcat.side_effect = Exception(
+            "ADB error"
+        )
         emulator_component.logger.warning = MagicMock()
 
         emulator_component.clean_logcat()

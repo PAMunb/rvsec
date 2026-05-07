@@ -15,9 +15,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
-from rv_android_core.util.error.exceptions import ConfigurationError, RVToolExecutionError
+from rv_android_core.util.error.exceptions import (
+    ConfigurationError,
+    RVToolExecutionError,
+)
 from rv_tools.builtin.ape.tool import APETool
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -165,7 +167,9 @@ class TestResolveApeJarPath:
     def test_resolve_jar_uses_jar_resolver(self, ape_tool):
         """Test that _resolve_ape_jar_path uses JarResolver."""
         ape_tool.configure({"strategy": "sata"})
-        ape_tool.jar_resolver.resolve_jar_path = MagicMock(return_value="/path/to/ape.jar")
+        ape_tool.jar_resolver.resolve_jar_path = MagicMock(
+            return_value="/path/to/ape.jar"
+        )
 
         result = ape_tool._resolve_ape_jar_path()
 
@@ -175,7 +179,9 @@ class TestResolveApeJarPath:
     def test_resolve_jar_raises_when_not_found(self, ape_tool):
         """Test that _resolve_ape_jar_path raises when jar not found."""
         ape_tool.configure({"strategy": "sata"})
-        ape_tool.jar_resolver.resolve_jar_path = MagicMock(side_effect=FileNotFoundError())
+        ape_tool.jar_resolver.resolve_jar_path = MagicMock(
+            side_effect=FileNotFoundError()
+        )
 
         with pytest.raises(RVToolExecutionError, match="APE jar.*not found"):
             ape_tool._resolve_ape_jar_path()
@@ -183,7 +189,9 @@ class TestResolveApeJarPath:
     def test_resolve_jar_uses_configured_path(self, ape_tool):
         """Test that configured path is used if provided."""
         ape_tool.configure({"strategy": "sata", "ape_jar_path": "/custom/ape.jar"})
-        ape_tool.jar_resolver.resolve_jar_path = MagicMock(return_value="/custom/ape.jar")
+        ape_tool.jar_resolver.resolve_jar_path = MagicMock(
+            return_value="/custom/ape.jar"
+        )
 
         result = ape_tool._resolve_ape_jar_path()
 
