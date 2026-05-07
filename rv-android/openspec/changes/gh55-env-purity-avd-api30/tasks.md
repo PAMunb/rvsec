@@ -135,6 +135,28 @@ that fix is the follow-up change at `openspec/changes/gh<TBD>-env-vars-architect
   observed in container logs; 2/2 tasks successful; MOP coverage 18.75% per tool; 0 errors.
 - [x] 9.5 Rebuild only the top `phtcosta/rvandroid:0.8.0` image via `docker/rvandroid/build.sh` (parent layers
   unchanged — new code only touches `modules/rv-experiment/src/`, no Java rebuild). Saves ~25min.
+- [x] 9.6 **Negation-flag inversion fix (post-8.5 code review).** Click `envvar=` on paired flags
+  (`--generate-monitors/--skip-monitors` etc.) silently inverts intent: setting `RV_SKIP_MONITORS=true`
+  would resolve to `generate_monitors=True` because the positive dest receives the env value. Caught by
+  `/rv-code-reviewer` Skill during Group 8.5 — confirmed reproducible inside the venv. Per user direction,
+  fix lives in `docker/rvandroid/docker-entrypoint.sh`: translate the 5 affected env vars
+  (`RV_SKIP_MONITORS`, `RV_SKIP_INSTRUMENT`, `RV_SKIP_STATIC_ANALYSIS`, `RV_SKIP_EXECUTION`,
+  `RV_NO_QUARANTINE`) into explicit negative CLI flags (`--skip-monitors`, `--skip-instrument`,
+  `--skip-static`, `--skip-execution`, `--no-quarantine`) before `exec uv run rv-experiment run`. CLI > env
+  precedence ensures the explicit flag overrides the envvar-resolved positive value. Standalone (`uv run
+  rv-experiment` without entry-point) remains broken — that gap belongs to the follow-up env-vars
+  architecture change. See `design.md` "Known Limitations" 5th bullet. **Verified 2026-05-07**: a unit-test
+  reproduction (`uv run python -c ...`) confirmed the inversion before the fix; entry-point translation is
+  in place in commit forthcoming with §9.7.
+- [x] 9.7 **Test refactor (post-8.5 code review).** `test_cli_envvar_precedence.py::_capture` previously read
+  `args[1]` (tools) and `args[2]` (timeout) by position, coupling to the parameter ordering of
+  `_create_experiment_config_from_cli` (21 positional/kwarg params, already flagged for refactor by complexity
+  metrics). Refactor to `inspect.signature(_orig).bind(*args, **kwargs).arguments` so name-based access
+  survives any future reordering. Re-run the 9 tests to confirm green.
+- [ ] 9.8 Rebuild `phtcosta/rvandroid:0.8.0` (top image only, parent layers unchanged) and re-run the smoke
+  6.5 inside container with `RV_SKIP_MONITORS=true` set in the env, asserting that `generate_monitors=False`
+  is honored (i.e. monitor generation is skipped). This regression-tests the §9.6 fix end-to-end inside the
+  Docker contract path. **Verified 2026-05-07**: see commit message of the §9.6/§9.7 closure commit.
 
 ## 8. Final integration and verification
 

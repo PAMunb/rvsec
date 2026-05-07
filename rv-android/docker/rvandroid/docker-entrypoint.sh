@@ -6,12 +6,14 @@
 #      in rv-android-core/constants.py (delegated to validate_env_vars.sh).
 #      Unknown RV_*/RVSEC_HOME/ANDROID_HOME/TOOLS_DIR fail with exit 64.
 #   2. Exec `rv-experiment run`. The Python layer reads env vars itself via
-#      ENV_* constants — no env→flag translation here.
+#      ENV_* constants — no env→flag translation here, EXCEPT for the 5
+#      negation-style flags listed in §9.6 (see below).
 #
 # Special cases handled inline:
 #   - bash/shell: drop into interactive shell, skip validation
 #   - RV_DELAY:   sleep before exec, for staggering parallel container starts
 #   - RVSMART_LLM_MODE: socat bridge for the SGLang LLM service network alias
+#   - gh55 §9.6 negation-flag translation: see SKIP_FLAG_ARGS block below
 
 set -e
 
@@ -61,5 +63,29 @@ if [ -n "$RV_SA_DIR" ] && [ -d "$RV_SA_DIR" ]; then
     echo "=== RV-Android Docker: copied $copied SA files to $SA_TARGET ==="
 fi
 
+# gh55 §9.6 — negation-flag translation (post-code-review fix).
+#
+# Click `envvar=` resolves env values to the option's POSITIVE dest, not to
+# the negation. For paired flags like `--generate-monitors/--skip-monitors`
+# (dest=`generate_monitors`), setting RV_SKIP_MONITORS=true via envvar=
+# would set generate_monitors=True (the OPPOSITE of intent). The
+# rv-experiment-side `envvar=` for these 5 flags is therefore unsafe to
+# rely on; the entry-point translates them to explicit negative CLI flags
+# here, which override any envvar-resolved positive value via Click's
+# CLI > env precedence.
+#
+# Affected: RV_SKIP_MONITORS, RV_SKIP_INSTRUMENT, RV_SKIP_STATIC_ANALYSIS,
+# RV_SKIP_EXECUTION, RV_NO_QUARANTINE. The proper architectural fix lives
+# in the env-vars-architecture follow-up change (see gh55/design.md
+# "Known Limitations"). Outside Docker (standalone module execution),
+# these 5 vars remain ineffective — that gap is the broader gambiarra
+# scope.
+SKIP_FLAG_ARGS=()
+[ "${RV_SKIP_MONITORS:-}" = "true" ]        && SKIP_FLAG_ARGS+=(--skip-monitors)
+[ "${RV_SKIP_INSTRUMENT:-}" = "true" ]      && SKIP_FLAG_ARGS+=(--skip-instrument)
+[ "${RV_SKIP_STATIC_ANALYSIS:-}" = "true" ] && SKIP_FLAG_ARGS+=(--skip-static)
+[ "${RV_SKIP_EXECUTION:-}" = "true" ]       && SKIP_FLAG_ARGS+=(--skip-execution)
+[ "${RV_NO_QUARANTINE:-}" = "true" ]        && SKIP_FLAG_ARGS+=(--no-quarantine)
+
 echo "=== RV-Android Docker: validation passed; exec rv-experiment ==="
-exec uv run rv-experiment run
+exec uv run rv-experiment run "${SKIP_FLAG_ARGS[@]}"

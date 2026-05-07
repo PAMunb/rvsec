@@ -16,13 +16,23 @@ to capture the values Click actually passed in.
 
 from __future__ import annotations
 
+import inspect
 from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
+from rv_experiment.__main__ import (
+    _create_experiment_config_from_cli as _orig_factory,
+)
 from rv_experiment.__main__ import cli
 from rv_experiment.constants import DEFAULT_TIMEOUT
+
+# Resolve params by name via inspect.signature — robust to the (already
+# flagged-for-refactor) 21-parameter ordering of _create_experiment_config_from_cli.
+# Caught in the gh55 §8.5 code review: the previous index-based access (`args[1]`,
+# `args[2]`) would silently break on any reordering.
+_FACTORY_SIG = inspect.signature(_orig_factory)
 
 
 @pytest.fixture
@@ -41,17 +51,10 @@ def captured_args():
         """Sentinel to abort run() once Click args are captured."""
 
     def _capture(*args, **kwargs):
-        # The call site at __main__.py uses positional args for the first 18
-        # params (ctx, tools, timeout, repetitions, apks_dir, specification_set,
-        # custom_specs_dir, custom_aspects_dir, generate_monitors,
-        # instrument_apks, static_analysis, output_dir, no_window, run_execution,
-        # device_port, apks_filter, name, resume_dir) and keyword args for the
-        # rest (instrumentation_variant, enable_quarantine, analysis_timeout,
-        # jvm_memory). Use generic *args/**kwargs to avoid coupling to that
-        # ordering — index by position for positionals, key for kwargs.
-        captured["tools"] = args[1]
-        captured["timeout"] = args[2]
-        captured["instrumentation_variant"] = kwargs["instrumentation_variant"]
+        bound = _FACTORY_SIG.bind(*args, **kwargs).arguments
+        captured["tools"] = bound["tools"]
+        captured["timeout"] = bound["timeout"]
+        captured["instrumentation_variant"] = bound["instrumentation_variant"]
         raise _StopRun()
 
     with patch(
