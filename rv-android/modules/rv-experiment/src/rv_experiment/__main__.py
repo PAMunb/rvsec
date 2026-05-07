@@ -20,7 +20,28 @@ from pathlib import Path
 from typing import List, Optional
 
 import click
-from rv_android_core.constants import ENV_HUMANOID_URL
+from rv_android_core.constants import (
+    ENV_APKS_DIR,
+    ENV_APKS_FILTER,
+    ENV_DEBUG,
+    ENV_DEVICE_PORT,
+    ENV_EXPERIMENT_NAME,
+    ENV_HUMANOID_URL,
+    ENV_INSTRUMENTATION_VARIANT,
+    ENV_JVM_MEMORY,
+    ENV_NO_QUARANTINE,
+    ENV_NO_WINDOW,
+    ENV_REPETITIONS,
+    ENV_RESUME_DIR,
+    ENV_SA_TIMEOUT,
+    ENV_SKIP_EXECUTION,
+    ENV_SKIP_INSTRUMENT,
+    ENV_SKIP_MONITORS,
+    ENV_SKIP_STATIC_ANALYSIS,
+    ENV_SPEC_SET,
+    ENV_TIMEOUTS,
+    ENV_TOOLS,
+)
 from rv_android_core.domain.task import ToolConfig
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import ConfigurationError
@@ -219,7 +240,19 @@ pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 
 
 @click.group()
-@click.option("--debug", is_flag=True, help="Enable debug logging for development")
+# gh55 §9 GAMBIARRA — first envvar= entry. See
+# `openspec/changes/gh55-env-purity-avd-api30/design.md` "Known Limitations
+# (Gambiarra)" and the follow-up change at
+# `openspec/changes/gh-tbd-env-vars-architecture/`. Per-flag `envvar=` is the
+# minimum patch to make INV-EXP-32 hold inside this Click surface ONLY; do NOT
+# expand this pattern to new flags or to argparse modules — the architectural
+# fix lives in the follow-up change.
+@click.option(
+    "--debug",
+    is_flag=True,
+    envvar=ENV_DEBUG,
+    help="Enable debug logging for development",
+)
 @click.option(
     "--log-level",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
@@ -284,6 +317,7 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     "--tools",
     "-t",
     default="monkey",
+    envvar=ENV_TOOLS,
     help="Comma-separated tools with variants and parameters\n"
     "Format: tool1[:variants][@params],tool2[:variants][@params]\n"
     "Examples: monkey,droidbot:dfs_greedy,rvagent:multimode",
@@ -297,24 +331,28 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
 @click.option(
     "--timeout",
     default=DEFAULT_TIMEOUT,
+    envvar=ENV_TIMEOUTS,
     help=f"Execution timeout in seconds (default: {DEFAULT_TIMEOUT})",
 )
 @click.option(
     "--repetitions",
     "-r",
     default=DEFAULT_REPETITIONS,
+    envvar=ENV_REPETITIONS,
     help=f"Number of repetitions (default: {DEFAULT_REPETITIONS})",
 )
 @click.option(
     "--apks-dir",
     "-a",
     default=f"./{DEFAULT_APKS_DIR}/",
+    envvar=ENV_APKS_DIR,
     type=click.Path(),
     help=f"Directory containing APK files (default: ./{DEFAULT_APKS_DIR}/)",
 )
 @click.option(
     "--specification-set",
     default=DEFAULT_SPEC_SET,
+    envvar=ENV_SPEC_SET,
     type=click.Choice(["jca", "generic", "custom"]),
     help=f"Monitored operations specification set (default: {DEFAULT_SPEC_SET})",
 )
@@ -331,16 +369,19 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
 @click.option(
     "--generate-monitors/--skip-monitors",
     default=True,
+    envvar=ENV_SKIP_MONITORS,
     help="Generate runtime verification monitors (default: enabled)",
 )
 @click.option(
     "--instrument-apks/--skip-instrument",
     default=True,
+    envvar=ENV_SKIP_INSTRUMENT,
     help="Instrument APKs with monitors (default: enabled)",
 )
 @click.option(
     "--instrumentation-variant",
     default="ajc",
+    envvar=ENV_INSTRUMENTATION_VARIANT,
     type=click.Choice(["ajc", "dexlib2"]),
     help=(
         "Instrumentation backend (gh52). 'ajc' = legacy dex2jar+ajc+d8 pipeline; "
@@ -351,6 +392,7 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
 @click.option(
     "--static-analysis/--skip-static",
     default=True,
+    envvar=ENV_SKIP_STATIC_ANALYSIS,
     help="Run static analysis on APKs (default: enabled)",
 )
 @click.option(
@@ -361,17 +403,20 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
 @click.option(
     "--no-window/--window",
     default=True,
+    envvar=ENV_NO_WINDOW,
     help="Run emulator in headless mode (default: headless)",
 )
 @click.option(
     "--run-execution/--skip-execution",
     default=True,
+    envvar=ENV_SKIP_EXECUTION,
     help="Execute tasks after preprocessing (default: enabled)",
 )
 @click.option(
     "--quarantine/--no-quarantine",
     "enable_quarantine",
     default=True,
+    envvar=ENV_NO_QUARANTINE,
     help=(
         "Enable ajc library-class quarantine phase (gh50 §16/§19). "
         "Default: enabled. Use --no-quarantine for empirical comparison "
@@ -383,35 +428,41 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     "--device-port",
     type=int,
     default=None,
+    envvar=ENV_DEVICE_PORT,
     help="Emulator port for parallel execution (default: 5554)",
 )
 @click.option(
     "--apks-filter",
     type=click.Path(exists=True),
+    envvar=ENV_APKS_FILTER,
     help="Text file with APK filenames to process (one per line)",
 )
 @click.option(
     "--name",
     type=str,
     default=None,
+    envvar=ENV_EXPERIMENT_NAME,
     help="Experiment name (used for results directory naming)",
 )
 @click.option(
     "--resume-dir",
     type=click.Path(exists=True),
     default=None,
+    envvar=ENV_RESUME_DIR,
     help="Resume experiment from existing results directory",
 )
 @click.option(
     "--analysis-timeout",
     type=int,
     default=None,
+    envvar=ENV_SA_TIMEOUT,
     help="Static analysis timeout in seconds. Overrides RV_SA_TIMEOUT (gh55 INV-EXP-32: CLI > env > default).",
 )
 @click.option(
     "--jvm-memory",
     type=str,
     default=None,
+    envvar=ENV_JVM_MEMORY,
     help="JVM memory for static analysis (e.g. '4g'). Overrides RV_JVM_MEMORY (gh55 INV-EXP-32: CLI > env > default).",
 )
 @pass_context

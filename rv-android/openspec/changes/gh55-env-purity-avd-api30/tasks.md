@@ -89,6 +89,51 @@
 - [x] 7.6 Updated `modules/rv-tools/CLAUDE.md`: humanoid stateless-inference note in the tools table + new "Variant-default pattern" subsection with canonical example + ADR reference.
 - [ ] 7.7 Run `/rv-docs-sync` — DEFERRED: docs already synced manually (this commit). Follow-up sweep in Group 8 if needed.
 
+## 9. Click envvar= bridge (gambiarra to satisfy INV-EXP-32; see design.md "Known Limitations")
+
+The empirical smoke 6.5 (cryptoapp + ape + aperv:sata_mop, 180s, dexlib2, inside `phtcosta/rvandroid:0.8.0`)
+revealed that **17 of 21 RV_* env vars are silently ignored** by `rv-experiment`. Root cause: the OLD docker
+entrypoint translated env→flag at the shell layer; gh55 deleted that translation but did NOT add a Python-side
+reader for those vars. INV-EXP-32 ("every CLI flag has a corresponding ENV_*") therefore reads **false** for
+17 of 21 user-facing names — the spec is structurally promising what the implementation does not deliver.
+
+This task group is the **minimum patch** to make INV-EXP-32 hold inside `rv-experiment` only. It does NOT
+address the broader architectural gap (standalone modules using argparse + env-ignoring Pydantic configs);
+that fix is the follow-up change at `openspec/changes/gh<TBD>-env-vars-architecture/` (see design.md
+"Known Limitations" for scope).
+
+- [x] 9.1 In `modules/rv-experiment/src/rv_experiment/__main__.py`, add `envvar=ENV_X` to each of the 17
+  `@click.option` decorators that map to an `RV_*` constant. Imports go in the existing
+  `from rv_android_core.constants import ...` block. Mapping (constant → click option):
+  - `ENV_TOOLS` → `--tools`
+  - `ENV_TIMEOUTS` → `--timeout`
+  - `ENV_REPETITIONS` → `--repetitions`
+  - `ENV_APKS_DIR` → `--apks-dir`
+  - `ENV_NO_WINDOW` → `--no-window/--window` (Click bool flag — use `is_flag=True, envvar=ENV_NO_WINDOW`)
+  - `ENV_SPEC_SET` → `--specification-set`
+  - `ENV_SKIP_MONITORS` → `--skip-monitors` (`is_flag=True`; sense inversion via `--generate-monitors`)
+  - `ENV_SKIP_INSTRUMENT` → `--skip-instrument`
+  - `ENV_SKIP_STATIC_ANALYSIS` → `--skip-static`
+  - `ENV_SKIP_EXECUTION` → `--skip-execution`
+  - `ENV_NO_QUARANTINE` → `--no-quarantine`
+  - `ENV_DEVICE_PORT` → `--device-port`
+  - `ENV_INSTRUMENTATION_VARIANT` → `--instrumentation-variant`
+  - `ENV_APKS_FILTER` → `--apks-filter`
+  - `ENV_EXPERIMENT_NAME` → `--name`
+  - `ENV_RESUME_DIR` → `--resume-dir`
+  - `ENV_DEBUG` → `--debug` (`is_flag=True`)
+- [x] 9.2 Add unit test `modules/rv-experiment/tests/test_cli_envvar_precedence.py` (NEW) verifying CLI > env > default
+  for ≥3 representative options (`RV_TOOLS`, `RV_TIMEOUTS`, `RV_INSTRUMENTATION_VARIANT`). Uses Click's
+  `CliRunner` with `env={...}` and asserts the resolved Click option value via a lightweight invocation.
+- [x] 9.3 Inline note inside `__main__.py` near the first `envvar=` referencing `design.md` "Known Limitations"
+  and the follow-up change so future contributors know NOT to expand this pattern further — new flags should
+  go through the proper architecture in the follow-up change.
+- [ ] 9.4 Re-run the smoke 6.5 inside container (cryptoapp + ape + aperv:sata_mop + 180s + dexlib2 + jca);
+  verify the command logs show `RV_TOOLS=ape,aperv:sata_mop` actually honored (no "monkey" appearance) and
+  `Monkey execution timeout: 300 seconds` is replaced by tools' actual 180s timeout.
+- [ ] 9.5 Rebuild only the top `phtcosta/rvandroid:0.8.0` image via `docker/rvandroid/build.sh` (parent layers
+  unchanged — new code only touches `modules/rv-experiment/src/`, no Java rebuild). Saves ~25min.
+
 ## 8. Final integration and verification
 
 - [ ] 8.1 Run `scripts/check_env_vars_drift.py` end-to-end; assert 0 hits across all 3 rules

@@ -400,6 +400,52 @@ CI lint script (NEW — does not exist today). Performs three cross-checks and e
 | Manual | AVD smoke matrix (gate H4) | 5 APKs × 5 tools × 60 min on API 30 x86_64 — runs once before merge | 25 |
 | Manual | Larger AVD sample (gate) | Re-run `investigate_avd_compat.sh --sample 100` on both datasets | 1 run |
 
+## Known Limitations (Gambiarra)
+
+> **TL;DR**: gh55 ships a *minimum* patch (Click `envvar=` per-flag) so INV-EXP-32 holds inside `rv-experiment` Click only. The patch is **explicitly a gambiarra** and does NOT solve the architectural problem. A follow-up change (`openspec/changes/gh<TBD>-env-vars-architecture/`) must address the real fix.
+
+### What gh55 §9 actually does
+
+After deleting the old `docker-entrypoint.sh` env→flag translator (≈100 lines, see proposal "Backward compat" section), the only environment-reading path that remained operational was the explicit `os.environ.get(ENV_X)` reads inside `ExperimentConfig.__post_init__` for `RV_HUMANOID_URL`, `RV_SA_TIMEOUT`, and `RV_JVM_MEMORY`. The other 17 `RV_*` variables surfaced by `--tools`, `--timeout`, `--instrumentation-variant`, etc. became silently unread because:
+
+1. The OLD entrypoint translated them to CLI flags before exec (gone).
+2. The Click `@click.option(...)` decorators do **not** declare `envvar=`, so Click never falls back to the env.
+3. Modules below L5 are forbidden by INV-EXP-30 from reading env.
+
+The smoke run on 2026-05-06 ran with **defaults** despite `RV_SPEC_SET=jca`, `RV_TOOLS=ape,aperv:sata_mop`, `RV_TIMEOUTS=180` being set on the container. The bug surfaced only because the user inspected the resolved config after the run. **Section 9 of `tasks.md`** patches all 17 Click options with `envvar=ENV_X` so Click itself performs the env→flag fallback. This makes INV-EXP-32 hold for `rv-experiment`'s Click surface.
+
+### What gh55 §9 does NOT solve (explicit non-goals)
+
+| Scope gap | Status | Why it matters |
+|---|---|---|
+| **Other module CLIs are argparse, not Click** | Not patched | `rv-platform.__main__`, `rv-static-analysis.__main__`, `rv-instrumentation-ajc.__main__`, `rv-monitor-generator.__main__` use `argparse`. argparse has no equivalent to Click's `envvar=`; manual `default=os.environ.get(...)` per-arg is required. None of them read `RV_*` today. |
+| **Standalone module execution** | Broken | Each module above can be invoked directly (`uv run rv-platform run ...`, `uv run rv-static-analysis ...`). When invoked outside `rv-experiment`, env vars are completely ignored — even after gh55. The user explicitly flagged this: *"boa parte dos modulos pode ser executada standalone!!!! esta tudo muito errado"*. |
+| **Per-flag manual maintenance** | Doesn't scale | 17 hand-written `envvar=ENV_X` strings now exist in `rv-experiment/__main__.py`. Every new CLI flag must remember to add `envvar=`. There is no compile-time check that `ENV_X` ↔ `--flag` stays paired. The `check_env_vars_drift.py` lint can detect `ENV_X` is documented in `.env.example`, but it cannot detect *missing* `envvar=` on a Click option. |
+| **Two sources of truth** | Drift risk | Some `RV_*` are read in `ExperimentConfig.__post_init__` (Python), others via Click (CLI). New developers must understand which path applies to which var. |
+
+### Why we chose the gambiarra anyway
+
+- **Minimum path to ship gh55**: the change is otherwise complete (constants centralized, Layer Purity enforced for L2-L4, AVD bumped to API 30, validators in place). Reopening the architectural question would block ~3 weeks of validated work.
+- **No scope creep**: P1 (simplicity) — a 17-line edit to `__main__.py` is dramatically smaller than the proper fix.
+- **Reversible**: when the follow-up change lands, it removes the per-flag `envvar=` and replaces it with a centralized loader. Click options can keep `envvar=` (no harm) or drop them (cleaner). Either way, no data migration needed.
+
+### Follow-up change scope (`gh<TBD>-env-vars-architecture/`)
+
+The follow-up change MUST address all four scope gaps above. Two options identified during gh55 deep-investigation:
+
+| Option | Approach | Pros | Cons |
+|---|---|---|---|
+| **C: Centralized config loader** | New `rv-android-core/config/env_loader.py` exposes `load_from_env(prefix="RV_") -> dict`. Each L5 entry point (`rv-experiment`, `rv-platform`, `rv-static-analysis`, `rv-instrumentation-ajc`, `rv-monitor-generator`, `rv-agent`) calls it once at startup, then merges with CLI args. | Single source of truth; works for argparse and Click; standalone modules covered. | Requires touching every L5 entry point; argparse merge logic per module. |
+| **D: pydantic-settings BaseSettings** | Each module's config (`ExperimentConfig`, `PlatformConfig`, etc.) inherits `BaseSettings` with `env_prefix="RV_"`. Pydantic resolves env automatically; CLI args override via constructor. | Idiomatic Pydantic v2; type-safe; standalone modules get env reading "for free". | Forces all configs to be Pydantic (some are plain dataclasses today); env_prefix is module-global, no per-flag override. |
+
+The follow-up change is expected to choose **D** unless validation reveals a blocker (e.g. a config that genuinely needs non-Pydantic semantics). Both options eliminate per-flag manual `envvar=` maintenance and cover standalone CLIs.
+
+### Tracking artifacts created
+
+- `openspec/changes/gh55-env-purity-avd-api30/tasks.md §9` — gambiarra implementation tasks (9.1–9.5).
+- `openspec/changes/gh<TBD>-env-vars-architecture/proposal.md` — follow-up change directory (created during gh55 implementation; named `gh<TBD>` until a GitHub issue is filed).
+- Inline comment in `rv-experiment/__main__.py` near the first `envvar=` reference, citing this section.
+
 ## Open Questions
 
 - **`validate_env_vars.sh` parsing strategy**: simplest is shell + grep on `constants.py`; alternative is `python -c "..."`. Decided in implementation; either works.
