@@ -153,10 +153,46 @@ that fix is the follow-up change at `openspec/changes/gh<TBD>-env-vars-architect
   `_create_experiment_config_from_cli` (21 positional/kwarg params, already flagged for refactor by complexity
   metrics). Refactor to `inspect.signature(_orig).bind(*args, **kwargs).arguments` so name-based access
   survives any future reordering. Re-run the 9 tests to confirm green.
-- [ ] 9.8 Rebuild `phtcosta/rvandroid:0.8.0` (top image only, parent layers unchanged) and re-run the smoke
-  6.5 inside container with `RV_SKIP_MONITORS=true` set in the env, asserting that `generate_monitors=False`
-  is honored (i.e. monitor generation is skipped). This regression-tests the §9.6 fix end-to-end inside the
-  Docker contract path. **Verified 2026-05-07**: see commit message of the §9.6/§9.7 closure commit.
+- [ ] 9.8 **§9.6 Negation-flag regression smoke matrix.** Rebuild `phtcosta/rvandroid:0.8.0` (top image only,
+  parent layers unchanged) and run 3 smokes inside the container, asserting the entry-point translation
+  honors all 5 negation env vars correctly.
+
+  **Common params**: APK `cryptoapp.apk` (from `apks_examples/`); spec set `jca`; tool `aperv:sata_mop`
+  (single tool — gambiarra-validation runs don't need redundant tool coverage); timeout 60s; reps 1.
+
+  **Variant note**: rv-experiment's default `instrumentation_variant` is `ajc` (Pydantic default at
+  `config.py:152`; CLI default at `__main__.py:383`). Smokes A and B explicitly set
+  `RV_INSTRUMENTATION_VARIANT=dexlib2` for continuity with the prior smoke 6.5 (commit `078869fb`,
+  which validated `RV_INSTRUMENTATION_VARIANT` resolution end-to-end with dexlib2) and because the
+  pre-instrumented APK reused in Smoke A came from a dexlib2 run. Smoke C uses ajc (the project
+  default; `RV_INSTRUMENTATION_VARIANT=ajc` set explicitly for readability) because `RV_NO_QUARANTINE`
+  is an ajc-only knob (gh50 §16/§19/§22) — dexlib2 has no quarantine phase.
+
+  - [ ] **Smoke A (3 skips on pre-processing)**: `RV_SKIP_MONITORS=true`, `RV_SKIP_INSTRUMENT=true`,
+    `RV_SKIP_STATIC_ANALYSIS=true`. Input: pre-instrumented APK from previous smoke
+    (`/tmp/gh55_smoke_results/gh55_smoke/instrumented_apks/cryptoapp.apk`) — required because skipping
+    monitor generation + instrumentation + static analysis means the input must already be instrumented.
+    Expected: the 3 pre-processing phases are skipped (no monitor regeneration, no APK instrumentation
+    re-run, no GATOR static analysis); execution proceeds with the pre-instrumented APK. Resolved
+    config must show `generate_monitors=False`, `instrument_apks=False`, `run_static_analysis=False`.
+  - [ ] **Smoke B (skip execution only)**: `RV_SKIP_EXECUTION=true` (everything else default; original
+    `cryptoapp.apk` from `apks_examples/`). Expected: pre-processing runs in full (monitors generated,
+    APK instrumented, static analysis runs); the execution phase is skipped (no emulator / no ape /
+    no aperv invocation). Resolved config must show `run_execution=False`. End state: instrumented APK
+    + monitors + SA artifacts on disk; zero task results.
+  - [ ] **Smoke C (no-quarantine on ajc)**: `RV_INSTRUMENTATION_VARIANT=ajc`, `RV_NO_QUARANTINE=true`,
+    `RV_SKIP_EXECUTION=true` (skip execution to keep wall-clock short — quarantine semantics are tested
+    at the instrumentation phase). Expected: ajc instrumentation runs WITHOUT the library-class
+    quarantine phase (gh50 §16/§19/§22). Resolved config must show `enable_quarantine=False`.
+    `dexlib2` has no quarantine phase, hence the variant flip — `RV_NO_QUARANTINE` is a no-op under
+    dexlib2 by design.
+
+  **Verification per smoke**: grep the container logs for the resolved config dump (search for
+  `"generate_monitors":`, `"instrument_apks":`, `"run_static_analysis":`, `"run_execution":`,
+  `"enable_quarantine":`) and assert the expected boolean. Without §9.6, the inversion would surface
+  here (env var `=true` resolving to positive dest `=True`). With §9.6, the entry-point's negative CLI
+  flag overrides the envvar-positive resolution via Click's CLI > env precedence, so the resolved
+  values are correctly negated.
 
 ## 8. Final integration and verification
 
