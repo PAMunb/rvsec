@@ -153,7 +153,7 @@ that fix is the follow-up change at `openspec/changes/gh<TBD>-env-vars-architect
   `_create_experiment_config_from_cli` (21 positional/kwarg params, already flagged for refactor by complexity
   metrics). Refactor to `inspect.signature(_orig).bind(*args, **kwargs).arguments` so name-based access
   survives any future reordering. Re-run the 9 tests to confirm green.
-- [ ] 9.8 **§9.6 Negation-flag regression smoke matrix.** Rebuild `phtcosta/rvandroid:0.8.0` (top image only,
+- [x] 9.8 **§9.6 Negation-flag regression smoke matrix.** Rebuild `phtcosta/rvandroid:0.8.0` (top image only,
   parent layers unchanged) and run 3 smokes inside the container, asserting the entry-point translation
   honors all 5 negation env vars correctly.
 
@@ -168,24 +168,34 @@ that fix is the follow-up change at `openspec/changes/gh<TBD>-env-vars-architect
   default; `RV_INSTRUMENTATION_VARIANT=ajc` set explicitly for readability) because `RV_NO_QUARANTINE`
   is an ajc-only knob (gh50 §16/§19/§22) — dexlib2 has no quarantine phase.
 
-  - [ ] **Smoke A (3 skips on pre-processing)**: `RV_SKIP_MONITORS=true`, `RV_SKIP_INSTRUMENT=true`,
+  - [x] **Smoke A (3 skips on pre-processing)**: `RV_SKIP_MONITORS=true`, `RV_SKIP_INSTRUMENT=true`,
     `RV_SKIP_STATIC_ANALYSIS=true`. Input: pre-instrumented APK from previous smoke
     (`/tmp/gh55_smoke_results/gh55_smoke/instrumented_apks/cryptoapp.apk`) — required because skipping
     monitor generation + instrumentation + static analysis means the input must already be instrumented.
     Expected: the 3 pre-processing phases are skipped (no monitor regeneration, no APK instrumentation
     re-run, no GATOR static analysis); execution proceeds with the pre-instrumented APK. Resolved
     config must show `generate_monitors=False`, `instrument_apks=False`, `run_static_analysis=False`.
-  - [ ] **Smoke B (skip execution only)**: `RV_SKIP_EXECUTION=true` (everything else default; original
+  - [x] **Smoke B (skip execution only)**: `RV_SKIP_EXECUTION=true` (everything else default; original
     `cryptoapp.apk` from `apks_examples/`). Expected: pre-processing runs in full (monitors generated,
     APK instrumented, static analysis runs); the execution phase is skipped (no emulator / no ape /
     no aperv invocation). Resolved config must show `run_execution=False`. End state: instrumented APK
     + monitors + SA artifacts on disk; zero task results.
-  - [ ] **Smoke C (no-quarantine on ajc)**: `RV_INSTRUMENTATION_VARIANT=ajc`, `RV_NO_QUARANTINE=true`,
+  - [x] **Smoke C (no-quarantine on ajc)**: `RV_INSTRUMENTATION_VARIANT=ajc`, `RV_NO_QUARANTINE=true`,
     `RV_SKIP_EXECUTION=true` (skip execution to keep wall-clock short — quarantine semantics are tested
     at the instrumentation phase). Expected: ajc instrumentation runs WITHOUT the library-class
     quarantine phase (gh50 §16/§19/§22). Resolved config must show `enable_quarantine=False`.
     `dexlib2` has no quarantine phase, hence the variant flip — `RV_NO_QUARANTINE` is a no-op under
     dexlib2 by design.
+  - [x] **Smoke D (full pipeline, no skips — control)**: no `RV_SKIP_*`, no `RV_NO_QUARANTINE`. Original
+    `cryptoapp.apk` from `apks_examples/`. Variant `dexlib2` (consistency with A/B). Expected: full
+    end-to-end pipeline runs (monitor generation + APK instrumentation + static analysis + 1 task
+    aperv:sata_mop × 60s + post-processing). Resolved config must show `generate_monitors=True`,
+    `instrument_apks=True`, `run_static_analysis=True`, `run_execution=True`,
+    `enable_quarantine=True` (defaults). Execution summary must show `1/1 tasks successful`. This is
+    the regression-control smoke: with the §9.6 entry-point translation, a fully-empty negation env
+    set must not accidentally pass any negative CLI flag — `SKIP_FLAG_ARGS` is empty, the array
+    expansion `"${SKIP_FLAG_ARGS[@]}"` produces zero args, and `rv-experiment run` runs with all
+    defaults. Validates that the entry-point fix doesn't break the no-skip path.
 
   **Verification per smoke**: grep the container logs for the resolved config dump (search for
   `"generate_monitors":`, `"instrument_apks":`, `"run_static_analysis":`, `"run_execution":`,
@@ -193,6 +203,21 @@ that fix is the follow-up change at `openspec/changes/gh<TBD>-env-vars-architect
   here (env var `=true` resolving to positive dest `=True`). With §9.6, the entry-point's negative CLI
   flag overrides the envvar-positive resolution via Click's CLI > env precedence, so the resolved
   values are correctly negated.
+
+  **Results 2026-05-07 12:04**: 4 smokes inside `phtcosta/rvandroid:0.8.0` (rebuilt with §9.6 fix at
+  ~12:00 from commit `849169d8`):
+
+  | Smoke | env vars set | gen_monitors | instr_apks | static_analysis | run_exec | quarantine | Outcome |
+  |---|---|---|---|---|---|---|---|
+  | A | `RV_SKIP_MONITORS=RV_SKIP_INSTRUMENT=RV_SKIP_STATIC_ANALYSIS=true` (dexlib2) | **false** ✅ | **false** ✅ | **false** ✅ | true | true | exit 0; 1/1 task success (coverage 0% — expected, no SA reachability data) |
+  | B | `RV_SKIP_EXECUTION=true` (dexlib2) | true | true | true | **false** ✅ | true | exit 0; preprocess complete; 0 task results (skipped) |
+  | C | `RV_INSTRUMENTATION_VARIANT=ajc`, `RV_NO_QUARANTINE=true`, `RV_SKIP_EXECUTION=true` | true | true | true | **false** ✅ | **false** ✅ | exit 0; ajc preprocess complete WITHOUT quarantine phase; 0 task results (skipped) |
+  | D | (none — control, dexlib2) | **true** ✅ | **true** ✅ | **true** ✅ | **true** ✅ | **true** ✅ | exit 0; full pipeline 1/1 task success; MOP coverage 12.50%, 0 errors (regression-control proves no-skip path unaffected) |
+
+  All 5 negation env vars (`RV_SKIP_MONITORS`, `RV_SKIP_INSTRUMENT`, `RV_SKIP_STATIC_ANALYSIS`,
+  `RV_SKIP_EXECUTION`, `RV_NO_QUARANTINE`) honored end-to-end via the entry-point translation. Smoke D
+  confirms the no-skip path is unaffected (empty `SKIP_FLAG_ARGS` array → zero extra args appended).
+  §9.6 fix VERIFIED.
 
 ## 8. Final integration and verification
 
