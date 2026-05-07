@@ -18,26 +18,43 @@ AspectJ-based APK instrumentation variant (legacy dex2jar+ajc+d8 pipeline). One 
 Original APK
     |
     v
-[1. Decompilation] -----> DEX to JAR (dex2jar)
+[1.  Decompilation] ---------> DEX to JAR (dex2jar)
     |
     v
-[2. Monitor Integration] --> Inject AspectJ + Java monitors from rv-monitor-generator
+[1b. Strip desugared shims] -> Remove R8 desugar synthetic classes that break weaving
     |
     v
-[3. AspectJ Weaving] ----> Integrate monitoring pointcuts with application bytecode
+[1c. Quarantine classes] ---> Move VerifyError-prone library classes to side-jar
+    |                          (gh50 §16/§19/§22; skipped if --no-quarantine)
+    v
+[2.  Monitor Integration] ---> Inject AspectJ + Java monitors from rv-monitor-generator
     |
     v
-[4. Dependency Integration] --> Merge rv-monitor-rt, aspectjrt, rvsec-core libraries
+[2b. Pre-ajc frame compute] -> Run rv-frame-computer to fix stack maps before weaving
     |
     v
-[5. Recompilation] ------> JAR to DEX (Android d8 compiler)
+[3.  AspectJ Weaving] -------> Integrate monitoring pointcuts with application bytecode
     |
     v
-[6. APK Signing] --------> Sign for deployment (jarsigner + keystore)
+[4.  Recompute frames] ------> Re-run rv-frame-computer post-weaving
+    |
+    v
+[4b. Restore quarantined] ---> Re-include the side-jar contents (gh50; pairs with 1c)
+    |
+    v
+[5.  Dependency Integration] -> Merge rv-monitor-rt, aspectjrt, rvsec-core libraries
+    |
+    v
+[6.  Recompilation] ---------> JAR to DEX (Android d8 compiler)
+    |
+    v
+[7.  APK Signing] -----------> Sign for deployment (jarsigner / apksigner + keystore)
     |
     v
 Instrumented APK
 ```
+
+**Quarantine phase** (gh50, lines 1c + 4b): library classes that the AspectJ weaver or `d8` reject (e.g. heavily-desugared Compose/Kotlin coroutine classes producing `VerifyError`) are temporarily moved to a side-jar before weaving and restored afterwards. The phase is enabled by default (`enable_quarantine=True`); disable via `--no-quarantine` for empirical comparison of recovery rate vs MOP visibility loss. Driven by `assets/weaving_excludes.yaml` glob patterns. Implemented by `__quarantine_problematic_classes()` and `__restore_quarantined_classes()` in `ajc_instrumentation.py`. dexlib2 has no quarantine equivalent.
 
 ### Core Components
 

@@ -93,8 +93,12 @@ Priority-based resolution:
 
 ### Environment Variables
 
-- `RVSEC_HOME`: RVSEC installation root directory
-- `ANDROID_HOME`: Android SDK path
+- `RVSEC_HOME`: RVSEC installation root directory.
+- `ANDROID_HOME`: Android SDK path.
+- `RV_SA_TIMEOUT`: Per-APK GATOR timeout in seconds. **Only honored via `rv-experiment`** (gh55 Click `envvar=` bridge). Standalone `uv run rv-static-analysis` ignores it — use `--analysis-timeout` CLI flag instead.
+- `RV_JVM_MEMORY`: JVM `-Xmx` for the GATOR subprocess (e.g. `4g`). Same standalone caveat as `RV_SA_TIMEOUT`.
+
+The standalone gambiarra is documented in `CLAUDE.md` and tracked for proper architectural fix at `openspec/changes/gh-tbd-env-vars-architecture/`.
 
 ### Required Dependencies
 

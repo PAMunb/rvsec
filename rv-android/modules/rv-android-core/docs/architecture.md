@@ -1045,6 +1045,7 @@ uv run pytest modules/rv-android-core/tests/ -v
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/core/spec.md) - Requirements and invariants for this module (FR33-FR37, INV-CORE-06 through INV-CORE-25)
+- [Domain Spec](../../openspec/specs/core/spec.md) - Requirements and invariants for this module (FR33-FR37, INV-CORE-06 through INV-CORE-32 — INV-CORE-30/31/32 added by gh55)
 - [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
 - [CLAUDE.md](../../CLAUDE.md) - Project-level quick reference for Claude Code
+- [ADR 0001 — Environment-Variable Pattern](../../../docs/adr/0001-env-var-pattern.md) - gh55 Accepted decision: ENV_* registry, Layer Purity (only L5/L1 read env), Click `envvar=` gambiarra and §9.6 entry-point translation, variant-default pattern (D8) eliminating env reads at L2. Reference for any new env var introduced into the system.

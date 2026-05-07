@@ -213,6 +213,9 @@ rv-static-analysis batch --apks-dir /path/to/apks --output /output
 
 # Verbose with summary
 rv-static-analysis analyze --apk app.apk --output /output --verbose --summary
+
+# Override per-APK GATOR timeout (gh55) — required for standalone runs
+rv-static-analysis batch --apks-dir /path/to/apks --output /output --analysis-timeout 1800
 ```
 
 ## Configuration
@@ -223,6 +226,12 @@ rv-static-analysis analyze --apk app.apk --output /output --verbose --summary
 |----------|-------------|---------|
 | `RVSEC_HOME` | RVSEC installation root | `/home/user/rvsec` |
 | `ANDROID_HOME` | Android SDK path | `/opt/android-sdk` |
+| `RV_SA_TIMEOUT` | Per-APK GATOR timeout (seconds). **Honored only via rv-experiment** (gh55 §9 Click `envvar=` bridge). Standalone `uv run rv-static-analysis` ignores this var — use `--analysis-timeout` instead. | `1800` |
+| `RV_JVM_MEMORY` | JVM `-Xmx` for the GATOR subprocess (e.g. `4g`). Same standalone caveat as `RV_SA_TIMEOUT`. | `4g` |
+
+### Standalone Execution Caveat (gh55 gambiarra)
+
+`rv-static-analysis.__main__` is `argparse`-based, not Click. It does NOT honor `RV_*` env vars when invoked directly (`uv run rv-static-analysis ...`). The env-var path only works when invoked through `rv-experiment` (which has the gh55 §9 Click `envvar=` bridge). The architectural fix lives in the follow-up change at `openspec/changes/gh-tbd-env-vars-architecture/`. For standalone runs, use the explicit `--analysis-timeout` CLI flag (gh55 added it precisely to close this gap).
 
 ### Standard Directory Layout
 

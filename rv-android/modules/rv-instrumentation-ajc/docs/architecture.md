@@ -74,6 +74,20 @@ Scenarios from `openspec/specs/instrumentation/spec.md` that validate this archi
 
 **Why**: The `Command` abstraction provides consistent logging, timeout handling, and exit-code checking across all tool invocations. It also enables test mocking -- unit tests can mock `utils.execute_command()` without spawning real processes.
 
+### Decision 7: Library-Class Quarantine Phase (gh50)
+
+**Choice**: Before AspectJ weaving, temporarily move a configurable list of library classes to a side-jar (`__quarantine_problematic_classes()`); after weaving, restore them into the main JAR (`__restore_quarantined_classes()`). Configured by `assets/weaving_excludes.yaml` (glob patterns); enabled by default (`enable_quarantine=True` in `AjcInstrumentationConfig`); disabled via `--no-quarantine` CLI or `RV_NO_QUARANTINE=true` env (which reaches the entry-point via gh55 §9.6 translation, not Click `envvar=`).
+
+**Why**: A non-trivial fraction of the JCA-400 dataset failed instrumentation with `VerifyError` at runtime — the AspectJ weaver and `d8` produced bytecode the Android verifier rejected on heavily-desugared Compose/Kotlin coroutine classes (R8 desugar synthetic shims, Flow/Channel/Continuation hierarchies). Reweaving those classes is unnecessary: they belong to library code that is not the experiment subject. Quarantining them before weaving avoids the weaver's worst recursion paths (`StackOverflowError` on Kotlin deep generics — see gh50 §20 ajc JVM tuning `-Xss8m`); restoring them afterwards keeps the runtime classpath complete so APK behaviour is preserved.
+
+**Trade-off**: Quarantined classes do not get monitor pointcuts woven into them — if a JCA call originates inside a quarantined library class, the monitor will not fire. The empirical comparison gate (`--no-quarantine` runs vs default runs) measures this MOP visibility loss against the recovered-APK count. dexlib2 has no quarantine equivalent because its DEX-native pipeline does not invoke `ajc`/`d8`, so `RV_NO_QUARANTINE` is a no-op under `RV_INSTRUMENTATION_VARIANT=dexlib2`.
+
+**Implementation**:
+- Asset: `modules/rv-instrumentation-ajc/src/rv_instrumentation_ajc/assets/weaving_excludes.yaml` — glob patterns matching FQCNs to quarantine.
+- Methods: `AjcInstrumentation.__quarantine_problematic_classes()` runs as Phase 1c (after Phase 1b strip-desugared-shims, before Phase 2 monitor injection); `__restore_quarantined_classes()` runs as Phase 4b (after Phase 4 frame recomputation, before Phase 5 dependency integration).
+- Side-jar: classes are moved to `<tmp>/quarantine.jar` and merged back via the same dependency-integration step that handles runtime libs.
+- Config field: `enable_quarantine: bool = Field(default=True)` in `AjcInstrumentationConfig`.
+
 ## Data Flow
 
 ### End-to-End Artifact Transformation
@@ -415,17 +429,27 @@ stateDiagram-v2
 
     Skip --> [*]
 
-    Decompile --> InjectMonitors: DEX to JAR (dex2jar)
-    InjectMonitors --> Weave: copy .aj + .java to tmp/
-    Weave --> MergeLibs: ajc weaving
+    Decompile --> StripShims: DEX to JAR (dex2jar)
+    StripShims --> Quarantine: strip R8 desugar shims
+    Quarantine --> InjectMonitors: move excluded classes to side-jar (gh50)
+    InjectMonitors --> PreFrames: copy .aj + .java to tmp/
+    PreFrames --> Weave: rv-frame-computer pre-pass
+    Weave --> PostFrames: ajc weaving
+    PostFrames --> Restore: rv-frame-computer post-pass
+    Restore --> MergeLibs: re-include side-jar (gh50)
     MergeLibs --> Recompile: extract runtime JARs
     Recompile --> Sign: d8 JAR to DEX
-    Sign --> Verify: jarsigner
+    Sign --> Verify: jarsigner / apksigner
     Verify --> [*]: hash differs
 
     Decompile --> Failed: tool error
+    StripShims --> Failed: strip error
+    Quarantine --> Failed: yaml/io error
     InjectMonitors --> Failed: copy error
+    PreFrames --> Failed: frame-compute error
     Weave --> Failed: ajc error
+    PostFrames --> Failed: frame-compute error
+    Restore --> Failed: io error
     MergeLibs --> Failed: extract error
     Recompile --> Failed: d8 error
     Sign --> Failed: jarsigner error
