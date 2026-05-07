@@ -161,7 +161,6 @@ class TestCoverageCSV:
         metrics = {
             "method_coverage": 25.0,
             "activities_coverage": 50.0,
-            "mop_coverage": 10.0,
         }
         task = _make_completed_task(coverage_metrics=metrics)
 
@@ -269,7 +268,7 @@ class TestSummaryCSV:
         metrics = {
             "activities_coverage": 75.0,
             "method_coverage": 30.0,
-            "methods_jca_reachable_coverage": 20.0,
+            "methods_mop_reachable_coverage": 20.0,
             "total_errors": 5,
         }
         task = _make_completed_task(coverage_metrics=metrics)
@@ -379,7 +378,6 @@ class TestResultsJSON:
             "called_mop_methods": 2,
             "activities_coverage": 60.0,
             "method_coverage": 20.0,
-            "mop_coverage": 10.0,
             "total_errors": 1,
         }
         task = _make_completed_task(coverage_metrics=metrics)
@@ -474,7 +472,7 @@ class TestExecutePipeline:
         metrics = {
             "activities_coverage": 50.0,
             "method_coverage": 25.0,
-            "methods_jca_reachable_coverage": 10.0,
+            "methods_mop_reachable_coverage": 10.0,
             "total_errors": 0,
         }
         task = _make_completed_task(coverage_metrics=metrics)

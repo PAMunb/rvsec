@@ -63,13 +63,12 @@ def _simulate_task_execution(task):
     task.result.coverage_metrics = {
         "method_coverage": 25.0,
         "activities_coverage": 50.0,
-        "methods_jca_reachable_coverage": 10.0,
+        "methods_mop_reachable_coverage": 10.0,
         "total_errors": 2,
         "total_method_calls": 5,
         "called_activities": 1,
         "called_methods": 3,
         "called_mop_methods": 1,
-        "mop_coverage": 10.0,
     }
     task.update_state(TaskState.COMPLETED)
 
@@ -349,7 +348,7 @@ class TestCoverageCSVResumedTasks:
         task.result.coverage_metrics = {
             "method_coverage": 25.0,
             "activities_coverage": 50.0,
-            "mop_coverage": 10.0,
+            "methods_mop_reachable_coverage": 10.0,
         }
         task.update_state(TaskState.COMPLETED)
         task.repository = None  # simulates loaded from tasks.json
@@ -424,7 +423,6 @@ class TestCoverageCSVResumedTasks:
         resumed_task.result.coverage_metrics = {
             "method_coverage": 30.0,
             "activities_coverage": 60.0,
-            "mop_coverage": 15.0,
         }
         resumed_task.repository = None
 

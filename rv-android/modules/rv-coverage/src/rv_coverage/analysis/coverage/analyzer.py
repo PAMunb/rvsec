@@ -414,7 +414,7 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
 
         Returns:
             Dictionary with ``SUMMARY`` (full metrics dict), ``method_coverage``,
-            ``activities_coverage``, ``methods_jca_reachable_coverage``,
+            ``activities_coverage``, ``methods_mop_reachable_coverage``,
             ``total_errors``, and ``total_method_calls``.
         """
         metrics_obj = self.repository.calculate_metrics()
@@ -424,7 +424,7 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
             "SUMMARY": metrics,
             "method_coverage": metrics["method_coverage"],
             "activities_coverage": metrics["activity_coverage"],
-            "methods_jca_reachable_coverage": metrics["mop_method_coverage"],
+            "methods_mop_reachable_coverage": metrics["mop_method_coverage"],
             "total_errors": metrics["unique_errors"],
             "total_method_calls": metrics["called_methods"],
         }

@@ -286,7 +286,7 @@ class CoverageComponent:
                     {
                         "method_coverage": metrics_dict["method_coverage"],
                         "activities_coverage": metrics_dict["activity_coverage"],
-                        "methods_jca_reachable_coverage": metrics_dict[
+                        "methods_mop_reachable_coverage": metrics_dict[
                             "mop_method_coverage"
                         ],
                         "total_errors": metrics_dict["unique_errors"],

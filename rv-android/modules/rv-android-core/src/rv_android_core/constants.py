@@ -45,12 +45,14 @@ ACTIVITIES_COVERAGE = "activities_coverage"
 ACTIVITIES_COVERAGE_TOTAL = "activities_coverage_total"
 # cobertura de metodos: (called_methods * 100) / total_methods
 METHOD_COVERAGE = "method_coverage"
-# cobertura do metodos alcancaveis que usam MOP: (called_methods_jca_reachable * 100) / total_methods_jca_reachable
-METHODS_JCA_COVERAGE = "methods_jca_reachable_coverage"
+# Coverage of methods reachable from monitored operations:
+# (called_methods_mop_reachable * 100) / total_methods_mop_reachable.
+# Spec-agnostic — works for both JCA and generic spec sets.
+METHODS_MOP_COVERAGE = "methods_mop_reachable_coverage"
 
 ACTIVITIES_COVERAGE_AVG = "activities_coverage_avg"
 METHOD_COVERAGE_AVG = "method_coverage_avg"
-METHODS_JCA_COVERAGE_AVG = "methods_jca_reachable_coverage_avg"
+METHODS_MOP_COVERAGE_AVG = "methods_mop_reachable_coverage_avg"
 
 METHODS_JCA_REACHABLE = "methods_jca_reachable"
 METHODS = "methods"

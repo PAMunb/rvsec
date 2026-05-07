@@ -628,15 +628,15 @@ class Task:
         metrics = self.repository.calculate_metrics()
         metrics_dict = metrics.to_dict()
 
-        # Update result metrics from repository using standardized keys.
-        # "methods_jca_reachable_coverage" key is a legacy name kept for backward
-        # compatibility with CSV report consumers; it maps to MOP method coverage
-        # regardless of specification set (JCA or generic).
+        # Persist coverage metrics into the task result. Key
+        # "methods_mop_reachable_coverage" is spec-agnostic — it tracks
+        # coverage of methods reachable from monitored operations regardless
+        # of which spec set (JCA or generic) is active.
         self.result.coverage_metrics.update(
             {
                 "method_coverage": metrics_dict["method_coverage"],
                 "activities_coverage": metrics_dict["activity_coverage"],
-                "methods_jca_reachable_coverage": metrics_dict["mop_method_coverage"],
+                "methods_mop_reachable_coverage": metrics_dict["mop_method_coverage"],
                 "total_errors": metrics_dict["unique_errors"],
                 "total_method_calls": metrics_dict["called_methods"],
             }

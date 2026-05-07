@@ -539,6 +539,7 @@ class TaskStorage(ITaskStorage):
             try:
                 # Apply all changes
                 self.tasks.update(self.transaction_tasks)
+                committed_count = len(self.transaction_tasks)
 
                 # Save changes
                 result = self.save()
@@ -548,7 +549,7 @@ class TaskStorage(ITaskStorage):
                 self.transaction_tasks = {}
 
                 self.logger.debug(
-                    f"Transaction committed with {len(self.transaction_tasks)} changes"
+                    f"Transaction committed with {committed_count} changes"
                 )
                 return result
 

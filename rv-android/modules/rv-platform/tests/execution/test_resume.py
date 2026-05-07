@@ -56,7 +56,7 @@ def _make_completed_task(
     task.result.coverage_metrics = {
         "method_coverage": 0.0,
         "activities_coverage": 0.0,
-        "methods_jca_reachable_coverage": 0.0,
+        "methods_mop_reachable_coverage": 0.0,
         "total_errors": 0,
         "total_method_calls": 0,
     }
@@ -438,13 +438,12 @@ def _make_loaded_task_with_logcat(
     task.result.coverage_metrics = {
         "method_coverage": 25.0,
         "activities_coverage": 50.0,
-        "methods_jca_reachable_coverage": 10.0,
+        "methods_mop_reachable_coverage": 10.0,
         "total_errors": 2,
         "total_method_calls": 5,
         "called_activities": 1,
         "called_methods": 2,
         "called_mop_methods": 1,
-        "mop_coverage": 10.0,
     }
     # Simulate loaded from tasks.json: repository is None
     task.repository = None

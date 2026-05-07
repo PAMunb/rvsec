@@ -344,7 +344,7 @@ class ResultProcessorComponent:
                         metrics.get("method_coverage", 0),
                         metrics.get("activities_coverage", 0),
                         metrics.get("method_coverage", 0),
-                        metrics.get("mop_coverage", 0),
+                        metrics.get("methods_mop_reachable_coverage", 0),
                     ]
                 )
 
@@ -520,7 +520,7 @@ class ResultProcessorComponent:
                 metrics = task.result.coverage_metrics
                 activities_coverage = metrics.get("activities_coverage", 0)
                 method_coverage = metrics.get("method_coverage", 0)
-                mop_coverage = metrics.get("methods_jca_reachable_coverage", 0)
+                mop_coverage = metrics.get("methods_mop_reachable_coverage", 0)
                 error_count = metrics.get("total_errors", 0)
             elif hasattr(task, "repository") and task.repository:
                 # Fallback to repository if task result metrics not available
@@ -681,7 +681,7 @@ class ResultProcessorComponent:
                     ),
                     "activities_coverage": metrics.get("activities_coverage", 0),
                     "method_coverage": metrics.get("method_coverage", 0),
-                    "methods_mop_reachable_coverage": metrics.get("mop_coverage", 0),
+                    "methods_mop_reachable_coverage": metrics.get("methods_mop_reachable_coverage", 0),
                     "monitored_operations_errors_count": metrics.get("total_errors", 0),
                 }
 

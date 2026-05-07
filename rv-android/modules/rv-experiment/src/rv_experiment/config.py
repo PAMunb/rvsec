@@ -422,7 +422,7 @@ class ExperimentConfig(BaseValidatedModel):
                             available_variants = list(
                                 tool_registry.get_tool_variants(tool_name)
                             )
-                        except:
+                        except Exception:
                             available_variants = ["default"]
                         raise ConfigurationError(
                             f"Invalid variant '{variant_name}' for tool '{tool_name}'. "

@@ -174,7 +174,7 @@ class TestCoverageAnalyzer:
         # Verify metrics structure and values
         assert "method_coverage" in metrics
         assert "activities_coverage" in metrics
-        assert "methods_jca_reachable_coverage" in metrics
+        assert "methods_mop_reachable_coverage" in metrics
         assert "total_errors" in metrics
         assert "total_method_calls" in metrics
 
