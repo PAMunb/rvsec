@@ -198,10 +198,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 - **INV-TOOL-14**: `UIAutomator2Adapter.connect()` MUST configure UIAutomator2 settings (`wait_timeout`) after successful connection. The `_configure_uiautomator_settings()` method MUST be called before returning `True`.
 
 - **INV-TOOL-15**: When ARES or QTesting tools build their Docker `run` command inside a Docker container (detected by the presence of `/.dockerenv`), the command MUST include `--network container:<hostname>` where `<hostname>` is the current container's ID obtained via `socket.gethostname()`. This flag makes the sibling container (ARES/QTesting) share the parent container's network namespace, allowing it to reach the emulator at `localhost:5554` without any network configuration changes in the ARES/QTesting code or Dockerfiles. When running outside Docker (`/.dockerenv` does not exist), the command MUST use `--network host` so the sibling container shares the host's network namespace and can reach the emulator at `localhost:5554`.
-
-
 ## Requirements
-
 ### Requirement: Tool Registration and Factory System (FR18, NFR02)
 
 The tool system MUST provide a centralized registry and factory for all Android testing tools. `ToolRegistry` maintains a singleton registry of tool classes and their variant configurations. `ToolFactory` creates configured tool instances from `ToolConfig` objects.
@@ -469,3 +466,45 @@ Performance constants are tuned for headless mode execution: `ACTION_EXECUTION_D
 - **WHEN** `DeviceManager.get_available_devices()` is called and `adb devices` lists `emulator-5554  device`
 - **THEN** the result MUST include `"emulator-5554"`
 - **AND** devices with status other than `"device"` (e.g., `"offline"`, `"unauthorized"`) MUST be excluded
+
+### Requirement: Layer Purity for Tool Configuration (NFR01, NFR02)
+
+Tool plugins (Layer 2) MUST receive all configuration values via the `AbstractTool.configure(config: Dict[str, Any])` contract established by `rv-android-core`. They MUST NOT read environment variables, configuration files, or any other external state during initialization or execution. The `config` dictionary is assembled at Layer 5 (by `rv-experiment`) and forwarded through the entries of `rv-platform.PlatformConfig.tools` (each a `ToolConfig` carrying a `parameters: Dict[str, Any]`) to `ToolFactory.create_tool` (in `rv_tools.registry.factory`, L2), which merges variant defaults with `tool_config.parameters` and calls `configure()`.
+
+This rule has three concrete consequences:
+
+1. **No `os.environ` reads in `rv-tools/src/rv_tools/builtin/`**. The `RV_HUMANOID_URL` read at `rv-tools/.../humanoid/tool.py:89` is the canonical example of a violation removed by this change. Any equivalent read in other tool plugins MUST also be removed.
+2. **Tool configuration keys are documented**. Each tool's `configure()` MUST declare which keys it expects (via Pydantic model or explicit `config["..."]` access). The set of declared keys forms part of the tool's public contract.
+3. **Tools cannot probe the environment as a fallback**. Even if `config` lacks a value, the tool MUST raise rather than silently fall back to `os.environ`. The L5 resolver is responsible for providing defaults.
+
+#### Scenario: Humanoid tool uses variant default when L5 does not override
+
+- **WHEN** `rv-experiment` does NOT set `RV_HUMANOID_URL` and does NOT pass `--humanoid-url`
+- **AND** the factory builds `tool_config = ToolConfig(name="humanoid", variant="default", parameters={})`
+- **AND** `ToolFactory.create_tool(tool_config)` merges `{**variant_defaults, **{}}` and calls `tool.configure({"policy": "dfs_greedy", "count": 10_000_000_000, "ignore_ad": True, "humanoid_url": "127.0.0.1:50405"})`
+- **THEN** `self.url` MUST equal `"127.0.0.1:50405"` (the variant default carried in `get_variants()["default"]["humanoid_url"]`)
+- **AND** the tool source file MUST contain no `os.environ` reads or `ENV_*` imports
+- **AND** running `grep -rn 'ENV_HUMANOID_URL\|os\.environ' modules/rv-tools/src/rv_tools/builtin/humanoid/` MUST return 0 hits
+
+#### Scenario: L5-resolved URL overrides variant default
+
+- **WHEN** `rv-experiment` resolves `RV_HUMANOID_URL=http://humanoid:50405` from the environment (or from `--humanoid-url`)
+- **AND** the factory builds `tool_config = ToolConfig(name="humanoid", variant="default", parameters={"humanoid_url": "http://humanoid:50405"})`
+- **AND** `ToolFactory.create_tool(tool_config)` merges `{**variant_defaults, "humanoid_url": "http://humanoid:50405"}` (parameters wins because it merges last)
+- **THEN** `self.url` MUST equal `"http://humanoid:50405"`
+- **AND** at no point does the platform or the tool read `RV_HUMANOID_URL` directly from `os.environ`
+
+#### Scenario: Tool fails fast for keys without variant default and without L5 injection
+
+- **WHEN** a hypothetical tool plugin declares no variant default for required key `K` and L5 also injects no `K`
+- **AND** `tool.configure(merged_dict)` accesses `merged_dict["K"]`
+- **THEN** the tool MUST raise `KeyError` naming `K` (no `os.environ` fallback at L2)
+- **AND** the fix is to add `K` to `get_variants()` defaults or have L5 inject it, never to read env at L2
+
+#### Scenario: Lint enforces no env reads in tool plugins (all three plugin trees)
+
+- **WHEN** a developer reintroduces `os.environ.get(ENV_X)`, `os.getenv(ENV_X)`, or `os.environ["RV_X"]` anywhere under `modules/rv-tools/src/rv_tools/builtin/`, `modules/aperv-tool/src/`, or `modules/rvagent-tool/src/`
+- **THEN** the CI lint MUST fail naming the offending file, line, and plugin tree
+- **AND** the message MUST cite `INV-TOOL-20` and `docs/rv_android_architecture.md` (Layer Purity rule)
+- **AND** the lint MUST equally flag `dict(os.environ)` and `os.environ.copy()` in the same scope (environment leak via shallow copy)
+

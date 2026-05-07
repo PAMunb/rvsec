@@ -180,9 +180,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **INV-PLT-13**: Phase 3 (emulator session) in `TaskExecutor._execute_coordinated_components()` MUST execute within the emulator context manager. If either the `EmulatorComponent` or `ToolExecutionComponent` is missing, the emulator session MUST be skipped with a warning.
 
 - **INV-PLT-14**: `ResultProcessorComponent` MUST generate all five output files (`coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv`) when at least one completed task exists. If no completed tasks exist, it MUST log a warning and skip file generation.
-
 ## Requirements
-
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
 The platform MUST manage the full lifecycle of Android emulator instances during task execution. This includes starting the emulator with a named AVD, allocating a unique device port, installing the APK under test, and stopping the emulator after task completion. Emulator management is encapsulated in `EmulatorComponent`, which operates within the Phase 3 context manager in `TaskExecutor._run_emulator_session()`.
@@ -556,4 +554,38 @@ Result processing is invoked by `Platform._process_results()` after all tasks ha
 - **THEN** the system MUST load tasks from the results directory's `tasks.json`
 - **AND** MUST run `ResultProcessorComponent` on the loaded tasks
 - **AND** MUST write output files to the same results directory
+
+### Requirement: Tool-Configuration Channel via ToolConfig.parameters (NFR01, NFR02)
+
+`PlatformConfig.tools` is a `List[ToolConfig]` (required field at `modules/rv-platform/src/rv_platform/config/platform_config.py:50`), where each `ToolConfig` (defined in `rv_android_core.domain.task.ToolConfig`) carries `name: str`, `variant: str`, and `parameters: Dict[str, Any]`. The `ToolFactory` (in `rv_tools.registry.factory`, L2; the rv-platform module imports it via `from rv_tools import ToolFactory`) MUST consult the matching `ToolConfig.parameters` when instantiating a tool plugin: it merges variant defaults from the registry with the entry's `parameters` dictionary and forwards the result as the `config` argument of `AbstractTool.configure()`. The `parameters` dictionary defaults to `{}` (empty) — the concrete tool decides whether to raise on missing required keys (per INV-TOOL-21).
+
+The dictionary contents are decided at Layer 5 (`rv-experiment`): values may originate from environment variables (resolved via the `ENV_*` registry), CLI flags, or hard-coded defaults. The Platform layer treats `parameters` as opaque pass-through data — it does not interpret keys or apply per-tool logic.
+
+This is the sole sanctioned channel for delivering per-tool configuration values that come from outside the Tools domain. Tool plugins MUST NOT read environment variables (INV-TOOL-20), configuration files, or any other external state during their lifecycle.
+
+#### Scenario: Humanoid URL flows from CLI through ToolConfig.parameters to HumanoidTool
+
+- **WHEN** `rv-experiment` resolves `RV_HUMANOID_URL=http://humanoid:50405` from the environment
+- **AND** instantiates `PlatformConfig` with `tools=[ToolConfig(name="humanoid", variant="default", parameters={"humanoid_url": "http://humanoid:50405"})]`
+- **AND** the platform schedules a task using the `humanoid` tool
+- **THEN** the `ToolFactory.create_tool` MUST instantiate `HumanoidTool` and call `tool.configure({"humanoid_url": "http://humanoid:50405", ...variant_defaults})`
+- **AND** at no point does the platform or the tool read `RV_HUMANOID_URL` from `os.environ`
+
+#### Scenario: ToolConfig with empty parameters defaults gracefully
+
+- **WHEN** `PlatformConfig.tools` contains `ToolConfig(name="monkey", variant="default", parameters={})`
+- **AND** the platform schedules a task using the `monkey` tool
+- **THEN** the `ToolFactory.create_tool` MUST instantiate `MonkeyTool` and call `tool.configure({...variant_defaults})` (empty `parameters` merged with variant defaults)
+- **AND** the tool SHALL succeed if it has no required config keys, or raise per INV-TOOL-21 if it does
+
+#### Scenario: PlatformConfig rejects malformed tools field
+
+- **WHEN** code instantiates `PlatformConfig(tools="not a list", ...)`
+- **THEN** Pydantic MUST raise `ValidationError` naming `tools` and the expected type (`List[ToolConfig]`)
+
+#### Scenario: ToolFactory does not bypass parameters dict
+
+- **WHEN** `ToolFactory.create_tool(tool_config)` (in `rv_tools.registry.factory`) is invoked
+- **THEN** the only L2 input that influences `AbstractTool.configure()` MUST be the merge of variant defaults and `tool_config.parameters`
+- **AND** the factory MUST NOT read any environment variable, configuration file, or other source to populate the `config` argument
 

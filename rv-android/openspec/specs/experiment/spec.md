@@ -430,70 +430,61 @@ The `--resume-dir` flag provides explicit control for advanced users and Docker 
 
 The experiment orchestration system MUST support execution inside Docker containers as a first-class deployment mode. This is not merely about packaging — Docker execution enables parallel experiment execution (multiple containers running simultaneously, each with its own emulator) and crash recovery (containers are killed and restarted routinely by orchestrators, resource limits, or watchdog processes). The rvsec-02/ICST study validated this pattern with 7 parallel containers over thousands of restarts.
 
-Docker execution uses a shell entry point (`docker-entrypoint.sh`) that translates Docker environment variables to `rv-experiment` CLI arguments. This follows the standard Docker pattern: the Dockerfile sets ENV defaults, the user overrides them at `docker run` time, and the entry point assembles the CLI command. The entry point script MUST echo the generated command for debugging transparency and MUST support both execution mode (default, runs `rv-experiment run`) and interactive mode (when the user passes `bash` or `shell` as the command, drops into a shell for debugging).
+Docker execution uses a shell entry point (`docker/rvandroid/docker-entrypoint.sh`) that performs **two responsibilities and only two**: (a) it validates the allow-list of `RV_*` environment variables present in the container, rejecting unknown names with exit 64; (b) it execs `rv-experiment run` (or drops to an interactive shell on `bash`/`shell` argument). The entry point MUST NOT translate environment variables into CLI flags — `rv-experiment` reads its configuration from the environment itself, via the `ENV_*` constants registry in `rv-android-core`. This unification ensures that a given `RV_X` value produces identical behavior whether the user runs `docker run -e RV_X=...` or `RV_X=... uv run rv-experiment ...` outside Docker.
 
-Environment variables are categorized into two groups:
+The allow-list of recognized `RV_*` variables is derived deterministically from `rv-android-core/src/rv_android_core/constants.py`. The entry point invokes `docker/rvandroid/scripts/validate_env_vars.sh` (or equivalent inline check) which compares the set of `RV_*` variables present in the environment against the set of `ENV_*` constants exported from `constants.py`. Any difference (an unknown name, or a known name that has been removed) produces exit code 64 and a message naming the offending variables and pointing at the registry as the source of truth.
 
-1. **CLI-translated variables**: Read by `docker-entrypoint.sh` and converted to `rv-experiment run` flags. Examples: `RV_TOOLS` (-> `--tools`), `RV_TIMEOUTS` (-> `--timeout`), `RV_EXPERIMENT_NAME` (-> `--name`), `RV_RESUME_DIR` (-> `--resume-dir`). These have no effect outside Docker unless a standalone script performs the same translation.
-
-2. **Pass-through variables**: Read directly by Python modules via `os.environ.get()`. Examples: `RVSEC_HOME`, `ANDROID_HOME`, `RVAGENT_MODE`. These are set as container environment variables in `docker-compose.yml` and are NOT translated to CLI flags by the entry point.
-
-The entry point MUST also support a startup delay (`RV_DELAY`) for staggering container startups in parallel execution. The first activities (emulator boot, APK instrumentation) consume significant CPU and I/O, so staggering prevents resource contention.
+The entry point continues to support the interactive shell shortcut: when invoked with `bash` or `shell` as the command argument, the entry point drops into an interactive bash shell instead of running the experiment, allowing manual debugging inside the container. The startup-delay variable `RV_DELAY` retains its existing semantics (sleep before exec) for staggering parallel container starts.
 
 Docker Compose files provide two deployment patterns:
 
 1. **Single container** (`docker-compose.yml`): One rvandroid container with a Humanoid service dependency and `docker.sock` mount for ARES/QTesting sibling containers.
-
 2. **Parallel containers** (`docker-compose.parallel.yml`): YAML anchors define a base service (`x-rvandroid`), with N concrete services (rv01, rv02, ...) each having their own `RV_EXPERIMENT_NAME`, `RV_DEVICE_PORT`, `RV_DELAY`, and per-container result volumes. All containers share the same Humanoid REST service. Each container has its own `docker.sock` mount for independent ARES/QTesting sibling container spawning.
 
-The `docker.sock` mount (`/var/run/docker.sock:/var/run/docker.sock`) in both compose files allows each rvandroid container to spawn ARES/QTesting sibling containers via the host's Docker daemon. Without this mount, Docker-based tools (ARES, QTesting) fail because there is no Docker daemon available inside the container. See the tools domain delta spec (INV-TOOL-15) for the network configuration of sibling containers.
+The `docker.sock` mount (`/var/run/docker.sock:/var/run/docker.sock`) in both compose files allows each rvandroid container to spawn ARES/QTesting sibling containers via the host's Docker daemon. Without this mount, Docker-based tools (ARES, QTesting) fail because there is no Docker daemon available inside the container. See the tools domain for the network configuration of sibling containers.
 
-#### Scenario: Docker Entry Point Translates Environment Variables to CLI
+#### Scenario: Docker Entry Point Validates Environment-Variable Allow-List
 
-- **WHEN** a Docker container starts with `RV_TOOLS=monkey,droidbot`, `RV_TIMEOUTS=300`, `RV_EXPERIMENT_NAME=batch_01`, `RV_NO_WINDOW=true`
-- **THEN** the entry point MUST generate: `uv run rv-experiment run --tools monkey,droidbot --timeout 300 --name batch_01 --no-window`
-- **AND** MUST echo the generated command to stdout for debugging
+- **WHEN** a Docker container starts with `RV_TOOLS=monkey,droidbot`, `RV_TIMEOUTS=300`, `RV_EXPERIMENT_NAME=batch_01`
+- **AND** all of the names match `ENV_*` constants in `rv-android-core/constants.py`
+- **THEN** the entry point MUST proceed to exec `uv run rv-experiment run`
+- **AND** MUST NOT add any CLI flags derived from environment variables (translation removed)
 - **AND** MUST use `exec` to replace the shell process with the Python process (proper signal handling)
+
+#### Scenario: Docker Entry Point Rejects Unknown RV_* Variable
+
+- **WHEN** a Docker container starts with `RV_INVENTADO=foo` set in the environment
+- **AND** `RV_INVENTADO` does not correspond to any `ENV_*` constant in `rv-android-core/constants.py`
+- **THEN** the entry point MUST exit with code 64
+- **AND** MUST emit a message naming `RV_INVENTADO` as unknown
+- **AND** MUST point at `rv-android-core/constants.py` as the canonical registry of valid names
+
+#### Scenario: Docker Entry Point Rejects Removed Variable
+
+- **WHEN** a Docker container starts with `RV_JCA_SPEC=jca` (a name removed by this change)
+- **THEN** the entry point MUST exit with code 64 (the name is no longer in the registry)
+- **AND** the message MAY suggest the replacement (`RV_SPEC_SET`) when a known mapping exists
 
 #### Scenario: Docker Entry Point Supports Interactive Mode
 
-- **WHEN** the user runs `docker run ... phtcosta/rvandroid:0.8.0 bash`
+- **WHEN** the user runs `docker run ... phtcosta/rvandroid:VERSION bash`
 - **THEN** the entry point MUST detect the `bash` or `shell` argument
 - **AND** MUST drop into an interactive bash shell instead of running the experiment
-- **AND** the user MUST be able to run `rv-experiment` commands manually inside the container
+- **AND** MUST NOT perform allow-list validation (interactive mode bypasses validation; the user is debugging)
 
 #### Scenario: Docker Entry Point Applies Startup Delay
 
 - **WHEN** a Docker container starts with `RV_DELAY=30`
+- **AND** allow-list validation passes
 - **THEN** the entry point MUST `sleep 30` before executing the experiment command
 - **AND** MUST log the delay duration
 
-#### Scenario: Docker Resume on Container Restart
+#### Scenario: Identical Behavior Inside and Outside Docker
 
-- **WHEN** a Docker container with `RV_EXPERIMENT_NAME=batch_01` completes 3 out of 10 tasks and is killed
-- **AND** a new container starts with the same `RV_EXPERIMENT_NAME=batch_01` and the same result volume mount
-- **THEN** the entry point MUST generate the same `--name batch_01` CLI argument
-- **AND** rv-experiment MUST detect `results/batch_01/tasks.json` and trigger resume mode (INV-EXP-13)
-- **AND** the platform MUST skip the 3 completed tasks and execute the remaining 7
-
-#### Scenario: Parallel Docker Execution With Independent Experiments
-
-- **WHEN** `docker-compose.parallel.yml` is used with rv01 (`RV_EXPERIMENT_NAME=rv01`) and rv02 (`RV_EXPERIMENT_NAME=rv02`)
-- **THEN** each container MUST use its own results directory (`results/rv01/`, `results/rv02/`)
-- **AND** each container MUST use its own emulator port (`RV_DEVICE_PORT=5554`, `RV_DEVICE_PORT=5556`)
-- **AND** each container MUST have its own `docker.sock` mount for independent ARES/QTesting sibling container spawning
-- **AND** the Humanoid service MUST be shared across all containers (single instance)
-- **AND** containers MUST be staggered via `RV_DELAY` to avoid resource contention during emulator boot
-
-#### Scenario: docker.sock Mount Enables Docker-Based Tools
-
-- **WHEN** a rvandroid container has `/var/run/docker.sock:/var/run/docker.sock` mounted
-- **THEN** `AresTool._build_ares_command()` and `QTestingTool._build_qtesting_command()` MUST be able to execute `docker run` to spawn sibling containers
-- **AND** the sibling containers MUST share the parent's network namespace via `--network container:$(hostname)` (INV-TOOL-15)
-
-- **WHEN** a rvandroid container does NOT have the `docker.sock` mount
-- **THEN** Docker-based tools (ARES, QTesting) MUST fail with a clear error when attempting `docker run`
-- **AND** non-Docker tools (Monkey, DroidBot, APE, etc.) MUST continue to function normally
+- **WHEN** the user runs `RV_TIMEOUTS=600 RV_TOOLS=monkey uv run rv-experiment run` outside Docker
+- **AND** the user runs `docker run -e RV_TIMEOUTS=600 -e RV_TOOLS=monkey phtcosta/rvandroid:VERSION` inside Docker
+- **THEN** both invocations MUST produce identical effective `ExperimentConfig` values
+- **AND** the Python configuration layer MUST read both environment values via `ENV_TIMEOUTS` and `ENV_TOOLS` constants
 
 ### Requirement: Just-in-Time Sub-Module Configuration (FR17, NFR05)
 
@@ -548,4 +539,56 @@ The `get_module_config()` method MUST serve as a generic dispatcher that routes 
 - **WHEN** `generate_monitors=False` is set in ExperimentConfig
 - **THEN** `PreProcessor.process()` MUST NOT call `config.get_monitored_operations_config()`
 - **AND** missing or invalid RVSEC_HOME MUST NOT cause an error if all three pre-processing phases are skipped
+
+### Requirement: Static-Analysis Tuning CLI Flags (FR15, NFR05)
+
+The `rv-experiment run` command MUST expose `--analysis-timeout` (integer seconds) and `--jvm-memory` (string, e.g., `4g`) as command-line flags. These flags MUST set `ExperimentConfig.analysis_timeout` and `ExperimentConfig.jvm_memory` respectively, which `ExperimentConfig.get_static_analysis_config()` already forwards to `RVStaticAnalysisConfig`.
+
+When neither the flag nor the corresponding environment variable is provided, `ExperimentConfig` falls back to the Pydantic-declared default (currently 600 seconds for analysis-timeout, `4g` for jvm-memory). When both are provided, the CLI flag wins (precedence: CLI > env > default), per INV-EXP-32.
+
+The flags eliminate the silent-failure cliff that existed when `rv-experiment` ran outside Docker — previously, only `RV_SA_TIMEOUT` and `RV_JVM_MEMORY` could tune these values, and only via Docker entry-point translation. After this change, both the env vars and the flags work uniformly via `ExperimentConfig`.
+
+#### Scenario: CLI flag overrides env var
+
+- **WHEN** the shell has `RV_SA_TIMEOUT=900` exported
+- **AND** the user runs `uv run rv-experiment run --analysis-timeout 600 ...`
+- **THEN** the effective `ExperimentConfig.analysis_timeout` MUST be `600`
+- **AND** the value forwarded to `RVStaticAnalysisConfig` MUST be `600`
+
+#### Scenario: Env var works without Docker
+
+- **WHEN** the shell has `RV_SA_TIMEOUT=900` exported
+- **AND** the user runs `uv run rv-experiment run ...` (no Docker, no `--analysis-timeout` flag)
+- **THEN** the effective `ExperimentConfig.analysis_timeout` MUST be `900`
+- **AND** the silent-failure path observed before this change MUST NOT occur
+
+#### Scenario: Default applies when neither is set
+
+- **WHEN** neither `RV_SA_TIMEOUT` nor `--analysis-timeout` is provided
+- **THEN** the effective `ExperimentConfig.analysis_timeout` MUST be the Pydantic-declared default (600)
+
+### Requirement: Layer-Purity Audit for Environment Reads (NFR01, NFR03)
+
+The `rv-experiment` module is the single Python module under `modules/` that reads user-facing `RV_*` environment variables. The CI lint MUST verify this by running a combined grep covering all read forms (`os\.environ\.get`, `os\.environ\[`, `os\.getenv`, `dict\(os\.environ`, `os\.environ\.copy`) over `modules/`. Hits MUST occur only inside `modules/rv-experiment/` plus the L1 cross-layer infrastructure family in `modules/rv-android-core/util/validation/config.py` (the three `RV_PYDANTIC*` toggles) and the legacy SDK paths `RVSEC_HOME` / `ANDROID_HOME`.
+
+#### Scenario: Lint rejects new env read in lower layer
+
+- **WHEN** a developer adds `os.environ.get(ENV_TOOLS)` in `modules/rv-platform/src/rv_platform/...`
+- **THEN** the CI lint MUST fail naming the offending file and line
+- **AND** the message MUST point the developer at the experiment delta spec for the Layer Purity rule
+
+#### Scenario: Cross-layer infra family is permitted
+
+- **WHEN** `modules/rv-android-core/src/rv_android_core/util/validation/config.py` reads `RV_PYDANTIC`, `RV_PYDANTIC_STRICT`, or `RV_PYDANTIC_LOG`
+- **THEN** the CI lint MUST recognize all three as authorized L1 cross-layer infra reads (they control validation behavior across every module)
+- **AND** MUST NOT flag any of them
+- **AND** the lint MUST also accept `RVSEC_HOME` and `ANDROID_HOME` reads in `rv-android-core` (legacy SDK paths)
+
+<!-- The previous draft contained a "REMOVED Requirement: Docker Entry Point CLI-Flag Translation"
+     block here. It was redundant: in the baseline (`openspec/specs/experiment/spec.md:429`), CLI-flag
+     translation is described as a behavior of the existing "Docker Execution Mode" requirement, not
+     as a standalone requirement. The MODIFIED Requirement above already replaces that behavior with
+     the allow-list-validation pattern; there is no separate requirement to remove. Per P3, the
+     pre-refactor `docker-entrypoint.sh` is moved to `backup/2026-05-06_env_var_cleanup/` (see tasks
+     5.1) — the deletion is operational, not a separate spec delta. -->
 
