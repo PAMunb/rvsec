@@ -31,7 +31,7 @@ A change gh51 (D5) já sabia que isso ocorre em "APKs complexos (18K+ vertices)"
 5. **Items de Spinner programáticos via `ArrayAdapter`** (feature nova): Soot dataflow para capturar items adicionados em código.
 6. **Fix estrutural Opção A:** `FlowgraphRebuilder` delega virtual dispatch ao SPARK CG (`Scene.v().getCallGraph()`) — elimina o two-call-graph problem; WTG passa a usar SPARK também.
 
-Esforço total estimado: ~3 semanas. Risco médio (5 itens diretos + 1 refatoração estrutural com risco semântico controlado via gh51-D6 bytecode scan). Detalhamento em §7.
+Esforço total estimado: ~3 semanas (MVP do item 5). Risco médio — refatoração estrutural (item 6) controlada via **feature flag de runtime** (§7.9) + bytecode-scan no nível WTG (§7.8). Detalhamento em §7. Prontidão SDD auditada em §16 (score 8.6/10 — pronto para `/opsx:new`).
 
 ---
 
@@ -431,20 +431,183 @@ Premissa: como já vamos rebuildar o JAR e re-rodar os 190 APKs para validar o f
 | # | Item | Origem | Arquivos tocados | Esforço | Risco |
 |---|------|--------|------------------|---------|-------|
 | **1** | Popular `windows[]` no caminho `wtg==null` do `writeJson()` (Opção C ⭐) | §3.4bis + §6 Opção C | `RvsecAnalysisClient.java` (linhas 1020–1024 + guarda em `extractWindows` 736–762) | ~1 dia | Mínimo |
-| **2** | Flag/env `--skip-wtg` | §6 Opção C | `RvsecAnalysisClient.java` (linha 159 wrap) | ~½ dia | Mínimo |
+| **2** | Flag `--skip-wtg` (especificação em §7.5) | §6 Opção C | `RvsecAnalysisClient.java` (linha 159 wrap) + `static_analysis_sweep.py` arg | ~½ dia | Mínimo |
 | **3** | Re-port GESDA paridade XML — 4 atributos | §12 (Top #1, #2) | `RvsecAnalysisClient.java` (`enrichFromXml` ~lines 885–914) | ~½ dia | Mínimo |
 | **3.1** | • `android:prompt` (Spinner) | XmlParser GESDA | idem | (incluso) | — |
 | **3.2** | • `android:spinnerMode` (dropdown/dialog) | XmlParser GESDA | idem | (incluso) | — |
 | **3.3** | • `android:contentDescription` | XmlParser GESDA `parseView:207` | idem | (incluso) | — |
 | **3.4** | • `android:tooltipText` | XmlParser GESDA `parseView:208` | idem | (incluso) | — |
-| **4** | Re-port menu programático (`Menu.add()` / `Menu.addSubMenu()`) | §12 (Top #3) — `SootAnalyze.java:372–531` GESDA | nova classe `MenuExtractor.java` + chamada em `extractWindows` para `OPTIONSMENU` | ~2 dias | Baixo (porta direta) |
-| **5** | **Items de Spinner programáticos via `ArrayAdapter`** (feature nova) | §12.3 #6 | nova classe `SpinnerItemExtractor.java`; Soot dataflow para rastrear `new ArrayAdapter<>(ctx, layoutId, items)` + `adapter.add(s)` / `adapter.addAll(arr)`; resolver `items` via def-use chain até `String[]`/`List<String>` literais | ~4 dias | Médio (dataflow novo) |
-| **6** | **Opção A: `FlowgraphRebuilder` delega ao SPARK CG** (elimina two-call-graph problem) | §3.1 + §6 Opção A | `FlowgraphRebuilder.buildCallGraph()` linhas 940–1021 — substituir `hier.virtualDispatch()` + `hier.getConcreteSubtypes()` por consulta ao `Scene.v().getCallGraph()` filtrando edges relevantes para o site. Manter union com **bytecode scan** (paridade com gh51 D6) para libs quarentinadas | ~5 dias | **Médio-Alto** (mudança semântica) |
-| **6.1** | Validação cruzada: comparar WTG output **antes vs depois** em 10 APKs OK (não-travados) para garantir paridade de `transitions[]` | — | smoke test + diff JSON | ~1 dia | — |
-| **7** | Schema bump no JSON + atualizar `MopData.java` do aperv para ler campos novos (`prompt`, `spinnerMode`, `contentDescription`, `tooltipText`, items recursivos em options menu) | §12.3 (consumidor) | `RvsecAnalysisClient.writeWindows` + `ape/.../utils/MopData.java` | ~1 dia | Baixo |
-| **8** | Testes unitários para cada item (3 atributos XML, menu programático, ArrayAdapter, paridade WTG-SPARK) + smoke em 10 APKs (5 OK + 5 que travavam) + re-run completo dos 190 APKs | — | testes existentes em `…/rvsec-gator/client/src/test/` + `ape/src/test/` + sweep parcial | ~2 dias | — |
+| **4** | Re-port menu programático (`Menu.add()` / `Menu.addSubMenu()`) | §12 (Top #3) — `SootAnalyze.java:372–531` GESDA | nova classe `MenuExtractor.java` + chamada em `extractWindows` para `OPTIONSMENU` | ~2 dias | Baixo (porta direta) — sujeito a pre-flight de §7.6 |
+| **5** | **Items de Spinner programáticos via `ArrayAdapter`** (feature nova; MVP-only: literal constructor + `add()`/`addAll()`. `getResources().getStringArray()` e Kotlin `listOf()` ficam fora do MVP — ver §7.7) | §12.3 #6 | nova classe `SpinnerItemExtractor.java`; Soot points-to do SPARK para rastrear receiver type + def-use chain até literais | ~4 dias (MVP) / 6–7 dias (full) | Médio (dataflow novo) |
+| **6** | **Opção A: `FlowgraphRebuilder` delega ao SPARK CG** (elimina two-call-graph problem). Filtro: para cada `invoke` site, consultar `Scene.v().getCallGraph().edgesOutOf(src)` e filtrar por `tgt.getSubSignature() == callee.getSubSignature()`. Union com **bytecode-scan** (gh51 D6, ver §7.8) para edges em libs quarentinadas. **Implementação via feature flag** `cg.delegation.enabled` (rollback runtime sem rebuild — ver §7.9) | §3.1 + §6 Opção A | `FlowgraphRebuilder.buildCallGraph()` linhas 940–1021 — substituir `hier.virtualDispatch()` + `hier.getConcreteSubtypes()` por SPARK CG query | ~5 dias | **Médio-Alto** (mudança semântica controlada por feature flag) |
+| **6.1** | Validação cruzada: comparar WTG output **antes vs depois** em 10 APKs OK (não-travados) para garantir paridade de `transitions[]` (definição precisa em §7.4) | — | smoke test + diff JSON via `scripts/wtg_paridade_diff.py` (novo) | ~1 dia | — |
+| **7** | Schema bump no JSON (`schemaVersion: "1.0" → "2.0"`, ver §7.10) + atualizar `MopData.java` do aperv para ler campos novos | §12.3 (consumidor) | `RvsecAnalysisClient.writeJson` (linha 1001+) + `ape/.../utils/MopData.java` | ~1 dia | Baixo |
+| **8** | Testes unitários para cada item (3 atributos XML, menu programático, ArrayAdapter, paridade WTG-SPARK) + smoke em 10 APKs (fixture list em §7.11) + re-run completo dos 190 APKs | — | testes existentes em `…/rvsec-gator/client/src/test/` + `ape/src/test/` + sweep parcial | ~2 dias | — |
 
-**Total:** ~16 dias úteis (~3 semanas).
+**Total:** ~16 dias úteis (~3 semanas) para o MVP do item 5; +2 dias se versão "full" do item 5 (ver §7.7).
+
+### 7.1.1 Dependency DAG entre os itens
+
+```
+                ┌─────────┐
+                │ Pre-flight│  ── /opsx:new + auditorias §7.6 + §7.8 + §7.11
+                └────┬────┘
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+     ┌────┐      ┌────┐       ┌────┐
+     │ 1  │      │ 6  │       │ 3  │   ── independentes (paralelizáveis)
+     └─┬──┘      └─┬──┘       └─┬──┘
+       │           │ ┌──────────┘
+       │           │ │
+       ▼           ▼ ▼
+     ┌────┐      ┌────┐
+     │ 2  │      │6.1 │   ── item 2 só faz sentido após 1; 6.1 depende de 6
+     └────┘      └─┬──┘
+                   │
+       ┌───────────┘
+       │
+       ▼
+     ┌────┐       ┌────┐
+     │ 7  │ ◀──── │ 4  │   ── item 7 (schema) depende de 1, 3, 4 (sabe os campos novos)
+     └─┬──┘       └────┘   ── item 4 depende de pre-flight §7.6 (Soot API check)
+       │             ▲
+       │             │
+       │           ┌────┐
+       └─────────► │ 5  │   ── item 7 final só fecha após 5 (sabe estrutura ArrayAdapter)
+                   └────┘   ── item 5 depende de pre-flight §7.7 (cobertura)
+                     │
+                     ▼
+                   ┌────┐
+                   │ 8  │   ── item 8 (testes + re-run) depende de TODOS
+                   └────┘
+```
+
+**Marcos de checkpoint:**
+- **M1 (após 1+2):** desbloqueio funcional mínimo do aperv — calibração v3 pode iniciar com build intermediário (tag `gh<N>-interim-windows-fix`).
+- **M2 (após 3+4+7 parcial):** paridade GESDA atingida.
+- **M3 (após 6+6.1):** decisão GO/NO-GO para item 6 baseado em paridade Jaccard (§7.4).
+- **M4 (após 8):** change pronta para `opsx:archive`.
+
+### 7.2 Fora de escopo (todo o resto)
+
+- **Opção D** (refatorar `AndroidCallGraph` para `OnFlyCallGraphBuilder`/RTA) — descartada.
+- Aumentar timeout do sweep (anti-padrão).
+- Mudanças no rv-experiment, rv-platform, ou no scorer do aperv (`MopScorer.java`).
+- ArrayAdapter "full" (cobre `getResources().getStringArray()`, Kotlin `listOf()`, escape analysis) — só MVP nesta change.
+
+### 7.3 Sequência de execução proposta
+
+Ordenada para **descobrir problemas cedo** e isolar risco. Pré-condicões em §7.6–7.11.
+
+1. **Pre-flight (1 dia):** abrir change OpenSpec via `/opsx:new gh<N>-static-analysis-overhaul`. Schema: `rv-sdd` (Full SDD). Executar auditorias §7.6 (Soot API GESDA), §7.7 (cobertura ArrayAdapter), §7.8 (bytecode scan), §7.11 (fixtures).
+2. **Itens 1+2** (1½ dias): popular `windows[]` + flag `--skip-wtg`. Smoke em 5 APKs. **🚩 Marco M1.**
+3. **Itens 3.1–3.4** (½ dia): paridade XML. Validar atributos contra outputs GESDA em 3 APKs.
+4. **Item 4** (2 dias): menu programático. Validar no APK fixture de §7.11.
+5. **Item 7 parcial** (½ dia): bump schema + leitor `MopData` para campos XML + menu items.
+6. **Item 5** (4 dias MVP): ArrayAdapter literal constructor + `add`/`addAll`. Validar nos APKs de §7.11. **🚩 Marco M2.**
+7. **Item 6 + 6.1** (6 dias): Opção A via feature flag (§7.9). Validação cruzada Jaccard (§7.4). **🚩 Marco M3 — GO/NO-GO.**
+8. **Item 7 restante** + **Item 8** (3 dias): finalizar leitor aperv (items recursivos do menu) + bateria completa de testes + re-run dos 190 APKs. **🚩 Marco M4.**
+9. **`/rv-verify` + `/opsx:verify` + `/opsx:archive`**.
+
+### 7.4 Critérios de sucesso (definição rigorosa)
+
+- [x] Hipótese diagnóstica confirmada (§3–§5)
+- [ ] `windows[]` populadas em **≥95%** dos 190 APKs do `APKS_FINAL_JCA_DEXLIB` após re-run (denominador: 190; numerador: APKs com `windows` não-vazio)
+- [ ] Aperv `MopData` lê `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` sem erros em **100%** dos APKs do smoke (10 APKs de §7.11)
+- [ ] ≥1 APK com menu programático mostra `items[]` populado em `OPTIONSMENU` (fixture específico em §7.11)
+- [ ] ≥1 APK com Spinner populado por `ArrayAdapter` mostra `entries[]` ≥1 item via dataflow (fixture em §7.11)
+- [ ] **Paridade WTG (Opção A) — definição precisa:** Para cada um dos 10 APKs de §7.11 (subconjunto de baseline OK):
+  - Computar `T_before = {(src_window_id, tgt_window_id, event_type) ∈ transitions[]}` no JSON pré-mudança.
+  - Computar `T_after = idem no JSON pós-mudança.
+  - Jaccard = `|T_before ∩ T_after| / |T_before ∪ T_after|`.
+  - **Critério:** média Jaccard ≥ 0.95 sobre os 10 APKs; nenhum APK abaixo de 0.85.
+  - Divergências (transições novas ou perdidas) devem ter justificativa documentada (via bytecode-scan ou edge específica de SPARK).
+- [ ] Wall-clock médio por APK: redução mensurada em pelo menos 5 APKs grandes (>50K vértices CG); meta aspiracional **≥30%** (foi ≥50% antes — moderado após audit; baseline a ser tirado no pre-flight)
+- [ ] Calibração APE-RV v3 prossegue com 190 APKs (não 54)
+- [ ] `rv-verify` e `opsx:verify` passam clean
+
+### 7.5 Especificação do flag `--skip-wtg`
+
+**Propagação dual** (Python sweep → Java client):
+
+1. **Sweep CLI** (Python): novo arg `--skip-wtg` em `scripts/static_analysis_sweep.py` (boolean, default false). Quando `true`, adiciona ao comando do GATOR: `-clientParam skipWtg=true`.
+2. **GATOR client** (Java): parsing em `RvsecAnalysisClient.run()` antes da linha 158, via `Configs.getClientParamCode("skipWtg=")` (mesmo padrão de `mopDir=`, `codePackage=`). Se `true`, pular `wtgBuilder.build()` (linha 160) e ir direto para o caminho `wtg==null` do `writeJson()`.
+3. **Default:** `false` (comportamento atual; WTG é tentada normalmente). Quando `--skip-wtg` é passado, log explícito `[RvsecAnalysisClient] WTG skipped by client parameter`.
+
+**Por que client parameter (não env var ou JVM property):** mantém padrão arquitetural existente do GATOR; permite controle per-APK no futuro (ex: aplicar só a APKs sabidamente travados).
+
+### 7.6 Pre-flight: Soot API check (Item 4)
+
+Antes de portar `SootAnalyze.java:372–531` do GESDA:
+- Verificar versão Soot do `rvsec-gesda/pom.xml` vs `rvsec-gator/pom.xml` (gh51 fixou em Soot 4.7.1).
+- Diff de API: `UnitGraph`, `InvokeExpr`, `InterfaceInvokeExpr`, `AssignStmt`, `IntConstant`, `RefType` — se >3 signatures divergirem, escalar item 4 para 3–4 dias.
+- Verificar disponibilidade de `parseAppStrings` / equivalente no `RvsecAnalysisClient` (foi `XmlParser` do GESDA — pode ser que `enrichFromXml` + `resolveStringReference` em `RvsecAnalysisClient.java:962–981` cubra).
+
+### 7.7 Pre-flight: cobertura ArrayAdapter (Item 5)
+
+Antes de implementar:
+- Decompilar 20 APKs amostrados do `APKS_FINAL_JCA_DEXLIB` (estratificado por size_bucket).
+- `grep -E "new ArrayAdapter|setAdapter\(.*ArrayAdapter|getResources\(\).getStringArray|listOf\(" sources/`.
+- Classificar por padrão: (a) `new ArrayAdapter<>(ctx, layoutId, R.array.X)`, (b) literal `new String[]{...}`, (c) `getResources().getStringArray(...)`, (d) Kotlin `listOf(...)`.
+- **MVP (4 dias):** cobre (a) + (b) via SPARK points-to + def-use local.
+- **Full (6–7 dias):** adiciona (c) via resolução de R.array → arrays.xml + (d) via desugaring Kotlin.
+- **Decisão:** se cobertura MVP em ≥40% dos APKs amostrados, parar em MVP. Caso contrário, escalar.
+
+### 7.8 Pre-flight: bytecode-scan no nível WTG (Item 6)
+
+`gh51-D6` introduziu bytecode scan APENAS para `directlyReachesMop` (RvsecAnalysisClient.java:133, `findDirectMopCallersByBytecodeScan`). Para o item 6 da WTG, é necessário um análogo:
+
+- Para cada `invoke` site na WTG, **se** o callee tem class name em `IGNORED_CLASSES` (libs quarentinadas), **então** adicionar edge via bytecode scan (não pelo SPARK CG, que omitiria).
+- Modelo: estender `findDirectMopCallersByBytecodeScan` para uma rotina genérica `scanInvokesByPattern(classes, predicate)` que retorne `Set<Edge>` em vez de `Set<SootMethod>`.
+- Validação: na paridade Jaccard (§7.4), divergências esperadas devem mapear 1:1 para edges adicionadas pelo bytecode scan.
+
+### 7.9 Feature flag para Item 6 (rollback runtime)
+
+Em `Configs.java` (gator): novo campo `cgDelegationEnabled` (boolean, default true). Em `FlowgraphRebuilder.buildCallGraph()`, branch no início:
+
+```java
+if (Configs.cgDelegationEnabled) {
+    return delegateToSparkCg(...);  // novo caminho
+} else {
+    return legacyCha(...);          // caminho atual preservado
+}
+```
+
+**Benefícios:**
+- Se Jaccard <95% em produção: setar `-clientParam cgDelegation=false` e re-rodar sem rebuild.
+- Permite A/B testing wall-clock e qualidade.
+- Rollback total: deletar o flag check após N semanas de operação estável.
+
+### 7.10 Schema versioning (Item 7)
+
+JSON atual **não tem** `schemaVersion` field (verificar — assumir v1.0 implícita).
+
+- **Adicionar** `schemaVersion: "2.0"` como segundo campo do JSON (depois de `package`, antes de `mainActivity`).
+- **Campos novos em v2.0**:
+  - `windows[].widgets[].prompt` (string, opcional; null se ausente).
+  - `windows[].widgets[].spinnerMode` (string enum: `"dropdown"` | `"dialog"` | null).
+  - `windows[].widgets[].contentDescription` (string, opcional).
+  - `windows[].widgets[].tooltipText` (string, opcional).
+  - `windows[type="OPTIONSMENU"].widgets[].items[]` (array de widget objects, recursivo; vazio se não há submenu).
+  - `windows[].widgets[].entries[]` (já existia; agora pode ser populado via ArrayAdapter dataflow além do XML).
+- **Compat reader (aperv MopData.java):**
+  - Se `schemaVersion` ausente OU `"1.0"`: campos novos tratados como `null`/vazio. Comportamento idêntico ao pré-mudança.
+  - Se `schemaVersion == "2.0"`: lê todos os campos. `null` aceito.
+- **Estratégia para JSONs existentes** (54 APKs OK em `APKS_FINAL_JCA_DEXLIB`): re-gerar todos após a change. Não há tentativa de upgrade in-place; o re-run dos 190 APKs (Item 8) é a fonte canônica.
+
+### 7.11 Fixtures de teste (definição obrigatória pre-flight)
+
+**Cada fixture é um APK específico do `APKS_FINAL_JCA_DEXLIB` (ou cryptoapp test resource). Lista a ser preenchida no pre-flight, **antes** de iniciar a implementação.** Template:
+
+| Função | APK candidato | Como validar |
+|--------|---------------|--------------|
+| Smoke do item 1 (windows[] populadas no caminho wtg-null) | 5 APKs travados do grupo de 136 — escolher: 1 pequeno, 2 médios, 2 grandes (por nº de classes) | Verificar `windows.length > 0` no JSON pós-fix |
+| Smoke do item 6 (paridade Jaccard) | 10 APKs do grupo de 54 OK — estratificar por size_bucket (small/medium/large/xlarge) | Script `wtg_paridade_diff.py` |
+| Item 4 (menu programático) | APK com `onCreateOptionsMenu` populado por `menu.add(...)` | A definir no pre-flight (grep no corpus) — fallback: `cryptoapp` test fixture |
+| Item 5 (Spinner ArrayAdapter) | APK com `new ArrayAdapter<>(...)` + `adapter.add(...)` | A definir no pre-flight (grep no corpus) |
+
+**Critério bloqueante:** se pre-flight não encontrar fixture para itens 4 ou 5 no corpus, escalar para criar APK sintético (+1 dia por APK).
 
 ### 7.2 Fora de escopo (todo o resto)
 
@@ -495,8 +658,11 @@ Ordenada para **descobrir problemas cedo** e isolar risco:
 
 ## 9. Próximos passos
 
-1. Decisão do usuário sobre §7 (Opção A+B faseada vs alternativa).
-2. Abrir change OpenSpec correspondente via `/opsx:new` — escopo bem-definido.
+1. ✅ Decisão sobre escopo da change tomada (§7 — change única `gh<N>-static-analysis-overhaul`).
+2. ✅ Auditoria Phase-0 concluída (§16 — score 8.6/10, READY).
+3. **Próximo:** abrir change via `/opsx:new gh<N>-static-analysis-overhaul` (schema `rv-sdd`, Full SDD).
+4. **Task #1 da change:** pre-flights §7.6 (Soot API), §7.7 (cobertura ArrayAdapter), §7.8 (bytecode-scan), §7.11 (fixtures), §16.4 (license).
+5. **Marco M1** (após itens 1+2): desbloqueio mínimo do aperv → tag `gh<N>-interim-windows-fix` se calibração v3 precisar começar antes do fechamento da change.
 3. Para a calibração APE-RV v3 imediata: avaliar se vale esperar o fix B ou prosseguir com os 54 APKs com windows OK e tratar o resto como degradação conhecida (já é a abordagem em `20260513_analise_gator_window.md §6.3`).
 
 ---
@@ -680,6 +846,87 @@ A change consolidada `gh<N>-static-analysis-overhaul` absorve praticamente todas
 | `gh<N>-android-cg-refactor` (Opção D da §6) | Trocar `AndroidCallGraph` por `OnFlyCallGraphBuilder`/RTA do Soot. | **Não abrir** — descartada por baixo retorno vs alto esforço (Opção A da change atual já resolve a raiz do problema reusando o SPARK CG). |
 
 **Nota:** após `gh<N>-static-analysis-overhaul` arquivada, o pipeline de análise estática fica funcionalmente completo e estruturalmente limpo. Não há dívida técnica conhecida em rvsec-gator + rv-static-analysis que motive uma próxima change preventivamente.
+
+---
+
+## 16. Auditoria Phase-0 — prontidão para `/opsx:new` (2026-05-13)
+
+Três auditorias paralelas (consistência interna, fitness para SDD workflow, risk register) foram conduzidas após a consolidação do escopo. Síntese:
+
+**Score geral:** 7.1/10 → READY com edits aplicados nesta seção.
+
+### 16.1 Issues fixados inline neste doc
+
+| ID | Severidade | Onde fixei | Mudança |
+|----|------------|------------|---------|
+| AUD-01 | BLOCKER | §7.5 (nova) | `--skip-wtg` flag: spec dual sweep CLI + GATOR clientParam |
+| AUD-02 | BLOCKER | §7.4 | "Jaccard ≥95%" agora definido sobre `{(src, tgt, event)}` tuples; média ≥0.95 + nenhum APK <0.85 |
+| AUD-03 | BLOCKER | §7.1 item 6 | Filtro: `Scene.v().getCallGraph().edgesOutOf(src)` filtrado por subSignature |
+| AUD-04 | BLOCKER | §7.1.1 (novo) | DAG explícito entre os 8 itens + 4 marcos M1–M4 |
+| AUD-05 | HIGH | §7.5 + §7.8 + §7.9 + §7.10 + §7.11 (novas) | 4 sub-seções de spec rigorosa |
+| AUD-06 | HIGH | §7.7 (novo) | Item 5 split em MVP (4d) vs full (6–7d), com pre-flight de cobertura |
+| AUD-07 | HIGH | §7.9 (novo) | Rollback via **feature flag** `cgDelegationEnabled` — rollback runtime, sem rebuild |
+| AUD-08 | HIGH | §7.4 | Performance claim moderada de "≥50%" → "≥30% aspiracional; baseline a tirar no pre-flight" |
+| AUD-09 | MEDIUM | §7.6 (novo) | Pre-flight de Soot API check (item 4) |
+| AUD-10 | MEDIUM | §7.8 (novo) | Pre-flight + spec do bytecode-scan no nível WTG |
+| AUD-11 | MEDIUM | §7.11 (novo) | Fixtures como pre-condição obrigatória + fallback APK sintético |
+| AUD-12 | MEDIUM | §16.2 (abaixo) | Delta-spec files enumerados |
+| AUD-13 | MEDIUM | §16.3 (abaixo) | Build/JAR strategy |
+| AUD-14 | MEDIUM | §16.4 (abaixo) | GESDA license attribution |
+
+### 16.2 Delta-spec files enumerados
+
+Lista para `/opsx:continue` → spec deltas:
+
+| Domínio | Arquivo | Mudanças previstas |
+|---------|---------|---------------------|
+| `analysis` | `openspec/specs/analysis/spec.md` | MODIFIED — requisitos de `windows[]` ganham cláusula: "populadas mesmo quando WTG falha"; ADDED — requisitos para `prompt`, `spinnerMode`, `contentDescription`, `tooltipText`, `items[]` em OPTIONSMENU, `entries[]` via dataflow; MODIFIED — invariante de call graph (single SPARK graph) |
+| `tools` | `openspec/specs/tools/spec.md` | MODIFIED — `MopData` parser lê schema v2.0 |
+| `agent` | `openspec/specs/agent/spec.md` | (provavelmente sem mudança — rv-agent não é consumidor ativo) |
+
+**Pre-flight Phase 2:** rodar `grep -n "windows\|transitions\|reachability\|MopData" openspec/specs/{analysis,tools}/spec.md` para inventário exato dos requisitos atuais antes de redigir as deltas.
+
+### 16.3 Build/JAR distribution strategy
+
+- **rvsec-gator JAR:** built via `mvn package` em `rvsec/rvsec/rvsec-android/rvsec-gator/`. Output: `client/target/rvsec-gator-client-*.jar`. Consumido pelo `static_analysis_sweep.py` via `$RVSEC_HOME` (cf. `RV_SA_TIMEOUT=1800` e env-vars do gh55).
+- **ape-rv.jar:** built separadamente em `workspace-rv/ape/` via `mvn package`. Output: `ape.jar`. Consumido por `aperv-tool` (Python wrapper).
+- **Sincronização durante a change:** ambos os JARs devem ser rebuildados antes do re-run dos 190 APKs. Adicionar pre-flight script `scripts/check_jar_sync.sh` que valida timestamps.
+- **Docker images:** `docker/tools/Dockerfile` referencia o GATOR JAR via `$RVSEC_HOME` mount. Rebuild da imagem **não é necessário** se o mount aponta para o JAR atualizado no host. Aperv idem.
+- **Concurrent session conflict (CogniCrypt):** rebuild do GATOR JAR pode invalidar runs em andamento. Coordenação manual no momento — adicionar `flock /tmp/rvsec-gator.lock mvn package` ou pausar CogniCrypt antes do rebuild.
+
+### 16.4 License attribution (GESDA → unified)
+
+- **GESDA:** `com.fdu.se.sootanalyze` (Fudan University). Sem header de licença em `SootAnalyze.java:1` (linha 1 é `package`).
+- **rvsec-gator/RvsecAnalysisClient.java:** também sem header de licença.
+- **Ação no pre-flight:** verificar `LICENSE` files em ambos os módulos; se ausentes, assumir licença institucional do projeto rvsec (PAMunb). Para itens 3, 4 portados do GESDA, adicionar `@PortedFrom` javadoc:
+  ```java
+  /**
+   * @PortedFrom rvsec-gesda/.../SootAnalyze.java:372-531 (2024 baseline)
+   */
+  ```
+- Não bloqueante para a change; é boa prática de rastreabilidade científica (importante se a tese citar a porta).
+
+### 16.5 Issues deferidos para Phase 3 (não-blockers para `/opsx:new`)
+
+- **Aperv MopData reader test plan** (AUD HIGH gap #3 do agente de risco) → Phase 3 `/rv-doc-adr` + tasks.md devem detalhar.
+- **Rollback feature flag scope detalhado** → Phase 3 design.md.
+- **CogniCrypt validation post-change** → Phase 3 risk register formal.
+
+### 16.6 Score final por dimensão
+
+| Dimensão | Antes | Após edits |
+|----------|-------|------------|
+| Decisões tomadas | 9/10 | 9/10 |
+| Phase 1 (Explore) readiness | 8/10 | 9/10 (DAG add) |
+| Phase 2 (Propose) readiness | 7/10 | 9/10 (delta-spec list + schema spec) |
+| Phase 3 (Design) readiness | 8/10 | 9/10 (feature flag + pre-flights) |
+| Phase 4 (Implement) readiness | 7/10 | 8/10 (fixtures TBD na pre-flight, ainda) |
+| Schema versioning | 6/10 | 9/10 (§7.10) |
+| Build/artifact | 5/10 | 8/10 (§16.3) |
+| Rollback | 6/10 | 9/10 (feature flag + DAG) |
+| **Geral** | **7.1/10** | **8.6/10 — READY** |
+
+**Verdict:** doc pronto para `/opsx:new`. Pre-flights de §7.6–7.11 viram task #1 da change.
 
 ---
 
