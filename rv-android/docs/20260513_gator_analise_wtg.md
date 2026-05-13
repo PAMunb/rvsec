@@ -683,6 +683,56 @@ A change consolidada `gh<N>-static-analysis-overhaul` absorve praticamente todas
 
 ---
 
+## 15. Verificação: o plano resolve a calibração APE-RV v2/v3?
+
+**Data:** 2026-05-13 (pós-consolidação do plano)
+**Pergunta:** o escopo definido em §7.1 cobre todas as necessidades de `rvsec-calibracao/docs/20260407_aperv_calibracao_v2.md` (doc B) e `20260513_analise_gator_window.md` (doc C)?
+
+**Resposta:** ✅ **Sim — cobre integralmente e torna obsoletas as mitigações de §6.2/§6.3 do doc C.**
+
+### 15.1 Mapeamento necessidade → item do plano
+
+| Necessidade da calibração | Fonte | Status hoje | Após nosso plano | Item |
+|---------------------------|-------|-------------|------------------|------|
+| `mop_weight_direct` operacional (precisa `windows[].widgets[]`) | C:§6.1 | 54/190 (28.4%) | **190/190 (100%)** | 1 |
+| `mop_weight_activity` operacional (precisa `windows[]`) | C:§6.1 | 54/190 | **190/190** | 1 |
+| `mop_weight_wtg` operacional (precisa `transitions[]`) | C:§6.1 | 54/190 | **>> 54/190** (WTG acelerada via SPARK CG) | 6 |
+| `mop_weight_transitive` (só precisa `reachability[]`) | C:§6.1 | 190/190 | 190/190 | — (já OK) |
+| Função objetivo padrão `0.5×mop + 0.5×method` operacional | B:§3.8 | Comprometida (3 de 4 pesos inertes em 71.6%) | **Plenamente operacional** | 1, 6 |
+| 4 pesos MOP calibráveis pelo Optuna (10-param search space de B:§3.1) | B:§3.1 | TPE iria zerar / otimizar contra ruído (problema da v1 reaparece) | **TPE recebe gradiente real em todos os 4 pesos** | 1, 6, 7 |
+| 100 APKs estratificados úteis | B:§3.2 | Apenas 54 com windows OK — risco de viés de seleção | **190 APKs viáveis → re-stratify pode preservar os 100 escolhidos** | 1, 6 |
+| GESDA features extras (não citadas em B/C, mas em A:§12) | A:§12 | Faltam: prompt, spinnerMode, contentDescription, tooltipText, items, ArrayAdapter | **Todas portadas** | 3, 4, 5 |
+
+### 15.2 Mitigações propostas em C que ficam obsoletas
+
+| Mitigação proposta em C | Status após nosso plano |
+|--------------------------|--------------------------|
+| **C:§6.2** — Two-score objective (`0.5×method_trimmed(130) + 0.5×mop_widget_trimmed(~37)`) | ⚠️ **Vira opcional.** Pode ser descartado (volta para 0.5×mop + 0.5×method de B:§3.8 em todos os 190 APKs) **OU** mantido como contingência adicional contra outliers. Decisão do team de calibração. |
+| **C:§6.3.A** — Aumentar sweep timeout para 3600s (~34h wall-clock) | ❌ **Desnecessário.** Item 1 desacopla `windows[]` da WTG; item 6 acelera o WTG quando ele rodar. Não há razão para queimar 34h de wall-clock. |
+| **C:§6.3.B** — Fallback `-cgAlgorithm cha` | ❌ **Desnecessário.** Item 6 (Opção A) reusa o CG SPARK do Soot na WTG, eliminando o second-graph CHA-style sem perder precisão. |
+| **C:§6.3.C** — Híbrido spark→cha multi-passada | ❌ **Desnecessário.** Mesmo motivo. |
+| **C:§7.1** — Time budget interno no `RvsecAnalysisClient` | ⚠️ Continua válido como melhoria de qualidade (sinal explícito no log), mas não bloqueia mais nada. Fora do escopo desta change. |
+| **C:§7.2–7.5** — Timeout adaptativo, stage checkpoint, log de timeout, CHA automático | ⚠️ Idem — qualidade de vida, não essenciais. |
+
+### 15.3 Possíveis riscos residuais (e por quê não bloqueiam)
+
+| Risco | Mitigação |
+|-------|-----------|
+| Opção A (item 6) introduz divergência semântica em `transitions[]` | §7.4: critério de paridade WTG ≥95% Jaccard em 10 APKs OK; se falhar, item 6 é revertido sem afetar 1–5 (`windows[]` ainda fica populado pelo item 1) |
+| ArrayAdapter dataflow (item 5) é feature nova com cobertura imperfeita | É **aditivo** — qualquer item capturado é ganho líquido vs o estado atual (zero items programáticos hoje) |
+| Re-stratify pode mudar a seleção de 100 APKs | Decisão de calibração: aceitar nova seleção (mais representativa) ou preservar IDs originais e usar como holdout |
+| Wall-clock do re-run dos 190 APKs após o fix | Estimativa: reachability ~5–30 s/APK; WTG (pós-Opção A) prevê ~30 s–2 min/APK; total <2h em 4 workers paralelos. Vs 34h da Opção 6.3.A |
+
+### 15.4 Recomendação para o team da calibração
+
+1. **Aguardar a change `gh<N>-static-analysis-overhaul`** antes de iniciar a Fase C da v3.
+2. **Revisar a decisão de two-score em C:§6.2/B:§3.2** após o re-run: provavelmente volta para o objetivo padrão `0.5×mop + 0.5×method` de B:§3.8.
+3. **Re-stratify dataset** após o re-run para preservar representatividade com windows[] populado em 100%.
+4. **NÃO executar** Opções 6.3.A/B/C — todas substituídas pelo plano.
+5. **Manter o doc B:§3** atualizado com a nota de que os 4 pesos MOP voltam a operar normalmente após o fix.
+
+---
+
 ## 14. Referências cruzadas
 
 - `rvsec-calibracao/docs/20260513_analise_gator_window.md` — análise empírica original (71.6%).
