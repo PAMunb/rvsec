@@ -1,0 +1,42 @@
+# Mini smoke local: 1 APK, droidbot:dfs_naive, 60s. Valida o patch droidbot+androguard 4.x
+# antes do push da imagem ao Docker Hub.
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: rv-humanoid-mini
+    ports:
+      - "50406:50405"
+
+  minismoke:
+    image: phtcosta/rvandroid:0.8.0
+    container_name: val_minismoke
+    depends_on:
+      - humanoid
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "16g"
+    environment:
+      RV_EXPERIMENT_NAME: minismoke
+      RV_TOOLS: "droidbot:dfs_naive"
+      RV_TIMEOUTS: "60"
+      RV_REPETITIONS: "1"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca"
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/minismoke_batch.txt"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_HUMANOID_URL: "rv-humanoid-mini:50405"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/minismoke:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock

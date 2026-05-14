@@ -1,0 +1,12 @@
+app.pachli_47.apk
+com.alovoa.expo_48.apk
+com.destructo.botox_43.apk
+com.grappim.hateitorrateit.fdroid_30.apk
+com.matedroid_177559341.apk
+com.sakethh.linkora_50.apk
+com.xmission.trevin.android.todo_1050101.apk
+dev.clombardo.dnsnet_67.apk
+io.github.scovillo.playondlna_9.apk
+network.loki.messenger.fdroid_4515.apk
+org.fossify.math_10.apk
+org.woheller69.solxpect_29.apk

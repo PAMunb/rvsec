@@ -1,0 +1,12 @@
+ch.famoser.mensa_60.apk
+com.capyreader.app_1204.apk
+com.futsch1.medtimer_162.apk
+com.jksalcedo.librefind_2200101.apk
+com.opennotes_8.apk
+com.simplexray.an_39.apk
+de.dbauer.expensetracker_63.apk
+in.hridayan.ashell_58.apk
+me.knighthat.kreate_135.apk
+org.fossify.calendar_20.apk
+org.jyutping.jyutping_59.apk
+uk.nktnet.webviewkiosk_122.apk
