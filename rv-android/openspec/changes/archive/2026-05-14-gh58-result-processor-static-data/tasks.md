@@ -59,10 +59,10 @@ Goal: validate the fix on the live execution path with a known-good APK. Unit te
 
 ## 6. Archive
 
-- [ ] 6.1 Invoke `/opsx:archive gh58-result-processor-static-data` via Skill tool — syncs delta specs to main specs (`openspec/specs/platform/spec.md`, `openspec/specs/analysis/spec.md`) and moves change dir to `openspec/changes/archive/YYYY-MM-DD-gh58-result-processor-static-data/`.
-- [ ] 6.2 Run `/rv-docs-sync modules/rv-platform` via Skill tool if CLAUDE.md or architecture docs reference the old CSV schema.
-- [ ] 6.3 Commit the implementation (separate commits per logical group: regression test, fix + helpers, CSV header extension, ADR, archive). Final commit body includes `Closes #58`.
-- [ ] 6.4 Run `gh issue close 58 --comment "Closed by gh58 implementation; see archived change at openspec/changes/archive/YYYY-MM-DD-gh58-result-processor-static-data/."` (only if the close trailer in the merge commit hasn't already auto-closed it).
+- [x] 6.1 Invoke `/opsx:archive gh58-result-processor-static-data` via Skill tool — syncs delta specs to main specs (`openspec/specs/platform/spec.md`, `openspec/specs/analysis/spec.md`) and moves change dir to `openspec/changes/archive/YYYY-MM-DD-gh58-result-processor-static-data/`.
+- [x] 6.2 Run `/rv-docs-sync modules/rv-platform` via Skill tool if CLAUDE.md or architecture docs reference the old CSV schema.
+- [x] 6.3 Commit the implementation (separate commits per logical group: regression test, fix + helpers, CSV header extension, ADR, archive). Final commit body includes `Closes #58`.
+- [x] 6.4 Run `gh issue close 58 --comment "Closed by gh58 implementation; see archived change at openspec/changes/archive/YYYY-MM-DD-gh58-result-processor-static-data/."` (only if the close trailer in the merge commit hasn't already auto-closed it).
 
 ## Out of Scope (do NOT include in any commit of this change)
 
