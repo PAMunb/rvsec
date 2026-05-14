@@ -1,14 +1,25 @@
-<!-- Subagent dispatch hints:
-     - Group 1 (Pre-flight) must complete first — every other group depends on its findings (Soot API check, ArrayAdapter corpus coverage, fixtures, license attribution).
-     - Group 2 (Core fix — windows[] decoupling + skipWtg) is the M1 milestone — independent of Groups 3, 4, 5, 6.
-     - Group 3 (XML attribute parity) is independent — can run in parallel with 2.
-     - Group 4 (MenuExtractor) depends on Group 1.1 (Soot API check) outcome.
-     - Group 5 (SpinnerItemExtractor) depends on Group 1.2 (ArrayAdapter corpus scan) outcome.
-     - Group 6 (Opção A — SPARK CG delegation + bytecode-scan complement + paridade gate) is the highest-risk group (M3 GO/NO-GO).
-     - Group 7 (schema bump + MopData reader update across rv-android and the external ape repo).
-     - Group 8 (acceptance — full 190-APK re-run + final verification).
-     - Critical path: 1 → 2 → 7 → 8. Groups 3, 4, 5, 6 can interleave between Groups 2 and 7.
-     - This change touches the Java rvsec-gator module + Python rv-static-analysis sweep + external ape repo (MopData.java). Subagent orchestration is appropriate for Groups 4, 5, 6 in parallel after Group 2 lands.
+<!-- Subagent dispatch hints (revised after consistency audit 2026-05-14):
+
+     Group dependencies (logical):
+     - Group 1 (pre-flight) MUST complete before any other group; emits notes/* files consumed by later groups.
+     - Group 2 (core windows[] fix + skipWtg) is M1 milestone and is BLOCKING for all later code-touching groups: 4.5 and 5.6 wire new extractors into `extractWindows()` which Group 2 modifies, and Group 7 emits `schemaVersion` inside `writeJson()` which Group 2 modifies.
+     - Groups 3, 4, 5, 6 can be DEVELOPED in parallel after Group 2 lands, BUT:
+         * Groups 3 and 4 are file-coupled on `RvsecAnalysisClient.java` (Group 3 modifies `enrichFromXml`; Group 4 wires into `extractWindows`). Merge order: 3 → 4 to avoid manual merge conflicts.
+         * Group 5 is file-coupled with Group 3 on the same widget object (5.6 unions `entries[]` after `enrichFromXml`). Merge order: 3 → 5.
+         * Group 6 modifies a different file (`FlowgraphRebuilder.java`), no file coupling.
+     - Group 7 (schema bump + MopData reader) depends on Groups 2, 3, 4, 5, 6 — schema must reflect ALL extractor outputs and ape:MopData.java must read them.
+     - Group 8 (acceptance) depends on everything.
+
+     Milestones:
+     - M1 = end of Group 2 (windows[] populated; aperv unblocked).
+     - M2 = end of Groups 3 + 4 + 5 (GESDA parity + ArrayAdapter MVP shipped).
+     - M3 = end of Group 6 with paridade gate PASS (avg ≥ 0.95 AND min ≥ 0.85).
+     - M4 = end of Group 8 (full 190-APK re-run validates ≥95% windows[] non-empty).
+
+     Critical merge path: 1 → 2 → [3 → 4 → 5 in serial; 6 in parallel] → 7 → 8.
+     Shortest MVP (interim build for v3 calibration unblock only): 1 → 2 → tag `gh57-interim-windows-fix` after task 2.10. Full change still finalizes via 3 → 4 → 5 → 6 → 7 → 8.
+
+     Subagent dispatch is appropriate for Groups 4, 5, 6 after Group 3 merges (Group 6 can dispatch right after Group 2 since it touches a different file). This change touches: rvsec-gator Java module + Python rv-static-analysis sweep + external `ape` repo (MopData.java) — 3 build artifacts to sync.
 -->
 
 ## 1. Pre-flight audits (Phase-0 §7.6–7.11, §16.4)

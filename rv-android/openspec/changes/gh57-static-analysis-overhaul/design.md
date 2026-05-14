@@ -357,7 +357,8 @@ sweep CLI ──▶ static_analysis_sweep.py
 
 | Risk | Mitigation |
 |------|------------|
-| SPARK CG omits edges to `IGNORED_CLASSES` that the legacy CHA path included → `transitions[]` regression | Bytecode-scan complement (INV-ANA-22); paridade Jaccard gate ≥ 0.95 on 10-APK fixture; runtime feature flag for rollback |
+| SPARK CG omits edges to `IGNORED_CLASSES` that the legacy CHA path included → `transitions[]` regression | Bytecode-scan complement (INV-ANA-22); paridade Jaccard gate (avg ≥ 0.95, no individual APK < 0.85) on 10-APK fixture; runtime feature flag for rollback |
+| Jaccard per-APK < 0.85 on any single baseline-OK APK while average is still ≥ 0.95 | The gate enforces BOTH thresholds: avg ≥ 0.95 AND min ≥ 0.85. If a single APK fails the minimum, treat as paridade FAIL and either (a) extend `scanInvokesByPattern` predicate to cover the missed cases, or (b) keep `cgDelegation=false` as default (D3 feature flag enables runtime rollback without rebuild) |
 | `SpinnerItemExtractor` MVP coverage is too low on real APKs (mostly Kotlin `listOf()` or `getStringArray()`) | Pre-flight corpus scan (Phase-0 §7.7); decide to ship MVP or extend to full |
 | `MenuExtractor` direct port from GESDA breaks because Soot 4.7.1 APIs diverged from GESDA's older Soot | Pre-flight Soot API diff (Phase-0 §7.6); fallback adapter layer if signatures differ |
 | The 54 pre-existing legacy-v1 JSONs become inconsistent with v2.0 outputs across the dataset | The 190-APK re-run at the close of the change re-generates all of them; `MopData.java` tolerates both schemas during the transition |
