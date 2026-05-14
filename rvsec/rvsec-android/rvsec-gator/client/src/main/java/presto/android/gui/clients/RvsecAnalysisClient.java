@@ -715,7 +715,9 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			extractedIds.add((int) window.get("id"));
 		}
 
-		// Options menus — use the menu node's own ID
+		// Options menus — use the menu node's own ID. Walk menu.getChildren()
+		// to surface NMenuItemInflNode entries that FixpointSolver.doMenuInflate
+		// already populated from R.menu.<name>.xml.
 		for (SootClass activity : output.getActivities()) {
 			NOptionsMenuNode menu = output.getOptionsMenu(activity);
 			if (menu != null) {
@@ -726,7 +728,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				window.put("name", menuName);
 				window.put("type", "OPTIONSMENU");
 				window.put("isMain", false);
-				window.put("widgets", Collections.emptyList());
+
+				List<Map<String, Object>> widgets = new ArrayList<>();
+				Set<NNode> menuVisited = new HashSet<>();
+				for (NNode child : menu.getChildren()) {
+					collectWidgets(output, child, widgets, menuVisited);
+				}
+				window.put("widgets", widgets);
 				windows.add(window);
 				extractedIds.add((int) window.get("id"));
 			}
