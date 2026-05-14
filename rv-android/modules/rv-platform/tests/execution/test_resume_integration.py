@@ -330,12 +330,13 @@ def _make_dummy_task():
 
 
 class TestCoverageCSVResumedTasks:
-    """Verify that tasks loaded from disk (repository=None) produce a
-    single summary row in coverage.csv using coverage_metrics, not
-    per-method rows."""
+    """gh58/INV-PLT-15+16: resumed tasks reconstruct a populated repository from
+    logcat + on-demand static-data re-parse. No "single summary row" fallback;
+    per-method rows are emitted when logcat exists, zero rows when it does not."""
 
-    def test_resumed_task_produces_single_summary_row(self, tmp_path):
-        """A task with repository=None writes one fallback row with metrics."""
+    def test_resumed_task_with_no_logcat_emits_no_rows(self, tmp_path):
+        """When repository=None AND logcat is missing, the writer emits zero
+        rows for the task (no fallback to stale serialized metrics)."""
         config = TaskConfiguration(
             apk_name="app.apk",
             repetition=1,
@@ -351,31 +352,21 @@ class TestCoverageCSVResumedTasks:
             "methods_mop_reachable_coverage": 10.0,
         }
         task.update_state(TaskState.COMPLETED)
-        task.repository = None  # simulates loaded from tasks.json
+        task.repository = None
+        task.result.logcat_file = ""  # missing → reconstruct returns None
 
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
         processor._generate_coverage_csv([task])
 
-        csv_path = os.path.join(results_dir, "coverage.csv")
-        with open(csv_path) as f:
+        with open(os.path.join(results_dir, "coverage.csv")) as f:
             reader = list(csv.reader(f))
-
-        # header + exactly 1 summary row (not per-method)
-        assert (
-            len(reader) == 2
-        ), f"Expected header + 1 summary row, got {len(reader)} rows"
-
-        row = reader[1]
-        assert row[0] == "app.apk"
-        assert float(row[8]) == 25.0  # cov_class = method_coverage
-        assert float(row[9]) == 50.0  # cov_act = activities_coverage
-        assert float(row[11]) == 10.0  # cov_rv_method = mop_coverage
+        # Header only — no data row from stale serialized metrics.
+        assert len(reader) == 1
 
     def test_mixed_live_and_resumed_tasks(self, tmp_path):
         """Live task (with repository) gets per-method rows; resumed task
-        (repository=None) gets a single summary row."""
-        # Live task with repository
+        without logcat gets zero rows. Total = header + per-method rows only."""
         live_repo = MagicMock()
         live_repo.get_method_calls.return_value = [
             {
@@ -398,6 +389,16 @@ class TestCoverageCSVResumedTasks:
         live_repo.get_static_methods.return_value = [MagicMock()] * 10
         live_repo.get_static_activities.return_value = [MagicMock()] * 2
         live_repo.get_mop_methods.return_value = [MagicMock()] * 5
+        live_repo.calculate_metrics.return_value.to_dict.return_value = {
+            "class_coverage": 20.0,
+            "activity_coverage": 50.0,
+            "method_coverage": 20.0,
+            "reachable_method_coverage": 25.0,
+            "mop_method_coverage": 20.0,
+            "direct_mop_method_coverage": 0.0,
+            "total_errors": 0,
+            "unique_errors": 0,
+        }
 
         live_config = TaskConfiguration(
             apk_name="live.apk",
@@ -410,7 +411,6 @@ class TestCoverageCSVResumedTasks:
         live_task.update_state(TaskState.COMPLETED)
         live_task.repository = live_repo
 
-        # Resumed task without repository
         resumed_config = TaskConfiguration(
             apk_name="resumed.apk",
             repetition=1,
@@ -420,33 +420,23 @@ class TestCoverageCSVResumedTasks:
         resumed_task = Task(resumed_config)
         resumed_task.update_state(TaskState.RUNNING)
         resumed_task.update_state(TaskState.COMPLETED)
-        resumed_task.result.coverage_metrics = {
-            "method_coverage": 30.0,
-            "activities_coverage": 60.0,
-        }
         resumed_task.repository = None
+        resumed_task.result.logcat_file = ""  # missing → no rows
 
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([live_task, resumed_task], results_dir)
         processor._generate_coverage_csv([live_task, resumed_task])
 
-        csv_path = os.path.join(results_dir, "coverage.csv")
-        with open(csv_path) as f:
+        with open(os.path.join(results_dir, "coverage.csv")) as f:
             reader = list(csv.reader(f))
 
-        # header + 2 per-method rows (live) + 1 summary row (resumed) = 4
-        assert (
-            len(reader) == 4
-        ), f"Expected 4 rows (header + 2 live + 1 resumed), got {len(reader)}"
-
-        # Verify live rows have apk=live.apk
+        # header + 2 per-method rows (live only) — resumed contributes nothing
+        # because its logcat is missing.
+        assert len(reader) == 3
         live_rows = [r for r in reader[1:] if r[0] == "live.apk"]
-        assert len(live_rows) == 2
-
-        # Verify resumed row has apk=resumed.apk with summary metrics
         resumed_rows = [r for r in reader[1:] if r[0] == "resumed.apk"]
-        assert len(resumed_rows) == 1
-        assert float(resumed_rows[0][8]) == 30.0
+        assert len(live_rows) == 2
+        assert len(resumed_rows) == 0
 
 
 # ===========================================================================

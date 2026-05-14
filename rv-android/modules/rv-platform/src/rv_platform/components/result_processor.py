@@ -22,6 +22,7 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
+from rv_static_analysis.parser.static import static_analysis_parser
 
 
 class ResultProcessorComponent:
@@ -148,22 +149,51 @@ class ResultProcessorComponent:
         )
         return completed_tasks
 
-    def _reconstruct_repository_from_logcat(self, task: Any) -> Optional[Any]:
-        """
-        Reconstruct a LogcatRepository from the persisted logcat file.
+    def _resolve_static_data(self, task: Any) -> Optional[Any]:
+        """Return static-analysis data for a task, re-parsing the JSON on demand.
 
-        When a task is loaded from tasks.json on resume, task.repository is None
-        because LogcatRepository is runtime-only (never serialized). This method
-        re-reads the logcat file to reconstruct MOP violation data from RVSEC
-        log entries. Coverage per-method data cannot be reconstructed because
-        register_method_call() requires static analysis class data.
+        Memoizes the result on ``task.static_data`` so repeated calls during a
+        single CSV generation pass do not re-parse. INV-PLT-15 (gh58): the
+        resume path obtains static data via re-parse rather than serializing
+        it in tasks.json (which would inflate the persistence by MBs per task).
+        """
+        existing = getattr(task, "static_data", None)
+        if existing is not None:
+            return existing
+
+        try:
+            results_dir = getattr(task, "results_dir", None)
+            apk_name = task.config.apk_name
+            code_package = task.app.code_package if getattr(task, "app", None) else None
+            static_data = static_analysis_parser.read_static_analysis_files(
+                results_dir, apk_name, code_package
+            )
+            task.static_data = static_data
+            return static_data
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to re-parse static analysis JSON for task {task.id}: {e} — "
+                "per-method coverage will be zero, only MOP violations will be reliable"
+            )
+            return None
+
+    def _reconstruct_repository_from_logcat(self, task: Any) -> Optional[Any]:
+        """Reconstruct a LogcatRepository from the persisted logcat file.
+
+        When a task is loaded from tasks.json on resume, ``task.repository`` is
+        None because ``LogcatRepository`` is runtime-only (never serialized).
+        This method re-reads the logcat file and re-parses the static-analysis
+        JSON on demand (via ``_resolve_static_data``) so that the reconstructed
+        repository has both MOP violation data AND per-method coverage data —
+        equivalent to the runtime path. See INV-PLT-15 (gh58).
 
         Args:
             task: Task whose repository needs reconstruction
 
         Returns:
-            LogcatRepository with MOP violation data, or None if logcat
-            file is unavailable
+            LogcatRepository with MOP violations and (when static-analysis JSON
+            is available) per-method coverage data. Returns ``None`` only when
+            the logcat file itself is missing.
         """
         logcat_file = getattr(task.result, "logcat_file", None)
         if not logcat_file or not os.path.isfile(logcat_file):
@@ -174,11 +204,17 @@ class ResultProcessorComponent:
             return None
 
         try:
-            repository = parse_logcat_file(logcat_file)
+            static_data = self._resolve_static_data(task)
+            repository = parse_logcat_file(logcat_file, static_data)
             error_count = len(repository.errors)
+            coverage_note = (
+                "with per-method coverage"
+                if static_data is not None
+                else "errors-only (static analysis JSON unavailable)"
+            )
             self.logger.info(
                 f"Reconstructed {error_count} MOP violations from logcat "
-                f"for task {task.id}"
+                f"for task {task.id} ({coverage_note})"
             )
             return repository
         except Exception as e:
@@ -203,7 +239,10 @@ class ResultProcessorComponent:
             with open(coverage_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
 
-                # Write header matching expected format
+                # extended schema (gh58): 15 columns. The legacy
+                # cov_method/cov_act/cov_rv_method remain cumulative-progressive.
+                # cov_class and the three reachability-aware columns are
+                # row-constant final values from CoverageMetrics.to_dict().
                 writer.writerow(
                     [
                         "apk",
@@ -218,6 +257,9 @@ class ResultProcessorComponent:
                         "cov_act",
                         "cov_method",
                         "cov_rv_method",
+                        "cov_reachable",
+                        "cov_reaches_mop",
+                        "cov_directly_reaches_mop",
                     ]
                 )
 
@@ -228,123 +270,110 @@ class ResultProcessorComponent:
             self.logger.info(f"Coverage CSV generated: {coverage_file}")
 
     def _write_task_coverage_data(self, writer: csv.writer, task: Any) -> None:
-        """
-        Write coverage data for a single task to CSV.
+        """Write per-method coverage rows for a single task (gh58 unified path).
 
-        Args:
-            writer: CSV writer instance
-            task: Task to process for coverage data
+        On resume, ``task.repository`` may be None; this method calls
+        ``_reconstruct_repository_from_logcat`` to obtain a populated
+        ``LogcatRepository`` (re-parsing static-analysis JSON on demand).
+        When the logcat file is missing entirely, the task is skipped — no
+        fallback row from stale serialized metrics (INV-PLT-16).
         """
         try:
-            # Extract task configuration
             config = task.config
             apk_name = config.apk_name
             repetition = config.repetition
             timeout = config.timeout
             tool_name = config.tool_config.get_full_tool_name()
 
-            # Branch 1: Task has an in-memory repository (current session).
-            # Full per-method progressive coverage data is available.
-            # Branch 2 (else): Task loaded from tasks.json on resume — repository
-            # is None. Per-method coverage CANNOT be reconstructed because
-            # register_method_call() requires static analysis class data, which
-            # is not serialized. Instead, write a single summary row using
-            # task.result.coverage_metrics (serialized in tasks.json).
-            if hasattr(task, "repository") and task.repository:
-                repository = task.repository
+            if not (hasattr(task, "repository") and task.repository):
+                reconstructed = self._reconstruct_repository_from_logcat(task)
+                if reconstructed is None:
+                    return
+                task.repository = reconstructed
 
-                # Get method calls with coverage information
-                method_calls = repository.get_method_calls()
+            repository = task.repository
 
-                # Calculate progressive coverage metrics
-                total_methods = (
-                    len(repository.get_static_methods())
-                    if hasattr(repository, "get_static_methods")
+            # Final-state denominators from CoverageMetrics for the row-constant
+            # columns (INV-PLT-17: cov_class = class_coverage, not method_coverage).
+            metrics_dict = repository.calculate_metrics().to_dict()
+            cov_class_final = round(metrics_dict.get("class_coverage", 0) or 0, 2)
+            cov_reachable_final = round(
+                metrics_dict.get("reachable_method_coverage", 0) or 0, 2
+            )
+            cov_reaches_mop_final = round(
+                metrics_dict.get("mop_method_coverage", 0) or 0, 2
+            )
+            cov_directly_reaches_mop_final = round(
+                metrics_dict.get("direct_mop_method_coverage", 0) or 0, 2
+            )
+
+            method_calls = repository.get_method_calls()
+
+            # Progressive denominators for cov_method / cov_act / cov_rv_method.
+            total_methods = (
+                len(repository.get_static_methods())
+                if hasattr(repository, "get_static_methods")
+                else 0
+            )
+            total_activities = (
+                len(repository.get_static_activities())
+                if hasattr(repository, "get_static_activities")
+                else 0
+            )
+            total_mop_methods = (
+                len(repository.get_mop_methods())
+                if hasattr(repository, "get_mop_methods")
+                else 1
+            )
+
+            called_methods: set = set()
+            called_activities: set = set()
+            called_mop_methods: set = set()
+
+            for i, call in enumerate(method_calls, 1):
+                signature = call.get("signature", "")
+                called_methods.add(signature)
+
+                activity_name = call.get("activity")
+                if activity_name:
+                    called_activities.add(activity_name)
+
+                if call.get("is_mop_method", False):
+                    called_mop_methods.add(signature)
+
+                method_coverage = (
+                    (len(called_methods) / total_methods * 100)
+                    if total_methods > 0
                     else 0
                 )
-                total_activities = (
-                    len(repository.get_static_activities())
-                    if hasattr(repository, "get_static_activities")
+                activity_coverage = (
+                    (len(called_activities) / total_activities * 100)
+                    if total_activities > 0
                     else 0
                 )
-                total_mop_methods = (
-                    len(repository.get_mop_methods())
-                    if hasattr(repository, "get_mop_methods")
-                    else 1
+                mop_coverage = (
+                    (len(called_mop_methods) / total_mop_methods * 100)
+                    if total_mop_methods > 0
+                    else 0
                 )
 
-                # Track cumulative unique calls for progressive coverage calculation
-                called_methods = set()
-                called_activities = set()
-                mop_methods = set()
-
-                # Process each method call in chronological order
-                for i, call in enumerate(method_calls, 1):
-                    signature = call.get("signature", "")
-
-                    # Add to cumulative sets
-                    called_methods.add(signature)
-
-                    # Track activities if available
-                    activity_name = call.get("activity")
-                    if activity_name:
-                        called_activities.add(activity_name)
-
-                    # Track monitored operations methods
-                    if call.get("is_mop_method", False):
-                        mop_methods.add(signature)
-
-                    # Calculate progressive coverage based on cumulative unique calls
-                    method_coverage = (
-                        (len(called_methods) / total_methods * 100)
-                        if total_methods > 0
-                        else 0
-                    )
-                    activity_coverage = (
-                        (len(called_activities) / total_activities * 100)
-                        if total_activities > 0
-                        else 0
-                    )
-                    mop_coverage = (
-                        (len(mop_methods) / total_mop_methods * 100)
-                        if total_mop_methods > 0
-                        else 0
-                    )
-
-                    # Write row for this method call
-                    writer.writerow(
-                        [
-                            apk_name,
-                            repetition,
-                            timeout,
-                            tool_name,
-                            call.get("time", i),
-                            call.get("class_name", ""),
-                            call.get("method_name", ""),
-                            signature,
-                            round(method_coverage, 2),
-                            round(activity_coverage, 2),
-                            round(method_coverage, 2),
-                            round(mop_coverage, 2),
-                        ]
-                    )
-            else:
-                # Fallback: write single row with available metrics
-                metrics = getattr(task.result, "coverage_metrics", {})
                 writer.writerow(
                     [
                         apk_name,
                         repetition,
                         timeout,
                         tool_name,
-                        1,
-                        "",
-                        "",
-                        "",
-                        metrics.get("method_coverage", 0),
-                        metrics.get("activities_coverage", 0),
-                        metrics.get("method_coverage", 0),
-                        metrics.get("methods_mop_reachable_coverage", 0),
+                        call.get("time", i),
+                        call.get("class_name", ""),
+                        call.get("method_name", ""),
+                        signature,
+                        cov_class_final,
+                        round(activity_coverage, 2),
+                        round(method_coverage, 2),
+                        round(mop_coverage, 2),
+                        cov_reachable_final,
+                        cov_reaches_mop_final,
+                        cov_directly_reaches_mop_final,
                     ]
                 )
 
@@ -479,7 +508,12 @@ class ResultProcessorComponent:
             with open(summary_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
 
-                # Write header for summary metrics
+                # Extended schema (gh58): 12 columns, all values from
+                # repository.calculate_metrics().to_dict() after reconstruct.
+                # cov_rv_method is intentionally NOT included — in summary
+                # (row-constant final values) it would alias cov_reaches_mop.
+                # It is retained in coverage.csv where it carries progressive
+                # semantics distinct from cov_reaches_mop.
                 writer.writerow(
                     [
                         "apk",
@@ -487,9 +521,13 @@ class ResultProcessorComponent:
                         "timeout",
                         "tool",
                         "cov_act",
+                        "cov_class",
                         "cov_method",
-                        "cov_rv_method",
-                        "errors",
+                        "cov_reachable",
+                        "cov_reaches_mop",
+                        "cov_directly_reaches_mop",
+                        "mop_errors_total",
+                        "mop_errors_unique",
                     ]
                 )
 
@@ -500,42 +538,37 @@ class ResultProcessorComponent:
             self.logger.info(f"Summary CSV generated: {summary_file}")
 
     def _write_task_summary_data(self, writer: csv.writer, task: Any) -> None:
-        """
-        Write summary data for a single task to CSV.
+        """Write one summary row per task (gh58 unified path).
 
-        Args:
-            writer: CSV writer instance
-            task: Task to process for summary data
+        Reads exclusively from ``repository.calculate_metrics().to_dict()``
+        after ``_reconstruct_repository_from_logcat`` ensures the repository
+        is populated. The legacy 3-tier cascade (result.coverage_metrics →
+        repository → zeros) is removed (INV-PLT-16); when the logcat is
+        missing entirely, a zeroed row with explicit warning is emitted.
         """
         try:
-            # Extract task configuration
             config = task.config
             apk_name = config.apk_name
             repetition = config.repetition
             timeout = config.timeout
             tool_name = config.tool_config.get_full_tool_name()
 
-            # Get final metrics from task result
-            if hasattr(task, "result") and hasattr(task.result, "coverage_metrics"):
-                metrics = task.result.coverage_metrics
-                activities_coverage = metrics.get("activities_coverage", 0)
-                method_coverage = metrics.get("method_coverage", 0)
-                mop_coverage = metrics.get("methods_mop_reachable_coverage", 0)
-                error_count = metrics.get("total_errors", 0)
-            elif hasattr(task, "repository") and task.repository:
-                # Fallback to repository if task result metrics not available
-                metrics = task.repository.calculate_metrics()
-                activities_coverage = getattr(metrics, "activity_coverage", 0)
-                method_coverage = getattr(metrics, "method_coverage", 0)
-                mop_coverage = getattr(metrics, "mop_method_coverage", 0)
-                error_count = getattr(metrics, "total_errors", 0)
+            if not (hasattr(task, "repository") and task.repository):
+                reconstructed = self._reconstruct_repository_from_logcat(task)
+                if reconstructed is not None:
+                    task.repository = reconstructed
+
+            if hasattr(task, "repository") and task.repository:
+                metrics_dict = task.repository.calculate_metrics().to_dict()
             else:
-                # Final fallback - use zeros
-                activities_coverage = 0
-                method_coverage = 0
-                mop_coverage = 0
-                error_count = 0
-                self.logger.warning(f"No coverage metrics available for task {task.id}")
+                self.logger.warning(
+                    f"No coverage metrics available for task {task.id} — "
+                    "logcat missing, emitting zeroed summary row"
+                )
+                metrics_dict = {}
+
+            def _val(key: str) -> float:
+                return round(metrics_dict.get(key, 0) or 0, 2)
 
             writer.writerow(
                 [
@@ -543,10 +576,14 @@ class ResultProcessorComponent:
                     repetition,
                     timeout,
                     tool_name,
-                    round(activities_coverage, 2),
-                    round(method_coverage, 2),
-                    round(mop_coverage, 2),
-                    error_count,
+                    _val("activity_coverage"),
+                    _val("class_coverage"),
+                    _val("method_coverage"),
+                    _val("reachable_method_coverage"),
+                    _val("mop_method_coverage"),
+                    _val("direct_mop_method_coverage"),
+                    int(metrics_dict.get("total_errors", 0) or 0),
+                    int(metrics_dict.get("unique_errors", 0) or 0),
                 ]
             )
 
@@ -681,7 +718,9 @@ class ResultProcessorComponent:
                     ),
                     "activities_coverage": metrics.get("activities_coverage", 0),
                     "method_coverage": metrics.get("method_coverage", 0),
-                    "methods_mop_reachable_coverage": metrics.get("methods_mop_reachable_coverage", 0),
+                    "methods_mop_reachable_coverage": metrics.get(
+                        "methods_mop_reachable_coverage", 0
+                    ),
                     "monitored_operations_errors_count": metrics.get("total_errors", 0),
                 }
 

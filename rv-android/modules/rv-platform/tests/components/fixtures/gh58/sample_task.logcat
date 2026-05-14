@@ -1,0 +1,7 @@
+05-14 10:00:00.001  1234  5678 I RVSEC-COV: <com.example.gh58.A: void m0()>
+05-14 10:00:00.002  1234  5678 I RVSEC-COV: <com.example.gh58.A: void m1()>
+05-14 10:00:00.003  1234  5678 I RVSEC-COV: <com.example.gh58.A: void m2()>
+05-14 10:00:00.004  1234  5678 I RVSEC-COV: <com.example.gh58.B: void m0()>
+05-14 10:00:00.005  1234  5678 I RVSEC-COV: <com.example.gh58.B: void m1()>
+05-14 10:00:01.000  1234  5678 E RVSEC: Cipher,com.example.gh58.A,init,m0,A.java:10,Cipher_1,key reuse detected
+05-14 10:00:02.000  1234  5678 E RVSEC: com.example.gh58.B.m1():::JCASpec went into an error state.

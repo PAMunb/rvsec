@@ -6,6 +6,13 @@ This delta documents an invariant that already holds in code but was implicit: `
 
 No code changes occur in `rv-coverage`, `rv-static-analysis`, or `rv-screen-parser` — this delta is documentation-only.
 
+## Invariants
+
+<!-- INV-ANA-16..24 are reserved by gh57-static-analysis-overhaul (in-flight). gh58 takes INV-ANA-25
+     to avoid archive-time collision. -->
+
+- **INV-ANA-25**: `parse_logcat_file(logcat_file, static_data)` MUST be invoked with a non-`None` `StaticAnalysisData` whenever the caller intends to reconstruct per-method coverage from a persisted logcat (e.g. on resume, or in offline analysis tooling). When `static_data` is `None`, the returned `LogcatRepository` has `classes = {}`, `register_method_call` silently no-ops for every `RVSEC-COV` entry, and `calculate_metrics().to_dict()` returns zero for `method_coverage`, `class_coverage`, `reachable_method_coverage`, `mop_method_coverage`, and `direct_mop_method_coverage`. Only `total_errors` and `unique_errors` remain accurate. Callers that omit `static_data` MUST do so deliberately (errors-only path) and log the degraded state.
+
 ## ADDED Requirements
 
 ### Requirement: Logcat-Based Repository Reconstruction Requires Static Data for Coverage (FR12)

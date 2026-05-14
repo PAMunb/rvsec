@@ -1,8 +1,8 @@
-# Design — gh58: result_processor static_data fix + ASE-Journal CSV schema
+# Design — gh58: result_processor static_data fix + extended CSV schema
 
 ## Context
 
-The proposal (`proposal.md`) and delta specs (`specs/platform/spec.md`, `specs/analysis/spec.md`) establish *what* must change. This document specifies *how*: the exact reshape of `ResultProcessorComponent`, the helper extracted to keep the reconstruct method P1-simple, the CSV writer changes, and the regression test fixture. Driven by GitHub Issue #58 and the experimentally-verified workaround in `scripts/regenerate_results/` (Branch 2 fallback unreachable once reconstruct succeeds; ASE-Journal schema validated against 18 267 logcats with verify C1–C4 PASS).
+The proposal (`proposal.md`) and delta specs (`specs/platform/spec.md`, `specs/analysis/spec.md`) establish *what* must change. This document specifies *how*: the exact reshape of `ResultProcessorComponent`, the helper extracted to keep the reconstruct method P1-simple, the CSV writer changes, and the regression test fixture. Driven by GitHub Issue #58 and the experimentally-verified workaround in `scripts/regenerate_results/` (Branch 2 fallback unreachable once reconstruct succeeds; extended schema validated against 18 267 logcats with verify C1–C4 PASS).
 
 Relevant FRs/NFRs: FR10 (result consolidation), FR10-ext (resume integration), FR12 (coverage metrics), FR14 (result generation), NFR03 (reproducibility), NFR08 (resume durability).
 
@@ -39,7 +39,7 @@ Source of truth references in the codebase (verified against current HEAD):
         .read_static_analysis_files   (path, static_data)       .calculate_metrics()
         (rv-static-analysis)          (rv-coverage)              (rv-android-core)
         ────────────────────────      ────────────────────       ──────────────────
-        Re-parse JSON on demand       Returns repository         All 6 ASE-Journal
+        Re-parse JSON on demand       Returns repository         All 6 extended
         Inputs: results_dir,          with classes populated     metrics already
         apk_name, code_package        from static_data           exposed; no change
 ```
@@ -70,7 +70,7 @@ Source of truth references in the codebase (verified against current HEAD):
 
 **Goals:**
 - Resume path produces CSV output byte-equivalent in column semantics to single-session output.
-- ASE-Journal CSV columns are populated for every completed task (current-session and resumed).
+- Extended CSV columns are populated for every completed task (current-session and resumed).
 - One regression test that fails against the pre-fix code; quality gate (lint+pytest) green.
 - ADR explaining why we re-parse instead of serializing static_data into `tasks.json`.
 

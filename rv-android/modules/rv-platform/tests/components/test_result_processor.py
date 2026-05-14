@@ -156,24 +156,25 @@ class TestCoverageCSV:
         assert reader[0][0] == "apk"  # header
         assert reader[1][0] == "app.apk"
 
-    def test_coverage_csv_fallback_without_repository(self, tmp_path):
-        """Tasks without repository use coverage_metrics fallback (single row)."""
-        metrics = {
-            "method_coverage": 25.0,
-            "activities_coverage": 50.0,
-        }
+    def test_coverage_csv_no_rows_when_repository_and_logcat_both_missing(
+        self, tmp_path
+    ):
+        """gh58/INV-PLT-16: when task.repository is None AND no logcat is on
+        disk, _write_task_coverage_data must NOT emit a fallback row from
+        task.result.coverage_metrics. The legacy Branch 2 (empty
+        class/method/signature + stale percentages) is removed."""
+        metrics = {"method_coverage": 25.0, "activities_coverage": 50.0}
         task = _make_completed_task(coverage_metrics=metrics)
+        task.result.logcat_file = ""  # ensure reconstruct returns None
 
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
         processor._generate_coverage_csv([task])
 
-        csv_path = os.path.join(results_dir, "coverage.csv")
-        with open(csv_path) as f:
+        with open(os.path.join(results_dir, "coverage.csv")) as f:
             reader = list(csv.reader(f))
-        # header + 1 fallback row
-        assert len(reader) == 2
-        assert reader[1][8] == "25.0"  # cov_class = method_coverage
+        # Only the header — no data row from stale serialized metrics.
+        assert len(reader) == 1
 
 
 # ===========================================================================
@@ -263,32 +264,36 @@ class TestErrorsCSV:
 
 
 class TestSummaryCSV:
-    def test_summary_csv_from_coverage_metrics(self, tmp_path):
-        """Summary uses task.result.coverage_metrics when available."""
-        metrics = {
-            "activities_coverage": 75.0,
-            "method_coverage": 30.0,
-            "methods_mop_reachable_coverage": 20.0,
-            "total_errors": 5,
+    def test_summary_csv_uses_repository_metrics_only(self, tmp_path):
+        """gh58/INV-PLT-16: summary reads exclusively from
+        repository.calculate_metrics().to_dict() after reconstruct. The legacy
+        primary path that read task.result.coverage_metrics is removed —
+        repository values take precedence even when coverage_metrics is set."""
+        repo = _make_mock_repository()
+        # _make_mock_repository to_dict: activity=50.0, method=25.0, mop=15.0.
+        # Pass DIFFERENT coverage_metrics to prove the repository wins.
+        ignored_metrics = {
+            "activities_coverage": 99.0,
+            "method_coverage": 99.0,
+            "methods_mop_reachable_coverage": 99.0,
+            "total_errors": 99,
         }
-        task = _make_completed_task(coverage_metrics=metrics)
+        task = _make_completed_task(repository=repo, coverage_metrics=ignored_metrics)
 
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([task], results_dir)
         processor._generate_summary_csv([task])
 
-        csv_path = os.path.join(results_dir, "summary.csv")
-        with open(csv_path) as f:
+        with open(os.path.join(results_dir, "summary.csv")) as f:
             reader = list(csv.reader(f))
-        assert len(reader) == 2
-        row = reader[1]
-        assert row[4] == "75.0"  # cov_act
-        assert row[5] == "30.0"  # cov_method
-        assert row[6] == "20.0"  # cov_rv_method
-        assert float(row[7]) == 5  # errors (may be int or float in CSV)
+        header, row = reader[0], reader[1]
+        # Values come from repository.to_dict(), NOT from the ignored_metrics dict.
+        assert float(row[header.index("cov_act")]) == 50.0
+        assert float(row[header.index("cov_method")]) == 25.0
+        assert float(row[header.index("cov_reaches_mop")]) == 15.0
 
     def test_summary_csv_fallback_to_repository(self, tmp_path):
-        """Summary falls back to repository.calculate_metrics() when no coverage_metrics."""
+        """Summary uses repository.calculate_metrics() when no coverage_metrics."""
         repo = _make_mock_repository()
         task = _make_completed_task(repository=repo, coverage_metrics={})
 
@@ -522,3 +527,202 @@ class TestPerformanceCSVFallback:
         # header + 1 data row
         assert len(reader) == 2
         assert reader[0][0] == "apk"
+
+
+# ===========================================================================
+# gh58: Resume-path static_data re-parse + ASE-Journal CSV schema
+# ===========================================================================
+
+
+_GH58_FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures", "gh58")
+
+
+def _make_gh58_task(tmp_path, copy_json=True, app_code_package="com.example.gh58"):
+    """Create a task whose results_dir is a fresh tmp dir seeded with the gh58
+    static-analysis JSON (when copy_json) and a real logcat fixture."""
+    import shutil
+
+    task = _make_completed_task(apk="sample_apk.apk")
+
+    results_dir = tmp_path / "sample_apk.apk"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    task.results_dir = str(results_dir)
+
+    fixture_logcat = os.path.join(_GH58_FIXTURE_DIR, "sample_task.logcat")
+    task_logcat = results_dir / "sample_apk.logcat"
+    shutil.copy(fixture_logcat, task_logcat)
+    task.result.logcat_file = str(task_logcat)
+
+    if copy_json:
+        shutil.copy(
+            os.path.join(_GH58_FIXTURE_DIR, "sample_apk.apk.json"),
+            results_dir / "sample_apk.apk.json",
+        )
+
+    # Attach a minimal mock App that exposes code_package as the test expects.
+    mock_app = MagicMock()
+    mock_app.code_package = app_code_package
+    mock_app.name = "sample_apk"
+    task.app = mock_app
+    task.static_data = None  # simulate resume — must be re-parsed on demand
+
+    return task
+
+
+class TestGh58ReconstructWithStaticData:
+    """RED before fix; GREEN after _reconstruct_repository_from_logcat re-parses
+    static_data on demand (INV-PLT-15)."""
+
+    def test_reconstruct_repository_from_logcat_populates_coverage_with_static_data(
+        self, tmp_path
+    ):
+        task = _make_gh58_task(tmp_path)
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        repo = processor._reconstruct_repository_from_logcat(task)
+
+        assert repo is not None
+        assert len(repo.get_method_calls()) >= 1
+        metrics = repo.calculate_metrics().to_dict()
+        assert metrics["method_coverage"] > 0
+        # Expected from fixture: 5/30 methods hit ~= 16.67%
+        assert metrics["method_coverage"] > 10.0
+
+    def test_reconstruct_warns_and_zeroes_coverage_when_json_missing(
+        self, tmp_path, caplog
+    ):
+        """FR10-ext scenario: logcat present, JSON absent → errors captured,
+        coverage = 0, warning emitted. Resume path must NOT fall back silently."""
+        task = _make_gh58_task(tmp_path, copy_json=False)
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        repo = processor._reconstruct_repository_from_logcat(task)
+
+        assert repo is not None
+        # Errors still reliable (do not need static_data)
+        assert len(repo.get_errors()) == 2
+        # Coverage degraded to zero
+        metrics = repo.calculate_metrics().to_dict()
+        assert metrics["method_coverage"] == 0
+        assert metrics["class_coverage"] == 0
+
+
+class TestGh58ResolveStaticData:
+    """Helper-level tests added after `_resolve_static_data` exists (task 2.3).
+    Located here to avoid wrong-reason AttributeError during RED phase."""
+
+    def test_resolve_static_data_reuses_task_attribute(self, tmp_path):
+        """When task.static_data is already set, no re-parse occurs."""
+        task = _make_completed_task()
+        sentinel = MagicMock(name="cached_static_data")
+        task.static_data = sentinel
+
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+        with patch(
+            "rv_platform.components.result_processor."
+            "static_analysis_parser.read_static_analysis_files"
+        ) as mock_read:
+            result = processor._resolve_static_data(task)
+            mock_read.assert_not_called()
+        assert result is sentinel
+
+    def test_resolve_static_data_returns_none_when_json_missing(self, tmp_path):
+        """Re-parse exception → warning + None; does NOT raise."""
+        task = _make_gh58_task(tmp_path, copy_json=False)
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        with patch(
+            "rv_platform.components.result_processor."
+            "static_analysis_parser.read_static_analysis_files",
+            side_effect=FileNotFoundError("no json"),
+        ):
+            result = processor._resolve_static_data(task)
+        assert result is None
+
+    def test_resolve_static_data_tolerates_task_app_none(self, tmp_path):
+        """task.app=None → code_package=None; parser tolerates it (no TypeError)."""
+        task = _make_gh58_task(tmp_path)
+        task.app = None
+        task.static_data = None
+
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+        result = processor._resolve_static_data(task)
+        assert result is not None
+
+
+class TestGh58CovClassSlotFix:
+    """INV-PLT-17: cov_class column must hold class_coverage, not method_coverage.
+    RED before fix because line 322 of result_processor.py writes method_coverage
+    into the cov_class slot."""
+
+    def _build_repo_with_distinct_class_and_method_coverage(self):
+        """Build a mock repo where calculate_metrics().to_dict() returns
+        class_coverage=40.0 and method_coverage=16.67 — distinct values so the
+        slot identity is auditable."""
+        method_calls = [
+            {
+                "time": i,
+                "class_name": "com.example.gh58.A",
+                "method_name": f"m{i}",
+                "signature": f"<com.example.gh58.A: void m{i}()>",
+                "is_mop_method": True,
+                "activity": None,
+            }
+            for i in range(5)
+        ]
+        repo = _make_mock_repository(method_calls=method_calls)
+        # Override the metrics dict with distinct class_coverage vs method_coverage
+        repo.calculate_metrics.return_value.to_dict.return_value = {
+            "class_coverage": 40.0,
+            "activity_coverage": 0.0,
+            "method_coverage": 16.67,
+            "reachable_method_coverage": 41.67,
+            "mop_method_coverage": 83.33,
+            "direct_mop_method_coverage": 100.0,
+            "total_errors": 0,
+            "unique_errors": 0,
+        }
+        # Static-side denominators for progressive coverage calc inside writer
+        repo.get_static_methods.return_value = [f"sig{i}" for i in range(30)]
+        repo.get_static_activities.return_value = []
+        repo.get_mop_methods.return_value = [f"sig{i}" for i in range(6)]
+        return repo
+
+    def test_coverage_csv_cov_class_uses_class_coverage_not_method_coverage(
+        self, tmp_path
+    ):
+        repo = self._build_repo_with_distinct_class_and_method_coverage()
+        task = _make_completed_task(repository=repo)
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_coverage_csv([task])
+
+        with open(os.path.join(results_dir, "coverage.csv")) as f:
+            reader = list(csv.reader(f))
+        header = reader[0]
+        first_row = reader[1]
+        cov_class_idx = header.index("cov_class")
+        # cov_class MUST equal class_coverage (40.0), NOT method_coverage (16.67)
+        assert float(first_row[cov_class_idx]) == 40.0, (
+            f"cov_class={first_row[cov_class_idx]} but class_coverage=40.0; "
+            "pre-fix code wrote method_coverage (16.67) into this slot"
+        )
+
+    def test_summary_csv_cov_class_uses_class_coverage_not_method_coverage(
+        self, tmp_path
+    ):
+        repo = self._build_repo_with_distinct_class_and_method_coverage()
+        task = _make_completed_task(repository=repo)
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_summary_csv([task])
+
+        with open(os.path.join(results_dir, "summary.csv")) as f:
+            reader = list(csv.reader(f))
+        header = reader[0]
+        row = reader[1]
+        assert "cov_class" in header, "summary.csv must include cov_class column"
+        cov_class_idx = header.index("cov_class")
+        assert float(row[cov_class_idx]) == 40.0

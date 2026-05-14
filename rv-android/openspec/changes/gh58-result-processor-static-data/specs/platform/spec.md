@@ -2,16 +2,16 @@
 
 ## Purpose
 
-This delta extends `openspec/specs/platform/spec.md` to (a) correct the resume-path result-consolidation contract, which previously documented a degraded fallback as if it were intentional, and (b) extend the `coverage.csv` and `summary.csv` data contracts with the ASE-Journal column set already populated by `LogcatRepository.calculate_metrics()`. The driver is gh58 (GitHub Issue #58): the experiment `experimento-20260508` produced corrupt consolidated CSVs because every task loaded from `tasks.json` on resume took a path that called `parse_logcat_file` without `static_data` (so per-method coverage silently no-opped) or fell through to a Branch 2 fallback that wrote empty `class/method/signature` and stale aggregate percentages. The fix promotes `static_analysis_parser.read_static_analysis_files` — already used by `StaticAnalysisComponent.load_static_data` — into the result-processor reconstruct path, so resume-path output becomes byte-equivalent to single-session output. Once that holds, the Branch 2 fallback is unreachable dead code and is deleted per P3.
+This delta extends `openspec/specs/platform/spec.md` to (a) correct the resume-path result-consolidation contract, which previously documented a degraded fallback as if it were intentional, and (b) extend the `coverage.csv` and `summary.csv` data contracts with the extended column set already populated by `LogcatRepository.calculate_metrics()`. The driver is gh58 (GitHub Issue #58): the experiment `experimento-20260508` produced corrupt consolidated CSVs because every task loaded from `tasks.json` on resume took a path that called `parse_logcat_file` without `static_data` (so per-method coverage silently no-opped) or fell through to a Branch 2 fallback that wrote empty `class/method/signature` and stale aggregate percentages. The fix promotes `static_analysis_parser.read_static_analysis_files` — already used by `StaticAnalysisComponent.load_static_data` — into the result-processor reconstruct path, so resume-path output becomes byte-equivalent to single-session output. Once that holds, the Branch 2 fallback is unreachable dead code and is deleted per P3.
 
-The extended CSV contract reflects metrics the system already computes but never wrote: `class_coverage`, `reachable_method_coverage`, `mop_method_coverage`, `direct_mop_method_coverage`, `total_errors`, and `unique_errors`. These are central to the ASE-Journal evaluation of cryptographic API misuse detection (denominators must distinguish "all methods", "reachable methods", "methods that reach an MOP", and "methods that directly invoke an MOP"), so capturing them in the persistent CSV — not only in `task.result.coverage_metrics` — is required for downstream notebooks and the regen tooling in `scripts/regenerate_results/`.
+The extended CSV contract reflects metrics the system already computes but never wrote: `class_coverage`, `reachable_method_coverage`, `mop_method_coverage`, `direct_mop_method_coverage`, `total_errors`, and `unique_errors`. These are central to the downstream evaluation of cryptographic API misuse detection (denominators must distinguish "all methods", "reachable methods", "methods that reach an MOP", and "methods that directly invoke an MOP"), so capturing them in the persistent CSV — not only in `task.result.coverage_metrics` — is required for downstream notebooks and the regen tooling in `scripts/regenerate_results/`.
 
 ## Data Contracts
 
 ### Output
 
 - `coverage.csv` — header MUST be: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop`
-- `summary.csv` — header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_rv_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop, mop_errors_total, mop_errors_unique`
+- `summary.csv` — header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop, mop_errors_total, mop_errors_unique` (12 columns). The legacy `cov_rv_method` column is dropped from `summary.csv` because, with row-constant final values, it would alias `cov_reaches_mop`; it is retained in `coverage.csv` where it carries distinct progressive semantics.
 
 All other Data Contracts fields from the main spec are unchanged.
 
@@ -119,10 +119,8 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 - **WHEN** `coverage.csv` is generated for a completed task with repository data
 - **THEN** the header row MUST be: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop`
 - **AND** each method call MUST produce one row with progressive coverage metrics (cumulative unique methods / total methods)
-- **AND** `cov_class` MUST equal `class_coverage` from `CoverageMetrics.to_dict()` progressively (called classes / total classes) — NOT `method_coverage` as in the pre-fix code
-- **AND** `cov_reachable` MUST equal `reachable_method_coverage` progressively (called reachable methods / total reachable methods)
-- **AND** `cov_reaches_mop` MUST equal `mop_method_coverage` progressively (called methods that reach an MOP / total methods that reach an MOP)
-- **AND** `cov_directly_reaches_mop` MUST equal `direct_mop_method_coverage` progressively (called methods that directly invoke an MOP / total methods that directly invoke an MOP)
+- **AND** `cov_method`, `cov_act`, `cov_rv_method` MUST be cumulative-progressive (each row reflects the cumulative state up to and including that call)
+- **AND** `cov_class`, `cov_reachable`, `cov_reaches_mop`, `cov_directly_reaches_mop` MUST equal the final task value from `repository.calculate_metrics().to_dict()` and are row-constant — `cov_class` MUST be `class_coverage` (NOT `method_coverage` as in the pre-fix code), `cov_reachable` MUST be `reachable_method_coverage`, `cov_reaches_mop` MUST be `mop_method_coverage`, `cov_directly_reaches_mop` MUST be `direct_mop_method_coverage`. Rationale: these metrics are derived from static-analysis denominators that do not change during execution; row-constant values match the offline regen tooling and downstream notebooks already in use
 - **AND** coverage percentages MUST be rounded to 2 decimal places
 
 #### Scenario: Errors CSV Format
@@ -136,14 +134,13 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 
 - **WHEN** `summary.csv` is generated
 - **THEN** each completed task MUST produce exactly one row
-- **AND** the header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_rv_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop, mop_errors_total, mop_errors_unique`
+- **AND** the header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop, mop_errors_total, mop_errors_unique`
 - **AND** each value MUST be read from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` populated `task.repository`
 - **AND** `cov_act` MUST be the `activity_coverage` key from the dict
 - **AND** `cov_class` MUST be the `class_coverage` key (NOT `method_coverage` as the pre-fix code wrote)
 - **AND** `cov_method` MUST be the `method_coverage` key
-- **AND** `cov_rv_method` MUST be the `mop_method_coverage` key (semantic: methods that reach an MOP — preserved for backward compatibility with old positional readers that already mapped column 7 to this concept)
 - **AND** `cov_reachable` MUST be the `reachable_method_coverage` key
-- **AND** `cov_reaches_mop` MUST be the `mop_method_coverage` key (same source as `cov_rv_method`, exposed under a clearer name)
+- **AND** `cov_reaches_mop` MUST be the `mop_method_coverage` key
 - **AND** `cov_directly_reaches_mop` MUST be the `direct_mop_method_coverage` key
 - **AND** `mop_errors_total` MUST be the `total_errors` key (semantically equivalent to the renamed `errors` column from the pre-fix schema)
 - **AND** `mop_errors_unique` MUST be the `unique_errors` key
