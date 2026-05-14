@@ -28,6 +28,7 @@ rvsec_root layout > RVSEC_HOME env var > CWD parent.
 """
 
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -274,8 +275,12 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         gator_python = str(Path(self.gator_dir) / "gator")
         timeout = kwargs.get("timeout", self.analysis_timeout)
 
+        # Use the running interpreter (sys.executable) instead of a literal "python".
+        # The latter fails on systems where /usr/bin/python is absent (Debian/Ubuntu
+        # without python-is-python3, clean containers, fresh shells). sys.executable
+        # always resolves to a working Python 3.x with the project's deps.
         cmd = [
-            "python",
+            sys.executable,
             gator_python,
             "a",
             "-p",

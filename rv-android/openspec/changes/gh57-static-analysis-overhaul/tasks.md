@@ -12,9 +12,9 @@
 
      Milestones:
      - M1 = end of Group 2 (windows[] populated; aperv unblocked).
-     - M2 = end of Groups 3 + 4 + 5 (GESDA parity + ArrayAdapter MVP shipped).
+     - M2 = end of Groups 3 + 4 + 5 (XML attribute extensions + programmatic menu + ArrayAdapter MVP shipped).
      - M3 = end of Group 6 with paridade gate PASS (avg ≥ 0.95 AND min ≥ 0.85).
-     - M4 = end of Group 8 (full 190-APK re-run validates ≥95% windows[] non-empty).
+     - M4 = end of Group 8 (full 380-APK ground-truth re-run on `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` originals validates ≥95% windows[] non-empty).
 
      Critical merge path: 1 → 2 → [3 → 4 → 5 in serial; 6 in parallel] → 7 → 8.
      Shortest MVP (interim build for v3 calibration unblock only): 1 → 2 → tag `gh57-interim-windows-fix` after task 2.10. Full change still finalizes via 3 → 4 → 5 → 6 → 7 → 8.
@@ -24,12 +24,12 @@
 
 ## 1. Pre-flight audits (Phase-0 §7.6–7.11, §16.4)
 
-- [ ] 1.1 Soot API diff: extract method signatures used by GESDA `SootAnalyze.java:372–531` (`UnitGraph`, `InvokeExpr`, `InterfaceInvokeExpr`, `AssignStmt`, `IntConstant`, `RefType`) and verify each exists in Soot 4.7.1 (gh51-pinned version). Document any divergence in `notes/preflight_soot_api.md` inside the change dir. If >3 signatures differ, escalate Group 4 estimate.
-- [ ] 1.2 ArrayAdapter corpus scan: decompile 20 stratified APKs from `APKS_FINAL_JCA_DEXLIB`, grep for `new ArrayAdapter|setAdapter\(.*ArrayAdapter|getResources\(\).getStringArray|listOf\(`, classify by pattern, and compute MVP coverage. If MVP coverage <40%, switch Group 5 to full scope (+2–3 days).
-- [ ] 1.3 Bytecode-scan policy at WTG level: confirm the existing `findDirectMopCallersByBytecodeScan` (RvsecAnalysisClient.java:133) can be refactored into a generic `scanInvokesByPattern(appClasses, predicate) → Set<Edge>` helper without breaking the existing MOP-scan contract. Document the API in `notes/preflight_bytecode_scan.md`.
-- [ ] 1.4 Fixture inventory: from the 190 APKs, pick (a) 5 baseline-OK APKs for the `windows[]` partial-path smoke (1 small, 2 medium, 2 large), (b) 5 baseline-frozen APKs that today produce empty windows, (c) 10 baseline-OK APKs stratified by size_bucket for the Jaccard paridade gate, (d) 1 APK with programmatic `onCreateOptionsMenu` for Group 4, (e) 1 APK with literal `ArrayAdapter` Spinner items for Group 5. Record names + paths in `notes/preflight_fixtures.md`. If (d) or (e) cannot be sourced, escalate to author a synthetic test APK.
-- [ ] 1.5 JAR sync pre-flight: build the existing `rvsec-analysis-client.jar` and `ape-rv.jar`, record their timestamps as baseline. Document the rebuild commands (`mvn package` paths) in `notes/preflight_build.md`. Note any CogniCrypt session pause coordination (Phase-0 §16.3).
-- [ ] 1.6 License attribution: confirm the absence of license headers on GESDA `SootAnalyze.java` and unified `RvsecAnalysisClient.java`. Adopt PAMunb institutional convention; document `@PortedFrom(source="GESDA:SootAnalyze.java:372-531")` template in `notes/preflight_license.md`.
+- [x] 1.1 Soot API availability: verify every Soot 4.7.1 symbol needed by the `MenuExtractor` algorithm (CFG iteration via `UnitGraph`/`ExceptionalUnitGraph`, invoke matching via `InvokeExpr`/`InterfaceInvokeExpr`, constant resolution via `IntConstant`, def-use walk via `AssignStmt` + `Value.equivTo`, `RefType`, `SootMethod.retrieveActiveBody`). Document any divergence in `notes/preflight_soot_api.md` inside the change dir. If >3 signatures are missing or incompatible, escalate Group 4 estimate. **DONE** — see `notes/preflight_soot_api.md`: 0 divergences; Group 4 estimate stands; `MenuExtractor` uses `ExceptionalUnitGraph` to match gator conventions; listener-callback wiring is out of MVP scope (covered by existing `collectWidgets`).
+- [x] 1.2 ArrayAdapter corpus scan: decompile 20 stratified APKs from the original-APK corpus at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs`, grep for `new ArrayAdapter|setAdapter\(.*ArrayAdapter|getResources\(\).getStringArray|listOf\(`, classify by pattern, and compute MVP coverage. If MVP coverage <40%, switch Group 5 to full scope (+2–3 days). **DONE** — see `notes/preflight_arrayadapter_corpus.md`: MVP coverage **75% (15/20)**, well above threshold. Group 5 stays at MVP scope. Constructor path dominates (15 APKs) vs `add`/`addAll` (7 APKs) — prioritize task 5.2 over 5.3. Decompiled trees preserved at `/tmp/gh57_corpus_originals/` for Group 5 reference.
+- [x] 1.3 Bytecode-scan policy at WTG level: confirm the existing `findDirectMopCallersByBytecodeScan` (RvsecAnalysisClient.java:133) can be refactored into a generic `scanInvokesByPattern(appClasses, predicate) → Set<Edge>` helper without breaking the existing MOP-scan contract. Document the API in `notes/preflight_bytecode_scan.md`. **DONE** — refactor confirmed isomorphic; helper named `scanInvokesInAppClasses(appClasses, InvokeVisitor)` with two view wrappers (MOP-callers, WTG-edges). All 8 properties of BUG-INV-ANA-19 preserved.
+- [x] 1.4 Fixture inventory: from the 380-APK original corpus at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` (classified via ground-truth JSONs in `…/APKS_JCA_analise_estatica_soot/`), pick (a) 5 baseline-OK APKs for the `windows[]` partial-path smoke (stratified small/medium/large), (b) 5 baseline-frozen APKs that today produce empty windows, (c) 10 baseline-OK APKs stratified by class count for the Jaccard paridade gate, (d) 1 APK with programmatic `onCreateOptionsMenu` for Group 4, (e) 1 APK with literal `ArrayAdapter` Spinner items for Group 5. Record names + paths in `notes/preflight_fixtures.md`. If (d) or (e) cannot be sourced, escalate to author a synthetic test APK. **DONE** — all 5 fixture roles filled with real **uninstrumented** APKs from the original corpus (no synthetic APK needed). (d) = `app.notesr_59.apk` (OPTIONSMENU with `widgets=[]` in ground-truth JSON); (e) = `com.eanema.graph89_1200.apk` (7 Spinners with `entries=[]`).
+- [x] 1.5 JAR sync pre-flight: build the existing `rvsec-analysis-client.jar` and `ape-rv.jar`, record their timestamps as baseline. Document the rebuild commands (`mvn install` paths) in `notes/preflight_build.md`. Note any CogniCrypt session pause coordination (Phase-0 §16.3). **DONE** — both JARs built clean via `mvn install`; baseline timestamps recorded. ⚠️ Surfaced caveat: `ape/ape.jar` (the device-deployable pushed by `install.py`) is NOT refreshed by `mvn install` — it must be `cp target/ape-rv.jar ape.jar` manually. Action item for Group 7 between tasks 7.7 and 7.8.
+- [x] 1.6 ~~License attribution~~ — REMOVED. The new classes (`MenuExtractor`, `SpinnerItemExtractor`) are first-party implementations in this project under the existing `rvsec-gator` license (PAMunb). No external code is being ported; no per-class attribution headers are required beyond a normal Javadoc describing the algorithm.
 - [ ] 1.7 Baseline wall-clock measurement: time `RvsecAnalysisClient.run()` on 5 large APKs (>50k CG vertices) with `cgDelegation=false` (current behavior). Record per-phase numbers (reachability vs WTG) in `notes/preflight_wallclock.md`. This becomes the comparison point for Group 8 acceptance.
 
 ## 2. Core fix — windows[] decoupling + skipWtg (Phase-0 §6 Opção C, §7.1 items 1+2; M1 milestone)
@@ -41,11 +41,13 @@
 - [ ] 2.5 Add `--skip-wtg` boolean argument to `scripts/static_analysis_sweep.py` (rv-static-analysis); propagate as `-clientParam skipWtg=true` in the GATOR command. Emit `[SWEEP] skipWtg=true active for this run` once at sweep start when active.
 - [ ] 2.6 Unit tests (Java): `RvsecAnalysisClientTest.testPartialJsonHasPopulatedWindows`, `testSkipWtgBypassesBuilder`, `testSchemaVersionFieldOrder` (will fail until Group 7 lands — mark XFAIL).
 - [ ] 2.7 Unit tests (Python): `test_sweep_skip_wtg.py` for argparse propagation.
-- [ ] 2.8 Build the rvsec-gator JAR (`cd rvsec/rvsec/rvsec-android/rvsec-gator && mvn package`) and run a smoke against the 5 fixture APKs from 1.4(a) and 1.4(b): verify all 10 produce non-empty `windows[]`.
+- [ ] 2.8 Build the rvsec-gator JAR (`cd rvsec/rvsec/rvsec-android/rvsec-gator && mvn install`) and run a smoke against the 5 fixture APKs from 1.4(a) and 1.4(b): verify all 10 produce non-empty `windows[]`.
 - [ ] 2.9 Run `/rv-test-run rv-static-analysis`.
+- [x] 2.11 Fix `rv_static_analysis.config.get_tool_command` to use `sys.executable` instead of literal `"python"`. The previous hardcoded value broke on systems without the `python-is-python3` shim (clean containers, fresh shells, non-Debian distros) — `Command` raised `CommandNotFoundError`, the static analysis silently produced no JSON, and the downstream summary appeared with zeroed coverage metrics (misdiagnosed as a regression of gh57/gh58). `sys.executable` is the uv-managed `.venv/bin/python`, which is guaranteed reachable in any invocation context.
+- [x] 2.12 Add a defensive post-condition in `StaticAnalyzer._run_analysis`: after `_execute_command` returns, assert `os.path.isfile(self.analysis_file)` and raise `StaticAnalysisException` if absent. This converts upstream silent failures (e.g. interpreter not found, ErrorHandler-swallowed exceptions) into hard, observable errors before the parser is invoked — consistent with the `StaticAnalysisException` contract documented in `specs/analysis/spec.md` and the FR04 output-validity guarantee.
 - [ ] 2.10 **🚩 Marco M1 — desbloqueio funcional do aperv.** Tag `gh57-interim-windows-fix` on the rvsec-gator branch if calibration v3 needs to start before the full change closes.
 
-## 3. GESDA paridade — XML widget attributes (Phase-0 §12, item 3)
+## 3. Widget XML attribute extensions (Phase-0 §12, item 3)
 
 - [ ] 3.1 Modify `RvsecAnalysisClient.enrichFromXml()` to read four additional attributes from each `<View>`-style XML element: `android:prompt`, `android:spinnerMode`, `android:contentDescription`, `android:tooltipText`. Resolve `@string/<name>` references using the existing `resolveStringReference` helper. Missing attributes map to `null`.
 - [ ] 3.2 Update `collectWidgets()` (RvsecAnalysisClient.java:767–818) to seed the four fields with `null` so `enrichFromXml` can overwrite them; remove the existing `widget.put("inputType", "")` + `widget.put("entries", Collections.emptyList())` defaults and replace with `null` for consistency.
@@ -55,13 +57,20 @@
 - [ ] 3.6 Run `/rv-doc-code` on the modified widget model.
 - [ ] 3.7 Run `/rv-test-run rv-static-analysis`.
 
-## 4. GESDA paridade — programmatic options-menu via Soot CFG (Phase-0 §12 #3, item 4)
+## 3.5. Inflated OPTIONSMENU items via existing flow graph (cryptoapp gap, D7)
 
-- [ ] 4.1 Create new file `MenuExtractor.java` in `rvsec-gator/client/src/main/java/presto/android/gui/clients/`. Add `@PortedFrom(source="GESDA:SootAnalyze.java:372-531", date="2024-baseline")` Javadoc per the convention from 1.6.
-- [ ] 4.2 Port `SootAnalyze.getMenuWidgets` (handling `Menu.add(int,int,int,CharSequence)` and `Menu.add(int,int,int,int)`) to operate on `output: GUIAnalysisOutput` + `propertyManager: PropertyManager`. Method: `List<Map<String, Object>> extractItems(SootClass activity)`.
-- [ ] 4.3 Port `SootAnalyze.getSubItems` (CFG-forward walk for `SubMenu.add` chains after `addSubMenu`) recursively into the returned widget map's `items[]` field.
+- [ ] 3.5.1 Modify `RvsecAnalysisClient.extractWindows()` in the OPTIONSMENU block (lines ~718-733): replace `window.put("widgets", Collections.emptyList());` with a walk over `menu.getChildren()` (returns the `NMenuItemInflNode` children attached by `FixpointSolver.doMenuInflate`) feeding each child into the existing `collectWidgets(output, child, widgets, visited)` helper. Pattern mirrors the DIALOG block immediately above (lines ~696-715). No new helper class, no new GATOR-side wiring.
+- [ ] 3.5.2 Integration smoke: build the rvsec-gator JAR (`cd rvsec/rvsec/rvsec-android/rvsec-gator && mvn install`) and run against `apks_examples/cryptoapp.apk`. Assert `windows[where type=="OPTIONSMENU"].widgets[]` length is 3 (matching the 3 items in `res/menu/cryptoapp_menu.xml`: `menu_item_message_digest`, `menu_item_cipher`, `menu_item_home`).
+- [ ] 3.5.3 Unit test: `RvsecAnalysisClientTest.testCryptoappOptionsMenuHasThreeItems` — invoke `extractWindows` against a mocked `GUIAnalysisOutput` that returns an `NOptionsMenuNode` with 3 `NMenuItemInflNode` children, assert serialized widgets length and id/text fields.
+- [ ] 3.5.4 Verify that Group 4 (`MenuExtractor` programmatic path) appends to the same `widgets[]` array — the two paths must coexist; no deduplication required (id spaces disjoint by construction).
+
+## 4. Programmatic options-menu extraction via Soot CFG (Phase-0 §12 #3, item 5)
+
+- [ ] 4.1 Create new file `MenuExtractor.java` in `rvsec-gator/client/src/main/java/presto/android/gui/clients/`. Add a class-level Javadoc describing the algorithm (CFG walking of `onCreateOptionsMenu(Menu)`, matching of `Menu.add(...)` / `Menu.addSubMenu(...)` invocations, def-use resolution of arguments). No external attribution required (first-party class).
+- [ ] 4.2 Implement `extractItems(SootClass activity) → List<Map<String, Object>>`: locate `onCreateOptionsMenu(Menu)`; build an `ExceptionalUnitGraph` over its body; walk units; for each `InterfaceInvokeExpr` matching `Menu.add(int,int,int,CharSequence)` or `Menu.add(int,int,int,int)`, resolve the four arguments (group id, item id, order, title) via def-use chains; emit a widget entry `{id, groupId, order, text, type: "MenuItem"}`. String-resource arguments (int title-res) resolve through the existing `RvsecAnalysisClient` string-resource helpers.
+- [ ] 4.3 Sub-menu support: for `addSubMenu(...)` invocations, emit a submenu widget and perform a CFG-forward walk from the `addSubMenu` return value's def-site, collecting subsequent `SubMenu.add(...)` invocations (matching by receiver equivalence via `Value.equivTo`) into the submenu widget's `items[]`.
 - [ ] 4.4 Wrap the entire body retrieval + iteration in try/catch (`RuntimeException`, `OutOfMemoryError`); WARN log on failure; return empty list (INV-ANA-24).
-- [ ] 4.5 Wire `MenuExtractor` into `RvsecAnalysisClient.extractWindows()` after the existing OPTIONSMENU enumeration (line ~720): for each `NOptionsMenuNode menu`, call `menuExtractor.extractItems(activity)` and replace the existing `widget.put("widgets", Collections.emptyList())` with the result.
+- [ ] 4.5 Wire `MenuExtractor` into `RvsecAnalysisClient.extractWindows()` after the OPTIONSMENU XML-inflated walk from task 3.5.1: for each `NOptionsMenuNode menu`, call `menuExtractor.extractItems(activity)` and **append** the result to the `widgets[]` list already populated by the inflated-items walk (no replacement; the two paths are complementary per D7).
 - [ ] 4.6 Unit tests: `MenuExtractorTest.testMenuAddLiteralCharSequence`, `testMenuAddStringResource`, `testSubMenuChain`, `testBodyRetrievalFailureLogsAndContinues`.
 - [ ] 4.7 Integration test: run against fixture 1.4(d), verify `windows[type="OPTIONSMENU"].widgets[].items[]` has the expected entries.
 - [ ] 4.8 Run `/rv-doc-code` on the new class.
@@ -101,14 +110,19 @@
 - [ ] 7.4 Modify `MopData.java` to parse the four new widget XML fields (`prompt`, `spinnerMode`, `contentDescription`, `tooltipText`), the recursive `items[]` for OPTIONSMENU, and treat them as `null`/empty when reading a v1.0 (legacy) JSON.
 - [ ] 7.5 Unit tests in the ape repo (`MopDataTest.java`): `testReadsLegacyV1Json`, `testReadsV2JsonWithAllNewFields`, `testV2JsonWithMissingOptionalFields`.
 - [ ] 7.6 Add `scripts/check_jar_sync.sh` to rv-android: verify timestamps of `rvsec-analysis-client.jar` and `ape-rv.jar` are within 10 minutes of each other; warn otherwise.
-- [ ] 7.7 Build the `ape-rv.jar`, copy/install per the project's existing deployment convention.
+- [ ] 7.7 Build the `ape-rv.jar` with `mvn install` (NOT `mvn package`) at `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/`. Then copy `target/ape-rv.jar → ape.jar` so `install.py` deploys the fresh artifact to the device (pre-flight 1.5 surfaced that `ape/ape.jar` is the device-deployable and is NOT refreshed by `mvn install`):
+  ```bash
+  cd /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape
+  mvn install -DskipTests -q
+  cp target/ape-rv.jar ape.jar
+  ```
 - [ ] 7.8 Run `/rv-test-run rv-static-analysis` (Python-side parser tolerates v2.0 schema field — verify no regression).
 
 ## 8. Acceptance — full re-run + final verification (Phase-0 §7.4)
 
 - [ ] 8.1 Run `scripts/check_jar_sync.sh` to confirm both JARs are freshly rebuilt and synchronized.
-- [ ] 8.2 Re-run the full 190-APK sweep on `APKS_FINAL_JCA_DEXLIB` using the new JARs with `cgDelegation=true` (default) and without `--skip-wtg`. Estimated wall-clock: ~2h in 4 workers.
-- [ ] 8.3 Post-run analysis: compute `windows[]` non-empty rate over the 190 APKs. **Acceptance: ≥95%.**
+- [ ] 8.2 Re-run the full 380-APK sweep on the **original** APK corpus at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` (never on `*_DEXLIB`/`*_AJC` instrumented sets — Soot Dexpler crashes on monitor-injected bytecode; project memory `feedback_static_analysis_original_apks_only.md`) using the new JARs with `cgDelegation=true` (default) and without `--skip-wtg`. Estimated wall-clock: ~3–4h in 4 workers (380 APKs vs the previous 190 estimate).
+- [ ] 8.3 Post-run analysis: compute `windows[]` non-empty rate over the 380 APKs. **Acceptance: ≥95%.**
 - [ ] 8.4 Compute the per-APK wall-clock comparison against the baseline from 1.7. **Acceptance: ≥30% mean reduction on the 5 large APKs.** If <20%, document in `notes/wallclock_report.md` but DO NOT block the change (the windows[] fix is independently justified).
 - [ ] 8.5 Aperv smoke: run `uv run rv-experiment run --tools aperv:sata_mop --apks-dir <subset of 3 APKs> --timeout 60` and confirm: (a) no `MopData` parse errors, (b) `scoreWtg` returns non-zero on at least one APK, (c) calibration v2 default objective `0.5×mop + 0.5×method` operates on 3/3 APKs (not degraded to two-score).
 - [ ] 8.6 Run `/rv-qa-lint-fix rv-static-analysis`.

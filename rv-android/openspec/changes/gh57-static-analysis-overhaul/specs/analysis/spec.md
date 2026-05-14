@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This delta updates the `analysis` capability to (1) eliminate the structural *two-call-graph* problem that causes `windows[]` to be empty in 71.6% of the `APKS_FINAL_JCA_DEXLIB` corpus, (2) restore widget-level extraction features that were lost during the `gh27-unified-static-analysis` consolidation of the legacy GESDA tool, and (3) introduce an explicit `schemaVersion` field on the JSON output to enable forward-compatible consumer evolution.
+This delta updates the `analysis` capability to (1) eliminate the structural *two-call-graph* problem that causes `windows[]` to be empty in **58.4% of the canonical original-APK corpus** (222 / 380 JSONs at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_analise_estatica_soot/`, derived from the 400-APK `JOAO/APKs/` originals) and in 71.6% of the v3 calibration's 190-APK instrumented subset, (2) add widget-level extraction features that are absent from the current unified `RvsecAnalysisClient` output (four XML widget attributes, programmatic options-menu items, and programmatic Spinner items via `ArrayAdapter` dataflow), and (3) introduce an explicit `schemaVersion` field on the JSON output to enable forward-compatible consumer evolution.
 
 The root-cause diagnosis is documented in `rv-android/docs/20260513_gator_analise_wtg.md` (Phase-0 ideation). The empirical impact analysis is in `rvsec-calibracao/docs/20260513_analise_gator_window.md`. Both are authoritative inputs to this change and their architectural conclusions are not re-litigated here.
 
@@ -85,7 +85,7 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 
 #### Scenario: WTG timeout still produces populated windows[] in partial JSON
 
-- **WHEN** GATOR analyzes an APK whose WTG construction exceeds the external sweep timeout (e.g. `ac.mdiq.podcini.X_256.apk` from `APKS_FINAL_JCA_DEXLIB`), and the Java process is killed via SIGTERM during `WTGBuilder.build()`
+- **WHEN** GATOR analyzes an APK whose WTG construction exceeds the external sweep timeout (e.g. `ac.mdiq.podcini.X_256.apk` from the original-APK corpus at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs/`), and the Java process is killed via SIGTERM during `WTGBuilder.build()`
 - **THEN** the JSON file written before the kill MUST contain a fully-populated `windows[]` section with all activities, dialogs, options-menu skeletons, and their widgets (including listeners, text, hint, inputType, entries) extracted from `GUIAnalysisOutput`
 - **AND** the JSON `transitions[]` MUST be `[]` (empty array, not missing)
 - **AND** the JSON `schemaVersion` MUST be `"2.0"`
@@ -127,7 +127,7 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 - **THEN** window count MUST match exactly (±0) — windows[] is now WTG-independent so partial and full paths produce identical window sets except for WTG-only catch-all entries
 - **AND** transition count MUST match within ±5% (Jaccard ≥0.95 on `{(src, tgt, event)}` tuples — see scenario "Paridade Jaccard WTG-SPARK")
 - **AND** total method count MUST match exactly (±0)
-- **AND** widget `inputType`, `entries`, `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` fields MUST match GESDA output for the same APK
+- **AND** widget `inputType`, `entries`, `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` fields MUST match the expected XML-attribute values for the same APK (verified via `apktool d` inspection)
 
 #### Scenario: Paridade Jaccard WTG-SPARK on baseline-OK APKs
 
@@ -179,7 +179,7 @@ The fields gated by v2.0 are:
 - `windows[type="OPTIONSMENU"].widgets[].items: WidgetEntry[]` (recursive widget objects from `MenuExtractor`)
 - `windows[].widgets[].entries: string[]` (now populated by both XML resolution AND `SpinnerItemExtractor` dataflow, when applicable; was previously XML-only)
 
-The 54 pre-existing JSONs in `out/sweep_jca400_v1/` are NOT migrated in-place. The 190-APK re-run that closes this change is the canonical source of v2.0 outputs.
+The 158 pre-existing populated JSONs in `…/APKS_JCA_analise_estatica_soot/` are NOT migrated in-place. The 380-APK ground-truth re-run on `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs/` (originals only — never the `*_DEXLIB`/`*_AJC` instrumented sets) that closes this change is the canonical source of v2.0 outputs.
 
 #### Scenario: New JSON includes schemaVersion field
 
@@ -217,7 +217,7 @@ When `skipWtg=true` is passed, `RvsecAnalysisClient` MUST log a single line at I
 - **THEN** the GATOR command line for each APK MUST contain `-clientParam skipWtg=true`
 - **AND** the sweep progress log MUST reflect that WTG is skipped (one line per batch: `[SWEEP] skipWtg=true active for this run`)
 
-### Requirement: Widget XML Attribute Parity with GESDA (FR06)
+### Requirement: Widget XML Attribute Extensions (FR06)
 
 The `enrichFromXml()` method of `RvsecAnalysisClient` MUST extract four additional widget attributes from decoded layout XML files (`Configs.resourceLocation`), in addition to the existing `inputType` and `entries` extraction. The four attributes are:
 
@@ -226,7 +226,7 @@ The `enrichFromXml()` method of `RvsecAnalysisClient` MUST extract four addition
 - `android:contentDescription` → widget field `contentDescription` (string, accessibility label).
 - `android:tooltipText` → widget field `tooltipText` (string, long-press hint).
 
-Missing attributes MUST map to `null` (not empty string), so the JSON consumer can distinguish "attribute absent" from "attribute present but empty". This mirrors the convention in GESDA `XmlParser.parseView()` (lines 207–208 of `rvsec-gesda-core/src/main/java/com/fdu/se/sootanalyze/XmlParser.java`) — the four attributes are the same set GESDA captured and that `gh27-unified-static-analysis` failed to port.
+Missing attributes MUST map to `null` (not empty string), so the JSON consumer can distinguish "attribute absent" from "attribute present but empty".
 
 #### Scenario: Spinner widget gets prompt and spinnerMode
 
@@ -244,6 +244,27 @@ Missing attributes MUST map to `null` (not empty string), so the JSON consumer c
 - **WHEN** a widget in a layout has no `android:prompt` attribute set
 - **THEN** the JSON `windows[].widgets[].prompt` MUST be `null` (not empty string `""` and not absent from the object)
 
+### Requirement: Inflated OPTIONSMENU Items via Existing GUI Flow Graph (FR06)
+
+`RvsecAnalysisClient.extractWindows()` MUST emit the menu items of every XML-inflated options menu (i.e. menus populated by `MenuInflater.inflate(R.menu.<name>, menu)` inside `onCreateOptionsMenu`). The data is already produced by the existing GATOR pipeline: `FixpointSolver.processMenuInflaterCalls()` resolves the layout id to the activity's `NOptionsMenuNode`, and `FixpointSolver.doMenuInflate()` builds an `NMenuItemInflNode` for every `<item>` in the menu XML, attaches it as a child of the `NOptionsMenuNode` (via `addParent` / `children`), and populates its id node, text, and hint. Today this data is discarded by `extractWindows` because the OPTIONSMENU branch hardcodes `widgets: []`.
+
+The fix MUST walk `menu.getChildren()` for each `NOptionsMenuNode` and feed the children into the existing `collectWidgets(output, child, widgets, visited)` recursion, mirroring the dialog-handling block immediately above (which already does this for `NDialogNode` via `output.getDialogRoots(dialog)`).
+
+This requirement covers **only the XML-inflation path**. Programmatic construction (`menu.add(...)` inside `onCreateOptionsMenu`) is covered separately by the requirement "Programmatic Options-Menu Extraction via Soot CFG" — the two are complementary and may produce items for the same OPTIONSMENU when an activity mixes XML inflation with programmatic additions; in that case, the JSON output contains both sets of items in `widgets[]` (no deduplication needed because the id space is disjoint by construction — XML items carry the `R.id` from the menu resource, programmatic items carry the int constant passed to `Menu.add`).
+
+#### Scenario: XML-inflated options menu populates items
+
+- **WHEN** an activity calls `inflater.inflate(R.menu.foo, menu)` inside `onCreateOptionsMenu` with a valid `res/menu/foo.xml` containing items `@+id/a`, `@+id/b`
+- **AND** the analysis pipeline (`FixpointSolver.doMenuInflate`) has built `NMenuItemInflNode` children of the `NOptionsMenuNode` for that activity
+- **THEN** the `windows[type="OPTIONSMENU"]` entry for the activity MUST have `widgets[]` containing two entries with the respective ids and resolved titles
+- **AND** each entry MUST include the same fields as widgets in ACTIVITY/DIALOG windows (`id`, `idName`, `type`, `text`, `hint`, `listeners`, plus the four XML attributes from "Widget XML Attribute Extensions" — all `null` for menu items)
+
+#### Scenario: cryptoapp baseline regression test
+
+- **WHEN** the analysis runs on `apks_examples/cryptoapp.apk` (which has `onCreateOptionsMenu` calling `inflater.inflate(R.menu.cryptoapp_menu, menu)` and `res/menu/cryptoapp_menu.xml` containing 3 items: `menu_item_message_digest`, `menu_item_cipher`, `menu_item_home`)
+- **THEN** the produced JSON MUST have `windows[where type="OPTIONSMENU" and name endsWith "#OptionsMenu"].widgets[]` with exactly 3 entries
+- **AND** each of the 3 entries MUST have a non-null `id` corresponding to the menu-item resource id
+
 ### Requirement: Programmatic Options-Menu Extraction via Soot CFG (FR06)
 
 A new class `MenuExtractor` (in the `rvsec-gator` client module) MUST trace programmatic options-menu construction in `onCreateOptionsMenu(Menu)` methods of application activities. The extractor MUST resolve the following invocation patterns via Soot CFG walking from the entry point of `onCreateOptionsMenu`:
@@ -255,7 +276,7 @@ A new class `MenuExtractor` (in the `rvsec-gator` client module) MUST trace prog
 
 The extractor populates `windows[type="OPTIONSMENU"].widgets[].items[]` as a recursive widget-entry list (each `items[]` entry is itself a widget object that may contain its own `items[]` for submenus). Widget IDs come from the `itemId` argument of the `Menu.add` call (literal int constant).
 
-The extractor MUST be resilient to body-retrieval failures (catch per-method exceptions, log, continue — same pattern as INV-ANA-17, codified as INV-ANA-24). The algorithm is a direct port of `com.fdu.se.sootanalyze.SootAnalyze` lines 372–531 from the legacy `rvsec-gesda` module. Each ported method MUST carry a `@PortedFrom` Javadoc annotation citing the GESDA source location.
+The extractor MUST be resilient to body-retrieval failures (catch per-method exceptions, log, continue — same pattern as INV-ANA-17, codified as INV-ANA-24).
 
 #### Scenario: Programmatic Menu.add with literal CharSequence
 
@@ -266,7 +287,7 @@ The extractor MUST be resilient to body-retrieval failures (catch per-method exc
 #### Scenario: Programmatic Menu.add with @string resource
 
 - **WHEN** the activity calls `menu.add(0, 200, 0, R.string.cfg_label)` where `R.string.cfg_label` resolves to `"Configuration"`
-- **THEN** the corresponding menu item MUST have `text: "Configuration"` (resolved via string-resource lookup, mirroring `parseAppStrings` in GESDA)
+- **THEN** the corresponding menu item MUST have `text: "Configuration"` (resolved via the existing string-resource lookup helpers in `RvsecAnalysisClient`)
 
 #### Scenario: SubMenu followed by SubMenu.add chains
 

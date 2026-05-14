@@ -257,6 +257,17 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
         cmd = Command(cmd_args[0], cmd_args[1:], timeout=self.config.analysis_timeout)
         self._execute_command("ANALYSIS", self.analysis_file, cmd)
 
+        # Defensive post-condition: GATOR writes JSON incrementally (reachability
+        # → windows → transitions). Even a timed-out run produces a partial file.
+        # If nothing exists, the invocation failed (typically CommandNotFoundError
+        # swallowed upstream) — escalate so the caller sees a hard error instead
+        # of zeroed coverage metrics downstream.
+        if not os.path.isfile(self.analysis_file):
+            raise StaticAnalysisException(
+                f"GATOR did not produce output JSON at {self.analysis_file}; "
+                "check that the python interpreter and gator launcher are reachable."
+            )
+
     def _execute_command(
         self, name: str, result_file: str, command: Command
     ) -> CommandResult:

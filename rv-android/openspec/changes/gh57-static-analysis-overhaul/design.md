@@ -2,11 +2,13 @@
 
 ## Context
 
-The unified GATOR static analysis (post-`gh27`, with Soot 4.7.1 + SPARK default from `gh51`) is producing empty `windows[]` arrays in 71.6% of the `APKS_FINAL_JCA_DEXLIB` corpus. The Phase-0 investigation (`rv-android/docs/20260513_gator_analise_wtg.md`) traced this to a *two-call-graph problem*: SPARK is correctly configured and serves the reachability phase, but the WTG (Window Transition Graph) phase bypasses it via `AndroidCallGraph.v()` — an independent singleton populated by `FlowgraphRebuilder.buildCallGraph()` with CHA-style virtual dispatch over all concrete subtypes. The combinatorial cost (~O(|methods| × |stmts| × |subtypes| × |hierarchy|)) exceeds the sweep timeout on large APKs, leaving a partial JSON (with reachability but artificially-empty windows) as the final artifact.
+The unified GATOR static analysis (post-`gh27`, with Soot 4.7.1 + SPARK default from `gh51`) is producing empty `windows[]` arrays in **58.4% (222 / 380)** of the canonical original-APK corpus at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` (ground-truth JSONs in `…/APKS_JCA_analise_estatica_soot/`). The Phase-0 investigation (`rv-android/docs/20260513_gator_analise_wtg.md`) traced this to a *two-call-graph problem*: SPARK is correctly configured and serves the reachability phase, but the WTG (Window Transition Graph) phase bypasses it via `AndroidCallGraph.v()` — an independent singleton populated by `FlowgraphRebuilder.buildCallGraph()` with CHA-style virtual dispatch over all concrete subtypes. The combinatorial cost (~O(|methods| × |stmts| × |subtypes| × |hierarchy|)) exceeds the sweep timeout on large APKs, leaving a partial JSON (with reachability but artificially-empty windows) as the final artifact.
 
-Three of the four MOP weights consumed by `aperv:sata_mop` (`mop_weight_direct`, `mop_weight_activity`, `mop_weight_wtg`) require `windows[]` / `transitions[]` to operate. Without this fix, the APE-RV v3 calibration must fall back to the *two-score* objective mitigation (`rvsec-calibracao/docs/20260513_analise_gator_window.md` §6.2) and lose representativeness from 136 of 190 APKs.
+The downstream APE-RV v3 calibration subset (190 of the 400 APKs, filtered for JCA reachability + dexlib2-instrumentability + x86 ABI) sees this more acutely at **71.6% empty (136 / 190)** because the filtering biases toward larger / harder apps. Static analysis is run **only on the original APKs** (per project memory `feedback_static_analysis_original_apks_only.md`); the instrumented `*_DEXLIB` set is a downstream artefact and never feeds back into Soot, where Dexpler can crash on monitor-injected bytecode (observed 2026-05-14: `Unrealizable cast` in `AesGcmHkdfStreaming`).
 
-A parallel audit of the legacy `rvsec-gesda` tool against the unified `RvsecAnalysisClient` (Phase-0 §12) identified five widget-level features lost in the `gh27` unification. The two structurally cheapest (XML attribute parity, programmatic options-menu extraction via Soot CFG) are direct re-ports; the third (programmatic Spinner items via `ArrayAdapter` dataflow) is a feature net-new to the project, scoped to MVP for this change.
+Three of the four MOP weights consumed by `aperv:sata_mop` (`mop_weight_direct`, `mop_weight_activity`, `mop_weight_wtg`) require `windows[]` / `transitions[]` to operate. Without this fix, the APE-RV v3 calibration must fall back to the *two-score* objective mitigation (`rvsec-calibracao/docs/20260513_analise_gator_window.md` §6.2) and lose representativeness from 136 of the 190 instrumented APKs.
+
+A parallel audit of `RvsecAnalysisClient`'s widget-extraction coverage (Phase-0 §12) identified five widget-level features absent from the current output that `aperv:sata_mop` consumes. The two structurally cheapest (four extra XML attributes, programmatic options-menu extraction via Soot CFG) are mechanical additions to existing pipelines; the third (programmatic Spinner items via `ArrayAdapter` dataflow) is a feature net-new to the project, scoped to MVP for this change.
 
 References:
 - Phase-0 ideation: `rv-android/docs/20260513_gator_analise_wtg.md`
@@ -98,8 +100,9 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 | MODIFIED `Unified Static Analysis` (windows[] populated regardless of WTG) | `RvsecAnalysisClient.writeJson()` partial path + `extractWindows()` guard | `RvsecAnalysisClientTest.testPartialJsonHasPopulatedWindows` |
 | ADDED `JSON Schema Versioning` | `RvsecAnalysisClient.writeJson()` first emits `schemaVersion: "2.0"`; `MopData.java` reads with fallback | `MopDataTest.testReadsLegacyV1Json`, `RvsecAnalysisClientTest.testSchemaVersionFieldPresent` |
 | ADDED `skipWtg Client Parameter` | `Configs.skipWtg`, `RvsecAnalysisClient.run` branch, `static_analysis_sweep.py` arg | `RvsecAnalysisClientTest.testSkipWtgBypassesBuilder`, `test_sweep_skip_wtg.py` |
-| ADDED `Widget XML Attribute Parity` | `RvsecAnalysisClient.enrichFromXml()` reads 4 attrs | `EnrichFromXmlTest.testFourNewAttrs` |
-| ADDED `Programmatic Options-Menu Extraction` | `MenuExtractor` (new), called from `extractWindows` for OPTIONSMENU | `MenuExtractorTest.testMenuAddLiteral`, `testMenuAddStringResource`, `testSubMenuChain`, `testBodyRetrievalFailure` |
+| ADDED `Widget XML Attribute Extensions` | `RvsecAnalysisClient.enrichFromXml()` reads 4 attrs | `EnrichFromXmlTest.testFourNewAttrs` |
+| ADDED `Inflated OPTIONSMENU Items via Existing GUI Flow Graph` | `RvsecAnalysisClient.extractWindows()` walks `menu.getChildren()` and calls `collectWidgets` (replace hardcoded `Collections.emptyList()`) | `RvsecAnalysisClientTest.testCryptoappOptionsMenuHasThreeItems`, integration smoke on `cryptoapp.apk` |
+| ADDED `Programmatic Options-Menu Extraction` | `MenuExtractor` (new), called from `extractWindows` for OPTIONSMENU in addition to the inflated-items walk | `MenuExtractorTest.testMenuAddLiteral`, `testMenuAddStringResource`, `testSubMenuChain`, `testBodyRetrievalFailure` |
 | ADDED `Programmatic Spinner Items via ArrayAdapter (MVP)` | `SpinnerItemExtractor` (new), invoked after `enrichFromXml` | `SpinnerItemExtractorTest.testLiteralConstructor`, `testAdapterAddCalls`, `testXmlAndProgrammaticCoexist`, `testNonLiteralLogged` |
 | INV-ANA-20 (windows always populated) | `writeJson` invariant; assertion in tests | `testPartialJsonHasPopulatedWindows` |
 | INV-ANA-21 (no second CG when `cgDelegation=true`) | `FlowgraphRebuilder.buildCallGraph` branch | `FlowgraphRebuilderTest.testCgDelegationDoesNotPopulateAndroidCallGraph` |
@@ -112,8 +115,8 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 
 **Goals:**
 - Eliminate the two-call-graph problem at the structural level (single SPARK CG, controlled by `cgDelegation` feature flag for safe rollback).
-- Populate `windows[]` in 100% of successful runs (including WTG-timeout cases), so 3 of the 4 aperv MOP weights become operational on the full 190-APK corpus.
-- Restore GESDA-level widget metadata (5 widget fields) at near-zero additional cost.
+- Populate `windows[]` in 100% of successful runs (including WTG-timeout cases), so 3 of the 4 aperv MOP weights become operational on the full ground-truth set (380 originals). The downstream v3 calibration subset (190 instrumented APKs) picks up the new windows data automatically when re-instrumented from the refreshed JSONs.
+- Add 5 widget metadata fields (4 XML attributes + programmatic menu items) at near-zero additional cost.
 - Add explicit JSON schema versioning to decouple producer/consumer evolution going forward.
 - Stay within ~3 weeks of effort for the MVP scope of item 5 (ArrayAdapter literal patterns only).
 
@@ -121,7 +124,7 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 - Replacing `AndroidCallGraph` with `OnFlyCallGraphBuilder` or RTA (Phase-0 Opção D — high effort, low marginal benefit once Opção A lands).
 - Re-implementing rv-agent's WTG-guided navigation (rv-agent is not an active consumer in 2026 H1).
 - Fixing the `MopScorer` weighting (the score itself is unchanged; only the inputs `MopScorer` consumes are richer).
-- Migrating the 54 pre-existing legacy-v1 JSONs in-place; the 190-APK re-run is the canonical v2.0 source.
+- Migrating the 158 pre-existing legacy-v1 JSONs in-place; the 380-APK ground-truth re-run on `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` is the canonical v2.0 source.
 - Covering `getResources().getStringArray(R.array.X)` or Kotlin `listOf()` in `SpinnerItemExtractor` — deferred to a future change pending corpus coverage measurement.
 - Modifying the sweep timeout policy (Phase-0 explicitly rejects `analise_gator_window.md` §6.3.A/B/C as obsoleted by this change).
 
@@ -134,7 +137,7 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 **Why:** Phase-0 §3.4bis verified that 100% of widget data (`getActivities`, `getDialogs`, `getOptionsMenu`, widget roots, `PropertyManager` text/hint, event handlers) is populated by GATOR's `wjtp.gui` transformer *before* `RvsecAnalysisClient.run()` is invoked. The `if (wtg != null)` gate in `writeJson` was an artificial coupling, not an algorithmic necessity.
 
 **Alternatives considered:**
-- **Opção B (`--fast-windows` GESDA-style XML path)**: parse layout XMLs directly, bypassing GATOR's interprocedural analysis. Rejected because Opção C is strictly simpler and reuses the existing `extractWindows` helper that already handles dynamic listeners correctly.
+- **Opção B (`--fast-windows` XML-only path)**: parse layout XMLs directly, bypassing GATOR's interprocedural analysis. Rejected because Opção C is strictly simpler and reuses the existing `extractWindows` helper that already handles dynamic listeners correctly.
 - **`--skip-wtg` only**: skipping WTG without fixing the partial-JSON path still produces `transitions: []` but with an unwarranted `windows: []`. Rejected because it misses the structural fix.
 
 **Trade-off:** The partial path loses the "catch-all WTG-only windows" (fragments, context menus enumerated only via `wtg.getNodes()`). These already have `widgets: []` in the full path, so they are informational; their absence is documented in INV-ANA-20.
@@ -169,11 +172,23 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 
 **Why:** P1 (simplicity) + testability. `RvsecAnalysisClient.run()` is already long; adding ~200 lines of Soot CFG walking inside it would harm readability. Separate classes enable focused unit tests with minimal Soot bootstrap fixtures.
 
+### D7 — Inflated OPTIONSMENU items: reuse existing flow graph, do not re-parse menu XML
+
+**Choice:** In `RvsecAnalysisClient.extractWindows()`, replace the hardcoded `widgets: Collections.emptyList()` for OPTIONSMENU windows (line ~729) with a `collectWidgets(output, child, widgets, visited)` walk over `menu.getChildren()` — identical in shape to the DIALOG block on lines 700–715.
+
+**Why:** `FixpointSolver.doMenuInflate()` (sootandroid `FixpointSolver.java:1004`) already does the heavy lifting — it parses `res/menu/<name>.xml` via `getRootForLayoutId(menuId)`, builds an `NMenuItemInflNode` for every `<item>`, sets `idNode` (line 1044), `text` via `addTextNode` (line 1056), `hint` via `addHintNode` (line 1064), and attaches each item to the `NOptionsMenuNode` parent via `vNode.addParent(parent)` (line 1068). The `NNode.addParent` contract (`NNode.java:167`) reciprocates: `p.children.add(this)`. So `menu.getChildren()` returns the inflated menu items with all metadata already filled in. The fix is to *stop discarding* this data — not to re-parse anything.
+
+This is the simplest possible fix (5 lines, mirrors an existing pattern, zero new APIs). It is orthogonal to D5 (`MenuExtractor`): D5 handles activities that construct the menu programmatically in `onCreateOptionsMenu`; D7 handles the inflated-XML case. The two paths produce items in the same `widgets[]` array; the id spaces are disjoint by construction (XML items carry `R.id.*` constants from the menu resource; programmatic items carry the literal int passed to `Menu.add(...)`).
+
+**Alternative considered:** parse the menu XML directly in `RvsecAnalysisClient` (analogous to `enrichFromXml` for layouts). Rejected because it would duplicate `doMenuInflate`'s work, would not benefit from `FixpointSolver`'s string-resource and id resolution, and would not see programmatic menus at all.
+
+**Discovery context:** this gap was identified during the gh57 cryptoapp smoke (2026-05-14). The smoke produced `windows[type="OPTIONSMENU"].widgets: []` for an activity whose menu is XML-inflated with 3 items in `res/menu/cryptoapp_menu.xml`. Tracing back through `FixpointSolver.processMenuInflaterCalls` → `doMenuInflate` → `NMenuItemInflNode` showed the data is built in-memory and then thrown away by the JSON serializer.
+
 ### D6 — Schema version field as a string `"2.0"` at the second JSON position
 
 **Choice:** Emit `"schemaVersion": "2.0"` immediately after `"package"` in `writeJson()`. The `MopData.java` parser reads the field and, when absent or `"1.0"`, treats all v2.0 fields as `null` / empty.
 
-**Why:** P3 (no backward compatibility in producer) — `RvsecAnalysisClient` only emits v2.0 going forward. The consumer must tolerate legacy v1 JSONs because the 54 pre-existing files in `out/sweep_jca400_v1/` are not migrated in-place; they are simply re-generated during the closing 190-APK re-run.
+**Why:** P3 (no backward compatibility in producer) — `RvsecAnalysisClient` only emits v2.0 going forward. The consumer must tolerate legacy v1 JSONs because the 158 pre-existing populated files in `…/APKS_JCA_analise_estatica_soot/` are not migrated in-place; they are simply re-generated during the closing 380-APK ground-truth re-run.
 
 **Alternative considered:** semver `"2.0.0"`. Rejected because two digits are sufficient and easier to grep / version-bump.
 
@@ -360,11 +375,10 @@ sweep CLI ──▶ static_analysis_sweep.py
 | SPARK CG omits edges to `IGNORED_CLASSES` that the legacy CHA path included → `transitions[]` regression | Bytecode-scan complement (INV-ANA-22); paridade Jaccard gate (avg ≥ 0.95, no individual APK < 0.85) on 10-APK fixture; runtime feature flag for rollback |
 | Jaccard per-APK < 0.85 on any single baseline-OK APK while average is still ≥ 0.95 | The gate enforces BOTH thresholds: avg ≥ 0.95 AND min ≥ 0.85. If a single APK fails the minimum, treat as paridade FAIL and either (a) extend `scanInvokesByPattern` predicate to cover the missed cases, or (b) keep `cgDelegation=false` as default (D3 feature flag enables runtime rollback without rebuild) |
 | `SpinnerItemExtractor` MVP coverage is too low on real APKs (mostly Kotlin `listOf()` or `getStringArray()`) | Pre-flight corpus scan (Phase-0 §7.7); decide to ship MVP or extend to full |
-| `MenuExtractor` direct port from GESDA breaks because Soot 4.7.1 APIs diverged from GESDA's older Soot | Pre-flight Soot API diff (Phase-0 §7.6); fallback adapter layer if signatures differ |
-| The 54 pre-existing legacy-v1 JSONs become inconsistent with v2.0 outputs across the dataset | The 190-APK re-run at the close of the change re-generates all of them; `MopData.java` tolerates both schemas during the transition |
+| `MenuExtractor` implementation hits an unsupported Soot 4.7.1 API | Pre-flight Soot API availability check (Phase-0 §7.6 / `notes/preflight_soot_api.md`); 0 divergences confirmed — fallback adapter layer not required |
+| The 158 pre-existing legacy-v1 JSONs become inconsistent with v2.0 outputs across the dataset | The 380-APK ground-truth re-run at the close of the change re-generates all of them; `MopData.java` tolerates both schemas during the transition |
 | Aperv MopData reader changes ship in the `ape` repo, not `rv-android`; coordination risk | Pre-flight `scripts/check_jar_sync.sh` validates timestamps; explicit task in `tasks.md` to rebuild both JARs |
 | Wall-clock improvement target (≥30% on large APKs) is aspirational | Baseline measurement is part of pre-flight (Phase-0 §7.4); if gain is <20%, the change still ships (it is justified on windows[] populated, not on speed) |
-| GESDA-port license attribution gap | `@PortedFrom(source="GESDA:SootAnalyze.java:372-531")` Javadoc on new classes (Phase-0 §16.4) |
 
 ## Testing Strategy
 
@@ -378,13 +392,13 @@ sweep CLI ──▶ static_analysis_sweep.py
 | Unit (Python) | `static_analysis_sweep.py --skip-wtg` propagation | pytest on `rv-static-analysis/tests/` | ~3 tests |
 | Integration | 5-APK smoke (3 baseline-OK, 2 baseline-frozen) — partial+full JSON correctness | invoke real GATOR JAR on fixtures in `apks_examples/` | ~1 test run |
 | Integration | Paridade Jaccard ≥0.95 on 10-APK fixture | `scripts/wtg_paridade_diff.py` | ~1 test run |
-| Acceptance | Full re-run of 190-APK `APKS_FINAL_JCA_DEXLIB` | sweep + post-hoc check `windows[]` non-empty in ≥95% | ~1 manual run |
+| Acceptance | Full re-run of 380-APK originals at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` | sweep + post-hoc check `windows[]` non-empty in ≥95% | ~1 manual run |
 | Acceptance | Aperv smoke with v2.0 JSON | rv-experiment `--tools aperv:sata_mop` on 3 APKs | ~1 manual run |
 
 ## Open Questions
 
-- **Q1 (deferred to pre-flight §7.6):** does Soot 4.7.1 preserve the `InterfaceInvokeExpr`/`AssignStmt`/`IntConstant` APIs used by GESDA's `getSubItems` walker, or do we need a 1–2 day adapter layer?
+- **Q1 (resolved by pre-flight §7.6 / `notes/preflight_soot_api.md`):** Soot 4.7.1 provides every API the `MenuExtractor` algorithm needs (`InterfaceInvokeExpr`, `AssignStmt`, `IntConstant`, `UnitGraph.getSuccsOf`, `Value.equivTo`); 0 divergences. No adapter layer required.
 - **Q2 (deferred to pre-flight §7.7):** is the corpus coverage of literal-`ArrayAdapter` patterns ≥40%? If not, extend item 5 to "full" scope (+2–3 days, includes `getResources().getStringArray()` and Kotlin `listOf()`).
-- **Q3 (deferred to pre-flight §7.11):** are there suitable APK fixtures in `APKS_FINAL_JCA_DEXLIB` for items 4 and 5, or do we need to author a synthetic test APK (+1 day per APK)?
+- **Q3 (resolved by pre-flight §7.11):** suitable APK fixtures for items 4 and 5 were sourced from the original corpus (`app.notesr_59` for menu; `com.eanema.graph89_1200` for Spinner); no synthetic test APK needed.
 - **Q4 (decided in §16.3 of Phase-0):** the `flock` against CogniCrypt is manual coordination only — no in-build enforcement. Revisit if collisions become frequent.
 - **Q5 (deferred to follow-up change):** when should the `cgDelegation=false` legacy branch be deleted? Phase-0 suggests "after N weeks of stable operation". Defer to a follow-up `gh<N>-cgdelegation-cleanup` change once telemetry confirms zero rollback use.
