@@ -581,8 +581,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--image",
         type=str,
-        default="phtcosta/rvandroid:0.8.0",
-        help="Docker image for trial containers (default: phtcosta/rvandroid:0.8.0).",
+        default="phtcosta/rvandroid:0.9.0",
+        help="Docker image for trial containers (default: phtcosta/rvandroid:0.9.0).",
     )
     parser.add_argument(
         "--cpus",

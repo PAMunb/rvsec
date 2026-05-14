@@ -94,9 +94,9 @@ def test_resolve_runtime_libs_runs_mvn_and_returns_jars(tmp_path):
     lib_tmp = tmp_path / "lib_tmp"
 
     expected = [
-        "rv-monitor-rt-0.8.0-SNAPSHOT.jar",
-        "rvsec-core-0.8.0-SNAPSHOT.jar",
-        "rvsec-logger-logcat-0.8.0-SNAPSHOT.jar",
+        "rv-monitor-rt-0.9.0-SNAPSHOT.jar",
+        "rvsec-core-0.9.0-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.9.0-SNAPSHOT.jar",
         "aspectjrt-1.9.7.jar",
     ]
     instrumenter = _ConcreteInstrumenter()

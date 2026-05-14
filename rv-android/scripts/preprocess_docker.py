@@ -268,8 +268,8 @@ def main():
     )
     parser.add_argument(
         "--image",
-        default="phtcosta/rvandroid:0.8.0",
-        help="Docker image to use (default: phtcosta/rvandroid:0.8.0)",
+        default="phtcosta/rvandroid:0.9.0",
+        help="Docker image to use (default: phtcosta/rvandroid:0.9.0)",
     )
     parser.add_argument(
         "--cpus",
@@ -362,7 +362,7 @@ def main():
     print(f"\nLaunching {n_containers} containers...")
     try:
         subprocess.run(
-            ["docker", "compose", "-", str(compose_path), "up"],
+            ["docker", "compose", "-f", str(compose_path), "up"],
             check=False,
         )
     finally:

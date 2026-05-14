@@ -1,9 +1,10 @@
-FROM phtcosta/rvsec_android:0.8.0
+FROM phtcosta/rvsec_android:0.9.0
 
 WORKDIR /opt
 RUN git clone https://github.com/honeynet/droidbot.git && \
     cd droidbot && \
-    sed -i 's/androguard>=3.4.0a1/androguard==3.4.0a1/g' setup.py && \
-    pip install -e .
+    sed -i 's|from androguard.core.bytecodes.apk import APK|from androguard.core.apk import APK|' droidbot/app.py && \
+    pip install -e . && \
+    pip install --upgrade 'androguard>=4.1.3'
 
 ENV PYTHONPATH=/opt/droidbot:${PYTHONPATH:-}
