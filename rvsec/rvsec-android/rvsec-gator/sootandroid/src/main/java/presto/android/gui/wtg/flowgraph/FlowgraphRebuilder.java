@@ -982,20 +982,53 @@ public class FlowgraphRebuilder {
   }
 
   // gh57 D3: query Scene.v().getCallGraph() (SPARK) for edges out of this
-  // invoke stmt. Drops the secondary points-to graph entirely. Library
-  // edges that SPARK quarantines via IGNORED_CLASSES are recovered by the
-  // bytecode-scan complement at the WTG level (INV-ANA-22) — that helper
-  // lives in RvsecAnalysisClient (scanInvokesInAppClasses) and is invoked
-  // by the WTG construction flow, not from here.
+  // invoke stmt. Drops the secondary points-to + CHA-fallback graph entirely.
+  //
+  // INV-ANA-22 (IGNORED_CLASSES recovery): SPARK quarantines edges into
+  // certain library packages (java.*, android.*, internal Soot stubs) via
+  // its IGNORED_CLASSES policy; for those invoke sites edgesOutOf(s) returns
+  // an empty iterator. We recover the lost edge by adding the declared
+  // callee (ie.getMethod()) when (a) SPARK contributed zero edges AND (b)
+  // the declared callee class looks like one SPARK would have quarantined.
+  // This mirrors the gh51 bytecode-scan complement for MOP detection
+  // (BUG-INV-ANA-19) — same principle, different consumer.
   private void buildCallGraphFromSparkCg(SootMethod source, Stmt s) {
     soot.jimple.toolkits.callgraph.CallGraph sceneCg = Scene.v().getCallGraph();
     Iterator<soot.jimple.toolkits.callgraph.Edge> it = sceneCg.edgesOutOf(s);
+    int added = 0;
     while (it.hasNext()) {
       SootMethod tgt = it.next().tgt();
       if (tgt != null) {
         callgraph.add(source, tgt, s);
+        added++;
       }
     }
+    if (added > 0) {
+      return;
+    }
+    SootMethod declared = s.getInvokeExpr().getMethod();
+    if (declared == null) {
+      return;
+    }
+    String declaringClass = declared.getDeclaringClass().getName();
+    if (isLikelyIgnoredByCg(declaringClass)) {
+      callgraph.add(source, declared, s);
+    }
+  }
+
+  private static boolean isLikelyIgnoredByCg(String className) {
+    // SPARK's IGNORED_CLASSES default set is dominated by java.*, javax.*,
+    // sun.*, and Android framework packages. The check is intentionally
+    // conservative: we recover only when the declared callee is in a
+    // namespace that the points-to analysis is known to skip; the WTG
+    // pre-gh57 path included these via its CHA-fallback over all concrete
+    // subtypes, so preserving them keeps the paridade gate honest.
+    return className.startsWith("java.")
+        || className.startsWith("javax.")
+        || className.startsWith("sun.")
+        || className.startsWith("android.")
+        || className.startsWith("androidx.")
+        || className.startsWith("dalvik.");
   }
 
   // Legacy path — preserved verbatim behind cgDelegation=false for runtime

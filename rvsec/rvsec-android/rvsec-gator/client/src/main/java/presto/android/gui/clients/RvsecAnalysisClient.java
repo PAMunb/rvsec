@@ -474,19 +474,39 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * @return app methods whose body contains a literal invocation of any
 	 *         MOP signature, regardless of CG visibility.
 	 */
-	private Set<SootMethod> findDirectMopCallersByBytecodeScan(
+	/**
+	 * Visitor callback for {@link #scanInvokesInAppClasses}. Receives the
+	 * caller method and a matching invoke statement; implementation
+	 * decides what to do (collect callers, collect (caller,target) pairs,
+	 * etc.). Returning {@code true} stops the per-method scan early —
+	 * the visitor has all it needs for this caller.
+	 */
+	interface InvokeVisitor {
+		/** @return true to break out of the current method's unit walk. */
+		boolean visit(SootMethod caller, Stmt invokeStmt, InvokeExpr ie, SootMethodRef ref);
+	}
+
+	/**
+	 * Generic bytecode-scan helper extracted from
+	 * {@link #findDirectMopCallersByBytecodeScan}. Iterates application
+	 * methods, retrieves bodies under the same try-catch resilience
+	 * policy (RuntimeException + OutOfMemoryError → WARN + skip), and
+	 * dispatches each invoke statement to the visitor. Used by:
+	 *   (a) MOP-caller detection (BUG-INV-ANA-19) via
+	 *       {@link #findDirectMopCallersByBytecodeScan}.
+	 *   (b) IGNORED_CLASSES edge recovery (INV-ANA-22) at the WTG level
+	 *       to complement SPARK CG queries.
+	 *
+	 * Telemetry is logged with the supplied {@code passLabel} so multiple
+	 * passes can be distinguished in operator-facing logs.
+	 *
+	 * @return methodsScanned + bodiesSkipped counters for the caller's
+	 *         telemetry; the visitor accumulates its own state.
+	 */
+	int[] scanInvokesInAppClasses(
 			Map<SootClass, List<SootMethod>> appClasses,
-			Set<MopMethod> mopSignatures) {
-
-		Set<SootMethod> result = new HashSet<>();
-		if (mopSignatures.isEmpty()) {
-			return result;
-		}
-
-		// Build a fast lookup keyed by "fqClassName#methodName" — matches
-		// resolveMopInScene's policy (class FQN + method name, ignoring
-		// parameter overloads). Same MopMethod entry covers all overloads.
-		Set<String> mopKeys = buildMopKeys(mopSignatures);
+			InvokeVisitor visitor,
+			String passLabel) {
 
 		int methodsScanned = 0;
 		int bodiesSkipped = 0;
@@ -501,8 +521,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 					body = method.retrieveActiveBody();
 				} catch (RuntimeException | OutOfMemoryError ex) {
 					bodiesSkipped++;
-					System.out.println("[RvsecAnalysisClient] WARN bytecode-scan skipped "
-							+ method.getSignature() + ": " + ex.getMessage());
+					System.out.println("[RvsecAnalysisClient] WARN " + passLabel
+							+ " skipped " + method.getSignature() + ": " + ex.getMessage());
 					continue;
 				}
 				if (body == null) {
@@ -521,15 +541,42 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 					if (ref == null) {
 						continue;
 					}
-					if (matchesMopSignature(ref.getDeclaringClass().getName(), ref.getName(), mopKeys)) {
-						result.add(method);
+					if (visitor.visit(method, stmt, ie, ref)) {
 						break;
 					}
 				}
 			}
 		}
-		System.out.println("[RvsecAnalysisClient] Bytecode scan: " + methodsScanned
-				+ " methods scanned, " + bodiesSkipped + " body-retrieval skips, "
+		return new int[] { methodsScanned, bodiesSkipped };
+	}
+
+	private Set<SootMethod> findDirectMopCallersByBytecodeScan(
+			Map<SootClass, List<SootMethod>> appClasses,
+			Set<MopMethod> mopSignatures) {
+
+		Set<SootMethod> result = new HashSet<>();
+		if (mopSignatures.isEmpty()) {
+			return result;
+		}
+
+		// Build a fast lookup keyed by "fqClassName#methodName" — matches
+		// resolveMopInScene's policy (class FQN + method name, ignoring
+		// parameter overloads). Same MopMethod entry covers all overloads.
+		Set<String> mopKeys = buildMopKeys(mopSignatures);
+
+		int[] counters = scanInvokesInAppClasses(appClasses,
+				(caller, stmt, ie, ref) -> {
+					if (matchesMopSignature(ref.getDeclaringClass().getName(),
+							ref.getName(), mopKeys)) {
+						result.add(caller);
+						return true; // first match per method is enough
+					}
+					return false;
+				},
+				"Bytecode scan");
+
+		System.out.println("[RvsecAnalysisClient] Bytecode scan: " + counters[0]
+				+ " methods scanned, " + counters[1] + " body-retrieval skips, "
 				+ result.size() + " direct MOP callers detected");
 		return result;
 	}
