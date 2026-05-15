@@ -727,9 +727,15 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			extractedIds.add((int) window.get("id"));
 		}
 
-		// Options menus — use the menu node's own ID. Walk menu.getChildren()
-		// to surface NMenuItemInflNode entries that FixpointSolver.doMenuInflate
-		// already populated from R.menu.<name>.xml.
+		// Options menus — use the menu node's own ID. Two complementary paths:
+		//   (1) XML-inflated items: walk menu.getChildren() to surface
+		//       NMenuItemInflNode entries that FixpointSolver.doMenuInflate
+		//       already populated from R.menu.<name>.xml (D7).
+		//   (2) Programmatic items: MenuExtractor walks the CFG of
+		//       onCreateOptionsMenu for Menu.add(...) / addSubMenu(...) calls
+		//       (Group 4). Both paths emit into the same widgets[] list;
+		//       id spaces are disjoint by construction.
+		MenuExtractor menuExtractor = new MenuExtractor(resId -> null);
 		for (SootClass activity : output.getActivities()) {
 			NOptionsMenuNode menu = output.getOptionsMenu(activity);
 			if (menu != null) {
@@ -746,6 +752,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				for (NNode child : menu.getChildren()) {
 					collectWidgets(output, child, widgets, menuVisited);
 				}
+				widgets.addAll(menuExtractor.extractItems(activity));
 				window.put("widgets", widgets);
 				windows.add(window);
 				extractedIds.add((int) window.get("id"));
