@@ -258,6 +258,32 @@ class MonitorInvokeBindingTest {
                 new int[]{3, 6}
         ));
 
+        // ----- gh59: Before × static × args(long) — wide param FORWARDED to monitor.
+        //
+        // The first wide test below (AfterReturning-static-wide-return) exercises
+        // `returning(long)` — the $return path, which stores only the LOW half.
+        // No prior fixture covers a `long`/`double` in `monitorCall.args` being
+        // passed forward into the invoke. That gap hid the 2nd-hunk bug of gh59:
+        // `registersFor` produces one entry per arg name, and `buildInvokeStatic`
+        // uses regs.length as the DEX register-count — so the emitted invoke
+        // declares 1 slot for the long instead of 2, and the verifier rejects.
+        //
+        // The fix expands wide-typed advice args into (vN, vN+1) before reaching
+        // buildInvokeStatic. This fixture asserts that expansion happens.
+        list.add(new Scenario(
+                "gh59-Before-static-args-long-wide-expansion",
+                advice("b3", "before",
+                        "call(public static void Thread.sleep(long)) && args(millis)",
+                        List.of(new ParameterDescriptor("long", "millis")),
+                        null, null, "sleepEvent", List.of("millis")),
+                staticMatch(/*arg0=*/ 8, /*$return=*/ -1),
+                List.of("J"),
+                // arg00 binds to v8 (low half); the emitted invoke MUST place
+                // the wide pair (v8, v9) in the operand list so the verifier
+                // sees a contiguous 2-slot wide.
+                new int[]{8, 9}
+        ));
+
         // ----- AfterReturning × static × move-result-wide (long return) -----
         // call(public static long System.currentTimeMillis())
         // The synthetic key $return stores the LOW register of the wide pair.
@@ -270,7 +296,14 @@ class MonitorInvokeBindingTest {
                         null, "currentTimeMillisEvent", List.of("now")),
                 staticMatch(/*arg0=*/ -1, /*$return=*/ 6),
                 List.of("J"),
-                new int[]{6}
+                // gh59: $return stores the LOW register (v6) of the wide pair;
+                // the emitted invoke MUST forward (v6, v7) — same wide-expansion
+                // rule applied to `args` paths. Previous expectation [6] was
+                // asserting malformed bytecode that the verifier would reject
+                // (the slot count mismatch was just masked at runtime because
+                // no APK in the gh52/gh56 datasets used a returning(long)
+                // monitored event).
+                new int[]{6, 7}
         ));
 
         // ----- AfterThrowing × virtual × throwing(name) -----

@@ -74,7 +74,49 @@ public final class MonitorInvokeBuilder {
                     advice.getName() != null ? advice.getName() : eventMethod,
                     unresolved);
         }
-        return Collections.singletonList(buildInvokeStatic(ref, regs));
+        // gh59 (2nd hunk): expand wide-typed advice args (`J`/`D`) into the
+        // pair (vN, vN+1) before handing the operand array to buildInvokeStatic.
+        // registersFor produces one register per arg name — correct for narrow
+        // types but wrong for wide: the emitted invoke would declare the wrong
+        // slot count (`regs.length` instead of `narrow + 2*wide`), and the
+        // verifier rejects the low half of the wide as "non-reference register
+        // (type=Long Low Half)" used in a position that expects a single slot.
+        int[] expandedRegs = expandWideSlots(regs, ref);
+        return Collections.singletonList(buildInvokeStatic(ref, expandedRegs));
+    }
+
+    /**
+     * Expand {@code regs} so that every wide-typed parameter (`J`/`D` per the
+     * monitor's {@code ref} descriptors) occupies two consecutive slots
+     * {@code (vN, vN+1)} in the operand array. Narrow parameters pass through
+     * unchanged. Closes the gh59 2nd hunk — the matched callee already pinned
+     * the low half register via {@code PointcutMatcher.buildCallMatch}; the
+     * adjacent {@code vN+1} is guaranteed by the wide-pair contiguity
+     * invariant of the source bytecode (the verifier requires it). When the
+     * monitor signature has no wide param the array is returned unchanged.
+     */
+    private static int[] expandWideSlots(int[] regs, MethodReference ref) {
+        java.util.List<? extends CharSequence> descriptors = ref.getParameterTypes();
+        int totalSlots = 0;
+        for (CharSequence d : descriptors) {
+            totalSlots += isWide(d) ? 2 : 1;
+        }
+        if (totalSlots == regs.length) {
+            return regs;
+        }
+        int[] out = new int[totalSlots];
+        int k = 0;
+        for (int i = 0; i < regs.length && i < descriptors.size(); i++) {
+            out[k++] = regs[i];
+            if (isWide(descriptors.get(i))) {
+                out[k++] = regs[i] + 1;
+            }
+        }
+        return out;
+    }
+
+    private static boolean isWide(CharSequence d) {
+        return d.length() == 1 && (d.charAt(0) == 'J' || d.charAt(0) == 'D');
     }
 
     private static String shortName(String fullyQualifiedMethod) {
