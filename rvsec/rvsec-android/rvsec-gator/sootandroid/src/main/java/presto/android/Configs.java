@@ -73,6 +73,12 @@ public class Configs {
 
   public static String cgAlgorithm = "spark"; // cha, rta, vta, spark — default per gh51 D5
 
+  // gh57 D3: when true, FlowgraphRebuilder.buildCallGraph delegates virtual
+  // dispatch to Scene.v().getCallGraph() (SPARK) instead of the legacy
+  // points-to + CHA fallback. Default true; flip to false for runtime
+  // rollback if paridade Jaccard ever degrades. See design.md D3.
+  public static boolean cgDelegation = true;
+
   // [wtg analysis] xml file describing the calls related with wtg
   public static String wtgSpecFile;
 

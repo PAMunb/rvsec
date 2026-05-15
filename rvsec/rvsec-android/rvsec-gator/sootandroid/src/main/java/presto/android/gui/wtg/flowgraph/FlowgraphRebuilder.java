@@ -935,27 +935,35 @@ public class FlowgraphRebuilder {
     }
   }
 
-  // reuse Tony's code to build callgraph for wtg analysis
-  // modify the way callee is resolved, and add special handling for Thread.start and AsyncTask
+  // Build WTG-side callgraph edges for a single invoke stmt.
+  //
+  // Two policies:
+  //   (a) Special handling for Android lifecycle/async semantics
+  //       (Thread/Runnable binding, AsyncTask, runOnUiThread/View.post) is
+  //       ALWAYS applied first — SPARK does not model these directly.
+  //   (b) Virtual dispatch is resolved either by querying the SPARK call
+  //       graph already built by Soot (Configs.cgDelegation=true, default —
+  //       gh57 D3) or by the legacy points-to + CHA-fallback path that
+  //       this method historically used (kept behind the flag for safe
+  //       rollback). Static/SpecialInvoke edges are added directly in
+  //       both modes; SPARK includes them in Scene.v().getCallGraph() but
+  //       adding them here matches the legacy contract.
   private void buildCallGraph(SootMethod source, Stmt s) {
     InvokeExpr ie = s.getInvokeExpr();
     SootMethod callee = ie.getMethod();
-    // check for special invocations
-    // if it is binding stmt, e.g., new Thread(Runnable)
+
+    // (a) Android-aware special handling — preserved regardless of mode.
     if (wtgUtil.isBindImplicitMethodCall(s)) {
       handleBindImplicitMethodCall(s);
       return;
     }
-    // if it is binder running stmt, e.g., Thread.start()
     if (wtgUtil.isRunBindImplicitMethodCall(s)) {
       handleRunBindImplicitMethodCall(s);
       return;
     }
-    // if it is directly running stmt, e.g., Activity.runOnUiThread(Runnable), View.post(Runnable)
     if (wtgUtil.isAsyncMethodCall(s)) {
       if (Configs.asyncStrategy == AsyncOpStrategy.Default_EventHandler_Async
               || Configs.asyncStrategy == AsyncOpStrategy.All_EventHandler_Async) {
-        // if config not to handle async operation specially, call graph is not built
         handleExecImplicitMethodCall(s);
       }
       return;
@@ -965,17 +973,42 @@ public class FlowgraphRebuilder {
       callgraph.add(source, callee, s);
       return;
     }
-    // flow graph edges at virtual calls
+
+    if (Configs.cgDelegation) {
+      buildCallGraphFromSparkCg(source, s);
+    } else {
+      buildCallGraphLegacy(source, s, ie, callee);
+    }
+  }
+
+  // gh57 D3: query Scene.v().getCallGraph() (SPARK) for edges out of this
+  // invoke stmt. Drops the secondary points-to graph entirely. Library
+  // edges that SPARK quarantines via IGNORED_CLASSES are recovered by the
+  // bytecode-scan complement at the WTG level (INV-ANA-22) — that helper
+  // lives in RvsecAnalysisClient (scanInvokesInAppClasses) and is invoked
+  // by the WTG construction flow, not from here.
+  private void buildCallGraphFromSparkCg(SootMethod source, Stmt s) {
+    soot.jimple.toolkits.callgraph.CallGraph sceneCg = Scene.v().getCallGraph();
+    Iterator<soot.jimple.toolkits.callgraph.Edge> it = sceneCg.edgesOutOf(s);
+    while (it.hasNext()) {
+      SootMethod tgt = it.next().tgt();
+      if (tgt != null) {
+        callgraph.add(source, tgt, s);
+      }
+    }
+  }
+
+  // Legacy path — preserved verbatim behind cgDelegation=false for runtime
+  // rollback (no rebuild required). Same algorithm as before gh57.
+  private void buildCallGraphLegacy(SootMethod source, Stmt s, InvokeExpr ie, SootMethod callee) {
     Local rcv_var = jimpleUtil.receiver(ie);
     if (rcv_var == null) {
       return;
     }
     Type rcv_t = rcv_var.getType();
-    // could be ArrayType, for clone() calls
     if (!(rcv_t instanceof RefType)) {
       return;
     }
-    // the first step: try to resolve the callee based on the flow graph we built
     NVarNode rcvNode = flowgraph.lookupVarNode(rcv_var);
     Set<NNode> backReachedNodes = Sets.newHashSet();
     if (rcvNode != null) {
@@ -988,7 +1021,7 @@ public class FlowgraphRebuilder {
       }
       SootClass sc = ((NObjectNode) backReachedNode).getClassType();
       if (sc != null && sc.isConcrete()) {
-        SootMethod tgt = (sc == null) ? null : hier.virtualDispatch(callee, sc);
+        SootMethod tgt = hier.virtualDispatch(callee, sc);
         if (tgt != null) {
           resolvePointsTo = true;
           callgraph.add(source, tgt, s);
@@ -996,7 +1029,6 @@ public class FlowgraphRebuilder {
       }
     }
     if (resolvePointsTo) {
-      // if we can find the points-to set solution
       return;
     }
     SootClass clz = ((RefType) rcv_var.getType()).getSootClass();
@@ -1004,10 +1036,8 @@ public class FlowgraphRebuilder {
             || hier.libActivityClasses.contains(clz)
             || hier.isGUIClass(clz)
             || ListenerSpecification.v().isListenerType(clz)) {
-      // check it should have points-to set
       return;
     }
-    // second step: try conservative way to resolve the callee
     SootClass stc = ((RefType) rcv_t).getSootClass();
     for (Iterator<SootClass> tgtItr = hier.getConcreteSubtypes(stc).iterator(); tgtItr.hasNext(); ) {
       SootClass sub = tgtItr.next();

@@ -104,6 +104,8 @@ public class Main {
         Configs.epDepth = Integer.parseInt(args[++i]);
       } else if ("-clientParam".equals(s) || "-cp".equals(s)) {
         Configs.clientParams.add(args[++i]);
+      } else if ("-cgDelegation".equals(s)) {
+        Configs.cgDelegation = Boolean.parseBoolean(args[++i]);
       } else if ("-async".equals(s)) {
         Configs.asyncStrategy = AsyncOpStrategy.valueOf(args[++i]);
       } else if ("-genTestCase".equals(s)) {
