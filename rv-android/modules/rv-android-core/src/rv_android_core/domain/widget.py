@@ -6,7 +6,7 @@ their events, and associated metadata from static analysis and dynamic explorati
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from pydantic import Field
 from rv_android_core.util.logging.manager import LoggingManager
@@ -234,6 +234,34 @@ class Widget(BaseValidatedModel):
     entries: List[str] = Field(
         default_factory=list,
         description="List of predefined entries for selection widgets",
+    )
+    prompt: Optional[str] = Field(
+        default=None,
+        description=(
+            "Resolved value of android:prompt (Spinner dialog title). "
+            "None when the attribute is absent from the layout XML."
+        ),
+    )
+    spinner_mode: Optional[str] = Field(
+        default=None,
+        description=(
+            "Resolved value of android:spinnerMode ('dropdown' | 'dialog'). "
+            "None when the attribute is absent from the layout XML."
+        ),
+    )
+    content_description: Optional[str] = Field(
+        default=None,
+        description=(
+            "Resolved value of android:contentDescription (accessibility "
+            "label). None when the attribute is absent."
+        ),
+    )
+    tooltip_text: Optional[str] = Field(
+        default=None,
+        description=(
+            "Resolved value of android:tooltipText (long-press hint). "
+            "None when the attribute is absent."
+        ),
     )
     events: Set[WidgetEvent] = Field(
         default_factory=set,

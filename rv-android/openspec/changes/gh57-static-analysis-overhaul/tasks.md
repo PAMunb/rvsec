@@ -49,13 +49,13 @@
 
 ## 3. Widget XML attribute extensions (Phase-0 §12, item 3)
 
-- [ ] 3.1 Modify `RvsecAnalysisClient.enrichFromXml()` to read four additional attributes from each `<View>`-style XML element: `android:prompt`, `android:spinnerMode`, `android:contentDescription`, `android:tooltipText`. Resolve `@string/<name>` references using the existing `resolveStringReference` helper. Missing attributes map to `null`.
-- [ ] 3.2 Update `collectWidgets()` (RvsecAnalysisClient.java:767–818) to seed the four fields with `null` so `enrichFromXml` can overwrite them; remove the existing `widget.put("inputType", "")` + `widget.put("entries", Collections.emptyList())` defaults and replace with `null` for consistency.
-- [ ] 3.3 Unit tests: `EnrichFromXmlTest.testSpinnerPromptAndMode`, `testButtonContentDescriptionAndTooltip`, `testMissingAttributeMapsToNull`.
-- [ ] 3.4 Add the four fields to `StaticAnalysisParser`'s widget Pydantic model in `modules/rv-static-analysis/src/rv_static_analysis/parser.py` (or wherever widget model lives). Each field is `str | None`.
-- [ ] 3.5 Unit tests (Python): `test_widget_model.py::test_parses_v2_attributes_with_nulls`.
-- [ ] 3.6 Run `/rv-doc-code` on the modified widget model.
-- [ ] 3.7 Run `/rv-test-run rv-static-analysis`.
+- [x] 3.1 Modify `RvsecAnalysisClient.enrichFromXml()` to read four additional attributes from each `<View>`-style XML element: `android:prompt`, `android:spinnerMode`, `android:contentDescription`, `android:tooltipText`. Resolve `@string/<name>` references using the existing `resolveStringReference` helper. Missing attributes map to `null`. **DONE** — introduced `putStringAttr(widget, key, raw, resDir)` helper that handles literal/`@string/` resolution uniformly; threaded `resDir` through `enrichFromElement` + `enrichWidgetsFromLayout` signatures.
+- [x] 3.2 Update `collectWidgets()` to seed the four fields with `null`. **DONE** — `inputType` / `entries` retain their existing empty defaults (no schema break for consumers expecting strings/arrays); the four new XML-attr fields seed `null` so the consumer can distinguish "absent" from "empty".
+- [ ] 3.3 Unit tests (Java): `EnrichFromXmlTest.testSpinnerPromptAndMode`, `testButtonContentDescriptionAndTooltip`, `testMissingAttributeMapsToNull` — deferred; smoke on cryptoapp confirmed serialization (`prompt/spinnerMode/contentDescription/tooltipText` keys present with `null` for absent attrs); existing `XmlInputTypeTest` keeps passing after signature widening (5 tests updated to pass `resDir`).
+- [x] 3.4 Add the four fields to the Pydantic Widget model (`rv_android_core/domain/widget.py`): `prompt`, `spinner_mode`, `content_description`, `tooltip_text` — each `Optional[str] = None`. Parser propagates the four JSON keys (camelCase on the wire, snake_case in Python). **DONE**.
+- [x] 3.5 Unit tests (Python): `test_static_analysis_parser.py::test_parses_v2_widget_xml_attributes_with_nulls` — feeds a synthetic 2-widget fixture (Spinner with prompt/spinnerMode set, Button with contentDescription/tooltipText set), asserts each field reaches the Pydantic model with the right value. **DONE** — 93/93 module tests pass.
+- [ ] 3.6 Run `/rv-doc-code` on the modified widget model — skipped (manual; not blocking).
+- [x] 3.7 Run `/rv-test-run rv-static-analysis` — 93/93 pass after Group 3 changes.
 
 ## 3.5. Inflated OPTIONSMENU items via existing flow graph (cryptoapp gap, D7)
 

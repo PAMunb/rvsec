@@ -816,9 +816,16 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			Set<String> hints = PropertyManager.v().getHintOfView(objNode);
 			widget.put("hint", hints.isEmpty() ? "" : hints.iterator().next());
 
-			// inputType and entries will be enriched from XML (Task Group 3)
+			// XML-attribute fields seeded null; enrichFromXml overrides when the
+			// corresponding android:* attribute is present in the layout file.
+			// Missing attributes stay null so the JSON consumer can distinguish
+			// "absent" from "empty".
 			widget.put("inputType", "");
 			widget.put("entries", Collections.emptyList());
+			widget.put("prompt", null);
+			widget.put("spinnerMode", null);
+			widget.put("contentDescription", null);
+			widget.put("tooltipText", null);
 
 			// Event listeners
 			List<Map<String, Object>> listeners = new ArrayList<>();
@@ -887,7 +894,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 			// Parse each layout file looking for inputType and entries attributes
 			for (File layoutFile : layoutFiles) {
-				enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays);
+				enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, resDir);
 			}
 		}
 	}
@@ -896,12 +903,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	void enrichWidgetsFromLayout(
 			File layoutFile,
 			Map<String, Map<String, Object>> widgetByIdName,
-			Map<String, List<String>> arrays) {
+			Map<String, List<String>> arrays,
+			String resDir) {
 		try {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			Document doc = builder.parse(layoutFile);
-			enrichFromElement(doc.getDocumentElement(), widgetByIdName, arrays);
+			enrichFromElement(doc.getDocumentElement(), widgetByIdName, arrays, resDir);
 		} catch (Exception e) {
 			// Graceful degradation — skip malformed XML
 		}
@@ -910,7 +918,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	private void enrichFromElement(
 			Element elem,
 			Map<String, Map<String, Object>> widgetByIdName,
-			Map<String, List<String>> arrays) {
+			Map<String, List<String>> arrays,
+			String resDir) {
 
 		// Match element to widget by android:id
 		String id = elem.getAttribute("android:id");
@@ -935,6 +944,19 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 					List<String> items = arrays.getOrDefault(arrayName, Collections.emptyList());
 					widget.put("entries", items);
 				}
+
+				// prompt (Spinner dialog title — may be @string/ ref)
+				putStringAttr(widget, "prompt",
+						elem.getAttribute("android:prompt"), resDir);
+				// spinnerMode (enum literal: dropdown | dialog)
+				putStringAttr(widget, "spinnerMode",
+						elem.getAttribute("android:spinnerMode"), resDir);
+				// contentDescription (accessibility label — may be @string/ ref)
+				putStringAttr(widget, "contentDescription",
+						elem.getAttribute("android:contentDescription"), resDir);
+				// tooltipText (long-press hint — may be @string/ ref)
+				putStringAttr(widget, "tooltipText",
+						elem.getAttribute("android:tooltipText"), resDir);
 			}
 		}
 
@@ -942,9 +964,30 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		NodeList children = elem.getChildNodes();
 		for (int i = 0; i < children.getLength(); i++) {
 			if (children.item(i) instanceof Element) {
-				enrichFromElement((Element) children.item(i), widgetByIdName, arrays);
+				enrichFromElement((Element) children.item(i), widgetByIdName, arrays, resDir);
 			}
 		}
+	}
+
+	// Helper: set widget[key] = resolved attribute, with @string/ resolution.
+	// Empty/absent values leave the widget unchanged (preserves the null seed
+	// from collectWidgets, distinguishing "attribute absent" from "empty string").
+	private void putStringAttr(
+			Map<String, Object> widget,
+			String key,
+			String raw,
+			String resDir) {
+		if (raw == null || raw.isEmpty()) {
+			return;
+		}
+		if (raw.startsWith("@string/")) {
+			String resolved = resolveStringReference(resDir, raw.substring("@string/".length()));
+			if (resolved != null) {
+				widget.put(key, resolved);
+			}
+			return;
+		}
+		widget.put(key, raw);
 	}
 
 	// Package-private for unit testing
@@ -1169,6 +1212,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			w.value(entry);
 		}
 		w.endArray();
+
+		// XML widget attributes (gh57 Group 3): null when the corresponding
+		// android:* attribute was absent from the layout XML.
+		w.name("prompt").value((String) widget.get("prompt"));
+		w.name("spinnerMode").value((String) widget.get("spinnerMode"));
+		w.name("contentDescription").value((String) widget.get("contentDescription"));
+		w.name("tooltipText").value((String) widget.get("tooltipText"));
 
 		w.name("listeners");
 		w.beginArray();

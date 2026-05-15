@@ -386,6 +386,11 @@ class StaticAnalysisParser:
                 input_type=wgt_data.get("inputType", ""),
                 class_name=widget_class,
                 entries=wgt_data.get("entries", []),
+                # gh57 Group 3: XML widget attributes — None when absent
+                prompt=wgt_data.get("prompt"),
+                spinner_mode=wgt_data.get("spinnerMode"),
+                content_description=wgt_data.get("contentDescription"),
+                tooltip_text=wgt_data.get("tooltipText"),
             )
 
             # Parse listeners into WidgetEvents

@@ -179,7 +179,7 @@ public class XmlInputTypeTest {
 
 		Map<String, List<String>> arrays = new HashMap<>();
 
-		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays);
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
 
 		assertEquals("textPersonName", widgetByIdName.get("edit1").get("inputType"));
 	}
@@ -198,7 +198,7 @@ public class XmlInputTypeTest {
 
 		Map<String, List<String>> arrays = new HashMap<>();
 
-		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays);
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
 
 		assertEquals("textPassword", widgetByIdName.get("edit1").get("inputType"));
 	}
@@ -218,7 +218,7 @@ public class XmlInputTypeTest {
 		Map<String, List<String>> arrays = new HashMap<>();
 		arrays.put("algos", Arrays.asList("AES", "DES"));
 
-		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays);
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
 
 		assertEquals(Arrays.asList("AES", "DES"), widgetByIdName.get("spinner1").get("entries"));
 	}
@@ -237,7 +237,7 @@ public class XmlInputTypeTest {
 
 		Map<String, List<String>> arrays = new HashMap<>();
 
-		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays);
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
 
 		// Widget map should be unchanged — inputType remains empty
 		assertEquals("", widgetByIdName.get("edit1").get("inputType"));
@@ -254,7 +254,7 @@ public class XmlInputTypeTest {
 		Map<String, List<String>> arrays = new HashMap<>();
 
 		// Should not throw — graceful degradation
-		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays);
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
 
 		// Widget map should be unchanged
 		assertEquals("", widgetByIdName.get("edit1").get("inputType"));

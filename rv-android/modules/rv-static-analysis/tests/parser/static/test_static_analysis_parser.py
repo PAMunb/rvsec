@@ -159,6 +159,73 @@ class TestWellFormedJSON:
                 break
         assert has_events, "No widget events found in fixture"
 
+    def test_parses_v2_widget_xml_attributes_with_nulls(self, parser, tmp_path):
+        """gh57 Group 3: prompt/spinnerMode/contentDescription/tooltipText fields.
+
+        Verify the parser propagates the four new XML attribute fields (None
+        when absent in the JSON, literal string when present) into the Widget
+        Pydantic model.
+        """
+        import json
+
+        fixture = {
+            "reachability": [],
+            "windows": [
+                {
+                    "id": 1,
+                    "name": "com.example.X",
+                    "type": "ACTIVITY",
+                    "isMain": True,
+                    "widgets": [
+                        {
+                            "id": 100,
+                            "idName": "spinner_a",
+                            "type": "android.widget.Spinner",
+                            "text": "",
+                            "hint": "",
+                            "inputType": "",
+                            "entries": [],
+                            "prompt": "Pick a color",
+                            "spinnerMode": "dialog",
+                            "contentDescription": None,
+                            "tooltipText": None,
+                            "listeners": [],
+                        },
+                        {
+                            "id": 101,
+                            "idName": "btn_save",
+                            "type": "android.widget.Button",
+                            "text": "Save",
+                            "hint": "",
+                            "inputType": "",
+                            "entries": [],
+                            "prompt": None,
+                            "spinnerMode": None,
+                            "contentDescription": "Save button",
+                            "tooltipText": "Save the form",
+                            "listeners": [],
+                        },
+                    ],
+                }
+            ],
+            "transitions": [],
+        }
+        fixture_path = tmp_path / "v2.json"
+        fixture_path.write_text(json.dumps(fixture))
+
+        result = parser.parse_file(str(fixture_path), "com.example")
+        window = next(iter(result.windows.windows))
+        by_name = {w.name: w for w in window.widgets.values()}
+
+        assert by_name["spinner_a"].prompt == "Pick a color"
+        assert by_name["spinner_a"].spinner_mode == "dialog"
+        assert by_name["spinner_a"].content_description is None
+        assert by_name["spinner_a"].tooltip_text is None
+        assert by_name["btn_save"].prompt is None
+        assert by_name["btn_save"].spinner_mode is None
+        assert by_name["btn_save"].content_description == "Save button"
+        assert by_name["btn_save"].tooltip_text == "Save the form"
+
     def test_click_event_type(self, parser):
         """Verify click events are mapped to CLICK type."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
