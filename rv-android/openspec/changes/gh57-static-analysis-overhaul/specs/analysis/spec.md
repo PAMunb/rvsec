@@ -338,3 +338,32 @@ The extractor MUST carry a corpus-coverage telemetry log: `[SpinnerItemExtractor
 - **WHEN** an activity's code calls `adapter.add(getString(R.string.dynamic))` where the string-resource lookup is hidden behind a method call
 - **THEN** `SpinnerItemExtractor` MUST emit a WARN log identifying the unresolved item and continue
 - **AND** the JSON `entries` for that Spinner MUST contain only the items that WERE resolved (not the unresolved one)
+
+### Requirement: GATOR Invocation Robustness (FR04)
+
+The Python invoker (`rv-static-analysis`) MUST invoke the GATOR launcher using the running interpreter (`sys.executable`) — never a literal `"python"` string. The launcher is a Python script with `#!/usr/bin/env python3` shebang, but the invoker passes it as `<interpreter> <script> <args>`, so the interpreter argument is what reaches `execve`. Hardcoding `"python"` breaks on systems where the `python-is-python3` shim is absent (clean containers, fresh shells on non-Debian distros, CI runners without the shim package), producing a `CommandNotFoundError` that gets caught upstream as a warning and yields a silently-empty JSON output. The invoker MUST always pick the actual Python 3.x binary that is executing the workspace (uv's `.venv/bin/python` in the standard layout), which is reachable by construction.
+
+Additionally, `StaticAnalyzer._run_analysis` MUST validate, after the GATOR command returns (including the timeout-tolerant `RVCommandTimeoutError` path), that the output JSON file exists on disk. If absent, the method MUST raise `StaticAnalysisException` with a message identifying the missing path and pointing at interpreter / launcher reachability as the likely cause. This converts upstream silent failures (e.g. `CommandNotFoundError` swallowed by the `ErrorHandler` decorator, a JVM crash before any output was flushed, a permission error on the output directory) into hard, observable errors before the parser is invoked and before the downstream summary CSV is written with misleading zero-coverage metrics.
+
+A timed-out GATOR invocation produces a partial JSON file (the client flushes reachability first, then windows, then transitions, with intermediate flushes — INV-ANA-06), so the existence check passes on timeout. Only the genuinely-empty case (no file at all) escalates.
+
+#### Scenario: Interpreter resolution uses the running Python
+
+- **WHEN** `RVStaticAnalysisConfig.get_tool_command("analysis", apk_path, output_file)` is called from any context (CLI, rv-experiment pre-processing, unit tests)
+- **THEN** the returned command list's first element MUST equal `sys.executable` (the absolute path of the running Python 3.x interpreter)
+- **AND** the second element MUST be the path to the `gator` launcher script
+- **AND** the command MUST be reachable via `execve` on any POSIX system that has the same uv-managed virtualenv on PATH (no dependency on `/usr/bin/python` existing)
+
+#### Scenario: Missing output JSON escalates to StaticAnalysisException
+
+- **WHEN** `StaticAnalyzer._run_analysis` completes (either via successful `Command.invoke` return or via the `RVCommandTimeoutError` partial-success path)
+- **AND** the configured output file does not exist on disk
+- **THEN** the method MUST raise `StaticAnalysisException` with a message that includes the missing path and the diagnostic hint "check that the python interpreter and gator launcher are reachable"
+- **AND** the `analyze()` wrapper MUST propagate the exception into `result.success = False` and `result.errors`, not swallow it as a warning
+
+#### Scenario: Timeout with partial JSON is not escalated
+
+- **WHEN** the GATOR invocation hits the analysis timeout and `RVCommandTimeoutError` is caught
+- **AND** the GATOR client wrote at least the reachability section before being killed (partial JSON exists)
+- **THEN** `_run_analysis` MUST NOT raise — the existence check sees the partial file and returns normally
+- **AND** `result.timed_out` MUST be set to `True` so downstream consumers can distinguish a partial run from a clean one

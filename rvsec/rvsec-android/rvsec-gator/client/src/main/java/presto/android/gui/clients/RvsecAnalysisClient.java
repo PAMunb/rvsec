@@ -740,33 +740,38 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			}
 		}
 
-		// Catch-all: WTG nodes not captured above (context menus, fragments, etc.)
-		for (WTGNode node : wtg.getNodes()) {
-			NObjectNode win = node.getWindow();
-			if (isGatorStubNode(win)) continue;
-			if (extractedIds.contains(win.id)) continue;
+		// Catch-all: WTG nodes not captured above (context menus, fragments,
+		// etc.). Only available when the WTG build completed; on the partial
+		// path (wtg == null) the above ACTIVITY/DIALOG/OPTIONSMENU enumeration
+		// is the complete set of windows the analysis can surface.
+		if (wtg != null) {
+			for (WTGNode node : wtg.getNodes()) {
+				NObjectNode win = node.getWindow();
+				if (isGatorStubNode(win)) continue;
+				if (extractedIds.contains(win.id)) continue;
 
-			Map<String, Object> window = new LinkedHashMap<>();
-			window.put("id", win.id);
-			window.put("name", win.getClassType().getName());
+				Map<String, Object> window = new LinkedHashMap<>();
+				window.put("id", win.id);
+				window.put("name", win.getClassType().getName());
 
-			// Determine type from NObjectNode subclass
-			String type;
-			if (win instanceof NDialogNode) {
-				type = "DIALOG";
-			} else if (win instanceof NOptionsMenuNode) {
-				type = "OPTIONSMENU";
-			} else {
-				type = "ACTIVITY";
+				// Determine type from NObjectNode subclass
+				String type;
+				if (win instanceof NDialogNode) {
+					type = "DIALOG";
+				} else if (win instanceof NOptionsMenuNode) {
+					type = "OPTIONSMENU";
+				} else {
+					type = "ACTIVITY";
+				}
+				window.put("type", type);
+				window.put("isMain", false);
+				window.put("widgets", Collections.emptyList());
+				windows.add(window);
+				extractedIds.add(win.id);
+
+				System.out.println("[RvsecAnalysisClient] Added WTG-only window: "
+						+ win.getClassType().getName() + " (id=" + win.id + ", type=" + type + ")");
 			}
-			window.put("type", type);
-			window.put("isMain", false);
-			window.put("widgets", Collections.emptyList());
-			windows.add(window);
-			extractedIds.add(win.id);
-
-			System.out.println("[RvsecAnalysisClient] Added WTG-only window: "
-					+ win.getClassType().getName() + " (id=" + win.id + ", type=" + type + ")");
 		}
 
 		return windows;
@@ -1018,18 +1023,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			writeReachability(w, appClasses, output, reachableSet, reachesMopSet, directMopSet);
 			w.flush();
 
-			// Section 2: windows (requires WTG)
-			if (wtg != null) {
-				List<Map<String, Object>> windows = extractWindows(output, windowNodeIds, wtg);
-				enrichFromXml(windows);
-				w.name("windows");
-				writeWindows(w, windows);
-				w.flush();
-			} else {
-				w.name("windows");
-				w.beginArray().endArray();
-				w.flush();
-			}
+			// Section 2: windows. Widget data (activities, dialogs, options-menu
+			// items, listeners, text/hint, inputType, entries) is produced by the
+			// wjtp.gui transformer before run() is invoked, so it is available
+			// whether or not the WTG build completed. Populate windows[] on both
+			// paths; only the WTG-only catch-all (fragments, context menus seen
+			// solely through wtg.getNodes()) is gated on wtg != null.
+			w.name("windows");
+			List<Map<String, Object>> windows = extractWindows(
+					output, windowNodeIds, wtg);
+			enrichFromXml(windows);
+			writeWindows(w, windows);
+			w.flush();
 
 			// Section 3: transitions (requires WTG)
 			if (wtg != null) {
