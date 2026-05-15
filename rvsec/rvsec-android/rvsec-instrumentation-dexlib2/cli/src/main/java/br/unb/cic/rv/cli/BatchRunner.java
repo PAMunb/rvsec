@@ -157,6 +157,7 @@ public final class BatchRunner {
             int constructorInlineApplied = 0;
             int constructorInlineSkippedAliasing = 0;
             int plansSkippedHighRegister = 0;
+            int plansSkippedUnresolvedBinding = 0;
             int coverageInstrumented = 0;
             int coverageSpillFailed = 0;
             int classesSeen = 0;
@@ -182,6 +183,7 @@ public final class BatchRunner {
                 constructorInlineApplied += wr.constructorInlineApplied();
                 constructorInlineSkippedAliasing += wr.constructorInlineSkippedAliasing();
                 plansSkippedHighRegister += wr.plansSkippedHighRegister();
+                plansSkippedUnresolvedBinding += wr.plansSkippedUnresolvedBinding();
                 classesSeen += wr.classesSeen();
                 methodsSeen += wr.methodsSeen();
 
@@ -212,6 +214,10 @@ public final class BatchRunner {
             counts.put("constructorInlineApplied", constructorInlineApplied);
             counts.put("constructorInlineSkippedAliasing", constructorInlineSkippedAliasing);
             counts.put("plansSkippedHighRegister", plansSkippedHighRegister);
+            // gh56 INV-INS-71: surfaced in instrument_results.json so the
+            // jq guard in run_phase5_validators.sh can fail the build when
+            // cryptoapp regresses (replaces the previous manual grep).
+            counts.put("plansSkippedUnresolvedBinding", plansSkippedUnresolvedBinding);
             if (coverageWeaver != null) {
                 counts.put("coverageInstrumented", coverageInstrumented);
                 counts.put("coverageSpillFailed", coverageSpillFailed);

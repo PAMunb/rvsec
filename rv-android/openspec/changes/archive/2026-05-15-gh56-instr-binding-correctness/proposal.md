@@ -74,4 +74,9 @@ None. This change does not introduce a new domain capability; it corrects the by
 
 **Build artifacts**: `instr-cli.jar` rebuilt and re-deployed under `modules/rv-instrumentation-dexlib2/lib/`. The Dockerfile gate (gh53 D6) for `RUN test -f .../instr-cli.jar` already covers this — no Docker manifest change required.
 
-**Experimental cost**: re-running the 2026-05-08 campaign on a **stratified 9-APK slice** (top-3 + median-3 + tail-3 by `VerifyError` count, single timeout, single repetition) is the minimum acceptance gate (~6 h GCP). The stratification is intentional — a pure top-10 selection biases toward hot-spots and misses tail patterns (`args(name)` unresolved, R8-obfuscated `<init>`, Tink/Okio internals) that may regress silently via `plansSkippedUnresolvedBinding`. Acceptance also requires paired pre-vs-post-fix delta on event count and coverage (post ≥ pre per APK) — "0 VerifyError" alone can mask a regression in exploration. A full re-run (190 APKs × 11 tools × 3 timeouts × 3 reps ≈ 85 h GCP on 4 VMs) is a separate decision documented in `RISKS.md` — the trade-off is RQ3 representativeness vs. ASE journal timeline.
+**Acceptance evidence** (local execution only — no cloud):
+
+1. `cryptoapp.apk` smoke gate via `rv-experiment run --tools ape --timeout 300 --instrumentation-variant dexlib2 --specification-set jca` followed by `scripts/run_phase5_validators.sh`: oracle **8/8** total + **2/2** on pivotal events (`#7 KeyPair.<init>`, `#8 SecretKeySpec.<init>`), `0 VerifyError`, `plansSkippedUnresolvedBinding == 0`.
+2. Unit-test evidence at the dex-mutator layer (`DexWeaverConstructorAdviceTest` + the two new gh56 cases) asserting register-to-type correspondence for the canonical bug shape.
+
+Re-running the broader 2026-05-08 campaign (whether sampled or full) is **out of scope** — that belongs to a separate ecosystem-measurement experiment with its own change, dataset, and infrastructure decisions. gh56 ships with the cryptoapp smoke + unit evidence as the acceptance bar; downstream RQ3 measurement is independent work.

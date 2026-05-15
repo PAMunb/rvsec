@@ -1,13 +1,16 @@
 package br.unb.cic.rv.pointcut;
 
+import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c;
 import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction3rc;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,12 +62,23 @@ public final class PointcutMatcher {
     /**
      * @return a {@link Match} when the pointcut matches the tuple (with any
      *         bindings inferred), {@code Optional.empty()} otherwise.
+     *
+     * <p>The {@code instructions} parameter is the surrounding instruction
+     * list of the current method; {@code buildCallMatch} reads it to peek
+     * {@code instructions[invokeIndex + 1]} for a trailing {@code move-result*}
+     * (synthetic {@code $return} binding, INV-INS-72). The list is typed as
+     * {@code List<? extends Instruction>} to accept both the immutable read
+     * side of {@code Method.getImplementation().getInstructions()} and the
+     * in-flight builder side without coupling {@code pointcut-engine} to the
+     * {@code dexlib2-builder} module.
      */
     public Optional<Match> match(PointcutExpression pe, ClassDef classDef,
                                  Method method, Instruction instruction,
-                                 int instructionIndex, int totalInstructions) {
+                                 int instructionIndex, int totalInstructions,
+                                 List<? extends Instruction> instructions) {
         return matchInternal(pe, new Context(classDef, method, instruction,
-                instructionIndex, totalInstructions));
+                instructionIndex, totalInstructions,
+                instructions == null ? Collections.emptyList() : instructions));
     }
 
     // --- internal ------------------------------------------------------------
@@ -169,24 +183,41 @@ public final class PointcutMatcher {
         // (task 4.x).
         int[] regs = extractInvokeRegisters(ctx.instruction);
         boolean isStaticInvoke = isStaticInvocation(ctx.instruction);
-        return Optional.of(buildCallMatch(cp, mr, regs, isStaticInvoke));
+        return Optional.of(buildCallMatch(cp, mr, regs, isStaticInvoke,
+                ctx.instructions, ctx.instructionIndex));
     }
 
-    private static Match buildCallMatch(CallPC cp, MethodReference mr, int[] regs,
-                                          boolean isStaticInvoke) {
+    // Package-private to allow direct unit testing (see
+    // PointcutMatcherConstructorTest). The full match() flow remains the
+    // public API; this method is the canonical seat of the gh56 fix and
+    // is exercised in isolation.
+    static Match buildCallMatch(CallPC cp, MethodReference mr, int[] regs,
+                                          boolean isStaticInvoke,
+                                          List<? extends Instruction> instructions,
+                                          int invokeIndex) {
         // Static-ness comes from the actual invoke opcode, not the AspectJ
         // modifier (which is stripped at parse time). For invoke-static* the
         // first register operand is the first arg; for invoke-virtual /
         // -direct / -super / -interface the first register is the receiver
         // and args start at offset 1.
         //
-        // Constructors (`<init>`) are direct invokes; the existing pointcut
-        // model treats them with offset 0 (preserved here to keep behavior
-        // unchanged — separate from this fix).
-        boolean treatAsZeroOffset = cp.isConstructor() || isStaticInvoke;
-        int baseOffset = treatAsZeroOffset ? 0 : 1;
-        int targetRegister = treatAsZeroOffset ? -1
+        // Constructors (invoke-direct to <init>) place the freshly-allocated
+        // instance in regs[0] — same shape as a virtual instance invoke. The
+        // previous implementation treated constructors as static (offset 0),
+        // shifting every argument binding by one register and losing the
+        // receiver. The fix collapses the predicate to isStaticInvoke alone.
+        int baseOffset = isStaticInvoke ? 0 : 1;
+        int targetRegister = isStaticInvoke
+                ? -1
                 : (regs.length > 0 ? regs[0] : -1);
+        // Two-predicate constructor gate (D3, defence in depth): the descriptor
+        // predicate (cp.isConstructor()) AND the method-name predicate
+        // (mr.getName().equals("<init>")) must agree. invoke-direct is also
+        // used for private non-constructor methods and super-<init> chaining
+        // outside the advice contract — relying on either predicate alone
+        // would capture an unintended receiver.
+        boolean isConstructor = cp.isConstructor()
+                && "<init>".equals(mr.getName());
         Map<String, Integer> paramRegs = new LinkedHashMap<>();
         List<String> paramTypes = cp.paramTypes();
         for (int i = 0; i < paramTypes.size() && baseOffset + i < regs.length; i++) {
@@ -195,7 +226,28 @@ public final class PointcutMatcher {
             // keys keeps iteration order stable.
             paramRegs.put(String.format("arg%02d", i), regs[baseOffset + i]);
         }
-        return new Match(paramRegs, targetRegister, cp);
+        // Synthetic "$return" binding (INV-INS-72): for non-constructor
+        // invokes, peek the next instruction; if it's move-result* the
+        // destination register is recorded so MonitorInvokeBuilder can
+        // resolve returning(name) without falling back to literal 0. Skipped
+        // for constructors (no move-result* after <init>) — constructor
+        // advice consumes targetRegister directly through resolveReturningRegister.
+        if (!isConstructor && invokeIndex + 1 < instructions.size()) {
+            Instruction next = instructions.get(invokeIndex + 1);
+            Opcode op = next.getOpcode();
+            if ((op == Opcode.MOVE_RESULT
+                    || op == Opcode.MOVE_RESULT_OBJECT
+                    || op == Opcode.MOVE_RESULT_WIDE)
+                    && next instanceof OneRegisterInstruction) {
+                int dest = ((OneRegisterInstruction) next).getRegisterA();
+                // For MOVE_RESULT_WIDE the destination occupies the pair
+                // (vN, vN+1); the synthetic key stores the low register vN.
+                // Wide-pair contiguity is the caller's responsibility
+                // (RegisterShifter INV-INS-26 guarantees it for emitted code).
+                paramRegs.put("$return", dest);
+            }
+        }
+        return new Match(paramRegs, targetRegister, cp, isConstructor);
     }
 
     /**
@@ -313,7 +365,15 @@ public final class PointcutMatcher {
         Map<String, Integer> args = new LinkedHashMap<>(left.argBindings);
         args.putAll(right.argBindings);
         int target = left.targetRegister >= 0 ? left.targetRegister : right.targetRegister;
-        return new Match(args, target, pe);
+        // Constructor classification under AND: today only one side of a CombinedPC
+        // produces a constructor classification (the CallPC side; ArgsPC, TargetPC,
+        // ExecutionPC, StaticInitPC, NotWithinPC, etc. all return Match.empty(pe)
+        // with isConstructor=false). OR-merging is therefore equivalent to "the
+        // side that knows the invoke kind wins". If a future combinator ever
+        // produces a Match with mixed kind agreement on both sides, this collapses
+        // to constructor semantics — re-evaluate then.
+        boolean isConstructor = left.isConstructor || right.isConstructor;
+        return new Match(args, target, pe, isConstructor);
     }
 
     // --- context + Match helpers --------------------------------------------
@@ -324,14 +384,17 @@ public final class PointcutMatcher {
         final Instruction instruction;
         final int instructionIndex;
         final int totalInstructions;
+        final List<? extends Instruction> instructions;
 
         Context(ClassDef classDef, Method method, Instruction instruction,
-                int instructionIndex, int totalInstructions) {
+                int instructionIndex, int totalInstructions,
+                List<? extends Instruction> instructions) {
             this.classDef = classDef;
             this.method = method;
             this.instruction = instruction;
             this.instructionIndex = instructionIndex;
             this.totalInstructions = totalInstructions;
+            this.instructions = instructions;
         }
     }
 }

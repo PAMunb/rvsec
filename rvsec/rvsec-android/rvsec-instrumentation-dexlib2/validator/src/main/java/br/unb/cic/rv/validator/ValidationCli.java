@@ -209,7 +209,13 @@ public final class ValidationCli implements Runnable {
             description = "TraceComparator: per-spec F1 >= 0.98, kappa >= 0.9. "
                     + "Default: analyze mode (single-rep oracle gate). "
                     + "With --batch: emit per-(apk, rep, tool, spec) metrics CSV "
-                    + "for downstream Layer-4 per-spec TOST.")
+                    + "for downstream Layer-4 per-spec TOST. "
+                    + "With --mandatory (gh56 INV-INS-73): tighten the gate so "
+                    + "ANY per-oracle deviation (missing or extra events in the "
+                    + "dexlib2 trace) produces Report(passed=false), which the "
+                    + "existing Report.exitCode() maps to exit 1. Honoured in "
+                    + "both analyze and batch modes. Used by the orchestrator "
+                    + "when cryptoapp is in the result set.")
     public static final class Layer3 implements Runnable {
         @Option(names = "--oracles", required = true) Path oracleDir;
         @Option(names = "--apks", description = "APK subset dir (analyze mode)") Path apkDir;
@@ -223,28 +229,141 @@ public final class ValidationCli implements Runnable {
                 description = "dexlib2 results dir (batch mode)") Path dexlibResults;
         @Option(names = "--output-csv",
                 description = "Output CSV path (batch mode)") Path outputCsv;
+        @Option(names = "--mandatory",
+                description = "gh56 INV-INS-73: any per-oracle deviation fails the gate")
+        boolean mandatory;
 
         @picocli.CommandLine.ParentCommand ValidationCli parent;
         @Override public void run() {
             try {
+                Report report;
                 if (batch) {
                     if (ajcResults == null || dexlibResults == null || outputCsv == null) {
                         System.err.println("layer3 --batch requires --ajc-results, --dexlib2-results, --output-csv");
                         System.exit(2);
                     }
-                    emitAndExit(parent,
-                            TraceComparator.batchAnalyze(oracleDir, ajcResults, dexlibResults, outputCsv));
+                    report = TraceComparator.batchAnalyze(
+                            oracleDir, ajcResults, dexlibResults, outputCsv);
+                    if (mandatory) {
+                        report = applyMandatoryGateBatch(report, outputCsv);
+                    }
                 } else {
                     if (apkDir == null) {
                         System.err.println("layer3 analyze mode requires --apks");
                         System.exit(2);
                     }
-                    emitAndExit(parent, TraceComparator.compare(oracleDir, apkDir));
+                    report = TraceComparator.compare(oracleDir, apkDir);
+                    if (mandatory) {
+                        report = applyMandatoryGateAnalyze(report);
+                    }
                 }
+                emitAndExit(parent, report);
             } catch (IOException e) {
                 System.err.println("layer3 failed: " + e.getMessage());
                 System.exit(2);
             }
+        }
+
+        /**
+         * gh56 INV-INS-73 strict gate (batch mode): scan the emitted CSV and
+         * flag any row where the dexlib2 pipeline has unmatched oracle events
+         * ({@code dex_fn > 0}) or false positives ({@code dex_fp > 0}). When
+         * present, override the Report's passed flag to false so
+         * {@link Report#exitCode()} returns 1 and
+         * {@code run_phase5_validators.sh}'s {@code run_layer} aggregator
+         * classifies the gate as {@code GATES_FAILED}.
+         */
+        static Report applyMandatoryGateBatch(Report report, Path csv) throws IOException {
+            int deviatingRows = 0;
+            int dexFnTotal = 0;
+            int dexFpTotal = 0;
+            int malformedRows = 0;
+            if (java.nio.file.Files.exists(csv)) {
+                java.util.List<String> lines = java.nio.file.Files.readAllLines(csv);
+                if (!lines.isEmpty()) {
+                    String header = lines.get(0);
+                    String[] cols = header.split(",");
+                    int dexFnCol = -1, dexFpCol = -1;
+                    for (int i = 0; i < cols.length; i++) {
+                        // CSV header columns are written by
+                        // TraceComparator.writeCsv as camelCase (dexFn/dexFp)
+                        // — see TraceComparator.java:394.
+                        if ("dexFn".equals(cols[i].trim())) dexFnCol = i;
+                        else if ("dexFp".equals(cols[i].trim())) dexFpCol = i;
+                    }
+                    if (dexFnCol >= 0 && dexFpCol >= 0) {
+                        for (int i = 1; i < lines.size(); i++) {
+                            String[] r = lines.get(i).split(",");
+                            if (r.length <= Math.max(dexFnCol, dexFpCol)) continue;
+                            try {
+                                int fn = Integer.parseInt(r[dexFnCol].trim());
+                                int fp = Integer.parseInt(r[dexFpCol].trim());
+                                if (fn > 0 || fp > 0) {
+                                    deviatingRows++;
+                                    dexFnTotal += fn;
+                                    dexFpTotal += fp;
+                                }
+                            } catch (NumberFormatException ex) {
+                                // Malformed numeric cell. Skip the row but
+                                // surface the count in metrics so a future
+                                // TraceComparator CSV format change doesn't
+                                // silently downgrade the mandatory gate via
+                                // an uncaught exception (D6 rationale).
+                                malformedRows++;
+                            }
+                        }
+                    }
+                }
+            }
+            java.util.Map<String, Object> metrics = new java.util.LinkedHashMap<>(report.metrics);
+            metrics.put("mandatoryGate", true);
+            metrics.put("mandatoryDeviatingRows", deviatingRows);
+            metrics.put("mandatoryDexFnTotal", dexFnTotal);
+            metrics.put("mandatoryDexFpTotal", dexFpTotal);
+            metrics.put("mandatoryMalformedRows", malformedRows);
+            if (deviatingRows == 0) {
+                return report;
+            }
+            String msg = String.format(java.util.Locale.ROOT,
+                    "mandatory gate FAILED: %d deviating rows (dex_fn=%d, dex_fp=%d) — %s",
+                    deviatingRows, dexFnTotal, dexFpTotal, report.message);
+            return new Report(report.layer, false, msg, metrics);
+        }
+
+        /**
+         * gh56 INV-INS-73 strict gate (analyze mode): if the existing Report
+         * already failed (F1/kappa thresholds), passthrough. Otherwise inspect
+         * the {@code perOracle} metrics map for any oracle with
+         * {@code passed=false}; any such oracle flips the overall pass flag.
+         */
+        @SuppressWarnings("unchecked")
+        static Report applyMandatoryGateAnalyze(Report report) {
+            java.util.Map<String, Object> metrics = new java.util.LinkedHashMap<>(report.metrics);
+            metrics.put("mandatoryGate", true);
+            if (!report.passed) {
+                return report;
+            }
+            Object perOracle = report.metrics.get("perOracle");
+            if (!(perOracle instanceof java.util.Map)) {
+                return report;
+            }
+            int failingOracles = 0;
+            for (Object entry : ((java.util.Map<?, ?>) perOracle).values()) {
+                if (entry instanceof java.util.Map) {
+                    Object p = ((java.util.Map<?, ?>) entry).get("passed");
+                    if (Boolean.FALSE.equals(p)) {
+                        failingOracles++;
+                    }
+                }
+            }
+            metrics.put("mandatoryFailingOracles", failingOracles);
+            if (failingOracles == 0) {
+                return report;
+            }
+            String msg = String.format(java.util.Locale.ROOT,
+                    "mandatory gate FAILED: %d oracle(s) reported passed=false — %s",
+                    failingOracles, report.message);
+            return new Report(report.layer, false, msg, metrics);
         }
     }
 

@@ -64,6 +64,14 @@ class EmitPlanShapeTest {
     void afterThrowingWithoutBoundTypeCatchesAnyThrowable() {
         AdviceDescriptor a = adviceAfterThrowing("ath", "Throwable");
         a.setThrowing(java.util.Collections.emptyList());
+        // Pre-gh56 this test relied on registersFor's literal-0 fallback for
+        // the dangling 't' reference in monitorCall.args. That fallback was
+        // the VerifyError vector (INV-INS-71); the contract is now
+        // "consistent monitor invoke or skip". The test's actual intent is
+        // to verify the TryCatchSpec catch-any shape, so we drop the
+        // inconsistent 't' arg to match a real "no throwing parameter"
+        // scenario where the monitor event takes no exception register.
+        a.getMonitorCalls().get(0).setArgs(java.util.Collections.emptyList());
         EmitPlan plan = new AfterThrowingEmitter().emit(ctx(a));
         assertEquals(InsertionPoint.TRY_CATCH_WRAP, plan.insertionPoint());
         assertNotNull(plan.tryCatchSpec());

@@ -35,12 +35,38 @@ fi
 AJC_DIR=$(readlink -f "$1")
 DEX_DIR=$(readlink -f "$2")
 OUT_DIR=$(readlink -f "$3")
-THRESHOLDS=${4:-/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-gh52-instr-dexlib2/rvsec/rvsec-android/rvsec-instrumentation-dexlib2/validator/oracles/layer4-thresholds.yaml}
 
-REPO_ROOT=/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-gh52-instr-dexlib2
-VALIDATOR_DIR="$REPO_ROOT/rvsec/rvsec-android/rvsec-instrumentation-dexlib2/validator"
+# gh56: derive repo + validator paths from the script's own location instead
+# of hardcoding the gh52 sibling-clone path. Operators with side-by-side
+# clones can override via env vars (RVSEC_REPO_ROOT, RVSEC_VALIDATOR_DIR).
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+RV_ANDROID_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+DEFAULT_REPO_ROOT=$(cd "$RV_ANDROID_ROOT/.." && pwd)
+REPO_ROOT=${RVSEC_REPO_ROOT:-$DEFAULT_REPO_ROOT}
+VALIDATOR_DIR=${RVSEC_VALIDATOR_DIR:-$REPO_ROOT/rvsec/rvsec-android/rvsec-instrumentation-dexlib2/validator}
 ORACLE_DIR="$VALIDATOR_DIR/oracles"
+THRESHOLDS=${4:-$ORACLE_DIR/layer4-thresholds.yaml}
 DESCRIPTOR=$(find "$DEX_DIR/monitors" -name "MultiSpec_*MonitorAspect.json" 2>/dev/null | head -1)
+
+# gh56 INV-INS-73: detect cryptoapp in the dex result set. When present, the
+# layer3 batch invocation is run with --mandatory so any per-(apk, spec)
+# deviation produces Report(passed=false) → exit 1 → GATES_FAILED.
+HAS_CRYPTOAPP=false
+if find "$DEX_DIR/instrumented_apks" -name 'cryptoapp*.apk' -print -quit 2>/dev/null | grep -q .; then
+  HAS_CRYPTOAPP=true
+fi
+
+# gh56 INV-INS-71: fail-fast when cryptoapp's instrumentation skipped any
+# advice due to unresolved bindings. Replaces the previous manual
+# "cat instrument_results.json" check from the task list.
+if $HAS_CRYPTOAPP && [[ -f "$DEX_DIR/instrument_results.json" ]] && command -v jq >/dev/null 2>&1; then
+  SKIPPED=$(jq -r '.plansSkippedUnresolvedBinding // 0' "$DEX_DIR/instrument_results.json")
+  if [[ "$SKIPPED" -gt 0 ]]; then
+    echo "[runner] FAIL: plansSkippedUnresolvedBinding=$SKIPPED on cryptoapp run" >&2
+    echo "[runner]   gh56 INV-INS-71: bindings were not resolved at instrumentation time." >&2
+    exit 1
+  fi
+fi
 
 mkdir -p "$OUT_DIR"
 
@@ -111,10 +137,19 @@ fi
 if $ORACLE_DIR_AVAIL; then
   # Batch mode operates over the rv-experiment results trees directly.
   PER_SPEC_CSV="$OUT_DIR/per_spec.csv"
-  run_layer layer3_batch layer3 --batch \
-    --oracles "$ORACLE_DIR" \
-    --ajc-results "$AJC_DIR" --dexlib2-results "$DEX_DIR" \
-    --output-csv "$PER_SPEC_CSV"
+  # gh56 INV-INS-73: --mandatory promotes Layer 3 from "diagnostic" to a
+  # blocking gate when cryptoapp is in scope. Any per-(apk, spec) deviation
+  # produces Report(passed=false), which Report.exitCode() maps to exit 1,
+  # which run_layer classifies as GATES_FAILED (script then exits 1 at end).
+  LAYER3_ARGS=(layer3 --batch
+    --oracles "$ORACLE_DIR"
+    --ajc-results "$AJC_DIR" --dexlib2-results "$DEX_DIR"
+    --output-csv "$PER_SPEC_CSV")
+  if $HAS_CRYPTOAPP; then
+    LAYER3_ARGS+=(--mandatory)
+    echo "[runner] cryptoapp detected — layer3 gate is MANDATORY"
+  fi
+  run_layer layer3_batch "${LAYER3_ARGS[@]}"
 else
   echo "[runner] layer3_batch SKIP: no oracles in $ORACLE_DIR"
   GATES_DIAGNOSTIC+=("layer3_batch (skipped: no oracles)")

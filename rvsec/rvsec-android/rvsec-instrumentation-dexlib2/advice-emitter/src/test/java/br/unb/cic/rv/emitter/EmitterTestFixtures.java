@@ -101,15 +101,31 @@ final class EmitterTestFixtures {
     }
 
     static EmitContext ctx(AdviceDescriptor advice) {
-        Match match = new Match(bindings("it", 3), 3, null);
+        Match match = new Match(bindings("it", 3), 3, null, false);
         TypeResolver resolver = new TypeResolver(List.of("java.util.Iterator", "java.util.Collection"));
         return new EmitContext(advice, match, resolver, "Lmop/MultiSpec_1RuntimeMonitor;");
     }
 
+    /**
+     * Build a binding map that includes the {@code $return} synthetic key so
+     * shape-tests for {@code after returning(...)} advice pass under the
+     * gh56 named-binding contract (where an unresolved {@code returning(name)}
+     * triggers {@code UnresolvedBindingException}). The matcher populates
+     * {@code $return} from the destination of the trailing {@code move-result*}
+     * in real code; the fixture mirrors that via a synthetic register.
+     */
     static Map<String, Integer> bindings(String name, int reg) {
         Map<String, Integer> m = new LinkedHashMap<>();
         m.put("arg00", reg);
         m.put(name, reg);
+        m.put("$return", reg);
+        // Catch-handler placeholder for after-throwing shape tests. In real
+        // code the catch-block scratch is allocated by RegisterAllocator and
+        // RegisterShifter rewrites the placeholder accordingly. Pre-gh56 this
+        // came via the literal-0 fallback in registersFor; that fallback is
+        // gone (it was the VerifyError vector), so the fixture mirrors the
+        // catch-handler convention explicitly.
+        m.put("t", 0);
         return m;
     }
 }

@@ -279,6 +279,12 @@ public final class DexWeaver {
         int constructorInlineApplied = 0;
         int constructorInlineSkippedAliasing = 0;
         int plansSkippedHighRegister = 0;
+        // gh56 INV-INS-71: emission sites where the named-binding resolver
+        // returned null because monitorCall.args referenced a name the matcher
+        // could not bind to a register. Replaces the prior literal-v0 fallback
+        // which produced ART VerifyError on every constructor + returning
+        // advice (see docs/20260514_erro.md).
+        int plansSkippedUnresolvedBinding = 0;
 
         for (ClassDef classDef : dexFile.getClasses()) {
             classesSeen++;
@@ -327,7 +333,7 @@ public final class DexWeaver {
                         PointcutExpression pe = parseCached(advice);
                         if (pe == null) { plansSkipped++; continue; }
                         Optional<Match> m = matcher.match(pe, classDef, method, ins,
-                                idx, instructions.size());
+                                idx, instructions.size(), instructions);
                         if (m.isEmpty()) continue;
                         AdviceEmitter emitter;
                         try {
@@ -349,6 +355,27 @@ public final class DexWeaver {
                             // move-from16 preambles into a contiguous low
                             // window before the invoke.
                             plansSkippedHighRegister++;
+                            continue;
+                        } catch (br.unb.cic.rv.emitter.MonitorInvokeBuilder.UnresolvedBindingException ex) {
+                            // gh56 INV-INS-71: at least one binding name in
+                            // monitorCall.args has no register in the resolved
+                            // map (e.g. an args(name) the matcher could not
+                            // locate, or a returning(name) with no $return key
+                            // and no constructor targetRegister). Emitting v0
+                            // here would VerifyError at runtime, so we surface
+                            // the gap at a counter and continue.
+                            plansSkippedUnresolvedBinding++;
+                            // The WARN below is intentionally terse — the
+                            // counter + adviceName/bindingName carry the
+                            // actionable info, full context (className,
+                            // methodName, insnIndex) is available from the
+                            // surrounding loop variables for richer logging
+                            // when --log-level=DEBUG is wired in.
+                            System.err.println("[gh56] skipping advice '"
+                                    + ex.adviceName
+                                    + "' at " + classDef.getType()
+                                    + " idx=" + idx
+                                    + ": unresolved binding '" + ex.bindingName + "'");
                             continue;
                         }
 
@@ -407,7 +434,8 @@ public final class DexWeaver {
                 plansSkipped, plansSkippedAliasing, wrappersSubstituted,
                 wrappersAliasedToSubtype,
                 constructorInlineApplied, constructorInlineSkippedAliasing,
-                plansSkippedHighRegister);
+                plansSkippedHighRegister,
+                plansSkippedUnresolvedBinding);
     }
 
     /**
@@ -531,5 +559,19 @@ public final class DexWeaver {
                                int wrappersAliasedToSubtype,
                                int constructorInlineApplied,
                                int constructorInlineSkippedAliasing,
-                               int plansSkippedHighRegister) {}
+                               int plansSkippedHighRegister,
+                               // gh56 INV-INS-71: count of emission sites where
+                               // MonitorInvokeBuilder.buildInvoke returned null
+                               // because at least one binding name in
+                               // monitorCall.args could not be resolved to a
+                               // real register. Replaces the previous behaviour
+                               // of substituting literal v0 (which caused the
+                               // 2026-05-08 VerifyError campaign). Thread-safe
+                               // as long as DexWeaver processes classes
+                               // sequentially within a single weave() call
+                               // (current behaviour). If parallel class weaving
+                               // is ever introduced, this counter must migrate
+                               // to LongAdder and aggregation lifted out of the
+                               // record.
+                               int plansSkippedUnresolvedBinding) {}
 }

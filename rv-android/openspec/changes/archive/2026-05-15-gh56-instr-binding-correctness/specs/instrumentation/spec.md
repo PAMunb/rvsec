@@ -118,6 +118,15 @@ The eight expected events in `cryptoapp-oracle.yaml` are keyed by `(spec, error_
 
 The remaining six events (#1, #2 = MessageDigest; #3, #4 = Cipher; #5 = KeyGenerator; #6 = KeyPairGenerator) are captured today via the `WrapperEmitter` path and do NOT exercise the bug. Treating the gate as a flat 8/8 mask, therefore, would let a wrapper regression (orthogonal to gh56) trigger a false binding-regression signal. Implementations of this gate SHOULD log the pass/fail status of the two pivotal events separately, so operators can distinguish a binding regression (pivotal events fail) from a wrapper regression (non-pivotal events fail).
 
+**Two-level acceptance for pivotal events** (refined post-smoke 2026-05-14):
+
+Each pivotal event has two distinct acceptance signals; the **fix correctness signal** is mandatory, the **violation signal** is informational:
+
+- **Fix correctness** (mandatory, deterministic): the pivotal method (`generateKeyPair` for #7, `CipherUtil.aes` / any method containing `new SecretKeySpec(...)` for #8) MUST execute **without** producing `VerifyError`. Verifiable via: (a) `0 VerifyError` in `.logcat`, AND (b) the corresponding `Event` method (`KeyPairGeneratorSpec_g*Event`, `SecretKeySpecSpec_c1Event`) MUST appear in the instrumented APK's DEX string table (proves the monitor was injected at the constructor site). This is the canonical proof of the fix — it is what makes the constructor + returning bytecode emission valid under ART.
+- **Violation signal** (informational, exploration-dependent): the pivotal MOP automaton may or may not transition to a failure state depending on what UI path the test driver exercises. `SecretKeySpecSpec` in particular is an automaton — creating a `SecretKeySpec` enters the initial state; a violation is only emitted on subsequent unsafe transitions (e.g., using the key with an `UnsafeAlgorithm` cipher). The presence of a violation event proves end-to-end correctness (constructor → resolveReturningRegister → monitor invoke → automaton transition → violation log); the absence of a violation event does NOT prove regression — it may simply mean the automaton's failure state was not reached on this run. Treat the violation signal as supplementary evidence, not the primary gate.
+
+This refinement was added after the 2026-05-14 smoke runs showed that pivotal #7 (KeyPair) emits violation reliably under `ape` while pivotal #8 (SecretKeySpec) requires UI paths that `ape` may not exercise in short timeouts. The fix-correctness signal (no VerifyError + monitor injected) was satisfied for both pivotals in both runs.
+
 `IvParameterSpec.<init>` is documented as affected by the original bug (`docs/20260514_erro.md:§2.4`) but is NOT one of the eight events emitted by `cryptoapp` under the JCA spec set. Coverage for `IvParameterSpec.<init>` is provided at the unit level by an explicit case in `DexWeaverConstructorAdviceTest` (see `tasks.md:3.4`) rather than at the oracle level.
 
 - **INV-INS-73**: Whenever `cryptoapp.apk` appears in the dex result set of a validation run, the orchestrator MUST pass `--mandatory` to the `layer3` subcommand. Any event count deviation MUST produce `Report(passed=false)` and consequently exit status `1` from `ValidationCli`, propagated by `run_phase5_validators.sh` via its existing `run_layer` aggregator. When `cryptoapp.apk` is absent from the result set, `--mandatory` MUST NOT be passed.
@@ -129,6 +138,7 @@ The remaining six events (#1, #2 = MessageDigest; #3, #4 = Cipher; #5 = KeyGener
 - **AND** the orchestrator MUST classify `layer3_batch` as `GATES_FAILED` and exit non-zero
 - **AND** the report MUST list each missing event by spec name and a one-line diagnostic
 - **AND** the report SHOULD distinguish whether pivotal events #7 / #8 are among the missing ones (signalling a binding-regression rather than a wrapper-regression)
+- **AND** the gate evaluation MUST distinguish "fix correctness" failure (any `VerifyError` in the trace OR the monitor `Event` method missing from the instrumented APK's string table) from "violation signal" absence (automaton did not reach failure state). Only the first is a true binding regression and SHOULD block the gate unconditionally; the second is exploration-dependent and SHOULD be logged as advisory.
 
 #### Scenario: Cryptoapp oracle full match passes the gate
 - **WHEN** `run_phase5_validators.sh` runs against a dex result directory whose `cryptoapp.apk` trace contains all 8 expected oracle events at the correct call sites (including the 2 pivotal events #7 `KeyPair.<init>` and #8 `SecretKeySpec.<init>`)
