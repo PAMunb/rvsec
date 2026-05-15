@@ -75,9 +75,18 @@ public class Configs {
 
   // gh57 D3: when true, FlowgraphRebuilder.buildCallGraph delegates virtual
   // dispatch to Scene.v().getCallGraph() (SPARK) instead of the legacy
-  // points-to + CHA fallback. Default true; flip to false for runtime
-  // rollback if paridade Jaccard ever degrades. See design.md D3.
-  public static boolean cgDelegation = true;
+  // points-to + CHA fallback. Default flipped true → false on 2026-05-15
+  // after paridade M3 gate failed: SPARK delegation loses WTG nodes and
+  // transitions for hybrid-framework apps (RN, Flutter, Capacitor) because
+  // their UI listeners are wired through synthetic lambdas + native bridges
+  // that SPARK does not materialize as call-graph edges. Legacy CHA fallback
+  // covered those via subtype enumeration; the SPARK path has no equivalent
+  // fallback at application-class scope yet. Opt-in via -cgDelegation true
+  // gives 2–23× speedup on apps without that wiring; see
+  // docs/20260515_diagnostico_paridade_cgdelegation.md for the empirical
+  // breakdown and the follow-up scope (CHA fallback in buildCallGraph-
+  // FromSparkCg for application classes when SPARK returns zero edges).
+  public static boolean cgDelegation = false;
 
   // [wtg analysis] xml file describing the calls related with wtg
   public static String wtgSpecFile;

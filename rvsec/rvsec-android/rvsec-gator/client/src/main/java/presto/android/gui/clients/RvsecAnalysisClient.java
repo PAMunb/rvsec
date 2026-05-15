@@ -52,6 +52,7 @@ import presto.android.gui.wtg.ds.WTGNode;
 import soot.Body;
 import soot.Scene;
 import soot.SootClass;
+import soot.SootField;
 import soot.SootMethod;
 import soot.SootMethodRef;
 import soot.Unit;
@@ -407,7 +408,14 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// Multi-source BFS — O(V + E) per traversal
 	// ========================================================================
 
-	// Package-private and generic for unit testing with synthetic graphs
+	// Package-private and generic for unit testing with synthetic graphs.
+	// Seeds without any CG edge would otherwise be dropped by the
+	// containsVertex check — buildJGraph only adds vertices that appear
+	// in some edge, so an entry point with zero incident edges in SPARK
+	// (e.g. a callback the runtime invokes but no call site reaches via
+	// points-to) would silently disappear from reachable[]. Force-add the
+	// seed first so legitimate roots are preserved even when the CG is
+	// blind to them (INV-ANA-25).
 	static <V> Set<V> multiSourceBfs(
 			org.jgrapht.Graph<V, DefaultEdge> graph,
 			Set<V> seeds) {
@@ -416,7 +424,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		Queue<V> queue = new ArrayDeque<>();
 
 		for (V seed : seeds) {
-			if (graph.containsVertex(seed) && visited.add(seed)) {
+			graph.addVertex(seed);
+			if (visited.add(seed)) {
 				queue.add(seed);
 			}
 		}
@@ -795,7 +804,24 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		//       onCreateOptionsMenu for Menu.add(...) / addSubMenu(...) calls
 		//       (Group 4). Both paths emit into the same widgets[] list;
 		//       id spaces are disjoint by construction.
-		MenuExtractor menuExtractor = new MenuExtractor(resId -> null);
+		// MenuExtractor needs to resolve R.string.foo (numeric resource id)
+		// to the actual string value for menu items declared as
+		// Menu.add(group, id, order, R.string.foo). Previously the closure
+		// returned null and every such item serialized with text="" — the
+		// codex review (2026-05-15) flagged this as a defect because
+		// downstream consumers (APE-RV) key off the title. We build a
+		// per-call resolver that combines two existing helpers:
+		//   - resolveStringIdToName(resId) — maps int constant to symbolic
+		//     name via the app's R$string class fields (cached on first use)
+		//   - resolveStringReference(resDir, name) — reads strings.xml
+		// Either step returning null falls through to the extractor's
+		// empty-string default; no exception propagates.
+		String resDirForMenu = Configs.resourceLocation;
+		MenuExtractor menuExtractor = new MenuExtractor(resId -> {
+			String name = resolveStringIdToName(resId, output.getAppPackageName());
+			if (name == null || resDirForMenu == null) return null;
+			return resolveStringReference(resDirForMenu, name);
+		});
 		for (SootClass activity : output.getActivities()) {
 			NOptionsMenuNode menu = output.getOptionsMenu(activity);
 			if (menu != null) {
@@ -1026,10 +1052,22 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			Map<String, List<String>> arrays,
 			String resDir) {
 
-		// Match element to widget by android:id
+		// Match element to widget by android:id. Both "@id/foo" (reference
+		// form) and "@+id/foo" (declaration form — dominant in real
+		// layouts) MUST match; previously only "@id/" was accepted, which
+		// silently skipped the majority of widgets actually defined inline
+		// in layout XML and left their inputType/entries/prompt/etc. null.
 		String id = elem.getAttribute("android:id");
-		if (id != null && id.startsWith("@id/")) {
-			String idName = id.substring("@id/".length());
+		String idPrefix = null;
+		if (id != null) {
+			if (id.startsWith("@+id/")) {
+				idPrefix = "@+id/";
+			} else if (id.startsWith("@id/")) {
+				idPrefix = "@id/";
+			}
+		}
+		if (idPrefix != null) {
+			String idName = id.substring(idPrefix.length());
 			Map<String, Object> widget = widgetByIdName.get(idName);
 			if (widget != null) {
 				// inputType
@@ -1151,6 +1189,46 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			// Graceful degradation
 		}
 		return null;
+	}
+
+	// Lazy cache for resource-id → symbolic name lookup. Built on first
+	// call from <appPkg>.R$string fields tagged with IntegerConstantValueTag
+	// (the same source GATOR already reads in DefaultXMLParser.readIntConstFields).
+	// Null when the R$string class is absent or phantom, in which case
+	// every resolveStringIdToName(resId, _) returns null.
+	private Map<Integer, String> stringIdNameCache = null;
+
+	private String resolveStringIdToName(int resId, String appPackage) {
+		if (stringIdNameCache == null) {
+			stringIdNameCache = buildStringIdNameCache(appPackage);
+		}
+		return stringIdNameCache.get(resId);
+	}
+
+	private Map<Integer, String> buildStringIdNameCache(String appPackage) {
+		Map<Integer, String> cache = new HashMap<>();
+		if (appPackage == null || appPackage.isEmpty()) return cache;
+		String rStringClass = appPackage + ".R$string";
+		SootClass cls;
+		try {
+			cls = Scene.v().getSootClassUnsafe(rStringClass);
+		} catch (Exception e) {
+			return cache;
+		}
+		if (cls == null || cls.isPhantom()) return cache;
+		for (SootField f : cls.getFields()) {
+			try {
+				Object tag = f.getTag("IntegerConstantValueTag");
+				if (tag == null) continue;
+				String s = tag.toString();
+				int val = Integer.parseInt(s.substring("ConstantValue: ".length()));
+				cache.put(val, f.getName());
+			} catch (RuntimeException ignore) {
+				// Skip non-int fields (array residuals etc.) — same
+				// resilience as DefaultXMLParser.readIntConstFields.
+			}
+		}
+		return cache;
 	}
 
 	// ========================================================================
@@ -1319,8 +1397,10 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.beginArray();
 		@SuppressWarnings("unchecked")
 		List<String> entries = (List<String>) widget.get("entries");
-		for (String entry : entries) {
-			w.value(entry);
+		if (entries != null) {
+			for (String entry : entries) {
+				w.value(entry);
+			}
 		}
 		w.endArray();
 

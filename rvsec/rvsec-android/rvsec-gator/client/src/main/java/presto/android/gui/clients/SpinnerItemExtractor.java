@@ -52,6 +52,7 @@ import soot.Unit;
 import soot.Value;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
+import soot.jimple.CastExpr;
 import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.IntConstant;
 import soot.jimple.InvokeExpr;
@@ -193,10 +194,28 @@ public final class SpinnerItemExtractor {
 	/**
 	 * Resolve {@code base} (the receiver of setAdapter) to its underlying
 	 * Spinner widget id by walking back to a findViewById(R.id.X) call.
+	 *
+	 * <p>The canonical Jimple shape for {@code Spinner s = (Spinner) findViewById(R.id.foo)}
+	 * is two statements: {@code $r1 = findViewById($id); $r2 = (Spinner) $r1}.
+	 * The def of {@code s} therefore points at a {@link CastExpr}, not the
+	 * {@link InvokeExpr}. We recurse on {@code castExpr.getOp()} (bounded by
+	 * the chain length — typically 1) until we reach the underlying invoke
+	 * or fail (no single reaching def). Without this, every Spinner declared
+	 * with the typical cast pattern surfaces in {@code widgets[]} with an
+	 * empty {@code entries[]} even when the ArrayAdapter items were
+	 * recovered (codex review 2026-05-15, defect #7).
 	 */
 	private Integer resolveSpinnerWidgetId(Value base, Stmt useSite, SimpleLocalDefs defs) {
 		if (!(base instanceof Local)) return null;
 		Value rhs = definitionRhs((Local) base, useSite, defs);
+		// Unwrap one or more chained CastExpr defs (e.g. `(View) $r1` then
+		// `(Spinner) $r2` — uncommon but seen in interop code).
+		int castGuard = 8;
+		while (rhs instanceof CastExpr && castGuard-- > 0) {
+			Value op = ((CastExpr) rhs).getOp();
+			if (!(op instanceof Local)) return null;
+			rhs = definitionRhs((Local) op, useSite, defs);
+		}
 		if (rhs instanceof InvokeExpr) {
 			InvokeExpr def = (InvokeExpr) rhs;
 			if ("findViewById".equals(def.getMethodRef().getName())
@@ -204,10 +223,6 @@ public final class SpinnerItemExtractor {
 				Integer id = resolveInt(def.getArg(0), useSite, defs);
 				if (id != null) return id;
 			}
-			// Some apps cast the result: $cast = (Spinner) $raw; $cast =
-			// $raw is an AssignStmt with the same RHS chain. The
-			// definitionRhs single-reaching-def policy already handles
-			// the chained case if it is unambiguous.
 		}
 		return null;
 	}

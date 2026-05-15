@@ -89,11 +89,16 @@ public class ReachabilityBfsTest {
 
 	@Test
 	public void testBfsSeedNotInGraph() {
+		// Codex fix #1 (INV-ANA-25): seeds without any CG edge are
+		// force-added to the graph and survive into the result. Pre-fix
+		// behavior was assertTrue(result.isEmpty()); the new contract is
+		// that the seed itself is always present (an isolated entry point
+		// IS reachable from itself).
 		DefaultDirectedGraph<String, DefaultEdge> g = newGraph();
 		addEdge(g, "A", "B");
 
 		Set<String> result = RvsecAnalysisClient.multiSourceBfs(g, setOf("X"));
-		assertTrue(result.isEmpty());
+		assertEquals(setOf("X"), result);
 	}
 
 	@Test

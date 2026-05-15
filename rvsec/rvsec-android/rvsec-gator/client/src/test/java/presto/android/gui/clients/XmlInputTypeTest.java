@@ -259,4 +259,102 @@ public class XmlInputTypeTest {
 		// Widget map should be unchanged
 		assertEquals("", widgetByIdName.get("edit1").get("inputType"));
 	}
+
+	// ── codex fix #5: @+id/ prefix (declaration form) ───────────────────
+	//
+	// Previously enrichFromElement only matched "@id/foo" (reference
+	// form). Real-world layouts overwhelmingly use "@+id/foo" — the
+	// declaration form for newly-introduced widget ids — so most
+	// XML-declared widgets were silently skipped by the enrichment pass.
+	// The fix accepts either prefix; these tests pin the new contract.
+
+	@Test
+	public void testEnrichAtPlusIdInputType() throws IOException {
+		File layoutFile = tempDir.newFile("activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <EditText android:id=\"@+id/password\" android:inputType=\"textPassword\"/>\n" +
+				"</LinearLayout>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		widgetByIdName.put("password", makeWidget(1, "password", "EditText", "", "", "", new ArrayList<>()));
+
+		Map<String, List<String>> arrays = new HashMap<>();
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
+
+		assertEquals("textPassword", widgetByIdName.get("password").get("inputType"));
+	}
+
+	@Test
+	public void testEnrichAtPlusIdEntries() throws IOException {
+		// Spinner declared inline with @+id/ + entries pointing at @array/.
+		File layoutFile = tempDir.newFile("activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <Spinner android:id=\"@+id/country_picker\" android:entries=\"@array/countries\"/>\n" +
+				"</LinearLayout>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		widgetByIdName.put("country_picker",
+				makeWidget(2, "country_picker", "Spinner", "", "", "", new ArrayList<>()));
+
+		Map<String, List<String>> arrays = new HashMap<>();
+		arrays.put("countries", Arrays.asList("BR", "US", "PT"));
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
+
+		assertEquals(Arrays.asList("BR", "US", "PT"),
+				widgetByIdName.get("country_picker").get("entries"));
+	}
+
+	@Test
+	public void testEnrichMixedAtIdAndAtPlusId() throws IOException {
+		// Layout mixing both prefix forms — both MUST be matched.
+		File layoutFile = tempDir.newFile("activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <EditText android:id=\"@+id/email\" android:inputType=\"textEmailAddress\"/>\n" +
+				"  <EditText android:id=\"@id/legacy\" android:inputType=\"phone\"/>\n" +
+				"</LinearLayout>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		widgetByIdName.put("email", makeWidget(1, "email", "EditText", "", "", "", new ArrayList<>()));
+		widgetByIdName.put("legacy", makeWidget(2, "legacy", "EditText", "", "", "", new ArrayList<>()));
+
+		Map<String, List<String>> arrays = new HashMap<>();
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
+
+		assertEquals("textEmailAddress", widgetByIdName.get("email").get("inputType"));
+		assertEquals("phone", widgetByIdName.get("legacy").get("inputType"));
+	}
+
+	@Test
+	public void testEnrichEmptyIdAttributeIgnored() throws IOException {
+		// android:id present but empty — must NOT match any widget.
+		File layoutFile = tempDir.newFile("activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <TextView android:id=\"\" android:contentDescription=\"x\"/>\n" +
+				"</LinearLayout>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		// Use empty-string idName widget to make sure an empty id attr
+		// does NOT match it via a degenerate path.
+		Map<String, Object> w = makeWidget(1, "", "TextView", "", "", "", new ArrayList<>());
+		widgetByIdName.put("", w);
+
+		Map<String, List<String>> arrays = new HashMap<>();
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays, layoutFile.getParentFile().getParent());
+
+		// contentDescription should not be set because no prefix matched.
+		assertFalse("contentDescription must NOT be enriched when id has no prefix",
+				w.containsKey("contentDescription") && w.get("contentDescription") != null);
+	}
 }

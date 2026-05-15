@@ -181,11 +181,24 @@ public final class MenuExtractor {
 		// (matches the per-Spinner partial-emission rule in Group 5).
 		if (itemId == null) return null;
 
+		// Pre-populate every key that writeWidget(JsonWriter) consumes — the
+		// MenuExtractor output is unioned with collectWidgets output, so
+		// missing keys break the serializer (notably `entries` which is
+		// dereferenced as a List, not null-checked).
 		Map<String, Object> item = new LinkedHashMap<>();
 		item.put("id", itemId);
+		item.put("idName", "");
 		item.put("groupId", groupId != null ? groupId : 0);
 		item.put("order", order != null ? order : 0);
 		item.put("text", resolveTitle(ie.getArg(3), useSite, defs));
+		item.put("hint", "");
+		item.put("inputType", "");
+		item.put("entries", java.util.Collections.emptyList());
+		item.put("prompt", null);
+		item.put("spinnerMode", null);
+		item.put("contentDescription", null);
+		item.put("tooltipText", null);
+		item.put("listeners", java.util.Collections.emptyList());
 		return item;
 	}
 

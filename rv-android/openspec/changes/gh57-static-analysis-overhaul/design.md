@@ -149,15 +149,36 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 
 **Why:** Matches the existing GATOR convention (`mopDir=`, `codePackage=`, `cgDelegation=`). Enables per-APK control (a future enhancement) — env vars and JVM properties would force the whole sweep to be uniform.
 
-### D3 — `cgDelegation` as a runtime feature flag (with default = true)
+### D3 — `cgDelegation` as a runtime feature flag (with default = false post-M3)
 
-**Choice:** Refactor `FlowgraphRebuilder.buildCallGraph()` to switch on `Configs.cgDelegation`. When `true` (default), use `Scene.v().getCallGraph()` + bytecode-scan complement; when `false`, use the legacy CHA-style code path verbatim.
+**Choice:** Refactor `FlowgraphRebuilder.buildCallGraph()` to switch on `Configs.cgDelegation`. When `true`, use `Scene.v().getCallGraph()` + bytecode-scan complement; when `false`, use the legacy CHA-style code path verbatim. **Default is `false` — the SPARK delegation path is opt-in via `-cgDelegation true` (CLI) or `--cg-delegation true` (Python sweep)**.
 
-**Why:** Item 6 is the highest-risk change in the scope (Phase-0 §7.1). The runtime flag enables A/B comparison against the baseline and an immediate rollback without rebuilding the JAR. Once paridade is confirmed for several weeks of operation, the `cgDelegation=false` branch can be deleted in a follow-up change (P3 — no permanent backward-compatibility shim).
+**Original intent (pre-M3):** default `true`, with the legacy path kept only for rollback. Item 6 is the highest-risk change in the scope (Phase-0 §7.1).
 
-**Alternatives considered:**
-- **Build-time toggle**: rejected because rollback requires rebuild and JAR redistribution.
-- **No flag (commit to SPARK delegation only)**: rejected because the paridade Jaccard gate (≥0.95) needs an in-place baseline.
+**Why the default was flipped to `false` on 2026-05-15:** the paridade M3 gate (`scripts/wtg_paridade_diff.py` against 10 baseline-OK APKs from `notes/preflight_fixtures.md(c)`) **failed** with avg Jaccard 0.543 (threshold 0.95) / min 0.000 (threshold 0.85). The failure is **categorically structured**, not random:
+
+- 3 APKs lost **all** their `transitions[]` (Jaccard = 0.000): `com.mouzinho.pokebase` (React Native — `com.swmansion.rnscreens.*`), `com.nyx.custom_uploader` (Flutter — `io.flutter.plugins.urllauncher.*`), `com.wordtracer.app` (Capacitor — `com.getcapacitor.BridgeActivity`). In all three, the activities are surfaced with fallback IDs (100000+) by `RvsecAnalysisClient.extractWindows`, indicating the WTG did not build WTGNodes for them.
+- 1 APK had a partial loss: `com.akylas.enforcedoze` (native Android) dropped from 97 → 86 transitions (Jaccard 0.887 — borderline).
+- 1 APK had a *gain* (baseline timeout → candidate completed): `org.fossify.keyboard` 0 → 36 transitions, confirming the perf benefit is real.
+- 1 APK was a control (`com.dewdrop623.androidcrypt`, native Android) with Jaccard 1.000.
+
+**Root cause** (full diagnostic in `docs/20260515_diagnostico_paridade_cgdelegation.md`): hybrid-framework apps wire their UI listeners through synthetic lambdas (`$$ExternalSyntheticLambda*`) and native bridges (`com.facebook.react.bridge.*`, `io.flutter.embedding.engine.*`, `com.getcapacitor.Bridge`). SPARK's points-to does not materialize edges for these dispatch patterns. The legacy `buildCallGraphLegacy` covered them via a CHA fallback over all concrete subtypes of the receiver type (lines 1067–1083). `buildCallGraphFromSparkCg` has only an `IGNORED_CLASSES` recovery scoped to `java.*/android.*/etc.` — application-package lambdas like `com.swmansion.…$$ExternalSyntheticLambda0` are structurally outside that scope.
+
+Without WTGNodes for the entry activities, **all** transitions referencing them (including implicit `_home_/_power_/_rotate_event`) are dropped — so the regression amplifies: losing one set of edges loses the WTG nodes those edges anchor, which loses every transition out of those nodes. The 3 zero-Jaccard outcomes are a direct consequence.
+
+**Performance vs paridade trade-off observed:**
+- Performance gain (when paridade holds): 2.8× to 23× on apps that completed in baseline; 4 of the 10 APKs recovered from a 600s timeout to under 200s in candidate.
+- Paridade cost (where it fails): full transitions loss in framework-hybrid apps.
+
+We chose paridade over performance because the `windows[]` decoupling (G2) and `--skip-wtg` (G2) **already** solved the operational problem the cgDelegation was meant to solve secondarily (71.6% empty `windows[]` rate in experimento-20260508). The remaining benefit of cgDelegation is recovering `transitions[]` for those same APKs — a strictly weaker need than the windows fix, and one we cannot ship at the cost of silently dropping transitions for an entire app category.
+
+**Follow-up change to land in a future cycle** (`gh<N>-cg-delegation-framework-edges`, scope sketched in §5.2 of the diagnostic): port the legacy CHA fallback into `buildCallGraphFromSparkCg` scoped to application classes when SPARK returns zero edges. If the re-run paridade gate meets thresholds, that follow-up flips the default back to `true`.
+
+**Alternatives considered (at decision time):**
+- **Build-time toggle**: rejected because rollback requires rebuild and JAR redistribution. The runtime flag enabled this very pivot without a JAR change.
+- **No flag (commit to SPARK delegation only)**: rejected because the paridade gate needed an in-place baseline — and indeed the gate is what surfaced the regression.
+- **Default `true` with documented regression**: rejected — would silently degrade calibration v3 for hybrid-framework APKs without consumer notice. Violates the paridade contract documented in `cgDelegation Default Behavior` requirement.
+- **Drop the legacy path now, ship SPARK-only**: rejected — would preclude the rollback that we then needed within hours.
 
 ### D4 — Bytecode-scan complement at the WTG level (INV-ANA-22)
 
@@ -192,6 +213,27 @@ This is the simplest possible fix (5 lines, mirrors an existing pattern, zero ne
 **Why:** P3 (no backward compatibility in producer) — `RvsecAnalysisClient` only emits v2.0 going forward. The consumer must tolerate legacy v1 JSONs because the 158 pre-existing populated files in `…/APKS_JCA_analise_estatica_soot/` are not migrated in-place; they are simply re-generated during the closing 380-APK ground-truth re-run.
 
 **Alternative considered:** semver `"2.0.0"`. Rejected because two digits are sufficient and easier to grep / version-bump.
+
+### D8 — Codex pre-sweep correctness fixes land inside gh57 (not deferred)
+
+**Choice:** Four small targeted defects flagged by an independent code review on 2026-05-15 — isolated entry-point seeds (#1), `@+id/` XML matcher (#5), `MenuExtractor` resource-id resolver (#6), `SpinnerItemExtractor` CastExpr unwrap (#7) — are folded into gh57 as Group 8 (executed before the Group 9 acceptance sweep). Each fix is < 10 lines of code, ortogonal to the other gh57 mechanics, and has measurable downstream impact on either `reachable[]` (defect #1) or `widgets[]` completeness (defects #5–#7).
+
+**Why:**
+- **Acceptance signal integrity.** The Group 9 sweep produces the closing numbers that the calibration v2/v3 of APE-RV builds on. If we defer these fixes, the sweep measures a pipeline we already know has known correctness gaps and the resulting `windows[]≥95%` / aperv-smoke numbers are conservative. Landing the fixes first means the sweep validates the corrected pipeline.
+- **Cost is negligible.** Each fix is < 10 lines + a focused unit test; the four together add roughly one afternoon to gh57. The alternative — opening four separate one-line changes — costs more on overhead alone (proposal/design/tasks/specs/archive ceremony × 4) than just folding them in here.
+- **No risk of scope creep.** These are *defect-class* fixes, not refactors. None touch the architectural questions raised by codex (RvsecAnalysisClient splitting, window-id identity refactor, XML ownership inference) — those are out of scope and explicitly slated for a follow-up `gh<N>-rvsec-client-refactor`.
+- **Ortogonal to the in-flight paridade gate (M3).** Each fix lives in a different code path from `FlowgraphRebuilder.buildCallGraphFromSparkCg`, so the paridade gate verdict and the codex fixes can be implemented and committed independently. The paridade gate (Group 6.9) does not need to be re-run after the codex fixes because none of them changes WTG transition semantics.
+
+**Alternatives considered:**
+- *Defer all four to a follow-up change*: rejected because it would mean the closing 380-APK sweep measures a known-incorrect pipeline, and re-doing the sweep after the follow-up change has a 3–4h wall-clock cost.
+- *Defer only #1 and #6 (the moderate-cost ones), land only #5 and #7 inside gh57*: rejected because #1 directly affects the `reachable[]` denominator that Group 9.3 evaluates, and shipping a sweep where reachable[] under-reports for isolated callbacks would mislead consumers of the JSON.
+- *Land the codex fixes as a separate Group 8 with its own architectural justification*: chosen and reflected in `tasks.md` Group 8 + spec.md sub-requirements. The "Group 8 — Codex Pre-Sweep Fixes" header makes the boundary explicit; reviewers can audit defect-fix-only vs. architectural-refactor-out-of-scope at a glance.
+
+**Out-of-scope (deferred to follow-up change):**
+- Architectural decomposition of `RvsecAnalysisClient` into `EntryPointResolver` / `ReachabilityAnalyzer` / `WindowModelExtractor` / `ResourceIndex` / `JsonResultWriter` (codex review §Sugestões #1).
+- Window-id identity refactor (codex review §Achados #3) — uses class names as keys today, which can collide for multiple windows of the same class; fix requires a typed `WindowIdMapping` DTO.
+- XML ownership inference per activity (codex review §Achados #4) — fix requires walking `setContentView(R.layout.X)` in the activity's CFG to identify the owning layout file rather than indexing all layouts globally.
+- JSON proveniência fields (`reachableBy=["cg","callback","bytecodeScan"]`, `xmlEnriched`, etc., codex review §Sugestões #6) — high ROI but a new public-schema addition (would force a `schemaVersion` bump to 2.1 and a parallel `MopData.java` update); appropriate for a focused follow-up change rather than slipped into gh57.
 
 ## API Design
 

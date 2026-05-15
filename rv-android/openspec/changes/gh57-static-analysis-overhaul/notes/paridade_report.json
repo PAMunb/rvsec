@@ -1,0 +1,81 @@
+{
+  "average_jaccard": 0.5429553264604812,
+  "minimum_jaccard": 0.0,
+  "threshold_avg": 0.95,
+  "threshold_min": 0.85,
+  "verdict": "FAIL",
+  "apks": [
+    {
+      "apk": "com.akylas.enforcedoze_85.apk",
+      "baseline": 97,
+      "candidate": 86,
+      "intersection": 86,
+      "union": 97,
+      "jaccard": 0.8865979381443299
+    },
+    {
+      "apk": "com.blankdev.sidestep_17.apk",
+      "baseline": 0,
+      "candidate": 0,
+      "intersection": 0,
+      "union": 0,
+      "jaccard": 1.0
+    },
+    {
+      "apk": "com.dewdrop623.androidcrypt_15.apk",
+      "baseline": 5,
+      "candidate": 5,
+      "intersection": 5,
+      "union": 5,
+      "jaccard": 1.0
+    },
+    {
+      "apk": "com.gorden.dayexam_9.apk",
+      "baseline": 0,
+      "candidate": 0,
+      "intersection": 0,
+      "union": 0,
+      "jaccard": 1.0
+    },
+    {
+      "apk": "com.mouzinho.pokebase_2.apk",
+      "baseline": 4,
+      "candidate": 0,
+      "intersection": 0,
+      "union": 4,
+      "jaccard": 0.0
+    },
+    {
+      "apk": "com.nyx.custom_uploader_15.apk",
+      "baseline": 12,
+      "candidate": 0,
+      "intersection": 0,
+      "union": 12,
+      "jaccard": 0.0
+    },
+    {
+      "apk": "com.wordtracer.app_22.apk",
+      "baseline": 13,
+      "candidate": 0,
+      "intersection": 0,
+      "union": 13,
+      "jaccard": 0.0
+    },
+    {
+      "apk": "de.computerelite.shockalarm_48.apk",
+      "baseline": 0,
+      "candidate": 0,
+      "intersection": 0,
+      "union": 0,
+      "jaccard": 1.0
+    },
+    {
+      "apk": "org.fossify.keyboard_14.apk",
+      "baseline": 0,
+      "candidate": 36,
+      "intersection": 0,
+      "union": 36,
+      "jaccard": 0.0
+    }
+  ]
+}

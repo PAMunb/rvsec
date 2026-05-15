@@ -15,7 +15,7 @@ The delta operates entirely within the existing `analysis` capability — no new
 - `mop_dir: Path` — directory of `.mop` specification files, passed via `-clientParam mopDir=<path>`.
 - `code_package: str | None` — application package prefix, passed via `-clientParam codePackage=<pkg>`.
 - `cg_algorithm: str` — `spark` (default), `cha`, `rta`, or `vta`, passed via `-cgAlgorithm <algo>`.
-- `cg_delegation: bool` — new (default `true`), passed via `-clientParam cgDelegation=<bool>`. When `true`, `FlowgraphRebuilder.buildCallGraph()` consults `Scene.v().getCallGraph()` and skips the local CHA-style rebuild. When `false`, legacy behavior is preserved.
+- `cg_delegation: bool` — new (default `false` after M3 paridade-gate failure, 2026-05-15), passed via `-clientParam cgDelegation=<bool>`. When `true`, `FlowgraphRebuilder.buildCallGraph()` consults `Scene.v().getCallGraph()` and skips the local CHA-style rebuild — opt-in, useful for apps without hybrid-framework wiring (RN/Flutter/Capacitor) where it yields 2–23× speedup. When `false` (default), legacy points-to + CHA-fallback behavior is preserved and paridade with the pre-change baseline is bit-for-bit. See `docs/20260515_diagnostico_paridade_cgdelegation.md` for the empirical breakdown and follow-up scope.
 - `skip_wtg: bool` — new (default `false`), passed via `-clientParam skipWtg=<bool>`. When `true`, `WTGBuilder.build()` is not invoked and `transitions[]` is emitted as an empty array.
 
 ### Output
@@ -99,21 +99,36 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 - **AND** no `.json` output file MUST exist (the crash occurs before `RvsecAnalysisClient.run()` is invoked)
 - **AND** the `StaticAnalyzer` wrapper MUST log the failure as `StaticAnalysisException`
 
-#### Scenario: WTG built using SPARK call graph (cgDelegation=true, default)
+#### Scenario: WTG built using legacy call graph (cgDelegation=false, default post-M3)
 
-- **WHEN** `RvsecAnalysisClient.run()` is invoked with default client parameters (i.e. `cgDelegation` not set, defaults to `true`)
+- **WHEN** `RvsecAnalysisClient.run()` is invoked with default client parameters (i.e. `cgDelegation` not set, defaults to `false` after the M3 paridade-gate decision recorded in `docs/20260515_diagnostico_paridade_cgdelegation.md`)
+- **AND** `WTGBuilder.build(output)` is called and reaches `FlowgraphRebuilder.buildCallGraph()`
+- **THEN** `FlowgraphRebuilder.buildCallGraph()` MUST take the legacy points-to + CHA-fallback code path (`buildCallGraphLegacy` — `hier.virtualDispatch()` + `hier.getConcreteSubtypes()`)
+- **AND** `AndroidCallGraph.v()` MUST be populated as before the change
+- **AND** the output `transitions[]` MUST match exactly the pre-change baseline for the same APK on this code path (rollback is bit-for-bit on the WTG section)
+
+#### Scenario: WTG built using SPARK call graph (cgDelegation=true, opt-in)
+
+- **WHEN** `RvsecAnalysisClient.run()` is invoked with `-clientParam cgDelegation=true`
 - **AND** `WTGBuilder.build(output)` is called and reaches `FlowgraphRebuilder.buildCallGraph()`
 - **THEN** `FlowgraphRebuilder.buildCallGraph()` MUST consult `Scene.v().getCallGraph()` to resolve virtual-dispatch targets for each `InvokeExpr` site
-- **AND** `AndroidCallGraph.v()` MUST NOT be populated via the legacy CHA-style loop (`hier.getConcreteSubtypes()` + `hier.virtualDispatch()`)
-- **AND** for `InvokeExpr` sites whose declared callee class is in `IGNORED_CLASSES` (SPARK quarantine — e.g. `java.security.*`, `javax.crypto.*`), edges MUST be recovered via the WTG-level bytecode-scan complement (INV-ANA-22)
-- **AND** the resulting `transitions[]` JSON section MUST be semantically equivalent to the legacy `cgDelegation=false` output, modulo edges from `IGNORED_CLASSES` libraries that SPARK omits (recovered by bytecode-scan)
+- **AND** `AndroidCallGraph.v()` MUST NOT be populated via the legacy CHA-style loop
+- **AND** for `InvokeExpr` sites whose declared callee class is in `IGNORED_CLASSES` (SPARK quarantine — `java.*`, `javax.*`, `sun.*`, `android.*`, `androidx.*`, `dalvik.*`), edges MUST be recovered via the WTG-level bytecode-scan complement (INV-ANA-22)
+- **AND** the resulting `transitions[]` JSON section MAY diverge from the legacy output for apps that wire UI dispatch through synthetic lambdas + native bridges (React Native, Flutter, Capacitor) — see Scenario "Hybrid-framework apps lose transitions in cgDelegation=true mode" below for the documented limitation
 
-#### Scenario: WTG rollback via cgDelegation=false feature flag
+#### Scenario: Hybrid-framework apps lose transitions in cgDelegation=true mode
 
-- **WHEN** `RvsecAnalysisClient.run()` is invoked with `-clientParam cgDelegation=false`
-- **THEN** `FlowgraphRebuilder.buildCallGraph()` MUST take the legacy code path (the pre-change CHA-style virtual-dispatch loop using `hier.virtualDispatch()` + `hier.getConcreteSubtypes()`)
-- **AND** `AndroidCallGraph.v()` MUST be populated as before the change
-- **AND** the output `transitions[]` MUST match exactly the pre-change baseline for the same APK (rollback is bit-for-bit on the WTG section)
+This scenario documents a known limitation of the opt-in SPARK delegation path until the follow-up change `gh<N>-cg-delegation-framework-edges` lands (CHA fallback at application-class scope for zero-edge invoke sites).
+
+- **GIVEN** an APK whose UI listener dispatch is routed through synthetic lambdas (`$$ExternalSyntheticLambda*` — D8 desugaring of `OnClickListener`, `DialogInterface.OnCancelListener`, etc.) declared in application packages
+- **AND** these lambdas are instantiated through native bridges (React Native `com.facebook.react.bridge.*`, Flutter `io.flutter.embedding.engine.*`, Capacitor `com.getcapacitor.Bridge`)
+- **WHEN** the analyzer runs with `-clientParam cgDelegation=true`
+- **THEN** the WTG MAY fail to create WTGNodes for the entry activities (because the SPARK call graph does not contain the edges that signal "this activity is live")
+- **AND** the resulting `transitions[]` section MAY be empty for those apps
+- **AND** the activities WILL appear in `windows[]` with fallback IDs (≥100000) emitted by `RvsecAnalysisClient.extractWindows`
+- **AND** consumers (notably APE-RV `MopData.java`) MUST treat an empty `transitions[]` paired with fallback-IDed windows as an analyzer limitation, not as a "no transitions exist" assertion. The empirical reference is `docs/20260515_diagnostico_paridade_cgdelegation.md` (pokebase / custom_uploader / wordtracer cases).
+
+This limitation does NOT apply to `cgDelegation=false` (the default), which uses the legacy CHA fallback over application-class subtypes and captures these lambdas.
 
 #### Scenario: Flowgraph skips method with failing body (Scenario B recovery)
 
@@ -131,11 +146,14 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 
 #### Scenario: Paridade Jaccard WTG-SPARK on baseline-OK APKs
 
-- **WHEN** the change is validated against the 10-APK fixture defined in the change's `tasks.md` (a stratified sample of the 54 baseline-OK APKs)
-- **AND** for each APK, `T_before` = set of `(source_window_id, target_window_id, event_type)` tuples from the pre-change `transitions[]`, and `T_after` = the same set from the post-change `transitions[]` with `cgDelegation=true`
-- **THEN** the average Jaccard index `|T_before ∩ T_after| / |T_before ∪ T_after|` across the 10 APKs MUST be ≥ 0.95
-- **AND** no individual APK MUST have Jaccard < 0.85
-- **AND** divergences (transitions added by SPARK but missing in baseline, or vice versa) MUST be documented in the change's `tasks.md` paridade report and justified via SPARK semantics (e.g. tighter points-to set) or via the bytecode-scan complement
+This scenario remains a **decision gate**: the thresholds determine whether `cgDelegation=true` ships as default. The 2026-05-15 run failed the gate (avg 0.543, min 0.000) and the default was flipped to `false` (D3). The scenario stays in the spec because the follow-up change (`gh<N>-cg-delegation-framework-edges`) re-runs this gate after porting the CHA fallback; passing it re-flips the default.
+
+- **WHEN** the change (or a follow-up) is validated against the 10-APK fixture defined in `notes/preflight_fixtures.md(c)` (a stratified sample of baseline-OK APKs spanning native + hybrid-framework apps)
+- **AND** for each APK, `T_baseline` = set of `(sourceId, targetId, event_type)` tuples from `transitions[]` produced with `cgDelegation=false`, and `T_candidate` = the same set from `transitions[]` produced with `cgDelegation=true`
+- **THEN** the average Jaccard index `|T_baseline ∩ T_candidate| / |T_baseline ∪ T_candidate|` across the 10 APKs MUST be ≥ 0.95 **for the default to flip back to `true`**
+- **AND** no individual APK MUST have Jaccard < 0.85 for the default flip
+- **AND** divergences MUST be documented per-APK in a paridade report under `notes/`
+- **AND** failing the gate keeps `cgDelegation=false` as default — opt-in only, with the hybrid-framework limitation scenario documenting the trade-off
 
 #### Scenario: Kotlin stdlib exclusion impact on reachability
 
@@ -338,6 +356,101 @@ The extractor MUST carry a corpus-coverage telemetry log: `[SpinnerItemExtractor
 - **WHEN** an activity's code calls `adapter.add(getString(R.string.dynamic))` where the string-resource lookup is hidden behind a method call
 - **THEN** `SpinnerItemExtractor` MUST emit a WARN log identifying the unresolved item and continue
 - **AND** the JSON `entries` for that Spinner MUST contain only the items that WERE resolved (not the unresolved one)
+
+### Requirement: Reachability BFS Handles Isolated Entry-Point Seeds (FR04)
+
+The multi-source BFS that produces `reachable[]` MUST add every entry-point seed to its visited set even when the seed has no incident edges in the SPARK call graph. Today the graph is constructed by `buildJGraph` only from CG edges, so entry points with no outgoing/incoming calls are absent from the vertex set, and the existing `if (graph.containsVertex(seed) && visited.add(seed))` guard silently drops them. The downstream effect is a deflated `reachable[]` that misrepresents legitimate callbacks (e.g. a `BroadcastReceiver.onReceive` that the SPARK CG could not link to a call site) as dead code, inflating the apparent gap between `reachable[]` and the application surface.
+
+The fix is structural: the BFS MUST treat seeds as roots unconditionally. Implementations may either (a) call `graph.addVertex(seed)` immediately before the visited-check, or (b) pre-populate the vertex set with the full seed set inside `buildJGraph` before iterating edges. Either is acceptable; the observable contract is that an entry-point that exists in the application's class hierarchy MUST appear in `reachable[]` even when the call graph yields no edge for it.
+
+#### Scenario: Entry-point seed without CG edges remains reachable
+
+- **WHEN** `getEntryPoints(output)` returns a `SootMethod m` whose vertex would not be added by `buildJGraph` (no edge in `Scene.v().getCallGraph()` involves `m`)
+- **THEN** `multiSourceBfs` MUST nevertheless include `m` in the returned set
+- **AND** the serialized `reachable[]` field MUST contain `m`'s canonical signature
+- **AND** the bytecode-scan complement (`findDirectMopCallersByBytecodeScan`) MUST still observe `m` as a candidate caller of MOP signatures if its body contains a matching invoke
+
+#### Scenario: Synthetic graph without edges
+
+- **GIVEN** a `DefaultDirectedGraph` containing zero edges
+- **AND** a non-empty `seeds` set
+- **WHEN** `multiSourceBfs(graph, seeds)` is invoked
+- **THEN** the returned set MUST equal `seeds` (no member is silently dropped)
+
+### Requirement: XML Enrichment Recognizes Both `@id/` and `@+id/` Prefixes (FR06)
+
+The widget enrichment pass that reads `res/layout/*.xml` MUST recognize both `@id/foo` (reference) and `@+id/foo` (declaration) forms when matching the `android:id` attribute against the in-memory widget map. The current implementation accepts only `@id/`; since the **declaration** form `@+id/foo` is overwhelmingly more common in Android layouts (any widget being created for the first time uses `@+id`), most XML-declared widgets are silently skipped by enrichment and their `inputType`, `entries`, `prompt`, `spinnerMode`, `contentDescription`, and `tooltipText` fields remain `null` even when present in the source layout.
+
+#### Scenario: Layout uses `@+id/` declaration form
+
+- **GIVEN** a layout file containing `<EditText android:id="@+id/password" android:inputType="textPassword"/>`
+- **AND** the widget `password` is present in the in-memory widget map for the activity
+- **WHEN** `enrichFromElement` traverses this element
+- **THEN** the widget's `inputType` field MUST be set to `"textPassword"`
+
+#### Scenario: Layout uses `@id/` reference form
+
+- **GIVEN** a layout file containing `<Spinner android:id="@id/country_picker" android:entries="@array/countries"/>` (a reference to an id declared in `ids.xml` or elsewhere)
+- **WHEN** `enrichFromElement` traverses this element
+- **THEN** the widget's `entries[]` field MUST be populated from `@array/countries` (existing behavior preserved)
+
+#### Scenario: Element without id is ignored
+
+- **GIVEN** a `<TextView>` element with no `android:id` attribute (or with an empty string)
+- **WHEN** `enrichFromElement` evaluates the element
+- **THEN** no enrichment side-effects MUST occur (no map lookups, no NullPointerException)
+
+### Requirement: `MenuExtractor` Resolves `R.string.*` Titles (FR06)
+
+The programmatic-menu extractor MUST resolve `R.string.*` resource ids passed as the title argument of `Menu.add(group, id, order, int)` to the corresponding string value. The constructor accepts a `Function<Integer, String> resIdResolver` and ultimately defers the lookup to its caller. `RvsecAnalysisClient` MUST supply a resolver that maps a numeric resource id to the string value by combining: (1) the SPARK-resident `R.string` inner class to derive the symbolic name from the integer constant, and (2) the existing `Configs.resourceLocation` strings-XML parsing path (the same mechanism `putStringAttr` uses for `@string/` references). Today the caller supplies `resId -> null`, so any menu item created via `Menu.add(group, id, order, R.string.foo)` is serialized with `text=""`, which masks the item from downstream consumers that key off the title (e.g. APE-RV when ranking event affordances).
+
+The resolver MUST tolerate missing mappings (return null/empty when the numeric id is not a `R.string.*` member of the analyzed APK), and the extractor MUST fall back to the existing empty-string default in that case. No exception MUST propagate from the resolver into the extractor's main path.
+
+#### Scenario: `Menu.add` with `R.string.foo` resolves to the string value
+
+- **GIVEN** an `onCreateOptionsMenu` body containing `menu.add(0, R.id.action_settings, 0, R.string.menu_settings)`
+- **AND** `res/values/strings.xml` declares `<string name="menu_settings">Settings</string>`
+- **WHEN** `MenuExtractor.extractItems(activity)` runs with the production resolver
+- **THEN** the resulting widget map MUST contain `"text" -> "Settings"` (not `""`)
+
+#### Scenario: Resolver returns null for an unknown id
+
+- **GIVEN** a `Menu.add` whose title argument is an `IntConstant` not present in the APK's `R.string`
+- **WHEN** `MenuExtractor.resolveTitle` invokes the resolver
+- **THEN** the resolver MUST return null
+- **AND** the widget's `text` field MUST be `""` (the existing empty-string default — no NullPointerException)
+
+#### Scenario: `Menu.add` with a literal CharSequence is unaffected
+
+- **GIVEN** an invocation `menu.add(0, R.id.foo, 0, "Direct Title")` (StringConstant)
+- **WHEN** `MenuExtractor.resolveTitle` runs
+- **THEN** the widget's `text` MUST equal `"Direct Title"` (the resolver MUST NOT be consulted)
+
+### Requirement: `SpinnerItemExtractor` Unwraps Cast Expressions for `findViewById` (FR06)
+
+When resolving the receiver of a `setAdapter` call to its underlying Spinner widget id, the extractor MUST follow `CastExpr` definitions. The dominant Jimple pattern for the source `Spinner s = (Spinner) findViewById(R.id.foo)` materializes as two statements: `$r1 = findViewById($id)` and `$r2 = (android.widget.Spinner) $r1`. The current `resolveSpinnerWidgetId` reads `definitionRhs(spinnerLocal)` once and only matches `InvokeExpr`, so the cast result `$r2` (whose RHS is a `CastExpr`, not an `InvokeExpr`) breaks the chain and the widget id is never recovered. Without this fix, Spinners declared with the typical cast pattern surface in `widgets[]` but their `entries[]` field stays empty even though `SpinnerItemExtractor` correctly identified the ArrayAdapter literal items.
+
+The fix MUST traverse cast chains bounded by `SimpleLocalDefs`'s fixed-point property: when `definitionRhs(local)` returns a `CastExpr`, the extractor recurses on `(Local) castExpr.getOp()`. Recursion terminates because each step reduces to a new local whose def must be reachable (or unresolvable, in which case the existing single-reaching-def policy returns null). The recursion depth is bounded by the number of casts in the chain (typically 1).
+
+#### Scenario: Spinner declared with cast pattern
+
+- **GIVEN** a method containing `$r1 = findViewById(R.id.spinner); $r2 = (Spinner) $r1; $r2.setAdapter($adapter)`
+- **AND** `$adapter` was built from a literal `new ArrayAdapter<>(this, layout, new String[]{"A","B","C"})`
+- **WHEN** `SpinnerItemExtractor.extractItems` processes the method body
+- **THEN** the returned map MUST contain `R.id.spinner -> ["A","B","C"]`
+
+#### Scenario: Chained casts terminate at the first findViewById
+
+- **GIVEN** statements `$r1 = findViewById($id); $r2 = (View) $r1; $r3 = (Spinner) $r2; $r3.setAdapter(...)`
+- **WHEN** the extractor walks the cast chain
+- **THEN** the spinner widget id MUST resolve to the value of `$id` from the original `findViewById` call
+
+#### Scenario: Unresolvable receiver does not crash
+
+- **GIVEN** a `setAdapter` call whose receiver's reaching def is ambiguous (multiple defs) or non-local (a field load)
+- **WHEN** the extractor attempts to resolve the widget id
+- **THEN** `resolveSpinnerWidgetId` MUST return null
+- **AND** the extractor MUST count this as an unresolved case (existing `stats.unresolved++`) and continue
 
 ### Requirement: GATOR Invocation Robustness (FR04)
 
