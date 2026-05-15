@@ -98,6 +98,19 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "Use for known-slow APKs where WTG is guaranteed to time out."
         ),
     )
+    cg_delegation: Optional[bool] = Field(
+        default=None,
+        description=(
+            "When set, append -cgDelegation <bool> to the GATOR command "
+            "(top-level flag, parsed by Main.java). Controls whether "
+            "FlowgraphRebuilder delegates virtual dispatch to "
+            "Scene.v().getCallGraph() (SPARK) instead of the legacy points-to "
+            "+ CHA fallback path. None → GATOR uses its baked-in default "
+            "(false post-M3 — opt-in to true for apps without hybrid-framework "
+            "dispatch where SPARK delegation yields 2–23× speedup; see "
+            "docs/20260515_diagnostico_paridade_cgdelegation.md)."
+        ),
+    )
     validate_on_init: bool = Field(
         default=True, description="Whether to validate configuration on initialization"
     )
@@ -318,6 +331,9 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
 
         if self.skip_wtg:
             cmd.extend(["-clientParam", "skipWtg=true"])
+
+        if self.cg_delegation is not None:
+            cmd.extend(["-cgDelegation", "true" if self.cg_delegation else "false"])
 
         return cmd
 

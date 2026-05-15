@@ -40,10 +40,10 @@ mvn install -DskipTests -q
 
 `ape/install.py` pushes `ape/ape.jar` (not the freshly-built `ape/target/ape-rv.jar`) to `/data/local/tmp/` on the device. The root-level `ape.jar` is older (March 2026) than the just-built `target/ape-rv.jar` (May 14, 2026).
 
-**Implication for Group 7 (schema bump + MopData reader update):** the implementer MUST copy `ape/target/ape-rv.jar` → `ape/ape.jar` after rebuilding, otherwise `install.py` keeps deploying the stale binary and the schema-version reader changes never reach the device. This step is missing from `tasks.md` 7.7 as currently written; will surface it in the task list before Group 7 starts.
+**Implication for the deferred `ape` repo update (gh57 Group 7 — out of scope):** the operator handling the `MopData.java` follow-up MUST copy `ape/target/ape-rv.jar` → `ape/ape.jar` after rebuilding, otherwise `install.py` keeps deploying the stale binary and the new widget-field reader changes never reach the device.
 
 ```bash
-# Step that Group 7 must add (preferably automated by the eventual deploy script):
+# Step the deferred ape repo update must include:
 cp /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/target/ape-rv.jar \
    /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/ape.jar
 ```

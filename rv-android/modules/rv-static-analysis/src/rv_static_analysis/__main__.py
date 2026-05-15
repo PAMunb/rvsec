@@ -119,6 +119,16 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         help="Skip WTG construction (propagated as -clientParam skipWtg=true). "
         "Partial JSON still contains reachability + windows[]; transitions[] is empty.",
     )
+    tools_group.add_argument(
+        "--cg-delegation",
+        choices=["true", "false"],
+        default=None,
+        help="Propagated as -cgDelegation <bool>. true → FlowgraphRebuilder "
+        "queries Scene.v().getCallGraph() (SPARK) for virtual dispatch. "
+        "false → legacy points-to + CHA fallback path. Default: GATOR's "
+        "baked-in (false post-M3 paridade — opt-in to true for apps without "
+        "hybrid-framework dispatch).",
+    )
 
     util_group = parser.add_argument_group("Utility Options")
     util_group.add_argument(
@@ -228,6 +238,10 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
 
     if getattr(args, "skip_wtg", False):
         config_kwargs["skip_wtg"] = True
+
+    cg_del = getattr(args, "cg_delegation", None)
+    if cg_del is not None:
+        config_kwargs["cg_delegation"] = cg_del == "true"
 
     validate_on_init = not getattr(args, "dry_run", False)
 

@@ -832,6 +832,13 @@ def parse_args() -> argparse.Namespace:
                              "skipWtg=true). Saves wall-clock on APKs where WTG "
                              "is guaranteed to time out. Partial JSON still has "
                              "reachability + windows[].")
+    parser.add_argument("--cg-delegation", choices=["true", "false"], default=None,
+                        help="Propagated as -cgDelegation <bool>. When 'true', "
+                             "FlowgraphRebuilder queries Scene.v().getCallGraph() "
+                             "(SPARK) for virtual dispatch in the WTG build. When "
+                             "'false', uses the legacy points-to + CHA fallback path. "
+                             "Default: GATOR's baked-in (false post-M3; opt-in to "
+                             "true for apps without hybrid-framework dispatch).")
     parser.add_argument("--planilha", type=Path, default=None,
                         help="Path to PLANILHA.csv (Joao Androguard reference). "
                              "Enables dex_count==0 pre-filter and cross-validation columns.")
@@ -858,6 +865,9 @@ def build_config_kwargs(args: argparse.Namespace) -> Dict[str, Any]:
         # validate_on_init True is desirable in workers — fail loud on missing JAR/SDK.
         "validate_on_init": True,
     }
+    cg_del = getattr(args, "cg_delegation", None)
+    if cg_del is not None:
+        kwargs["cg_delegation"] = (cg_del == "true")
     if args.rvsec_root:
         kwargs["rvsec_root"] = args.rvsec_root
     return kwargs

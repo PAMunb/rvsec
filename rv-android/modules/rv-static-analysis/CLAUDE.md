@@ -19,6 +19,7 @@ The rv-static-analysis module runs unified GATOR-based static analysis on Androi
 - **Priority-Ordered Output**: Reachability written first, then windows, then transitions — timeout preserves the most critical data
 - **Graceful Degradation**: Parser recovers partial data when sections are missing (e.g., timeout killed analysis before transitions were written)
 - **File-Level Caching**: If output JSON already exists, analysis is skipped
+- **Optional WTG Skip**: `skip_wtg=True` (CLI flag `--skip-wtg`) appends `-clientParam skipWtg=true`, causing the GATOR client to emit reachability + `windows[]` and return without building the WTG. Intended for known-slow APKs where WTG construction is guaranteed to time out.
 
 ## Architecture
 
@@ -92,7 +93,9 @@ config = RVStaticAnalysisConfig(
 cmd = config.get_tool_command("analysis", apk_path, output_file, code_package="com.example")
 ```
 
-Key config fields: `rvsec_root`, `lib_dir`, `gator_dir`, `analysis_client_jar`, `android_jar`, `mop_dir`, `output_dir`, `jvm_memory`.
+Key config fields: `rvsec_root`, `lib_dir`, `gator_dir`, `analysis_client_jar`, `android_jar`, `mop_dir`, `output_dir`, `jvm_memory`, `cg_algorithm` (default `spark`), `skip_wtg` (default `False`).
+
+**Python interpreter**: `get_tool_command()` uses `sys.executable` for the GATOR launcher invocation rather than the literal `"python"`. This avoids failures on systems without `/usr/bin/python` (clean Debian/Ubuntu, containers without `python-is-python3`).
 
 #### Parser (`parser/static/static_analysis_parser.py`)
 
@@ -112,7 +115,7 @@ static_data = parser.parse_file("/path/to/app.apk.json", "com.example.app")
 
 The parser processes three JSON sections:
 1. **reachability**: Classes, methods, component type/main flags, MOP reachability flags
-2. **windows**: Window definitions with widgets, event listeners, inputType, hint, entries
+2. **windows**: Window definitions with widgets, event listeners, inputType, hint, entries, plus the XML attribute extensions `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` — populated for Spinner/AutoCompleteTextView and any widget carrying accessibility metadata
 3. **transitions**: WTG edges between windows with triggering events
 
 **Important**: The `code_package` parameter filters classes by prefix — only classes starting with `code_package` are included. This handles APKs where the manifest package differs from the implementation package (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`).
@@ -156,6 +159,10 @@ Analysis produces one JSON file per APK: `{app_name}.json`
           "hint": "Click to submit",
           "inputType": "none",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": "Submit form",
+          "tooltipText": null,
           "listeners": [
             {
               "eventType": "click",
@@ -216,6 +223,9 @@ rv-static-analysis analyze --apk app.apk --output /output --verbose --summary
 
 # Override per-APK GATOR timeout (gh55) — required for standalone runs
 rv-static-analysis batch --apks-dir /path/to/apks --output /output --analysis-timeout 1800
+
+# Skip WTG construction (gh57) — partial JSON: reachability + windows only, transitions[] empty
+rv-static-analysis analyze --apk app.apk --output /output --skip-wtg
 ```
 
 ## Configuration
@@ -281,7 +291,7 @@ Configuration validation checks:
 
 ## Error Handling
 
-- `StaticAnalysisException`: Analysis execution failures
+- `StaticAnalysisException`: Analysis execution failures, including the defensive post-condition raised when GATOR returns but no output JSON exists at the expected path (signals a swallowed `CommandNotFoundError` or interpreter/launcher unreachable, preventing silent zero-coverage downstream)
 - `ConfigurationError`: Invalid configuration
 - Parser returns empty sections for missing/malformed JSON data (graceful degradation)
 - Timeout produces partial JSON — parser recovers whatever sections were written

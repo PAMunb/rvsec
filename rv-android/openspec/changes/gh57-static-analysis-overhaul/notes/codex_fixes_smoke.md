@@ -8,13 +8,13 @@
 
 ## Aggregate results
 
-| APK | t(s) | rc | windows | transitions | reachable | schemaV |
-|---|---|---|---|---|---|---|
-| cryptoapp | 45 | 0 | 5 | 35 | 16 | 2.0 |
-| com.nyx.custom_uploader_15 | 72 | 0 | 2 | 14 | 1 | 2.0 |
-| de.quantumphysique.trale_393 | 135 | 0 | 2 | 14 | 1 | 2.0 |
-| com.networkscanner.app_3 | 227 | 0 | 4 | 151 | 39 | 2.0 |
-| app.hypostats_58 | 600 ⏱ | 124 | 1 | 0 | 45 | 2.0 |
+| APK | t(s) | rc | windows | transitions | reachable |
+|---|---|---|---|---|---|
+| cryptoapp | 45 | 0 | 5 | 35 | 16 |
+| com.nyx.custom_uploader_15 | 72 | 0 | 2 | 14 | 1 |
+| de.quantumphysique.trale_393 | 135 | 0 | 2 | 14 | 1 |
+| com.networkscanner.app_3 | 227 | 0 | 4 | 151 | 39 |
+| app.hypostats_58 | 600 ⏱ | 124 | 1 | 0 | 45 |
 
 All 5 produced JSON with `windows[]` non-empty (the hypostats timeout was expected — its baseline was also timeout; G2 partial-JSON path emits 1 window from the activity enumeration before the WTG kill). No regression vs the post-G2 baseline.
 

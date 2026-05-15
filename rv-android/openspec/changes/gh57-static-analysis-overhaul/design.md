@@ -39,7 +39,6 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 │             │   + bytecode-scan complement (BUG-INV-ANA-19)         │
 │             │                                                       │
 │             ├── writeJson(wtg=null) ◀── populated windows[]  ★ NEW  │
-│             │                          schemaVersion="2.0"          │
 │             │                                                       │
 │             ├── if (skipWtg) goto components ◀────────── ★ NEW      │
 │             │                                                       │
@@ -65,15 +64,15 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 │             enrichFromXml(): +4 attrs ◀────────── ★ NEW             │
 └─────────────────────────────────────────────────────────────────────┘
                                   │
-                                  ▼ (JSON v2.0)
+                                  ▼ (JSON)
               ┌──────────────────────────────────────┐
               │  StaticAnalysisParser (Python)       │  unchanged
               │  rv-static-analysis                  │
               └──────────────────────────────────────┘
                                   ▼
               ┌──────────────────────────────────────┐
-              │  MopData.java (Java, in ape repo)    │  ★ MODIFIED
-              │  reads schemaVersion; tolerates v1   │
+              │  MopData.java (Java, in ape repo)    │  ▲ owner-handled
+              │  reads the new widget fields         │    post-gh57
               └──────────────────────────────────────┘
 ```
 
@@ -81,8 +80,8 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 
 | Component | Responsibility | Input | Output |
 |-----------|---------------|-------|--------|
-| `RvsecAnalysisClient.run()` | Orchestrates 4-section JSON write; honors `cgDelegation` and `skipWtg` client params | `GUIAnalysisOutput`, client params | `analysis.json` (v2.0) |
-| `RvsecAnalysisClient.writeJson()` (modified) | Emits `schemaVersion`, populated `windows[]` in both `wtg=null` and `wtg=full` paths | `output`, `wtg`, `windowNodeIds`, sets | JSON file |
+| `RvsecAnalysisClient.run()` | Orchestrates 4-section JSON write; honors `cgDelegation` and `skipWtg` client params | `GUIAnalysisOutput`, client params | `analysis.json` |
+| `RvsecAnalysisClient.writeJson()` (modified) | Emits populated `windows[]` in both `wtg=null` and `wtg=full` paths | `output`, `wtg`, `windowNodeIds`, sets | JSON file |
 | `RvsecAnalysisClient.extractWindows()` (modified) | Builds widget list from `GUIAnalysisOutput`; catch-all WTG-node loop guarded by `if (wtg != null)` | `output`, `windowNodeIds`, `wtg` (nullable) | `List<Map<String, Object>>` |
 | `RvsecAnalysisClient.enrichFromXml()` (modified) | Reads `inputType`, `entries`, **new**: `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` from layout XMLs | `List<window>` | mutates in place |
 | `FlowgraphRebuilder.buildCallGraph()` (modified) | When `cgDelegation=true`: queries `Scene.v().getCallGraph()` + bytecode-scan complement. When `false`: legacy CHA path | invoke sites | `AndroidCallGraph` (always populated for downstream WTG stages) |
@@ -90,7 +89,7 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 | `SpinnerItemExtractor` (new) | Uses SPARK points-to + def-use to extract `ArrayAdapter` items from literal constructors and `add/addAll` calls | activity class | per-Spinner entries list |
 | `Configs` (modified) | New fields `cgDelegation` (boolean, default true), `skipWtg` (boolean, default false) parsed from `-clientParam` | client params | populated singleton |
 | `scripts/static_analysis_sweep.py` (modified) | New CLI arg `--skip-wtg` propagated as `-clientParam skipWtg=true` | command line | GATOR commands |
-| `MopData.java` (modified, in `ape` repo) | Reads `schemaVersion`; tolerates absent v2 fields | `analysis.json` | parsed MOP data |
+| `MopData.java` (out of scope; ape repo) | Will need to read the four new widget attribute fields and populated OPTIONSMENU items; update owner-handled post-archive | `analysis.json` | parsed MOP data |
 | `scripts/wtg_paridade_diff.py` (new) | Computes Jaccard index over `{(src, tgt, event)}` for paridade gate | two JSONs | report |
 
 ## Mapping: Spec → Implementation → Test
@@ -98,7 +97,6 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 | Requirement / Invariant | Implementation | Test |
 |-------------------------|----------------|------|
 | MODIFIED `Unified Static Analysis` (windows[] populated regardless of WTG) | `RvsecAnalysisClient.writeJson()` partial path + `extractWindows()` guard | `RvsecAnalysisClientTest.testPartialJsonHasPopulatedWindows` |
-| ADDED `JSON Schema Versioning` | `RvsecAnalysisClient.writeJson()` first emits `schemaVersion: "2.0"`; `MopData.java` reads with fallback | `MopDataTest.testReadsLegacyV1Json`, `RvsecAnalysisClientTest.testSchemaVersionFieldPresent` |
 | ADDED `skipWtg Client Parameter` | `Configs.skipWtg`, `RvsecAnalysisClient.run` branch, `static_analysis_sweep.py` arg | `RvsecAnalysisClientTest.testSkipWtgBypassesBuilder`, `test_sweep_skip_wtg.py` |
 | ADDED `Widget XML Attribute Extensions` | `RvsecAnalysisClient.enrichFromXml()` reads 4 attrs | `EnrichFromXmlTest.testFourNewAttrs` |
 | ADDED `Inflated OPTIONSMENU Items via Existing GUI Flow Graph` | `RvsecAnalysisClient.extractWindows()` walks `menu.getChildren()` and calls `collectWidgets` (replace hardcoded `Collections.emptyList()`) | `RvsecAnalysisClientTest.testCryptoappOptionsMenuHasThreeItems`, integration smoke on `cryptoapp.apk` |
@@ -108,7 +106,6 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 | INV-ANA-20 (windows always populated) | `writeJson` invariant; assertion in tests | `testPartialJsonHasPopulatedWindows` |
 | INV-ANA-21 (no second CG when `cgDelegation=true`) | `FlowgraphRebuilder.buildCallGraph` branch | `FlowgraphRebuilderTest.testCgDelegationDoesNotPopulateAndroidCallGraph` |
 | INV-ANA-22 (bytecode-scan WTG complement mirrors `BUG-INV-ANA-19`) | shared helper `scanInvokesByPattern` | `FlowgraphRebuilderTest.testIgnoredClassesEdgesRecoveredViaBytecode` |
-| INV-ANA-23 (`schemaVersion` is 2nd JSON field) | `writeJson` write order | `RvsecAnalysisClientTest.testSchemaVersionFieldOrder` |
 | INV-ANA-24 (per-method resilience in extractors) | try/catch in `MenuExtractor` and `SpinnerItemExtractor` | `*ExtractorTest.testBodyRetrievalFailure` |
 | Paridade Jaccard ≥ 0.95 | `scripts/wtg_paridade_diff.py` over 10-APK fixture | `test_wtg_paridade.py` (integration, runs against fixture) |
 
@@ -125,7 +122,7 @@ The change touches three loci in two repos. The `rv-android` workspace (Python u
 - Replacing `AndroidCallGraph` with `OnFlyCallGraphBuilder` or RTA (Phase-0 Opção D — high effort, low marginal benefit once Opção A lands).
 - Re-implementing rv-agent's WTG-guided navigation (rv-agent is not an active consumer in 2026 H1).
 - Fixing the `MopScorer` weighting (the score itself is unchanged; only the inputs `MopScorer` consumes are richer).
-- Migrating the 158 pre-existing legacy-v1 JSONs in-place; the 380-APK ground-truth re-run on `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` is the canonical v2.0 source.
+- Migrating the 158 pre-existing JSONs in-place; the 380-APK ground-truth re-run on `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` regenerates them all in the current schema.
 - Covering `getResources().getStringArray(R.array.X)` or Kotlin `listOf()` in `SpinnerItemExtractor` — deferred to a future change pending corpus coverage measurement.
 - Modifying the sweep timeout policy (Phase-0 explicitly rejects `analise_gator_window.md` §6.3.A/B/C as obsoleted by this change).
 
@@ -206,13 +203,15 @@ This is the simplest possible fix (5 lines, mirrors an existing pattern, zero ne
 
 **Discovery context:** this gap was identified during the gh57 cryptoapp smoke (2026-05-14). The smoke produced `windows[type="OPTIONSMENU"].widgets: []` for an activity whose menu is XML-inflated with 3 items in `res/menu/cryptoapp_menu.xml`. Tracing back through `FixpointSolver.processMenuInflaterCalls` → `doMenuInflate` → `NMenuItemInflNode` showed the data is built in-memory and then thrown away by the JSON serializer.
 
-### D6 — Schema version field as a string `"2.0"` at the second JSON position
+### D6 — No JSON schema version tag
 
-**Choice:** Emit `"schemaVersion": "2.0"` immediately after `"package"` in `writeJson()`. The `MopData.java` parser reads the field and, when absent or `"1.0"`, treats all v2.0 fields as `null` / empty.
+**Choice:** The JSON output does NOT carry a `schemaVersion` field. The producer emits the current schema (with the four new widget attribute fields, populated OPTIONSMENU widgets, and programmatic menu/spinner items as ordinary keys), and consumers read it as-is.
 
-**Why:** P3 (no backward compatibility in producer) — `RvsecAnalysisClient` only emits v2.0 going forward. The consumer must tolerate legacy v1 JSONs because the 158 pre-existing populated files in `…/APKS_JCA_analise_estatica_soot/` are not migrated in-place; they are simply re-generated during the closing 380-APK ground-truth re-run.
+**Why:** P3 (no backward compatibility). A version tag is precisely the kind of shim P3 forbids — it would mean (a) emitting a marker on the producer, (b) reading the marker on consumers, and (c) carrying fallback branches in consumers to substitute defaults for "older" schemas. There is no in-flight consumer that needs the older schema: the pre-existing 158 populated JSONs at `…/APKS_JCA_analise_estatica_soot/` are not migrated in-place — the closing 380-APK sweep regenerates the entire corpus in the current schema, replacing them. The Java consumer `MopData.java` in the external `ape` repo is updated post-archive (owner-handled) to read the new fields directly, without version branching.
 
-**Alternative considered:** semver `"2.0.0"`. Rejected because two digits are sufficient and easier to grep / version-bump.
+**Alternatives considered:**
+- *Emit `schemaVersion: "2.0"` and tolerate `"1.0"` with defaults in the parser*: this was the original plan in earlier proposal drafts. Rejected as a P3 violation — once we accept that legacy JSONs are regenerated by the closing sweep, the version tag and tolerance branches become dead-on-arrival shims.
+- *Use a non-versioned schema marker (e.g. presence of a new field)*: still a shim. Reject for the same reason.
 
 ### D8 — Codex pre-sweep correctness fixes land inside gh57 (not deferred)
 
@@ -233,7 +232,7 @@ This is the simplest possible fix (5 lines, mirrors an existing pattern, zero ne
 - Architectural decomposition of `RvsecAnalysisClient` into `EntryPointResolver` / `ReachabilityAnalyzer` / `WindowModelExtractor` / `ResourceIndex` / `JsonResultWriter` (codex review §Sugestões #1).
 - Window-id identity refactor (codex review §Achados #3) — uses class names as keys today, which can collide for multiple windows of the same class; fix requires a typed `WindowIdMapping` DTO.
 - XML ownership inference per activity (codex review §Achados #4) — fix requires walking `setContentView(R.layout.X)` in the activity's CFG to identify the owning layout file rather than indexing all layouts globally.
-- JSON proveniência fields (`reachableBy=["cg","callback","bytecodeScan"]`, `xmlEnriched`, etc., codex review §Sugestões #6) — high ROI but a new public-schema addition (would force a `schemaVersion` bump to 2.1 and a parallel `MopData.java` update); appropriate for a focused follow-up change rather than slipped into gh57.
+- JSON proveniência fields (`reachableBy=["cg","callback","bytecodeScan"]`, `xmlEnriched`, etc., codex review §Sugestões #6) — high ROI but a new public-schema addition that needs a coordinated `MopData.java` update; appropriate for a focused follow-up change rather than slipped into gh57.
 
 ## API Design
 
@@ -279,7 +278,6 @@ Preconditions:
 
 Postconditions:
 - File at `outputPath` exists and is parseable JSON.
-- Root object's second field is `"schemaVersion": "2.0"`.
 - `windows[]` is populated regardless of `wtg`'s nullity.
 - `transitions[]` is `[]` when `wtg == null`, else the full transition set.
 
@@ -359,8 +357,7 @@ sweep CLI ──▶ static_analysis_sweep.py
    RvsecAnalysisClient.run(output):
        1. reachability + bytecode-scan complement (BUG-INV-ANA-19)
        2. writeJson(wtg=null):
-            { schemaVersion: "2.0",
-              package: "...",
+            { package: "...",
               mainActivity: "...",
               reachability: [...],
               windows: [...]   ★ populated
@@ -387,13 +384,13 @@ sweep CLI ──▶ static_analysis_sweep.py
             same file, now with populated transitions[]
               │
               ▼
-   analysis.json (v2.0)
+   analysis.json
               │
               ▼
    StaticAnalysisParser (Python, unchanged)  ──▶ Pydantic models
               │
               ▼
-   MopData.java (Java, in ape repo) ★ MODIFIED
+   MopData.java (Java, in ape repo) ▲ out of scope (owner-handled)
               │
               ▼
    aperv binary  ──▶  scoreMop, scoreActivity, scoreWtg, scoreTransitive
@@ -407,7 +404,6 @@ sweep CLI ──▶ static_analysis_sweep.py
 | `RuntimeException` in `MenuExtractor.extractItems` body retrieval | per-activity `retrieveActiveBody()` | catch + WARN log + return `[]` (INV-ANA-24) | Per-activity isolation; other activities unaffected |
 | `OutOfMemoryError` in `SpinnerItemExtractor` def-use walk | per-method body inspection | catch + WARN log + skip method | Per-method isolation; other methods unaffected |
 | WTG construction timeout (process SIGTERMed by sweep) | external sweep watchdog | partial JSON already on disk (windows[] populated, transitions[] empty) | None needed — partial JSON is the canonical result |
-| `JsonParseException` reading legacy v1.0 JSON | `MopData.java` | tolerate via `getOrDefault` on each v2 field | aperv operates on v1 data with degraded MOP weights |
 | Jaccard < 0.85 on any APK in paridade gate | `scripts/wtg_paridade_diff.py` | exit 1; surface in CI/manual report | Operator sets `cgDelegation=false`, files paridade defect report |
 | Concurrent CogniCrypt session during JAR rebuild | external | `flock /tmp/rvsec-gator.lock mvn package` | Manual coordination; documented in pre-flight |
 
@@ -419,7 +415,7 @@ sweep CLI ──▶ static_analysis_sweep.py
 | Jaccard per-APK < 0.85 on any single baseline-OK APK while average is still ≥ 0.95 | The gate enforces BOTH thresholds: avg ≥ 0.95 AND min ≥ 0.85. If a single APK fails the minimum, treat as paridade FAIL and either (a) extend `scanInvokesByPattern` predicate to cover the missed cases, or (b) keep `cgDelegation=false` as default (D3 feature flag enables runtime rollback without rebuild) |
 | `SpinnerItemExtractor` MVP coverage is too low on real APKs (mostly Kotlin `listOf()` or `getStringArray()`) | Pre-flight corpus scan (Phase-0 §7.7); decide to ship MVP or extend to full |
 | `MenuExtractor` implementation hits an unsupported Soot 4.7.1 API | Pre-flight Soot API availability check (Phase-0 §7.6 / `notes/preflight_soot_api.md`); 0 divergences confirmed — fallback adapter layer not required |
-| The 158 pre-existing legacy-v1 JSONs become inconsistent with v2.0 outputs across the dataset | The 380-APK ground-truth re-run at the close of the change re-generates all of them; `MopData.java` tolerates both schemas during the transition |
+| The 158 pre-existing JSONs become inconsistent with newly-produced outputs across the dataset | The 380-APK ground-truth re-run at the close of the change re-generates all of them in the current schema; no version-tagged transition state |
 | Aperv MopData reader changes ship in the `ape` repo, not `rv-android`; coordination risk | Pre-flight `scripts/check_jar_sync.sh` validates timestamps; explicit task in `tasks.md` to rebuild both JARs |
 | Wall-clock improvement target (≥30% on large APKs) is aspirational | Baseline measurement is part of pre-flight (Phase-0 §7.4); if gain is <20%, the change still ships (it is justified on windows[] populated, not on speed) |
 
@@ -431,12 +427,12 @@ sweep CLI ──▶ static_analysis_sweep.py
 | Unit (Java) | `MenuExtractor` 4 scenarios + resilience | JUnit with minimal Soot fixture | ~6 tests |
 | Unit (Java) | `SpinnerItemExtractor` 4 scenarios + resilience | JUnit with SPARK-enabled Soot fixture | ~6 tests |
 | Unit (Java) | `FlowgraphRebuilder.buildCallGraph` `cgDelegation=true/false` branches | JUnit; mock `Scene.v().getCallGraph()` | ~4 tests |
-| Unit (Java, `ape` repo) | `MopData` reads v1.0 and v2.0 JSONs | JUnit on existing `MopDataTest.java` | +4 tests |
+| Unit (Java, `ape` repo) | DEFERRED — `MopData.java` update is out of scope of gh57; tests live with that change | — | post-archive |
 | Unit (Python) | `static_analysis_sweep.py --skip-wtg` propagation | pytest on `rv-static-analysis/tests/` | ~3 tests |
 | Integration | 5-APK smoke (3 baseline-OK, 2 baseline-frozen) — partial+full JSON correctness | invoke real GATOR JAR on fixtures in `apks_examples/` | ~1 test run |
 | Integration | Paridade Jaccard ≥0.95 on 10-APK fixture | `scripts/wtg_paridade_diff.py` | ~1 test run |
 | Acceptance | Full re-run of 380-APK originals at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs` | sweep + post-hoc check `windows[]` non-empty in ≥95% | ~1 manual run |
-| Acceptance | Aperv smoke with v2.0 JSON | rv-experiment `--tools aperv:sata_mop` on 3 APKs | ~1 manual run |
+| Acceptance | Aperv smoke (deferred — `MopData.java` update is out of scope of gh57) | rv-experiment `--tools aperv:sata_mop` on 3 APKs once the ape repo update lands | post-archive |
 
 ## Open Questions
 
