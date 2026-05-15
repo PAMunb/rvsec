@@ -300,6 +300,59 @@ class PointcutMatcherConstructorTest {
     // Edge: index at end of method (peek target absent) must not crash.
     // -------------------------------------------------------------------------
 
+    // -------------------------------------------------------------------------
+    // gh59 — wide-slot tracking in argBindings.
+    //
+    // When the callee constructor's parameter list contains a `long` or
+    // `double` (J/D, two register slots), every subsequent arg binding MUST
+    // shift by two register slots — not one. The previous implementation
+    // indexed `regs[baseOffset + i]` and advanced by one per parameter,
+    // producing bindings that pointed at the high-half of the wide (typed
+    // `Long (Low Half)` by the verifier) or at the wrong downstream slot.
+    //
+    // Empirical evidence at the integration level:
+    //   - com.github.soundpod_16.apk     -> yu5.<init>  (25 params, 6× J), v7 (Long Low Half)
+    //   - com.grappim.taigamobile.fdroid -> ga.e.<init> (19 params, Z/refs), v3 (Boolean)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void constructorWidePrimitivesInterleavedBindArgumentsByRegisterSlot() {
+        // Constructor descriptor (LFoo;JZLFoo;J)V — receiver + 5 user-visible
+        // params with `long`s interleaved with refs/boolean. invoke-direct/range
+        // emits contiguous registers v10..v17 (8 slots: 1 receiver + 1 ref +
+        // 2 long-pair + 1 boolean + 1 ref + 2 long-pair).
+        CallPC cp = constructorPc("Foo",
+                List.of("Foo", "long", "boolean", "Foo", "long"));
+        MethodReference mr = ref(FOO_OWNER, "<init>",
+                List.of(FOO_OWNER, "J", "Z", FOO_OWNER, "J"), "V");
+        int[] regs = {10, 11, 12, 13, 14, 15, 16, 17};
+        List<Instruction> insns = List.of(returnVoid(), returnVoid());
+
+        Match m = PointcutMatcher.buildCallMatch(cp, mr, regs,
+                /*isStaticInvoke*/ false, insns, /*invokeIndex*/ 0);
+
+        assertTrue(m.isConstructor);
+        assertEquals(10, m.targetRegister,
+                "constructor receiver MUST equal regs[0]");
+        // baseOffset=1 (constructor). Cursor advances +1 for refs/booleans,
+        // +2 for J/D. Expected mapping:
+        //   arg00 (LFoo;) -> v11   (cursor 1, advance +1 -> 2)
+        //   arg01 (J low) -> v12   (cursor 2, advance +2 -> 4)   // v13 = J high half (skipped)
+        //   arg02 (Z)     -> v14   (cursor 4, advance +1 -> 5)
+        //   arg03 (LFoo;) -> v15   (cursor 5, advance +1 -> 6)
+        //   arg04 (J low) -> v16   (cursor 6, advance +2 -> 8)   // v17 = J high half
+        assertEquals(11, m.argBindings.get("arg00"),
+                "arg00 (ref) at v11");
+        assertEquals(12, m.argBindings.get("arg01"),
+                "arg01 (long low half) at v12");
+        assertEquals(14, m.argBindings.get("arg02"),
+                "arg02 (boolean) at v14 — wide-slot before MUST shift the cursor by 2");
+        assertEquals(15, m.argBindings.get("arg03"),
+                "arg03 (ref) at v15");
+        assertEquals(16, m.argBindings.get("arg04"),
+                "arg04 (long low half) at v16 — accumulated shift = 2");
+    }
+
     @Test
     void peekAtEndOfMethodIsBoundsSafe() {
         // Single-instruction body — invokeIndex is the LAST instruction;

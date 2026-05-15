@@ -219,12 +219,28 @@ public final class PointcutMatcher {
         boolean isConstructor = cp.isConstructor()
                 && "<init>".equals(mr.getName());
         Map<String, Integer> paramRegs = new LinkedHashMap<>();
-        List<String> paramTypes = cp.paramTypes();
-        for (int i = 0; i < paramTypes.size() && baseOffset + i < regs.length; i++) {
+        // Wide-slot accounting (gh59): `long` and `double` occupy two
+        // consecutive register slots in the DEX invoke operand list, while
+        // all other types (refs, int, float, boolean, byte, short, char)
+        // occupy one. Iterating with a naive `regs[baseOffset + i]` would
+        // map every arg after the first wide to the wide's high half (typed
+        // `Long (Low/High Half)` by the verifier) or to a downstream slot
+        // belonging to the next parameter — producing VerifyError at install
+        // time on the affected `<init>` body. We read widths from the
+        // MethodReference param descriptors (JVM form, e.g. "J"/"D") because
+        // that's the authoritative shape of the actual DEX invoke.
+        List<? extends CharSequence> paramDescriptors = mr.getParameterTypes();
+        int regOffset = baseOffset;
+        for (int i = 0; i < paramDescriptors.size(); i++) {
+            if (regOffset >= regs.length) break;
             // Positional key — advice-emitter joins this with args(...) names
             // when a sibling ArgsPC is present. Using zero-padded positional
             // keys keeps iteration order stable.
-            paramRegs.put(String.format("arg%02d", i), regs[baseOffset + i]);
+            paramRegs.put(String.format("arg%02d", i), regs[regOffset]);
+            CharSequence pt = paramDescriptors.get(i);
+            boolean wide = pt.length() == 1
+                    && (pt.charAt(0) == 'J' || pt.charAt(0) == 'D');
+            regOffset += wide ? 2 : 1;
         }
         // Synthetic "$return" binding (INV-INS-72): for non-constructor
         // invokes, peek the next instruction; if it's move-result* the
