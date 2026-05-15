@@ -46,7 +46,7 @@ def mock_config():
     config.jvm_memory = "12g"
     config.analysis_timeout = 600
     config.get_tool_command.return_value = [
-        "python",
+        sys.executable,
         "/fake/gator/gator",
         "a",
         "-p",
@@ -91,7 +91,9 @@ class TestStaticAnalyzer:
         mock_command_instance.invoke.return_value = CommandResult(0, "Success", "")
         mock_command.return_value = mock_command_instance
 
-        with patch("os.path.isfile", return_value=False):
+        # isfile called twice: cache-hit check (False → execute) and the
+        # defensive post-condition check (True → JSON exists).
+        with patch("os.path.isfile", side_effect=[False, True]):
             analyzer._run_analysis()
 
         mock_command.assert_called_once()
@@ -104,7 +106,7 @@ class TestStaticAnalyzer:
         mock_command_instance.invoke.return_value = CommandResult(0, "Success", "")
         mock_command.return_value = mock_command_instance
 
-        with patch("os.path.isfile", return_value=False):
+        with patch("os.path.isfile", side_effect=[False, True]):
             analyzer._run_analysis()
 
         # Verify Command was created with timeout from config
@@ -118,7 +120,7 @@ class TestStaticAnalyzer:
         mock_command_instance.invoke.return_value = CommandResult(0, "Success", "")
         mock_command.return_value = mock_command_instance
 
-        with patch("os.path.isfile", return_value=False):
+        with patch("os.path.isfile", side_effect=[False, True]):
             analyzer._run_analysis()
 
         # Verify get_tool_command was called with code_package kwarg

@@ -6,6 +6,7 @@ and validation for the unified GATOR-based analysis pipeline.
 """
 
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -103,7 +104,7 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             cmd = config.get_tool_command(
                 "analysis", "/test/app.apk", "/test/output.json"
             )
-            self.assertEqual(cmd[0], "python")
+            self.assertEqual(cmd[0], sys.executable)
             self.assertIn("-p", cmd)
             self.assertIn("/test/app.apk", cmd)
             self.assertIn("--client-jar", cmd)
