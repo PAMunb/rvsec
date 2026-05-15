@@ -1126,8 +1126,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			w.setIndent("  ");
 			w.beginObject();
 
-			// Metadata
+			// Metadata. schemaVersion is the second field by design
+			// (INV-ANA-23) so legacy v1 readers — which never emitted it —
+			// can be detected on the first object key after `package`. v2.0
+			// adds: prompt/spinnerMode/contentDescription/tooltipText per
+			// widget, plus inflated and programmatic OPTIONSMENU widgets.
 			w.name("package").value(appPackage != null ? appPackage : "");
+			w.name("schemaVersion").value("2.0");
 			w.name("mainActivity").value(
 					mainActivity != null ? mainActivity.getName() : "");
 

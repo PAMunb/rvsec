@@ -126,6 +126,17 @@ class StaticAnalysisParser:
         if data is None:
             return StaticAnalysisData(Classes(), Windows(), WindowTransitionGraph())
 
+        # gh57: tolerate both v1.0 (no field) and v2.0 schemas. v2.0 adds
+        # widget XML attribute fields (prompt/spinnerMode/contentDescription/
+        # tooltipText) and populated OPTIONSMENU widgets; absent fields are
+        # treated as None / empty by downstream Widget construction.
+        schema_version = data.get("schemaVersion", "1.0")
+        if schema_version not in ("1.0", "2.0"):
+            self.logger.warning(
+                f"Unknown analysis schema version '{schema_version}' in "
+                f"{file_path}; parsing best-effort as v2.0."
+            )
+
         # Step 1: Parse each section independently so a corrupt section does not
         # prevent recovery of the others (graceful degradation, INV-ANA-06).
         # Order matters: windows need classes (to mark main activity), and

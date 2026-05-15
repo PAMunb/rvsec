@@ -104,19 +104,18 @@
 
 ## 7. Schema bump + MopData reader update (Phase-0 §7.10, item 7)
 
-- [ ] 7.1 Modify `RvsecAnalysisClient.writeJson()` to emit `w.name("schemaVersion").value("2.0")` immediately after the existing `w.name("package").value(...)` line — second field in the root object (INV-ANA-23).
-- [ ] 7.2 Document the JSON schema (informative) in `rv-android/docs/static_analysis_json_v2.md`: list every field with type and nullability. Reference INV-ANA-20..24.
-- [ ] 7.3 In the external `ape` repo (`/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape`): modify `MopData.java` to read `schemaVersion` near the top of the JSON parse. Branch on present/absent. For v2.0 fields, use `JsonReader` peek + safe defaults.
-- [ ] 7.4 Modify `MopData.java` to parse the four new widget XML fields (`prompt`, `spinnerMode`, `contentDescription`, `tooltipText`), the recursive `items[]` for OPTIONSMENU, and treat them as `null`/empty when reading a v1.0 (legacy) JSON.
-- [ ] 7.5 Unit tests in the ape repo (`MopDataTest.java`): `testReadsLegacyV1Json`, `testReadsV2JsonWithAllNewFields`, `testV2JsonWithMissingOptionalFields`.
-- [ ] 7.6 Add `scripts/check_jar_sync.sh` to rv-android: verify timestamps of `rvsec-analysis-client.jar` and `ape-rv.jar` are within 10 minutes of each other; warn otherwise.
+- [x] 7.1 Modify `RvsecAnalysisClient.writeJson()` to emit `w.name("schemaVersion").value("2.0")` immediately after `w.name("package").value(...)` — second field in the root object (INV-ANA-23). **DONE** — smoke confirms `{schemaVersion: "2.0", package: ..., mainActivity: ...}` field order; comment notes that legacy v1 readers (no field) are distinguishable by absence on the first object key after `package`.
+- [ ] 7.2 Document the JSON schema (informative) in `rv-android/docs/static_analysis_json_v2.md` — **OPEN**; deferred (Pydantic Widget model + this delta spec already document the fields; standalone schema doc is convenience).
+- [ ] 7.3 / 7.4 In the external `ape` repo: modify `MopData.java` to read `schemaVersion` and parse the new fields with v1 fallback. **OPEN** — external repo, separate commit chain. The Python-side parser (rv-static-analysis) already tolerates both schemas (see this commit); `MopData.java` consumes the JSON from the device push path and needs the matching change before aperv:sata_mop runs on v2 outputs.
+- [ ] 7.5 Unit tests in the ape repo (`MopDataTest.java`). **OPEN** — same blocker as 7.3/7.4.
+- [ ] 7.6 Add `scripts/check_jar_sync.sh` to rv-android — **OPEN**; deferred (the rebuild discipline is documented in `notes/preflight_build.md`).
 - [ ] 7.7 Build the `ape-rv.jar` with `mvn install` (NOT `mvn package`) at `/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/`. Then copy `target/ape-rv.jar → ape.jar` so `install.py` deploys the fresh artifact to the device (pre-flight 1.5 surfaced that `ape/ape.jar` is the device-deployable and is NOT refreshed by `mvn install`):
   ```bash
   cd /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape
   mvn install -DskipTests -q
   cp target/ape-rv.jar ape.jar
   ```
-- [ ] 7.8 Run `/rv-test-run rv-static-analysis` (Python-side parser tolerates v2.0 schema field — verify no regression).
+- [x] 7.8 Python parser tolerates v1/v2. **DONE** — `StaticAnalysisParser.parse_file` reads `data.get("schemaVersion", "1.0")` and accepts both "1.0" and "2.0"; unknown values fall through to best-effort v2 parsing with a WARN log. 93/93 module tests pass after the addition.
 
 ## 8. Acceptance — full re-run + final verification (Phase-0 §7.4)
 
