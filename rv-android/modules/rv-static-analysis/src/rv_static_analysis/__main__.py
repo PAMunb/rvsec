@@ -113,6 +113,12 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     tools_group.add_argument(
         "--analysis-timeout", type=int, default=None, help="Analysis timeout in seconds"
     )
+    tools_group.add_argument(
+        "--skip-wtg",
+        action="store_true",
+        help="Skip WTG construction (propagated as -clientParam skipWtg=true). "
+        "Partial JSON still contains reachability + windows[]; transitions[] is empty.",
+    )
 
     util_group = parser.add_argument_group("Utility Options")
     util_group.add_argument(
@@ -219,6 +225,9 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
 
     if getattr(args, "analysis_timeout", None):
         config_kwargs["analysis_timeout"] = args.analysis_timeout
+
+    if getattr(args, "skip_wtg", False):
+        config_kwargs["skip_wtg"] = True
 
     validate_on_init = not getattr(args, "dry_run", False)
 

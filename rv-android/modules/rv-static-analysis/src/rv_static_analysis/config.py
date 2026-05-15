@@ -89,6 +89,15 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         default="spark",
         description="Call graph algorithm: cha, rta, vta, spark (default: spark per gh51 D5 — full points-to gives accurate reachesMop)",
     )
+    skip_wtg: bool = Field(
+        default=False,
+        description=(
+            "When True, append -clientParam skipWtg=true so RvsecAnalysisClient "
+            "writes the partial JSON (reachability + windows[] populated via "
+            "wjtp.gui data) and returns without invoking WTGBuilder.build(). "
+            "Use for known-slow APKs where WTG is guaranteed to time out."
+        ),
+    )
     validate_on_init: bool = Field(
         default=True, description="Whether to validate configuration on initialization"
     )
@@ -306,6 +315,9 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         code_package = kwargs.get("code_package")
         if code_package:
             cmd.extend(["-clientParam", f"codePackage={code_package}"])
+
+        if self.skip_wtg:
+            cmd.extend(["-clientParam", "skipWtg=true"])
 
         return cmd
 

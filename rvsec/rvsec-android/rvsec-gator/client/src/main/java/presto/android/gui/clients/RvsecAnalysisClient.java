@@ -152,7 +152,14 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				reachableSet, reachesMopSet, directMopSet, null, new HashMap<>());
 		System.out.println("[RvsecAnalysisClient] Reachability JSON written (WTG pending): " + outputPath);
 
-		// 6. Build WTG (may timeout on complex APKs — reachability already saved)
+		// 6. Build WTG (may timeout on complex APKs — reachability already saved).
+		//    skipWtg client param short-circuits this for known-slow APKs;
+		//    the partial JSON already has windows[] populated (task 2.1).
+		if (skipWtg()) {
+			System.out.println("[RvsecAnalysisClient] WTG skipped by client parameter");
+			System.out.println("[RvsecAnalysisClient] Analysis complete. File saved: " + outputPath);
+			return;
+		}
 		WTG wtg = null;
 		Map<String, Integer> windowNodeIds = new HashMap<>();
 		try {
@@ -196,6 +203,11 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			return null;
 		}
 		return param.substring("codePackage=".length());
+	}
+
+	private boolean skipWtg() {
+		String param = Configs.getClientParamCode("skipWtg=");
+		return param != null && "true".equalsIgnoreCase(param.substring("skipWtg=".length()));
 	}
 
 	private Set<MopMethod> loadMopSignatures(String mopDir) {

@@ -242,6 +242,39 @@ class TestRVStaticAnalysisConfig(unittest.TestCase):
             # Second -clientParam is codePackage
             self.assertEqual(cmd[client_param_indices[1] + 1], "codePackage=com.gh4a")
 
+    def test_tool_command_with_skip_wtg(self):
+        """skip_wtg=True must append `-clientParam skipWtg=true` to the GATOR cmd."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = RVStaticAnalysisConfig(
+                validate_on_init=False,
+                rvsec_root=temp_dir,
+                gator_dir=str(Path(temp_dir) / "gator"),
+                analysis_client_jar=str(Path(temp_dir) / "gator" / "client.jar"),
+                mop_dir=str(Path(temp_dir) / "mop"),
+                skip_wtg=True,
+            )
+            cmd = config.get_tool_command(
+                "analysis", "/test/app.apk", "/test/output.json"
+            )
+            cp_indices = [i for i, v in enumerate(cmd) if v == "-clientParam"]
+            cp_values = [cmd[i + 1] for i in cp_indices]
+            self.assertIn("skipWtg=true", cp_values)
+
+    def test_tool_command_default_skip_wtg_false(self):
+        """skip_wtg defaults to False; cmd MUST NOT contain skipWtg=*."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = RVStaticAnalysisConfig(
+                validate_on_init=False,
+                rvsec_root=temp_dir,
+                gator_dir=str(Path(temp_dir) / "gator"),
+                analysis_client_jar=str(Path(temp_dir) / "gator" / "client.jar"),
+                mop_dir=str(Path(temp_dir) / "mop"),
+            )
+            cmd = config.get_tool_command(
+                "analysis", "/test/app.apk", "/test/output.json"
+            )
+            self.assertFalse(any("skipWtg" in v for v in cmd))
+
     def test_tool_command_without_code_package(self):
         """Test that omitting code_package does not add codePackage clientParam."""
         with tempfile.TemporaryDirectory() as temp_dir:
