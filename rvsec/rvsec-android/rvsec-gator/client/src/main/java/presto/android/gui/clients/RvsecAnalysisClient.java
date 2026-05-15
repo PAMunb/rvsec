@@ -685,6 +685,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		int fallbackId = 100000; // Fallback for windows not in WTG
 
 		SootClass mainActivity = output.getMainActivity();
+		SpinnerItemExtractor spinnerExtractor = new SpinnerItemExtractor();
 
 		// Activity windows — use NObjectNode.id from WTG for consistency
 		// with transition sourceId/targetId
@@ -702,6 +703,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			for (NNode root : roots) {
 				collectWidgets(output, root, widgets, widgetVisited);
 			}
+
+			// Programmatic Spinner items via ArrayAdapter dataflow (Group 5,
+			// MVP). Union into widget.entries AFTER enrichFromXml runs so
+			// XML-defined entries from android:entries="@array/X" survive
+			// (XML first, programmatic appended). Stored on the window for
+			// the post-XML pass below.
+			Map<Integer, List<String>> programmaticItems =
+					spinnerExtractor.extractItems(activity);
+			if (!programmaticItems.isEmpty()) {
+				window.put("__programmaticSpinnerItems", programmaticItems);
+			}
+
 			window.put("widgets", widgets);
 			windows.add(window);
 			extractedIds.add((int) window.get("id"));
@@ -865,6 +878,44 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * GATOR already decoded the APK with apktool; resources are at
 	 * Configs.resourceLocation.
 	 */
+	/**
+	 * Union the per-window programmatic Spinner items stashed by
+	 * extractWindows() into widget.entries. XML-defined entries are
+	 * preserved (XML first, programmatic appended) per Group 5 spec.
+	 * The transient `__programmaticSpinnerItems` key is removed afterwards
+	 * so it does not leak into the JSON.
+	 */
+	private void unionProgrammaticSpinnerItems(List<Map<String, Object>> windows) {
+		int totalSpinners = 0;
+		for (Map<String, Object> window : windows) {
+			@SuppressWarnings("unchecked")
+			Map<Integer, List<String>> items =
+					(Map<Integer, List<String>>) window.remove("__programmaticSpinnerItems");
+			if (items == null || items.isEmpty()) continue;
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> widgets =
+					(List<Map<String, Object>>) window.get("widgets");
+			if (widgets == null) continue;
+			for (Map<String, Object> widget : widgets) {
+				Object idObj = widget.get("id");
+				if (!(idObj instanceof Integer)) continue;
+				List<String> programmatic = items.get(idObj);
+				if (programmatic == null || programmatic.isEmpty()) continue;
+				@SuppressWarnings("unchecked")
+				List<String> entries = (List<String>) widget.get("entries");
+				List<String> merged = new ArrayList<>(
+						entries != null ? entries : Collections.emptyList());
+				merged.addAll(programmatic);
+				widget.put("entries", merged);
+				totalSpinners++;
+			}
+		}
+		if (totalSpinners > 0) {
+			System.out.println("[SpinnerItemExtractor] processed "
+					+ totalSpinners + " spinners via ArrayAdapter dataflow");
+		}
+	}
+
 	private void enrichFromXml(List<Map<String, Object>> windows) {
 		String resDir = Configs.resourceLocation;
 		if (resDir == null || resDir.isEmpty()) {
@@ -1095,6 +1146,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			List<Map<String, Object>> windows = extractWindows(
 					output, windowNodeIds, wtg);
 			enrichFromXml(windows);
+			unionProgrammaticSpinnerItems(windows);
 			writeWindows(w, windows);
 			w.flush();
 
