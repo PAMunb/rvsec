@@ -23,6 +23,8 @@ Verified corpus demand (re-counted 2026-05-25 against `$RVSEC_HOME/rvsec/rvsec-m
 - `within(...)` positive: aspect=24, jca=13, generic_new=13 (positives + negatives combined; the matcher conflates them).
 - AspectJ 5 `@*` family: **0** across all four corpora — matrix completeness only.
 - `after() throwing(...)` end-to-end: generic_new=2 — `DexWeaver.java:560-566` silently discards the plan.
+- **Advice-body reflective API** (behavioural-parity surface — added in the round-3 review): `thisJoinPoint` binding = 3 in `generic_new/`; `thisJoinPointStaticPart` = 1 in `aspect/`; `JoinPoint.getSignature()` = 4 across `aspect/`+`generic_new/`; `Signature` subtypes (`MethodSignature`/`ConstructorSignature`/`FieldSignature`) = 7 in `aspect/Coverage.aj`. Zero-demand sub-rows (`getArgs()`, `getTarget()`/`getThis()`, `getKind()`/`getSourceLocation()`) are still Fix-now because they are structurally required for MOP monitors to receive non-empty events.
+- **Aspect declaration mechanics**: `aspect Foo { ... }` = 5 across corpora; `pointcut p(): ...` named declaration = 4. The remaining sub-rows (abstract aspects, inheritance, `declare precedence`, privileged) have zero current demand but cover the AspectJ surface a future MOP spec could legitimately use.
 
 The systemic shape is consistent: silent matcher behaviour (always-match or malformed-descriptor exact-match) and silent weaver discard are the dominant failure modes, not parser crashes or weaver exceptions. The standard test surface — green bar against the JCA fixtures — cannot detect any of it.
 
@@ -104,7 +106,7 @@ Relevant PRD references: **FR02** (APK instrumentation — this change does not 
 
 **Goals:**
 
-- One authoritative grammar coverage matrix exists at `docs/aspectj_grammar_coverage.md`, covering exactly the closed enumeration declared in the delta spec (classical designators, AspectJ 5 `@*` family, advice forms, sub-semantic splits for `target`/`this`/`args`, type-pattern modifiers, signature-pattern modifiers, within-family delegation rows, composition operators).
+- One authoritative grammar coverage matrix exists at `docs/aspectj_grammar_coverage.md`, covering exactly the closed enumeration declared in the delta spec (classical designators, AspectJ 5 `@*` family, advice forms, sub-semantic splits for `target`/`this`/`args`, type-pattern modifiers, signature-pattern modifiers, within-family delegation rows, composition operators, **advice-body reflective API**, **around-advice `proceed(...)` mechanics**, **aspect declaration mechanics**, **AspectJ runtime linkage**).
 - Every matrix row carries a verdict from `{COVERED, SILENT-GAP, EXPLICIT-NO-OP, NOT-NEEDED}` anchored to a `file:line` in the dexlib2 source and to a named test in `grammar-tests/`.
 - A new Maven submodule `grammar-tests/` provides executable coverage of every matrix row, with `@Disabled` failing tests for every `SILENT-GAP`. `MatrixIntegrityTest` enforces both directions of the matrix↔tests link and asserts `Skipped == SILENT-GAP count`.
 - `DemandCounter` (portable Java) replaces shell `grep` for demand counts; `MatrixIntegrityTest.testDemandCountsReproducible` invokes it directly.
@@ -250,6 +252,17 @@ class AdviceFormGrammarTest { /* before, after, after returning, after throwing,
 class TypePatternGrammarTest { /* T+ (param/owner/return/!within), *, .., dot-glob, arrays, inner classes */ }
 class SignatureModifierGrammarTest { /* public/!public/static/final/throws */ }
 class CompositionGrammarTest { /* &&, ||, !, parens */ }
+// Behavioural-parity families — added so the matrix covers what advice bodies
+// consume at runtime, not just what the pointcut parser sees.
+class JoinPointReflectiveApiGrammarTest { /* thisJoinPoint, thisJoinPointStaticPart,
+    thisEnclosingJoinPointStaticPart, JoinPoint.getArgs(), .getSignature() + Signature
+    subtypes, .getTarget()/.getThis(), .getKind()/.getSourceLocation(),
+    org.aspectj.lang.JoinPoint runtime linkage */ }
+class AspectDeclarationGrammarTest { /* aspect Foo {...} declaration, named pointcut
+    declaration `pointcut p(): ...`, abstract aspect + concrete subaspect (BaseAspect
+    idiom), aspect inheritance, declare precedence, privileged aspect */ }
+// proceed(...) is tested inside AdviceFormGrammarTest.aroundProceedSemantics(),
+// not as a standalone class — it is an around-advice mechanic, not a designator.
 
 // Helpers
 class util.DemandCounter { /* Files.walk + compiled Pattern per designator */ }

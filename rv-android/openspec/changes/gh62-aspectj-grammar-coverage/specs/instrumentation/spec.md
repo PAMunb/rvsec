@@ -34,6 +34,14 @@ The matrix SHALL contain **exactly** the following rows (not "at minimum"; new A
 
 **Composition operators**: `&&`, `||`, `!`, parentheses.
 
+**Advice-body reflective API** (behavioural-parity rows — each row reflects a runtime contract the advice body depends on; if dexlib2 weaves the advice but does not populate these, the monitor silently emits empty events): `thisJoinPoint` *(binding)*, `thisJoinPointStaticPart` *(binding)*, `thisEnclosingJoinPointStaticPart` *(binding)*, `JoinPoint.getArgs()`, `JoinPoint.getSignature()` *(includes `MethodSignature` / `ConstructorSignature` / `FieldSignature` subtype accessors)*, `JoinPoint.getTarget()` *(or `.getThis()` — grouped, same emitter responsibility)*, `JoinPoint.getKind()` *(or `.getSourceLocation()` — grouped, metadata)*.
+
+**Around-advice mechanics**: `proceed(...)` *(keyword inside around body — one row, consistent with `around` being EXPLICIT-NO-OP at the emitter)*.
+
+**Aspect declaration mechanics**: `aspect Foo { ... }` *(top-level declaration syntax — the parser must distinguish `aspect` from `class`)*, `pointcut p(): ...` *(named-pointcut declaration — distinct from the named-pointcut *reference* row under Classical above; declaration binds a name, reference uses it)*, `abstract aspect` + concrete subaspect *(the JavaMOP `BaseAspect` idiom relies on this — abstract aspect declares the pointcut family, concrete subaspect picks the implementation)*, aspect inheritance `aspect Bar extends Foo`, `declare precedence: A, B;` *(advice ordering across aspects)*, privileged aspect *(access to private members of woven types)*.
+
+**Runtime linkage**: `org.aspectj.lang.JoinPoint` class *(plus `JoinPoint.StaticPart` and `Signature` subtypes)* SHALL be available in the instrumented bytecode classpath — without this row, every advice-body reflective API row is meaningless. (One row covers the linkage; per-subtype availability is implicit.)
+
 The matrix is the contract that downstream changes consume. Any new closure (e.g. `gh-XX`-trailing-varargs) MUST update the matrix row(s) it touches as part of its `tasks.md`, and MUST NOT introduce a parser/matcher/emitter path that does not correspond to an existing row.
 
 #### Scenario: every enumerated designator has a matrix row
