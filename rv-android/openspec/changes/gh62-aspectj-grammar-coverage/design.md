@@ -248,7 +248,7 @@ class InitializationGrammarTest { /* initialization(), preinitialization() */ }
 class AdviceExecutionGrammarTest { /* adviceexecution() — SILENT-GAP (parser routes to NamedRefPC at PointcutExpressionParser.java:131 → matcher always-match) */ }
 class NamedReferenceGrammarTest { /* named refs, BaseAspect.notwithin() expansion */ }
 class AnnotationPointcutGrammarTest { /* @annotation, @target, @this, @args, @within, @withincode */ }
-class AdviceFormGrammarTest { /* before, after, after returning, after throwing, around */ }
+class AdviceFormGrammarTest { /* before, after, after returning, after throwing, around, around proceed(...) */ }
 class TypePatternGrammarTest { /* T+ (param/owner/return/!within), *, .., dot-glob, arrays, inner classes */ }
 class SignatureModifierGrammarTest { /* public/!public/static/final/throws */ }
 class CompositionGrammarTest { /* &&, ||, !, parens */ }
@@ -336,7 +336,7 @@ No runtime errors are introduced into the production code path — this change i
 | Document↔code link (tests→matrix) | Every `@Disabled` test method resolves to a SILENT-GAP row (EXPLICIT-NO-OP tests are enabled, asserting `UnsupportedOperationException`) | `testDisabledTestsResolveToSilentGapRow` | 1 |
 | Document↔code link (counts) | `Skipped` count == `SILENT-GAP` row count | `testSkipCountEqualsSilentGapCount` | 1 |
 | Document↔data link | Demand counts reproducible by `DemandCounter` | `testDemandCountsReproducible` | 1 |
-| Grammar coverage | One test method per matrix row, exercising the end-to-end pipeline | The per-designator `*GrammarTest` classes | ~80-100 across all rows |
+| Grammar coverage | One test method per matrix row, exercising the end-to-end pipeline | The per-designator `*GrammarTest` classes | ~95-115 across all rows (54 pointcut-grammar rows + 15 behavioural-parity rows added round 3) |
 | Regression | Existing reactor build remains green | `mvn package` at the reactor root | 1 reactor build |
 | Smali bump behavioural diff | 5 APKs pre/post-3.0.9 produce equivalent `dexdump` output | §0.3a script | 5 APK diffs |
 
