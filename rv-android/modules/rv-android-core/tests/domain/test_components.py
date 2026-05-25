@@ -106,7 +106,9 @@ class TestComponents:
                     class_name="com.example.CryptoService",
                     component_type="service",
                     reaches_target=True,
-                    target_methods=["<com.example.CryptoService: void onStartCommand()>"],
+                    target_methods=[
+                        "<com.example.CryptoService: void onStartCommand()>"
+                    ],
                 ),
             ],
             providers=[

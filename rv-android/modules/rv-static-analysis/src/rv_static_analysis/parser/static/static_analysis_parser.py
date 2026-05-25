@@ -53,7 +53,6 @@ from rv_android_core.domain.classes import Classes, Method
 from rv_android_core.domain.components import ComponentInfo, Components, IntentFilter
 from rv_android_core.domain.static import StaticAnalysisData
 
-
 # JSON key constants mirror — INV-ANA-32.
 #
 # Every key the GATOR writer emits has an entry here, value-for-value identical
@@ -220,7 +219,9 @@ class StaticAnalysisParser:
             f"{sum(len(v) for v in [components.activities, components.receivers, components.services, components.providers])} components, "
             f"complete={complete}"
         )
-        return StaticAnalysisData(classes, windows, wtg, components=components, complete=complete)
+        return StaticAnalysisData(
+            classes, windows, wtg, components=components, complete=complete
+        )
 
     def read_static_analysis_files(
         self, results_dir: str, apk: str, package: str
@@ -352,7 +353,9 @@ class StaticAnalysisParser:
                         signature=signature,
                         reachable=m_data.get(_JK.reachable, False),
                         reaches_target=m_data.get(_JK.reaches_target, False),
-                        directly_reaches_target=m_data.get(_JK.directly_reaches_target, False),
+                        directly_reaches_target=m_data.get(
+                            _JK.directly_reaches_target, False
+                        ),
                     )
                     classes.add_method(method)
 

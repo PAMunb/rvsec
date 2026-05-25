@@ -124,7 +124,9 @@ class TestWellFormedJSON:
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         # At least some methods should be reachable
         reachable_methods = [m for m in result.classes.methods.values() if m.reachable]
-        reaches_target = [m for m in result.classes.methods.values() if m.reaches_target]
+        reaches_target = [
+            m for m in result.classes.methods.values() if m.reaches_target
+        ]
         directly_reaches = [
             m for m in result.classes.methods.values() if m.directly_reaches_target
         ]

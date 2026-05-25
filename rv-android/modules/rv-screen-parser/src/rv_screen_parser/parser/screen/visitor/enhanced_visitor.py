@@ -1142,9 +1142,11 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         for event in widget.events:
             if event.type == action.event:
                 # Check if method reaches or directly reaches MOP
-                action.reaches_target = self._check_method_reaches_target(event.signature)
-                action.directly_reaches_target = self._check_method_directly_reaches_target(
+                action.reaches_target = self._check_method_reaches_target(
                     event.signature
+                )
+                action.directly_reaches_target = (
+                    self._check_method_directly_reaches_target(event.signature)
                 )
 
                 # Add more detailed info to action text if it reaches MOP

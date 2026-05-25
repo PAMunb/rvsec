@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rv_screen_parser.screenshot.screenshot_analyzer import ScreenshotAnalyzer
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -26,12 +25,24 @@ from rv_screen_parser.screenshot.screenshot_analyzer import ScreenshotAnalyzer
 def mock_dependencies():
     """Mock all external dependencies for ScreenshotAnalyzer."""
     patches = {
-        "text_detector": patch("rv_screen_parser.screenshot.screenshot_analyzer.get_text_detector"),
-        "button_detector": patch("rv_screen_parser.screenshot.screenshot_analyzer.get_button_detector"),
-        "error_detector": patch("rv_screen_parser.screenshot.screenshot_analyzer.get_error_detector"),
-        "interactive_detector": patch("rv_screen_parser.screenshot.screenshot_analyzer.get_interactive_element_detector"),
-        "preprocessor": patch("rv_screen_parser.screenshot.screenshot_analyzer.get_image_preprocessor"),
-        "geometry_utils": patch("rv_screen_parser.screenshot.screenshot_analyzer.get_geometry_utils"),
+        "text_detector": patch(
+            "rv_screen_parser.screenshot.screenshot_analyzer.get_text_detector"
+        ),
+        "button_detector": patch(
+            "rv_screen_parser.screenshot.screenshot_analyzer.get_button_detector"
+        ),
+        "error_detector": patch(
+            "rv_screen_parser.screenshot.screenshot_analyzer.get_error_detector"
+        ),
+        "interactive_detector": patch(
+            "rv_screen_parser.screenshot.screenshot_analyzer.get_interactive_element_detector"
+        ),
+        "preprocessor": patch(
+            "rv_screen_parser.screenshot.screenshot_analyzer.get_image_preprocessor"
+        ),
+        "geometry_utils": patch(
+            "rv_screen_parser.screenshot.screenshot_analyzer.get_geometry_utils"
+        ),
     }
 
     mocks = {}
@@ -120,12 +131,32 @@ class TestAnalyze:
         mock_image.shape = (1080, 1920, 3)
 
         with patch("cv2.imread", return_value=mock_image):
-            with patch.object(analyzer.image_preprocessor, 'preprocess_grayscale', return_value=MagicMock()):
-                with patch.object(analyzer.image_preprocessor, 'preprocess_binary', return_value=MagicMock()):
-                    with patch.object(analyzer.text_detector, 'extract_text', return_value=[]):
-                        with patch.object(analyzer.button_detector, 'detect_buttons', return_value=[]):
-                            with patch.object(analyzer.interactive_element_detector, 'detect_interactive_elements', return_value=[]):
-                                with patch.object(analyzer.error_detector, 'detect_errors', return_value=[]):
+            with patch.object(
+                analyzer.image_preprocessor,
+                "preprocess_grayscale",
+                return_value=MagicMock(),
+            ):
+                with patch.object(
+                    analyzer.image_preprocessor,
+                    "preprocess_binary",
+                    return_value=MagicMock(),
+                ):
+                    with patch.object(
+                        analyzer.text_detector, "extract_text", return_value=[]
+                    ):
+                        with patch.object(
+                            analyzer.button_detector, "detect_buttons", return_value=[]
+                        ):
+                            with patch.object(
+                                analyzer.interactive_element_detector,
+                                "detect_interactive_elements",
+                                return_value=[],
+                            ):
+                                with patch.object(
+                                    analyzer.error_detector,
+                                    "detect_errors",
+                                    return_value=[],
+                                ):
                                     result = analyzer.analyze("/fake/path.png")
 
                                     assert analyzer.metrics["processed_images"] == 1
@@ -257,7 +288,9 @@ class TestGetDetectionSummary:
         type(analyzer.current_result).total_elements = property(
             fget=MagicMock(side_effect=Exception("Error"))
         )
-        analyzer.text_detector.get_text_classification_summary = MagicMock(side_effect=Exception("Summary error"))
+        analyzer.text_detector.get_text_classification_summary = MagicMock(
+            side_effect=Exception("Summary error")
+        )
 
         summary = analyzer.get_detection_summary()
 

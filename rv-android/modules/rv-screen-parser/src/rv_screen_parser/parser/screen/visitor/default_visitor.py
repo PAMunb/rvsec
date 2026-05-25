@@ -185,7 +185,9 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                                 event.signature
                             )
                             action.directly_reaches_target = (
-                                self._check_method_directly_reaches_target(event.signature)
+                                self._check_method_directly_reaches_target(
+                                    event.signature
+                                )
                             )
         else:
             # Se actions for None, inicializar como lista vazia

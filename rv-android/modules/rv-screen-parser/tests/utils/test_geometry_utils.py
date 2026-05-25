@@ -13,8 +13,10 @@ Tests cover:
 
 import pytest
 from rv_android_core.util.error.exceptions import RVValidationError
-from rv_screen_parser.screenshot.utils.geometry_utils import GeometryUtils, get_geometry_utils
-
+from rv_screen_parser.screenshot.utils.geometry_utils import (
+    GeometryUtils,
+    get_geometry_utils,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -38,24 +40,21 @@ class TestCalculateOverlapPercentage:
     def test_identical_rectangles_full_overlap(self, geometry_utils):
         """Test that identical rectangles have 100% overlap."""
         overlap = geometry_utils.calculate_overlap_percentage(
-            10, 10, 50, 50,  # rect1
-            10, 10, 50, 50   # rect2
+            10, 10, 50, 50, 10, 10, 50, 50  # rect1  # rect2
         )
         assert overlap == 1.0
 
     def test_no_overlap_returns_zero(self, geometry_utils):
         """Test that non-overlapping rectangles return 0.0."""
         overlap = geometry_utils.calculate_overlap_percentage(
-            0, 0, 50, 50,    # rect1
-            100, 100, 50, 50 # rect2
+            0, 0, 50, 50, 100, 100, 50, 50  # rect1  # rect2
         )
         assert overlap == 0.0
 
     def test_partial_overlap(self, geometry_utils):
         """Test partial overlap calculation."""
         overlap = geometry_utils.calculate_overlap_percentage(
-            0, 0, 50, 50,    # rect1
-            25, 25, 50, 50   # rect2 (overlaps by 25x25)
+            0, 0, 50, 50, 25, 25, 50, 50  # rect1  # rect2 (overlaps by 25x25)
         )
         # Intersection: 25x25 = 625, smaller area: 50x50 = 2500
         # Overlap: 625/2500 = 0.25
@@ -64,8 +63,7 @@ class TestCalculateOverlapPercentage:
     def test_one_inside_other_full_overlap(self, geometry_utils):
         """Test when one rectangle is completely inside another."""
         overlap = geometry_utils.calculate_overlap_percentage(
-            0, 0, 100, 100,  # rect1 (large)
-            25, 25, 50, 50   # rect2 (small, inside)
+            0, 0, 100, 100, 25, 25, 50, 50  # rect1 (large)  # rect2 (small, inside)
         )
         # Intersection: 50x50 = 2500, smaller area: 50x50 = 2500
         # Overlap: 2500/2500 = 1.0
@@ -74,8 +72,7 @@ class TestCalculateOverlapPercentage:
     def test_edge_touching_no_overlap(self, geometry_utils):
         """Test that rectangles touching at edge have 0 overlap."""
         overlap = geometry_utils.calculate_overlap_percentage(
-            0, 0, 50, 50,    # rect1
-            50, 0, 50, 50    # rect2 (touching at x=50)
+            0, 0, 50, 50, 50, 0, 50, 50  # rect1  # rect2 (touching at x=50)
         )
         assert overlap == 0.0
 
@@ -83,8 +80,7 @@ class TestCalculateOverlapPercentage:
         """Test that negative dimensions raise RVValidationError."""
         # ErrorHandler captures the exception, returns None
         result = geometry_utils.calculate_overlap_percentage(
-            0, 0, -10, 50,  # negative width
-            0, 0, 50, 50
+            0, 0, -10, 50, 0, 0, 50, 50  # negative width
         )
         # Returns None due to error handler
         assert result is None
@@ -92,8 +88,7 @@ class TestCalculateOverlapPercentage:
     def test_invalid_zero_dimensions_raises(self, geometry_utils):
         """Test that zero dimensions raise RVValidationError."""
         result = geometry_utils.calculate_overlap_percentage(
-            0, 0, 0, 50,    # zero width
-            0, 0, 50, 50
+            0, 0, 0, 50, 0, 0, 50, 50  # zero width
         )
         # Returns None due to error handler
         assert result is None
@@ -101,8 +96,7 @@ class TestCalculateOverlapPercentage:
     def test_invalid_negative_coordinates_raises(self, geometry_utils):
         """Test that negative coordinates raise RVValidationError."""
         result = geometry_utils.calculate_overlap_percentage(
-            -10, 0, 50, 50, # negative x
-            0, 0, 50, 50
+            -10, 0, 50, 50, 0, 0, 50, 50  # negative x
         )
         # Returns None due to error handler
         assert result is None
@@ -110,8 +104,7 @@ class TestCalculateOverlapPercentage:
     def test_overlap_relative_to_smaller_area(self, geometry_utils):
         """Test that overlap is relative to smaller rectangle."""
         overlap = geometry_utils.calculate_overlap_percentage(
-            0, 0, 20, 20,      # rect1 (small: 400)
-            0, 0, 100, 100     # rect2 (large: 10000)
+            0, 0, 20, 20, 0, 0, 100, 100  # rect1 (small: 400)  # rect2 (large: 10000)
         )
         # Intersection: 20x20 = 400, smaller area: 400
         # Overlap: 400/400 = 1.0
@@ -168,7 +161,9 @@ class TestFilterOverlappingElements:
             {"x": 10, "y": 10, "width": 100, "height": 100, "confidence": 0.8},
         ]
         # Very low threshold - should filter more aggressively
-        result = geometry_utils.filter_overlapping_elements(elements, overlap_threshold=0.1)
+        result = geometry_utils.filter_overlapping_elements(
+            elements, overlap_threshold=0.1
+        )
         assert len(result) == 1
 
     def test_missing_confidence_defaults_to_zero(self, geometry_utils):
@@ -320,8 +315,7 @@ class TestCalculateDistanceBetweenCenters:
     def test_same_rectangles_zero_distance(self, geometry_utils):
         """Test that same rectangle has zero distance."""
         distance = geometry_utils.calculate_distance_between_centers(
-            0, 0, 100, 100,
-            0, 0, 100, 100
+            0, 0, 100, 100, 0, 0, 100, 100
         )
         assert distance == pytest.approx(0.0, abs=1e-6)
 
@@ -329,8 +323,7 @@ class TestCalculateDistanceBetweenCenters:
         """Test horizontal distance between centers."""
         # rect1: center at (50, 50), rect2: center at (150, 50)
         distance = geometry_utils.calculate_distance_between_centers(
-            0, 0, 100, 100,
-            100, 0, 100, 100
+            0, 0, 100, 100, 100, 0, 100, 100
         )
         assert distance == pytest.approx(100.0, abs=1e-6)
 
@@ -339,8 +332,14 @@ class TestCalculateDistanceBetweenCenters:
         # rect1: center at (50, 50), rect2: center at (110, 90)
         # Distance: sqrt((110-50)^2 + (90-50)^2) = sqrt(60^2 + 40^2) = sqrt(3600 + 1600) = sqrt(5200) ≈ 72.11
         distance = geometry_utils.calculate_distance_between_centers(
-            0, 0, 100, 100,       # center at (50, 50)
-            60, 40, 100, 100      # center at (110, 90)
+            0,
+            0,
+            100,
+            100,  # center at (50, 50)
+            60,
+            40,
+            100,
+            100,  # center at (110, 90)
         )
         expected = ((110 - 50) ** 2 + (90 - 50) ** 2) ** 0.5
         assert distance == pytest.approx(expected, rel=1e-2)
@@ -357,9 +356,7 @@ class TestExpandRectangle:
     def test_expand_without_boundaries(self, geometry_utils):
         """Test rectangle expansion without max boundaries."""
         result = geometry_utils.expand_rectangle(
-            50, 50, 100, 100,
-            padding_x=10,
-            padding_y=10
+            50, 50, 100, 100, padding_x=10, padding_y=10
         )
         # new_x = 50-10 = 40, new_y = 50-10 = 40
         # new_width = 100+20 = 120, new_height = 100+20 = 120
@@ -368,10 +365,7 @@ class TestExpandRectangle:
     def test_expand_respects_max_width(self, geometry_utils):
         """Test that expansion respects maximum width."""
         result = geometry_utils.expand_rectangle(
-            50, 50, 100, 100,
-            padding_x=50,
-            padding_y=10,
-            max_width=200
+            50, 50, 100, 100, padding_x=50, padding_y=10, max_width=200
         )
         # new_x = 0, new_width would be 200 but capped to 200-0 = 200
         assert result[0] == 0  # new_x
@@ -380,10 +374,7 @@ class TestExpandRectangle:
     def test_expand_respects_max_height(self, geometry_utils):
         """Test that expansion respects maximum height."""
         result = geometry_utils.expand_rectangle(
-            50, 50, 100, 100,
-            padding_x=10,
-            padding_y=50,
-            max_height=180
+            50, 50, 100, 100, padding_x=10, padding_y=50, max_height=180
         )
         # new_y = 0, new_height would be 200 but capped to 180-0 = 180
         assert result[1] == 0  # new_y
@@ -392,9 +383,7 @@ class TestExpandRectangle:
     def test_expand_does_not_go_negative(self, geometry_utils):
         """Test that expansion doesn't result in negative coordinates."""
         result = geometry_utils.expand_rectangle(
-            5, 5, 100, 100,
-            padding_x=10,
-            padding_y=10
+            5, 5, 100, 100, padding_x=10, padding_y=10
         )
         assert result[0] >= 0  # new_x >= 0
         assert result[1] >= 0  # new_y >= 0
@@ -402,11 +391,14 @@ class TestExpandRectangle:
     def test_expand_with_none_max_values(self, geometry_utils):
         """Test expansion with None max values (no boundaries)."""
         result = geometry_utils.expand_rectangle(
-            50, 50, 100, 100,
+            50,
+            50,
+            100,
+            100,
             padding_x=10,
             padding_y=10,
             max_width=None,
-            max_height=None
+            max_height=None,
         )
         assert result == (40, 40, 120, 120)
 

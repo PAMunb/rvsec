@@ -220,6 +220,7 @@ class TestJarSearchPaths:
         # the search list with TOOLS_DIR / RVSEC_HOME at L1.
         assert len(captured["paths"]) == 1
         import aperv_tool.tools.aperv.tool as tool_module
+
         assert captured["paths"][0] == os.path.dirname(tool_module.__file__)
 
 

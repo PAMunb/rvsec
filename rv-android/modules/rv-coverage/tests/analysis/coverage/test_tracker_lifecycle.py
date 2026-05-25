@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rv_coverage.analysis.coverage.tracker import CoverageTracker
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -46,9 +45,13 @@ def tracker_with_static(temp_logcat_file):
     """Create CoverageTracker with mock static data."""
     mock_static = MagicMock()
     mock_static.classes = MagicMock()
-    mock_static.classes.classes = {"com.test.Class": MagicMock(methods={"m1": {}, "m2": {}})}
-    
-    with patch("rv_coverage.analysis.coverage.tracker.initialize_repository_from_static_data"):
+    mock_static.classes.classes = {
+        "com.test.Class": MagicMock(methods={"m1": {}, "m2": {}})
+    }
+
+    with patch(
+        "rv_coverage.analysis.coverage.tracker.initialize_repository_from_static_data"
+    ):
         return CoverageTracker(logcat_file=temp_logcat_file, static_data=mock_static)
 
 
@@ -99,7 +102,7 @@ class TestStartStop:
         """Test that start() creates logcat file."""
         logcat_file = str(tmp_path / "new_logcat.txt")
         tracker = CoverageTracker(logcat_file=logcat_file)
-        
+
         try:
             tracker.start()
             assert os.path.exists(logcat_file)
@@ -149,7 +152,7 @@ class TestTrackCoverageContextManager:
         """Test context manager starts and stops tracker."""
         with tracker.track_coverage() as t:
             assert t.is_running is True
-        
+
         assert tracker.is_running is False
 
     def test_context_manager_stops_on_exception(self, tracker):
@@ -159,7 +162,7 @@ class TestTrackCoverageContextManager:
                 raise ValueError("Test error")
         except ValueError:
             pass
-        
+
         assert tracker.is_running is False
 
 
@@ -178,17 +181,21 @@ class TestProcessLines:
 
     def test_process_non_rvsec_lines(self, tracker):
         """Test processing non-RVSEC lines."""
-        tracker.process_lines([
-            "01-01 00:00:00.000  1234  1234 I SomeTag: Regular log line",
-            "01-01 00:00:00.000  1234  1234 D AnotherTag: Debug info",
-        ])
+        tracker.process_lines(
+            [
+                "01-01 00:00:00.000  1234  1234 I SomeTag: Regular log line",
+                "01-01 00:00:00.000  1234  1234 D AnotherTag: Debug info",
+            ]
+        )
         # Should be skipped, no metrics change
 
     def test_process_coverage_log_line(self, tracker):
         """Test processing RVSEC-COV coverage log line."""
         line = "01-01 00:00:01.000  1234  1234 I RVSEC-COV: com.test.Class.method:()V\n"
         tracker.process_lines([line])
-        assert tracker.total_method_calls >= 0  # May or may not increment depending on parser
+        assert (
+            tracker.total_method_calls >= 0
+        )  # May or may not increment depending on parser
 
     def test_process_error_log_line(self, tracker):
         """Test processing RVSEC error log line."""
@@ -209,16 +216,16 @@ class TestUpdateCoverageMetrics:
         """Test that metrics are not updated when no change."""
         tracker._data_changed_since_last_update = False
         tracker.repository.calculate_metrics = MagicMock()
-        
+
         tracker._update_coverage_metrics()
-        
+
         # calculate_metrics should not be called
         tracker.repository.calculate_metrics.assert_not_called()
 
     def test_update_when_changed(self, tracker):
         """Test that metrics are updated when changed."""
         tracker._data_changed_since_last_update = True
-        
+
         mock_metrics = MagicMock()
         mock_metrics.to_dict.return_value = {
             "method_coverage": 50.0,
@@ -231,11 +238,13 @@ class TestUpdateCoverageMetrics:
         mock_metrics.called_methods = 10
         mock_metrics.total_activities = 5
         mock_metrics.unique_errors = 2
-        
-        with patch.object(tracker.repository, 'calculate_metrics', return_value=mock_metrics):
+
+        with patch.object(
+            tracker.repository, "calculate_metrics", return_value=mock_metrics
+        ):
             tracker._update_coverage_metrics()
             tracker.repository.calculate_metrics.assert_called_once()
-        
+
         # Flag should be reset
         assert tracker._data_changed_since_last_update is False
 
@@ -271,7 +280,7 @@ class TestThreadSafety:
     def test_concurrent_start_stop(self, temp_logcat_file):
         """Test concurrent start/stop operations."""
         errors = []
-        
+
         def run_tracker():
             try:
                 t = CoverageTracker(logcat_file=temp_logcat_file)
@@ -280,11 +289,11 @@ class TestThreadSafety:
                 t.stop()
             except Exception as e:
                 errors.append(e)
-        
+
         threads = [threading.Thread(target=run_tracker) for _ in range(5)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        
+
         assert len(errors) == 0

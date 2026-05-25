@@ -608,7 +608,9 @@ class LogcatRepository:
             metrics.total_reachable_methods = self._static_totals.get(
                 "total_reachable_methods", 0
             )
-            metrics.total_target_methods = self._static_totals.get("total_target_methods", 0)
+            metrics.total_target_methods = self._static_totals.get(
+                "total_target_methods", 0
+            )
             metrics.total_direct_target_methods = self._static_totals.get(
                 "total_direct_target_methods", 0
             )
@@ -690,7 +692,9 @@ class LogcatRepository:
             "mop_method_coverage_percentage": metrics_dict.get(
                 "mop_method_coverage", 0.0
             ),
-            "total_direct_target_methods": metrics_dict.get("total_direct_target_methods", 0),
+            "total_direct_target_methods": metrics_dict.get(
+                "total_direct_target_methods", 0
+            ),
             "called_direct_target_methods": metrics_dict.get(
                 "called_direct_target_methods", 0
             ),

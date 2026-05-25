@@ -43,11 +43,11 @@ def test_targets_file_emits_targetsFile_client_param(tmp_path: Path) -> None:
         cmd[i + 1]
         for i, tok in enumerate(cmd)
         if tok == "-clientParam"
-        and (
-            cmd[i + 1].startswith("targetsFile=") or cmd[i + 1].startswith("mopDir=")
-        )
+        and (cmd[i + 1].startswith("targetsFile=") or cmd[i + 1].startswith("mopDir="))
     ]
-    assert len(target_params) == 1, f"Expected exactly one target-source clientParam, got {target_params}"
+    assert (
+        len(target_params) == 1
+    ), f"Expected exactly one target-source clientParam, got {target_params}"
     assert target_params[0].startswith("targetsFile=")
     assert target_params[0].endswith(str(sig))
 
@@ -78,9 +78,7 @@ def test_mop_dir_emits_mopDir_client_param(tmp_path: Path) -> None:
         cmd[i + 1]
         for i, tok in enumerate(cmd)
         if tok == "-clientParam"
-        and (
-            cmd[i + 1].startswith("targetsFile=") or cmd[i + 1].startswith("mopDir=")
-        )
+        and (cmd[i + 1].startswith("targetsFile=") or cmd[i + 1].startswith("mopDir="))
     ]
     assert len(target_params) == 1
     assert target_params[0].startswith("mopDir=")

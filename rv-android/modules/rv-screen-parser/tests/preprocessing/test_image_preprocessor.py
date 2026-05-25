@@ -20,7 +20,6 @@ from rv_screen_parser.screenshot.preprocessing.image_preprocessor import (
     get_image_preprocessor,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -63,7 +62,9 @@ class TestPreprocessGrayscale:
         assert result.shape[0] == 100
         assert result.shape[1] == 100
 
-    def test_grayscale_returns_grayscale_as_is(self, preprocessor, sample_grayscale_image):
+    def test_grayscale_returns_grayscale_as_is(
+        self, preprocessor, sample_grayscale_image
+    ):
         """Test that already grayscale image is returned with warning."""
         result = preprocessor.preprocess_grayscale(sample_grayscale_image)
         assert len(result.shape) == 2
@@ -117,7 +118,9 @@ class TestPreprocessForEdgeDetection:
         result = preprocessor.preprocess_for_edge_detection(sample_color_image)
         assert isinstance(result, np.ndarray)
 
-    def test_edge_detection_with_custom_thresholds(self, preprocessor, sample_color_image):
+    def test_edge_detection_with_custom_thresholds(
+        self, preprocessor, sample_color_image
+    ):
         """Test edge detection with custom thresholds."""
         result = preprocessor.preprocess_for_edge_detection(
             sample_color_image, low_threshold=30, high_threshold=100

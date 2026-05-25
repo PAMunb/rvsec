@@ -66,7 +66,7 @@ class StaticAnalysisData(BaseValidatedModel):
         default=False,
         description=(
             "ADR-6 sentinel — True when the GATOR producer emitted "
-            "\"complete\":true as the last top-level JSON field (signaling "
+            '"complete":true as the last top-level JSON field (signaling '
             "all sections finished writing) and the parser observed it. "
             "False when the file is from a pre-sentinel run, a partial "
             "(WTG-timeout) write, or a writer crash. Consumers requiring "

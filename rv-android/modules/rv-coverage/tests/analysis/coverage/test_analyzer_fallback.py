@@ -16,8 +16,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rv_android_core.domain.coverage import LogcatRepository
 from rv_android_core.domain.static import StaticAnalysisData
-from rv_coverage.analysis.coverage.analyzer import CoverageAnalyzer, CoverageCalculationMode
-
+from rv_coverage.analysis.coverage.analyzer import (
+    CoverageAnalyzer,
+    CoverageCalculationMode,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -53,7 +55,9 @@ class TestInitialization:
 
     def test_init_with_static_data(self, mock_static_data):
         """Test initialization with static data."""
-        with patch("rv_coverage.analysis.coverage.analyzer.initialize_repository_from_static_data"):
+        with patch(
+            "rv_coverage.analysis.coverage.analyzer.initialize_repository_from_static_data"
+        ):
             analyzer = CoverageAnalyzer(static_data=mock_static_data)
             assert analyzer.static_analysis_available is True
 

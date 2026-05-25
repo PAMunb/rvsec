@@ -56,7 +56,9 @@ def test_complete_false_when_explicitly_false(tmp_path: Path) -> None:
     assert data.complete is False
 
 
-def test_legacy_gh57_json_without_sentinel_parses_with_complete_false(tmp_path: Path) -> None:
+def test_legacy_gh57_json_without_sentinel_parses_with_complete_false(
+    tmp_path: Path,
+) -> None:
     # The 78.8% complete-but-empty bucket from the gh57 sweep (see
     # Phase 1 task-zero verdict): JSON is fully written but the writer
     # did not yet emit the sentinel (pre-C1e binary).

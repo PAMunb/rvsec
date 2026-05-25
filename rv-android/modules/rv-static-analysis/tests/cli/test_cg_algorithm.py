@@ -89,4 +89,8 @@ def test_pydantic_rejects_invalid_cg_algorithm() -> None:
             output_dir="/tmp",
             cg_algorithm="bogus",  # type: ignore[arg-type]
         )
-    assert "cg_algorithm" in str(exc.value) or "Literal" in str(exc.value) or "literal_error" in str(exc.value)
+    assert (
+        "cg_algorithm" in str(exc.value)
+        or "Literal" in str(exc.value)
+        or "literal_error" in str(exc.value)
+    )
