@@ -8,20 +8,18 @@
      - Group 5 (Writer walker + sentinel + JsonSchema.Keys — C1e) depends on Group 4. Python parser via _JK is part of this group.
      - Group 6 (Rename MOP→Target atomic — C1f) depends on Groups 1-5 (constants in place; classes renamed; writer/parser via constants). MUST be atomic per-module commits.
      - Group 7 (JimpleDefUtils — C1g) is independent; can run in parallel to Groups 3-5.
-     - Group 8 (C1h atomic write — CONDITIONAL on Group 0 verdict) depends on Group 5.
-     - Group 9 (Integration + sweep + verification) runs after Groups 1-8.
+     - Group 8 (C1h atomic write) — **DROPPED 2026-05-25** per Group 0 verdict (zero corruption in gh57 sweep; 826/826 JSONs parse cleanly).
+     - Group 9 (Integration + sweep + verification) runs after Groups 1-7.
      - Critical path: 0 -> 1 -> 3 -> 4 -> 5 -> 6 -> 9.
      - Subagent parallelism candidates: Group 7 in parallel with Group 3-5; Group 6 consumer-side renames (rv-coverage, rv-platform, rv-experiment, aperv-tool, scripts) can be dispatched in parallel per consumer module after C1f atomic commits land.
 -->
 
 ## 0. Phase 1 task-zero — corruption-vs-truncation investigation (decides if Group 8 exists)
 
-- [ ] 0.1 Identify 2-3 APKs from the gh57 sweep whose JSON output was flagged as unusable (consult sweep logs in `experimento-*/RELATORIO.md` and `results/`)
-- [ ] 0.2 For each candidate APK, retrieve the partial JSON file and classify the failure mode: (a) corruption (junk bytes, JSON not parseable up to the `_recover_truncated_json` recovery point) vs (b) truncation (partial but valid JSON — parser recovers). Document classification per APK in `docs/20260515_plano_gator_targets_generic.md` §6 ADR-4 footnote.
-- [ ] 0.3 Verdict:
-  - If truncation dominates (≥2/3 cases) → **Group 8 (C1h) DROPPED** from this change. Remove `<!-- C1h tasks -->` block below.
-  - If corruption real exists (≥1/3 case is non-parseable bytes lixo) → **Group 8 (C1h) ENTERS**. Proceed with atomic write + two-stage read.
-- [ ] 0.4 Update `proposal.md` and `design.md` to reflect the verdict; commit as `chore(gh60): Phase 1 task-zero verdict — C1h <in|out>`.
+- [x] 0.1 Identified the gh57 sweep (`out/sweep_jca400_v1/`, 826 APK JSONs). RELATORIO had no parser-failure section; classification ran over the full sweep instead of a 2-3 APK sample — stronger empirical basis than originally scoped.
+- [x] 0.2 Classification (Python script via `json.loads` + `_recover_truncated_json` mimic on each of 826 JSONs): **0 corruption-unrecoverable, 0 truncation-recoverable, 826 parse cleanly**. Of the 826 valid JSONs, 651 (78.8%) have empty `windows[]` + `transitions[]` — gh51-D5 *write-first-JSON* intercepts WTG-phase timeouts so the file is written complete-but-empty (not truncated, not corrupt). Recorded in `design.md` D9 verdict block.
+- [x] 0.3 Verdict: **C1h DROPPED**. Zero corruption observed → atomic write defends against zero failures. Sentinel ADR-6 remains the right defense for the complete-but-empty third category (lets consumers distinguish timeout-during-WTG from writer-crash). Group 8 removed from this `tasks.md`.
+- [x] 0.4 `design.md` D9 updated with empirical verdict; this `tasks.md` Group 8 deleted; commit `chore(gh60): Phase 1 task-zero verdict — C1h out`.
 
 ## 1. C1a — Target abstraction (Java foundation)
 
@@ -82,7 +80,7 @@
 - [ ] 5.6 Refactor `StaticAnalysisParser` to read all keys via `_JK.x` instead of inline string literals. Add `complete: bool = False` field to `StaticAnalysisData` Pydantic model in `rv-android-core` (default False — Pydantic default for absent key); parser reads via `_JK.complete`.
 - [ ] 5.7 Add `JsonSchemaKeysDump.java` in `rvsec-gator/client/src/main/java/presto/android/gui/clients/json/`: `main()` iterates `JsonSchema.Keys.class.getDeclaredFields()`, filters `Modifier::isStatic` && `String.class`, prints each value on its own line. Add `tests/parity/json_keys.py`: invokes the dumper via `subprocess.run(["java","-cp","<gator-jar>","presto.android.gui.clients.json.JsonSchemaKeysDump"])`; imports `_JK` from Python; asserts `set(java_values) == set(python_values)`; on diff, prints which keys are only-Java and only-Python (INV-ANA-32). No regex against `.java` source.
 - [ ] 5.8 Add `JsonReportWriterPurityTest.java`: assert `JsonReportWriter` constructor accepts only `ReachabilityEnricher` (plus output stream); assert no field is typed `ReachabilityIndex`; assert no method body references `ReachabilityIndex` (reflection-based field walk + bytecode scan via ASM) (INV-ANA-30). Also add `tests/parity/no_json_literals.py`: parses `JsonReportWriter.java` AST via `javalang`, walks string literals, asserts every key-like literal matches a value declared in `JsonSchema.Keys` (S25).
-- [ ] 5.9 Add `SentinelEmissionTest.java`: (a) successful write ends with `,"complete":true}` and `fsync` was called once; (b) using the harness flag `--inject-failure-after-section=transitions` (added to `JsonReportWriter` for this test only — same flag reused by task 8.5 if C1h enters), the writer raises `IOException` after the transitions flush; assert the partial file does NOT contain `"complete":true`. NO `kill JVM` mid-test — the harness flag replaces it.
+- [ ] 5.9 Add `SentinelEmissionTest.java`: (a) successful write ends with `,"complete":true}` and `fsync` was called once; (b) using the harness flag `--inject-failure-after-section=transitions` (added to `JsonReportWriter` for this test only — sole purpose is sentinel testing; C1h was dropped per Group 0 verdict so the flag has no other consumer), the writer raises `IOException` after the transitions flush; assert the partial file does NOT contain `"complete":true`. NO `kill JVM` mid-test — the harness flag replaces it.
 - [ ] 5.10 Add `tests/parser/test_sentinel.py`: complete JSON parses to `data.complete == True`; truncated JSON (artificially cut after `windows[]`) parses to `data.complete == False`. Also add `tests/parser/test_truncated_recovery.py` covering the `_recover_truncated_json` path (preserved).
 - [ ] 5.11 Run on 5-APK fixture; `G_sentinela_complete`, `G_json_keys`, `G_enricher_purity` all green
 - [ ] 5.12 Run `/rv-test-run rv-static-analysis` and `/rv-test-run rv-android-core`
@@ -152,17 +150,9 @@
 - [ ] 7.5 Coverage of `JimpleDefUtils` ≥ 90% via jacoco (`G_jimple_def_utils`)
 - [ ] 7.6 Commit `refactor(gh60): C1g extract JimpleDefUtils (refs #60)`
 
-## 8. C1h — Atomic write + two-stage parser read (CONDITIONAL on Group 0 verdict)
+## 8. C1h — DROPPED (Phase 1 task-zero verdict, 2026-05-25)
 
-<!-- Only execute this group if Group 0 verdict is "corruption real exists". Otherwise delete this group and skip. -->
-
-- [ ] 8.1 (CONDITIONAL) Update `JsonReportWriter.write(model, output)`: write to `output.resolveSibling(output.getFileName() + ".tmp")`, then `Files.move(tmp, output, StandardCopyOption.ATOMIC_MOVE)` on success
-- [ ] 8.2 (CONDITIONAL) If `AtomicMoveNotSupportedException` raised (rare on local FS), halt with clear error message; NO fallback to non-atomic move (would be P3 shim)
-- [ ] 8.3 (CONDITIONAL) Update `StaticAnalyzer.analyze(apk)` in `rv-static-analysis`: two-stage read — try `<output>` first; if absent, try `<output>.tmp`
-- [ ] 8.4 (CONDITIONAL) Pre-run cleanup: `StaticAnalyzer._run_analysis` deletes any stale `<output>.tmp` orphan before invoking GATOR
-- [ ] 8.5 (CONDITIONAL) Add `AtomicWriteFaultInjectionTest.java`: harness `--inject-failure-after-section=transitions` flag in `JsonReportWriter` raises `IOException` after N sections; assert `<output>` does not exist OR contains prior run intact, `<output>.tmp` is parseable (`G_atomic_write`)
-- [ ] 8.6 (CONDITIONAL) Add `tests/parser/test_two_stage_read.py`: scenarios for `<output>` only, `<output>.tmp` only, both present (prefer `<output>`), neither present
-- [ ] 8.7 (CONDITIONAL) Commit `feat(gh60): C1h atomic write + two-stage parser read (refs #60)`
+Atomic write + two-stage parser read removed from scope. Empirical basis: 826/826 gh57 sweep JSONs parse cleanly; zero corruption observed. Sentinel ADR-6 (task 5.3, 5.9, 5.10) remains the complete defense against the observed failure mode (timeout-during-WTG → fully written file with empty data sections). See `design.md` §D9 verdict block for the classification table and rationale.
 
 ## 9. Integration, sweep, and verification
 

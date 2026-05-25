@@ -222,12 +222,30 @@ Includes `ComponentInfo.mop_methods: List[str]` at `domain/components.py:49` →
 
 Phase-0 left `--cg-algorithm` ambiguous (mechanical C1 plumbing vs C2 hardening). Decision for gh60: **lives in C1** because it is pure CLI plumbing → `-cgAlgorithm` (Soot already implements CHA/RTA/VTA; no new analysis code). Cost: +1 argparse argument, +1 field in `RVStaticAnalysisConfig`, +1 line in the assembled GATOR command, +3 tests. Holding it back to C2 would force a second change just for a flag, violating P1.
 
-### D9 — Atomic write CONDITIONAL (ADR-4 enters or not per Phase 1)
+### D9 — Atomic write CONDITIONAL (ADR-4 enters or not per Phase 1) → **VERDICT: DROPPED (2026-05-25)**
 
 The sentinel covers truncation. Atomic write only adds value if gh57 had real corruption (junk bytes). Phase 1 task-zero: classify 2-3 gh57 failures as corruption vs truncation.
 
 - Truncation dominates → C1h does not exist.
 - Real corruption → C1h enters with `<output>.tmp` + `Files.move(ATOMIC_MOVE)` + parser two-stage read (`<output>` or `<output>.tmp`). No non-atomic fallback if the filesystem does not support it — halt with error (fallback would be a P3 shim).
+
+**Empirical verdict (task 0.1-0.3, executed 2026-05-25):**
+
+Classification script (`python -c` over `out/sweep_jca400_v1/*/*.json`, excluding `mop_signatures.json` / `analysis_signatures.json`):
+
+| Bucket | Count | Share |
+|---|---|---|
+| Parses cleanly (`json.loads` succeeds first try) | 826 / 826 | 100.0% |
+| Truncation-recoverable (parses only after `_recover_truncated_json` bracket fix) | 0 / 826 | 0.0% |
+| Corruption-unrecoverable (junk bytes / no closing bracket / recovery fails) | 0 / 826 | 0.0% |
+
+Of the 826 valid JSONs, **651 (78.8%) have empty `windows[]` and `transitions[]`** — these are the cases the gh51-D5 *write-first-JSON* strategy intercepts: `RvsecAnalysisClient` writes the JSON with empty sections **before** entering the WTG build, then the timeout kills the JVM mid-WTG. The on-disk file is therefore fully written and fully valid; the data sections are simply empty (consistent with `docs/20260513_gator_analise_wtg.md` finding of 71.6% empty-WTG rate on the post-instr `APKS_FINAL_JCA_DEXLIB` corpus).
+
+This is a third category neither D9 nor ADR-4 anticipated: **"complete-and-empty"** (not truncation, not corruption — a valid JSON with empty arrays). Atomic write defends against zero observed failures: there is no `.tmp` orphan scenario in the sweep data, no junk-bytes scenario, no parser unable to reach the closing brace. The sentinel `"complete": true` (ADR-6) remains the right defense — it lets consumers distinguish "complete with empty data" (timeout reached WTG but write happened first) from "incomplete because writer itself died" (would emit no sentinel).
+
+**Decision:** **C1h DROPPED**. Task 0.4 commits this verdict. Group 8 in `tasks.md` is removed entirely (per ADR-3 atomic match policy and CLAUDE.md P3 no-shim). The `<inject-failure-after-section>` harness flag remains in scope for `SentinelEmissionTest` (task 5.9) — that flag tests the sentinel, not atomic write.
+
+**Residual risk acknowledged:** if a future sweep on a different filesystem (NFS, FUSE, networked storage) produces real corruption, the decision should be revisited as a separate change. The Phase-0 §6 ADR-4 footnote is updated to record the empirical basis.
 
 ### D10 — Rename aggregate `targetReachesTarget` (C3) to avoid collision (new, 2026-05-25)
 

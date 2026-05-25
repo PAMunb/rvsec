@@ -18,7 +18,7 @@ GitHub Issue: #60. The `RvsecAnalysisClient` in `rvsec-gator` is a 1625 LOC god 
   - CLI `--mop-dir` and `mop_dir` config attribute preserved (semantically identify the source as JavaMOP specs, not the generalized concept).
 - **Expose `--cg-algorithm {spark,cha,rta,vta}`** (default `spark`) in the `rv-static-analysis` CLI; forwarded to GATOR as `-cgAlgorithm`. Mechanical alignment with existing Soot capability (D8 — moved from C2 into gh60 because it is pure CLI plumbing).
 - **Extract `JimpleDefUtils`** to deduplicate `definitionRhs`/`resolveInt`/`resolveStr` between `MenuExtractor` and `SpinnerItemExtractor`. Backed by Requirement "Shared Jimple Helpers" + INV-ANA-38 in the `analysis` spec.
-- **Atomic JSON write + two-stage parser read** (ADR-4) — CONDITIONAL. Enters only if Phase 1 task-zero investigation confirms gh57 had real corruption (not parseable truncation). Sentinel covers truncation independently.
+- **Atomic JSON write + two-stage parser read** (ADR-4) — **DROPPED 2026-05-25** per Phase 1 task-zero verdict. Empirical classification of the full gh57 sweep (`out/sweep_jca400_v1/`, 826 APK JSONs) found zero corruption and zero truncation-recoverable cases — 100% parse cleanly. Timeouts produce complete-but-empty JSONs (gh51-D5 write-first-JSON intercepts the WTG-phase hang), a third category neither corruption nor truncation; sentinel ADR-6 covers it natively. See `design.md` §D9 and `tasks.md` §0.
 - **Sweep post-merge** — all 380 APKs reprocessed; no legacy `*Mop` JSONs preserved.
 
 ## Capabilities
@@ -62,7 +62,7 @@ None. All additions live within existing `analysis` and `core` specs.
 
 **ADR numbering note:** decisions named in `design.md` are D1-D10 (referencing ADR-1 revoked, ADR-3 through ADR-7). There is no "ADR-2" — the numbering was consolidated during the Phase-0 multi-LLM convergence (the entry that would have occupied ADR-2 was absorbed into ADR-3 on matching policy). New decisions introduced in this change (D7 bytecode-scan contract, D8 `--cg-algorithm` in C1, D9 atomic write conditional renumbered from the prior D7, D10 `targetReachesTarget` collision) are internal to gh60 and do not receive an ADR number.
 
-**Conditional scope (C1h):** atomic write + two-stage read enters only after Phase 1 task-zero investigates 2-3 gh57 failure samples and confirms real corruption (junk bytes, JSON not parseable up to the `_recover_truncated_json` recovery point). If the failures were parseable truncation, the sentinel suffices and C1h is dropped.
+**Conditional scope (C1h): RESOLVED — DROPPED.** Phase 1 task-zero ran the classification over the full 826-APK gh57 sweep (not just 2-3 samples) and found 0 corruption / 0 truncation / 826 clean parses. Sentinel ADR-6 fully covers the only observed failure mode (complete-but-empty JSON from WTG-phase timeout). C1h removed from scope; Group 8 removed from `tasks.md`.
 
 ## Follow-up Changes (NOT in this change — required to complete the static analyzer overhaul)
 
