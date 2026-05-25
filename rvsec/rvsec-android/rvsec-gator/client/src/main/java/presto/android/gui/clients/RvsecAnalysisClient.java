@@ -28,9 +28,7 @@ import org.w3c.dom.NodeList;
 
 import com.google.gson.stream.JsonWriter;
 
-import br.unb.cic.mop.extractor.JavamopFacade;
 import br.unb.cic.mop.extractor.model.MopMethod;
-import javamop.util.MOPException;
 import presto.android.Configs;
 import presto.android.gui.PropertyManager;
 import presto.android.gui.GUIAnalysisClient;
@@ -212,15 +210,19 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	}
 
 	private Set<MopMethod> loadMopSignatures(String mopDir) {
-		try {
-			JavamopFacade facade = new JavamopFacade();
-			Set<MopMethod> methods = facade.listUsedMethods(mopDir, false);
-			System.out.println("[RvsecAnalysisClient] Loaded " + methods.size() + " MOP signatures from " + mopDir);
-			return methods;
-		} catch (MOPException e) {
-			System.err.println("[RvsecAnalysisClient] ERROR loading MOP specs: " + e.getMessage());
-			return Collections.emptySet();
+		// Group 1 (C1a) stepping-stone: load via the new TargetMethodSource
+		// abstraction so the parity test (MopSpecsParityTest) can compare
+		// MopSpecsTargetSource.load() against this method byte-for-byte. The
+		// MopMethod return type is retained until Group 3 (TargetResolver)
+		// replaces the downstream Set<MopMethod> chain with Set<TargetMethod>.
+		Set<presto.android.gui.clients.target.TargetMethod> targets =
+				new presto.android.gui.clients.target.MopSpecsTargetSource(mopDir).load();
+		Set<MopMethod> methods = new HashSet<>(targets.size());
+		for (presto.android.gui.clients.target.TargetMethod t : targets) {
+			methods.add(new MopMethod(t.getClassName(), t.getMethodName(),
+					t.getParams(), t.getSignature()));
 		}
+		return methods;
 	}
 
 	/**

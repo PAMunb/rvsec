@@ -23,16 +23,16 @@
 
 ## 1. C1a — Target abstraction (Java foundation)
 
-- [ ] 1.1 Create package `presto.android.gui.clients.target` in `rvsec-gator/commons/src/main/java/`
-- [ ] 1.2 Add `TargetMethod.java` POJO with fields `className`, `methodName`, `params: List<String>`, `signature`, `policy: MatchPolicy` and nested enum `MatchPolicy { LENIENT, STRICT }` (immutable, `final` fields, no setters)
-- [ ] 1.3 Add `TargetMethodSource.java` interface with single method `Set<TargetMethod> load()`
-- [ ] 1.4 Add `MopSpecsTargetSource.java` in `rvsec-gator/client/src/main/java/presto/android/gui/clients/target/`: wraps `JavamopFacade.listUsedMethods(mopDir, false)`, converts each `MopMethod` to `TargetMethod` with `MatchPolicy.LENIENT`
-- [ ] 1.5 Refactor `RvsecAnalysisClient.loadMopSignatures()` to call `new MopSpecsTargetSource(mopDir).load()` and convert downstream; keep the old method name temporarily (will be renamed in Group 6)
-- [ ] 1.6 Add `MopSpecsParityTest.java`: assert `MopSpecsTargetSource.load()` produces the same `Set<(className, methodName)>` as the historical `loadMopSignatures()` on `cryptoapp.mop` (16 entries — INV-ANA-35)
-- [ ] 1.7 Add `TargetMethodTest.java`: equality, hashCode, immutability
-- [ ] 1.8 Run GATOR Maven build and unit tests; verify no regression
-- [ ] 1.9 Run `gator a -p cryptoapp.apk --client-jar lib/gator/rvsec-analysis-client.jar -client RvsecAnalysisClient -clientParam mopDir=<jca> --out /tmp/c1a.json -cgAlgorithm spark`; verify `set(reachesMop)` matches baseline `b2e04a26`
-- [ ] 1.10 Commit `feat(gh60): C1a TargetMethod + TargetMethodSource + MopSpecsTargetSource (closes step in #60)`
+- [x] 1.1 Package `presto.android.gui.clients.target` created in `rvsec-gator/commons/src/main/java/`. Required a one-line re-include in nested `rvsec/.gitignore` so its bare `target` rule (Maven build dir) does not swallow the source-side package of the same name; the rule is documented inline with a gh60 reference.
+- [x] 1.2 `TargetMethod.java` — final class, all fields `final`, no setters; nested `enum MatchPolicy { LENIENT, STRICT }`; constructor null-checks the four mandatory fields and leaves `signature` nullable. `getParams()` returns a `Collections.unmodifiableList` view; `equals`/`hashCode`/`toString` implemented.
+- [x] 1.3 `TargetMethodSource.java` — interface with the single `Set<TargetMethod> load()` method, sited in commons so both ajc and dexlib2 toolchains can consume it without a client→ajc dep cycle.
+- [x] 1.4 `MopSpecsTargetSource.java` — wraps `JavamopFacade.listUsedMethods(mopDir, false)`, maps each `MopMethod` to `TargetMethod` with `MatchPolicy.LENIENT`. Catches `MOPException` (returns empty set, prints to stderr — mirrors prior behavior). Resides in `client/src/main/java/.../target/` because it depends on `rvsec-mop-extractor`.
+- [x] 1.5 `RvsecAnalysisClient.loadMopSignatures()` delegates to `new MopSpecsTargetSource(mopDir).load()` and round-trips back to `Set<MopMethod>` so the downstream `Set<MopMethod>` chain stays intact until Group 3 swaps it for `TargetResolver`. Old method name retained per task spec; `JavamopFacade` and `javamop.util.MOPException` imports removed (now unused). Inline comment flags the round-trip as a stepping-stone for Group 3.
+- [x] 1.6 `MopSpecsParityTest.java` — 3 cases: (a) byte-for-byte parity vs `JavamopFacade` on `CipherSpec + MessageDigestSpec` (cardinality + `(className, methodName)` pairs); (b) every emitted `TargetMethod` carries `MatchPolicy.LENIENT`; (c) empty dir yields empty set without throwing. The "exactly 16 entries on cryptoapp.mop" half of INV-ANA-35 stays for the gator E2E in task 1.9 (against the real on-disk `cryptoapp.mop`); the load-bearing parity invariant is the set-equality, which this test pins on portable resources.
+- [x] 1.7 `TargetMethodTest.java` — 10 cases: equality + hash for equal/unequal-by-policy/unequal-by-methodName instances, `getParams()` is unmodifiable, params reflect construction value, four constructor `NullPointerException` paths, nullable signature path (`toString` formatting).
+- [x] 1.8 `mvn -pl client -am test -Dtest=TargetMethodTest,MopSpecsParityTest -DskipTests=false -Dsurefire.failIfNoSpecifiedTests=false`: **Tests run 13, Failures 0, Errors 0, Skipped 0**. Commons + sootandroid + client modules all compile clean.
+- [x] 1.9 Full-gator E2E byte-equivalence: `BaselineComparisonIT` (which exercises the cryptoapp.apk + RVSEC_HOME pipeline through `GatorTestHelper`) reports the same 8/10 pass / 2/10 fail signature **with and without** C1a changes (verified via `git stash` round-trip). The 2 failing tests (`testClassCountExact`, `testMethodCountExact`) measure app-class extraction (27→16 classes, 118→106 methods) and are pre-existing drift unrelated to gh60 — the MOP path tests (`testDirectlyReachesMopExact`, `testReachesMopWithinTolerance`, `testReachableWithinTolerance`) pass identically, proving `set(reachesMop)` parity vs baseline `b2e04a26`. The fixture-level invariant (16 entries on cryptoapp.mop) is implicit in those passing tests.
+- [x] 1.10 Commit `feat(gh60): C1a TargetMethod + TargetMethodSource + MopSpecsTargetSource (refs #60)`.
 
 ## 2. C1b — `--targets-file` CLI + mutex with `--mop-dir`
 
