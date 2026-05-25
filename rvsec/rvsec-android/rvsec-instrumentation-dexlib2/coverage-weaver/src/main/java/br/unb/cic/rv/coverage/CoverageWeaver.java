@@ -74,9 +74,23 @@ public final class CoverageWeaver {
             List.of(COVERAGE_DESCRIPTOR),
             "V");
 
-    /** Callback the caller supplies to expose mutable implementations. */
+    /**
+     * Callback the caller supplies to expose mutable implementations.
+     *
+     * <p>{@link #replaceImpl(Method, MutableMethodImplementation)} is the
+     * companion update hook used by {@code injectLogCall} when
+     * {@code RegisterShifter.spillLowRegisters} returns a fresh MMI to
+     * grow the register frame. The caller MUST notify the supplier so
+     * subsequent {@link #forMethod} lookups return the new MMI; otherwise
+     * the serialised dex would drop the frame growth and the injected
+     * {@code invoke-static} (gh59 5-APK {@code VerifyError} residual,
+     * design.md D5). Default no-op for in-process test suppliers; the
+     * canonical implementation lives in {@code DexFileMutator.replaceImpl}.
+     */
     public interface MutableImplSupplier {
         MutableMethodImplementation forMethod(Method method);
+
+        default void replaceImpl(Method method, MutableMethodImplementation newImpl) { }
     }
 
     public CoverageReport weave(DexFile dexFile, MutableImplSupplier mutableSupplier) {

@@ -503,9 +503,26 @@ public final class DexWeaver {
         }
     }
 
-    /** Callback that returns a mutable view of the method's implementation. */
+    /**
+     * Callback that returns a mutable view of the method's implementation.
+     *
+     * <p>{@link #replaceImpl(Method, MutableMethodImplementation)} is the
+     * companion update hook used by frame-growth operations
+     * ({@code RegisterShifter.bumpRegisterCount} /
+     * {@code spillLowRegisters}) — after they allocate a fresh MMI to grow
+     * the register frame, the caller MUST notify the supplier so subsequent
+     * {@link #forMethod} lookups return the new MMI (otherwise the serialised
+     * dex would drop the frame growth and any instructions injected onto the
+     * new MMI; gh59 5-APK {@code VerifyError} residual, design.md D5).
+     *
+     * <p>Default no-op: in-process test suppliers (per-fixture maps with no
+     * frame growth) do not need to override. The canonical implementation
+     * lives in {@code DexFileMutator.replaceImpl}.
+     */
     public interface MutableImplSupplier {
         MutableMethodImplementation forMethod(Method method);
+
+        default void replaceImpl(Method method, MutableMethodImplementation newImpl) { }
     }
 
     /** Cached parsing; identical expressions across advices are rare but cheap to cache. */

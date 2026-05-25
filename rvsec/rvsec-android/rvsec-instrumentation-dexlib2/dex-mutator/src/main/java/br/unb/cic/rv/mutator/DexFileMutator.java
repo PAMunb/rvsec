@@ -79,6 +79,30 @@ public final class DexFileMutator {
         return mut;
     }
 
+    /**
+     * Replace the cached {@link MutableMethodImplementation} for {@code method}
+     * with {@code newImpl}. After this call, every subsequent
+     * {@link #forMethod(Method)} lookup for the same descriptor key returns
+     * {@code newImpl} (object identity), and {@link #toDexFile()} serialises
+     * {@code newImpl} rather than the pre-replacement MMI.
+     *
+     * <p>Required by callers of {@code RegisterShifter.bumpRegisterCount} /
+     * {@code spillLowRegisters}: those operations allocate a fresh MMI to
+     * grow the register frame (the {@code registerCount} field of the source
+     * MMI cannot be mutated through dexlib2's public API). Without this
+     * notification the cache would still point at the pre-spill MMI and the
+     * dex writer would drop both the frame growth and any instructions
+     * injected onto the new MMI — surfacing as install-time {@code VerifyError}
+     * on the device (gh59 5-APK residual). See design.md D5.
+     *
+     * <p>Idempotent — calling {@code replaceImpl} twice with the same arguments
+     * is a no-op after the first call.
+     */
+    public void replaceImpl(Method method, MutableMethodImplementation newImpl) {
+        if (method == null || newImpl == null) return;
+        mutations.put(key(method), newImpl);
+    }
+
     public boolean hasAnyMutations() {
         return !mutations.isEmpty();
     }

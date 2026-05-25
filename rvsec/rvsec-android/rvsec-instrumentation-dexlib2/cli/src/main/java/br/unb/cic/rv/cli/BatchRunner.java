@@ -167,10 +167,28 @@ public final class BatchRunner {
                 DexFile dx = ed.dex;
                 DexFileMutator mutator = new DexFileMutator(dx);
 
+                // Wire BOTH forMethod and replaceImpl into the supplier so the
+                // weaver can update the cache after RegisterShifter spills a
+                // method (gh61 INV-INS-87 / design.md D5). The previous
+                // mutator::forMethod method-reference only overrode forMethod
+                // and silently lost the cache update.
+                DexWeaver.MutableImplSupplier weaverSupplier = new DexWeaver.MutableImplSupplier() {
+                    @Override
+                    public com.android.tools.smali.dexlib2.builder.MutableMethodImplementation forMethod(
+                            com.android.tools.smali.dexlib2.iface.Method m) {
+                        return mutator.forMethod(m);
+                    }
+                    @Override
+                    public void replaceImpl(com.android.tools.smali.dexlib2.iface.Method m,
+                            com.android.tools.smali.dexlib2.builder.MutableMethodImplementation impl) {
+                        mutator.replaceImpl(m, impl);
+                    }
+                };
+
                 // 4a. Advice weave (counts also accumulate the read-side stats
                 // matchesApplied = matches that produced an emit + injection).
                 DexWeaver.WeaveReport wr = weaver.weave(
-                        dx, descriptor, typeResolver, inheritance, mutator::forMethod);
+                        dx, descriptor, typeResolver, inheritance, weaverSupplier);
                 matchesApplied += wr.matchesApplied();
                 plansSkipped += wr.plansSkipped();
                 plansSkippedAliasing += wr.plansSkippedAliasing();
@@ -187,10 +205,24 @@ public final class BatchRunner {
                 classesSeen += wr.classesSeen();
                 methodsSeen += wr.methodsSeen();
 
-                // 4b. Coverage weave (optional).
+                // 4b. Coverage weave (optional). Same wiring concern as the
+                // advice weaver above — replaceImpl MUST be plumbed through
+                // for spill-induced MMI replacements to persist.
                 if (coverageWeaver != null) {
+                    CoverageWeaver.MutableImplSupplier covSupplier = new CoverageWeaver.MutableImplSupplier() {
+                        @Override
+                        public com.android.tools.smali.dexlib2.builder.MutableMethodImplementation forMethod(
+                                com.android.tools.smali.dexlib2.iface.Method m) {
+                            return mutator.forMethod(m);
+                        }
+                        @Override
+                        public void replaceImpl(com.android.tools.smali.dexlib2.iface.Method m,
+                                com.android.tools.smali.dexlib2.builder.MutableMethodImplementation impl) {
+                            mutator.replaceImpl(m, impl);
+                        }
+                    };
                     CoverageWeaver.CoverageReport cr =
-                            coverageWeaver.weave(dx, mutator::forMethod);
+                            coverageWeaver.weave(dx, covSupplier);
                     coverageInstrumented += cr.methodsInstrumented();
                     coverageSpillFailed += cr.methodsSpillFailed();
                 }
