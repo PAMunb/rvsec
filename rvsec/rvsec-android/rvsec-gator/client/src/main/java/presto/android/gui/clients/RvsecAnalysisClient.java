@@ -138,17 +138,23 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				new presto.android.gui.clients.reach.ReachabilityEngine(
 						output, appClasses, targetMethods).run();
 
-		// Legacy aliases preserved until Group 6 (C1f) renames the JSON keys
-		// and the writeJson helper signature in lockstep.
-		Set<SootMethod> reachableSet = new HashSet<>(index.reachableMethods());
-		Set<SootMethod> reachesMopSet = new HashSet<>(index.reachesTargetMethods());
-		Set<SootMethod> directMopSet = new HashSet<>(index.directlyReachesTargetMethods());
-
-		// 5. Write JSON with reachability FIRST (survives timeout during WTG)
+		// 4. Build the per-node enricher. The inline writer consults it for
+		//    each method/widget/transition/component rather than reading the
+		//    raw ReachabilityIndex — C1e enforces this as INV-ANA-30 (the
+		//    writer's purity gate) and C3 fills in widget/transition payloads
+		//    without modifying the writer.
 		SootClass mainActivity = output.getMainActivity();
 		String appPackage = output.getAppPackageName();
+		presto.android.gui.clients.reach.ReachabilityEnricher enricher =
+				new presto.android.gui.clients.reach.ReachabilityEnricher(
+						index,
+						appPackage,
+						codePackage,
+						mainActivity != null ? mainActivity.getName() : null);
+
+		// 5. Write JSON with reachability FIRST (survives timeout during WTG)
 		writeJson(outputPath, appPackage, mainActivity, appClasses, output,
-				reachableSet, reachesMopSet, directMopSet, null, new HashMap<>());
+				enricher, null, new HashMap<>());
 		System.out.println("[RvsecAnalysisClient] Reachability JSON written (WTG pending): " + outputPath);
 
 		// 6. Build WTG (may timeout on complex APKs — reachability already saved).
@@ -174,7 +180,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 			// 7. Rewrite JSON with full data (reachability + WTG)
 			writeJson(outputPath, appPackage, mainActivity, appClasses, output,
-					reachableSet, reachesMopSet, directMopSet, wtg, windowNodeIds);
+					enricher, wtg, windowNodeIds);
 		} catch (Exception e) {
 			System.out.println("[RvsecAnalysisClient] WTG construction failed: " + e.getMessage()
 					+ " — JSON already contains reachability data");
@@ -1227,9 +1233,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			SootClass mainActivity,
 			Map<SootClass, List<SootMethod>> appClasses,
 			GUIAnalysisOutput output,
-			Set<SootMethod> reachableSet,
-			Set<SootMethod> reachesMopSet,
-			Set<SootMethod> directMopSet,
+			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
 			WTG wtg,
 			Map<String, Integer> windowNodeIds) {
 
@@ -1243,7 +1247,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 			// Section 1: reachability (coverage denominator — most critical)
 			w.name("reachability");
-			writeReachability(w, appClasses, output, reachableSet, reachesMopSet, directMopSet);
+			writeReachability(w, appClasses, output, enricher);
 			w.flush();
 
 			// Section 2: windows. Widget data (activities, dialogs, options-menu
@@ -1273,7 +1277,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 			// Section 4: components (activities, services, receivers, providers)
 			w.name("components");
-			writeComponents(w, reachesMopSet, output.getActivities(), mainActivity);
+			writeComponents(w, enricher, output.getActivities(), mainActivity);
 			w.flush();
 
 			w.endObject();
@@ -1287,9 +1291,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			JsonWriter w,
 			Map<SootClass, List<SootMethod>> appClasses,
 			GUIAnalysisOutput output,
-			Set<SootMethod> reachableSet,
-			Set<SootMethod> reachesMopSet,
-			Set<SootMethod> directMopSet) throws IOException {
+			presto.android.gui.clients.reach.ReachabilityEnricher enricher) throws IOException {
 
 		Set<SootClass> activities = output.getActivities();
 		SootClass mainActivity = output.getMainActivity();
@@ -1329,9 +1331,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				w.beginObject();
 				w.name("name").value(method.getName());
 				w.name("signature").value(method.getSignature());
-				w.name("reachable").value(reachableSet.contains(method));
-				w.name("reachesMop").value(reachesMopSet.contains(method));
-				w.name("directlyReachesMop").value(directMopSet.contains(method));
+				// Per-method reachability comes from the enricher — the writer
+				// itself never touches ReachabilityIndex (gateway for the
+				// INV-ANA-30 purity gate that lands fully in C1e).
+				Map<String, Object> ann = enricher.enrichMethod(method);
+				w.name("reachable").value((Boolean) ann.get("reachable"));
+				w.name("reachesMop").value((Boolean) ann.get("reachesMop"));
+				w.name("directlyReachesMop").value((Boolean) ann.get("directlyReachesMop"));
 				w.endObject();
 			}
 			w.endArray();
@@ -1406,7 +1412,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.endObject();
 	}
 
-	private void writeComponents(JsonWriter w, Set<SootMethod> reachesMopSet,
+	private void writeComponents(JsonWriter w,
+			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
 			Set<SootClass> activities, SootClass mainActivity) throws IOException {
 		XMLParser xmlParser = XMLParser.Factory.getXMLParser();
 		Map<String, Set<IntentFilter>> allFilters = IntentFilterManager.v().getAllFilters();
@@ -1419,7 +1426,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		for (SootClass activity : activities) {
 			String className = activity.getName();
 			boolean isMain = activity.equals(mainActivity);
-			writeComponentEntry(w, className, activity, allFilters, reachesMopSet, xmlParser,
+			writeComponentEntry(w, className, activity, allFilters, enricher, xmlParser,
 					new String[]{"onCreate", "onStart", "onResume", "onPause", "onStop", "onDestroy", "onRestart"}, isMain);
 		}
 		w.endArray();
@@ -1430,7 +1437,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		for (Iterator<String> it = xmlParser.getReceivers(); it.hasNext(); ) {
 			String className = it.next();
 			SootClass sc = Scene.v().getSootClassUnsafe(className);
-			writeComponentEntry(w, className, sc, allFilters, reachesMopSet, xmlParser,
+			writeComponentEntry(w, className, sc, allFilters, enricher, xmlParser,
 					new String[]{"onReceive"}, false);
 		}
 		w.endArray();
@@ -1441,7 +1448,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		for (Iterator<String> it = xmlParser.getServices(); it.hasNext(); ) {
 			String className = it.next();
 			SootClass sc = Scene.v().getSootClassUnsafe(className);
-			writeComponentEntry(w, className, sc, allFilters, reachesMopSet, xmlParser,
+			writeComponentEntry(w, className, sc, allFilters, enricher, xmlParser,
 					new String[]{"onCreate", "onStartCommand", "onBind", "onUnbind", "onRebind", "onDestroy", "onHandleIntent"}, false);
 		}
 		w.endArray();
@@ -1452,7 +1459,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		for (Iterator<String> it = xmlParser.getProviders(); it.hasNext(); ) {
 			String className = it.next();
 			SootClass sc = Scene.v().getSootClassUnsafe(className);
-			writeProviderEntry(w, className, sc, reachesMopSet, xmlParser,
+			writeProviderEntry(w, className, sc, enricher, xmlParser,
 					new String[]{"onCreate", "query", "insert", "update", "delete", "call", "openFile"});
 		}
 		w.endArray();
@@ -1461,7 +1468,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	}
 
 	private void writeComponentEntry(JsonWriter w, String className, SootClass sc,
-			Map<String, Set<IntentFilter>> allFilters, Set<SootMethod> reachesMopSet,
+			Map<String, Set<IntentFilter>> allFilters,
+			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
 			XMLParser xmlParser, String[] lifecycleMethodNames, boolean isMain) throws IOException {
 		if (sc == null) return;
 
@@ -1495,13 +1503,15 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 		w.name("exported").value(xmlParser.isComponentExported(className));
 
-		// MOP reachability
+		// MOP reachability via the enricher — writer never reads
+		// ReachabilityIndex directly (precondition for INV-ANA-30).
 		List<String> mopMethods = new ArrayList<>();
 		boolean reachesMop = false;
 		for (SootMethod m : sc.getMethods()) {
 			String methodName = m.getName();
 			for (String lifecycle : lifecycleMethodNames) {
-				if (methodName.equals(lifecycle) && reachesMopSet.contains(m)) {
+				if (methodName.equals(lifecycle)
+						&& Boolean.TRUE.equals(enricher.enrichMethod(m).get("reachesMop"))) {
 					reachesMop = true;
 					mopMethods.add(m.getSignature());
 				}
@@ -1519,8 +1529,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	}
 
 	private void writeProviderEntry(JsonWriter w, String className, SootClass sc,
-			Set<SootMethod> reachesMopSet, XMLParser xmlParser,
-			String[] lifecycleMethodNames) throws IOException {
+			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
+			XMLParser xmlParser, String[] lifecycleMethodNames) throws IOException {
 		if (sc == null) return;
 
 		w.beginObject();
@@ -1529,13 +1539,14 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.name("authorities").value(xmlParser.getProviderAuthorities(className));
 		w.name("exported").value(xmlParser.isComponentExported(className));
 
-		// MOP reachability
+		// MOP reachability via the enricher (see writeComponentEntry note).
 		List<String> mopMethods = new ArrayList<>();
 		boolean reachesMop = false;
 		for (SootMethod m : sc.getMethods()) {
 			String methodName = m.getName();
 			for (String lifecycle : lifecycleMethodNames) {
-				if (methodName.equals(lifecycle) && reachesMopSet.contains(m)) {
+				if (methodName.equals(lifecycle)
+						&& Boolean.TRUE.equals(enricher.enrichMethod(m).get("reachesMop"))) {
 					reachesMop = true;
 					mopMethods.add(m.getSignature());
 				}
