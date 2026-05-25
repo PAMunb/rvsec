@@ -46,11 +46,81 @@ by code_package to exclude framework code.
 import json
 import os
 import re
+from types import SimpleNamespace
 
 import rv_android_core.constants as constants
 from rv_android_core.domain.classes import Classes, Method
 from rv_android_core.domain.components import ComponentInfo, Components, IntentFilter
 from rv_android_core.domain.static import StaticAnalysisData
+
+
+# JSON key constants mirror — INV-ANA-32.
+#
+# Every key the GATOR writer emits has an entry here, value-for-value identical
+# to ``presto.android.gui.clients.json.JsonSchema.Keys`` on the Java side. The
+# parity test (``tests/parity/json_keys.py`` — gh60 Group 9) compares this dict
+# against ``JsonSchemaKeysDump``'s stdout via subprocess; any divergence
+# surfaces with the offending key on each side. Values still use the gh57 MOP
+# nomenclature ("reachesMop", "directlyReachesMop", "mopMethods") — Group 6
+# (C1f) flips them atomically across producer + this parser + the Pydantic
+# domain models.
+_JK = SimpleNamespace(
+    # Top-level metadata
+    package="package",
+    main_activity="mainActivity",
+    complete="complete",
+    # Top-level sections
+    reachability="reachability",
+    windows="windows",
+    transitions="transitions",
+    components="components",
+    # Reachability section — per-class
+    class_name="className",
+    component_type="componentType",
+    is_main="isMain",
+    methods="methods",
+    # Reachability section — per-method
+    name="name",
+    signature="signature",
+    reachable="reachable",
+    reaches_target="reachesMop",
+    directly_reaches_target="directlyReachesMop",
+    # Windows section
+    id="id",
+    type="type",
+    widgets="widgets",
+    # Widget fields
+    widget_id="widgetId",
+    widget_name="widgetName",
+    widget_class="widgetClass",
+    id_name="idName",
+    text="text",
+    hint="hint",
+    input_type="inputType",
+    entries="entries",
+    prompt="prompt",
+    spinner_mode="spinnerMode",
+    content_description="contentDescription",
+    tooltip_text="tooltipText",
+    listeners="listeners",
+    event_type="eventType",
+    handler="handler",
+    # Transitions section
+    source_id="sourceId",
+    target_id="targetId",
+    events="events",
+    # Components section
+    activities="activities",
+    receivers="receivers",
+    services="services",
+    providers="providers",
+    intent_filters="intentFilters",
+    actions="actions",
+    categories="categories",
+    exported="exported",
+    authorities="authorities",
+    target_methods="mopMethods",
+)
 from rv_android_core.domain.widget import (
     Widget,
     WidgetEvent,
@@ -135,14 +205,22 @@ class StaticAnalysisParser:
         wtg = self._parse_transitions(data, windows)
         components = self._parse_components(data)
 
+        # ADR-6 sentinel — absent or False means the producer did not finish
+        # all sections (timeout, JVM crash, etc.). Downstream gates that
+        # require completeness (G_widget_reachability, G_sweep) read this
+        # flag and exclude incomplete samples. Defaults to False if the key
+        # is missing entirely (older gh57 JSONs).
+        complete = bool(data.get(_JK.complete, False))
+
         self.logger.info(
             f"Parsed: {len(classes.classes)} classes, "
             f"{len(classes.methods)} methods, "
             f"{len(windows.windows)} windows, "
             f"{len(wtg.transitions)} transitions, "
-            f"{sum(len(v) for v in [components.activities, components.receivers, components.services, components.providers])} components"
+            f"{sum(len(v) for v in [components.activities, components.receivers, components.services, components.providers])} components, "
+            f"complete={complete}"
         )
-        return StaticAnalysisData(classes, windows, wtg, components=components)
+        return StaticAnalysisData(classes, windows, wtg, components=components, complete=complete)
 
     def read_static_analysis_files(
         self, results_dir: str, apk: str, package: str
@@ -233,7 +311,7 @@ class StaticAnalysisParser:
             Classes on missing data or parse error.
         """
         try:
-            reachability = data.get("reachability", [])
+            reachability = data.get(_JK.reachability, [])
             if not reachability:
                 self.logger.debug("No reachability data in analysis JSON")
                 return Classes()
@@ -241,7 +319,7 @@ class StaticAnalysisParser:
             classes = Classes()
 
             for cls_data in reachability:
-                class_name = cls_data.get("className", "")
+                class_name = cls_data.get(_JK.class_name, "")
                 # Normalize inner class notation: Outer.Inner -> Outer$Inner.
                 # GATOR already outputs $-notation via SootClass.getName(), but
                 # the normalizer guards against future upstream changes.
@@ -254,13 +332,13 @@ class StaticAnalysisParser:
                 if package and package not in normalized:
                     continue
 
-                component_type = cls_data.get("componentType", None)
-                is_main = cls_data.get("isMain", False)
+                component_type = cls_data.get(_JK.component_type, None)
+                is_main = cls_data.get(_JK.is_main, False)
                 classes.add_clazz(normalized, component_type, is_main)
 
-                for m_data in cls_data.get("methods", []):
-                    signature = m_data.get("signature", "")
-                    method_name = m_data.get("name", "")
+                for m_data in cls_data.get(_JK.methods, []):
+                    signature = m_data.get(_JK.signature, "")
+                    method_name = m_data.get(_JK.name, "")
 
                     # Extract parameter types from Soot signature format:
                     # "<class: retType name(p1,p2)>" -- we need the params list
@@ -272,9 +350,9 @@ class StaticAnalysisParser:
                         name=method_name,
                         params=params,
                         signature=signature,
-                        reachable=m_data.get("reachable", False),
-                        reaches_mop=m_data.get("reachesMop", False),
-                        directly_reaches_mop=m_data.get("directlyReachesMop", False),
+                        reachable=m_data.get(_JK.reachable, False),
+                        reaches_mop=m_data.get(_JK.reaches_target, False),
+                        directly_reaches_mop=m_data.get(_JK.directly_reaches_target, False),
                     )
                     classes.add_method(method)
 
@@ -302,7 +380,7 @@ class StaticAnalysisParser:
             Windows on missing data or parse error.
         """
         try:
-            windows_data = data.get("windows", [])
+            windows_data = data.get(_JK.windows, [])
             if not windows_data:
                 self.logger.debug("No windows data in analysis JSON")
                 return Windows()
@@ -310,13 +388,13 @@ class StaticAnalysisParser:
             windows = Windows()
 
             for w_data in windows_data:
-                window_name = w_data.get("name", "")
+                window_name = w_data.get(_JK.name, "")
                 normalized_name = self.normalizer.normalize_class_name(window_name)
 
                 # Only ACTIVITY windows are filtered by code_package. DIALOGs,
                 # OPTIONSMENUs, and other window types are kept regardless of package
                 # because they can be system-provided overlays triggered by app code.
-                w_type_str = w_data.get("type", "ACTIVITY")
+                w_type_str = w_data.get(_JK.type, "ACTIVITY")
                 if (
                     w_type_str == "ACTIVITY"
                     and package
@@ -327,8 +405,8 @@ class StaticAnalysisParser:
                 # Map window type
                 window_type = self._map_window_type(w_type_str)
 
-                window_id = str(w_data.get("id", ""))
-                is_main = w_data.get("isMain", False)
+                window_id = str(w_data.get(_JK.id, ""))
+                is_main = w_data.get(_JK.is_main, False)
 
                 window = Window(
                     name=normalized_name,
@@ -341,7 +419,7 @@ class StaticAnalysisParser:
                 )
 
                 # Parse widgets
-                for wgt_data in w_data.get("widgets", []):
+                for wgt_data in w_data.get(_JK.widgets, []):
                     widget = self._parse_widget(wgt_data, normalized_name)
                     if widget:
                         window.add_widget(widget)
@@ -372,29 +450,29 @@ class StaticAnalysisParser:
             Widget with parsed events, or None on parse error.
         """
         try:
-            widget_id = str(wgt_data.get("id", ""))
-            id_name = wgt_data.get("idName", "")
-            widget_class = wgt_data.get("type", "")
+            widget_id = str(wgt_data.get(_JK.id, ""))
+            id_name = wgt_data.get(_JK.id_name, "")
+            widget_class = wgt_data.get(_JK.type, "")
             widget_type = WidgetType.from_class_name(widget_class)
 
             widget = Widget(
                 id=widget_id,
                 name=id_name,
                 type=widget_type,
-                text=wgt_data.get("text", ""),
-                hint=wgt_data.get("hint", ""),
-                input_type=wgt_data.get("inputType", ""),
+                text=wgt_data.get(_JK.text, ""),
+                hint=wgt_data.get(_JK.hint, ""),
+                input_type=wgt_data.get(_JK.input_type, ""),
                 class_name=widget_class,
-                entries=wgt_data.get("entries", []),
+                entries=wgt_data.get(_JK.entries, []),
                 # gh57 Group 3: XML widget attributes — None when absent
-                prompt=wgt_data.get("prompt"),
-                spinner_mode=wgt_data.get("spinnerMode"),
-                content_description=wgt_data.get("contentDescription"),
-                tooltip_text=wgt_data.get("tooltipText"),
+                prompt=wgt_data.get(_JK.prompt),
+                spinner_mode=wgt_data.get(_JK.spinner_mode),
+                content_description=wgt_data.get(_JK.content_description),
+                tooltip_text=wgt_data.get(_JK.tooltip_text),
             )
 
             # Parse listeners into WidgetEvents
-            for listener in wgt_data.get("listeners", []):
+            for listener in wgt_data.get(_JK.listeners, []):
                 event = self._parse_listener(listener, window_name)
                 if event:
                     widget.add_event(event)
@@ -419,14 +497,14 @@ class StaticAnalysisParser:
             WidgetEvent with type, class, method, and signature, or
             None if the event type is unmapped or handler is missing.
         """
-        event_type_str = listener.get("eventType", "")
+        event_type_str = listener.get(_JK.event_type, "")
         event_type = _EVENT_TYPE_MAP.get(event_type_str)
 
         # Exclude unmapped event types (OTHER MUST be excluded)
         if event_type is None:
             return None
 
-        handler = listener.get("handler", "")
+        handler = listener.get(_JK.handler, "")
         if not handler:
             return None
 
@@ -458,7 +536,7 @@ class StaticAnalysisParser:
             graph on missing data or parse error.
         """
         try:
-            transitions_data = data.get("transitions", [])
+            transitions_data = data.get(_JK.transitions, [])
             if not transitions_data:
                 self.logger.debug("No transitions data in analysis JSON")
                 return WindowTransitionGraph()
@@ -466,8 +544,8 @@ class StaticAnalysisParser:
             wtg = WindowTransitionGraph()
 
             for t_data in transitions_data:
-                source_id = str(t_data.get("sourceId", ""))
-                target_id = str(t_data.get("targetId", ""))
+                source_id = str(t_data.get(_JK.source_id, ""))
+                target_id = str(t_data.get(_JK.target_id, ""))
 
                 source_window = windows.get_window_by_id(source_id)
                 target_window = windows.get_window_by_id(target_id)
@@ -480,11 +558,11 @@ class StaticAnalysisParser:
                     continue
 
                 events = []
-                for evt_data in t_data.get("events", []):
-                    handler = evt_data.get("handler", "")
-                    widget_id = str(evt_data.get("widgetId", ""))
-                    widget_class = evt_data.get("widgetClass", "")
-                    widget_name = evt_data.get("widgetName", "")
+                for evt_data in t_data.get(_JK.events, []):
+                    handler = evt_data.get(_JK.handler, "")
+                    widget_id = str(evt_data.get(_JK.widget_id, ""))
+                    widget_class = evt_data.get(_JK.widget_class, "")
+                    widget_name = evt_data.get(_JK.widget_name, "")
 
                     # Widget back-fill: GATOR may reference widgets in transitions
                     # that were not listed in the window's widget array (e.g., widgets
@@ -505,7 +583,7 @@ class StaticAnalysisParser:
                     # GATOR JSON uses "type" for transition events but "eventType" for
                     # widget listeners -- inconsistent naming from the Java client.
                     # Default to CLICK because most transitions are click-triggered.
-                    event_type_str = evt_data.get("type", "click")
+                    event_type_str = evt_data.get(_JK.type, "click")
                     event_type = _EVENT_TYPE_MAP.get(
                         event_type_str, WidgetEventType.CLICK
                     )
@@ -561,14 +639,14 @@ class StaticAnalysisParser:
         for entry in entries:
             result.append(
                 ComponentInfo(
-                    class_name=entry.get("className", ""),
+                    class_name=entry.get(_JK.class_name, ""),
                     component_type=component_type,
-                    is_main=entry.get("isMain", False),
+                    is_main=entry.get(_JK.is_main, False),
                     intent_filters=self._parse_intent_filters(
                         entry.get("intentFilters", [])
                     ),
                     exported=entry.get("exported", False),
-                    reaches_mop=entry.get("reachesMop", False),
+                    reaches_mop=entry.get(_JK.reaches_target, False),
                     mop_methods=entry.get("mopMethods", []),
                 )
             )
@@ -587,12 +665,12 @@ class StaticAnalysisParser:
         for entry in entries:
             result.append(
                 ComponentInfo(
-                    class_name=entry.get("className", ""),
+                    class_name=entry.get(_JK.class_name, ""),
                     component_type="provider",
                     is_main=False,  # Providers are never the main component
                     authorities=entry.get("authorities"),
                     exported=entry.get("exported", False),
-                    reaches_mop=entry.get("reachesMop", False),
+                    reaches_mop=entry.get(_JK.reaches_target, False),
                     mop_methods=entry.get("mopMethods", []),
                 )
             )
@@ -613,22 +691,22 @@ class StaticAnalysisParser:
             providers, or empty Components on missing data or parse error.
         """
         try:
-            components_data = data.get("components")
+            components_data = data.get(_JK.components)
             if not components_data:
                 return Components()
 
             return Components(
                 activities=self._parse_component_list(
-                    components_data.get("activities", []), "activity"
+                    components_data.get(_JK.activities, []), "activity"
                 ),
                 receivers=self._parse_component_list(
-                    components_data.get("receivers", []), "receiver"
+                    components_data.get(_JK.receivers, []), "receiver"
                 ),
                 services=self._parse_component_list(
-                    components_data.get("services", []), "service"
+                    components_data.get(_JK.services, []), "service"
                 ),
                 providers=self._parse_provider_list(
-                    components_data.get("providers", [])
+                    components_data.get(_JK.providers, [])
                 ),
             )
         except Exception as e:

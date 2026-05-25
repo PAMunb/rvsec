@@ -152,9 +152,25 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 						codePackage,
 						mainActivity != null ? mainActivity.getName() : null);
 
-		// 5. Write JSON with reachability FIRST (survives timeout during WTG)
-		writeJson(outputPath, appPackage, mainActivity, appClasses, output,
-				enricher, null, new HashMap<>());
+		// 5. Write JSON with reachability FIRST (survives timeout during WTG).
+		//    Note: the pre-WTG write does NOT emit the sentinel as the final
+		//    line because JsonReportWriter.write() emits it at the end of a
+		//    successful run; the second write (post-WTG) overwrites the file
+		//    and emits the sentinel then. If the WTG path times out, the
+		//    file on disk is the post-pre-WTG version: complete JSON missing
+		//    only windows[]/transitions[] in their post-WTG enriched form,
+		//    with NO sentinel — which is exactly the "complete-and-empty"
+		//    case the gh57 sweep showed at 78.8% (see Phase-1 task-zero verdict).
+		presto.android.gui.clients.json.JsonReportWriter writer =
+				new presto.android.gui.clients.json.JsonReportWriter(enricher);
+		try {
+			List<Map<String, Object>> preWtgWindows = prepareWindows(output, new HashMap<>(), null);
+			writer.write(outputPath, appPackage, mainActivity, appClasses, output,
+					preWtgWindows, null);
+		} catch (IOException e) {
+			System.err.println("[RvsecAnalysisClient] ERROR writing pre-WTG JSON: " + e.getMessage());
+			e.printStackTrace();
+		}
 		System.out.println("[RvsecAnalysisClient] Reachability JSON written (WTG pending): " + outputPath);
 
 		// 6. Build WTG (may timeout on complex APKs — reachability already saved).
@@ -178,9 +194,12 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				windowNodeIds.put(win.getClassType().getName(), win.id);
 			}
 
-			// 7. Rewrite JSON with full data (reachability + WTG)
-			writeJson(outputPath, appPackage, mainActivity, appClasses, output,
-					enricher, wtg, windowNodeIds);
+			// 7. Rewrite JSON with full data (reachability + WTG). This
+			//    overwrites the pre-WTG file and ends with the "complete":true
+			//    sentinel after fsync, signaling success to the parser.
+			List<Map<String, Object>> postWtgWindows = prepareWindows(output, windowNodeIds, wtg);
+			writer.write(outputPath, appPackage, mainActivity, appClasses, output,
+					postWtgWindows, wtg);
 		} catch (Exception e) {
 			System.out.println("[RvsecAnalysisClient] WTG construction failed: " + e.getMessage()
 					+ " — JSON already contains reachability data");
@@ -1227,67 +1246,31 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// JSON Output with JsonWriter (incremental flush)
 	// ========================================================================
 
-	private void writeJson(
-			String outputPath,
-			String appPackage,
-			SootClass mainActivity,
-			Map<SootClass, List<SootMethod>> appClasses,
+	/**
+	 * Prepare the windows[] section: extract widget data from the
+	 * {@link GUIAnalysisOutput}, enrich with XML attributes, and union
+	 * the programmatic Spinner items. The result is what
+	 * {@link JsonReportWriter} emits as the {@code windows} section.
+	 *
+	 * <p>Called twice per analysis (once pre-WTG to populate the partial
+	 * JSON that survives a WTG-phase timeout, once post-WTG with the
+	 * full data). This is the only non-emission piece that used to live
+	 * inside the old {@code writeJson}; it stays on the client because
+	 * it consumes GATOR's internal data prep helpers (extractWindows,
+	 * enrichFromXml, unionProgrammaticSpinnerItems) and there is no
+	 * value in re-homing them in C1e.
+	 */
+	private List<Map<String, Object>> prepareWindows(
 			GUIAnalysisOutput output,
-			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
-			WTG wtg,
-			Map<String, Integer> windowNodeIds) {
-
-		try (JsonWriter w = new JsonWriter(new FileWriter(outputPath))) {
-			w.setIndent("  ");
-			w.beginObject();
-
-			w.name("package").value(appPackage != null ? appPackage : "");
-			w.name("mainActivity").value(
-					mainActivity != null ? mainActivity.getName() : "");
-
-			// Section 1: reachability (coverage denominator — most critical)
-			w.name("reachability");
-			writeReachability(w, appClasses, output, enricher);
-			w.flush();
-
-			// Section 2: windows. Widget data (activities, dialogs, options-menu
-			// items, listeners, text/hint, inputType, entries) is produced by the
-			// wjtp.gui transformer before run() is invoked, so it is available
-			// whether or not the WTG build completed. Populate windows[] on both
-			// paths; only the WTG-only catch-all (fragments, context menus seen
-			// solely through wtg.getNodes()) is gated on wtg != null.
-			w.name("windows");
-			List<Map<String, Object>> windows = extractWindows(
-					output, windowNodeIds, wtg);
-			enrichFromXml(windows);
-			unionProgrammaticSpinnerItems(windows);
-			writeWindows(w, windows);
-			w.flush();
-
-			// Section 3: transitions (requires WTG)
-			if (wtg != null) {
-				w.name("transitions");
-				writeTransitions(w, wtg);
-				w.flush();
-			} else {
-				w.name("transitions");
-				w.beginArray().endArray();
-				w.flush();
-			}
-
-			// Section 4: components (activities, services, receivers, providers)
-			w.name("components");
-			writeComponents(w, enricher, output.getActivities(), mainActivity);
-			w.flush();
-
-			w.endObject();
-		} catch (IOException e) {
-			System.err.println("[RvsecAnalysisClient] ERROR writing JSON: " + e.getMessage());
-			e.printStackTrace();
-		}
+			Map<String, Integer> windowNodeIds,
+			WTG wtg) {
+		List<Map<String, Object>> windows = extractWindows(output, windowNodeIds, wtg);
+		enrichFromXml(windows);
+		unionProgrammaticSpinnerItems(windows);
+		return windows;
 	}
 
-	private void writeReachability(
+	public static void writeReachabilitySection(
 			JsonWriter w,
 			Map<SootClass, List<SootMethod>> appClasses,
 			GUIAnalysisOutput output,
@@ -1347,7 +1330,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.endArray();
 	}
 
-	private void writeWindows(JsonWriter w, List<Map<String, Object>> windows) throws IOException {
+	public static void writeWindowsSection(JsonWriter w, List<Map<String, Object>> windows) throws IOException {
 		w.beginArray();
 		for (Map<String, Object> window : windows) {
 			w.beginObject();
@@ -1370,7 +1353,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.endArray();
 	}
 
-	private void writeWidget(JsonWriter w, Map<String, Object> widget) throws IOException {
+	private static void writeWidget(JsonWriter w, Map<String, Object> widget) throws IOException {
 		w.beginObject();
 		w.name("id").value((int) widget.get("id"));
 		w.name("idName").value((String) widget.get("idName"));
@@ -1412,7 +1395,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.endObject();
 	}
 
-	private void writeComponents(JsonWriter w,
+	public static void writeComponentsSection(JsonWriter w,
 			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
 			Set<SootClass> activities, SootClass mainActivity) throws IOException {
 		XMLParser xmlParser = XMLParser.Factory.getXMLParser();
@@ -1467,7 +1450,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.endObject();
 	}
 
-	private void writeComponentEntry(JsonWriter w, String className, SootClass sc,
+	private static void writeComponentEntry(JsonWriter w, String className, SootClass sc,
 			Map<String, Set<IntentFilter>> allFilters,
 			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
 			XMLParser xmlParser, String[] lifecycleMethodNames, boolean isMain) throws IOException {
@@ -1528,7 +1511,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.endObject();
 	}
 
-	private void writeProviderEntry(JsonWriter w, String className, SootClass sc,
+	private static void writeProviderEntry(JsonWriter w, String className, SootClass sc,
 			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
 			XMLParser xmlParser, String[] lifecycleMethodNames) throws IOException {
 		if (sc == null) return;
@@ -1563,12 +1546,12 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.endObject();
 	}
 
-	private boolean isGatorStubNode(NObjectNode node) {
+	private static boolean isGatorStubNode(NObjectNode node) {
 		String className = node.getClassType().getName();
 		return className.startsWith("presto.android.gui.stubs.");
 	}
 
-	private void writeTransitions(JsonWriter w, WTG wtg) throws IOException {
+	public static void writeTransitionsSection(JsonWriter w, WTG wtg) throws IOException {
 		w.beginArray();
 		for (WTGNode node : wtg.getNodes()) {
 			NObjectNode sourceWindow = node.getWindow();
