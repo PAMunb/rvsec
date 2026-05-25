@@ -423,7 +423,16 @@ public final class DexWeaver {
                             continue;
                         }
                         if (mutCached == null) mutCached = mut;
-                        allocator.allocate(mut, plan.registers());
+                        RegisterAllocation alloc = allocator.allocate(mut, plan.registers());
+                        if (alloc.newImpl() != null) {
+                            // Frame growth via clone returned a fresh MMI;
+                            // swap the local + cached refs and notify the
+                            // supplier so subsequent forMethod lookups see
+                            // the post-spill MMI (gh61 INV-INS-87 / D5).
+                            mut = alloc.newImpl();
+                            mutCached = mut;
+                            mutableSupplier.replaceImpl(method, mut);
+                        }
                         applyPlan(mut, idx, plan);
                         matchesApplied++;
                     }

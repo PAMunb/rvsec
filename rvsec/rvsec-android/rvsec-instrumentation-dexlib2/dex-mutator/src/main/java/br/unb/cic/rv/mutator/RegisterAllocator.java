@@ -33,15 +33,16 @@ public final class RegisterAllocator {
         }
         int delta = request.scratchCount();
         int oldCount = impl.getRegisterCount();
-        // Bump the registerCount so scratch registers occupy the newly-added
-        // high-indexed slots. Per-instruction shifting (rewriting refs to
-        // existing registers when the shift threshold is non-zero) is handled
-        // by the DexWeaver's post-allocation pass — here we only grow the
-        // register space. Growing registers alone never breaks existing
-        // instructions: the old registers keep their indices.
-        RegisterShifter.bumpRegisterCount(impl, delta);
+        // Grow the register frame by allocating a fresh MMI via the
+        // RegisterShifter clone path. The newly-added slots end up at the
+        // high-indexed end; existing register references keep their indices
+        // unchanged (this allocator only grows; shifting refs to make room
+        // at the low end is spillLowRegisters' job). The caller MUST replace
+        // its reference to impl with newImpl and notify its
+        // MutableImplSupplier — see RegisterAllocation javadoc.
+        MutableMethodImplementation newImpl = RegisterShifter.bumpRegisterCount(impl, delta);
         List<Integer> scratch = new ArrayList<>(delta);
         for (int i = 0; i < delta; i++) scratch.add(oldCount + i);
-        return new RegisterAllocation(scratch, delta);
+        return new RegisterAllocation(scratch, delta, newImpl);
     }
 }

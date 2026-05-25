@@ -25,11 +25,19 @@ class RegisterAllocatorTest {
 
     @Test
     void scratchAllocationBumpsRegisterCountAndReturnsHighIndices() {
+        // gh61: allocate() now returns a FRESH MMI (clone path) — the source
+        // MMI's registerCount is unchanged; the new one carries the grown
+        // frame. Caller MUST consume allocation.newImpl() and notify its
+        // supplier (see RegisterAllocation javadoc / design.md D5).
         MutableMethodImplementation impl = new MutableMethodImplementation(4);
         RegisterAllocation allocation = new RegisterAllocator()
                 .allocate(impl, RegisterRequest.scratch(2));
-        assertEquals(6, impl.getRegisterCount(),
-                "registerCount must grow by scratchCount");
+        assertNotNull(allocation.newImpl(),
+                "non-zero allocation MUST carry the cloned MMI");
+        assertEquals(6, allocation.newImpl().getRegisterCount(),
+                "newImpl.registerCount must equal oldCount + scratchCount");
+        assertEquals(4, impl.getRegisterCount(),
+                "source MMI is unchanged (clone path) — caller swaps the ref");
         assertEquals(2, allocation.scratch().size());
         assertEquals(4, allocation.scratch().get(0), "first scratch at old-count");
         assertEquals(5, allocation.scratch().get(1));

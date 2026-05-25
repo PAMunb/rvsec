@@ -117,7 +117,7 @@ public final class CoverageWeaver {
                     methodsSkipped++;
                     continue;
                 }
-                if (!injectLogCall(classDef, method, impl)) {
+                if (!injectLogCall(classDef, method, impl, mutableSupplier)) {
                     methodsSpillFailed++;
                     continue;
                 }
@@ -135,7 +135,8 @@ public final class CoverageWeaver {
      * caller skips the method without aborting the rest of the pass.
      */
     private boolean injectLogCall(ClassDef classDef, Method method,
-                                   MutableMethodImplementation impl) {
+                                   MutableMethodImplementation impl,
+                                   MutableImplSupplier mutableSupplier) {
         String signature = SignatureFormatter.format(classDef, method);
         int paramRegs = MethodUtil.getParameterRegisterCount(method);
         int regCount = impl.getRegisterCount();
@@ -147,7 +148,14 @@ public final class CoverageWeaver {
             // this preserves the calling convention (params slide to the new
             // high slots) and frees v0 for the hook.
             try {
-                br.unb.cic.rv.mutator.RegisterShifter.spillLowRegisters(impl, 1);
+                // spillLowRegisters returns a FRESH MMI now (gh61 clone path).
+                // Re-bind the local reference and notify the supplier so the
+                // per-method cache (DexFileMutator) serialises this MMI rather
+                // than the pre-spill one (INV-INS-87 / design.md D5). Every
+                // subsequent addInstruction call in this method MUST target
+                // the new impl — verified by audit of the remaining body.
+                impl = br.unb.cic.rv.mutator.RegisterShifter.spillLowRegisters(impl, 1);
+                mutableSupplier.replaceImpl(method, impl);
             } catch (RuntimeException ex) {
                 // Spill failed — typically a 4-bit format with both operands
                 // already at v15, or a non-move 12x op. Skip this method; the
