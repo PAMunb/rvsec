@@ -306,6 +306,64 @@ class MonitorInvokeBindingTest {
                 new int[]{6, 7}
         ));
 
+        // ----- gh61 task 2.2: end-to-end wide+narrow composition (matcher↔emitter) -----
+        //
+        // Mirrors the gh59 matcher fixture
+        // `constructorWidePrimitivesInterleavedBindArgumentsByRegisterSlot` —
+        // an `invoke-direct/range {v10..v17}` to a constructor with descriptor
+        // `(LFoo;JZLFoo;J)V` (receiver + 5 user-visible params, 2× long
+        // interleaved with refs / boolean). The Match's argBindings reflect
+        // the matcher's wide-slot-aware cursor (arg01 / arg04 at the LOW half
+        // of each long pair). The advice forwards all 5 args to the monitor;
+        // MonitorInvokeBuilder.expandWideSlots MUST re-pair each J into
+        // contiguous (vN, vN+1) slots in the emitted invoke operand list,
+        // producing a 7-register invoke.
+        {
+            Map<String, Integer> bindings = new LinkedHashMap<>();
+            bindings.put("arg00", 11);
+            bindings.put("arg01", 12);
+            bindings.put("arg02", 14);
+            bindings.put("arg03", 15);
+            bindings.put("arg04", 16);
+            Match m = new Match(bindings, /*receiver=*/ 10, null, /*isConstructor*/ true);
+            list.add(new Scenario(
+                    "gh61-endToEndWideNarrowComposition",
+                    advice("c61", "after",
+                            "call(public Foo.new(Foo, long, boolean, Foo, long)) "
+                                    + "&& args(a, b, c, d, e)",
+                            List.of(new ParameterDescriptor("Foo", "a"),
+                                    new ParameterDescriptor("long", "b"),
+                                    new ParameterDescriptor("boolean", "c"),
+                                    new ParameterDescriptor("Foo", "d"),
+                                    new ParameterDescriptor("long", "e")),
+                            null, null, "c61Event",
+                            List.of("a", "b", "c", "d", "e")),
+                    m,
+                    // Resolver fallback: bare `Foo` resolves to `java.lang.Foo` via
+                    // TypeResolver's last-resort rule (resolveFqn:129). Wide-slot
+                    // expansion behaviour is independent of the chosen owner type.
+                    List.of("Ljava/lang/Foo;", "J", "Z", "Ljava/lang/Foo;", "J"),
+                    new int[]{11, 12, 13, 14, 15, 16, 17}
+            ));
+        }
+
+        // ----- gh61 task 2.3: AfterReturning × static × move-result-wide (double) -----
+        //
+        // Symmetric to the existing AfterReturning-static-wide-return (long).
+        // call(public static double System.someDouble()); $return at v6 (low
+        // half). expandWideSlots MUST forward (v6, v7) in the emitted invoke.
+        list.add(new Scenario(
+                "gh61-AfterReturning-static-wide-return-double",
+                advice("ar61d", "after",
+                        "call(public static double System.someDouble())",
+                        java.util.Collections.emptyList(),
+                        List.of(new ParameterDescriptor("double", "now")),
+                        null, "someDoubleEvent", List.of("now")),
+                staticMatch(/*arg0=*/ -1, /*$return=*/ 6),
+                List.of("D"),
+                new int[]{6, 7}
+        ));
+
         // ----- AfterThrowing × virtual × throwing(name) -----
         // call(public Object Iterator.next()) && target(it). throwing(t)
         // is the catch-handler register (placeholder 0, rewritten by
