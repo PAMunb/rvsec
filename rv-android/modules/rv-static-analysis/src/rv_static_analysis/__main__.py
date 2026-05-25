@@ -97,7 +97,28 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     config_group.add_argument(
         "--android-platforms-dir", help="Android SDK platforms directory"
     )
-    config_group.add_argument("--mop-dir", help="MOP specifications directory")
+    # Target source — exactly one of --mop-dir / --targets-file. The mutex
+    # group is NOT required=True here because rvsec_root layout provides a
+    # default JCA mop_dir when nothing is passed; required-ness lives at the
+    # Pydantic level (RVStaticAnalysisConfig._validate_mop_directory).
+    target_source_group = config_group.add_mutually_exclusive_group()
+    target_source_group.add_argument(
+        "--mop-dir",
+        help=(
+            "JavaMOP specifications directory. Loads target methods via "
+            "MopSpecsTargetSource (LENIENT class+name match). Mutex with "
+            "--targets-file (INV-ANA-33)."
+        ),
+    )
+    target_source_group.add_argument(
+        "--targets-file",
+        help=(
+            "Plain-text file with one Soot signature per line (#-comments and "
+            "blank lines allowed). Loads target methods via "
+            "SignatureFileTargetSource (STRICT per entry; '..' or '*' params "
+            "→ LENIENT for that entry). Mutex with --mop-dir (INV-ANA-33)."
+        ),
+    )
     config_group.add_argument(
         "--working-dir", help="Working directory for temporary files"
     )
@@ -128,6 +149,17 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "false → legacy points-to + CHA fallback path. Default: GATOR's "
         "baked-in (false post-M3 paridade — opt-in to true for apps without "
         "hybrid-framework dispatch).",
+    )
+    tools_group.add_argument(
+        "--cg-algorithm",
+        choices=["spark", "cha", "rta", "vta"],
+        default=None,
+        help=(
+            "Call graph algorithm forwarded to Soot via '-cgAlgorithm'. "
+            "Default (when omitted): 'spark' per gh51 D5 — full points-to gives "
+            "accurate reachesMop. cha/rta/vta are faster but less precise; useful "
+            "for triage runs where reachability precision is not critical."
+        ),
     )
 
     util_group = parser.add_argument_group("Utility Options")
@@ -217,6 +249,7 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
         "lib_dir": "lib_dir",
         "android_platforms_dir": "android_platforms_dir",
         "mop_dir": "mop_dir",
+        "targets_file": "targets_file",
         "working_dir": "working_dir",
         "gator_dir": "gator_dir",
         "analysis_client_jar": "analysis_client_jar",
@@ -242,6 +275,10 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
     cg_del = getattr(args, "cg_delegation", None)
     if cg_del is not None:
         config_kwargs["cg_delegation"] = cg_del == "true"
+
+    cg_alg = getattr(args, "cg_algorithm", None)
+    if cg_alg is not None:
+        config_kwargs["cg_algorithm"] = cg_alg
 
     validate_on_init = not getattr(args, "dry_run", False)
 

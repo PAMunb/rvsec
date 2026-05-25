@@ -78,6 +78,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		VarUtil.v().guiOutput = output;
 
 		String mopDir = getMopDir();
+		String targetsFile = getTargetsFile();
 		String outputPath = Configs.pathoutfilename;
 
 		// Resolve the package to filter classes: prefer codePackage clientParam
@@ -87,8 +88,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		String manifestPackage = output.getAppPackageName();
 		String filterPackage = (codePackage != null) ? codePackage : manifestPackage;
 
+		// The Python CLI enforces the mutex between --mop-dir and --targets-file,
+		// but defend against direct gator-jar callers passing both client params.
+		if (mopDir != null && targetsFile != null) {
+			throw new IllegalStateException(
+					"Both 'mopDir' and 'targetsFile' client params were provided; "
+					+ "they are mutually exclusive (INV-ANA-33). mopDir=" + mopDir
+					+ " targetsFile=" + targetsFile);
+		}
+
 		System.out.println("[RvsecAnalysisClient] Starting unified analysis");
 		System.out.println("[RvsecAnalysisClient] MOP dir: " + mopDir);
+		System.out.println("[RvsecAnalysisClient] Targets file: " + targetsFile);
 		System.out.println("[RvsecAnalysisClient] Output: " + outputPath);
 		System.out.println("[RvsecAnalysisClient] Code package: " + codePackage);
 		System.out.println("[RvsecAnalysisClient] Manifest package: " + manifestPackage);
@@ -98,10 +109,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		Map<SootClass, List<SootMethod>> appClasses = extractClasses(filterPackage);
 		System.out.println("[RvsecAnalysisClient] Application classes: " + appClasses.size());
 
-		// 2. Load MOP signatures and resolve to SootMethods
+		// 2. Load target signatures (from MOP specs OR explicit targets file)
+		//    and resolve to SootMethods. Group 3 (TargetResolver) will replace
+		//    the Set<MopMethod> round-trip; for now both sources funnel through
+		//    the legacy MopMethod chain to keep the diff bounded.
 		Set<MopMethod> mopSignatures = Collections.emptySet();
 		Set<SootMethod> mopMethods = Collections.emptySet();
-		if (mopDir != null) {
+		if (targetsFile != null) {
+			mopSignatures = loadTargetsFromFile(targetsFile);
+			mopMethods = resolveMopInScene(mopSignatures);
+			System.out.println("[RvsecAnalysisClient] Targets resolved from file: "
+					+ mopMethods.size());
+		} else if (mopDir != null) {
 			mopSignatures = loadMopSignatures(mopDir);
 			mopMethods = resolveMopInScene(mopSignatures);
 			System.out.println("[RvsecAnalysisClient] MOP methods resolved: " + mopMethods.size());
@@ -190,10 +209,17 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	private String getMopDir() {
 		String param = Configs.getClientParamCode("mopDir=");
 		if (param == null) {
-			System.out.println("[RvsecAnalysisClient] WARNING: no mopDir parameter. MOP reachability will be empty.");
 			return null;
 		}
 		return param.substring("mopDir=".length());
+	}
+
+	private String getTargetsFile() {
+		String param = Configs.getClientParamCode("targetsFile=");
+		if (param == null) {
+			return null;
+		}
+		return param.substring("targetsFile=".length());
 	}
 
 	private String getCodePackage() {
@@ -215,14 +241,26 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		// MopSpecsTargetSource.load() against this method byte-for-byte. The
 		// MopMethod return type is retained until Group 3 (TargetResolver)
 		// replaces the downstream Set<MopMethod> chain with Set<TargetMethod>.
-		Set<presto.android.gui.clients.target.TargetMethod> targets =
-				new presto.android.gui.clients.target.MopSpecsTargetSource(mopDir).load();
-		Set<MopMethod> methods = new HashSet<>(targets.size());
+		return toMopMethods(
+				new presto.android.gui.clients.target.MopSpecsTargetSource(mopDir).load());
+	}
+
+	private Set<MopMethod> loadTargetsFromFile(String targetsFile) {
+		// Group 2 (C1b) stepping-stone: same MopMethod round-trip as
+		// loadMopSignatures, dropped by Group 3.
+		return toMopMethods(
+				new presto.android.gui.clients.target.SignatureFileTargetSource(
+						java.nio.file.Paths.get(targetsFile)).load());
+	}
+
+	private static Set<MopMethod> toMopMethods(
+			Set<presto.android.gui.clients.target.TargetMethod> targets) {
+		Set<MopMethod> out = new HashSet<>(targets.size());
 		for (presto.android.gui.clients.target.TargetMethod t : targets) {
-			methods.add(new MopMethod(t.getClassName(), t.getMethodName(),
+			out.add(new MopMethod(t.getClassName(), t.getMethodName(),
 					t.getParams(), t.getSignature()));
 		}
-		return methods;
+		return out;
 	}
 
 	/**

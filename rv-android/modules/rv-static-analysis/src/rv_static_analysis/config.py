@@ -30,7 +30,7 @@ rvsec_root layout > RVSEC_HOME env var > CWD parent.
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import Field
 from rv_android_core.constants import ENV_ANDROID_HOME, ENV_RVSEC_HOME, EXTENSION_APK
@@ -65,7 +65,23 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         default=None, description="Android SDK JAR path (android.jar)"
     )
     mop_dir: Optional[str] = Field(
-        default=None, description="MOP specifications directory"
+        default=None,
+        description=(
+            "MOP specifications directory (mutex with targets_file). "
+            "When set, GATOR receives '-clientParam mopDir=<path>' and target "
+            "methods are loaded via MopSpecsTargetSource (LENIENT class+name match)."
+        ),
+    )
+    targets_file: Optional[str] = Field(
+        default=None,
+        description=(
+            "Plain-text file listing Soot signatures of target methods, one per "
+            "line (mutex with mop_dir). When set, GATOR receives "
+            "'-clientParam targetsFile=<path>' and target methods are loaded via "
+            "SignatureFileTargetSource (STRICT per-signature, LENIENT for wildcard "
+            "entries '..' or '*'). Exactly one of {mop_dir, targets_file} MUST be "
+            "set — INV-ANA-33 enforced at the CLI mutex and at this Pydantic boundary."
+        ),
     )
     output_dir: Optional[str] = Field(
         default=None, description="Base output directory for analysis results"
@@ -85,9 +101,15 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
     analysis_timeout: int = Field(
         default=600, description="Analysis timeout in seconds"
     )
-    cg_algorithm: str = Field(
+    cg_algorithm: Literal["spark", "cha", "rta", "vta"] = Field(
         default="spark",
-        description="Call graph algorithm: cha, rta, vta, spark (default: spark per gh51 D5 — full points-to gives accurate reachesMop)",
+        description=(
+            "Call graph algorithm forwarded to Soot via '-cgAlgorithm <value>'. "
+            "Default 'spark' preserves gh51 D5 (full points-to gives accurate "
+            "reachesMop); cha/rta/vta are faster but less precise. Pydantic-pinned "
+            "to the four Soot-accepted values so an invalid string fails at config "
+            "construction rather than producing a silent GATOR error mid-pipeline."
+        ),
     )
     skip_wtg: bool = Field(
         default=False,
@@ -159,7 +181,10 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
                     self.android_jar = str(candidate)
                     break
 
-        if not self.mop_dir:
+        # Only default mop_dir when targets_file is not set — the two are mutex
+        # (INV-ANA-33). When targets_file IS set, leaving mop_dir as None lets
+        # downstream code dispatch on it cleanly.
+        if not self.mop_dir and not self.targets_file:
             self.mop_dir = str(
                 rvsec_path
                 / "rvsec"
@@ -191,6 +216,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "android_platforms_dir",
             "android_jar",
             "mop_dir",
+            "targets_file",
             "output_dir",
             "working_dir",
             "gator_dir",
@@ -248,14 +274,35 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             raise ConfigurationError(f"Android JAR does not exist: {self.android_jar}")
 
     def _validate_mop_directory(self) -> None:
-        """Validate MOP specifications directory."""
-        if not self.mop_dir:
-            raise ConfigurationError("MOP specifications directory not configured")
+        """Validate that exactly one target source is set and exists on disk.
 
-        if not os.path.isdir(self.mop_dir):
+        INV-ANA-33: exactly one of ``mop_dir`` (JavaMOP specs directory) or
+        ``targets_file`` (plain-text Soot signature list) MUST be set. The CLI
+        argparse mutex covers the user-facing path; this Pydantic-level check
+        catches programmatic construction errors (e.g., a downstream config
+        that sets both, or neither).
+        """
+        if self.mop_dir and self.targets_file:
             raise ConfigurationError(
-                f"MOP specifications directory does not exist: {self.mop_dir}"
+                "Both mop_dir and targets_file are set — they are mutually exclusive "
+                f"(INV-ANA-33). mop_dir={self.mop_dir} targets_file={self.targets_file}"
             )
+        if not self.mop_dir and not self.targets_file:
+            raise ConfigurationError(
+                "Neither mop_dir nor targets_file is set — exactly one must be "
+                "configured to drive target-method reachability (INV-ANA-33)."
+            )
+
+        if self.mop_dir:
+            if not os.path.isdir(self.mop_dir):
+                raise ConfigurationError(
+                    f"MOP specifications directory does not exist: {self.mop_dir}"
+                )
+        else:
+            if not os.path.isfile(self.targets_file):
+                raise ConfigurationError(
+                    f"Targets file does not exist: {self.targets_file}"
+                )
 
     def validate_apk_input(self, apk_path: str) -> None:
         """Validate that the APK file exists and has .apk extension.
@@ -301,6 +348,14 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         # The latter fails on systems where /usr/bin/python is absent (Debian/Ubuntu
         # without python-is-python3, clean containers, fresh shells). sys.executable
         # always resolves to a working Python 3.x with the project's deps.
+        # INV-ANA-33: exactly one of mop_dir / targets_file is set. The Pydantic
+        # validator already raised if both or neither were configured, so we
+        # dispatch unconditionally here.
+        if self.targets_file:
+            target_param = f"targetsFile={self.targets_file}"
+        else:
+            target_param = f"mopDir={self.mop_dir}"
+
         cmd = [
             sys.executable,
             gator_python,
@@ -314,7 +369,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "-client",
             "RvsecAnalysisClient",
             "-clientParam",
-            f"mopDir={self.mop_dir}",
+            target_param,
             "-cgAlgorithm",
             self.cg_algorithm,
             "--timeout",
@@ -349,6 +404,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
                 "rvsec_root": self.rvsec_root,
                 "lib_dir": self.lib_dir,
                 "mop_dir": self.mop_dir,
+                "targets_file": self.targets_file,
                 "output_dir": self.output_dir,
             },
             "android_integration": {
@@ -360,6 +416,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
                 "analysis_client_jar": self.analysis_client_jar,
                 "jvm_memory": self.jvm_memory,
                 "analysis_timeout": self.analysis_timeout,
+                "cg_algorithm": self.cg_algorithm,
             },
         }
 
