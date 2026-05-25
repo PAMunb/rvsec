@@ -58,8 +58,8 @@ Relevant PRD references: **FR02** (APK instrumentation — this change does not 
 │  ┌──────────────────────────────────────┐                       │
 │  │ openspec/changes/gh62-.../ledger.md  │  ← scope ledger       │
 │  │  (Fix-now / Follow-up / Deferred)    │                       │
-│  │  snapshot at archive; live tracking  │                       │
-│  │  via GitHub issues labelled `gh62`   │                       │
+│  │  one-shot snapshot at archive time;  │                       │
+│  │  matrix SILENT-GAP rows = live state │                       │
 │  └──────────────┬───────────────────────┘                       │
 │                 │ schedules                                     │
 │                 ▼                                               │
@@ -89,7 +89,7 @@ Relevant PRD references: **FR02** (APK instrumentation — this change does not 
 |-------------|----------------|------|
 | AspectJ Grammar Coverage Matrix as Contract (R1) | `docs/aspectj_grammar_coverage.md` | `MatrixIntegrityTest.{testEveryDesignatorHasMatrixRow,testVerdictsAreValid,testCoveredRowsCiteEnabledPassingTests,testSilentGapRowsHaveDisabledTestAndLedgerEntry,testEnabledTestsResolveToCoveredOrExplicitNoOpRow,testDisabledTestsResolveToSilentGapRow,testSkipCountEqualsSilentGapCount,testDemandCountsReproducible}` |
 | Grammar Tests Maven Submodule (R2) | `rvsec-android/rvsec-instrumentation-dexlib2/grammar-tests/pom.xml` + `src/test/java/.../grammar/*.java` | `mvn -pl grammar-tests test` SHALL pass with 0 failures and `Skipped == SILENT-GAP count` |
-| Scope Ledger for Future Closures (R3) | `openspec/changes/gh62-.../ledger.md` + GitHub issues labelled `gh62` | `MatrixIntegrityTest.testSilentGapRowsHaveDisabledTestAndLedgerEntry` cross-checks every SILENT-GAP row against ledger |
+| Scope Ledger for Future Closures (R3) | `openspec/changes/gh62-.../ledger.md` (snapshot at archive) | `MatrixIntegrityTest.testSilentGapRowsHaveDisabledTestAndLedgerEntry` cross-checks every SILENT-GAP row against ledger |
 | INV-INS-88 (closed enumeration) | Matrix + `AspectJDesignators.DESIGNATORS` | `testEveryDesignatorHasMatrixRow` (asserts set equality, not subset) |
 | INV-INS-89 (verdict ∈ 4-value set; NOT-NEEDED requires zero demand AND no impl) | Matrix structure | `testVerdictsAreValid` |
 | INV-INS-90 (COVERED → enabled passing test, no inherited `@Disabled`) | Matrix `Evidence` column + `grammar-tests/` | `testCoveredRowsCiteEnabledPassingTests` (reflection walks superclasses for inherited `@Disabled`) |
@@ -105,7 +105,7 @@ Relevant PRD references: **FR02** (APK instrumentation — this change does not 
 - Every matrix row carries a verdict from `{COVERED, SILENT-GAP, EXPLICIT-NO-OP, NOT-NEEDED}` anchored to a `file:line` in the dexlib2 source and to a named test in `grammar-tests/`.
 - A new Maven submodule `grammar-tests/` provides executable coverage of every matrix row, with `@Disabled` failing tests for every `SILENT-GAP`. `MatrixIntegrityTest` enforces both directions of the matrix↔tests link and asserts `Skipped == SILENT-GAP count`.
 - `DemandCounter` (portable Java) replaces shell `grep` for demand counts; `MatrixIntegrityTest.testDemandCountsReproducible` invokes it directly.
-- A scope ledger at `openspec/changes/gh62-aspectj-grammar-coverage/ledger.md` classifies every `SILENT-GAP` into `Fix-now`, `Follow-up`, or `Deferred-by-design`, with `Owner` + `Target milestone` per entry. Ongoing tracking moves to GitHub issues labelled `gh62`.
+- A scope ledger at `openspec/changes/gh62-aspectj-grammar-coverage/ledger.md` classifies every `SILENT-GAP` into `Fix-now`, `Follow-up`, or `Deferred-by-design`, with `Owner` + `Target milestone` per entry. The ledger is a one-shot snapshot archived with the change; the matrix is the live backlog.
 - A PR-check GitHub Action blocks production changes in `pointcut-engine`/`advice-emitter`/`dex-mutator`/`coverage-weaver` without matching matrix updates (operational enforcement of closure atomicity).
 - Future closures (`gh-XX`) cite gh62, name the matrix rows they flip, and update the matrix and the test annotation atomically in the same commit; the PR-check fails the PR otherwise.
 
@@ -158,16 +158,17 @@ Relevant PRD references: **FR02** (APK instrumentation — this change does not 
 - *Comment out the failing tests.* Rejected: hides the gap from the test report entirely.
 - *Use `Assumptions.assumeFalse(true)` inside the test body.* Rejected: visually identical to a passing test in the report; removes the gap from `Skipped` count.
 
-### D4 — Ledger is a snapshot in the change directory; live tracking via GitHub issues
+### D4 — Ledger is a one-shot snapshot; the matrix itself is the live backlog
 
-**Choice:** The matrix records *what is true today* (verdict + evidence). The ledger records *what we plan to do about it* at the time of merging gh62 (Fix-now / Follow-up / Deferred-by-design with rationale + `Owner` + `Target milestone`). They live in two files: `docs/aspectj_grammar_coverage.md` (matrix, persistent) and `openspec/changes/gh62-aspectj-grammar-coverage/ledger.md` (ledger snapshot — archived with the change). Live tracking after archive moves to GitHub issues, one per `Fix-now` and `Follow-up` entry, labelled `gh62` (created by task 7.4).
+**Choice:** The matrix records *what is true today* (verdict + evidence). The ledger records *what we plan to do about it* at the time of merging gh62 (Fix-now / Follow-up / Deferred-by-design with rationale + `Owner` + `Target milestone`). They live in two files: `docs/aspectj_grammar_coverage.md` (matrix, persistent) and `openspec/changes/gh62-aspectj-grammar-coverage/ledger.md` (ledger snapshot — archived with the change). The ledger is **not** kept alive after archive; the matrix is the live source of truth — any row with `Verdict = SILENT-GAP` is by definition outstanding work.
 
-**Why:** The matrix is permanent — every future closure updates it but the document persists across milestones. The ledger is a planning artefact — it makes sense in the context of the current scheduling decision. The cross-LLM review flagged "ledger becomes dead document post-archive" as a top risk; the mitigation is *not* to keep the ledger live (it would drift) but to delegate live tracking to the issue tracker, which the team already uses.
+**Why:** The matrix is permanent — every future closure updates it but the document persists across milestones. The ledger is a planning artefact — it makes sense in the context of the current scheduling decision. The cross-LLM review flagged "ledger becomes dead document post-archive" as a top risk; an earlier draft of this design tried to mitigate that by creating one GitHub issue per `Fix-now`/`Follow-up` entry (task 7.4) for live tracking. That mitigation was rejected on simplicity grounds: it creates a parallel source of truth that must be kept in sync with the matrix, multiplies the artefacts a closure must update, and preemptively opens N issues for closures that may never be scheduled. The matrix already tells you what is open (count the `SILENT-GAP` rows). Future closures are scheduled by opening one OpenSpec change per closure (with its own GitHub issue at that point) — not by maintaining a backlog of issues created up-front.
 
 **Alternatives considered:**
 
 - *Embed Fix-now/Follow-up/Deferred columns in the matrix.* Rejected: blurs "current state" with "future plan"; matrix becomes a planning document and stops being a contract.
-- *Place the ledger in `docs/` so it survives archive.* Rejected: nobody updates `docs/<ledger>.md` after merge; it would drift silently. Issues with state machines and labels are the right tool for live tracking.
+- *Place the ledger in `docs/` so it survives archive.* Rejected: nobody updates `docs/<ledger>.md` after merge; it would drift silently.
+- *Open one GitHub issue per `Fix-now`/`Follow-up` entry at archive time.* Rejected: see "Why" above — parallel source of truth, preemptive scaffolding for hypothetical work.
 
 ### D5 — Pair the matrix with a `smali-dexlib2` 3.0.8 → 3.0.9 bump
 
@@ -292,7 +293,7 @@ No runtime errors are introduced into the production code path — this change i
 - **[Risk] Matrix drift in sub-changes** — historically, ad-hoc fixes ship without updating docs. → **Mitigation**: `MatrixIntegrityTest` runs on every CI invocation and fails on every structural divergence; the PR-check GitHub Action additionally blocks PRs that modify production code in the relevant submodules without touching the matrix.
 - **[Risk] DemandCounter regex drift** — a designator whose regex is too loose (substring match) or too tight (missing form) corrupts the demand baseline. The original draft's 356/158 `get/set` count was exactly this failure mode. → **Mitigation**: each designator's `Pattern` is reviewed against a known-good sample from the corpus and quoted inline in the matrix; `testDemandCountsReproducible` runs at every CI invocation; the matrix row's `Demand` column is the visible value, the regex is the audit trail.
 - **[Risk] AspectJ Programming Guide is a moving reference** — new AspectJ versions could add pointcut designators. → **Mitigation**: the matrix anchors to the AspectJ Programming Guide §"Pointcuts" + AspectJ 5 quick reference at a specific URL with a snapshot date in its header; bumping the reference is a new sub-change with explicit matrix amendment.
-- **[Risk] Ledger goes stale post-archive** — `openspec/changes/gh62-.../ledger.md` is archived after merge. → **Mitigation**: live tracking moves to GitHub issues labelled `gh62` (task 7.4); the ledger is explicitly treated as a snapshot, not an evolving document.
+- **[Risk] Ledger goes stale post-archive** — `openspec/changes/gh62-.../ledger.md` is archived after merge. → **Mitigation**: the ledger is explicitly treated as a one-shot snapshot, not an evolving document; the matrix at `docs/aspectj_grammar_coverage.md` is the live backlog (`SILENT-GAP` rows = outstanding work). Future closures are scheduled by opening one OpenSpec change per closure when the work starts, not by maintaining a parallel issue tracker.
 - **[Trade-off] No code changes ship in gh62** — the value is realised only when sub-changes consume the ledger and close gaps. → **Mitigation**: gh62 itself can be merged independently of any closure; the ledger's `Fix-now` bucket schedules the first follow-on sub-changes immediately.
 - **[Trade-off] `grammar-tests/` is a new Maven module** — every developer running `mvn package` now builds an extra module. → **Mitigation**: test-only module, small incremental build cost; excluded from the shaded `instr-cli.jar` so the production artefact is unaffected.
 - **[Risk] `smali-dexlib2` 3.0.8 → 3.0.9 bump regression** — no announced breaking changes, but the reactor build is not a behavioural oracle. → **Mitigation**: §0.3a re-instruments 5 APKs from the INV-INS-31 baseline pre/post-bump and `dexdump`-diffs the output. Any non-trivial divergence reverts the property change inside gh62.

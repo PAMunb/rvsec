@@ -98,7 +98,7 @@ For every row in `docs/aspectj_grammar_coverage.md`, the module SHALL contain ex
 
 ### Requirement: Scope Ledger for Future Closures
 
-The change directory `openspec/changes/gh62-aspectj-grammar-coverage/` SHALL contain a `ledger.md` document that classifies every `SILENT-GAP` matrix row into exactly one of three buckets. Because the change directory is archived after merge, the ledger SHALL be treated as a snapshot of the bucket assignments at archive time; ongoing tracking moves to GitHub issues (one issue per Fix-now and Follow-up entry, labelled `gh62`) opened by task 7.4. The archived `ledger.md` remains discoverable via `git log --follow` and the issue tracker is the live source of truth for closure progress.
+The change directory `openspec/changes/gh62-aspectj-grammar-coverage/` SHALL contain a `ledger.md` document that classifies every `SILENT-GAP` matrix row into exactly one of three buckets. The ledger is a **snapshot** of bucket assignments at archive time — it is not maintained as a live document after the change is archived. The live source of truth for outstanding work is `docs/aspectj_grammar_coverage.md` itself: any row with `Verdict = SILENT-GAP` is by definition open work. Future closures are scheduled by opening one OpenSpec change per closure (with its own GitHub issue), not by maintaining a parallel issue list.
 
 - **Fix-now** — closures recommended for scheduling against the current milestone, with rationale (active demand or otherwise high-value). Each entry names: AspectJ syntax / matrix row(s) it flips, demand summary, planned sub-change identifier (`gh-XX-<kebab>`), `Owner: @user`, `Target milestone: vX.Y`.
 - **Follow-up** — real work but no current demand to schedule. Each entry names matrix rows + a one-sentence rationale for deferral + `Owner` + `Target milestone: TBD`.
@@ -116,9 +116,9 @@ The ledger SHALL NOT contain implementation detail for the planned closures — 
 
 #### Scenario: opening a sub-change consumes a Fix-now entry
 
-- **WHEN** a developer opens a sub-change (e.g. `gh-XX`) listed in the `Fix-now` bucket
+- **WHEN** a developer opens a sub-change (e.g. `gh-XX`) implementing a closure
 - **THEN** the sub-change's `proposal.md` SHALL cite gh62 issue #62 and the specific matrix rows it intends to flip
-- **AND** upon the sub-change's archive, the linked GitHub issue (opened by task 7.4) SHALL be closed with a reference to the sub-change's PR
+- **AND** upon archive of the sub-change, the matrix rows SHALL be flipped from `SILENT-GAP` to `COVERED` and the corresponding `@Disabled` annotations removed in the same commit (closure atomicity enforced by the PR-check GitHub Action)
 
 ## Invariants
 

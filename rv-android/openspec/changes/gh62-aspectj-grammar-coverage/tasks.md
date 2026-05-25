@@ -148,12 +148,11 @@
 
 - [ ] 7.1 Validate the openspec change: `openspec validate --changes gh62-aspectj-grammar-coverage --strict`. SHALL return PASS.
 - [ ] 7.2 Invoke `/rv-code-reviewer` via the Skill tool against the gh62 diff (matrix, ledger, `grammar-tests/` module, PR-check workflow). Address review findings inline.
-- [ ] 7.3 Update `MEMORY.md` with a `project_gh62_grammar_coverage` entry capturing the row count (per category), the SILENT-GAP count by corpus, the `Fix-now` sub-change list, and the corrected `get/set` demand baseline (zero across all corpora).
-- [ ] 7.4 Open the GitHub sub-issues for each `Fix-now` AND `Follow-up` ledger entry (one issue per planned sub-change identifier or `Follow-up` group), labelled `gh62`. Each issue references `#62` and names the matrix rows it will flip. This is the live tracking surface post-archive — the ledger.md snapshot is frozen at archive time.
-- [ ] 7.5 Run `/opsx:verify` against the change.
-- [ ] 7.6 Run `/opsx:archive` (`openspec archive gh62-aspectj-grammar-coverage --yes`). Delta spec for `instrumentation` SHALL auto-merge.
-- [ ] 7.7 Commit on `origin/modules`: `chore(gh62): archive change + index sub-issues (closes #62)`. Push.
-- [ ] 7.8 Close issue #62 via `gh issue close 62 --repo PAMunb/rvsec --comment "..."` referencing the matrix, the ledger snapshot, the `grammar-tests/` module, the PR-check workflow, and the opened sub-issues.
+- [ ] 7.3 Update `MEMORY.md` with a `project_gh62_grammar_coverage` entry capturing the row count (per category), the SILENT-GAP count by corpus, the initial Fix-now bucket, and the corrected `get/set` demand baseline (zero across all corpora).
+- [ ] 7.4 Run `/opsx:verify` against the change.
+- [ ] 7.5 Run `/opsx:archive` (`openspec archive gh62-aspectj-grammar-coverage --yes`). Delta spec for `instrumentation` SHALL auto-merge.
+- [ ] 7.6 Commit on `origin/modules`: `chore(gh62): archive change (closes #62)`. Push.
+- [ ] 7.7 Close issue #62 via `gh issue close 62 --repo PAMunb/rvsec --comment "..."` referencing the matrix, the ledger snapshot, the `grammar-tests/` module, and the PR-check workflow. Future closures open their own issues and OpenSpec changes when scheduled — the matrix's `SILENT-GAP` rows are the live backlog; no preemptive issue creation.
 
 ## 8. Out-of-scope cross-cutting checks
 
