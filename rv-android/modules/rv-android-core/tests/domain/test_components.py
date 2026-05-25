@@ -31,8 +31,8 @@ class TestComponentInfo:
             is_main=True,
             intent_filters=[f],
             exported=True,
-            reaches_mop=False,
-            mop_methods=[],
+            reaches_target=False,
+            target_methods=[],
         )
         assert c.class_name == "com.example.MainActivity"
         assert c.component_type == "activity"
@@ -41,7 +41,7 @@ class TestComponentInfo:
         assert c.intent_filters[0].actions == ["android.intent.action.MAIN"]
         assert c.authorities is None
         assert c.exported is True
-        assert c.reaches_mop is False
+        assert c.reaches_target is False
 
     def test_provider_with_authorities(self):
         c = ComponentInfo(
@@ -59,11 +59,11 @@ class TestComponentInfo:
         c = ComponentInfo(
             class_name="com.example.CryptoService",
             component_type="service",
-            reaches_mop=True,
-            mop_methods=["<com.example.CryptoService: void onStartCommand()>"],
+            reaches_target=True,
+            target_methods=["<com.example.CryptoService: void onStartCommand()>"],
         )
-        assert c.reaches_mop is True
-        assert len(c.mop_methods) == 1
+        assert c.reaches_target is True
+        assert len(c.target_methods) == 1
 
     def test_defaults(self):
         c = ComponentInfo(class_name="com.example.Test", component_type="service")
@@ -71,8 +71,8 @@ class TestComponentInfo:
         assert c.intent_filters == []
         assert c.authorities is None
         assert c.exported is False
-        assert c.reaches_mop is False
-        assert c.mop_methods == []
+        assert c.reaches_target is False
+        assert c.target_methods == []
 
 
 class TestComponents:
@@ -97,16 +97,16 @@ class TestComponents:
                     class_name="com.example.BootReceiver",
                     component_type="receiver",
                     exported=True,
-                    reaches_mop=True,
-                    mop_methods=["<com.example.BootReceiver: void onReceive()>"],
+                    reaches_target=True,
+                    target_methods=["<com.example.BootReceiver: void onReceive()>"],
                 ),
             ],
             services=[
                 ComponentInfo(
                     class_name="com.example.CryptoService",
                     component_type="service",
-                    reaches_mop=True,
-                    mop_methods=["<com.example.CryptoService: void onStartCommand()>"],
+                    reaches_target=True,
+                    target_methods=["<com.example.CryptoService: void onStartCommand()>"],
                 ),
             ],
             providers=[

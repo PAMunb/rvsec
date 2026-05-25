@@ -7,7 +7,7 @@
 
 ## Context
 
-RV-Agent currently uses boolean MOP flags (`reaches_mop`, `directly_reaches_mop`) from static analysis to prioritize UI actions during exploration. After gh27 (unified static analysis), the JGraphT call graph and MOP resolution infrastructure exist in the Java client but only boolean flags are exported. Two proposed analyses could dramatically improve agent decision-making:
+RV-Agent currently uses boolean MOP flags (`reaches_target`, `directly_reaches_target`) from static analysis to prioritize UI actions during exploration. After gh27 (unified static analysis), the JGraphT call graph and MOP resolution infrastructure exist in the Java client but only boolean flags are exported. Two proposed analyses could dramatically improve agent decision-making:
 
 1. **Source-sink analysis**: Map which interactive widgets (sources) can trigger which MOP methods (sinks)
 2. **Widget -> method + params**: Full call chain from handler to MOP sink, with statically-determined parameter values
@@ -45,8 +45,8 @@ StaticAnalysisData (from GATOR/gh27)
 └── classes (Classes)
     ├── methods: Dict[signature -> Method]
     │   ├── reachable: bool
-    │   ├── reaches_mop: bool
-    │   └── directly_reaches_mop: bool
+    │   ├── reaches_target: bool
+    │   └── directly_reaches_target: bool
     └── Used by: RVAgentVisitor (MOP enrichment), TransitionManager (path planning)
 ```
 
@@ -57,11 +57,11 @@ When the agent parses the current screen's UI hierarchy, `RVAgentVisitor._enrich
 1. Finds the static Widget matching the runtime UI element (by resource-id, text, or hint)
 2. Looks up widget.events (callbacks) — gets handler signature
 3. Resolves handler signature to `StaticAnalysisData.classes.methods`
-4. Copies boolean flags (`reaches_mop`, `directly_reaches_mop`) to the ItemAction
+4. Copies boolean flags (`reaches_target`, `directly_reaches_target`) to the ItemAction
 5. Adds `[M]` or `[DM]` markers to action.text for LLM visibility
 
 Result: each `ItemAction` has:
-- `reaches_mop: bool` / `directly_reaches_mop: bool`
+- `reaches_target: bool` / `directly_reaches_target: bool`
 - `widget_id: str` (static widget ID)
 - `callback_signature: str` (handler method)
 - `text` with `[M]`/`[DM]` markers
@@ -70,7 +70,7 @@ Result: each `ItemAction` has:
 
 | Component | How it uses MOP data | Score impact |
 |---|---|---|
-| **MopScorer** | `directly_reaches_mop` -> +300, `reaches_mop` -> +150 | Highest single scorer |
+| **MopScorer** | `directly_reaches_target` -> +300, `reaches_target` -> +150 | Highest single scorer |
 | **WtgScorer** | Checks if action leads to unvisited screen | +250 for WTG-guided transition |
 | **ScreenProcessor** | Adds MOP bonus to LLM action ordering | +100 (DM), +50 (M) |
 | **TransitionManager** | `_calculate_target_priority()` checks widget events for MOP | +50 direct, +25 transitive |
@@ -81,8 +81,8 @@ Result: each `ItemAction` has:
 ```python
 # What the agent knows about each widget/action:
 widget_id: str                    # Static widget ID from GATOR
-reaches_mop: bool                 # Boolean: transitively reaches MOP
-directly_reaches_mop: bool        # Boolean: directly calls MOP
+reaches_target: bool                 # Boolean: transitively reaches MOP
+directly_reaches_target: bool        # Boolean: directly calls MOP
 callback_signature: str           # Handler method signature (e.g., "com.app.Handler.onClick")
 event_type: str                   # "click", "input", "long_click"
 text: str                         # Display text + [M]/[DM] markers
@@ -576,7 +576,7 @@ def score(action, coverage_repository):
     if coverage_repository:
         # Runtime feedback available: use confirmed coverage from LogcatRepository
         covered = {sig for cls in coverage_repository.classes.values()
-                   for sig, m in cls.methods.items() if m.called and m.reaches_mop}
+                   for sig, m in cls.methods.items() if m.called and m.reaches_target}
         uncovered_mop = action.mop_targets - covered
     else:
         # Standalone mode: fall back to UI interaction-based inference
@@ -655,12 +655,12 @@ The `LogcatRepository` provides exactly the data the agent needs:
 confirmed_mop_coverage = set()
 for class_data in coverage_repository.classes.values():
     for signature, method in class_data.methods.items():
-        if method.called and method.reaches_mop:
+        if method.called and method.reaches_target:
             confirmed_mop_coverage.add(signature)
 
 # Query: "What's the current MOP coverage percentage?"
 metrics = coverage_repository.calculate_metrics()
-# metrics.called_mop_methods, metrics.total_mop_methods, etc.
+# metrics.called_target_methods, metrics.total_target_methods, etc.
 
 # Query: "Has this specific MOP method been executed?"
 class_data = coverage_repository.get_class("javax.crypto.Cipher")

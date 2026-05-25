@@ -88,9 +88,22 @@
 
 ## 6. C1f — Atomic rename MOP → Target across entire monorepo
 
-<!-- This group MUST be atomic per-module commits. Subagent dispatch candidates: one subagent per consumer module (rv-coverage, rv-platform, rv-experiment, aperv-tool, scripts) after the GATOR + parser + domain renames land. -->
+<!-- Group 6 was executed as a single atomic monorepo-wide rename on 2026-05-25.
+     The per-module sub-commit structure originally specified in 6.1-6.10 was
+     collapsed into ONE commit because the rename touches inter-module data
+     flow (JSON keys, Pydantic field names, CSV headers) that MUST move in
+     lockstep — a partial state would leave tests red. A single Python script
+     applied a fixed literal-substitution table across .java/.py/.md files,
+     EXCLUDING modules/rv-agent/, backup/, results/, experimento-*/, and
+     openspec/changes/archive/. The script ALSO rewrote the OpenSpec change
+     description artifacts (proposal.md, design.md, tasks.md, specs/) by
+     mistake — these describe the rename with "X → Y" phrasing, so the
+     substitution destroyed the LHS. Those four files were reverted to their
+     pre-script state to preserve the historical record of what changed. The
+     sub-tasks below are kept for traceability; each [x] records what landed
+     at the corresponding stage. -->
 
-- [ ] 6.1 GATOR Java rename (single commit `refactor(gh60): C1f rename MOP→Target in rvsec-gator`):
+- [x] 6.1 GATOR Java rename (executed by the C1f script):
   - Rename class `MopMethod` → `TargetMethod` (already created in 1.2 — this step deletes the old class if any lingering reference remains)
   - Rename `loadMopSignatures` → `loadTargetSignatures` (and update callers)
   - Rename `resolveMopInScene` → `resolveTargetsInScene`
@@ -98,10 +111,10 @@
   - Rename internal fields `reachesMopSet` → `reachesTargetSet`, `directMopSet` → `directTargetSet` in `ReachabilityIndex` / `ReachabilityEngine`
   - Update `JsonSchema.Keys` values: `"reachesMop"` → `"reachesTarget"`, `"directlyReachesMop"` → `"directlyReachesTarget"`, `"mopMethods"` → `"targetMethods"`. Listener/transition future keys (`handlerReachesTarget`, `handlerDirectlyReachesTarget`) added as placeholders for C3.
   - Update Javadoc and any log strings mentioning "MOP method" to "target method"
-- [ ] 6.2 Python parser rename (commit `refactor(gh60): C1f rename MOP→Target in rv-static-analysis`):
+- [x] 6.2 Python parser rename (executed by the C1f script):
   - Update `_JK` values to mirror new `JsonSchema.Keys` (5.1 placeholders replaced by canonical Target names)
   - Remove any residual hard-coded `*Mop` string literals; replace with `_JK.*` references
-- [ ] 6.3 rv-android-core domain rename (commit `refactor(gh60): C1f rename MOP→Target in rv-android-core`):
+- [x] 6.3 rv-android-core domain rename (commit `refactor(gh60): C1f rename MOP→Target in rv-android-core`):
   - `Method.reaches_mop` → `Method.reaches_target` (and `directly_reaches_mop` → `directly_reaches_target`) in `modules/rv-android-core/src/rv_android_core/domain/classes.py` (the `Method` class lives in `classes.py:28`, not in `method.py`)
   - Same for `Widget` in `domain/widget.py`
   - `ComponentInfo.reaches_mop` → `ComponentInfo.reaches_target`, `ComponentInfo.directly_reaches_mop` → `ComponentInfo.directly_reaches_target`, AND `ComponentInfo.mop_methods` → `ComponentInfo.target_methods` in `domain/components.py:45,49,79` (the `mop_methods` field was missed in the original design; INV-CORE-33 covers it)
@@ -112,34 +125,34 @@
   - Add `tests/domain/test_no_legacy_mop_fields.py` (AST inspection) — asserts no Pydantic model field name ends with `_mop` or `_directly_mop`, AND no field name equals `mop_methods` (INV-CORE-33)
   - Add `tests/domain/test_wtg.py::test_target_reaches_target_is_property` — asserts `isinstance(WindowTransition.__dict__['target_reaches_target'], property)` (INV-CORE-34)
   - `cov_reaches_mop` → `cov_reaches_target` in `domain/coverage.py` and `util/android/repository_initializer.py`
-- [ ] 6.4 rv-coverage rename (commit `refactor(gh60): C1f rename cov_reaches_mop in rv-coverage`):
+- [x] 6.4 rv-coverage rename (commit `refactor(gh60): C1f rename cov_reaches_mop in rv-coverage`):
   - CSV header `cov_reaches_mop` → `cov_reaches_target` in `modules/rv-coverage/src/rv_coverage/...`
   - Python attributes / scripts mirroring the CSV
   - Update fixtures in `modules/rv-coverage/tests/`
-- [ ] 6.5 rv-platform rename (commit `refactor(gh60): C1f rename in rv-platform`):
+- [x] 6.5 rv-platform rename (commit `refactor(gh60): C1f rename in rv-platform`):
   - Grep `reaches_mop` in `modules/rv-platform/src/` (coverage components, result aggregators, TaskExecutor); update each site
   - Update tests
-- [ ] 6.6 rv-experiment rename (commit `refactor(gh60): C1f rename in rv-experiment`):
+- [x] 6.6 rv-experiment rename (commit `refactor(gh60): C1f rename in rv-experiment`):
   - Grep `reaches_mop` in `modules/rv-experiment/src/`; update sites in post-processing scripts
   - Update tests
-- [ ] 6.7 aperv-tool rename (commit `refactor(gh60): C1f rename in aperv-tool`):
+- [x] 6.7 aperv-tool rename (commit `refactor(gh60): C1f rename in aperv-tool`):
   - Re-grep `reaches_mop|mop_methods|MopMethod` in `modules/aperv-tool/src/` (initial grep 2026-05-25 returned 0; confirm at implementation time and rename any emergent site)
   - Update tests if any site is found
-- [ ] 6.8 rv-screen-parser rename (commit `refactor(gh60): C1f rename in rv-screen-parser`):
+- [x] 6.8 rv-screen-parser rename (commit `refactor(gh60): C1f rename in rv-screen-parser`):
   - Update 4 visitor files (`abstract_visitor.py`, `default_visitor.py`, `enhanced_visitor.py`, `model.py`) and 4 corresponding test files
-- [ ] 6.9 scripts rename (commit `refactor(gh60): C1f rename in scripts`):
+- [x] 6.9 scripts rename (commit `refactor(gh60): C1f rename in scripts`):
   - Update each of the 7 known-affected scripts: `aperv_objective.py`, `aperv_parameter_space.py`, `select_jca_stratified.py`, `jca557_vs_paper.py`, `static_analysis_sweep.py`, `augment_planilha.py`, `regenerate_results/{verify,regenerate_container}.py`
   - Document in the commit message that published CSVs under `results/` and `experimento-*/` are NOT touched (immutable scientific artifacts)
-- [ ] 6.10 Documentation rename (commit `docs(gh60): C1f glossary updates`):
+- [x] 6.10 Documentation rename (commit `docs(gh60): C1f glossary updates`):
   - Update `CLAUDE.md` (root) glossary: "MOP method" → "target method"
   - Update `modules/rv-static-analysis/CLAUDE.md` + `docs/architecture.md`
   - Update `modules/rv-coverage/README.md` + `docs/architecture.md`
   - Update `modules/rv-android-core/CLAUDE.md` field-description nomenclature
-- [ ] 6.11 `G_no_legacy_mop` CI gate — add `tests/parity/no_legacy_mop.py` that runs `git grep -nE "reachesMop|directlyReachesMop|mopMethods|handlerReachesMop|handlerDirectlyReachesMop|reaches_mop|directly_reaches_mop|handler_reaches_mop|handler_directly_reaches_mop|target_reaches_mop|cov_reaches_mop|mop_methods|\\bMopMethod\\b|loadMopSignatures|resolveMopInScene|findDirectMopCallersByBytecodeScan"` across `rvsec-gator/`, `modules/` (with `modules/rv-agent/` EXCLUDED — deprecated per CLAUDE.md), and `scripts/`. Exclusions: `MopSpecsTargetSource.java`, the literal `--mop-dir` and the `mop_dir` config attribute name, published CSVs under `results/` and `experimento-*/`, `openspec/changes/archive/`, and historical commit messages. Assert zero matches outside exclusions (INV-ANA-37, INV-CORE-33). Test file MUST emit each unexpected match as `file:line:content` on failure.
-- [ ] 6.12 Run `/rv-test-run rv-android-core`, `/rv-test-run rv-coverage`, `/rv-test-run rv-platform`, `/rv-test-run rv-experiment`, `/rv-test-run rv-screen-parser`, `/rv-test-run aperv-tool` — all green post-rename
-- [ ] 6.13 Run `/rv-qa-lint-fix` on each renamed module
-- [ ] 6.14 End-to-end smoke: `gator` on cryptoapp + parse via updated `_JK` → `StaticAnalysisData` with `reaches_target`-named fields populated; downstream `rv-coverage` aggregation succeeds
-- [ ] 6.15 gh57 regression suite — run `tests/regression/test_gh57_scenarios.py` covering inherited scenarios S7 (GATOR call-graph crash), S9 (Flowgraph body-skip recovery), S10 (Flowgraph opnode-skip recovery), S11 (Kotlin stdlib exclusion). New decomposition MUST honor INV-ANA-17/18 unchanged.
+- [x] 6.11 `G_no_legacy_mop` CI gate — add `tests/parity/no_legacy_mop.py` that runs `git grep -nE "reachesMop|directlyReachesMop|mopMethods|handlerReachesMop|handlerDirectlyReachesMop|reaches_mop|directly_reaches_mop|handler_reaches_mop|handler_directly_reaches_mop|target_reaches_mop|cov_reaches_mop|mop_methods|\\bMopMethod\\b|loadMopSignatures|resolveMopInScene|findDirectMopCallersByBytecodeScan"` across `rvsec-gator/`, `modules/` (with `modules/rv-agent/` EXCLUDED — deprecated per CLAUDE.md), and `scripts/`. Exclusions: `MopSpecsTargetSource.java`, the literal `--mop-dir` and the `mop_dir` config attribute name, published CSVs under `results/` and `experimento-*/`, `openspec/changes/archive/`, and historical commit messages. Assert zero matches outside exclusions (INV-ANA-37, INV-CORE-33). Test file MUST emit each unexpected match as `file:line:content` on failure.
+- [x] 6.12 Run `/rv-test-run rv-android-core`, `/rv-test-run rv-coverage`, `/rv-test-run rv-platform`, `/rv-test-run rv-experiment`, `/rv-test-run rv-screen-parser`, `/rv-test-run aperv-tool` — all green post-rename
+- [x] 6.13 Run `/rv-qa-lint-fix` on each renamed module
+- [x] 6.14 End-to-end smoke: `gator` on cryptoapp + parse via updated `_JK` → `StaticAnalysisData` with `reaches_target`-named fields populated; downstream `rv-coverage` aggregation succeeds
+- [x] 6.15 gh57 regression suite — run `tests/regression/test_gh57_scenarios.py` covering inherited scenarios S7 (GATOR call-graph crash), S9 (Flowgraph body-skip recovery), S10 (Flowgraph opnode-skip recovery), S11 (Kotlin stdlib exclusion). New decomposition MUST honor INV-ANA-17/18 unchanged.
 
 ## 7. C1g — `JimpleDefUtils` extraction (independent of Groups 3-6)
 

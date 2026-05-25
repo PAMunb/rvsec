@@ -131,8 +131,8 @@ public class JsonOutputTest {
 			w.name("signature").value(
 					"<test.app.MyClass: void onCreate(android.os.Bundle)>");
 			w.name("reachable").value(true);
-			w.name("reachesMop").value(false);
-			w.name("directlyReachesMop").value(false);
+			w.name("reachesTarget").value(false);
+			w.name("directlyReachesTarget").value(false);
 			w.endObject();
 			w.endArray();
 
@@ -155,8 +155,8 @@ public class JsonOutputTest {
 		assertEquals("<test.app.MyClass: void onCreate(android.os.Bundle)>",
 				method.get("signature").getAsString());
 		assertTrue(method.get("reachable").getAsBoolean());
-		assertFalse(method.get("reachesMop").getAsBoolean());
-		assertFalse(method.get("directlyReachesMop").getAsBoolean());
+		assertFalse(method.get("reachesTarget").getAsBoolean());
+		assertFalse(method.get("directlyReachesTarget").getAsBoolean());
 	}
 
 	// ── test 3: window entry with widgets and listeners ─────────────────

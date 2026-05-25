@@ -45,8 +45,8 @@ WIDGET_EVENT_TO_ACTION_TYPE = {
         "id",
         "text",
         "event",
-        "reaches_mop",
-        "directly_reaches_mop",
+        "reaches_target",
+        "directly_reaches_target",
         "target_view",
         "coordinates",
         "text_input",
@@ -95,10 +95,10 @@ class ItemAction(BaseValidatedModel):
     event: WidgetEventType = Field(
         ..., description="Widget event type for framework compatibility"
     )
-    reaches_mop: bool = Field(
+    reaches_target: bool = Field(
         default=False, description="Indicates if action reaches monitored operations"
     )
-    directly_reaches_mop: bool = Field(
+    directly_reaches_target: bool = Field(
         default=False, description="Indicates direct monitor operation reachability"
     )
     target_view: Dict[str, Any] = Field(

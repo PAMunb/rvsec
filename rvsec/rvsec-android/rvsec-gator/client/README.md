@@ -45,8 +45,8 @@ sootandroid (GATOR server)    →  RvsecAnalysisClient (our client)  →  JSON o
           "name": "encrypt",
           "signature": "void encrypt(byte[])",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     }

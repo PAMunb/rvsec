@@ -406,7 +406,7 @@ In `pure_algorithm` mode, `route_decision()` always returns `"algorithm"`. In `l
 
 rv-agent MUST capture and parse the Android UI state using UIAutomator2 XML hierarchy dumps. The `ScreenProcessor` coordinates device interaction (via `DeviceInterface`), XML parsing (via rv-screen-parser), and element formatting (with MOP enrichment from static analysis data).
 
-The parsing produces a `ScreenDescription` containing `ScreenItem` elements with `ItemAction` objects. Each `ItemAction` includes coordinates, MOP tracking metadata (`reaches_mop`, `directly_reaches_mop`), and widget type information.
+The parsing produces a `ScreenDescription` containing `ScreenItem` elements with `ItemAction` objects. Each `ItemAction` includes coordinates, MOP tracking metadata (`reaches_target`, `directly_reaches_target`), and widget type information.
 
 UI elements are formatted as text for the LLM prompt, with coordinates presented in the [0, 1000) normalized space so the VLM can reference them directly in tool calls.
 
@@ -579,7 +579,7 @@ The `RVAgentStrategy` MUST implement a coverage-optimized depth-first search wit
 CryptoApp main screen has 3 interactive components:
 - Action A: CLICK on Spinner (combobox, "Message Digest" selector — leads to dropdown with 12+ algorithms)
 - Action B: SET_TEXT on EditText (text input field — stays on same screen)
-- Action C: CLICK on Button ("GENERATE HASH" — MOP-reaching, `directly_reaches_mop=True`)
+- Action C: CLICK on Button ("GENERATE HASH" — MOP-reaching, `directly_reaches_target=True`)
 
 **Expected iteration-by-iteration flow:**
 
@@ -771,13 +771,13 @@ Action selection supports two modes: deterministic (always selects highest-score
 
 #### Scenario: MOP Prioritization with Updated Weights
 
-- **WHEN** action A has `directly_reaches_mop = True` and action B has `reaches_mop = False`
+- **WHEN** action A has `directly_reaches_target = True` and action B has `reaches_target = False`
 - **THEN** `MopScorer` MUST assign +500 to A and 0 to B (default config)
 - **AND** action A MUST rank higher than B (all other scores being equal)
 
 #### Scenario: MOP-Transitive Outweighs WTG
 
-- **WHEN** action A has `reaches_mop = True` (transitive) and action B is WTG-guided to an unvisited screen
+- **WHEN** action A has `reaches_target = True` (transitive) and action B is WTG-guided to an unvisited screen
 - **THEN** `MopScorer` MUST assign +300 to A
 - **AND** `WtgScorer` MUST assign +150 to B
 - **AND** action A MUST rank higher than B (all other scores being equal)
@@ -827,7 +827,7 @@ Action selection supports two modes: deterministic (always selects highest-score
 #### Scenario: CoverageDensityScorer Synergy with MopScorer
 
 - **WHEN** action A leads to a MOP-rich screen with high coverage gap (coverage_gap = 0.8)
-- **AND** `MopScorer` assigns +500 to action A (directly_reaches_mop = True)
+- **AND** `MopScorer` assigns +500 to action A (directly_reaches_target = True)
 - **AND** `CoverageDensityScorer` assigns +160 to action A (200 * 0.8)
 - **THEN** the combined score for action A MUST include both contributions (+660 from these two scorers)
 - **AND** action A MUST rank higher than an action B with only MopScorer +500 but CoverageDensityScorer +20 (well-covered destination, coverage_gap = 0.1)
@@ -922,7 +922,7 @@ rv-agent MUST use the Window Transition Graph (from GATOR static analysis) to gu
 2. `NavigationGuidance`: Provides unified navigation context to both LLM and algorithm. Enriches LLM prompts with MOP-specific hints when static analysis data is available.
 3. `WtgScorer`: Gives priority scores to actions that WTG indicates lead to unvisited screens.
 
-**Path Planning via BFS**: The `TransitionManager` MUST provide a `plan_path_to_mop_activity()` method that performs BFS on the WTG from the current activity to find the nearest Activity containing MOP methods. The BFS MUST use MOP density weighting: edge priority toward a target Activity is weighted by `mop_methods_in_target / total_methods_in_target`. Activities with higher MOP density are preferred targets. The `mop_nav_weight` parameter (default 2.0) controls the influence of MOP density relative to path length.
+**Path Planning via BFS**: The `TransitionManager` MUST provide a `plan_path_to_mop_activity()` method that performs BFS on the WTG from the current activity to find the nearest Activity containing MOP methods. The BFS MUST use MOP density weighting: edge priority toward a target Activity is weighted by `target_methods_in_target / total_methods_in_target`. Activities with higher MOP density are preferred targets. The `mop_nav_weight` parameter (default 2.0) controls the influence of MOP density relative to path length.
 
 **Saturation-Aware Path Preference**: When multiple BFS paths of equal MOP density exist, the `TransitionManager` MUST prefer paths through less-saturated states. This combines directed MOP navigation with opportunistic exploration of under-tested intermediate screens.
 
@@ -1341,7 +1341,7 @@ The `InputValueGenerator` and text input execution pipeline MUST produce context
 
 #### Scenario: MOP Field Extended Variations
 
-- **WHEN** `get_next_value()` is called for a field with `reaches_mop = True`
+- **WHEN** `get_next_value()` is called for a field with `reaches_target = True`
 - **AND** `mop_max_input_variations` = 11
 - **THEN** up to 11 unique values MUST be generated before cycling
 - **AND** the values MUST include MOP edge-case payloads (empty string, "0", "-1", "2147483647", path traversal, SQL injection, XSS, format string, buffer overflow, JNDI, Shellshock)

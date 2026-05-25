@@ -443,7 +443,7 @@ def _make_loaded_task_with_logcat(
         "total_method_calls": 5,
         "called_activities": 1,
         "called_methods": 2,
-        "called_mop_methods": 1,
+        "called_target_methods": 1,
     }
     # Simulate loaded from tasks.json: repository is None
     task.repository = None

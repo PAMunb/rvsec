@@ -8,8 +8,8 @@ package presto.android.gui.clients.json;
  * Python-side parity test can read them via subprocess without parsing
  * the Java source.
  *
- * <p>Values still use the gh57 MOP nomenclature ("reachesMop",
- * "directlyReachesMop", "mopMethods"). Group 6 (C1f) renames them
+ * <p>Values still use the gh57 MOP nomenclature ("reachesTarget",
+ * "directlyReachesTarget", "targetMethods"). Group 6 (C1f) renames them
  * atomically across producer + consumers; the constant <em>names</em>
  * here ({@code REACHES_TARGET}, {@code DIRECTLY_REACHES_TARGET},
  * {@code TARGET_METHODS}) already use the target nomenclature so the
@@ -45,8 +45,8 @@ public final class JsonSchema {
 		public static final String NAME = "name";
 		public static final String SIGNATURE = "signature";
 		public static final String REACHABLE = "reachable";
-		public static final String REACHES_TARGET = "reachesMop";
-		public static final String DIRECTLY_REACHES_TARGET = "directlyReachesMop";
+		public static final String REACHES_TARGET = "reachesTarget";
+		public static final String DIRECTLY_REACHES_TARGET = "directlyReachesTarget";
 
 		// Windows section
 		public static final String ID = "id";
@@ -85,7 +85,7 @@ public final class JsonSchema {
 		public static final String CATEGORIES = "categories";
 		public static final String EXPORTED = "exported";
 		public static final String AUTHORITIES = "authorities";
-		public static final String TARGET_METHODS = "mopMethods";
+		public static final String TARGET_METHODS = "targetMethods";
 
 		private Keys() {
 			// constants only

@@ -163,8 +163,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -186,8 +186,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -218,8 +218,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -245,8 +245,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -289,8 +289,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -314,8 +314,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="SET_TEXT (1)",
             event=WidgetEventType.TEXT_CHANGE,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -350,8 +350,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -373,8 +373,8 @@ class TestDefaultTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 

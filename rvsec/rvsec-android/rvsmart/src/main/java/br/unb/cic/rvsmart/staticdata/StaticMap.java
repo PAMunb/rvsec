@@ -21,7 +21,7 @@ import java.util.Set;
  * The JSON has 3 top-level JsonArray sections: reachability, windows, transitions.
  *
  * Reachability: array of class objects with className and methods array.
- * Each method has signature, reachable, reachesMop, directlyReachesMop.
+ * Each method has signature, reachable, reachesTarget, directlyReachesTarget.
  *
  * Windows: array of window objects with id and name (fully qualified activity).
  * Used to cross-reference transition sourceId/targetId with activity names.
@@ -54,9 +54,9 @@ public class StaticMap {
     private Map<String, Map<String, WidgetStaticData>> activityWidgets;
     // Activity -> widgetResourceId -> target activity (from WTG transitions)
     private Map<String, Map<String, String>> widgetTransitions;
-    // Method signature -> directlyReachesMop
+    // Method signature -> directlyReachesTarget
     private Map<String, Boolean> methodDirectMop;
-    // Method signature -> reachesMop
+    // Method signature -> reachesTarget
     private Map<String, Boolean> methodTransitiveMop;
 
     private String codePackage;
@@ -90,7 +90,7 @@ public class StaticMap {
 
     /**
      * Parse reachability from JsonArray format produced by RvsecAnalysisClient.
-     * Each element: {className, isActivity, methods: [{signature, reachable, reachesMop, directlyReachesMop}]}
+     * Each element: {className, isActivity, methods: [{signature, reachable, reachesTarget, directlyReachesTarget}]}
      */
     private void parseReachability(JsonObject json) {
         JsonArray reach = json.getAsJsonArray("reachability");
@@ -106,24 +106,24 @@ public class StaticMap {
 
             for (JsonElement methodElem : methods) {
                 JsonObject method = methodElem.getAsJsonObject();
-                if (method.has("directlyReachesMop")
-                        && method.get("directlyReachesMop").getAsBoolean()) {
+                if (method.has("directlyReachesTarget")
+                        && method.get("directlyReachesTarget").getAsBoolean()) {
                     activityDirectMop.put(simpleName, true);
                 }
-                if (method.has("reachesMop")
-                        && method.get("reachesMop").getAsBoolean()) {
+                if (method.has("reachesTarget")
+                        && method.get("reachesTarget").getAsBoolean()) {
                     activityTransitiveMop.put(simpleName, true);
                 }
                 // Store per-method MOP data for widget-level cross-referencing
                 String methodSig = method.has("signature")
                         ? method.get("signature").getAsString() : "";
                 if (!methodSig.isEmpty()) {
-                    if (method.has("directlyReachesMop")
-                            && method.get("directlyReachesMop").getAsBoolean()) {
+                    if (method.has("directlyReachesTarget")
+                            && method.get("directlyReachesTarget").getAsBoolean()) {
                         methodDirectMop.put(methodSig, true);
                     }
-                    if (method.has("reachesMop")
-                            && method.get("reachesMop").getAsBoolean()) {
+                    if (method.has("reachesTarget")
+                            && method.get("reachesTarget").getAsBoolean()) {
                         methodTransitiveMop.put(methodSig, true);
                     }
                 }

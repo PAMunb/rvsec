@@ -443,7 +443,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * Find methods that directly call a MOP method (outgoing edge to MOP set).
 	 */
 	// Package-private and generic for unit testing with synthetic graphs
-	public static <V> Set<V> findDirectMopCallers(
+	public static <V> Set<V> findDirectTargetCallers(
 			DefaultDirectedGraph<V, DefaultEdge> graph,
 			Set<V> targetMethods) {
 
@@ -461,7 +461,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	}
 
 	/**
-	 * Bytecode-scan complement to {@link #findDirectMopCallers}.
+	 * Bytecode-scan complement to {@link #findDirectTargetCallers}.
 	 *
 	 * Walks each app method's body and inspects every {@link InvokeExpr},
 	 * matching against MOP signatures by ({@code declaringClass.getName()},
@@ -494,12 +494,12 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 	/**
 	 * Generic bytecode-scan helper extracted from
-	 * {@link #findDirectMopCallersByBytecodeScan}. Iterates application
+	 * {@link #findDirectTargetCallersByBytecodeScan}. Iterates application
 	 * methods, retrieves bodies under the same try-catch resilience
 	 * policy (RuntimeException + OutOfMemoryError → WARN + skip), and
 	 * dispatches each invoke statement to the visitor. Used by:
 	 *   (a) MOP-caller detection (BUG-INV-ANA-19) via
-	 *       {@link #findDirectMopCallersByBytecodeScan}.
+	 *       {@link #findDirectTargetCallersByBytecodeScan}.
 	 *   (b) IGNORED_CLASSES edge recovery (INV-ANA-22) at the WTG level
 	 *       to complement SPARK CG queries.
 	 *
@@ -560,7 +560,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * BUG-INV-ANA-19 bytecode-scan complement keyed on a resolved
 	 * {@code Set<SootMethod>} target set (C1c API). SPARK quarantines
 	 * library targets and drops their incoming edges from the call graph;
-	 * the JGraphT-based {@link #findDirectMopCallers} therefore misses
+	 * the JGraphT-based {@link #findDirectTargetCallers} therefore misses
 	 * app methods that literally invoke a target. This pass walks every
 	 * app method body, matches each {@link InvokeExpr} by
 	 * {@code (declaringClass.getName(), methodRef.name())} against the
@@ -586,7 +586,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 		int[] counters = scanInvokesInAppClasses(appClasses,
 				(caller, stmt, ie, ref) -> {
-					if (matchesMopSignature(ref.getDeclaringClass().getName(),
+					if (matchesTargetSignature(ref.getDeclaringClass().getName(),
 							ref.getName(), targetKeys)) {
 						result.add(caller);
 						return true;
@@ -609,7 +609,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * method name, ignoring parameter overloads. Package-private for unit
 	 * tests that exercise the matching policy without a Soot Scene.
 	 */
-	public static Set<String> buildMopKeys(Set<MopMethod> mopSignatures) {
+	public static Set<String> buildTargetKeys(Set<MopMethod> mopSignatures) {
 		Set<String> keys = new HashSet<>();
 		for (MopMethod mop : mopSignatures) {
 			keys.add(mop.getClassName() + "#" + mop.getName());
@@ -622,9 +622,9 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * signature in the precomputed {@code mopKeys} set.
 	 *
 	 * Package-private for unit tests; production code calls it implicitly
-	 * via {@code mopKeys.contains(...)} after {@link #buildMopKeys}.
+	 * via {@code mopKeys.contains(...)} after {@link #buildTargetKeys}.
 	 */
-	public static boolean matchesMopSignature(String className, String methodName, Set<String> mopKeys) {
+	public static boolean matchesTargetSignature(String className, String methodName, Set<String> mopKeys) {
 		return mopKeys.contains(className + "#" + methodName);
 	}
 
@@ -640,10 +640,10 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	public static void complementWithCallbacks(
 			GUIAnalysisOutput output,
 			Set<SootMethod> reachableSet,
-			Set<SootMethod> reachesMopSet,
+			Set<SootMethod> reachesTargetSet,
 			Set<SootMethod> directMopSet,
 			DefaultDirectedGraph<SootMethod, DefaultEdge> graph,
-			Set<SootMethod> mopMethods) {
+			Set<SootMethod> targetMethods) {
 
 		Set<SootMethod> callbacks = new HashSet<>();
 
@@ -706,13 +706,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			if (graph.containsVertex(callback)) {
 				for (DefaultEdge edge : graph.outgoingEdgesOf(callback)) {
 					SootMethod target = graph.getEdgeTarget(edge);
-					if (mopMethods.contains(target)) {
+					if (targetMethods.contains(target)) {
 						directMopSet.add(callback);
-						reachesMopSet.add(callback);
+						reachesTargetSet.add(callback);
 						break;
 					}
-					if (reachesMopSet.contains(target)) {
-						reachesMopSet.add(callback);
+					if (reachesTargetSet.contains(target)) {
+						reachesTargetSet.add(callback);
 					}
 				}
 			}
@@ -1319,8 +1319,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				// INV-ANA-30 purity gate that lands fully in C1e).
 				Map<String, Object> ann = enricher.enrichMethod(method);
 				w.name("reachable").value((Boolean) ann.get("reachable"));
-				w.name("reachesMop").value((Boolean) ann.get("reachesMop"));
-				w.name("directlyReachesMop").value((Boolean) ann.get("directlyReachesMop"));
+				w.name("reachesTarget").value((Boolean) ann.get("reachesTarget"));
+				w.name("directlyReachesTarget").value((Boolean) ann.get("directlyReachesTarget"));
 				w.endObject();
 			}
 			w.endArray();
@@ -1488,22 +1488,22 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 		// MOP reachability via the enricher — writer never reads
 		// ReachabilityIndex directly (precondition for INV-ANA-30).
-		List<String> mopMethods = new ArrayList<>();
-		boolean reachesMop = false;
+		List<String> targetMethods = new ArrayList<>();
+		boolean reachesTarget = false;
 		for (SootMethod m : sc.getMethods()) {
 			String methodName = m.getName();
 			for (String lifecycle : lifecycleMethodNames) {
 				if (methodName.equals(lifecycle)
-						&& Boolean.TRUE.equals(enricher.enrichMethod(m).get("reachesMop"))) {
-					reachesMop = true;
-					mopMethods.add(m.getSignature());
+						&& Boolean.TRUE.equals(enricher.enrichMethod(m).get("reachesTarget"))) {
+					reachesTarget = true;
+					targetMethods.add(m.getSignature());
 				}
 			}
 		}
-		w.name("reachesMop").value(reachesMop);
-		w.name("mopMethods");
+		w.name("reachesTarget").value(reachesTarget);
+		w.name("targetMethods");
 		w.beginArray();
-		for (String sig : mopMethods) {
+		for (String sig : targetMethods) {
 			w.value(sig);
 		}
 		w.endArray();
@@ -1523,22 +1523,22 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.name("exported").value(xmlParser.isComponentExported(className));
 
 		// MOP reachability via the enricher (see writeComponentEntry note).
-		List<String> mopMethods = new ArrayList<>();
-		boolean reachesMop = false;
+		List<String> targetMethods = new ArrayList<>();
+		boolean reachesTarget = false;
 		for (SootMethod m : sc.getMethods()) {
 			String methodName = m.getName();
 			for (String lifecycle : lifecycleMethodNames) {
 				if (methodName.equals(lifecycle)
-						&& Boolean.TRUE.equals(enricher.enrichMethod(m).get("reachesMop"))) {
-					reachesMop = true;
-					mopMethods.add(m.getSignature());
+						&& Boolean.TRUE.equals(enricher.enrichMethod(m).get("reachesTarget"))) {
+					reachesTarget = true;
+					targetMethods.add(m.getSignature());
 				}
 			}
 		}
-		w.name("reachesMop").value(reachesMop);
-		w.name("mopMethods");
+		w.name("reachesTarget").value(reachesTarget);
+		w.name("targetMethods");
 		w.beginArray();
-		for (String sig : mopMethods) {
+		for (String sig : targetMethods) {
 			w.value(sig);
 		}
 		w.endArray();

@@ -14,7 +14,7 @@ This module implements requirements from `openspec/specs/analysis/spec.md`.
 |----|-------------|----------------------|
 | FR04 | GATOR analysis producing Window Transition Graph | `StaticAnalysisParser._parse_transitions()` builds `WindowTransitionGraph` from the `transitions` JSON section |
 | FR05 | GESDA analysis extracting GUI elements (activities, widgets, listeners) | `StaticAnalysisParser._parse_windows()` builds `Windows` with widgets, events, inputType, hint, entries from the `windows` JSON section |
-| FR06 | REACH analysis computing method reachability relative to MOP | `StaticAnalysisParser._parse_classes()` builds `Classes` with `reachable`, `reaches_mop`, `directly_reaches_mop` flags from the `reachability` JSON section |
+| FR06 | REACH analysis computing method reachability relative to MOP | `StaticAnalysisParser._parse_classes()` builds `Classes` with `reachable`, `reaches_target`, `directly_reaches_target` flags from the `reachability` JSON section |
 
 All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisClient`) that writes all four JSON sections in one pass. The previous three-tool pipeline (GESDA + GATOR + REACH) was unified into this single-client architecture.
 
@@ -149,7 +149,7 @@ flowchart LR
 2. **Intermediate file**: The GATOR client writes a single JSON file with four sections in priority order: `reachability` (classes with MOP flags), `windows` (widgets with event listeners and XML attribute extensions `prompt`/`spinnerMode`/`contentDescription`/`tooltipText` plus populated OPTIONSMENU widgets), `transitions` (window-to-window edges), and `components` (non-Activity component data). Each section is flushed before starting the next, so timeout preserves sections in priority order. When `skip_wtg=True` is set, the client returns after writing reachability and windows, leaving `transitions[]` empty by design (not a failure).
 
 3. **Transform**: `StaticAnalysisParser.parse_file()` reads the JSON and produces four domain objects:
-   - `Classes`: one `Clazz` per app class (filtered by `code_package` per INV-ANA-03), each containing `Method` objects with `reachable`, `reaches_mop`, and `directly_reaches_mop` flags.
+   - `Classes`: one `Clazz` per app class (filtered by `code_package` per INV-ANA-03), each containing `Method` objects with `reachable`, `reaches_target`, and `directly_reaches_target` flags.
    - `Windows`: one `Window` per UI screen with `Widget` objects carrying event listeners (`WidgetEvent` with handler signatures).
    - `WindowTransitionGraph`: a `networkx.DiGraph` where nodes are `Window` objects and edges carry `WindowTransition` lists (widget ID, event type, handler method). Widgets referenced in transitions but absent from windows are back-filled on the fly.
    - `Components`: activities, receivers, services, and providers with intent filters, exported status, and MOP reachability data.

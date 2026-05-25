@@ -217,7 +217,7 @@ class MetricsCollectorTest {
         assertFalse(coverage.get("enabled").getAsBoolean());
         assertEquals(0, coverage.get("unique_methods").getAsInt());
         assertEquals(0, coverage.get("total_events").getAsInt());
-        assertEquals(0, coverage.get("mop_methods_reached").getAsInt());
+        assertEquals(0, coverage.get("target_methods_reached").getAsInt());
     }
 
     @Test
@@ -230,7 +230,7 @@ class MetricsCollectorTest {
         assertTrue(coverage.get("enabled").getAsBoolean());
         assertEquals(15, coverage.get("unique_methods").getAsInt());
         assertEquals(100, coverage.get("total_events").getAsInt());
-        assertEquals(5, coverage.get("mop_methods_reached").getAsInt());
+        assertEquals(5, coverage.get("target_methods_reached").getAsInt());
     }
 
     @Test

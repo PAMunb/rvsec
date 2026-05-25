@@ -1,9 +1,9 @@
 # APE-RV: Plano de Calibracao MACRO v2 via Optuna em GCP
 
-**Data**: 2026-04-07
-**Status**: Planejamento — aguardando aprovacao de budget
-**Dependencias**: MadEvolve (melhor mutante), VMs GCP
-**Refs**: `docs/20260318_rvape_calibracao.md` (plano v1), `openspec/changes/archive/2026-04-04-gh9-docker-calibration/` (infra)
+**Data**: 2026-04-07 (atualizado 2026-04-13)
+**Status**: Pronto para implementacao — budget aprovado, JAR selecionado
+**Dependencias**: ~~MadEvolve (melhor mutante)~~ RESOLVIDO: baseline (`5bd97f7`), VMs GCP
+**Refs**: `docs/20260318_rvape_calibracao.md` (plano v1), `openspec/changes/archive/2026-04-04-gh9-docker-calibration/` (infra), `data/results/_analysis/final_experiment_report.md` (resultado MadEvolve)
 
 ---
 
@@ -104,7 +104,7 @@ StatefulAgent.java:952-1033, State.java:greedyPickLeastVisited, MopScorer.java:3
 |---|-------|-----------|-------|------|---------|---------|-----|
 | 1 | MOP | `mop_weight_direct` | [100, 1000] | 50 | 500 | CRITICO | StatefulAgent:1236 |
 | 2 | MOP | `mop_weight_transitive` | [50, 600] | 50 | 300 | CRITICO | MopScorer:38 |
-| 3 | MOP | `mop_weight_activity` | [10, 300] | 25 | 100 | ALTO | MopScorer:39 |
+| 3 | MOP | `mop_weight_activity` | [0, 300] | 25 | 100 | ALTO | MopScorer:39 |
 | 4 | MOP | `mop_weight_wtg` | [0, 600] | 50 | 200 | MEDIO-ALTO | MopScorer:53-65 |
 | 5 | Exploration | `default_epsilon` | [0.01, 0.20] | — | 0.05 | ALTO | SataAgent:190-203 |
 | 6 | Exploration | `graph_stable_restart_threshold` | [30, 300] | 10 | 100 | ALTO | StatefulAgent:952-957 |
@@ -159,12 +159,21 @@ generalizar, com holdout grande o bastante (49) para validacao estatistica.
 - TPE efetivo: 64 trials guiados (80% eficiencia)
 - Convergencia esperada mais rapida com menos dimensoes que a v1 (10 vs 14)
 
-### 3.5 Codebase: melhor mutante do MadEvolve
+### 3.5 Codebase: baseline (MadEvolve concluido — NO-GO)
 
-- Aguardar MadEvolve terminar e usar o melhor JAR encontrado
-- Calibrar params sobre a melhor versao do codigo = efeito aditivo maximo
-- Se MadEvolve nao encontrar melhoria significativa, calibrar o baseline (gen 0)
-- O JAR precisa ser reconstruido com `mvn package` no branch com as mutacoes
+**RESOLVIDO (2026-04-13)**: O MadEvolve concluiu com NO-GO para merge de ambas as
+ilhas. O experimento final (600s × 169 APKs × 2-3 reps, 2197 tasks, 35h) mostrou que:
+
+- Ambas as ilhas **regrediram** vs baseline: island0 −0.90pp method, −1.74pp MOP;
+  island1 −1.05pp method, −1.80pp MOP
+- A vantagem de violacoes do island0 (expressiva a 300s) **desapareceu** a 600s
+- Causa raiz: mutacoes otimizadas para timeouts curtos comprimem exploracao local,
+  impedindo descoberta de areas distantes em runs longos
+
+**JAR a calibrar**: baseline `ape-rv.jar` do commit `5bd97f7` (master).
+Nao precisa rebuild — eh o JAR ja em uso em producao.
+
+Ref: `data/results/_analysis/final_experiment_report.md`
 
 ### 3.7 Alternativa: timeout de 300s (5 min) na calibracao
 
@@ -196,9 +205,11 @@ tornam ainda mais relevantes com timeout curto (cada ms de delay importa mais).
 timeout (ex: throttle baixo ajuda muito a 300s mas pouco a 600s), a calibracao a
 300s pode favorecer throttle muito baixo que nao generaliza para 600s.
 
-**Decisao**: usar 600s (10 min) como default para consistencia com todos os
-experimentos anteriores. Se o budget for um limitador, 300s eh uma alternativa viavel
-com a ressalva de validar os params otimos a 600s na Fase C.
+**Decisao (atualizada 2026-04-13)**: usar **300s** (5 min) para a calibracao.
+Justificativa: melhor custo-beneficio ($44 vs $79), o objetivo eh a ordenacao relativa
+entre configuracoes (nao score absoluto), e a validacao final (Fase C) roda a 600s
+de qualquer forma. O risco de nao-generalidade dos params de timing eh mitigado pela
+validacao.
 
 ### 3.8 Funcao objetivo (sem mudanca)
 
@@ -232,7 +243,11 @@ O compose atual usa `--cpus 4` e `--memory 10g`.
 | **3** | Bom headroom para host | 25% menos containers que 4 | 75% |
 | **2** | Minimo custo, maximo containers/VM | Zero headroom, risco de lentidao | 50% |
 
-**Decisao**: testar 2 e 3 CPUs no smoke test (Fase 0) antes de comprometer.
+**Nota (2026-04-13)**: 2 CPUs eh provavelmente insuficiente — o emulador usa EMU_CORES=2,
+nao sobra headroom para o host OS, Docker, e rv-platform. O compose de producao local
+usa 4 CPUs. O smoke test (Fase 0) testara **3 e 4 CPUs** para determinar o minimo viavel.
+
+**Decisao**: testar 3 e 4 CPUs no smoke test (Fase 0) antes de comprometer.
 
 ### 4.3 Precos n2d-standard (Iowa/us-central1) — dados reais
 
@@ -529,6 +544,119 @@ Se o budget nao permitir multi-VM ou PostgreSQL:
 - 1 trial por vez (80 rounds sequenciais)
 - Mais lento mas zero complexidade de distribuicao
 
+### 4.9 Analise de Risco GCP (adicionada 2026-04-14)
+
+Tentativa de validar infraestrutura GCP hoje identificou dois riscos materiais que
+podem comprometer a calibracao se nao forem mitigados.
+
+#### 4.9.1 Risco 1: Nested virtualization N2D bugada
+
+**Resultado do teste real (2026-04-14)**:
+
+Criada VM `n2d-standard-16` em `us-central1-a` com `--enable-nested-virtualization`:
+- cpuPlatform: AMD Milan ✅
+- advancedMachineFeatures.enableNestedVirtualization: true ✅
+- **MAS**: CPU flags sem `svm`, `modprobe kvm_amd` falha com "Operation not supported"
+- `/dev/kvm` nao existe — emulador Android x86 nao pode rodar
+- Stop+start nao resolveu (mesma CPU platform, mesmo bug)
+- Log: `kvm_amd: SVM not supported by CPU 3`
+
+**Causa provavel** (fontes: Google issue tracker #172861437, r/googlecloud, StackOverflow 2024-2025):
+- GCP as vezes provisiona N2D em hosts sem SVM exposto, mesmo com flag enabled
+- Comunidade reporta N2D nested virt como instavel desde 2022
+- N1 com Haswell+ eh a familia mais consistentemente reportada como funcionando
+
+**Solucoes testadas sem sucesso**: stop/start, zona alternativa
+
+**Solucoes a tentar**:
+1. N2 (Intel Cascade Lake) com `--min-cpu-platform="Intel Haswell"`
+2. N1 com Haswell explicito
+3. Custom image com licenca `enable-vmx` (pouco documentado, pode forcar exposicao de SVM/VMX)
+
+#### 4.9.2 Risco 2: Stockout de recursos em horario de pico
+
+**Resultado do teste real (2026-04-14, ~14h BRT / ~13h US Central)**:
+
+Tentativas de criar N1/N2 com nested virt em multiplas zonas:
+
+| Zona | Machine type | Resultado |
+|------|--------------|-----------|
+| us-central1-a/b/c/f | n1-standard-4 + nested virt | stockout / resource_availability |
+| us-east1-b/c/d | n1-standard-4 + nested virt | resource_availability |
+| us-west1-a/b | n1-standard-4 + nested virt | resource_availability |
+| us-central1-a | n1-standard-2 (sem nested virt) | resource_availability |
+| us-central1-a | n2-standard-4 + nested virt | resource_availability |
+| us-central1-a | **e2-small (controle)** | **OK** |
+
+**Diagnostico**: Problema nao eh da conta/projeto (e2 funcionou). Eh stockout real
+do GCP para familias N1/N2 em horario de pico US nas zonas testadas. Afeta tambem
+VMs **sem** nested virt, sugerindo alta demanda regional por essas familias.
+
+**Impacto durante calibracao**: Se spot VM for preemptada e nao houver capacidade
+para recriar em lote, o orchestrator trava ate vagar recurso.
+
+**Mitigacao**:
+1. Tentar em horarios off-peak (madrugada BRT)
+2. Usar regioes europeias/asiaticas com menos demanda US (europe-west1, asia-east1)
+3. Usar on-demand em vez de spot (menos restritivo para criacao)
+
+#### 4.9.3 Risco 3: Preempcao de spot VMs durante a calibracao
+
+Dados oficiais do GCP (https://cloud.google.com/compute/docs/instances/spot):
+- Spot VMs podem ser paradas **a qualquer momento** com 30s de aviso
+- Spot VMs sao **forcadamente terminadas apos 24h** (limite duro)
+- Taxa tipica de preempcao em us-central1: 5-15%/dia em horario normal, ate 30% em pico
+
+**Calculo para nossa calibracao (4 VMs spot × 3.8 dias)**:
+
+| Metrica | Valor esperado |
+|---------|----------------|
+| Probabilidade de pelo menos 1 preempcao no periodo | ~95% |
+| Numero esperado de preempcoes | 2-5 no total |
+| **Recriacoes forcadas pela regra 24h** | **4 VMs × 4 ciclos = 16 recriacoes minimas** |
+| Tempo perdido por preempcao (trial em andamento) | ~1-4h de um trial |
+| Intervencao humana necessaria | Recriar VMs + relancar orchestrator |
+
+**Mitigacao parcial na arquitetura**:
+- Orchestrator com `--resume` recupera trials marcados RUNNING no PostgreSQL
+- Outras VMs continuam trabalhando durante uma preempcao isolada
+- Progresso perdido por preempcao: so o trial que estava na VM parada
+
+**Mitigacao NAO resolvida pela arquitetura**:
+- Limite forcado de 24h obriga recriacao de TODAS as 4 VMs a cada dia
+- Se stockout coincidir com necessidade de recriacao, calibracao trava
+
+#### 4.9.4 Comparacao de opcoes com riscos reais
+
+| Config | Custo | Wall clock | Risco de parar | Intervencao estimada |
+|--------|:-----:|:----------:|:--------------:|:-------------------:|
+| **Spot GCP (plano original)** | ~$66 | 3.8d + preempcoes | **Alto**: 24h forced + ~10%/dia | Recriar VMs 16+ vezes |
+| **On-demand GCP** | ~$200 | 3.8d | Muito baixo | Quase zero |
+| **Local (64 CPUs)** | **$0** | 5-6d | Zero | Zero |
+| **AWS c5.metal spot** | ~$125 | 2-3d | Medio | Recriar 1-2 vezes |
+
+**Premissas**:
+- Tempo por trial: 200 tasks × 380s = 21h (300s timeout + overhead)
+- 4 VMs com 5 containers (3 CPUs) = 20 trials paralelos
+- 80 trials / 20 = 4 rounds ≈ 84h wall clock ≈ 3.5-3.8d
+- +8.6% overhead medido no smoke local para 3 CPUs = ~4 dias
+
+#### 4.9.5 Recomendacao com riscos conhecidos
+
+**Rodar calibracao LOCAL** eh a opcao mais segura dado os riscos acima:
+- Zero custo vs ~$66-200 GCP
+- Zero risco de preempcao vs 95% probabilidade em spot
+- Zero risco de stockout vs observado hoje
+- Zero necessidade de intervencao vs 16+ recriacoes no spot
+- 5-6 dias vs 3.8-4d GCP (trade-off aceitavel vs risco)
+
+**Custo de oportunidade**: maquina local bloqueada por ~6 dias para outros trabalhos.
+
+**GCP ainda faz sentido se**:
+1. Bloqueio da maquina local for inviavel
+2. On-demand for aprovado (~$200) — elimina risco de preempcao
+3. Horario/regiao alternativa resolver stockout antes de lancar
+
 ---
 
 ## 5. Pre-requisito: APERV_PROPERTY_MAPPING
@@ -557,12 +685,18 @@ orchestrator nao consegue passar esses params via `ape.properties` para o emulad
 | Arquivo | Mudanca |
 |---------|---------|
 | `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py` | Adicionar 2 mappings ao APERV_PROPERTY_MAPPING |
-| `scripts/aperv_parameter_space.py` | MACRO_PARAMETERS_V2 (10 params) + FIXED_PARAMS_V2 (5 fixos) |
+| `scripts/aperv_parameter_space.py` | +MACRO_PARAMETERS_V2 (10 params) + FIXED_PARAMS_V2 (6 fixos) + suggest/get_default v2 |
 | `scripts/aperv_objective.py` | Suportar multi-rep (groupby APK → mean → trimmed mean) |
-| `scripts/calibration_orchestrator.py` | `--reps N`, `--param-version v2`, merge FIXED_PARAMS_V2 |
-| `scripts/select_dataset_v2.py` | **Novo**: selecao estratificada aleatoria |
-| `data/apks/aperv_cal_v2_100.txt` | **Novo**: lista dos 100 APKs |
-| `data/apks/aperv_cal_v2_holdout.txt` | **Novo**: lista dos 49 APKs holdout |
+| `scripts/calibration_orchestrator.py` | +`--reps`, `--param-version`, `--storage`, `--jar-path`, `--broadcast-path`; compose com RV_REPETITIONS/RV_JCA_SPEC |
+
+**Ja prontos (nao precisam de trabalho):**
+
+| Arquivo | Status |
+|---------|--------|
+| `scripts/select_dataset.py` | Ja existe e foi executado |
+| `data/selection/calibration_set_v2.txt` | 100 APKs (seed=42, estratificado) |
+| `data/selection/holdout_set_v2.txt` | 67 APKs (complemento) |
+| `data/selection/selection_summary.txt` | Metadata da selecao |
 
 ### 6.2 Detalhes
 
@@ -573,7 +707,7 @@ MACRO_PARAMETERS_V2 = [
     # 4 MOP weights (core guidance)
     ParameterDef("mop_weight_direct", "int", 100, 1000, 500, step=50),
     ParameterDef("mop_weight_transitive", "int", 50, 600, 300, step=50),
-    ParameterDef("mop_weight_activity", "int", 10, 300, 100, step=25),
+    ParameterDef("mop_weight_activity", "int", 0, 300, 100, step=25),
     ParameterDef("mop_weight_wtg", "int", 0, 600, 200, step=50),
     # Exploration
     ParameterDef("default_epsilon", "float", 0.01, 0.20, 0.05),
@@ -590,6 +724,7 @@ FIXED_PARAMS_V2 = {
     "max_extra_priority_aliased_actions": 5,
     "max_states_per_activity": 15,
     "do_fuzzing": "false",
+    "fuzzing_rate": 0.0,  # explicito: do_fuzzing=false pode nao zerar no Java
     "do_back_to_trivial_activity": "false",
     "trivial_activity_rank_threshold": 3,
 }
@@ -606,10 +741,26 @@ avg_mop = trim_mean(apk_means["cov_rv_method"].values, TRIM_PROPORTION)
 
 #### `calibration_orchestrator.py`
 
-- `--reps N`: gera N tasks por APK (APK aparece N vezes na lista)
-- `--param-version v1|v2`: seleciona MACRO_PARAMETERS ou MACRO_PARAMETERS_V2
-- Quando v2: merge FIXED_PARAMS_V2 em todo trial automaticamente
-- Backward compatible: `--param-version v1` eh o default
+Novos CLI flags (todos com defaults backward-compatible):
+
+| Flag | Type | Default | Proposito |
+|------|------|---------|-----------|
+| `--param-version` | v1/v2 | v1 | Seleciona MACRO_PARAMETERS vs V2 |
+| `--reps` | int | 1 | Repeticoes por APK por trial → `RV_REPETITIONS` no compose |
+| `--storage` | str | None (SQLite) | URL Optuna storage (PostgreSQL para multi-VM) |
+| `--jar-path` | str | None | Path do ape-rv.jar para volume mount (GCP) |
+| `--broadcast-path` | str | None | Path do system-broadcast.json para volume mount |
+
+Mudancas no compose gerado:
+- Adiciona `RV_REPETITIONS: str(reps)` e `RV_JCA_SPEC: "true"` ao environment
+- Quando `--jar-path` fornecido: monta JAR como volume read-only
+- Quando `--broadcast-path` fornecido: monta system-broadcast.json como volume read-only
+
+Mudancas no main loop:
+- Quando `--param-version v2`: importa `suggest_params_v2` e `FIXED_PARAMS_V2`
+- Merge FIXED_PARAMS_V2 em cada trial automaticamente
+- `--storage URL`: usa PostgreSQL em vez de SQLite local
+- `compute_round_timeout()`: multiplica por `reps`
 
 #### `select_dataset_v2.py`
 
@@ -806,9 +957,12 @@ Custo total do smoke test: ~$1-2 (n2d-standard-16 on-demand por ~1.5h ≈ $1.00)
    ```
    Se best score estabilizar por 3+ rounds, early stop.
 
-### Fase C: Validacao (~6-12h)
+### Fase C: Validacao (~12-18h, LOCAL)
 
-1. Coletar resultados de todas as VMs:
+A validacao final roda na maquina local (64 CPUs, 125 GiB RAM), nao no GCP.
+Mesma infraestrutura e docker-compose usados no experimento final MadEvolve.
+
+1. Coletar resultados de todas as VMs GCP:
    ```bash
    for i in 0 1 2 3; do
      gcloud compute scp --recurse cal-vm-$i:/opt/calibration/results/ ./results/cal_v2/vm$i/
@@ -823,17 +977,19 @@ Custo total do smoke test: ~$1-2 (n2d-standard-16 on-demand por ~1.5h ≈ $1.00)
    gcloud sql instances delete optuna-db --quiet
    ```
 
-3. Criar 1 VM de validacao (custom image, n2d-standard-32 para 10 containers):
-   - Rodar params otimos em TODOS 169 APKs × 3 reps × 600s (507 tasks)
-   - Padrao exp6: 10 containers, ~17 APKs por batch
+3. Rodar params otimos LOCALMENTE em TODOS 169 APKs × 3 reps × 600s (507 tasks):
+   - 12 containers × 4 CPUs × 9 GiB (padrao experimento final)
+   - ~17 APKs por container (round-robin em 12 batches, identico ao MadEvolve final)
+   - Wall clock estimado: ~8-10h
 
 4. Comparar com baselines:
    - exp2: sata_mop_v1 (defaults, 32.69 score)
    - exp4: sata_mop_cal (calibrado v1, 31.76 score)
    - exp6: sata_mop_comp (code changes, 33.78 score)
+   - **experimento final**: baseline sata_mop (28.19% method, 37.70% MOP)
 
 5. Testes estatisticos: Wilcoxon signed-rank (pareado por APK)
-6. Validacao holdout: score nos 49 APKs separados para medir generalizacao
+6. Validacao holdout: score nos 67 APKs separados para medir generalizacao
 
 ### Fase D: Integracao
 
@@ -845,40 +1001,58 @@ Custo total do smoke test: ~$1-2 (n2d-standard-16 on-demand por ~1.5h ≈ $1.00)
 
 ## 8. Verificacao
 
-1. **Custom image funcional**: VM criada a partir de `rvandroid-cal-v2` boota, Docker funciona, `/dev/kvm` disponivel
-2. **Smoke test CPUs**: Coverage com 2/3 CPUs comparavel a 4 CPUs (delta < 2pp)
-3. **Paralelismo estavel**: N containers simultaneos completam sem crash
-4. **Convergencia**: Plot score vs trial — melhoria nas primeiras 30-40 trials
-3. **Generalizacao**: Score holdout (49 APKs) ≈ score calibracao (100 APKs)
-4. **Comparacao justa**: Mesmas condicoes (600s timeout, mesmos APKs) que exp2/4/6
-5. **Melhoria vs v1**: Score nos 169 APKs > 32.69 (sata_mop_v1 defaults)
+### 8.1 Pre-calibracao (local)
+1. **Scripts v2 funcionais**: `--param-version v2` gera compose com 10 params + FIXED_PARAMS_V2
+2. **Scoring multi-rep**: groupby APK + trimmed mean produz score correto com 2 reps
+3. **Property mappings**: `mop_weight_wtg` e `coverage_boost_weight` chegam ao Java
+
+### 8.2 Smoke test CPUs (local)
+4. **CPUs**: Coverage com 3 CPUs comparavel a 4 CPUs (delta < 2pp)
+5. **Paralelismo estavel**: N containers simultaneos completam sem crash
+
+### 8.3 Calibracao GCP
+6. **Custom image funcional**: VM criada a partir de `rvandroid-cal-v2` boota, Docker funciona, `/dev/kvm` disponivel
+7. **Convergencia**: Plot score vs trial — melhoria nas primeiras 30-40 trials
+8. **Generalizacao**: Score holdout (67 APKs) ≈ score calibracao (100 APKs)
+
+### 8.4 Validacao final (Fase C)
+9. **Comparacao justa**: 600s timeout, 169 APKs, mesmas condicoes que exp2/4/6
+10. **Melhoria vs defaults**: Score nos 169 APKs > 32.69 (sata_mop_v1 defaults)
 
 ---
 
-## 9. Decisoes pendentes
+## 9. Decisoes — resolvidas e pendentes
+
+### 9.1 Decisoes resolvidas (2026-04-13)
+
+| Decisao | Resolucao |
+|---------|-----------|
+| MadEvolve terminou? | **Sim — NO-GO**. Baseline (`5bd97f7`) mantido. Ref: `data/results/_analysis/final_experiment_report.md` |
+| Qual JAR calibrar? | **Baseline `ape-rv.jar`** (master, sem rebuild necessario) |
+| Budget/config | **Economico 300s**: 80 trials × 100 APKs × 2 reps × 300s = **~$44 spot** |
+| Timeout | **300s** (calibracao). Validacao final (Fase C) a 600s |
+| Spot vs on-demand | **Spot** (3x mais barato, risco aceitavel com orchestrator resiliente) |
+
+### 9.2 Decisoes pendentes
 
 | Decisao | Depende de | Impacto |
 |---------|-----------|---------|
-| Budget aprovado (universidade vs bolso) | Aprovacao | Determina timeout (300s vs 600s), n_trials, n_APKs |
-| Tipo de CPUs (2, 3 ou 4 por container) | Smoke test (Fase 0) | Custo total: $79 vs $118 vs $157 |
-| Quantidade de VMs | Budget + urgencia | Wall clock: 4d vs 8d |
-| MadEvolve terminou? | Evolucao em andamento | Qual JAR calibrar |
-| Spot vs on-demand | Disponibilidade GCP | Custo: 3x diferenca |
+| CPUs por container (3 ou 4) | Smoke test local + GCP Fase 0 | Custo: ~$44 (2 CPUs) vs ~$66 (3 CPUs) |
+| Quantidade de VMs | Urgencia vs custo | Wall clock: 2.2d (4 VMs) vs 4.4d (2 VMs) |
 
-### Budget minimo viavel
+### 9.3 Configuracao selecionada
 
-| Config | Trials | APKs | Reps | Timeout | CPUs | Custo spot | Wall (4 VMs) |
-|--------|--------|------|------|---------|------|-----------|-------------|
-| **Minimo** | 60 | 80 | 2 | 300s | 2 | **~$25** | ~1.4d |
-| Economico | 80 | 100 | 2 | 300s | 2 | **~$44** | ~2.2d |
-| **Recomendado** | 80 | 100 | 2 | 600s | 2 | **~$79** | ~3.9d |
-| Full 169 APKs 300s | 80 | 169 | 2 | 300s | 2 | **~$74** | ~3.7d |
-| Full 169 APKs 600s | 80 | 169 | 2 | 600s | 2 | **~$133** | ~6.7d |
-
-(+ ~$3 Cloud SQL PostgreSQL em todos os cenarios)
-
-**Abaixo de 2 reps nao vale a pena** — reproduz os problemas de ruido da v1.
-O timeout de 300s eh a melhor alavanca custo-beneficio: corta 44% do custo com
-impacto baixo na qualidade da calibracao (a ordenacao relativa se mantem).
-Calibrar com 169 APKs a 300s custa o mesmo que 100 APKs a 600s e elimina
-o risco de overfitting ao subset.
+| Parametro | Valor |
+|-----------|-------|
+| Trials | 80 |
+| APKs | 100 (cal) + 67 (holdout) = 167 viaveis |
+| Reps | 2 |
+| Timeout | **300s** (calibracao), 600s (validacao Fase C local) |
+| CPUs/container | **A determinar** (smoke test: 3 ou 4) |
+| JAR | baseline `5bd97f7` (master) |
+| Storage | PostgreSQL (Cloud SQL, multi-VM) |
+| Custo estimado | **~$66-88 spot** (3-4 CPUs) + ~$3 Cloud SQL |
+| Wall clock | **~3.5-4.4 dias** (4 VMs, 3-4 CPUs) |
+| Dataset calibracao | `data/selection/calibration_set_v2.txt` (100 APKs) |
+| Dataset holdout | `data/selection/holdout_set_v2.txt` (67 APKs) |
+| Validacao final | **Local** (64 CPUs, 12 containers, 169 APKs × 3 reps × 600s) |

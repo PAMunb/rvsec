@@ -54,7 +54,7 @@ public class Main {
 		SetupApplication infoflow = SootConfig.initialize(apkPath, androidPlatformsDir, rtJarPath, timeout);
 
 		// methods used in MOP specifications that are called in apk/package
-		Set<SootMethod> mopMethods = getMopMethods(mopSpecsDir, appInfo, checkOnlyInAppPackage);
+		Set<SootMethod> targetMethods = getMopMethods(mopSpecsDir, appInfo, checkOnlyInAppPackage);
 
 		// the list of all activities (with inner classes)
 		List<SootClass> activities = getActivitiesWithInnerClasses(appInfo);
@@ -67,12 +67,12 @@ public class Main {
 
 		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new SootReachabilityStrategy(); // TODO vir como parametro (CLI)
 //		ReachabilityStrategy<SootMethod, Path> analysisStrategy = new JGraphReachabilityStrategy();
-		Set<RvsecClass> result = reachabilityAnalysis(appInfo, mopMethods, entryPoints, analysisStrategy, gesdaFile);
+		Set<RvsecClass> result = reachabilityAnalysis(appInfo, targetMethods, entryPoints, analysisStrategy, gesdaFile);
 
 		writeResults(result, resultsFile, writer);
 	}
 
-	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy,
+	private Set<RvsecClass> reachabilityAnalysis(AppInfo appInfo, Set<SootMethod> targetMethods, Set<SootMethod> entryPoints, ReachabilityStrategy<SootMethod, Path> analysisStrategy,
 			String gesdaFile) throws IOException, XmlPullParserException {
 
 //		System.out.println("*************************************");
@@ -88,7 +88,7 @@ public class Main {
 //		}
 //		System.out.println("************************************* FIM");
 
-		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, mopMethods, entryPoints);
+		ReachabilityAnalysis analysis = new ReachabilityAnalysis(appInfo, targetMethods, entryPoints);
 		Set<RvsecClass> result = analysis.reachabilityAnalysis(analysisStrategy);
 
 		if (gesdaFile == null) {
@@ -126,10 +126,10 @@ public class Main {
 
 	private Set<SootMethod> getMopMethods(String mopSpecsDir, AppInfo appInfo, boolean checkOnlyInAppPackage) throws MOPException {
 		MopFacade mopFacade = new MopFacade();
-		Set<SootMethod> mopMethods = mopFacade.getMopMethodsUsed(mopSpecsDir, appInfo, checkOnlyInAppPackage);
-		log.info("MOP methods: " + mopMethods.size());
-		mopMethods.forEach(m -> log.debug(" - " + m.getSignature()));
-		return mopMethods;
+		Set<SootMethod> targetMethods = mopFacade.getMopMethodsUsed(mopSpecsDir, appInfo, checkOnlyInAppPackage);
+		log.info("MOP methods: " + targetMethods.size());
+		targetMethods.forEach(m -> log.debug(" - " + m.getSignature()));
+		return targetMethods;
 	}
 
 	private List<SootClass> getActivitiesWithInnerClasses(AppInfo appInfo) {

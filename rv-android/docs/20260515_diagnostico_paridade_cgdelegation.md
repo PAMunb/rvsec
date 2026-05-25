@@ -59,7 +59,7 @@ A análise do GATOR pós-gh51 carrega **dois call graphs estruturalmente indepen
 
 - Tipo: `soot.jimple.toolkits.callgraph.CallGraph` — estrutura genérica do Soot, agnóstica de Android.
 - Construído por: pack `cg.spark` do Soot, ativado por `Configs.cgAlgorithm = "spark"` (gh51 D5, default).
-- Quem consome: a fase de **reachability** dentro de `RvsecAnalysisClient.run()` (linhas 112–123): `multiSourceBfs(graph, entryPoints)` para `reachable[]`, reverse BFS para `reachesMop[]`.
+- Quem consome: a fase de **reachability** dentro de `RvsecAnalysisClient.run()` (linhas 112–123): `multiSourceBfs(graph, entryPoints)` para `reachable[]`, reverse BFS para `reachesTarget[]`.
 - **Não foi mexido pelo gh57.** Continua SPARK sempre, em qualquer modo de `cgDelegation`.
 
 **Camada 2 — `AndroidCallGraph.v()` (singleton específico GATOR)**

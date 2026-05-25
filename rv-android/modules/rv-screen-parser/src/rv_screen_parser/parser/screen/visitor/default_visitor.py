@@ -181,11 +181,11 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 for action in actions:
                     for event in widget.events:
                         if event.type == action.event:
-                            action.reaches_mop = self._check_method_reaches_mop(
+                            action.reaches_target = self._check_method_reaches_target(
                                 event.signature
                             )
-                            action.directly_reaches_mop = (
-                                self._check_method_directly_reaches_mop(event.signature)
+                            action.directly_reaches_target = (
+                                self._check_method_directly_reaches_target(event.signature)
                             )
         else:
             # Se actions for None, inicializar como lista vazia
@@ -424,8 +424,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 text=f"CLICK ({self.counter.get_current()})"
                 + (f" on '{node.view_text}'" if node.view_text else ""),
                 event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -505,8 +505,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                         id=self.counter.get_current(),
                         text=action_text,
                         event=WidgetEventType.CLICK,
-                        reaches_mop=False,
-                        directly_reaches_mop=False,
+                        reaches_target=False,
+                        directly_reaches_target=False,
                         target_view=target_view,
                         coordinates=coordinates,
                     )
@@ -568,8 +568,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                         id=self.counter.increment(),
                         text=f"DRAG_SLIDER ({self.counter.get_current()}) to {position}%",
                         event=WidgetEventType.DRAG,
-                        reaches_mop=False,
-                        directly_reaches_mop=False,
+                        reaches_target=False,
+                        directly_reaches_target=False,
                         target_view=target_view,
                         coordinates=(center_x, center_y),
                     )
@@ -582,8 +582,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                     id=self.counter.increment(),
                     text=f"CLICK ({self.counter.get_current()}) on slider",
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node.data,
                 )
             )
@@ -633,8 +633,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 id=max_action_id + 1,
                 text=f"SYSTEM_BACK ({max_action_id + 1})",
                 event=WidgetEventType.BACK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=self._create_system_action_view(SystemActionType.BACK),
                 coordinates=None,  # System actions use null coordinates
             )
@@ -648,8 +648,8 @@ class DefaultTextVisitor(AbstractScreenVisitor):
                 id=max_action_id + 1,
                 text=f"RESTART_APP ({max_action_id + 1})",
                 event=WidgetEventType.RESTART,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=self._create_system_action_view(SystemActionType.RESTART),
                 coordinates=None,  # System actions use null coordinates
             )

@@ -25,8 +25,8 @@ def mock_static_data():
         signature="void myMethod()",
         params=[],
         reachable=True,
-        reaches_mop=True,
-        directly_reaches_mop=False,
+        reaches_target=True,
+        directly_reaches_target=False,
     )
     class1 = ClassDetails(
         name="com.example.MyClass", component_type="activity", methods=[method1]

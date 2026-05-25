@@ -661,8 +661,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     id=self.counter.get_current(),
                     text=action_text,
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=target_view,
                     coordinates=coordinates,
                 )
@@ -826,8 +826,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                         id=self.counter.increment(),
                         text=f"DRAG_SLIDER ({self.counter.get_current()}) to {position}%",
                         event=WidgetEventType.DRAG,
-                        reaches_mop=False,
-                        directly_reaches_mop=False,
+                        reaches_target=False,
+                        directly_reaches_target=False,
                         target_view=target_view,
                         coordinates=(center_x, center_y),
                     )
@@ -840,8 +840,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     id=self.counter.increment(),
                     text=f"CLICK ({self.counter.get_current()}) on slider",
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node.data,
                 )
             )
@@ -937,8 +937,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 id=counter.increment(),
                 text=f"CLICK ({counter.get_current()}){text_suffix}",
                 event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -956,8 +956,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 id=counter.increment(),
                 text=f"LONG_CLICK ({counter.get_current()}){text_suffix}",
                 event=WidgetEventType.LONG_CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -972,8 +972,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     id=counter.increment(),
                     text=f"UNCHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node_data,
                     coordinates=coordinates,
                 )
@@ -985,8 +985,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     id=counter.increment(),
                     text=f"CHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node_data,
                     coordinates=coordinates,
                 )
@@ -1013,8 +1013,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                     id=counter.increment(),
                     text=f"SCROLL {direction} ({counter.get_current()})",
                     event=WidgetEventType.SCROLL,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node_data,
                     coordinates=coordinates,
                 )
@@ -1038,8 +1038,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
                 id=counter.increment(),
                 text=f"SET_TEXT ({counter.get_current()}){hint}",
                 event=WidgetEventType.TEXT_CHANGE,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -1142,15 +1142,15 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         for event in widget.events:
             if event.type == action.event:
                 # Check if method reaches or directly reaches MOP
-                action.reaches_mop = self._check_method_reaches_mop(event.signature)
-                action.directly_reaches_mop = self._check_method_directly_reaches_mop(
+                action.reaches_target = self._check_method_reaches_target(event.signature)
+                action.directly_reaches_target = self._check_method_directly_reaches_target(
                     event.signature
                 )
 
                 # Add more detailed info to action text if it reaches MOP
-                if action.directly_reaches_mop:
+                if action.directly_reaches_target:
                     action.text += " [DM]"
-                elif action.reaches_mop:
+                elif action.reaches_target:
                     action.text += " [M]"
 
                 return
@@ -1164,8 +1164,8 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
             node: The node associated with the item
         """
         # Check if any actions have security implications
-        has_critical = any(action.directly_reaches_mop for action in item.actions)
-        has_sensitive = any(action.reaches_mop for action in item.actions)
+        has_critical = any(action.directly_reaches_target for action in item.actions)
+        has_sensitive = any(action.reaches_target for action in item.actions)
 
         if has_critical:
             item.base_description += " [CRITICAL SPECIFICATION RELATED ELEMENT]"
@@ -1187,9 +1187,9 @@ class EnhancedTextVisitor(AbstractScreenVisitor):
         event_info = []
         for event in widget.events:
             event_desc = f"{event.type.name}"
-            if self._check_method_directly_reaches_mop(event.signature):
+            if self._check_method_directly_reaches_target(event.signature):
                 event_desc += " (directly reaches critical operation)"
-            elif self._check_method_reaches_mop(event.signature):
+            elif self._check_method_reaches_target(event.signature):
                 event_desc += " (can reach critical operation)"
             event_info.append(event_desc)
 

@@ -21,8 +21,8 @@ import soot.SootMethod;
  * in with per-widget {@code handlerReachesTarget} etc. without touching
  * the writer.
  *
- * <p>Keys still use the legacy gh57 names ("reachable", "reachesMop",
- * "directlyReachesMop") because Group 6 (C1f) renames the JSON schema
+ * <p>Keys still use the legacy gh57 names ("reachable", "reachesTarget",
+ * "directlyReachesTarget") because Group 6 (C1f) renames the JSON schema
  * atomically across producer + consumers. The enricher's job in C1d/C1e
  * is to land the visitor contract; the rename is its own commit.
  */
@@ -58,8 +58,8 @@ public final class ReachabilityEnricher {
 		// in a stable sequence — important for diff-friendly snapshots.
 		Map<String, Object> out = new LinkedHashMap<>(3);
 		out.put("reachable", index.isReachable(method));
-		out.put("reachesMop", index.reachesTarget(method));
-		out.put("directlyReachesMop", index.directlyReachesTarget(method));
+		out.put("reachesTarget", index.reachesTarget(method));
+		out.put("directlyReachesTarget", index.directlyReachesTarget(method));
 		return out;
 	}
 
@@ -106,7 +106,7 @@ public final class ReachabilityEnricher {
 
 	/**
 	 * Set of Soot signatures for methods that reach a target. The writer
-	 * emits this as the {@code targetMethods}/{@code mopMethods} top-level
+	 * emits this as the {@code targetMethods}/{@code targetMethods} top-level
 	 * key (name changes in Group 6 — payload identical).
 	 */
 	public Set<String> targetSignatures() {

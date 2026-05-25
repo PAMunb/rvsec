@@ -11,43 +11,43 @@
           "name": "m0",
           "signature": "<com.example.gh58.A: void m0()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "m1",
           "signature": "<com.example.gh58.A: void m1()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "m2",
           "signature": "<com.example.gh58.A: void m2()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "m3",
           "signature": "<com.example.gh58.A: void m3()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m4",
           "signature": "<com.example.gh58.A: void m4()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m5",
           "signature": "<com.example.gh58.A: void m5()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -60,43 +60,43 @@
           "name": "m0",
           "signature": "<com.example.gh58.B: void m0()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "m1",
           "signature": "<com.example.gh58.B: void m1()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "m2",
           "signature": "<com.example.gh58.B: void m2()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "m3",
           "signature": "<com.example.gh58.B: void m3()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m4",
           "signature": "<com.example.gh58.B: void m4()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m5",
           "signature": "<com.example.gh58.B: void m5()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -109,43 +109,43 @@
           "name": "m0",
           "signature": "<com.example.gh58.C: void m0()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m1",
           "signature": "<com.example.gh58.C: void m1()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m2",
           "signature": "<com.example.gh58.C: void m2()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m3",
           "signature": "<com.example.gh58.C: void m3()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m4",
           "signature": "<com.example.gh58.C: void m4()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m5",
           "signature": "<com.example.gh58.C: void m5()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -158,43 +158,43 @@
           "name": "m0",
           "signature": "<com.example.gh58.D: void m0()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m1",
           "signature": "<com.example.gh58.D: void m1()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m2",
           "signature": "<com.example.gh58.D: void m2()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m3",
           "signature": "<com.example.gh58.D: void m3()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m4",
           "signature": "<com.example.gh58.D: void m4()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m5",
           "signature": "<com.example.gh58.D: void m5()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -207,43 +207,43 @@
           "name": "m0",
           "signature": "<com.example.gh58.E: void m0()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m1",
           "signature": "<com.example.gh58.E: void m1()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m2",
           "signature": "<com.example.gh58.E: void m2()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m3",
           "signature": "<com.example.gh58.E: void m3()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m4",
           "signature": "<com.example.gh58.E: void m4()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "m5",
           "signature": "<com.example.gh58.E: void m5()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     }

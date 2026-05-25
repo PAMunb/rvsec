@@ -26,7 +26,7 @@ import soot.SootMethod;
  * <p>Built once after the engine's pipeline completes; consumers (the JSON
  * writer + enricher in C1d/C1e) only read. Field names temporarily mirror
  * the gh57 MOP nomenclature on the inside ({@code reachesTargetSet} carries
- * the same content as the historical {@code reachesMopSet}); Group 6 (C1f)
+ * the same content as the historical {@code reachesTargetSet}); Group 6 (C1f)
  * propagates the rename through the JSON schema as well, with no semantic
  * change.
  */

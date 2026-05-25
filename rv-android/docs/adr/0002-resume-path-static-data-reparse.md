@@ -40,7 +40,7 @@ A new private helper `_resolve_static_data(task)` returns `task.static_data` whe
 - Resume-path output is byte-equivalent (in column semantics) to single-session output. Per-method coverage rows in `coverage.csv` and aggregate rows in `summary.csv` are populated for every task that has both a logcat file and a static-analysis JSON.
 - The legacy cascade fallbacks in `_write_task_coverage_data` (Branch 2 empty-row) and `_write_task_summary_data` (3-tier `coverage_metrics → repository → zeros`) become unreachable dead code and are deleted (INV-PLT-16, P3 No Backward Compatibility).
 - The pre-existing bug at the old `result_processor.py:322` (writing `method_coverage` into the `cov_class` slot) is fixed incidentally — both writers now read `class_coverage` from `CoverageMetrics.to_dict()` (INV-PLT-17).
-- The extended CSV schema (cov_class, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop, mop_errors_total, mop_errors_unique) becomes the persistent contract; the offline regen tooling and the platform converge on the same schema.
+- The extended CSV schema (cov_class, cov_reachable, cov_reaches_target, cov_directly_reaches_target, mop_errors_total, mop_errors_unique) becomes the persistent contract; the offline regen tooling and the platform converge on the same schema.
 
 **Negative.**
 

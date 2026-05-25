@@ -210,6 +210,123 @@ MACRO_PARAMETERS = [
 ]
 
 # ---------------------------------------------------------------------------
+# MACRO V2: 10 parameters — reduced from v1 (14→10)
+# Removes low-impact params (fuzzing, aliased actions, states cap, trivial
+# activity, back to trivial). Adds mop_weight_wtg and coverage_boost_weight
+# (previously missing from the search space). Larger step sizes for faster
+# convergence with 80 trials.
+# Fixed params in FIXED_PARAMS_V2 are merged by the orchestrator.
+# ---------------------------------------------------------------------------
+
+MACRO_PARAMETERS_V2 = [
+    # MOP weights (4) — core guidance toward monitored operations
+    ParameterDef(
+        name="mop_weight_direct",
+        param_type="int",
+        low=100,
+        high=1000,
+        default=500,
+        step=50,
+        description="Priority boost for direct MOP-reachable actions",
+    ),
+    ParameterDef(
+        name="mop_weight_transitive",
+        param_type="int",
+        low=50,
+        high=600,
+        default=300,
+        step=50,
+        description="Priority boost for transitive MOP-reachable actions",
+    ),
+    ParameterDef(
+        name="mop_weight_activity",
+        param_type="int",
+        low=0,
+        high=300,
+        default=100,
+        step=25,
+        description="Priority boost for MOP-reachable activity-level actions",
+    ),
+    ParameterDef(
+        name="mop_weight_wtg",
+        param_type="int",
+        low=0,
+        high=600,
+        default=200,
+        step=50,
+        description="Priority boost for WTG-based MOP reachability",
+    ),
+    # Exploration (3) — exploration vs exploitation balance
+    ParameterDef(
+        name="default_epsilon",
+        param_type="float",
+        low=0.01,
+        high=0.20,
+        default=0.05,
+        description="Fraction of exploitation (least-visited) vs random actions",
+    ),
+    ParameterDef(
+        name="graph_stable_restart_threshold",
+        param_type="int",
+        low=30,
+        high=300,
+        default=100,
+        step=10,
+        description="Steps without graph growth before restart",
+    ),
+    ParameterDef(
+        name="state_stable_restart_threshold",
+        param_type="int",
+        low=20,
+        high=150,
+        default=50,
+        step=10,
+        description="Steps in same state before restart",
+    ),
+    # Coverage (1)
+    ParameterDef(
+        name="coverage_boost_weight",
+        param_type="int",
+        low=0,
+        high=500,
+        default=100,
+        step=25,
+        description="Priority boost for untested widgets based on coverage",
+    ),
+    # Timing (2) — how many actions fit in the timeout
+    ParameterDef(
+        name="throttle_ms",
+        param_type="int",
+        low=100,
+        high=400,
+        default=200,
+        step=25,
+        description="Base delay between actions (ms)",
+    ),
+    ParameterDef(
+        name="throttle_for_activity_transition",
+        param_type="int",
+        low=200,
+        high=800,
+        default=500,
+        step=50,
+        description="Delay after activity transition (ms)",
+    ),
+]
+
+# Parameters removed from v2 search space — fixed at empirically-validated values.
+# Merged into every v2 trial by the orchestrator.
+FIXED_PARAMS_V2: Dict[str, Any] = {
+    "max_extra_priority_aliased_actions": 5,
+    "max_states_per_activity": 15,
+    "do_fuzzing": "false",
+    "fuzzing_rate": 0.0,
+    "do_back_to_trivial_activity": "false",
+    "trivial_activity_rank_threshold": 3,
+}
+
+
+# ---------------------------------------------------------------------------
 # MICRO: LLM routing and sampling
 # Tool: aperv:sata_mop_llm (with LLM, SGLang required)
 # MACRO params fixed at optimal values from macro phase
@@ -381,6 +498,54 @@ def get_default_params(phase: CalibrationPhase) -> Dict[str, Any]:
         else:
             params[p.name] = p.default
     return params
+
+
+def suggest_params_v2(trial, phase: CalibrationPhase) -> Dict[str, Any]:
+    """Suggest parameter values for a v2 Optuna trial.
+
+    Simpler than v1: no conditional parameters (do_fuzzing/fuzzing_rate removed).
+    For MICRO phase, delegates to the v1 suggest_params (MICRO is unchanged in v2).
+
+    Args:
+        trial: Optuna trial object used to suggest parameter values.
+        phase: Calibration phase determining which parameters to suggest.
+
+    Returns:
+        Dict mapping parameter names to suggested values.
+    """
+    if phase == CalibrationPhase.MICRO:
+        return suggest_params(trial, phase)
+
+    params = {}
+    for p in MACRO_PARAMETERS_V2:
+        if p.param_type == "float":
+            params[p.name] = trial.suggest_float(p.name, p.low, p.high, log=p.log)
+        elif p.param_type == "int":
+            kwargs = {}
+            if p.step:
+                kwargs["step"] = p.step
+            params[p.name] = trial.suggest_int(
+                p.name, int(p.low), int(p.high), **kwargs
+            )
+        elif p.param_type == "categorical":
+            params[p.name] = trial.suggest_categorical(p.name, p.choices)
+    return params
+
+
+def get_default_params_v2(phase: CalibrationPhase) -> Dict[str, Any]:
+    """Get default parameter values for v2.
+
+    For MICRO phase, delegates to the v1 get_default_params (MICRO unchanged).
+
+    Args:
+        phase: Calibration phase (MACRO or MICRO).
+
+    Returns:
+        Dict with default values for the requested phase.
+    """
+    if phase == CalibrationPhase.MICRO:
+        return get_default_params(phase)
+    return {p.name: p.default for p in MACRO_PARAMETERS_V2}
 
 
 def params_to_tool_spec(params: Dict[str, Any]) -> str:

@@ -157,7 +157,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "Call graph algorithm forwarded to Soot via '-cgAlgorithm'. "
             "Default (when omitted): 'spark' per gh51 D5 — full points-to gives "
-            "accurate reachesMop. cha/rta/vta are faster but less precise; useful "
+            "accurate reachesTarget. cha/rta/vta are faster but less precise; useful "
             "for triage runs where reachability precision is not critical."
         ),
     )

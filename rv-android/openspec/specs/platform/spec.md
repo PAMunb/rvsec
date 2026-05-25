@@ -454,7 +454,7 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 - **THEN** the method MUST log a warning: "Static analysis JSON missing for task {task.id} ({task.config.apk_name}.json) — per-method coverage will be zero, only MOP violations will be reliable"
 - **AND** MUST call `parse_logcat_file(logcat_file, static_data=None)` so `RVSEC` entries are still captured
 - **AND** `errors.csv` MUST contain rows for that task
-- **AND** every coverage-percentage column in `summary.csv` (`cov_act`, `cov_class`, `cov_method`, `cov_rv_method`, `cov_reachable`, `cov_reaches_mop`, `cov_directly_reaches_mop`) MUST be `0.00` for that task
+- **AND** every coverage-percentage column in `summary.csv` (`cov_act`, `cov_class`, `cov_method`, `cov_rv_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`) MUST be `0.00` for that task
 - **AND** `coverage.csv` MUST have zero per-method rows for that task
 
 #### Scenario: Logcat File Missing on Resume
@@ -536,10 +536,10 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 #### Scenario: Coverage CSV Format
 
 - **WHEN** `coverage.csv` is generated for a completed task with repository data
-- **THEN** the header row MUST be: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop`
+- **THEN** the header row MUST be: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target`
 - **AND** each method call MUST produce one row with progressive coverage metrics (cumulative unique methods / total methods)
 - **AND** `cov_method`, `cov_act`, `cov_rv_method` MUST be cumulative-progressive (each row reflects the cumulative state up to and including that call)
-- **AND** `cov_class`, `cov_reachable`, `cov_reaches_mop`, `cov_directly_reaches_mop` MUST equal the final task value from `repository.calculate_metrics().to_dict()` and are row-constant — `cov_class` MUST be `class_coverage` (NOT `method_coverage` as in the pre-fix code), `cov_reachable` MUST be `reachable_method_coverage`, `cov_reaches_mop` MUST be `mop_method_coverage`, `cov_directly_reaches_mop` MUST be `direct_mop_method_coverage`. Rationale: these metrics are derived from static-analysis denominators that do not change during execution; row-constant values match the offline regen tooling and downstream notebooks already in use
+- **AND** `cov_class`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target` MUST equal the final task value from `repository.calculate_metrics().to_dict()` and are row-constant — `cov_class` MUST be `class_coverage` (NOT `method_coverage` as in the pre-fix code), `cov_reachable` MUST be `reachable_method_coverage`, `cov_reaches_target` MUST be `mop_method_coverage`, `cov_directly_reaches_target` MUST be `direct_mop_method_coverage`. Rationale: these metrics are derived from static-analysis denominators that do not change during execution; row-constant values match the offline regen tooling and downstream notebooks already in use
 - **AND** coverage percentages MUST be rounded to 2 decimal places
 
 #### Scenario: Errors CSV Format
@@ -553,14 +553,14 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 
 - **WHEN** `summary.csv` is generated
 - **THEN** each completed task MUST produce exactly one row
-- **AND** the header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop, mop_errors_total, mop_errors_unique`
+- **AND** the header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target, mop_errors_total, mop_errors_unique`
 - **AND** each value MUST be read from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` populated `task.repository`
 - **AND** `cov_act` MUST be the `activity_coverage` key from the dict
 - **AND** `cov_class` MUST be the `class_coverage` key (NOT `method_coverage` as the pre-fix code wrote)
 - **AND** `cov_method` MUST be the `method_coverage` key
 - **AND** `cov_reachable` MUST be the `reachable_method_coverage` key
-- **AND** `cov_reaches_mop` MUST be the `mop_method_coverage` key
-- **AND** `cov_directly_reaches_mop` MUST be the `direct_mop_method_coverage` key
+- **AND** `cov_reaches_target` MUST be the `mop_method_coverage` key
+- **AND** `cov_directly_reaches_target` MUST be the `direct_mop_method_coverage` key
 - **AND** `mop_errors_total` MUST be the `total_errors` key (semantically equivalent to the renamed `errors` column from the pre-fix schema)
 - **AND** `mop_errors_unique` MUST be the `unique_errors` key
 - **AND** coverage values MUST be rounded to 2 decimal places

@@ -21,8 +21,8 @@ from rv_android_core.util.validation.decorators import validated_model
         "params",
         "signature",
         "reachable",
-        "reaches_mop",
-        "directly_reaches_mop",
+        "reaches_target",
+        "directly_reaches_target",
     ]
 )
 class Method(BaseValidatedModel):
@@ -42,8 +42,8 @@ class Method(BaseValidatedModel):
     - Supports method signature-based identification and comparison
 
     ### Monitored Operations Context:
-    - reaches_mop: Indicates if method can reach any monitored operation
-    - directly_reaches_mop: Indicates if method directly calls monitored operations
+    - reaches_target: Indicates if method can reach any monitored operation
+    - directly_reaches_target: Indicates if method directly calls monitored operations
     - Used for tracking both cryptographic API usage and generic specification violations
     """
 
@@ -66,12 +66,12 @@ class Method(BaseValidatedModel):
         description="Whether the method is reachable from application entry points",
     )
 
-    reaches_mop: bool = Field(
+    reaches_target: bool = Field(
         default=False,
         description="Whether the method can reach any monitored operation",
     )
 
-    directly_reaches_mop: bool = Field(
+    directly_reaches_target: bool = Field(
         default=False,
         description="Whether the method directly calls monitored operations",
     )
@@ -94,8 +94,8 @@ class Method(BaseValidatedModel):
             "params": self.params,
             "signature": self.signature,
             "reachable": self.reachable,
-            "reaches_mop": self.reaches_mop,
-            "directly_reaches_mop": self.directly_reaches_mop,
+            "reaches_target": self.reaches_target,
+            "directly_reaches_target": self.directly_reaches_target,
         }
 
     def is_monitored_operation_related(self) -> bool:
@@ -105,7 +105,7 @@ class Method(BaseValidatedModel):
         Returns:
             True if method reaches or directly reaches monitored operations
         """
-        return self.reaches_mop or self.directly_reaches_mop
+        return self.reaches_target or self.directly_reaches_target
 
     def get_analysis_summary(self) -> Dict[str, any]:
         """
@@ -118,8 +118,8 @@ class Method(BaseValidatedModel):
             "signature": self.signature,
             "reachable": self.reachable,
             "monitored_operations": {
-                "reaches": self.reaches_mop,
-                "directly_reaches": self.directly_reaches_mop,
+                "reaches": self.reaches_target,
+                "directly_reaches": self.directly_reaches_target,
                 "is_related": self.is_monitored_operation_related(),
             },
             "runtime_reached": self.reached,
@@ -157,8 +157,8 @@ class Method(BaseValidatedModel):
         """
         return (
             f"Method(name={self.name}, signature={self.signature}, "
-            f"reachable={self.reachable}, reaches_mop={self.reaches_mop}, "
-            f"directly_reaches_mop={self.directly_reaches_mop})"
+            f"reachable={self.reachable}, reaches_target={self.reaches_target}, "
+            f"directly_reaches_target={self.directly_reaches_target})"
         )
 
     def __repr__(self) -> str:

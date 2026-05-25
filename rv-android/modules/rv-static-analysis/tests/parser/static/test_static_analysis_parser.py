@@ -102,8 +102,8 @@ class TestWellFormedJSON:
                             "name": "onStartCommand",
                             "signature": "<br.unb.cic.cryptoapp.MyService: int onStartCommand(android.content.Intent,int,int)>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 }
@@ -124,13 +124,13 @@ class TestWellFormedJSON:
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         # At least some methods should be reachable
         reachable_methods = [m for m in result.classes.methods.values() if m.reachable]
-        reaches_mop = [m for m in result.classes.methods.values() if m.reaches_mop]
+        reaches_target = [m for m in result.classes.methods.values() if m.reaches_target]
         directly_reaches = [
-            m for m in result.classes.methods.values() if m.directly_reaches_mop
+            m for m in result.classes.methods.values() if m.directly_reaches_target
         ]
 
         assert len(reachable_methods) > 0
-        assert len(reaches_mop) > 0
+        assert len(reaches_target) > 0
         assert len(directly_reaches) > 0
 
     def test_window_types(self, parser):
@@ -584,8 +584,8 @@ class TestTruncatedJSON:
                             "name": "onCreate",
                             "signature": "<com.example.Main: void onCreate(android.os.Bundle)>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 }
@@ -635,7 +635,7 @@ class TestEmptyMOPSpecs:
     """Tests for scenarios where no MOP specs match."""
 
     def test_no_mop_all_false(self, parser, tmp_path):
-        """When no MOP specs match, all reachesMop flags are false."""
+        """When no MOP specs match, all reachesTarget flags are false."""
         data = {
             "reachability": [
                 {
@@ -647,15 +647,15 @@ class TestEmptyMOPSpecs:
                             "name": "onCreate",
                             "signature": "<com.example.Main: void onCreate(android.os.Bundle)>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         },
                         {
                             "name": "onResume",
                             "signature": "<com.example.Main: void onResume()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         },
                     ],
                 }
@@ -667,8 +667,8 @@ class TestEmptyMOPSpecs:
         result = parser.parse_file(path, "com.example")
 
         for method in result.classes.methods.values():
-            assert method.reaches_mop is False
-            assert method.directly_reaches_mop is False
+            assert method.reaches_target is False
+            assert method.directly_reaches_target is False
 
 
 # --- Convenience functions ---
@@ -715,8 +715,8 @@ class TestMethodSignatureParsing:
                             "name": "doStuff",
                             "signature": "<com.example.Main: void doStuff(int,java.lang.String)>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 }
@@ -743,8 +743,8 @@ class TestMethodSignatureParsing:
                             "name": "run",
                             "signature": "<com.example.Main: void run()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 }
@@ -854,8 +854,8 @@ class TestBaselineEquivalence:
         "windows": 5,
         "transitions": 36,  # 35 raw JSON objects, 1 has 2 events → 36 expanded
         "reachable": 67,
-        "reaches_mop": 61,
-        "directly_reaches_mop": 21,
+        "reaches_target": 61,
+        "directly_reaches_target": 21,
     }
 
     def test_class_count_exact(self, parser):
@@ -886,13 +886,13 @@ class TestBaselineEquivalence:
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         assert len(result.wtg.transitions) == self.BASELINE["transitions"]
 
-    def test_directly_reaches_mop_exact(self, parser):
+    def test_directly_reaches_target_exact(self, parser):
         """Exact match: methods that directly call monitored operations."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
         count = sum(
-            1 for m in result.classes.methods.values() if m.directly_reaches_mop
+            1 for m in result.classes.methods.values() if m.directly_reaches_target
         )
-        assert count == self.BASELINE["directly_reaches_mop"]
+        assert count == self.BASELINE["directly_reaches_target"]
 
     def test_reachable_within_tolerance(self, parser):
         """±10% tolerance: reachable methods from entry points."""
@@ -903,14 +903,14 @@ class TestBaselineEquivalence:
             abs(count - expected) <= expected * 0.10
         ), f"reachable={count}, expected={expected} (±10%)"
 
-    def test_reaches_mop_within_tolerance(self, parser):
+    def test_reaches_target_within_tolerance(self, parser):
         """±10% tolerance: methods that can reach monitored operations."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
-        count = sum(1 for m in result.classes.methods.values() if m.reaches_mop)
-        expected = self.BASELINE["reaches_mop"]
+        count = sum(1 for m in result.classes.methods.values() if m.reaches_target)
+        expected = self.BASELINE["reaches_target"]
         assert (
             abs(count - expected) <= expected * 0.10
-        ), f"reaches_mop={count}, expected={expected} (±10%)"
+        ), f"reaches_target={count}, expected={expected} (±10%)"
 
     def test_main_activity_identified(self, parser):
         """Main activity must be correctly identified."""
@@ -999,8 +999,8 @@ class TestNormalizerSafetyNet:
                             "name": "run",
                             "signature": "<com.example.Outer.Inner: void run()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 }
@@ -1028,8 +1028,8 @@ class TestNormalizerSafetyNet:
                             "name": "run",
                             "signature": "<com.example.Outer.Inner: void run()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 }
@@ -1064,8 +1064,8 @@ class TestNormalizerSafetyNet:
                             "name": "m",
                             "signature": f"<{cn}: void m()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 }
@@ -1099,8 +1099,8 @@ class TestMultiPackageFiltering:
                             "name": "onCreate",
                             "signature": "<edu.cmu.cylab.starslinger.demo.Main: void onCreate(android.os.Bundle)>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 },
@@ -1113,8 +1113,8 @@ class TestMultiPackageFiltering:
                             "name": "process",
                             "signature": "<edu.cmu.cylab.starslinger.exchange.ExchangeActivity: void process()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 },
@@ -1127,8 +1127,8 @@ class TestMultiPackageFiltering:
                             "name": "init",
                             "signature": "<com.google.firebase.App: void init()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 },
@@ -1163,8 +1163,8 @@ class TestMultiPackageFiltering:
                             "name": "onCreate",
                             "signature": "<org.godotengine.godot.GodotActivity: void onCreate(android.os.Bundle)>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 },
@@ -1177,8 +1177,8 @@ class TestMultiPackageFiltering:
                             "name": "start",
                             "signature": "<ir.hsn6.trans.Launcher: void start()>",
                             "reachable": True,
-                            "reachesMop": False,
-                            "directlyReachesMop": False,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
                         }
                     ],
                 },
@@ -1219,8 +1219,8 @@ class TestComponentsParsing:
                             }
                         ],
                         "exported": True,
-                        "reachesMop": False,
-                        "mopMethods": [],
+                        "reachesTarget": False,
+                        "targetMethods": [],
                     }
                 ],
                 "receivers": [],
@@ -1256,8 +1256,8 @@ class TestComponentsParsing:
                         "isMain": False,
                         "authorities": "com.example.data",
                         "exported": False,
-                        "reachesMop": True,
-                        "mopMethods": ["<com.example.DataProvider: Cursor query()>"],
+                        "reachesTarget": True,
+                        "targetMethods": ["<com.example.DataProvider: Cursor query()>"],
                     }
                 ],
             },
@@ -1270,8 +1270,8 @@ class TestComponentsParsing:
         assert provider.component_type == "provider"
         assert provider.is_main is False
         assert provider.authorities == "com.example.data"
-        assert provider.reaches_mop is True
-        assert len(provider.mop_methods) == 1
+        assert provider.reaches_target is True
+        assert len(provider.target_methods) == 1
         assert provider.intent_filters == []
 
     def test_parse_all_component_types(self, parser, tmp_path):
@@ -1286,8 +1286,8 @@ class TestComponentsParsing:
                         "isMain": True,
                         "intentFilters": [],
                         "exported": True,
-                        "reachesMop": False,
-                        "mopMethods": [],
+                        "reachesTarget": False,
+                        "targetMethods": [],
                     }
                 ],
                 "receivers": [
@@ -1296,8 +1296,8 @@ class TestComponentsParsing:
                         "isMain": False,
                         "intentFilters": [],
                         "exported": True,
-                        "reachesMop": False,
-                        "mopMethods": [],
+                        "reachesTarget": False,
+                        "targetMethods": [],
                     }
                 ],
                 "services": [
@@ -1306,8 +1306,8 @@ class TestComponentsParsing:
                         "isMain": False,
                         "intentFilters": [],
                         "exported": False,
-                        "reachesMop": True,
-                        "mopMethods": ["sig"],
+                        "reachesTarget": True,
+                        "targetMethods": ["sig"],
                     }
                 ],
                 "providers": [
@@ -1315,8 +1315,8 @@ class TestComponentsParsing:
                         "className": "com.example.Prov",
                         "authorities": "auth",
                         "exported": False,
-                        "reachesMop": False,
-                        "mopMethods": [],
+                        "reachesTarget": False,
+                        "targetMethods": [],
                     }
                 ],
             },
@@ -1327,7 +1327,7 @@ class TestComponentsParsing:
         assert len(result.components.receivers) == 1
         assert len(result.components.services) == 1
         assert len(result.components.providers) == 1
-        assert result.components.services[0].reaches_mop is True
+        assert result.components.services[0].reaches_target is True
 
     def test_missing_components_section(self, parser, tmp_path):
         json_data = {"reachability": [], "windows": [], "transitions": []}
@@ -1357,7 +1357,7 @@ class TestComponentsParsing:
         result = parser.parse_file(str(path), "com.example")
         assert len(result.components.get_all()) == 0
 
-    def test_mop_methods_parsed(self, parser, tmp_path):
+    def test_target_methods_parsed(self, parser, tmp_path):
         json_data = {
             "reachability": [],
             "windows": [],
@@ -1375,8 +1375,8 @@ class TestComponentsParsing:
                             }
                         ],
                         "exported": True,
-                        "reachesMop": True,
-                        "mopMethods": [
+                        "reachesTarget": True,
+                        "targetMethods": [
                             "<com.example.Recv: void onReceive(Context,Intent)>"
                         ],
                     }
@@ -1388,8 +1388,8 @@ class TestComponentsParsing:
         path = _write_json(tmp_path, json_data)
         result = parser.parse_file(str(path), "com.example")
         recv = result.components.receivers[0]
-        assert recv.reaches_mop is True
-        assert recv.mop_methods == [
+        assert recv.reaches_target is True
+        assert recv.target_methods == [
             "<com.example.Recv: void onReceive(Context,Intent)>"
         ]
         assert recv.exported is True
@@ -1408,16 +1408,16 @@ class TestComponentsParsing:
                         "isMain": False,
                         "intentFilters": [],
                         "exported": True,
-                        "reachesMop": False,
-                        "mopMethods": [],
+                        "reachesTarget": False,
+                        "targetMethods": [],
                     },
                     {
                         "className": "com.example.Svc2",
                         "isMain": False,
                         "intentFilters": [],
                         "exported": False,
-                        "reachesMop": False,
-                        "mopMethods": [],
+                        "reachesTarget": False,
+                        "targetMethods": [],
                     },
                 ],
                 "providers": [],

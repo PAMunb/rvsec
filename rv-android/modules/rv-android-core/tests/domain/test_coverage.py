@@ -29,8 +29,8 @@ class TestMethodCoverageData(ModelTestBase):
             signature="com.example.TestClass.testMethod(Ljava/lang/String;)V",
             parameters=["java.lang.String"],
             reachable=True,
-            reaches_mop=True,
-            directly_reaches_mop=False,
+            reaches_target=True,
+            directly_reaches_target=False,
         )
 
     def test_initialization(self, method_data):
@@ -43,8 +43,8 @@ class TestMethodCoverageData(ModelTestBase):
         )
         assert method_data.parameters == ["java.lang.String"]
         assert method_data.reachable is True
-        assert method_data.reaches_mop is True
-        assert method_data.directly_reaches_mop is False
+        assert method_data.reaches_target is True
+        assert method_data.directly_reaches_target is False
         assert method_data.called is False
         assert method_data.call_count == 0
         assert method_data.first_called_at is None
@@ -112,7 +112,7 @@ class TestClassCoverageData(ModelTestBase):
             signature="com.example.TestClass.method1()V",
             parameters=[],
             reachable=True,
-            reaches_mop=True,
+            reaches_target=True,
         )
 
     @pytest.fixture
@@ -124,7 +124,7 @@ class TestClassCoverageData(ModelTestBase):
             signature="com.example.TestClass.method2(Ljava/lang/String;)V",
             parameters=["java.lang.String"],
             reachable=True,
-            reaches_mop=False,
+            reaches_target=False,
         )
 
     def test_initialization(self, class_data):
@@ -151,7 +151,7 @@ class TestClassCoverageData(ModelTestBase):
             signature=method_data_1.signature,  # Same signature
             parameters=[],
             reachable=False,  # Different value
-            reaches_mop=False,  # Different value
+            reaches_target=False,  # Different value
         )
         class_data.add_method(modified_method)
         assert len(class_data.methods) == 2  # Count should remain the same
@@ -243,13 +243,13 @@ class TestCoverageMetrics(ModelTestBase):
         metrics.total_activities = 5
         metrics.total_methods = 100
         metrics.total_reachable_methods = 80
-        metrics.total_mop_methods = 50
+        metrics.total_target_methods = 50
 
         metrics.called_classes = 8
         metrics.called_activities = 4
         metrics.called_methods = 70
         metrics.called_reachable_methods = 60
-        metrics.called_mop_methods = 30
+        metrics.called_target_methods = 30
 
         metrics.total_errors = 5
         metrics.unique_errors = 3
@@ -261,13 +261,13 @@ class TestCoverageMetrics(ModelTestBase):
         assert empty_metrics.total_activities == 0
         assert empty_metrics.total_methods == 0
         assert empty_metrics.total_reachable_methods == 0
-        assert empty_metrics.total_mop_methods == 0
+        assert empty_metrics.total_target_methods == 0
 
         assert empty_metrics.called_classes == 0
         assert empty_metrics.called_activities == 0
         assert empty_metrics.called_methods == 0
         assert empty_metrics.called_reachable_methods == 0
-        assert empty_metrics.called_mop_methods == 0
+        assert empty_metrics.called_target_methods == 0
 
         assert empty_metrics.total_errors == 0
         assert empty_metrics.unique_errors == 0
@@ -343,7 +343,7 @@ class TestLogcatRepository(ModelTestBase):
             signature="com.example.TestClass.testMethod()V",
             parameters=[],
             reachable=True,
-            reaches_mop=True,
+            reaches_target=True,
             from_static_analysis=True,
         )
 
@@ -529,7 +529,7 @@ class TestLogcatRepository(ModelTestBase):
             signature="com.example.TestClass.anotherMethod()V",
             parameters=[],
             reachable=True,
-            reaches_mop=False,
+            reaches_target=False,
             from_static_analysis=True,
         )
         new_class.add_method(second_method)
@@ -581,13 +581,13 @@ class TestLogcatRepository(ModelTestBase):
         assert metrics.total_activities == 1
         assert metrics.total_methods == 1
         assert metrics.total_reachable_methods == 1
-        assert metrics.total_mop_methods == 1
+        assert metrics.total_target_methods == 1
 
         assert metrics.called_classes == 1
         assert metrics.called_activities == 1
         assert metrics.called_methods == 1
         assert metrics.called_reachable_methods == 1
-        assert metrics.called_mop_methods == 1
+        assert metrics.called_target_methods == 1
 
         assert metrics.total_errors == 1
         assert metrics.unique_errors == 1

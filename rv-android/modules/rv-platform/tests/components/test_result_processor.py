@@ -68,12 +68,12 @@ def _make_mock_repository(method_calls=None, errors=None, static_methods=None):
     repo.get_errors.return_value = errors or []
     repo.get_static_methods.return_value = static_methods or []
     repo.get_static_activities.return_value = []
-    repo.get_mop_methods.return_value = []
+    repo.get_target_methods.return_value = []
 
     metrics = MagicMock()
     metrics.called_activities = 2
     metrics.called_methods = 10
-    metrics.called_mop_methods = 3
+    metrics.called_target_methods = 3
     metrics.total_errors = len(errors) if errors else 0
     metrics.to_dict.return_value = {
         "activity_coverage": 50.0,
@@ -290,7 +290,7 @@ class TestSummaryCSV:
         # Values come from repository.to_dict(), NOT from the ignored_metrics dict.
         assert float(row[header.index("cov_act")]) == 50.0
         assert float(row[header.index("cov_method")]) == 25.0
-        assert float(row[header.index("cov_reaches_mop")]) == 15.0
+        assert float(row[header.index("cov_reaches_target")]) == 15.0
 
     def test_summary_csv_fallback_to_repository(self, tmp_path):
         """Summary uses repository.calculate_metrics() when no coverage_metrics."""
@@ -380,7 +380,7 @@ class TestResultsJSON:
         metrics = {
             "called_activities": 3,
             "called_methods": 8,
-            "called_mop_methods": 2,
+            "called_target_methods": 2,
             "activities_coverage": 60.0,
             "method_coverage": 20.0,
             "total_errors": 1,
@@ -685,7 +685,7 @@ class TestGh58CovClassSlotFix:
         # Static-side denominators for progressive coverage calc inside writer
         repo.get_static_methods.return_value = [f"sig{i}" for i in range(30)]
         repo.get_static_activities.return_value = []
-        repo.get_mop_methods.return_value = [f"sig{i}" for i in range(6)]
+        repo.get_target_methods.return_value = [f"sig{i}" for i in range(6)]
         return repo
 
     def test_coverage_csv_cov_class_uses_class_coverage_not_method_coverage(

@@ -175,8 +175,8 @@ class StaticMapTest {
                 + "\"name\":\"onClick\","
                 + "\"signature\":\"<com.example.TestActivity: void onClick()>\","
                 + "\"reachable\":true,"
-                + "\"reachesMop\":true,"
-                + "\"directlyReachesMop\":true"
+                + "\"reachesTarget\":true,"
+                + "\"directlyReachesTarget\":true"
                 + "}]"
                 + "}],"
                 + "\"windows\":[{"
@@ -290,8 +290,8 @@ class StaticMapTest {
                 + "\"name\":\"doEncrypt\","
                 + "\"signature\":\"<" + className + ": void doEncrypt()>\","
                 + "\"reachable\":true,"
-                + "\"reachesMop\":" + transitiveMop + ","
-                + "\"directlyReachesMop\":" + directMop
+                + "\"reachesTarget\":" + transitiveMop + ","
+                + "\"directlyReachesTarget\":" + directMop
                 + "}]"
                 + "}],"
                 + "\"windows\":[],"

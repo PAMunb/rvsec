@@ -14,8 +14,8 @@ def sample_method():
         params=["param1", "param2"],
         signature="TestClass.testMethod(param1,param2)",
         reachable=True,
-        reaches_mop=False,
-        directly_reaches_mop=False,
+        reaches_target=False,
+        directly_reaches_target=False,
     )
 
 
@@ -28,8 +28,8 @@ def mop_method():
         params=[],
         signature="TestClass.mopMethod()",
         reachable=True,
-        reaches_mop=True,
-        directly_reaches_mop=True,
+        reaches_target=True,
+        directly_reaches_target=True,
     )
 
 
@@ -51,8 +51,8 @@ class TestMethod:
         assert sample_method.name == "testMethod"
         assert sample_method.params == ["param1", "param2"]
         assert sample_method.reachable is True
-        assert sample_method.reaches_mop is False
-        assert sample_method.directly_reaches_mop is False
+        assert sample_method.reaches_target is False
+        assert sample_method.directly_reaches_target is False
 
     def test_method_equality_and_hash(self, sample_method):
         method2 = Method(
@@ -86,13 +86,13 @@ class TestMethod:
             "params": ["param1", "param2"],
             "signature": "TestClass.testMethod(param1,param2)",
             "reachable": True,
-            "reaches_mop": False,
-            "directly_reaches_mop": False,
+            "reaches_target": False,
+            "directly_reaches_target": False,
         }
         assert sample_method.to_json() == expected
 
     @pytest.mark.parametrize(
-        "reaches_mop, directly_reaches_mop, expected",
+        "reaches_target, directly_reaches_target, expected",
         [
             (True, True, True),
             (True, False, True),
@@ -101,15 +101,15 @@ class TestMethod:
         ],
     )
     def test_is_monitored_operation_related(
-        self, reaches_mop, directly_reaches_mop, expected
+        self, reaches_target, directly_reaches_target, expected
     ):
         method = Method(
             class_name="TestClass",
             name="test",
             params=[],
             signature="TestClass.test()",
-            reaches_mop=reaches_mop,
-            directly_reaches_mop=directly_reaches_mop,
+            reaches_target=reaches_target,
+            directly_reaches_target=directly_reaches_target,
         )
         assert method.is_monitored_operation_related() is expected
 
@@ -167,8 +167,8 @@ class TestClazz:
         assert sample_method in reachable_methods
         assert mop_method in reachable_methods
 
-        mop_methods = sample_clazz.get_monitored_operation_methods()
-        assert mop_methods == [mop_method]
+        target_methods = sample_clazz.get_monitored_operation_methods()
+        assert target_methods == [mop_method]
 
     def test_clazz_representations(self, sample_clazz):
         assert repr(sample_clazz) == "[TestActivity,activity,False]"
@@ -297,7 +297,7 @@ class TestDomainIntegrations:
             params=["String"],
             signature="com.app.Util.encrypt(String)",
             reachable=True,
-            directly_reaches_mop=True,
+            directly_reaches_target=True,
         )
         unreachable_method = Method(
             class_name="com.app.Util",
@@ -320,9 +320,9 @@ class TestDomainIntegrations:
         assert len(classes_manager.methods) == 4
         assert classes_manager.get_main_activity() is main_activity
 
-        mop_methods = classes_manager.get_monitored_operation_methods()
-        assert len(mop_methods) == 1
-        assert mop_method in mop_methods
+        target_methods = classes_manager.get_monitored_operation_methods()
+        assert len(target_methods) == 1
+        assert mop_method in target_methods
 
         # 5. Check summaries
         util_summary = util_class.get_analysis_summary()
@@ -352,8 +352,8 @@ method_strategy = st.builds(
     params=st.lists(java_class_name, max_size=5),
     signature=st.text(min_size=1, max_size=100).filter(lambda s: s and not s.isspace()),
     reachable=st.booleans(),
-    reaches_mop=st.booleans(),
-    directly_reaches_mop=st.booleans(),
+    reaches_target=st.booleans(),
+    directly_reaches_target=st.booleans(),
     reached=st.booleans(),
 )
 
@@ -362,7 +362,7 @@ method_strategy = st.builds(
 @given(method=method_strategy)
 def test_method_properties_are_consistent(method):
     """Property-based test to check Method invariants."""
-    if method.directly_reaches_mop or method.reaches_mop:
+    if method.directly_reaches_target or method.reaches_target:
         assert method.is_monitored_operation_related()
     else:
         assert not method.is_monitored_operation_related()
@@ -392,8 +392,8 @@ def test_clazz_with_random_data(name, component_type, is_main, methods):
 
     assert len(clazz.methods) == len(methods)
 
-    mop_methods_in_set = {m for m in methods if m.is_monitored_operation_related()}
-    assert len(clazz.get_monitored_operation_methods()) == len(mop_methods_in_set)
+    target_methods_in_set = {m for m in methods if m.is_monitored_operation_related()}
+    assert len(clazz.get_monitored_operation_methods()) == len(target_methods_in_set)
 
     reachable_methods_in_set = {m for m in methods if m.reachable}
     assert len(clazz.get_reachable_methods()) == len(reachable_methods_in_set)

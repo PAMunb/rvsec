@@ -199,7 +199,7 @@ class Widget(BaseValidatedModel):
     - Integrated with monitoring systems for interaction tracking
 
     ### Critical UI Analysis Data:
-    The reaches_mop and directly_reaches_mop fields provide essential information
+    The reaches_target and directly_reaches_target fields provide essential information
     for prioritizing UI elements during exploration based on their potential
     to trigger monitored operations and security-relevant code paths.
     """
@@ -271,11 +271,11 @@ class Widget(BaseValidatedModel):
         default_factory=list,
         description="List of event handler method signatures associated with the widget",
     )
-    reaches_mop: bool = Field(
+    reaches_target: bool = Field(
         default=False,
         description="Whether this widget can trigger paths to monitored operations",
     )
-    directly_reaches_mop: bool = Field(
+    directly_reaches_target: bool = Field(
         default=False,
         description="Whether this widget directly invokes monitored operations",
     )
@@ -347,8 +347,8 @@ class Widget(BaseValidatedModel):
             "entries": self.entries,
             "events": [event.to_json() for event in self.events],
             "handlers": self.handlers,
-            "reaches_mop": self.reaches_mop,
-            "directly_reaches_mop": self.directly_reaches_mop,
+            "reaches_target": self.reaches_target,
+            "directly_reaches_target": self.directly_reaches_target,
         }
 
     def __eq__(self, value):

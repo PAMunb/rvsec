@@ -258,8 +258,8 @@ class ResultProcessorComponent:
                         "cov_method",
                         "cov_rv_method",
                         "cov_reachable",
-                        "cov_reaches_mop",
-                        "cov_directly_reaches_mop",
+                        "cov_reaches_target",
+                        "cov_directly_reaches_target",
                     ]
                 )
 
@@ -300,10 +300,10 @@ class ResultProcessorComponent:
             cov_reachable_final = round(
                 metrics_dict.get("reachable_method_coverage", 0) or 0, 2
             )
-            cov_reaches_mop_final = round(
+            cov_reaches_target_final = round(
                 metrics_dict.get("mop_method_coverage", 0) or 0, 2
             )
-            cov_directly_reaches_mop_final = round(
+            cov_directly_reaches_target_final = round(
                 metrics_dict.get("direct_mop_method_coverage", 0) or 0, 2
             )
 
@@ -320,15 +320,15 @@ class ResultProcessorComponent:
                 if hasattr(repository, "get_static_activities")
                 else 0
             )
-            total_mop_methods = (
-                len(repository.get_mop_methods())
-                if hasattr(repository, "get_mop_methods")
+            total_target_methods = (
+                len(repository.get_target_methods())
+                if hasattr(repository, "get_target_methods")
                 else 1
             )
 
             called_methods: set = set()
             called_activities: set = set()
-            called_mop_methods: set = set()
+            called_target_methods: set = set()
 
             for i, call in enumerate(method_calls, 1):
                 signature = call.get("signature", "")
@@ -339,7 +339,7 @@ class ResultProcessorComponent:
                     called_activities.add(activity_name)
 
                 if call.get("is_mop_method", False):
-                    called_mop_methods.add(signature)
+                    called_target_methods.add(signature)
 
                 method_coverage = (
                     (len(called_methods) / total_methods * 100)
@@ -352,8 +352,8 @@ class ResultProcessorComponent:
                     else 0
                 )
                 mop_coverage = (
-                    (len(called_mop_methods) / total_mop_methods * 100)
-                    if total_mop_methods > 0
+                    (len(called_target_methods) / total_target_methods * 100)
+                    if total_target_methods > 0
                     else 0
                 )
 
@@ -372,8 +372,8 @@ class ResultProcessorComponent:
                         round(method_coverage, 2),
                         round(mop_coverage, 2),
                         cov_reachable_final,
-                        cov_reaches_mop_final,
-                        cov_directly_reaches_mop_final,
+                        cov_reaches_target_final,
+                        cov_directly_reaches_target_final,
                     ]
                 )
 
@@ -511,9 +511,9 @@ class ResultProcessorComponent:
                 # Extended schema (gh58): 12 columns, all values from
                 # repository.calculate_metrics().to_dict() after reconstruct.
                 # cov_rv_method is intentionally NOT included — in summary
-                # (row-constant final values) it would alias cov_reaches_mop.
+                # (row-constant final values) it would alias cov_reaches_target.
                 # It is retained in coverage.csv where it carries progressive
-                # semantics distinct from cov_reaches_mop.
+                # semantics distinct from cov_reaches_target.
                 writer.writerow(
                     [
                         "apk",
@@ -524,8 +524,8 @@ class ResultProcessorComponent:
                         "cov_class",
                         "cov_method",
                         "cov_reachable",
-                        "cov_reaches_mop",
-                        "cov_directly_reaches_mop",
+                        "cov_reaches_target",
+                        "cov_directly_reaches_target",
                         "mop_errors_total",
                         "mop_errors_unique",
                     ]
@@ -676,7 +676,7 @@ class ResultProcessorComponent:
                 task_data["summary"] = {
                     "called_activities": metrics.called_activities,
                     "called_methods": metrics.called_methods,
-                    "called_methods_mop_reachable": metrics.called_mop_methods,
+                    "called_methods_mop_reachable": metrics.called_target_methods,
                     "activities_coverage": metrics_dict["activity_coverage"],
                     "method_coverage": metrics_dict["method_coverage"],
                     "methods_mop_reachable_coverage": metrics_dict[
@@ -714,7 +714,7 @@ class ResultProcessorComponent:
                     "called_activities": metrics.get("called_activities", 0),
                     "called_methods": metrics.get("called_methods", 0),
                     "called_methods_mop_reachable": metrics.get(
-                        "called_mop_methods", 0
+                        "called_target_methods", 0
                     ),
                     "activities_coverage": metrics.get("activities_coverage", 0),
                     "method_coverage": metrics.get("method_coverage", 0),

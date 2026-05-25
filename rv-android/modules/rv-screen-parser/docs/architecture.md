@@ -30,7 +30,7 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 - **UIAutomator XML parsing to ScreenDescription**: `UIAutomator2Parser.parse()` produces a `ScreenDescription` with correct activity, `ScreenItem` objects for each actionable element, and `events_by_id` mapping -- traces through `UIAutomator2Parser` -> `Node` tree construction -> visitor traversal -> `ScreenDescription`
 - **Visitor pattern dispatch for widget types**: `Node.accept(visitor)` dispatches `android.widget.Button` to `visit_button()`, Material Design variants to the same method, and unknown classes to `visit_leaf_node()` -- traces through `Node.accept()` dispatch logic
 - **System button filtering for leaf nodes only**: Leaf nodes identified as system buttons are skipped; container nodes are never filtered -- traces through `AbstractScreenVisitor.should_exclude_system_button()` called in `Node.accept()`
-- **MOP tracking in ItemAction**: Actions for widgets with `WidgetEvent` data carry `reaches_mop`/`directly_reaches_mop` flags -- traces through `AbstractScreenVisitor._update_action_mop_related_info()`
+- **MOP tracking in ItemAction**: Actions for widgets with `WidgetEvent` data carry `reaches_target`/`directly_reaches_target` flags -- traces through `AbstractScreenVisitor._update_action_mop_related_info()`
 - **ItemAction coordinate resolution**: `get_execution_coordinates()` returns explicit coordinates first, falls back to target view bounds center -- traces through `ItemAction.get_execution_coordinates()`
 - **ScreenDescription action lookup by ID**: `get_action_by_id(id)` returns the correct `ItemAction` via `events_by_id` dict -- traces through `ScreenDescription.get_action_by_id()`
 
@@ -164,7 +164,7 @@ flowchart TB
    - `editable`: TEXT_CHANGE action
    Each action carries coordinates (center of node bounds), a sequential ID from `Counter`, and the source `WidgetEventType`.
 
-5. **MOP annotation**: For each generated action, `_update_action_mop_related_info()` matches the runtime UI node to a GATOR-analyzed widget (by resource ID or text), then checks whether the widget's event handler reaches a monitored operation. Matching actions get `reaches_mop=True` and/or `directly_reaches_mop=True`, and `[M]`/`[DM]` markers are appended to the action text.
+5. **MOP annotation**: For each generated action, `_update_action_mop_related_info()` matches the runtime UI node to a GATOR-analyzed widget (by resource ID or text), then checks whether the widget's event handler reaches a monitored operation. Matching actions get `reaches_target=True` and/or `directly_reaches_target=True`, and `[M]`/`[DM]` markers are appended to the action text.
 
 6. **ScreenDescription assembly**: The visitor collects all `ScreenItem` objects and creates a `ScreenDescription` with the activity name, items list, and `events_by_id` mapping (INV-ANA-10: ScreenDescription builds events_by_id from all ItemAction objects).
 
@@ -520,7 +520,7 @@ sequenceDiagram
 - `Node`: UI hierarchy element with `accept(visitor)` dispatch, properties (clickable, scrollable, editable, bounds), and parent/child references
 - `ScreenDescription`: Complete screen state with `items`, `events_by_id` mapping, and `get_action_by_id()` lookup
 - `ScreenItem`: UI element with `base_description` and list of `ItemAction` objects
-- `ItemAction`: Executable action with `coordinates`, `event` type, `reaches_mop`/`directly_reaches_mop` flags, and computed `action_type`
+- `ItemAction`: Executable action with `coordinates`, `event` type, `reaches_target`/`directly_reaches_target` flags, and computed `action_type`
 - `Counter`: Sequential ID generator for unique action identifiers
 
 ### ScreenshotAnalyzer

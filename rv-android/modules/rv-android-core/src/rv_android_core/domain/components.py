@@ -42,11 +42,11 @@ class ComponentInfo(BaseValidatedModel):
     exported: bool = Field(
         default=False, description="Whether the component is exported"
     )
-    reaches_mop: bool = Field(
+    reaches_target: bool = Field(
         default=False,
         description="Whether lifecycle methods reach monitored operations",
     )
-    mop_methods: List[str] = Field(
+    target_methods: List[str] = Field(
         default_factory=list,
         description="Signatures of lifecycle methods reaching MOP",
     )
@@ -76,7 +76,7 @@ class Components(BaseValidatedModel):
 
     def get_mop_components(self) -> List[ComponentInfo]:
         """Return components that reach monitored operations."""
-        return [c for c in self.get_all() if c.reaches_mop]
+        return [c for c in self.get_all() if c.reaches_target]
 
     def get_exported_components(self) -> List[ComponentInfo]:
         """Return components that are exported."""

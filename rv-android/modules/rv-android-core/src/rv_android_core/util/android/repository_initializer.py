@@ -64,8 +64,8 @@ def initialize_repository_from_static_data(
                 signature=method.signature,
                 parameters=method.params,
                 reachable=method.reachable,
-                reaches_mop=method.reaches_mop,
-                directly_reaches_mop=method.directly_reaches_mop,
+                reaches_target=method.reaches_target,
+                directly_reaches_target=method.directly_reaches_target,
                 from_static_analysis=True,
             )
             class_data.add_method(method_data)

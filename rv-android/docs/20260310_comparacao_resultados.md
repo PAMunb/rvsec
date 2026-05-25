@@ -624,7 +624,7 @@ WHILE (time < deadline):
 
 O JSON de análise estática contém 3 seções ricas:
 
-1. **reachability**: per-class, per-method com `directlyReachesMop` e `reachesMop`
+1. **reachability**: per-class, per-method com `directlyReachesTarget` e `reachesTarget`
 2. **windows**: per-activity com **widgets[]** — cada widget tem `idName`, `type`, `listeners[]` (com `eventType` e `handler` method signature), `inputType`, `hint`, `entries`
 3. **transitions**: WTG edges com `events[]` — cada evento tem `widgetId`, `widgetClass`, `widgetName`, `handler`
 
@@ -648,7 +648,7 @@ WtgScorer: BFS activity-level (coarse: TODOS clicks boosted igual)
 
 ### Oportunidades perdidas (dados disponíveis mas não usados)
 
-**1. Widget-level MOP scoring**: `widgets[].listeners[].handler` + `reachability[].methods[].directlyReachesMop` → saber que `encryptButton` atinge MOP mas `clearButton` não. Atualmente, ambos recebem +500 igual.
+**1. Widget-level MOP scoring**: `widgets[].listeners[].handler` + `reachability[].methods[].directlyReachesTarget` → saber que `encryptButton` atinge MOP mas `clearButton` não. Atualmente, ambos recebem +500 igual.
 
 **2. WTG-guided widget targeting**: `transitions[].events[].widgetId` → saber qual widget específico abre qual atividade. Atualmente, todos clicks são boosted igualmente quando há atividades não-visitadas.
 

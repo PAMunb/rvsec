@@ -58,14 +58,14 @@ NEW_COLS = [
     "jca_instrumented",
     "sa_classes",
     "sa_methods",
-    "sa_reaches_mop",
+    "sa_reaches_target",
 ]
 
 # Idempotency: columns listed here are NOT overwritten when re-running the
 # script. They are intended to capture human or downstream-process decisions
 # that must survive a re-scan of the APK metadata.
 PRESERVE_COLS = {"approved", "obs", "jca_instrumented", "sa_classes",
-                 "sa_methods", "sa_reaches_mop"}
+                 "sa_methods", "sa_reaches_target"}
 
 
 def aapt_badging(apk: Path) -> dict:

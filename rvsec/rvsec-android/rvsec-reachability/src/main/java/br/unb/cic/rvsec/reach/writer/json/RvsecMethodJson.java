@@ -15,11 +15,11 @@ public class RvsecMethodJson {
 	private boolean reachable = false;
 
 	// reaches an method declared in MOP specs
-	private boolean reachesMop = false;
+	private boolean reachesTarget = false;
 
 	// true if directly calls a MOP method
 	// false if the MOP method is reached by a library/system
-	private boolean directlyReachesMop = false;
+	private boolean directlyReachesTarget = false;
 
 	// one of the possible paths (from an endpoint and this method)
 	private List<String> possiblePath;
@@ -32,8 +32,8 @@ public class RvsecMethodJson {
 		this.methodSignature = method.getMethodSignature();
 		this.modifiers = method.getModifiers();
 		this.reachable = method.isReachable();
-		this.reachesMop = method.reachesMop();
-		this.directlyReachesMop = method.directlyReachesMop();
+		this.reachesTarget = method.reachesTarget();
+		this.directlyReachesTarget = method.directlyReachesTarget();
 
 		if (method.getPossiblePath() != null) {
 			this.possiblePath = method.getPossiblePath().getPath();
@@ -80,19 +80,19 @@ public class RvsecMethodJson {
 	}
 
 	public boolean isReachesMop() {
-		return reachesMop;
+		return reachesTarget;
 	}
 
-	public void setReachesMop(boolean reachesMop) {
-		this.reachesMop = reachesMop;
+	public void setReachesMop(boolean reachesTarget) {
+		this.reachesTarget = reachesTarget;
 	}
 
 	public boolean isDirectlyReachesMop() {
-		return directlyReachesMop;
+		return directlyReachesTarget;
 	}
 
-	public void setDirectlyReachesMop(boolean directlyReachesMop) {
-		this.directlyReachesMop = directlyReachesMop;
+	public void setDirectlyReachesMop(boolean directlyReachesTarget) {
+		this.directlyReachesTarget = directlyReachesTarget;
 	}
 
 	public List<String> getPossiblePath() {

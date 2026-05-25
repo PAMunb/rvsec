@@ -145,7 +145,7 @@ flowchart TB
 
 ### Data Transformation Pipeline
 
-1. **Repository initialization**: When `CoverageTracker` (or `CoverageAnalyzer`) is created with `StaticAnalysisData`, it calls `initialize_repository_from_static_data()` to populate `LogcatRepository.classes` with all known classes and methods from the reachability section. This establishes the denominator for coverage percentages. Each method entry carries `reachable`, `reaches_mop`, and `directly_reaches_mop` flags.
+1. **Repository initialization**: When `CoverageTracker` (or `CoverageAnalyzer`) is created with `StaticAnalysisData`, it calls `initialize_repository_from_static_data()` to populate `LogcatRepository.classes` with all known classes and methods from the reachability section. This establishes the denominator for coverage percentages. Each method entry carries `reachable`, `reaches_target`, and `directly_reaches_target` flags.
 
 2. **Logcat line parsing**: The background thread reads new lines from the logcat file. Each line is passed to `parse_logcat_line()`, which:
    - Extracts date, time, PID, TID, level, tag, and message via regex matching against the Android logcat "threadtime" format

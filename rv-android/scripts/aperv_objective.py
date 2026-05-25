@@ -70,15 +70,18 @@ def compute_score(results_dir: str) -> float:
         log.warning(f"Empty summary.csv in {results_dir}")
         return 0.0
 
-    # cov_method: percentage of app methods exercised during the test run
-    # cov_rv_method: percentage of monitored (RV-instrumented) methods reached
-    avg_method = trim_mean(df["cov_method"].values, TRIM_PROPORTION)
-    avg_mop = trim_mean(df["cov_rv_method"].values, TRIM_PROPORTION)
+    # When reps > 1, each APK has multiple rows. First average within each APK
+    # (noise reduction), then apply trimmed mean across APK averages (outlier
+    # robustness). With 1 rep this is a no-op (groupby returns same values).
+    apk_means = df.groupby("apk")[["cov_method", "cov_rv_method"]].mean()
+    avg_method = trim_mean(apk_means["cov_method"].values, TRIM_PROPORTION)
+    avg_mop = trim_mean(apk_means["cov_rv_method"].values, TRIM_PROPORTION)
 
     score = MOP_WEIGHT * avg_mop + METHOD_WEIGHT * avg_method
 
     log.info(
         f"Score={score:.2f} (method={avg_method:.2f}%, mop={avg_mop:.2f}%) "
-        f"from {len(df)} rows in {results_dir} [trimmed mean, cut={TRIM_PROPORTION}]"
+        f"from {len(apk_means)} APKs ({len(df)} rows) in {results_dir} "
+        f"[trimmed mean, cut={TRIM_PROPORTION}]"
     )
     return score

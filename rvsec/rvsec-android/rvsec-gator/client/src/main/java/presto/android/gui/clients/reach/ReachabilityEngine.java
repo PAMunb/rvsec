@@ -72,7 +72,7 @@ public final class ReachabilityEngine {
 		EdgeReversedGraph<SootMethod, DefaultEdge> reversed = new EdgeReversedGraph<>(graph);
 		Set<SootMethod> reachesTargetSet = RvsecAnalysisClient.multiSourceBfs(reversed, targets);
 		Set<SootMethod> directTargetSet =
-				new HashSet<>(RvsecAnalysisClient.findDirectMopCallers(graph, targets));
+				new HashSet<>(RvsecAnalysisClient.findDirectTargetCallers(graph, targets));
 		int directCgCount = directTargetSet.size();
 
 		Set<SootMethod> directBcSet =

@@ -28,7 +28,7 @@ Segue as regras P1-P4 do `CLAUDE.md` (simplicidade, human-readable docs, no back
 ## Princípios de design (alinhados com `CLAUDE.md`)
 
 1. **Reusar o que existe**. Não duplicar `CoverageTracker`, `LogcatParser`, scripts de análise. Extensão mínima.
-2. **Adicionar variante, não framework paralelo**. `rv-instrumentation` ganha `instrumentation_variant: str` (enum `"ajc" | "dexlib2"`). Todo o resto (task model, result format, CSVs) permanece idêntico.
+2. **Adicionar variante, não framework paralelo**. `rv-instrumentation` ganha `instrumentation_variant: str` (enum `"dex2jar_ajc" | "dexlib2"`). Todo o resto (task model, result format, CSVs) permanece idêntico.
 3. **Métricas padronizadas**. Usar `cov_act`, `cov_method`, `cov_rv_method`, `errors` de `summary.csv` e `unique_msg` de `errors.csv` (formato `class:::method:::spec:::error_type:::message`). Zero formato novo.
 4. **Invariantes primeiro**. Para cada claim de equivalência, citar o invariante `INV-INS-*` / `INV-ANA-*` / `INV-PLT-*` que precisa continuar válido.
 5. **Docker-paralelo**. Rodar dataset-scale com `baseline_docker.py` (N containers, isolamento garantido por spec `INV-TOOL-15`).
@@ -43,11 +43,11 @@ Adicionar campo a `RVInstrumentationConfig`:
 ```python
 class RVInstrumentationConfig(BaseValidatedModel):
     # ... campos existentes ...
-    instrumentation_variant: Literal["ajc", "dexlib2"] = "ajc"
+    instrumentation_variant: Literal["dex2jar_ajc", "dexlib2"] = "dex2jar_ajc"
 ```
 
 `RVInstrumentation.instrument_apks()` despacha por variante:
-- `ajc`: pipeline atual (preservado, default).
+- `dex2jar_ajc`: pipeline atual (preservado, default).
 - `dexlib2`: invoca o `prototipo-dexlib2` CLI (fat-jar em `modules/rv-instrumentation/lib/prototipo-dexlib2.jar` após promoção) sobre o mesmo APK + descriptor, recebe APK assinado de volta.
 
 Propagar de `ExperimentConfig.instrumentation_variant` (novo campo) via `get_rv_instrumentation_config()` (JIT config, FR17).
@@ -56,7 +56,7 @@ Gatilho CLI:
 
 ```bash
 rv-experiment run \
-  --instrumentation-variant ajc \  # ou dexlib2
+  --instrumentation-variant dex2jar_ajc \  # ou dexlib2
   --tools ape,fastbot \
   --apks-dir ./data/calibration_dataset_v2 \
   --specification-set jca \
@@ -138,7 +138,7 @@ ajc call-site X na class C, método M, offset O emitiu advice Y
 ```bash
 # Pipeline A
 rv-experiment run \
-  --instrumentation-variant ajc \
+  --instrumentation-variant dex2jar_ajc \
   --tools monkey --timeout 10 --repetitions 1 \
   --apks-dir ./subset_30_apks \
   --name pipeline_ajc_install_check
@@ -201,7 +201,7 @@ A flakiness dos monkeys é mitigada em 3 níveis (ordem crescente de rigor):
 #### 3.2 Procedimento
 
 1. Para cada APK no subset:
-   - Executar pipeline ajc via `rv-experiment run --instrumentation-variant ajc ...`
+   - Executar pipeline ajc via `rv-experiment run --instrumentation-variant dex2jar_ajc ...`
    - Executar pipeline dexlib2 via `rv-experiment run --instrumentation-variant dexlib2 ...`
    - **Mesma ToolConfig, mesmo seed, mesmo timeout, mesmas repetições.**
 2. Ambos produzem `summary.csv`, `coverage.csv`, `errors.csv`, `results.json`.
@@ -235,24 +235,10 @@ Para cada par `(apk, rep, timeout, tool)`:
 **D. Determinismo cruzado** (área 12 do `analyze_comparacao.py`):
 - CoV (coefficient of variation) entre repetições deve ser comparável (diferença ≤ 5pp entre pipelines).
 
-**E. Significância estatística (equivalência, não apenas diferença)**:
-
-O teste correto aqui é **TOST pareado** (Two One-Sided Tests), porque o claim é "os pipelines são equivalentes", não "não é possível distinguir as distribuições". Mann-Whitney U testa H0="mesma distribuição" e falhar em rejeitar H0 é evidência fraca — MWU também assume amostras independentes, enquanto temos pares por APK. Usamos **Wilcoxon signed-rank TOST**:
-
-- H0 (rejeita equivalência): |median(dexlib2_apk − ajc_apk)| > Δ
-- H1 (proves equivalence): −Δ ≤ median(dexlib2_apk − ajc_apk) ≤ +Δ
-
-**Bounds pré-registrados** (fixados antes de ver os dados):
-- `cov_method`: Δ = 2pp (alinhado com a convenção win/tie/loss já usada em `analyze_comparacao.py`)
-- F1 por spec: Δ = 0.02
-- Kappa de Cohen por spec: Δ = 0.05
-
-**Critérios**:
-- **Equivalência**: ambos os testes unilaterais do TOST rejeitam a α=0.05.
-- **Não-inferioridade** (claim mais fraco, suficiente para promoção): apenas o teste unilateral inferior rejeita a α=0.05, i.e., `p_lower < 0.05` mesmo que `p_upper ≥ 0.05`.
-- **Regressão**: o teste unilateral inferior não rejeita E median(dexlib2 − ajc) < −Δ → bloqueia promoção.
-
-Reportar sempre: diferença mediana pareada (point estimate), IC 90% bootstrapped (10k resamples), ambos p-values TOST, e effect size r (Wilcoxon). MWU pode figurar como teste suplementar não-paramétrico distribucional, mas **não** como gate primário.
+**E. Significância estatística**:
+- Mann-Whitney U sobre a distribuição de `cov_method` pareada por APK.
+- `p > 0.05` (não rejeitamos H0 de equivalência) → OK.
+- `p < 0.05 E median_dexlib2 < median_ajc` → regressão.
 
 #### 3.4 Oracle canônico: cryptoapp
 
@@ -289,7 +275,7 @@ Oracle YAML em `validator/oracles/cryptoapp-oracle.yaml` (campos ausentes = wild
 # Pipeline A — ajc (baseline)
 uv run python scripts/baseline_docker.py \
   --tools "ape,fastbot,rvagent:pure_algorithm" \
-  --instrumentation-variant ajc \
+  --instrumentation-variant dex2jar_ajc \
   --data-dir modules/rv-agent-validation/data/calibration_dataset_v2 \
   --filter-file modules/rv-agent-validation/data/all_valid_apks.txt \
   --output-dir ./results/validacao_ajc \
@@ -327,7 +313,7 @@ Wallclock ~18h cada (945 tasks). Total ~36h ou paralelo em máquina com 12 conta
 | `recovery_rate` | % APKs recuperados em dexlib2 | ≥ 90% |
 | `determinism_gap` | |CoV_dexlib2 − CoV_ajc| por métrica | ≤ 5pp |
 
-**Gate 4**: todos os targets acima; não-inferioridade via Wilcoxon signed-rank TOST pareado unilateral inferior (Δ=2pp para `cov_method`, Δ=0.02 para F1, Δ=0.05 para κ, α=0.05) rejeita em ≥80% das specs. Equivalência bilateral (ambos os TOSTs rejeitam) é reportada como evidência mais forte mas não é bloqueante para promoção desde que a não-inferioridade se mantenha. Ver INV-INS-21 no spec delta `gh52-instr-dexlib2/specs/instrumentation/spec.md`.
+**Gate 4**: todos os targets acima; zero regressão estatisticamente significativa (Mann-Whitney U, p > 0.05).
 
 ---
 

@@ -233,29 +233,29 @@ class TestAbstractScreenVisitor:
 
         assert result is False
 
-    def test_check_method_reaches_mop(self, visitor, static_data):
-        """Test _check_method_reaches_mop method"""
+    def test_check_method_reaches_target(self, visitor, static_data):
+        """Test _check_method_reaches_target method"""
         # Setup mock method in static analysis data
         mock_method = MagicMock()
-        mock_method.reaches_mop = True
+        mock_method.reaches_target = True
 
         # Update the methods dict in the existing classes mock
         visitor.static_info.classes.methods = {"test.method.signature": mock_method}
 
-        result = visitor._check_method_reaches_mop("test.method.signature")
+        result = visitor._check_method_reaches_target("test.method.signature")
 
         assert result is True
 
-    def test_check_method_directly_reaches_mop(self, visitor, static_data):
-        """Test _check_method_directly_reaches_mop method"""
+    def test_check_method_directly_reaches_target(self, visitor, static_data):
+        """Test _check_method_directly_reaches_target method"""
         # Setup mock method in static analysis data
         mock_method = MagicMock()
-        mock_method.directly_reaches_mop = True
+        mock_method.directly_reaches_target = True
 
         # Update the methods dict in the existing classes mock
         visitor.static_info.classes.methods = {"test.method.signature": mock_method}
 
-        result = visitor._check_method_directly_reaches_mop("test.method.signature")
+        result = visitor._check_method_directly_reaches_target("test.method.signature")
 
         assert result is True
 
@@ -337,23 +337,23 @@ class TestAbstractScreenVisitor:
         visitor.find_matching_widget = MagicMock(return_value=mock_widget)
 
         # Mock MOP checking methods
-        visitor._check_method_reaches_mop = MagicMock(return_value=True)
-        visitor._check_method_directly_reaches_mop = MagicMock(return_value=False)
+        visitor._check_method_reaches_target = MagicMock(return_value=True)
+        visitor._check_method_directly_reaches_target = MagicMock(return_value=False)
 
         visitor._update_action_mop_related_info(action, node)
 
-        assert action.reaches_mop is True
-        assert action.directly_reaches_mop is False
+        assert action.reaches_target is True
+        assert action.directly_reaches_target is False
         assert "[M]" in action.text
 
         # Test directly reaching MOP
-        visitor._check_method_directly_reaches_mop = MagicMock(return_value=True)
+        visitor._check_method_directly_reaches_target = MagicMock(return_value=True)
 
         action = ItemAction(1, "CLICK (1)", WidgetEventType.CLICK, False, False)
         visitor._update_action_mop_related_info(action, node)
 
-        assert action.reaches_mop is True
-        assert action.directly_reaches_mop is True
+        assert action.reaches_target is True
+        assert action.directly_reaches_target is True
         assert "[DM]" in action.text
 
     def test_formatting_methods(self, visitor):

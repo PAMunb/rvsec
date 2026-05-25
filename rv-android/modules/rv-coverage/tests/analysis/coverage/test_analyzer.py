@@ -35,8 +35,8 @@ class TestCoverageAnalyzer:
                 params=["android.os.Bundle"],
                 signature="br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)",
                 reachable=True,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
             ),
             Method(
                 class_name="br.unb.cic.cryptoapp.generated.CryptographyActivity",
@@ -44,8 +44,8 @@ class TestCoverageAnalyzer:
                 params=[],
                 signature="br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeSecretKeyOperation()",
                 reachable=True,
-                reaches_mop=True,
-                directly_reaches_mop=True,
+                reaches_target=True,
+                directly_reaches_target=True,
             ),
             Method(
                 class_name="br.unb.cic.cryptoapp.generated.CryptographyActivity",
@@ -53,8 +53,8 @@ class TestCoverageAnalyzer:
                 params=["java.lang.String", "java.lang.String"],
                 signature="br.unb.cic.cryptoapp.generated.CryptographyActivity: byte[] encryptWithSecretKey(java.lang.String,java.lang.String)",
                 reachable=True,
-                reaches_mop=True,
-                directly_reaches_mop=False,
+                reaches_target=True,
+                directly_reaches_target=False,
             ),
         ]
 

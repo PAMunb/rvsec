@@ -7,6 +7,93 @@
 
 ---
 
+## 0. Baseline histórico e motivação
+
+### 0.1 O paper publicado (Torres et al.)
+
+Referência: **Torres, Cavalcanti, Ribeiro, Bonifácio, Souza, Legunsen** — *Runtime Verification of Crypto APIs: An Empirical Study* (aguardando publicação ASE/JSS). PDF local: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal-jss-jca/main.pdf`.
+
+O paper valida o pipeline RV-Android (JavaMOP + dex2jar + ajc + d8) em dataset F-Droid de 2018-2020:
+
+| Métrica | Valor |
+|---|---|
+| APKs candidatos F-Droid | 557 |
+| **Instrumentados com sucesso** | **193/557 = 34.6%** |
+| Falhas de instrumentação | 364/557 = 65.4% |
+| Descartados por falta de análise estática | 5 |
+| **APKs no estudo final** | **188** |
+| **Apps com ≥1 violação MOP detectada** | **94/188 = 50%** |
+| Eventos de violação total (runtime) | **21.505** |
+| Tools de exploração avaliadas | 11 (monkey, ape, ares, droidbot×4, droidmate, fastbot, humanoid, qtesting) |
+| Timeouts testados | 60, 120, 180, 300 s × 3 reps |
+
+Top specs mais violadas no estudo (do `exp01_jca_errors.csv`):
+
+| Spec | Events |
+|---|---|
+| SSLContextSpec | 7.360 |
+| MessageDigestSpec | 6.701 |
+| SecretKeySpecSpec | 2.678 |
+| CipherSpec | 1.587 |
+| KeyStoreSpec | 1.347 |
+
+**Fonte dos números**: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal-jss-jca/dataset/results/apks/apks_complete.csv`, `.../instrument/exp01_jca_instrument_errors.json`, `.../errors/exp01_jca_errors.csv`.
+
+### 0.2 O que mudou em 2026: dataset novo, mesma pipeline
+
+Em março/abril de 2026 preparamos um **novo dataset JCA-400** — 400 APKs F-Droid contemporâneos (2023-2026) — para revalidar o pipeline antes de aplicar ferramentas novas (`aperv:sata_mop`, `rv-agent` LLM).
+
+Aplicando o **mesmo pipeline** do paper no dataset novo:
+
+| Run | Pipeline success | Fonte |
+|---|---|---|
+| Paper ASE/JSS (2018-2020 F-Droid) | 193/557 = **34.6%** | paper |
+| JCA-400 first run (pré-gh50) | 70/400 = **17.5%** | `openspec/changes/gh50-improve-instrumentation/proposal.md §1` |
+| **Queda** | **−17.1 pontos percentuais** | mesmo pipeline, dataset novo |
+
+**Essa queda motivou a gh50**. O pipeline que funcionava em 2023 estava colapsando em APKs F-Droid modernos, e era preciso diagnosticar a causa.
+
+### 0.3 Progresso após gh50 §1-18
+
+Após ciclos de fixes de instrumentação (gh50 §1-18), a taxa de pipeline success evoluiu:
+
+| Run | Data | Pipeline success |
+|---|---|---|
+| Paper ASE/JSS | 2023 | 34.6% (193/557) |
+| JCA-400 first run | 03-04/2026 | 17.5% (70/400) |
+| JCA-400 overnight (§1-8 completos) | 20-21/04/2026 | **54.7%** (219/400) |
+| JCA-400 final (§9-18 completos) | 21-22/04/2026 | **74.5%** (298/400) |
+
+**Recuperamos +57 pontos** a nível de pipeline. Porém, a validação runtime revelou que o ganho de instrumentação **não se traduz em cobertura runtime proporcional** — apps instalam mas crashaam silenciosamente na inicialização. A investigação desse gap runtime é o objeto deste documento.
+
+Os números empíricos de runtime (JCA-400 atual, **298 tasks executadas, experimento completo**):
+- Tasks COMPLETED: **198/298 (66.4%)** — apps que rodaram 300s de aperv sem travar
+- Tasks ERROR: 100/298 (33.6%) — dominantemente `INSTALL_FAILED_OLDER_SDK` e ABI mismatch (trade-off conhecido do rollback API 29)
+- Apps com violação MOP detectada: **14/198 (7.1%)** vs paper 50%
+- Apps com method_coverage > 0 (runtime-effective): 72/198 = **36.4%**
+- Method coverage médio nos COMPLETED: **7.39%** vs paper ~30% estimado
+- **63.6% dos apps com 0% coverage** — indicador de VerifyError/crash na inicialização (126/198)
+
+**Top apps com violação** (runtime efetivo entre JCA-400):
+
+| APK | Violações | method_coverage |
+|---|---|---|
+| com.acktarius.concealauthenticator_39 | 5 | 56.2% |
+| com.alovoa.expo_48 | 5 | 62.5% |
+| com.mouzinho.pokebase_2 | 4 | 56.2% |
+| com.destructo.botox_43 | 3 | 38.1% |
+| com.infomaniak.meet_28 | 3 | 42.8% |
+| com.oliverszabo.tcrbdetector_300000 | 3 | 30.4% |
+| com.shalenmathew.movieflix_5 | 3 | 28.9% |
+| gizz.tapes.foss_63 | 3 | 17.8% |
+| xyz.numerus_2 | 3 | 54.8% |
+| +5 outros com 3 violações | 3 cada | 0.8-6.5% |
+| +2 outros com 1 violação | 1 cada | ~0.6-6.5% |
+
+A queda de 50% → 7.1% em **apps-com-violação** apesar da recuperação no pipeline é o sintoma do problema diagnosticado nos capítulos seguintes. Em termos absolutos: paper detectou **21.505 events** em 188 apps (média ~114 events/app que violaram); no JCA-400 com gh50 §9-18, 14 apps detectaram ~50 events totais (~3.5 events/app) — duas ordens de magnitude menos. A instrumentação reportada como "sucesso" a nível pipeline não se traduz em cobertura runtime utilizável para a maioria dos APKs modernos.
+
+---
+
 ## 1. Sumário executivo
 
 A pipeline `APK → dex2jar → .class → ajc (weave) → ASM (frames) → d8 → APK instrumentado` produz APKs que **falham em runtime** com `java.lang.VerifyError` em API 30+ para qualquer APK otimizado pelo R8 em modo release com classes alvo de `class-inlining`. APKs puramente Java sem padrões class-inlining (ex.: `com.futsch1.medtimer`) funcionam perfeitamente; APKs Kotlin com ofuscação agressiva (ex.: `com.grappim.hateitorrateit` — 4631 classes ofuscadas) falham 100%.
@@ -981,6 +1068,8 @@ Ordem preferida, dado o prazo passado:
 **Paralelo Java ↔ Android** (relevante para a discussion section da tese): em Java, o AspectJ LTW é o padrão desde 2005, usando `java.lang.instrument` para interceptar classes no ClassLoader. Android nunca teve `java.lang.instrument` — foi descontinuado cedo. A literatura em RV para Android (RV-Android 2015, RV-Droid 2012) adotou AOT weaving (ajc estático pré-DEX) justamente por essa limitação. A chegada do R8 em 2019 e da ofuscação Kotlin agressiva em 2021+ tornou o AOT weaving via `.class` frágil de forma estrutural. A alternativa Android atual — LSPosed/LSPatch — só amadureceu em 2022-2023. Ou seja: a literatura RV-Android está presa em uma arquitetura que o ecossistema Android deixou pra trás. Essa observação em si é uma contribuição para a área.
 
 **Por que o caminho "correto teórico" (F) não é prático**: moving o weaving para antes do R8 (via Gradle plugin no build) seria a solução arquiteturalmente mais limpa — é o que Firebase Crashlytics, New Relic, DataDog fazem. Porém: (a) requer source access, e 79% dos apps F-Droid **não são byte-reproduzíveis** mesmo com source disponível (F-Droid 2025 Retrospective); (b) o ecossistema de plugins AspectJ para Gradle abandonou Android em 2022-2023 (Ibotta plugin descontinuado, Archinamon estagnado, nenhum alternativo mantido para AGP 8.x/Kotlin 2.x); (c) Compose compiler plugin compete com ajc pela transformação IR, causando weaves silenciosamente incompletos; (d) nenhum paper acadêmico ou ferramenta comercial fez RV em escala via source-build F-Droid. O ecossistema decidiu: **instrumentação post-R8 (LSPatch estilo) é o caminho Android 2023+**. Seguir essa direção alinha nosso trabalho com o estado da arte industrial. Detalhes quantitativos no §7.6.
+
+**Nota sobre estratégia de exploração (camada ortogonal)**: este documento foca em **instrumentação** — como injetar monitores MOP no APK sem quebrar com R8/Kotlin. A questão ortogonal — **qual estratégia usar em runtime para dirigir o app instrumentado** (random via Monkey/APE/aperv vs. determinística via gray-box tests vs. record-and-replay) — é analisada em `docs/20260421_exploration_strategy_analysis.md`. Gray-box UI testing como alternativa ao Monkey/APE foi avaliado empiricamente e determinado **não-essencial** para o dataset JCA-400 (~70% das violações JCA disparam em 30-60s após launch sem interação do usuário; aperv:sata_mop com 300-600s já atinge ~37% de cobertura MOP). A geração automática de testes UI a partir do WTG estático fica documentada como direção de trabalho futuro publicável pós-defesa. As duas camadas (instrumentação e exploração) são escolhas independentes — qualquer dos Caminhos B/C/E/F acima combina com qualquer estratégia de exploração.
 
 ---
 

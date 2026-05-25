@@ -70,10 +70,10 @@ CSV_COLUMNS = [
     "methods_total", "methods_reachable",
     "methods_reach_mop", "methods_directly_reach_mop",
     "windows_count", "transitions_count", "components_count",
-    "gator_reaches_mop", "gator_directly_reaches_mop",
-    "androguard_reaches_mop", "androguard_directly_reaches_mop",
-    "androguard_methods_reaches_mop", "androguard_methods_directly_reaches_mop",
-    "agreement_reaches_mop", "agreement_directly_reaches_mop",
+    "gator_reaches_target", "gator_directly_reaches_target",
+    "androguard_reaches_target", "androguard_directly_reaches_target",
+    "androguard_methods_reaches_target", "androguard_methods_directly_reaches_target",
+    "agreement_reaches_target", "agreement_directly_reaches_target",
     "json_size_bytes", "last_pass_id", "last_run_finished", "error_message",
 ]
 
@@ -83,10 +83,10 @@ class AndroguardEntry:
     """Subset of PLANILHA.csv columns used for pre-filter and cross-validation."""
 
     dex_count: int = 0
-    reaches_mop: Optional[bool] = None
-    directly_reaches_mop: Optional[bool] = None
-    methods_reaches_mop: int = 0
-    methods_directly_reaches_mop: int = 0
+    reaches_target: Optional[bool] = None
+    directly_reaches_target: Optional[bool] = None
+    methods_reaches_target: int = 0
+    methods_directly_reaches_target: int = 0
 
 
 @dataclass
@@ -124,14 +124,14 @@ class ProgressEntry:
     windows_count: int = 0
     transitions_count: int = 0
     components_count: int = 0
-    gator_reaches_mop: Optional[bool] = None
-    gator_directly_reaches_mop: Optional[bool] = None
-    androguard_reaches_mop: Optional[bool] = None
-    androguard_directly_reaches_mop: Optional[bool] = None
-    androguard_methods_reaches_mop: Optional[int] = None
-    androguard_methods_directly_reaches_mop: Optional[int] = None
-    agreement_reaches_mop: Optional[bool] = None
-    agreement_directly_reaches_mop: Optional[bool] = None
+    gator_reaches_target: Optional[bool] = None
+    gator_directly_reaches_target: Optional[bool] = None
+    androguard_reaches_target: Optional[bool] = None
+    androguard_directly_reaches_target: Optional[bool] = None
+    androguard_methods_reaches_target: Optional[int] = None
+    androguard_methods_directly_reaches_target: Optional[int] = None
+    agreement_reaches_target: Optional[bool] = None
+    agreement_directly_reaches_target: Optional[bool] = None
     last_pass_id: str = ""
     error_message: Optional[str] = None
 
@@ -181,11 +181,11 @@ def load_planilha(planilha_path: Path) -> Dict[str, AndroguardEntry]:
                 continue
             out[apk_filename] = AndroguardEntry(
                 dex_count=parse_int_flexible(row.get("dex_count")),
-                reaches_mop=parse_bool_flexible(row.get("sa_reaches_mop")),
-                directly_reaches_mop=parse_bool_flexible(row.get("sa_directly_reaches_mop")),
-                methods_reaches_mop=parse_int_flexible(row.get("sa_num_methods_reaches_mop")),
-                methods_directly_reaches_mop=parse_int_flexible(
-                    row.get("sa_num_methods_directly_reaches_mop")
+                reaches_target=parse_bool_flexible(row.get("sa_reaches_target")),
+                directly_reaches_target=parse_bool_flexible(row.get("sa_directly_reaches_target")),
+                methods_reaches_target=parse_int_flexible(row.get("sa_num_methods_reaches_target")),
+                methods_directly_reaches_target=parse_int_flexible(
+                    row.get("sa_num_methods_directly_reaches_target")
                 ),
             )
     return out
@@ -317,9 +317,9 @@ def derive_metrics_from_raw(raw: Dict[str, Any]) -> ProgressMetrics:
                 metrics.methods_total += 1
                 if m.get("reachable"):
                     metrics.methods_reachable += 1
-                if m.get("reachesMop"):
+                if m.get("reachesTarget"):
                     metrics.methods_reach_mop += 1
-                if m.get("directlyReachesMop"):
+                if m.get("directlyReachesTarget"):
                     metrics.methods_directly_reach_mop += 1
 
     windows = raw.get("windows") or []
@@ -380,18 +380,18 @@ def apply_androguard_overlay(entry: ProgressEntry,
     """
     if ag is None:
         return entry
-    entry.androguard_reaches_mop = ag.reaches_mop
-    entry.androguard_directly_reaches_mop = ag.directly_reaches_mop
-    entry.androguard_methods_reaches_mop = ag.methods_reaches_mop
-    entry.androguard_methods_directly_reaches_mop = ag.methods_directly_reaches_mop
+    entry.androguard_reaches_target = ag.reaches_target
+    entry.androguard_directly_reaches_target = ag.directly_reaches_target
+    entry.androguard_methods_reaches_target = ag.methods_reaches_target
+    entry.androguard_methods_directly_reaches_target = ag.methods_directly_reaches_target
 
     # Agreement only computable if BOTH sides have a definitive bool
     # (gator side is None when worker didn't run or status didn't yield a boolean).
-    if entry.gator_reaches_mop is not None and ag.reaches_mop is not None:
-        entry.agreement_reaches_mop = (entry.gator_reaches_mop == ag.reaches_mop)
-    if entry.gator_directly_reaches_mop is not None and ag.directly_reaches_mop is not None:
-        entry.agreement_directly_reaches_mop = (
-            entry.gator_directly_reaches_mop == ag.directly_reaches_mop
+    if entry.gator_reaches_target is not None and ag.reaches_target is not None:
+        entry.agreement_reaches_target = (entry.gator_reaches_target == ag.reaches_target)
+    if entry.gator_directly_reaches_target is not None and ag.directly_reaches_target is not None:
+        entry.agreement_directly_reaches_target = (
+            entry.gator_directly_reaches_target == ag.directly_reaches_target
         )
     return entry
 
@@ -519,8 +519,8 @@ def worker(apk_path_str: str, output_dir_str: str, config_kwargs: Dict[str, Any]
         windows_count=metrics.windows_count,
         transitions_count=metrics.transitions_count,
         components_count=metrics.components_count,
-        gator_reaches_mop=(metrics.methods_reach_mop > 0) if json_exists and metrics.methods_total > 0 else None,
-        gator_directly_reaches_mop=(metrics.methods_directly_reach_mop > 0) if json_exists and metrics.methods_total > 0 else None,
+        gator_reaches_target=(metrics.methods_reach_mop > 0) if json_exists and metrics.methods_total > 0 else None,
+        gator_directly_reaches_target=(metrics.methods_directly_reach_mop > 0) if json_exists and metrics.methods_total > 0 else None,
         last_pass_id=pass_id,
         error_message=error_message[:500] if error_message else None,
     )
@@ -655,14 +655,14 @@ def _entry_to_csv_row(entry: ProgressEntry) -> Dict[str, Any]:
         "windows_count": entry.windows_count,
         "transitions_count": entry.transitions_count,
         "components_count": entry.components_count,
-        "gator_reaches_mop": _bool_or_empty(entry.gator_reaches_mop),
-        "gator_directly_reaches_mop": _bool_or_empty(entry.gator_directly_reaches_mop),
-        "androguard_reaches_mop": _bool_or_empty(entry.androguard_reaches_mop),
-        "androguard_directly_reaches_mop": _bool_or_empty(entry.androguard_directly_reaches_mop),
-        "androguard_methods_reaches_mop": _int_or_empty(entry.androguard_methods_reaches_mop),
-        "androguard_methods_directly_reaches_mop": _int_or_empty(entry.androguard_methods_directly_reaches_mop),
-        "agreement_reaches_mop": _bool_or_empty(entry.agreement_reaches_mop),
-        "agreement_directly_reaches_mop": _bool_or_empty(entry.agreement_directly_reaches_mop),
+        "gator_reaches_target": _bool_or_empty(entry.gator_reaches_target),
+        "gator_directly_reaches_target": _bool_or_empty(entry.gator_directly_reaches_target),
+        "androguard_reaches_target": _bool_or_empty(entry.androguard_reaches_target),
+        "androguard_directly_reaches_target": _bool_or_empty(entry.androguard_directly_reaches_target),
+        "androguard_methods_reaches_target": _int_or_empty(entry.androguard_methods_reaches_target),
+        "androguard_methods_directly_reaches_target": _int_or_empty(entry.androguard_methods_directly_reaches_target),
+        "agreement_reaches_target": _bool_or_empty(entry.agreement_reaches_target),
+        "agreement_directly_reaches_target": _bool_or_empty(entry.agreement_directly_reaches_target),
         "json_size_bytes": entry.json_size_bytes,
         "last_pass_id": entry.last_pass_id,
         "last_run_finished": entry.last_run_finished,

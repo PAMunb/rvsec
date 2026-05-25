@@ -157,8 +157,8 @@ class TestEnhancedTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -225,8 +225,8 @@ class TestEnhancedTextVisitor:
                     id=1,
                     text="CLICK (1)",
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                 )
             ]
 
@@ -287,8 +287,8 @@ class TestEnhancedTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -343,8 +343,8 @@ class TestEnhancedTextVisitor:
             id=1,
             text="SET_TEXT (1)",
             event=WidgetEventType.TEXT_CHANGE,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
         visitor.get_possible_actions = MagicMock(return_value=[action])
 
@@ -698,8 +698,8 @@ class TestEnhancedTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=True,
-            directly_reaches_mop=False,
+            reaches_target=True,
+            directly_reaches_target=False,
         )
         item.actions = [action1]
         visitor._add_security_info(item, node)
@@ -710,8 +710,8 @@ class TestEnhancedTextVisitor:
             id=2,
             text="CLICK (2)",
             event=WidgetEventType.CLICK,
-            reaches_mop=True,
-            directly_reaches_mop=True,
+            reaches_target=True,
+            directly_reaches_target=True,
         )
         item.actions = [action2]
         item.base_description = "Test Item"
@@ -747,8 +747,8 @@ class TestEnhancedTextVisitor:
             id=1,
             text="CLICK (1)",
             event=WidgetEventType.CLICK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
         )
 
         # Mock find_matching_widget to return None
@@ -756,8 +756,8 @@ class TestEnhancedTextVisitor:
 
         # Test with no matching widget
         visitor._update_action_mop_related_info(action, node)
-        assert action.reaches_mop is False
-        assert action.directly_reaches_mop is False
+        assert action.reaches_target is False
+        assert action.directly_reaches_target is False
 
         # Create mock widget with event
         mock_widget = MagicMock(spec=Widget)
@@ -770,21 +770,21 @@ class TestEnhancedTextVisitor:
         visitor.find_matching_widget = MagicMock(return_value=mock_widget)
 
         # Mock MOP checking methods
-        visitor._check_method_reaches_mop = MagicMock(return_value=True)
-        visitor._check_method_directly_reaches_mop = MagicMock(return_value=False)
+        visitor._check_method_reaches_target = MagicMock(return_value=True)
+        visitor._check_method_directly_reaches_target = MagicMock(return_value=False)
 
         # Test with matching widget and event that reaches MOP
         visitor._update_action_mop_related_info(action, node)
-        assert action.reaches_mop is True
-        assert action.directly_reaches_mop is False
+        assert action.reaches_target is True
+        assert action.directly_reaches_target is False
         assert "[M]" in action.text
 
         # Reset action text
         action.text = "CLICK (1)"
 
         # Test with directly reaching MOP
-        visitor._check_method_directly_reaches_mop = MagicMock(return_value=True)
+        visitor._check_method_directly_reaches_target = MagicMock(return_value=True)
         visitor._update_action_mop_related_info(action, node)
-        assert action.reaches_mop is True
-        assert action.directly_reaches_mop is True
+        assert action.reaches_target is True
+        assert action.directly_reaches_target is True
         assert "[DM]" in action.text

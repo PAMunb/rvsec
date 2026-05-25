@@ -68,7 +68,7 @@ def _simulate_task_execution(task):
         "total_method_calls": 5,
         "called_activities": 1,
         "called_methods": 3,
-        "called_mop_methods": 1,
+        "called_target_methods": 1,
     }
     task.update_state(TaskState.COMPLETED)
 
@@ -388,7 +388,7 @@ class TestCoverageCSVResumedTasks:
         ]
         live_repo.get_static_methods.return_value = [MagicMock()] * 10
         live_repo.get_static_activities.return_value = [MagicMock()] * 2
-        live_repo.get_mop_methods.return_value = [MagicMock()] * 5
+        live_repo.get_target_methods.return_value = [MagicMock()] * 5
         live_repo.calculate_metrics.return_value.to_dict.return_value = {
             "class_coverage": 20.0,
             "activity_coverage": 50.0,

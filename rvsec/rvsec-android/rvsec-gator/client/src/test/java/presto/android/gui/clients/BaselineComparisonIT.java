@@ -18,8 +18,8 @@ import com.google.gson.JsonParser;
  * 3-tool baseline (saved in test resources).
  *
  * Baseline was captured from cryptoapp.apk analysis and contains
- * exact counts for windows, transitions, methods, and directlyReachesMop.
- * Reachable and reachesMop use ±10% tolerance (BFS vs old all-reachable).
+ * exact counts for windows, transitions, methods, and directlyReachesTarget.
+ * Reachable and reachesTarget use ±10% tolerance (BFS vs old all-reachable).
  *
  * Run with: mvn verify -DskipTests=false -DskipITs=false
  */
@@ -31,8 +31,8 @@ public class BaselineComparisonIT {
 	// Baseline metrics extracted from analysis result
 	private static int totalMethods;
 	private static int reachable;
-	private static int reachesMop;
-	private static int directlyReachesMop;
+	private static int reachesTarget;
+	private static int directlyReachesTarget;
 	private static int windowCount;
 	private static int transitionCount;
 	private static int classCount;
@@ -59,8 +59,8 @@ public class BaselineComparisonIT {
 		classCount = reachabilityArray.size();
 		totalMethods = 0;
 		reachable = 0;
-		reachesMop = 0;
-		directlyReachesMop = 0;
+		reachesTarget = 0;
+		directlyReachesTarget = 0;
 
 		for (JsonElement classElem : reachabilityArray) {
 			JsonArray methods = classElem.getAsJsonObject().getAsJsonArray("methods");
@@ -68,8 +68,8 @@ public class BaselineComparisonIT {
 			for (JsonElement methodElem : methods) {
 				JsonObject method = methodElem.getAsJsonObject();
 				if (method.get("reachable").getAsBoolean()) reachable++;
-				if (method.get("reachesMop").getAsBoolean()) reachesMop++;
-				if (method.get("directlyReachesMop").getAsBoolean()) directlyReachesMop++;
+				if (method.get("reachesTarget").getAsBoolean()) reachesTarget++;
+				if (method.get("directlyReachesTarget").getAsBoolean()) directlyReachesTarget++;
 			}
 		}
 
@@ -80,8 +80,8 @@ public class BaselineComparisonIT {
 		System.out.println("  classes=" + classCount
 				+ " methods=" + totalMethods
 				+ " reachable=" + reachable
-				+ " reachesMop=" + reachesMop
-				+ " directlyReachesMop=" + directlyReachesMop
+				+ " reachesTarget=" + reachesTarget
+				+ " directlyReachesTarget=" + directlyReachesTarget
 				+ " windows=" + windowCount
 				+ " transitions=" + transitionCount);
 	}
@@ -116,9 +116,9 @@ public class BaselineComparisonIT {
 
 	@Test
 	public void testDirectlyReachesMopExact() {
-		int expected = baseline.get("directly_reaches_mop").getAsInt();
-		assertEquals("directlyReachesMop count must match baseline exactly",
-				expected, directlyReachesMop);
+		int expected = baseline.get("directly_reaches_target").getAsInt();
+		assertEquals("directlyReachesTarget count must match baseline exactly",
+				expected, directlyReachesTarget);
 	}
 
 	@Test
@@ -149,12 +149,12 @@ public class BaselineComparisonIT {
 
 	@Test
 	public void testReachesMopWithinTolerance() {
-		int expected = baseline.get("reaches_mop").getAsInt();
+		int expected = baseline.get("reaches_target").getAsInt();
 		double tolerance = expected * 0.10;
 		assertTrue(
 				String.format("ReachesMop count %d outside ±10%% of baseline %d (range: %.0f-%.0f)",
-						reachesMop, expected, expected - tolerance, expected + tolerance),
-				Math.abs(reachesMop - expected) <= tolerance);
+						reachesTarget, expected, expected - tolerance, expected + tolerance),
+				Math.abs(reachesTarget - expected) <= tolerance);
 	}
 
 	// -----------------------------------------------------------------
@@ -172,9 +172,9 @@ public class BaselineComparisonIT {
 		printRow("classes", baseline.get("classes").getAsInt(), classCount, true);
 		printRow("total_methods", baseline.get("total_methods").getAsInt(), totalMethods, true);
 		printRow("reachable (±10%)", baseline.get("reachable").getAsInt(), reachable, false);
-		printRow("reaches_mop (±10%)", baseline.get("reaches_mop").getAsInt(), reachesMop, false);
-		printRow("directly_reaches_mop", baseline.get("directly_reaches_mop").getAsInt(),
-				directlyReachesMop, true);
+		printRow("reaches_target (±10%)", baseline.get("reaches_target").getAsInt(), reachesTarget, false);
+		printRow("directly_reaches_target", baseline.get("directly_reaches_target").getAsInt(),
+				directlyReachesTarget, true);
 		printRow("windows", baseline.get("windows").getAsInt(), windowCount, true);
 		printRow("transitions", baseline.get("transitions").getAsInt(), transitionCount, true);
 	}

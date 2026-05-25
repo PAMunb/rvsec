@@ -31,7 +31,7 @@ public class MetricsCollector {
     // Coverage (set at end)
     private int uniqueMethods;
     private int totalCoverageEvents;
-    private int mopMethodsReached;
+    private int targetMethodsReached;
     private boolean coverageEnabled;
 
     // Dual-hash + phase observability fields (gh34)
@@ -70,7 +70,7 @@ public class MetricsCollector {
     public void recordCoverageEvent(int unique, int total, int mop) {
         this.uniqueMethods = unique;
         this.totalCoverageEvents = total;
-        this.mopMethodsReached = mop;
+        this.targetMethodsReached = mop;
         this.coverageEnabled = total > 0;
     }
     public void recordLlmCall(int tokensIn, int tokensOut, double timeS) {
@@ -157,7 +157,7 @@ public class MetricsCollector {
         confirmedCoverage.put("enabled", coverageEnabled);
         confirmedCoverage.put("unique_methods", uniqueMethods);
         confirmedCoverage.put("total_events", totalCoverageEvents);
-        confirmedCoverage.put("mop_methods_reached", mopMethodsReached);
+        confirmedCoverage.put("target_methods_reached", targetMethodsReached);
         report.put("confirmed_coverage", confirmedCoverage);
 
         // llm

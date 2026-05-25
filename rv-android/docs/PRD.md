@@ -88,7 +88,7 @@ RV-Android addresses these problems with a modular platform that combines:
 
 2. **Coverage Aspect (Coverage.aj)**: In addition to MOP monitors, a custom AspectJ aspect (`Coverage.aj`) is woven into every instrumented APK. This aspect intercepts all method executions (excluding system packages like `java.*`, `android.*`, `dalvik.*`) and logs unique method signatures via Android logcat using the `RVSEC-COV` tag. The signature format is `<className: returnType methodName(params)>`. A `HashSet` ensures each signature is logged only once per execution, providing efficient real-time method coverage tracking without duplicates.
 
-3. **Static Analysis**: Runs GATOR (Window Transition Graph), GESDA (GUI-Event-Sequence-Driven Analysis), and REACH (method reachability for MOP) to produce complementary data that guides exploration and coverage calculation. REACH serves two purposes: (a) it defines the **universe of methods** for coverage calculation — the total set of reachable methods is the denominator used to compute overall method coverage and MOP method coverage percentages; (b) it computes for each method whether it is reachable from framework entry points, whether it has a path to a monitored API method (`reaches_mop`), and whether it directly invokes a monitored API method (`directly_reaches_mop`), which rv-agent uses to prioritize exploration toward MOP-relevant code paths.
+3. **Static Analysis**: Runs GATOR (Window Transition Graph), GESDA (GUI-Event-Sequence-Driven Analysis), and REACH (method reachability for MOP) to produce complementary data that guides exploration and coverage calculation. REACH serves two purposes: (a) it defines the **universe of methods** for coverage calculation — the total set of reachable methods is the denominator used to compute overall method coverage and MOP method coverage percentages; (b) it computes for each method whether it is reachable from framework entry points, whether it has a path to a monitored API method (`reaches_target`), and whether it directly invokes a monitored API method (`directly_reaches_target`), which rv-agent uses to prioritize exploration toward MOP-relevant code paths.
 
 4. **Automated Test Generation Tools**: Integrates 8 third-party Android testing tools (Monkey, DroidBot, APE, FastBot, ARES, DroidMate, Humanoid, QTesting) through a plugin system with registry and factory patterns.
 
@@ -229,7 +229,7 @@ The system MUST run GESDA analysis to extract GUI elements including activities,
 
 #### FR06: REACH Analysis (Reachability for MOP)
 
-The system MUST run REACH analysis to compute method reachability information relative to MOP specifications. For each method, REACH produces three boolean flags: `reachable` (reachable from Android framework entry points), `reaches_mop` (has a direct or indirect path to a monitored API method), and `directly_reaches_mop` (directly invokes a monitored API method). Output is a `.reach` CSV file.
+The system MUST run REACH analysis to compute method reachability information relative to MOP specifications. For each method, REACH produces three boolean flags: `reachable` (reachable from Android framework entry points), `reaches_target` (has a direct or indirect path to a monitored API method), and `directly_reaches_target` (directly invokes a monitored API method). Output is a `.reach` CSV file.
 
 **Module**: rv-static-analysis
 **Key component**: `ReachParser`
@@ -467,7 +467,7 @@ The strategy MUST rank available actions using a composite scoring system with 6
 | Scorer | Score | Purpose |
 |--------|-------|---------|
 | `GradualDecayScorer` | 200 × 0.7^visits | Exponential decay prevents premature abandonment |
-| `MopScorer` | +100 (directly_reaches_mop), +50 (reaches_mop) | Prioritize MOP-reaching actions |
+| `MopScorer` | +100 (directly_reaches_target), +50 (reaches_target) | Prioritize MOP-reaching actions |
 | `WtgScorer` | +100 | Prioritize WTG-guided transitions |
 | `ComponentPriorityScorer` | +50 (buttons), +40 (toggles), etc. | Widget type priority |
 | `ExecutionCountScorer` | 10/(1+count) | Lower execution count = higher score |

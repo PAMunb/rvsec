@@ -89,7 +89,7 @@ sequenceDiagram
 
 2. **Single GATOR analysis client**: A single GATOR invocation (`RvsecAnalysisClient`) produces all four data sections (reachability, windows, transitions, components) in one JSON file. The client writes sections in priority order: reachability first (coverage denominator), then windows, then transitions, then components (non-Activity component data with intent-filters, exported status, and MOP reachability). Entry points include all four Android component types: Activity lifecycle handlers, Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`), BroadcastReceiver (`onReceive`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`). On timeout, partial JSON preserves the most critical data first.
 
-3. **MOP means Monitored Operations, not security**: The term "MOP" refers to methods being monitored by ANY specification set (JCA cryptographic specifications or generic FSM specifications). The `reaches_mop` and `directly_reaches_mop` flags in the reachability section indicate paths to monitored API methods, regardless of specification domain. Do NOT use "security" terminology when referring to MOP coverage.
+3. **MOP means Monitored Operations, not security**: The term "MOP" refers to methods being monitored by ANY specification set (JCA cryptographic specifications or generic FSM specifications). The `reaches_target` and `directly_reaches_target` flags in the reachability section indicate paths to monitored API methods, regardless of specification domain. Do NOT use "security" terminology when referring to MOP coverage.
 
 4. **Coverage.aj logs via HashSet dedup**: The Coverage.aj aspect woven into instrumented APKs logs method calls via `Log.v("RVSEC-COV", signature)` with a `HashSet` to ensure each signature is logged only once per execution. The signature format is `<className: returnType methodName(params)>`. The `LogcatParser` also supports a legacy format (`class:::method:::params`) for backward compatibility.
 
@@ -125,8 +125,8 @@ Method:
   params: List[str]             # Parameter types
   signature: str                # Full signature: <class: returnType method(params)>
   reachable: bool               # Reachable from framework entry points
-  reaches_mop: bool             # Has path (direct or indirect) to a monitored API method
-  directly_reaches_mop: bool    # Directly invokes a monitored API method
+  reaches_target: bool             # Has path (direct or indirect) to a monitored API method
+  directly_reaches_target: bool    # Directly invokes a monitored API method
 
 Windows:
   windows: Dict[str, Window]    # Window name -> window info
@@ -171,8 +171,8 @@ ComponentInfo:
   intent_filters: List[IntentFilter]  # Intent filters (empty for providers)
   authorities: str | None           # Content provider authorities (providers only)
   exported: bool                    # Whether the component is exported
-  reaches_mop: bool                 # Whether lifecycle methods reach monitored operations
-  mop_methods: List[str]            # Signatures of lifecycle methods reaching MOP
+  reaches_target: bool                 # Whether lifecycle methods reach monitored operations
+  target_methods: List[str]            # Signatures of lifecycle methods reaching MOP
 
 IntentFilter:
   actions: List[str]                # Intent actions (e.g., "android.intent.action.MAIN")
@@ -216,8 +216,8 @@ ItemAction:
   id: int                       # Unique action ID within screen
   text: str                     # Action description
   event: WidgetEventType        # Widget event type
-  reaches_mop: bool             # Action reaches monitored operations
-  directly_reaches_mop: bool    # Action directly reaches monitored operations
+  reaches_target: bool             # Action reaches monitored operations
+  directly_reaches_target: bool    # Action directly reaches monitored operations
   target_view: Dict[str, Any]   # Target element properties
   coordinates: Tuple[int, int]  # Explicit action coordinates
   widget_id: str                # Target widget ID
@@ -344,7 +344,7 @@ rv-screen-parser:
 
 - **INV-ANA-14**: The `PackageDetector` MUST apply detection heuristics in the following priority order: (1) same-as-manifest, (2) game engine detection, (3) single package, (4) common prefix, (5) most common (60%+ frequency), (6) string similarity (85%+ threshold), (7) manifest fallback. Each strategy returns early if a match is found.
 
-- **INV-ANA-15**: Coverage metrics MUST be calculated with reachability data as the denominator. `method_coverage` = (called methods) / (total reachable methods from the analysis JSON's reachability section). `mop_method_coverage` = (called methods that reach MOP) / (total methods with reaches_mop=true). Without reachability data, percentage-based coverage MUST NOT be reported; only absolute counts are valid.
+- **INV-ANA-15**: Coverage metrics MUST be calculated with reachability data as the denominator. `method_coverage` = (called methods) / (total reachable methods from the analysis JSON's reachability section). `mop_method_coverage` = (called methods that reach MOP) / (total methods with reaches_target=true). Without reachability data, percentage-based coverage MUST NOT be reported; only absolute counts are valid.
 
 <!-- INV-ANA-16..24 reserved by gh57-static-analysis-overhaul (in-flight). -->
 
@@ -362,7 +362,7 @@ The GATOR MUST use Soot 4.7.1 (`org.soot-oss:soot`, INV-ANA-18) with defensive c
 
 The execution order inside `run()`:
 
-1. **Enumerates application classes and computes method reachability** using `Scene.v().getApplicationClasses()` for class/method enumeration and `Scene.v().getCallGraph()` + JGraphT for reachability flags. Entry points include: Activity lifecycle handlers and public/protected methods (via `output.getActivities()`), Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`) and public/protected methods (via `XMLParser.getServices()`), BroadcastReceiver lifecycle method (`onReceive`) and public/protected methods (via `XMLParser.getReceivers()`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`) and public/protected methods (via `XMLParser.getProviders()`). Service, Receiver, and Provider class names are resolved to `SootClass` via `Scene.v().getSootClassUnsafe()`, which returns `null` for unresolvable classes (logged as WARNING, skipped). Lifecycle methods are found by iterating `SootClass.getMethods()` and filtering by name. For each application method, it computes: `reachable` (reachable from entry points), `reachesMop` (has path to a monitored API method), and `directlyReachesMop` (directly invokes a monitored API method). MOP method signatures are loaded from `.mop` specification files via `JavamopFacade`. This section is written and flushed first.
+1. **Enumerates application classes and computes method reachability** using `Scene.v().getApplicationClasses()` for class/method enumeration and `Scene.v().getCallGraph()` + JGraphT for reachability flags. Entry points include: Activity lifecycle handlers and public/protected methods (via `output.getActivities()`), Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`) and public/protected methods (via `XMLParser.getServices()`), BroadcastReceiver lifecycle method (`onReceive`) and public/protected methods (via `XMLParser.getReceivers()`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`) and public/protected methods (via `XMLParser.getProviders()`). Service, Receiver, and Provider class names are resolved to `SootClass` via `Scene.v().getSootClassUnsafe()`, which returns `null` for unresolvable classes (logged as WARNING, skipped). Lifecycle methods are found by iterating `SootClass.getMethods()` and filtering by name. For each application method, it computes: `reachable` (reachable from entry points), `reachesTarget` (has path to a monitored API method), and `directlyReachesTarget` (directly invokes a monitored API method). MOP method signatures are loaded from `.mop` specification files via `JavamopFacade`. This section is written and flushed first.
 
 2. **Extracts windows and widgets** using GATOR's internal APIs (`getActivities()`, `getActivityRoots()`, `PropertyManager`). GATOR's interprocedural analysis provides the widget inventory (IDs, names, types, text, hint, listeners) including dynamically-registered listeners discovered through interprocedural data flow. Two fields not available via GATOR APIs — `inputType` and `entries` — are extracted by parsing the decoded layout XML files at `Configs.resourceLocation`.
 
@@ -378,9 +378,9 @@ The analysis JSON output is parsed by `StaticAnalysisParser` into the `StaticAna
 
 The reachability section defines the **method universe** — the total set of reachable methods that serves as the denominator for all coverage percentage calculations. Without reachability data, the system can count absolute method calls but cannot compute coverage percentages. The `CoverageAnalyzer` explicitly switches to `RUNTIME_ONLY` or `FALLBACK_MODE` when reachability data is unavailable.
 
-The reachability section also provides MOP prioritization data consumed by rv-agent. The `MopScorer` in rv-agent's `ActionRanker` assigns +100 score to actions with `directly_reaches_mop=true` and +50 to actions with `reaches_mop=true`, directing exploration toward MOP-relevant code paths.
+The reachability section also provides MOP prioritization data consumed by rv-agent. The `MopScorer` in rv-agent's `ActionRanker` assigns +100 score to actions with `directly_reaches_target=true` and +50 to actions with `reaches_target=true`, directing exploration toward MOP-relevant code paths.
 
-The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:true`, which performs full points-to analysis to resolve virtual calls based on types effectively instantiated in the program. SPARK is the operational default per design.md D5 — full points-to analysis tightens `reachesMop` against the over-approximation that pure type-hierarchy resolution (CHA) would produce on Android codebases with deep inheritance and pervasive Kotlin `FunctionN` interfaces. Other algorithms — CHA (`-cgAlgorithm cha`), RTA (`-cgAlgorithm rta`), VTA (`-cgAlgorithm vta`) — remain available; the legacy `-withCHA` flag is accepted as an alias for `-cgAlgorithm cha` for backward compatibility. If the chosen algorithm crashes due to residual `InternalTypingException` (after defensive options and Soot 4.7.1), the analysis fails for that APK — there is no Flowgraph-level recovery for call-graph-phase crashes. JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) appear as call targets whenever any application method invokes them — they do not need to be entry points.
+The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:true`, which performs full points-to analysis to resolve virtual calls based on types effectively instantiated in the program. SPARK is the operational default per design.md D5 — full points-to analysis tightens `reachesTarget` against the over-approximation that pure type-hierarchy resolution (CHA) would produce on Android codebases with deep inheritance and pervasive Kotlin `FunctionN` interfaces. Other algorithms — CHA (`-cgAlgorithm cha`), RTA (`-cgAlgorithm rta`), VTA (`-cgAlgorithm vta`) — remain available; the legacy `-withCHA` flag is accepted as an alias for `-cgAlgorithm cha` for backward compatibility. If the chosen algorithm crashes due to residual `InternalTypingException` (after defensive options and Soot 4.7.1), the analysis fails for that APK — there is no Flowgraph-level recovery for call-graph-phase crashes. JCA framework classes (`javax.crypto.Cipher`, `java.security.MessageDigest`, etc.) appear as call targets whenever any application method invokes them — they do not need to be entry points.
 
 **Module**: rv-static-analysis (launcher + parser — unchanged), rvsec-gator (analysis client — modified)
 **Key components**: `Main.java` (Soot config), `Flowgraph.java` (error handling), `RvsecAnalysisClient` (unchanged), `XMLParser`, `DefaultXMLParser`, `IntentFilterManager`, `StaticAnalysisParser` (unchanged), `Clazz`
@@ -431,19 +431,19 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 - **THEN** window count MUST match exactly (±0)
 - **AND** transition count MUST match exactly (±0)
 - **AND** total method count MUST match exactly (±0)
-- **AND** `reachable` and `reachesMop` method counts MAY differ by up to ±10% due to Soot version change (3.3.0 → 4.7.1) — differences MUST be documented
-- **AND** `directlyReachesMop` counts MUST match or strictly INCREASE relative to the saved baseline because the bytecode-scan complement (BUG-INV-ANA-19) recovers literal MOP invocations the call graph alone misses; the baseline is a lower bound, never an upper bound
+- **AND** `reachable` and `reachesTarget` method counts MAY differ by up to ±10% due to Soot version change (3.3.0 → 4.7.1) — differences MUST be documented
+- **AND** `directlyReachesTarget` counts MUST match or strictly INCREASE relative to the saved baseline because the bytecode-scan complement (BUG-INV-ANA-19) recovers literal MOP invocations the call graph alone misses; the baseline is a lower bound, never an upper bound
 - **AND** widget `inputType` and `entries` fields MUST match GESDA output for the same APK
 
-#### Scenario: `directlyReachesMop` detects literal library MOP invocations omitted by SPARK (BUG-INV-ANA-19)
+#### Scenario: `directlyReachesTarget` detects literal library MOP invocations omitted by SPARK (BUG-INV-ANA-19)
 
 - **WHEN** an application method's bytecode contains a literal `invoke-direct`, `invoke-virtual`, `invoke-static`, or `invoke-interface` whose target's `(declaringClass.getName(), methodRef.name())` matches a MOP signature loaded from the `mopDir` (e.g. `java.security.SecureRandom.<init>` or `java.security.SecureRandom.nextInt` for the `SecureRandomSpec` MOP)
 - **AND** Soot's SPARK call graph does NOT contain that target as a vertex (because library packages like `java.security.*` are quarantined as IGNORED_CLASSES and SPARK omits their edges)
-- **THEN** `findDirectMopCallersByBytecodeScan` MUST detect the invocation by walking the method's `Body.getUnits()`, casting each to `Stmt`, and inspecting `InvokeExpr.getMethodRef()` against the precomputed `Set<String>` of `"className#methodName"` keys
+- **THEN** `findDirectTargetCallersByBytecodeScan_LEGACY` MUST detect the invocation by walking the method's `Body.getUnits()`, casting each to `Stmt`, and inspecting `InvokeExpr.getMethodRef()` against the precomputed `Set<String>` of `"className#methodName"` keys
 - **AND** the detection MUST be independent of the call graph — it works even when `graph.containsVertex(target) == false`
-- **AND** the matched method MUST be unioned into `directMopSet` after `findDirectMopCallers` completes
-- **AND** the output JSON MUST report `directlyReachesMop=true` for that method
-- **AND** the implementation MUST log scan statistics: `[RvsecAnalysisClient] Bytecode scan: <S> methods scanned, <B> body-retrieval skips, <K> direct MOP callers detected` and `[RvsecAnalysisClient] directlyReachesMop: <N> (CG: <M>, bytecode: <K>, intersection: <I>)` so users can audit how many additional callers the bytecode complement contributed
+- **AND** the matched method MUST be unioned into `directMopSet` after `findDirectTargetCallers` completes
+- **AND** the output JSON MUST report `directlyReachesTarget=true` for that method
+- **AND** the implementation MUST log scan statistics: `[RvsecAnalysisClient] Bytecode scan: <S> methods scanned, <B> body-retrieval skips, <K> direct MOP callers detected` and `[RvsecAnalysisClient] directlyReachesTarget: <N> (CG: <M>, bytecode: <K>, intersection: <I>)` so users can audit how many additional callers the bytecode complement contributed
 - **AND** match policy MUST mirror `resolveMopInScene` — by FQN class + method name, ignoring parameter overloads — so an `InvokeExpr` of any overload of a MOP-declared method matches the same key
 
 #### Scenario: Bytecode-scan resilience on corrupted method bodies
@@ -458,7 +458,7 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 
 - **WHEN** the bytecode scanner runs as part of `RvsecAnalysisClient.run`
 - **THEN** it MUST iterate only the `appClasses` map produced by `extractClasses` (already filtered by `code_package` to drop libraries and generated `R`/`BuildConfig`)
-- **AND** it MUST NOT iterate every class in `Scene.v().getClasses()` — library callers are out of scope for `directlyReachesMop` semantics (the predicate asks which APP methods directly invoke MOP-monitored APIs)
+- **AND** it MUST NOT iterate every class in `Scene.v().getClasses()` — library callers are out of scope for `directlyReachesTarget` semantics (the predicate asks which APP methods directly invoke MOP-monitored APIs)
 - **AND** the union with `directMopSet` MUST therefore never report a library class as a direct MOP caller
 
 ### Requirement: Method Coverage Tracking (FR12, NFR06)
@@ -573,7 +573,7 @@ The visitor pattern is the core of the transformation. `AbstractScreenVisitor` d
 
 The `Node.accept(visitor)` method implements the dispatch. For leaf nodes, it checks `should_exclude_system_button()` and then dispatches to the appropriate `visit_*` method based on `view_class`, falling back to `visit_leaf_node` for unmapped classes. For container nodes, it handles specialized containers (Spinner, RadioGroup, ChipGroup) and recursively traverses children. Container nodes are NOT filtered for system buttons because containers often span the full screen height.
 
-Each visitor produces `ScreenItem` objects containing `ItemAction` objects. The `ItemAction` carries MOP tracking flags (`reaches_mop`, `directly_reaches_mop`) derived from the static analysis `WidgetEvent` data when available.
+Each visitor produces `ScreenItem` objects containing `ItemAction` objects. The `ItemAction` carries MOP tracking flags (`reaches_target`, `directly_reaches_target`) derived from the static analysis `WidgetEvent` data when available.
 
 #### Scenario: UIAutomator XML parsing to ScreenDescription
 
@@ -600,7 +600,7 @@ Each visitor produces `ScreenItem` objects containing `ItemAction` objects. The 
 #### Scenario: MOP tracking in ItemAction
 
 - **WHEN** a visitor creates an ItemAction for a widget that has WidgetEvent data from StaticAnalysisData
-- **THEN** the ItemAction's reaches_mop and directly_reaches_mop flags MUST reflect the corresponding WidgetEvent callback method's reachability flags
+- **THEN** the ItemAction's reaches_target and directly_reaches_target flags MUST reflect the corresponding WidgetEvent callback method's reachability flags
 - **AND** the widget_id and callback_signature fields SHOULD be populated from the WidgetEvent data
 
 #### Scenario: ItemAction coordinate resolution

@@ -244,7 +244,7 @@ class AbstractScreenVisitor(ABC):
 
         return False
 
-    def _check_method_reaches_mop(self, signature: str) -> bool:
+    def _check_method_reaches_target(self, signature: str) -> bool:
         """
         Check if a method reaches MOP (Method of Protection).
 
@@ -257,10 +257,10 @@ class AbstractScreenVisitor(ABC):
         if self.static_info and self.static_info.classes:
             method = self.static_info.classes.methods.get(signature)
             if method:
-                return method.reaches_mop
+                return method.reaches_target
         return False
 
-    def _check_method_directly_reaches_mop(self, signature: str) -> bool:
+    def _check_method_directly_reaches_target(self, signature: str) -> bool:
         """
         Check if a method directly reaches MOP.
 
@@ -273,7 +273,7 @@ class AbstractScreenVisitor(ABC):
         if self.static_info and self.static_info.classes:
             method = self.static_info.classes.methods.get(signature)
             if method:
-                return method.directly_reaches_mop
+                return method.directly_reaches_target
         return False
 
     def should_exclude_system_button(self, node: Node) -> bool:
@@ -444,8 +444,8 @@ class AbstractScreenVisitor(ABC):
                     id=counter.increment(),
                     text=f"UNCHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node_data,
                     coordinates=coordinates,
                 )
@@ -457,8 +457,8 @@ class AbstractScreenVisitor(ABC):
                     id=counter.increment(),
                     text=f"CHECK ({counter.get_current()})",
                     event=WidgetEventType.CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node_data,
                     coordinates=coordinates,
                 )
@@ -481,8 +481,8 @@ class AbstractScreenVisitor(ABC):
                 id=counter.increment(),
                 text=f"CLICK ({counter.get_current()})",
                 event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -501,8 +501,8 @@ class AbstractScreenVisitor(ABC):
                     id=counter.increment(),
                     text=f"LONG_CLICK ({counter.get_current()}){text_suffix}",
                     event=WidgetEventType.LONG_CLICK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node_data,
                     coordinates=coordinates,
                 )
@@ -532,8 +532,8 @@ class AbstractScreenVisitor(ABC):
                     id=counter.increment(),
                     text=f"SCROLL {direction} ({counter.get_current()})",
                     event=WidgetEventType.SCROLL,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view=node_data,
                     coordinates=coordinates,
                 )
@@ -546,8 +546,8 @@ class AbstractScreenVisitor(ABC):
                 id=counter.increment(),
                 text=f"SET_TEXT ({counter.get_current()})",
                 event=WidgetEventType.TEXT_CHANGE,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -563,8 +563,8 @@ class AbstractScreenVisitor(ABC):
                 id=counter.increment(),
                 text=f"UNCHECK ({counter.get_current()})",
                 event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -575,8 +575,8 @@ class AbstractScreenVisitor(ABC):
                 id=counter.increment(),
                 text=f"CHECK ({counter.get_current()})",
                 event=WidgetEventType.CLICK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view=node_data,
                 coordinates=coordinates,
             )
@@ -602,8 +602,8 @@ class AbstractScreenVisitor(ABC):
         for event in widget.events:
             if event.type == action.event:
                 # Check if method reaches or directly reaches MOP
-                action.reaches_mop = self._check_method_reaches_mop(event.signature)
-                action.directly_reaches_mop = self._check_method_directly_reaches_mop(
+                action.reaches_target = self._check_method_reaches_target(event.signature)
+                action.directly_reaches_target = self._check_method_directly_reaches_target(
                     event.signature
                 )
                 action.widget_id = widget.id
@@ -612,9 +612,9 @@ class AbstractScreenVisitor(ABC):
                 # Append MOP markers to the action text so the LLM can see them
                 # in the screen description. [DM] = directly reaches a monitored
                 # operation (one call away); [M] = transitively reaches one.
-                if action.directly_reaches_mop:
+                if action.directly_reaches_target:
                     action.text += " [DM]"
-                elif action.reaches_mop:
+                elif action.reaches_target:
                     action.text += " [M]"
                 return
 

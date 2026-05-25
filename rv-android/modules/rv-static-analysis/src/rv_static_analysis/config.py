@@ -106,7 +106,7 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         description=(
             "Call graph algorithm forwarded to Soot via '-cgAlgorithm <value>'. "
             "Default 'spark' preserves gh51 D5 (full points-to gives accurate "
-            "reachesMop); cha/rta/vta are faster but less precise. Pydantic-pinned "
+            "reachesTarget); cha/rta/vta are faster but less precise. Pydantic-pinned "
             "to the four Soot-accepted values so an invalid string fails at config "
             "construction rather than producing a silent GATOR error mid-pipeline."
         ),

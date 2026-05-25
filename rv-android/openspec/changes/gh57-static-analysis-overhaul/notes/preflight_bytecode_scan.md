@@ -2,17 +2,17 @@
 
 **Date:** 2026-05-14
 **Task:** Phase-0 §7.8 / tasks.md 1.3
-**Scope:** Confirm `findDirectMopCallersByBytecodeScan` (RvsecAnalysisClient.java:465–523) can be refactored into a generic helper `scanInvokesByPattern(appClasses, predicate)` without breaking the existing MOP-scan contract (BUG-INV-ANA-19).
+**Scope:** Confirm `findDirectTargetCallersByBytecodeScan_LEGACY` (RvsecAnalysisClient.java:465–523) can be refactored into a generic helper `scanInvokesByPattern(appClasses, predicate)` without breaking the existing MOP-scan contract (BUG-INV-ANA-19).
 
 ## Existing method shape
 
 ```java
-private Set<SootMethod> findDirectMopCallersByBytecodeScan(
+private Set<SootMethod> findDirectTargetCallersByBytecodeScan_LEGACY(
         Map<SootClass, List<SootMethod>> appClasses,
         Set<MopMethod> mopSignatures) {
     Set<SootMethod> result = new HashSet<>();
     if (mopSignatures.isEmpty()) return result;
-    Set<String> mopKeys = buildMopKeys(mopSignatures);  // helper, FQN#name
+    Set<String> mopKeys = buildTargetKeys(mopSignatures);  // helper, FQN#name
 
     int methodsScanned = 0, bodiesSkipped = 0;
     for (entry in appClasses) for (method in entry.value) {
@@ -33,7 +33,7 @@ private Set<SootMethod> findDirectMopCallersByBytecodeScan(
             InvokeExpr ie = stmt.getInvokeExpr();
             SootMethodRef ref = ie.getMethodRef();
             if (ref == null) continue;
-            if (matchesMopSignature(ref.getDeclaringClass().getName(), ref.getName(), mopKeys)) {
+            if (matchesTargetSignature(ref.getDeclaringClass().getName(), ref.getName(), mopKeys)) {
                 result.add(method);
                 break;  // ← short-circuit: one match per caller
             }
@@ -93,17 +93,17 @@ private interface InvokeVisitor {
 ### View 1 — MOP caller set (preserves BUG-INV-ANA-19)
 
 ```java
-private Set<SootMethod> findDirectMopCallersByBytecodeScan(
+private Set<SootMethod> findDirectTargetCallersByBytecodeScan_LEGACY(
         Map<SootClass, List<SootMethod>> appClasses,
         Set<MopMethod> mopSignatures) {
     Set<SootMethod> result = new HashSet<>();
     if (mopSignatures.isEmpty()) return result;
-    Set<String> mopKeys = buildMopKeys(mopSignatures);
+    Set<String> mopKeys = buildTargetKeys(mopSignatures);
     Set<SootMethod> shortCircuit = new HashSet<>();  // emulate "break" per method
 
     ScanStats stats = scanInvokesInAppClasses(appClasses, (caller, stmt, ref) -> {
         if (shortCircuit.contains(caller)) return;
-        if (matchesMopSignature(ref.getDeclaringClass().getName(), ref.getName(), mopKeys)) {
+        if (matchesTargetSignature(ref.getDeclaringClass().getName(), ref.getName(), mopKeys)) {
             result.add(caller);
             shortCircuit.add(caller);
         }
@@ -144,7 +144,7 @@ The refactor preserves every observable behavior of the original method:
 |----------|----------|----------|------------|
 | Inputs | `(appClasses, mopSignatures)` | same wrapper | ✓ |
 | Output | `Set<SootMethod>` | same wrapper | ✓ |
-| FQN+name match policy | `matchesMopSignature(clsName, methodName, mopKeys)` | same call, same args | ✓ |
+| FQN+name match policy | `matchesTargetSignature(clsName, methodName, mopKeys)` | same call, same args | ✓ |
 | Short-circuit per caller | `break` after first match | `shortCircuit` set used by visitor | ✓ (semantic equivalent) |
 | Body retrieval resilience | try-catch (RuntimeException \| OOM), WARN log, continue | same code, moved into core helper | ✓ |
 | Skip non-concrete methods | `!method.isConcrete()` continue | same in core helper | ✓ |

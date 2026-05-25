@@ -182,8 +182,8 @@ class MopScorerTest {
                 + "\"name\":\"onClick\","
                 + "\"signature\":\"<" + className + ": void onClick()>\","
                 + "\"reachable\":true,"
-                + "\"reachesMop\":" + transitiveMop + ","
-                + "\"directlyReachesMop\":" + directMop
+                + "\"reachesTarget\":" + transitiveMop + ","
+                + "\"directlyReachesTarget\":" + directMop
                 + "}]"
                 + "}],"
                 + "\"windows\":[{"
@@ -214,8 +214,8 @@ class MopScorerTest {
                 + "\"name\":\"doEncrypt\","
                 + "\"signature\":\"<" + className + ": void doEncrypt()>\","
                 + "\"reachable\":true,"
-                + "\"reachesMop\":" + transitiveMop + ","
-                + "\"directlyReachesMop\":" + directMop
+                + "\"reachesTarget\":" + transitiveMop + ","
+                + "\"directlyReachesTarget\":" + directMop
                 + "}]"
                 + "}],"
                 + "\"windows\":[],"

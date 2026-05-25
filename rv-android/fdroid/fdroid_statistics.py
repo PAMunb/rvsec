@@ -22,7 +22,7 @@ def execute(mop_specs_dir: str, out_file: str):
     # recupera os metodos usados nas specs mop
     # esses metodos sao usados para recuperar nodes correspondentes no callgraph
     # e depois ver se esses nodes sao alcancaveis pelos entrypoints
-    # mop_methods = get_methods_used_in_specs(mop_specs_dir)
+    # target_methods = get_methods_used_in_specs(mop_specs_dir)
 
     # recupera o indice do repositorio do F-droid
     # https://f-droid.org/pt_BR/docs/All_our_APIs/
@@ -55,7 +55,7 @@ def execute(mop_specs_dir: str, out_file: str):
             # if source:
             #     apk_path = download_apk(apk_file)
             #
-            #     is_done, is_timeout, erro_message, results = is_mop_enabled(apk_path, mop_methods)
+            #     is_done, is_timeout, erro_message, results = is_mop_enabled(apk_path, target_methods)
             #     if is_timeout:
             #         mop_enabled = "Timeout"
             #     else:
@@ -86,7 +86,7 @@ def get_last_apk_version(package):
     return apk_file
 
 @SetTimeoutDecorator(timeout=600)
-def is_mop_enabled(apk_path, mop_methods):
+def is_mop_enabled(apk_path, target_methods):
     print("Analyzing apk ...")
     apk, _, a = AnalyzeAPK(apk_path)
 
@@ -97,7 +97,7 @@ def is_mop_enabled(apk_path, mop_methods):
     # conjunto com os nodes do callgraph q representam os entrypoints
     # todos os metodos de cada uma das classes do entrypoints_classes
     # e com os nodes do cg que representam os metodos usados nas specs
-    entrypoints, methods = get_nodes(a, entrypoints_classes, mop_methods)
+    entrypoints, methods = get_nodes(a, entrypoints_classes, target_methods)
 
     return uses_jca(a, entrypoints, methods), apk
 
@@ -118,7 +118,7 @@ def get_entrypoints_classes(a: APK):
     return entrypoints
 
 
-def get_nodes(a: Analysis, entrypoints_classes: set, mop_methods: dict):
+def get_nodes(a: Analysis, entrypoints_classes: set, target_methods: dict):
     print("get nodes ...")
     entrypoints = set()
     methods = set()
@@ -129,9 +129,9 @@ def get_nodes(a: Analysis, entrypoints_classes: set, mop_methods: dict):
         for e in entrypoints_classes:
             if e in str(node.get_class_name()) and str(node.get_access_flags_string()) in ["public", "protected"]:
                 entrypoints.add(node)
-        for clazz in mop_methods:
+        for clazz in target_methods:
             if clazz in str(node.get_class_name()):
-                for method in mop_methods[clazz]:
+                for method in target_methods[clazz]:
                     if method in str(node.get_method().get_name()):
                         methods.add(node)
 
@@ -149,12 +149,12 @@ def uses_jca(a: Analysis, entrypoints: set, methods: set):
 
 def get_methods_used_in_specs(specs_dir: str):
     methods_file = os.path.join(tempfile.gettempdir(), 'methods.csv')
-    mop_methods = get_javamop_methods(specs_dir, methods_file)
+    target_methods = get_javatarget_methods(specs_dir, methods_file)
     delete_file(methods_file)
-    return mop_methods
+    return target_methods
 
 
-def get_javamop_methods(specs_dir: str, methods_file: str):
+def get_javatarget_methods(specs_dir: str, methods_file: str):
     # le as specs do mop_specs_dir e salva os metodos usados em methods_file
     # depois le esse arquivo e popula um dict [CLASSE --> lista de metodos]
     # retorna esse dict

@@ -138,8 +138,8 @@ Analysis produces one JSON file per APK: `{app_name}.json`
           "name": "onCreate",
           "signature": "<com.example.MainActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     }

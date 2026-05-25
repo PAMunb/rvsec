@@ -223,7 +223,7 @@ private Set<SootClass> findSubclasses(String baseClass) {
 }
 ```
 
-**Impacto na reachability**: Com receivers e services como entry points adicionais, o BFS de reachability (REACH) automaticamente descobre quais métodos MOP são atingíveis a partir desses componentes. Os flags `reachesMop` e `directlyReachesMop` passam a refletir caminhos via receivers/services.
+**Impacto na reachability**: Com receivers e services como entry points adicionais, o BFS de reachability (REACH) automaticamente descobre quais métodos MOP são atingíveis a partir desses componentes. Os flags `reachesTarget` e `directlyReachesTarget` passam a refletir caminhos via receivers/services.
 
 #### 4.2.2 Marcar tipo de componente no reachability
 
@@ -268,8 +268,8 @@ Isso é **backward-compatible** — campos novos são ignorados por parsers que 
           }
         ],
         "exported": true,
-        "reachesMop": true,
-        "mopMethods": [
+        "reachesTarget": true,
+        "targetMethods": [
           "<com.example.app.BootReceiver: void onReceive(android.content.Context,android.content.Intent)>"
         ]
       }
@@ -283,8 +283,8 @@ Isso é **backward-compatible** — campos novos são ignorados por parsers que 
           }
         ],
         "exported": false,
-        "reachesMop": true,
-        "mopMethods": [
+        "reachesTarget": true,
+        "targetMethods": [
           "<com.example.app.CryptoService: int onStartCommand(android.content.Intent,int,int)>"
         ]
       }
@@ -297,8 +297,8 @@ Isso é **backward-compatible** — campos novos são ignorados por parsers que 
 - `className`: `SootClass.getName()`
 - `intentFilters`: Parsed do `AndroidManifest.xml` via `ProcessManifest` do Soot/FlowDroid (já disponível no classpath do GATOR)
 - `exported`: Atributo `android:exported` do manifest
-- `reachesMop`: Cross-reference com o BFS de reachability (mesma lógica já existente)
-- `mopMethods`: Métodos do componente que atingem MOP (subset do reachability)
+- `reachesTarget`: Cross-reference com o BFS de reachability (mesma lógica já existente)
+- `targetMethods`: Métodos do componente que atingem MOP (subset do reachability)
 
 #### 4.2.4 Ordem de escrita (priority flush)
 
@@ -353,8 +353,8 @@ def _parse_components(self, data: dict, code_package: str) -> Components:
             class_name=class_name,
             intent_filters=r.get("intentFilters", []),
             exported=r.get("exported", False),
-            reaches_mop=r.get("reachesMop", False),
-            mop_methods=r.get("mopMethods", []),
+            reaches_target=r.get("reachesTarget", False),
+            target_methods=r.get("targetMethods", []),
         ))
 
     services = []
@@ -366,8 +366,8 @@ def _parse_components(self, data: dict, code_package: str) -> Components:
             class_name=class_name,
             intent_filters=s.get("intentFilters", []),
             exported=s.get("exported", False),
-            reaches_mop=s.get("reachesMop", False),
-            mop_methods=s.get("mopMethods", []),
+            reaches_target=s.get("reachesTarget", False),
+            target_methods=s.get("targetMethods", []),
         ))
 
     return Components(receivers=receivers, services=services)
@@ -387,16 +387,16 @@ class Receiver:
     class_name: str
     intent_filters: list[IntentFilter]
     exported: bool
-    reaches_mop: bool
-    mop_methods: list[str]
+    reaches_target: bool
+    target_methods: list[str]
 
 @dataclass
 class Service:
     class_name: str
     intent_filters: list[IntentFilter]
     exported: bool
-    reaches_mop: bool
-    mop_methods: list[str]
+    reaches_target: bool
+    target_methods: list[str]
 
 @dataclass
 class Components:
@@ -405,11 +405,11 @@ class Components:
 
     @property
     def mop_receivers(self) -> list[Receiver]:
-        return [r for r in self.receivers if r.reaches_mop]
+        return [r for r in self.receivers if r.reaches_target]
 
     @property
     def mop_services(self) -> list[Service]:
-        return [s for s in self.services if s.reaches_mop]
+        return [s for s in self.services if s.reaches_target]
 ```
 
 ### 5.3 Extensão do StaticAnalysisData
@@ -462,21 +462,21 @@ public class MopData {
         while (reader.hasNext()) {
             reader.beginObject();
             String className = null;
-            boolean reachesMop = false;
+            boolean reachesTarget = false;
             List<String> actions = new ArrayList<>();
 
             while (reader.hasNext()) {
                 String key = reader.nextName();
                 switch (key) {
                     case "className": className = reader.nextString(); break;
-                    case "reachesMop": reachesMop = reader.nextBoolean(); break;
+                    case "reachesTarget": reachesTarget = reader.nextBoolean(); break;
                     case "intentFilters": actions = parseIntentFilterActions(reader); break;
                     default: reader.skipValue();
                 }
             }
             reader.endObject();
 
-            if (reachesMop && className != null) {
+            if (reachesTarget && className != null) {
                 mopReceivers.add(new ReceiverInfo(className, actions));
             }
         }
@@ -573,7 +573,7 @@ GATOR + RvsecAnalysisClient (JVM)
  │
  ├── Soot CHA: detecta subclasses de Activity, BroadcastReceiver, Service
  ├── REACH BFS: entry points = Activities + Receivers + Services
- │              → reachesMop flags incluem caminhos via onReceive()/onStartCommand()
+ │              → reachesTarget flags incluem caminhos via onReceive()/onStartCommand()
  ├── WTG: window transitions (apenas Activities — sem mudança)
  └── Components: extrai receivers/services com intent-filters do manifest
  ↓
@@ -651,7 +651,7 @@ rv-coverage (logcat monitoring)
 Adicionar receivers/services como entry points pode **expandir o universo de métodos reachable**:
 - Métodos chamados SOMENTE por `onReceive()` ou `onStartCommand()` e não por nenhuma Activity
 - Esses métodos atualmente são `reachable: false` (não atingíveis por nenhum entry point)
-- Com a mudança, passam a `reachable: true` e potencialmente `reachesMop: true`
+- Com a mudança, passam a `reachable: true` e potencialmente `reachesTarget: true`
 - **Impacto no denominador de coverage**: o total de métodos reachable pode aumentar (mais métodos para cobrir)
 - **Impacto no numerador**: broadcasts/services exercitados → novos métodos MOP executados
 
@@ -679,7 +679,7 @@ Adicionar receivers/services como entry points pode **expandir o universo de mé
 A calibração dos 19 parâmetros do APE-RV é mais impactante. Nenhuma mudança de code-path resolve se os pesos e thresholds estão errados.
 
 ### Prioridade 2: Expandir reachability no GATOR Client
-Mudança mais valiosa com esforço mínimo: adicionar receivers/services como entry points no BFS. Isso **não requer mudanças no APE-RV** — apenas expande os flags `reachesMop` no JSON. O MopScorer do APE-RV já lê esses flags. Resultado: MOP scoring mais preciso para Activities que compartilham código com receivers.
+Mudança mais valiosa com esforço mínimo: adicionar receivers/services como entry points no BFS. Isso **não requer mudanças no APE-RV** — apenas expande os flags `reachesTarget` no JSON. O MopScorer do APE-RV já lê esses flags. Resultado: MOP scoring mais preciso para Activities que compartilham código com receivers.
 
 ### Prioridade 3: Nova seção `components` no JSON
 Extrair receivers/services com intent-filters para o JSON unificado. Requer parser Python + domain models.

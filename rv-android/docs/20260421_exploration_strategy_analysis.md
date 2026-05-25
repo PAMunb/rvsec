@@ -44,7 +44,7 @@ O rv-android suporta 10 ferramentas registradas via `AbstractTool`, todas **alea
 | `droidmate` | Research platform (extensível) | Academic | ❌ |
 | `rvagent` | LLM-driven workflow (LangGraph) | Nosso agente | ❌ |
 
-A variante `aperv:sata_mop` — usada nos experimentos principais — já consome o JSON da análise estática GATOR e aplica **scoring ponderado** para priorizar ações que tocam métodos `reachesMop=true`. É o estado-da-arte do projeto para "exploração consciente de MOP", mas ainda é Monte Carlo dentro do modelo ponderado.
+A variante `aperv:sata_mop` — usada nos experimentos principais — já consome o JSON da análise estática GATOR e aplica **scoring ponderado** para priorizar ações que tocam métodos `reachesTarget=true`. É o estado-da-arte do projeto para "exploração consciente de MOP", mas ainda é Monte Carlo dentro do modelo ponderado.
 
 ### 2.2 Infraestrutura reutilizável para gray-box
 
@@ -266,9 +266,9 @@ Papers acadêmicos de symbolic execution Android tipicamente avaliam em **5-50 a
 
 ### 6.4 Alternativa engineering-only: reachability-based test prioritization
 
-O GATOR já produz `reachesMop=true` por método. Pode-se formular:
+O GATOR já produz `reachesTarget=true` por método. Pode-se formular:
 
-> **Set cover minimum**: dado o grafo de call reachability do GATOR, encontrar o conjunto mínimo de ações de UI que, coletivamente, dispara todos os métodos `reachesMop=true`.
+> **Set cover minimum**: dado o grafo de call reachability do GATOR, encontrar o conjunto mínimo de ações de UI que, coletivamente, dispara todos os métodos `reachesTarget=true`.
 
 Abordagem:
 1. Do JSON da SA, montar grafo bipartido `(widget, event) → métodos MOP alcançáveis`
@@ -349,7 +349,7 @@ Mas só MVP — a longo prazo, robustez contra obfuscação R8 é o bloqueador. 
 
 ### 9.1 Estratégia primária: manter `aperv:sata_mop`
 
-`aperv:sata_mop` já implementa o núcleo da intuição de "exploração guiada por MOP": usa `reachesMop=true` / `directlyReachesMop=true` do GATOR JSON para ponderar ação. Isso é Monte Carlo dentro de um modelo ponderado, **não é aleatório puro**. Combinado com timeout suficiente (300-600s), captura ~37% de cobertura MOP e ~13k violações em 78 apps — resultado comparável ao estado-da-arte da literatura.
+`aperv:sata_mop` já implementa o núcleo da intuição de "exploração guiada por MOP": usa `reachesTarget=true` / `directlyReachesTarget=true` do GATOR JSON para ponderar ação. Isso é Monte Carlo dentro de um modelo ponderado, **não é aleatório puro**. Combinado com timeout suficiente (300-600s), captura ~37% de cobertura MOP e ~13k violações em 78 apps — resultado comparável ao estado-da-arte da literatura.
 
 **Ação**: nenhuma mudança. Já está em uso no JCA-400 overnight.
 

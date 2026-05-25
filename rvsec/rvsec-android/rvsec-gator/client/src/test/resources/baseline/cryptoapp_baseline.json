@@ -4,8 +4,8 @@
   "classes": 27,
   "total_methods": 118,
   "reachable": 67,
-  "reaches_mop": 61,
-  "directly_reaches_mop": 21,
+  "reaches_target": 61,
+  "directly_reaches_target": 21,
   "windows": 5,
   "transitions": 35
 }

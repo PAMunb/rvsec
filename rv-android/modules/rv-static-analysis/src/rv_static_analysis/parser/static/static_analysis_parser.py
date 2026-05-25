@@ -61,7 +61,7 @@ from rv_android_core.domain.static import StaticAnalysisData
 # parity test (``tests/parity/json_keys.py`` — gh60 Group 9) compares this dict
 # against ``JsonSchemaKeysDump``'s stdout via subprocess; any divergence
 # surfaces with the offending key on each side. Values still use the gh57 MOP
-# nomenclature ("reachesMop", "directlyReachesMop", "mopMethods") — Group 6
+# nomenclature ("reachesTarget", "directlyReachesTarget", "targetMethods") — Group 6
 # (C1f) flips them atomically across producer + this parser + the Pydantic
 # domain models.
 _JK = SimpleNamespace(
@@ -83,8 +83,8 @@ _JK = SimpleNamespace(
     name="name",
     signature="signature",
     reachable="reachable",
-    reaches_target="reachesMop",
-    directly_reaches_target="directlyReachesMop",
+    reaches_target="reachesTarget",
+    directly_reaches_target="directlyReachesTarget",
     # Windows section
     id="id",
     type="type",
@@ -119,7 +119,7 @@ _JK = SimpleNamespace(
     categories="categories",
     exported="exported",
     authorities="authorities",
-    target_methods="mopMethods",
+    target_methods="targetMethods",
 )
 from rv_android_core.domain.widget import (
     Widget,
@@ -351,8 +351,8 @@ class StaticAnalysisParser:
                         params=params,
                         signature=signature,
                         reachable=m_data.get(_JK.reachable, False),
-                        reaches_mop=m_data.get(_JK.reaches_target, False),
-                        directly_reaches_mop=m_data.get(_JK.directly_reaches_target, False),
+                        reaches_target=m_data.get(_JK.reaches_target, False),
+                        directly_reaches_target=m_data.get(_JK.directly_reaches_target, False),
                     )
                     classes.add_method(method)
 
@@ -646,8 +646,8 @@ class StaticAnalysisParser:
                         entry.get("intentFilters", [])
                     ),
                     exported=entry.get("exported", False),
-                    reaches_mop=entry.get(_JK.reaches_target, False),
-                    mop_methods=entry.get("mopMethods", []),
+                    reaches_target=entry.get(_JK.reaches_target, False),
+                    target_methods=entry.get("targetMethods", []),
                 )
             )
         return result
@@ -670,8 +670,8 @@ class StaticAnalysisParser:
                     is_main=False,  # Providers are never the main component
                     authorities=entry.get("authorities"),
                     exported=entry.get("exported", False),
-                    reaches_mop=entry.get(_JK.reaches_target, False),
-                    mop_methods=entry.get("mopMethods", []),
+                    reaches_target=entry.get(_JK.reaches_target, False),
+                    target_methods=entry.get("targetMethods", []),
                 )
             )
         return result

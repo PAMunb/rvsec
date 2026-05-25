@@ -34,41 +34,41 @@ public class MopFacade {
 
 	    Set<SootMethod> sootMopMethods = new HashSet<>();
 
-	    Set<MopMethod> mopMethods = javamopFacade.listUsedMethods(mopSpecsDir, false);
+	    Set<MopMethod> targetMethods = javamopFacade.listUsedMethods(mopSpecsDir, false);
 
 	    for (SootClass c : Scene.v().getApplicationClasses()) {
 	        if (checkOnlyInAppPackage && !AndroidUtil.isClassInApplicationPackage(c, apkInfo)) {
 	            continue;
 	        }
 	        for (SootMethod m : c.getMethods()) {
-	            sootMopMethods.addAll(findMopMethodsInMethod(m, mopMethods));
+	            sootMopMethods.addAll(findMopMethodsInMethod(m, targetMethods));
 	        }
 	    }
 
 	    return sootMopMethods;
 	}
 
-	private Set<SootMethod> findMopMethodsInMethod(SootMethod m, Set<MopMethod> mopMethods) {
-	    Set<SootMethod> mopMethodsInMethod = new HashSet<>();
+	private Set<SootMethod> findMopMethodsInMethod(SootMethod m, Set<MopMethod> targetMethods) {
+	    Set<SootMethod> targetMethodsInMethod = new HashSet<>();
 	    if (!m.isConcrete()) {
-            return mopMethodsInMethod;
+            return targetMethodsInMethod;
         }
 		UnitPatchingChain units = m.retrieveActiveBody().getUnits();
 	    for (Unit unit : units) {
 	        Stmt stmt = (Stmt) unit;
 	        if (stmt.containsInvokeExpr()) {
 	            InvokeExpr invokeExpr = stmt.getInvokeExpr();
-	            if (isMop(invokeExpr, mopMethods)) {
-	                mopMethodsInMethod.add(invokeExpr.getMethod());
+	            if (isMop(invokeExpr, targetMethods)) {
+	                targetMethodsInMethod.add(invokeExpr.getMethod());
 	            }
 	        }
 	    }
-	    return mopMethodsInMethod;
+	    return targetMethodsInMethod;
 	}
 
-	private boolean isMop(InvokeExpr invokeExpr, Set<MopMethod> mopMethods) {
+	private boolean isMop(InvokeExpr invokeExpr, Set<MopMethod> targetMethods) {
 		SootMethod invokeMethod = invokeExpr.getMethod();
-		for (MopMethod mopMethod : mopMethods) {
+		for (MopMethod mopMethod : targetMethods) {
 			//TODO testar/comparar assinatura completa
 			if (mopMethod.getClassName().equals(invokeMethod.getDeclaringClass().getName())
 					&& mopMethod.getName().equals(invokeMethod.getName())) {

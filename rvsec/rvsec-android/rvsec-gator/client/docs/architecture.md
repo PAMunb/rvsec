@@ -133,8 +133,8 @@ sequenceDiagram
     C->>C: resolveMopInScene(mopSignatures)
     C->>G: buildJGraph(callGraph)
     C->>G: multiSourceBfs(graph, entryPoints)
-    C->>G: multiSourceBfs(reversed, mopMethods)
-    C->>C: findDirectMopCallers(graph, mopMethods)
+    C->>G: multiSourceBfs(reversed, targetMethods)
+    C->>C: findDirectTargetCallers(graph, targetMethods)
     C->>C: complementWithCallbacks(...)
     C->>S: WTGBuilder.build(output)
     S-->>C: WTG
@@ -164,7 +164,7 @@ AndroidManifest.xml → Package name, components (broadcasts, services)
 flowchart TD
     CG["Soot CallGraph"] --> JG["JGraphT DefaultDirectedGraph"]
     EP["Entry Points<br/>(lifecycle methods)"] --> FWD["Forward BFS<br/>→ reachable set"]
-    MOP["MOP Methods<br/>(resolved signatures)"] --> REV["Reverse BFS<br/>→ reachesMop set"]
+    MOP["MOP Methods<br/>(resolved signatures)"] --> REV["Reverse BFS<br/>→ reachesTarget set"]
     MOP --> DIRECT["Direct callers<br/>→ directMop set"]
     CB["Callbacks<br/>(lifecycle, listeners)"] --> COMP["Complement sets"]
 
@@ -176,7 +176,7 @@ flowchart TD
     REV --> COMP
     DIRECT --> COMP
 
-    COMP --> JSON["Per-method flags:<br/>reachable, reachesMop, directlyReachesMop"]
+    COMP --> JSON["Per-method flags:<br/>reachable, reachesTarget, directlyReachesTarget"]
 ```
 
 ### 4.3 Output consumption

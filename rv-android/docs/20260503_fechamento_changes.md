@@ -79,11 +79,11 @@ Para tasks deferidas como future work: bloco `**DEFERRED**: <razão> + <evidênc
 | # | Task | Arquivo / Linha | Tipo | Detalhe |
 |---|---|---|---|---|
 | 1.1 | 4e.6 | `tasks.md:88` | EXECUTAR | Smoke `cryptoapp.apk` com `spark` (default) + invocação extra `-cgAlgorithm cha` |
-| 1.2 | 6.6 | `tasks.md:129` | EXECUTAR | Comparar output `cryptoapp.apk` contra baseline (directlyReachesMop exato; reachable/reachesMop ±10%) |
+| 1.2 | 6.6 | `tasks.md:129` | EXECUTAR | Comparar output `cryptoapp.apk` contra baseline (directlyReachesTarget exato; reachable/reachesTarget ±10%) |
 | 1.3 | 7.1 | `tasks.md:139` | EXECUTAR | `mvn clean compile -DskipTests -DskipMopAgent` em `rvsec-gator`, `rvsec-apk`, `rvsec-frame-computer` |
 | 1.4 | 6.2 | `tasks.md:99` | DEFERRED-x | Bloco: "FIX 3 já merged + validado em 380 APKs (sweep_jca400_v1, 95% SA). Retrospective isolation não cientificamente significativo per-precondição do próprio task ('should run before/parallel FIX 3, not after')." |
 | 1.5 | 8.11 | `tasks.md:206` | DEFERRED-x | Bloco: "Bytecode-scan complement (commit `aebb33c8`) eliminates the 2 FT cases empiricamente; rerun produces null delta. FT investigation memorialized in `project_gator_ft_investigation` (FN rate 0.26%)." |
-| 1.6 | 8.12 | `tasks.md:208` | JÁ FEITO | Commit `aebb33c8` "fix(gh51): add bytecode-scan complement for directlyReachesMop FN" |
+| 1.6 | 8.12 | `tasks.md:208` | JÁ FEITO | Commit `aebb33c8` "fix(gh51): add bytecode-scan complement for directlyReachesTarget FN" |
 
 ### 4.2 Sequência de execução
 
@@ -306,8 +306,8 @@ java -jar lib/gator/rvsec-analysis-client.jar -apk apks_examples/cryptoapp.apk \
   -android-jar /path/to/android.jar -cgAlgorithm cha -output out/gh51_smoke_4e6_cha.json
 
 # 1.2 — gh51 6.6: comparison vs baseline
-diff <(jq '.directlyReachesMop' out/gh51_smoke_4e6_spark.json) \
-     <(jq '.directlyReachesMop' out/gh51_baseline.json)
+diff <(jq '.directlyReachesTarget' out/gh51_smoke_4e6_spark.json) \
+     <(jq '.directlyReachesTarget' out/gh51_baseline.json)
 
 # 1.3 — gh51 7.1: mvn compile
 ( cd ../rvsec/rvsec-android/rvsec-gator && mvn clean compile -DskipTests -DskipMopAgent )

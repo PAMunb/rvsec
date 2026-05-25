@@ -9,7 +9,7 @@ import java.util.*;
 
 /**
  * Unit tests for the graph-traversal helpers in RvsecAnalysisClient:
- * multiSourceBfs() and findDirectMopCallers().
+ * multiSourceBfs() and findDirectTargetCallers().
  *
  * Uses String vertices ("A", "B", ...) to build synthetic JGraphT graphs,
  * exercising the package-private generic methods without Soot dependencies.
@@ -112,7 +112,7 @@ public class ReachabilityBfsTest {
 		assertEquals(setOf("A", "B", "C"), result);
 	}
 
-	// ── reverse BFS (reachesMop) ────────────────────────────────────────
+	// ── reverse BFS (reachesTarget) ────────────────────────────────────────
 
 	@Test
 	public void testReverseBfsForReachesMop() {
@@ -127,17 +127,17 @@ public class ReachabilityBfsTest {
 		// In the reversed graph edges are D→C→B and D→C, C→E, C→B, B→A.
 		// BFS from D traverses: D -> C -> B, E -> B already visited, -> A
 		EdgeReversedGraph<String, DefaultEdge> reversed = new EdgeReversedGraph<>(g);
-		Set<String> reachesMop = RvsecAnalysisClient.multiSourceBfs(reversed, setOf("D"));
+		Set<String> reachesTarget = RvsecAnalysisClient.multiSourceBfs(reversed, setOf("D"));
 
 		// D itself, plus everything that can reach D in the forward graph
-		assertTrue(reachesMop.contains("D"));
-		assertTrue(reachesMop.contains("C"));
-		assertTrue(reachesMop.contains("B"));
-		assertTrue(reachesMop.contains("E"));
-		assertTrue(reachesMop.contains("A"));
+		assertTrue(reachesTarget.contains("D"));
+		assertTrue(reachesTarget.contains("C"));
+		assertTrue(reachesTarget.contains("B"));
+		assertTrue(reachesTarget.contains("E"));
+		assertTrue(reachesTarget.contains("A"));
 	}
 
-	// ── findDirectMopCallers tests ──────────────────────────────────────
+	// ── findDirectTargetCallers tests ──────────────────────────────────────
 
 	@Test
 	public void testFindDirectMopCallersSimple() {
@@ -146,7 +146,7 @@ public class ReachabilityBfsTest {
 		addEdge(g, "B", "C");
 		addEdge(g, "C", "D");
 
-		Set<String> callers = RvsecAnalysisClient.findDirectMopCallers(g, setOf("D"));
+		Set<String> callers = RvsecAnalysisClient.findDirectTargetCallers(g, setOf("D"));
 		assertEquals(setOf("C"), callers);
 	}
 
@@ -158,7 +158,7 @@ public class ReachabilityBfsTest {
 		addEdge(g, "C", "E");
 		g.addVertex("D"); // already added via edges, but explicit for clarity
 
-		Set<String> callers = RvsecAnalysisClient.findDirectMopCallers(g, setOf("D"));
+		Set<String> callers = RvsecAnalysisClient.findDirectTargetCallers(g, setOf("D"));
 		assertEquals(setOf("A", "B"), callers);
 	}
 
@@ -169,7 +169,7 @@ public class ReachabilityBfsTest {
 		addEdge(g, "B", "C");
 
 		// D is not in the graph at all
-		Set<String> callers = RvsecAnalysisClient.findDirectMopCallers(g, setOf("D"));
+		Set<String> callers = RvsecAnalysisClient.findDirectTargetCallers(g, setOf("D"));
 		assertTrue(callers.isEmpty());
 	}
 

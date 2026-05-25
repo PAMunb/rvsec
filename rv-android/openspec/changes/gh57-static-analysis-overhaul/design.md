@@ -265,7 +265,7 @@ private void writeJson(
     Map<SootClass, List<SootMethod>> appClasses,
     GUIAnalysisOutput output,
     Set<SootMethod> reachableSet,
-    Set<SootMethod> reachesMopSet,
+    Set<SootMethod> reachesTargetSet,
     Set<SootMethod> directMopSet,
     WTG wtg,                                    // nullable
     Map<String, Integer> windowNodeIds          // empty when wtg == null

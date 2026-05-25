@@ -275,9 +275,9 @@ text_actions = screen_desc.get_actions_by_type("set_text")
 # Actions track whether they reach monitored operations
 for item in screen_desc.items:
     for action in item.actions:
-        if action.reaches_mop:
+        if action.reaches_target:
             print(f"Action {action.id} reaches monitored operations")
-        if action.directly_reaches_mop:
+        if action.directly_reaches_target:
             print(f"Action {action.id} DIRECTLY reaches monitored operations")
         if action.widget_id:
             print(f"  Widget ID: {action.widget_id}")

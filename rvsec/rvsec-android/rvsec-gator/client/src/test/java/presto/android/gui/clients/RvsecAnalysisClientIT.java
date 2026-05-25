@@ -90,8 +90,8 @@ public class RvsecAnalysisClientIT {
 				assertTrue("Missing name", method.has("name"));
 				assertTrue("Missing signature", method.has("signature"));
 				assertTrue("Missing reachable", method.has("reachable"));
-				assertTrue("Missing reachesMop", method.has("reachesMop"));
-				assertTrue("Missing directlyReachesMop", method.has("directlyReachesMop"));
+				assertTrue("Missing reachesTarget", method.has("reachesTarget"));
+				assertTrue("Missing directlyReachesTarget", method.has("directlyReachesTarget"));
 			}
 		}
 	}
@@ -102,14 +102,14 @@ public class RvsecAnalysisClientIT {
 		boolean found = false;
 		for (JsonElement classElem : reachability) {
 			for (JsonElement methodElem : classElem.getAsJsonObject().getAsJsonArray("methods")) {
-				if (methodElem.getAsJsonObject().get("directlyReachesMop").getAsBoolean()) {
+				if (methodElem.getAsJsonObject().get("directlyReachesTarget").getAsBoolean()) {
 					found = true;
 					break;
 				}
 			}
 			if (found) break;
 		}
-		assertTrue("cryptoapp uses JCA — at least one method must have directlyReachesMop=true", found);
+		assertTrue("cryptoapp uses JCA — at least one method must have directlyReachesTarget=true", found);
 	}
 
 	@Test

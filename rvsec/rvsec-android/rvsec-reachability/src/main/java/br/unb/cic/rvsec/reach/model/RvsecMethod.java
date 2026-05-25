@@ -20,13 +20,13 @@ public class RvsecMethod {
 	private boolean reachable = false;
 
 	// reaches an method declared in MOP specs
-	private boolean reachesMop = false;
+	private boolean reachesTarget = false;
 
 	// true if directly calls a MOP method
 	// false if the MOP method is reached by a library/system
-	private boolean directlyReachesMop = false;
+	private boolean directlyReachesTarget = false;
 
-	private Set<String> mopMethodsReached = new HashSet<>();
+	private Set<String> targetMethodsReached = new HashSet<>();
 
 	// one of the possible paths (from an endpoint and this method)
 	private Path possiblePath;
@@ -65,35 +65,35 @@ public class RvsecMethod {
 	}
 
 	public boolean isReachesMop() {
-		return reachesMop;
+		return reachesTarget;
 	}
 
-	public boolean reachesMop() {
-		return reachesMop;
+	public boolean reachesTarget() {
+		return reachesTarget;
 	}
 
 	public boolean isDirectlyReachesMop() {
-		return directlyReachesMop;
+		return directlyReachesTarget;
 	}
 
-	public boolean directlyReachesMop() {
-		return directlyReachesMop;
+	public boolean directlyReachesTarget() {
+		return directlyReachesTarget;
 	}
 
 	public Set<String> getMopMethodsReached() {
-		return mopMethodsReached;
+		return targetMethodsReached;
 	}
 
 	public void setReachable(boolean reachable) {
 		this.reachable = reachable;
 	}
 
-	public void setReachesMop(boolean reachesMop) {
-		this.reachesMop = reachesMop;
+	public void setReachesMop(boolean reachesTarget) {
+		this.reachesTarget = reachesTarget;
 	}
 
-	public void setDirectlyReachesMop(boolean directlyReachesMop) {
-		this.directlyReachesMop = directlyReachesMop;
+	public void setDirectlyReachesMop(boolean directlyReachesTarget) {
+		this.directlyReachesTarget = directlyReachesTarget;
 	}
 
 	public void setPossiblePath(Path path) {
@@ -119,12 +119,12 @@ public class RvsecMethod {
 	}
 
 	public void addMopMethodReached(String mopMethod) {
-		mopMethodsReached.add(mopMethod);
+		targetMethodsReached.add(mopMethod);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(directlyReachesMop, methodName, methodParams, methodSignature, modifiers, possiblePath, possiblePathToMop, reachable, reachesMop);
+		return Objects.hash(directlyReachesTarget, methodName, methodParams, methodSignature, modifiers, possiblePath, possiblePathToMop, reachable, reachesTarget);
 	}
 
 	@Override
@@ -134,14 +134,14 @@ public class RvsecMethod {
 		if ((obj == null) || (getClass() != obj.getClass()))
 			return false;
 		RvsecMethod other = (RvsecMethod) obj;
-		return directlyReachesMop == other.directlyReachesMop && Objects.equals(methodName, other.methodName) && Objects.equals(methodParams, other.methodParams) && Objects.equals(methodSignature, other.methodSignature) && modifiers == other.modifiers
-				&& Objects.equals(possiblePath, other.possiblePath) && Objects.equals(possiblePathToMop, other.possiblePathToMop) && reachable == other.reachable && reachesMop == other.reachesMop;
+		return directlyReachesTarget == other.directlyReachesTarget && Objects.equals(methodName, other.methodName) && Objects.equals(methodParams, other.methodParams) && Objects.equals(methodSignature, other.methodSignature) && modifiers == other.modifiers
+				&& Objects.equals(possiblePath, other.possiblePath) && Objects.equals(possiblePathToMop, other.possiblePathToMop) && reachable == other.reachable && reachesTarget == other.reachesTarget;
 	}
 
 	@Override
 	public String toString() {
-		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesMop=%s, directlyReachesMop=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesMop,
-				directlyReachesMop, possiblePath, allPathsToMop());
+		return String.format("RvsecMethod [methodName=%s, methodSignature=%s, modifiers=%s, reachable=%s, reachesTarget=%s, directlyReachesTarget=%s, possiblePath=%s, possiblePathToMop=%s]", methodName, methodSignature, modifiers, reachable, reachesTarget,
+				directlyReachesTarget, possiblePath, allPathsToMop());
 	}
 
 }

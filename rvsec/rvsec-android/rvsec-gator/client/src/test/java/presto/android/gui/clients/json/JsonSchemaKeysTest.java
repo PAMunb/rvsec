@@ -81,9 +81,9 @@ public class JsonSchemaKeysTest {
 	public void targetKeysStillUseGh57MopValuesPreC1f() {
 		// Constant NAMES use target nomenclature (so C1f is value-only);
 		// constant VALUES still emit MOP names until C1f flips them.
-		assertEquals("reachesMop", JsonSchema.Keys.REACHES_TARGET);
-		assertEquals("directlyReachesMop", JsonSchema.Keys.DIRECTLY_REACHES_TARGET);
-		assertEquals("mopMethods", JsonSchema.Keys.TARGET_METHODS);
+		assertEquals("reachesTarget", JsonSchema.Keys.REACHES_TARGET);
+		assertEquals("directlyReachesTarget", JsonSchema.Keys.DIRECTLY_REACHES_TARGET);
+		assertEquals("targetMethods", JsonSchema.Keys.TARGET_METHODS);
 	}
 
 	@Test

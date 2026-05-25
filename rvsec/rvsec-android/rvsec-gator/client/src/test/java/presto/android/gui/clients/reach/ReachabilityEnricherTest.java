@@ -70,8 +70,8 @@ public class ReachabilityEnricherTest {
 		Map<String, Object> ann = enricher.enrichMethod(null);
 		assertEquals(3, ann.size());
 		assertEquals(Boolean.FALSE, ann.get("reachable"));
-		assertEquals(Boolean.FALSE, ann.get("reachesMop"));
-		assertEquals(Boolean.FALSE, ann.get("directlyReachesMop"));
+		assertEquals(Boolean.FALSE, ann.get("reachesTarget"));
+		assertEquals(Boolean.FALSE, ann.get("directlyReachesTarget"));
 	}
 
 	@Test

@@ -31,13 +31,13 @@ public class ReachabilityAnalysis {
 	private static final Logger log = LoggerFactory.getLogger(ReachabilityAnalysis.class);
 
 	private final AppInfo appInfo;
-	private final Set<SootMethod> mopMethods;
+	private final Set<SootMethod> targetMethods;
 	private final Set<SootMethod> entryPoints;
 	private ReachabilityStrategy<SootMethod, Path> analysisStrategy;
 
-	public ReachabilityAnalysis(AppInfo appInfo, Set<SootMethod> mopMethods, Set<SootMethod> entryPoints) {
+	public ReachabilityAnalysis(AppInfo appInfo, Set<SootMethod> targetMethods, Set<SootMethod> entryPoints) {
 		this.appInfo = appInfo;
-		this.mopMethods = mopMethods;
+		this.targetMethods = targetMethods;
 		this.entryPoints = entryPoints;
 	}
 
@@ -69,7 +69,7 @@ public class ReachabilityAnalysis {
 				}
 
 				// analyses reachability between the current method and methods defined in MOP specs
-				processReachabilityToMop(method, sootMethod, mopMethods);
+				processReachabilityToMop(method, sootMethod, targetMethods);
 			}
 		}
 
@@ -148,7 +148,7 @@ public class ReachabilityAnalysis {
 		return new RvsecClass(sootClass, isActivity, isMainActivity);
 	}
 
-	private void processReachabilityToMop(RvsecMethod method, SootMethod sootMethod, Set<SootMethod> mopMethods) {
+	private void processReachabilityToMop(RvsecMethod method, SootMethod sootMethod, Set<SootMethod> targetMethods) {
 //		if(sootMethod.getName().toLowerCase().contains("hash")) {		
 //			System.out.println("processReachabilityToMop ::: "+sootMethod.getSignature());
 //		}
@@ -163,7 +163,7 @@ public class ReachabilityAnalysis {
 //				System.out.println(">>> "+edge.getTgt().method().getSignature());
 //			}
 //		}
-		for (SootMethod mopMethod : mopMethods) {
+		for (SootMethod mopMethod : targetMethods) {
 			Optional<Path> pathOpt = analysisStrategy.findPath(sootMethod, mopMethod);
 //			if(sootMethod.getName().toLowerCase().contains("hash")) {
 //				System.out.println("has path to "+mopMethod.getSignature()+"? "+pathOpt.isPresent());

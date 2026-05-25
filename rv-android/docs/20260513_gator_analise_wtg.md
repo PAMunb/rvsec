@@ -180,7 +180,7 @@ Como rv-agent está descontinuado, **o único consumidor relevante é o aperv** 
 
 | Pass | Campo | Criticidade para aperv | Fallback se vazio |
 |------|-------|------------------------|-------------------|
-| 1 | `reachability[]` (`directlyReachesMop`, `reachesMop`) | 🔴 **CRÍTICO** — base do scorer MOP | aperv:sata_mop equivale a aperv legacy (sem MOP-awareness) |
+| 1 | `reachability[]` (`directlyReachesTarget`, `reachesTarget`) | 🔴 **CRÍTICO** — base do scorer MOP | aperv:sata_mop equivale a aperv legacy (sem MOP-awareness) |
 | 2 | `windows[]` (widgetData) | 🔴 **CRÍTICO** — identifica widgets que alcançam MOP | `activityHasMop()` sempre false → MOP-awareness desliga |
 | 3 | `transitions[]` (WTG click events) | 🟢 **OPCIONAL** — bônus do scorer | **degrada graciosamente** |
 
@@ -284,7 +284,7 @@ if (wtg != null) {
 - Observado: **71.6%** do dataset definitivo `APKS_FINAL_JCA_DEXLIB`.
 - Conclusão: o budget e a expectativa estavam calibrados para outliers, não para a maioria. A regressão é **estrutural** (algorítmica), não dataset-específica.
 
-**Importante:** o argumento de gh51 para escolher SPARK foi sobre **precisão de `reachesMop`** (D5, linhas 130–138), não sobre performance de WTG. A WTG ficou de fora dessa decisão — e é exatamente onde o custo dispara.
+**Importante:** o argumento de gh51 para escolher SPARK foi sobre **precisão de `reachesTarget`** (D5, linhas 130–138), não sobre performance de WTG. A WTG ficou de fora dessa decisão — e é exatamente onde o custo dispara.
 
 ---
 
@@ -556,10 +556,10 @@ Antes de implementar:
 
 ### 7.8 Pre-flight: bytecode-scan no nível WTG (Item 6)
 
-`gh51-D6` introduziu bytecode scan APENAS para `directlyReachesMop` (RvsecAnalysisClient.java:133, `findDirectMopCallersByBytecodeScan`). Para o item 6 da WTG, é necessário um análogo:
+`gh51-D6` introduziu bytecode scan APENAS para `directlyReachesTarget` (RvsecAnalysisClient.java:133, `findDirectTargetCallersByBytecodeScan`). Para o item 6 da WTG, é necessário um análogo:
 
 - Para cada `invoke` site na WTG, **se** o callee tem class name em `IGNORED_CLASSES` (libs quarentinadas), **então** adicionar edge via bytecode scan (não pelo SPARK CG, que omitiria).
-- Modelo: estender `findDirectMopCallersByBytecodeScan` para uma rotina genérica `scanInvokesByPattern(classes, predicate)` que retorne `Set<Edge>` em vez de `Set<SootMethod>`.
+- Modelo: estender `findDirectTargetCallersByBytecodeScan` para uma rotina genérica `scanInvokesByPattern(classes, predicate)` que retorne `Set<Edge>` em vez de `Set<SootMethod>`.
 - Validação: na paridade Jaccard (§7.4), divergências esperadas devem mapear 1:1 para edges adicionadas pelo bytecode scan.
 
 ### 7.9 Feature flag para Item 6 (rollback runtime)

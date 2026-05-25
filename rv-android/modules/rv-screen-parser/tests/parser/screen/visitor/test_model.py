@@ -20,8 +20,8 @@ class TestItemAction:
         assert action.id == 1
         assert action.text == "CLICK (1)"
         assert action.event == WidgetEventType.CLICK
-        assert action.reaches_mop is False
-        assert action.directly_reaches_mop is False
+        assert action.reaches_target is False
+        assert action.directly_reaches_target is False
         assert action.target_view == {}
         assert action.coordinates is None
 
@@ -34,8 +34,8 @@ class TestItemAction:
             id=2,
             text="LONG_CLICK (2)",
             event=WidgetEventType.LONG_CLICK,
-            reaches_mop=True,
-            directly_reaches_mop=True,
+            reaches_target=True,
+            directly_reaches_target=True,
             target_view=target_view,
             coordinates=coordinates,
         )
@@ -43,8 +43,8 @@ class TestItemAction:
         assert action.id == 2
         assert action.text == "LONG_CLICK (2)"
         assert action.event == WidgetEventType.LONG_CLICK
-        assert action.reaches_mop is True
-        assert action.directly_reaches_mop is True
+        assert action.reaches_target is True
+        assert action.directly_reaches_target is True
         assert action.target_view == target_view
         assert action.coordinates == coordinates
 
