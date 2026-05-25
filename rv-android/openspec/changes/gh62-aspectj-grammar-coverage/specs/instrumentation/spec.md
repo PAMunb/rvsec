@@ -54,7 +54,7 @@ The matrix is the contract that downstream changes consume. Any new closure (e.g
 - **WHEN** a reviewer audits a row with `Verdict = SILENT-GAP`
 - **THEN** the `Evidence` column SHALL cite a test method in `grammar-tests/` marked `@Disabled("gh62 SILENT-GAP: <one-line explanation>")`
 - **AND** the disabled test body SHALL contain an assertion whose failure message names the gap by AspectJ syntax and dexlib2 component (parser / matcher / emitter)
-- **AND** a corresponding entry SHALL exist in the scope ledger (`openspec/changes/gh62-aspectj-grammar-coverage/ledger.md`)
+- **AND** a corresponding entry SHALL exist in the scope ledger (`openspec/changes/gh62-aspectj-grammar-coverage/ledger.md`) for SILENT-GAP rows present at gh62 archive time. SILENT-GAP rows introduced in later changes are scheduled by their own OpenSpec change, not by amending the archived ledger
 
 #### Scenario: every EXPLICIT-NO-OP row pins both the assertion and the no-op location
 
@@ -94,7 +94,7 @@ For every row in `docs/aspectj_grammar_coverage.md`, the module SHALL contain ex
 
 - **WHEN** a sub-change implements a closure for a gap and lands on `origin/modules`
 - **THEN** the same commit SHALL remove the `@Disabled` annotation from the corresponding `grammar-tests/` method AND update the matrix row in `docs/aspectj_grammar_coverage.md` to change `Verdict` from `SILENT-GAP` to `COVERED` and replace the `Evidence` entry with the now-passing test FQN
-- **AND** a PR-check GitHub Action SHALL block any PR that modifies `rvsec-android/rvsec-instrumentation-dexlib2/{pointcut-engine,advice-emitter,dex-mutator,coverage-weaver}/src/main/` without modifying `docs/aspectj_grammar_coverage.md`
+- **AND** `MatrixIntegrityTest` running in CI SHALL fail the build if either side moves alone — a closure commit that removes `@Disabled` without flipping the matrix row produces an orphan enabled test, caught by `testEnabledTestsResolveToCoveredOrExplicitNoOpRow`; a closure commit that flips the matrix row without removing `@Disabled` produces an orphan SILENT-GAP without a `@Disabled` test, caught by `testSilentGapRowsHaveDisabledTestAndLedgerEntry`
 
 ### Requirement: Scope Ledger for Future Closures
 
@@ -118,13 +118,13 @@ The ledger SHALL NOT contain implementation detail for the planned closures — 
 
 - **WHEN** a developer opens a sub-change (e.g. `gh-XX`) implementing a closure
 - **THEN** the sub-change's `proposal.md` SHALL cite gh62 issue #62 and the specific matrix rows it intends to flip
-- **AND** upon archive of the sub-change, the matrix rows SHALL be flipped from `SILENT-GAP` to `COVERED` and the corresponding `@Disabled` annotations removed in the same commit (closure atomicity enforced by the PR-check GitHub Action)
+- **AND** upon archive of the sub-change, the matrix rows SHALL be flipped from `SILENT-GAP` to `COVERED` and the corresponding `@Disabled` annotations removed in the same commit (closure atomicity enforced by `MatrixIntegrityTest` in CI per the previous scenario)
 
 ## Invariants
 
 - **INV-INS-88**: For every row in the closed enumeration declared under `Requirement: AspectJ Grammar Coverage Matrix as Contract`, `docs/aspectj_grammar_coverage.md` MUST contain exactly one matrix row. New AspectJ versions or new corpora MUST result in a new row added by amendment, not implicit support.
 - **INV-INS-89**: For every matrix row, the `Verdict` column MUST take exactly one value from the set `{COVERED, SILENT-GAP, EXPLICIT-NO-OP, NOT-NEEDED}`. The matrix MUST NOT contain rows with empty or composite verdicts. `NOT-NEEDED` requires `DemandCounter` zero across all four corpora AND no parser/matcher/emitter implementation (i.e. both Parser and Matcher are `MISSING`).
 - **INV-INS-90**: For every matrix row with `Verdict = COVERED`, there MUST exist an enabled (non-`@Disabled`) passing test in `rvsec-android/rvsec-instrumentation-dexlib2/grammar-tests/` whose FQN appears in the row's `Evidence` column. `@Disabled` inherited from the test class also disqualifies the row from `COVERED`.
-- **INV-INS-91**: For every matrix row with `Verdict = SILENT-GAP`, there MUST exist a `@Disabled`-annotated test in `grammar-tests/` whose disabled-reason message starts with `"gh62 SILENT-GAP: "`, AND the ledger MUST place this row in exactly one bucket.
-- **INV-INS-92**: For every enabled (non-`@Disabled`) test method in `grammar-tests/`, there MUST be exactly one matrix row with `Verdict ∈ {COVERED, EXPLICIT-NO-OP}` resolving to it; for every `@Disabled` test method, there MUST be exactly one matrix row with `Verdict = SILENT-GAP` resolving to it. Orphan tests (no matrix row) and orphan rows (no test) MUST break the build. (Replaces the original aspirational "closure atomicity" invariant — atomicity is enforced operationally by the PR-check GitHub Action declared in the closure scenario above.)
+- **INV-INS-91**: For every matrix row with `Verdict = SILENT-GAP`, there MUST exist a `@Disabled`-annotated test in `grammar-tests/` whose disabled-reason message starts with `"gh62 SILENT-GAP: "`. The **ledger entry** requirement is scoped to SILENT-GAP rows present at gh62 archive time only — the ledger is a one-shot snapshot (see design D4) and is not maintained after archive. SILENT-GAP rows introduced in subsequent changes MUST satisfy the `@Disabled`-test requirement above but are not retroactively added to the archived ledger; instead they are scheduled by opening the closure's own OpenSpec change.
+- **INV-INS-92**: For every enabled (non-`@Disabled`) test method in `grammar-tests/`, there MUST be exactly one matrix row with `Verdict ∈ {COVERED, EXPLICIT-NO-OP}` resolving to it; for every `@Disabled` test method, there MUST be exactly one matrix row with `Verdict = SILENT-GAP` resolving to it. Orphan tests (no matrix row) and orphan rows (no test) MUST break the build. Closure atomicity is enforced by this invariant directly — a closure commit that flips one side without the other produces an orphan and fails CI. (Replaces the original aspirational "closure atomicity" invariant; an earlier draft proposed a cross-repo PR-check GitHub Action for the same purpose, rejected on simplicity grounds in design D6.)
 - **INV-INS-93**: The matrix demand counts MUST be reproducible by `DemandCounter` invoked from `MatrixIntegrityTest.testDemandCountsReproducible`. Counts MUST be re-verified whenever a new `.mop` file is added to any of the four corpora. The helper MUST be portable Java (no shell, no `ProcessBuilder`, no `LC_ALL`).
