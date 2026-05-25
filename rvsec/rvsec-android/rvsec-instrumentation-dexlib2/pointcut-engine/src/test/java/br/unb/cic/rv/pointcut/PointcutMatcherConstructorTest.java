@@ -45,14 +45,23 @@ class PointcutMatcherConstructorTest {
     /** Constructor-flavoured CallPC: {@code isConstructor=true, methodName=<init>}. */
     private static CallPC constructorPc(String declaring, List<String> paramTypes) {
         return new CallPC(/*isConstructor*/ true, /*returnType*/ "",
-                declaring, /*methodName*/ "<init>", paramTypes, /*varargs*/ false);
+                declaring, /*methodName*/ "<init>",
+                toParamSpecs(paramTypes), /*varargs*/ false);
     }
 
     /** Non-constructor CallPC. */
     private static CallPC virtualPc(String declaring, String returnType, String methodName,
                                     List<String> paramTypes) {
         return new CallPC(/*isConstructor*/ false, returnType, declaring, methodName,
-                paramTypes, /*varargs*/ false);
+                toParamSpecs(paramTypes), /*varargs*/ false);
+    }
+
+    /** Wrap a plain {@code List<String>} into {@code List<ParamSpec>} with
+     *  {@code isSubtype=false} — exact-match semantics for legacy fixtures. */
+    private static List<CallPC.ParamSpec> toParamSpecs(List<String> paramTypes) {
+        List<CallPC.ParamSpec> out = new java.util.ArrayList<>(paramTypes.size());
+        for (String p : paramTypes) out.add(new CallPC.ParamSpec(p, false));
+        return out;
     }
 
     private static MethodReference ref(String owner, String name, List<String> paramTypes,

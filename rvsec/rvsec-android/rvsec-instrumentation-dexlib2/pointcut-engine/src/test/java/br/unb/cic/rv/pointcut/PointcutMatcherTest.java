@@ -128,6 +128,12 @@ class PointcutMatcherTest {
         return new Fixture(cd, m, instructions.get(0), instructions);
     }
 
+    private static List<CallPC.ParamSpec> exactSpecs(String... descriptors) {
+        List<CallPC.ParamSpec> out = new java.util.ArrayList<>(descriptors.length);
+        for (String d : descriptors) out.add(new CallPC.ParamSpec(d, false));
+        return out;
+    }
+
     /** A {@code CallPC} that matches the {@code String.valueOf(int)} call site
      *  produced by {@link #buildCallSiteFixture(String)}. */
     private static CallPC valueOfPc() {
@@ -135,7 +141,7 @@ class PointcutMatcherTest {
                 /*returnType*/ "String",
                 /*declaringType*/ "java.lang.String",
                 /*methodName*/ "valueOf",
-                List.of("int"),
+                exactSpecs("int"),
                 /*varargs*/ false);
     }
 
@@ -145,7 +151,7 @@ class PointcutMatcherTest {
                 /*returnType*/ "String",
                 /*declaringType*/ "java.lang.String",
                 /*methodName*/ "noSuchMethod",
-                List.of("int"),
+                exactSpecs("int"),
                 /*varargs*/ false);
     }
 
@@ -159,7 +165,7 @@ class PointcutMatcherTest {
                 /*returnType*/ "String",
                 /*declaringType*/ null,
                 /*methodName*/ "valueOf",
-                List.of("int"),
+                exactSpecs("int"),
                 /*varargs*/ false);
     }
 
@@ -295,6 +301,126 @@ class PointcutMatcherTest {
     // ------------------------------------------------------------------
     // Task 1.5 — JCA base-aspect filter: chain three NotWithinPC via AND.
     // ------------------------------------------------------------------
+
+    // ------------------------------------------------------------------
+    // gh61 Group C — Object+ subtype operator in call(...) parameters.
+    // ------------------------------------------------------------------
+
+    /**
+     * Build a call-site fixture whose only instruction is
+     * {@code invoke-static {v0, v1}, javax/crypto/Cipher.getInstance(<params>)}
+     * with the given DEX descriptors for the params and a
+     * {@code Ljavax/crypto/Cipher;} return type. The class is rooted under
+     * {@code com.example.app} so it survives the base-aspect filter; the
+     * resolver/inheritance fixture below uses real FQNs.
+     */
+    private static Fixture cipherGetInstanceFixture(List<String> paramDescriptors) {
+        ImmutableMethodReference calleeRef = new ImmutableMethodReference(
+                "Ljavax/crypto/Cipher;", "getInstance",
+                paramDescriptors,
+                "Ljavax/crypto/Cipher;");
+        List<com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction> body =
+                new java.util.ArrayList<>();
+        body.add(new ImmutableInstruction35c(
+                Opcode.INVOKE_STATIC, /*regCount=*/ paramDescriptors.size(),
+                /*c=*/ 0, /*d=*/ 1, /*e=*/ 0, /*f=*/ 0, /*g=*/ 0,
+                calleeRef));
+        body.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+
+        ImmutableMethodImplementation impl = new ImmutableMethodImplementation(
+                /*registerCount=*/ 2,
+                body,
+                Collections.emptyList(),
+                Collections.emptyList());
+        ImmutableMethod m = new ImmutableMethod(
+                APP_OWNER, "useCipher",
+                Collections.emptyList(),
+                "V",
+                AccessFlags.PUBLIC.getValue() | AccessFlags.STATIC.getValue(),
+                null, null, impl);
+        ClassDef cd = new ImmutableClassDef(
+                APP_OWNER, AccessFlags.PUBLIC.getValue(),
+                "Ljava/lang/Object;",
+                Collections.emptyList(),
+                null, null,
+                Collections.emptyList(),
+                List.of(m));
+        List<Instruction> instructions = new java.util.ArrayList<>(body);
+        return new Fixture(cd, m, instructions.get(0), instructions);
+    }
+
+    /** call(public static Cipher Cipher.getInstance(String, Object+)) — with
+     *  the subtype operator on the second param. */
+    private static CallPC cipherGetInstanceStringObjectPlusPc() {
+        return new CallPC(/*isConstructor*/ false,
+                /*returnType*/ "Cipher",
+                /*declaringType*/ "javax.crypto.Cipher",
+                /*methodName*/ "getInstance",
+                List.of(new CallPC.ParamSpec("String", false),
+                        new CallPC.ParamSpec("Object", true)),
+                /*varargs*/ false);
+    }
+
+    /** call(public static Cipher Cipher.getInstance(String)) — exact match,
+     *  no subtype operator. */
+    private static CallPC cipherGetInstanceStringPc() {
+        return new CallPC(/*isConstructor*/ false,
+                "Cipher", "javax.crypto.Cipher", "getInstance",
+                List.of(new CallPC.ParamSpec("String", false)),
+                /*varargs*/ false);
+    }
+
+    /** Resolver pre-loaded with the imports needed for the Cipher fixtures. */
+    private static PointcutMatcher cipherMatcher() {
+        TypeResolver tr = new TypeResolver(List.of(
+                "javax.crypto.Cipher", "java.lang.String", "java.lang.Object"));
+        // The fixture uses the InheritanceResolver's Object fast-path
+        // (InheritanceResolver.java:66) for the positive case. No APK dex
+        // is supplied — the fast-path returns true for any non-primitive
+        // FQN, including Provider, without needing an Android index.
+        InheritanceResolver ir = new InheritanceResolver(
+                new AndroidClassIndex(Path.of("/tmp/nope.jar")), List.of());
+        return new PointcutMatcher(tr, ir);
+    }
+
+    @Test
+    void callParamSubtypeMarkerMatchesSubclass() {
+        // call(... getInstance(String, Object+)) against
+        // invoke-static getInstance(String, Provider): Object+ MUST match
+        // Provider through InheritanceResolver's Object fast-path.
+        PointcutMatcher pm = cipherMatcher();
+        Fixture f = cipherGetInstanceFixture(
+                List.of("Ljava/lang/String;", "Ljava/security/Provider;"));
+        Optional<Match> r = match(pm, cipherGetInstanceStringObjectPlusPc(), f);
+        assertTrue(r.isPresent(),
+                "Object+ MUST match Provider (subtype of Object) — INV-INS-86");
+    }
+
+    @Test
+    void callParamSubtypeMarkerRejectsPrimitive() {
+        // call(... getInstance(String, Object+)) against
+        // invoke-static getInstance(String, I): Object+ MUST reject the
+        // primitive int. Without the gh61 fromDescriptor primitive
+        // mapping, InheritanceResolver's Object fast-path would compute
+        // !isPrimitive("I")=true and incorrectly accept.
+        PointcutMatcher pm = cipherMatcher();
+        Fixture f = cipherGetInstanceFixture(
+                List.of("Ljava/lang/String;", "I"));
+        assertTrue(match(pm, cipherGetInstanceStringObjectPlusPc(), f).isEmpty(),
+                "Object+ MUST NOT match primitive int — INV-INS-86 (fromDescriptor primitive guard)");
+    }
+
+    @Test
+    void callParamExactMatchPreservedWithoutPlus() {
+        // call(... getInstance(String)) against
+        // invoke-static getInstance(CharSequence): exact match MUST fail.
+        PointcutMatcher pm = cipherMatcher();
+        Fixture f = cipherGetInstanceFixture(
+                List.of("Ljava/lang/CharSequence;"));
+        assertTrue(match(pm, cipherGetInstanceStringPc(), f).isEmpty(),
+                "exact-match param MUST fail when descriptors differ "
+                        + "(no implicit widening to CharSequence) — INV-INS-86 negative case");
+    }
 
     @Test
     void baseAspectFilterExcludesPlatformNamespaces() {

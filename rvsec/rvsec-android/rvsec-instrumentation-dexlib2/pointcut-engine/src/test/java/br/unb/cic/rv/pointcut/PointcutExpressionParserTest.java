@@ -17,8 +17,8 @@ class PointcutExpressionParserTest {
         assertEquals("Cipher", c.returnType());
         assertEquals("Cipher", c.declaringType());
         assertEquals("getInstance", c.methodName());
-        assertEquals(1, c.paramTypes().size());
-        assertEquals("String", c.paramTypes().get(0));
+        assertEquals(1, c.paramSpecs().size());
+        assertEquals("String", c.paramSpecs().get(0).descriptor());
         assertFalse(c.varargs());
     }
 
@@ -30,9 +30,9 @@ class PointcutExpressionParserTest {
         assertTrue(c.isConstructor());
         assertEquals("<init>", c.methodName());
         assertEquals("CipherInputStream", c.declaringType());
-        assertEquals(2, c.paramTypes().size());
-        assertEquals("InputStream", c.paramTypes().get(0));
-        assertEquals("Cipher", c.paramTypes().get(1));
+        assertEquals(2, c.paramSpecs().size());
+        assertEquals("InputStream", c.paramSpecs().get(0).descriptor());
+        assertEquals("Cipher", c.paramSpecs().get(1).descriptor());
     }
 
     @Test
@@ -42,7 +42,7 @@ class PointcutExpressionParserTest {
         CallPC c = assertInstanceOf(CallPC.class, e);
         assertEquals("read", c.methodName());
         assertEquals("int", c.returnType());
-        assertEquals(0, c.paramTypes().size());
+        assertEquals(0, c.paramSpecs().size());
     }
 
     @Test
@@ -50,8 +50,8 @@ class PointcutExpressionParserTest {
         PointcutExpression e = PointcutExpressionParser.parse(
                 "call(public int CipherInputStream.read(byte[], int, int))");
         CallPC c = assertInstanceOf(CallPC.class, e);
-        assertEquals(3, c.paramTypes().size());
-        assertEquals("byte[]", c.paramTypes().get(0));
+        assertEquals(3, c.paramSpecs().size());
+        assertEquals("byte[]", c.paramSpecs().get(0).descriptor());
     }
 
     @Test
@@ -60,7 +60,7 @@ class PointcutExpressionParserTest {
                 "call(public void T.m(..))");
         CallPC c = assertInstanceOf(CallPC.class, e);
         assertTrue(c.varargs());
-        assertEquals(0, c.paramTypes().size());
+        assertEquals(0, c.paramSpecs().size());
     }
 
     // --- execution(...) -----------------------------------------------------

@@ -287,13 +287,15 @@ public final class WrapperEmitter {
 
         boolean hasTrailingVarargs = ct.varargs();
         boolean needsExpansion = hasTrailingVarargs;
-        for (int i = 0; i < ct.paramTypes().size(); i++) {
-            String p = ct.paramTypes().get(i);
+        List<CallPC.ParamSpec> specs = ct.paramSpecs();
+        for (int i = 0; i < specs.size(); i++) {
+            CallPC.ParamSpec ps = specs.get(i);
+            String p = ps.descriptor();
             if (p == null) continue;
-            if (p.endsWith("+")) needsExpansion = true;
+            if (ps.isSubtype()) needsExpansion = true;
             if ("..".equals(p)) {
                 needsExpansion = true;
-                if (i == ct.paramTypes().size() - 1) hasTrailingVarargs = true;
+                if (i == specs.size() - 1) hasTrailingVarargs = true;
                 else {
                     // Middle-position ".." cannot be lowered to a Java
                     // signature; the prototipo logged + skipped.
@@ -323,9 +325,9 @@ public final class WrapperEmitter {
         if (methods.isEmpty()) return Collections.emptyList();
 
         int fixedPrefix = hasTrailingVarargs
-                ? ct.paramTypes().size() - 1
-                : ct.paramTypes().size();
-        // When the param list is just "(..)" the parser leaves paramTypes
+                ? specs.size() - 1
+                : specs.size();
+        // When the param list is just "(..)" the parser leaves paramSpecs
         // empty AND sets varargs=true; fixedPrefix becomes -1 so clamp it.
         if (fixedPrefix < 0) fixedPrefix = 0;
 
@@ -334,12 +336,12 @@ public final class WrapperEmitter {
             if (!instanceAllowed && !m.isStatic()) continue;
             if (hasTrailingVarargs) {
                 if (m.paramFqns.size() < fixedPrefix) continue;
-            } else if (m.paramFqns.size() != ct.paramTypes().size()) {
+            } else if (m.paramFqns.size() != specs.size()) {
                 continue;
             }
             boolean paramsOk = true;
             for (int i = 0; i < fixedPrefix; i++) {
-                if (!patternMatchesFqn(ct.paramTypes().get(i), m.paramFqns.get(i),
+                if (!patternMatchesFqn(specs.get(i), m.paramFqns.get(i),
                         resolver, index)) {
                     paramsOk = false; break;
                 }
@@ -363,11 +365,29 @@ public final class WrapperEmitter {
      *   <li>Primitives and arrays handled by string comparison.</li>
      * </ul>
      */
+    /**
+     * Overload accepting a parsed {@link CallPC.ParamSpec}: the {@code +}
+     * subtype marker is captured in {@link CallPC.ParamSpec#isSubtype()} now
+     * rather than being a trailing character on the descriptor string.
+     */
+    private static boolean patternMatchesFqn(CallPC.ParamSpec ps, String actualFqn,
+                                             TypeResolver resolver, AndroidClassIndex index) {
+        if (ps == null || ps.descriptor() == null || actualFqn == null) return false;
+        return patternMatchesFqnRaw(ps.descriptor(), ps.isSubtype(),
+                actualFqn, resolver, index);
+    }
+
     private static boolean patternMatchesFqn(String pattern, String actualFqn,
                                              TypeResolver resolver, AndroidClassIndex index) {
         if (pattern == null || actualFqn == null) return false;
         boolean supertype = pattern.endsWith("+");
         String raw = supertype ? pattern.substring(0, pattern.length() - 1) : pattern;
+        return patternMatchesFqnRaw(raw, supertype, actualFqn, resolver, index);
+    }
+
+    private static boolean patternMatchesFqnRaw(String rawIn, boolean supertype, String actualFqn,
+                                                TypeResolver resolver, AndroidClassIndex index) {
+        String raw = rawIn;
 
         int arrays = 0;
         while (raw.endsWith("[]")) { arrays++; raw = raw.substring(0, raw.length() - 2); }
@@ -404,13 +424,16 @@ public final class WrapperEmitter {
      */
     private static ConcreteCall literalFallback(AdviceDescriptor advice, CallPC target,
                                                 TypeResolver resolver) {
-        if (target.varargs() || hasWildcardParam(target.paramTypes())) return null;
+        if (target.varargs() || hasWildcardParamSpec(target.paramSpecs())) return null;
         if (!targetLooksStatic(advice.getExpression(), target)) return null;
 
         String cls = resolveFqn(resolver, stripSubtypePlus(target.declaringType()));
         List<String> params = new ArrayList<>();
-        for (String p : target.paramTypes()) {
-            params.add(resolveFqn(resolver, stripSubtypePlus(p)));
+        for (CallPC.ParamSpec ps : target.paramSpecs()) {
+            // Descriptor is already stripped of the trailing "+" at parse time;
+            // stripSubtypePlus is a no-op here but kept for arrays / patterns
+            // that may still embed a "+" mid-descriptor in future grammars.
+            params.add(resolveFqn(resolver, stripSubtypePlus(ps.descriptor())));
         }
         String ret = resolveFqn(resolver, stripSubtypePlus(target.returnType()));
         if (hasAmbiguousObjectParam(params)) return null;
@@ -510,9 +533,10 @@ public final class WrapperEmitter {
      * the literal fallback path; the index-driven path handles {@code ..}
      * directly via {@link #expandCallTarget}.
      */
-    private static boolean hasWildcardParam(List<String> paramTypes) {
-        if (paramTypes == null) return false;
-        for (String p : paramTypes) {
+    private static boolean hasWildcardParamSpec(List<CallPC.ParamSpec> paramSpecs) {
+        if (paramSpecs == null) return false;
+        for (CallPC.ParamSpec ps : paramSpecs) {
+            String p = ps == null ? null : ps.descriptor();
             if ("..".equals(p) || (p != null && p.contains(".."))) return true;
         }
         return false;

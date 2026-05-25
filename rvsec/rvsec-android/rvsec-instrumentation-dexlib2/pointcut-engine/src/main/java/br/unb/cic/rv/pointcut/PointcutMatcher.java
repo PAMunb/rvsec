@@ -170,10 +170,26 @@ public final class PointcutMatcher {
         // Parameter types — varargs short-circuits
         List<? extends CharSequence> actualParams = mr.getParameterTypes();
         if (!cp.varargs()) {
-            if (actualParams.size() != cp.paramTypes().size()) return Optional.empty();
+            if (actualParams.size() != cp.paramSpecs().size()) return Optional.empty();
             for (int i = 0; i < actualParams.size(); i++) {
-                String expected = typeResolver.toDescriptor(cp.paramTypes().get(i));
-                if (!expected.contentEquals(actualParams.get(i))) return Optional.empty();
+                CallPC.ParamSpec spec = cp.paramSpecs().get(i);
+                CharSequence actual = actualParams.get(i);
+                boolean ok;
+                if (spec.isSubtype()) {
+                    // InheritanceResolver.isAssignableFrom takes FQNs (e.g.
+                    // "java.lang.Object", "java.security.Provider"), not DEX
+                    // descriptors, because of the fast-path for
+                    // superFqn == "java.lang.Object" at
+                    // InheritanceResolver.java:66 which returns
+                    // !isPrimitive(subFqn) (FQN form). Convert both sides.
+                    String expectedFqn = typeResolver.resolveFqn(spec.descriptor());
+                    String actualFqn = fromDescriptor(actual.toString());
+                    ok = inheritance.isAssignableFrom(expectedFqn, actualFqn);
+                } else {
+                    String expectedDesc = typeResolver.toDescriptor(spec.descriptor());
+                    ok = expectedDesc.contentEquals(actual);
+                }
+                if (!ok) return Optional.empty();
             }
         }
 
@@ -364,11 +380,36 @@ public final class PointcutMatcher {
         return new int[0];
     }
 
-    /** Convert a DEX type descriptor ({@code "Lcom/example/Foo;"}) to a Java FQN. */
+    /**
+     * Convert a DEX type descriptor ({@code "Lcom/example/Foo;"}, {@code "I"},
+     * {@code "J"}, …) to a Java FQN form ({@code "com.example.Foo"},
+     * {@code "int"}, {@code "long"}). Single-letter primitive descriptors are
+     * mapped to their FQN spellings because {@code InheritanceResolver.isPrimitive}
+     * matches on the FQN form — without this conversion,
+     * {@code isAssignableFrom("java.lang.Object", "I")} would hit the
+     * {@code Object} fast-path with {@code !isPrimitive("I") = true} and
+     * erroneously accept primitives under {@code Object+}. Array descriptors
+     * ({@code "[I"}, {@code "[Ljava/lang/String;"}) are out of scope for gh61
+     * — no JCA {@code .mop} uses {@code Array+} as a subtype marker.
+     */
     private static String fromDescriptor(String desc) {
         if (desc == null) return "";
         if (desc.startsWith("L") && desc.endsWith(";")) {
             return desc.substring(1, desc.length() - 1).replace('/', '.');
+        }
+        if (desc.length() == 1) {
+            switch (desc.charAt(0)) {
+                case 'V': return "void";
+                case 'Z': return "boolean";
+                case 'B': return "byte";
+                case 'S': return "short";
+                case 'C': return "char";
+                case 'I': return "int";
+                case 'J': return "long";
+                case 'F': return "float";
+                case 'D': return "double";
+                default:  break;
+            }
         }
         return desc;
     }

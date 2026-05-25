@@ -147,7 +147,7 @@ public final class PointcutExpressionParser {
             int openParen = s.indexOf('(', newIdx);
             int closeParen = matchingClose(s, openParen);
             String params = s.substring(openParen + 1, closeParen);
-            List<String> paramList = splitParams(params);
+            List<CallPC.ParamSpec> paramList = splitParams(params);
             boolean varargs = isVarargs(paramList);
             return new CallPC(true, "", owner, "<init>",
                     varargs ? Collections.emptyList() : paramList, varargs);
@@ -174,7 +174,7 @@ public final class PointcutExpressionParser {
         String name = ownerAndName.substring(lastDot + 1);
         int closeParen = matchingClose(rest, openParen);
         String params = rest.substring(openParen + 1, closeParen);
-        List<String> paramList = splitParams(params);
+        List<CallPC.ParamSpec> paramList = splitParams(params);
         boolean varargs = isVarargs(paramList);
         return new CallPC(false, returnType, owner, name,
                 varargs ? Collections.emptyList() : paramList, varargs);
@@ -243,18 +243,33 @@ public final class PointcutExpressionParser {
         throw new PointcutParseException("unbalanced parens in: " + s);
     }
 
-    private static List<String> splitParams(String params) {
-        List<String> out = new ArrayList<>();
+    /**
+     * Split a {@code call()} param list into typed specs. Trailing {@code +}
+     * on a single param marks the AspectJ subtype operator and is captured in
+     * {@link CallPC.ParamSpec#isSubtype()} — the descriptor itself does not
+     * carry the {@code +}. Array forms ({@code Foo[]}) and varargs sentinels
+     * ({@code ..}) keep their literal descriptors and are never marked subtype.
+     */
+    private static List<CallPC.ParamSpec> splitParams(String params) {
+        List<CallPC.ParamSpec> out = new ArrayList<>();
         String s = params.trim();
         if (s.isEmpty()) return out;
         for (String part : s.split(",")) {
-            out.add(part.trim());
+            String p = part.trim();
+            boolean isSubtype = false;
+            // Array forms (Foo[]) and the varargs sentinel (..) keep their
+            // literal descriptor; only a true trailing "+" denotes subtype.
+            if (p.endsWith("+") && !"..".equals(p)) {
+                isSubtype = true;
+                p = p.substring(0, p.length() - 1).trim();
+            }
+            out.add(new CallPC.ParamSpec(p, isSubtype));
         }
         return out;
     }
 
-    private static boolean isVarargs(List<String> params) {
-        return params.size() == 1 && "..".equals(params.get(0));
+    private static boolean isVarargs(List<CallPC.ParamSpec> params) {
+        return params.size() == 1 && "..".equals(params.get(0).descriptor());
     }
 
     // --- cursor primitives ---------------------------------------------------
