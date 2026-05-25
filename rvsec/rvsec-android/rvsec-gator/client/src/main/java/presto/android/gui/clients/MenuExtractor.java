@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import presto.android.util.JimpleDefUtils;
 import soot.Body;
 import soot.Local;
 import soot.SootClass;
@@ -173,9 +174,9 @@ public final class MenuExtractor {
 
 	private Map<String, Object> resolveFourArgItem(
 			InvokeExpr ie, Stmt useSite, SimpleLocalDefs defs) {
-		Integer groupId = resolveInt(ie.getArg(0), useSite, defs);
-		Integer itemId  = resolveInt(ie.getArg(1), useSite, defs);
-		Integer order   = resolveInt(ie.getArg(2), useSite, defs);
+		Integer groupId = JimpleDefUtils.resolveInt(ie.getArg(0), useSite, defs);
+		Integer itemId  = JimpleDefUtils.resolveInt(ie.getArg(1), useSite, defs);
+		Integer order   = JimpleDefUtils.resolveInt(ie.getArg(2), useSite, defs);
 		// itemId is the only field consumers actually key on. Tolerate
 		// unresolved groupId/order so a partly-dynamic call still surfaces
 		// (matches the per-Spinner partial-emission rule in Group 5).
@@ -203,7 +204,7 @@ public final class MenuExtractor {
 	}
 
 	private String resolveTitle(Value arg, Stmt useSite, SimpleLocalDefs defs) {
-		Value v = (arg instanceof Local) ? definitionRhs((Local) arg, useSite, defs) : arg;
+		Value v = (arg instanceof Local) ? JimpleDefUtils.definitionRhs((Local) arg, useSite, defs) : arg;
 		if (v instanceof StringConstant) {
 			return ((StringConstant) v).value;
 		}
@@ -212,34 +213,6 @@ public final class MenuExtractor {
 			if (resolved != null) return resolved;
 		}
 		return "";
-	}
-
-	private Integer resolveInt(Value arg, Stmt useSite, SimpleLocalDefs defs) {
-		Value v = (arg instanceof Local) ? definitionRhs((Local) arg, useSite, defs) : arg;
-		if (v instanceof IntConstant) {
-			return ((IntConstant) v).value;
-		}
-		return null;
-	}
-
-	/**
-	 * Returns the RHS of the latest unique definition of {@code local}
-	 * reaching {@code useSite}, or {@code null} when there are zero or
-	 * multiple reaching defs (the conservative choice — emitting the wrong
-	 * value would mis-attribute a menu item).
-	 */
-	private Value definitionRhs(Local local, Stmt useSite, SimpleLocalDefs defs) {
-		try {
-			List<Unit> reaching = defs.getDefsOfAt(local, useSite);
-			if (reaching.size() != 1) return null;
-			Unit def = reaching.get(0);
-			if (def instanceof AssignStmt) {
-				return ((AssignStmt) def).getRightOp();
-			}
-		} catch (RuntimeException ex) {
-			// SimpleLocalDefs throws on malformed bodies; treat as unresolved.
-		}
-		return null;
 	}
 
 	private static Local lhsLocal(Stmt stmt) {

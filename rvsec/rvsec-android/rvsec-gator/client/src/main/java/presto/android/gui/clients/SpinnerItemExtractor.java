@@ -44,6 +44,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import presto.android.util.JimpleDefUtils;
 import soot.Body;
 import soot.Local;
 import soot.SootClass;
@@ -151,7 +152,7 @@ public final class SpinnerItemExtractor {
 				Local adapter = receiverLocal(ie);
 				if (adapter == null) continue;
 				if ("add".equals(name) && ie.getArgCount() == 1) {
-					String lit = resolveStringLiteral(ie.getArg(0), stmt, defs);
+					String lit = JimpleDefUtils.resolveStr(ie.getArg(0), stmt, defs);
 					if (lit != null) {
 						adapterItems.computeIfAbsent(adapter, k -> new ArrayList<>()).add(lit);
 						stats.addCalls++;
@@ -207,20 +208,20 @@ public final class SpinnerItemExtractor {
 	 */
 	private Integer resolveSpinnerWidgetId(Value base, Stmt useSite, SimpleLocalDefs defs) {
 		if (!(base instanceof Local)) return null;
-		Value rhs = definitionRhs((Local) base, useSite, defs);
+		Value rhs = JimpleDefUtils.definitionRhs((Local) base, useSite, defs);
 		// Unwrap one or more chained CastExpr defs (e.g. `(View) $r1` then
 		// `(Spinner) $r2` — uncommon but seen in interop code).
 		int castGuard = 8;
 		while (rhs instanceof CastExpr && castGuard-- > 0) {
 			Value op = ((CastExpr) rhs).getOp();
 			if (!(op instanceof Local)) return null;
-			rhs = definitionRhs((Local) op, useSite, defs);
+			rhs = JimpleDefUtils.definitionRhs((Local) op, useSite, defs);
 		}
 		if (rhs instanceof InvokeExpr) {
 			InvokeExpr def = (InvokeExpr) rhs;
 			if ("findViewById".equals(def.getMethodRef().getName())
 					&& def.getArgCount() == 1) {
-				Integer id = resolveInt(def.getArg(0), useSite, defs);
+				Integer id = JimpleDefUtils.resolveInt(def.getArg(0), useSite, defs);
 				if (id != null) return id;
 			}
 		}
@@ -234,7 +235,7 @@ public final class SpinnerItemExtractor {
 	private List<String> resolveStringArray(Value arg, Stmt useSite, SimpleLocalDefs defs, Body body) {
 		if (!(arg instanceof Local)) return null;
 		Local local = (Local) arg;
-		Value rhs = definitionRhs(local, useSite, defs);
+		Value rhs = JimpleDefUtils.definitionRhs(local, useSite, defs);
 		if (rhs instanceof NewArrayExpr) {
 			// We have $items = new String[N]; subsequent ArrayRef assigns
 			// fill the slots. Walk the body forward from the new-array
@@ -289,30 +290,6 @@ public final class SpinnerItemExtractor {
 			out.add(slots.get(k));
 		}
 		return out;
-	}
-
-	private String resolveStringLiteral(Value arg, Stmt useSite, SimpleLocalDefs defs) {
-		Value v = (arg instanceof Local) ? definitionRhs((Local) arg, useSite, defs) : arg;
-		return (v instanceof StringConstant) ? ((StringConstant) v).value : null;
-	}
-
-	private Integer resolveInt(Value arg, Stmt useSite, SimpleLocalDefs defs) {
-		Value v = (arg instanceof Local) ? definitionRhs((Local) arg, useSite, defs) : arg;
-		return (v instanceof IntConstant) ? ((IntConstant) v).value : null;
-	}
-
-	private Value definitionRhs(Local local, Stmt useSite, SimpleLocalDefs defs) {
-		try {
-			List<Unit> reaching = defs.getDefsOfAt(local, useSite);
-			if (reaching.size() != 1) return null;
-			Unit def = reaching.get(0);
-			if (def instanceof AssignStmt) {
-				return ((AssignStmt) def).getRightOp();
-			}
-		} catch (RuntimeException ignore) {
-			// SimpleLocalDefs throws on malformed bodies; treat as unresolved.
-		}
-		return null;
 	}
 
 	private static Local receiverLocal(InvokeExpr ie) {
