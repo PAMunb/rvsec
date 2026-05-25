@@ -109,59 +109,40 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		Map<SootClass, List<SootMethod>> appClasses = extractClasses(filterPackage);
 		System.out.println("[RvsecAnalysisClient] Application classes: " + appClasses.size());
 
-		// 2. Load target signatures (from MOP specs OR explicit targets file)
-		//    and resolve to SootMethods. Group 3 (TargetResolver) will replace
-		//    the Set<MopMethod> round-trip; for now both sources funnel through
-		//    the legacy MopMethod chain to keep the diff bounded.
-		Set<MopMethod> mopSignatures = Collections.emptySet();
-		Set<SootMethod> mopMethods = Collections.emptySet();
+		// 2. Load and resolve target methods through the decomposed pipeline:
+		//    TargetMethodSource -> TargetResolver -> Scene SootMethods.
+		Set<presto.android.gui.clients.target.TargetMethod> targetSpecs =
+				Collections.emptySet();
+		Set<SootMethod> targetMethods = Collections.emptySet();
 		if (targetsFile != null) {
-			mopSignatures = loadTargetsFromFile(targetsFile);
-			mopMethods = resolveMopInScene(mopSignatures);
+			targetSpecs = new presto.android.gui.clients.target.SignatureFileTargetSource(
+					java.nio.file.Paths.get(targetsFile)).load();
+			targetMethods = presto.android.gui.clients.target.TargetResolver
+					.resolveInScene(targetSpecs);
 			System.out.println("[RvsecAnalysisClient] Targets resolved from file: "
-					+ mopMethods.size());
+					+ targetMethods.size());
 		} else if (mopDir != null) {
-			mopSignatures = loadMopSignatures(mopDir);
-			mopMethods = resolveMopInScene(mopSignatures);
-			System.out.println("[RvsecAnalysisClient] MOP methods resolved: " + mopMethods.size());
+			targetSpecs = new presto.android.gui.clients.target.MopSpecsTargetSource(mopDir).load();
+			targetMethods = presto.android.gui.clients.target.TargetResolver
+					.resolveInScene(targetSpecs);
+			System.out.println("[RvsecAnalysisClient] MOP methods resolved: "
+					+ targetMethods.size());
 		}
 
-		// 3. Compute reachability via multi-source BFS on JGraphT graph
-		CallGraph cg = Scene.v().getCallGraph();
-		DefaultDirectedGraph<SootMethod, DefaultEdge> graph = buildJGraph(cg);
-		System.out.println("[RvsecAnalysisClient] JGraphT graph: " + graph.vertexSet().size()
-				+ " vertices, " + graph.edgeSet().size() + " edges");
+		// 3. Reachability pipeline (BFS + bytecode-scan + callback complement)
+		//    encapsulated in ReachabilityEngine. The ReachabilityIndex it
+		//    publishes is immutable — downstream JSON writing reads but does
+		//    not mutate reachability state (precondition for INV-ANA-30,
+		//    enforced in C1e when JsonReportWriter becomes pure).
+		presto.android.gui.clients.reach.ReachabilityIndex index =
+				new presto.android.gui.clients.reach.ReachabilityEngine(
+						output, appClasses, targetMethods).run();
 
-		Set<SootMethod> entryPoints = getEntryPoints(output);
-		System.out.println("[RvsecAnalysisClient] Entry points: " + entryPoints.size());
-
-		Set<SootMethod> reachableSet = multiSourceBfs(graph, entryPoints);
-		EdgeReversedGraph<SootMethod, DefaultEdge> reversed = new EdgeReversedGraph<>(graph);
-		Set<SootMethod> reachesMopSet = multiSourceBfs(reversed, mopMethods);
-		Set<SootMethod> directMopSet = findDirectMopCallers(graph, mopMethods);
-		int directCgCount = directMopSet.size();
-
-		// 3b. Bytecode-scan complement (BUG-INV-ANA-19): SPARK omits library
-		// targets (java.security.*, javax.crypto.*) from the call graph, so
-		// findDirectMopCallers cannot see app methods that literally invoke
-		// MOP signatures on those classes. Walk every app method body and
-		// match InvokeExpr against MopMethod (className, methodName) pairs —
-		// independent of CG edges. Symmetric with reachesMopSet's transitive
-		// completion in complementWithCallbacks.
-		Set<SootMethod> directBcSet = findDirectMopCallersByBytecodeScan(appClasses, mopSignatures);
-		Set<SootMethod> intersection = new HashSet<>(directMopSet);
-		intersection.retainAll(directBcSet);
-		directMopSet.addAll(directBcSet);
-		System.out.println("[RvsecAnalysisClient] directlyReachesMop: " + directMopSet.size()
-				+ " (CG: " + directCgCount + ", bytecode: " + directBcSet.size()
-				+ ", intersection: " + intersection.size() + ")");
-
-		// 4. Complement with lifecycle and listener callbacks
-		complementWithCallbacks(output, reachableSet, reachesMopSet, directMopSet, graph, mopMethods);
-
-		System.out.println("[RvsecAnalysisClient] Reachable: " + reachableSet.size()
-				+ ", reachesMop: " + reachesMopSet.size()
-				+ ", directlyReachesMop: " + directMopSet.size());
+		// Legacy aliases preserved until Group 6 (C1f) renames the JSON keys
+		// and the writeJson helper signature in lockstep.
+		Set<SootMethod> reachableSet = new HashSet<>(index.reachableMethods());
+		Set<SootMethod> reachesMopSet = new HashSet<>(index.reachesTargetMethods());
+		Set<SootMethod> directMopSet = new HashSet<>(index.directlyReachesTargetMethods());
 
 		// 5. Write JSON with reachability FIRST (survives timeout during WTG)
 		SootClass mainActivity = output.getMainActivity();
@@ -235,55 +216,6 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		return param != null && "true".equalsIgnoreCase(param.substring("skipWtg=".length()));
 	}
 
-	private Set<MopMethod> loadMopSignatures(String mopDir) {
-		// Group 1 (C1a) stepping-stone: load via the new TargetMethodSource
-		// abstraction so the parity test (MopSpecsParityTest) can compare
-		// MopSpecsTargetSource.load() against this method byte-for-byte. The
-		// MopMethod return type is retained until Group 3 (TargetResolver)
-		// replaces the downstream Set<MopMethod> chain with Set<TargetMethod>.
-		return toMopMethods(
-				new presto.android.gui.clients.target.MopSpecsTargetSource(mopDir).load());
-	}
-
-	private Set<MopMethod> loadTargetsFromFile(String targetsFile) {
-		// Group 2 (C1b) stepping-stone: same MopMethod round-trip as
-		// loadMopSignatures, dropped by Group 3.
-		return toMopMethods(
-				new presto.android.gui.clients.target.SignatureFileTargetSource(
-						java.nio.file.Paths.get(targetsFile)).load());
-	}
-
-	private static Set<MopMethod> toMopMethods(
-			Set<presto.android.gui.clients.target.TargetMethod> targets) {
-		Set<MopMethod> out = new HashSet<>(targets.size());
-		for (presto.android.gui.clients.target.TargetMethod t : targets) {
-			out.add(new MopMethod(t.getClassName(), t.getMethodName(),
-					t.getParams(), t.getSignature()));
-		}
-		return out;
-	}
-
-	/**
-	 * Resolve MOP signatures to SootMethods in the Scene.
-	 * Matches by class+method name ONLY (no params) — consistent with MopFacade.
-	 * All overloads are included: if Cipher.init is in a MOP spec, both
-	 * init(int,Key) and init(int,Key,AlgorithmParameterSpec) become seeds.
-	 */
-	private Set<SootMethod> resolveMopInScene(Set<MopMethod> mopSignatures) {
-		Set<SootMethod> resolved = new HashSet<>();
-		for (SootClass cls : Scene.v().getClasses()) {
-			for (SootMethod method : cls.getMethods()) {
-				for (MopMethod mop : mopSignatures) {
-					if (mop.getClassName().equals(cls.getName())
-							&& mop.getName().equals(method.getName())) {
-						resolved.add(method);
-					}
-				}
-			}
-		}
-		return resolved;
-	}
-
 	// ========================================================================
 	// Class/Method Enumeration
 	// ========================================================================
@@ -335,7 +267,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * Collect entry points: public/protected methods of activity classes,
 	 * lifecycle handlers, and event handlers from GATOR's analysis.
 	 */
-	private Set<SootMethod> getEntryPoints(GUIAnalysisOutput output) {
+	public static Set<SootMethod> getEntryPoints(GUIAnalysisOutput output) {
 		Set<SootMethod> entryPoints = new HashSet<>();
 		for (SootClass activity : output.getActivities()) {
 			// Lifecycle handlers
@@ -425,7 +357,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// JGraphT Graph Construction
 	// ========================================================================
 
-	private DefaultDirectedGraph<SootMethod, DefaultEdge> buildJGraph(CallGraph cg) {
+	public static DefaultDirectedGraph<SootMethod, DefaultEdge> buildJGraph(CallGraph cg) {
 		DefaultDirectedGraph<SootMethod, DefaultEdge> graph =
 				new DefaultDirectedGraph<>(DefaultEdge.class);
 
@@ -456,7 +388,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// points-to) would silently disappear from reachable[]. Force-add the
 	// seed first so legitimate roots are preserved even when the CG is
 	// blind to them (INV-ANA-25).
-	static <V> Set<V> multiSourceBfs(
+	public static <V> Set<V> multiSourceBfs(
 			org.jgrapht.Graph<V, DefaultEdge> graph,
 			Set<V> seeds) {
 
@@ -486,7 +418,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * Find methods that directly call a MOP method (outgoing edge to MOP set).
 	 */
 	// Package-private and generic for unit testing with synthetic graphs
-	static <V> Set<V> findDirectMopCallers(
+	public static <V> Set<V> findDirectMopCallers(
 			DefaultDirectedGraph<V, DefaultEdge> graph,
 			Set<V> targetMethods) {
 
@@ -530,7 +462,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * etc.). Returning {@code true} stops the per-method scan early —
 	 * the visitor has all it needs for this caller.
 	 */
-	interface InvokeVisitor {
+	public interface InvokeVisitor {
 		/** @return true to break out of the current method's unit walk. */
 		boolean visit(SootMethod caller, Stmt invokeStmt, InvokeExpr ie, SootMethodRef ref);
 	}
@@ -552,7 +484,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * @return methodsScanned + bodiesSkipped counters for the caller's
 	 *         telemetry; the visitor accumulates its own state.
 	 */
-	int[] scanInvokesInAppClasses(
+	public static int[] scanInvokesInAppClasses(
 			Map<SootClass, List<SootMethod>> appClasses,
 			InvokeVisitor visitor,
 			String passLabel) {
@@ -599,26 +531,40 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		return new int[] { methodsScanned, bodiesSkipped };
 	}
 
-	private Set<SootMethod> findDirectMopCallersByBytecodeScan(
+	/**
+	 * BUG-INV-ANA-19 bytecode-scan complement keyed on a resolved
+	 * {@code Set<SootMethod>} target set (C1c API). SPARK quarantines
+	 * library targets and drops their incoming edges from the call graph;
+	 * the JGraphT-based {@link #findDirectMopCallers} therefore misses
+	 * app methods that literally invoke a target. This pass walks every
+	 * app method body, matches each {@link InvokeExpr} by
+	 * {@code (declaringClass.getName(), methodRef.name())} against the
+	 * target set's class+name pairs, and returns the callers. The match
+	 * is intentionally LENIENT — see design.md §D7 for the rationale that
+	 * a STRICT source still benefits from LENIENT bytecode scan because
+	 * {@code methodRef} alone cannot reliably reconstruct the full Soot
+	 * signature at the call site.
+	 */
+	public static Set<SootMethod> findDirectTargetCallersByBytecodeScan(
 			Map<SootClass, List<SootMethod>> appClasses,
-			Set<MopMethod> mopSignatures) {
+			Set<SootMethod> targets) {
 
 		Set<SootMethod> result = new HashSet<>();
-		if (mopSignatures.isEmpty()) {
+		if (targets.isEmpty()) {
 			return result;
 		}
 
-		// Build a fast lookup keyed by "fqClassName#methodName" — matches
-		// resolveMopInScene's policy (class FQN + method name, ignoring
-		// parameter overloads). Same MopMethod entry covers all overloads.
-		Set<String> mopKeys = buildMopKeys(mopSignatures);
+		Set<String> targetKeys = new HashSet<>(targets.size());
+		for (SootMethod t : targets) {
+			targetKeys.add(t.getDeclaringClass().getName() + "#" + t.getName());
+		}
 
 		int[] counters = scanInvokesInAppClasses(appClasses,
 				(caller, stmt, ie, ref) -> {
 					if (matchesMopSignature(ref.getDeclaringClass().getName(),
-							ref.getName(), mopKeys)) {
+							ref.getName(), targetKeys)) {
 						result.add(caller);
-						return true; // first match per method is enough
+						return true;
 					}
 					return false;
 				},
@@ -626,7 +572,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 		System.out.println("[RvsecAnalysisClient] Bytecode scan: " + counters[0]
 				+ " methods scanned, " + counters[1] + " body-retrieval skips, "
-				+ result.size() + " direct MOP callers detected");
+				+ result.size() + " direct target callers detected");
 		return result;
 	}
 
@@ -638,7 +584,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * method name, ignoring parameter overloads. Package-private for unit
 	 * tests that exercise the matching policy without a Soot Scene.
 	 */
-	static Set<String> buildMopKeys(Set<MopMethod> mopSignatures) {
+	public static Set<String> buildMopKeys(Set<MopMethod> mopSignatures) {
 		Set<String> keys = new HashSet<>();
 		for (MopMethod mop : mopSignatures) {
 			keys.add(mop.getClassName() + "#" + mop.getName());
@@ -653,7 +599,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * Package-private for unit tests; production code calls it implicitly
 	 * via {@code mopKeys.contains(...)} after {@link #buildMopKeys}.
 	 */
-	static boolean matchesMopSignature(String className, String methodName, Set<String> mopKeys) {
+	public static boolean matchesMopSignature(String className, String methodName, Set<String> mopKeys) {
 		return mopKeys.contains(className + "#" + methodName);
 	}
 
@@ -666,7 +612,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * invoked by the Android framework at runtime but may not appear in the
 	 * call graph.
 	 */
-	private void complementWithCallbacks(
+	public static void complementWithCallbacks(
 			GUIAnalysisOutput output,
 			Set<SootMethod> reachableSet,
 			Set<SootMethod> reachesMopSet,
@@ -748,7 +694,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		}
 	}
 
-	private void collectEventHandlers(GUIAnalysisOutput output, NNode node,
+	private static void collectEventHandlers(GUIAnalysisOutput output, NNode node,
 			Set<SootMethod> handlers, Set<NNode> visited) {
 		if (!visited.add(node)) {
 			return;
