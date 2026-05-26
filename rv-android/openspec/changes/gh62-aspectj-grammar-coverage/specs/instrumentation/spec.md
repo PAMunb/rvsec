@@ -120,13 +120,11 @@ The change directory `openspec/changes/gh62-aspectj-grammar-coverage/` SHALL con
 
 - **Fix-now** — closures recommended for scheduling against the current milestone, with rationale (active demand or otherwise high-value). Each entry names: AspectJ syntax / matrix row(s) it flips, demand summary, planned sub-change identifier (`gh-XX-<kebab>`), `Owner: @user`, `Target milestone: vX.Y`.
 - **Follow-up** — real work but no current demand to schedule. Each entry names matrix rows + a one-sentence rationale for deferral + `Owner` + `Target milestone: TBD`.
-- **Deferred-by-design** — closures that the project explicitly will NOT implement. Each entry names the matrix rows AND references the design decision that established the deferral. This bucket holds rows of two distinct shapes:
-  - *EXPLICIT-NO-OP rows*: production code raises `UnsupportedOperationException` (or equivalent) AND a passing test asserts the throw. `Verdict = EXPLICIT-NO-OP`. Evidence cites both the test FQN AND the `file:line` of the no-op (per INV-INS-89). Example: `around` advice + `proceed(...)`.
-  - *SILENT-GAP rows with permanent ledger entry*: production code has no explicit no-op (the row falls into the same NamedRefPC always-match path as other SILENT-GAPs), but the project commits to NOT closing the gap. `Verdict = SILENT-GAP`. The `@Disabled` test, the ledger entry, and the AspectJ-behaviour assertion are all present; the entry is marked `Owner: permanent / non-actionable`. Future closures of these rows MUST first remove the permanent ledger entry. Examples: `handler(...)`, `declare precedence`.
-
-  No `Owner` is needed for EXPLICIT-NO-OP sub-rows; SILENT-GAP-permanent sub-rows carry `Owner: permanent / non-actionable` instead of a personal owner.
+- **Deferred-by-design** — closures that the project explicitly will NOT implement, with production code raising `UnsupportedOperationException` (or equivalent) AND a passing test asserting the throw. `Verdict = EXPLICIT-NO-OP`. Evidence cites both the test FQN AND the `file:line` of the no-op (per INV-INS-89). Example: `around` advice + `proceed(...)`. No `Owner` is needed for EXPLICIT-NO-OP sub-rows (the no-op is structural; no future work is planned).
 
 The ledger SHALL NOT contain implementation detail for the planned closures — it is a schedule, not a design.
+
+Rows with `Verdict = NOT-NEEDED` (path α: zero demand + no implementation; path β: production absorbed by an upstream toolchain stage before reaching the dexlib2 pipeline) do NOT appear in the ledger — they are not open work by construction. Round-5 review reclassified four rows from SILENT-GAP-permanent to NOT-NEEDED path β: `handler(...)` (no DEX-level analogue; absorbed by source-level decisions before the matcher); `declare precedence` (runtime monitor-dispatch property, not a weaver concern); `aspect Foo { ... }` (the dexlib2 pipeline reads JSON `AspectDescriptor`, not `.aj` source); `pointcut p(): ...` named declaration (same path β — `.aj` source consumed upstream by JavaMOP). These rows remain in the matrix with `Verdict = NOT-NEEDED` and carry enabled passing tests asserting equivalent-descriptor production regardless of upstream syntax; they do NOT have ledger entries.
 
 #### Scenario: ledger covers every SILENT-GAP row
 
@@ -142,11 +140,70 @@ The ledger SHALL NOT contain implementation detail for the planned closures — 
 - **THEN** the sub-change's `proposal.md` SHALL cite gh62 issue #62 and the specific matrix rows it intends to flip
 - **AND** upon archive of the sub-change, the matrix rows SHALL be flipped from `SILENT-GAP` to `COVERED` and the corresponding `@Disabled` annotations removed in the same commit (closure atomicity enforced by `MatrixIntegrityTest` in CI per the previous scenario)
 
+### Requirement: JoinPoint Reflective API Behavioural Parity
+
+The dexlib2 instrumenter SHALL provide AspectJ-equivalent runtime substrate for advice bodies that read the JoinPoint context. Specifically, when an advice body references `thisJoinPoint`, `thisJoinPointStaticPart`, `thisEnclosingJoinPointStaticPart`, `JoinPoint.getArgs()`, `JoinPoint.getSignature()` (including the `MethodSignature` / `ConstructorSignature` / `FieldSignature` subtype accessors `.getName()` / `.getDeclaringType()` / `.getParameterTypes()` / `.getReturnType()`), `JoinPoint.getTarget()`, `JoinPoint.getThis()`, `JoinPoint.getKind()`, or `JoinPoint.getSourceLocation()`, the instrumented bytecode SHALL emit construction of a populated `JoinPoint` instance carrying real runtime values derived from the matched join point, NOT a string-typed placeholder.
+
+`org.aspectj.lang.JoinPoint`, `org.aspectj.lang.Signature`, and the three signature subtypes SHALL be available on the instrumented APK's runtime classpath. The implementation ships local equivalents in the `br.unb.cic.rv.aspectjlang` package, embedded in the DEX output of `instr-cli`, to avoid a new transitive dependency on `aspectjrt.jar`.
+
+#### Scenario: thisJoinPoint.getSignature().getName() returns the matched method's actual name
+
+- **WHEN** an advice body containing `thisJoinPoint.getSignature().getName()` is woven around `call(* java.util.Hashtable.get(Object))`
+- **AND** the instrumented APK invokes `Hashtable.get` at runtime
+- **THEN** the advice body SHALL observe `getName()` returning `"get"`
+- **AND** it SHALL NOT observe a raw pointcut expression string (`"call(* java.util.Hashtable.get(Object))"` or similar)
+
+#### Scenario: JoinPoint subtype matches the matched join-point kind
+
+- **WHEN** an advice body containing `thisJoinPoint.getSignature() instanceof MethodSignature` is woven around a `call(* ...)` pointcut
+- **THEN** the runtime check SHALL evaluate to `true`
+- **AND** when the same advice body is woven around `staticinitialization(...)`, the runtime check against `MethodSignature` SHALL evaluate to `false` and `instanceof Signature` (the supertype) SHALL evaluate to `true`
+
+#### Scenario: JoinPoint.getArgs() returns the actual argument list
+
+- **WHEN** an advice body containing `Object[] a = thisJoinPoint.getArgs()` is woven around `call(* Foo.bar(int, String))`
+- **AND** the instrumented APK invokes `Foo.bar(42, "x")` at runtime
+- **THEN** `a.length` SHALL equal `2`
+- **AND** `a[0]` SHALL equal `Integer.valueOf(42)` (boxed)
+- **AND** `a[1]` SHALL equal `"x"`
+
+### Requirement: Pointcut Matcher Correctness
+
+The dexlib2 pointcut matcher SHALL correctly evaluate the following classes of pointcut expression that current code mishandles as always-match:
+
+1. **Standalone `target(name)` / `args(name)` binding**: when these designators appear at the top level of a pointcut expression (not in `&&`-composition with `call(...)`), the matcher SHALL still perform receiver / argument binding from the runtime join-point, instead of returning an empty match (`PointcutMatcher.java:106-108` current behaviour).
+2. **Negation specialisation beyond `!within`**: `parseUnary` SHALL produce specialised negation matchers for `!handler(...)`, `!cflow(...)`, `!if(...)` in addition to `!within(...)`, evaluating the negated inner pointcut and inverting the verdict, instead of collapsing to `NamedRefPC` always-match.
+3. **Named-pointcut reference resolution**: when an advice references a named pointcut defined in the same aspect (or an inherited aspect), the matcher SHALL resolve the reference against the aspect's pointcut table (`AspectDescriptor.namedPointcuts()`) and evaluate the resolved pointcut against the join point, instead of treating `NamedRefPC` as unconditional always-match.
+
+#### Scenario: standalone target(name) binds the receiver register
+
+- **WHEN** a pointcut `target(h)` is matched at the call site `obj.method()`
+- **THEN** the resulting `Match` SHALL bind `h` to the register holding `obj`
+- **AND** the bound register SHALL be accessible by the advice body via the generated parameter list
+
+#### Scenario: !cflow excludes join points reached via the cflow
+
+- **WHEN** a pointcut `!cflow(execution(* Setup.*(..)))` is evaluated at a join point reached from within `Setup.init()`
+- **THEN** the matcher SHALL return no match (the negated inner is true, so its negation is false)
+- **AND** when evaluated at a join point reached outside any `Setup.*` method, the matcher SHALL return a match
+
+#### Scenario: named pointcut reference resolves against aspect pointcut table
+
+- **WHEN** an advice `before(): myPointcut()` references a pointcut declared as `pointcut myPointcut(): call(* Foo.bar(..))` in the same aspect
+- **AND** the runtime reaches `call Foo.bar()`
+- **THEN** the matcher SHALL evaluate the resolved `call(* Foo.bar(..))` against the join point
+- **AND** the resolved pointcut SHALL succeed, and the advice SHALL run
+- **AND** the matcher SHALL NOT return an always-match result that would also fire `before(): myPointcut()` at unrelated join points
+
 ## Invariants
 
 - **INV-INS-88**: For every row in the closed enumeration declared under `Requirement: AspectJ Grammar Coverage Matrix as Contract`, `docs/aspectj_grammar_coverage.md` MUST contain exactly one matrix row. New AspectJ versions or new corpora MUST result in a new row added by amendment, not implicit support.
-- **INV-INS-89**: For every matrix row, the `Verdict` column MUST take exactly one value from the set `{COVERED, SILENT-GAP, EXPLICIT-NO-OP, NOT-NEEDED}`. The matrix MUST NOT contain rows with empty or composite verdicts. `NOT-NEEDED` is permitted via exactly two paths: (path α) `DemandCounter` zero across all four corpora AND no parser/matcher/emitter implementation (i.e. both Parser and Matcher are `MISSING`); OR (path β) the row reflects an AspectJ production that exists in the corpora at *source* level but is consumed by an upstream toolchain stage (the JavaMOP compiler producing JSON descriptors) before reaching the dexlib2 pipeline, so the dexlib2 parser/matcher/emitter never receives the token shape. Path β requires the matrix Evidence column to (a) cite the demand counts (non-zero at source level), AND (b) name the upstream stage that absorbs the production, AND (c) cite an enabled passing test asserting that the equivalent descriptor input is produced regardless of upstream source syntax. Path β was added in the round-3 cross-LLM review to accommodate `aspect Foo { ... }` and named `pointcut p(): ...` declarations.
+- **INV-INS-89**: For every matrix row, the `Verdict` column MUST take exactly one value from the set `{COVERED, SILENT-GAP, EXPLICIT-NO-OP, NOT-NEEDED}`. The matrix MUST NOT contain rows with empty or composite verdicts. `NOT-NEEDED` is permitted via exactly two paths: (path α) `DemandCounter` zero across all four corpora AND no parser/matcher/emitter implementation (i.e. both Parser and Matcher are `MISSING`); OR (path β) the row reflects an AspectJ production that may exist in the corpora at *source* level but is consumed by an upstream toolchain stage (the JavaMOP compiler producing JSON descriptors, the DEX-level reachability filter, or any other documented absorber) before reaching the dexlib2 pipeline, so the dexlib2 parser/matcher/emitter never receives the token shape. Path β requires the matrix Evidence column to (a) cite the demand counts (which MAY be non-zero at source level), AND (b) name the upstream stage that absorbs the production, AND (c) cite an enabled passing test asserting that the equivalent descriptor input is produced (or absorbed equivalently) regardless of upstream source syntax. Path β was added in the round-3 cross-LLM review for `aspect Foo { ... }` and named `pointcut p(): ...` declarations and extended in round-5 to also cover `handler(...)` (no DEX-level analogue — absorbed by source-level decisions) and `declare precedence` (runtime monitor-dispatch property — absorbed by the runtime loop, not the weaver).
+
+  `MatrixIntegrityTest.testVerdictsAreValid` SHALL enforce path α (demand sum == 0 AND parser/matcher anchors == `MISSING`); the test SHALL ALSO enforce path β by parsing the Evidence column with a regex that requires three matched groups: an `upstream-stage:` reference (e.g. `upstream-stage:JavaMOP-descriptor-reader`), a `demand-source:` reference quoting at least one corpus + count, AND a `test-fqn:` reference resolving to an enabled passing test method.
 - **INV-INS-90**: For every matrix row with `Verdict = COVERED`, there MUST exist an enabled (non-`@Disabled`) passing test in `rvsec-android/rvsec-instrumentation-dexlib2/grammar-tests/` whose FQN appears in the row's `Evidence` column. `@Disabled` inherited from the test class also disqualifies the row from `COVERED`.
-- **INV-INS-91**: For every matrix row with `Verdict = SILENT-GAP`, there MUST exist a `@Disabled`-annotated test in `grammar-tests/` whose disabled-reason message starts with `"gh62 SILENT-GAP: "`. The **ledger entry** requirement is scoped to SILENT-GAP rows present at gh62 archive time only — the ledger is a one-shot snapshot (see design D4) and is not maintained after archive. SILENT-GAP rows introduced in subsequent changes MUST satisfy the `@Disabled`-test requirement above but are not retroactively added to the archived ledger; instead they are scheduled by opening the closure's own OpenSpec change.
+- **INV-INS-91**: For every matrix row with `Verdict = SILENT-GAP`, there MUST exist a `@Disabled`-annotated test in `grammar-tests/` whose disabled-reason message starts with `"gh62 SILENT-GAP: "`. The **ledger entry** requirement is scoped to SILENT-GAP rows present at gh62 archive time only — the ledger is a one-shot snapshot (see design D4) and is not maintained after archive. The ledger snapshot is content-addressed: a `ledger.snapshot.sha256` file containing the SHA-256 of `ledger.md` at archive time SHALL be committed to `grammar-tests/src/test/resources/`; `testSilentGapRowsHaveDisabledTestAndLedgerEntry` SHALL verify the live ledger's SHA against the snapshot and fail if they diverge (catches post-archive mutation of an artefact that is contractually frozen). SILENT-GAP rows introduced in subsequent changes MUST satisfy the `@Disabled`-test requirement above but are not retroactively added to the archived ledger; instead they are scheduled by opening the closure's own OpenSpec change.
 - **INV-INS-92**: For every enabled (non-`@Disabled`) test method in `grammar-tests/`, there MUST be exactly one matrix row with `Verdict ∈ {COVERED, EXPLICIT-NO-OP}` resolving to it; for every `@Disabled` test method, there MUST be exactly one matrix row with `Verdict = SILENT-GAP` resolving to it. Orphan tests (no matrix row) and orphan rows (no test) MUST break the build. Closure atomicity is enforced by this invariant directly — a closure commit that flips one side without the other produces an orphan and fails CI. (Replaces the original aspirational "closure atomicity" invariant; an earlier draft proposed a cross-repo PR-check GitHub Action for the same purpose, rejected on simplicity grounds in design D6.)
-- **INV-INS-93**: The matrix demand counts MUST be reproducible by `DemandCounter` invoked from `MatrixIntegrityTest.testDemandCountsReproducible`. Counts MUST be re-verified whenever a new `.mop` file is added to any of the four corpora. The helper MUST be portable Java (no shell, no `ProcessBuilder`, no `LC_ALL`).
+- **INV-INS-93**: The matrix demand counts MUST be reproducible by `DemandCounter` invoked from `MatrixIntegrityTest.testDemandCountsReproducible`. Counts MUST be re-verified whenever a new `.mop` OR `.aj` file is added to any of the four corpora. `DemandCounter` SHALL scan BOTH `.mop` AND `.aj` files (the cross-LLM Round-5 review showed that scanning only `.mop` undercounts substantially because the `aspect/` corpus is entirely `.aj` and `generic_new/` contains `.aj` templates like `MultiSpec_1MonitorAspect.aj`). The per-designator regex SHALL distinguish *pointcut* uses from *Java statement* uses (the canonical false positive is `if(...)` in advice bodies appearing as Java `if` statements). The helper MUST be portable Java (no shell, no `ProcessBuilder`, no `LC_ALL`).
+- **INV-INS-94**: For every matrix row in the **JoinPoint Reflective API family** (`thisJoinPoint`, `thisJoinPointStaticPart`, `thisEnclosingJoinPointStaticPart`, `JoinPoint.getArgs()`, `JoinPoint.getSignature()` + subtypes, `JoinPoint.getTarget()`/`.getThis()`, `JoinPoint.getKind()`/`.getSourceLocation()`, AspectJ runtime linkage), the `Verdict` MUST be `COVERED` and the `Evidence` MUST cite an enabled test in `grammar-tests/JoinPointReflectiveApiGrammarTest` that exercises the runtime contract (the test creates a synthetic class, weaves an advice that reads the JoinPoint surface, runs the instrumented class on a JVM/Android runtime, and asserts the observed values match the AspectJ specification). The instrumented bytecode MUST link against `br.unb.cic.rv.aspectjlang.{JoinPoint,Signature,MethodSignature,ConstructorSignature,FieldSignature,SourceLocation}` (local equivalents shipped in the DEX, NOT `org.aspectj.lang.*`). `MatrixIntegrityTest.testReflectiveApiRowsAreCovered` SHALL fail the build if any reflective-API row regresses from `COVERED`.
+- **INV-INS-95**: For every matrix row in the **Matcher Correctness family** (`target(name)` standalone, `args(name)` standalone, `!` negation beyond `!within`, named-pointcut reference resolution), the `Verdict` MUST be `COVERED` and the `Evidence` MUST cite an enabled test in `grammar-tests/` that exercises the correctness property (standalone binding produces a non-empty `Match`; negation matchers invert the inner verdict; named references resolve against the aspect's pointcut table). `MatrixIntegrityTest.testMatcherCorrectnessRowsAreCovered` SHALL fail the build if any matcher-correctness row regresses from `COVERED`.
