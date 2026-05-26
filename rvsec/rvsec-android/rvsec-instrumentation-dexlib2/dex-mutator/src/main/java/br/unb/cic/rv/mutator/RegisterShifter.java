@@ -516,15 +516,39 @@ public final class RegisterShifter {
      * and skip the offending method (the rest of the class is unaffected because the
      * caller works on a {@link MutableMethodImplementation}, which is per-method).
      *
+     * <p><b>Atomicity (gh61 INV-INS-80):</b> the source MMI is never mutated. Frame
+     * growth happens up-front via {@link #bumpRegisterCount}, producing a fresh clone;
+     * all subsequent operand shifts and overflow expansions apply to the clone. If any
+     * {@link #shiftExpanding} call throws, the clone is unreferenced and discarded by
+     * the JVM, and the caller's source MMI — typically still pinned by a
+     * {@code MutableImplSupplier} cache (canonically {@code DexFileMutator.mutations})
+     * — remains pristine. Without this property, a mid-stream overflow would leave
+     * the cache pointing at a half-shifted MMI whose {@code registerCount} no longer
+     * matches its operand references, surfacing on-device as {@code VerifyError:
+     * tried to get class from non-reference register vN (type=&lt;primitive&gt;)} at
+     * every entry to the partially-rewritten method.
+     *
      * @see <a href="https://source.android.com/docs/core/runtime/dex-format#instruction-format">
      *      Dalvik instruction format reference</a>
      */
     public static MutableMethodImplementation spillLowRegisters(
-            MutableMethodImplementation mut, int count) {
-        if (count <= 0) return mut;
+            MutableMethodImplementation src, int count) {
+        if (count <= 0) return src;
+        // Clone first. bumpRegisterCount produces a fresh MMI with
+        // registerCount = src.getRegisterCount() + count and every instruction
+        // copied (with label / try-block targets re-homed onto dst). The source
+        // MMI is never touched from this point on.
+        MutableMethodImplementation dst = bumpRegisterCount(src, count);
+        // Shift operands in-place on the clone. shiftExpanding may throw
+        // RegisterOverflow4Bit if a Format35c (or similar 4-bit-register
+        // instruction) has both an operand at v15 and no expansion to a
+        // wider /range form available. In that case the clone is abandoned
+        // and the exception propagates to the caller (e.g.
+        // CoverageWeaver.injectLogCall returns false and the surrounding
+        // method is skipped). The source MMI is preserved intact.
         int i = 0;
-        while (i < mut.getInstructions().size()) {
-            BuilderInstruction insn = mut.getInstructions().get(i);
+        while (i < dst.getInstructions().size()) {
+            BuilderInstruction insn = dst.getInstructions().get(i);
             List<BuilderInstruction> expanded = shiftExpanding(
                     insn, /*threshold=*/ 0, /*delta=*/ count, /*scratchReg=*/ 0);
             if (expanded.size() == 1 && expanded.get(0) == insn) {
@@ -532,13 +556,13 @@ public final class RegisterShifter {
                 i++;
                 continue;
             }
-            mut.replaceInstruction(i, expanded.get(0));
+            dst.replaceInstruction(i, expanded.get(0));
             for (int k = 1; k < expanded.size(); k++) {
-                mut.addInstruction(i + k, expanded.get(k));
+                dst.addInstruction(i + k, expanded.get(k));
             }
             i += expanded.size();
         }
-        return bumpRegisterCount(mut, count);
+        return dst;
     }
 
 

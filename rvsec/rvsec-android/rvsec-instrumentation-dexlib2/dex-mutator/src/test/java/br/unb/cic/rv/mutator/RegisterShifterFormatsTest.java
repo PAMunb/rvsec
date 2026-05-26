@@ -491,4 +491,77 @@ class RegisterShifterFormatsTest {
             Files.deleteIfExists(tmp);
         }
     }
+
+    @Test
+    void spillLowRegistersIsAtomicOnOverflow() {
+        // gh61 INV-INS-80 atomicity invariant. Reproduces the sw1.<init>
+        // failure mode from the JCA-190 validation pipeline: a non-static
+        // method with registerCount=21 and 21 param words (zero locals) whose
+        // body contains an invoke-virtual {v15} — a Format35c instruction
+        // whose 4-bit register field is already at its maximum. Shifting by
+        // +1 would push it to v16, which Format35c cannot express and which
+        // expandOverflow declines to widen (no /range substitute for this
+        // path), so shiftExpanding throws RegisterOverflow4Bit.
+        //
+        // Pre-fix, spillLowRegisters had already executed N-1 in-place
+        // mut.replaceInstruction calls before the throw, leaving the
+        // caller's MMI half-rewritten (operands shifted but registerCount
+        // unchanged). Cached in DexFileMutator.mutations, that corrupted
+        // MMI then serialised straight into the output APK, surfacing
+        // on-device as VerifyError "tried to get class from non-reference
+        // register vN (type=<primitive>)" at every entry of the partially
+        // rewritten method.
+        //
+        // Post-fix, the clone happens first via bumpRegisterCount and all
+        // shifts mutate only the clone; on throw the clone is unreferenced
+        // and the source MMI remains pristine. This test pins that property.
+        MethodReference dummyVirtual = new ImmutableMethodReference(
+                OWNER, "doIt", Collections.emptyList(), "V");
+        List<BuilderInstruction> insns = new ArrayList<>();
+        // A few well-behaved shiftable instructions before the offender —
+        // these would all be replaced in-place under the buggy code path.
+        insns.add(new BuilderInstruction35c(
+                Opcode.INVOKE_VIRTUAL, /*regCount=*/ 1,
+                /*C=*/ 2, 0, 0, 0, 0, dummyVirtual));
+        insns.add(new BuilderInstruction35c(
+                Opcode.INVOKE_VIRTUAL, /*regCount=*/ 1,
+                /*C=*/ 5, 0, 0, 0, 0, dummyVirtual));
+        // The offender: register operand at v15, the Format35c ceiling.
+        // Shift by +1 overflows; expandOverflow declines (Format35c has no
+        // /range surrogate this helper widens to), so shiftExpanding throws.
+        insns.add(new BuilderInstruction35c(
+                Opcode.INVOKE_VIRTUAL, /*regCount=*/ 1,
+                /*C=*/ 15, 0, 0, 0, 0, dummyVirtual));
+        insns.add(new com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x(
+                Opcode.RETURN_VOID));
+
+        MutableMethodImplementation src = new MutableMethodImplementation(21);
+        for (BuilderInstruction in : insns) src.addInstruction(in);
+
+        // Snapshot pre-spill state for the atomicity assertion.
+        int preRegisterCount = src.getRegisterCount();
+        List<Integer> preRegisters = new ArrayList<>();
+        for (BuilderInstruction in : src.getInstructions()) {
+            if (in instanceof BuilderInstruction35c c35) {
+                preRegisters.add(c35.getRegisterC());
+            }
+        }
+
+        assertThrows(RuntimeException.class,
+                () -> RegisterShifter.spillLowRegisters(src, 1),
+                "spillLowRegisters must propagate the overflow exception");
+
+        // Atomicity: the source MMI is untouched by the failed spill.
+        assertEquals(preRegisterCount, src.getRegisterCount(),
+                "INV-INS-80: registerCount must not change when spill throws");
+        List<Integer> postRegisters = new ArrayList<>();
+        for (BuilderInstruction in : src.getInstructions()) {
+            if (in instanceof BuilderInstruction35c c35) {
+                postRegisters.add(c35.getRegisterC());
+            }
+        }
+        assertEquals(preRegisters, postRegisters,
+                "INV-INS-80: no instruction operand may be mutated when spill throws "
+                        + "(half-shifted MMI is the gh61 sw1.<init> regression mode)");
+    }
 }
