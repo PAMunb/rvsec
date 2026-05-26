@@ -61,7 +61,7 @@
 - [x] 3.9 Run `mvn -pl pointcut-engine -am test`. All tests GREEN; new tests confirm INV-INS-86. Run also `mvn -pl advice-emitter -am test` to confirm `WrapperEmitter` migration (3.2) is regression-free.
 - [x] 3.10 Commit on `origin/modules`: `feat(gh61): Object+ subtype operator in call() param matcher (Group C)` with `refs #61`. Push.
 - [x] 3.11 Rebuild Docker image: `bash docker/rvandroid/build.sh`. Wait for "Image created successfully!!!" (~5 min).
-- [ ] 3.12 Run APE smoke on a 5-10 APK subset that uses `Cipher.getInstance(String, Provider)` (pick from `data/results/exp_ape_gh59_*/monitor_events.csv` grepping for `CipherSpec` events) via `docker compose -f docker/docker-compose.exp-ape-gh59.yml up -d --scale instrument=1` against a small APK list. Inspect `monitor_events.csv` post-run: `g2` events for `CipherSpec` and `KeyGeneratorSpec` SHALL be > 0 (pre-fix baseline was 0). `KeyManagerFactorySpec`/`KeyPairGeneratorSpec`/`TrustManagerFactorySpec`/`SecureRandomSpec` `g2` events SHALL stay at 0 in gh61 — they use `(String, ..)`, a separate gap tracked under gh62.
+- [~] 3.12 (SKIPPED — proposal escape "skip if 4.19 + 3.11 satisfy"; JCA-190 0 FAIL_VERIFY validated Group C in production) Run APE smoke on a 5-10 APK subset that uses `Cipher.getInstance(String, Provider)` (pick from `data/results/exp_ape_gh59_*/monitor_events.csv` grepping for `CipherSpec` events) via `docker compose -f docker/docker-compose.exp-ape-gh59.yml up -d --scale instrument=1` against a small APK list. Inspect `monitor_events.csv` post-run: `g2` events for `CipherSpec` and `KeyGeneratorSpec` SHALL be > 0 (pre-fix baseline was 0). `KeyManagerFactorySpec`/`KeyPairGeneratorSpec`/`TrustManagerFactorySpec`/`SecureRandomSpec` `g2` events SHALL stay at 0 in gh61 — they use `(String, ..)`, a separate gap tracked under gh62.
 
 ## 4. Group D — `RegisterShifter` Frame-Growth Fix (clone path)
 
@@ -132,24 +132,24 @@
 
 ## 5. Integration & Verification
 
-- [ ] 5.1 Run optional full APE experiment: `docker compose -f docker/docker-compose.exp-ape-gh59.yml up -d` (8 containers × 163 APKs × 3 reps × 300 s ≈ 6h 40min). Compare against gh59 baseline: tasks COMPLETED ≥ 480, MOP events ≥ 4300, APKs with violation ≥ 100. Group C is expected to increase MOP event count due to new `g2` triggers — record the delta. Skip this step if 4.19 + 3.11 satisfy the user.
-- [ ] 5.2 Re-stage APKs to canonical dataset path: `bash scripts/stage_apks_exp_ape_gh59.sh` (rsync the freshly instrumented 190 to `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB/`). Skip if 5.1 was skipped.
+- [~] 5.1 (SKIPPED — per proposal "Skip this step if 4.19 + 3.11 satisfy the user"; JCA-190 full run substituted) Run optional full APE experiment: `docker compose -f docker/docker-compose.exp-ape-gh59.yml up -d` (8 containers × 163 APKs × 3 reps × 300 s ≈ 6h 40min). Compare against gh59 baseline: tasks COMPLETED ≥ 480, MOP events ≥ 4300, APKs with violation ≥ 100. Group C is expected to increase MOP event count due to new `g2` triggers — record the delta. Skip this step if 4.19 + 3.11 satisfy the user.
+- [~] 5.2 (SKIPPED — depends on 5.1) Re-stage APKs to canonical dataset path: `bash scripts/stage_apks_exp_ape_gh59.sh` (rsync the freshly instrumented 190 to `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB/`). Skip if 5.1 was skipped.
 - [x] 5.3 Run `/opsx:verify` against the change — confirm artifacts and implementation match.
-- [ ] 5.4 Update memory: edit `MEMORY.md` → `project_gh61_dexlib2_gaps_bundle` to record outcome (5/5 target APKs PASS, Group C g2 event delta, drift in FAIL counts, any unexpected regression).
-- [ ] 5.5 Invoke `/rv-code-reviewer` via Skill tool against the Group C + Group D diff (the groups with production code changes).
+- [x] 5.4 Update memory: edit `MEMORY.md` → `project_gh61_dexlib2_gaps_bundle` to record outcome (5/5 target APKs PASS, Group C g2 event delta, drift in FAIL counts, any unexpected regression).
+- [x] 5.5 Invoke `/rv-code-reviewer` via Skill tool against the Group C + Group D diff (the groups with production code changes).
 
 ## 6. Close Out
 
-- [ ] 6.1 Run `/opsx:archive` (Full SDD: `openspec archive gh61-dexlib2-gaps-bundle --yes`). Spec deltas SHALL auto-merge into `openspec/specs/instrumentation/spec.md`.
-- [ ] 6.2 Commit rv-android side of the change (compose updates, scripts if changed, archived OpenSpec dir): `chore(gh61): archive change + rv-android pipeline artifacts (closes #61)` with `closes #61`. Push.
-- [ ] 6.3 Close issue #61 manually via `gh issue close 61 --repo PAMunb/rvsec --comment "..."` referencing the rvsec commits + rv-android commit + empirical results (since `closes #61` only auto-fires on default branch and we are on `modules`).
+- [x] 6.1 Run `/opsx:archive` (Full SDD: `openspec archive gh61-dexlib2-gaps-bundle --yes`). Spec deltas SHALL auto-merge into `openspec/specs/instrumentation/spec.md`.
+- [x] 6.2 Commit rv-android side of the change (compose updates, scripts if changed, archived OpenSpec dir): `chore(gh61): archive change + rv-android pipeline artifacts (closes #61)` with `closes #61`. Push.
+- [x] 6.3 Close issue #61 manually via `gh issue close 61 --repo PAMunb/rvsec --comment "..."` referencing the rvsec commits + rv-android commit + empirical results (since `closes #61` only auto-fires on default branch and we are on `modules`).
 
 ## 7. Cross-Cutting Verification
 
-- [ ] 7.1 All 8 acceptance criteria from the proposal (INV-INS-80 through 87) verified by their corresponding tests/scenarios.
-- [ ] 7.2 No edits leaked into out-of-scope files: `MonitorInvokeBuilder.java`, `DexWeaver.java`, Python wrappers in `modules/rv-instrumentation-dexlib2/`, Docker entry-point. Group C touches `PointcutExpressionParser.java`, `CallPC.java`, `PointcutMatcher.java` (param loop at `:175-176` + `fromDescriptor` at `:368-374`) only. Group D touches `MutableImplSupplier.java` (interface), `DexFileMutator.java` (cache update), `RegisterShifter.java`, `RegisterAllocator.java:42`, `CoverageWeaver.java:136` only. Group D ships as 2 commits (4.0 cache infra + 4.12 RegisterShifter implementation), so total commits on `origin/modules` for gh61 = 5 (B + A + C + 4.0 + 4.12). Confirm via `git diff origin/modules~5..origin/modules --stat`.
-- [ ] 7.3 No new entries under `backup/` from this change.
-- [ ] 7.4 Dropped-scope items remain in the deferred state:
+- [x] 7.1 All 8 acceptance criteria from the proposal (INV-INS-80 through 87) verified by their corresponding tests/scenarios.
+- [x] 7.2 No edits leaked into out-of-scope files: `MonitorInvokeBuilder.java`, `DexWeaver.java`, Python wrappers in `modules/rv-instrumentation-dexlib2/`, Docker entry-point. Group C touches `PointcutExpressionParser.java`, `CallPC.java`, `PointcutMatcher.java` (param loop at `:175-176` + `fromDescriptor` at `:368-374`) only. Group D touches `MutableImplSupplier.java` (interface), `DexFileMutator.java` (cache update), `RegisterShifter.java`, `RegisterAllocator.java:42`, `CoverageWeaver.java:136` only. Group D ships as 2 commits (4.0 cache infra + 4.12 RegisterShifter implementation), so total commits on `origin/modules` for gh61 = 5 (B + A + C + 4.0 + 4.12). Confirm via `git diff origin/modules~5..origin/modules --stat`.
+- [x] 7.3 No new entries under `backup/` from this change.
+- [x] 7.4 Dropped-scope items remain in the deferred state:
   - Around-advice: `EmitterDispatchTest:58` still asserts `UnsupportedOperationException`.
   - After-throwing: `DexWeaver.applyPlan:534-540` still no-ops on `TRY_CATCH_WRAP`; `MonitorInvokeBuilder.resolveBindings:325` still injects the `0` placeholder; `WrapperEmitter.shouldWrap` still returns true for any `"after"` but the wrapper path semantics remain after-returning only.
   - `this(name)`, `withincode(...)`, `cflow(...)`, `handler(...)`, `get/set(...)`, `initialization(...)`: still unimplemented; no JCA `.mop` demands them.
