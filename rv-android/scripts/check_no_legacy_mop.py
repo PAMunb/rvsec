@@ -101,6 +101,18 @@ ALLOWLIST_SUFFIXES = (
     # splits inside the docstring.
     "check_no_legacy_mop.py",
     "test_no_legacy_mop.py",
+    # The Pydantic-field tripwire pins the *absence* of legacy field
+    # names in rv-android-core domain models — it has to literally
+    # mention the forbidden strings in `forbidden = {...}` sets to
+    # assert their absence. Exempting by filename keeps that test
+    # self-contained without weakening the scanner anywhere else.
+    "test_no_legacy_mop_fields.py",
+    # The sweep delta comparator (`bb0a1df3 test(gh60): 380-APK sweep
+    # delta comparator`) intentionally handles BOTH the legacy
+    # `reachesMop` keys and the renamed `reachesTarget` keys so it can
+    # diff a pre-gh60 baseline sweep against a post-gh60 fresh sweep
+    # without requiring both sides to be re-run. See design.md line 433.
+    "check_gh60_sweep_delta.py",
 )
 
 # Path-substring allowlist (matches anywhere in the relative path). This

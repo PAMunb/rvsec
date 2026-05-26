@@ -47,7 +47,11 @@ from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalys
 
 ROOT = Path(__file__).resolve().parents[2]
 GATE_SCRIPT = ROOT / "scripts" / "check_signature_file_subset.py"
-LENIENT_OUTPUT = Path("/tmp/gh60_g_subset/lenient.json")
+JAR_PATH = ROOT / "lib" / "gator" / "rvsec-analysis-client.jar"
+
+# Centralised cache invalidation — see `tests/parity/_lenient_cache.py`
+# and `openspec/changes/gh60-targets-core/design.md` §D12.
+from ._lenient_cache import LENIENT_OUTPUT, ensure_fresh_lenient, required_or_skip
 
 # The writer emits the sentinel as the final key/value pair of the
 # top-level object, with no trailing whitespace before the closing brace
@@ -71,8 +75,12 @@ def _ensure_lenient_output() -> Path | None:
 
     Returns the path on success, or None when prerequisites are missing.
     """
-    if LENIENT_OUTPUT.exists() and LENIENT_OUTPUT.stat().st_size > 0:
-        return LENIENT_OUTPUT
+    # Reuse the cache only when it is fresh relative to the deployed jar.
+    # `ensure_fresh_lenient` deletes a stale cache so the next call sees
+    # it missing and falls through to the regenerator below.
+    cached = ensure_fresh_lenient(JAR_PATH)
+    if cached is not None:
+        return cached
     if not os.environ.get("RVSEC_HOME"):
         return None
     proc = subprocess.run(
@@ -96,7 +104,9 @@ def _ensure_lenient_output() -> Path | None:
 def lenient_output() -> Path:
     out = _ensure_lenient_output()
     if out is None:
-        pytest.skip("GATOR prerequisites missing — cannot exercise wire format")
+        required_or_skip(
+            "GATOR prerequisites missing — cannot exercise wire format"
+        )
     return out
 
 

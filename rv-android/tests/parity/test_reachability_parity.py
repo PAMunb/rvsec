@@ -59,7 +59,14 @@ BASELINE_PATH = (
     / "cryptoapp.apk.json"
 )
 GATE_SCRIPT = ROOT / "scripts" / "check_signature_file_subset.py"
-LENIENT_OUTPUT = Path("/tmp/gh60_g_subset/lenient.json")
+JAR_PATH = ROOT / "lib" / "gator" / "rvsec-analysis-client.jar"
+
+# Cache path + freshness check live in the shared helper so the four
+# call sites in tests/parity/ + scripts/ cannot drift. See
+# `tests/parity/_lenient_cache.py` for the rationale (and
+# `openspec/changes/gh60-targets-core/design.md` §D12 for the incident
+# that motivated this).
+from ._lenient_cache import LENIENT_OUTPUT, ensure_fresh_lenient, required_or_skip
 
 
 def _signature_set(json_path: Path, flag: str) -> set[str]:
@@ -74,8 +81,14 @@ def _signature_set(json_path: Path, flag: str) -> set[str]:
 
 
 def _ensure_fresh_lenient_output() -> Path | None:
-    if LENIENT_OUTPUT.exists() and LENIENT_OUTPUT.stat().st_size > 0:
-        return LENIENT_OUTPUT
+    # Cache freshness check is centralised; if the cache predates the
+    # deployed jar (or is missing/empty), the helper deletes it and
+    # returns None — forcing the fall-through subprocess regeneration
+    # below to actually run. This is what protects the gate from the
+    # silently-stale-cache failure mode documented in design.md §D12.
+    cached = ensure_fresh_lenient(JAR_PATH)
+    if cached is not None:
+        return cached
     if not os.environ.get("RVSEC_HOME"):
         return None
     proc = subprocess.run(
@@ -99,14 +112,16 @@ def _ensure_fresh_lenient_output() -> Path | None:
 def fresh_output() -> Path:
     out = _ensure_fresh_lenient_output()
     if out is None:
-        pytest.skip("GATOR prerequisites missing")
+        required_or_skip("GATOR prerequisites missing — set RVSEC_HOME + deploy the jar")
     return out
 
 
 @pytest.fixture(scope="module")
 def baseline() -> Path:
     if not BASELINE_PATH.exists():
-        pytest.skip(f"baseline fixture missing at {BASELINE_PATH}")
+        # Baseline is a tracked file — its absence is always a real
+        # problem, not a missing-environment issue. Fail unconditionally.
+        pytest.fail(f"baseline fixture missing at {BASELINE_PATH}")
     return BASELINE_PATH
 
 

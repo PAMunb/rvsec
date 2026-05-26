@@ -41,6 +41,8 @@ import pytest
 
 from rv_static_analysis.parser.static.static_analysis_parser import _JK
 
+from ._lenient_cache import required_or_skip
+
 # rv-analysis-client jar is produced by `mvn install` in rvsec-gator/client
 # and copied into `rv-android/lib/gator/` by the client pom's copy-resources
 # step (see client/pom.xml). The deployment path is the authoritative one —
@@ -78,9 +80,9 @@ def _dump_java_keys() -> list[str]:
 @pytest.fixture(scope="module")
 def java_keys() -> list[str]:
     if not JAR_PATH.exists():
-        pytest.skip(f"jar not deployed at {JAR_PATH} — run mvn install in rvsec-gator")
+        required_or_skip(f"jar not deployed at {JAR_PATH} — run mvn install in rvsec-gator")
     if not _java_available():
-        pytest.skip("java not on PATH")
+        required_or_skip("java not on PATH")
     return _dump_java_keys()
 
 

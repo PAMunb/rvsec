@@ -92,10 +92,16 @@ def _run_gator(
     (RVSEC_HOME, ANDROID_HOME). The timeout is 5 minutes — cryptoapp runs
     in ~6 s on a warm cache; the slack absorbs cold-cache + GC variance.
     """
+    # CG algorithm: leave unset so GATOR uses its compiled-in default (spark
+    # since gh51 D5). Until 2026-05-26 this line passed `-withCHA` explicitly,
+    # which produced cha-era reachability numbers (67/61 on cryptoapp) — the
+    # same numbers the stale in-tree baseline carried — so the parity gates
+    # looked green even though production (which runs spark) emits 55/32.
+    # See openspec/changes/gh60-targets-core/design.md §D12.
     cmd = (
         f"cd '{gator_dir}' && ./gator a -p '{apk}' --client-jar '{client_jar}'"
         f" --out '{out_json}' -client RvsecAnalysisClient"
-        f" -clientParam '{client_param}' -withCHA --timeout 300"
+        f" -clientParam '{client_param}' --timeout 300"
     )
     if verbose:
         print(f"[gator] {cmd}")

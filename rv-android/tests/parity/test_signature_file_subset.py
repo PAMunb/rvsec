@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pytest
 
+from ._lenient_cache import required_or_skip
+
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "check_signature_file_subset.py"
 SKIP_EXIT = 77
 
@@ -38,7 +40,10 @@ def test_strict_is_subset_of_lenient_on_cryptoapp() -> None:
     )
 
     if proc.returncode == SKIP_EXIT:
-        pytest.skip(f"prerequisites missing:\n{proc.stdout}\n{proc.stderr}")
+        required_or_skip(
+            f"check_signature_file_subset.py reported prerequisites missing:\n"
+            f"{proc.stdout}\n{proc.stderr}"
+        )
 
     assert proc.returncode == 0, (
         f"G_signature_file_subset script exited {proc.returncode}\n"
