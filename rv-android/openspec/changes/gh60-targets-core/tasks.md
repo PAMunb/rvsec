@@ -173,7 +173,7 @@ Atomic write + two-stage parser read removed from scope. Empirical basis: 826/82
   - `G_paridade_reachability` — zero set-diff vs characterization fixture
   - `G_paridade_targets` — zero set-diff vs characterization fixture
   - `G_json_keys` — Java↔Python parity via reflection dumper (no regex)
-  - `G_no_legacy_mop` — zero matches outside documented exclusions; scans `rvsec-gator/` + `modules/` (excl. `rv-agent/`) + `scripts/`
+  - `G_no_legacy_mop` — PASS via `scripts/check_no_legacy_mop.py` (zero hits on real repo) + `tests/parity/test_no_legacy_mop.py` (18/18, 10 planted-violation cases + 7 allowlist guards + live-repo cleanliness assertion)
   - `G_mutex_cli` — all 4 mutex cases pass
   - `G_enricher_purity` — `JsonReportWriter` has zero `ReachabilityIndex` reference
   - `G_sentinela_complete` — successful runs end with `,"complete":true}` after fsync; injected-failure runs end without sentinel
