@@ -1,0 +1,15 @@
+# gh61 yu5.<init> pre-fix snapshot
+# APK: data/results/instrument_jca190_07/instrument_jca190_07/instrumented_apks/com.github.soundpod_16.apk
+# Captured: 2026-05-25T17:51:07-03:00
+# Source: classes.dex / yu5.smali (baksmali 3.0.8)
+
+.method public constructor <init>(Ljava/lang/String;Lmu5;Ljava/lang/String;Ljava/lang/String;Lcs0;Lcs0;JJJLok0;ILxr;JJJJZLgl3;IIJIILjava/lang/String;Ljava/lang/Boolean;)V
+    .registers 34
+
+    invoke-virtual {p2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-virtual {p3}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-virtual {p4}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-virtual {p5}, Ljava/lang/Object;->getClass()Ljava/lang/Class;

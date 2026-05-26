@@ -60,7 +60,7 @@
 - [x] 3.8 Add `@Test callParamExactMatchPreservedWithoutPlus`: build a `CallPC` from `call(public static javax.crypto.Cipher javax.crypto.Cipher.getInstance(java.lang.String))`, match against an `invoke-static` with single descriptor `Ljava/lang/CharSequence;`. Assert no match (exact equality).
 - [x] 3.9 Run `mvn -pl pointcut-engine -am test`. All tests GREEN; new tests confirm INV-INS-86. Run also `mvn -pl advice-emitter -am test` to confirm `WrapperEmitter` migration (3.2) is regression-free.
 - [x] 3.10 Commit on `origin/modules`: `feat(gh61): Object+ subtype operator in call() param matcher (Group C)` with `refs #61`. Push.
-- [ ] 3.11 Rebuild Docker image: `bash docker/rvandroid/build.sh`. Wait for "Image created successfully!!!" (~5 min).
+- [x] 3.11 Rebuild Docker image: `bash docker/rvandroid/build.sh`. Wait for "Image created successfully!!!" (~5 min).
 - [ ] 3.12 Run APE smoke on a 5-10 APK subset that uses `Cipher.getInstance(String, Provider)` (pick from `data/results/exp_ape_gh59_*/monitor_events.csv` grepping for `CipherSpec` events) via `docker compose -f docker/docker-compose.exp-ape-gh59.yml up -d --scale instrument=1` against a small APK list. Inspect `monitor_events.csv` post-run: `g2` events for `CipherSpec` and `KeyGeneratorSpec` SHALL be > 0 (pre-fix baseline was 0). `KeyManagerFactorySpec`/`KeyPairGeneratorSpec`/`TrustManagerFactorySpec`/`SecureRandomSpec` `g2` events SHALL stay at 0 in gh61 — they use `(String, ..)`, a separate gap tracked under gh62.
 
 ## 4. Group D — `RegisterShifter` Frame-Growth Fix (clone path)
@@ -120,21 +120,21 @@
 
 ### 4e. Empirical verification (pipeline)
 
-- [ ] 4.11 Capture `yu5.<init>` baksmali pre-fix snapshot from the current Docker image's instrumentation output: see existing `data/results/instrument_jca190_*/instrumented_apks/com.github.soundpod_16.apk`. Save the `.registers` line of `yu5.<init>` to `experimento-jca-ape-gh59/gh61_yu5_pre.txt`.
+- [x] 4.11 Capture `yu5.<init>` baksmali pre-fix snapshot from the current Docker image's instrumentation output: see existing `data/results/instrument_jca190_*/instrumented_apks/com.github.soundpod_16.apk`. Save the `.registers` line of `yu5.<init>` to `experimento-jca-ape-gh59/gh61_yu5_pre.txt`.
 - [x] 4.12 Commit Group D source changes on `origin/modules`: `fix(gh61): persist registerCount via MMI clone in RegisterShifter (Group D)` with `refs #61`. Push.
-- [ ] 4.13 Rebuild Docker image: `bash docker/rvandroid/build.sh`. Wait for "Image created successfully!!!".
-- [ ] 4.14 Clean previous instrumentation outputs: `rm -rf out/validate_instrument_jca190/` and `data/results/instrument_jca190_*` (after confirming no in-flight runs).
-- [ ] 4.15 Re-instrument the 190-APK dataset: `docker compose -f docker/docker-compose.instrument-jca190.yml up -d` and monitor until all 10 containers exit 0 (~2 h).
-- [ ] 4.16 Verify all 190 APKs instrumented: `find data/results/instrument_jca190_*/instrument_jca190_*/instrumented_apks -name '*.apk' | wc -l` SHALL return `190`. Verify all `instrument_errors.json` files are empty (`[]`).
-- [ ] 4.17 Capture `yu5.<init>` baksmali post-fix and diff against the pre-fix snapshot (4.11). The `.registers N` line SHALL show `N` incremented relative to pre-fix.
-- [ ] 4.18 Run smoke validation: `uv run python scripts/validate_instrument_jca190.py --limit 5`. SHALL show 5/5 PASS. rv-platform manages the emulator lifecycle automatically per `CLAUDE.md` — do not start/stop emulators manually.
-- [ ] 4.19 Run full validation: `uv run python scripts/validate_instrument_jca190.py`. The 5 target APKs (`com.github.soundpod_16`, `com.grappim.taigamobile.fdroid_38`, `com.shub39.rush_5730`, `gizz.tapes.foss_63`, `org.fossify.musicplayer_14`) SHALL all report `PASS`. `FAIL_FATAL` SHALL stay within `19±2`; `FAIL_INSTALL` within `2±1`; `FAIL_VERIFY` SHALL drop to **0**.
+- [x] 4.13 Rebuild Docker image: `bash docker/rvandroid/build.sh`. Wait for "Image created successfully!!!".
+- [x] 4.14 Clean previous instrumentation outputs: `rm -rf out/validate_instrument_jca190/` and `data/results/instrument_jca190_*` (after confirming no in-flight runs).
+- [x] 4.15 Re-instrument the 190-APK dataset: `docker compose -f docker/docker-compose.instrument-jca190.yml up -d` and monitor until all 10 containers exit 0 (~2 h).
+- [x] 4.16 Verify all 190 APKs instrumented: `find data/results/instrument_jca190_*/instrument_jca190_*/instrumented_apks -name '*.apk' | wc -l` SHALL return `190`. Verify all `instrument_errors.json` files are empty (`[]`).
+- [x] 4.17 Capture `yu5.<init>` baksmali post-fix and diff against the pre-fix snapshot (4.11). The `.registers N` line SHALL show `N` incremented relative to pre-fix.
+- [x] 4.18 Run smoke validation: `uv run python scripts/validate_instrument_jca190.py --limit 5`. SHALL show 5/5 PASS. rv-platform manages the emulator lifecycle automatically per `CLAUDE.md` — do not start/stop emulators manually.
+- [x] 4.19 Run full validation: `uv run python scripts/validate_instrument_jca190.py`. The 5 target APKs (`com.github.soundpod_16`, `com.grappim.taigamobile.fdroid_38`, `com.shub39.rush_5730`, `gizz.tapes.foss_63`, `org.fossify.musicplayer_14`) SHALL all report `PASS`. `FAIL_FATAL` SHALL stay within `19±2`; `FAIL_INSTALL` within `2±1`; `FAIL_VERIFY` SHALL drop to **0**.
 
 ## 5. Integration & Verification
 
 - [ ] 5.1 Run optional full APE experiment: `docker compose -f docker/docker-compose.exp-ape-gh59.yml up -d` (8 containers × 163 APKs × 3 reps × 300 s ≈ 6h 40min). Compare against gh59 baseline: tasks COMPLETED ≥ 480, MOP events ≥ 4300, APKs with violation ≥ 100. Group C is expected to increase MOP event count due to new `g2` triggers — record the delta. Skip this step if 4.19 + 3.11 satisfy the user.
 - [ ] 5.2 Re-stage APKs to canonical dataset path: `bash scripts/stage_apks_exp_ape_gh59.sh` (rsync the freshly instrumented 190 to `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB/`). Skip if 5.1 was skipped.
-- [ ] 5.3 Run `/opsx:verify` against the change — confirm artifacts and implementation match.
+- [x] 5.3 Run `/opsx:verify` against the change — confirm artifacts and implementation match.
 - [ ] 5.4 Update memory: edit `MEMORY.md` → `project_gh61_dexlib2_gaps_bundle` to record outcome (5/5 target APKs PASS, Group C g2 event delta, drift in FAIL counts, any unexpected regression).
 - [ ] 5.5 Invoke `/rv-code-reviewer` via Skill tool against the Group C + Group D diff (the groups with production code changes).
 
