@@ -172,7 +172,7 @@ Atomic write + two-stage parser read removed from scope. Empirical basis: 826/82
 - [ ] 9.1 Run full 5-APK canonical fixture smoke (`cryptoapp` + 4 others — list in `tests/fixtures/gh60/canonical_apks.txt`); the following in-scope gates MUST be green:
   - `G_paridade_reachability` — zero set-diff vs characterization fixture
   - `G_paridade_targets` — zero set-diff vs characterization fixture
-  - `G_json_keys` — Java↔Python parity via reflection dumper (no regex)
+  - `G_json_keys` — PASS via `tests/parity/test_json_keys.py` (4/4: sortedness, set-equality on 47 keys, no legacy MOP key values, count agreement; subprocess to `JsonSchemaKeysDump` in `lib/gator/rvsec-analysis-client.jar`)
   - `G_no_legacy_mop` — PASS via `scripts/check_no_legacy_mop.py` (zero hits on real repo) + `tests/parity/test_no_legacy_mop.py` (18/18, 10 planted-violation cases + 7 allowlist guards + live-repo cleanliness assertion)
   - `G_mutex_cli` — all 4 mutex cases pass
   - `G_enricher_purity` — `JsonReportWriter` has zero `ReachabilityIndex` reference
