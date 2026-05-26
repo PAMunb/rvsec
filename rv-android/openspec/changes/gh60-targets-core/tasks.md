@@ -176,7 +176,7 @@ Atomic write + two-stage parser read removed from scope. Empirical basis: 826/82
   - `G_no_legacy_mop` — PASS via `scripts/check_no_legacy_mop.py` (zero hits on real repo) + `tests/parity/test_no_legacy_mop.py` (18/18, 10 planted-violation cases + 7 allowlist guards + live-repo cleanliness assertion)
   - `G_mutex_cli` — all 4 mutex cases pass
   - `G_enricher_purity` — `JsonReportWriter` has zero `ReachabilityIndex` reference
-  - `G_sentinela_complete` — Python parser side via `modules/rv-static-analysis/tests/parser/test_sentinel.py` (4/4 cases on synthetic fixtures); wire-level (real GATOR bytes end with `,"complete":true}`) via `tests/parity/test_sentinel_emission.py` (4/4). Java-side `SentinelEmissionTest.java` (injected-failure harness) remains a follow-up
+  - `G_sentinela_complete` — Python parser side via `modules/rv-static-analysis/tests/parser/test_sentinel.py` (4/4 on synthetic fixtures); wire-level via `tests/parity/test_sentinel_emission.py` (4/4 on real GATOR bytes); Java pattern-conformance via `SentinelEmissionTest.java` in `rvsec-gator/client/src/test/java/.../json/` (5/5: success path + four section-boundary fault injections, each asserts no `complete` key when the writer's sequence aborts). Note: the Java test exercises the JsonWriter sequence pattern, not `JsonReportWriter` directly — driving the production method needs a Soot Scene (`GUIAnalysisOutput.getActivities`), only available end-to-end through GATOR (covered by the wire-level Python test)
   - `G_cg_algorithm_cli` — all 3 `--cg-algorithm` cases pass
   - `G_jimple_def_utils` — `MenuExtractor` and `SpinnerItemExtractor` contain zero private duplicates of the helpers; both call `JimpleDefUtils.*`
   - `G_no_match_mode_flag` — no forbidden CLI option string registered
