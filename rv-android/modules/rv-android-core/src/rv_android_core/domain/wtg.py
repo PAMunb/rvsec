@@ -5,10 +5,10 @@ This module provides validated data models for representing navigation flows
 between application windows and their associated UI interaction events.
 """
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 import networkx as nx
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, PrivateAttr
 from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.domain.window import Window
 from rv_android_core.util.validation import BaseValidatedModel
@@ -46,6 +46,27 @@ class WindowTransition(BaseValidatedModel):
     method: str = Field(
         description="Complete method signature of the callback that handles the transition"
     )
+    target_window_class: Optional[str] = Field(
+        default=None,
+        description=(
+            "Fully-qualified class name of the destination window (Activity / "
+            "Fragment / DialogFragment). Set by the parser when it has resolved "
+            "the target Window referenced by the JSON `targetId`. The property "
+            "`target_reaches_target` reads this to look up the destination's "
+            "reachability flag in the parser-injected index. Defaults to None "
+            "so direct WindowTransition construction in tests stays terse."
+        ),
+    )
+
+    # INV-CORE-34: target_reaches_target is a @property, NOT a stored field.
+    # The reachability fact lives on `Method.reaches_target` (per-method bool)
+    # in the Classes section; the parser aggregates `any(m.reaches_target for
+    # m in class.methods)` per class and injects the resulting per-class map
+    # into each WindowTransition via `_window_methods_index`. Storing the
+    # answer would force the parser to rewrite it whenever Classes drifts
+    # (refresh cycles, partial timeouts) and risks the field going stale
+    # without the source-of-truth booleans changing.
+    _window_methods_index: Dict[str, bool] = PrivateAttr(default_factory=dict)
 
     @property
     def transition_type(self) -> WidgetEventType:
@@ -56,6 +77,35 @@ class WindowTransition(BaseValidatedModel):
     def method_signature(self) -> str:
         """Compatibility property for accessing method."""
         return self.method
+
+    @property
+    def target_reaches_target(self) -> bool:
+        """Does the destination window contain any method that reaches a target?
+
+        D10 disambiguates: this is the *window-level* aggregate (gh60). The
+        per-event aggregate (C3 scope) lives separately as
+        `transition_reaches_target_aggregate`. Returns False when
+        `target_window_class` was not set (e.g. direct construction in tests)
+        or when the class is absent from the parser-injected index — both are
+        legitimate "no signal" states for the agent.
+        """
+        if not self.target_window_class:
+            return False
+        return self._window_methods_index.get(self.target_window_class, False)
+
+    def attach_window_methods_index(self, index: Dict[str, bool]) -> None:
+        """Inject the parser-built `class_name -> any_method_reaches_target` map.
+
+        Called by `StaticAnalysisParser._parse_transitions` once per
+        WindowTransition immediately after construction. We use a setter
+        instead of a constructor kwarg because the parser builds the index
+        once and shares it across many transitions — passing it through
+        Pydantic field validation per transition would copy the dict for
+        every event (cryptoapp emits ~30 events; real APKs reach 1k+).
+        """
+        # PrivateAttr accepts assignment; the alternative `model_construct`
+        # bypasses validation, which we want to keep for the public fields.
+        self._window_methods_index = index
 
     def to_json(self) -> Dict[str, Any]:
         return {

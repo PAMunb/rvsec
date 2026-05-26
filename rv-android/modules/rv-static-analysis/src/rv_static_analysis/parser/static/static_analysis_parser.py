@@ -201,7 +201,17 @@ class StaticAnalysisParser:
         # transitions need windows (for source/target lookup and widget back-fill).
         classes = self._parse_classes(data, package)
         windows = self._parse_windows(data, package, classes)
-        wtg = self._parse_transitions(data, windows)
+        # INV-CORE-34: aggregate Method.reaches_target up to the class level
+        # before parsing transitions, so each WindowTransition can answer
+        # `target_reaches_target` via lookup on the destination window's
+        # class name. Built here (not inside `_parse_transitions`) because
+        # the source of truth is Classes, which a future caller might want
+        # to reuse for the C3 per-event aggregate.
+        class_reaches_target_index = {
+            class_name: any(m.reaches_target for m in clazz.methods)
+            for class_name, clazz in classes.classes.items()
+        }
+        wtg = self._parse_transitions(data, windows, class_reaches_target_index)
         components = self._parse_components(data)
 
         # ADR-6 sentinel — absent or False means the producer did not finish
@@ -521,7 +531,12 @@ class StaticAnalysisParser:
             signature=handler,
         )
 
-    def _parse_transitions(self, data: dict, windows: Windows) -> WindowTransitionGraph:
+    def _parse_transitions(
+        self,
+        data: dict,
+        windows: Windows,
+        class_reaches_target_index: dict[str, bool] | None = None,
+    ) -> WindowTransitionGraph:
         """Parse the transitions section into WindowTransitionGraph.
 
         Each transition links source and target windows by ID and carries
@@ -595,7 +610,14 @@ class StaticAnalysisParser:
                         widget_id=widget_id,
                         event_type=event_type,
                         method=handler,
+                        target_window_class=target_window.class_name or target_window.name,
                     )
+                    if class_reaches_target_index is not None:
+                        # Share one index reference across every event of every
+                        # transition — the index is read-only after parsing, so
+                        # aliasing is safe and avoids per-event dict copies on
+                        # APKs with thousands of edges.
+                        transition_event.attach_window_methods_index(class_reaches_target_index)
                     events.append(transition_event)
 
                 if events:

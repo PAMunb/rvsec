@@ -170,18 +170,18 @@ Atomic write + two-stage parser read removed from scope. Empirical basis: 826/82
 ## 9. Integration, sweep, and verification
 
 - [ ] 9.1 Run full 5-APK canonical fixture smoke (`cryptoapp` + 4 others — list in `tests/fixtures/gh60/canonical_apks.txt`); the following in-scope gates MUST be green:
-  - `G_paridade_reachability` — zero set-diff vs characterization fixture
-  - `G_paridade_targets` — zero set-diff vs characterization fixture
+  - `G_paridade_reachability` — PASS via `tests/parity/test_reachability_parity.py::test_reachability_set_matches_baseline` (set of `reachable=True` signatures matches `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` exactly)
+  - `G_paridade_targets` — PASS via `tests/parity/test_reachability_parity.py::test_targets_set_matches_baseline` (set of `reachesTarget=True` matches the same baseline); also asserts `directlyReachesTarget ⊆ reachesTarget` and that the baseline carries renamed keys
   - `G_json_keys` — PASS via `tests/parity/test_json_keys.py` (4/4: sortedness, set-equality on 47 keys, no legacy MOP key values, count agreement; subprocess to `JsonSchemaKeysDump` in `lib/gator/rvsec-analysis-client.jar`)
   - `G_no_legacy_mop` — PASS via `scripts/check_no_legacy_mop.py` (zero hits on real repo) + `tests/parity/test_no_legacy_mop.py` (18/18, 10 planted-violation cases + 7 allowlist guards + live-repo cleanliness assertion)
   - `G_mutex_cli` — all 4 mutex cases pass
   - `G_enricher_purity` — `JsonReportWriter` has zero `ReachabilityIndex` reference
-  - `G_sentinela_complete` — successful runs end with `,"complete":true}` after fsync; injected-failure runs end without sentinel
+  - `G_sentinela_complete` — Python parser side via `modules/rv-static-analysis/tests/parser/test_sentinel.py` (4/4 cases on synthetic fixtures); wire-level (real GATOR bytes end with `,"complete":true}`) via `tests/parity/test_sentinel_emission.py` (4/4). Java-side `SentinelEmissionTest.java` (injected-failure harness) remains a follow-up
   - `G_cg_algorithm_cli` — all 3 `--cg-algorithm` cases pass
   - `G_jimple_def_utils` — `MenuExtractor` and `SpinnerItemExtractor` contain zero private duplicates of the helpers; both call `JimpleDefUtils.*`
   - `G_no_match_mode_flag` — no forbidden CLI option string registered
   - `G_no_json_literals_in_writer` — `JsonReportWriter.java` contains no key-like string literal outside `JsonSchema.Keys` references
-  - `G_signature_file_subset` — STRICT result is a subset of LENIENT result on `cryptoapp`
+  - `G_signature_file_subset` — PASS via `scripts/check_signature_file_subset.py` (~70s cold cache: |LENIENT|=61, |STRICT|=56, diff=0) + `tests/parity/test_signature_file_subset.py`. INV-CORE-34 (`target_reaches_target @property`) also landed: stored field added (`target_window_class`), parser wired to inject per-class index, 6 new cases in `modules/rv-android-core/tests/domain/test_wtg.py::TestTargetReachesTargetProperty`
   - Deferred (NOT executed in gh60 — confirm by absence): `G_widget_reachability`, `G_transition_reachability`, `G_dead_code_wtg`, `G_dead_code_flowgraph` (all owned by C2/C3)
 - [ ] 9.2 Run integration test full pipeline: `uv run rv-experiment run --tools aperv --apks-dir ./apks_examples --timeout 60` (aperv is the target consumer of `--targets-file`; rv-agent is deprecated — do NOT use it here). Sanity check that consumer-side rename did not break end-to-end execution.
 - [ ] 9.3 Run sweep on 380 APKs in background (post all C1 commits): `bash scripts/run_jca_sweep.sh ...` (or equivalent); collect per-APK `|count_new - count_old| / count_old`; assert ≤ 5% per APK in `reachesTarget`/`windows`/`transitions` (vs `reachesMop` baseline — set-comparison transparent to rename); flag outliers > 5% for manual review and attach to PR.

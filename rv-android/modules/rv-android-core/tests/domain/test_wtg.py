@@ -4,6 +4,12 @@ Unit tests for the Window Transition Graph module.
 
 This module contains tests for the WindowTransition and WindowTransitionGraph classes
 that represent the navigation structure of Android applications.
+
+INV-CORE-34 is covered by the `test_target_reaches_target_*` cases at the
+bottom: the design fixes `target_reaches_target` as a `@property` (not a
+stored field), resolved against a parser-injected per-class index. The
+tests pin down that exact shape so a future refactor that turns it back
+into a stored field fails fast.
 """
 
 from unittest.mock import MagicMock
@@ -269,6 +275,112 @@ class TestWindowTransitionGraph:
         assert "WindowTransitionGraph" in str_representation
         assert "windows=3" in str_representation
         assert "transitions=2" in str_representation
+
+
+class TestTargetReachesTargetProperty:
+    """INV-CORE-34 — `target_reaches_target` is a `@property`, not a field.
+
+    The design (gh60 design.md §INV-CORE-34, D10) fixes this shape:
+        - `@property` decorator on `WindowTransition`
+        - Resolved at access time via the parser-injected per-class index
+        - NEVER stored as a Pydantic field — would risk going stale when
+          the source-of-truth `Method.reaches_target` flags drift between
+          partial parses (e.g., timeout-recovered JSONs)
+
+    The tests below pin down each leg of that contract.
+    """
+
+    def test_target_reaches_target_is_property_not_field(self):
+        """The headline INV-CORE-34 assertion."""
+        # `__dict__` returns the class-level definition without instance
+        # lookup, so we see the raw property descriptor (not the computed
+        # bool value an instance would expose via attribute access).
+        descriptor = WindowTransition.__dict__["target_reaches_target"]
+        assert isinstance(descriptor, property), (
+            "WindowTransition.target_reaches_target must remain a @property "
+            "(INV-CORE-34) — turning it into a stored field re-introduces the "
+            "drift risk D10 calls out; got "
+            f"{type(descriptor).__name__}: {descriptor!r}"
+        )
+
+    def test_target_reaches_target_is_not_in_pydantic_model_fields(self):
+        """Belt-and-braces — Pydantic's field registry must not list it."""
+        assert "target_reaches_target" not in WindowTransition.model_fields, (
+            "target_reaches_target leaked into Pydantic model_fields — this "
+            "happens if someone re-declares it as a Field(...) somewhere. "
+            "The contract is @property only."
+        )
+
+    def test_target_reaches_target_defaults_to_false_without_index(self):
+        """Direct construction (e.g. unit tests, ad-hoc usage) yields False.
+
+        Tests in the wider codebase build WindowTransition with three args
+        and never set `target_window_class` — the property must degrade
+        gracefully to False rather than raise KeyError on the missing
+        index entry.
+        """
+        t = WindowTransition(
+            "w1", WidgetEventType.CLICK, "<com.X: void f()>"
+        )
+        assert t.target_reaches_target is False
+        assert t.target_window_class is None
+
+    def test_target_reaches_target_false_when_class_absent_from_index(self):
+        """Class name missing from the index → False (the "no signal" case).
+
+        Models the legitimate situation where the destination Activity
+        wasn't reachable from MAIN at all — Classes section omits it, so
+        the index has no entry. The property must not invent a value.
+        """
+        t = WindowTransition(
+            "w1",
+            WidgetEventType.CLICK,
+            "<com.X: void f()>",
+            target_window_class="com.app.UnknownActivity",
+        )
+        t.attach_window_methods_index({"com.app.OtherActivity": True})
+
+        assert t.target_reaches_target is False
+
+    def test_target_reaches_target_true_when_index_says_true(self):
+        """Positive path — destination class is flagged in the index."""
+        t = WindowTransition(
+            "w1",
+            WidgetEventType.CLICK,
+            "<com.X: void f()>",
+            target_window_class="com.app.CryptoActivity",
+        )
+        t.attach_window_methods_index(
+            {
+                "com.app.CryptoActivity": True,
+                "com.app.SettingsActivity": False,
+            }
+        )
+
+        assert t.target_reaches_target is True
+
+    def test_attach_index_does_not_mutate_field_dict(self):
+        """The injected index lives on PrivateAttr, not on model_dump output.
+
+        `to_json()` must not start leaking the index — it's parser-internal
+        state, not part of the wire format. A drift here would balloon the
+        JSON output every transition by len(index) entries.
+        """
+        t = WindowTransition(
+            "w1",
+            WidgetEventType.CLICK,
+            "<com.X: void f()>",
+            target_window_class="com.app.A",
+        )
+        t.attach_window_methods_index({"com.app.A": True})
+
+        json_payload = t.to_json()
+        assert "window_methods_index" not in json_payload
+        assert "_window_methods_index" not in json_payload
+        # to_json's wire format is intentionally minimal (widget_id,
+        # event_type, method); the property answer is consumed at
+        # decision-making time by the agent, not serialised.
+        assert set(json_payload.keys()) == {"widget_id", "event_type", "method"}
 
 
 if __name__ == "__main__":
