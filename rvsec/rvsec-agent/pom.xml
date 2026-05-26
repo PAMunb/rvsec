@@ -101,7 +101,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<pathToMopFiles>/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-testes-jca/resources/generic_new_jvm</pathToMopFiles>
+					<pathToMopFiles>${main.basedir}/${project.parent.artifactId}/rvsec-mop/src/main/resources/jca</pathToMopFiles>
 					<pathToJavaMop>${main.basedir}/javamop/bin</pathToJavaMop>
 					<pathToMonitor>${main.basedir}/rv-monitor/bin</pathToMonitor>
 					<destinationFolder>${main.basedir}/${project.parent.artifactId}/${project.artifactId}/src/main/java/mop</destinationFolder>
