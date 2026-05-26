@@ -38,12 +38,14 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-		<!-- Required for generic_new specs (generated code references org.aspectj.lang.Signature) -->
+		<!-- Only needed for generic_new specs (generated code references org.aspectj.lang.Signature).
+		     For JCA specs (default), this dep is unnecessary — kept commented for reference.
 		<dependency>
 			<groupId>org.aspectj</groupId>
 			<artifactId>aspectjrt</artifactId>
 			<scope>provided</scope>
 		</dependency>
+		-->
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
