@@ -123,6 +123,93 @@ public class XmlInputTypeTest {
 		assertTrue(result.isEmpty());
 	}
 
+	// ── gh60 G6.4 (pulled from C2): integer-array + generic array ──────
+	//
+	// Pre-fix, parseArraysXml only looked at <string-array>. Spinners
+	// whose android:entries="@array/foo" referenced an <integer-array>
+	// (numeric pickers, color palettes) or generic <array> (mixed
+	// @drawable/@string lists) silently got entries=[] in the JSON. The
+	// agent's spinner-selection logic then skipped those widgets — a
+	// quiet false-negative in UI exploration coverage. See design.md D13.
+
+	@Test
+	public void testParseArraysXmlIntegerArray() throws IOException {
+		File valuesDir = tempDir.newFolder("values");
+		File arraysXml = new File(valuesDir, "arrays.xml");
+		writeFile(arraysXml,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<resources>\n" +
+				"  <integer-array name=\"ids\">\n" +
+				"    <item>1</item>\n" +
+				"    <item>42</item>\n" +
+				"  </integer-array>\n" +
+				"</resources>");
+
+		Map<String, List<String>> result = client.parseArraysXml(tempDir.getRoot().getAbsolutePath());
+
+		assertEquals(1, result.size());
+		assertEquals(Arrays.asList("1", "42"), result.get("ids"));
+	}
+
+	@Test
+	public void testParseArraysXmlGenericArray() throws IOException {
+		File valuesDir = tempDir.newFolder("values");
+
+		File arraysXml = new File(valuesDir, "arrays.xml");
+		writeFile(arraysXml,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<resources>\n" +
+				"  <array name=\"mixed\">\n" +
+				"    <item>literal</item>\n" +
+				"    <item>@string/foo</item>\n" +
+				"  </array>\n" +
+				"</resources>");
+
+		File stringsXml = new File(valuesDir, "strings.xml");
+		writeFile(stringsXml,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<resources>\n" +
+				"  <string name=\"foo\">resolved</string>\n" +
+				"</resources>");
+
+		Map<String, List<String>> result = client.parseArraysXml(tempDir.getRoot().getAbsolutePath());
+
+		assertEquals(1, result.size());
+		assertEquals(Arrays.asList("literal", "resolved"), result.get("mixed"));
+	}
+
+	@Test
+	public void testParseArraysXmlAllKindsCoexist() throws IOException {
+		// A single arrays.xml file declaring all three resource-array
+		// forms — they MUST be merged into one map keyed by the name
+		// attribute, regardless of source tag.
+		File valuesDir = tempDir.newFolder("values");
+		File arraysXml = new File(valuesDir, "arrays.xml");
+		writeFile(arraysXml,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<resources>\n" +
+				"  <string-array name=\"countries\">\n" +
+				"    <item>BR</item>\n" +
+				"    <item>US</item>\n" +
+				"  </string-array>\n" +
+				"  <integer-array name=\"sizes\">\n" +
+				"    <item>10</item>\n" +
+				"    <item>20</item>\n" +
+				"  </integer-array>\n" +
+				"  <array name=\"colors\">\n" +
+				"    <item>red</item>\n" +
+				"    <item>green</item>\n" +
+				"  </array>\n" +
+				"</resources>");
+
+		Map<String, List<String>> result = client.parseArraysXml(tempDir.getRoot().getAbsolutePath());
+
+		assertEquals(3, result.size());
+		assertEquals(Arrays.asList("BR", "US"), result.get("countries"));
+		assertEquals(Arrays.asList("10", "20"), result.get("sizes"));
+		assertEquals(Arrays.asList("red", "green"), result.get("colors"));
+	}
+
 	// ── resolveStringReference tests ────────────────────────────────────
 
 	@Test

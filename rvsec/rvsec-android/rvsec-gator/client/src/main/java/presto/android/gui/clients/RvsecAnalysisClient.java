@@ -1165,24 +1165,40 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			Document doc = builder.parse(arraysFile);
 
-			NodeList arrayNodes = doc.getElementsByTagName("string-array");
-			for (int i = 0; i < arrayNodes.getLength(); i++) {
-				Element arrayElem = (Element) arrayNodes.item(i);
-				String name = arrayElem.getAttribute("name");
-				List<String> items = new ArrayList<>();
+			// Iterate all three resource-array kinds Android supports.
+			// <string-array> covers most cases (textual entries for Spinners);
+			// <integer-array> shows up on numeric pickers / color-palette
+			// indices; generic <array> is the catch-all for mixed
+			// @drawable/@string/@dimen lists. Pre-2026-05-26 this loop only
+			// looked at <string-array>, so any spinner whose
+			// android:entries="@array/foo" referenced an <integer-array> or
+			// <array> resource silently got entries=[] and the agent's
+			// inventory missed it. See design.md §D13.
+			String[] arrayTagNames = {"string-array", "integer-array", "array"};
+			for (String tagName : arrayTagNames) {
+				NodeList arrayNodes = doc.getElementsByTagName(tagName);
+				for (int i = 0; i < arrayNodes.getLength(); i++) {
+					Element arrayElem = (Element) arrayNodes.item(i);
+					String name = arrayElem.getAttribute("name");
+					List<String> items = new ArrayList<>();
 
-				NodeList itemNodes = arrayElem.getElementsByTagName("item");
-				for (int j = 0; j < itemNodes.getLength(); j++) {
-					String value = itemNodes.item(j).getTextContent().trim();
-					// Resolve @string/ references
-					if (value.startsWith("@string/")) {
-						String resolved = resolveStringReference(resDir, value.substring("@string/".length()));
-						items.add(resolved != null ? resolved : value);
-					} else {
-						items.add(value);
+					NodeList itemNodes = arrayElem.getElementsByTagName("item");
+					for (int j = 0; j < itemNodes.getLength(); j++) {
+						String value = itemNodes.item(j).getTextContent().trim();
+						// @string/ resolution applies uniformly — an
+						// <array> can legitimately mix literal values with
+						// @string/ refs; <integer-array> items are
+						// numeric literals so the @string/ branch is a
+						// harmless no-op there.
+						if (value.startsWith("@string/")) {
+							String resolved = resolveStringReference(resDir, value.substring("@string/".length()));
+							items.add(resolved != null ? resolved : value);
+						} else {
+							items.add(value);
+						}
 					}
+					arrays.put(name, items);
 				}
-				arrays.put(name, items);
 			}
 		} catch (Exception e) {
 			// Graceful degradation

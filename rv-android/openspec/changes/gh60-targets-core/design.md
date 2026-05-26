@@ -293,6 +293,34 @@ Triggered by the D11 investigation. After rebuilding `lib/gator/rvsec-analysis-c
 
 **Out of scope (follow-up):** multi-APK baseline (cryptoapp is a 16-class toy; Compose/R8/lambda-heavy apps need separate fixtures); sweep gate execution on the full 380-APK corpus (Group 9.3/9.4). `modules/rv-agent/` fixtures NEVER touched per CLAUDE.md deprecation policy.
 
+### D13 — `parseArraysXml` covers all three array tag kinds (G6.4 pulled forward from C2, 2026-05-26)
+
+`parseArraysXml` historically called `doc.getElementsByTagName("string-array")` exclusively — `<integer-array>` and `<array>` resource forms were ignored. Any `android:entries="@array/foo"` reference where `foo` was declared as `<integer-array>` (numeric pickers, color palettes, ID lists) or `<array>` (mixed @drawable/@string/@dimen items) silently produced `entries=[]` in the JSON. The agent's spinner-selection logic then saw an empty inventory and skipped those widgets — a quiet false-negative in UI exploration coverage.
+
+The original scope decision (proposal.md §Follow-up Changes) put this in C2 alongside other hardening items (cache, menu superclass walk, dead code expansion). Two arguments for pulling it forward into gh60:
+
+1. **Same-file precedent.** Group 11 already pulled the hint/text fix from "out of scope" into gh60 under the rationale "we are already in this file". The same logic applies: `parseArraysXml` lives in `RvsecAnalysisClient.java` immediately below the `enrichFromElement` Group 11 touched. The patch is ≤5 LOC: replace one `getElementsByTagName` call with a loop over three tag names.
+
+2. **Trivial test coverage.** `XmlInputTypeTest` already exercises `parseArraysXml` for `string-array` (`testParseArraysXmlPlainItems`, `testParseArraysXmlWithStringRefs`). Mirroring three more cases (`integer-array`, generic `array`, all-three-coexist) is mechanical and follows the existing fixture pattern.
+
+Implementation: keep the existing per-item handling (text content + `@string/` resolution) verbatim — `<integer-array>` items are stringified naturally (`"42"`), `<array>` items pass through verbatim or via `@string/` if applicable, downstream consumer (`widget.entries: List<String>`) is unaffected.
+
+**Cryptoapp baseline impact: none — but for a non-obvious reason.** The cryptoapp source XML at `examples/cryptoapp/app/src/main/res/values/arrays.xml` declares `<array name="messageDigestAlgorithms">` (generic `<array>`, NOT `<string-array>`). Yet the pre-G6.4 baseline already showed the spinner's entries populated with all 13 algorithms. Investigation revealed: apktool decodes the binary APK's resource table into `<string-array>` for any array whose items are all strings — the source-XML distinction `<array>` vs `<string-array>` is lost during the build → apktool round-trip. GATOR only sees the decoded XML, never the source. So cryptoapp's `<array>` was already showing up to `parseArraysXml` as `<string-array>`.
+
+**Empirical 30-APK sample from JCA-400 (2026-05-26):**
+
+| Tag observed in decoded XML | APKs (n=30) | Coverage notes |
+|------------------------------|-------------|----------------|
+| `<string-array>` only        | 25 (83%)    | apktool normalized any source `<array>` to `<string-array>` |
+| `<array>` (generic)          | 5 (17%)     | apktool preserved generic — items mix non-string types |
+| `<integer-array>`            | 0 (0%)      | rare in modern Android UI resources |
+
+The 5 generic-`<array>` cases need separate verification on whether the items are actually referenced by Spinners' `android:entries`; the ones inspected (e.g. `net.aliasvault.app_2702900.apk` has `<array name="crypto_fingerprint_fallback_prefixes" />`) are empty placeholders, so the practical coverage uplift is smaller than 17%. The fix is still worth landing because (a) the patch is ≤5 LOC, (b) unit tests pin behavior so a future apktool upgrade producing `<integer-array>` more often automatically benefits, (c) the redundancy is harmless when apktool already produced `<string-array>`.
+
+**Decision rationale:** the G6.4 entry in the C2 hardening list assumed source-XML semantics (where the three tags are distinct) without accounting for the apktool normalization layer. The 30-APK empirical sample shows the real-world uplift is small but non-zero; given the same-file proximity and zero-cost test maintenance, pulling it forward into gh60 is justified, but the C2 author should NOT cite "fixes silently-empty spinner inventories" as motivation for the broader package — that motivation barely survives empirical scrutiny.
+
+**Out of scope (still in C2):** G6.2 (`resolveStringReference` cache), G6.3 (`findOnCreateOptionsMenu` superclass walk), G6.5 (dead-code expansion), G6.6 (`WidgetType` drift warn log), G11 (dual `manifestPackage`/`codePackage` emission). Pulling G6.4 alone is justified by the same-file proximity; pulling everything else means re-doing the multi-LLM convergence that produced the 3-change split.
+
 ## API Design
 
 ### Java: `TargetMethodSource`

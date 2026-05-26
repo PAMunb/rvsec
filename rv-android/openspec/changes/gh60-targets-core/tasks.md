@@ -161,7 +161,7 @@
 - [x] 7.3 Add `JimpleDefUtilsTest.java` covering the three methods with synthetic Jimple inputs (14 cases: single-def / multi-def via if-else / no-def for `definitionRhs`; direct constant + local-walk + wrong-type + empty-string variants for `resolveInt`/`resolveStr`; utility-class shape assertion)
 - [x] 7.4 Verify existing `MenuExtractor` and `SpinnerItemExtractor` tests remain green — client unit suite 129/129 PASS after refactor
 - [x] 7.5 Coverage of `JimpleDefUtils` — qualitative: every branch of every method exercised by `JimpleDefUtilsTest` (jacoco not wired in `rvsec-gator-parent/pom.xml`; documenting coverage via test inventory in 7.3 rather than adding a build-system dependency for a 60-line utility); `G_jimple_def_utils` (zero private duplicates in extractor classes) verified by grep
-- [ ] 7.6 Commit `refactor(gh60): C1g extract JimpleDefUtils (refs #60)`
+- [x] 7.6 Commit `refactor(gh60): C1g extract JimpleDefUtils (refs #60)`
 
 ## 8. C1h — DROPPED (Phase 1 task-zero verdict, 2026-05-25)
 
@@ -191,8 +191,8 @@ Atomic write + two-stage parser read removed from scope. Empirical basis: 826/82
 - [x] 9.7 Run `openspec validate "gh60-targets-core"` — must pass structural validation
 - [ ] 9.8 Invoke `/rv-code-reviewer` via Skill tool on the diff vs `master`; address any high-confidence findings
 - [ ] 9.9 Run `/rv-docs-sync rv-static-analysis` and `/rv-docs-sync rv-android-core` to update CLAUDE.md and architecture.md for the renamed components and new abstractions
-- [ ] 9.10 Open PR; reference issue #60; ensure PR body includes: `Closes #60`, gates table with green status, sweep outliers (if any), and link to the Phase-0 ideation doc
-- [ ] 9.11 After PR merged: run `openspec instructions apply --change "gh60-targets-core"` and `/opsx:verify gh60-targets-core` (Phase 5); `/opsx:archive gh60-targets-core` (Phase 6) — syncs deltas to main specs and archives the change.
+- [x] 9.10 ~~Open PR~~ — **KILLED 2026-05-26 by operator decision**. Work pushed directly to `origin/modules`; no PR will be opened for this change. Rationale: integration with downstream branches happens on the `modules` working branch; PR-style review was already performed pre-merge via the cross-LLM convergence documented in §9 of `docs/20260515_plano_gator_targets_generic.md`.
+- [ ] 9.11 Run `/opsx:verify gh60-targets-core` (Phase 5) and `/opsx:archive gh60-targets-core` (Phase 6) — syncs deltas to main specs and archives the change. No "after PR merged" precondition (PR killed in 9.10); archive can run whenever the operator is satisfied with the implementation. Same pattern as `chore(gh61): archive change` (2026-05-26 12:21 reflog entry) which archived gh61 without a PR.
 
 ## 10. Follow-up tracking — open issues for C2 and C3 (NOT implementation tasks)
 
@@ -270,3 +270,27 @@ After C1 merges, open placeholder issues in GitHub PAMunb/rvsec using `docs/2026
 - Multi-APK baseline (replace mono-cryptoapp with 5-10 representative APKs). Cryptoapp is a 16-class toy — bugs only manifesting in larger/Compose/R8 corpora are invisible.
 - Sweep gate execution (Group 9.3/9.4 G4 ≥80% complete=true on 380 APKs). Comparator written + unit-tested; sweep itself is a multi-hour operator job.
 - `modules/rv-agent/` fixtures — **NOT touched** under any circumstance; rv-agent is deprecated per CLAUDE.md (explicit policy).
+
+## 12. C1-fix — `parseArraysXml` covers `<integer-array>` and `<array>` (G6.4 pulled forward from C2, 2026-05-26)
+
+<!-- Originally scoped to C2 (proposal.md §Follow-up Changes G6.4). Pulled
+     into gh60 by the same precedent as Group 11: (a) touches the same
+     RvsecAnalysisClient.java file we just modified, (b) trivial patch
+     (≤5 LOC extension of an existing loop), (c) test infrastructure for
+     XmlInputTypeTest already covers @array/ entry resolution, so a
+     mirror test for integer-array/array is mechanical.
+
+     Pre-fix, Spinners whose `android:entries="@array/foo"` referenced an
+     <integer-array> or generic <array> got entries=[] in the JSON. Apps
+     declaring color palettes, numeric pickers, or generic value lists
+     via these resource forms had silently empty spinner inventories. -->
+
+- [x] 12.1 Extend `parseArraysXml` (`RvsecAnalysisClient.java:1158-1191`) to iterate `<string-array>`, `<integer-array>`, and `<array>` instead of `<string-array>` only. The per-item handling (text content + `@string/` resolution) stays identical — `<integer-array>` items are stringified, `<array>` items pass through verbatim or via `@string/` if applicable. Idempotent: empty XML or arrays-of-other-tags are no-ops.
+- [x] 12.2 Add 3 unit cases to `XmlInputTypeTest.java`:
+  - `testParseArraysXmlIntegerArray` — `<integer-array name="ids"><item>1</item><item>42</item></integer-array>` → `arrays["ids"] == ["1", "42"]`
+  - `testParseArraysXmlGenericArray` — `<array name="mixed"><item>literal</item><item>@string/foo</item></array>` + matching `strings.xml` → resolved values present
+  - `testParseArraysXmlAllKindsCoexist` — file containing all 3 array tags → all 3 keys present in map, values isolated per name
+- [x] 12.3 Build + deploy: `cd rvsec-gator && mvn -pl client -am install -DskipTests=true`. Verify jar mtime advances.
+- [x] 12.4 Run client unit suite: `mvn -pl client test -Dtest='!*IT' ...`. Baseline pre-12.x is 138/138; post-12.x expectation is 138 + 3 new = 141 PASS.
+- [x] 12.5 Smoke validation on cryptoapp pos-fix: confirmed regression-free — baseline `(16, 106, 55, 32, 21)` matches post-G6.4 smoke `(16, 106, 55, 32, 21)`, and `spinnerMessageDigest` entries identical (13 algorithms). **Discovery during validation:** cryptoapp source uses `<array name="messageDigestAlgorithms">` (generic, not string-array) — yet entries were already populated pre-G6.4. Root cause: apktool normalizes `<array>` → `<string-array>` during decode when items are strings, and GATOR only sees the decoded XML. So the cryptoapp case is structurally handled even pre-G6.4. The fix's real uplift was measured on a 30-APK JCA-400 sample: 0 with `<integer-array>` (0%), 5 with generic `<array>` (17%), 25 string-array-only (83%). The 5 generic-array cases need per-APK inspection on whether the items are Spinner-referenced; ones inspected are empty placeholders, so practical uplift < 17%. Documented in design.md D13.
+- [ ] 12.6 Commit `feat(gh60): parseArraysXml support integer-array + array (G6.4 from C2) (refs #60)`. Body: dual rationale (same-file precedent + apps using color-palette/numeric pickers no longer silently empty); cross-reference proposal.md C2 follow-up list (entry now done).
