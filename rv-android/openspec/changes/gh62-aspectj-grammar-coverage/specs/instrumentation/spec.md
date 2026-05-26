@@ -140,60 +140,85 @@ Rows with `Verdict = NOT-NEEDED` (path α: zero demand + no implementation; path
 - **THEN** the sub-change's `proposal.md` SHALL cite gh62 issue #62 and the specific matrix rows it intends to flip
 - **AND** upon archive of the sub-change, the matrix rows SHALL be flipped from `SILENT-GAP` to `COVERED` and the corresponding `@Disabled` annotations removed in the same commit (closure atomicity enforced by `MatrixIntegrityTest` in CI per the previous scenario)
 
-### Requirement: JoinPoint Reflective API Behavioural Parity
+### Requirement: Demand-Driven Closures for High-Traffic Constructs
 
-The dexlib2 instrumenter SHALL provide AspectJ-equivalent runtime substrate for advice bodies that read the JoinPoint context. Specifically, when an advice body references `thisJoinPoint`, `thisJoinPointStaticPart`, `thisEnclosingJoinPointStaticPart`, `JoinPoint.getArgs()`, `JoinPoint.getSignature()` (including the `MethodSignature` / `ConstructorSignature` / `FieldSignature` subtype accessors `.getName()` / `.getDeclaringType()` / `.getParameterTypes()` / `.getReturnType()`), `JoinPoint.getTarget()`, `JoinPoint.getThis()`, `JoinPoint.getKind()`, or `JoinPoint.getSourceLocation()`, the instrumented bytecode SHALL emit construction of a populated `JoinPoint` instance carrying real runtime values derived from the matched join point, NOT a string-typed placeholder.
+The dexlib2 instrumenter SHALL implement functional equivalents for the eight high-traffic AspectJ/JavaMOP constructs that are present in the four `.mop`/`.aj` corpora and whose dexlib2 path is currently silently broken. Each closure SHALL flip its matrix row from `SILENT-GAP` to `COVERED` with an enabled test in `grammar-tests/` asserting the post-fix behaviour against the corpus pattern that motivated it.
 
-`org.aspectj.lang.JoinPoint`, `org.aspectj.lang.Signature`, and the three signature subtypes SHALL be available on the instrumented APK's runtime classpath. The implementation ships local equivalents in the `br.unb.cic.rv.aspectjlang` package, embedded in the DEX output of `instr-cli`, to avoid a new transitive dependency on `aspectjrt.jar`.
+1. **`condition(...)` MOP-extension guard emit** — 74 sites across `jca/`+`generic_new/`. The JavaMOP semantics is "evaluate `<expr>` in the advice context; skip the monitor dispatch if false". The dexlib2 advice-emitter SHALL emit a boolean guard before the monitor invoke that short-circuits dispatch when `<expr>` evaluates to false. Errors during expression evaluation SHALL log at WARN level and SHALL NOT dispatch (conservative default).
+2. **Positive `within(typePattern)` matcher** — 28 sites (24 in `aspect/Coverage.aj`, 2 in `jca/`, 2 in `generic_new/`). The matcher SHALL filter `classDef` FQN against the `typePattern` using the existing `matchesTypePattern` helper from `NotWithinPC:343-359`, returning no match when the class does not satisfy the pattern.
+3. **`T+` in `call()` owner position** — extensive demand in `generic_new/`. The matcher SHALL extend the gh61 parameter-position subtype expansion to owner descriptors at `PointcutMatcher.java:153-157`, using `cpsAwareOwnerMatch` semantics (the same subtype check gh61 applied to params).
+4. **`!target(T)` / `!args(T)` parser specialization** — 32 sites in `generic_new/` (28 `!target`, 4 `!args`). `PointcutExpressionParser.parseUnary()` SHALL recognize `!target(Type)` and `!args(Type)` and route them to inverting matchers, instead of collapsing into `NamedRefPC` always-match.
+5. **Method-name glob `name*`** — ~16 sites in `generic_new/`. The matcher at `PointcutMatcher.java:161-167` SHALL recognize a trailing `*` in the expected method name and use `startsWith(prefix)` matching; exact-equals remains the default when no `*` appears.
+6. **`__STATICSIG` JavaMOP macro support** — 3 sites in `generic_new/` (`Collection_HashCode.mop`, `Serializable_NoArgConstructor.mop`, `URLConnection_OverrideGetPermission.mop`). The advice-emitter SHALL recognize `__STATICSIG` in the advice body and replace it with an emit of a constant `Signature` (using either `java.lang.String` carrying the descriptor or a minimal local Signature class — implementation discretion) populated from weave-time class+method metadata. The downstream monitor consumes the result as a value, not as a typed reference, so the emit only needs to satisfy the source-level type binding.
+7. **`staticinitialization(T+)` synthesis when `<clinit>` is absent** — 6 sites in `generic_new/`. When the matcher identifies a class matching `staticinitialization(T+)` but the class has no `<clinit>` method, the weaver SHALL synthesize a minimal `<clinit>` containing only the advice invocation, with the synthesized method flagged for auditability.
+8. **`after() throwing(...)` end-to-end install** — 2 sites in `generic_new/` + the existing `AfterThrowingEmitter` plan that `DexWeaver.java:560-566` discards silently. The weaver SHALL implement the `TRY_CATCH_WRAP` case in `applyPlan`, installing a try-range over the matched invoke and an exception-handler emitting the advice invocation.
 
-#### Scenario: thisJoinPoint.getSignature().getName() returns the matched method's actual name
+#### Scenario: condition(...) short-circuits the monitor invoke
 
-- **WHEN** an advice body containing `thisJoinPoint.getSignature().getName()` is woven around `call(* java.util.Hashtable.get(Object))`
-- **AND** the instrumented APK invokes `Hashtable.get` at runtime
-- **THEN** the advice body SHALL observe `getName()` returning `"get"`
-- **AND** it SHALL NOT observe a raw pointcut expression string (`"call(* java.util.Hashtable.get(Object))"` or similar)
+- **WHEN** an advice body is woven for `call(* Cipher.getInstance(String)) && condition(thisJoinPoint != null)` (illustrative; real corpus uses simpler guards)
+- **AND** the `condition(...)` payload evaluates to `false` at the runtime join point
+- **THEN** the monitor invoke SHALL NOT be dispatched (the guard short-circuits)
+- **AND** when the payload evaluates to `true`, the monitor invoke SHALL be dispatched as if the condition were absent
 
-#### Scenario: JoinPoint subtype matches the matched join-point kind
+#### Scenario: positive within(typePattern) filters classDef FQN
 
-- **WHEN** an advice body containing `thisJoinPoint.getSignature() instanceof MethodSignature` is woven around a `call(* ...)` pointcut
-- **THEN** the runtime check SHALL evaluate to `true`
-- **AND** when the same advice body is woven around `staticinitialization(...)`, the runtime check against `MethodSignature` SHALL evaluate to `false` and `instanceof Signature` (the supertype) SHALL evaluate to `true`
+- **WHEN** a pointcut `call(* Hashtable.get(..)) && within(com.example.app..*)` is evaluated at a `Hashtable.get` call inside `com.example.app.Foo`
+- **THEN** the matcher SHALL return a match
+- **AND** when the same pointcut is evaluated inside `com.other.lib.Bar`, the matcher SHALL return no match
 
-#### Scenario: JoinPoint.getArgs() returns the actual argument list
+#### Scenario: T+ in call() owner expands to subtypes
 
-- **WHEN** an advice body containing `Object[] a = thisJoinPoint.getArgs()` is woven around `call(* Foo.bar(int, String))`
-- **AND** the instrumented APK invokes `Foo.bar(42, "x")` at runtime
-- **THEN** `a.length` SHALL equal `2`
-- **AND** `a[0]` SHALL equal `Integer.valueOf(42)` (boxed)
-- **AND** `a[1]` SHALL equal `"x"`
+- **WHEN** a pointcut `call(* javax.crypto.Cipher+.doFinal(..))` is evaluated at a call to a method declared on `javax.crypto.spec.IvParameterSpec` (a Cipher subtype receiver — illustrative)
+- **THEN** the matcher SHALL recognize the receiver type as a subtype of `javax.crypto.Cipher` and return a match
+- **AND** the existing exact-equals match for receivers of the exact declared type SHALL continue to succeed
 
-### Requirement: Pointcut Matcher Correctness
+#### Scenario: !target(T) inverts the target match
 
-The dexlib2 pointcut matcher SHALL correctly evaluate the following classes of pointcut expression that current code mishandles as always-match:
+- **WHEN** a pointcut `call(* Object.toString()) && !target(MyClass)` is evaluated at `myClassInstance.toString()`
+- **THEN** the matcher SHALL return no match (the receiver IS a `MyClass`, so its negation is false)
+- **AND** when evaluated at `anotherClassInstance.toString()`, the matcher SHALL return a match
 
-1. **Standalone `target(name)` / `args(name)` binding**: when these designators appear at the top level of a pointcut expression (not in `&&`-composition with `call(...)`), the matcher SHALL still perform receiver / argument binding from the runtime join-point, instead of returning an empty match (`PointcutMatcher.java:106-108` current behaviour).
-2. **Negation specialisation beyond `!within`**: `parseUnary` SHALL produce specialised negation matchers for `!handler(...)`, `!cflow(...)`, `!if(...)` in addition to `!within(...)`, evaluating the negated inner pointcut and inverting the verdict, instead of collapsing to `NamedRefPC` always-match.
-3. **Named-pointcut reference resolution**: when an advice references a named pointcut defined in the same aspect (or an inherited aspect), the matcher SHALL resolve the reference against the aspect's pointcut table (`AspectDescriptor.namedPointcuts()`) and evaluate the resolved pointcut against the join point, instead of treating `NamedRefPC` as unconditional always-match.
+#### Scenario: method-name glob matches by prefix
 
-#### Scenario: standalone target(name) binds the receiver register
+- **WHEN** a pointcut `call(* java.util.Collection+.add*(..))` is evaluated at calls to `add(E)`, `addAll(Collection)`, and `addLast(E)`
+- **THEN** all three calls SHALL match (the `add*` prefix is satisfied)
+- **AND** a call to `remove(E)` SHALL NOT match
 
-- **WHEN** a pointcut `target(h)` is matched at the call site `obj.method()`
-- **THEN** the resulting `Match` SHALL bind `h` to the register holding `obj`
-- **AND** the bound register SHALL be accessible by the advice body via the generated parameter list
+#### Scenario: __STATICSIG resolves to a populated Signature constant
 
-#### Scenario: !cflow excludes join points reached via the cflow
+- **WHEN** an advice body containing `Signature initsig = __STATICSIG;` is woven for `staticinitialization(Hashtable+)` in the matched class `java.util.Hashtable`
+- **THEN** the emitted bytecode SHALL bind `initsig` to a value whose `getDeclaringType()` resolves to `java.util.Hashtable` and whose `getName()` resolves to `<clinit>` (or the equivalent representation chosen by the emitter)
+- **AND** the monitor consuming `initsig` SHALL receive a non-null value carrying the weave-time-known class metadata
 
-- **WHEN** a pointcut `!cflow(execution(* Setup.*(..)))` is evaluated at a join point reached from within `Setup.init()`
-- **THEN** the matcher SHALL return no match (the negated inner is true, so its negation is false)
-- **AND** when evaluated at a join point reached outside any `Setup.*` method, the matcher SHALL return a match
+#### Scenario: staticinitialization synthesis emits a minimal clinit
 
-#### Scenario: named pointcut reference resolves against aspect pointcut table
+- **WHEN** a `staticinitialization(MyClass+)` pointcut matches a class `MyClass` that has no existing `<clinit>` method
+- **THEN** the weaver SHALL synthesize a `<clinit>` containing only the advice invocation
+- **AND** the synthesized method SHALL be flagged in the DEX output as `weaver-synthesized` for auditability (via comment or annotation discoverable by `dexdump`)
 
-- **WHEN** an advice `before(): myPointcut()` references a pointcut declared as `pointcut myPointcut(): call(* Foo.bar(..))` in the same aspect
+#### Scenario: after throwing installs try-range and exception handler
+
+- **WHEN** an advice `after() throwing(Exception e): call(* Foo.bar(..))` is processed by the weaver
+- **AND** the matched call site is `obj.bar()` at a known offset
+- **THEN** the weaver SHALL install a try-range covering the invoke and an exception handler emitting the advice invocation with `e` bound to the caught exception register
+- **AND** the resulting DEX SHALL pass ART verification (no new VerifyError) and the advice SHALL fire when the call throws
+
+### Requirement: NamedRefPC Resolver via commonPointcut
+
+The dexlib2 pointcut matcher SHALL resolve named-pointcut references at evaluation time using the existing `AspectDescriptor.getCommonPointcut()` field. The `PointcutMatcher.Context` SHALL be plumbed with access to the active `AspectDescriptor`; the `NamedRefPC` matcher SHALL look up the referenced name in `getCommonPointcut()` and evaluate the resolved expression against the join point. Unresolved references (the named pointcut is not in `commonPointcut`) SHALL log at WARN level and fall back to the existing always-match behaviour so that no closure regression hides behind silent always-true semantics.
+
+#### Scenario: named pointcut reference resolves against commonPointcut
+
+- **WHEN** an advice `before(): myPointcut()` references a pointcut `pointcut myPointcut(): call(* Foo.bar(..))` declared via `commonPointcut` in the active `AspectDescriptor`
 - **AND** the runtime reaches `call Foo.bar()`
-- **THEN** the matcher SHALL evaluate the resolved `call(* Foo.bar(..))` against the join point
-- **AND** the resolved pointcut SHALL succeed, and the advice SHALL run
-- **AND** the matcher SHALL NOT return an always-match result that would also fire `before(): myPointcut()` at unrelated join points
+- **THEN** the matcher SHALL evaluate the resolved `call(* Foo.bar(..))` against the join point and produce a match
+- **AND** at unrelated join points, the resolved pointcut SHALL produce no match (and the advice SHALL NOT fire)
+
+#### Scenario: unresolved named pointcut reference logs and falls back
+
+- **WHEN** an advice `before(): unknownPointcut()` references a name not present in `getCommonPointcut()`
+- **THEN** the matcher SHALL log a WARN-level message naming the unresolved reference
+- **AND** the matcher SHALL return the existing always-match result so that future ledger work can address the gap without a regression
 
 ## Invariants
 
@@ -205,5 +230,5 @@ The dexlib2 pointcut matcher SHALL correctly evaluate the following classes of p
 - **INV-INS-91**: For every matrix row with `Verdict = SILENT-GAP`, there MUST exist a `@Disabled`-annotated test in `grammar-tests/` whose disabled-reason message starts with `"gh62 SILENT-GAP: "`. The **ledger entry** requirement is scoped to SILENT-GAP rows present at gh62 archive time only — the ledger is a one-shot snapshot (see design D4) and is not maintained after archive. The ledger snapshot is content-addressed: a `ledger.snapshot.sha256` file containing the SHA-256 of `ledger.md` at archive time SHALL be committed to `grammar-tests/src/test/resources/`; `testSilentGapRowsHaveDisabledTestAndLedgerEntry` SHALL verify the live ledger's SHA against the snapshot and fail if they diverge (catches post-archive mutation of an artefact that is contractually frozen). SILENT-GAP rows introduced in subsequent changes MUST satisfy the `@Disabled`-test requirement above but are not retroactively added to the archived ledger; instead they are scheduled by opening the closure's own OpenSpec change.
 - **INV-INS-92**: For every enabled (non-`@Disabled`) test method in `grammar-tests/`, there MUST be exactly one matrix row with `Verdict ∈ {COVERED, EXPLICIT-NO-OP}` resolving to it; for every `@Disabled` test method, there MUST be exactly one matrix row with `Verdict = SILENT-GAP` resolving to it. Orphan tests (no matrix row) and orphan rows (no test) MUST break the build. Closure atomicity is enforced by this invariant directly — a closure commit that flips one side without the other produces an orphan and fails CI. (Replaces the original aspirational "closure atomicity" invariant; an earlier draft proposed a cross-repo PR-check GitHub Action for the same purpose, rejected on simplicity grounds in design D6.)
 - **INV-INS-93**: The matrix demand counts MUST be reproducible by `DemandCounter` invoked from `MatrixIntegrityTest.testDemandCountsReproducible`. Counts MUST be re-verified whenever a new `.mop` OR `.aj` file is added to any of the four corpora. `DemandCounter` SHALL scan BOTH `.mop` AND `.aj` files (the cross-LLM Round-5 review showed that scanning only `.mop` undercounts substantially because the `aspect/` corpus is entirely `.aj` and `generic_new/` contains `.aj` templates like `MultiSpec_1MonitorAspect.aj`). The per-designator regex SHALL distinguish *pointcut* uses from *Java statement* uses (the canonical false positive is `if(...)` in advice bodies appearing as Java `if` statements). The helper MUST be portable Java (no shell, no `ProcessBuilder`, no `LC_ALL`).
-- **INV-INS-94**: For every matrix row in the **JoinPoint Reflective API family** (`thisJoinPoint`, `thisJoinPointStaticPart`, `thisEnclosingJoinPointStaticPart`, `JoinPoint.getArgs()`, `JoinPoint.getSignature()` + subtypes, `JoinPoint.getTarget()`/`.getThis()`, `JoinPoint.getKind()`/`.getSourceLocation()`, AspectJ runtime linkage), the `Verdict` MUST be `COVERED` and the `Evidence` MUST cite an enabled test in `grammar-tests/JoinPointReflectiveApiGrammarTest` that exercises the runtime contract (the test creates a synthetic class, weaves an advice that reads the JoinPoint surface, runs the instrumented class on a JVM/Android runtime, and asserts the observed values match the AspectJ specification). The instrumented bytecode MUST link against `br.unb.cic.rv.aspectjlang.{JoinPoint,Signature,MethodSignature,ConstructorSignature,FieldSignature,SourceLocation}` (local equivalents shipped in the DEX, NOT `org.aspectj.lang.*`). `MatrixIntegrityTest.testReflectiveApiRowsAreCovered` SHALL fail the build if any reflective-API row regresses from `COVERED`.
-- **INV-INS-95**: For every matrix row in the **Matcher Correctness family** (`target(name)` standalone, `args(name)` standalone, `!` negation beyond `!within`, named-pointcut reference resolution), the `Verdict` MUST be `COVERED` and the `Evidence` MUST cite an enabled test in `grammar-tests/` that exercises the correctness property (standalone binding produces a non-empty `Match`; negation matchers invert the inner verdict; named references resolve against the aspect's pointcut table). `MatrixIntegrityTest.testMatcherCorrectnessRowsAreCovered` SHALL fail the build if any matcher-correctness row regresses from `COVERED`.
+- **INV-INS-94**: For every matrix row covered by the **eight demand-driven closures** (`condition(...)`, positive `within(typePattern)`, `T+` in `call()` owner, `!target(T)`/`!args(T)`, method-name glob `name*`, `__STATICSIG`, `staticinitialization` synthesis, `after() throwing(...)`) plus the **`NamedRefPC` resolver via `commonPointcut`**, the `Verdict` MUST be `COVERED` and the `Evidence` MUST cite an enabled test in `grammar-tests/` exercising the corpus pattern that motivated the closure (the test weaves the pointcut/advice combination against a synthetic fixture mirroring the corpus shape and asserts the post-fix behaviour). `MatrixIntegrityTest.testDemandDrivenClosuresAreCovered` SHALL fail the build if any of these rows regresses from `COVERED`.
+- **INV-INS-95**: The eight demand-driven closures + `NamedRefPC` resolver SHIP as bisect-friendly atomic commits (one closure per commit, §4.G/W/O/N/X/S/Y/T/D in tasks). For every commit landing a closure, the matrix row flip (`SILENT-GAP` → `COVERED`) and the `@Disabled` removal MUST occur in the same commit; orphan tests and orphan rows are caught by INV-INS-92. `MatrixIntegrityTest.testClosureLocFootprintMatchesMatrixDelta` SHALL log (advisory; non-blocking) the LOC delta per closure commit and the number of matrix rows flipped, so reviewers can audit at archive time whether the realized scope matched the round-6 demand-driven budget.

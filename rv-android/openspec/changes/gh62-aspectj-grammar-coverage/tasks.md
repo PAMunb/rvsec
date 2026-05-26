@@ -1,22 +1,32 @@
 # Tasks: gh62-aspectj-grammar-coverage
 
 <!-- This change is documentation + a new Maven test-only submodule + a CI gate
-     + IMPLEMENTATION of two row families (round-5 expansion): JoinPoint Reflective API
-     and Matcher Correctness. No Python module is touched.
+     + EIGHT DEMAND-DRIVEN CLOSURES (round-6 redesign of D8) + a NamedRefPC
+     resolver via the existing AspectDescriptor.getCommonPointcut() field.
+     No Python module is touched.
      Production parser/matcher/emitter source code changes:
-       - advice-emitter/: new br.unb.cic.rv.aspectjlang.* classes shipped in DEX;
-         MonitorInvokeBuilder Signature-construction emit; ThisJoinPointEmitter
-         register-based JoinPoint passing.
-       - pointcut-engine/: PointcutMatcher standalone TargetPC/ArgsPC matching;
-         PointcutExpressionParser.parseUnary full negation; NamedRefPC resolver.
+       - advice-emitter/: ConditionGuardEmitter (NEW §4.G ~80 LOC);
+         StaticSigEmitter (NEW §4.S ~80 LOC); StaticInitSynthesizer (NEW
+         §4.Y ~100 LOC); AfterThrowingEmitter extended + DexWeaver.applyPlan
+         TRY_CATCH_WRAP install (§4.T ~120 LOC).
+       - pointcut-engine/: WithinPC positive matching (§4.W ~50 LOC);
+         CallPC owner subtype expansion (§4.O ~50 LOC) + method-name glob
+         (§4.X ~40 LOC); PointcutExpressionParser.parseUnary !target/!args
+         specialization (§4.N ~30 LOC); NamedRefPC resolver via
+         AspectDescriptor.getCommonPointcut() (§4.D ~30 LOC).
        - pom.xml: smali property bump under §0.
      Execution order: smali bump (0) -> DemandCounter helper + count regen (3.4+1.2)
        -> ledger draft (1.3) -> matrix scaffold (2) -> grammar-tests Maven module (3)
-       -> per-designator test classes (4) -> Reflective API implementation (4.R)
-       -> Matcher Correctness implementation (4.M) -> matrix population (5) ->
+       -> per-designator test classes (4) -> eight demand-driven closures
+       (4.G/W/O/N/X/S/Y/T) + namedref resolver (4.D) -> matrix population (5) ->
        integrity tests + CI gate (6) -> smoke validation 5 APKs (6.S) -> archive (7).
      All sibling-repo paths are under
-     /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-android/rvsec-instrumentation-dexlib2/. -->
+     /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-android/rvsec-instrumentation-dexlib2/.
+     Round-5 nominal-family scope (§4.R Reflective API ~600 LOC, §4.M Matcher
+     Correctness with standalone TargetPC/ArgsPC + !cflow + namedPointcuts())
+     was DROPPED in round-6 after empirical demand verification surfaced eight
+     higher-traffic gaps with concrete fixes; see proposal.md §"Scope expansion
+     (round-6 demand-driven D8)" and design.md §D8 for rationale. -->
 
 ## 0. Dependency bump: `smali-dexlib2` 3.0.8 → 3.0.9 (isolated commit, gate the matrix work)
 
@@ -37,7 +47,7 @@
 - [ ] 1.1 Read `docs/analise_codex_gpt5.md`, `docs/analise_deepseek.md`, `docs/analise_gemini_cli.md`, `docs/analise_opus47.md` (round-5 reviewers) to enumerate every silent-gap and verdict discrepancy surfaced. Catalogue per AspectJ designator + modifier + advice form.
 - [ ] 1.2 Cross-check the §1.0 canonical counts against the round-5 reviewers' independent grep results. Any divergence must be resolved by adjusting the regex (over-broad: contaminating Java statement; over-narrow: missing valid pointcut shape) and re-running `DemandCounter`. Final counts SHALL be the single source of truth quoted inline in the matrix.
 - [ ] 1.3 Draft `openspec/changes/gh62-aspectj-grammar-coverage/ledger.md` with three sections (`## Fix-now`, `## Follow-up`, `## Deferred-by-design`). Each entry: AspectJ designator + sub-semantic (if applicable) + modifier, demand summary, planned sub-change identifier (`gh-XX-<kebab>`) or "deferred", one-paragraph rationale, **`Owner: @user`** (TBD allowed only in `Follow-up`/`Deferred-by-design`), **`Target milestone: vX.Y`** (TBD allowed only in `Follow-up`). Assignment rules per design.md D4: `Fix-now` requires non-zero corpus demand AND owner/milestone; `Deferred-by-design` requires existing `EXPLICIT-NO-OP` evidence or ADR.
-- [ ] 1.3a Initial Fix-now bucket (subject to §1.0/1.2 demand verification — entries scheduled by non-zero corpus demand AND not closed in-change): trailing-varargs `(T, ..)`; `T+` in `call()` owner; `T+` in `call()` return; `execution(...)` real matcher; `BaseAspect.notwithin()` named-ref expansion; **`after() throwing(...)` end-to-end** (re-classified from EXPLICIT-NO-OP — `DexWeaver.java:560-566` silent break); `target(Type)` type-matching; `args(Type)` type-matching; `if(...)` matcher semantic evaluation (the `IfGuardEmitter` scaffold is wired via `EmitterDispatch.java:70-74` but the matcher remains always-match); **`adviceexecution()` real semantics** (parser at `PointcutExpressionParser.java:131` routes to `NamedRefPC` → matcher always-match). NOTE: reflective-API rows and matcher-correctness rows that ship CLOSED in-change (per D8) are NOT in Fix-now — they flip directly to COVERED.
+- [ ] 1.3a Initial Fix-now bucket (round-6 — entries scheduled by non-zero corpus demand AND not closed in-change by §4.{G,W,O,N,X,S,Y,T,D}): trailing-varargs `(T, ..)`; `T+` in `call()` return position (owner ships in-change via §4.O); `execution(...)` real matcher; `BaseAspect.notwithin()` named-ref expansion (the resolver in §4.D covers `commonPointcut` lookup but the `notwithin` macro expansion is separate); `target(Type)` type-matching; `args(Type)` type-matching; `if(...)` matcher semantic evaluation (the `IfGuardEmitter` scaffold is wired via `EmitterDispatch.java:70-74` but the matcher remains always-match — note this is the AspectJ `if()` PCD, not the JavaMOP `condition(...)` extension which ships in-change via §4.G); **`adviceexecution()` real semantics** (parser at `PointcutExpressionParser.java:131` routes to `NamedRefPC` → matcher always-match). NOTE: the eight demand-driven closures (per D8) flip directly to COVERED — they do NOT appear in Fix-now.
 - [ ] 1.3b Initial Follow-up bucket: `get(FieldPattern)`/`set(FieldPattern)` (zero demand after corrected grep, but completeness); `this(name)`/`this(Type)` (zero corpus demand confirmed; no `ThisPC` class — matrix completeness only); `withincode(...)`; `cflow`/`cflowbelow`; `initialization(...)`/`preinitialization(...)`; AspectJ 5 `@*` family (6 designators, zero demand); positive `within(...)` weaver-side filter; `T+` inside `!within(...)`; SignaturePattern modifiers; `thisJoinPointStaticPart`; `thisEnclosingJoinPointStaticPart`; aspect inheritance (`aspect Bar extends Foo`); abstract-aspect + concrete subaspect (zero demand today but relevant for future `BaseAspect`-style refactors); privileged aspect; **AspectJ weaver parity diff vs. AJC offline reference** (gold-standard behavioural oracle — surfaces closures that pass the `@Disabled` test assertion but diverge from real AspectJ; deferred per round-5 cross-LLM review as oracle-of-behaviour, not oracle-of-grammar).
 - [ ] 1.3c Initial Deferred-by-design bucket — EXPLICIT-NO-OP rows only (verdict = `EXPLICIT-NO-OP`, UOE in production + assertion test required by INV-INS-89): `around` advice (assertion in `EmitterDispatchTest.java:54-59`, UOE at `EmitterDispatch.java:61-65`); `proceed(...)` keyword in around body (consistent with `around` itself — the around row's UOE covers it by reflection; no separate test fixture is required, the row cites the same `EmitterDispatch.java:61-65` anchor). The round-3 SILENT-GAP-permanent sub-bucket was eliminated in round-5: `handler(...)` and `declare precedence` are now NOT-NEEDED via INV-INS-89 path β (per design.md OQ5) and do NOT appear in the ledger.
   - Note: `lock`/`unlock` (OQ3), per-clauses/ITDs/declare-w-e-s/annotation-style/generics (OQ4), and `handler`/`declare precedence`/`aspect Foo`/`pointcut p():` (OQ5 NOT-NEEDED β) are all matrix rows or matrix non-entries but they do NOT appear in the ledger. Ledger entries map 1:1 to matrix rows whose verdict is SILENT-GAP or EXPLICIT-NO-OP.
@@ -158,34 +168,90 @@
 - [ ] 4.23 Run `mvn -pl grammar-tests test`. All non-`@Disabled` tests SHALL pass (including all 11 `RobustnessTest` methods); the test report SHALL list every `@Disabled` skip with its `gh62 SILENT-GAP:` reason.
 - [ ] 4.24 Commit on `origin/modules`: `test(gh62): per-designator grammar test classes + robustness pack (stubs + @Disabled SILENT-GAP)` with `refs #62`. Push.
 
-## 4.R Reflective API implementation (round-5 in-change closure)
+## 4.G `condition(...)` MOP guard emit (round-6 demand-driven D8 — 74 sites)
 
-**Goal**: implement the JoinPoint Reflective API family closures (rows for `thisJoinPoint`, `JoinPoint.getSignature()` + subtypes, `getArgs()`, `getTarget()`/`getThis()`, `getKind()`/`getSourceLocation()`, AspectJ runtime linkage). Rows flip SILENT-GAP → COVERED in this change (per design D8).
+**Goal**: emit a boolean guard before the monitor invoke when the advice expression contains `condition(<expr>)`. JavaMOP semantics: if `<expr>` evaluates to false at runtime, skip the monitor dispatch. 74 sites (64 jca + 10 generic_new).
 
-- [ ] 4.R.1 Create `advice-emitter/src/main/java/br/unb/cic/rv/aspectjlang/` package. Add `JoinPoint` interface + `Signature` interface + 3 concrete subtypes (`MethodSignature`, `ConstructorSignature`, `FieldSignature`) + `JoinPoint.StaticPart` + `SourceLocation`. Local equivalents of `org.aspectj.lang.*` — no transitive dep on `aspectjrt.jar`. Method surface matches AspectJ 5: `getName()`, `getDeclaringType()`, `getParameterTypes()`, `getReturnType()`, `getModifiers()`, `getTarget()`, `getThis()`, `getArgs()`, `getKind()`, `getSourceLocation()`. ~150 LOC.
-- [ ] 4.R.2 Add `JoinPointFactory` in `aspectjlang/`: static methods to construct populated `JoinPoint` instances from runtime values (kind string + signature object + target + this + args + source location). Called from generated bytecode. ~80 LOC.
-- [ ] 4.R.3 Add `aspectjlang/internal/SignatureImpl.java` etc. — concrete implementations with public constructors taking `(String name, Class<?> declaringType, Class<?>[] paramTypes, Class<?> returnType, int modifiers)`. Constructors are the targets of `new`-`invoke-direct` emitted by `MonitorInvokeBuilder`. ~120 LOC.
-- [ ] 4.R.4 Extend `advice-emitter/.../MonitorInvokeBuilder.java`: add `emitSignatureConstruction(Context ctx, int registerOut)` that emits DEX bytecode constructing a populated `Signature` of the correct subtype (Method/Constructor/Field) from the matcher `Context` (declaring class FQN → `Class.forName`; method name → string constant; param types → `Class[]` array construction; return type → `Class.forName`). Emit sequence: `const-class`, `new-array`, `aput-object`, `new-instance Lbr/unb/cic/rv/aspectjlang/internal/MethodSignatureImpl;`, `invoke-direct {...}, <init>`. ~200 LOC. Returns the register holding the populated Signature.
-- [ ] 4.R.5 Add `emitJoinPointConstruction(Context ctx, int sigReg, int targetReg, int thisReg, int argsArrayReg)` to `MonitorInvokeBuilder`: emits `new-instance Lbr/unb/cic/rv/aspectjlang/internal/JoinPointImpl;` + `invoke-direct` with the Signature + target + this + args registers. Returns the register holding the JoinPoint. ~80 LOC.
-- [ ] 4.R.6 Rewrite `ThisJoinPointEmitter.signatureFor()` (current `:22-30` returns string): now returns `EmitInstruction.invokeMonitorInvokeBuilder.emitJoinPointConstruction(...)`. The legacy string-return is REMOVED entirely (P3 — no backwards-compat shim). The `needsJoinPoint(advice)` predicate continues to detect `thisJoinPoint`/`thisJoinPointStaticPart`/`thisEnclosingJoinPointStaticPart` in the advice expression. ~50 LOC delta (mostly deletions).
-- [ ] 4.R.7 Extend `BeforeEmitter`/`AfterEmitter`/`AfterReturningEmitter` (under `advice-emitter/src/main/java/.../`) to wire the JoinPoint register through advice-body invocation when `needsJoinPoint(advice)` is true. The register is added as the first parameter to the synthetic helper method invocation. ~60 LOC across the three emitters.
-- [ ] 4.R.8 Add `coverage-weaver` updates if needed: when an advice references `thisJoinPoint`, the coverage event entry SHALL include the Signature's name (currently the coverage event records the raw expression — same WRONG-DATA defect as the emitter). Audit `coverage-weaver/src/main/java/.../CoverageEventBuilder.java` and align. ~30 LOC.
-- [ ] 4.R.9 Add unit tests in `advice-emitter/src/test/java/.../MonitorInvokeBuilderSignatureEmitTest.java`: assert the emitted DEX instruction sequence for each Signature subtype (Method/Constructor/Field) matches the expected `new-array`/`const-class`/`new-instance`/`invoke-direct` pattern. ~10 test methods.
-- [ ] 4.R.10 Run `mvn -pl advice-emitter test`. ALL tests SHALL pass. Run `mvn -pl grammar-tests test -Dtest=JoinPointReflectiveApiGrammarTest`. ALL 10 reflective-API methods SHALL pass (no `@Disabled`).
-- [ ] 4.R.11 Commit on `origin/modules`: `feat(gh62): JoinPoint reflective API end-to-end (rows 56-62 + linkage flip COVERED)` with `refs #62`. Push.
+- [ ] 4.G.1 Add `advice-emitter/src/main/java/br/unb/cic/rv/emitter/ConditionGuardEmitter.java` (~50 LOC): parses `condition(<expr>)` from the advice expression; emits DEX bytecode evaluating `<expr>` in the advice register context and an `if-eqz vReg, :skip_monitor` short-circuit before the monitor invoke. The `<skip_monitor>` label is bound to the instruction immediately after the monitor invoke.
+- [ ] 4.G.2 Wire `ConditionGuardEmitter` via `EmitterDispatch` similar to the existing `IfGuardEmitter` wrap-around pattern (`EmitterDispatch.java:70-74` is the analogous pattern); `EmitterDispatch.wrapConditionGuard(base)` returns the base emitter when no `condition(...)` is present, else the wrapped form. ~30 LOC.
+- [ ] 4.G.3 Add unit tests in `advice-emitter/src/test/java/.../ConditionGuardEmitterTest.java`: assert (a) the emitted bytecode contains the `if-eqz` short-circuit when `condition(...)` is present; (b) the bytecode falls through to the monitor invoke when `condition(...)` is absent; (c) errors during `<expr>` evaluation log WARN and skip dispatch (conservative default). ~6 test methods.
+- [ ] 4.G.4 Update `grammar-tests/.../ConditionGrammarTest` (NEW class — add to §4 enumeration above; method `conditionShortCircuitsMonitorInvoke`): asserts the corpus pattern from `jca/CipherSpec.mop` (e.g. `call(* Cipher.getInstance(String)) && condition(thisJoinPoint != null)`) produces the expected short-circuit and full-dispatch behaviour. Enabled passing test at gh62 archive.
+- [ ] 4.G.5 Commit on `origin/modules`: `feat(gh62): condition(...) MOP guard emit (74-site coverage; row flips COVERED)` with `refs #62`.
 
-## 4.M Matcher Correctness implementation (round-5 in-change closure)
+## 4.W Positive `within(typePattern)` matcher (round-6 — 28 sites)
 
-**Goal**: implement the Matcher Correctness family closures (rows for `target(name)`/`args(name)` standalone, `!` negation beyond `!within`, named-pointcut reference resolution). Rows flip SILENT-GAP → COVERED in this change (per design D8).
+**Goal**: filter `classDef` FQN against the `typePattern` argument of positive `within(...)` instead of always-matching. 28 sites (24 aspect/Coverage.aj package filter + 2 jca + 2 generic_new).
 
-- [ ] 4.M.1 Extend `pointcut-engine/.../PointcutMatcher.java:106-108`: when `pe instanceof TargetPC` AND the matcher is invoked OUTSIDE a `buildCallMatch` context (standalone evaluation), produce a non-empty `Match` binding the receiver register. When inside `buildCallMatch`, preserve current behaviour (composition with `call()` already handles binding). ~40 LOC. Add unit test `PointcutMatcherStandaloneTest.targetNameStandaloneBindsReceiver`.
-- [ ] 4.M.2 Extend `PointcutMatcher` for `ArgsPC` standalone (same shape as 4.M.1). ~30 LOC. Add unit test `argsNameStandaloneBindsArgument`.
-- [ ] 4.M.3 Extend `PointcutExpressionParser.parseUnary()` (current behaviour specialises only `!within`): add cases for `!handler`, `!cflow`, `!cflowbelow`, `!if`. Each constructs a `NegationPC` wrapping the inner pointcut; the matcher inverts the inner verdict. ~80 LOC. Add unit test `PointcutExpressionParserNegationTest.parsesNegationBeyondWithin`.
-- [ ] 4.M.4 Add `NegationPC` matcher in `PointcutMatcher`: for `NegationPC(inner)`, evaluate `inner` against the join point and invert the result. If `inner` is itself ALWAYS-MATCH (degenerate case), the negation is NEVER-MATCH. ~40 LOC.
-- [ ] 4.M.5 Rewrite `NamedRefPC` matching: instead of unconditional always-match, look up the referenced name in the active `AspectDescriptor.namedPointcuts()` table; resolve to the underlying `Pointcut` expression; evaluate that expression against the join point. If the named reference cannot be resolved (forward reference, typo, etc.) the matcher returns empty (no match) AND logs a WARN-level message naming the unresolved reference. ~100 LOC. Add unit test `NamedRefPCResolverTest.resolvesAgainstAspectTable` + `unresolvedReferenceReturnsEmpty`.
-- [ ] 4.M.6 Audit callers of `NamedRefPC` to ensure the `AspectDescriptor` is in scope at evaluation time. Plumb the descriptor through `PointcutMatcher.Context` if not already. ~30 LOC.
-- [ ] 4.M.7 Run `mvn -pl pointcut-engine test`. ALL tests SHALL pass. Run `mvn -pl grammar-tests test -Dtest=TargetGrammarTest,ArgsGrammarTest,CompositionGrammarTest,NamedReferenceGrammarTest`. The 4 matcher-correctness rows SHALL pass (no `@Disabled`).
-- [ ] 4.M.8 Commit on `origin/modules`: `feat(gh62): matcher correctness — standalone binding + full negation + named-ref resolver (rows 19/23/43/70 flip COVERED)` with `refs #62`. Push.
+- [ ] 4.W.1 Refactor `pointcut-engine/.../PointcutMatcher.java:109-114` `WithinPC` path: extract the `matchesTypePattern` helper from `NotWithinPC:343-359` into a static method usable by both. ~10 LOC refactor.
+- [ ] 4.W.2 Implement `matchWithinPositive(Context ctx, WithinPC pe)`: compare `ctx.classDef`'s FQN against `pe.getTypePattern()` via `matchesTypePattern`; return `Match.of(pe)` on match, `Match.empty(pe)` on miss. ~30 LOC.
+- [ ] 4.W.3 Update `grammar-tests/.../WithinFamilyGrammarTest.withinPositiveAlwaysMatch_weaverFiltersExpected` → rename to `withinPositiveFiltersClassDef`; remove `@Disabled`; assert the FQN filter against both a matching and non-matching `classDef`.
+- [ ] 4.W.4 Run `mvn -pl pointcut-engine test`; assert all tests pass. Run `mvn -pl grammar-tests test -Dtest=WithinFamilyGrammarTest`; assert `withinPositiveFiltersClassDef` passes.
+- [ ] 4.W.5 Commit on `origin/modules`: `feat(gh62): positive within(typePattern) filters classDef FQN (28 sites; row flips COVERED)` with `refs #62`.
+
+## 4.O `T+` in `call()` owner position (round-6 — ~73 sites generic_new)
+
+**Goal**: extend the gh61 parameter-position subtype expansion to owner descriptor matching at `PointcutMatcher.java:153-157`.
+
+- [ ] 4.O.1 Audit gh61's `cpsAwareOwnerMatch` (parameter-position subtype path): identify the helper that performs `isAssignableFrom` against the class hierarchy. ~5 LOC of grep.
+- [ ] 4.O.2 Extend `PointcutMatcher.matchCall`'s owner check (`:153-157`): replace `expectedOwner.equals(actualOwner) || cpsAwareOwnerMatch(...)` with a check that recognizes the `+` suffix on `expectedOwner` and invokes the existing subtype-expansion helper. ~30 LOC. Preserve the existing exact-equals path for non-`+` patterns.
+- [ ] 4.O.3 Update `grammar-tests/.../CallPointcutGrammarTest.callTSubtypeInOwner`: remove `@Disabled`; assert the corpus pattern `call(* javax.crypto.Cipher+.doFinal(..))` against a subtype receiver matches.
+- [ ] 4.O.4 Run `mvn -pl pointcut-engine test`; tests pass. Run `mvn -pl grammar-tests test -Dtest=CallPointcutGrammarTest`; `callTSubtypeInOwner` passes.
+- [ ] 4.O.5 Commit on `origin/modules`: `feat(gh62): T+ in call() owner position subtype expansion (73 sites; row flips COVERED)` with `refs #62`.
+
+## 4.N `!target(T)` / `!args(T)` parser specialization (round-6 — 32 sites generic_new)
+
+**Goal**: extend `PointcutExpressionParser.parseUnary()` to specialize negation of `target(T)`/`args(T)` type-matching beyond just `!within`.
+
+- [ ] 4.N.1 Extend `pointcut-engine/.../PointcutExpressionParser.parseUnary()`: add cases for `!target(...)` and `!args(...)` that construct a `NegationPC` wrapping the inner `TargetPC`/`ArgsPC`. ~20 LOC.
+- [ ] 4.N.2 Add `NegationPC` matcher (if not already added by §4.W refactor): evaluate the inner pointcut; invert the verdict. ~20 LOC.
+- [ ] 4.N.3 Update `grammar-tests/.../CompositionGrammarTest.negationBeyondWithin` → narrow to `negativeTargetArgsParserSpecialization`; remove `@Disabled`; assert the corpus pattern `!target(MyClass)` produces an inverted match.
+- [ ] 4.N.4 Run tests. Commit: `feat(gh62): !target/!args parser specialization (32 sites; row flips COVERED)` with `refs #62`.
+
+## 4.X Method-name glob `name*` (round-6 — ~16 sites generic_new)
+
+**Goal**: replace `expectedName.equals(actualName)` at `PointcutMatcher.java:161-167` with prefix-glob support.
+
+- [ ] 4.X.1 Update `PointcutMatcher.matchCall`'s name check: if `expectedName` ends with `*`, use `actualName.startsWith(prefix)`; otherwise preserve exact equals. ~15 LOC.
+- [ ] 4.X.2 Add a `grammar-tests/.../CallPointcutGrammarTest.methodNamePrefixGlob` method: assert the corpus pattern `call(* Collection.add*(..))` matches `add`, `addAll`, `addLast` but not `remove`. Enabled passing test.
+- [ ] 4.X.3 Run tests. Commit: `feat(gh62): method-name glob name* prefix matching (16 sites; row flips COVERED)` with `refs #62`.
+
+## 4.S `__STATICSIG` JavaMOP macro support (round-6 — 3 sites generic_new)
+
+**Goal**: recognize `__STATICSIG` in advice bodies and emit an inline constant `Signature` populated from weave-time metadata.
+
+- [ ] 4.S.1 Add `advice-emitter/src/main/java/br/unb/cic/rv/emitter/StaticSigEmitter.java` (~50 LOC): detects `__STATICSIG` in the advice body source; emits at the use site an inline construction of a constant `Signature` carrying the declaring class FQN, the method name (or `<clinit>` for staticinitialization), the parameter type descriptors, and the return type descriptor — all known at weave time from the matcher `Context`.
+- [ ] 4.S.2 Choose representation: emit a `java.lang.String` constant carrying the descriptor (simpler) OR a minimal local `Signature` class with `getDeclaringType()` and `getName()` methods (richer). Decision per implementation discretion — the downstream monitor consumes via source-level binding, not typed-reference instanceof. Document the choice in `advice-emitter/src/main/java/.../emitter/package-info.java`.
+- [ ] 4.S.3 Wire `StaticSigEmitter` via `EmitterDispatch` for `staticinitialization(...)` advice with `__STATICSIG` in the body. ~20 LOC.
+- [ ] 4.S.4 Add `grammar-tests/.../StaticSigGrammarTest.staticSigMacroExpandsToInlineSignature` (NEW class — add to §4 enumeration; method exercises the 3 corpus sites: `Collection_HashCode.mop`, `Serializable_NoArgConstructor.mop`, `URLConnection_OverrideGetPermission.mop` patterns). Enabled passing test.
+- [ ] 4.S.5 Commit on `origin/modules`: `feat(gh62): __STATICSIG macro inline-constant emit (3 sites; row flips COVERED)` with `refs #62`.
+
+## 4.Y `staticinitialization(T+)` synthesis when `<clinit>` is absent (round-6 — 6 sites generic_new)
+
+**Goal**: synthesize a minimal `<clinit>` method when `staticinitialization(T+)` matches a class without one, then weave the advice there.
+
+- [ ] 4.Y.1 Add `dex-mutator/src/main/java/br/unb/cic/rv/mutator/StaticInitSynthesizer.java` (~60 LOC): given a `ClassDef` without `<clinit>`, append a synthesized `<clinit>` containing only `return-void`. Flag the method with a metadata marker (e.g. a `// SYNTHESIZED_CLINIT` debug item or a custom annotation) discoverable by `dexdump`.
+- [ ] 4.Y.2 Update `dex-mutator/.../DexWeaver.applyPlan` to invoke `StaticInitSynthesizer` when a `staticinitialization(...)` advice is processed against a class without `<clinit>`. ~30 LOC.
+- [ ] 4.Y.3 Update `grammar-tests/.../StaticInitializationGrammarTest.staticinitializationTSubtype` to ALSO assert the synthesis path: weave against a class with no `<clinit>`; assert the woven DEX contains the synthesized method and the advice fires when the class is loaded. ~10 LOC test addition.
+- [ ] 4.Y.4 Commit: `feat(gh62): synthesize <clinit> for staticinitialization(T+) when absent (6 sites; row flips COVERED)` with `refs #62`.
+
+## 4.T `after() throwing(...)` end-to-end install (round-6 — 2 sites generic_new)
+
+**Goal**: implement the `TRY_CATCH_WRAP` case in `DexWeaver.applyPlan` (currently `:560-566` discards silently); install try-range + exception handler around the matched invoke.
+
+- [ ] 4.T.1 Replace `DexWeaver.java:560-566`'s `case TRY_CATCH_WRAP: case REPLACE: break;` with a real installer. The new code: (a) compute the try-range covering the matched invoke; (b) allocate a fresh exception register honouring `RegisterShifter` (gh61) constraints; (c) emit a `move-exception` + advice invocation in a new handler block; (d) update the method's try-blocks list to include the new range without disrupting existing handlers. ~80 LOC.
+- [ ] 4.T.2 Audit interaction with existing nested try-catch blocks (the `dexInstrumentationNestedTryCatch` robustness test in §4.22 already exercises this DEX topology — it is the post-fix gate). Document any topology constraint discovered.
+- [ ] 4.T.3 Add `grammar-tests/.../AfterThrowingGrammarTest.installsTryRangeAndHandler` (or update the existing `AdviceFormGrammarTest.afterThrowingAdvice` parameterized scenarios): remove `@Disabled`; assert the post-fix bytecode contains the try-range + handler; assert ART verifies the result (DexBackedDexFile round-trip + dexdump parse).
+- [ ] 4.T.4 Run `mvn -pl dex-mutator test`; tests pass. Run grammar-tests subset; `afterThrowingAdvice` passes.
+- [ ] 4.T.5 Commit: `feat(gh62): after() throwing(...) try-range + handler install (2 sites; row flips COVERED)` with `refs #62`.
+
+## 4.D `NamedRefPC` resolver via `AspectDescriptor.getCommonPointcut()` (round-6 — zero-cost matcher fix)
+
+**Goal**: resolve named-pointcut references against the existing `commonPointcut` field instead of unconditional always-match. No schema changes (the field exists today).
+
+- [ ] 4.D.1 Plumb the active `AspectDescriptor` through `pointcut-engine/.../PointcutMatcher.Context` if not already (audit current Context fields). ~10 LOC.
+- [ ] 4.D.2 Rewrite `NamedRefPC` matching: look up the referenced name in `ctx.aspectDescriptor.getCommonPointcut()` (string parse to find matching `pointcut <name>(): <expr>` declaration); resolve `<expr>` via the existing `PointcutExpressionParser`; evaluate the resolved pointcut against the join point. If the name is not found, log WARN and fall back to always-match (so this round-6 closure does not silently regress rows that depend on the prior behaviour). ~30 LOC.
+- [ ] 4.D.3 Update `grammar-tests/.../NamedReferenceGrammarTest.resolvesAgainstAspectTable` → rename to `resolvesAgainstCommonPointcut`; remove `@Disabled`; assert the resolved reference matches at correct join points and misses elsewhere. Add `unresolvedReferenceFallsBackWithWarn` method exercising the WARN+fallback path.
+- [ ] 4.D.4 Commit: `feat(gh62): NamedRefPC resolves via AspectDescriptor.getCommonPointcut() (row flips COVERED)` with `refs #62`.
 
 ## 5. Matrix population (fill verdicts and evidence)
 
@@ -224,23 +290,26 @@
 - [ ] 6.6 Add `MatrixIntegrityTest.testDisabledTestsResolveToSilentGapRow` (NEW): enumerate all `@Disabled` `@Test` methods in classes matching `br.unb.cic.rv.grammar.*GrammarTest` (top-level only); assert each resolves to exactly one matrix row with `Verdict = SILENT-GAP`. INV-INS-92.
 - [ ] 6.7 Add `MatrixIntegrityTest.testSkipCountEqualsSilentGapCount` (NEW): parse the JUnit Platform discovery; assert `(disabled count) == (matrix rows with Verdict = SILENT-GAP)`. A `@Disabled` test that begins to pass silently breaks the build. INV-INS-92. **Implementation note** (closes cross-LLM Opus47/L4 concern): build the `LauncherDiscoveryRequest` with `selectPackage("br.unb.cic.rv.grammar")` AND `ClassNameFilter.includeClassNamePatterns("br\\.unb\\.cic\\.rv\\.grammar\\.[^.]*GrammarTest")` (top-level package, classes ending in `GrammarTest` — structurally excludes both `MatrixIntegrityTest` AND the `br.unb.cic.rv.grammar.robustness.*` subpackage). Without these filters, `Launcher.execute(request)` re-discovers `MatrixIntegrityTest` itself, re-enters this method, and recurses until StackOverflowError; without the subpackage exclusion, `RobustnessTest` methods would be counted as enabled tests with no matrix row, breaking INV-INS-92. The exclusions are asserted by sentinel checks in the same test: the discovered `TestPlan` MUST contain zero `TestIdentifier`s whose source class is `MatrixIntegrityTest` AND zero whose source class is in `br.unb.cic.rv.grammar.robustness.*` (failure of either sentinel surfaces a regression in the filter).
 - [ ] 6.8 Add `MatrixIntegrityTest.testDemandCountsReproducible`: invoke `DemandCounter.countAll($RVSEC_HOME/rvsec/rvsec-mop/src/main/resources)` directly (no `ProcessBuilder`, no shell); diff against the matrix's `Demand` columns; fail with a diff if any cell mismatches. INV-INS-93.
-- [ ] 6.8a **NEW (round-5)** Add `MatrixIntegrityTest.testReflectiveApiRowsAreCovered`: for every row in the reflective API family (`thisJoinPoint`, `thisJoinPointStaticPart`, `thisEnclosingJoinPointStaticPart`, `JoinPoint.getArgs`, `JoinPoint.getSignature`, `JoinPoint.getTarget`/`.getThis`, `JoinPoint.getKind`/`.getSourceLocation`, runtime linkage), assert `Verdict == COVERED` and the Evidence test FQN is in `JoinPointReflectiveApiGrammarTest`. INV-INS-94.
-- [ ] 6.8b **NEW (round-5)** Add `MatrixIntegrityTest.testMatcherCorrectnessRowsAreCovered`: for the matcher correctness rows (`target(name)` standalone, `args(name)` standalone, `!` negation beyond `!within`, named-pointcut reference), assert `Verdict == COVERED` and the Evidence test FQN is in the appropriate per-designator GrammarTest. INV-INS-95.
+- [ ] 6.8a **NEW (round-6 redesign)** Add `MatrixIntegrityTest.testDemandDrivenClosuresAreCovered`: for every matrix row covered by the eight demand-driven closures (`condition(...)`, positive `within(typePattern)`, `T+` in `call()` owner, `!target(T)`/`!args(T)`, method-name glob `name*`, `__STATICSIG`, `staticinitialization` synthesis, `after() throwing(...)`) AND the `NamedRefPC` resolver, assert `Verdict == COVERED` and the Evidence test FQN resolves to an enabled passing test (`ConditionGrammarTest`, `WithinFamilyGrammarTest`, `CallPointcutGrammarTest`, `CompositionGrammarTest`, `StaticSigGrammarTest`, `StaticInitializationGrammarTest`, `AdviceFormGrammarTest`, or `NamedReferenceGrammarTest`). INV-INS-94.
+- [ ] 6.8b **NEW (round-6 redesign — advisory)** Add `MatrixIntegrityTest.testClosureLocFootprintMatchesMatrixDelta`: count git diff LOC per closure commit (§4.G/W/O/N/X/S/Y/T/D) using `git log --pretty=format:%H -- <files>` + `git diff --shortstat`; sum against the per-closure budget declared in proposal.md §"Scope expansion". Advisory only — log warnings, do not fail the build. INV-INS-95.
 - [ ] 6.9 Run `mvn -pl grammar-tests test`. All 10 integrity tests SHALL pass on the populated matrix.
 - [ ] 6.10 Extend `rvsec/.github/workflows/ci.yml`: add a dedicated step `mvn test -pl rvsec-android/rvsec-instrumentation-dexlib2/grammar-tests -DskipTests=false -am` after the existing `maven-build` step. Declare `env: RVSEC_HOME: ${{ github.workspace }}` (or analogous path so `DemandCounter` finds `rvsec/rvsec-mop/src/main/resources/`). The CI step's stdout SHALL print the skipped-test count (number of `SILENT-GAP` rows) for visibility. (Note: the current `ci.yml` builds with `-DskipTests`; this task is to add a step that explicitly enables tests for `grammar-tests` only — not to flip the global build.)
 - [ ] 6.10a **NEW (round-5 sanity check — opus M5)** Prepend to the §6.10 CI step: `test -d "$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca" || { echo "ERROR: RVSEC_HOME corpus dir missing: $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca"; exit 1; }`. Without this sanity, an env-var misconfiguration makes `DemandCounter` silently return zero across the board, which would make every `NOT-NEEDED` path α trivially valid (silent green build). The sanity check fails loudly instead.
 - [ ] 6.11 Commit on `origin/modules`: `test(gh62): MatrixIntegrityTest (bidirectional + reflective + matcher) + CI step for grammar coverage` with `refs #62`. Push. (The earlier draft proposed a cross-repo `grammar-pr-check.yml` GitHub Action for closure atomicity; rejected in design D6 — `MatrixIntegrityTest` running in CI at commit time enforces the same invariant via orphan-test and orphan-row detection.)
 
-## 6.S Smoke validation on 5 JCA-226 APKs (round-5 — gates the in-change closures)
+## 6.S Smoke validation on 5 JCA-226 APKs (round-6 — gates the demand-driven closures)
 
-**Goal**: verify the Reflective API + Matcher Correctness closures produce correct monitor events on real APKs from the JCA-226 dataset.
+**Goal**: verify the eight demand-driven closures + NamedRefPC resolver produce correct monitor events on real APKs from the JCA-226 dataset. Round-6 replaces the round-5 ±5% event-count parity gate with three demand-driven gates that match the new scope.
 
-- [ ] 6.S.1 Pick 5 APKs from the JCA-226 instrumentable subset (re-using the INV-INS-31 baseline). At least one APK MUST exercise `target(...) && args(...) && if(thisJoinPoint...)` composition (canonical pattern in `generic_new/`); at least one MUST use `thisJoinPoint.getSignature().getName()` in an advice body; at least one MUST have nested try-catch DEX topology.
-- [ ] 6.S.2 Pre-change snapshot: re-instrument the 5 APKs with `instr-cli.jar` built from `HEAD~1` (pre-closure); run each on the emulator under a representative MOP spec; capture monitor event stream + count of empty-payload events. Round-5 expectation: a non-zero count of empty-payload events (current SILENT-GAP / WRONG-DATA behaviour).
-- [ ] 6.S.3 Post-change snapshot: re-instrument with `instr-cli.jar` built from `HEAD` (post-closure); run; capture monitor event stream + empty-payload count.
-- [ ] 6.S.4 Compare: post-change empty-payload count MUST be 0 (Reflective API closure populates correctly). Event count parity (total event count within ±5% — small drift from correct standalone binding firing where pre-change always-match did not) MUST hold. No new VerifyError MUST appear (DexBackedDexFile round-trip on all 5 APKs passes).
-- [ ] 6.S.5 If any assertion fails, REVERT the closure commits and re-evaluate. The 5-APK smoke is the empirical gate for the in-change implementation.
-- [ ] 6.S.6 Commit on `origin/modules`: `chore(gh62): 5-APK smoke validation PASS for reflective + matcher closures` with `refs #62`. Push.
+- [ ] 6.S.1 Pick 5 APKs from the JCA-226 instrumentable subset (re-using the INV-INS-31 baseline). The selection MUST cover the eight closures collectively: at least one APK has a method matched by `condition(...)` (jca corpus pattern); at least one has positive `within(typePattern)` (Coverage.aj package filter); at least one has `T+` in `call()` owner with a subtype receiver; at least one has `!target(T)`/`!args(T)`; at least one has a method-name glob (`add*`-style); at least one would trigger `__STATICSIG` if the spec is active (generic_new pattern); at least one has `staticinitialization(T+)` against a class without `<clinit>`; at least one has `after() throwing(...)` against a method invocation. At least one APK MUST have nested try-catch DEX topology (round-5 robustness gap from §4.22).
+- [ ] 6.S.2 Pre-change snapshot: re-instrument the 5 APKs with `instr-cli.jar` built from `HEAD~N` (pre-closure series); run each on the emulator under a representative MOP spec; capture monitor event stream + per-closure pattern-match counts. Pre-change baseline: every closure has either zero or always-matching events (the silent-gap behaviour).
+- [ ] 6.S.3 Post-change snapshot: re-instrument with `instr-cli.jar` built from `HEAD` (post-closure); run; capture monitor event stream + per-closure pattern-match counts.
+- [ ] 6.S.4 Three gates (replace round-5 ±5% parity):
+  - **GATE A (hard, no-new-VerifyError)**: post-change DEX MUST pass ART install + DexBackedDexFile round-trip on all 5 APKs. Any new VerifyError REVERTS the closure series.
+  - **GATE B (hard, monotonic non-decrease event count)**: total post-change event count MUST be ≥ pre-change count. The closures deliberately increase volume (within positive, T+ owner, method-name glob, condition non-skip path); they should not reduce volume on the pre-change surface.
+  - **GATE C (hard, positive-evidence per closure)**: each of the eight closures + namedref resolver MUST produce ≥1 new event in ≥1 APK whose pattern matches the closure. A closure that produces zero new events anywhere is either inert (bug) or the APK selection was wrong (re-pick APKs).
+- [ ] 6.S.5 If any gate fails, REVERT the offending closure commit(s) and re-evaluate. Gates A/B/C are independent — a single closure can be reverted without unwinding the whole series (bisect-friendly per §4.{G,W,O,N,X,S,Y,T,D} atomic commits).
+- [ ] 6.S.6 Commit on `origin/modules`: `chore(gh62): 5-APK smoke validation PASS for demand-driven closures (gates A/B/C)` with `refs #62`. Push.
 
 ## 7. Cross-Cutting Verification + Archive
 
@@ -255,6 +324,6 @@
 
 ## 8. Out-of-scope cross-cutting checks
 
-- [ ] 8.1 Confirm production source code changes are SCOPED to the two reserved families (per design D8): `git diff origin/modules~N..origin/modules -- rvsec-android/rvsec-instrumentation-dexlib2/pointcut-engine/src/main/ rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter/src/main/ rvsec-android/rvsec-instrumentation-dexlib2/dex-mutator/src/main/ rvsec-android/rvsec-instrumentation-dexlib2/coverage-weaver/src/main/` SHALL touch ONLY (a) `advice-emitter/.../aspectjlang/*` (new package — Reflective API local types), (b) `advice-emitter/.../emitter/MonitorInvokeBuilder.java` + `ThisJoinPointEmitter.java` + `BeforeEmitter.java` + `AfterEmitter.java` + `AfterReturningEmitter.java` (Reflective API emit), (c) `pointcut-engine/.../pointcut/PointcutMatcher.java` + `PointcutExpressionParser.java` + new `NegationPC.java` (Matcher Correctness), (d) `coverage-weaver/.../CoverageEventBuilder.java` (Reflective API event payload alignment). Other production code MUST NOT be touched.
-- [ ] 8.2 Confirm `instr-cli.jar`'s observable behaviour changes are SCOPED: re-run the per-module test bars (`mvn -pl pointcut-engine test`, `mvn -pl advice-emitter test`, `mvn -pl dex-mutator test`, `mvn -pl coverage-weaver test`) and assert 0 NEW failures vs. the pre-task-4.R/4.M baseline (some tests SHALL update to reflect the new correct behaviour — e.g. tests asserting the WRONG-DATA payload SHALL be deleted or rewritten). The shaded jar's byte hash WILL change. The §6.S 5-APK smoke validation is the empirical gate for behaviour correctness.
+- [ ] 8.1 Confirm production source code changes are SCOPED to the round-6 demand-driven closures (per design D8): `git diff origin/modules~N..origin/modules -- rvsec-android/rvsec-instrumentation-dexlib2/pointcut-engine/src/main/ rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter/src/main/ rvsec-android/rvsec-instrumentation-dexlib2/dex-mutator/src/main/ rvsec-android/rvsec-instrumentation-dexlib2/descriptor-reader/src/main/` SHALL touch ONLY (a) `advice-emitter/.../emitter/ConditionGuardEmitter.java` + `StaticSigEmitter.java` (new files for §4.G, §4.S); (b) `advice-emitter/.../emitter/AfterThrowingEmitter.java` + `EmitterDispatch.java` (extensions for §4.G, §4.T wiring); (c) `pointcut-engine/.../pointcut/PointcutMatcher.java` + `PointcutExpressionParser.java` + new `NegationPC.java` (§4.W, §4.O, §4.N, §4.X, §4.D); (d) `dex-mutator/.../mutator/DexWeaver.java` + new `StaticInitSynthesizer.java` (§4.T, §4.Y). NO changes to `coverage-weaver/` (round-5 §4.R.8 path dropped — empirical verification confirmed `SignatureFormatter` already produces correct payloads). NO new `aspectjlang/` package (round-5 reflective-API ship dropped — empirical demand zero). Other production code MUST NOT be touched.
+- [ ] 8.2 Confirm `instr-cli.jar`'s observable behaviour changes are SCOPED: re-run the per-module test bars (`mvn -pl pointcut-engine test`, `mvn -pl advice-emitter test`, `mvn -pl dex-mutator test`, `mvn -pl descriptor-reader test`) and assert 0 NEW failures vs. the pre-task-4.{G,W,O,N,X,S,Y,T,D} baseline (some tests MAY update to reflect the new correct behaviour — e.g. a test asserting `NamedRefPC` always-matches SHALL be deleted or rewritten as a fallback case). The shaded jar's byte hash WILL change. The §6.S 5-APK smoke validation is the empirical gate for behaviour correctness.
 - [ ] 8.3 Re-instrument the 5-APK JCA-226 smoke subset (§6.S) only. NO full 190-APK re-instrumentation; NO Docker image rebuild beyond what §6.S requires; NO APE experiment re-run. A full validation pass is a separate experiment.
