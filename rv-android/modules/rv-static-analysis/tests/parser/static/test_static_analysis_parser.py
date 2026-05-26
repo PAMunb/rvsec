@@ -57,13 +57,17 @@ class TestWellFormedJSON:
     def test_class_count(self, parser):
         """Verify expected number of classes from cryptoapp."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
-        # cryptoapp has 27 app classes matching the package
-        assert len(result.classes.classes) == 27
+        # 16 app classes after gh57 R$*/BuildConfig filter. The earlier 27
+        # came from including generated resource classes, which inflated the
+        # coverage denominator. See baselines/MANIFEST.json for the canonical
+        # cryptoapp metrics ledger.
+        assert len(result.classes.classes) == 16
 
     def test_method_count(self, parser):
         """Verify expected number of methods from cryptoapp."""
         result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
-        assert len(result.classes.methods) == 118
+        # 106 methods under the post-gh57 R$*/BuildConfig filter.
+        assert len(result.classes.methods) == 106
 
     def test_window_count(self, parser):
         """Verify expected number of windows from cryptoapp."""
@@ -848,15 +852,27 @@ class TestBaselineEquivalence:
     reachability counts (to absorb minor analysis variations across runs).
     """
 
-    # Baseline values from cryptoapp.apk analysis
+    # Baseline values for the current cryptoapp.apk analysis. Regenerated
+    # 2026-05-26 against the post-gh60 jar (spark default per gh51 D5 + gh57
+    # schema with components + ADR-6 complete sentinel + C1f reachesTarget
+    # key naming). Source-of-truth ledger lives at
+    # `modules/rv-static-analysis/tests/resources/baselines/MANIFEST.json`
+    # — keep these constants in sync with the `expected_metrics` of the
+    # `cryptoapp` entry there.
+    #
+    # Drop from the gh45/cha-era baseline (27/118/67/61) to the gh51-spark
+    # baseline (16/106/55/32) is the intended precision improvement of the
+    # cha→spark switch; the historical drop in `classes` to 16 reflects the
+    # R$*/BuildConfig filtering also landed during gh57. See
+    # openspec/changes/gh60-targets-core/design.md §D12.
     BASELINE = {
-        "classes": 27,
-        "methods": 118,
+        "classes": 16,
+        "methods": 106,
         "activities": 4,
         "windows": 5,
         "transitions": 36,  # 35 raw JSON objects, 1 has 2 events → 36 expanded
-        "reachable": 67,
-        "reaches_target": 61,
+        "reachable": 55,
+        "reaches_target": 32,
         "directly_reaches_target": 21,
     }
 

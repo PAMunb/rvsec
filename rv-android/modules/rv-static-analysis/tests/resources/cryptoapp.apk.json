@@ -25,14 +25,14 @@
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -74,14 +74,14 @@
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: br.unb.cic.cryptoapp.databinding.ActivityMainBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: br.unb.cic.cryptoapp.databinding.ActivityMainBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -123,14 +123,14 @@
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: br.unb.cic.cryptoapp.databinding.ActivityCipherBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: br.unb.cic.cryptoapp.databinding.ActivityCipherBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -172,14 +172,14 @@
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -207,20 +207,20 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "access$000",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void access$000(br.unb.cic.cryptoapp.cipher.CipherActivity)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": true,
           "directlyReachesTarget": false
         },
         {
           "name": "encrypt",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void encrypt()>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": true,
           "directlyReachesTarget": false
         },
@@ -228,27 +228,6 @@
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesTarget": true,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.BuildConfig",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<clinit>",
-          "signature": "<br.unb.cic.cryptoapp.BuildConfig: void <clinit>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        },
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.BuildConfig: void <init>()>",
-          "reachable": false,
           "reachesTarget": false,
           "directlyReachesTarget": false
         }
@@ -283,28 +262,28 @@
         {
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: void <init>()>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "aes",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] aes(java.lang.String)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": true,
           "directlyReachesTarget": true
         },
         {
           "name": "des",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] des(java.lang.String)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": true,
           "directlyReachesTarget": true
         },
         {
           "name": "encrypt",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: java.lang.String encrypt(java.lang.String)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": true,
           "directlyReachesTarget": false
         },
@@ -332,7 +311,7 @@
         {
           "name": "onMenuItemClick",
           "signature": "<br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": false,
           "directlyReachesTarget": false
         }
@@ -347,7 +326,7 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -361,14 +340,14 @@
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "onCreateOptionsMenu",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -417,21 +396,21 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "access$002",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: java.lang.String access$002(br.unb.cic.cryptoapp.generated.CryptographyActivity,java.lang.String)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "access$100",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void access$100(br.unb.cic.cryptoapp.generated.CryptographyActivity)>",
-          "reachable": true,
-          "reachesTarget": true,
+          "reachable": false,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -522,7 +501,7 @@
           "name": "initializeViews",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void initializeViews()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -557,14 +536,14 @@
           "name": "setupInputFields",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupInputFields()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "setupKeyPairUI",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupKeyPairUI()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -578,28 +557,28 @@
           "name": "setupSecretKeyUI",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupSecretKeyUI()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "setupTabLayout",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupTabLayout()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "updateUIForTab",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void updateUIForTab()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "validateInputs",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: boolean validateInputs()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -613,7 +592,7 @@
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         }
       ]
@@ -654,21 +633,21 @@
         {
           "name": "onTabReselected",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabReselected(com.google.android.material.tabs.TabLayout$Tab)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "onTabSelected",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabSelected(com.google.android.material.tabs.TabLayout$Tab)>",
-          "reachable": true,
-          "reachesTarget": true,
+          "reachable": false,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
           "name": "onTabUnselected",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabUnselected(com.google.android.material.tabs.TabLayout$Tab)>",
-          "reachable": true,
+          "reachable": false,
           "reachesTarget": false,
           "directlyReachesTarget": false
         }
@@ -781,7 +760,7 @@
           "name": "onClick",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         }
       ]
@@ -816,7 +795,7 @@
           "name": "unreachableHash",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String unreachableHash(java.lang.String)>",
           "reachable": false,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         }
       ]
@@ -830,7 +809,7 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -844,7 +823,7 @@
           "name": "showErrorDialog",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void showErrorDialog(java.lang.String)>",
           "reachable": true,
-          "reachesTarget": true,
+          "reachesTarget": false,
           "directlyReachesTarget": false
         },
         {
@@ -872,146 +851,6 @@
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesTarget": true,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$string",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$string: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$layout",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$layout: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$color",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$color: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$drawable",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$drawable: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$style",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$style: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$array",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$array: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$mipmap",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$mipmap: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$menu",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$menu: void <init>()>",
-          "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
-        }
-      ]
-    },
-    {
-      "className": "br.unb.cic.cryptoapp.R$id",
-      "componentType": null,
-      "isMain": false,
-      "methods": [
-        {
-          "name": "<init>",
-          "signature": "<br.unb.cic.cryptoapp.R$id: void <init>()>",
-          "reachable": false,
           "reachesTarget": false,
           "directlyReachesTarget": false
         }
@@ -1020,397 +859,102 @@
   ],
   "windows": [
     {
-      "id": 1379,
-      "name": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
+      "id": 1386,
+      "name": "br.unb.cic.cryptoapp.MainActivity",
       "type": "ACTIVITY",
-      "isMain": false,
+      "isMain": true,
       "widgets": [
         {
-          "id": 1992,
-          "idName": "",
-          "type": "android.widget.ScrollView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 1993,
+          "id": 1986,
           "idName": "",
           "type": "android.widget.LinearLayout",
           "text": "",
           "hint": "",
           "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
         },
         {
-          "id": 1996,
-          "idName": "",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296452,
-          "idName": "executeButton",
+          "id": 2131296359,
+          "idName": "buttonMessageDigest",
           "type": "android.widget.Button",
-          "text": "",
+          "text": "Message Digest",
           "hint": "",
           "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": [
             {
               "eventType": "click",
-              "handler": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>"
+              "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>"
             }
           ]
         },
         {
-          "id": 2002,
-          "idName": "",
-          "type": "androidx.cardview.widget.CardView",
-          "text": "",
+          "id": 2131296356,
+          "idName": "buttonCipher",
+          "type": "android.widget.Button",
+          "text": "Cipher",
           "hint": "",
           "inputType": "",
           "entries": [],
-          "listeners": []
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": [
+            {
+              "eventType": "click",
+              "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>"
+            }
+          ]
         },
         {
-          "id": 2011,
-          "idName": "",
-          "type": "android.widget.LinearLayout",
-          "text": "",
+          "id": 2131296358,
+          "idName": "buttonGenerated",
+          "type": "android.widget.Button",
+          "text": "GENERATED",
           "hint": "",
           "inputType": "",
           "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2015,
-          "idName": "",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296631,
-          "idName": "resultTextView",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 1994,
-          "idName": "",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2004,
-          "idName": "",
-          "type": "androidx.cardview.widget.CardView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2013,
-          "idName": "",
-          "type": "android.widget.LinearLayout",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2019,
-          "idName": "",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296624,
-          "idName": "privateKeyTextView",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296552,
-          "idName": "modeRadioGroup",
-          "type": "android.widget.RadioGroup",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296409,
-          "idName": "decryptRadioButton",
-          "type": "android.widget.RadioButton",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296447,
-          "idName": "encryptRadioButton",
-          "type": "android.widget.RadioButton",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296473,
-          "idName": "generateRadioButton",
-          "type": "android.widget.RadioButton",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296328,
-          "idName": "algorithmSpinner",
-          "type": "android.widget.Spinner",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2003,
-          "idName": "",
-          "type": "androidx.cardview.widget.CardView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2012,
-          "idName": "",
-          "type": "android.widget.LinearLayout",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2017,
-          "idName": "",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296627,
-          "idName": "publicKeyTextView",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296499,
-          "idName": "inputTextLayout",
-          "type": "com.google.android.material.textfield.TextInputLayout",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296498,
-          "idName": "inputEditText",
-          "type": "com.google.android.material.textfield.TextInputEditText",
-          "text": "",
-          "hint": "",
-          "inputType": "textMultiLine",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296512,
-          "idName": "keyInputLayout",
-          "type": "com.google.android.material.textfield.TextInputLayout",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296511,
-          "idName": "keyEditText",
-          "type": "com.google.android.material.textfield.TextInputEditText",
-          "text": "",
-          "hint": "",
-          "inputType": "textMultiLine",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296400,
-          "idName": "cryptoTabLayout",
-          "type": "com.google.android.material.tabs.TabLayout",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2005,
-          "idName": "",
-          "type": "androidx.cardview.widget.CardView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2014,
-          "idName": "",
-          "type": "android.widget.LinearLayout",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296508,
-          "idName": "ivTextView",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2021,
-          "idName": "",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": [
+            {
+              "eventType": "click",
+              "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>"
+            }
+          ]
         }
       ]
     },
     {
-      "id": 1382,
+      "id": 1391,
       "name": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
       "type": "ACTIVITY",
       "isMain": false,
       "widgets": [
         {
-          "id": 2023,
+          "id": 2044,
           "idName": "",
           "type": "android.widget.LinearLayout",
           "text": "",
           "hint": "",
           "inputType": "",
           "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296726,
-          "idName": "textView",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296357,
-          "idName": "buttonGenerateHash",
-          "type": "android.widget.Button",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": [
-            {
-              "eventType": "click",
-              "handler": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>"
-            }
-          ]
-        },
-        {
-          "id": 2031,
-          "idName": "",
-          "type": "android.widget.ScrollView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2032,
-          "idName": "",
-          "type": "android.widget.LinearLayout",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": []
-        },
-        {
-          "id": 2131296728,
-          "idName": "textViewMessageDigestResult",
-          "type": "android.widget.TextView",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
         },
         {
@@ -1435,34 +979,121 @@
             "SHA3-384",
             "SHA3-512"
           ],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
         },
         {
-          "id": 2131296442,
-          "idName": "editTextMessageDigest",
-          "type": "android.widget.EditText",
+          "id": 2052,
+          "idName": "",
+          "type": "android.widget.ScrollView",
           "text": "",
           "hint": "",
-          "inputType": "textPersonName",
+          "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
-        }
-      ]
-    },
-    {
-      "id": 1385,
-      "name": "br.unb.cic.cryptoapp.cipher.CipherActivity",
-      "type": "ACTIVITY",
-      "isMain": false,
-      "widgets": [
+        },
         {
-          "id": 1943,
+          "id": 2053,
           "idName": "",
           "type": "android.widget.LinearLayout",
           "text": "",
           "hint": "",
           "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296728,
+          "idName": "textViewMessageDigestResult",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296726,
+          "idName": "textView",
+          "type": "android.widget.TextView",
+          "text": "Message Digest",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296357,
+          "idName": "buttonGenerateHash",
+          "type": "android.widget.Button",
+          "text": "Generate Hash",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": [
+            {
+              "eventType": "click",
+              "handler": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>"
+            }
+          ]
+        },
+        {
+          "id": 2131296442,
+          "idName": "editTextMessageDigest",
+          "type": "android.widget.EditText",
+          "text": "",
+          "hint": "Input text ...",
+          "inputType": "textPersonName",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 1394,
+      "name": "br.unb.cic.cryptoapp.cipher.CipherActivity",
+      "type": "ACTIVITY",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 2008,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
         },
         {
@@ -1470,10 +1101,33 @@
           "idName": "editTextCipherEncrypt",
           "type": "android.widget.EditText",
           "text": "",
-          "hint": "",
+          "hint": "Input text ...",
           "inputType": "textPersonName",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
+        },
+        {
+          "id": 2131296355,
+          "idName": "btn_cipher_encrypt",
+          "type": "android.widget.Button",
+          "text": "Encrypt",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": [
+            {
+              "eventType": "click",
+              "handler": "<br.unb.cic.cryptoapp.cipher.CipherActivity$1: void onClick(android.view.View)>"
+            }
+          ]
         },
         {
           "id": 2131296727,
@@ -1483,123 +1137,535 @@
           "hint": "",
           "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
         },
         {
           "id": 2131296381,
           "idName": "cipherTextView",
           "type": "android.widget.TextView",
-          "text": "",
+          "text": "Cipher",
           "hint": "",
           "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
-        },
-        {
-          "id": 2131296355,
-          "idName": "btn_cipher_encrypt",
-          "type": "android.widget.Button",
-          "text": "",
-          "hint": "",
-          "inputType": "",
-          "entries": [],
-          "listeners": [
-            {
-              "eventType": "click",
-              "handler": "<br.unb.cic.cryptoapp.cipher.CipherActivity$1: void onClick(android.view.View)>"
-            }
-          ]
         }
       ]
     },
     {
-      "id": 1395,
-      "name": "br.unb.cic.cryptoapp.MainActivity",
+      "id": 1397,
+      "name": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
       "type": "ACTIVITY",
-      "isMain": true,
+      "isMain": false,
       "widgets": [
         {
-          "id": 2038,
+          "id": 2055,
+          "idName": "",
+          "type": "android.widget.ScrollView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2056,
           "idName": "",
           "type": "android.widget.LinearLayout",
           "text": "",
           "hint": "",
           "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": []
         },
         {
-          "id": 2131296356,
-          "idName": "buttonCipher",
-          "type": "android.widget.Button",
+          "id": 2131296512,
+          "idName": "keyInputLayout",
+          "type": "com.google.android.material.textfield.TextInputLayout",
+          "text": "",
+          "hint": "Key (leave empty to generate)",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296511,
+          "idName": "keyEditText",
+          "type": "com.google.android.material.textfield.TextInputEditText",
+          "text": "",
+          "hint": "",
+          "inputType": "textMultiLine",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2066,
+          "idName": "",
+          "type": "androidx.cardview.widget.CardView",
           "text": "",
           "hint": "",
           "inputType": "",
           "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2075,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296627,
+          "idName": "publicKeyTextView",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2080,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2059,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2067,
+          "idName": "",
+          "type": "androidx.cardview.widget.CardView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2076,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296624,
+          "idName": "privateKeyTextView",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2082,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2057,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296400,
+          "idName": "cryptoTabLayout",
+          "type": "com.google.android.material.tabs.TabLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296499,
+          "idName": "inputTextLayout",
+          "type": "com.google.android.material.textfield.TextInputLayout",
+          "text": "",
+          "hint": "Input Text",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296498,
+          "idName": "inputEditText",
+          "type": "com.google.android.material.textfield.TextInputEditText",
+          "text": "",
+          "hint": "",
+          "inputType": "textMultiLine",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296552,
+          "idName": "modeRadioGroup",
+          "type": "android.widget.RadioGroup",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296473,
+          "idName": "generateRadioButton",
+          "type": "android.widget.RadioButton",
+          "text": "Generate",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296447,
+          "idName": "encryptRadioButton",
+          "type": "android.widget.RadioButton",
+          "text": "Encrypt",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296409,
+          "idName": "decryptRadioButton",
+          "type": "android.widget.RadioButton",
+          "text": "Decrypt",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296452,
+          "idName": "executeButton",
+          "type": "android.widget.Button",
+          "text": "Execute",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
           "listeners": [
             {
               "eventType": "click",
-              "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>"
+              "handler": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>"
             }
           ]
         },
         {
-          "id": 2131296358,
-          "idName": "buttonGenerated",
-          "type": "android.widget.Button",
+          "id": 2065,
+          "idName": "",
+          "type": "androidx.cardview.widget.CardView",
           "text": "",
           "hint": "",
           "inputType": "",
           "entries": [],
-          "listeners": [
-            {
-              "eventType": "click",
-              "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>"
-            }
-          ]
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
         },
         {
-          "id": 2131296359,
-          "idName": "buttonMessageDigest",
-          "type": "android.widget.Button",
+          "id": 2074,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
           "text": "",
           "hint": "",
           "inputType": "",
           "entries": [],
-          "listeners": [
-            {
-              "eventType": "click",
-              "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>"
-            }
-          ]
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296631,
+          "idName": "resultTextView",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2078,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2068,
+          "idName": "",
+          "type": "androidx.cardview.widget.CardView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2077,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2084,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296508,
+          "idName": "ivTextView",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296328,
+          "idName": "algorithmSpinner",
+          "type": "android.widget.Spinner",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
         }
       ]
     },
     {
-      "id": 1388,
+      "id": 1379,
       "name": "br.unb.cic.cryptoapp.MainActivity#OptionsMenu",
       "type": "OPTIONSMENU",
       "isMain": false,
-      "widgets": []
+      "widgets": [
+        {
+          "id": 2131296547,
+          "idName": "menu_item_home",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131296548,
+          "idName": "menu_item_message_digest",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": [
+            {
+              "eventType": "click",
+              "handler": "<br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>"
+            }
+          ]
+        },
+        {
+          "id": 2131296546,
+          "idName": "menu_item_cipher",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
     }
   ],
   "transitions": [
     {
-      "sourceId": 1379,
-      "targetId": 1395,
-      "events": [
-        {
-          "type": "implicit_back_event",
-          "handler": "",
-          "widgetId": 1379,
-          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1379,
-      "targetId": 1379,
+      "sourceId": 1397,
+      "targetId": 1397,
       "events": [
         {
           "type": "click",
@@ -1611,184 +1677,73 @@
       ]
     },
     {
-      "sourceId": 1379,
-      "targetId": 1379,
-      "events": [
-        {
-          "type": "implicit_home_event",
-          "handler": "",
-          "widgetId": 1379,
-          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1379,
-      "targetId": 1379,
-      "events": [
-        {
-          "type": "implicit_power_event",
-          "handler": "",
-          "widgetId": 1379,
-          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1379,
-      "targetId": 1379,
+      "sourceId": 1397,
+      "targetId": 1397,
       "events": [
         {
           "type": "implicit_rotate_event",
           "handler": "",
-          "widgetId": 1379,
+          "widgetId": 1397,
           "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1382,
-      "targetId": 1382,
-      "events": [
-        {
-          "type": "implicit_rotate_event",
-          "handler": "",
-          "widgetId": 1382,
-          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1382,
-      "targetId": 1382,
-      "events": [
-        {
-          "type": "implicit_power_event",
-          "handler": "",
-          "widgetId": 1382,
-          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1382,
-      "targetId": 1382,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>",
-          "widgetId": 2131296357,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonGenerateHash"
-        }
-      ]
-    },
-    {
-      "sourceId": 1382,
-      "targetId": 1382,
-      "events": [
-        {
-          "type": "implicit_home_event",
-          "handler": "",
-          "widgetId": 1382,
-          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1382,
-      "targetId": 1395,
+      "sourceId": 1397,
+      "targetId": 1386,
       "events": [
         {
           "type": "implicit_back_event",
           "handler": "",
-          "widgetId": 1382,
-          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+          "widgetId": 1397,
+          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1388,
-      "targetId": 1382,
+      "sourceId": 1397,
+      "targetId": 1397,
       "events": [
         {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
-          "widgetId": 2131296548,
-          "widgetClass": "android.view.MenuItem",
-          "widgetName": "menu_item_message_digest"
-        },
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>",
-          "widgetId": 2131296548,
-          "widgetClass": "android.view.MenuItem",
-          "widgetName": "menu_item_message_digest"
-        }
-      ]
-    },
-    {
-      "sourceId": 1388,
-      "targetId": 1395,
-      "events": [
-        {
-          "type": "implicit_back_event",
+          "type": "implicit_home_event",
           "handler": "",
-          "widgetId": 1388,
-          "widgetClass": "android.view.Menu",
+          "widgetId": 1397,
+          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1388,
-      "targetId": 1388,
-      "events": [
-        {
-          "type": "implicit_rotate_event",
-          "handler": "",
-          "widgetId": 1388,
-          "widgetClass": "android.view.Menu",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1388,
-      "targetId": 1395,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
-          "widgetId": 2131296547,
-          "widgetClass": "android.view.MenuItem",
-          "widgetName": "menu_item_home"
-        }
-      ]
-    },
-    {
-      "sourceId": 1388,
-      "targetId": 1395,
+      "sourceId": 1397,
+      "targetId": 1397,
       "events": [
         {
           "type": "implicit_power_event",
           "handler": "",
-          "widgetId": 1388,
+          "widgetId": 1397,
+          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1379,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "implicit_power_event",
+          "handler": "",
+          "widgetId": 1379,
           "widgetClass": "android.view.Menu",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1388,
-      "targetId": 1385,
+      "sourceId": 1379,
+      "targetId": 1394,
       "events": [
         {
           "type": "click",
@@ -1800,99 +1755,80 @@
       ]
     },
     {
-      "sourceId": 1388,
-      "targetId": 1395,
+      "sourceId": 1379,
+      "targetId": 1386,
       "events": [
         {
-          "type": "implicit_home_event",
+          "type": "implicit_back_event",
           "handler": "",
-          "widgetId": 1388,
+          "widgetId": 1379,
           "widgetClass": "android.view.Menu",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1382,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
-          "widgetId": 2131296356,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonCipher"
-        }
-      ]
-    },
-    {
-      "sourceId": 1395,
-      "targetId": 1382,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
-          "widgetId": 2131296359,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonMessageDigest"
-        }
-      ]
-    },
-    {
-      "sourceId": 1395,
-      "targetId": 1382,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
-          "widgetId": 2131296358,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonGenerated"
-        }
-      ]
-    },
-    {
-      "sourceId": 1395,
+      "sourceId": 1379,
       "targetId": 1379,
       "events": [
         {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
-          "widgetId": 2131296359,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonMessageDigest"
+          "type": "implicit_rotate_event",
+          "handler": "",
+          "widgetId": 1379,
+          "widgetClass": "android.view.Menu",
+          "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1379,
+      "sourceId": 1379,
+      "targetId": 1391,
       "events": [
         {
           "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
-          "widgetId": 2131296356,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonCipher"
+          "handler": "<br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>",
+          "widgetId": 2131296548,
+          "widgetClass": "android.view.MenuItem",
+          "widgetName": "menu_item_message_digest"
+        },
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
+          "widgetId": 2131296548,
+          "widgetClass": "android.view.MenuItem",
+          "widgetName": "menu_item_message_digest"
         }
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1395,
+      "sourceId": 1379,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
+          "widgetId": 2131296547,
+          "widgetClass": "android.view.MenuItem",
+          "widgetName": "menu_item_home"
+        }
+      ]
+    },
+    {
+      "sourceId": 1379,
+      "targetId": 1386,
       "events": [
         {
           "type": "implicit_home_event",
           "handler": "",
-          "widgetId": 1395,
-          "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
+          "widgetId": 1379,
+          "widgetClass": "android.view.Menu",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1379,
+      "sourceId": 1386,
+      "targetId": 1394,
       "events": [
         {
           "type": "click",
@@ -1904,34 +1840,8 @@
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1385,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
-          "widgetId": 2131296358,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonGenerated"
-        }
-      ]
-    },
-    {
-      "sourceId": 1395,
-      "targetId": 1385,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
-          "widgetId": 2131296356,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonCipher"
-        }
-      ]
-    },
-    {
-      "sourceId": 1395,
-      "targetId": 1385,
+      "sourceId": 1386,
+      "targetId": 1394,
       "events": [
         {
           "type": "click",
@@ -1943,86 +1853,255 @@
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1395,
+      "sourceId": 1386,
+      "targetId": 1394,
       "events": [
         {
-          "type": "implicit_power_event",
-          "handler": "",
-          "widgetId": 1395,
-          "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
-          "widgetName": ""
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
+          "widgetId": 2131296356,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonCipher"
         }
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1388,
+      "sourceId": 1386,
+      "targetId": 1379,
       "events": [
         {
           "type": "click",
           "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>",
-          "widgetId": 1388,
+          "widgetId": 1379,
           "widgetClass": "android.view.Menu",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1395,
-      "targetId": 1395,
+      "sourceId": 1386,
+      "targetId": 1386,
       "events": [
         {
-          "type": "implicit_rotate_event",
+          "type": "implicit_home_event",
           "handler": "",
-          "widgetId": 1395,
+          "widgetId": 1386,
           "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1385,
-      "targetId": 1385,
+      "sourceId": 1386,
+      "targetId": 1397,
       "events": [
         {
-          "type": "implicit_power_event",
-          "handler": "",
-          "widgetId": 1385,
-          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
-          "widgetName": ""
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
+          "widgetId": 2131296358,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonGenerated"
         }
       ]
     },
     {
-      "sourceId": 1385,
-      "targetId": 1385,
+      "sourceId": 1386,
+      "targetId": 1397,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
+          "widgetId": 2131296356,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonCipher"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1397,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
+          "widgetId": 2131296359,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonMessageDigest"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1386,
       "events": [
         {
           "type": "implicit_rotate_event",
           "handler": "",
-          "widgetId": 1385,
-          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
+          "widgetId": 1386,
+          "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1385,
-      "targetId": 1385,
+      "sourceId": 1386,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "implicit_power_event",
+          "handler": "",
+          "widgetId": 1386,
+          "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
+          "widgetId": 2131296358,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonGenerated"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
+          "widgetId": 2131296356,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonCipher"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
+          "widgetId": 2131296359,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonMessageDigest"
+        }
+      ]
+    },
+    {
+      "sourceId": 1391,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "implicit_back_event",
+          "handler": "",
+          "widgetId": 1391,
+          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1391,
+      "targetId": 1391,
       "events": [
         {
           "type": "implicit_home_event",
           "handler": "",
-          "widgetId": 1385,
+          "widgetId": 1391,
+          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1391,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>",
+          "widgetId": 2131296357,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonGenerateHash"
+        }
+      ]
+    },
+    {
+      "sourceId": 1391,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "implicit_rotate_event",
+          "handler": "",
+          "widgetId": 1391,
+          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1391,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "implicit_power_event",
+          "handler": "",
+          "widgetId": 1391,
+          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1394,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "implicit_back_event",
+          "handler": "",
+          "widgetId": 1394,
           "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
           "widgetName": ""
         }
       ]
     },
     {
-      "sourceId": 1385,
-      "targetId": 1385,
+      "sourceId": 1394,
+      "targetId": 1394,
+      "events": [
+        {
+          "type": "implicit_home_event",
+          "handler": "",
+          "widgetId": 1394,
+          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1394,
+      "targetId": 1394,
+      "events": [
+        {
+          "type": "implicit_rotate_event",
+          "handler": "",
+          "widgetId": 1394,
+          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1394,
+      "targetId": 1394,
       "events": [
         {
           "type": "click",
@@ -2034,17 +2113,83 @@
       ]
     },
     {
-      "sourceId": 1385,
-      "targetId": 1395,
+      "sourceId": 1394,
+      "targetId": 1394,
       "events": [
         {
-          "type": "implicit_back_event",
+          "type": "implicit_power_event",
           "handler": "",
-          "widgetId": 1385,
+          "widgetId": 1394,
           "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
           "widgetName": ""
         }
       ]
     }
-  ]
+  ],
+  "components": {
+    "activities": [
+      {
+        "className": "br.unb.cic.cryptoapp.MainActivity",
+        "isMain": true,
+        "intentFilters": [
+          {
+            "actions": [
+              "android.intent.action.MAIN"
+            ],
+            "categories": [
+              "android.intent.category.LAUNCHER"
+            ]
+          },
+          {
+            "actions": [
+              "android.intent.action.MAIN"
+            ],
+            "categories": [
+              "android.intent.category.LAUNCHER"
+            ]
+          }
+        ],
+        "exported": true,
+        "reachesTarget": false,
+        "targetMethods": []
+      },
+      {
+        "className": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": true,
+        "reachesTarget": false,
+        "targetMethods": []
+      },
+      {
+        "className": "br.unb.cic.cryptoapp.cipher.CipherActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": true,
+        "reachesTarget": false,
+        "targetMethods": []
+      },
+      {
+        "className": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": true,
+        "reachesTarget": false,
+        "targetMethods": []
+      }
+    ],
+    "receivers": [],
+    "services": [],
+    "providers": [
+      {
+        "className": "androidx.startup.InitializationProvider",
+        "isMain": false,
+        "authorities": "br.unb.cic.cryptoapp.androidx-startup",
+        "exported": false,
+        "reachesTarget": false,
+        "targetMethods": []
+      }
+    ]
+  },
+  "complete": true
 }

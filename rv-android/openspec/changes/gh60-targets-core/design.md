@@ -253,6 +253,46 @@ Semantic collision identified by Claude F27: original `proposal.md` used "target
 
 **Decision:** gh60 keeps `target_reaches_target` (window-level, `@property`). When C3 lands it will adopt the name `transition_reaches_target_aggregate` for the per-event aggregate. Convention recorded here so the C3 author does not recreate the collision.
 
+### D11 — `enrichFromElement` covers `android:hint` and `android:text` inline literals (post-merge gap, 2026-05-26)
+
+Discovered after the gh60 smoke run on cryptoapp: the produced JSON had 0/51 widgets populated for `hint` and `text` despite the source layouts declaring 4 `android:hint` and 17 `android:text` attributes. The bug is a dual-path coverage gap inherited from gh57 — not introduced by gh60, but exposed by the gh60 validation regime:
+
+- **Path A (`collectWidgets`, `RvsecAnalysisClient.java:917-921`)** seeds `widget["text"]` and `widget["hint"]` from `PropertyManager.getTextsOrTitlesOfView` / `getHintOfView`. PropertyManager only sees strings reached via the Soot call graph (programmatic `setText`/`setHint`) and `@string/` references — it does NOT walk layout XML for inline literals.
+- **Path B (`enrichFromElement`, lines 1080-1114, introduced by gh57)** reads attributes directly from the decoded layout XML, but its initial scope was `inputType`, `entries`, `prompt`, `spinnerMode`, `contentDescription`, `tooltipText`. `hint`/`text` were never wired in.
+
+**Consequence on the corpus:** any app that declares hint/text as inline literals (not via `@string/`) ends up with empty hint/text. Cryptoapp is one such app; the JCA-400 sweep almost certainly has many more.
+
+**Decision:** extend `enrichFromElement` with two `putStringAttr` calls for `android:hint` and `android:text`, immediately after the existing `tooltipText` call. `putStringAttr` already short-circuits on null/empty raw input, so the Path-A seed survives when the XML carries no inline literal. Idempotent against the gh57 attribute pass.
+
+**Why this is gh60 scope (not a follow-up):** the writer surface, widget enrichment plumbing, and the JSON contract for these fields are all governed by `specs/analysis/spec.md` already modified by this change. The previous validation only cross-checked the new gh57 attributes vs source XML, never hint/text — that validation gap is also closed by Group 11 (the smoke step now counts hint/text occurrences against the source XML declarations).
+
+**Why the validation passed pre-merge:** `BaselineComparisonIT` and `G_widget_reachability` (deferred to C2/C3) do not assert hint/text dimensions; the gh57 add-on tests pinned only inputType/entries/prompt/spinnerMode/contentDescription/tooltipText. Lesson — register `G_widget_xml_hint_text` for the C2 hardening package so future regressions surface during PR review, not after merge.
+
+**Out of scope (registered, not fixed here):** any other PropertyManager-only fallthroughs for non-XML programmatic state. If observed in the JCA-400 sweep, opened as separate issue.
+
+### D12 — Reachability parity gates were bypassed by cached `LENIENT_OUTPUT` + stale baseline (post-merge investigation, 2026-05-26)
+
+Triggered by the D11 investigation. After rebuilding `lib/gator/rvsec-analysis-client.jar` from current sources, the freshly-generated cryptoapp output diverged sharply from the in-tree baseline at `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json`: `directlyReachesTarget=21` matched, but `reachable` dropped 67→55 (−12) and `reachesTarget` 61→32 (−29), losing core app methods (`MainActivity.onCreate`, all Activity.onCreate variants, `CryptographyActivity.{validateInputs,initializeViews,setupTabLayout,...}`, 4× `databinding.*Binding.inflate`).
+
+**Instinctive read: "gh60 broke reachability."** Bisect with `git worktree add /tmp/gator_bisect b2e04a26` (pre-gh60 baseline commit) + rebuild + smoke disproved that: the b2e04a26 jar produces the exact same 55/32/21 as HEAD. Engine internal counts (`Reachable: 1766, reachesMop: 124, directlyReachesMop: 22`) are byte-equivalent between pre-gh60 and HEAD.
+
+**Real root cause:** the divergence is between (a) in-tree baseline content frozen at `4a8a6342 feat(gh45)` (2026-03-31) — *before* `860f00ee feat(gh51): flip default -cgAlgorithm cha → spark` landed; and (b) the current build, running with spark default. SPARK is points-to pointer-analysis (more precise, smaller reachable closure); CHA is class-hierarchy (more permissive, larger closure). The 67→55 / 61→32 drop is the *intended* precision improvement of gh51 D5. It was never propagated to the in-tree fixture.
+
+**How the gate masked this for two months:**
+- `tests/parity/test_reachability_parity.py::_ensure_fresh_lenient_output` reuses `/tmp/gh60_g_subset/lenient.json` whenever the file exists with `st_size > 0`, with no `mtime(jar)` vs `mtime(cache)` check.
+- The `.m2` snapshot of `rvsec-gator-sootandroid` was last built from sources predating gh51 (per `066694da chore: bump 0.8.0→0.9.0-SNAPSHOT` 2024 era). Until somebody ran `mvn install -am` against the gator source, the cached jar carried cha-default behavior.
+- Result: cache and baseline both reflected the *same pre-gh51 era*. Set-equality between them held, gate reported PASS, no human ever saw a divergence — until a fresh build invalidated both sides at once.
+- `pytest.skip` when `RVSEC_HOME` is unset compounds the issue: a minimal-env CI run reports 4 tests "passed" while executing zero behavior.
+
+**Decision (Group 11 tasks 11.7-11.11):**
+1. Shared helper `tests/parity/_lenient_cache.py::ensure_fresh_lenient` deletes `/tmp/gh60_g_subset/lenient.json` when older than `lib/gator/rvsec-analysis-client.jar`. Applied to `test_reachability_parity.py`, `test_sentinel_emission.py`, `test_signature_file_subset.py`, `scripts/check_signature_file_subset.py`.
+2. Regenerate the in-tree baseline with the current jar (spark default + current schema with `components`/`complete`/`targetMethods`). Diff vs old baseline MUST be fully explained by: cha→spark precision improvement (gh51 D5), gh57 schema additions, C1f key rename. Anything else is a regression to investigate before committing.
+3. Add `tests/parity/test_baseline_freshness.py` with two tripwires — schema currency check + `mtime(baseline) ≥ mtime(jar)` — so a future divergence between baseline and producer surfaces at PR time, not months later.
+4. Introduce `RV_GATOR_REQUIRED=1` env-var contract — when set, gates that currently `pytest.skip` MUST `pytest.fail`. Catches the silent-skip regime.
+5. Cross-check the regenerated baseline's method-name set against the historical static-analysis at `/home/pedro/desenvolvimento/RV_ANDROID/ALL_METHODS/cryptoapp.apk.methods` (pre-gh27 toolchain) — independent evidence that the new baseline isn't structurally missing app methods.
+
+**Out of scope (follow-up):** multi-APK baseline (cryptoapp is a 16-class toy; Compose/R8/lambda-heavy apps need separate fixtures); sweep gate execution on the full 380-APK corpus (Group 9.3/9.4). `modules/rv-agent/` fixtures NEVER touched per CLAUDE.md deprecation policy.
+
 ## API Design
 
 ### Java: `TargetMethodSource`
