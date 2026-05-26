@@ -1111,6 +1111,16 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				// tooltipText (long-press hint — may be @string/ ref)
 				putStringAttr(widget, "tooltipText",
 						elem.getAttribute("android:tooltipText"), resDir);
+				// hint — inline literal or @string/ ref. PropertyManager
+				// (path A in collectWidgets) only sees CG-tracked / @string
+				// hints; inline literals were silently dropped pre-gh60-fix.
+				putStringAttr(widget, "hint",
+						elem.getAttribute("android:hint"), resDir);
+				// text — same dual-path gap as hint. putStringAttr
+				// short-circuits on empty raw, so the PropertyManager seed
+				// survives when the layout omits the attribute.
+				putStringAttr(widget, "text",
+						elem.getAttribute("android:text"), resDir);
 			}
 		}
 

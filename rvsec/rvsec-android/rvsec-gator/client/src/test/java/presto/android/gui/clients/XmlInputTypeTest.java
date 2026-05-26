@@ -333,6 +333,114 @@ public class XmlInputTypeTest {
 		assertEquals("phone", widgetByIdName.get("legacy").get("inputType"));
 	}
 
+	// ── gh60-fix: hint/text inline-literal coverage ────────────────────
+	//
+	// Pre-fix: enrichFromElement covered inputType/entries/prompt/
+	// spinnerMode/contentDescription/tooltipText but NOT hint/text.
+	// Path-A (collectWidgets via PropertyManager) only sees CG-tracked
+	// / @string-resolved values, so inline literals like
+	// `android:hint="Enter password"` were silently dropped — 0/51
+	// widgets populated on cryptoapp despite 4 hint + 17 text source
+	// declarations. Fix wires both fields through `putStringAttr`,
+	// which short-circuits on null/empty raw so the path-A seed
+	// survives when the layout XML carries no attribute. See
+	// `openspec/changes/gh60-targets-core/design.md` D11.
+
+	@Test
+	public void testEnrichHintLiteral() throws IOException {
+		File layoutFile = tempDir.newFile("activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <EditText android:id=\"@+id/password\" android:hint=\"Enter password\"/>\n" +
+				"</LinearLayout>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		widgetByIdName.put("password",
+				makeWidget(1, "password", "EditText", "", "", "", new ArrayList<>()));
+
+		Map<String, List<String>> arrays = new HashMap<>();
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays,
+				layoutFile.getParentFile().getParent());
+
+		assertEquals("Enter password", widgetByIdName.get("password").get("hint"));
+	}
+
+	@Test
+	public void testEnrichTextLiteral() throws IOException {
+		File layoutFile = tempDir.newFile("activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <Button android:id=\"@+id/submit\" android:text=\"Submit\"/>\n" +
+				"</LinearLayout>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		widgetByIdName.put("submit",
+				makeWidget(1, "submit", "Button", "", "", "", new ArrayList<>()));
+
+		Map<String, List<String>> arrays = new HashMap<>();
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays,
+				layoutFile.getParentFile().getParent());
+
+		assertEquals("Submit", widgetByIdName.get("submit").get("text"));
+	}
+
+	@Test
+	public void testEnrichHintStringRef() throws IOException {
+		File layoutDir = tempDir.newFolder("layout");
+		File layoutFile = new File(layoutDir, "activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <EditText android:id=\"@+id/email\" android:hint=\"@string/hint_email\"/>\n" +
+				"</LinearLayout>");
+
+		File valuesDir = tempDir.newFolder("values");
+		writeFile(new File(valuesDir, "strings.xml"),
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<resources>\n" +
+				"  <string name=\"hint_email\">your.email@example.com</string>\n" +
+				"</resources>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		widgetByIdName.put("email",
+				makeWidget(1, "email", "EditText", "", "", "", new ArrayList<>()));
+
+		Map<String, List<String>> arrays = new HashMap<>();
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays,
+				tempDir.getRoot().getAbsolutePath());
+
+		assertEquals("your.email@example.com", widgetByIdName.get("email").get("hint"));
+	}
+
+	@Test
+	public void testEnrichHintAbsentPreservesSeed() throws IOException {
+		File layoutFile = tempDir.newFile("activity_main.xml");
+		writeFile(layoutFile,
+				"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+				"<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n" +
+				"  <EditText android:id=\"@+id/foo\" android:inputType=\"text\"/>\n" +
+				"</LinearLayout>");
+
+		Map<String, Map<String, Object>> widgetByIdName = new HashMap<>();
+		Map<String, Object> seed = makeWidget(1, "foo", "EditText",
+				"seeded-text", "seeded-hint", "", new ArrayList<>());
+		widgetByIdName.put("foo", seed);
+
+		Map<String, List<String>> arrays = new HashMap<>();
+
+		client.enrichWidgetsFromLayout(layoutFile, widgetByIdName, arrays,
+				layoutFile.getParentFile().getParent());
+
+		assertEquals("text", seed.get("inputType"));
+		assertEquals("seeded-hint", seed.get("hint"));
+		assertEquals("seeded-text", seed.get("text"));
+	}
+
 	@Test
 	public void testEnrichEmptyIdAttributeIgnored() throws IOException {
 		// android:id present but empty — must NOT match any widget.
