@@ -87,6 +87,22 @@ public final class JsonSchema {
 		public static final String AUTHORITIES = "authorities";
 		public static final String TARGET_METHODS = "targetMethods";
 
+		// D15 (2026-05-29) — intent-filter data block + permission
+		// fields that let consumers construct an Intent capable of
+		// triggering the component (deep links via scheme/host/path,
+		// MIME-typed sends, security-gated calls).
+		public static final String DATA = "data";
+		public static final String SCHEMES = "schemes";
+		public static final String HOSTS = "hosts";
+		public static final String PORTS = "ports";
+		public static final String PATHS = "paths";
+		public static final String PATH_PREFIXES = "pathPrefixes";
+		public static final String PATH_PATTERNS = "pathPatterns";
+		public static final String MIME_TYPES = "mimeTypes";
+		public static final String PERMISSION = "permission";
+		public static final String READ_PERMISSION = "readPermission";
+		public static final String WRITE_PERMISSION = "writePermission";
+
 		private Keys() {
 			// constants only
 		}

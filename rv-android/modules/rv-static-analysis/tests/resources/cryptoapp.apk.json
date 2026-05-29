@@ -13,7 +13,16 @@
             ],
             "categories": [
               "android.intent.category.LAUNCHER"
-            ]
+            ],
+            "data": {
+              "schemes": [],
+              "hosts": [],
+              "ports": [],
+              "paths": [],
+              "pathPrefixes": [],
+              "pathPatterns": [],
+              "mimeTypes": []
+            }
           },
           {
             "actions": [
@@ -21,10 +30,20 @@
             ],
             "categories": [
               "android.intent.category.LAUNCHER"
-            ]
+            ],
+            "data": {
+              "schemes": [],
+              "hosts": [],
+              "ports": [],
+              "paths": [],
+              "pathPrefixes": [],
+              "pathPatterns": [],
+              "mimeTypes": []
+            }
           }
         ],
         "exported": true,
+        "permission": null,
         "reachesTarget": false,
         "targetMethods": []
       },
@@ -33,6 +52,7 @@
         "isMain": false,
         "intentFilters": [],
         "exported": true,
+        "permission": null,
         "reachesTarget": false,
         "targetMethods": []
       },
@@ -41,6 +61,7 @@
         "isMain": false,
         "intentFilters": [],
         "exported": true,
+        "permission": null,
         "reachesTarget": false,
         "targetMethods": []
       },
@@ -49,6 +70,7 @@
         "isMain": false,
         "intentFilters": [],
         "exported": true,
+        "permission": null,
         "reachesTarget": false,
         "targetMethods": []
       }
@@ -61,6 +83,9 @@
         "isMain": false,
         "authorities": "br.unb.cic.cryptoapp.androidx-startup",
         "exported": false,
+        "permission": null,
+        "readPermission": null,
+        "writePermission": null,
         "reachesTarget": false,
         "targetMethods": []
       }
@@ -1824,19 +1849,6 @@
       "targetId": 1386,
       "events": [
         {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
-          "widgetId": 2131296547,
-          "widgetClass": "android.view.MenuItem",
-          "widgetName": "menu_item_home"
-        }
-      ]
-    },
-    {
-      "sourceId": 1379,
-      "targetId": 1386,
-      "events": [
-        {
           "type": "implicit_back_event",
           "handler": "",
           "widgetId": 1379,
@@ -1888,6 +1900,19 @@
           "widgetId": 1379,
           "widgetClass": "android.view.Menu",
           "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1379,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
+          "widgetId": 2131296547,
+          "widgetClass": "android.view.MenuItem",
+          "widgetName": "menu_item_home"
         }
       ]
     },
@@ -1962,10 +1987,10 @@
       "events": [
         {
           "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
-          "widgetId": 2131296356,
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
+          "widgetId": 2131296358,
           "widgetClass": "android.widget.Button",
-          "widgetName": "buttonCipher"
+          "widgetName": "buttonGenerated"
         }
       ]
     },
@@ -1975,10 +2000,10 @@
       "events": [
         {
           "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
-          "widgetId": 2131296358,
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
+          "widgetId": 2131296356,
           "widgetClass": "android.widget.Button",
-          "widgetName": "buttonGenerated"
+          "widgetName": "buttonCipher"
         }
       ]
     },

@@ -38,6 +38,16 @@ public class PatternMatcher {
     return matchPattern(mPattern, toMatch, mType);
   }
 
+  /** D15 (2026-05-29) — raw pattern string for writer serialization. */
+  public String getPattern() {
+    return mPattern;
+  }
+
+  /** D15 (2026-05-29) — type discriminator: LITERAL/PREFIX/SIMPLE_GLOB. */
+  public int getType() {
+    return mType;
+  }
+
   private static boolean matchPattern(String pattern, String match, int type) {
     if (match == null)
       return false;

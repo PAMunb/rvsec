@@ -50,7 +50,12 @@ from types import SimpleNamespace
 
 import rv_android_core.constants as constants
 from rv_android_core.domain.classes import Classes, Method
-from rv_android_core.domain.components import ComponentInfo, Components, IntentFilter
+from rv_android_core.domain.components import (
+    ComponentInfo,
+    Components,
+    IntentFilter,
+    ProviderComponentInfo,
+)
 from rv_android_core.domain.static import StaticAnalysisData
 
 # JSON key constants mirror — INV-ANA-32.
@@ -119,6 +124,18 @@ _JK = SimpleNamespace(
     exported="exported",
     authorities="authorities",
     target_methods="targetMethods",
+    # D15 (2026-05-29) — intent-filter data block + permission fields
+    data="data",
+    schemes="schemes",
+    hosts="hosts",
+    ports="ports",
+    paths="paths",
+    path_prefixes="pathPrefixes",
+    path_patterns="pathPatterns",
+    mime_types="mimeTypes",
+    permission="permission",
+    read_permission="readPermission",
+    write_permission="writePermission",
 )
 from rv_android_core.domain.widget import (
     Widget,
@@ -640,10 +657,20 @@ class StaticAnalysisParser:
         """
         result = []
         for f in filters_data:
+            # D15 (2026-05-29) — pull the data block; pre-D15 JSONs have
+            # no "data" key, so `.get("data", {})` keeps back-compat.
+            data = f.get("data") or {}
             result.append(
                 IntentFilter(
                     actions=f.get("actions", []),
                     categories=f.get("categories", []),
+                    data_schemes=data.get("schemes", []),
+                    data_hosts=data.get("hosts", []),
+                    data_ports=data.get("ports", []),
+                    data_paths=data.get("paths", []),
+                    data_path_prefixes=data.get("pathPrefixes", []),
+                    data_path_patterns=data.get("pathPatterns", []),
+                    data_mime_types=data.get("mimeTypes", []),
                 )
             )
         return result
@@ -671,13 +698,14 @@ class StaticAnalysisParser:
                         entry.get("intentFilters", [])
                     ),
                     exported=entry.get("exported", False),
+                    permission=entry.get("permission"),  # D15
                     reaches_target=entry.get(_JK.reaches_target, False),
                     target_methods=entry.get("targetMethods", []),
                 )
             )
         return result
 
-    def _parse_provider_list(self, entries: list) -> list[ComponentInfo]:
+    def _parse_provider_list(self, entries: list) -> list:
         """Parse provider entries with authorities instead of intentFilters.
 
         Args:
@@ -689,12 +717,15 @@ class StaticAnalysisParser:
         result = []
         for entry in entries:
             result.append(
-                ComponentInfo(
+                ProviderComponentInfo(
                     class_name=entry.get(_JK.class_name, ""),
                     component_type="provider",
                     is_main=False,  # Providers are never the main component
                     authorities=entry.get("authorities"),
                     exported=entry.get("exported", False),
+                    permission=entry.get("permission"),  # D15
+                    read_permission=entry.get("readPermission"),  # D15
+                    write_permission=entry.get("writePermission"),  # D15
                     reaches_target=entry.get(_JK.reaches_target, False),
                     target_methods=entry.get("targetMethods", []),
                 )

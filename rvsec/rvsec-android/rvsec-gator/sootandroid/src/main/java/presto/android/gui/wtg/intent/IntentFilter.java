@@ -309,6 +309,27 @@ public class IntentFilter {
     return mCategories;
   }
 
+  // D15 (2026-05-29) — getters expose the data block fields so the JSON writer
+  // can serialize them. Returned views are unmodifiable; callers MUST NOT
+  // attempt to mutate the underlying sets/lists (the filter is mid-analysis
+  // state, not a snapshot).
+
+  public Set<String> getDataSchemes() {
+    return java.util.Collections.unmodifiableSet(mDataSchemes);
+  }
+
+  public Set<String> getDataMimeTypes() {
+    return java.util.Collections.unmodifiableSet(mDataTypes);
+  }
+
+  public List<AuthorityEntry> getDataAuthorities() {
+    return java.util.Collections.unmodifiableList(mDataAuthorities);
+  }
+
+  public List<PatternMatcher> getDataPaths() {
+    return java.util.Collections.unmodifiableList(mDataPaths);
+  }
+
   @Override
   public String toString() {
     String str = "actions: " + mActions;
@@ -329,6 +350,10 @@ public class IntentFilter {
     private final String mHost;
     private final boolean mWild;
     private final int mPort;
+
+    // D15 (2026-05-29) — accessors so writer can serialize host/port.
+    public String getHost() { return mHost; }
+    public int getPort() { return mPort; }
 
     public AuthorityEntry(String host, String port) {
       mOrigHost = host;

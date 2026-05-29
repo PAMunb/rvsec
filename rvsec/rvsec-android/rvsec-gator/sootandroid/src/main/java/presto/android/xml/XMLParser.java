@@ -40,6 +40,15 @@ public interface XMLParser {
     protected final Map<String, Boolean> componentExported = Maps.newHashMap();
     protected final Map<String, String> providerAuthorities = Maps.newHashMap();
 
+    // D15 (2026-05-29) — per-component permission attributes parsed from
+    // the manifest. componentPermission covers activities/services/
+    // receivers/providers (the generic android:permission attribute);
+    // providerReadPermission/providerWritePermission are provider-only.
+    // Null entries (absent in the map) mean the attribute was not declared.
+    protected final Map<String, String> componentPermission = Maps.newHashMap();
+    protected final Map<String, String> providerReadPermission = Maps.newHashMap();
+    protected final Map<String, String> providerWritePermission = Maps.newHashMap();
+
     protected SootClass mainActivity;
 
     @Override
@@ -75,6 +84,21 @@ public interface XMLParser {
     @Override
     public String getProviderAuthorities(String className) {
       return providerAuthorities.get(className);
+    }
+
+    @Override
+    public String getComponentPermission(String className) {
+      return componentPermission.get(className);
+    }
+
+    @Override
+    public String getProviderReadPermission(String className) {
+      return providerReadPermission.get(className);
+    }
+
+    @Override
+    public String getProviderWritePermission(String className) {
+      return providerWritePermission.get(className);
     }
 
     @Override
@@ -187,6 +211,15 @@ public interface XMLParser {
   Iterator<String> getProviders();
 
   boolean isComponentExported(String className);
+
+  /** Manifest {@code android:permission} for any component class, or null when undeclared. */
+  String getComponentPermission(String className);
+
+  /** Manifest {@code android:readPermission} for a provider, or null when undeclared. */
+  String getProviderReadPermission(String className);
+
+  /** Manifest {@code android:writePermission} for a provider, or null when undeclared. */
+  String getProviderWritePermission(String className);
 
   String getProviderAuthorities(String className);
 

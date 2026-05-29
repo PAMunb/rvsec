@@ -367,6 +367,9 @@ class DefaultXMLParser extends AbstractXMLParser {
               componentExported.put(cls, IntentFilterManager.v().getAllFilters().containsKey(cls));
             }
 
+            // D15 (2026-05-29) — android:permission for activity
+            readPermissionAttr(m, "permission", cls, componentPermission);
+
             //TODO: use generic intent filter processing
             if (isMainActivity(n)) {
               assert mainActivity == null;
@@ -453,6 +456,8 @@ class DefaultXMLParser extends AbstractXMLParser {
                 // Default: true if has intent-filters, false otherwise (API 31+ behavior)
                 componentExported.put(cls, IntentFilterManager.v().getAllFilters().containsKey(cls));
               }
+              // D15 — android:permission for receiver
+              readPermissionAttr(m, "permission", cls, componentPermission);
               Logger.trace("XML", "Receiver: " + cls);
             }
           }
@@ -475,6 +480,10 @@ class DefaultXMLParser extends AbstractXMLParser {
               } else {
                 componentExported.put(cls, false);
               }
+              // D15 — provider-specific permission attributes
+              readPermissionAttr(m, "permission", cls, componentPermission);
+              readPermissionAttr(m, "readPermission", cls, providerReadPermission);
+              readPermissionAttr(m, "writePermission", cls, providerWritePermission);
               Logger.trace("XML", "Provider: " + cls);
             }
           }
@@ -490,6 +499,24 @@ class DefaultXMLParser extends AbstractXMLParser {
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  /**
+   * D15 (2026-05-29) — extract a manifest attribute value into a target Map
+   * keyed by class name. No-op when the attribute is absent or empty.
+   *
+   * @param attrs    component element's attribute map
+   * @param attrName local attribute name (e.g. "permission", "readPermission")
+   * @param cls      fully-qualified component class name
+   * @param target   per-class string map to populate
+   */
+  private void readPermissionAttr(NamedNodeMap attrs, String attrName,
+                                   String cls, Map<String, String> target) {
+    Node node = attrs.getNamedItemNS(ANDROID_NS, attrName);
+    if (node == null) return;
+    String v = node.getTextContent();
+    if (v == null || v.isEmpty()) return;
+    target.put(cls, v);
   }
 
   /**

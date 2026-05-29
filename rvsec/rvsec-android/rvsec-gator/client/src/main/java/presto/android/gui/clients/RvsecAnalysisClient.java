@@ -35,6 +35,7 @@ import presto.android.gui.GUIAnalysisClient;
 import presto.android.gui.GUIAnalysisOutput;
 import presto.android.gui.wtg.intent.IntentFilter;
 import presto.android.gui.wtg.intent.IntentFilterManager;
+import presto.android.gui.wtg.util.PatternMatcher;
 import presto.android.xml.XMLParser;
 import presto.android.gui.clients.energy.VarUtil;
 import presto.android.gui.graph.NDialogNode;
@@ -1505,12 +1506,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 					w.value(category);
 				}
 				w.endArray();
+				// D15 (2026-05-29) — data block always emitted (empty
+				// lists when filter has no <data>); consistent shape
+				// lets consumers iterate without absence checks.
+				writeIntentFilterDataBlock(w, filter);
 				w.endObject();
 			}
 		}
 		w.endArray();
 
 		w.name("exported").value(xmlParser.isComponentExported(className));
+		// D15 — manifest android:permission for activity/receiver/service.
+		w.name("permission").value(xmlParser.getComponentPermission(className));
 
 		// MOP reachability via the enricher — writer never reads
 		// ReachabilityIndex directly (precondition for INV-ANA-30).
@@ -1547,6 +1554,14 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.name("isMain").value(false);
 		w.name("authorities").value(xmlParser.getProviderAuthorities(className));
 		w.name("exported").value(xmlParser.isComponentExported(className));
+		// D15 (2026-05-29) — provider permissions. The component-level
+		// `permission` field is the fallback per Android semantics;
+		// `readPermission`/`writePermission` override it granularly when
+		// declared. All three are emitted (null when absent) so consumers
+		// see a consistent schema.
+		w.name("permission").value(xmlParser.getComponentPermission(className));
+		w.name("readPermission").value(xmlParser.getProviderReadPermission(className));
+		w.name("writePermission").value(xmlParser.getProviderWritePermission(className));
 
 		// MOP reachability via the enricher (see writeComponentEntry note).
 		List<String> targetMethods = new ArrayList<>();
@@ -1566,6 +1581,100 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		w.beginArray();
 		for (String sig : targetMethods) {
 			w.value(sig);
+		}
+		w.endArray();
+
+		w.endObject();
+	}
+
+	/**
+	 * D15 (2026-05-29) — emit the intent-filter {@code data} block. Always
+	 * called, even when the filter has no {@code <data>} element — empty
+	 * lists are emitted so consumers see a stable shape and never have to
+	 * branch on key absence.
+	 *
+	 * <p>Path matchers are split into three flat string lists keyed by
+	 * their type discriminator ({@code PATTERN_LITERAL → paths},
+	 * {@code PATTERN_PREFIX → pathPrefixes},
+	 * {@code PATTERN_SIMPLE_GLOB → pathPatterns}). The discriminator is
+	 * carried by the JSON key name rather than per-entry, matching how
+	 * Android's manifest XML attributes (android:path / android:pathPrefix
+	 * / android:pathPattern) declare the same partition.
+	 *
+	 * <p>Ports are emitted only when explicitly declared
+	 * ({@code AuthorityEntry.getPort() >= 0}); an unset port surfaces as
+	 * absence from the list, not as -1.
+	 */
+	private static void writeIntentFilterDataBlock(JsonWriter w, IntentFilter filter) throws IOException {
+		w.name("data");
+		w.beginObject();
+
+		w.name("schemes");
+		w.beginArray();
+		for (String scheme : filter.getDataSchemes()) {
+			w.value(scheme);
+		}
+		w.endArray();
+
+		// hosts + ports come from AuthorityEntry; ports are only emitted
+		// when explicitly declared (mPort != -1).
+		w.name("hosts");
+		w.beginArray();
+		for (IntentFilter.AuthorityEntry auth : filter.getDataAuthorities()) {
+			w.value(auth.getHost());
+		}
+		w.endArray();
+
+		w.name("ports");
+		w.beginArray();
+		for (IntentFilter.AuthorityEntry auth : filter.getDataAuthorities()) {
+			int p = auth.getPort();
+			if (p >= 0) {
+				w.value(p);
+			}
+		}
+		w.endArray();
+
+		// Paths partitioned by PatternMatcher type — literal/prefix/glob
+		// map to three independent JSON lists, mirroring Android's
+		// android:path / android:pathPrefix / android:pathPattern
+		// distinction.
+		List<String> pathLiterals = new ArrayList<>();
+		List<String> pathPrefixes = new ArrayList<>();
+		List<String> pathPatterns = new ArrayList<>();
+		for (PatternMatcher pm : filter.getDataPaths()) {
+			switch (pm.getType()) {
+				case PatternMatcher.PATTERN_LITERAL:
+					pathLiterals.add(pm.getPattern());
+					break;
+				case PatternMatcher.PATTERN_PREFIX:
+					pathPrefixes.add(pm.getPattern());
+					break;
+				case PatternMatcher.PATTERN_SIMPLE_GLOB:
+					pathPatterns.add(pm.getPattern());
+					break;
+				default:
+					// Unknown type — skip rather than guess
+					break;
+			}
+		}
+		w.name("paths");
+		w.beginArray();
+		for (String p : pathLiterals) { w.value(p); }
+		w.endArray();
+		w.name("pathPrefixes");
+		w.beginArray();
+		for (String p : pathPrefixes) { w.value(p); }
+		w.endArray();
+		w.name("pathPatterns");
+		w.beginArray();
+		for (String p : pathPatterns) { w.value(p); }
+		w.endArray();
+
+		w.name("mimeTypes");
+		w.beginArray();
+		for (String t : filter.getDataMimeTypes()) {
+			w.value(t);
 		}
 		w.endArray();
 

@@ -1446,3 +1446,155 @@ class TestComponentsParsing:
         exported = result.components.get_exported_components()
         assert len(exported) == 1
         assert exported[0].class_name == "com.example.Svc1"
+
+
+class TestComponentsD15Enrichment:
+    """D15 (2026-05-29) — intent-filter data block + permission fields.
+
+    Validates the manual-trigger surface aperv consumes: deep-link
+    schemes/hosts/paths/mimeTypes per intent filter, plus per-component
+    permission and provider-specific read/write permissions. Includes
+    pre-D15 back-compat round-trips so an older JSON without the new
+    keys parses into ComponentInfo with empty/None defaults.
+    """
+
+    def test_intent_filter_data_block_roundtrip(self, parser, tmp_path):
+        """Full data block in JSON -> populated IntentFilter."""
+        json_data = {
+            "package": "com.example",
+            "mainActivity": "com.example.Main",
+            "reachability": [], "windows": [], "transitions": [], "complete": True,
+            "components": {
+                "activities": [{
+                    "className": "com.example.Main",
+                    "isMain": True,
+                    "intentFilters": [{
+                        "actions": ["android.intent.action.VIEW"],
+                        "categories": ["android.intent.category.BROWSABLE"],
+                        "data": {
+                            "schemes": ["myapp", "https"],
+                            "hosts": ["example.com"],
+                            "ports": [443],
+                            "paths": ["/exact"],
+                            "pathPrefixes": ["/api/"],
+                            "pathPatterns": ["/items/.*"],
+                            "mimeTypes": ["image/*"],
+                        },
+                    }],
+                    "exported": True, "permission": None,
+                    "reachesTarget": False, "targetMethods": [],
+                }],
+                "receivers": [], "services": [], "providers": [],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        f = result.components.activities[0].intent_filters[0]
+        assert f.data_schemes == ["myapp", "https"]
+        assert f.data_hosts == ["example.com"]
+        assert f.data_ports == [443]
+        assert f.data_paths == ["/exact"]
+        assert f.data_path_prefixes == ["/api/"]
+        assert f.data_path_patterns == ["/items/.*"]
+        assert f.data_mime_types == ["image/*"]
+
+    def test_intent_filter_pre_d15_back_compat(self, parser, tmp_path):
+        """Pre-D15 JSON (no 'data' key) -> IntentFilter has empty defaults."""
+        json_data = {
+            "package": "com.example",
+            "mainActivity": "com.example.Main",
+            "reachability": [], "windows": [], "transitions": [], "complete": True,
+            "components": {
+                "activities": [{
+                    "className": "com.example.Main",
+                    "isMain": True,
+                    "intentFilters": [{
+                        "actions": ["android.intent.action.MAIN"],
+                        "categories": ["android.intent.category.LAUNCHER"],
+                    }],
+                    "exported": True,
+                    "reachesTarget": False, "targetMethods": [],
+                }],
+                "receivers": [], "services": [], "providers": [],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        f = result.components.activities[0].intent_filters[0]
+        assert f.actions == ["android.intent.action.MAIN"]
+        assert f.data_schemes == []
+        assert f.data_hosts == []
+        assert f.data_mime_types == []
+
+    def test_component_permission_some_none(self, parser, tmp_path):
+        """activities with permission=string and permission=null both parse."""
+        json_data = {
+            "package": "com.example",
+            "mainActivity": "", "reachability": [], "windows": [],
+            "transitions": [], "complete": True,
+            "components": {
+                "activities": [
+                    {"className": "com.example.A", "isMain": False, "intentFilters": [],
+                     "exported": True, "permission": "android.permission.READ_CONTACTS",
+                     "reachesTarget": False, "targetMethods": []},
+                    {"className": "com.example.B", "isMain": False, "intentFilters": [],
+                     "exported": True, "permission": None,
+                     "reachesTarget": False, "targetMethods": []},
+                ],
+                "receivers": [], "services": [], "providers": [],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        a, b = result.components.activities
+        assert a.permission == "android.permission.READ_CONTACTS"
+        assert b.permission is None
+
+    def test_provider_separate_permissions(self, parser, tmp_path):
+        """Provider with readPermission/writePermission distinct."""
+        json_data = {
+            "package": "com.example",
+            "mainActivity": "", "reachability": [], "windows": [],
+            "transitions": [], "complete": True,
+            "components": {
+                "activities": [], "receivers": [], "services": [],
+                "providers": [{
+                    "className": "com.example.P",
+                    "isMain": False, "authorities": "com.example.p",
+                    "exported": True,
+                    "permission": "com.example.BASE_PERM",
+                    "readPermission": "com.example.READ_PERM",
+                    "writePermission": "com.example.WRITE_PERM",
+                    "reachesTarget": False, "targetMethods": [],
+                }],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        p = result.components.providers[0]
+        assert p.permission == "com.example.BASE_PERM"
+        assert p.read_permission == "com.example.READ_PERM"
+        assert p.write_permission == "com.example.WRITE_PERM"
+
+    def test_provider_pre_d15_back_compat(self, parser, tmp_path):
+        """Pre-D15 provider (no permission keys) -> None defaults preserved."""
+        json_data = {
+            "package": "com.example",
+            "mainActivity": "", "reachability": [], "windows": [],
+            "transitions": [], "complete": True,
+            "components": {
+                "activities": [], "receivers": [], "services": [],
+                "providers": [{
+                    "className": "com.example.P",
+                    "isMain": False, "authorities": "com.example.p",
+                    "exported": True,
+                    "reachesTarget": False, "targetMethods": [],
+                }],
+            },
+        }
+        path = _write_json(tmp_path, json_data)
+        result = parser.parse_file(str(path), "com.example")
+        p = result.components.providers[0]
+        assert p.permission is None
+        assert p.read_permission is None
+        assert p.write_permission is None
