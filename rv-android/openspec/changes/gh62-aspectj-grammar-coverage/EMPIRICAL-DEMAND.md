@@ -1,4 +1,60 @@
+# Round-11 addendum (2026-05-29) — root-cause of the `.aj` divergence + fork-free closures — AUTHORITATIVE OVERRIDE
+
+A careful re-audit (triggered by the user's challenge "JavaMOP is deterministic — it can't lose this") established four facts that **supersede the round-10 rationales below where they conflict**. The round-10 *verdicts* (which closures ship) survive almost intact; several round-10 *rationales* and *counts* were wrong and are corrected here.
+
+## R11.1 — The ForkedBooter `execution()` blocks come from the `-s`/`-statistics` flag, not a toolchain change
+
+There are two different `MultiSpec_1MonitorAspect.aj` on disk for each corpus:
+- **Production pipeline output** — what `rv-monitor-generator` emits (`javamop -d <out> -merge <specs>.mop`, NO `-s`). jca = 705 lines, **0** `ForkedBooter`, **0** positive `execution()`. This is what `results/gh53_smoke_dexlib2/monitors/` (1-mai) and `empirical-monitors/` (29-mai) both contain — byte-identical, and byte-identical to a fresh 29-mai regen.
+- **Stray artifacts in the `.mop` source dirs** — `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/{jca,generic_new}/MultiSpec_1MonitorAspect.aj` (jca = 1042 lines, **23** `ForkedBooter`; generic_new = 592 lines, 27). These are **git-ignored, never-committed, ad-hoc build leftovers**; `generic/` has none; dates differ wildly (jca 26-mai, generic_new 2-abr).
+
+Root cause (proven): the `ForkedBooter.runSuitesInProcess(..)` block is emitted **iff** `-s`/`-statistics` is passed, by `MOPStatistics.advice()` (`$RVSEC_HOME/javamop/src/main/java/javamop/output/combinedaspect/MOPStatistics.java:69-78` — `if (!JavaMOPMain.options.statistics) return "";`). It is a **statistics dump**, not a reset advice. Empirically confirmed: `javamop -merge -n MultiSpec_1 -s` on the jca specs reproduces exactly 23 blocks / 24 `execution(` / 1042 lines (identical to the stray file); without `-s`, 0. **JavaMOP did not change.** The stray files were produced by a one-off `-s` run and are not on the production path.
+
+**Consequence for the matrix:** the round-10 "Source" execution()/within() counts (`execution Source = 1,24,0,28`; `within Source = 22,13,0,13`) were obtained by grepping the **stray `-s` artifacts**, not the `.mop` sources. The true `.mop` source counts are `execution() = 0,0,0` and positive `within() = 0,0,0` everywhere. `DemandCounter.countMop()` MUST scan **only `*.mop`** files (plus `aspect/Coverage.aj` as its own corpus), never any `*.aj` sitting in the `.mop` source dirs. The stray `.aj` files SHOULD be deleted (`§0` task).
+
+## R11.2 — `execution()` and `within()`: the real consumer is `Coverage.aj`; the absorber is `coverage-weaver` (NOT a "JavaMOP execution→call rewrite")
+
+The round-10 AA-decision rationale ("JavaMOP compiler rewrites source-level `execution()` into matching `call()` events") is **false**. JavaMOP emits the pointcut keyword verbatim (`DumpVisitor.java:558-562`; fork fixture `Creation.mop.aj:45` keeps `execution(* *.main(..))`). There is no execution→call rewrite.
+
+The true picture (re-counted; `.mop` excludes stray `.aj`):
+- `.mop` specs (jca/generic/generic_new): `execution()` = **0**, positive `within()` = **0** (all `within(` hits are inside the `notwithin()` / `MOP_CommonPointCut()` exclusion macro).
+- Hand-written `aspect/Coverage.aj`: `execution(* *.*(..))` = **1** (the coverage-tracing pointcut, `Coverage.aj:50`) and ~24 positive `within(...)` (the `excludedPackages()` macro, used negated).
+- Pipeline `.aj` at the dexlib2 matcher: `execution()` = **0**, positive `within()` = **0**.
+
+So **`Coverage.aj` is the sole real consumer of both `execution()` and positive `within()`**, and `Coverage.aj` is absorbed by **`coverage-weaver`** (`coverage-weaver/.../package-info.java:4` "functionally equivalent to the legacy Coverage.aj"; the dexlib2 Python pipeline routes coverage through `coverage-weaver` and filters all `org.aspectj` types out of the APK — `dexlib_instrumentation.py:60-125`). Therefore §4.E and §4.W are correctly **NOT-NEEDED β with absorber = `coverage-weaver`** (same absorber as round-8 §4.CV/§4.WW), **not** "absorbed by JavaMOP" and **not** path α.
+
+## R11.3 — `§4.R` (T+ in `call()` RETURN position) has ZERO demand everywhere → NOT-NEEDED α
+
+Two independent greps confirm `call(Type+ ...)` (the `+` on the return-type token) = **0** in `.mop`, in `Coverage.aj`, and in all three pipeline `.aj`. All subtype polymorphism is in the OWNER position (§4.O, 64 sites). §4.R is speculative under P1 — same category as §4.E/§4.W. **Removed from in-change scope (NOT-NEEDED α).** In-change closures: 12 → **11**.
+
+## R11.4 — Corrected pipeline counts (authoritative, fresh-regen + empirical-monitors agree)
+
+| Closure | round-10 count | R11 corrected (pipeline) |
+|---|---|---|
+| §4.O `T+` owner | 64 | **64** (gen_new) ✓ |
+| §4.X name-glob | 14 | **13** (gen_new) |
+| §4.V `(T,..)` varargs | 8/14 (PROVISIONAL) | **6** (jca) — resolved, no longer PROVISIONAL |
+| §4.TT `target(Type)` | 22 | **22** (gen_new) ✓ |
+| §4.AT `args(Type)` | 5 | **5** (gen_new) ✓ |
+| §4.N `!target`/`!args` | 14+2 | **14+2** (gen_new) ✓ |
+| §4.Y staticinit | 3 | **3** (gen_new) ✓ |
+| §4.T after-throwing | 1 | **1** (gen_new) ✓ |
+| §4.I `if()` | 3 | **3** (gen_new) ✓ |
+| §4.R `T+` return | (in-change) | **0 — REMOVED** |
+| §4.E `execution()` | 0 (NOT-NEEDED β) | **0** — β absorber corrected to `coverage-weaver` |
+| §4.W `within()` positive | 0 (NOT-NEEDED β) | **0** — β absorber corrected to `coverage-weaver` |
+
+## R11.5 — `§4.Y` and `§4.I` are realised WITHOUT changing the JavaMOP/RV-Monitor fork (firm constraint)
+
+The round-10 §4.Y (Signature delivery) and the design's D13 §4.I (`evaluateIf`/`ifId`/`MonitorRuntimeIfHelperEmitter` runtime-delegation ABI) both assumed code generated on the fork side. The fork stays untouched. Both close entirely in the dexlib2 weaver + the already-packaged `rvsec-core` runtime jar:
+
+- **§4.Y** — the staticinit monitor expects `org.aspectj.lang.Signature` and calls only `getDeclaringType()`. Ship a minimal `org.aspectj.lang.Signature` interface + `ClassSignature(Class)` impl (~35 LOC) in **`rvsec-core`** (already on the dexlib2 packaging allowlist, already dexed → aspectjrt stays filtered, no packaging change). At each `<clinit>` (declaring class statically known) the weaver emits `const-class` + `new-instance ClassSignature` + `invoke-direct <init>(Class)` + `invoke-static *staticinitEvent(Signature)`, reusing the `CoverageWeaver` const+invoke + `RegisterShifter` register pattern. `StaticInitializationEmitter` special-cases the literal arg token `thisJoinPoint.getStaticPart().getSignature()` (today it routes through the generic binding resolver → `UnresolvedBindingException` → the site is silently skipped). ~70 LOC weaver + 35 LOC rvsec-core.
+- **§4.I** — only two expression shapes exist in the corpus (`o == null`, `!Thread.holdsLock(o)`); the bound register is already available in `ctx.match` and the text in `IfPC.javaExpression`. Complete the existing stub `IfGuardEmitter.emit()` with direct DEX lowering of exactly those two shapes (`if-nez`; `invoke-static Ljava/lang/Thread;->holdsLock` + `move-result` + `if-nez`) and a **fail-loud** default for any other shape, reusing the `BuilderInstruction21t` + `newLabelForIndex` label API already proven in `RegisterShifter`. No runtime jar, no fork, no allowlist change. This is a 2-shape closed dispatch, NOT the general Java sub-grammar parser six reviewers rejected in round-7. ~60 LOC, 1 file. **Replaces D13 entirely** (no `evaluateIf`, no `ifId`, no `MonitorRuntimeIfHelperEmitter`, no `IfRuntimeAbi`).
+
+---
+
 # EMPIRICAL-DEMAND.md — pipeline-level demand audit (round-10, 2026-05-29)
+*(round-10 content below is superseded by the Round-11 addendum above where they conflict — specifically the §4.E "JavaMOP rewrite" rationale, the §4.W "macro inflation" rationale, the source-level execution/within counts, the §4.X=14 and §4.V counts, and any "12 closures" total)*
 
 Compiled monitors for all three spec corpora via `rv-monitor-generator` (uses
 the fork JavaMOP + RV-Monitor toolchain at `$RVSEC_HOME/{javamop,rv-monitor}/`).
