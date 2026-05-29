@@ -14,14 +14,14 @@
     "openspec/changes/gh60-targets-core/tasks.md task 11.8.",
     "",
     "apk_sha256 is the SHA-256 of the APK file. The fixture loader hashes",
-    "the local file before running GATOR — if the on-disk APK does not",
+    "the local file before running GATOR \u2014 if the on-disk APK does not",
     "match, the test must FAIL (when RV_GATOR_REQUIRED=1) or SKIP loudly",
     "(otherwise). Pinning the hash defends against silently-different APKs",
     "in mixed JOAO/APKs / apks_examples search paths.",
     "",
     "expected_metrics is the load-bearing invariant. The parity test asserts",
     "set-equality on the (reachable, reachesTarget, directlyReachesTarget)",
-    "signature sets — these counts are the human-readable sanity envelope",
+    "signature sets \u2014 these counts are the human-readable sanity envelope",
     "that surfaces when the engine drifts. They are NOT the gate; the gate",
     "is the per-signature set in the baseline JSON.",
     "",
@@ -34,11 +34,11 @@
     "Tier-2 expansion (planned, NOT in this change) adds 4 more APKs from",
     "the JCA-400 corpus covering: pure-Java legacy, Compose/Kotlin modern,",
     "R8-shrunk, and multi-component (Service+Receiver+Provider). See gh60",
-    "design.md §D12 follow-up notes."
+    "design.md \u00a7D12 follow-up notes."
   ],
   "schema_version": 1,
-  "regenerated_at": "2026-05-26",
-  "regenerated_against_jar_sha256": null,
+  "regenerated_at": "2026-05-29",
+  "regenerated_against_jar_sha256": "79822c686c19ea59ea9508f50e1b39027305c6381155149021374cbcc3f6df3d",
   "entries": [
     {
       "name": "cryptoapp",
@@ -46,7 +46,7 @@
       "apk_path": "apks_examples/cryptoapp.apk",
       "apk_sha256": "6b1076696c7e2f8860c971e964333bf0e18449befb49d91a5d5fb5b0b5cb6d0d",
       "baseline_json": "modules/rv-static-analysis/tests/resources/cryptoapp.apk.json",
-      "why_chosen": "Controlled toy. Source tree available in examples/cryptoapp/. Exercises the JCA target detection path (3 methods: MessageDigestUtil.hash, CipherUtil.aes, CipherUtil.des — all directlyReachesTarget=True under current spark default). Validates the baseline mechanism itself (schema + sentinel + key naming) before adding behavioral diversity in Tier-2.",
+      "why_chosen": "Controlled toy. Source tree available in examples/cryptoapp/. Exercises the JCA target detection path (3 methods: MessageDigestUtil.hash, CipherUtil.aes, CipherUtil.des \u2014 all directlyReachesTarget=True under current spark default). Validates the baseline mechanism itself (schema + sentinel + key naming) before adding behavioral diversity in Tier-2.",
       "cg_algorithm": "spark",
       "expected_metrics": {
         "package": "br.unb.cic.cryptoapp",

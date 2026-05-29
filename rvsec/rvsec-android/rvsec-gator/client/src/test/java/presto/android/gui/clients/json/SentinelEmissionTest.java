@@ -84,23 +84,28 @@ public class SentinelEmissionTest {
 			w.name("package").value("test.pkg");
 			w.name("mainActivity").value("test.pkg.Main");
 
-			w.name("reachability");
-			w.beginArray().endArray();
+			// D14 (2026-05-29): order is components -> reachability ->
+			// windows -> transitions. components is manifest-derived and
+			// promoted before the heavy analysis sections so a
+			// transitions-timeout cannot drop it. Hook indices follow the
+			// new writer order.
+			w.name("components");
+			w.beginObject().endObject();
 			w.flush();
 			hooks[0].afterSection();
 
-			w.name("windows");
+			w.name("reachability");
 			w.beginArray().endArray();
 			w.flush();
 			hooks[1].afterSection();
 
-			w.name("transitions");
+			w.name("windows");
 			w.beginArray().endArray();
 			w.flush();
 			hooks[2].afterSection();
 
-			w.name("components");
-			w.beginObject().endObject();
+			w.name("transitions");
+			w.beginArray().endArray();
 			w.flush();
 			hooks[3].afterSection();
 
@@ -141,24 +146,27 @@ public class SentinelEmissionTest {
 
 	// ── failure paths — one per section boundary ────────────────────────
 
+	// D14 (2026-05-29): hook indices follow the new writer order
+	// components(0) -> reachability(1) -> windows(2) -> transitions(3).
+
+	@Test
+	public void throwAfterComponentsProducesNoSentinel() throws IOException {
+		runAndAssertNoSentinel(0, "components");
+	}
+
 	@Test
 	public void throwAfterReachabilityProducesNoSentinel() throws IOException {
-		runAndAssertNoSentinel(0, "reachability");
+		runAndAssertNoSentinel(1, "reachability");
 	}
 
 	@Test
 	public void throwAfterWindowsProducesNoSentinel() throws IOException {
-		runAndAssertNoSentinel(1, "windows");
+		runAndAssertNoSentinel(2, "windows");
 	}
 
 	@Test
 	public void throwAfterTransitionsProducesNoSentinel() throws IOException {
-		runAndAssertNoSentinel(2, "transitions");
-	}
-
-	@Test
-	public void throwAfterComponentsProducesNoSentinel() throws IOException {
-		runAndAssertNoSentinel(3, "components");
+		runAndAssertNoSentinel(3, "transitions");
 	}
 
 	private void runAndAssertNoSentinel(int failAfterIndex, String sectionLabel) throws IOException {

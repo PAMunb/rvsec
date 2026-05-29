@@ -293,4 +293,106 @@ After C1 merges, open placeholder issues in GitHub PAMunb/rvsec using `docs/2026
 - [x] 12.3 Build + deploy: `cd rvsec-gator && mvn -pl client -am install -DskipTests=true`. Verify jar mtime advances.
 - [x] 12.4 Run client unit suite: `mvn -pl client test -Dtest='!*IT' ...`. Baseline pre-12.x is 138/138; post-12.x expectation is 138 + 3 new = 141 PASS.
 - [x] 12.5 Smoke validation on cryptoapp pos-fix: confirmed regression-free — baseline `(16, 106, 55, 32, 21)` matches post-G6.4 smoke `(16, 106, 55, 32, 21)`, and `spinnerMessageDigest` entries identical (13 algorithms). **Discovery during validation:** cryptoapp source uses `<array name="messageDigestAlgorithms">` (generic, not string-array) — yet entries were already populated pre-G6.4. Root cause: apktool normalizes `<array>` → `<string-array>` during decode when items are strings, and GATOR only sees the decoded XML. So the cryptoapp case is structurally handled even pre-G6.4. The fix's real uplift was measured on a 30-APK JCA-400 sample: 0 with `<integer-array>` (0%), 5 with generic `<array>` (17%), 25 string-array-only (83%). The 5 generic-array cases need per-APK inspection on whether the items are Spinner-referenced; ones inspected are empty placeholders, so practical uplift < 17%. Documented in design.md D13.
-- [ ] 12.6 Commit `feat(gh60): parseArraysXml support integer-array + array (G6.4 from C2) (refs #60)`. Body: dual rationale (same-file precedent + apps using color-palette/numeric pickers no longer silently empty); cross-reference proposal.md C2 follow-up list (entry now done).
+- [x] 12.6 Commit `feat(gh60): parseArraysXml support integer-array + array (G6.4 from C2) (refs #60)`. Body: dual rationale (same-file precedent + apps using color-palette/numeric pickers no longer silently empty); cross-reference proposal.md C2 follow-up list (entry now done). **Landed** as `17ffc0c1` in `origin/modules`.
+
+## 13. C1-fix — `JsonReportWriter` writes `components` before heavy sections (post-9.1-smoke gap, 2026-05-29)
+
+<!-- Surfaced by the 9.1 5-APK smoke (cryptoapp + 4 JCA-400 APKs).
+     Two R8/Compose APKs (com.acszo.redomi.repo_10401.apk,
+     com.aisleron_20.apk) ran ~902s and exited 206 (GATOR timeout). The
+     JSONs survived intact because the writer happened to finish all
+     sections before JVM teardown stalled — but that was luck, not
+     design. The historical writer order put `components` (manifest-
+     derived, milliseconds) AFTER `transitions` (WTG, the dominant
+     timeout source). A heavier WTG would have lost `components`
+     silently, breaking the windows->activity-class lookup every
+     downstream consumer depends on.
+
+     Same precedent as Group 11 (hint/text) and Group 12 (parseArraysXml
+     G6.4): we are already in this file, the patch is trivial (one block
+     move ~4 lines), the test infrastructure already covers writer
+     contracts (G_enricher_purity, G_no_json_literals_in_writer,
+     G_sentinela_complete). Parity gates are byte-order-agnostic per
+     design.md "Why set equality, not byte equality" — set equality
+     survives untouched. -->
+
+- [x] 13.1 Move the `components` section block in `JsonReportWriter.java` (currently lines 96-100) to immediately after the `mainActivity` write (currently line 75) and before the `reachability` section (currently line 78). New order: `package -> mainActivity -> components -> reachability -> windows -> transitions -> complete`. The `enricher` and `guiOutput.getActivities()` arguments are already in scope at the new position (both are constructor/parameter inputs to `write()`); zero new data dependency.
+- [x] 13.2 Audit `SentinelEmissionTest.java` (`rvsec-gator/client/src/test/java/.../json/SentinelEmissionTest.java`) for ordering assumptions. The 5 cases inject faults at section boundaries; if those faults are sentinel-relative (just "abort before `complete` is written") no change. If section-relative (e.g. "fail after writing windows but before transitions"), re-anchor against the new order. Document which case branch applies.
+- [x] 13.3 Build + deploy: `cd rvsec-gator && mvn -pl client -am install -DskipTests=true`. Verify `rv-android/lib/gator/rvsec-analysis-client.jar` mtime advanced.
+- [x] 13.4 Run client unit suite: `mvn -pl client test -Dtest='!*IT' -Dsurefire.failIfNoSpecifiedTests=false`. Baseline post-12.x is 141/141; post-13.x expectation is 141/141 (no new tests added; reorder is behavior-preserving). Record actual numbers.
+- [x] 13.5 Regenerate `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` with the rebuilt jar (same procedure as 11.8 / D12). Top-level key order changes (`components` moves up); per-section content stays identical. Diff vs prior baseline MUST be limited to: (a) top-level key reordering; (b) zero changes inside any section's payload. Any in-section difference is a regression — investigate before committing.
+- [x] 13.6 Update `modules/rv-static-analysis/tests/resources/baselines/MANIFEST.json` SHA256 for cryptoapp (the file's bytes change because key order changes).
+- [x] 13.7 Run python parity suite: `tests/parity/test_reachability_parity.py`, `tests/parity/test_sentinel_emission.py`, `tests/parity/test_signature_file_subset.py`, `tests/parity/test_json_keys.py`, `tests/parity/test_baseline_freshness.py`, `tests/parity/test_historical_methods_coverage.py`. Set-equality assertions on `reachable=True` / `reachesTarget=True` / `directlyReachesTarget=True` MUST survive unchanged — they are by definition byte-order agnostic. If any fails, the reorder broke section payload (not just key order); revert and investigate.
+- [x] 13.8 Re-run the 9.1 smoke on the 5 APKs (`uv run python3 /tmp/gh60_smoke5.py`). Expected: same numerical results as the 2026-05-29 baseline (cryptoapp 32 rT, duress 11 rT, redomi 23 rT, aisleron 44 rT, authnkey 104 rT) — reorder is behavior-preserving. The 2 R8/Compose APKs are still expected to exit 206 (the underlying WTG limitation is out of scope) but the JSON now has `components` written *before* the heavy sections so its survival no longer depends on WTG finishing in time.
+- [x] 13.9 Commit `feat(gh60): JsonReportWriter writes components before heavy sections (D14) (refs #60)`. Atomic — bundles writer change + (any) SentinelEmissionTest re-anchor + regenerated baseline + MANIFEST update. Body: surface from 9.1 smoke, defensive against WTG timeout truncation, parity preserved.
+
+## 14. C1-fix — `components` carries data needed to manually trigger components from aperv (D15, 2026-05-29)
+
+<!-- Same 9.1 smoke that surfaced D14 raised the harder question: with
+     components reordered, are its CONTENTS sufficient for an explorer
+     to actually launch the components? Answer: no. The current
+     writeComponentEntry emits only actions/categories of intent filters
+     plus exported — enough to know a component exists, not enough to
+     dispatch an Intent reaching it. Deep-link-only activities
+     (Intent(VIEW, "myapp://x")) and MIME-typed broadcast receivers
+     (ACTION_SEND with image/*) are invisible to manual triggering.
+
+     Soot's IntentFilter already carries mDataSchemes/mDataTypes/
+     mDataAuthorities/mDataPaths internally as private fields. The
+     patch exposes them via getters and serializes into the JSON. Plus
+     per-component `permission` (read from manifest) and provider
+     readPermission/writePermission. Boundary IN = "necessary to
+     construct a launching Intent"; OUT = launchMode, taskAffinity,
+     process (nice-to-have for heuristics, not for dispatchability).
+     See design.md D15. -->
+
+- [ ] 14.1 Extend `presto.android.gui.wtg.intent.IntentFilter` (`rvsec-gator/sootandroid/.../wtg/intent/IntentFilter.java`) with getters that return immutable views of the existing private fields: `getDataSchemes() : Set<String>` (returns `mDataSchemes`), `getDataMimeTypes() : Set<String>` (returns `mDataTypes`), `getDataAuthorities() : List<AuthorityEntry>` (returns `mDataAuthorities`), `getDataPaths() : List<PatternMatcher>` (returns `mDataPaths`). Use `Collections.unmodifiable*` to prevent external mutation. Tests already exist for `actions`/`categories` getters; extend to cover the new ones.
+- [ ] 14.2 Extend `XMLParser` interface + `XMLParserImpl` (`rvsec-gator/sootandroid/.../xml/`) with `getComponentPermission(String className) : String` (returns the `android:permission` attribute value for an activity/receiver/service, or `null` if undeclared) and `getProviderReadPermission(String className)` / `getProviderWritePermission(String className)` (mirrors for providers; fall back to `getComponentPermission` semantics per Android — readPermission/writePermission override but inherit when absent). Read once at manifest-parse time, cache per className in the parser instance.
+- [ ] 14.3 Extend `RvsecAnalysisClient.writeComponentEntry` (`RvsecAnalysisClient.java:1479`) to emit per intent filter, after `categories`, a `data` object:
+  ```
+  "data": {
+    "schemes": [...],
+    "hosts": [...],
+    "ports": [...],
+    "paths": [...],
+    "pathPrefixes": [...],
+    "pathPatterns": [...],
+    "mimeTypes": [...]
+  }
+  ```
+  Serialize `mDataPaths` PatternMatchers by switching on the matcher's type field (LITERAL → `paths`, PREFIX → `pathPrefixes`, SIMPLE_GLOB → `pathPatterns`). Emit `data` ALWAYS (even when all blocks are empty `[]`) so consumers see a consistent shape — design.md D15 ("emit empty not absent"). After `exported`, emit `permission` (string or JSON null).
+- [ ] 14.4 Extend `RvsecAnalysisClient.writeProviderEntry` (`RvsecAnalysisClient.java:1542+`) symmetrically: emit `readPermission` and `writePermission` fields after `exported`. Keep the existing `permission` field semantics (component-level fallback per Android — emitted as `null` for providers since granular overrides apply; document inline).
+- [ ] 14.5 Add `JsonSchema.Keys` constants for the new keys: `DATA`, `SCHEMES`, `HOSTS`, `PORTS`, `PATHS`, `PATH_PREFIXES`, `PATH_PATTERNS`, `MIME_TYPES`, `PERMISSION`, `READ_PERMISSION`, `WRITE_PERMISSION`. Sites: `JsonSchema.Keys` enum/constants holder. Use the constants in `writeComponentEntry`/`writeProviderEntry` (G_no_json_literals_in_writer contract).
+- [ ] 14.6 Add `ComponentsEnrichmentTest.java` under `rvsec-gator/client/src/test/java/.../json/`:
+  - `testIntentFilterDataBlock_schemesOnly` — IF with `<data android:scheme="myapp"/>` → JSON has `data.schemes=["myapp"]`, other lists empty
+  - `testIntentFilterDataBlock_pathPatternPreservesType` — `<data android:scheme="http" android:host="x.com" android:pathPattern="/items/.*"/>` → `paths=[{type:"pattern", value:"/items/.*"}]`. (Note: per D15 the wire format is `pathPatterns=["/items/.*"]` as a flat string list; the type discriminator is implicit in the key name. The decision rationale is in D15's "Path-matcher serialization" — verify which encoding the writer settles on and align the test accordingly.)
+  - `testComponentPermission_emittedWhenDeclared` — activity with `android:permission="P"` → `permission="P"`; without → JSON has `permission` key with value `null`
+  - `testProviderPermissions_separateReadWrite` — provider with `android:readPermission="R" android:writePermission="W"` → both fields populated
+  - `testEmptyDataBlock_emittedNotAbsent` — IF with no `<data>` → `data` is `{}` with all empty lists, NOT a missing key
+- [ ] 14.7 Extend `IntentFilter` Pydantic model (`modules/rv-android-core/src/rv_android_core/domain/components.py:17`):
+  ```python
+  data_schemes: List[str] = Field(default_factory=list)
+  data_hosts: List[str] = Field(default_factory=list)
+  data_ports: List[int] = Field(default_factory=list)
+  data_paths: List[str] = Field(default_factory=list)         # LITERAL
+  data_path_prefixes: List[str] = Field(default_factory=list) # PREFIX
+  data_path_patterns: List[str] = Field(default_factory=list) # SIMPLE_GLOB
+  data_mime_types: List[str] = Field(default_factory=list)
+  ```
+  Defaults are empty lists for back-compat with pre-D15 baselines.
+- [ ] 14.8 Extend `ComponentInfo` Pydantic model with `permission: Optional[str] = None`. Add `ProviderComponentInfo(ComponentInfo)` subclass with `read_permission: Optional[str] = None` + `write_permission: Optional[str] = None`. `Components.providers` typed as `List[ProviderComponentInfo]`; `activities`/`receivers`/`services` stay `List[ComponentInfo]`.
+- [ ] 14.9 Update `StaticAnalysisParser._parse_intent_filters` and `_parse_components` (`modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py:632, 215`) to read the new keys with `.get(key, [])` / `.get(key)` defaults so pre-D15 baselines parse unchanged. For providers, instantiate `ProviderComponentInfo` with `read_permission` / `write_permission`.
+- [ ] 14.10 Add 5+ parser unit tests under `modules/rv-static-analysis/tests/parser/static/`:
+  - `test_intent_filter_data_block_roundtrip` — synthetic JSON with full `data` block → `IntentFilter` carries all 7 lists with values
+  - `test_intent_filter_empty_data_block_pre_d15` — synthetic pre-D15 JSON (no `data` key) → `IntentFilter` has 7 empty lists, no exception
+  - `test_component_permission_some_none` — JSON with `permission="P"` → `ComponentInfo.permission="P"`; JSON with `permission:null` → `ComponentInfo.permission=None`
+  - `test_provider_separate_permissions` — JSON with `readPermission="R" writePermission="W"` → `ProviderComponentInfo` has both
+  - `test_provider_permissions_back_compat` — pre-D15 provider JSON (no read/write keys) → `ProviderComponentInfo.read_permission=None, write_permission=None`
+- [ ] 14.11 Build + deploy: `cd rvsec-gator && mvn -pl client -am install -DskipTests=true`. Note: `-am` is required because the new `IntentFilter` getters live in `sootandroid` (parent module); `client` depends on `sootandroid` so both must rebuild.
+- [ ] 14.12 Run Java client unit suite: `mvn -pl client test -Dtest='!*IT' -Dsurefire.failIfNoSpecifiedTests=false`. Post-13.x baseline is 141/141; post-14.x expectation = 141 + 5 new (`ComponentsEnrichmentTest`) = 146 PASS.
+- [ ] 14.13 Re-regenerate `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` (D14 already regen'd it; D15 changes the content of `components` entries, so it MUST be regen'd again on top of D14's). For cryptoapp specifically: `permission=null` on every component (no `android:permission` declared anywhere in `examples/cryptoapp/`); `data` block empty on every intent filter (cryptoapp's `MainActivity` only declares `action=MAIN, category=LAUNCHER` — no data filters); `readPermission`/`writePermission` absent (no `<provider>`). The diff vs the D14-regen'd baseline MUST be limited to: new keys appearing with the documented defaults. Any other change is a regression — investigate.
+- [ ] 14.14 Update `modules/rv-static-analysis/tests/resources/baselines/MANIFEST.json` SHA256 for cryptoapp (third regen this change — D12, D14, D15). Acceptable: D15 is the last content change shipped here.
+- [ ] 14.15 Run python parser suite: `uv run pytest modules/rv-static-analysis/tests/parser/ --import-mode=importlib -o "addopts=" -q`. Post-D14 baseline + 5 new D15 cases = expect existing+5. Failures must be either (a) the 5 new tests if implementation diverges from spec, or (b) regressions to investigate.
+- [ ] 14.16 Run python parity suite (same set as 13.7). Set-equality assertions are unchanged (don't traverse `components`); the new component-content additions are orthogonal. PASS unchanged.
+- [ ] 14.17 Re-run the 9.1 smoke on the 5 APKs and inspect the JSONs for non-null `data` blocks: `cryptoapp` (none, manifest doesn't have data filters), `duress.keyboard` (likely IME service has `action.IME_SERVICE` + permission), `redomi.repo` (suspected SEND/VIEW intent filters with schemes), `aisleron` (deep links via `myapp://`?), `authnkey` (auth flow likely has http scheme + host). Record which APKs surface non-empty fields in each new key — empirical evidence that D15 actually unlocks the surface, not just a schema change with empty values.
+- [ ] 14.18 Commit `feat(gh60): components carries data for manual trigger (D15) (refs #60)`. Atomic — bundles IntentFilter Java getters + XMLParser permission accessor + writeComponentEntry/writeProviderEntry extension + JsonSchema.Keys constants + Java test + Pydantic model extensions + parser updates + parser tests + baseline regen + MANIFEST update. Body: spec D15, 9.1-smoke surface, boundary IN/OUT.

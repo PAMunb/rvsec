@@ -74,29 +74,34 @@ public final class JsonReportWriter {
 			w.name(JsonSchema.Keys.MAIN_ACTIVITY).value(
 					mainActivity != null ? mainActivity.getName() : "");
 
-			// Section 1: reachability — coverage denominator, most critical
+			// Section 1: components — manifest-derived, trivial cost
+			// (D14 2026-05-29). Promoted before the heavy analysis
+			// sections so a transitions-timeout cannot drop the
+			// windows->activity-class lookup downstream consumers depend
+			// on. enricher + guiOutput are already in scope at writer
+			// entry; no new data dependency.
+			w.name(JsonSchema.Keys.COMPONENTS);
+			RvsecAnalysisClient.writeComponentsSection(w,
+					enricher, guiOutput.getActivities(), mainActivity);
+			w.flush();
+
+			// Section 2: reachability — coverage denominator
 			w.name(JsonSchema.Keys.REACHABILITY);
 			RvsecAnalysisClient.writeReachabilitySection(w, appClasses, guiOutput, enricher);
 			w.flush();
 
-			// Section 2: windows
+			// Section 3: windows
 			w.name(JsonSchema.Keys.WINDOWS);
 			RvsecAnalysisClient.writeWindowsSection(w, windows);
 			w.flush();
 
-			// Section 3: transitions
+			// Section 4: transitions — heaviest, fragile under timeout
 			w.name(JsonSchema.Keys.TRANSITIONS);
 			if (wtg != null) {
 				RvsecAnalysisClient.writeTransitionsSection(w, wtg);
 			} else {
 				w.beginArray().endArray();
 			}
-			w.flush();
-
-			// Section 4: components
-			w.name(JsonSchema.Keys.COMPONENTS);
-			RvsecAnalysisClient.writeComponentsSection(w,
-					enricher, guiOutput.getActivities(), mainActivity);
 			w.flush();
 
 			// Sentinel (ADR-6) — last top-level field. Its absence on a

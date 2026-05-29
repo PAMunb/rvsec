@@ -321,6 +321,109 @@ The 5 generic-`<array>` cases need separate verification on whether the items ar
 
 **Out of scope (still in C2):** G6.2 (`resolveStringReference` cache), G6.3 (`findOnCreateOptionsMenu` superclass walk), G6.5 (dead-code expansion), G6.6 (`WidgetType` drift warn log), G11 (dual `manifestPackage`/`codePackage` emission). Pulling G6.4 alone is justified by the same-file proximity; pulling everything else means re-doing the multi-LLM convergence that produced the 3-change split.
 
+### D14 — `JsonReportWriter` writes `components` BEFORE the heavy sections (post-9.1-smoke gap, 2026-05-29)
+
+`JsonReportWriter.write` historically emitted top-level keys in this order:
+
+```
+1. package           (manifest, trivial)
+2. mainActivity      (manifest, trivial)
+3. reachability      (heavy — Soot CG + bytecode scan)
+4. windows           (medium)
+5. transitions       (heaviest — WTG, dominant timeout source)
+6. components        ← manifest-derived, trivial — but written LAST
+7. complete          (sentinel)
+```
+
+The header comment justified this as "priority order ... most critical first". The 9.1 5-APK smoke (2026-05-29) made the latent defect concrete: two R8/Compose APKs (`com.acszo.redomi.repo_10401.apk`, `com.aisleron_20.apk`) ran for 901–902 s and the GATOR wrapper exited 206 (timeout). The JSONs survived intact because the writer happened to finish the WTG section before the JVM teardown stalled, but the ordering meant **`components` was riding behind the most fragile section**. A heavier WTG would have lost `components` silently, even though that section is sourced from `guiOutput.getActivities()` + `enricher` data already materialized at writer entry and serializes in milliseconds.
+
+This is wrong on two counts:
+
+1. **Cost asymmetry.** `components` is parsing-output (manifest + activity list), not analysis-output. Putting cheap-and-critical data behind expensive-and-fragile data inverts the priority order the comment claims to follow.
+
+2. **Recovery semantics.** ADR-6's sentinela contract says "partial files lose `complete` and downstream consumers detect via absence." But the contract is only useful if the surviving sections form a meaningful subset. Losing `components` to a transitions timeout breaks the windows-`name`-to-activity-class lookup that every downstream consumer (`StaticAnalysisParser`, `aperv-tool`) uses to associate UI nodes with components.
+
+**Reordering (this change):**
+
+```
+1. package
+2. mainActivity
+3. components        ← PROMOTED to right after manifest metadata
+4. reachability      (heavy, critical)
+5. windows           (medium)
+6. transitions       (heaviest, fragile)
+7. complete          (sentinel)
+```
+
+`components` runs against already-loaded `guiOutput.getActivities()` and `ReachabilityEnricher`; both are constructed before `write()` is invoked, so promoting it has zero new data dependency. The patch is one block-move (~4 lines from §97-100 to before §77 in the current `JsonReportWriter.java`).
+
+**Why this is in gh60 and not C2:**
+
+- The defect was *surfaced by* gh60's 9.1 smoke gate. The smoke established a 5-APK matrix with deliberate R8/Compose coverage; without it, the ordering bug would have stayed latent on cryptoapp (which finishes in 8 s and never timed out).
+- It touches `JsonReportWriter`, the same file gh60 already validates via `G_enricher_purity` and `G_no_json_literals_in_writer` — the rebuild + parity re-verification cost is amortized against work already in scope.
+- Same precedent as D11 and D13: "we are already in this file and the patch is trivial".
+
+**Out of scope (still C2/follow-up):** introducing per-section retry/fallback semantics, splitting the writer into atomic per-section files, or formalizing a "priority tier" enum in `JsonSchema.Keys`. Those are real design choices; reordering 4 lines is not.
+
+**Parity impact:** zero on the gates' invariants. The parity tests compare `set(reachable=True)` and `set(reachesTarget=True)` — they are byte-order agnostic per design.md §"Why set equality, not byte equality" (line 414 of the source artifact). Key-order is cosmetic. The Java `SentinelEmissionTest` fault-injection sequence (5/5 cases) needs to be re-anchored against the new order if its fault points are section-relative; if they are sentinel-relative (just "abort before `complete` is written"), no change.
+
+**Baseline impact:** the in-tree `cryptoapp.apk.json` baseline's top-level key order will change. The parser tests (`StaticAnalysisParser`) consume by key lookup, not by iteration order — they survive. The `MANIFEST.json` SHA256 of the baseline must be regenerated (this is the same mechanical step taken for D12's baseline regen).
+
+### D15 — `components` carries the data needed to manually trigger components from aperv (post-9.1-smoke gap, 2026-05-29)
+
+The same 9.1 review that surfaced D14 exposed a deeper question: even after reordering, *what `components` carries* is insufficient for the downstream consumer (`aperv-tool`) to actually *trigger* the listed components. The current `writeComponentEntry` (`RvsecAnalysisClient.java:1479-1538`) emits per component:
+
+```
+className, isMain, intentFilters[{actions[], categories[]}],
+exported, reachesTarget, targetMethods[]
+```
+
+— enough to know a component exists and whether reaching it would advance MOP coverage, but not enough to **dispatch an Intent that activates it**. Concretely, an aperv user (or any model-based explorer) trying to launch `Activity X` reachable only via `Intent(VIEW, "myapp://path")` sees `action=VIEW, category=BROWSABLE` in the JSON but has no way to know the URI scheme (`myapp://`) the activity declared in its `<data>` filter. So the entry-point is invisible to manual triggering.
+
+**Missing surface area (per Android manifest semantics):**
+
+| Field | Source | Why needed for manual trigger |
+|-------|--------|-------------------------------|
+| `intentFilters[].data.schemes[]` | `IntentFilter.mDataSchemes` | URI scheme (`http`, `content`, `myapp`) — without it, deep links are blind |
+| `intentFilters[].data.hosts[]` | `IntentFilter.mDataAuthorities[].getHost()` | URI authority |
+| `intentFilters[].data.ports[]` | `IntentFilter.mDataAuthorities[].getPort()` | URI authority continued (rare but needed when set) |
+| `intentFilters[].data.paths[]` | `IntentFilter.mDataPaths[]` w/ type LITERAL | URI path literal |
+| `intentFilters[].data.pathPrefixes[]` | `IntentFilter.mDataPaths[]` w/ type PREFIX | URI path prefix |
+| `intentFilters[].data.pathPatterns[]` | `IntentFilter.mDataPaths[]` w/ type SIMPLE_GLOB | URI glob (`/items/*`) |
+| `intentFilters[].data.mimeTypes[]` | `IntentFilter.mDataTypes` | ACTION_SEND with `image/*` etc. — without it, MIME-typed intents are blind |
+| `permission` | `<activity android:permission="…">` from manifest | caller must hold this permission or `SecurityException` |
+| (provider) `readPermission`, `writePermission` | `<provider android:readPermission=… android:writePermission=…>` | granular provider access |
+
+Soot's `IntentFilter` (`rvsec-gator/sootandroid/.../wtg/intent/IntentFilter.java`) already carries `mDataSchemes`, `mDataTypes`, `mDataAuthorities` (host+port), `mDataPaths` (`PatternMatcher` list with `type` ∈ {LITERAL, PREFIX, SIMPLE_GLOB}) as private fields. The patch is mechanical: expose them via `getDataSchemes()/getDataMimeTypes()/getDataAuthorities()/getDataPaths()`, return immutable views. Permission requires a new `XMLParser.getComponentPermission(className)` (and `getProviderReadPermission`/`getProviderWritePermission`) — read once at manifest-parse time, cache per className.
+
+**Path-matcher serialization:** PathMatchers carry both a string and a discriminator. Emit each path as `{"type": "literal"|"prefix"|"pattern", "value": "/p"}` in the JSON, not as a flat string array. Rationale: serializing the discriminator preserves semantics for consumers (literal == exact match, prefix == startsWith, pattern == glob); a flat array loses the matcher type and forces the consumer to guess (which they can't, because the same `/items/*` could be either a prefix or a pattern depending on the source XML attribute).
+
+**Domain side (`rv-android-core`):**
+
+- `IntentFilter` (`domain/components.py`) gains `data_schemes: List[str]`, `data_hosts: List[str]`, `data_ports: List[int]`, `data_paths: List[DataPath]`, `data_path_prefixes: List[str]`, `data_path_patterns: List[str]`, `data_mime_types: List[str]`. Single `DataPath` Pydantic model with `type: Literal["literal", "prefix", "pattern"]` + `value: str` for the JSON-side `{"type", "value"}` envelope; the convenience flat lists (`data_paths_literal` etc.) are derived properties, not stored, to keep the model small.
+- `ComponentInfo` gains `permission: Optional[str]`.
+- A subclass `ProviderComponentInfo(ComponentInfo)` adds `read_permission: Optional[str]` + `write_permission: Optional[str]`. Activity/Service/Receiver instantiate `ComponentInfo` directly; providers instantiate `ProviderComponentInfo`. Same `Components` aggregate, polymorphic list.
+- Parser (`static_analysis_parser.py`) extends `_parse_intent_filters` and `_parse_components` to read the new keys with sensible defaults (`schemes=[]`, `permission=None`) for back-compat against any baseline written before D15.
+
+**Why this is in gh60 (not C2):**
+
+- Same 9.1 smoke that triggered D14 made D15's gap visible: the user's question "components has the data needed to execute these from aperv?" came from inspecting the 5-APK output. The mechanism that surfaced both gaps is the same; bundling avoids reopening the writer/baseline/MANIFEST regen cycle twice.
+- The patch lives in the *same* `writeComponentEntry` block we're already moving in D14. Touching it once for both reorder and enrichment is one rebuild, one baseline regen, one parser bump.
+- The downstream consumer (`aperv-tool` / `ape-rv.jar`) needs this surface for any model-based exploration that goes beyond launcher activities. Deferring to C2 means a known-incomplete `components` ships from gh60 even though the fix is mechanical.
+
+**Decision rationale (boundary):** the IN/OUT cut here is "necessary to construct a launching Intent" vs "nice-to-have for exploration heuristics". IN = `<data>` block + `permission` + provider read/write permission. OUT = `launchMode` (changes back-stack behavior but not initial dispatch — aperv can still send the Intent), `taskAffinity` (rare; not a precondition for triggering), `process=":sep"` (separate process — affects observability, not dispatchability), required-extras inference (infeasible statically; would need a separate dataflow analysis). If the future explorer needs those, they fit cleanly as a C2 follow-up without retouching the parser.
+
+**Baseline impact:** the `cryptoapp.apk.json` baseline gains the new keys on every component entry. `permission` will be `null` for cryptoapp (no `android:permission` declared); the data block will be empty (no `<data>` filters on cryptoapp's launcher main activity). The set-equality parity gates on `reachable=True` / `reachesTarget=True` are unaffected (they don't traverse `components`). The `MANIFEST.json` SHA256 must be regenerated — same step as D14.
+
+**Test additions:** mirror the existing `XmlInputTypeTest` pattern with a new `ComponentsEnrichmentTest`:
+- `testIntentFilterDataBlock_schemesOnly` — IF carries only `<data android:scheme="myapp"/>` THEN JSON has `data.schemes=["myapp"]`, all path lists empty
+- `testIntentFilterDataBlock_pathPatternPreservesType` — `<data android:scheme="http" android:host="x.com" android:pathPattern="/items/.*"/>` → `paths=[{type: "pattern", value: "/items/.*"}]`
+- `testComponentPermission_emittedWhenDeclared` — activity with `android:permission="P"` → `permission="P"`; without → `permission=null`
+- `testProviderPermissions_separateReadWrite` — provider with `android:readPermission="R" android:writePermission="W"` → both fields populated; falls back to `permission` when granular not set (Android semantics)
+- `testEmptyDataBlock_omittedNotNull` — IF with no `<data>` → `data` is `{}` with empty lists (NOT absent) — consumers see consistent shape
+
+**Out of scope (still C2 if needed):** `launchMode`, `taskAffinity`, `process`, declared `<grant-uri-permission>` patterns, extras-required dataflow. None blocks the manual-trigger use case.
+
 ## API Design
 
 ### Java: `TargetMethodSource`
