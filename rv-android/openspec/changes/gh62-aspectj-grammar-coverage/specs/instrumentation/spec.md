@@ -1,4 +1,15 @@
-# Instrumentation — Delta Spec for gh62-aspectj-grammar-coverage (round-8)
+# Instrumentation — Delta Spec for gh62-aspectj-grammar-coverage (round-10)
+
+> **ROUND-10 BANNER (2026-05-29) — authoritative override** (see `EMPIRICAL-DEMAND.md` for the full evidence chain). An empirical pipeline-level demand audit against `empirical-monitors/{jca,generic,generic_new}/` revised three classifications:
+>
+> - **AA-decision**: §4.E `execution(...)` — pipeline POSITIVE = 0,0,0 → **NOT-NEEDED β** (was COVERED in round-9). Absorber: JavaMOP compiler call-rewrite. `ExecutionPointcutGrammarTest.executionPositiveAbsorptionAssertion` enforces.
+> - **AB-decision**: §4.W positive `within(typePattern)` simple `pkg..*` — pipeline POSITIVE = 0,0,0 → **NOT-NEEDED β** (was COVERED in round-9). Absorber: MOP macro-body. `WithinPositiveGrammarTest.withinPositiveAbsorptionAssertion` enforces.
+> - **AC-decision**: §4.JP `thisJoinPoint*` `getStaticPart().getSignature()` — 3 live sites in `empirical-monitors/generic_new/MultiSpec_1MonitorAspect.aj:260,319,328` → **REMOVED from path-β; capability reactivated as §4.Y Signature-delivery sub-closure (COVERED)**. The Coverage.aj absorption claim covers coverage-logging use only.
+>
+> **Closure count**: 14 → **12** (§4.E and §4.W exit; §4.JP folds into §4.Y).
+> **Count corrections** (applied below per-row): §4.I 8→3, §4.T 2→1, §4.Y 6→3+Signature, §4.TT 44→22, §4.AT 10→5, §4.N 32→16, §4.O ~73→64, §4.X ~16→14.
+>
+> Where any narrative below conflicts with this banner, this banner wins. Round-8/9 framing preserved for historical context.
 
 ## ADDED Requirements
 
@@ -180,24 +191,24 @@ The deferred-document snapshot is content-addressed: a `deferred.snapshot.sha256
 
 The dexlib2 instrumenter SHALL implement functional equivalents for **every** AspectJ/JavaMOP construct measured with `DemandCounter.countCompiledAj ≥ 1` at the instrumenter stage in any of the four corpora. Each closure SHALL flip its matrix row(s) from `SILENT-GAP` to `COVERED` with an enabled test in `grammar-tests/` asserting the post-fix behaviour against the corpus pattern that motivated it. The closures are bisect-friendly atomic commits.
 
-**Round-8 in-change closures (14)**:
+**Round-10 in-change closures (12)** *(round-9 fourteen minus §4.E and §4.W per AA/AB-decisions 2026-05-29; §4.JP folded into §4.Y per AC-decision)*:
 
-1. **§4.W** — positive `within(typePattern)` simple `pkg..*` matcher.
-2. **§4.O** — `T+` in `call()` owner.
-3. **§4.R** — `T+` in `call()` return.
-4. **§4.N** — `!target(T)` / `!args(T)` parser specialization.
-5. **§4.V** — `(T, ..)` trailing-mixed varargs.
-6. **§4.X** — method-name glob `name*`.
-7. **§4.TT** — `target(Type)` type-matching.
-8. **§4.AT** — `args(Type)` type-matching.
-9. **§4.Y** — `staticinitialization(T+)` synthesis.
-10. **§4.T** — `after() throwing(...)` end-to-end install.
+1. ~~**§4.W**~~ — **REMOVED (round-10 AB-decision)**: pipeline POSITIVE `within(...)` count = 0 across all corpora. NOT-NEEDED β — see `deferred.md` §2.2.1 entry I.
+2. **§4.O** — `T+` in `call()` owner (round-10 empirical: 64 sites generic_new).
+3. **§4.R** — `T+` in `call()` return (subset of generic_new T+ usage).
+4. **§4.N** — `!target(T)` / `!args(T)` parser specialization (round-10 empirical: 14 + 2 = 16 sites generic_new).
+5. **§4.V** — `(T, ..)` trailing-mixed varargs (counts PROVISIONAL — pipeline re-grep deferred).
+6. **§4.X** — method-name glob `name*` (round-10 empirical: 14 sites generic_new).
+7. **§4.TT** — `target(Type)` type-matching (round-10 empirical: 22 sites generic_new).
+8. **§4.AT** — `args(Type)` type-matching (round-10 empirical: 5 sites generic_new).
+9. **§4.Y** — `staticinitialization(T+)` synthesis (round-10 empirical: 3 sites generic_new) **+ `org.aspectj.lang.Signature` delivery for `*staticinitEvent(Signature)` calls** (round-10 AC-decision: refutes round-8 `thisJoinPoint*` absorption claim; 3 live `thisJoinPoint.getStaticPart().getSignature()` sites in `empirical-monitors/generic_new/MultiSpec_1MonitorAspect.aj:260,319,328` — the JavaMOP compiler retains the binding for the staticinit advice family).
+10. **§4.T** — `after() throwing(...)` end-to-end install (round-10 empirical: 1 site generic_new).
 11. **§4.B** — `BaseAspect.notwithin()` macro expansion.
-12. **§4.D** — `NamedRefPC` resolver via aspect-local symbol table (round-8 narrowing: single-entry-per-descriptor for JCA's `BaseAspect.notwithin()`; the round-7 Coverage.aj two-pointcut symbol-table demand is absorbed with Coverage.aj).
-13. **§4.I** — `if(...)` AspectJ PCD via **runtime-helper delegation** (round-8 substitution for the round-7 in-weaver DEX lowering; the weaver assigns a stable `ifId` per `if(...)` clause and emits `invoke-static MonitorRuntime.evaluateIf(ifId, args_boxed)`).
-14. **§4.E** — `execution(...)` real matcher + emitter (RESTORED per round-8 user decision 2026-05-26): replace the `Match.empty(ex)` placeholder at `PointcutMatcher.matchExecution:307-313` with a real matcher; ship `ExecutionMatcherEmitter` integrating with `DexWeaver`'s method-execution weave path (advice at method entry for `before` / all return paths for `after`). Defensive shipping — even though the current corpora's positive consumers are absorbed, future specs may use `execution(...)` positively, and shipping now avoids re-opening the change.
+12. **§4.D** — `NamedRefPC` resolver via the existing `baseAspectExclusions` field (round-8 empirical A-decision; round-10 unchanged).
+13. **§4.I** — `if(...)` AspectJ PCD via **runtime-helper delegation** (round-10 empirical: 3 sites generic_new).
+14. ~~**§4.E**~~ — **REMOVED (round-10 AA-decision)**: pipeline POSITIVE `execution(...)` count = 0 across all corpora (only `!adviceexecution()` substring hits). NOT-NEEDED β — see `deferred.md` §2.2.1 entry H. Defensive shipping rationale dominated by P1 (No speculative features).
 
-**Round-7 closures reclassified to NOT-NEEDED β in round-8 (6)** — see `deferred.md` §2.2.1 for the full evidence base:
+**Round-7 closures reclassified to NOT-NEEDED β in round-8 (7)** — see `deferred.md` §2.2.1 for the full evidence base:
 
 - **§4.G `condition(...)` guard emit** → absorbed by JavaMOP compiler.
 - **§4.S `__STATICSIG` macro support** → absorbed by JavaMOP compiler (generic_new audit PASS 2026-05-26).
@@ -207,13 +218,16 @@ The dexlib2 instrumenter SHALL implement functional equivalents for **every** As
 - **§4.CV Coverage.aj end-to-end** → absorbed by `coverage-weaver` (byte-for-byte equivalent per module javadoc).
 - **§4.WW `within(*..Log)` + `within(Coverage+)`** → absorbed by `coverage-weaver` (only Coverage.aj used these forms).
 
-**Note**: round-8 initially planned to also reclassify §4.E to NOT-NEEDED β (placeholder retained, emitter not shipped). User decision 2026-05-26 RESTORED §4.E as a full in-change closure for defensive shipping — see closure #14 above.
+**Note**: round-8 initially planned to also reclassify §4.E to NOT-NEEDED β. Round-9 RESTORED §4.E as defensive shipping per user decision 2026-05-26. **Round-10 AA-decision 2026-05-29 re-RECLASSIFIED §4.E to NOT-NEEDED β** based on empirical pipeline POSITIVE = 0 across all three corpora — see closure #14 above and `deferred.md` §2.2.1 entry H.
 
-#### Scenario: positive within(typePattern) filters classDef FQN (simple form)
+#### Scenario: positive within(typePattern) absorbed by MOP macro-body (round-10 AB-decision, REPLACES round-8 §4.W matcher scenario)
 
-- **WHEN** a pointcut `call(* Hashtable.get(..)) && within(com.example.app..*)` is evaluated at a `Hashtable.get` call inside `com.example.app.Foo`
-- **THEN** the matcher SHALL return a match
-- **AND** when the same pointcut is evaluated inside `com.other.lib.Bar`, the matcher SHALL return no match
+- **WHEN** a reviewer audits the empirical pipeline-level demand for positive `within(typePattern)` across the three corpora
+- **THEN** `DemandCounter.countCompiledAj(WITHIN_POSITIVE_PREDICATE, jca)` SHALL equal 0
+- **AND** `DemandCounter.countCompiledAj(WITHIN_POSITIVE_PREDICATE, generic)` SHALL equal 0
+- **AND** `DemandCounter.countCompiledAj(WITHIN_POSITIVE_PREDICATE, generic_new)` SHALL equal 0
+- **AND** every `within(` substring occurrence in `empirical-monitors/{jca,generic,generic_new}/MultiSpec_1MonitorAspect.aj` SHALL be inside `pointcut notwithin()` or `MOP_CommonPointCut(): !within(... RVMObject+) && ...` body declarations, NOT used as an event predicate by any spec
+- **AND** `WithinPositiveGrammarTest.withinPositiveAbsorptionAssertion` SHALL pin this verdict; `!within(...)` semantics flows through §4.B `BaseAspect.notwithin()` expansion + §4.D `NamedRefPC` resolver (both COVERED in-change)
 
 #### Scenario: T+ in call() owner expands to subtypes
 
@@ -245,17 +259,19 @@ The dexlib2 instrumenter SHALL implement functional equivalents for **every** As
 - **THEN** all three calls SHALL match (the `add*` prefix is satisfied)
 - **AND** a call to `remove(E)` SHALL NOT match
 
-#### Scenario: target(Type) type-matching filters by receiver type
+#### Scenario: target(Type) type-matching filters by declared receiver type (round-8 V-decision)
 
-- **WHEN** a pointcut `target(Cipher)` is evaluated at a call whose receiver is a `Cipher` instance
+- **WHEN** a pointcut `target(Cipher)` is evaluated at a call whose **declared receiver type** in the DEX `MethodReference` is `Cipher` (or a subtype, applying the `+` subtype semantics when the pattern is `Cipher+`)
 - **THEN** the matcher SHALL return a match
-- **AND** when the receiver is an unrelated type, the matcher SHALL return no match
+- **AND** when the declared receiver type is unrelated to `Cipher`, the matcher SHALL return no match
+- **AND** round-8 V-decision: the matcher uses the **declared** (static) type from the call-site `MethodReference`, NOT the runtime instance-of. Declared-type is the conservative AspectJ semantics: it is testable at weave time without dynamic dispatch, matches the existing `CallPC.matchOwner` semantics already shipped (consistent with `T+` in `call()` owner per §4.O), and avoids the runtime overhead of `instance-of` checks injected into every advice fire. A future closure MAY upgrade to runtime instance-of if positive demand surfaces (currently zero pipeline demand for that variant)
 
-#### Scenario: args(Type) type-matching filters by argument types
+#### Scenario: args(Type) type-matching filters by declared argument types (round-8 V-decision)
 
-- **WHEN** a pointcut `args(String)` is evaluated at a call whose first (and only) argument's declared type is `String`
+- **WHEN** a pointcut `args(String)` is evaluated at a call whose first (and only) argument's **declared type** in the DEX `MethodReference` parameter list is `String`
 - **THEN** the matcher SHALL return a match
-- **AND** when the argument type is unrelated to `String`, the matcher SHALL return no match
+- **AND** when the declared argument type is unrelated to `String`, the matcher SHALL return no match
+- **AND** round-8 V-decision: declared-type semantics (same rationale as `target(Type)`); subtype expansion via `+` follows `T+` rules from §4.O/R
 
 #### Scenario: staticinitialization synthesis emits a minimal clinit
 
@@ -270,17 +286,31 @@ The dexlib2 instrumenter SHALL implement functional equivalents for **every** As
 - **THEN** the weaver SHALL install a try-range covering the invoke and an exception handler emitting the advice invocation with `e` bound to the caught exception register
 - **AND** the resulting DEX SHALL pass ART verification (no new VerifyError) and the advice SHALL fire when the call throws
 
-#### Scenario: BaseAspect.notwithin() macro expands inline
+#### Scenario: after throwing range-splitting policy under nested try-catch (round-8 F-decision)
 
-- **WHEN** an advice references `: BaseAspect.notwithin()` and the project's `BaseAspect` declares `pointcut notwithin(): !within(sun..*) && !within(android..*) && ...`
-- **THEN** the matcher SHALL resolve the named reference via the §4.D symbol table, expand the OR-chain inline, and apply the composed `!within(...) && !within(...) && ...` filter at evaluation time
+- **WHEN** the matched call site is already covered by one or more pre-existing try-blocks (e.g. the call sits inside a user `try { obj.bar(); } catch (IOException ioe) { ... }` clause)
+- **THEN** the weaver SHALL apply the **range-splitting** policy (round-8 F-decision, per cross-LLM meta-review): instead of wrapping the invoke in a new innermost try-block (which produces overlapping-not-nested ranges that ART's verifier rejects), the weaver SHALL split each enclosing try-block into a head segment (instructions before the matched invoke, preserving the original handler list) + the matched invoke itself (covered by BOTH the original handlers AND the new `after-throwing` handler with the new handler listed FIRST so it intercepts the exception before delegating to the original) + a tail segment (instructions after the invoke, preserving the original handler list)
+- **AND** the new `after-throwing` handler block SHALL start with `move-exception vException` as its first instruction (ART invariant: handlers begin with `move-exception` for the caught register)
+- **AND** the new `after-throwing` handler SHALL re-throw the exception after firing the advice (so user-level `catch` clauses still run); the re-throw is emitted as `throw vException` at the end of the handler block
+- **AND** when a `RegisterShifter` (gh61) widening is required to free the exception register, the weaver SHALL honour the shift across the split ranges so register liveness analysis remains consistent
+- **AND** the dexlib2 `MethodImplementationBuilder` SHALL serialise the resulting try-blocks in start-offset order, with the new `after-throwing` handler listed BEFORE the user handlers for the matched invoke (ART scans handlers in declaration order; "first-most-specific" semantics requires the new handler to fire first)
+- **AND** `DexWeaverNestedTryCatchTest.afterThrowingInsideExistingTryBlockSplitsRangesCleanly` SHALL exercise this policy with a synthetic fixture and assert (a) ART installation succeeds (no VerifyError), (b) when the call throws an exception that matches the user catch, both the new advice handler AND the user catch fire (in that order), (c) when the call throws an exception that the user catch does not match, the new advice handler still fires and the exception propagates to the caller
 
-#### Scenario: NamedRefPC resolves against per-aspect symbol table
+#### Scenario: BaseAspect.notwithin() macro expands inline from baseAspectExclusions (round-8 A-decision)
 
-- **WHEN** an `AspectDescriptor` JSON for a JCA aspect contains `commonPointcut: "BaseAspect.notwithin() && !adviceexecution()"` AND the schema's `namedPointcuts` map contains `{"BaseAspect.notwithin": "<resolved expression>"}`
-- **THEN** the `NamedRefPC` matcher SHALL resolve `BaseAspect.notwithin` against the table, compose with the rest of the expression, and apply the resolved matcher
-- **AND** when the name is absent from the `namedPointcuts` map, the matcher SHALL fall back to `getCommonPointcut()` string parsing
-- **AND** when both lookups fail, the matcher SHALL log a WARN-level message and fall back to always-match (preserving the pre-round-8 behaviour for legacy descriptors)
+- **WHEN** an advice's `commonPointcut` references `BaseAspect.notwithin()` AND the `AspectDescriptor` JSON's `baseAspectExclusions` field is populated by the JavaMOP toolchain (e.g. the canonical twelve-entry list `["sun..*", "java..*", "javax..*", "com.sun..*", "org.dacapo.harness..*", "org.apache.commons..*", "org.apache.geronimo..*", "net.sf.cglib..*", "mop..*", "javamoprt..*", "rvmonitorrt..*", "com.runtimeverification..*"]` emitted by `DescriptorWriter.defaultBaseAspectExclusions()`)
+- **THEN** the §4.B `BaseAspectExpander` SHALL iterate `descriptor.getBaseAspectExclusions()` and build an AND-chain of `NotWithinPC(pattern)` matchers — one per list entry — that evaluates to true only when the class being woven is OUTSIDE every excluded package
+- **AND** the resulting composed matcher SHALL be substituted in-place of the `NamedRefPC("BaseAspect.notwithin")` node by the matcher entry-point
+- **AND** when the list contains a single entry, the §4.B expander returns the single `NotWithinPC` (no degenerate AND-of-one)
+- **AND** `NamedReferenceGrammarTest.baseAspectNotwithinExpandsTwelveExclusionsList` SHALL assert correct expansion against the canonical twelve-entry list AND the single-entry edge case AND the empty-list fail-closed case
+
+#### Scenario: NamedRefPC resolves BaseAspect.notwithin() via baseAspectExclusions
+
+- **WHEN** an `AspectDescriptor` JSON for a JCA aspect contains `commonPointcut: "...&& !adviceexecution() && BaseAspect.notwithin()"` AND the JSON's existing `baseAspectExclusions` field (`List<String>` of package patterns such as `["sun..*", "java..*", "javax..*", "com.sun..*", "org.dacapo.harness..*", "org.apache.commons..*", "org.apache.geronimo..*", "net.sf.cglib..*", "mop..*", "javamoprt..*", "rvmonitorrt..*", "com.runtimeverification..*"]`) is populated by the JavaMOP toolchain's `DescriptorWriter.defaultBaseAspectExclusions()`
+- **THEN** the `NamedRefPC` matcher SHALL recognise the literal reference `BaseAspect.notwithin` and, via the §4.B `BaseAspectExpander`, compose an OR-chain of `!within(<pattern>)` matchers — one per entry of `descriptor.getBaseAspectExclusions()`
+- **AND** the composed matcher SHALL be combined with the rest of the `commonPointcut` expression via the existing parser AST
+- **AND** when the `NamedRefPC` name is NOT `BaseAspect.notwithin` AND the `AspectDescriptor` carries no other recognised named reference, the matcher SHALL fail closed by throwing `br.unb.cic.rv.pointcut.UnresolvedNamedRefException` carrying the name and the descriptor's `aspectName` — this aligns with the gh62 goal of eliminating silent always-match paths (P3 / round-8 fail-closed policy) and replaces the round-7 always-match-with-WARN fallback flagged as a "trap" by the cross-LLM meta-reviews
+- **AND** when `descriptor.getBaseAspectExclusions()` returns an empty list (legacy descriptor produced by a JavaMOP build pre-dating the `baseAspectExclusions` field), the matcher SHALL fail closed with `LegacyDescriptorException` so the instrumenter regenerates the descriptor against the current JavaMOP toolchain rather than silently inlining a permissive filter
 
 #### Scenario: if(...) PCD short-circuits via runtime helper delegation
 
@@ -291,13 +321,24 @@ The dexlib2 instrumenter SHALL implement functional equivalents for **every** As
 - **AND** when it returns `true`, the monitor invoke SHALL fire as if the `if(...)` clause were absent
 - **AND** the per-spec generated `*RuntimeMonitor.evaluateIf(int, Object[])` SHALL contain a switch-case where each case arm holds the actual boolean expression for that `ifId`, lowered by the existing JavaMOP compiler (NOT by the dexlib2 weaver)
 
-#### Scenario: execution(...) real matcher filters by method signature (round-8 RESTORED §4.E)
+#### Scenario: execution(...) absorbed by JavaMOP compiler call-rewrite (round-10 AA-decision, REPLACES round-8 RESTORED §4.E)
 
-- **WHEN** a pointcut `execution(* *.*(..))` is evaluated against every method body in a class
-- **THEN** the matcher SHALL return a match for every method
-- **AND** when the pointcut is `execution(* Cipher.doFinal(..))`, the matcher SHALL return a match only for methods named `doFinal` declared on `Cipher` (subject to `T+` semantics when applied)
-- **AND** the `ExecutionMatcherEmitter` SHALL inject the advice invocation at method entry (for `before`) or at every return path (for `after`) — distinct from `call()` which weaves at the call-site
-- **AND** for the dual-instrumentation case where the app already has MOP monitors weaved via `call()` AND a spec uses `execution()` positively, the weaver SHALL detect the overlap and avoid double-instrumentation (a method matched by both gets one advice invocation, not two)
+- **WHEN** a reviewer audits the empirical pipeline-level demand for `execution(...)` POSITIVE across the three corpora
+- **THEN** `DemandCounter.countCompiledAj(EXECUTION_POSITIVE, jca)` SHALL equal 0
+- **AND** `DemandCounter.countCompiledAj(EXECUTION_POSITIVE, generic)` SHALL equal 0
+- **AND** `DemandCounter.countCompiledAj(EXECUTION_POSITIVE, generic_new)` SHALL equal 0
+- **AND** the only `execution(` substring occurrences in `empirical-monitors/{jca,generic,generic_new}/MultiSpec_1MonitorAspect.aj` SHALL be inside the `!adviceexecution()` clause of `MOP_CommonPointCut`
+- **AND** `ExecutionPointcutGrammarTest.executionPositiveAbsorptionAssertion` SHALL pin this verdict and fail the build if any future corpus introduces `countCompiledAj(EXECUTION_POSITIVE) > 0` — forcing amendment via a new sub-change
+
+#### Scenario: staticinit advice receives org.aspectj.lang.Signature (round-10 AC-decision — §4.Y Signature-delivery sub-closure)
+
+- **WHEN** a class without `<clinit>` is matched by `staticinitialization(T+)` AND the JavaMOP-compiled advice body invokes `thisJoinPoint.getStaticPart().getSignature()` (the canonical generic_new staticinit pattern — see `empirical-monitors/generic_new/MultiSpec_1MonitorAspect.aj:260,319,328`)
+- **THEN** the `StaticInitSynthesizer` SHALL append a minimal `<clinit>` containing `return-void` and a debug marker
+- **AND** the `SignatureFactory` SHALL construct an `org.aspectj.lang.Signature` object describing the synthesized `<clinit>` (declaring-class FQN + `<clinit>` name + modifiers) immediately before the runtime call
+- **AND** the woven bytecode SHALL emit `invoke-static *RuntimeMonitor.*staticinitEvent(<signature>)` with the constructed `Signature` as the argument
+- **AND** the `Signature` argument SHALL be non-null at runtime (the advice body invokes `Signature` accessors that would NPE otherwise)
+- **AND** `StaticInitializationGrammarTest.signatureDeliveryForStaticinitEvent` SHALL verify the three steps for a synthetic class that mirrors the three live `generic_new` staticinit sites
+- **AND** for the dual-instrumentation case where a method is matched by both a `call()` MOP pointcut at one or more call sites AND an `execution()` pointcut at the method body, the weaver SHALL emit ONE advice invocation per distinct (pointcut, advice-form) pair — NOT a deduped single invocation. The emit-plan key SHALL be `dedup_key = sha1(emitter_class + ":" + advice_form + ":" + ifId + ":" + pointcut_AST_hash + ":" + resolved_MethodReference)` (round-8 E-decision: MethodReference-equality with composite key per Claude meta-review refinement). Two emit plans collide ONLY when they share the same `dedup_key` AND the same resolved DEX-level injection site (same instruction offset for `call()`, same method-entry / method-return offset for `execution()`); colliding plans collapse to a single emitter invocation. Two emit plans that share `dedup_key` but inject at distinct DEX offsets (e.g. `call()` at offset 0x12 inside the same method whose body is matched by `execution()` at offset 0x00) MUST emit two distinct invocations — they are semantically distinct join points
 
 ## Invariants
 
@@ -307,10 +348,25 @@ The dexlib2 instrumenter SHALL implement functional equivalents for **every** As
 - **INV-INS-91**: (Round-8 reformulation.) The matrix MUST NOT contain any row with `Verdict = SILENT-GAP` post-archive. `MatrixIntegrityTest.testNoSilentGapRowsRemain` SHALL fail the build if any row carries `SILENT-GAP` after gh62 archives. The round-6 `ledger.md` requirement was superseded in round-7 by `Requirement: Deferred-by-Design Document`; the `ledger.snapshot.sha256` tripwire was replaced by `deferred.snapshot.sha256` covering the new document. The round-8 reformulation additionally formalises path β via `Requirement: Upstream Absorption Verdict`, eliminating the round-7 ambiguity where source-level non-zero-demand constructions absorbed by upstream stages had to be force-fit into path α or shipped as in-change closures attacking nothing.
 - **INV-INS-92**: For every enabled test method in `grammar-tests/`, there MUST be exactly one matrix row whose `Verdict ∈ {COVERED, EXPLICIT-NO-OP, NOT-NEEDED}` and `Evidence` column resolves to that method. Orphan tests and orphan rows MUST break the build. Post-round-8, no `@Disabled` annotation remains; `testSkipCountEqualsZero` SHALL enforce this.
 - **INV-INS-93**: The matrix demand counts MUST be reproducible by `DemandCounter` invoked from `MatrixIntegrityTest.testSourceDemandCountsReproducible` AND `MatrixIntegrityTest.testPipelineDemandCountsReproducible`. Counts MUST be re-verified whenever a new `.mop` OR `.aj` file is added to any of the four corpora OR whenever the JavaMOP toolchain regenerates the `results/gh53_smoke_dexlib2/monitors/` outputs. `DemandCounter` SHALL scan BOTH `.mop` AND compiled `.aj` files via two distinct helpers (`countMop` and `countCompiledAj`); the per-designator regex SHALL distinguish *pointcut* uses from *Java statement* uses; the helper MUST be portable Java.
-- **INV-INS-94**: For every matrix row covered by the **fourteen round-8 in-change closures** (§4.{W,O,R,N,V,X,TT,AT,Y,T,B,D,I,E}), the `Verdict` MUST be `COVERED` and the `Evidence` MUST cite an enabled test in `grammar-tests/` exercising the corpus pattern that motivated the closure. `MatrixIntegrityTest.testRoundEightClosuresAreCovered` SHALL fail the build if any of these rows regresses from `COVERED`.
+- **INV-INS-94**: For every matrix row covered by the **twelve round-10 in-change closures** (§4.{O,R,N,V,X,TT,AT,Y,T,B,D,I} — §4.E and §4.W removed per AA/AB-decisions; §4.JP folded into §4.Y per AC-decision), the `Verdict` MUST be `COVERED` and the `Evidence` MUST cite an enabled test in `grammar-tests/` exercising the corpus pattern that motivated the closure. `MatrixIntegrityTest.testRoundEightClosuresAreCovered` SHALL fail the build if any of these rows regresses from `COVERED`. (Test method name retained for cross-commit stability; it asserts the round-10 twelve-closure set.)
 - **INV-INS-95**: The fourteen round-8 closures SHIP as bisect-friendly atomic commits (one closure per commit, §4.{W,O,R,N,V,X,TT,AT,Y,T,B,D,I,E} in tasks). For every commit landing a closure, the matrix row flip (`SILENT-GAP` → `COVERED`) MUST occur in the same commit; orphan tests and orphan rows are caught by INV-INS-92. `MatrixIntegrityTest.testClosureLocFootprintMatchesMatrixDelta` SHALL log (advisory; non-blocking) the LOC delta per closure commit and the number of matrix rows flipped.
 - **INV-INS-96**: (Round-8 introduction.) For every matrix row with `Verdict = NOT-NEEDED β`, the assertion test SHALL exercise THREE properties: (a) `DemandCounter.countMop(designator) ≥ 1` to confirm source-level demand exists; (b) `DemandCounter.countCompiledAj(designator) == 0` to confirm pipeline absorption; (c) the named upstream absorber file/module exists and contains the documented evidence anchor. The test FAILS if any of the three properties changes — guarding against silent regression of an upstream stage that would re-surface the construction at the instrumenter without notice. `AbsorptionClaimsContractTest` SHALL aggregate all path-β absorber assertions.
-- **INV-INS-97**: (Round-8 introduction.) The `AspectDescriptor` schema MUST carry a `namedPointcuts: Map<String, PointcutExpression>` field populated by `DescriptorReader`. The `NamedRefPC` matcher MUST resolve references against this map at evaluation time; fallback to `getCommonPointcut()` then to always-match-with-WARN is the documented degradation path. `NamedRefResolverTest` SHALL cover all three resolution paths (table-hit, commonPointcut-fallback, always-match-fallback). Round-8 narrowing: the table need only hold one entry per JCA descriptor (`BaseAspect.notwithin`); Coverage.aj's two-pointcut requirement is absorbed.
-- **INV-INS-98**: (Round-8 introduction.) The `MonitorRuntime.evaluateIf(int, Object[])` helper MUST exist in every generated `*RuntimeMonitor` class for specs that use the `if(...)` PCD. The helper's switch-case MUST contain one arm per `ifId` assigned by the dexlib2 weaver at weave time. `IfRuntimeDelegationTest` SHALL verify (a) the weaver emits stable `ifId` values across weave runs (deterministic ordering); (b) the helper switch-case covers every assigned `ifId`; (c) the boolean expression for each `ifId` matches the source-level `if(<expr>)` payload semantics.
+- **INV-INS-97**: (Round-8 introduction; **round-8 empirical revision 2026-05-28** — the round-7/early-round-8 draft assumed a new `namedPointcuts: Map<String, PointcutExpression>` field would be added cross-repo to the JavaMOP-emitted `AspectDescriptor` JSON. Empirical inspection of `descriptor-reader/src/main/java/br/unb/cic/rv/descriptor/AspectDescriptor.java` and the production JSON fixture `descriptor-reader/src/test/resources/MultiSpec_1MonitorAspect.json` proved that the schema already exposes a load-bearing `baseAspectExclusions: List<String>` field — the pre-expanded output of `BaseAspect.notwithin()` populated by `javamop.output.descriptor.DescriptorWriter#defaultBaseAspectExclusions()` (twelve package patterns including `sun..*`, `java..*`, `mop..*`, `com.runtimeverification..*`). The cross-repo `namedPointcuts` change is therefore RETIRED.) The `AspectDescriptor` schema MUST continue to carry the existing `baseAspectExclusions: List<String>` field as the source of truth for `BaseAspect.notwithin()` expansion. The `NamedRefPC` matcher MUST resolve the literal reference `BaseAspect.notwithin` against `descriptor.getBaseAspectExclusions()` (consumed by the §4.B `BaseAspectExpander`); any other `NamedRefPC` name not recognised by the matcher MUST cause `UnresolvedNamedRefException` (fail-closed). `NamedRefResolverTest` SHALL cover three paths: (a) successful `BaseAspect.notwithin` expansion against the canonical twelve-entry exclusion list; (b) fail-closed on unrecognised names; (c) fail-closed when `baseAspectExclusions` is empty (legacy descriptor). The round-8 archive precondition (tasks §0.5) is correspondingly downgraded from "verify cross-repo `namedPointcuts` emission" to "verify `baseAspectExclusions` is non-empty in production descriptors and matches the `defaultBaseAspectExclusions()` baseline".
+- **INV-INS-98**: (Round-8 introduction; **round-8 hash-key revision 2026-05-28**.) The `MonitorRuntime.evaluateIf(int, Object[])` helper MUST exist in every generated `*RuntimeMonitor` class for specs that use the `if(...)` PCD. The helper's switch-case MUST contain one arm per `ifId` assigned at descriptor-emission time. **Hash-key contract (round-8 cross-LLM convergence)**: `ifId` is derived from a content hash of the `if(...)` clause, NOT from source-order traversal — `ifId = (int) (SHA1_first_8_bytes(normalize(pointcut_expr) + " " + advice_form + " " + aspect_FQN) & 0x7FFFFFFF)`, where `normalize` strips comments and inter-token whitespace and lower-cases keywords. Both the dexlib2 weaver and the JavaMOP `MonitorRuntimeIfHelperEmitter` MUST derive `ifId` from the same hashing function and the same canonical inputs (aspect FQN + advice form + normalised pointcut expression); cross-repo reordering of clauses is therefore stable by construction. **ABI contract**: `evaluateIf(int ifId, Object[] args)` receives `args` ordered as (a) advice-bound values from `target(name)` and `args(name1, name2, ..)` in source-order, then (b) `thisJoinPoint` if referenced, then (c) `returning(name)` / `throwing(name)` if applicable. Primitive bindings are boxed via the standard `Integer.valueOf` / `Boolean.valueOf` / `Long.valueOf` family. The argument-name → array-index mapping is generated alongside the switch-case in `*RuntimeMonitor` and emitted as a static final `String[] $ifIdArgs<ifId>` constant for debuggability. The default-case arm MUST throw `IllegalStateException("evaluateIf invoked with unknown ifId=" + ifId)` — silent `return false` is forbidden because it would suppress monitor events without trace. `IfRuntimeDelegationTest` SHALL verify (a) the weaver emits `ifId` values derived from the content hash (regenerate two `.aj` files with clauses re-ordered → same `ifId`s); (b) the helper switch-case covers every assigned `ifId`; (c) the boolean expression for each `ifId` matches the source-level `if(<expr>)` payload semantics; (d) the default-case throws `IllegalStateException`.
+
+#### Scenario: ifId is derived from content hash, not source-order
+
+- **WHEN** a `.aj` file declares two `if(...)` clauses A and B, and a second `.aj` file declares the same clauses in reverse order
+- **THEN** the `ifId` for clause A SHALL be identical in both files
+- **AND** the `ifId` for clause B SHALL also be identical in both files
+- **AND** the dexlib2 weaver and the JavaMOP `MonitorRuntimeIfHelperEmitter` SHALL agree on the assigned `ifId` value for every `if(...)` clause regardless of which side parses the file first
+
+#### Scenario: evaluateIf default-case is fail-loud
+
+- **WHEN** `*RuntimeMonitor.evaluateIf(int ifId, Object[] args)` is invoked with an `ifId` value that does not match any generated switch-case arm
+- **THEN** the helper SHALL throw `IllegalStateException("evaluateIf invoked with unknown ifId=" + ifId)`
+- **AND** the exception SHALL propagate to the calling thread, surfacing the mismatch at runtime rather than silently short-circuiting the monitor invocation
 - **INV-INS-99**: (Round-8 round-7-supersession.) The round-7 invariants INV-INS-96 (substrate contract), INV-INS-97 (FQN remap), INV-INS-99 (Coverage.aj e2e) are SUPERSEDED — those invariants asserted properties of artefacts that round-8 does not ship (the `aspectjlang/` substrate and the Coverage.aj end-to-end smoke test). The round-8 renumbering preserves INV-INS-96 (path-β absorber contract), INV-INS-97 (namedPointcuts schema), INV-INS-98 (if-runtime-delegation) as the active invariants in the 96-98 slot. The round-7 numbering above 100 (none existed) is unaffected.
 - **INV-INS-100**: The `deferred.md` document MUST contain exactly one entry per matrix row with `Verdict ∈ {EXPLICIT-NO-OP, NOT-NEEDED}` (path α and path β). The document is content-addressed via `deferred.snapshot.sha256` (committed to `grammar-tests/src/test/resources/`); `testDeferredDocumentIsFrozenPostArchive` SHALL verify the live document's SHA against the snapshot and fail if they diverge. Round-8 race-condition fix: the snapshot generation SHALL occur in the same commit as the final `deferred.md` edit (tasks §1.4) to eliminate the round-7 race between `deferred.md` mutations during closure implementation and the post-archive snapshot creation.
+- **INV-INS-101**: (Round-8 introduction — Z-decision per cross-LLM meta-review.) The §4.B `BaseAspectExpander` consumes a `List<String>` whose canonical length in production is twelve (per `DescriptorWriter.defaultBaseAspectExclusions()`); the matcher behaviour MUST be tested at N≥2 to guarantee future-proofing against descriptors that override `--baseaspect` with shorter lists. `NamedReferenceGrammarTest.baseAspectNotwithinExpandsTwelveExclusionsList` SHALL exercise (a) the canonical twelve-entry expansion (production baseline); (b) a synthetic two-entry list (smallest non-degenerate AND-chain — `["foo..*", "bar..*"]`); (c) a synthetic one-entry list (degenerate AND-of-one returns the single `NotWithinPC` directly); (d) the empty-list fail-closed case (`LegacyDescriptorException` per INV-INS-97).
+- **INV-INS-102**: (Round-8 introduction — W-decision per cross-LLM meta-review.) `docs/aspectj_grammar_coverage.md` is the **single source of truth** for the dexlib2 AspectJ surface. The legacy inventory documents at `docs/AJ_CONSTRUCTIONS_INVENTORY.md` and `docs/AJ_TO_DEXLIB2_MAPPING.md` SHALL carry a header banner declaring "SUPERSEDED — see `docs/aspectj_grammar_coverage.md` as the live contract; this file preserved as historical inventory only" and SHALL NOT be cited by any test, scenario, or invariant in this delta spec. `MatrixIntegrityTest.testNoCompetingSourceOfTruth` SHALL fail the build if either legacy document is amended without the banner present (a `git grep -L 'SUPERSEDED' docs/AJ_CONSTRUCTIONS_INVENTORY.md docs/AJ_TO_DEXLIB2_MAPPING.md` style check).

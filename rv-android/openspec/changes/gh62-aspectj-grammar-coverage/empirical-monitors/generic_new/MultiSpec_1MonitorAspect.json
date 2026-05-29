@@ -1,0 +1,1190 @@
+{
+  "aspectName" : "MultiSpec_1MonitorAspect",
+  "fileName" : "MultiSpec_1",
+  "shortName" : "MultiSpec_1",
+  "package" : "package mop;",
+  "imports" : [ "java.io.*", "java.lang.*", "java.nio.*", "java.util.*", "java.lang.reflect.*", "org.aspectj.lang.Signature", "java.net.*", "java.util.concurrent.*", "java.util.concurrent.locks.*", "javamoprt.*", "java.lang.ref.*", "org.aspectj.lang.*" ],
+  "commonPointcut" : "!within(com.runtimeverification.rvmonitor.java.rt.RVMObject+) && !adviceexecution() && BaseAspect.notwithin()",
+  "baseAspectExclusions" : [ "sun..*", "java..*", "javax..*", "com.sun..*", "org.dacapo.harness..*", "org.apache.commons..*", "org.apache.geronimo..*", "net.sf.cglib..*", "mop..*", "javamoprt..*", "rvmonitorrt..*", "com.runtimeverification..*" ],
+  "advices" : [ {
+    "name" : "CharSequence_NotInSet_set_add",
+    "specName" : "CharSequence_NotInSet",
+    "parameters" : [ ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Set+.add(..)) && args(CharSequence) && !args(String) && !args(CharBuffer)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CharSequence_NotInSet_set_addEvent",
+      "specName" : "CharSequence_NotInSet",
+      "eventId" : "set_add",
+      "uniqueId" : "set_add",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CharSequence_NotInSet_set_addall",
+    "specName" : "CharSequence_NotInSet",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "c"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Set+.addAll(Collection)) && args(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CharSequence_NotInSet_set_addallEvent",
+      "specName" : "CharSequence_NotInSet",
+      "eventId" : "set_addall",
+      "uniqueId" : "set_addall",
+      "args" : [ "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CharSequence_UndefinedHashCode_equals",
+    "specName" : "CharSequence_UndefinedHashCode",
+    "parameters" : [ ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* CharSequence+.equals(..)) && !target(String) && !target(CharBuffer)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CharSequence_UndefinedHashCode_equalsEvent",
+      "specName" : "CharSequence_UndefinedHashCode",
+      "eventId" : "equals",
+      "uniqueId" : "equals",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "CharSequence_UndefinedHashCode_hashCode",
+    "specName" : "CharSequence_UndefinedHashCode",
+    "parameters" : [ ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* CharSequence+.hashCode(..)) && !target(String) && !target(CharBuffer)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.CharSequence_UndefinedHashCode_hashCodeEvent",
+      "specName" : "CharSequence_UndefinedHashCode",
+      "eventId" : "hashCode",
+      "uniqueId" : "hashCode",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Closeable_MeaninglessClose_close",
+    "specName" : "Closeable_MeaninglessClose",
+    "parameters" : [ ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Closeable+.close()) && (target(ByteArrayInputStream) || target(ByteArrayOutputStream) || target(CharArrayWriter) || target(StringWriter))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Closeable_MeaninglessClose_closeEvent",
+      "specName" : "Closeable_MeaninglessClose",
+      "eventId" : "close",
+      "uniqueId" : "close",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collection_HashCode_staticinit",
+    "specName" : "Collection_HashCode",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "staticinitialization(Collection+)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collection_HashCode_staticinitEvent",
+      "specName" : "Collection_HashCode",
+      "eventId" : "staticinit",
+      "uniqueId" : "staticinit",
+      "args" : [ "thisJoinPoint.getStaticPart().getSignature()" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collections_SynchronizedCollection_sync",
+    "specName" : "Collections_SynchronizedCollection",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Collection",
+      "name" : "col"
+    } ],
+    "throwing" : null,
+    "expression" : "call(* Collections.synchronizedCollection(Collection)) || call(* Collections.synchronizedSet(Set)) || call(* Collections.synchronizedSortedSet(SortedSet)) || call(* Collections.synchronizedList(List))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedCollection_syncEvent",
+      "specName" : "Collections_SynchronizedCollection",
+      "eventId" : "sync",
+      "uniqueId" : "sync",
+      "args" : [ "col" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collections_SynchronizedCollection_syncCreateIter",
+    "specName" : "Collections_SynchronizedCollection",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "col"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Iterator",
+      "name" : "iter"
+    } ],
+    "throwing" : null,
+    "expression" : "call(* Collection+.iterator()) && target(col)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedCollection_syncCreateIterEvent",
+      "specName" : "Collections_SynchronizedCollection",
+      "eventId" : "syncCreateIter",
+      "uniqueId" : "syncCreateIter",
+      "args" : [ "col", "iter" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedCollection_asyncCreateIterEvent",
+      "specName" : "Collections_SynchronizedCollection",
+      "eventId" : "asyncCreateIter",
+      "uniqueId" : "asyncCreateIter",
+      "args" : [ "col", "iter" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedMap_syncCreateIterEvent",
+      "specName" : "Collections_SynchronizedMap",
+      "eventId" : "syncCreateIter",
+      "uniqueId" : "syncCreateIter",
+      "args" : [ "col", "iter" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedMap_asyncCreateIterEvent",
+      "specName" : "Collections_SynchronizedMap",
+      "eventId" : "asyncCreateIter",
+      "uniqueId" : "asyncCreateIter",
+      "args" : [ "col", "iter" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collections_SynchronizedCollection_accessIter",
+    "specName" : "Collections_SynchronizedCollection",
+    "parameters" : [ {
+      "type" : "Iterator",
+      "name" : "iter"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Iterator.*(..)) && target(iter)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedCollection_accessIterEvent",
+      "specName" : "Collections_SynchronizedCollection",
+      "eventId" : "accessIter",
+      "uniqueId" : "accessIter",
+      "args" : [ "iter" ],
+      "countCond" : null
+    }, {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedMap_accessIterEvent",
+      "specName" : "Collections_SynchronizedMap",
+      "eventId" : "accessIter",
+      "uniqueId" : "accessIter",
+      "args" : [ "iter" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collections_SynchronizedMap_sync",
+    "specName" : "Collections_SynchronizedMap",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Map",
+      "name" : "syncMap"
+    } ],
+    "throwing" : null,
+    "expression" : "call(* Collections.synchronizedMap(Map)) || call(* Collections.synchronizedSortedMap(SortedMap))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedMap_syncEvent",
+      "specName" : "Collections_SynchronizedMap",
+      "eventId" : "sync",
+      "uniqueId" : "sync",
+      "args" : [ "syncMap" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collections_SynchronizedMap_createSet",
+    "specName" : "Collections_SynchronizedMap",
+    "parameters" : [ {
+      "type" : "Map",
+      "name" : "syncMap"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Collection",
+      "name" : "col"
+    } ],
+    "throwing" : null,
+    "expression" : "(call(Set Map+.keySet()) || call(Set Map+.entrySet()) || call(Collection Map+.values())) && target(syncMap)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_SynchronizedMap_createSetEvent",
+      "specName" : "Collections_SynchronizedMap",
+      "eventId" : "createSet",
+      "uniqueId" : "createSet",
+      "args" : [ "syncMap", "col" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collections_UnnecessaryNewSetFromMap_unnecessary",
+    "specName" : "Collections_UnnecessaryNewSetFromMap",
+    "parameters" : [ ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Collections.newSetFromMap(Map)) && (args(HashMap) || args(TreeMap))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collections_UnnecessaryNewSetFromMap_unnecessaryEvent",
+      "specName" : "Collections_UnnecessaryNewSetFromMap",
+      "eventId" : "unnecessary",
+      "uniqueId" : "unnecessary",
+      "args" : [ ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collection_UnsynchronizedAddAll_enter",
+    "specName" : "Collection_UnsynchronizedAddAll",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "t"
+    }, {
+      "type" : "Collection",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(boolean Collection+.addAll(..)) && target(t) && args(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collection_UnsynchronizedAddAll_enterEvent",
+      "specName" : "Collection_UnsynchronizedAddAll",
+      "eventId" : "enter",
+      "uniqueId" : "enter",
+      "args" : [ "t", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collection_UnsynchronizedAddAll_modify",
+    "specName" : "Collection_UnsynchronizedAddAll",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Collection+.add*(..)) || call(* Collection+.remove*(..)) || call(* Collection+.clear(..)) || call(* Collection+.retain*(..))) && target(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collection_UnsynchronizedAddAll_modifyEvent",
+      "specName" : "Collection_UnsynchronizedAddAll",
+      "eventId" : "modify",
+      "uniqueId" : "modify",
+      "args" : [ "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Collection_UnsynchronizedAddAll_enter",
+    "specName" : "Collection_UnsynchronizedAddAll",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "t"
+    }, {
+      "type" : "Collection",
+      "name" : "s"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(boolean Collection+.addAll(..)) && target(t) && args(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Collection_UnsynchronizedAddAll_leaveEvent",
+      "specName" : "Collection_UnsynchronizedAddAll",
+      "eventId" : "leave",
+      "uniqueId" : "leave",
+      "args" : [ "t", "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Comparable_CompareToNullException_badexception",
+    "specName" : "Comparable_CompareToNullException",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "o"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : [ {
+      "type" : "Exception",
+      "name" : "e"
+    } ],
+    "expression" : "call(* Comparable+.compareTo(..)) && args(o) && if(o == null)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Comparable_CompareToNullException_badexceptionEvent",
+      "specName" : "Comparable_CompareToNullException",
+      "eventId" : "badexception",
+      "uniqueId" : "badexception",
+      "args" : [ "o", "e" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Comparable_CompareToNullException_badexception",
+    "specName" : "Comparable_CompareToNullException",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "o"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "int",
+      "name" : "i"
+    } ],
+    "throwing" : null,
+    "expression" : "call(* Comparable+.compareTo(..)) && args(o) && if(o == null)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Comparable_CompareToNullException_badcompareEvent",
+      "specName" : "Comparable_CompareToNullException",
+      "eventId" : "badcompare",
+      "uniqueId" : "badcompare",
+      "args" : [ "o", "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Comparable_CompareToNullException_badexception",
+    "specName" : "Comparable_CompareToNull",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "o"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Comparable+.compareTo(..)) && args(o) && if(o == null)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Comparable_CompareToNull_nullcompareEvent",
+      "specName" : "Comparable_CompareToNull",
+      "eventId" : "nullcompare",
+      "uniqueId" : "nullcompare",
+      "args" : [ "o" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "InputStream_ManipulateAfterClose_manipulate",
+    "specName" : "InputStream_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "InputStream",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* InputStream+.read(..)) || call(* InputStream+.available(..)) || call(* InputStream+.reset(..)) || call(* InputStream+.skip(..))) && target(i) && !target(ByteArrayInputStream) && !target(StringBufferInputStream)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.InputStream_ManipulateAfterClose_manipulateEvent",
+      "specName" : "InputStream_ManipulateAfterClose",
+      "eventId" : "manipulate",
+      "uniqueId" : "manipulate",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "InputStream_ManipulateAfterClose_close",
+    "specName" : "InputStream_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "InputStream",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* InputStream+.close(..)) && target(i) && !target(ByteArrayInputStream) && !target(StringBufferInputStream)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.InputStream_ManipulateAfterClose_closeEvent",
+      "specName" : "InputStream_ManipulateAfterClose",
+      "eventId" : "close",
+      "uniqueId" : "close",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ListIterator_Set_create",
+    "specName" : "ListIterator_Set",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "ListIterator",
+      "name" : "i"
+    } ],
+    "throwing" : null,
+    "expression" : "call(ListIterator Iterable+.listIterator())",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ListIterator_Set_createEvent",
+      "specName" : "ListIterator_Set",
+      "eventId" : "create",
+      "uniqueId" : "create",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ListIterator_Set_remove",
+    "specName" : "ListIterator_Set",
+    "parameters" : [ {
+      "type" : "ListIterator",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(void Iterator+.remove()) && target(i)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ListIterator_Set_removeEvent",
+      "specName" : "ListIterator_Set",
+      "eventId" : "remove",
+      "uniqueId" : "remove",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ListIterator_Set_add",
+    "specName" : "ListIterator_Set",
+    "parameters" : [ {
+      "type" : "ListIterator",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(void ListIterator+.add(..)) && target(i)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ListIterator_Set_addEvent",
+      "specName" : "ListIterator_Set",
+      "eventId" : "add",
+      "uniqueId" : "add",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ListIterator_Set_next",
+    "specName" : "ListIterator_Set",
+    "parameters" : [ {
+      "type" : "ListIterator",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Iterator+.next()) && target(i)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ListIterator_Set_nextEvent",
+      "specName" : "ListIterator_Set",
+      "eventId" : "next",
+      "uniqueId" : "next",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ListIterator_Set_previous",
+    "specName" : "ListIterator_Set",
+    "parameters" : [ {
+      "type" : "ListIterator",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* ListIterator+.previous()) && target(i)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ListIterator_Set_previousEvent",
+      "specName" : "ListIterator_Set",
+      "eventId" : "previous",
+      "uniqueId" : "previous",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ListIterator_Set_set",
+    "specName" : "ListIterator_Set",
+    "parameters" : [ {
+      "type" : "ListIterator",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* ListIterator+.set(..)) && target(i)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ListIterator_Set_setEvent",
+      "specName" : "ListIterator_Set",
+      "eventId" : "set",
+      "uniqueId" : "set",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Long_BadParsingArgs_bad_arg",
+    "specName" : "Long_BadParsingArgs",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "s"
+    }, {
+      "type" : "int",
+      "name" : "radix"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Long.parseLong(String, int)) && args(s, radix)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Long_BadParsingArgs_bad_argEvent",
+      "specName" : "Long_BadParsingArgs",
+      "eventId" : "bad_arg",
+      "uniqueId" : "bad_arg",
+      "args" : [ "s", "radix" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Long_BadParsingArgs_bad_arg2",
+    "specName" : "Long_BadParsingArgs",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "s"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Long.parseLong(String)) && args(s)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Long_BadParsingArgs_bad_arg2Event",
+      "specName" : "Long_BadParsingArgs",
+      "eventId" : "bad_arg2",
+      "uniqueId" : "bad_arg2",
+      "args" : [ "s" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Map_UnsafeIterator_getset",
+    "specName" : "Map_UnsafeIterator",
+    "parameters" : [ {
+      "type" : "Map",
+      "name" : "m"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Collection",
+      "name" : "c"
+    } ],
+    "throwing" : null,
+    "expression" : "(call(Set Map+.keySet()) || call(Set Map+.entrySet()) || call(Collection Map+.values())) && target(m)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Map_UnsafeIterator_getsetEvent",
+      "specName" : "Map_UnsafeIterator",
+      "eventId" : "getset",
+      "uniqueId" : "getset",
+      "args" : [ "m", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Map_UnsafeIterator_getiter",
+    "specName" : "Map_UnsafeIterator",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "c"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "Iterator",
+      "name" : "i"
+    } ],
+    "throwing" : null,
+    "expression" : "call(Iterator Iterable+.iterator()) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Map_UnsafeIterator_getiterEvent",
+      "specName" : "Map_UnsafeIterator",
+      "eventId" : "getiter",
+      "uniqueId" : "getiter",
+      "args" : [ "c", "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Map_UnsafeIterator_modifyMap",
+    "specName" : "Map_UnsafeIterator",
+    "parameters" : [ {
+      "type" : "Map",
+      "name" : "m"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Map+.clear*(..)) || call(* Map+.put*(..)) || call(* Map+.remove(..))) && target(m)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Map_UnsafeIterator_modifyMapEvent",
+      "specName" : "Map_UnsafeIterator",
+      "eventId" : "modifyMap",
+      "uniqueId" : "modifyMap",
+      "args" : [ "m" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Map_UnsafeIterator_modifyCol",
+    "specName" : "Map_UnsafeIterator",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "c"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Collection+.clear(..)) || call(* Collection+.offer*(..)) || call(* Collection+.pop(..)) || call(* Collection+.push(..)) || call(* Collection+.remove*(..)) || call(* Collection+.retain*(..))) && target(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Map_UnsafeIterator_modifyColEvent",
+      "specName" : "Map_UnsafeIterator",
+      "eventId" : "modifyCol",
+      "uniqueId" : "modifyCol",
+      "args" : [ "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Map_UnsafeIterator_useiter",
+    "specName" : "Map_UnsafeIterator",
+    "parameters" : [ {
+      "type" : "Iterator",
+      "name" : "i"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Iterator.hasNext(..)) || call(* Iterator.next(..))) && target(i)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Map_UnsafeIterator_useiterEvent",
+      "specName" : "Map_UnsafeIterator",
+      "eventId" : "useiter",
+      "uniqueId" : "useiter",
+      "args" : [ "i" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Object_MonitorOwner_bad_notify",
+    "specName" : "Object_MonitorOwner",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "o"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Object+.notify(..)) || call(* Object+.notifyAll(..))) && target(o) && if(!Thread.holdsLock(o))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Object_MonitorOwner_bad_notifyEvent",
+      "specName" : "Object_MonitorOwner",
+      "eventId" : "bad_notify",
+      "uniqueId" : "bad_notify",
+      "args" : [ "o" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Object_MonitorOwner_bad_wait",
+    "specName" : "Object_MonitorOwner",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "o"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Object+.wait(..)) && target(o) && if(!Thread.holdsLock(o))",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Object_MonitorOwner_bad_waitEvent",
+      "specName" : "Object_MonitorOwner",
+      "eventId" : "bad_wait",
+      "uniqueId" : "bad_wait",
+      "args" : [ "o" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "OutputStream_ManipulateAfterClose_manipulate",
+    "specName" : "OutputStream_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "OutputStream",
+      "name" : "o"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* OutputStream+.write*(..)) || call(* OutputStream+.flush(..))) && target(o) && !target(ByteArrayOutputStream)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.OutputStream_ManipulateAfterClose_manipulateEvent",
+      "specName" : "OutputStream_ManipulateAfterClose",
+      "eventId" : "manipulate",
+      "uniqueId" : "manipulate",
+      "args" : [ "o" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "OutputStream_ManipulateAfterClose_close",
+    "specName" : "OutputStream_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "OutputStream",
+      "name" : "o"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* OutputStream+.close(..)) && target(o) && !target(ByteArrayOutputStream)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.OutputStream_ManipulateAfterClose_closeEvent",
+      "specName" : "OutputStream_ManipulateAfterClose",
+      "eventId" : "close",
+      "uniqueId" : "close",
+      "args" : [ "o" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Reader_ManipulateAfterClose_manipulate",
+    "specName" : "Reader_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "Reader",
+      "name" : "r"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Reader+.read(..)) || call(* Reader+.ready(..)) || call(* Reader+.mark(..)) || call(* Reader+.reset(..)) || call(* Reader+.skip(..))) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Reader_ManipulateAfterClose_manipulateEvent",
+      "specName" : "Reader_ManipulateAfterClose",
+      "eventId" : "manipulate",
+      "uniqueId" : "manipulate",
+      "args" : [ "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Reader_ManipulateAfterClose_close",
+    "specName" : "Reader_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "Reader",
+      "name" : "r"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Reader+.close(..)) && target(r)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Reader_ManipulateAfterClose_closeEvent",
+      "specName" : "Reader_ManipulateAfterClose",
+      "eventId" : "close",
+      "uniqueId" : "close",
+      "args" : [ "r" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Serializable_NoArgConstructor_staticinit",
+    "specName" : "Serializable_NoArgConstructor",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "staticinitialization(Serializable+)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Serializable_NoArgConstructor_staticinitEvent",
+      "specName" : "Serializable_NoArgConstructor",
+      "eventId" : "staticinit",
+      "uniqueId" : "staticinit",
+      "args" : [ "thisJoinPoint.getStaticPart().getSignature()" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ServerSocket_Backlog_construct",
+    "specName" : "ServerSocket_Backlog",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "backlog"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(ServerSocket.new(int, int)) || call(ServerSocket.new(int, int, InetAddress))) && args(*, backlog, ..)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ServerSocket_Backlog_constructEvent",
+      "specName" : "ServerSocket_Backlog",
+      "eventId" : "construct",
+      "uniqueId" : "construct",
+      "args" : [ "backlog" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ServerSocket_Backlog_set",
+    "specName" : "ServerSocket_Backlog",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "backlog"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* ServerSocket+.bind(SocketAddress, int)) && args(*, backlog)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ServerSocket_Backlog_setEvent",
+      "specName" : "ServerSocket_Backlog",
+      "eventId" : "set",
+      "uniqueId" : "set",
+      "args" : [ "backlog" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ServerSocket_SetTimeoutBeforeBlocking_enter",
+    "specName" : "ServerSocket_SetTimeoutBeforeBlocking",
+    "parameters" : [ {
+      "type" : "ServerSocket",
+      "name" : "sock"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* ServerSocket+.accept(..)) && target(sock)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ServerSocket_SetTimeoutBeforeBlocking_enterEvent",
+      "specName" : "ServerSocket_SetTimeoutBeforeBlocking",
+      "eventId" : "enter",
+      "uniqueId" : "enter",
+      "args" : [ "sock" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ServerSocket_SetTimeoutBeforeBlocking_enter",
+    "specName" : "ServerSocket_SetTimeoutBeforeBlocking",
+    "parameters" : [ {
+      "type" : "ServerSocket",
+      "name" : "sock"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* ServerSocket+.accept(..)) && target(sock)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ServerSocket_SetTimeoutBeforeBlocking_leaveEvent",
+      "specName" : "ServerSocket_SetTimeoutBeforeBlocking",
+      "eventId" : "leave",
+      "uniqueId" : "leave",
+      "args" : [ "sock" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "ServerSocket_SetTimeoutBeforeBlocking_set",
+    "specName" : "ServerSocket_SetTimeoutBeforeBlocking",
+    "parameters" : [ {
+      "type" : "ServerSocket",
+      "name" : "sock"
+    }, {
+      "type" : "int",
+      "name" : "timeout"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* ServerSocket+.setSoTimeout(int)) && target(sock) && args(timeout)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.ServerSocket_SetTimeoutBeforeBlocking_setEvent",
+      "specName" : "ServerSocket_SetTimeoutBeforeBlocking",
+      "eventId" : "set",
+      "uniqueId" : "set",
+      "args" : [ "sock", "timeout" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SortedSet_Comparable_add",
+    "specName" : "SortedSet_Comparable",
+    "parameters" : [ {
+      "type" : "SortedSet",
+      "name" : "s"
+    }, {
+      "type" : "Object",
+      "name" : "e"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Collection+.add*(..)) || call(* Queue+.offer*(..))) && target(s) && args(e)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SortedSet_Comparable_addEvent",
+      "specName" : "SortedSet_Comparable",
+      "eventId" : "add",
+      "uniqueId" : "add",
+      "args" : [ "s", "e" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "SortedSet_Comparable_addall",
+    "specName" : "SortedSet_Comparable",
+    "parameters" : [ {
+      "type" : "SortedSet",
+      "name" : "s"
+    }, {
+      "type" : "Collection",
+      "name" : "c"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Collection+.addAll(Collection)) && target(s) && args(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.SortedSet_Comparable_addallEvent",
+      "specName" : "SortedSet_Comparable",
+      "eventId" : "addall",
+      "uniqueId" : "addall",
+      "args" : [ "s", "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TreeMap_Comparable_create",
+    "specName" : "TreeMap_Comparable",
+    "parameters" : [ {
+      "type" : "Map",
+      "name" : "src"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(TreeMap.new(Map)) && args(src)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TreeMap_Comparable_createEvent",
+      "specName" : "TreeMap_Comparable",
+      "eventId" : "create",
+      "uniqueId" : "create",
+      "args" : [ "src" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TreeMap_Comparable_put",
+    "specName" : "TreeMap_Comparable",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "key"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Map+.put(Object, Object)) && args(key, ..) && target(TreeMap)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TreeMap_Comparable_putEvent",
+      "specName" : "TreeMap_Comparable",
+      "eventId" : "put",
+      "uniqueId" : "put",
+      "args" : [ "key" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TreeMap_Comparable_putall",
+    "specName" : "TreeMap_Comparable",
+    "parameters" : [ {
+      "type" : "Map",
+      "name" : "src"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Map+.putAll(Map)) && args(src) && target(TreeMap)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TreeMap_Comparable_putallEvent",
+      "specName" : "TreeMap_Comparable",
+      "eventId" : "putall",
+      "uniqueId" : "putall",
+      "args" : [ "src" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TreeSet_Comparable_add",
+    "specName" : "TreeSet_Comparable",
+    "parameters" : [ {
+      "type" : "Object",
+      "name" : "e"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Collection+.add*(..)) && target(TreeSet) && args(e)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TreeSet_Comparable_addEvent",
+      "specName" : "TreeSet_Comparable",
+      "eventId" : "add",
+      "uniqueId" : "add",
+      "args" : [ "e" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "TreeSet_Comparable_addall",
+    "specName" : "TreeSet_Comparable",
+    "parameters" : [ {
+      "type" : "Collection",
+      "name" : "c"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Collection+.addAll(Collection)) && target(TreeSet) && args(c)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.TreeSet_Comparable_addallEvent",
+      "specName" : "TreeSet_Comparable",
+      "eventId" : "addall",
+      "uniqueId" : "addall",
+      "args" : [ "c" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "URLConnection_OverrideGetPermission_staticinit",
+    "specName" : "URLConnection_OverrideGetPermission",
+    "parameters" : [ ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "staticinitialization(URLConnection+)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.URLConnection_OverrideGetPermission_staticinitEvent",
+      "specName" : "URLConnection_OverrideGetPermission",
+      "eventId" : "staticinit",
+      "uniqueId" : "staticinit",
+      "args" : [ "thisJoinPoint.getStaticPart().getSignature()" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "URLDecoder_DecodeUTF8_decode",
+    "specName" : "URLDecoder_DecodeUTF8",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "enc"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* URLDecoder.decode(String, String)) && args(*, enc)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.URLDecoder_DecodeUTF8_decodeEvent",
+      "specName" : "URLDecoder_DecodeUTF8",
+      "eventId" : "decode",
+      "uniqueId" : "decode",
+      "args" : [ "enc" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "URLEncoder_EncodeUTF8_encode",
+    "specName" : "URLEncoder_EncodeUTF8",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "enc"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* URLEncoder.encode(String, String)) && args(*, enc)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.URLEncoder_EncodeUTF8_encodeEvent",
+      "specName" : "URLEncoder_EncodeUTF8",
+      "eventId" : "encode",
+      "uniqueId" : "encode",
+      "args" : [ "enc" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Writer_ManipulateAfterClose_manipulate",
+    "specName" : "Writer_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "Writer",
+      "name" : "w"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "(call(* Writer+.write*(..)) || call(* Writer+.flush(..))) && target(w) && !target(CharArrayWriter) && !target(StringWriter)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Writer_ManipulateAfterClose_manipulateEvent",
+      "specName" : "Writer_ManipulateAfterClose",
+      "eventId" : "manipulate",
+      "uniqueId" : "manipulate",
+      "args" : [ "w" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "Writer_ManipulateAfterClose_close",
+    "specName" : "Writer_ManipulateAfterClose",
+    "parameters" : [ {
+      "type" : "Writer",
+      "name" : "w"
+    } ],
+    "position" : "before",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(* Writer+.close(..)) && target(w) && !target(CharArrayWriter) && !target(StringWriter)",
+    "monitorCalls" : [ {
+      "method" : "MultiSpec_1RuntimeMonitor.Writer_ManipulateAfterClose_closeEvent",
+      "specName" : "Writer_ManipulateAfterClose",
+      "eventId" : "close",
+      "uniqueId" : "close",
+      "args" : [ "w" ],
+      "countCond" : null
+    } ]
+  } ]
+}
