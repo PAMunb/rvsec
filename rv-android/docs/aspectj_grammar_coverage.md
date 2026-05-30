@@ -79,7 +79,7 @@ Each designator's `java.util.regex.Pattern` is the audit trail and is pinned in 
 | `T+` in `call()` owner | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 | `T+` in `call()` return | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 | `T+` inside `!within(...)` | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| `*` wildcard | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| `*` wildcard | TBD | 0,240,67 | TBD | COVERED | TBD | COVERED | `CallReturnWildcardGrammarTest` | §4.RW return-type `*` (`call(* Owner.name(..))`): `matchCall` skips the return-equality gate when the pattern return is `*`, symmetric to the args/name `*` handling. PipelineDemand `CALL_RETURN_WILDCARD` = 240 generic / 67 generic_new / 0 jca. |
 | `..` standalone varargs | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 | `(T, ..)` trailing-mixed | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 | `..*` dot-glob | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |

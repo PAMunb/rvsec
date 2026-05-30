@@ -73,6 +73,7 @@ public final class DemandCounter {
     public static final String CALL_OWNER_TSUBTYPE = "call_owner_tsubtype";
     public static final String CALL_NAME_GLOB = "call_name_glob";
     public static final String CALL_TRAILING_VARARGS = "call_trailing_varargs";
+    public static final String CALL_RETURN_WILDCARD = "call_return_wildcard";
 
     /**
      * Per-designator pattern map. Each pattern is anchored to distinguish pointcut use from
@@ -132,6 +133,13 @@ public final class DemandCounter {
         // from the standalone "(..)" accept-anything form (no preceding parameter). 6 jca sites; 0
         // elsewhere. Per-occurrence.
         PATTERNS.put(CALL_TRAILING_VARARGS, Pattern.compile("call\\([^)]*, \\.\\.\\)"));
+        // §4.RW — "* " (match-any) return-type wildcard in the return position of a call(): the "*"
+        // immediately after "call(" followed by a space (the return-type slot, before the owner). This
+        // is the dominant generic/generic_new call shape "call(* Owner.name(..))". Anchored to "call(\*
+        // " so the method-name token glob "name*(" (CALL_NAME_GLOB, where "*" abuts "(") and the
+        // standalone "(..)" varargs token are NOT matched. Per-occurrence: 240 generic, 67 generic_new,
+        // 0 jca (jca call() sites all spell a concrete return like "public void Owner.name(..)").
+        PATTERNS.put(CALL_RETURN_WILDCARD, Pattern.compile("call\\(\\* "));
     }
 
     // ----- Public API ----------------------------------------------------------------------------

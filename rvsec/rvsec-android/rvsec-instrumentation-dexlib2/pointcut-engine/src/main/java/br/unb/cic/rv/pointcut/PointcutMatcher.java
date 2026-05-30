@@ -350,8 +350,15 @@ public final class PointcutMatcher {
         String expectedName = cp.isConstructor() ? "<init>" : cp.methodName();
         if (!nameMatches(expectedName, mr.getName())) return Optional.empty();
 
-        // Return type (non-constructor)
-        if (!cp.isConstructor()) {
+        // Return type (non-constructor). §4.RW: a `*` return-type pattern (the
+        // dominant generic-corpus form `call(* Owner.name(..))`) matches ANY
+        // return descriptor — symmetric to the `*` handling already in place for
+        // args positions (matchArgs `"*".equals(expected)`) and method names
+        // (nameMatches trailing `*`). Without this skip, toDescriptor("*") falls
+        // through to the last-resort `Ljava/lang/*;`, which never equals a real
+        // return descriptor, so every `call(* ...)` site silently fails to match.
+        // The exact-equality gate is preserved for concrete return types.
+        if (!cp.isConstructor() && !"*".equals(cp.returnType().trim())) {
             String expectedReturn = typeResolver.toDescriptor(cp.returnType());
             if (!expectedReturn.equals(mr.getReturnType())) return Optional.empty();
         }
