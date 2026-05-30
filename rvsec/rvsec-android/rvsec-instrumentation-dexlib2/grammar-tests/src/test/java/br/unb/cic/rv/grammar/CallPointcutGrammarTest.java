@@ -85,6 +85,34 @@ class CallPointcutGrammarTest {
                 "add* must NOT match remove");
     }
 
+    /** §4.V: trailing-mixed varargs {@code (T, ..)} pins the positional head and accepts any tail.
+     *  {@code add(Object, ..)} matches both the single-arg {@code add(Object)} and the multi-arg
+     *  {@code add(Object, int)} forms (head matches, tail accepts any), and rejects a form whose
+     *  head differs ({@code add(String)}). Mirrors the concrete-return-type fixture style. */
+    @Test
+    void trailingMixedVarargsMatchHeadAndAcceptRest() {
+        CallPC pc = (CallPC) PointcutExpressionParser.parse(
+                "call(boolean java.util.Collection.add(java.lang.Object, ..))");
+
+        // Single-arg add(Object): head matches, empty tail accepted.
+        MethodReference oneArg = new ImmutableMethodReference(
+                "Ljava/util/Collection;", "add", List.of("Ljava/lang/Object;"), "Z");
+        assertTrue(matchAgainstCall(pc, oneArg).isPresent(),
+                "(Object, ..) must match add(Object)");
+
+        // Multi-arg add(Object, int): head matches, int tail accepted.
+        MethodReference twoArg = new ImmutableMethodReference(
+                "Ljava/util/Collection;", "add", List.of("Ljava/lang/Object;", "I"), "Z");
+        assertTrue(matchAgainstCall(pc, twoArg).isPresent(),
+                "(Object, ..) must match add(Object, int)");
+
+        // Head differs (first param is String, not Object) → no match.
+        MethodReference wrongHead = new ImmutableMethodReference(
+                "Ljava/util/Collection;", "add", List.of("Ljava/lang/String;"), "Z");
+        assertTrue(matchAgainstCall(pc, wrongHead).isEmpty(),
+                "(Object, ..) must NOT match a head that starts with String");
+    }
+
     // --- fixture ---------------------------------------------------------------------------------
 
     private static Optional<Match> matchAgainstCall(CallPC pc, MethodReference callee,

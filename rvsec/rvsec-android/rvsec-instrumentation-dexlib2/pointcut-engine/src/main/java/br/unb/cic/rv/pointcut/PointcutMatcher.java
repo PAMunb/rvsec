@@ -229,30 +229,36 @@ public final class PointcutMatcher {
             if (!expectedReturn.equals(mr.getReturnType())) return Optional.empty();
         }
 
-        // Parameter types — varargs short-circuits
+        // Parameter types. paramSpecs() is the fixed positional head; varargs()
+        // marks a trailing `..` (§4.V). Exact lists require the actual arity to
+        // equal the head; trailing varargs require it to be at least the head
+        // size — standalone `(..)` has an empty head (match-anything) while
+        // `(String, ..)` pins the head and accepts any tail.
         List<? extends CharSequence> actualParams = mr.getParameterTypes();
-        if (!cp.varargs()) {
-            if (actualParams.size() != cp.paramSpecs().size()) return Optional.empty();
-            for (int i = 0; i < actualParams.size(); i++) {
-                CallPC.ParamSpec spec = cp.paramSpecs().get(i);
-                CharSequence actual = actualParams.get(i);
-                boolean ok;
-                if (spec.isSubtype()) {
-                    // InheritanceResolver.isAssignableFrom takes FQNs (e.g.
-                    // "java.lang.Object", "java.security.Provider"), not DEX
-                    // descriptors, because of the fast-path for
-                    // superFqn == "java.lang.Object" at
-                    // InheritanceResolver.java:66 which returns
-                    // !isPrimitive(subFqn) (FQN form). Convert both sides.
-                    String expectedFqn = typeResolver.resolveFqn(spec.descriptor());
-                    String actualFqn = fromDescriptor(actual.toString());
-                    ok = inheritance.isAssignableFrom(expectedFqn, actualFqn);
-                } else {
-                    String expectedDesc = typeResolver.toDescriptor(spec.descriptor());
-                    ok = expectedDesc.contentEquals(actual);
-                }
-                if (!ok) return Optional.empty();
+        int headSize = cp.paramSpecs().size();
+        if (cp.varargs() ? actualParams.size() < headSize
+                         : actualParams.size() != headSize) {
+            return Optional.empty();
+        }
+        for (int i = 0; i < headSize; i++) {
+            CallPC.ParamSpec spec = cp.paramSpecs().get(i);
+            CharSequence actual = actualParams.get(i);
+            boolean ok;
+            if (spec.isSubtype()) {
+                // InheritanceResolver.isAssignableFrom takes FQNs (e.g.
+                // "java.lang.Object", "java.security.Provider"), not DEX
+                // descriptors, because of the fast-path for
+                // superFqn == "java.lang.Object" at
+                // InheritanceResolver.java:66 which returns
+                // !isPrimitive(subFqn) (FQN form). Convert both sides.
+                String expectedFqn = typeResolver.resolveFqn(spec.descriptor());
+                String actualFqn = fromDescriptor(actual.toString());
+                ok = inheritance.isAssignableFrom(expectedFqn, actualFqn);
+            } else {
+                String expectedDesc = typeResolver.toDescriptor(spec.descriptor());
+                ok = expectedDesc.contentEquals(actual);
             }
+            if (!ok) return Optional.empty();
         }
 
         // Register operands of the invoke; positions depend on static-ness and
