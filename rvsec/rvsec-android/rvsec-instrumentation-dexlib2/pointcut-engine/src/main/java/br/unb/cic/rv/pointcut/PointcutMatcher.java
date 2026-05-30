@@ -110,6 +110,9 @@ public final class PointcutMatcher {
         if (pe instanceof NotWithinPC) {
             return matchNotWithin((NotWithinPC) pe, ctx);
         }
+        if (pe instanceof NegationPC) {
+            return matchNegation((NegationPC) pe, ctx);
+        }
         if (pe instanceof CallPC) {
             return matchCall((CallPC) pe, ctx);
         }
@@ -178,6 +181,22 @@ public final class PointcutMatcher {
             return Optional.empty();
         }
         return Optional.of(Match.empty(nw));
+    }
+
+    /**
+     * §4.N: {@code !target(Type)} / {@code !args(Type)}. Evaluate the inner
+     * {@link TargetPC} / {@link ArgsPC} and invert: a present inner verdict
+     * (the type matched) yields no match; an empty inner verdict (the type did
+     * not match, or the join point is a static invoke / non-{@code MethodReference})
+     * yields a match. A negation carries no bindings — the same shape as
+     * {@link #matchNotWithin}.
+     */
+    private Optional<Match> matchNegation(NegationPC neg, Context ctx) {
+        Optional<Match> inner = matchInternal(neg.inner(), ctx);
+        if (inner.isPresent()) {
+            return Optional.empty();
+        }
+        return Optional.of(Match.empty(neg));
     }
 
     /**

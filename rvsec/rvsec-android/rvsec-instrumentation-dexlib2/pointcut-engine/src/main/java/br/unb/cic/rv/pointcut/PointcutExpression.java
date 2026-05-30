@@ -25,5 +25,5 @@ package br.unb.cic.rv.pointcut;
  */
 public sealed interface PointcutExpression
         permits CallPC, ExecutionPC, ArgsPC, TargetPC, WithinPC, NotWithinPC,
-                StaticInitPC, IfPC, CombinedPC, NamedRefPC {
+                NegationPC, StaticInitPC, IfPC, CombinedPC, NamedRefPC {
 }

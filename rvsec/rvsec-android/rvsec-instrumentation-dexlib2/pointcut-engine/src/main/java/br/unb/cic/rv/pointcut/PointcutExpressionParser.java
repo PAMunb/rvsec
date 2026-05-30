@@ -83,6 +83,17 @@ public final class PointcutExpressionParser {
                 String body = readParenBody();
                 return new NotWithinPC(body.trim());
             }
+            // !target(Type) / !args(Type) (§4.N): parse the inner primary so it
+            // carries its resolved type, then wrap a type/binding-form
+            // TargetPC/ArgsPC in a NegationPC the matcher inverts. Any other
+            // inner shape keeps the lossy NamedRef fallback below.
+            if (peekKeyword("target") || peekKeyword("args")) {
+                PointcutExpression inner = parsePrimary();
+                if (inner instanceof TargetPC || inner instanceof ArgsPC) {
+                    return new NegationPC(inner);
+                }
+                return new NamedRefPC("!" + asText(inner));
+            }
             // Generic negation over other primary nodes: wrap in a NamedRef
             // that preserves the inner text; matchers rarely encounter this
             // in rv-monitor-generated expressions.
