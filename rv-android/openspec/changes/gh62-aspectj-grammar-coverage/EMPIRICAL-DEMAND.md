@@ -199,3 +199,31 @@ done
 ```
 
 Counting recipe used per construct: see commit message of round-10 update.
+
+## R12.1 — Demand-audit gap: the `*`-in-RETURN position was never measured (2026-05-30, apply-discovered)
+
+The round-8→11 `call()`-position audit enumerated three call-signature positions for subtype/wildcard
+markers: OWNER (`call_owner_tsubtype`, `+.`), method NAME (`call_name_glob`, `name*(`), and the
+RETURN-`T+` position (`call_return_tsubtype`, `Type+ ` immediately after `call(`). The RETURN-`T+`
+position measured **0 everywhere** → §4.R' NOT-NEEDED α. **What the audit never measured was the
+`*`-in-RETURN position** — the plain match-any return wildcard `call(* Owner.name(..))`. That is in fact
+the DOMINANT generic-corpus call shape:
+
+| designator | jca | generic | generic_new | rule |
+|---|---|---|---|---|
+| `call_return_wildcard` (`*` return) | 0 | 240 | 67 | per-occurrence, `Pattern.compile("call\\(\\* ")` on the compiled `.aj` |
+
+The `*`-return sites are disjoint from the three audited keys: `call_name_glob` requires the `*` to abut
+`(` (the method-name token), `call_owner_tsubtype` requires `+.`, and `call_return_tsubtype` requires a
+`Type+ ` (identifier with a `+`). The `call(* ` anchor (the `*` followed by a space, in the return slot
+before the owner) matches none of those.
+
+This was not just an unmeasured count — it was a verified SILENT-GAP in the matcher: `matchCall` gated
+the return type with an exact `toDescriptor(cp.returnType()).equals(mr.getReturnType())`, and for
+`returnType == "*"` the resolver returns the last-resort `Ljava/lang/*;`, which never equals any real
+return descriptor. Every `call(* ...)` site — the entire generic/generic_new matched-call surface —
+silently failed to match. The §4.O/§4.X/§4.V/§4.TT/§4.AT/§4.N closures were exercised only by
+concrete-return substitutes (`call(boolean ...)`), so the gap stayed masked. §4.RW (the 12th closure)
+skips the return-equality gate when the pattern return is `*`, symmetric to the existing `*` handling for
+args positions and method-name globs. It is a prerequisite for the sibling matcher-group closures to fire
+end-to-end on the generic/generic_new corpora. Evidence: `CallReturnWildcardGrammarTest`.

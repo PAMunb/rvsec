@@ -9,6 +9,8 @@
 > - **Counts**: §4.X = 13 (was 14); §4.V = 6 jca (resolves PROVISIONAL); §4.N = 14+2; others confirmed. Closure count **11**; LOC **~470-560**.
 > Where this conflicts with anything below — including the Round-10 banner — this banner wins.
 
+> **APPLY-DISCOVERED 12th CLOSURE (2026-05-30) — §4.RW `*`-in-RETURN wildcard.** The demand audit had measured only the `T+`-in-RETURN position (`call_return_tsubtype` = 0 → §4.R' NOT-NEEDED α) and **missed the `*`-in-RETURN position**, which is the dominant generic-corpus `call()` shape (`CALL_RETURN_WILDCARD` = 240 generic / 67 generic_new / 0 jca). It was a verified SILENT-GAP: `matchCall`'s exact return-equality gate rejected every `call(* ...)` site (`toDescriptor("*")` → `Ljava/lang/*;`). The fix (skip the gate for a `*` return, symmetric to args/name `*` handling) is a prerequisite for the §4.O/§4.X/§4.V/§4.TT/§4.AT/§4.N closures to fire on the generic/generic_new corpora end-to-end (they had been exercised only by concrete-return substitutes). **In-change closure count 11 → 12.** See §4.RW.
+
 > **ROUND-10 BANNER (2026-05-29) — subordinate to the Round-11 banner above**
 >
 > Empirical pipeline-level demand audit against `empirical-monitors/{jca,generic,generic_new}/` revised three classifications. See `EMPIRICAL-DEMAND.md` for the full delta:
@@ -348,6 +350,31 @@
 
 - [x] 4.R'.1 Add `CallPointcutGrammarTest.returnPositionTSubtypeNotNeeded`: assert `DemandCounter.countMop(CALL_RETURN_TSUBTYPE, *) == 0` AND `countCompiledAj(CALL_RETURN_TSUBTYPE, *) == 0` across all corpora (path α — zero demand everywhere, no absorber needed). Matrix row carries `Verdict = NOT-NEEDED α`. ~15 LOC. <!-- DONE 2026-05-30: added as a method on the EXISTING CallPointcutGrammarTest. REAL counts (cross-checked vs §1.2): countMop(CALL_RETURN_TSUBTYPE, *)=0 in all 4 corpora; countCompiledAj=0 in jca/generic/generic_new. No absorber (path α). -->
 - [x] 4.R'.2 Commit: `test(gh62): T+ in call() return is NOT-NEEDED α (§4.R' assertion, R11.3)` with `refs #62`.
+
+## 4.RW `*` (match-any) in `call()` RETURN position — **12th closure, DISCOVERED DURING APPLY (2026-05-30)**
+
+> **DEMAND-AUDIT CORRECTION (2026-05-30)**: the round-8→11 demand audit measured only the `T+`-in-RETURN
+> position (`call_return_tsubtype` = §4.R', 0 everywhere) and never the **`*`-in-RETURN** position. The
+> `*` return wildcard is in fact the DOMINANT generic-corpus `call()` shape — **240 generic / 67
+> generic_new / 0 jca** (`DemandCounter.CALL_RETURN_WILDCARD`, per-occurrence on the compiled `.aj`).
+> This closure expands the round-11 in-change closure count **11 → 12**.
+
+**Goal**: `call(* Owner.name(..))` — a `*` (match-any) return-type pattern matches ANY return descriptor.
+This was a verified SILENT-GAP: `matchCall` (`PointcutMatcher.java:354-357`) gated the return type with an
+exact `toDescriptor(returnType).equals(mr.getReturnType())`; for `returnType == "*"` the resolver falls
+through to the last-resort `Ljava/lang/*;`, which never equals a real return descriptor — so EVERY
+`call(* ...)` site (the entire generic/generic_new matched-call surface) silently failed to match. The
+sibling matcher-group closures (§4.O/§4.X/§4.V/§4.TT/§4.AT/§4.N) were exercised only by concrete-return
+substitutes (`call(boolean ...)`), masking the gap. Fix: skip the return-equality gate when the pattern
+return is `*` — surgical, in `matchCall` ONLY, symmetric to the existing `*` handling for args positions
+(`matchArgs` `"*".equals(expected)`) and method-name globs (`nameMatches` trailing `*`). `toDescriptor`
+is NOT touched (it has other callers).
+
+- [x] 4.RW.1 Matcher: in `PointcutMatcher.matchCall`, skip the return-equality gate when `"*".equals(cp.returnType().trim())`. Surgical, in `matchCall` only; do NOT change `toDescriptor`. <!-- DONE 2026-05-30: PointcutMatcher.java:354 — `if (!cp.isConstructor() && !"*".equals(cp.returnType().trim()))`. -->
+- [x] 4.RW.2 Re-ground tests on REAL corpus forms: add `CallReturnWildcardGrammarTest` asserting `call(* java.util.Collection+.add*(..))` MATCHES `add(Object):boolean` and `addAll(Collection):boolean` end-to-end, rejects a non-glob name, and is return-descriptor-independent (void + Object). ADD one real-form test per sibling construct (§4.O/§4.X/§4.V/§4.TT/§4.AT/§4.N) using the FULL corpus form (with `*` return) so the COVERED claims are re-grounded on the actual pipeline shape, not concrete-return substitutes. NO `@Disabled`. <!-- DONE 2026-05-30: CallReturnWildcardGrammarTest, 9 tests, all green; real forms `call(* Owner+.name*(..)) && target(...) && args(...)`. -->
+- [x] 4.RW.3 DemandCounter: add `CALL_RETURN_WILDCARD` regex (`call\(\* `) → assert 240 generic / 67 generic_new / 0 jca; disjoint from `CALL_NAME_GLOB` (`*` abuts `(`) and `CALL_OWNER_TSUBTYPE` (`+.`). <!-- DONE 2026-05-30: DemandCounter.CALL_RETURN_WILDCARD; returnWildcardPipelineDemand asserts 240/67/0. -->
+- [x] 4.RW.4 Matrix: flip the `*` (return) wildcard row to COVERED with `CallReturnWildcardGrammarTest` as Evidence + the 240/67/0 demand. <!-- DONE 2026-05-30: docs/aspectj_grammar_coverage.md `*` wildcard row → COVERED. -->
+- [x] 4.RW.5 Commit. <!-- DONE 2026-05-30: feat(gh62) §4.RW commit 1a8b5da1. -->
 
 ## 4.N `!target(T)` / `!args(T)` parser specialization (round-8 — 32 sites generic_new → **round-10 empirical: 14 `!target` + 2 `!args` = 16 sites**)
 
