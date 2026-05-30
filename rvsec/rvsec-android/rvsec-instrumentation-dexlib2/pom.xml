@@ -29,7 +29,7 @@
     </modules>
 
     <properties>
-        <smali.version>3.0.8</smali.version>
+        <smali.version>3.0.9</smali.version>
         <jackson.version>2.18.2</jackson.version>
         <picocli.version>4.7.6</picocli.version>
         <asm.version>9.7.1</asm.version>
