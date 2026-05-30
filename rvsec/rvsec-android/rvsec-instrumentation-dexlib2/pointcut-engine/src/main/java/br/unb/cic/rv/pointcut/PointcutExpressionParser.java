@@ -123,7 +123,7 @@ public final class PointcutExpressionParser {
             case "call":                  return parseCallBody(body);
             case "execution":             return new ExecutionPC(body.trim());
             case "args":                  return parseArgsBody(body);
-            case "target":                return new TargetPC(body.trim());
+            case "target":                return parseTargetBody(body);
             case "within":                return new WithinPC(body.trim());
             case "staticinitialization":  return new StaticInitPC(body.trim());
             case "if":                    return new IfPC(body.trim());
@@ -185,6 +185,33 @@ public final class PointcutExpressionParser {
             names.add(n);
         }
         return new ArgsPC(names);
+    }
+
+    /**
+     * Distinguish {@code target(name)} (advice-parameter binding) from
+     * {@code target(Type)} (type pattern). A binding name is a lowercase simple
+     * identifier with no dots and no subtype/wildcard markers (e.g. {@code o},
+     * {@code map}, {@code iterator} — all spellings seen in the corpus). Anything
+     * else — a capitalized simple name ({@code Cipher}), a qualified name
+     * ({@code javax.crypto.Cipher}), or a trailing {@code +}/{@code *} — is a type.
+     * The type form drives subtype-aware receiver matching (§4.TT); the binding
+     * form is inert at match time (always-match collector).
+     */
+    private static TargetPC parseTargetBody(String body) {
+        String s = body.trim();
+        return isBindingName(s) ? TargetPC.binding(s) : TargetPC.type(s);
+    }
+
+    private static boolean isBindingName(String s) {
+        if (s.isEmpty()) return false;
+        if (!Character.isLowerCase(s.charAt(0))) return false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            // A binding identifier is letters/digits/_/$ only — a dot (qualified
+            // name), '+' (subtype), or '*' (wildcard) makes it a type pattern.
+            if (!(Character.isLetterOrDigit(c) || c == '_' || c == '$')) return false;
+        }
+        return true;
     }
 
     // --- tokenization helpers ------------------------------------------------

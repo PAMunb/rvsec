@@ -32,8 +32,11 @@ import java.util.Optional;
  *       {@code T+} semantics).</li>
  *   <li>{@link CombinedPC} implements logical {@code AND} / {@code OR} with
  *       merged bindings.</li>
- *   <li>{@link ArgsPC} / {@link TargetPC} are handled as binding collectors on
- *       an established call-site match — they never fail a match in isolation.</li>
+ *   <li>{@link ArgsPC} and the binding form of {@link TargetPC} ({@code target(o)})
+ *       are inert collectors on an established call-site match — they never fail a
+ *       match in isolation. The type form of {@link TargetPC} ({@code target(Cipher)})
+ *       constrains the call receiver's declared type via {@link InheritanceResolver}
+ *       (§4.TT, subtype-aware).</li>
  *   <li>{@link NotWithinPC} filters by class type pattern (prefix match on
  *       {@code com.foo..*}; literal match otherwise).</li>
  *   <li>{@link IfPC} and {@link NamedRefPC} are treated as match-true; the weaver
@@ -121,7 +124,7 @@ public final class PointcutMatcher {
             return Optional.of(Match.empty(pe));
         }
         if (pe instanceof TargetPC) {
-            return Optional.of(Match.empty(pe));
+            return matchTarget((TargetPC) pe, ctx);
         }
         if (pe instanceof NamedRefPC) {
             return matchNamedRef((NamedRefPC) pe, ctx);
@@ -176,6 +179,52 @@ public final class PointcutMatcher {
             return Optional.empty();
         }
         return Optional.of(Match.empty(nw));
+    }
+
+    /**
+     * §4.TT: {@code target(...)} has two forms.
+     *
+     * <p>The binding form ({@code target(o)}, {@code type == null}) is inert — the
+     * receiver is bound to the advice parameter at injection time, never filtered
+     * here; it stays an always-match collector exactly like {@link ArgsPC}.
+     *
+     * <p>The type form ({@code target(Cipher)} / {@code target(Cipher+)}) constrains
+     * the call receiver. In the dexlib2 inline-call model the receiver's declared
+     * type is the invoke's owner ({@code MethodReference.getDefiningClass()} of the
+     * current instruction). We match iff the pattern type is assignable from that
+     * declared owner (declared-type, subtype-aware per the V-decision — not a runtime
+     * {@code instanceof}). A trailing {@code +} is accepted but redundant: subtype
+     * checking is unconditional. FQN conversion mirrors the §4.O owner-subtype path
+     * ({@code fromDescriptor(toDescriptor(x))}, since {@code resolveFqn} mangles
+     * already-qualified names). A static invoke (or any non-{@code ReferenceInstruction})
+     * has no receiver, so a {@code target(Type)} cannot match it.
+     */
+    private Optional<Match> matchTarget(TargetPC tp, Context ctx) {
+        if (tp.type() == null) {
+            return Optional.of(Match.empty(tp));
+        }
+        if (!(ctx.instruction instanceof ReferenceInstruction)) {
+            return Optional.empty();
+        }
+        ReferenceInstruction ri = (ReferenceInstruction) ctx.instruction;
+        if (!(ri.getReference() instanceof MethodReference)) return Optional.empty();
+        if (isStaticInvocation(ctx.instruction)) {
+            return Optional.empty();
+        }
+        MethodReference mr = (MethodReference) ri.getReference();
+
+        String patternType = tp.type();
+        if (patternType.endsWith("+")) {
+            patternType = patternType.substring(0, patternType.length() - 1);
+        }
+        // Derive the expected FQN through the descriptor (toDescriptor handles both
+        // qualified types like "javax.crypto.Cipher" AND simple names via imports).
+        String expectedFqn = fromDescriptor(typeResolver.toDescriptor(patternType));
+        String receiverFqn = fromDescriptor(mr.getDefiningClass());
+        if (inheritance.isAssignableFrom(expectedFqn, receiverFqn)) {
+            return Optional.of(Match.empty(tp));
+        }
+        return Optional.empty();
     }
 
     private Optional<Match> matchCall(CallPC cp, Context ctx) {
