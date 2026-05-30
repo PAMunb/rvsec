@@ -306,11 +306,11 @@
 
 **Goal**: extend gh61 parameter-position subtype expansion to owner descriptor matching at `PointcutMatcher.java:153-157`.
 
-- [ ] 4.O.1 Audit gh61's `cpsAwareOwnerMatch` and `InheritanceResolver.isAssignableFrom`. ~5 LOC of grep.
-- [ ] 4.O.2 Extend `PointcutMatcher.matchCall`'s owner check (`:153-157`): recognise `+` suffix; invoke subtype-expansion helper. ~30 LOC. Preserve exact-equals path for non-`+` patterns.
-- [ ] 4.O.3 Update `CallPointcutGrammarTest.callTSubtypeInOwner`: remove `@Disabled`; assert `call(* javax.crypto.Cipher+.doFinal(..))` against subtype receiver matches.
-- [ ] 4.O.4 Run tests.
-- [ ] 4.O.5 Commit: `feat(gh62): T+ in call() owner position subtype expansion (64 sites; row flips COVERED)` with `refs #62`.
+- [x] 4.O.1 Audit gh61's `cpsAwareOwnerMatch` and `InheritanceResolver.isAssignableFrom`. ~5 LOC of grep.
+- [x] 4.O.2 Extend `PointcutMatcher.matchCall`'s owner check (`:153-157`): recognise `+` suffix; invoke subtype-expansion helper. ~30 LOC. Preserve exact-equals path for non-`+` patterns.
+- [x] 4.O.3 Update `CallPointcutGrammarTest.callTSubtypeInOwner`: remove `@Disabled`; assert `call(* javax.crypto.Cipher+.doFinal(..))` against subtype receiver matches.
+- [x] 4.O.4 Run tests.
+- [x] 4.O.5 Commit: `feat(gh62): T+ in call() owner position subtype expansion (64 sites; row flips COVERED)` with `refs #62`.
 
 ## 4.R ~~`T+` in `call()` return position~~ — **SUPERSEDED (round-11 R11.3 — NOT-NEEDED α)**
 
@@ -349,9 +349,9 @@
 
 **Goal**: replace `expectedName.equals(actualName)` at `PointcutMatcher.java:161-167` with prefix-glob support.
 
-- [ ] 4.X.1 Update `PointcutMatcher.matchCall`'s name check: `expectedName.endsWith("*") ? actualName.startsWith(prefix) : expectedName.equals(actualName)`. ~15 LOC.
-- [ ] 4.X.2 Add `CallPointcutGrammarTest.methodNamePrefixGlob`: `call(* Collection.add*(..))` matches `add`/`addAll`/`addLast` but not `remove`.
-- [ ] 4.X.3 Commit: `feat(gh62): method-name glob name* (13 sites; row flips COVERED)` with `refs #62`.
+- [x] 4.X.1 Update `PointcutMatcher.matchCall`'s name check: `expectedName.endsWith("*") ? actualName.startsWith(prefix) : expectedName.equals(actualName)`. ~15 LOC.
+- [x] 4.X.2 Add `CallPointcutGrammarTest.methodNamePrefixGlob`: `call(* Collection.add*(..))` matches `add`/`addAll`/`addLast` but not `remove`.
+- [x] 4.X.3 Commit: `feat(gh62): method-name glob name* (13 sites; row flips COVERED)` with `refs #62`.
 
 ## 4.TT `target(Type)` type-matching (round-8 — 44 sites generic_new → **round-10 empirical: 22 sites**)
 

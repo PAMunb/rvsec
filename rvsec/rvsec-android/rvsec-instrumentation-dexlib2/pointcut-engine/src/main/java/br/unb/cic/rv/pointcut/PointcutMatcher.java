@@ -192,16 +192,36 @@ public final class PointcutMatcher {
         // @DebugMetadata("c") equals the pointcut's declaring type (the source
         // suspend fun's owner, before the compiler lifted it into the
         // continuation class).
-        String expectedOwner = typeResolver.toDescriptor(cp.declaringType());
+        // §4.O: T+ in owner position — when the source spelled the owner as `T+`, the trailing
+        // `+` is retained in declaringType() (unlike ParamSpec, where it is stripped to a flag).
+        // Match the declared owner OR any subtype via InheritanceResolver (FQN form, mirroring the
+        // param-position subtype path below). The exact-equals path is preserved for non-`+` owners.
+        String ownerType = cp.declaringType();
+        boolean ownerSubtype = ownerType != null && ownerType.endsWith("+");
+        if (ownerSubtype) {
+            ownerType = ownerType.substring(0, ownerType.length() - 1);
+        }
+        String expectedOwner = typeResolver.toDescriptor(ownerType);
         String actualOwner = mr.getDefiningClass();
-        if (!expectedOwner.equals(actualOwner)
-                && !cpsAwareOwnerMatch(expectedOwner, ctx)) {
+        boolean ownerOk;
+        if (ownerSubtype) {
+            // Derive the FQN from the descriptor (toDescriptor handles both qualified owners
+            // like "javax.crypto.Cipher" AND simple names resolved via imports); resolveFqn is
+            // for simple names only and would mangle an already-qualified owner.
+            String expectedFqn = fromDescriptor(expectedOwner);
+            String actualFqn = fromDescriptor(actualOwner);
+            ownerOk = inheritance.isAssignableFrom(expectedFqn, actualFqn)
+                    || cpsAwareOwnerMatch(expectedOwner, ctx);
+        } else {
+            ownerOk = expectedOwner.equals(actualOwner) || cpsAwareOwnerMatch(expectedOwner, ctx);
+        }
+        if (!ownerOk) {
             return Optional.empty();
         }
 
-        // Method name
+        // Method name (§4.X: a trailing `*` is a prefix glob — `add*` matches add/addAll/addLast).
         String expectedName = cp.isConstructor() ? "<init>" : cp.methodName();
-        if (!expectedName.equals(mr.getName())) return Optional.empty();
+        if (!nameMatches(expectedName, mr.getName())) return Optional.empty();
 
         // Return type (non-constructor)
         if (!cp.isConstructor()) {
@@ -369,6 +389,18 @@ public final class PointcutMatcher {
     }
 
     // --- helpers -------------------------------------------------------------
+
+    /**
+     * §4.X: method-name match. A trailing {@code *} in the pointcut's method name is a prefix glob
+     * ({@code add*} matches {@code add}/{@code addAll}/{@code addLast} but not {@code remove});
+     * otherwise the names must be equal.
+     */
+    private static boolean nameMatches(String expectedName, String actualName) {
+        if (expectedName.endsWith("*")) {
+            return actualName.startsWith(expectedName.substring(0, expectedName.length() - 1));
+        }
+        return expectedName.equals(actualName);
+    }
 
     private boolean cpsAwareOwnerMatch(String expectedOwner, Context ctx) {
         if (!CpsDetector.isStateMachine(ctx.classDef)) return false;
