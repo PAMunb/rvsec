@@ -240,6 +240,19 @@ public final class MonitorInvokeBuilder {
         return (calls == null || calls.isEmpty()) ? null : calls.get(0);
     }
 
+    /**
+     * Resolve a single binding name (e.g. the variable inside an
+     * {@code if(<expr>)} clause) to its DEX register, reusing the same
+     * {@code target(...)} / {@code args(...)} resolution that drives the
+     * monitor invoke's operand list ({@link #resolveBindings}).
+     *
+     * @return the register, or {@code null} when the name is not a resolvable
+     *         {@code target}/{@code args} binding for this match.
+     */
+    static Integer resolveBindingRegister(AdviceDescriptor advice, Match match, String name) {
+        return resolveBindings(advice, match).get(name);
+    }
+
     private static java.util.List<String> adviceParamNames(AdviceDescriptor advice) {
         java.util.List<String> names = new ArrayList<>();
         for (ParameterDescriptor p : advice.getParameters()) names.add(p.getName());

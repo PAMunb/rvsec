@@ -87,13 +87,25 @@ class EmitPlanShapeTest {
     }
 
     @Test
-    void ifGuardEmitterAddsScratchOnTopOfDelegate() {
+    void ifGuardNullCheckCarriesGuardSpecWithoutScratch() {
         BeforeEmitter base = new BeforeEmitter();
         IfGuardEmitter guard = new IfGuardEmitter().wrapping(base);
         EmitPlan plan = guard.emit(ctx(EmitterTestFixtures.adviceWithIfGuard("g")));
         assertEquals(InsertionPoint.BEFORE, plan.insertionPoint());
+        assertNotNull(plan.guardSpec(), "null-check guard must attach a GuardSpec");
+        assertEquals(EmitPlan.GuardKind.NULL_CHECK, plan.guardSpec().kind());
+        assertEquals(0, plan.registers().scratchCount(),
+                "null-check branches on vBound directly; no scratch needed");
+    }
+
+    @Test
+    void ifGuardHoldsLockAddsOneScratchForMoveResult() {
+        BeforeEmitter base = new BeforeEmitter();
+        IfGuardEmitter guard = new IfGuardEmitter().wrapping(base);
+        EmitPlan plan = guard.emit(ctx(EmitterTestFixtures.adviceWithHoldsLockGuard("g")));
+        assertEquals(EmitPlan.GuardKind.NOT_HOLDS_LOCK, plan.guardSpec().kind());
         assertEquals(1, plan.registers().scratchCount(),
-                "IfGuard adds one scratch on top of the underlying emitter's demand");
+                "holdsLock guard adds one scratch for the move-result");
     }
 
     @Test

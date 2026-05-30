@@ -86,7 +86,23 @@ final class EmitterTestFixtures {
 
     static AdviceDescriptor adviceWithIfGuard(String name) {
         AdviceDescriptor a = adviceBefore(name);
-        a.setExpression("call(public boolean Iterator.hasNext()) && target(it) && if(it != null)");
+        a.setExpression("call(public boolean Iterator.hasNext()) && target(it) && if(it == null)");
+        return a;
+    }
+
+    /** {@code !Thread.holdsLock(it)} guard over the {@code target(it)} binding. */
+    static AdviceDescriptor adviceWithHoldsLockGuard(String name) {
+        AdviceDescriptor a = adviceBefore(name);
+        a.setExpression("call(public boolean Iterator.hasNext()) && target(it)"
+                + " && if(!Thread.holdsLock(it))");
+        return a;
+    }
+
+    /** An {@code if(...)} guard whose shape is outside the two lowered shapes. */
+    static AdviceDescriptor adviceWithUnsupportedIfGuard(String name) {
+        AdviceDescriptor a = adviceBefore(name);
+        a.setExpression("call(public boolean Iterator.hasNext()) && target(it)"
+                + " && if(it.size() > 0)");
         return a;
     }
 

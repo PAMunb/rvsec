@@ -469,7 +469,7 @@ public final class DexWeaver {
                             mutCached = mut;
                             mutableSupplier.replaceImpl(method, mut);
                         }
-                        applyPlan(mut, idx, plan);
+                        applyPlan(mut, idx, plan, alloc);
                         matchesApplied++;
                     }
                 }
@@ -751,8 +751,20 @@ public final class DexWeaver {
         }
     }
 
-    private void applyPlan(MutableMethodImplementation mut, int idx, EmitPlan plan) {
+    private void applyPlan(MutableMethodImplementation mut, int idx, EmitPlan plan,
+                           RegisterAllocation alloc) {
         InstructionInjector inj = new InstructionInjector(mut);
+        if (plan.guardSpec() != null
+                && plan.guardSpec().kind() == EmitPlan.GuardKind.NOT_HOLDS_LOCK) {
+            // The emitter stacked +1 scratch for the holdsLock move-result on
+            // top of the delegate's demand; it is the highest allocated slot.
+            List<Integer> scratch = alloc.scratch();
+            if (scratch.isEmpty()) {
+                throw new IllegalStateException(
+                        "NOT_HOLDS_LOCK guard plan carried no allocated scratch register");
+            }
+            inj.withGuardScratch(scratch.get(scratch.size() - 1));
+        }
         switch (plan.insertionPoint()) {
             case BEFORE:
                 inj.insertBefore(idx, plan);

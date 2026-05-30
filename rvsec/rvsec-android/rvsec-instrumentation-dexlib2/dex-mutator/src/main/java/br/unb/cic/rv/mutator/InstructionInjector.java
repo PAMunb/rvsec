@@ -5,14 +5,19 @@ import br.unb.cic.rv.emitter.InsertionPoint;
 
 import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.builder.BuilderInstruction;
+import com.android.tools.smali.dexlib2.builder.Label;
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction21t;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction35c;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction3rc;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction11x;
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -38,10 +43,30 @@ import java.util.Objects;
  */
 public final class InstructionInjector {
 
+    /** DEX descriptor + signature of {@code Thread.holdsLock(Object)}. */
+    private static final MethodReference HOLDS_LOCK_REF = new ImmutableMethodReference(
+            "Ljava/lang/Thread;", "holdsLock", List.of("Ljava/lang/Object;"), "Z");
+
     private final MutableMethodImplementation impl;
+    /**
+     * Scratch register the executor allocates for an {@code if(...)} guard's
+     * {@code move-result} (the {@link EmitPlan.GuardKind#NOT_HOLDS_LOCK} shape).
+     * {@code -1} when the current plan carries no guard or needs no scratch.
+     */
+    private int guardScratchRegister = -1;
 
     public InstructionInjector(MutableMethodImplementation impl) {
         this.impl = Objects.requireNonNull(impl);
+    }
+
+    /**
+     * Supply the scratch register allocated for the current plan's
+     * {@code if(...)} guard (used by the {@code NOT_HOLDS_LOCK} shape to hold
+     * the {@code holdsLock(...)} boolean). Returns {@code this} for chaining.
+     */
+    public InstructionInjector withGuardScratch(int register) {
+        this.guardScratchRegister = register;
+        return this;
     }
 
     public void insertBefore(int index, EmitPlan plan) {
@@ -50,6 +75,7 @@ public final class InstructionInjector {
                     "plan declared InsertionPoint.AFTER but insertBefore was called");
         }
         insertAll(index, plan.toInsert());
+        installGuard(index, plan);
     }
 
     public void insertAfter(int index, EmitPlan plan) {
@@ -69,6 +95,7 @@ public final class InstructionInjector {
             insertAt++;
         }
         insertAll(insertAt, plan.toInsert());
+        installGuard(insertAt, plan);
     }
 
     private Instruction instructionAt(int idx) {
@@ -108,6 +135,71 @@ public final class InstructionInjector {
 
     public void insertAtMethodEntry(EmitPlan plan) {
         insertAll(0, plan.toInsert());
+        installGuard(0, plan);
+    }
+
+    /**
+     * Install the {@code if(...)} guard around the block of {@code plan}
+     * instructions just inserted at {@code blockStart}. No-op when the plan
+     * carries no {@link EmitPlan.GuardSpec}.
+     *
+     * <p>The guard prefix is inserted immediately before the block; its
+     * conditional branch targets the instruction right after the block, so the
+     * block (the monitor invoke) is bypassed exactly when the guard is false:
+     * <ul>
+     *   <li>{@link EmitPlan.GuardKind#NULL_CHECK} ({@code <bound> == null}):
+     *       {@code if-nez vBound, :skip} — non-null bound ⇒ guard false ⇒ skip.</li>
+     *   <li>{@link EmitPlan.GuardKind#NOT_HOLDS_LOCK}
+     *       ({@code !Thread.holdsLock(<bound>)}):
+     *       {@code invoke-static {vBound}, Thread.holdsLock(Object)Z} +
+     *       {@code move-result vGuard} + {@code if-nez vGuard, :skip} — lock held
+     *       ⇒ guard false ⇒ skip.</li>
+     * </ul>
+     *
+     * <p>The skip label is created on this {@code impl} via
+     * {@link MutableMethodImplementation#newLabelForIndex(int)} so dexlib2
+     * tracks its location as the guard prefix shifts the block down (a detached
+     * label built before insertion would not re-home — verified empirically).
+     */
+    public void installGuard(int blockStart, EmitPlan plan) {
+        EmitPlan.GuardSpec guard = plan.guardSpec();
+        if (guard == null) return;
+
+        int blockLen = plan.toInsert().size();
+        // Index of the first instruction AFTER the inserted block — the skip
+        // target. newLabelForIndex tracks this location as the guard prefix is
+        // inserted before the block (the index auto-advances).
+        Label skip = impl.newLabelForIndex(blockStart + blockLen);
+
+        List<BuilderInstruction> prefix = new ArrayList<>(3);
+        switch (guard.kind()) {
+            case NULL_CHECK:
+                // if-nez vBound, :skip  (skip the invoke when bound is non-null)
+                prefix.add(new BuilderInstruction21t(
+                        Opcode.IF_NEZ, guard.boundRegister(), skip));
+                break;
+            case NOT_HOLDS_LOCK:
+                if (guardScratchRegister < 0) {
+                    throw new IllegalStateException(
+                            "NOT_HOLDS_LOCK guard requires a scratch register; "
+                                    + "withGuardScratch(...) was not called");
+                }
+                // invoke-static {vBound}, Thread.holdsLock(Object)Z
+                prefix.add(new BuilderInstruction35c(
+                        Opcode.INVOKE_STATIC, /*regCount=*/ 1,
+                        /*c=*/ guard.boundRegister(), 0, 0, 0, 0,
+                        HOLDS_LOCK_REF));
+                // move-result vGuard
+                prefix.add(new BuilderInstruction11x(
+                        Opcode.MOVE_RESULT, guardScratchRegister));
+                // if-nez vGuard, :skip  (skip the invoke when the lock IS held)
+                prefix.add(new BuilderInstruction21t(
+                        Opcode.IF_NEZ, guardScratchRegister, skip));
+                break;
+            default:
+                throw new IllegalStateException("unknown guard kind: " + guard.kind());
+        }
+        insertAll(blockStart, prefix);
     }
 
     /**
