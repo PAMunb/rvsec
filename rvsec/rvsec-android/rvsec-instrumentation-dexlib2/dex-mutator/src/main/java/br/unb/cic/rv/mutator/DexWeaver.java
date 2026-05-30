@@ -7,6 +7,7 @@ import br.unb.cic.rv.emitter.EmitContext;
 import br.unb.cic.rv.emitter.EmitPlan;
 import br.unb.cic.rv.emitter.EmitterDispatch;
 import br.unb.cic.rv.emitter.InsertionPoint;
+import br.unb.cic.rv.pointcut.CombinedPC;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
 import br.unb.cic.rv.pointcut.Match;
 import br.unb.cic.rv.pointcut.PointcutExpression;
@@ -270,6 +271,16 @@ public final class DexWeaver {
         Objects.requireNonNull(descriptor);
 
         PointcutMatcher matcher = new PointcutMatcher(typeResolver, inheritance);
+
+        // §4.D.0: parse the descriptor's commonPointcut ONCE and AND-compose it onto every advice
+        // expression before matching. The commonPointcut carries the class-level exclusions
+        // (`BaseAspect.notwithin()`, `!within(...RVMObject+)`) that NEVER appear in an advice's own
+        // expression; without this composition those exclusions never reach the matcher and §4.B/§4.D
+        // are inert. Parsed once per weave (the commonPointcut is identical across all advices).
+        PointcutExpression commonAst = parseCommonPointcut(descriptor);
+        List<String> baseAspectExclusions = descriptor.getBaseAspectExclusions();
+        String aspectName = descriptor.getAspectName();
+
         int classesSeen = 0;
         int methodsSeen = 0;
         int matchesApplied = 0;
@@ -332,8 +343,14 @@ public final class DexWeaver {
                     for (AdviceDescriptor advice : descriptor.getAdvices()) {
                         PointcutExpression pe = parseCached(advice);
                         if (pe == null) { plansSkipped++; continue; }
-                        Optional<Match> m = matcher.match(pe, classDef, method, ins,
-                                idx, instructions.size(), instructions);
+                        // §4.D.0: AND-compose the commonPointcut so its class-level exclusions gate
+                        // the match. The matcher resolves BaseAspect.notwithin() against the
+                        // descriptor's baseAspectExclusions (passed below).
+                        PointcutExpression effective = (commonAst == null) ? pe
+                                : new CombinedPC(CombinedPC.Op.AND, commonAst, pe);
+                        Optional<Match> m = matcher.match(effective, classDef, method, ins,
+                                idx, instructions.size(), instructions,
+                                baseAspectExclusions, aspectName);
                         if (m.isEmpty()) continue;
                         AdviceEmitter emitter;
                         try {
@@ -540,6 +557,22 @@ public final class DexWeaver {
         if (expr == null || expr.isBlank()) return null;
         try {
             return PointcutExpressionParser.parse(expr);
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * §4.D.0: parse the descriptor's {@code commonPointcut} once per weave. Returns {@code null}
+     * when absent/blank or unparseable — in which case the advice expression is matched alone (the
+     * pre-§4.D.0 behaviour), so a malformed commonPointcut degrades gracefully rather than dropping
+     * all weaving. A non-null result is AND-composed onto every advice match.
+     */
+    private PointcutExpression parseCommonPointcut(AspectDescriptor descriptor) {
+        String cp = descriptor.getCommonPointcut();
+        if (cp == null || cp.isBlank()) return null;
+        try {
+            return PointcutExpressionParser.parse(cp);
         } catch (RuntimeException ex) {
             return null;
         }

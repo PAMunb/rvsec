@@ -81,6 +81,23 @@ public final class PointcutMatcher {
                 instructions == null ? Collections.emptyList() : instructions));
     }
 
+    /**
+     * §4.D overload: carries the active aspect's pre-expanded {@code baseAspectExclusions} and name
+     * so {@code matchNamedRef} can resolve {@code BaseAspect.notwithin()} when a composed
+     * {@code commonPointcut} (§4.D.0) is matched. The weaver supplies these from the
+     * {@code AspectDescriptor}.
+     */
+    public Optional<Match> match(PointcutExpression pe, ClassDef classDef,
+                                 Method method, Instruction instruction,
+                                 int instructionIndex, int totalInstructions,
+                                 List<? extends Instruction> instructions,
+                                 List<String> baseAspectExclusions, String aspectName) {
+        return matchInternal(pe, new Context(classDef, method, instruction,
+                instructionIndex, totalInstructions,
+                instructions == null ? Collections.emptyList() : instructions,
+                baseAspectExclusions, aspectName));
+    }
+
     // --- internal ------------------------------------------------------------
 
     private Optional<Match> matchInternal(PointcutExpression pe, Context ctx) {
@@ -106,12 +123,37 @@ public final class PointcutMatcher {
         if (pe instanceof TargetPC) {
             return Optional.of(Match.empty(pe));
         }
-        if (pe instanceof IfPC || pe instanceof NamedRefPC || pe instanceof WithinPC) {
+        if (pe instanceof NamedRefPC) {
+            return matchNamedRef((NamedRefPC) pe, ctx);
+        }
+        if (pe instanceof IfPC || pe instanceof WithinPC) {
             // Treated as always-match at this layer; the weaver decides filtering
             // for WithinPC (rarely emitted in the rv-monitor corpus).
             return Optional.of(Match.empty(pe));
         }
         return Optional.empty();
+    }
+
+    /**
+     * §4.D: resolve a {@link NamedRefPC}. {@code BaseAspect.notwithin()} expands against the
+     * descriptor's {@code baseAspectExclusions} (via {@link BaseAspectExpander}); an empty list
+     * fails closed ({@link LegacyDescriptorException}). The {@code adviceexecution()} family is
+     * vacuously true (deferred.md Entry C — advice-body executions are not separate join points in
+     * the dexlib2 inline-call model). Any other name fails closed
+     * ({@link UnresolvedNamedRefException}, G-decision) rather than silently matching everything.
+     */
+    private Optional<Match> matchNamedRef(NamedRefPC nr, Context ctx) {
+        String name = nr.name();
+        if ("BaseAspect.notwithin()".equals(name)) {
+            if (ctx.baseAspectExclusions.isEmpty()) {
+                throw new LegacyDescriptorException(ctx.aspectName);
+            }
+            return matchInternal(BaseAspectExpander.expand(ctx.baseAspectExclusions), ctx);
+        }
+        if (name.contains("adviceexecution")) {
+            return Optional.of(Match.empty(nr));
+        }
+        throw new UnresolvedNamedRefException(ctx.aspectName, name);
     }
 
     private Optional<Match> matchCombined(CombinedPC c, Context ctx) {
@@ -442,16 +484,32 @@ public final class PointcutMatcher {
         final int instructionIndex;
         final int totalInstructions;
         final List<? extends Instruction> instructions;
+        // §4.D: the active aspect's pre-expanded BaseAspect exclusions + name, read by
+        // matchNamedRef to resolve BaseAspect.notwithin(). Empty list + null name for callers
+        // that do not compose a commonPointcut (the legacy 7-arg match path / unit fixtures).
+        final List<String> baseAspectExclusions;
+        final String aspectName;
 
         Context(ClassDef classDef, Method method, Instruction instruction,
                 int instructionIndex, int totalInstructions,
                 List<? extends Instruction> instructions) {
+            this(classDef, method, instruction, instructionIndex, totalInstructions,
+                    instructions, Collections.emptyList(), null);
+        }
+
+        Context(ClassDef classDef, Method method, Instruction instruction,
+                int instructionIndex, int totalInstructions,
+                List<? extends Instruction> instructions,
+                List<String> baseAspectExclusions, String aspectName) {
             this.classDef = classDef;
             this.method = method;
             this.instruction = instruction;
             this.instructionIndex = instructionIndex;
             this.totalInstructions = totalInstructions;
             this.instructions = instructions;
+            this.baseAspectExclusions = baseAspectExclusions == null
+                    ? Collections.emptyList() : baseAspectExclusions;
+            this.aspectName = aspectName;
         }
     }
 }
