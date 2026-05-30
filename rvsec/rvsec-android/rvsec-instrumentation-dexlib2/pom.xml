@@ -26,6 +26,7 @@
         <module>multidex-merger</module>
         <module>cli</module>
         <module>validator</module>
+        <module>grammar-tests</module>
     </modules>
 
     <properties>
