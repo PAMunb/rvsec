@@ -469,7 +469,17 @@ public final class DexWeaver {
                             mutCached = mut;
                             mutableSupplier.replaceImpl(method, mut);
                         }
-                        applyPlan(mut, idx, plan, alloc);
+                        MutableMethodImplementation rebuilt =
+                                applyPlan(mut, idx, plan, alloc);
+                        if (rebuilt != null) {
+                            // §4.T range-splitting rebuilt the MMI (dexlib2's
+                            // try-block list is read-only); adopt it as the
+                            // current + cached impl and notify the supplier so
+                            // serialisation sees the split try-table + handler.
+                            mut = rebuilt;
+                            mutCached = rebuilt;
+                            mutableSupplier.replaceImpl(method, rebuilt);
+                        }
                         matchesApplied++;
                     }
                 }
@@ -751,13 +761,23 @@ public final class DexWeaver {
         }
     }
 
-    private void applyPlan(MutableMethodImplementation mut, int idx, EmitPlan plan,
-                           RegisterAllocation alloc) {
+    /**
+     * Apply {@code plan} to {@code mut} at {@code idx}. Returns a fresh MMI when
+     * the plan rebuilds the implementation (the §4.T TRY_CATCH_WRAP path, whose
+     * range-splitting must reconstruct the MMI because dexlib2's try-block list
+     * is read-only); {@code null} for the in-place insertion points. The caller
+     * swaps + notifies the supplier when a non-null MMI is returned.
+     */
+    private MutableMethodImplementation applyPlan(MutableMethodImplementation mut, int idx,
+                           EmitPlan plan, RegisterAllocation alloc) {
         InstructionInjector inj = new InstructionInjector(mut);
         if (plan.guardSpec() != null
-                && plan.guardSpec().kind() == EmitPlan.GuardKind.NOT_HOLDS_LOCK) {
+                && plan.guardSpec().kind() == EmitPlan.GuardKind.NOT_HOLDS_LOCK
+                && plan.insertionPoint() != InsertionPoint.TRY_CATCH_WRAP) {
             // The emitter stacked +1 scratch for the holdsLock move-result on
             // top of the delegate's demand; it is the highest allocated slot.
+            // (TRY_CATCH_WRAP sets its own guard scratch below — the highest
+            // slot there is the exception register, not the move-result.)
             List<Integer> scratch = alloc.scratch();
             if (scratch.isEmpty()) {
                 throw new IllegalStateException(
@@ -775,16 +795,39 @@ public final class DexWeaver {
             case METHOD_ENTRY:
                 inj.insertAtMethodEntry(plan);
                 break;
-            case TRY_CATCH_WRAP:
+            case TRY_CATCH_WRAP: {
+                // §4.T (D14 F-decision): install the after() throwing(...)
+                // handler with range-splitting. The exception register is the
+                // scratch slot the allocator grew the frame for (scratch(1));
+                // move-exception writes the caught exception into it. The
+                // range-splitting + strictly-nested layout is realised by
+                // InstructionInjector.installTryCatch.
+                List<Integer> scratch = alloc.scratch();
+                if (scratch.isEmpty()) {
+                    throw new IllegalStateException(
+                            "after-throwing plan carried no allocated scratch register "
+                                    + "for the move-exception target");
+                }
+                int exceptionRegister = scratch.get(scratch.size() - 1);
+                if (plan.guardSpec() != null
+                        && plan.guardSpec().kind() == EmitPlan.GuardKind.NOT_HOLDS_LOCK) {
+                    // §4.T×§4.I composition: the holdsLock shape needs a second
+                    // scratch for its move-result; it is the next-highest slot
+                    // below the exception register (the emitter stacked +1 over
+                    // the after-throwing scratch(1) demand).
+                    inj.withGuardScratch(scratch.get(scratch.size() - 2));
+                }
+                return inj.installTryCatch(idx, plan, exceptionRegister);
+            }
             case REPLACE:
-                // Pending: task 5.x integration installs try-range + handler
-                // labels / swaps the invoke reference; the plan carries the
-                // required data but full realization needs additional helpers
-                // that live alongside WrapperEmitter rewrites.
+                // Pending: REPLACE plans swap the invoke reference; the plan
+                // carries the required data but full realization lives
+                // alongside WrapperEmitter rewrites (task 5.x).
                 break;
             default:
                 throw new IllegalStateException("unknown insertion point: " + plan.insertionPoint());
         }
+        return null;
     }
 
     private String monitorOwnerFor(AspectDescriptor d) {

@@ -73,13 +73,30 @@ public record EmitPlan(
      * exception; {@code catchAny} flags the conventional catch-all on
      * {@code Ljava/lang/Throwable;} that plain {@code after() throwing(...)}
      * without a declared type produces.
+     *
+     * <p>{@code throwingOperandIndex} is the position (in the monitor invoke's
+     * operand list) of the {@code throwing(<name>)}-bound exception argument, or
+     * {@code -1} when the advice binds no exception parameter. The
+     * {@code MonitorInvokeBuilder} emits a placeholder register at that slot
+     * (it cannot know the caught-exception register until the executor allocates
+     * one); the executor rewrites that slot to the register written by
+     * {@code move-exception} when it materialises the handler block (§4.T). A
+     * dedicated index avoids guessing which operand is the exception when the
+     * monitor event also takes args/target bindings (the corpus's sole site
+     * passes {@code (o, e)} — two operands, only the second is the exception).
      */
-    public record TryCatchSpec(String catchType, boolean catchAny) {
+    public record TryCatchSpec(String catchType, boolean catchAny, int throwingOperandIndex) {
         public static TryCatchSpec catchAll() {
-            return new TryCatchSpec("Ljava/lang/Throwable;", true);
+            return new TryCatchSpec("Ljava/lang/Throwable;", true, -1);
+        }
+        public static TryCatchSpec catchAll(int throwingOperandIndex) {
+            return new TryCatchSpec("Ljava/lang/Throwable;", true, throwingOperandIndex);
         }
         public static TryCatchSpec specific(String catchType) {
-            return new TryCatchSpec(catchType, false);
+            return new TryCatchSpec(catchType, false, -1);
+        }
+        public static TryCatchSpec specific(String catchType, int throwingOperandIndex) {
+            return new TryCatchSpec(catchType, false, throwingOperandIndex);
         }
     }
 

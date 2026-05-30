@@ -101,6 +101,78 @@ public final class RegisterShifter {
     public static MutableMethodImplementation bumpRegisterCount(
             MutableMethodImplementation src, int delta) {
         int newCount = src.getRegisterCount() + delta;
+        MutableMethodImplementation dst = cloneInstructions(src, newCount);
+        // Re-add try blocks verbatim (handler labels re-homed onto dst).
+        for (BuilderTryBlock tb : src.getTryBlocks()) {
+            int startIdx = tb.start.getLocation().getIndex();
+            int endIdx = tb.end.getLocation().getIndex();
+            for (BuilderExceptionHandler eh : tb.getExceptionHandlers()) {
+                int handlerIdx = eh.getHandler().getLocation().getIndex();
+                addCatchByIdx(dst, startIdx, endIdx, handlerIdx, eh.getExceptionType());
+            }
+        }
+        return dst;
+    }
+
+    /**
+     * Specification of one try range to (re)install on a cloned MMI: a code-unit
+     * span {@code [startIdx, endIdx)} (instruction indices) and an ordered list
+     * of {@code (exceptionType, handlerIdx)} handler entries. {@code null}
+     * {@code exceptionType} means catch-all. Handler entries are added in list
+     * order, so the first entry is the most-specific (ART scans in declaration
+     * order) — this is how §4.T lists the new advice handler before a user catch.
+     */
+    public record TryBlockSpec(int startIdx, int endIdx, List<HandlerSpec> handlers) {}
+
+    /** One handler entry of a {@link TryBlockSpec}. */
+    public record HandlerSpec(String exceptionType, int handlerIdx) {}
+
+    /**
+     * Return a fresh MMI with the SAME register count as {@code src}, every
+     * instruction copied (labels re-homed), and the supplied {@code specs} as
+     * its try-block table — REPLACING {@code src}'s original try blocks
+     * entirely. Used by §4.T's range-splitting installer: dexlib2's
+     * {@link MutableMethodImplementation#getTryBlocks()} returns an unmodifiable
+     * view, so an existing user try-block cannot be removed in place; rebuilding
+     * the MMI with the desired split table is the genuine, verifier-correct way
+     * to replace it.
+     *
+     * <p>Caller obligation mirrors {@link #bumpRegisterCount}: replace the source
+     * reference with the returned MMI and notify the {@code MutableImplSupplier}.
+     */
+    public static MutableMethodImplementation rebuildWithTryBlocks(
+            MutableMethodImplementation src, List<TryBlockSpec> specs) {
+        MutableMethodImplementation dst = cloneInstructions(src, src.getRegisterCount());
+        for (TryBlockSpec spec : specs) {
+            for (HandlerSpec h : spec.handlers()) {
+                addCatchByIdx(dst, spec.startIdx(), spec.endIdx(), h.handlerIdx(),
+                        h.exceptionType());
+            }
+        }
+        return dst;
+    }
+
+    private static void addCatchByIdx(MutableMethodImplementation dst,
+                                      int startIdx, int endIdx, int handlerIdx, String type) {
+        Label start = dst.newLabelForIndex(startIdx);
+        Label end = dst.newLabelForIndex(endIdx);
+        Label handler = dst.newLabelForIndex(handlerIdx);
+        if (type != null) {
+            dst.addCatch(type, start, end, handler);
+        } else {
+            dst.addCatch(start, end, handler);
+        }
+    }
+
+    /**
+     * Clone every instruction of {@code src} onto a fresh MMI with
+     * {@code newCount} registers, re-homing all label-bearing instructions
+     * (branches + switch payloads) onto destination-owned labels. Try blocks
+     * are NOT copied — the caller installs the desired set. Operand register
+     * references are copied verbatim (the caller is responsible for any shift).
+     */
+    private static MutableMethodImplementation cloneInstructions(
+            MutableMethodImplementation src, int newCount) {
         MutableMethodImplementation dst = new MutableMethodImplementation(newCount);
 
         // dexlib2 validates label targets at construction / replaceInstruction
@@ -179,24 +251,6 @@ public final class RegisterShifter {
                     // verbatim — dexlib2 owns a fresh MethodLocation on replace.
                     dst.replaceInstruction(i, insn);
                     break;
-            }
-        }
-
-        // Pass 3: re-add try blocks with handler labels re-homed onto dst.
-        for (BuilderTryBlock tb : src.getTryBlocks()) {
-            int startIdx = tb.start.getLocation().getIndex();
-            int endIdx = tb.end.getLocation().getIndex();
-            for (BuilderExceptionHandler eh : tb.getExceptionHandlers()) {
-                int handlerIdx = eh.getHandler().getLocation().getIndex();
-                Label start = dst.newLabelForIndex(startIdx);
-                Label end = dst.newLabelForIndex(endIdx);
-                Label handler = dst.newLabelForIndex(handlerIdx);
-                String type = eh.getExceptionType();
-                if (type != null) {
-                    dst.addCatch(type, start, end, handler);
-                } else {
-                    dst.addCatch(start, end, handler);
-                }
             }
         }
 
