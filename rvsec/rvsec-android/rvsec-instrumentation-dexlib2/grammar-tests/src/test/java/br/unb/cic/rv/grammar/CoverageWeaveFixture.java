@@ -95,6 +95,19 @@ final class CoverageWeaveFixture {
         }
     }
 
+    /** Read a UTF-8 classpath resource (e.g. a {@code compiled-aj-fixtures/...} corpus file) to a
+     *  String. Throws if the resource is absent so a missing fixture fails loud, never vacuously. */
+    static String readClasspath(String path) {
+        try (InputStream in = CoverageWeaveFixture.class.getClassLoader().getResourceAsStream(path)) {
+            if (in == null) {
+                throw new IllegalStateException("classpath resource not found: " + path);
+            }
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException("failed to read classpath resource " + path, e);
+        }
+    }
+
     /** Every method-reference invoked anywhere in the woven DEX, in "Lowner;->name" form. */
     static List<String> invokedMethodRefs(DexFile dex) {
         List<String> refs = new ArrayList<>();

@@ -70,6 +70,9 @@ public final class DemandCounter {
     public static final String NOT_TARGET = "not_target";
     public static final String NOT_ARGS = "not_args";
     public static final String CALL_RETURN_TSUBTYPE = "call_return_tsubtype";
+    public static final String CALL_OWNER_TSUBTYPE = "call_owner_tsubtype";
+    public static final String CALL_NAME_GLOB = "call_name_glob";
+    public static final String CALL_TRAILING_VARARGS = "call_trailing_varargs";
 
     /**
      * Per-designator pattern map. Each pattern is anchored to distinguish pointcut use from
@@ -111,6 +114,24 @@ public final class DemandCounter {
         // matches a subtype marker on the return type immediately after "call(".
         PATTERNS.put(CALL_RETURN_TSUBTYPE,
                 Pattern.compile("call\\s*\\(\\s*[A-Za-z_][A-Za-z0-9_.]*\\+\\s+"));
+        // §4.O — T+ in call() OWNER position (the "Owner+.method" subtype marker). Counted
+        // PER-OCCURRENCE of the "+." owner token (INV-INS-93 §1.2b: per-line yields 39, per-occurrence
+        // yields 64 in generic_new — the matrix pins per-occurrence). The leading alnum/underscore
+        // class anchors the marker to an identifier owner, so the standalone "(..)" varargs token and
+        // the return-position "T+ " (followed by a space) are NOT matched. Disjoint from
+        // CALL_RETURN_TSUBTYPE (that requires a space after "+", this requires a "." after "+") and
+        // from the negated keys (no "!" involvement).
+        PATTERNS.put(CALL_OWNER_TSUBTYPE, Pattern.compile("[A-Za-z0-9_]\\+\\."));
+        // §4.X — method-name prefix glob "name*" in call() (e.g. "add*", "write*"). Anchored to an
+        // identifier-char immediately before "*(" so the leading "* " return-type wildcard (space after
+        // the "*") is NOT matched, and so only the method-name token glob is counted. 13 sites in
+        // generic_new; 0 elsewhere. Per-occurrence.
+        PATTERNS.put(CALL_NAME_GLOB, Pattern.compile("call\\([^)]*[A-Za-z0-9_]\\*\\("));
+        // §4.V — "(T, ..)" trailing-mixed varargs inside a call() signature: a parameter list with at
+        // least one concrete leading parameter followed by ", ..". The ", .." prefix distinguishes this
+        // from the standalone "(..)" accept-anything form (no preceding parameter). 6 jca sites; 0
+        // elsewhere. Per-occurrence.
+        PATTERNS.put(CALL_TRAILING_VARARGS, Pattern.compile("call\\([^)]*, \\.\\.\\)"));
     }
 
     // ----- Public API ----------------------------------------------------------------------------
