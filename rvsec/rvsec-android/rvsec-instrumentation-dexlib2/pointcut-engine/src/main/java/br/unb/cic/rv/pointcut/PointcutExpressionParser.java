@@ -177,14 +177,47 @@ public final class PointcutExpressionParser {
                 paramList.head(), paramList.trailingVarargs());
     }
 
+    /**
+     * Parse an {@code args(...)} body into two parallel views (§4.AT).
+     *
+     * <p>{@code names} is the legacy binding-name collector (every trimmed,
+     * non-empty, non-{@code ..} element — UNCHANGED, so the advice-emitter binding
+     * path is byte-identical). {@code types} preserves POSITIONAL structure for the
+     * matcher, classifying each comma-separated element with the SAME binding-vs-type
+     * heuristic §4.TT uses for {@code target(...)}:
+     * <ul>
+     *   <li>a binding name (lowercase simple ident, no dots/{@code +}/{@code *}) →
+     *       {@code null} (no type filter at that position);</li>
+     *   <li>a Type (capitalized simple name, qualified name, or trailing {@code T+})
+     *       → the type spelling;</li>
+     *   <li>{@code "*"} → accept-any-single;</li>
+     *   <li>{@code ".."} → trailing accept-any-rest.</li>
+     * </ul>
+     * When no element is a Type, {@link ArgsPC#hasTypeConstraint()} is false and the
+     * matcher behaviour is unchanged (always-match binding collector).
+     */
     private static ArgsPC parseArgsBody(String body) {
         List<String> names = new ArrayList<>();
+        List<String> types = new ArrayList<>();
         for (String part : body.split(",")) {
             String n = part.trim();
-            if (n.isEmpty() || "..".equals(n)) continue;
+            if (n.isEmpty()) continue;
+            if ("..".equals(n)) {
+                types.add("..");
+                continue;
+            }
+            // names is the legacy collector — keep every non-empty/non-".." element
+            // (including "*"), so .names() is unchanged for the emitter.
             names.add(n);
+            if ("*".equals(n)) {
+                types.add("*");
+            } else if (isBindingName(n)) {
+                types.add(null);
+            } else {
+                types.add(n);
+            }
         }
-        return new ArgsPC(names);
+        return new ArgsPC(names, types);
     }
 
     /**

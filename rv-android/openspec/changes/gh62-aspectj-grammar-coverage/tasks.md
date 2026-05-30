@@ -367,10 +367,10 @@
 
 **Goal**: symmetric to §4.TT for argument list.
 
-- [ ] 4.AT.1 Extract `args(Type)` parser path. Set `List<Type> types;` field on `ArgsPC`. ~20 LOC.
-- [ ] 4.AT.2 Update `ArgsPC` matcher: when `types != null`, walk positionally over the call's argument descriptors. ~30 LOC.
-- [ ] 4.AT.3 Add `ArgsGrammarTest.argsTypeMatchesByArgumentType`. Remove `@Disabled`.
-- [ ] 4.AT.4 Commit: `feat(gh62): args(Type) type-matching (§4.AT, row flips COVERED)` with `refs #62`.
+- [x] 4.AT.1 Extract `args(Type)` parser path. Set `List<Type> types;` field on `ArgsPC`. ~20 LOC.
+- [x] 4.AT.2 Update `ArgsPC` matcher: when `types != null`, walk positionally over the call's argument descriptors. ~30 LOC.
+- [x] 4.AT.3 Add `ArgsGrammarTest.argsTypeMatchesByArgumentType`. Remove `@Disabled`.
+- [x] 4.AT.4 Commit: `feat(gh62): args(Type) type-matching (§4.AT, row flips COVERED)` with `refs #62`. <!-- DONE 2026-05-30: Files: ArgsPC.java (record (names, types) — names is the UNCHANGED legacy binding collector for the emitter, types is the new POSITIONAL list; legacy ArgsPC(names) ctor delegates to types=List.of(); types copied via Collections.unmodifiableList(new ArrayList<>(...)) NOT List.copyOf since binding positions are null; hasTypeConstraint() true iff any position is a concrete Type), PointcutExpressionParser.java (parseArgsBody builds both lists; element classification reuses §4.TT isBindingName heuristic — lowercase ident no ./+/* = binding name → types entry null, else Type → spelling; ".." → "..", "*" → "*"; names keeps every non-empty/non-".." element incl "*" to preserve legacy .names()), PointcutMatcher.java (new matchArgs mirrors matchTarget: pure binding/wildcard form → Match.empty always-match; type form walks mr.getParameterTypes() positionally, null/"*" accept-any-single, trailing ".." accept-any-rest, arity == headCount without "..", >= headCount with "..", subtype via InheritanceResolver.isAssignableFrom(fromDescriptor(toDescriptor(patternType)), fromDescriptor(actualArg)) — §4.O FQN gotcha avoided, trailing + stripped; non-MethodReference → empty). New ArgsGrammarTest (3 tests: argsTypeMatchesByArgumentType, argsLeadingWildcardTypeAndTrailingRest [§4.V trailing-mixed row], argsBindingFormAlwaysMatches; NO @Disabled). Targeted build pointcut-engine,grammar-tests: ArgsGrammarTest 3/3, PointcutExpressionParserTest 22/22 pass. Full reactor mvn test: 222 tests (pointcut-engine 68, validator 50, advice-emitter 41, dex-mutator 27, grammar-tests 11, coverage-weaver 8, monitor-builder 7, descriptor-reader 5, multidex-merger 3, cli 2), 0 fail/0 err/0 skip across all 10 test-bearing modules; BUILD SUCCESS. -->`
 
 ## 4.Y `staticinitialization(T+)` synthesis when `<clinit>` is absent + `Signature` delivery (round-8 — **round-10 empirical: 3 sites generic_new + AC-decision Signature sub-closure**)
 

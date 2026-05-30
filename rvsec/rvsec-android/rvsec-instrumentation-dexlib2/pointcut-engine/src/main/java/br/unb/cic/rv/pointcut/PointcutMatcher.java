@@ -120,8 +120,7 @@ public final class PointcutMatcher {
             return matchStaticInit((StaticInitPC) pe, ctx);
         }
         if (pe instanceof ArgsPC) {
-            // Standalone args() is inert — binding happens on a CallPC match.
-            return Optional.of(Match.empty(pe));
+            return matchArgs((ArgsPC) pe, ctx);
         }
         if (pe instanceof TargetPC) {
             return matchTarget((TargetPC) pe, ctx);
@@ -225,6 +224,66 @@ public final class PointcutMatcher {
             return Optional.of(Match.empty(tp));
         }
         return Optional.empty();
+    }
+
+    /**
+     * §4.AT: {@code args(...)} is the argument-list analogue of {@code target(...)}.
+     *
+     * <p>The binding/wildcard form ({@code args(o)}, {@code args(*, enc)},
+     * {@code args(key, ..)} — no concrete Type at any position) is inert: arguments
+     * are bound to advice parameters at injection time, never filtered here. It stays
+     * an always-match collector exactly like the legacy behaviour.
+     *
+     * <p>The type form ({@code args(String)}, {@code args(CharSequence)} — at least
+     * one position is a concrete Type) constrains the matched call's actual argument
+     * descriptors POSITIONALLY. We walk the {@code MethodReference} parameter types
+     * (declared types, subtype-aware per the V-decision — NOT a runtime
+     * {@code instanceof}). A {@code null} position (binding name) or {@code "*"}
+     * accepts any single argument; a trailing {@code ".."} accepts any remaining
+     * arguments. Without a trailing {@code ".."} the actual arity must equal the
+     * positional count; with it the arity must be at least the head count. FQN
+     * conversion mirrors §4.TT/§4.O ({@code fromDescriptor(toDescriptor(x))}, since
+     * {@code resolveFqn} mangles already-qualified names). A non-{@code MethodReference}
+     * invoke cannot have argument types, so a type-form {@code args(...)} cannot match.
+     */
+    private Optional<Match> matchArgs(ArgsPC ap, Context ctx) {
+        if (!ap.hasTypeConstraint()) {
+            return Optional.of(Match.empty(ap));
+        }
+        if (!(ctx.instruction instanceof ReferenceInstruction)) {
+            return Optional.empty();
+        }
+        ReferenceInstruction ri = (ReferenceInstruction) ctx.instruction;
+        if (!(ri.getReference() instanceof MethodReference)) return Optional.empty();
+        MethodReference mr = (MethodReference) ri.getReference();
+
+        List<String> positions = ap.types();
+        boolean trailingRest = !positions.isEmpty()
+                && "..".equals(positions.get(positions.size() - 1));
+        int headCount = trailingRest ? positions.size() - 1 : positions.size();
+
+        List<? extends CharSequence> actualArgs = mr.getParameterTypes();
+        if (trailingRest ? actualArgs.size() < headCount
+                         : actualArgs.size() != headCount) {
+            return Optional.empty();
+        }
+        for (int i = 0; i < headCount; i++) {
+            String expected = positions.get(i);
+            // A binding-name position (null) or "*" accepts any single argument.
+            if (expected == null || "*".equals(expected)) {
+                continue;
+            }
+            String patternType = expected;
+            if (patternType.endsWith("+")) {
+                patternType = patternType.substring(0, patternType.length() - 1);
+            }
+            String expectedFqn = fromDescriptor(typeResolver.toDescriptor(patternType));
+            String actualFqn = fromDescriptor(actualArgs.get(i).toString());
+            if (!inheritance.isAssignableFrom(expectedFqn, actualFqn)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(Match.empty(ap));
     }
 
     private Optional<Match> matchCall(CallPC cp, Context ctx) {
