@@ -1,5 +1,7 @@
 package br.unb.cic.rv.grammar;
 
+import br.unb.cic.rv.grammar.util.DemandCounter;
+import br.unb.cic.rv.grammar.util.DemandCounter.Corpus;
 import br.unb.cic.rv.pointcut.AndroidClassIndex;
 import br.unb.cic.rv.pointcut.CallPC;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
@@ -31,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -111,6 +114,22 @@ class CallPointcutGrammarTest {
                 "Ljava/util/Collection;", "add", List.of("Ljava/lang/String;"), "Z");
         assertTrue(matchAgainstCall(pc, wrongHead).isEmpty(),
                 "(Object, ..) must NOT match a head that starts with String");
+    }
+
+    /** §4.R' (round-11 R11.3): {@code T+} in {@code call()} RETURN position is NOT-NEEDED α — zero
+     *  demand everywhere ({@code .mop} + {@code aspect/Coverage.aj} + every pipeline {@code .aj}), so
+     *  no matcher code ships. All subtype polymorphism in the corpora is OWNER-position (§4.O). A
+     *  future corpus introducing a return-position {@code T+} flips this count and trips the matrix. */
+    @Test
+    void returnPositionTSubtypeNotNeeded() {
+        for (Corpus c : Corpus.values()) {
+            assertEquals(0, DemandCounter.countMop(DemandCounter.CALL_RETURN_TSUBTYPE, c),
+                    "T+ in call() return position has zero source demand in " + c);
+        }
+        for (Corpus c : new Corpus[]{Corpus.JCA, Corpus.GENERIC, Corpus.GENERIC_NEW}) {
+            assertEquals(0, DemandCounter.countCompiledAj(DemandCounter.CALL_RETURN_TSUBTYPE, c),
+                    "T+ in call() return position has zero pipeline demand in " + c);
+        }
     }
 
     // --- fixture ---------------------------------------------------------------------------------
