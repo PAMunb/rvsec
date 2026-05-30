@@ -1,17 +1,22 @@
 package br.unb.cic.rv.mutator;
 
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
+import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.MethodImplementation;
+import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef;
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod;
+import com.android.tools.smali.dexlib2.rewriter.ClassDefRewriter;
 import com.android.tools.smali.dexlib2.rewriter.DexRewriter;
 import com.android.tools.smali.dexlib2.rewriter.MethodRewriter;
 import com.android.tools.smali.dexlib2.rewriter.Rewriter;
 import com.android.tools.smali.dexlib2.rewriter.RewriterModule;
 import com.android.tools.smali.dexlib2.rewriter.Rewriters;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -49,14 +54,62 @@ import java.util.Objects;
  * traversal. We key the mutation table by the method's full descriptor
  * ({@code Lcls;->name(Largs)Lret;}) so that {@link DexRewriter}'s subsequent
  * traversal finds the mutation regardless of which Method instance it sees.
+ *
+ * <h2>Two mutation paths</h2>
+ * This class serialises two kinds of change:
+ * <ul>
+ *   <li><b>Method-body substitution</b> ({@link #mutations}): an existing
+ *       method's implementation is replaced by a {@link MutableMethodImplementation}.
+ *       Realised through the {@link MethodRewriter}.</li>
+ *   <li><b>Class-level method addition</b> ({@link #synthesizedMethods}): a
+ *       brand-new {@link Method} is appended to a class's method set. The
+ *       canonical use is {@code staticinitialization(T+)} synthesis (§4.Y) —
+ *       a class with no {@code <clinit>} needs one created so the static-init
+ *       monitor event fires. Realised through a {@link ClassDefRewriter} that
+ *       rebuilds the {@link ClassDef} with its rewritten existing methods PLUS
+ *       any synthesized methods registered for that class descriptor. A pure
+ *       {@link MethodRewriter} cannot add a method, so without this path a
+ *       synthesized {@code <clinit>} would be dropped at serialization.</li>
+ * </ul>
  */
 public final class DexFileMutator {
 
     private final DexFile original;
     private final Map<String, MutableMethodImplementation> mutations = new HashMap<>();
+    /**
+     * Defining-class descriptor ({@code Lcls;}) → methods synthesized for that
+     * class and not present in the original {@link ClassDef}. Each entry is an
+     * {@link ImmutableMethod} carrying its own {@link MethodImplementation}
+     * (a {@link MutableMethodImplementation} at registration time, copied
+     * defensively by {@link ImmutableMethod}). Appended to the class's method
+     * set by the {@link ClassDefRewriter} in {@link #toDexFile()}.
+     */
+    private final Map<String, List<Method>> synthesizedMethods = new HashMap<>();
 
     public DexFileMutator(DexFile original) {
         this.original = Objects.requireNonNull(original, "original");
+    }
+
+    /**
+     * Register a brand-new {@code method} to be appended to the method set of
+     * the class identified by {@code definingClassDescriptor} ({@code Lcls;})
+     * during {@link #toDexFile()}. Used for {@code <clinit>} synthesis (§4.Y):
+     * a class with no class initializer is never visited by the per-method
+     * weave loop, so the synthesized {@code <clinit>} cannot go through
+     * {@link #forMethod(Method)} (which returns {@code null} for a method with
+     * no original implementation anyway) — it is added at the class level here.
+     *
+     * <p>The {@code method}'s {@code getDefiningClass()} MUST equal
+     * {@code definingClassDescriptor}; the descriptor is taken as the map key
+     * so the {@link ClassDefRewriter} can match it against
+     * {@link ClassDef#getType()} without re-deriving it.
+     */
+    public void addSynthesizedMethod(String definingClassDescriptor, Method method) {
+        Objects.requireNonNull(definingClassDescriptor, "definingClassDescriptor");
+        Objects.requireNonNull(method, "method");
+        synthesizedMethods
+                .computeIfAbsent(definingClassDescriptor, k -> new ArrayList<>())
+                .add(method);
     }
 
     /**
@@ -104,7 +157,7 @@ public final class DexFileMutator {
     }
 
     public boolean hasAnyMutations() {
-        return !mutations.isEmpty();
+        return !mutations.isEmpty() || !synthesizedMethods.isEmpty();
     }
 
     public int mutationCount() {
@@ -113,11 +166,17 @@ public final class DexFileMutator {
 
     /**
      * Produce a {@link DexFile} that, when serialized, embeds every tracked
-     * mutation. Returns the original file unchanged when no mutations are
-     * pending.
+     * mutation — both method-body substitutions and class-level method
+     * additions. Returns the original file unchanged when nothing is pending.
+     *
+     * <p>The {@link MethodRewriter} handles body substitution; the
+     * {@link ClassDefRewriter} appends synthesized methods. The two cooperate:
+     * the class rewriter delegates each existing method through the rewriter
+     * chain (so substitutions still apply), then adds the synthesized methods
+     * for that class descriptor after the rewritten existing set.
      */
     public DexFile toDexFile() {
-        if (mutations.isEmpty()) return original;
+        if (mutations.isEmpty() && synthesizedMethods.isEmpty()) return original;
         DexRewriter rewriter = new DexRewriter(new RewriterModule() {
             @Override
             public Rewriter<Method> getMethodRewriter(Rewriters rewriters) {
@@ -140,6 +199,42 @@ public final class DexFileMutator {
                                 method.getAnnotations(),
                                 method.getHiddenApiRestrictions(),
                                 mut);
+                    }
+                };
+            }
+
+            @Override
+            public Rewriter<ClassDef> getClassDefRewriter(Rewriters rewriters) {
+                return new ClassDefRewriter(rewriters) {
+                    @Override
+                    public ClassDef rewrite(ClassDef classDef) {
+                        List<Method> extra = synthesizedMethods.get(classDef.getType());
+                        // No synthesized methods for this class — defer to the
+                        // default rewrite (which still applies method-body
+                        // substitutions via the MethodRewriter above).
+                        if (extra == null || extra.isEmpty()) return super.rewrite(classDef);
+
+                        // Rebuild the method set = rewritten existing methods
+                        // (so body substitutions are preserved) + the
+                        // synthesized methods for this class. The synthesized
+                        // methods are already self-consistent ImmutableMethods,
+                        // but route them through the method rewriter too so any
+                        // type references inside them are remapped consistently
+                        // with the rest of the dex.
+                        Rewriter<Method> methodRw = rewriters.getMethodRewriter();
+                        List<Method> methods = new ArrayList<>();
+                        for (Method m : classDef.getMethods()) methods.add(methodRw.rewrite(m));
+                        for (Method m : extra) methods.add(methodRw.rewrite(m));
+
+                        return new ImmutableClassDef(
+                                classDef.getType(),
+                                classDef.getAccessFlags(),
+                                classDef.getSuperclass(),
+                                classDef.getInterfaces(),
+                                classDef.getSourceFile(),
+                                classDef.getAnnotations(),
+                                classDef.getFields(),
+                                methods);
                     }
                 };
             }

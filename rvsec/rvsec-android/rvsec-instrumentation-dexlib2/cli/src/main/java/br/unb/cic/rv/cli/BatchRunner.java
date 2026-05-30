@@ -183,6 +183,11 @@ public final class BatchRunner {
                             com.android.tools.smali.dexlib2.builder.MutableMethodImplementation impl) {
                         mutator.replaceImpl(m, impl);
                     }
+                    @Override
+                    public void addSynthesizedMethod(String definingClassDescriptor,
+                            com.android.tools.smali.dexlib2.iface.Method m) {
+                        mutator.addSynthesizedMethod(definingClassDescriptor, m);
+                    }
                 };
 
                 // 4a. Advice weave (counts also accumulate the read-side stats

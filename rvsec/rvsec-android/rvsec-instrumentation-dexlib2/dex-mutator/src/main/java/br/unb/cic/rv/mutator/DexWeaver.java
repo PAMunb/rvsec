@@ -7,6 +7,7 @@ import br.unb.cic.rv.emitter.EmitContext;
 import br.unb.cic.rv.emitter.EmitPlan;
 import br.unb.cic.rv.emitter.EmitterDispatch;
 import br.unb.cic.rv.emitter.InsertionPoint;
+import br.unb.cic.rv.emitter.StaticInitializationEmitter;
 import br.unb.cic.rv.pointcut.CombinedPC;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
 import br.unb.cic.rv.pointcut.Match;
@@ -297,6 +298,18 @@ public final class DexWeaver {
         // advice (see docs/20260514_erro.md).
         int plansSkippedUnresolvedBinding = 0;
 
+        // §4.Y staticinit pre-pass: deliver the Signature event for every
+        // staticinitialization(T+) advice across every matching class —
+        // synthesizing a <clinit> when one is absent, or prepending into the
+        // existing one. Runs before the per-method loop (which skips
+        // staticinit advice) so synthesized methods are registered ahead of
+        // serialization. Returns the two emit counters.
+        StaticInitResult siResult = weaveStaticInit(dexFile, descriptor, matcher,
+                commonAst, baseAspectExclusions, aspectName, mutableSupplier);
+        int staticInitSynthesized = siResult.synthesized;
+        int staticInitPrepended = siResult.prepended;
+        matchesApplied += staticInitSynthesized + staticInitPrepended;
+
         for (ClassDef classDef : dexFile.getClasses()) {
             classesSeen++;
             for (Method method : classDef.getMethods()) {
@@ -341,6 +354,12 @@ public final class DexWeaver {
                     if (substitutedIndices.contains(idx)) continue;
                     Instruction ins = instructions.get(idx);
                     for (AdviceDescriptor advice : descriptor.getAdvices()) {
+                        // staticinitialization(...) advice is owned entirely by
+                        // the staticinit pre-pass (§4.Y): it must run for classes
+                        // with NO <clinit> (never visited by this per-method loop)
+                        // and for classes WITH one, uniformly. Skipping it here
+                        // avoids a double-emit on existing <clinit>.
+                        if (isStaticInitAdvice(advice)) continue;
                         PointcutExpression pe = parseCached(advice);
                         if (pe == null) { plansSkipped++; continue; }
                         // §4.D.0: AND-compose the commonPointcut so its class-level exclusions gate
@@ -461,7 +480,149 @@ public final class DexWeaver {
                 wrappersAliasedToSubtype,
                 constructorInlineApplied, constructorInlineSkippedAliasing,
                 plansSkippedHighRegister,
-                plansSkippedUnresolvedBinding);
+                plansSkippedUnresolvedBinding,
+                staticInitSynthesized, staticInitPrepended);
+    }
+
+    /** Outcome of the §4.Y staticinit pre-pass. */
+    private record StaticInitResult(int synthesized, int prepended) {}
+
+    /**
+     * §4.Y: deliver the {@code *staticinitEvent(Signature)} for every
+     * {@code staticinitialization(T+)} advice across every matching class.
+     *
+     * <p>For each class, each staticinit advice is matched via a synthetic
+     * {@code <clinit>} probe so the full matcher pipeline (type pattern,
+     * subtype expansion, {@code commonPointcut} exclusions) decides the match.
+     * On a match:
+     * <ul>
+     *   <li><b>No {@code <clinit>}</b>: synthesize one via
+     *       {@link StaticInitSynthesizer} carrying the Signature-delivery body,
+     *       and register it through {@code addSynthesizedMethod}.</li>
+     *   <li><b>Existing {@code <clinit>}</b>: spill two low registers (so the
+     *       const-class + new-instance have a verifier-valid frame) and prepend
+     *       the delivery body at method entry.</li>
+     * </ul>
+     */
+    private StaticInitResult weaveStaticInit(DexFile dexFile, AspectDescriptor descriptor,
+                                             PointcutMatcher matcher, PointcutExpression commonAst,
+                                             List<String> baseAspectExclusions, String aspectName,
+                                             MutableImplSupplier mutableSupplier) {
+        List<AdviceDescriptor> siAdvices = new ArrayList<>();
+        for (AdviceDescriptor a : descriptor.getAdvices()) {
+            if (isStaticInitAdvice(a)) siAdvices.add(a);
+        }
+        if (siAdvices.isEmpty()) return new StaticInitResult(0, 0);
+
+        String monitorOwner = monitorOwnerFor(descriptor);
+        int synthesized = 0;
+        int prepended = 0;
+
+        for (ClassDef classDef : dexFile.getClasses()) {
+            Method existingClinit = findClinit(classDef);
+            for (AdviceDescriptor advice : siAdvices) {
+                PointcutExpression pe = parseCached(advice);
+                if (pe == null) continue;
+                PointcutExpression effective = (commonAst == null) ? pe
+                        : new CombinedPC(CombinedPC.Op.AND, commonAst, pe);
+                if (!staticInitMatchesClass(matcher, effective, classDef,
+                        baseAspectExclusions, aspectName)) {
+                    continue;
+                }
+
+                String event = StaticInitializationEmitter.eventMethodName(advice);
+                if (!StaticInitializationEmitter.deliversSignature(advice)) {
+                    // Non-Signature staticinit advice is out of §4.Y's scope;
+                    // skip rather than emit a malformed event. The corpus's
+                    // staticinit advices all carry the getSignature() token.
+                    continue;
+                }
+
+                if (existingClinit == null) {
+                    // Synthesize a fresh <clinit>: deliver against v0/v1 in a
+                    // 2-register private frame.
+                    List<BuilderInstruction> body =
+                            StaticInitializationEmitter.signatureDelivery(
+                                    monitorOwner, event, classDef.getType(),
+                                    /*regClass=*/ 0, /*regSig=*/ 1);
+                    Method clinit = StaticInitSynthesizer.synthesize(
+                            classDef.getType(), body, /*registerCount=*/ 2);
+                    mutableSupplier.addSynthesizedMethod(classDef.getType(), clinit);
+                    synthesized++;
+                } else {
+                    MutableMethodImplementation mut =
+                            mutableSupplier.forMethod(existingClinit);
+                    if (mut == null) continue;
+                    // Free v0/v1 at the low end so the delivery body's
+                    // const-class/new-instance have a verifier-valid frame;
+                    // spillLowRegisters returns a fresh MMI (notify supplier).
+                    MutableMethodImplementation grown;
+                    try {
+                        grown = RegisterShifter.spillLowRegisters(mut, 2);
+                    } catch (RuntimeException ex) {
+                        // Spill veto (rare format); skip this site conservatively.
+                        continue;
+                    }
+                    mutableSupplier.replaceImpl(existingClinit, grown);
+                    List<BuilderInstruction> body =
+                            StaticInitializationEmitter.signatureDelivery(
+                                    monitorOwner, event, classDef.getType(),
+                                    /*regClass=*/ 0, /*regSig=*/ 1);
+                    int at = 0;
+                    for (BuilderInstruction ins : body) {
+                        grown.addInstruction(at++, ins);
+                    }
+                    prepended++;
+                }
+            }
+        }
+        return new StaticInitResult(synthesized, prepended);
+    }
+
+    private static boolean isStaticInitAdvice(AdviceDescriptor advice) {
+        String expr = advice.getExpression();
+        return expr != null && expr.contains("staticinitialization(");
+    }
+
+    private static Method findClinit(ClassDef classDef) {
+        for (Method m : classDef.getMethods()) {
+            if ("<clinit>".equals(m.getName())) return m;
+        }
+        return null;
+    }
+
+    /**
+     * Probe whether {@code pe} (a staticinit pointcut, possibly AND-composed
+     * with the commonPointcut) matches {@code classDef} at the class level. The
+     * staticinit matcher gates on a {@code <clinit>} method at instruction
+     * index 0, so a synthetic single-instruction {@code <clinit>} probe is
+     * passed; the remaining PCDs (type pattern, {@code !within}, named-ref
+     * exclusions) read only {@code classDef}.
+     */
+    private boolean staticInitMatchesClass(PointcutMatcher matcher, PointcutExpression pe,
+                                           ClassDef classDef, List<String> baseAspectExclusions,
+                                           String aspectName) {
+        MutableMethodImplementation probeImpl = new MutableMethodImplementation(1);
+        BuilderInstruction probeInsn = new com.android.tools.smali.dexlib2.builder.instruction
+                .BuilderInstruction10x(Opcode.RETURN_VOID);
+        probeImpl.addInstruction(probeInsn);
+        Method probe = new com.android.tools.smali.dexlib2.immutable.ImmutableMethod(
+                classDef.getType(), "<clinit>", Collections.emptyList(), "V",
+                com.android.tools.smali.dexlib2.AccessFlags.STATIC.getValue()
+                        | com.android.tools.smali.dexlib2.AccessFlags.CONSTRUCTOR.getValue(),
+                null, null, probeImpl);
+        List<Instruction> probeList = new ArrayList<>();
+        for (Instruction ins : probeImpl.getInstructions()) probeList.add(ins);
+        try {
+            return matcher.match(pe, classDef, probe, probeList.get(0),
+                    0, probeList.size(), probeList,
+                    baseAspectExclusions, aspectName).isPresent();
+        } catch (RuntimeException ex) {
+            // A LegacyDescriptorException (empty exclusions) or unresolved
+            // named-ref fails the match closed — consistent with the main
+            // loop's conservative behaviour.
+            return false;
+        }
     }
 
     /**
@@ -549,6 +710,18 @@ public final class DexWeaver {
         MutableMethodImplementation forMethod(Method method);
 
         default void replaceImpl(Method method, MutableMethodImplementation newImpl) { }
+
+        /**
+         * Register a brand-new method to be appended to the class identified by
+         * {@code definingClassDescriptor} ({@code Lcls;}) at serialization.
+         * Used by the staticinit pre-pass (§4.Y) to add a synthesized
+         * {@code <clinit>} to a class that has none — that method cannot be
+         * obtained through {@link #forMethod} (no original implementation to
+         * mutate). Default no-op for test suppliers that assert against an
+         * in-memory mutable view; the canonical implementation delegates to
+         * {@code DexFileMutator.addSynthesizedMethod}.
+         */
+        default void addSynthesizedMethod(String definingClassDescriptor, Method method) { }
     }
 
     /** Cached parsing; identical expressions across advices are rare but cheap to cache. */
@@ -632,5 +805,14 @@ public final class DexWeaver {
                                // is ever introduced, this counter must migrate
                                // to LongAdder and aggregation lifted out of the
                                // record.
-                               int plansSkippedUnresolvedBinding) {}
+                               int plansSkippedUnresolvedBinding,
+                               // §4.Y: staticinitialization(T+) Signature
+                               // deliveries. staticInitSynthesized counts
+                               // classes that had no <clinit> and got one
+                               // synthesized; staticInitPrepended counts
+                               // classes whose existing <clinit> received the
+                               // delivery at method entry. Both feed
+                               // matchesApplied.
+                               int staticInitSynthesized,
+                               int staticInitPrepended) {}
 }
