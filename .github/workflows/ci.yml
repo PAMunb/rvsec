@@ -29,6 +29,23 @@ jobs:
       - name: Build Maven project (excluding rvsmart)
         run: mvn clean install -DskipTests -DskipMopAgent -pl '!rvsec/rvsec-android/rvsmart'
 
+      # gh62 — grammar coverage integrity gate. Runs the dexlib2 grammar-tests submodule, which
+      # enforces matrix<->code<->deferred consistency (MatrixIntegrityTest, AbsorptionClaimsContractTest)
+      # at every CI run. The checkout root already contains both rvsec/ and rv-android/, so $RVSEC_HOME
+      # is the workspace root; DemandCounter reads the .mop corpora under it and MatrixMarkdownParser /
+      # the deferred.md SHA tripwire resolve rv-android/docs + rv-android/openspec under it.
+      - name: Grammar coverage integrity gate (gh62)
+        working-directory: rvsec/rvsec-android/rvsec-instrumentation-dexlib2
+        env:
+          RVSEC_HOME: ${{ github.workspace }}
+        run: |
+          # Sanity: the JCA .mop corpus must be present, else DemandCounter.countMop fails opaque.
+          test -d "$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca" || { echo "ERROR: $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca missing - DemandCounter cannot resolve the .mop corpora"; exit 1; }
+          mvn -ntp -B -pl grammar-tests -am -DskipTests=false test
+          # Visibility: print the NOT-NEEDED β absorber-test count tracked at every run.
+          ABSORBERS=$(grep -c "NOT-NEEDED β" "$RVSEC_HOME/rv-android/docs/aspectj_grammar_coverage.md" || true)
+          echo "gh62 absorber (NOT-NEEDED β) matrix rows: $ABSORBERS"
+
   python-test:
     runs-on: ubuntu-latest
     steps:

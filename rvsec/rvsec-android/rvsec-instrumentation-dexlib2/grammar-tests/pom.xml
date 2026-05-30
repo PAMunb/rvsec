@@ -24,6 +24,9 @@
         <commonmark.version>0.24.0</commonmark.version>
         <junit-platform-launcher.version>1.11.3</junit-platform-launcher.version>
         <junit-pioneer.version>2.3.0</junit-pioneer.version>
+        <!-- Default RVSEC_HOME for the surefire forks (grammar-tests → dexlib2 → rvsec-android →
+             rvsec → $RVSEC_HOME); the ambient RVSEC_HOME env var wins when present (CI; §6.10). -->
+        <rvsec.home>${project.basedir}/../../../..</rvsec.home>
     </properties>
 
     <dependencies>
@@ -43,6 +46,13 @@
         <dependency>
             <groupId>br.unb.cic</groupId>
             <artifactId>dex-mutator</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- descriptor-reader: AspectDescriptor.baseAspectExclusions schema test (INV-INS-97). -->
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>descriptor-reader</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -88,4 +98,24 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- gh62: make the integrity tests self-sufficient and deterministic across every
+                 surefire fork. RVSEC_HOME resolves to this module's grandparent-of-reactor directory
+                 (grammar-tests → dexlib2 → rvsec-android → rvsec → $RVSEC_HOME). It is overridable
+                 by the ambient RVSEC_HOME env (CI sets it; §6.10) — the property default only fills
+                 the gap so DemandCounter / MatrixMarkdownParser / deferred.md resolution never depend
+                 on the fork inheriting the launching shell's environment. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <RVSEC_HOME>${rvsec.home}</RVSEC_HOME>
+                    </environmentVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
