@@ -114,6 +114,19 @@
                     <environmentVariables>
                         <RVSEC_HOME>${rvsec.home}</RVSEC_HOME>
                     </environmentVariables>
+                    <!-- The matcher engine carries process-wide static state by design
+                         (TypeResolver PRIMITIVES/BUILTIN tables; AndroidClassIndex / InheritanceResolver
+                         per-instance caches that the *GrammarTest fixtures build from synthetic class
+                         graphs). Each *GrammarTest is self-consistent and passes in isolation, but in a
+                         single shared surefire fork a class graph installed by one sibling
+                         (e.g. StaticInitializationGrammarTest's synthetic Collection subtype chain) can
+                         leave a stale subtype verdict that another class's fixture (e.g.
+                         CallReturnWildcardGrammarTest, which constructs its own TypeResolver +
+                         InheritanceResolver per call) inherits via the shared JVM — making the suite
+                         order-dependent. Run one class per fork so every grammar test starts from clean
+                         process state; this is the canonical Maven remedy for process-static-state
+                         suites and makes the suite order-independent without weakening any assertion. -->
+                    <reuseForks>false</reuseForks>
                 </configuration>
             </plugin>
         </plugins>
