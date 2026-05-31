@@ -11,43 +11,43 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: void <init>(android.widget.LinearLayout,android.widget.Button,android.widget.EditText,android.widget.Spinner,android.widget.TextView,android.widget.TextView)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "bind",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding bind(android.view.View)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: android.view.View getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMessageDigestBinding: android.widget.LinearLayout getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -60,43 +60,43 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: void <init>(android.widget.LinearLayout,android.widget.Button,android.widget.Button,android.widget.Button)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "bind",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: br.unb.cic.cryptoapp.databinding.ActivityMainBinding bind(android.view.View)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: br.unb.cic.cryptoapp.databinding.ActivityMainBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: br.unb.cic.cryptoapp.databinding.ActivityMainBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: android.view.View getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityMainBinding: android.widget.LinearLayout getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -109,43 +109,43 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: void <init>(android.widget.LinearLayout,android.widget.Button,android.widget.TextView,android.widget.EditText,android.widget.TextView)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "bind",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: br.unb.cic.cryptoapp.databinding.ActivityCipherBinding bind(android.view.View)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: br.unb.cic.cryptoapp.databinding.ActivityCipherBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: br.unb.cic.cryptoapp.databinding.ActivityCipherBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: android.view.View getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCipherBinding: android.widget.LinearLayout getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -158,43 +158,43 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: void <init>(android.widget.ScrollView,android.widget.Spinner,com.google.android.material.tabs.TabLayout,android.widget.RadioButton,android.widget.RadioButton,android.widget.Button,android.widget.RadioButton,com.google.android.material.textfield.TextInputEditText,com.google.android.material.textfield.TextInputLayout,android.widget.TextView,com.google.android.material.textfield.TextInputEditText,com.google.android.material.textfield.TextInputLayout,android.widget.RadioGroup,android.widget.TextView,android.widget.TextView,android.widget.TextView)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "bind",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding bind(android.view.View)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding inflate(android.view.LayoutInflater)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "inflate",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: android.view.View getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "getRoot",
           "signature": "<br.unb.cic.cryptoapp.databinding.ActivityCryptographyBinding: android.widget.ScrollView getRoot()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -207,29 +207,29 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void <init>()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "access$000",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void access$000(br.unb.cic.cryptoapp.cipher.CipherActivity)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "encrypt",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void encrypt()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -242,15 +242,15 @@
           "name": "<clinit>",
           "signature": "<br.unb.cic.cryptoapp.BuildConfig: void <clinit>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.BuildConfig: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -263,15 +263,15 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity$1: void <init>(br.unb.cic.cryptoapp.cipher.CipherActivity)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "onClick",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity$1: void onClick(android.view.View)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -284,36 +284,36 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: void <init>()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "aes",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] aes(java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "des",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] des(java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "encrypt",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: java.lang.String encrypt(java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "unreachableEncrypt",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherUtil: java.lang.String unreachableEncrypt(java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -326,15 +326,15 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "onMenuItemClick",
           "signature": "<br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -347,64 +347,64 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void <init>()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "showScreen",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "onCreateOptionsMenu",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "onOptionsItemSelected",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "showGenerated",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "showHome",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void showHome(android.view.MenuItem)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "showScreenCipher",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "showScreenMessageDigest",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -417,204 +417,204 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void <init>()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "access$002",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: java.lang.String access$002(br.unb.cic.cryptoapp.generated.CryptographyActivity,java.lang.String)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "access$100",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void access$100(br.unb.cic.cryptoapp.generated.CryptographyActivity)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "decryptWithPrivateKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: java.lang.String decryptWithPrivateKey(byte[])>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "decryptWithSecretKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: java.lang.String decryptWithSecretKey(byte[],java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "encryptWithPublicKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: byte[] encryptWithPublicKey(java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "encryptWithSecretKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: byte[] encryptWithSecretKey(java.lang.String,java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "executeHashOperation",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeHashOperation()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "executeHmacOperation",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeHmacOperation()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "executeKeyPairOperation",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeKeyPairOperation()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "executeOperation",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeOperation()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "executeSecretKeyOperation",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeSecretKeyOperation()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "generateIV",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void generateIV()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "generateKeyPair",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void generateKeyPair(java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "generateSecretKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void generateSecretKey(java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "initializeViews",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void initializeViews()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupAlgorithmSpinner",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupAlgorithmSpinner(java.lang.String[])>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupExecuteButton",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupExecuteButton()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupHashUI",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupHashUI()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupHmacUI",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupHmacUI()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupInputFields",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupInputFields()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupKeyPairUI",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupKeyPairUI()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupModeRadioGroup",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupModeRadioGroup()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupSecretKeyUI",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupSecretKeyUI()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "setupTabLayout",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupTabLayout()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "updateUIForTab",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void updateUIForTab()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "validateInputs",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: boolean validateInputs()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "lambda$setupExecuteButton$0$CryptographyActivity",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void lambda$setupExecuteButton$0$CryptographyActivity(android.view.View)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -627,15 +627,15 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.util.Utils: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "bytesToHex",
           "signature": "<br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -648,29 +648,29 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "onTabReselected",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabReselected(com.google.android.material.tabs.TabLayout$Tab)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "onTabSelected",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabSelected(com.google.android.material.tabs.TabLayout$Tab)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "onTabUnselected",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabUnselected(com.google.android.material.tabs.TabLayout$Tab)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -683,85 +683,85 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "bytesToHex",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: java.lang.String bytesToHex(byte[])>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "computeHash",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: byte[] computeHash(byte[],java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "computeHmac",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: byte[] computeHmac(byte[],javax.crypto.SecretKey,java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "createSecretKeyFromBytes",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: javax.crypto.SecretKey createSecretKeyFromBytes(byte[],java.lang.String)>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "decryptWithPrivateKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: byte[] decryptWithPrivateKey(byte[],java.security.PrivateKey,java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "decryptWithSecretKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: byte[] decryptWithSecretKey(byte[],javax.crypto.SecretKey,java.lang.String,byte[])>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "encryptWithPublicKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: byte[] encryptWithPublicKey(byte[],java.security.PublicKey,java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "encryptWithSecretKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: byte[] encryptWithSecretKey(byte[],javax.crypto.SecretKey,java.lang.String,byte[])>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "generateIV",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: byte[] generateIV(int)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "generateKeyPair",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: java.security.KeyPair generateKeyPair(java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "generateSecretKey",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: javax.crypto.SecretKey generateSecretKey(java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         }
       ]
     },
@@ -774,15 +774,15 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "onClick",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -795,29 +795,29 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: void <init>()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "hash",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(java.lang.String,java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "hash",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(byte[],java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": true
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "unreachableHash",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String unreachableHash(java.lang.String)>",
           "reachable": false,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -830,50 +830,50 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void <init>()>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "clearErrors",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void clearErrors()>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "showErrorDialog",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void showErrorDialog(java.lang.String)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "validateAlgorithm",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateAlgorithm(java.lang.String)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "validateInput",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateInput(java.lang.String)>",
           "reachable": true,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         },
         {
           "name": "generateHash",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         },
         {
           "name": "onCreate",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void onCreate(android.os.Bundle)>",
           "reachable": true,
-          "reachesMop": true,
-          "directlyReachesMop": false
+          "reachesTarget": true,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -886,8 +886,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$string: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -900,8 +900,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$layout: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -914,8 +914,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$color: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -928,8 +928,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -942,8 +942,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$drawable: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -956,8 +956,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$style: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -970,8 +970,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$array: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -984,8 +984,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$mipmap: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -998,8 +998,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$menu: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     },
@@ -1012,8 +1012,8 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.R$id: void <init>()>",
           "reachable": false,
-          "reachesMop": false,
-          "directlyReachesMop": false
+          "reachesTarget": false,
+          "directlyReachesTarget": false
         }
       ]
     }

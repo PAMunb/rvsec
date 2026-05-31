@@ -292,9 +292,9 @@ class TransitionManager:
                     if hasattr(event, "signature"):
                         method = self._get_method(event.signature)
                         if method:
-                            if getattr(method, "directly_reaches_mop", False):
+                            if getattr(method, "directly_reaches_target", False):
                                 priority += 50
-                            elif getattr(method, "reaches_mop", False):
+                            elif getattr(method, "reaches_target", False):
                                 priority += 25
 
         return priority
@@ -640,8 +640,8 @@ class TransitionManager:
             "widget_id": wtg_widget_id,
             "target_activity": target_activity or f"window_{first_step.get('target')}",
             "text": f"Navigate to {target_activity or 'unknown'}",
-            "reaches_mop": True,
-            "directly_reaches_mop": False,
+            "reaches_target": True,
+            "directly_reaches_target": False,
             "coordinates": resolved_coords,
             "target_view": resolved_target_view,
         }
@@ -680,8 +680,8 @@ class TransitionManager:
                 continue
             if method.class_name != activity_name:
                 continue
-            if getattr(method, "reaches_mop", False) or getattr(
-                method, "directly_reaches_mop", False
+            if getattr(method, "reaches_target", False) or getattr(
+                method, "directly_reaches_target", False
             ):
                 count += 1
 

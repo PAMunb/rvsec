@@ -224,32 +224,32 @@ class TestWidgetMatching:
 class TestMOPEnrichment:
     """Test MOP marker enrichment on actions."""
 
-    def test_methods_have_reaches_mop_flags(self, static_data):
-        """Methods in static_data have reaches_mop flags from reachability section."""
+    def test_methods_have_reaches_target_flags(self, static_data):
+        """Methods in static_data have reaches_target flags from reachability section."""
         # Verify methods are loaded with MOP flags
         assert static_data.classes is not None
         assert len(static_data.classes.methods) > 0
 
         # Find methods that reach MOP
-        mop_methods = [m for m in static_data.classes.methods.values() if m.reaches_mop]
+        mop_methods = [m for m in static_data.classes.methods.values() if m.reaches_target]
         assert len(mop_methods) > 0, "Expected some methods to reach MOP"
 
         # Find methods that directly reach MOP
         direct_mop_methods = [
-            m for m in static_data.classes.methods.values() if m.directly_reaches_mop
+            m for m in static_data.classes.methods.values() if m.directly_reaches_target
         ]
         assert (
             len(direct_mop_methods) > 0
         ), "Expected some methods to directly reach MOP"
 
-    def test_main_activity_lifecycle_reaches_mop(self, static_data):
+    def test_main_activity_lifecycle_reaches_target(self, static_data):
         """MainActivity lifecycle methods reach MOP transitively."""
         # onCreate reaches MOP through activity lifecycle chains
         sig = "<br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>"
         method = static_data.classes.methods.get(sig)
 
         assert method is not None, f"Method {sig} not found"
-        assert method.reaches_mop is True
+        assert method.reaches_target is True
 
     def test_main_activity_navigation_does_not_reach_mop(self, static_data):
         """MainActivity button callbacks are navigation-only (no MOP)."""
@@ -258,24 +258,24 @@ class TestMOPEnrichment:
         method = static_data.classes.methods.get(sig)
 
         assert method is not None, f"Method {sig} not found"
-        assert method.reaches_mop is False
+        assert method.reaches_target is False
 
-    def test_cipher_activity_callback_reaches_mop(self, static_data):
+    def test_cipher_activity_callback_reaches_target(self, static_data):
         """CipherActivity onClick callback should reach MOP."""
         sig = "<br.unb.cic.cryptoapp.cipher.CipherActivity$1: void onClick(android.view.View)>"
         method = static_data.classes.methods.get(sig)
 
         assert method is not None, f"Method {sig} not found"
-        assert method.reaches_mop is True
+        assert method.reaches_target is True
 
-    def test_hash_method_directly_reaches_mop(self, static_data):
+    def test_hash_method_directly_reaches_target(self, static_data):
         """MessageDigestUtil.hash directly reaches MOP (calls MessageDigest APIs)."""
         sig = "<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(byte[],java.lang.String)>"
         method = static_data.classes.methods.get(sig)
 
         assert method is not None, f"Method {sig} not found"
-        assert method.reaches_mop is True
-        assert method.directly_reaches_mop is True
+        assert method.reaches_target is True
+        assert method.directly_reaches_target is True
 
     def test_mop_stats_initialized_to_zero(self, static_data):
         """MOP stats start at zero."""
@@ -302,8 +302,8 @@ class TestMOPEnrichment:
         # No actions should have MOP markers on this screen.
         for item in screen_desc.items:
             for action in item.actions:
-                assert action.reaches_mop is False
-                assert action.directly_reaches_mop is False
+                assert action.reaches_target is False
+                assert action.directly_reaches_target is False
 
     def test_no_mop_without_static_data(self, main_activity_xml):
         """Without static data, no MOP enrichment occurs."""
@@ -315,11 +315,11 @@ class TestMOPEnrichment:
             activity="br.unb.cic.cryptoapp.MainActivity",
         )
 
-        # All actions should have reaches_mop=False
+        # All actions should have reaches_target=False
         for item in screen_desc.items:
             for action in item.actions:
-                assert action.reaches_mop is False
-                assert action.directly_reaches_mop is False
+                assert action.reaches_target is False
+                assert action.directly_reaches_target is False
 
 
 # =============================================================================
@@ -383,8 +383,8 @@ class TestParserIntegration:
         # target activities, so no MOP enrichment on this screen.
         for item in screen_desc.items:
             for action in item.actions:
-                assert action.reaches_mop is False
-                assert action.directly_reaches_mop is False
+                assert action.reaches_target is False
+                assert action.directly_reaches_target is False
 
     def test_parse_without_static_data(self, main_activity_xml):
         """Parse screen without static data (graceful degradation)."""
@@ -402,8 +402,8 @@ class TestParserIntegration:
         # No MOP markers without static data
         for item in screen_desc.items:
             for action in item.actions:
-                assert action.reaches_mop is False
-                assert action.directly_reaches_mop is False
+                assert action.reaches_target is False
+                assert action.directly_reaches_target is False
 
     def test_parse_using_factory(self, static_data, main_activity_xml):
         """Parse using ParserFactory with custom visitor."""
@@ -462,7 +462,7 @@ class TestStaticDataValidation:
         assert "buttonGenerated" in widget_names
 
     def test_methods_have_mop_flags(self, static_data):
-        """Methods have reaches_mop flags set."""
+        """Methods have reaches_target flags set."""
         # Find a method we know reaches MOP
         hash_signature = "<br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(byte[],java.lang.String)>"
 
@@ -470,5 +470,5 @@ class TestStaticDataValidation:
 
         if method:
             # This method directly calls MessageDigest APIs
-            assert method.reaches_mop is True
-            assert method.directly_reaches_mop is True
+            assert method.reaches_target is True
+            assert method.directly_reaches_target is True

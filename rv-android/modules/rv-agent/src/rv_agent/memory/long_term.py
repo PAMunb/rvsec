@@ -52,7 +52,7 @@ class MemoryAction:
     action_type: str
     execution_count: int = 0
     success_count: int = 0
-    reaches_mop: bool = False
+    reaches_target: bool = False
 
     def __post_init__(self):
         self.state_transitions = defaultdict(list)

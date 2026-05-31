@@ -141,7 +141,7 @@ class TestMOPPrioritization:
         action = rvagent_strategy.select_next_action(screen_hash, mop_priority_screen)
 
         assert action is not None
-        assert action.directly_reaches_mop is True
+        assert action.directly_reaches_target is True
         assert action.widget_id == "btn_encrypt"
 
     def test_transitive_mop_second_priority(
@@ -152,12 +152,12 @@ class TestMOPPrioritization:
 
         # First action: Direct MOP
         action1 = rvagent_strategy.select_next_action(screen_hash, mop_priority_screen)
-        assert action1.directly_reaches_mop is True
+        assert action1.directly_reaches_target is True
 
         # Second action: Transitive MOP
         action2 = rvagent_strategy.select_next_action(screen_hash, mop_priority_screen)
         assert action2 is not None
-        assert action2.reaches_mop is True
+        assert action2.reaches_target is True
         assert action2.widget_id == "btn_settings"
 
     def test_regular_ui_lowest_priority(self, rvagent_strategy, mop_priority_screen):
@@ -171,8 +171,8 @@ class TestMOPPrioritization:
         # Third action: Regular UI
         action3 = rvagent_strategy.select_next_action(screen_hash, mop_priority_screen)
         assert action3 is not None
-        assert action3.directly_reaches_mop is False
-        assert action3.reaches_mop is False
+        assert action3.directly_reaches_target is False
+        assert action3.reaches_target is False
         assert action3.widget_id == "btn_help"
 
     def test_mop_execution_recorded(self, rvagent_strategy, mop_priority_screen):
@@ -600,7 +600,7 @@ class TestExplorationScenarios:
                 create_mock_action(
                     coords=(200, 600),
                     widget_id="btn_crypto",
-                    directly_reaches_mop=True,
+                    directly_reaches_target=True,
                     callback_signature="javax.crypto.Cipher.init",
                 ),
             ],
@@ -619,7 +619,7 @@ class TestExplorationScenarios:
         # Explore home screen - should prioritize crypto button (DM)
         action2 = rvagent_strategy.select_next_action(home_hash, home_screen)
         assert action2 is not None
-        assert action2.directly_reaches_mop is True
+        assert action2.directly_reaches_target is True
 
         # Verify statistics
         stats = rvagent_strategy.get_statistics()
@@ -671,17 +671,17 @@ class TestExplorationScenarios:
                 create_mock_action(
                     coords=(200, 500),
                     widget_id="btn_encrypt",
-                    directly_reaches_mop=True,
+                    directly_reaches_target=True,
                     callback_signature="javax.crypto.Cipher.init",
                 ),
                 create_mock_action(
                     coords=(200, 600),
                     widget_id="btn_decrypt",
-                    directly_reaches_mop=True,
+                    directly_reaches_target=True,
                     callback_signature="javax.crypto.Cipher.doFinal",
                 ),
                 create_mock_action(
-                    coords=(200, 700), widget_id="btn_settings", reaches_mop=True
+                    coords=(200, 700), widget_id="btn_settings", reaches_target=True
                 ),
             ],
         )

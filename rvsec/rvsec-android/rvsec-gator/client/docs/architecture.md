@@ -26,11 +26,14 @@ flowchart LR
         W["Writer<br/>JSON serialization"]
     end
 
-    subgraph Output["JSON Output"]
+    subgraph Output["JSON Output (D14 order)"]
+        P["package"]
+        MA["mainActivity"]
+        C["components{} (manifest)"]
         R["reachability{}"]
         Wi["windows{}"]
         T["transitions{}"]
-        C["components{}"]
+        Done["complete: true (sentinel)"]
     end
 
     Soot --> BFS
@@ -43,10 +46,13 @@ flowchart LR
     BFS --> W
     WTG --> W
 
+    W --> P
+    W --> MA
+    W --> C
     W --> R
     W --> Wi
     W --> T
-    W --> C
+    W --> Done
 ```
 
 ## 2. Key Architectural Decisions
@@ -62,16 +68,20 @@ The unified client runs Soot once and produces all outputs in a single pass, red
 analysis time by ~3x. Additionally, a single JSON file is simpler to push to the device
 and parse in Python.
 
-### AD-2: Priority-ordered JSON sections with flush
+### AD-2: Priority-ordered JSON sections with flush (D14 — 2026-05-29)
 
-Sections are written in priority order (reachability first, then windows, transitions,
-components) with explicit `flush()` calls between each section.
+Sections are written in cost-asymmetric order with explicit `flush()` calls between each:
+`package` → `mainActivity` → `components` → `reachability` → `windows` → `transitions` →
+`complete: true` sentinel.
 
 **Why**: GATOR has a hard timeout (controlled by the Python rv-static-analysis module).
-If analysis times out mid-write, partial JSON preserves the most critical data first.
-Reachability is most critical because it provides the coverage denominator. Without it,
-coverage metrics cannot be computed. Windows and transitions are useful but not essential
-(APE-RV degrades gracefully without them). (Cross-ref: INV-ANA-06)
+Manifest-derived data (`components`, `mainActivity`) is cheap (XML parse, milliseconds)
+and must NOT be at risk of being lost behind expensive Soot/WTG passes that may time out.
+Reachability comes next as the coverage denominator. Windows and transitions come last
+because WTG construction is the most expensive stage and most likely to fail on
+R8/Compose-heavy APKs; the Python parser tolerates their absence. The trailing
+`complete: true` sentinel (ADR-6) lets consumers distinguish truncated vs. fully written
+output without timestamp heuristics. (Cross-ref: INV-ANA-06)
 
 ### AD-3: Multi-source BFS on JGraphT graph
 
@@ -116,6 +126,23 @@ consistent integer IDs. `NObjectNode.id` is used as the canonical identifier.
 output would have dangling references where a transition's `sourceId` doesn't match
 any window entry, breaking the Python parser's graph construction.
 
+### AD-7: Component-execution enrichment (D15 — 2026-05-29)
+
+Each `intent_filter` entry serializes the full `<data>` block (`schemes`, `hosts`,
+`ports`, `paths`, `pathPrefixes`, `pathPatterns`, `mimeTypes`) and each component carries
+its `android:permission` attribute. `ContentProvider` entries additionally carry
+`readPermission` and `writePermission`.
+
+**Why**: Pre-D15, downstream tools (aperv, manual triggering) could see `actions` and
+`categories` but had no way to construct an `Intent` reaching a `VIEW`/deep-link handler
+or a MIME-typed `SEND` target — those require URI authority/path or MIME type to bind.
+Permissions are required so the caller knows which `<uses-permission>` to assume (or
+whether the entry point is privileged and unreachable from a third-party caller).
+`<data>` path-matchers are partitioned by Android `PatternMatcher` type
+(LITERAL → `paths`, PREFIX → `pathPrefixes`, SIMPLE_GLOB → `pathPatterns`) so consumers
+can reconstruct manifest-equivalent matching semantics. Empty lists / `null` permissions
+are the back-compat default; pre-D15 JSONs parse unchanged.
+
 ## 3. Analysis Pipeline
 
 ```mermaid
@@ -138,14 +165,17 @@ sequenceDiagram
     C->>C: complementWithCallbacks(...)
     C->>S: WTGBuilder.build(output)
     S-->>C: WTG
+    C->>W: writePackage(codePackage)
+    C->>W: writeMainActivity(manifest)
+    C->>W: writeComponents(manifest)  // D14: moved before reachability
+    W->>W: flush()
     C->>W: writeReachability(classes, reachable, mop)
     W->>W: flush()
     C->>W: writeWindows(wtg, widgets)
     W->>W: flush()
     C->>W: writeTransitions(wtg)
     W->>W: flush()
-    C->>W: writeComponents(manifest)
-    W->>W: flush()
+    C->>W: writeComplete(true)  // ADR-6 sentinel
 ```
 
 ## 4. Data Flow
@@ -186,6 +216,7 @@ flowchart TD
 | rv-static-analysis | All | `StaticAnalysisParser.parse()` → `StaticAnalysisData` domain model |
 | rv-coverage | reachability | Methods with `reachable=true` form coverage denominator |
 | aperv-tool | Pushed to device | APE-RV `MopData.load()` reads reachability + WTG for scoring |
+| aperv-tool (manual triggering) | components | Intent `data` block + `permission` (D15) reconstructs `Intent` for deep-link / MIME / privileged entry points |
 | rv-agent | reachability | `NavigationGuidance` uses for WTG-guided exploration |
 
 ## 5. WTG Model
@@ -231,6 +262,9 @@ classDiagram
 | INV-ANA-03 | Reachability via BFS on call graph | multiSourceBfs() on JGraphT |
 | INV-ANA-06 | Partial JSON on timeout (priority sections) | flush() between each section |
 | INV-ANA-11 | Package detection via Androguard | codePackage clientParam from Python |
+| gh60 D14 | Manifest-cheap sections written before expensive Soot/WTG | `JsonReportWriter` ordering: package → mainActivity → components → reachability → windows → transitions → complete |
+| gh60 D15 | Intent `<data>` + permissions enable manual component triggering | `RvsecAnalysisClient.writeIntentFilterDataBlock()`; `IntentFilter` getters + `XMLParser` permission maps |
+| ADR-6 | `complete: true` sentinel distinguishes truncated vs full output | Trailing key in `JsonReportWriter`; consumed by parser to fail-loud on truncation |
 
 ## 7. Test Structure
 

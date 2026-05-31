@@ -135,8 +135,8 @@ class ExplorationStrategy(ABC):
         Returns:
             True if action has MOP marker
         """
-        return getattr(action, "directly_reaches_mop", False) or getattr(
-            action, "reaches_mop", False
+        return getattr(action, "directly_reaches_target", False) or getattr(
+            action, "reaches_target", False
         )
 
     def _is_direct_mop(self, action: ItemAction) -> bool:
@@ -149,7 +149,7 @@ class ExplorationStrategy(ABC):
         Returns:
             True if action directly reaches MOP
         """
-        return getattr(action, "directly_reaches_mop", False)
+        return getattr(action, "directly_reaches_target", False)
 
     def _try_generate_text_input(
         self, screen_desc: ScreenDescription, node, probability: float = 0.2

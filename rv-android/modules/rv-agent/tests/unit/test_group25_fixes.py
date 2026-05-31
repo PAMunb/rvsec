@@ -31,8 +31,8 @@ class MockAction:
     event: object = None
     action_type: str = "click"
     widget_id: Optional[str] = None
-    reaches_mop: bool = False
-    directly_reaches_mop: bool = False
+    reaches_target: bool = False
+    directly_reaches_target: bool = False
     target_view: Optional[dict] = None
 
     @property
@@ -108,10 +108,10 @@ class TestMopScorerScoring:
     """
 
     def test_direct_mop_scores_regardless_of_untested_inputs(self):
-        """directly_reaches_mop=True gets full score even with untested inputs."""
+        """directly_reaches_target=True gets full score even with untested inputs."""
         scorer = MopScorer()
 
-        action = MockAction(directly_reaches_mop=True)
+        action = MockAction(directly_reaches_target=True)
 
         context = MagicMock(spec=RankingContext)
         context.has_untested_inputs = True
@@ -120,10 +120,10 @@ class TestMopScorerScoring:
         assert score == MopScorer.DEFAULT_DIRECT_SCORE
 
     def test_transitive_mop_scores_normally(self):
-        """reaches_mop=True gets transitive score."""
+        """reaches_target=True gets transitive score."""
         scorer = MopScorer()
 
-        action = MockAction(reaches_mop=True)
+        action = MockAction(reaches_target=True)
 
         context = MagicMock(spec=RankingContext)
         context.has_untested_inputs = True
@@ -213,7 +213,7 @@ class TestHasUntestedInputsFormat:
         # Verify value_generator was called with the correct format and is_mop flag
         value_gen.has_remaining_values.assert_called_with(
             "coords:300,500",
-            is_mop=edit_action.reaches_mop or edit_action.directly_reaches_mop,
+            is_mop=edit_action.reaches_target or edit_action.directly_reaches_target,
         )
 
     def test_has_untested_inputs_false_when_old_format(self):

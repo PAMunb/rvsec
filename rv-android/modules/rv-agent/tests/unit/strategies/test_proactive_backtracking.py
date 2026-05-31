@@ -29,8 +29,8 @@ def _make_action(
     action_id,
     x=None,
     event=WidgetEventType.CLICK,
-    reaches_mop=False,
-    directly_reaches_mop=False,
+    reaches_target=False,
+    directly_reaches_target=False,
 ):
     """Create ItemAction with coords in safe zone."""
     if x is None:
@@ -40,8 +40,8 @@ def _make_action(
         text=f"Action {action_id}",
         event=event,
         coordinates=(x, SAFE_Y),
-        reaches_mop=reaches_mop,
-        directly_reaches_mop=directly_reaches_mop,
+        reaches_target=reaches_target,
+        directly_reaches_target=directly_reaches_target,
         target_view={"class": "android.widget.Button", "package": "test.app"},
     )
 

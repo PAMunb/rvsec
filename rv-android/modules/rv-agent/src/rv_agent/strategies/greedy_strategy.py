@@ -213,8 +213,8 @@ class GreedyStrategy(ExplorationStrategy):
                     id=999,
                     text="BACK",
                     event=WidgetEventType.BACK,
-                    reaches_mop=False,
-                    directly_reaches_mop=False,
+                    reaches_target=False,
+                    directly_reaches_target=False,
                     target_view={"system_action": True, "class": "SystemAction_BACK"},
                     coordinates=None,
                     text_input=None,
@@ -239,8 +239,8 @@ class GreedyStrategy(ExplorationStrategy):
                 id=999,
                 text="BACK",
                 event=WidgetEventType.BACK,
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
                 target_view={"system_action": True, "class": "SystemAction_BACK"},
                 coordinates=None,
                 text_input=None,
@@ -437,9 +437,9 @@ class GreedyStrategy(ExplorationStrategy):
         value = self.action_values.get(action_signature, 0.5)
 
         # MOP prioritization (monitored operations)
-        if getattr(action, "directly_reaches_mop", False):
+        if getattr(action, "directly_reaches_target", False):
             value += 0.3
-        elif getattr(action, "reaches_mop", False):
+        elif getattr(action, "reaches_target", False):
             value += 0.2
 
         # New state discovery bonus
@@ -526,9 +526,9 @@ class GreedyStrategy(ExplorationStrategy):
         Returns:
             Priority score (3=direct MOP, 2=transitive MOP, 1=none)
         """
-        if getattr(action, "directly_reaches_mop", False):
+        if getattr(action, "directly_reaches_target", False):
             return 3
-        elif getattr(action, "reaches_mop", False):
+        elif getattr(action, "reaches_target", False):
             return 2
         else:
             return 1

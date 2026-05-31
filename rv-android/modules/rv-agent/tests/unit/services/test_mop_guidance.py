@@ -23,7 +23,7 @@ def _make_transition_manager(with_static_data=True, mop_methods=None):
         with_static_data: If True, attach mock StaticAnalysisData with
             classes containing MOP methods.
         mop_methods: Dict mapping method signature to (name, class_name,
-            reaches_mop, directly_reaches_mop). If None, a default set
+            reaches_target, directly_reaches_target). If None, a default set
             of MOP methods is used.
     """
     tm = MagicMock()
@@ -58,8 +58,8 @@ def _make_transition_manager(with_static_data=True, mop_methods=None):
         method = MagicMock()
         method.name = name
         method.class_name = class_name
-        method.reaches_mop = reaches
-        method.directly_reaches_mop = directly
+        method.reaches_target = reaches
+        method.directly_reaches_target = directly
         method.signature = sig
         methods_dict[sig] = method
 

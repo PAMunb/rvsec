@@ -366,7 +366,7 @@ class NavigationGuidance:
                 if not method:
                     continue
 
-                if method.directly_reaches_mop:
+                if method.directly_reaches_target:
                     descriptions.append(
                         MopDescription(
                             element_text=action_text,
@@ -375,7 +375,7 @@ class NavigationGuidance:
                             directly_reaches=True,
                         )
                     )
-                elif method.reaches_mop:
+                elif method.reaches_target:
                     descriptions.append(
                         MopDescription(
                             element_text=action_text,

@@ -82,7 +82,8 @@ jobs:
           failed=0
           mkdir -p .cov-parts
           for module in modules/*/; do
-            if [ -d "$module/tests" ] && [ "$(basename $module)" != "rv-agent-validation" ]; then
+            # rv-agent is deprecated and excluded from CI (2026-05-31).
+            if [ -d "$module/tests" ] && [ "$(basename $module)" != "rv-agent-validation" ] && [ "$(basename $module)" != "rv-agent" ]; then
               module_name=$(basename $module)
               echo "=== Testing $module_name ==="
               uv run pytest "$module/tests" \

@@ -27,8 +27,8 @@ class MockItemAction:
     coordinates: Tuple[int, int] = (540, 960)
     widget_id: Optional[str] = None
     text: str = ""
-    directly_reaches_mop: bool = False
-    reaches_mop: bool = False
+    directly_reaches_target: bool = False
+    reaches_target: bool = False
     callback_signature: Optional[str] = None
     text_input: Optional[str] = None
     target_view: Optional[dict] = field(default_factory=dict)
@@ -88,8 +88,8 @@ def create_mock_action(
     coords: Tuple[int, int] = (540, 960),
     event_type: WidgetEventType = WidgetEventType.CLICK,
     widget_id: Optional[str] = None,
-    directly_reaches_mop: bool = False,
-    reaches_mop: bool = False,
+    directly_reaches_target: bool = False,
+    reaches_target: bool = False,
     callback_signature: Optional[str] = None,
 ) -> MockItemAction:
     """Factory function to create mock actions."""
@@ -97,8 +97,8 @@ def create_mock_action(
         event=event_type,
         coordinates=coords,
         widget_id=widget_id,
-        directly_reaches_mop=directly_reaches_mop,
-        reaches_mop=reaches_mop,
+        directly_reaches_target=directly_reaches_target,
+        reaches_target=reaches_target,
         callback_signature=callback_signature,
     )
 
@@ -172,11 +172,11 @@ def mop_priority_screen():
             create_mock_action(
                 coords=(200, 400),
                 widget_id="btn_encrypt",
-                directly_reaches_mop=True,
+                directly_reaches_target=True,
                 callback_signature="javax.crypto.Cipher.init",
             ),
             create_mock_action(
-                coords=(200, 600), widget_id="btn_settings", reaches_mop=True
+                coords=(200, 600), widget_id="btn_settings", reaches_target=True
             ),
             create_mock_action(coords=(200, 800), widget_id="btn_help"),
         ],

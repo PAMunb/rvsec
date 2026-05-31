@@ -19,7 +19,7 @@ def _make_item_action(
     action_id=1,
     text_input=None,
     widget_id="input_field_1",
-    reaches_mop=False,
+    reaches_target=False,
 ):
     """Create a mock ItemAction with specified properties."""
     action = MagicMock()
@@ -33,8 +33,8 @@ def _make_item_action(
     action.text = "Enter text"
     action.text_input = text_input
     action.widget_id = widget_id
-    action.reaches_mop = reaches_mop
-    action.directly_reaches_mop = False
+    action.reaches_target = reaches_target
+    action.directly_reaches_target = False
     action.event = MagicMock()
     action.coordinates = None
 
@@ -54,8 +54,8 @@ def _make_item_action(
         copy.text = action.text
         copy.text_input = update.get("text_input") if update else action.text_input
         copy.widget_id = action.widget_id
-        copy.reaches_mop = action.reaches_mop
-        copy.directly_reaches_mop = action.directly_reaches_mop
+        copy.reaches_target = action.reaches_target
+        copy.directly_reaches_target = action.directly_reaches_target
         copy.event = action.event
         copy.coordinates = action.coordinates
         copy.get_execution_coordinates.return_value = (

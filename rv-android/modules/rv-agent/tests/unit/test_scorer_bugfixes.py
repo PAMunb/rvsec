@@ -36,8 +36,8 @@ class _MockAction:
 
     coordinates: Optional[Tuple[int, int]] = None
     target_view: dict = field(default_factory=dict)
-    reaches_mop: bool = False
-    directly_reaches_mop: bool = False
+    reaches_target: bool = False
+    directly_reaches_target: bool = False
     widget_id: Optional[str] = None
 
     @property
@@ -195,9 +195,9 @@ class TestMopScorerDeferralRemoved:
     """MopScorer no longer has dead deferral code for action_type."""
 
     def test_mop_scorer_scores_direct_mop_action(self):
-        """MopScorer returns direct_score for directly_reaches_mop actions."""
+        """MopScorer returns direct_score for directly_reaches_target actions."""
         scorer = MopScorer()
-        action = _MockAction(directly_reaches_mop=True)
+        action = _MockAction(directly_reaches_target=True)
         context = _make_context()
         context.has_untested_inputs = True  # Would have triggered old dead code
 
@@ -206,9 +206,9 @@ class TestMopScorerDeferralRemoved:
         assert score == MopScorer.DEFAULT_DIRECT_SCORE
 
     def test_mop_scorer_scores_transitive_mop_action(self):
-        """MopScorer returns transitive_score for reaches_mop actions."""
+        """MopScorer returns transitive_score for reaches_target actions."""
         scorer = MopScorer()
-        action = _MockAction(reaches_mop=True)
+        action = _MockAction(reaches_target=True)
         context = _make_context()
 
         score = scorer.score(action, context)

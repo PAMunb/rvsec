@@ -206,7 +206,7 @@ class RVAgentVisitor(DefaultTextVisitor):
         """
         Enrich action with MOP markers from static analysis.
 
-        Sets reaches_mop and directly_reaches_mop based on:
+        Sets reaches_target and directly_reaches_target based on:
         1. Find matching widget
         2. Find matching event in widget.events
         3. Look up method signature in Classes.methods
@@ -240,9 +240,9 @@ class RVAgentVisitor(DefaultTextVisitor):
                 # Look up method in Classes
                 method = self.static_info.classes.methods.get(event.signature)
                 if method:
-                    action.reaches_mop = getattr(method, "reaches_mop", False)
-                    action.directly_reaches_mop = getattr(
-                        method, "directly_reaches_mop", False
+                    action.reaches_target = getattr(method, "reaches_target", False)
+                    action.directly_reaches_target = getattr(
+                        method, "directly_reaches_target", False
                     )
                     action.callback_signature = event.signature
                     action.widget_id = getattr(widget, "id", None) or getattr(
@@ -250,13 +250,13 @@ class RVAgentVisitor(DefaultTextVisitor):
                     )
 
                     # Update stats
-                    if action.directly_reaches_mop:
+                    if action.directly_reaches_target:
                         self.mop_stats["direct_mop"] += 1
                         self.mop_stats["mop_enriched"] += 1
                         # Add marker to text if not already present
                         if "[DM]" not in action.text:
                             action.text += " [DM]"
-                    elif action.reaches_mop:
+                    elif action.reaches_target:
                         self.mop_stats["transitive_mop"] += 1
                         self.mop_stats["mop_enriched"] += 1
                         if "[M]" not in action.text:
@@ -264,8 +264,8 @@ class RVAgentVisitor(DefaultTextVisitor):
 
                     self.logger.debug(
                         f"MOP enriched: {action.text} "
-                        f"(reaches_mop={action.reaches_mop}, "
-                        f"directly_reaches_mop={action.directly_reaches_mop})"
+                        f"(reaches_target={action.reaches_target}, "
+                        f"directly_reaches_target={action.directly_reaches_target})"
                     )
                 break
 

@@ -310,8 +310,8 @@ class TestBFSStrategyMOPPriority:
         action = MagicMock(spec=ItemAction)
         action.action_type = "CLICK"
         action.target_view = {"text": "[DM] Encrypt Data"}
-        action.directly_reaches_mop = True
-        action.reaches_mop = True
+        action.directly_reaches_target = True
+        action.reaches_target = True
 
         priority = bfs_strategy._get_mop_priority(action)
 
@@ -322,8 +322,8 @@ class TestBFSStrategyMOPPriority:
         action = MagicMock(spec=ItemAction)
         action.action_type = "CLICK"
         action.target_view = {"text": "[M] Settings"}
-        action.directly_reaches_mop = False
-        action.reaches_mop = True
+        action.directly_reaches_target = False
+        action.reaches_target = True
 
         priority = bfs_strategy._get_mop_priority(action)
 
@@ -334,8 +334,8 @@ class TestBFSStrategyMOPPriority:
         action = MagicMock(spec=ItemAction)
         action.action_type = "CLICK"
         action.target_view = {"text": "Cancel"}
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         priority = bfs_strategy._get_mop_priority(action)
 
@@ -355,20 +355,20 @@ class TestBFSStrategySelectPriorityAction:
         regular_action = MagicMock(spec=ItemAction)
         regular_action.target_view = {"text": "Cancel"}
         regular_action.action_type = "CLICK"
-        regular_action.directly_reaches_mop = False
-        regular_action.reaches_mop = False
+        regular_action.directly_reaches_target = False
+        regular_action.reaches_target = False
 
         mop_action = MagicMock(spec=ItemAction)
         mop_action.target_view = {"text": "[M] Settings"}
         mop_action.action_type = "CLICK"
-        mop_action.directly_reaches_mop = False
-        mop_action.reaches_mop = True
+        mop_action.directly_reaches_target = False
+        mop_action.reaches_target = True
 
         direct_mop_action = MagicMock(spec=ItemAction)
         direct_mop_action.target_view = {"text": "[DM] Encrypt"}
         direct_mop_action.action_type = "CLICK"
-        direct_mop_action.directly_reaches_mop = True
-        direct_mop_action.reaches_mop = True
+        direct_mop_action.directly_reaches_target = True
+        direct_mop_action.reaches_target = True
 
         actions = [regular_action, mop_action, direct_mop_action]
 
@@ -381,8 +381,8 @@ class TestBFSStrategySelectPriorityAction:
         action = MagicMock(spec=ItemAction)
         action.target_view = {"text": "OK"}
         action.action_type = "CLICK"
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         selected = bfs_strategy._select_priority_action([action])
 
@@ -393,14 +393,14 @@ class TestBFSStrategySelectPriorityAction:
         action1 = MagicMock(spec=ItemAction)
         action1.target_view = {"text": "Button 1"}
         action1.action_type = "CLICK"
-        action1.directly_reaches_mop = False
-        action1.reaches_mop = False
+        action1.directly_reaches_target = False
+        action1.reaches_target = False
 
         action2 = MagicMock(spec=ItemAction)
         action2.target_view = {"text": "Button 2"}
         action2.action_type = "CLICK"
-        action2.directly_reaches_mop = False
-        action2.reaches_mop = False
+        action2.directly_reaches_target = False
+        action2.reaches_target = False
 
         # Both have priority 1 (regular actions)
         selected = bfs_strategy._select_priority_action([action1, action2])

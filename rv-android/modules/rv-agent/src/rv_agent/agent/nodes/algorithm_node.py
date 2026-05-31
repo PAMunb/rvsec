@@ -217,8 +217,8 @@ def _build_error_recovery_action(
         element_id = matched_action.widget_id or make_element_id_from_tuple(
             matched_action.coordinates
         )
-        is_mop = getattr(matched_action, "reaches_mop", False) or getattr(
-            matched_action, "directly_reaches_mop", False
+        is_mop = getattr(matched_action, "reaches_target", False) or getattr(
+            matched_action, "directly_reaches_target", False
         )
         text_value = agent.strategy.value_generator.get_next_value(
             element_id, is_mop=is_mop

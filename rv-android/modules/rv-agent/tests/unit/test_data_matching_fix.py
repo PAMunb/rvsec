@@ -95,8 +95,8 @@ def _make_screen_desc(activity=".MainActivity"):
         "bounds": [[490, 910], [590, 1010]],
     }
     action.widget_id = "btn_main"
-    action.reaches_mop = False
-    action.directly_reaches_mop = False
+    action.reaches_target = False
+    action.directly_reaches_target = False
     action.callback_signature = None
     action.text_input = None
     mock_item = MagicMock()

@@ -26,8 +26,8 @@ class MockAction:
     coordinates: Tuple[int, int] = (540, 960)
     widget_id: Optional[str] = None
     text: str = ""
-    directly_reaches_mop: bool = False
-    reaches_mop: bool = False
+    directly_reaches_target: bool = False
+    reaches_target: bool = False
     callback_signature: Optional[str] = None
     text_input: Optional[str] = None
     target_view: Optional[dict] = field(default_factory=dict)

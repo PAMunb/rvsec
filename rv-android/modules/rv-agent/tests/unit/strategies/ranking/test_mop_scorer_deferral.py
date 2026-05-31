@@ -36,12 +36,12 @@ class TestMopScorerScoring:
     """Verify MopScorer scores based on MOP reachability."""
 
     def test_direct_mop_gets_full_score(self, config, context_with_untested_inputs):
-        """directly_reaches_mop=True gets direct score regardless of untested inputs."""
+        """directly_reaches_target=True gets direct score regardless of untested inputs."""
         scorer = MopScorer(config=config)
 
         action = MagicMock()
-        action.directly_reaches_mop = True
-        action.reaches_mop = True
+        action.directly_reaches_target = True
+        action.reaches_target = True
 
         score = scorer.score(action, context_with_untested_inputs)
         assert score == config.mop_direct_score
@@ -49,12 +49,12 @@ class TestMopScorerScoring:
     def test_transitive_mop_gets_transitive_score(
         self, config, context_with_untested_inputs
     ):
-        """reaches_mop=True (not direct) gets transitive score."""
+        """reaches_target=True (not direct) gets transitive score."""
         scorer = MopScorer(config=config)
 
         action = MagicMock()
-        action.directly_reaches_mop = False
-        action.reaches_mop = True
+        action.directly_reaches_target = False
+        action.reaches_target = True
 
         score = scorer.score(action, context_with_untested_inputs)
         assert score == config.mop_transitive_score
@@ -62,12 +62,12 @@ class TestMopScorerScoring:
     def test_full_score_when_no_untested_inputs(
         self, config, context_without_untested_inputs
     ):
-        """directly_reaches_mop=True gets full score when no untested inputs."""
+        """directly_reaches_target=True gets full score when no untested inputs."""
         scorer = MopScorer(config=config)
 
         action = MagicMock()
-        action.directly_reaches_mop = True
-        action.reaches_mop = True
+        action.directly_reaches_target = True
+        action.reaches_target = True
 
         score = scorer.score(action, context_without_untested_inputs)
         assert (

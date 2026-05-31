@@ -45,8 +45,8 @@ def _make_interactive_item(
     bounds=None,
     resource_id="",
     content_desc="",
-    reaches_mop=False,
-    directly_reaches_mop=False,
+    reaches_target=False,
+    directly_reaches_target=False,
 ):
     """Helper to create a mock interactive item with actions (required by current format_ui_elements)."""
     item = MagicMock()
@@ -60,8 +60,8 @@ def _make_interactive_item(
 
     action = MagicMock(spec=ItemAction)
     action.text = "click"
-    action.directly_reaches_mop = directly_reaches_mop
-    action.reaches_mop = reaches_mop
+    action.directly_reaches_target = directly_reaches_target
+    action.reaches_target = reaches_target
     action.event = "click"
     item.actions = [action]
 
@@ -243,7 +243,7 @@ class TestProcessElement:
     def test_process_element_with_mop_direct(self, processor):
         """Element with direct MOP marker gets [DM] and bonus score."""
         item = _make_interactive_item(
-            "android.widget.Button", text="Encrypt", directly_reaches_mop=True
+            "android.widget.Button", text="Encrypt", directly_reaches_target=True
         )
 
         result = processor._process_element(item, "screen_hash")
@@ -255,7 +255,7 @@ class TestProcessElement:
     def test_process_element_with_mop_transitive(self, processor):
         """Element with transitive MOP marker gets [M] and bonus score."""
         item = _make_interactive_item(
-            "android.widget.Button", text="Settings", reaches_mop=True
+            "android.widget.Button", text="Settings", reaches_target=True
         )
 
         result = processor._process_element(item, "screen_hash")
@@ -269,8 +269,8 @@ class TestProcessElement:
         item = _make_interactive_item(
             "android.widget.Button",
             text="Submit",
-            directly_reaches_mop=True,
-            reaches_mop=True,
+            directly_reaches_target=True,
+            reaches_target=True,
         )
 
         result = processor._process_element(item, "screen_hash")

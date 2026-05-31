@@ -64,13 +64,13 @@ class TestMopBfsDepthLimit:
         static_data.classes.methods = {
             f"{mop_activity_name}.doSomething()V": MagicMock(
                 class_name=mop_activity_name,
-                reaches_mop=True,
-                directly_reaches_mop=False,
+                reaches_target=True,
+                directly_reaches_target=False,
             ),
             f"{mop_activity_name}.doMore()V": MagicMock(
                 class_name=mop_activity_name,
-                reaches_mop=True,
-                directly_reaches_mop=False,
+                reaches_target=True,
+                directly_reaches_target=False,
             ),
         }
 

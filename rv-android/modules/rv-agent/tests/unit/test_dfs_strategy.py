@@ -42,8 +42,8 @@ def mock_action():
     action.target_view = {"class": "android.widget.Button", "system_action": False}
     action.get_execution_coordinates.return_value = (150, 150)
     action.coords_for_matching = ((150, 150), "CLICK")
-    action.directly_reaches_mop = False
-    action.reaches_mop = False
+    action.directly_reaches_target = False
+    action.reaches_target = False
     return action
 
 
@@ -266,8 +266,8 @@ class TestDFSStrategyMOPPriority:
     def test_direct_mop_priority(self, dfs_strategy):
         """Test [DM] priority = 3."""
         action = MagicMock()
-        action.directly_reaches_mop = True
-        action.reaches_mop = True
+        action.directly_reaches_target = True
+        action.reaches_target = True
 
         priority = dfs_strategy._get_mop_priority(action)
 
@@ -276,8 +276,8 @@ class TestDFSStrategyMOPPriority:
     def test_transitive_mop_priority(self, dfs_strategy):
         """Test [M] priority = 2."""
         action = MagicMock()
-        action.directly_reaches_mop = False
-        action.reaches_mop = True
+        action.directly_reaches_target = False
+        action.reaches_target = True
 
         priority = dfs_strategy._get_mop_priority(action)
 
@@ -286,8 +286,8 @@ class TestDFSStrategyMOPPriority:
     def test_regular_action_priority(self, dfs_strategy):
         """Test regular action priority = 1."""
         action = MagicMock()
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         priority = dfs_strategy._get_mop_priority(action)
 
@@ -305,16 +305,16 @@ class TestDFSStrategySelectPriorityAction:
     def test_selects_highest_priority(self, dfs_strategy):
         """Test that highest priority action is selected."""
         action_dm = MagicMock()
-        action_dm.directly_reaches_mop = True
-        action_dm.reaches_mop = True
+        action_dm.directly_reaches_target = True
+        action_dm.reaches_target = True
 
         action_m = MagicMock()
-        action_m.directly_reaches_mop = False
-        action_m.reaches_mop = True
+        action_m.directly_reaches_target = False
+        action_m.reaches_target = True
 
         action_regular = MagicMock()
-        action_regular.directly_reaches_mop = False
-        action_regular.reaches_mop = False
+        action_regular.directly_reaches_target = False
+        action_regular.reaches_target = False
 
         # Order doesn't matter - should select DM
         actions = [action_regular, action_m, action_dm]
@@ -541,16 +541,16 @@ class TestDFSStrategyIntegration:
         action1.coords_for_matching = ((100, 100), "CLICK")
         action1.target_view = {"system_action": False}
         action1.get_execution_coordinates.return_value = (100, 100)
-        action1.directly_reaches_mop = False
-        action1.reaches_mop = False
+        action1.directly_reaches_target = False
+        action1.reaches_target = False
 
         action2 = MagicMock()
         action2.id = 2
         action2.coords_for_matching = ((200, 200), "CLICK")
         action2.target_view = {"system_action": False}
         action2.get_execution_coordinates.return_value = (200, 200)
-        action2.directly_reaches_mop = False
-        action2.reaches_mop = False
+        action2.directly_reaches_target = False
+        action2.reaches_target = False
 
         screen_desc = MagicMock()
         screen_desc.activity = "MainActivity"

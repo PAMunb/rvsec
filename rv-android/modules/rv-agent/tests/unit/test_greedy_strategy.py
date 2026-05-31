@@ -145,8 +145,8 @@ class TestCalculateActionValue:
     def test_base_value_unknown_action(self, strategy):
         """Unknown action starts with base value 0.5."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         signature = ((100, 200), "click")
         value = strategy._calculate_action_value(action, signature)
@@ -157,8 +157,8 @@ class TestCalculateActionValue:
     def test_value_with_direct_mop(self, strategy):
         """Direct MOP action gets +0.3 bonus."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = True
-        action.reaches_mop = False
+        action.directly_reaches_target = True
+        action.reaches_target = False
 
         signature = ((100, 200), "click")
         value = strategy._calculate_action_value(action, signature)
@@ -169,8 +169,8 @@ class TestCalculateActionValue:
     def test_value_with_transitive_mop(self, strategy):
         """Transitive MOP action gets +0.2 bonus."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = True
+        action.directly_reaches_target = False
+        action.reaches_target = True
 
         signature = ((100, 200), "click")
         value = strategy._calculate_action_value(action, signature)
@@ -181,8 +181,8 @@ class TestCalculateActionValue:
     def test_value_with_discovery_history(self, strategy):
         """Action with discovery history gets bonus."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         signature = ((100, 200), "click")
 
@@ -198,8 +198,8 @@ class TestCalculateActionValue:
     def test_value_diminishing_exploration_bonus(self, strategy):
         """Tried actions get diminishing exploration bonus."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         signature = ((100, 200), "click")
         strategy.action_attempts[signature] = 10
@@ -290,8 +290,8 @@ class TestGetMopPriority:
     def test_priority_direct_mop(self, strategy):
         """Direct MOP action has priority 3."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = True
-        action.reaches_mop = False
+        action.directly_reaches_target = True
+        action.reaches_target = False
 
         priority = strategy._get_mop_priority(action)
         assert priority == 3
@@ -299,8 +299,8 @@ class TestGetMopPriority:
     def test_priority_transitive_mop(self, strategy):
         """Transitive MOP action has priority 2."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = True
+        action.directly_reaches_target = False
+        action.reaches_target = True
 
         priority = strategy._get_mop_priority(action)
         assert priority == 2
@@ -308,8 +308,8 @@ class TestGetMopPriority:
     def test_priority_no_mop(self, strategy):
         """Non-MOP action has priority 1."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         priority = strategy._get_mop_priority(action)
         assert priority == 1
@@ -502,8 +502,8 @@ class TestSelectNextAction:
         action.coords_for_matching = ((500, 500), "click")
         action.target_view = {"system_action": False}
         action.get_execution_coordinates.return_value = (500, 500)
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         screen_desc.get_all_actions.return_value = [action]
         screen_desc.items = []
@@ -550,8 +550,8 @@ class TestSelectNextAction:
         action_no_mop.coords_for_matching = ((100, 500), "click")
         action_no_mop.target_view = {"system_action": False}
         action_no_mop.get_execution_coordinates.return_value = (100, 500)
-        action_no_mop.directly_reaches_mop = False
-        action_no_mop.reaches_mop = False
+        action_no_mop.directly_reaches_target = False
+        action_no_mop.reaches_target = False
 
         action_with_mop = MagicMock(spec=ItemAction)
         action_with_mop.id = "action_with_mop"
@@ -559,8 +559,8 @@ class TestSelectNextAction:
         action_with_mop.coords_for_matching = ((200, 500), "click")
         action_with_mop.target_view = {"system_action": False}
         action_with_mop.get_execution_coordinates.return_value = (200, 500)
-        action_with_mop.directly_reaches_mop = True
-        action_with_mop.reaches_mop = False
+        action_with_mop.directly_reaches_target = True
+        action_with_mop.reaches_target = False
 
         screen_desc.get_all_actions.return_value = [action_no_mop, action_with_mop]
 
@@ -585,8 +585,8 @@ class TestSelectNextAction:
         action1.coords_for_matching = ((100, 500), "click")
         action1.target_view = {"system_action": False}
         action1.get_execution_coordinates.return_value = (100, 500)
-        action1.directly_reaches_mop = False
-        action1.reaches_mop = False
+        action1.directly_reaches_target = False
+        action1.reaches_target = False
 
         action2 = MagicMock(spec=ItemAction)
         action2.id = "action2"
@@ -594,8 +594,8 @@ class TestSelectNextAction:
         action2.coords_for_matching = ((200, 500), "click")
         action2.target_view = {"system_action": False}
         action2.get_execution_coordinates.return_value = (200, 500)
-        action2.directly_reaches_mop = False
-        action2.reaches_mop = False
+        action2.directly_reaches_target = False
+        action2.reaches_target = False
 
         screen_desc.get_all_actions.return_value = [action1, action2]
 
@@ -620,8 +620,8 @@ class TestSelectNextAction:
         action.coords_for_matching = ((500, 500), "click")
         action.target_view = {"system_action": False}
         action.get_execution_coordinates.return_value = (500, 500)
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         screen_desc.get_all_actions.return_value = [action]
 
@@ -636,8 +636,8 @@ class TestSelectNextAction:
         action2.coords_for_matching = ((600, 600), "click")
         action2.target_view = {"system_action": False}
         action2.get_execution_coordinates.return_value = (600, 600)
-        action2.directly_reaches_mop = False
-        action2.reaches_mop = False
+        action2.directly_reaches_target = False
+        action2.reaches_target = False
 
         screen_desc.get_all_actions.return_value = [action, action2]
 

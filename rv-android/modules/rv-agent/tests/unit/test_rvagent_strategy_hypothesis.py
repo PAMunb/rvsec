@@ -20,8 +20,8 @@ item_action_strategy = st.builds(
     id=st.integers(min_value=0),
     text=st.text(max_size=20),
     event=st.sampled_from(list(WidgetEventType)),
-    reaches_mop=st.booleans(),
-    directly_reaches_mop=st.booleans(),
+    reaches_target=st.booleans(),
+    directly_reaches_target=st.booleans(),
     target_view=st.fixed_dictionaries({}),
     coordinates=st.tuples(
         st.integers(min_value=0, max_value=1080),
@@ -53,16 +53,16 @@ class TestRVAgentStrategyHypothesis:
 
         # Ensure at least one action is a direct MOP
         if len(actions) > 0:
-            actions[0].directly_reaches_mop = True
-            actions[0].reaches_mop = True
+            actions[0].directly_reaches_target = True
+            actions[0].reaches_target = True
 
         # Ensure other actions are not direct MOPs
         for i in range(1, len(actions)):
-            actions[i].directly_reaches_mop = False
+            actions[i].directly_reaches_target = False
 
         selected = strategy._select_priority_action(actions, MagicMock())
 
-        assert selected.directly_reaches_mop is True
+        assert selected.directly_reaches_target is True
 
     @given(actions=st.lists(item_action_strategy, min_size=1, max_size=10))
     @settings(deadline=500, max_examples=20)
@@ -72,20 +72,20 @@ class TestRVAgentStrategyHypothesis:
 
         # Ensure no direct MOPs
         for action in actions:
-            action.directly_reaches_mop = False
+            action.directly_reaches_target = False
 
         # Ensure at least one is a transitive MOP
         if len(actions) > 0:
-            actions[0].reaches_mop = True
+            actions[0].reaches_target = True
 
         # Ensure others are not transitive MOPs
         for i in range(1, len(actions)):
-            actions[i].reaches_mop = False
+            actions[i].reaches_target = False
 
         selected = strategy._select_priority_action(actions, MagicMock())
 
-        assert selected.reaches_mop is True
-        assert selected.directly_reaches_mop is False
+        assert selected.reaches_target is True
+        assert selected.directly_reaches_target is False
 
     @given(
         x=st.integers(min_value=0, max_value=1080),

@@ -212,8 +212,8 @@ class TestTier4SystemActionFilter:
         real_action.event.name = "CLICK"
         real_action.id = 1
         real_action.widget_id = "btn1"
-        real_action.reaches_mop = False
-        real_action.directly_reaches_mop = False
+        real_action.reaches_target = False
+        real_action.directly_reaches_target = False
         real_action.text_input = None
         real_action.callback_signature = None
 
@@ -225,8 +225,8 @@ class TestTier4SystemActionFilter:
         back_action.event.name = "BACK"
         back_action.id = 999
         back_action.widget_id = None
-        back_action.reaches_mop = False
-        back_action.directly_reaches_mop = False
+        back_action.reaches_target = False
+        back_action.directly_reaches_target = False
         back_action.text_input = None
         back_action.callback_signature = None
 

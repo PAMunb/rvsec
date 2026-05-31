@@ -65,7 +65,7 @@ class TestMemoryAction:
         assert action.action_type == "click"
         assert action.execution_count == 0
         assert action.success_count == 0
-        assert action.reaches_mop is False
+        assert action.reaches_target is False
 
     def test_success_rate_no_executions(self):
         """Success rate is 0 with no executions."""

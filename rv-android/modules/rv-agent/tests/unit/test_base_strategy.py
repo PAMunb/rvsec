@@ -72,34 +72,34 @@ class TestHasMopMarker:
         return DFSStrategy(graph=graph)
 
     def test_has_direct_mop(self, strategy):
-        """Action with directly_reaches_mop returns True."""
+        """Action with directly_reaches_target returns True."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = True
-        action.reaches_mop = False
+        action.directly_reaches_target = True
+        action.reaches_target = False
 
         assert strategy._has_mop_marker(action) is True
 
     def test_has_transitive_mop(self, strategy):
-        """Action with reaches_mop returns True."""
+        """Action with reaches_target returns True."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = True
+        action.directly_reaches_target = False
+        action.reaches_target = True
 
         assert strategy._has_mop_marker(action) is True
 
     def test_has_both_mop(self, strategy):
         """Action with both MOP markers returns True."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = True
-        action.reaches_mop = True
+        action.directly_reaches_target = True
+        action.reaches_target = True
 
         assert strategy._has_mop_marker(action) is True
 
     def test_no_mop(self, strategy):
         """Action without MOP markers returns False."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
-        action.reaches_mop = False
+        action.directly_reaches_target = False
+        action.reaches_target = False
 
         assert strategy._has_mop_marker(action) is False
 
@@ -119,16 +119,16 @@ class TestIsDirectMop:
         return DFSStrategy(graph=graph)
 
     def test_is_direct_mop_true(self, strategy):
-        """Action with directly_reaches_mop returns True."""
+        """Action with directly_reaches_target returns True."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = True
+        action.directly_reaches_target = True
 
         assert strategy._is_direct_mop(action) is True
 
     def test_is_direct_mop_false(self, strategy):
-        """Action without directly_reaches_mop returns False."""
+        """Action without directly_reaches_target returns False."""
         action = MagicMock(spec=ItemAction)
-        action.directly_reaches_mop = False
+        action.directly_reaches_target = False
 
         assert strategy._is_direct_mop(action) is False
 

@@ -2,7 +2,7 @@
 Tests for Group 32 fixes (MOP priority + input variation).
 
 Covers three related changes:
-(a) directly_reaches_mop gets higher priority (+50) than reaches_mop (+25)
+(a) directly_reaches_target gets higher priority (+50) than reaches_target (+25)
     in TransitionManager._calculate_target_priority()
 (b) has_remaining_values() uses mop_max_variations (default 11) when is_mop=True
     instead of max_variations (default 5), so MOP fields get more test cycles
@@ -18,12 +18,12 @@ from rv_agent.strategies.rvagent_strategy.input_value_generator import (
 )
 
 # ---------------------------------------------------------------------------
-# (a) Priority scoring: directly_reaches_mop > reaches_mop
+# (a) Priority scoring: directly_reaches_target > reaches_target
 # ---------------------------------------------------------------------------
 
 
 class TestMopPriorityScoring:
-    """Verify directly_reaches_mop (+50) outranks reaches_mop (+25)."""
+    """Verify directly_reaches_target (+50) outranks reaches_target (+25)."""
 
     def _make_manager_with_widget(
         self, directly: bool, indirect: bool
@@ -31,8 +31,8 @@ class TestMopPriorityScoring:
         """Build a TransitionManager wired so the target widget has the given MOP flags."""
         # Minimal method mock with the two MOP flags
         method = MagicMock()
-        method.directly_reaches_mop = directly
-        method.reaches_mop = indirect
+        method.directly_reaches_target = directly
+        method.reaches_target = indirect
 
         # Event whose signature resolves to the method above
         event = MagicMock()
@@ -51,26 +51,26 @@ class TestMopPriorityScoring:
         manager = TransitionManager(static_data, dynamic_graph)
         return manager
 
-    def test_directly_reaches_mop_adds_50(self):
-        """directly_reaches_mop flag contributes +50 to target priority."""
+    def test_directly_reaches_target_adds_50(self):
+        """directly_reaches_target flag contributes +50 to target priority."""
         manager = self._make_manager_with_widget(directly=True, indirect=False)
         priority = manager._calculate_target_priority(
             target_id="w99", visited=True, widget_id="w1"
         )
-        # visited=True → no +100; directly_reaches_mop → +50
+        # visited=True → no +100; directly_reaches_target → +50
         assert priority == 50
 
-    def test_reaches_mop_adds_25(self):
-        """reaches_mop flag (indirect) contributes +25 to target priority."""
+    def test_reaches_target_adds_25(self):
+        """reaches_target flag (indirect) contributes +25 to target priority."""
         manager = self._make_manager_with_widget(directly=False, indirect=True)
         priority = manager._calculate_target_priority(
             target_id="w99", visited=True, widget_id="w1"
         )
-        # visited=True → no +100; reaches_mop only → +25
+        # visited=True → no +100; reaches_target only → +25
         assert priority == 25
 
-    def test_directly_reaches_mop_outranks_reaches_mop(self):
-        """directly_reaches_mop priority is strictly higher than reaches_mop priority."""
+    def test_directly_reaches_target_outranks_reaches_target(self):
+        """directly_reaches_target priority is strictly higher than reaches_target priority."""
         manager_direct = self._make_manager_with_widget(directly=True, indirect=False)
         manager_indirect = self._make_manager_with_widget(directly=False, indirect=True)
 
@@ -83,12 +83,12 @@ class TestMopPriorityScoring:
         assert p_direct > p_indirect
 
     def test_unvisited_bonus_stacks_with_mop_priority(self):
-        """Unvisited (+100) and directly_reaches_mop (+50) both contribute."""
+        """Unvisited (+100) and directly_reaches_target (+50) both contribute."""
         manager = self._make_manager_with_widget(directly=True, indirect=False)
         priority = manager._calculate_target_priority(
             target_id="w99", visited=False, widget_id="w1"
         )
-        # unvisited +100 + directly_reaches_mop +50 = 150
+        # unvisited +100 + directly_reaches_target +50 = 150
         assert priority == 150
 
     def test_no_widget_gives_only_visited_bonus(self):

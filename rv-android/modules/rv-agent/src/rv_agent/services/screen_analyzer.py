@@ -349,10 +349,10 @@ class ScreenProcessor:
         mop_marker = ""
         if hasattr(item, "actions") and item.actions:
             action = item.actions[0]
-            if action.directly_reaches_mop:
+            if action.directly_reaches_target:
                 mop_bonus = 100
                 mop_marker = " [DM]"
-            elif action.reaches_mop:
+            elif action.reaches_target:
                 mop_bonus = 50
                 mop_marker = " [M]"
 

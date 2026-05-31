@@ -72,16 +72,16 @@ class TestScorerWeightDefaults:
         action_high = MagicMock()
         action_high.coordinates = (100, 100)
         action_high.target_view = {"class": "Button"}
-        action_high.directly_reaches_mop = True
-        action_high.reaches_mop = True
+        action_high.directly_reaches_target = True
+        action_high.reaches_target = True
         action_high.event = MagicMock(name="CLICK")
         action_high.widget_id = "btn_high"
 
         action_low = MagicMock()
         action_low.coordinates = (200, 200)
         action_low.target_view = {"class": "TextView"}
-        action_low.directly_reaches_mop = False
-        action_low.reaches_mop = False
+        action_low.directly_reaches_target = False
+        action_low.reaches_target = False
         action_low.event = MagicMock(name="CLICK")
         action_low.widget_id = "btn_low"
 

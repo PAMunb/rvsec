@@ -20,13 +20,13 @@ def _make_window(window_id, name, activity=""):
     return w
 
 
-def _make_method(class_name, name, reaches_mop=False, directly_reaches_mop=False):
+def _make_method(class_name, name, reaches_target=False, directly_reaches_target=False):
     """Create a mock Method object."""
     m = MagicMock()
     m.class_name = class_name
     m.name = name
-    m.reaches_mop = reaches_mop
-    m.directly_reaches_mop = directly_reaches_mop
+    m.reaches_target = reaches_target
+    m.directly_reaches_target = directly_reaches_target
     return m
 
 
@@ -92,7 +92,7 @@ class TestPlanPathToMopActivity:
 
         methods = {
             "com.example.ActivityB.doEncrypt": _make_method(
-                "com.example.ActivityB", "doEncrypt", reaches_mop=True
+                "com.example.ActivityB", "doEncrypt", reaches_target=True
             ),
         }
 
@@ -115,7 +115,7 @@ class TestPlanPathToMopActivity:
         assert result is not None
         assert len(result) == 1
         assert result[0]["widget_id"] == "btn1"
-        assert result[0]["reaches_mop"] is True
+        assert result[0]["reaches_target"] is True
         assert result[0]["coordinates"] == (200, 300)
 
     def test_two_hop_path_to_mop(self):
@@ -126,7 +126,7 @@ class TestPlanPathToMopActivity:
 
         methods = {
             "com.example.ActivityC.decrypt": _make_method(
-                "com.example.ActivityC", "decrypt", directly_reaches_mop=True
+                "com.example.ActivityC", "decrypt", directly_reaches_target=True
             ),
         }
 
@@ -191,16 +191,16 @@ class TestPlanPathToMopActivity:
 
         methods = {
             "com.example.ActivityB.m1": _make_method(
-                "com.example.ActivityB", "m1", reaches_mop=True
+                "com.example.ActivityB", "m1", reaches_target=True
             ),
             "com.example.ActivityC.m1": _make_method(
-                "com.example.ActivityC", "m1", reaches_mop=True
+                "com.example.ActivityC", "m1", reaches_target=True
             ),
             "com.example.ActivityC.m2": _make_method(
-                "com.example.ActivityC", "m2", directly_reaches_mop=True
+                "com.example.ActivityC", "m2", directly_reaches_target=True
             ),
             "com.example.ActivityC.m3": _make_method(
-                "com.example.ActivityC", "m3", reaches_mop=True
+                "com.example.ActivityC", "m3", reaches_target=True
             ),
         }
 
@@ -277,7 +277,7 @@ class TestPlanPathToMopActivity:
 
         methods = {
             "com.example.ActivityB.doEncrypt": _make_method(
-                "com.example.ActivityB", "doEncrypt", reaches_mop=True
+                "com.example.ActivityB", "doEncrypt", reaches_target=True
             ),
         }
 
@@ -303,7 +303,7 @@ class TestPlanPathToMopActivity:
 
         methods = {
             "com.example.ActivityB.doEncrypt": _make_method(
-                "com.example.ActivityB", "doEncrypt", reaches_mop=True
+                "com.example.ActivityB", "doEncrypt", reaches_target=True
             ),
         }
 
@@ -334,7 +334,7 @@ class TestPlanPathToMopActivity:
 
         methods = {
             "com.example.EncryptActivity.doEncrypt": _make_method(
-                "com.example.EncryptActivity", "doEncrypt", reaches_mop=True
+                "com.example.EncryptActivity", "doEncrypt", reaches_target=True
             ),
         }
 
@@ -366,24 +366,24 @@ class TestCountMopMethodsForActivity:
     """Test _count_mop_methods_for_activity helper."""
 
     def test_counts_reaches_and_direct(self):
-        """Counts both reaches_mop and directly_reaches_mop methods."""
+        """Counts both reaches_target and directly_reaches_target methods."""
         win_a = _make_window("w1", "ActivityA", activity="com.example.ActivityA")
 
         methods = {
             "com.example.ActivityA.m1": _make_method(
-                "com.example.ActivityA", "m1", reaches_mop=True
+                "com.example.ActivityA", "m1", reaches_target=True
             ),
             "com.example.ActivityA.m2": _make_method(
-                "com.example.ActivityA", "m2", directly_reaches_mop=True
+                "com.example.ActivityA", "m2", directly_reaches_target=True
             ),
             "com.example.ActivityA.m3": _make_method(
                 "com.example.ActivityA",
                 "m3",
-                reaches_mop=False,
-                directly_reaches_mop=False,
+                reaches_target=False,
+                directly_reaches_target=False,
             ),
             "com.example.Other.m4": _make_method(
-                "com.example.Other", "m4", reaches_mop=True
+                "com.example.Other", "m4", reaches_target=True
             ),
         }
 

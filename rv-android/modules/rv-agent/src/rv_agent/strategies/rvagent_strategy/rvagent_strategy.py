@@ -650,7 +650,7 @@ class RVAgentStrategy(ExplorationStrategy):
         logger.info(
             f"Selected action: {selected_action.event.name} "
             f"(priority="
-            f"{'[DM]' if selected_action.directly_reaches_mop else '[M]' if selected_action.reaches_mop else 'UI'})"
+            f"{'[DM]' if selected_action.directly_reaches_target else '[M]' if selected_action.reaches_target else 'UI'})"
         )
 
         return selected_action
@@ -763,8 +763,8 @@ class RVAgentStrategy(ExplorationStrategy):
             id=self.BACK_ACTION_ID,
             text="BACK",
             event=WidgetEventType.BACK,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
             target_view={"system_action": True, "class": "SystemAction_BACK"},
             coordinates=None,
             text_input=None,
@@ -784,8 +784,8 @@ class RVAgentStrategy(ExplorationStrategy):
             id=self.BACK_ACTION_ID,
             text=f"RESTART_APP:{self.target_package}",
             event=WidgetEventType.RESTART,
-            reaches_mop=False,
-            directly_reaches_mop=False,
+            reaches_target=False,
+            directly_reaches_target=False,
             target_view={
                 "system_action": True,
                 "class": "SystemAction_RESTART",
@@ -885,7 +885,7 @@ class RVAgentStrategy(ExplorationStrategy):
             exec_count = node.get_action_execution_count(action.coords_for_matching)
             # MOP priority: DM=3, M=2, regular=1
             mop_priority = (
-                3 if action.directly_reaches_mop else (2 if action.reaches_mop else 1)
+                3 if action.directly_reaches_target else (2 if action.reaches_target else 1)
             )
             # Sort by: (exec_count ASC, -mop_priority DESC)
             # Lower exec_count first, then higher MOP priority
@@ -944,8 +944,8 @@ class RVAgentStrategy(ExplorationStrategy):
             coords = action.coordinates if action.coordinates else (0, 0)
             priority = (
                 "DM"
-                if action.directly_reaches_mop
-                else ("M" if action.reaches_mop else "")
+                if action.directly_reaches_target
+                else ("M" if action.reaches_target else "")
             )
             action_type = action.event.name if action.event else "UNKNOWN"
 
@@ -989,8 +989,8 @@ class RVAgentStrategy(ExplorationStrategy):
         if selected:
             priority = (
                 "DM"
-                if selected.directly_reaches_mop
-                else ("M" if selected.reaches_mop else "UI")
+                if selected.directly_reaches_target
+                else ("M" if selected.reaches_target else "UI")
             )
             coords = selected.coordinates if selected.coordinates else (0, 0)
             score = self.action_ranker.score_action(selected, context)
@@ -1119,7 +1119,7 @@ class RVAgentStrategy(ExplorationStrategy):
                 if action.coordinates
                 else None
             )
-            is_mop = action.reaches_mop or action.directly_reaches_mop
+            is_mop = action.reaches_target or action.directly_reaches_target
             if element_id and self.value_generator.has_remaining_values(
                 element_id, is_mop=is_mop
             ):
@@ -1173,7 +1173,7 @@ class RVAgentStrategy(ExplorationStrategy):
             Action with test value, or None if exhausted
         """
         element_id = action.widget_id or make_element_id_from_tuple(action.coordinates)
-        is_mop = action.reaches_mop or action.directly_reaches_mop
+        is_mop = action.reaches_target or action.directly_reaches_target
 
         # Infer input type from target_view (password flag > hint > content_desc > resource_id)
         input_type = _infer_input_type(action.target_view)

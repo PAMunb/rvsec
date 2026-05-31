@@ -67,12 +67,12 @@ def _make_window(window_id, name, activity=""):
     return w
 
 
-def _make_method(class_name, reaches_mop=False, directly_reaches_mop=False):
+def _make_method(class_name, reaches_target=False, directly_reaches_target=False):
     """Create a mock Method object."""
     m = MagicMock()
     m.class_name = class_name
-    m.reaches_mop = reaches_mop
-    m.directly_reaches_mop = directly_reaches_mop
+    m.reaches_target = reaches_target
+    m.directly_reaches_target = directly_reaches_target
     return m
 
 
@@ -126,7 +126,7 @@ def _make_transition_manager_with_mop(
     classes = MagicMock()
     classes.methods = {
         f"{target_activity}.doSomething": _make_method(
-            target_activity, reaches_mop=True
+            target_activity, reaches_target=True
         )
     }
     static_data.classes = classes
@@ -180,7 +180,7 @@ class TestStepOneOnlyResolution:
             len(result) == 1
         ), "Only step 1 should be returned regardless of path length"
         assert result[0]["coordinates"] == (150, 300)
-        assert result[0]["reaches_mop"] is True
+        assert result[0]["reaches_target"] is True
 
     def test_direct_hop_returns_single_action_with_coords(self):
         """Direct (1-hop) path also returns exactly one action with coordinates."""
@@ -294,8 +294,8 @@ class TestCooldownExpiry:
                 "widget_id": "btn1",
                 "target_activity": "com.example.TargetActivity",
                 "text": "Navigate",
-                "reaches_mop": True,
-                "directly_reaches_mop": False,
+                "reaches_target": True,
+                "directly_reaches_target": False,
                 "coordinates": (100, 200),
                 "target_view": {},
             }
@@ -339,8 +339,8 @@ class TestCooldownReplanningAllowed:
                 "widget_id": "btn_mop",
                 "target_activity": "com.example.TargetActivity",
                 "text": "Navigate to TargetActivity",
-                "reaches_mop": True,
-                "directly_reaches_mop": False,
+                "reaches_target": True,
+                "directly_reaches_target": False,
                 "coordinates": (300, 500),
                 "target_view": {"class": "android.widget.Button"},
             }
@@ -422,8 +422,8 @@ class TestCooldownReplanningAllowed:
                 "widget_id": "btn_b",
                 "target_activity": "com.example.TargetB",
                 "text": "Go",
-                "reaches_mop": True,
-                "directly_reaches_mop": False,
+                "reaches_target": True,
+                "directly_reaches_target": False,
                 "coordinates": (100, 200),
                 "target_view": {},
             }
@@ -475,8 +475,8 @@ class TestMopResolveTracking:
                 "widget_id": "btn_ok",
                 "target_activity": "com.example.TargetActivity",
                 "text": "Navigate",
-                "reaches_mop": True,
-                "directly_reaches_mop": False,
+                "reaches_target": True,
+                "directly_reaches_target": False,
                 "coordinates": (250, 400),
                 "target_view": {"class": "android.widget.Button"},
             }

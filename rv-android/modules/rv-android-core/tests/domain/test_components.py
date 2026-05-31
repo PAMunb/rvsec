@@ -1,7 +1,12 @@
 """Tests for Components domain models."""
 
 import pytest
-from rv_android_core.domain.components import ComponentInfo, Components, IntentFilter
+from rv_android_core.domain.components import (
+    ComponentInfo,
+    Components,
+    IntentFilter,
+    ProviderComponentInfo,
+)
 
 
 class TestIntentFilter:
@@ -112,7 +117,7 @@ class TestComponents:
                 ),
             ],
             providers=[
-                ComponentInfo(
+                ProviderComponentInfo(
                     class_name="com.example.DataProvider",
                     component_type="provider",
                     authorities="com.example.data",

@@ -76,8 +76,8 @@ def _make_screen_desc(activity=".MainActivity", items=None):
                 "bounds": [[50 + i * 100, 450], [150 + i * 100, 550]],
             }
             action.widget_id = f"btn_{i}"
-            action.reaches_mop = False
-            action.directly_reaches_mop = False
+            action.reaches_target = False
+            action.directly_reaches_target = False
             action.callback_signature = None
             mock_actions.append(action)
 

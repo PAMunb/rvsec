@@ -82,9 +82,9 @@ class MopScorer(Scorer):
             self.transitive_score = self.DEFAULT_TRANSITIVE_SCORE
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
-        if action.directly_reaches_mop:
+        if action.directly_reaches_target:
             return self.direct_score
-        elif action.reaches_mop:
+        elif action.reaches_target:
             return self.transitive_score
         return 0.0
 
