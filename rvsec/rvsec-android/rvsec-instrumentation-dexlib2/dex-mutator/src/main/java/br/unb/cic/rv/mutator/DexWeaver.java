@@ -11,10 +11,13 @@ import br.unb.cic.rv.emitter.StaticInitializationEmitter;
 import br.unb.cic.rv.pointcut.CombinedPC;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
 import br.unb.cic.rv.pointcut.Match;
+import br.unb.cic.rv.pointcut.NamedRefPC;
+import br.unb.cic.rv.pointcut.NotWithinPC;
 import br.unb.cic.rv.pointcut.PointcutExpression;
 import br.unb.cic.rv.pointcut.PointcutExpressionParser;
 import br.unb.cic.rv.pointcut.PointcutMatcher;
 import br.unb.cic.rv.pointcut.TypeResolver;
+import br.unb.cic.rv.pointcut.WithinPC;
 
 import br.unb.cic.rv.emitter.WrapperEmitter;
 
@@ -93,6 +96,18 @@ public final class DexWeaver {
      * original parent FQN key). Surfaced via {@link WeaveReport#wrappersAliasedToSubtype}.
      */
     private int wrappersAliasedToSubtype;
+
+    /**
+     * §4.PERF.P2.1 instrumentation counter: number of times the class-invariant
+     * {@code commonPointcut} verdict was evaluated during the last {@link #weave} call.
+     * With the per-class hoist this is O(classes), not O(classes x methods x
+     * instructions x advices). Exposed for the performance non-regression test.
+     */
+    private int commonAstEvals;
+
+    public int getCommonAstEvals() {
+        return commonAstEvals;
+    }
 
     public DexWeaver() {
         this(new EmitterDispatch(), new RegisterAllocator(),
@@ -282,6 +297,16 @@ public final class DexWeaver {
         List<String> baseAspectExclusions = descriptor.getBaseAspectExclusions();
         String aspectName = descriptor.getAspectName();
 
+        // §4.PERF.P2.1: the commonPointcut verdict depends ONLY on the class — its clauses
+        // (within / notwithin / adviceexecution / BaseAspect.notwithin()) read only classDef and
+        // bind nothing. When the parsed tree is class-invariant we evaluate it once per class (a
+        // synthetic-probe gate at the top of the for-ClassDef loop) instead of AND-ing it into
+        // every (instruction x advice) match. If the tree ever carried an instruction-dependent
+        // clause (call/execution/staticinitialization/this/target/args) we fall back to the
+        // per-instruction composition for correctness.
+        boolean hoistCommon = commonAst != null && isClassInvariant(commonAst);
+        commonAstEvals = 0;
+
         int classesSeen = 0;
         int methodsSeen = 0;
         int matchesApplied = 0;
@@ -312,6 +337,20 @@ public final class DexWeaver {
 
         for (ClassDef classDef : dexFile.getClasses()) {
             classesSeen++;
+            // §4.PERF.P2.1: per-class commonPointcut gate. The commonPointcut is class-invariant
+            // (§4.D.0 — its exclusions gate the match at the class level). When hoisted we evaluate
+            // it ONCE here; a class it rejects emits NOTHING (the `continue` skips every method,
+            // instruction, and advice — exactly the per-instruction AND would have done). When
+            // hoisted, `perInstructionCommon` is null so the inner loop matches the advice pe alone.
+            PointcutExpression perInstructionCommon = commonAst;
+            if (hoistCommon) {
+                commonAstEvals++;
+                if (!classMatchesCommon(matcher, commonAst, classDef,
+                        baseAspectExclusions, aspectName)) {
+                    continue;
+                }
+                perInstructionCommon = null;
+            }
             for (Method method : classDef.getMethods()) {
                 methodsSeen++;
                 MethodImplementation impl = method.getImplementation();
@@ -364,9 +403,11 @@ public final class DexWeaver {
                         if (pe == null) { plansSkipped++; continue; }
                         // §4.D.0: AND-compose the commonPointcut so its class-level exclusions gate
                         // the match. The matcher resolves BaseAspect.notwithin() against the
-                        // descriptor's baseAspectExclusions (passed below).
-                        PointcutExpression effective = (commonAst == null) ? pe
-                                : new CombinedPC(CombinedPC.Op.AND, commonAst, pe);
+                        // descriptor's baseAspectExclusions (passed below). §4.PERF.P2.1: when the
+                        // commonPointcut was hoisted to the per-class gate above, perInstructionCommon
+                        // is null and we match the advice pe alone (the class already passed the gate).
+                        PointcutExpression effective = (perInstructionCommon == null) ? pe
+                                : new CombinedPC(CombinedPC.Op.AND, perInstructionCommon, pe);
                         Optional<Match> m = matcher.match(effective, classDef, method, ins,
                                 idx, instructions.size(), instructions,
                                 baseAspectExclusions, aspectName);
@@ -528,13 +569,26 @@ public final class DexWeaver {
         int synthesized = 0;
         int prepended = 0;
 
+        // §4.PERF.P2.1: hoist the class-invariant commonPointcut gate out of the per-advice loop
+        // here too — evaluate it once per class instead of AND-ing it into every staticinit probe.
+        boolean hoistCommon = commonAst != null && isClassInvariant(commonAst);
+
         for (ClassDef classDef : dexFile.getClasses()) {
+            PointcutExpression perAdviceCommon = commonAst;
+            if (hoistCommon) {
+                commonAstEvals++;
+                if (!classMatchesCommon(matcher, commonAst, classDef,
+                        baseAspectExclusions, aspectName)) {
+                    continue;
+                }
+                perAdviceCommon = null;
+            }
             Method existingClinit = findClinit(classDef);
             for (AdviceDescriptor advice : siAdvices) {
                 PointcutExpression pe = parseCached(advice);
                 if (pe == null) continue;
-                PointcutExpression effective = (commonAst == null) ? pe
-                        : new CombinedPC(CombinedPC.Op.AND, commonAst, pe);
+                PointcutExpression effective = (perAdviceCommon == null) ? pe
+                        : new CombinedPC(CombinedPC.Op.AND, perAdviceCommon, pe);
                 if (!staticInitMatchesClass(matcher, effective, classDef,
                         baseAspectExclusions, aspectName)) {
                     continue;
@@ -633,6 +687,43 @@ public final class DexWeaver {
             // loop's conservative behaviour.
             return false;
         }
+    }
+
+    /**
+     * §4.PERF.P2.1: evaluate the class-invariant {@code commonPointcut} verdict ONCE for a class.
+     * The commonPointcut's clauses (within / notwithin / adviceexecution / BaseAspect.notwithin())
+     * read only {@code classDef}, so the {@code <clinit>} synthetic probe used by
+     * {@link #staticInitMatchesClass} resolves the verdict identically regardless of method or
+     * instruction — {@link #isClassInvariant} guarantees no instruction-dependent clause is present.
+     * Returning {@code false} makes the caller skip the entire class, which preserves §4.D.0 exactly
+     * (a class the commonPointcut rejects emits nothing).
+     */
+    private boolean classMatchesCommon(PointcutMatcher matcher, PointcutExpression commonAst,
+                                       ClassDef classDef, List<String> baseAspectExclusions,
+                                       String aspectName) {
+        return staticInitMatchesClass(matcher, commonAst, classDef,
+                baseAspectExclusions, aspectName);
+    }
+
+    /**
+     * §4.PERF.P2.1: true iff the pointcut tree's match verdict depends solely on the class — i.e.
+     * it is built only from {@link WithinPC}, {@link NotWithinPC}, the class-only {@link NamedRefPC}
+     * forms ({@code BaseAspect.notwithin()} which expands to a NotWithinPC AND-chain, and the
+     * vacuously-true {@code adviceexecution()} / {@code !adviceexecution()}), combined with
+     * {@code &&}/{@code ||}. Such a tree can be hoisted to a per-class gate. Any instruction-dependent
+     * clause (call / execution / staticinitialization / target / args / if / generic negation) makes
+     * it false, forcing the per-instruction fallback. The canonical commonPointcut
+     * ({@code !within(RVMObject+) && !adviceexecution() && BaseAspect.notwithin()}) is class-invariant.
+     */
+    private boolean isClassInvariant(PointcutExpression pe) {
+        if (pe instanceof CombinedPC combined) {
+            return isClassInvariant(combined.left()) && isClassInvariant(combined.right());
+        }
+        if (pe instanceof NamedRefPC named) {
+            String name = named.name();
+            return "BaseAspect.notwithin()".equals(name) || name.contains("adviceexecution");
+        }
+        return pe instanceof WithinPC || pe instanceof NotWithinPC;
     }
 
     /**
