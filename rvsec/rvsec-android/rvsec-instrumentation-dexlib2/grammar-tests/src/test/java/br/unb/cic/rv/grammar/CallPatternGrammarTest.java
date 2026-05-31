@@ -136,6 +136,21 @@ class CallPatternGrammarTest {
                 "|| must reject a method matching neither alternative");
     }
 
+    /** A {@code call()} on a nested-class owner matches by its dex descriptor. AspectJ spells the
+     *  owner with the binary {@code $} separator ({@code com.example.Outer$Inner}); the matcher
+     *  compares it against the invoke's {@code Lcom/example/Outer$Inner;} descriptor directly, so a
+     *  nested owner is matched end-to-end with no separate inner-class disambiguation pass, and the
+     *  enclosing class is correctly rejected. */
+    @Test
+    void innerClassOwnerMatchesByDexDescriptor() {
+        PointcutExpression pc = PointcutExpressionParser.parse(
+                "call(* com.example.Outer$Inner.run(..))");
+        assertTrue(match(pc, ref("Lcom/example/Outer$Inner;", "run", List.of(), "V")).isPresent(),
+                "nested-class owner Outer$Inner must match its dex descriptor");
+        assertTrue(match(pc, ref("Lcom/example/Outer;", "run", List.of(), "V")).isEmpty(),
+                "the enclosing class Outer must NOT match the nested-owner pattern");
+    }
+
     /** {@code ..*} dot-glob and {@code .*} single-level glob package patterns, exercised through the
      *  {@code !within(...)} path (the dominant consumer of these globs in the corpus). */
     @Test
