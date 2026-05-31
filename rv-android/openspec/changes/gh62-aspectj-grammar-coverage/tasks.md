@@ -693,6 +693,72 @@ The round-8 composite-absorption claim (JavaMOP + Coverage.aj) is partially vali
 - **Gate (i) — ≥10 JCA APKs on ART**: validates §4.O, §4.V, §4.B, §4.D (the 4 closures with JCA pipeline demand; §4.R removed per R11.3).
 - **Gate (ii) — grammar-tests fixture + `dexdump` diff**: validates §4.I, §4.Y (incl. Signature delivery), §4.X, §4.N, §4.TT, §4.AT, §4.T (the 7 closures with generic_new-only pipeline demand).
 
+<!-- §6.S OUTCOME (2026-05-31) — bipartite gate, HONEST partial; full evidence captured in this session:
+     FEASIBILITY: instr-cli builds at HEAD 32f01b88 (cli/target/instr-cli.jar md5 24c7721f; auto-copied to
+       rv-android/modules/rv-instrumentation-dexlib2/lib/). Pre-change baseline = 6fd3848b (= 3af5b3aa^);
+       pre-change jar built in worktree /tmp/gh62_prechange (md5 b4ae8d8a). AVD RVSec (API30 google_apis/x86_64)
+       present + 2 others; rv-experiment runs under uv with --instrumentation-variant dexlib2 --specification-set jca;
+       224 dexlib2-instrumentable JCA APKs (APKS_JCA_dexlib2/, with reaches_mop + native_code_abis cols) + 400 originals.
+     GATE (ii) — DONE (no emulator):
+       (a) HEAD grammar-tests RE-RUN locally this session: Tests run 102, Failures 0, Errors 0, Skipped 0, BUILD SUCCESS
+           (mvn -pl grammar-tests -am test). All 7 gate-(ii) closure test classes PASS
+           (IfGrammarTest 5, StaticInitializationGrammarTest 2, CallPatternGrammarTest 7, TargetGrammarTest 2,
+            ArgsGrammarTest 3, AfterThrowingGrammarTest 1, CallReturnWildcardGrammarTest 9).
+       (b) dexdump pre-vs-post evidence:
+           - §4.T (after()throwing): REAL `dexdump -d` on the post-change woven DEX (captured via a reversible test edit,
+             reverted after) shows the NEW emission: method LFoo;->cmp()I gains `catches: 1`, try-range 0x0003-0x0006 over the
+             matched `invoke-interface ...Comparable;.compareTo`, handler `Ljava/lang/Exception; -> 0x0008` whose body is
+             `move-exception v1 -> invoke-static Lmop/MultiSpec_1RuntimeMonitor;.Comparable_CompareToNullException_badexceptionEvent -> throw v1`.
+           - §4.I/§4.Y/§4.X/§4.N/§4.TT/§4.AT: pre-vs-post diff demonstrated at SOURCE/API level — the pre-change worktree
+             FAILS to compile the closure GrammarTests (`cannot find symbol`: UnsupportedAspectConstructError [§4.I],
+             BaseAspectExpander [§4.B/D], addSynthesizedMethod [§4.Y <clinit> synth], withGuardScratch [§4.I]), proving the
+             closures introduced the new emission paths that did not exist pre-change. Their woven-structure assertions are
+             validated by the green GrammarTests (the project's accepted DexBackedDexFile-reparse Gate-(ii)(b) mechanism per
+             §4.T.2/§4.T.3 notes). A standalone per-closure dexdump harness for the in-memory-asserting six was deferred to
+             avoid fabrication-by-bug risk; the §4.T dexdump is the concrete exemplar.
+     GATE (i) — GO; single-APK on-device ART execution PROVEN end-to-end (post-change weave); full ≥10x2 pre-vs-post matrix NOT YET RUN:
+       FULL end-to-end via `uv run rv-experiment run` (emulator managed by rv-platform ONLY — never touched manually) on
+       cryptoapp.apk, ALL stages observed live and COMPLETED:
+         - monitor-gen (JavaMOP, 23 specs) COMPLETED;
+         - dexlib2 instrument with the POST-change jar: `exit=0 in 239.8s, 1/1 successful, 0 errors, instrument_errors.json={}`;
+         - GATE-A (instrument-side): the written signed instrumented APK (+ .idsig) — all 7 DEXes (classes.dex + classes2..7.dex)
+           round-trip cleanly through `dexdump` (`Opened ... DEX version '035'`, zero parse error);
+         - GATE-A (on-device ART): emulator RVSec (API30 x86_64) booted (~50s), POST-change instrumented APK INSTALLED OK and RAN
+           on ART with NO VerifyError — the weave is ART-valid in vivo, not just structurally;
+         - LIVE MONITOR EVIDENCE: 6 real MOP violations fired on-device across 2 distinct JCA specs (SSLContextSpec,
+           TrustManagerFactorySpec) in okhttp3 Platform.{platformTrustManager,newSSLContext,newSslSocketFactory};
+           coverage reached MOP Methods 9.38% / 16 called methods before the run ended;
+         - rv-platform tore down emulator RVSec itself ("Emulator RVSec cleaned up"), no stray qemu — clean teardown; experiment
+           "finished". (Task success=False is solely the Monkey tool's exit-55 quirk AFTER events fired — NOT an instrument/ART fault.)
+       This PROVES the post-change weaver produces an ART-valid, event-emitting monitored APK end-to-end. What remains for the
+       FULL bipartite GATE-(i) verdict is the comparative ≥10-APK x {pre,post}-jar event-stream matrix (Gates A across all >=10,
+       B monotonic non-decrease, C(i) per-closure §4.O/V/B/D >=1 NEW event) — a multi-hour job exceeding one safe session, NOT
+       executed; NO comparative event counts are fabricated. To complete later (emulator managed by rv-platform):
+         1) pick >=10 ABI-x86_64 reaches_mop APKs from APKS_JCA_dexlib2 (>=1 with nested try-catch for §4.T cross-check);
+         2) cp pre-change jar (worktree 6fd3848b, md5 b4ae8d8a) into modules/rv-instrumentation-dexlib2/lib/instr-cli.jar;
+            run `uv run rv-experiment run --tools monkey --apks-dir <set> --specification-set jca
+            --instrumentation-variant dexlib2 --timeout <e.g.120> --name gh62_gatei_pre`; capture monitor events;
+         3) restore post-change jar (md5 24c7721f); same run as gh62_gatei_post; capture;
+         4) evaluate GATE A (no new VerifyError on ART install + DexBackedDexFile round-trip), GATE B (monotonic event
+            non-decrease except if()-guarded APKs), GATE C(i) (each of §4.O/§4.V/§4.B/§4.D >=1 new event in >=1 APK).
+     Boxes flipped: §6.S boxes for the gate-(ii) portion only; gate-(i) boxes (6.S.1/6.S.2/6.S.3 event matrix) remain OPEN. -->
+
+<!-- §6.S GATE (i) MATRIX — IN-FLIGHT (2026-05-31, this session; real, NOT fabricated):
+     The ≥10-APK x {pre,post}-jar matrix WAS LAUNCHED (not merely deferred). Selection: 12 AVD-compatible (no-native/x86_64)
+     JCA APKs from APKS_JCA_dexlib2 — 3 INV-INS-31 baseline members (blockads, anihyou, solxpect; cajuscan+droidstress dropped
+     as ABI-incompat/missing) + 9 smallest reaches_mop=True others (gptmobile, simple.peri, homemedkit, orgzlyrevived,
+     onloc.android, sh.haven.app, notesr, zimly.backup, passwordstore.agrahn). Driven ENTIRELY by `uv run rv-experiment run`
+     (emulator managed by rv-platform ONLY — never touched manually). PRE leg = pre-change jar md5 b4ae8d8a (6fd3848b);
+     POST leg = post-change jar md5 24c7721f (HEAD), swapped automatically by the leg-sequencing watcher after PRE exits.
+     PRE-leg INSTRUMENT phase RESULT (real, from results/gh62_6S_pre + pre.log): **12/12 APKs instrumented, exit=0 each,
+     0 errors, 0 VerifyError** with the PRE-CHANGE weaver (per-APK 107-360s). PRE leg then proceeded into the per-APK
+     static-analysis + emulator-execution loop. The matrix is a multi-hour job; at the time this note was written the PRE leg
+     was still executing and the POST leg had not yet started — so the COMPARATIVE Gate A/B/C(i) verdict (pre-vs-post event-
+     stream diff) is NOT YET AVAILABLE and is NOT fabricated here. The real per-leg CSVs land in
+     results/gh62_6S_pre/ and results/gh62_6S_post/ (consolidated *.csv + tasks.json); evaluate A/B/C from those once both
+     legs finish (GATE A = 0 new VerifyError post-vs-pre across all 12; GATE B = total post events >= pre except if()-guarded
+     APKs; GATE C(i) = each of §4.O/V/B/D >=1 NEW event in >=1 APK). DO NOT mark 6.S.1-6.S.4 [x] until those CSVs are read. -->
+
 - [ ] 6.S.1 Pick ≥10 APKs from the JCA-226 instrumentable subset (re-using INV-INS-31 baseline). Selection MUST cover **Gate (i) closures** collectively. At least one APK MUST have nested try-catch DEX topology to support §4.T fixture cross-checks even though §4.T's primary validation is fixture-based.
 - [ ] 6.S.2 Pre-change snapshot: re-instrument ≥10 APKs with `instr-cli.jar` from `HEAD~N` (pre-closure); run on emulator under standard JCA MOP spec; capture monitor event stream + per-closure pattern-match counts.
 - [ ] 6.S.3 Post-change snapshot: re-instrument with `HEAD` (post-closure); run; capture.
