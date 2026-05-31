@@ -85,7 +85,7 @@ Each designator's `java.util.regex.Pattern` is the audit trail and is pinned in 
 | `..*` dot-glob | 0,_,_,_ | _,_,_ | `PointcutExpressionParser.java` → `NotWithinPC` type pattern | `PointcutMatcher.java:557` (`matchesTypePattern` prefix match on `pkg..*`) | n/a (gate) | COVERED | `br.unb.cic.rv.grammar.CallPatternGrammarTest#packageGlobsMatchViaNotWithin` | `pkg..*` package glob, exercised through the `!within(...)` path (the dominant corpus consumer). |
 | `.*` single-level glob | 0,_,_,_ | _,_,_ | `PointcutExpressionParser.java` → `NotWithinPC` type pattern | `PointcutMatcher.java:557` (`matchesTypePattern` single-level match on `pkg.*`) | n/a (gate) | COVERED | `br.unb.cic.rv.grammar.CallPatternGrammarTest#packageGlobsMatchViaNotWithin` | `pkg.*` excludes a direct member but not a deeper-nested class, via the `!within(...)` path. |
 | `T[]` / `T[][]` arrays | 0,_,_,_ | _,_,_ | `PointcutExpressionParser.java`/`parseCallBody` → `CallPC.ParamSpec` array descriptor | `PointcutMatcher.java:377-396` (`expectedDesc.contentEquals(actual)` on the `[B`/`[[…]` descriptor) | n/a (gate) | COVERED | `br.unb.cic.rv.grammar.CallPatternGrammarTest#arrayParameterMatchesArrayDescriptor` | Array descriptors in a signature match exactly (`byte[]` → `[B`). |
-| `Outer.Inner` inner-class qualifier | 0,_,_,_ | _,_,_ | `PointcutExpressionParser.java`/`parseCallBody` → `CallPC.declaringType` (nested owner spelled with the dex `$` form) | `PointcutMatcher.java:326-347` (owner descriptor equality on the `Outer$Inner` dex descriptor) | n/a (gate) | COVERED | `br.unb.cic.rv.grammar.CallPatternGrammarTest#innerClassOwnerMatchesByDexDescriptor` | A `call()` on a nested-class owner matches by its dex descriptor (`Lcom/example/Outer$Inner;`). AspectJ's `Outer.Inner` `.`-qualifier maps to the same `$`-separated dex descriptor the matcher already compares, so the nested owner is matched end-to-end — no separate disambiguation pass is needed. |
+| `Outer.Inner` (inner-class qualifier) | 0,_,_,_ | _,_,_ | `PointcutExpressionParser.java`/`parseCallBody` → `CallPC.declaringType` (nested owner spelled with the dex `$` form) | `PointcutMatcher.java:326-347` (owner descriptor equality on the `Outer$Inner` dex descriptor) | n/a (gate) | COVERED | `br.unb.cic.rv.grammar.CallPatternGrammarTest#innerClassOwnerMatchesByDexDescriptor` | A `call()` on a nested-class owner matches by its dex descriptor (`Lcom/example/Outer$Inner;`). AspectJ's `Outer.Inner` `.`-qualifier maps to the same `$`-separated dex descriptor the matcher already compares, so the nested owner is matched end-to-end — no separate disambiguation pass is needed. |
 | positive visibility (`public`) | 0,jca,_,_ | jca,_,_ | `PointcutExpressionParser.java`/`parseCallBody` strips the leading visibility modifier | `PointcutMatcher.java:308-406` (resolves name/owner/return after the modifier is stripped) | n/a | COVERED | `br.unb.cic.rv.grammar.SignatureModifierGrammarTest#positiveVisibilityModifierStrippedAndCallStillResolves` | `call(public ...)` parses with the modifier stripped; the underlying method still matches. Real JCA advice always spells `public` (25+ sites). |
 | negated visibility (`!public`) | 0,0,0,0 | 0,0,0 | MISSING (no modifier-matching predicate) | MISSING | MISSING | NOT-NEEDED α | `br.unb.cic.rv.grammar.SignatureModifierGrammarTest#negatedVisibilityHasZeroCorpusDemand` | deferred.md §2.1: zero demand; modifiers are stripped, never used as a discriminating predicate. |
 | `static` signature modifier | 0,0,0,0 | 0,0,0 | MISSING (descriptive prefix stripped; no exclusive-static filter) | MISSING | MISSING | NOT-NEEDED α | `br.unb.cic.rv.grammar.SignatureModifierGrammarTest#staticModifierHasZeroCorpusDemand` | deferred.md §2.1: zero demand for modifier discrimination; bare `static` is stripped (and the positive-visibility leg covers the strip path). |
@@ -128,11 +128,15 @@ Each designator's `java.util.regex.Pattern` is the audit trail and is pinned in 
 
      Evidence FQNs: every COVERED and every NOT-NEEDED β / α row that has a dedicated grammar test
      cites a REAL enabled passing method in br.unb.cic.rv.grammar.*GrammarTest (verified against the
-     live suite). Twelve NOT-NEEDED α rows have NO dedicated test (this(name), this(Type),
-     withincode, cflow, cflowbelow, handler, get, set, initialization, preinitialization,
-     T+ inside !within(...), Outer.Inner) — their Evidence states the path-α structural condition
-     (countMop == 0 AND no parser/matcher impl), which is exactly what INV-INS-89 path α requires;
-     no FQN is fabricated for them.
+     live suite). The NOT-NEEDED α rows that deferred.md §2.1 cites by name are backed by enabled
+     zero-demand assertion tests (this(name)/this(Type) → ThisGrammarTest; withincode →
+     WithincodeGrammarTest; cflow/cflowbelow → CflowGrammarTest; get/set → FieldAccessGrammarTest;
+     initialization/preinitialization → InitializationGrammarTest; T+ inside !within(...) →
+     TypePatternGrammarTest), each asserting countMop == 0 AND countCompiledAj == 0 via the keyed
+     DemandCounter regex. The remaining α rows whose construct deferred.md does not back with a
+     dedicated test (handler, Outer.Inner) state the path-α structural condition (countMop == 0 AND
+     no parser/matcher impl), which is exactly what INV-INS-89 path α requires; no FQN is fabricated
+     for them.
 
      The "AspectJ syntax" column is the stable key: it MUST stay in 1:1 set-equality with
      AspectJDesignators.DESIGNATORS (INV-INS-88). 73 rows. -->

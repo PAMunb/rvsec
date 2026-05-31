@@ -73,7 +73,7 @@ public final class AspectJDesignators {
             "..* dot-glob",
             ".* single-level glob",
             "T[] / T[][] arrays",
-            "Outer.Inner inner-class qualifier",
+            "Outer.Inner (inner-class qualifier)",
             // SignaturePattern modifiers (5)
             "positive visibility (public)",
             "negated visibility (!public)",
