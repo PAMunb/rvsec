@@ -633,6 +633,19 @@ public final class PointcutMatcher {
     }
 
     private static Match mergeBindings(Match left, Match right, PointcutExpression pe) {
+        // §4.PERF.P2.3: short-circuit when one side carries NO binding info (no args, no
+        // target, not a constructor). The vast majority of AND merges have the commonPointcut
+        // / notwithin / adviceexecution side empty, so the result equals the other side with the
+        // CombinedPC `pe` swapped in — built without the extra LinkedHashMap copy+putAll. The
+        // isConstructor OR-merge is preserved exactly: the empty side has isConstructor=false, so
+        // `false || other == other`. The non-empty side's argBindings is still copied defensively
+        // by the Match constructor, so the returned binding map stays unmodifiable and decoupled.
+        if (left.argBindings.isEmpty() && left.targetRegister < 0 && !left.isConstructor) {
+            return new Match(right.argBindings, right.targetRegister, pe, right.isConstructor);
+        }
+        if (right.argBindings.isEmpty() && right.targetRegister < 0 && !right.isConstructor) {
+            return new Match(left.argBindings, left.targetRegister, pe, left.isConstructor);
+        }
         Map<String, Integer> args = new LinkedHashMap<>(left.argBindings);
         args.putAll(right.argBindings);
         int target = left.targetRegister >= 0 ? left.targetRegister : right.targetRegister;
