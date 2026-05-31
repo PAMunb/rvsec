@@ -278,8 +278,13 @@ class MatrixIntegrityTest {
         if (pipeNumeric && pipeSum == 0 && hasAbsorber && sourceNonZero) {
             return "NOT-NEEDED";   // path β
         }
-        if (srcNumeric && srcSum == 0 && pipeNumeric && pipeSum == 0 && implMissing && !hasAbsorber) {
-            return "NOT-NEEDED";   // path α (verified more precisely in testVerdictsAreValid)
+        // Path α: zero source AND zero pipeline AND no implementation. The β branch above already
+        // consumed every row with a named absorber AND source ≥ 1, so a row reaching here with zero
+        // source can ONLY be α — the absorber wording is irrelevant (a zero-source row is α by
+        // definition and cannot be β, which requires source ≥ 1). The precise α/β tag membership and
+        // the impl-MISSING condition are re-checked in testVerdictsAreValid.
+        if (srcNumeric && srcSum == 0 && pipeNumeric && pipeSum == 0 && implMissing) {
+            return "NOT-NEEDED";   // path α
         }
         return "COVERED";
     }
