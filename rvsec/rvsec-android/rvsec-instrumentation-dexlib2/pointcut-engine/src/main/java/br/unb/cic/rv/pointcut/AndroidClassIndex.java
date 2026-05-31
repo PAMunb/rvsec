@@ -36,8 +36,15 @@ import java.util.zip.ZipFile;
  *
  * <p>Thread-safety: lazy-loads class metadata on first query; all public methods
  * are synchronized on the instance.
+ *
+ * <p>§4.PERF.P1: the backing {@code android.jar} {@link ZipFile} is opened ONCE on the
+ * first cache-missing {@link #load} and reused for every subsequent ancestor-walk step,
+ * instead of being reopened per class. The instance is {@link AutoCloseable}; callers that
+ * own its lifetime may close it to release the handle deterministically. In the short-lived
+ * per-APK CLI process the handle is also released at process exit. Output is unchanged —
+ * same archive bytes, same ASM parse (perf-only).
  */
-public final class AndroidClassIndex {
+public final class AndroidClassIndex implements AutoCloseable {
 
     public static final class MethodInfo {
         public final String name;
@@ -78,6 +85,15 @@ public final class AndroidClassIndex {
     private final Map<String, ClassInfo> byInternal = new HashMap<>();
     /** Negative cache — classes we tried to load and failed. */
     private final Set<String> missing = new HashSet<>();
+    /**
+     * §4.PERF.P1: the opened archive, lazily initialised on first {@link #load} and reused for
+     * every subsequent class load. {@code null} until first use, after {@link #close}, or when
+     * {@code androidJar} is null / fails to open (in which case every framework lookup degrades
+     * to "not found", identical to the prior per-call open-failure path).
+     */
+    private ZipFile archive;
+    /** Guards against re-opening after a deliberate {@link #close} or a prior open failure. */
+    private boolean archiveResolved;
 
     public AndroidClassIndex(Path androidJar) {
         this.androidJar = androidJar;
@@ -143,7 +159,13 @@ public final class AndroidClassIndex {
         if (cached != null) return cached;
         if (missing.contains(internal)) return null;
 
-        try (ZipFile zf = new ZipFile(androidJar.toFile())) {
+        // §4.PERF.P1: reuse the single opened archive instead of reopening per class.
+        ZipFile zf = openArchive();
+        if (zf == null) {
+            missing.add(internal);
+            return null;
+        }
+        try {
             ZipEntry e = zf.getEntry(internal + ".class");
             if (e == null) {
                 missing.add(internal);
@@ -163,6 +185,38 @@ public final class AndroidClassIndex {
         } catch (IOException ex) {
             missing.add(internal);
             return null;
+        }
+    }
+
+    /**
+     * §4.PERF.P1: open the {@code android.jar} archive once, lazily, and cache the handle.
+     * Returns {@code null} when there is no jar, after {@link #close}, or when the open fails —
+     * the same "framework lookups become not-found" degradation the per-call open had.
+     */
+    private ZipFile openArchive() {
+        if (archive != null) return archive;
+        if (archiveResolved) return null;       // already tried and failed, or closed
+        archiveResolved = true;
+        if (androidJar == null) return null;
+        try {
+            archive = new ZipFile(androidJar.toFile());
+        } catch (IOException ex) {
+            archive = null;
+        }
+        return archive;
+    }
+
+    /** §4.PERF.P1: close the cached archive handle. Idempotent; safe to call when never opened. */
+    @Override
+    public synchronized void close() {
+        archiveResolved = true;
+        if (archive != null) {
+            try {
+                archive.close();
+            } catch (IOException ignored) {
+                // best-effort release; nothing actionable on close failure
+            }
+            archive = null;
         }
     }
 
