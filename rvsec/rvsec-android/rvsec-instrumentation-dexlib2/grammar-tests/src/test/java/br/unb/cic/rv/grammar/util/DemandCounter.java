@@ -74,6 +74,18 @@ public final class DemandCounter {
     public static final String CALL_NAME_GLOB = "call_name_glob";
     public static final String CALL_TRAILING_VARARGS = "call_trailing_varargs";
     public static final String CALL_RETURN_WILDCARD = "call_return_wildcard";
+    // Path-α construct keys (NOT-NEEDED α): zero demand in every corpus, no parser/matcher impl.
+    public static final String WITHINCODE = "withincode";
+    public static final String CFLOW = "cflow";
+    public static final String CFLOWBELOW = "cflowbelow";
+    public static final String HANDLER = "handler";
+    public static final String GET_FIELD = "get_field";
+    public static final String SET_FIELD = "set_field";
+    public static final String INITIALIZATION = "initialization";
+    public static final String PREINITIALIZATION = "preinitialization";
+    public static final String THIS_TYPE = "this_type";
+    public static final String THIS_BINDING = "this_binding";
+    public static final String TYPE_PATTERN_SUBTYPE = "type_pattern_subtype";
 
     /**
      * Per-designator pattern map. Each pattern is anchored to distinguish pointcut use from
@@ -140,6 +152,35 @@ public final class DemandCounter {
         // standalone "(..)" varargs token are NOT matched. Per-occurrence: 240 generic, 67 generic_new,
         // 0 jca (jca call() sites all spell a concrete return like "public void Owner.name(..)").
         PATTERNS.put(CALL_RETURN_WILDCARD, Pattern.compile("call\\(\\* "));
+        // ----- Path-α construct keys (NOT-NEEDED α) -------------------------------------------------
+        // Designators with zero demand in every corpus (source AND pipeline). The per-construct
+        // assertion tests cited by deferred.md §2.1 (Withincode/Cflow/Handler/FieldAccess/
+        // Initialization/This/TypePattern GrammarTest) assert the REAL count via these keys, proving
+        // the verdict against the live corpora rather than merely asserting a test's absence.
+        // Each pattern matches the construct in POINTCUT position.
+        PATTERNS.put(WITHINCODE, Pattern.compile("\\bwithincode\\s*\\("));
+        PATTERNS.put(CFLOW, Pattern.compile("(?<!below)\\bcflow\\s*\\("));
+        PATTERNS.put(CFLOWBELOW, Pattern.compile("\\bcflowbelow\\s*\\("));
+        PATTERNS.put(HANDLER, Pattern.compile("\\bhandler\\s*\\("));
+        // get(...)/set(...) field-access pointcut at clause start or after a composition operator.
+        PATTERNS.put(GET_FIELD, Pattern.compile("(?:^|&&|\\|\\|)\\s*get\\s*\\("));
+        PATTERNS.put(SET_FIELD, Pattern.compile("(?:^|&&|\\|\\|)\\s*set\\s*\\("));
+        // initialization(...) excluding the preinitialization(...) and staticinitialization(...) forms.
+        PATTERNS.put(INITIALIZATION, Pattern.compile("(?<!pre)(?<!static)\\binitialization\\s*\\("));
+        PATTERNS.put(PREINITIALIZATION, Pattern.compile("\\bpreinitialization\\s*\\("));
+        // this(Type) vs this(name) — capital-initial argument is a type, lowercase is a binding.
+        PATTERNS.put(THIS_TYPE, Pattern.compile("(?<![A-Za-z0-9_!])this\\s*\\(\\s*[A-Z]"));
+        PATTERNS.put(THIS_BINDING, Pattern.compile("(?<![A-Za-z0-9_!])this\\s*\\(\\s*[a-z]"));
+        // The SPEC-AUTHORED T+ subtype token inside a NEGATED within designator (the deferred row
+        // "T+ inside !within(...)"). Narrowed to the negated form, and excluding the JavaMOP-injected
+        // framework baseline !within(com.runtimeverification...RVMObject+) — that single pipeline token
+        // is the auto-generated RVMObject self-exclusion owned by the separate "!within(TypePattern)"
+        // COVERED row (the NOT_WITHIN designator, pipeline 13,13,13), NOT a spec-authored subtype
+        // filter. The POSITIVE within(T+) — e.g. Coverage.aj's within(Coverage+) — is likewise its own
+        // NOT-NEEDED β row. With both exclusions, the spec-authored negated-T+ form is zero in EVERY
+        // corpus (source and pipeline): no spec roots a subtype filter on a negated within.
+        PATTERNS.put(TYPE_PATTERN_SUBTYPE,
+                Pattern.compile("!\\s*within\\s*\\(\\s*(?!com\\.runtimeverification)[^)]*\\+\\s*\\)"));
     }
 
     // ----- Public API ----------------------------------------------------------------------------
