@@ -30,14 +30,14 @@ based selection, game engine heuristics, and string similarity fallbacks.
 ### Role in the System:
 
 - Resolves package name ambiguities in APK analysis during instrumentation preparation
-- Enables accurate method signature matching between static analysis and runtime monitoring
+- Enables accurate method signature matching between static and runtime analysis
 - Provides confidence metrics for package detection decisions in analysis pipelines
 - Handles edge cases including build variants, modular architectures, and game engines
 
 ### Integration Points:
 
 - Input: APK instance (Androguard) already loaded by App model
-- Output: PackageDetectionResult dataclass with manifest_package, code_package, confidence
+- Output: PackageDetectionResult with manifest_package, code_package, confidence
 - Used by: App.code_package property for static analysis parsers
 - Dependency: Androguard for APK parsing and component enumeration
 
@@ -328,7 +328,7 @@ class PackageDetector:
         Check if component belongs to framework or library code.
 
         Args:
-            component: Full component name (e.g., androidx.appcompat.app.AppCompatActivity).
+            component: Full component name (e.g., androidx.appcompat.app.Activity).
 
         Returns:
             True if component is from framework/library, False if application code.
@@ -337,6 +337,25 @@ class PackageDetector:
             if component.startswith(prefix):
                 return True
         return False
+
+    def _is_in_namespace(self, child: str, parent: str) -> bool:
+        """
+        Check whether ``child`` belongs to the ``parent`` namespace.
+
+        A namespace match requires ``child`` to be ``parent`` itself or a true
+        dotted sub-package — not merely a substring. This distinguishes a genuine
+        sub-package (``com.foo.ui.MainActivity`` is in ``com.foo``) from a sibling
+        package that only shares a textual prefix (``com.foobar.MainActivity`` is
+        NOT in ``com.foo``, even though ``"com.foo"`` is a substring of it).
+
+        Args:
+            child: Component or package name to test (e.g., com.foo.ui.MainActivity).
+            parent: Candidate namespace (e.g., com.foo).
+
+        Returns:
+            True if child is the parent namespace or nested within it.
+        """
+        return child == parent or child.startswith(parent + ".")
 
     def extract_package(self, component: str, level: int = 3) -> str:
         """
@@ -534,12 +553,15 @@ class PackageDetector:
 
         # Fast path: check if all components belong to the manifest package.
         # This is the common case (~72.5% of APKs) and avoids the more expensive
-        # heuristic pipeline below.
-        same_package = True
-        for component in app_components:
-            if manifest_pkg not in component:
-                same_package = False
-                break
+        # heuristic pipeline below. Requires at least one application component —
+        # an empty list carries no evidence and must fall through to the
+        # no_app_components branch rather than yielding a vacuous same_package.
+        # Namespace matching (not substring) ensures a sibling package such as
+        # com.foobar does not match manifest com.foo.
+        same_package = bool(app_components) and all(
+            self._is_in_namespace(component, manifest_pkg)
+            for component in app_components
+        )
 
         if same_package:
             # All components in manifest package: no mismatch.
@@ -583,7 +605,9 @@ class PackageDetector:
         # specifies custom package in manifest. Detected engine means manifest
         # package is authoritative (not a library mismatch).
         if engine_info and len(app_packages) > 0:
-            manifest_in_components = any(manifest_pkg in pkg for pkg in app_packages)
+            manifest_in_components = any(
+                self._is_in_namespace(pkg, manifest_pkg) for pkg in app_packages
+            )
 
             if not manifest_in_components:
                 # Game engine detected, manifest package not in components.
