@@ -46,14 +46,14 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
             iterationCount < 10000 ||
             !(ExecutionContext.instance().validate(Property.RANDOMIZED, salt))
           ) {
-             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "PBEParameterSpec", "" + __LOC,
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "PBEParameterSpecSpec", "" + __LOC,
                     "expecting at least 1000 iterations and a randomized salt."));
         }
 
         ere : c1 | c2
 
         @fail {
-          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpec", "" + __LOC));
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC));
           __RESET;
         }
 
