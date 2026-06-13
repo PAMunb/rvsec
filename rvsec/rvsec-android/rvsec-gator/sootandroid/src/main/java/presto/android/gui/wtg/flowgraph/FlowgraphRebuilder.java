@@ -209,6 +209,20 @@ public class FlowgraphRebuilder {
     if (!callee.isStatic()) {
       num_param++;
     }
+    // Guard against arity-incompatible (callsite, callee) pairs. With SPARK
+    // call-graph delegation (Configs.cgDelegation), edgesOutOf(s) can pair this
+    // invoke with a target whose parameter count does not match the invoke's
+    // argument list — synthetic/bridge edges that the legacy virtual-dispatch
+    // path never produced. The actual->formal binding below indexes the
+    // callsite via ie.getArg(i - 1); when the callee declares more parameters
+    // than the invoke supplies, that read runs past the argument array and
+    // throws ArrayIndexOutOfBoundsException. Such edges carry no real
+    // parameter flow, so skip them.
+    int availableActuals = (ie instanceof InstanceInvokeExpr)
+            ? ie.getArgCount() + 1 : ie.getArgCount();
+    if (num_param > availableActuals) {
+      return;
+    }
     Local receiverLocal = null;
     for (int i = 0; i < num_param; i++) {
       Stmt s = (Stmt) stmts.next();
@@ -629,6 +643,20 @@ public class FlowgraphRebuilder {
     int num_param = callee.getParameterCount();
     if (!callee.isStatic()) {
       num_param++;
+    }
+    // Guard against arity-incompatible (callsite, callee) pairs. With SPARK
+    // call-graph delegation (Configs.cgDelegation), edgesOutOf(s) can pair this
+    // invoke with a target whose parameter count does not match the invoke's
+    // argument list — synthetic/bridge edges that the legacy virtual-dispatch
+    // path never produced. The actual->formal binding below indexes the
+    // callsite via ie.getArg(i - 1); when the callee declares more parameters
+    // than the invoke supplies, that read runs past the argument array and
+    // throws ArrayIndexOutOfBoundsException. Such edges carry no real
+    // parameter flow, so skip them.
+    int availableActuals = (ie instanceof InstanceInvokeExpr)
+            ? ie.getArgCount() + 1 : ie.getArgCount();
+    if (num_param > availableActuals) {
+      return;
     }
     Local receiverLocal = null;
     for (int i = 0; i < num_param; i++) {
