@@ -1013,9 +1013,11 @@ The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal co
 | `openspec status --change "<name>"` | Show artifact completion status (done/ready/blocked) | `openspec status --change "resume-docker"` |
 | `openspec instructions <artifact> --change "<name>"` | Get template + context for creating an artifact | `openspec instructions specs --change "resume-docker"` |
 | `openspec instructions apply --change "<name>"` | Get task implementation instructions | `openspec instructions apply --change "resume-docker"` |
-| `openspec validate --change "<name>"` | Validate change artifacts for structural issues | `openspec validate --change "resume-docker"` |
+| `openspec validate "<name>"` | Validate a change's artifacts for structural issues (**rv-sdd changes only** — see caveat below) | `openspec validate "gh20-scroll-detection"` |
 | `openspec archive "<name>"` | Archive change + sync delta specs to main specs | `openspec archive "resume-docker"` |
-| `openspec archive "<name>" --skip-specs` | Archive without syncing specs (infra/doc changes) | `openspec archive "update-ci" --skip-specs` |
+| `openspec archive "<name>" --skip-specs` | Archive without syncing specs (infra/doc changes, all Quick Path) | `openspec archive "update-ci" --skip-specs` |
+
+> **Quick Path caveat — `validate` and `show` do not recognize quick-path changes.** Both commands resolve a change name through OpenSpec's item discovery (`getActiveChangeIds`), which only lists change directories that contain a `proposal.md` — the rv-sdd structure. Quick Path changes have `plan.md` + `tasks.md` and **no `proposal.md`**, so `openspec validate "<name>"` and `openspec show "<name>"` report `Unknown item '<name>'` for them (and omit them from the "Did you mean" suggestions). This is expected upstream behavior, not a malformed change — every archived quick-path change in this repo (gh17, gh19, gh24, … gh59) has the same structure. For Quick Path changes, use the schema-aware commands instead: `openspec status --change "<name>"` (artifact completion), `openspec list` (lists all changes with task counts), and `openspec instructions <artifact> --change "<name>"`. Note also: the validate flag is positional (`openspec validate "<name>"`) or `--changes`/`--all` to validate in bulk — there is no `--change "<name>"` flag.
 
 ### Browsing Commands
 
@@ -1023,8 +1025,8 @@ The `/opsx:*` skills invoke the `openspec` CLI under the hood. These terminal co
 |---------|-------------|---------|
 | `openspec list` | List active changes | `openspec list` |
 | `openspec list --specs` | List all specs | `openspec list --specs` |
-| `openspec show "<name>"` | Show details of a change or spec | `openspec show "resume-docker"` |
-| `openspec show "<name>" --json` | JSON output for programmatic use | `openspec show "resume-docker" --json` |
+| `openspec show "<name>"` | Show details of a change or spec (**rv-sdd changes only** — quick-path changes report `Unknown item`, see caveat above) | `openspec show "gh20-scroll-detection"` |
+| `openspec show "<name>" --json` | JSON output for programmatic use | `openspec show "gh20-scroll-detection" --json` |
 
 ### Schema Commands
 

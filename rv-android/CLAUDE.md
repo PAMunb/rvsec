@@ -292,6 +292,10 @@ SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid 
 
 **Plans**: `docs/20260105_rvagent_refactoring.md` (refactoring), `docs/20260213_plano_refatoracao.md` (current)
 
+**WTG transitions sweep (2026-06-11)**: full-WTG static-analysis sweep on the 169 APKs of `experimento-20260604` (to populate `transitions[]`, missing in the skip-wtg dataset). Result in `out/sweep_20260604_wtg_spark/`: 169/169 complete (reach+windows+components), 72 with `transitions>0`. Plan + findings: `docs/20260609_sweep_wtg_completo_169.md`.
+  - **⚠️ Uncommitted gator fix in `lib/gator/*.jar`**: `FlowgraphRebuilder.java` has an arity guard (working tree only, repo `rvsec`, build 2026-06-09 19:02) that fixes a deterministic `ArrayIndexOutOfBoundsException` crash in `WTGBuilder.build()` under SPARK CG delegation (`cgDelegation=true`). **Rebuilding gator without committing this loses the fix → crashes return.** See plan doc §5b.
+  - WTG is timeout-bound: ~40% of APKs complete `transitions[]`; the rest time out (even tiny apps) regardless of `cgDelegation` or timeout (1800s↔3600s yields ~nothing extra). `transitions[]` is optional for the aperv consumer (`scoreWtg→0` degrades cleanly).
+
 ---
 
 ## Skills and Agents
@@ -405,15 +409,17 @@ All non-trivial changes follow the OpenSpec workflow. See `docs/WORKFLOW.md` for
 **OpenSpec CLI commands** (when invoking skills isn't enough — see `WORKFLOW.md §13`):
 
 ```bash
-openspec list                                       # List active changes
-openspec status --change "<name>"                   # Artifact completion status
-openspec validate --change "<name>"                 # Structural validation
+openspec list                                       # List active changes (all schemas)
+openspec status --change "<name>"                   # Artifact completion status (all schemas)
 openspec instructions <artifact> --change "<name>"  # Template + context for an artifact
 openspec instructions apply --change "<name>"       # Implementation instructions
+openspec validate "<name>"                          # Structural validation — rv-sdd only (positional, not --change)
+openspec show "<name>" --json                       # Inspect a change/spec — rv-sdd only
 openspec archive "<name>"                           # Archive + sync delta specs
 openspec archive "<name>" --skip-specs              # Archive without syncing (Quick Path / docs-only)
-openspec show "<name>" --json                       # Inspect a change/spec
 ```
+
+**`validate`/`show` are rv-sdd-only**: both require a `proposal.md` in the change directory. Quick Path changes (`plan.md` + `tasks.md`, no `proposal.md`) report `Unknown item` — this is expected, not a malformed change. Use `openspec status --change "<name>"` and `openspec list` for Quick Path. See `WORKFLOW.md §13` (Quick Path caveat).
 
 **Resume protocol** (when picking up an in-flight change in a new session):
 1. Read `proposal.md`, `design.md` (or `plan.md` for Quick Path), and `tasks.md` in the change directory.
