@@ -1,0 +1,64 @@
+<!-- Small change (~3 source files + tests + 1 offline script + docs). No subagent orchestration needed.
+     Critical path: Group 1 (coverage.py / D-2) -> Group 2 (result_processor / D-1, D-3) -> Group 3 (regression test) -> Group 5 (verify). -->
+
+## 1. Error aggregates independent of static data (D-2 — rv-android-core)
+
+- [ ] 1.1 In `modules/rv-android-core/src/rv_android_core/domain/coverage.py`, move the `metrics.total_errors = len(self.errors)` and `metrics.unique_errors = len(self.unique_errors)` assignments to **before** the `if not self.classes: return metrics` early return in `calculate_metrics()` (D-2; analysis spec "Error Aggregates Are Independent of Static Analysis Data", INV-ANA-25)
+- [ ] 1.2 Add unit tests: `test_metrics_empty_classes_counts_errors` (empty `classes` + K errors / J unique → `to_dict()["total_errors"]==K`, `unique_errors==J`, all coverage `0`) and `test_error_count_matches_get_errors_logcat_only` (analysis scenarios "Metrics Over Empty Classes Still Count Errors", "Error Count Matches get_errors After Logcat-Only Reconstruction")
+- [ ] 1.3 Run `/rv-test-run rv-android-core`
+
+## 2. Resume results_dir resolution + auditable fallback (D-1, D-3 — rv-platform)
+
+- [ ] 2.1 In `modules/rv-platform/src/rv_platform/components/result_processor.py` `_resolve_static_data`, derive the directory as `task.results_dir or os.path.dirname(task.result.logcat_file)` when `logcat_file` is set; pass the derived dir to `read_static_analysis_files(..., apk_name, task.app.code_package if task.app else None)` (D-1; INV-PLT-15; ADR 0003)
+- [ ] 2.2 Add a counter of tasks with unresolved static data (per-task warning + aggregate count surfaced in the processing log) when the derived dir yields no JSON (platform scenario "Static Analysis JSON Missing on Resume")
+- [ ] 2.3 In `_write_task_summary_data`/`_write_task_coverage_data`, add the auditable, non-silent fallback to serialized `task.result.coverage_metrics` (explicit log + fallback counter) when reconstruction fails but serialized metrics exist; emit a zeroed row with warning when neither is available (D-3; INV-PLT-16; platform scenario "Auditable Fallback to Serialized Coverage Metrics")
+- [ ] 2.4 Add unit tests: `test_resolve_static_data_derives_dir_from_logcat`, `test_missing_json_counts_and_errors_survive`, `test_auditable_fallback_logs_and_counts`
+- [ ] 2.5 Run `/rv-test-run rv-platform`
+
+## 3. Resume validation gate (G0–G6 — rv-platform)
+
+> Definition of Done lives in `design.md` "Validation Criteria". Each gate is a hard pass/fail. The
+> recurring failure mode is tests that set the very runtime fields resume drops — these gates forbid that.
+
+- [ ] 3.1 **G0/G2 — RED first**: before applying the Group 2 fix, write the two-session resume integration test and confirm it **FAILS** on current code (proves it exercises the bug). Commit the failing test, then the fix, then the green test
+- [ ] 3.2 **G1 — Round-trip equivalence** (`test_roundtrip_metric_equivalence`, parametrized over ≥3 fixtures: MOP-violations / `--skip-static` / normal): assert `metrics(live task) == metrics(Task.from_dict(Task.to_dict(task)) reconstructed)` for the 6 `cov_*` + `mop_errors_total`/`mop_errors_unique`, tolerance `0.01` (INV-PLT-18, platform scenario "Round-Trip Metric Equivalence")
+- [ ] 3.3 **G2 — Two-session E2E (no emulator)** (`test_e2e_two_session_resume`): stub tool writes a real logcat + co-located SA JSON; `Platform.run()` session 1 (task A) → persist `tasks.json` → `Platform.run()` session 2 resume (task B); assert consolidated `summary.csv` has BOTH rows with `cov_method>0` and correct `mop_errors_*`, asserting **specifically the resumed row A**
+- [ ] 3.4 **G3 — Consolidation-only pass**: reprocess where all tasks are loaded from disk (skip everything — the path that zeroed T=300); assert correct CSV for 100% of rows
+- [ ] 3.5 **G4 — Loud signal** (`test_resume_health_check_warning`): with ≥1 task whose logcat is present but JSON absent, assert one aggregate WARNING fires with the exact `N/M`; assert no warning when N=0 (INV-PLT-18, platform scenario "Resume Coverage Health Check Warning")
+- [ ] 3.6 **G6 — Coverage canary**: in the G2/G3 consolidated `summary.csv`, assert the fraction of tasks-with-`RVSEC-COV` having `cov_method>0` is 100% (historical symptom: 4/1055)
+- [ ] 3.7 Revise `_make_gh58_task` so the resume variant goes through `Task.from_dict(Task.to_dict())` (no manual `results_dir`/`app`); keep the live-task variant for G1's "live" side
+- [ ] 3.8 Run `/rv-verify rv-platform`
+
+## 3b. Golden regression vs offline reference (G5 — rv-platform)
+
+- [ ] 3b.1 Add `test_golden_vs_offline_regen`: sample ≥10 real `experimento-20260604` tasks (logcat + co-located JSON committed as fixtures), reconstruct in-container-style, and assert `cov_method`/`cov_class`/`mop_errors` match the offline regen reference within `0.01` (locks behavior to the validated `scripts/regenerate_results/` pipeline)
+- [ ] 3b.2 Mark with `@pytest.mark.regression` if the fixture set is large; ensure it runs in the default (non-slow) suite if small
+
+## 4. Offline tooling residual (D-4 — scripts/regenerate_results)
+
+- [ ] 4.1 In `scripts/regenerate_results/verify.py`, extend C3 to validate `cov_class` (summary ↔ last coverage row) and remove the stale comment claiming `cov_class` duplicates `cov_method` (INV-PLT-17). Note: the `cov_class` write fix and script versioning already landed in `b2bc5aa9`
+- [ ] 4.2 Run `verify.py` against an existing regen output to confirm C3 passes with `cov_class` included
+
+## 5. Integration, docs & verification
+
+- [ ] 5.1 Run `/rv-qa-lint-fix rv-platform` and `/rv-qa-lint-fix rv-android-core`
+- [ ] 5.2 Run `/rv-verify rv-platform` and `/rv-verify rv-android-core`
+- [ ] 5.3 Update `modules/rv-platform/CLAUDE.md` "MOP Violation Reconstruction" section (currently describes pre-gh58 "writes a single summary row using `coverage_metrics`") and remove/refresh `experimento-20260604/CLAUDE.md` gotcha #7 (D4)
+- [ ] 5.4 Invoke `/rv-code-reviewer` via Skill tool
+- [ ] 5.5 Run `/rv-docs-sync rv-platform` (CLAUDE.md + spec invariants alignment)
+
+## 5b. Real E2E across both entry points (G8 — Phase 5 / Verify; tool-managed emulator)
+
+> The tools own the emulator lifecycle. NEVER run `emulator`, `adb emu kill`, or any emulator command
+> manually (CLAUDE.md). Interrupt only the rv-experiment/rv-platform **process** (SIGINT/SIGTERM).
+> Fixed for G8: APK = `apks_examples/cryptoapp.apk` (guarantees RVSEC-COV + RVSEC when instrumented);
+> tool = `ape` (default variant). Use `--repetitions 2` (or timeouts `60,120`) for ≥2 tasks.
+
+- [ ] 5b.1 **rv-experiment `--name` implicit resume + forced skip-static** (case 1/4/6): `rv-experiment run --tools ape --apks-dir apks_examples --name e2e_resume --repetitions 2` (run 1 does Phase 1 = instrument + static analysis + monitors); after ≥1 task completes, SIGINT the process; re-run the identical command (resume forces `--skip-monitors/--skip-instrument/--skip-static`); assert consolidated `summary.csv` has non-zero `cov_method` + correct `mop_errors_*` for BOTH the pre-interrupt and post-resume tasks, that coverage was reconstructed from the JSON persisted in run 1 via `dirname(logcat)`, and that no new GATOR invocation occurred (platform scenario "Orchestrated Resume Skips Static Analysis but Reuses Persisted JSON")
+- [ ] 5b.2 **rv-platform auto-resume** (case 1/4): `rv-platform run --tools ape --apks-dir results/e2e_resume/instrumented_apks` (rv-platform does NOT instrument — reuse the instrumented cryptoapp + co-located JSON from 5b.1); after ≥1 task completes, SIGINT the process; re-run the same command (auto-resume via `tasks.json`); assert both rows non-zeroed
+- [ ] 5b.3 **Consolidation-only on real dir** (case 5): `rv-platform run --process-results results/e2e_resume` over the completed run from 5b.1; assert 100% of rows non-zeroed (G6 canary on real data) — this is the exact path that zeroed T=300
+- [ ] 5b.4 Record the G8 evidence (row counts, zeroed fraction before/after) in the change's verification notes; confirm G6 canary == 100% on the real consolidated `summary.csv`
+
+## 6. Archive-time caveat (Phase 6 — `/opsx:archive` / `/opsx:sync`)
+
+- [ ] 6.1 **Manual invariant reconciliation**: the OpenSpec delta engine parses only the `### Requirement:` blocks as deltas — the `## Invariants` bullets in `specs/platform/spec.md` (MODIFIED INV-PLT-15 / INV-PLT-16) are NOT auto-applied. At sync, manually replace the INV-PLT-15 and INV-PLT-16 bullets in the main `openspec/specs/platform/spec.md` with the modified text from this delta (results_dir derivation; auditable non-silent fallback). INV-ANA-25 is unchanged (verified, not amended) — do not edit its bullet
