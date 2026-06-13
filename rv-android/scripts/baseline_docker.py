@@ -249,8 +249,8 @@ def main():
     )
     parser.add_argument(
         "--image",
-        default="phtcosta/rvandroid:0.9.0",
-        help="Docker image to use (default: phtcosta/rvandroid:0.9.0)",
+        default="phtcosta/rvandroid:0.9.1",
+        help="Docker image to use (default: phtcosta/rvandroid:0.9.1)",
     )
     parser.add_argument(
         "--cpus",

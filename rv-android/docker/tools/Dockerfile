@@ -1,4 +1,4 @@
-FROM phtcosta/rvsec_android:0.9.0
+FROM phtcosta/rvsec_android:0.9.1
 
 WORKDIR /opt
 RUN git clone https://github.com/honeynet/droidbot.git && \

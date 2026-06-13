@@ -3,7 +3,7 @@
 # framework (docs/20260423_plano_validacao.md) consumes the resulting paired
 # data via BatchValidator (paired Wilcoxon TOST per spec, INV-INS-21).
 #
-# Both services use the SAME image tag (phtcosta/rvandroid:0.9.0). The image
+# Both services use the SAME image tag (phtcosta/rvandroid:0.9.1). The image
 # carries both variant modules (rv-instrumentation-ajc and
 # rv-instrumentation-dexlib2 — gh53 consolidation); variant selection happens
 # at runtime via RV_INSTRUMENTATION_VARIANT.
@@ -18,7 +18,7 @@
 #      from rvsec/ — produces the fat CLI jar at
 #      rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar via
 #      design D9. The rvandroid Dockerfile gates the image build on this.
-#   2. Image phtcosta/rvandroid:0.9.0 rebuilt (gh53 image carries both variants).
+#   2. Image phtcosta/rvandroid:0.9.1 rebuilt (gh53 image carries both variants).
 #   3. validator/oracles/layer4-thresholds.yaml committed (INV-INS-21
 #      pre-registration).
 #
@@ -31,7 +31,7 @@
 
 x-rvandroid-ajc: &rvandroid-ajc
   # AspectJ-based variant — runs the dex2jar+ajc+d8 pipeline.
-  image: phtcosta/rvandroid:0.9.0
+  image: phtcosta/rvandroid:0.9.1
   environment: &rvandroid-ajc-env
     RV_TOOLS: "ape,aperv:sata,aperv:sata_mop"
     RV_TIMEOUTS: "600"
@@ -52,7 +52,7 @@ x-rvandroid-ajc: &rvandroid-ajc
 x-rvandroid-dexlib2: &rvandroid-dexlib2
   # DEX-native variant — runs the Java CLI (rvsec-instrumentation-dexlib2).
   # Same image tag as ajc; only the variant flag differs.
-  image: phtcosta/rvandroid:0.9.0
+  image: phtcosta/rvandroid:0.9.1
   environment: &rvandroid-dexlib2-env
     RV_TOOLS: "ape,aperv:sata,aperv:sata_mop"
     RV_TIMEOUTS: "600"

@@ -533,9 +533,9 @@ def test_prepare_instrumentation_appends_runtime_jars_to_extra_classpath(
     inst = DexlibInstrumentation(cfg)
 
     mvn_jars = [
-        "rv-monitor-rt-0.9.0-SNAPSHOT.jar",
-        "rvsec-core-0.9.0-SNAPSHOT.jar",
-        "rvsec-logger-logcat-0.9.0-SNAPSHOT.jar",
+        "rv-monitor-rt-0.9.1-SNAPSHOT.jar",
+        "rvsec-core-0.9.1-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.9.1-SNAPSHOT.jar",
         "aspectjrt-1.9.7.jar",
     ]
     with patch("subprocess.run", side_effect=_fake_mvn_writes(mvn_jars)):
@@ -543,9 +543,9 @@ def test_prepare_instrumentation_appends_runtime_jars_to_extra_classpath(
 
     classpath_names = {p.name for p in cfg.extra_classpath}
     assert classpath_names == {
-        "rv-monitor-rt-0.9.0-SNAPSHOT.jar",
-        "rvsec-core-0.9.0-SNAPSHOT.jar",
-        "rvsec-logger-logcat-0.9.0-SNAPSHOT.jar",
+        "rv-monitor-rt-0.9.1-SNAPSHOT.jar",
+        "rvsec-core-0.9.1-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.9.1-SNAPSHOT.jar",
     }
 
 
@@ -577,9 +577,9 @@ def test_prepare_instrumentation_allowlists_runtime_jars_regression(
         "aspectjtools-1.9.25.1.jar",
         "aspectjweaver-1.9.25.1.jar",
         "kotlin-stdlib-2.0.21.jar",
-        "rv-monitor-rt-0.9.0-SNAPSHOT.jar",
-        "rvsec-core-0.9.0-SNAPSHOT.jar",
-        "rvsec-logger-logcat-0.9.0-SNAPSHOT.jar",
+        "rv-monitor-rt-0.9.1-SNAPSHOT.jar",
+        "rvsec-core-0.9.1-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.9.1-SNAPSHOT.jar",
         "surefire-api-3.0.0-M7.jar",
         "surefire-booter-3.0.0-M7.jar",
         "surefire-extensions-spi-3.0.0-M7.jar",
@@ -591,9 +591,9 @@ def test_prepare_instrumentation_allowlists_runtime_jars_regression(
 
     names = {p.name for p in cfg.extra_classpath}
     assert names == {
-        "rv-monitor-rt-0.9.0-SNAPSHOT.jar",
-        "rvsec-core-0.9.0-SNAPSHOT.jar",
-        "rvsec-logger-logcat-0.9.0-SNAPSHOT.jar",
+        "rv-monitor-rt-0.9.1-SNAPSHOT.jar",
+        "rvsec-core-0.9.1-SNAPSHOT.jar",
+        "rvsec-logger-logcat-0.9.1-SNAPSHOT.jar",
     }
 
 

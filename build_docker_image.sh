@@ -9,7 +9,7 @@ mvn clean compile -f ./rv-android/pom.xml
 
 # --- Configuration ---
 IMAGE_NAME="phtcosta/rvsec"
-IMAGE_TAG="0.9.0"
+IMAGE_TAG="0.9.1"
 # Dockerfile is in the current directory (rvsec/)
 DOCKERFILE_PATH="Dockerfile" 
 # Build context is also the current directory (rvsec/)
