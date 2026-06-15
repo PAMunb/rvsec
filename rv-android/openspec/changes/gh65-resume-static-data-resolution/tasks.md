@@ -1,5 +1,5 @@
 <!-- Small change (~3 source files + tests + 1 offline script + docs). No subagent orchestration needed.
-     Critical path: Group 1 (coverage.py / D-2) -> Group 2 (result_processor / D-1, D-3) -> Group 3 (regression test) -> Group 5 (verify). -->
+     Critical path: Group 1 (coverage.py / D-2) -> Group 2 (result_processor / D-1, D-3a) -> Group 3 (regression test) -> Group 5 (verify). -->
 
 ## 1. Error aggregates independent of static data (D-2 — rv-android-core)
 
@@ -7,12 +7,12 @@
 - [ ] 1.2 Add unit tests: `test_metrics_empty_classes_counts_errors` (empty `classes` + K errors / J unique → `to_dict()["total_errors"]==K`, `unique_errors==J`, all coverage `0`) and `test_error_count_matches_get_errors_logcat_only` (analysis scenarios "Metrics Over Empty Classes Still Count Errors", "Error Count Matches get_errors After Logcat-Only Reconstruction")
 - [ ] 1.3 Run `/rv-test-run rv-android-core`
 
-## 2. Resume results_dir resolution + auditable fallback (D-1, D-3 — rv-platform)
+## 2. Resume results_dir resolution + once-per-task unresolved counter (D-1, D-3, D-3a — rv-platform)
 
 - [ ] 2.1 In `modules/rv-platform/src/rv_platform/components/result_processor.py` `_resolve_static_data`, derive the directory as `task.results_dir or os.path.dirname(task.result.logcat_file)` when `logcat_file` is set; pass the derived dir to `read_static_analysis_files(..., apk_name, task.app.code_package if task.app else None)` (D-1; INV-PLT-15; ADR 0003)
-- [ ] 2.2 Add a counter of tasks with unresolved static data (per-task warning + aggregate count surfaced in the processing log) when the derived dir yields no JSON (platform scenario "Static Analysis JSON Missing on Resume")
-- [ ] 2.3 In `_write_task_summary_data`/`_write_task_coverage_data`, add the auditable, non-silent fallback to serialized `task.result.coverage_metrics` (explicit log + fallback counter) when reconstruction fails but serialized metrics exist; emit a zeroed row with warning when neither is available (D-3; INV-PLT-16; platform scenario "Auditable Fallback to Serialized Coverage Metrics")
-- [ ] 2.4 Add unit tests: `test_resolve_static_data_derives_dir_from_logcat`, `test_missing_json_counts_and_errors_survive`, `test_auditable_fallback_logs_and_counts`
+- [ ] 2.2 Add a counter of tasks with unresolved static data (per-task warning + aggregate count surfaced in the processing log) when the derived dir yields no JSON. The counter MUST increment **at most once per task**: memoize the unresolved outcome on `task.static_data` (a non-`None` sentinel) so re-entry from any writer neither re-parses nor re-counts (D-3a; INV-PLT-15; platform scenario "Static Analysis JSON Missing on Resume")
+- [ ] 2.3 In `_write_task_summary_data`/`_write_task_coverage_data`, emit a zeroed row with an explicit warning when reconstruction fails (logcat present but JSON genuinely absent, or logcat missing). Do **NOT** fall back to serialized `task.result.coverage_metrics` — it would make `summary.csv` `cov_*` non-zero while `coverage.csv` stays empty, which `verify.py` C3 flags as a failure (D-3; INV-PLT-16 unchanged; INV-PLT-17; platform scenario "No Fallback to Serialized Coverage Metrics When JSON Is Absent")
+- [ ] 2.4 Add unit tests: `test_resolve_static_data_derives_dir_from_logcat`, `test_missing_json_counts_and_errors_survive`, `test_unresolved_counter_increments_once_per_task` (call all three writers for one JSON-absent task; assert the counter == 1), `test_missing_json_summary_row_zeroed_no_fallback` (serialized `coverage_metrics` present but JSON absent → `summary.csv` `cov_*` still `0.00`, `mop_errors_*` accurate)
 - [ ] 2.5 Run `/rv-test-run rv-platform`
 
 ## 3. Resume validation gate (G0–G6 — rv-platform)
@@ -31,7 +31,7 @@
 
 ## 3b. Golden regression vs offline reference (G5 — rv-platform)
 
-- [ ] 3b.1 Add `test_golden_vs_offline_regen`: sample ≥10 real `experimento-20260604` tasks (logcat + co-located JSON committed as fixtures), reconstruct in-container-style, and assert `cov_method`/`cov_class`/`mop_errors` match the offline regen reference within `0.01` (locks behavior to the validated `scripts/regenerate_results/` pipeline)
+- [ ] 3b.1 Add `test_golden_vs_offline_regen`: sample ≥10 real `experimento-20260604` tasks (logcat + co-located JSON committed as fixtures), reconstruct in-container-style, and assert `cov_method`/`cov_class`/`mop_errors` match the offline regen reference within `0.01` (locks behavior to the validated `scripts/regenerate_results/` pipeline). Truncate each fixture logcat to the `RVSEC`/`RVSEC-COV` lines actually exercised and subset each SA JSON to the referenced classes/methods to keep the repo footprint small
 - [ ] 3b.2 Mark with `@pytest.mark.regression` if the fixture set is large; ensure it runs in the default (non-slow) suite if small
 
 ## 4. Offline tooling residual (D-4 — scripts/regenerate_results)
@@ -61,4 +61,4 @@
 
 ## 6. Archive-time caveat (Phase 6 — `/opsx:archive` / `/opsx:sync`)
 
-- [ ] 6.1 **Manual invariant reconciliation**: the OpenSpec delta engine parses only the `### Requirement:` blocks as deltas — the `## Invariants` bullets in `specs/platform/spec.md` (MODIFIED INV-PLT-15 / INV-PLT-16) are NOT auto-applied. At sync, manually replace the INV-PLT-15 and INV-PLT-16 bullets in the main `openspec/specs/platform/spec.md` with the modified text from this delta (results_dir derivation; auditable non-silent fallback). INV-ANA-25 is unchanged (verified, not amended) — do not edit its bullet
+- [ ] 6.1 **Manual invariant reconciliation**: the OpenSpec delta engine parses only the `### Requirement:` blocks as deltas — the `## Invariants` bullets in `specs/platform/spec.md` are NOT auto-applied. At sync: (a) replace the INV-PLT-15 bullet in the main `openspec/specs/platform/spec.md` with the MODIFIED text from this delta (results_dir derivation + once-per-task unresolved counter); (b) ADD the new INV-PLT-18 bullet (round-trip metric equivalence + loud aggregate WARNING). INV-PLT-16 is **unchanged** (gh58's "no fallback" stands; this delta only restates it for context) — do NOT edit it. INV-PLT-17 is unchanged in the spec (only its offline-tooling reach is exercised by D-4). INV-ANA-25 is unchanged (verified, not amended) — do not edit its bullet

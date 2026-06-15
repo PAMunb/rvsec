@@ -24,7 +24,7 @@ Platform._process_results()
 |-----------|---------------|-------|--------|
 | `result_processor._resolve_static_data` | Derive per-APK dir, re-parse SA JSON, memoize, count unresolved | `task` (resumed: `results_dir=""`) | `StaticAnalysisData` or `None` |
 | `coverage.CoverageMetricsRepository.calculate_metrics` | Compute metrics; error aggregates independent of `classes` | repository state | `CoverageMetrics` |
-| `result_processor._write_task_summary_data` | Summary row; auditable fallback when reconstruction fails | `task`, populated `repository` | `summary.csv` row |
+| `result_processor._write_task_summary_data` | Summary row; zeroed row + warning when reconstruction fails (no serialized fallback) | `task`, populated `repository` | `summary.csv` row |
 | `verify.py` C3 (offline) | Cross-check `cov_class` summary↔coverage | regen CSVs | PASS/FAIL |
 
 ## Mapping: Spec → Implementation → Test
@@ -33,7 +33,7 @@ Platform._process_results()
 |-------------|---------------|------|
 | INV-PLT-15 (derive results_dir) | `_resolve_static_data`: `results_dir or os.path.dirname(task.result.logcat_file)` | `test_resolve_static_data_derives_dir_from_logcat` |
 | Scenario: Resume After tasks.json Round-Trip | `_resolve_static_data` + `_reconstruct_repository_from_logcat` | `test_resume_roundtrip_coverage_nonzero` |
-| INV-PLT-16 (auditable fallback) | `_write_task_summary_data` fallback + counter | `test_auditable_fallback_logs_and_counts` |
+| INV-PLT-15 (counter once per task) | `_resolve_static_data` memoizes the unresolved outcome | `test_unresolved_counter_increments_once_per_task` |
 | INV-ANA-25 / Error Aggregates Independent | `calculate_metrics`: count errors before `if not self.classes` | `test_metrics_empty_classes_counts_errors` |
 | Scenario: Static Analysis JSON Missing on Resume | `_resolve_static_data` warning + counter | `test_missing_json_counts_and_errors_survive` |
 | INV-PLT-18 (round-trip equivalence) | `from_dict(to_dict)` reconstruct == live metrics | `test_roundtrip_metric_equivalence` (G1, parametrized) |
@@ -51,7 +51,7 @@ Platform._process_results()
 
 **Non-Goals:**
 - Changing the `tasks.json` schema (Option B rejected — see Decisions).
-- Re-introducing the silent 3-tier cascade gh58 deleted.
+- Re-introducing the silent 3-tier cascade gh58 deleted, or any fallback to serialized `coverage_metrics` (D-3 rejected — conflicts with INV-PLT-17 / verify.py C3).
 - Re-running `experimento-20260604` (data already consolidated offline).
 - Touching `parse_logcat_file`/rv-coverage API, instrumentation, or the execution pipeline.
 
@@ -63,8 +63,11 @@ Option A uses already-serialized data (`task.result.logcat_file`) and the runtim
 **D-2: Count error aggregates before the empty-`classes` early return.**
 `calculate_metrics()` returns `CoverageMetrics()` early when `self.classes` is empty, before `metrics.total_errors = len(self.errors)`. Moving the two error-count assignments before that early return makes `to_dict()["total_errors"]` accurate in the degraded case, conforming to the already-written INV-ANA-25. Errors are independent of static analysis, so this is correct in all paths (the populated path is unchanged — it counts the same values later).
 
-**D-3: Auditable, non-silent fallback (reconcile INV-PLT-16).**
-When logcat is present but the JSON is genuinely absent, allow falling back to serialized `task.result.coverage_metrics` for the fields it carries, gated behind an explicit per-task log and a counter surfaced in aggregate. This is distinct from the silent cascade gh58 removed: it is observable and bounded. When neither reconstruction nor serialized metrics are available, emit a zeroed row with a warning.
+**D-3: No fallback to serialized `coverage_metrics` (INV-PLT-16 unchanged).**
+A fallback to serialized `task.result.coverage_metrics` was considered and **rejected**. It conflicts with INV-PLT-17 / `verify.py` C3: the serialized value is an aggregate summary with no per-method rows, so it would populate `summary.csv` `cov_*` (non-zero) while `coverage.csv` stays empty — exactly the `summary != 0 with coverage_rows = 0` inconsistency C3 flags as a failure (`result_processor.py` writes `coverage.csv` per-method rows only from a populated repository; the serialized metrics cannot produce them). Its one value scenario (run 1 had static data, the JSON was deleted before resume) is marginal and explicitly out of scope — offline data is already consolidated. So when logcat is present but the JSON is genuinely absent, both writers emit a **zeroed row with an explicit per-task warning**, and the unresolved-static-data counter (D-3a) drives one aggregate WARNING (G4). gh58's removal of the silent cascade stands; INV-PLT-16 is not amended.
+
+**D-3a: The unresolved-static-data counter increments at most once per task.**
+The three reconstruction call sites (`_write_task_coverage_data`, `_write_task_error_data`, `_extract_task_data`) all guard on `task.repository`, and the first writer (`_generate_coverage_csv`) caches the reconstructed repository — so under the current ordering `_resolve_static_data` runs once per task. To make G4's "exact N" robust against writer reordering, `_resolve_static_data` MUST memoize its outcome on `task.static_data` (a sentinel, **not** `None`, for the unresolved case) so a re-entry from any writer neither re-parses nor re-increments. The count is a property of the task, not of the writer pass.
 
 **D-4: Offline tooling scope limited to `verify.py` C3.**
 The `cov_class` write fix and the versioning of `scripts/regenerate_results/` already landed in `b2bc5aa9`. Only the residual remains: `verify.py` C3 skips `cov_class` and carries a stale comment. Bring it under the same INV-PLT-17 guarantee.
@@ -90,15 +93,17 @@ Resumed task (`results_dir=""`, `app=None`) → `_resolve_static_data` derives `
 
 | Error | Source | Strategy | Recovery |
 |-------|--------|----------|----------|
-| JSON absent at derived dir | `_resolve_static_data` | log + increment unresolved counter; `static_data=None` | errors still reconstructed; coverage zeroed by construction |
-| Logcat missing/None | `_reconstruct_repository_from_logcat` | warning; no reconstruction | zeroed row; auditable fallback to serialized `coverage_metrics` if present |
+| JSON absent at derived dir | `_resolve_static_data` | log + increment unresolved counter (once/task); memoize unresolved outcome | errors still reconstructed; coverage zeroed by construction |
+| Logcat missing/None | `_reconstruct_repository_from_logcat` | warning; no reconstruction | zeroed row + warning (no serialized fallback) |
 | Unexpected parser exception | `_resolve_static_data` `except` | warning (backstop) | `None` |
 
 ## Risks / Trade-offs
 
 - [Derived dir wrong if logcat path was rewritten between sessions] → mitigated: identity is established in `Task.initialize` and `logcat_file` is the only path proven resolvable on resume (4285 errors reconstructed from it across the dataset).
-- [Auditable fallback could mask a systemic JSON-absence] → mitigated: the aggregate counter is surfaced in the processing log, so wide zeroing is visible, not silent.
+- [Wide JSON-absence could pass unnoticed as zero coverage] → mitigated: every unresolved task is counted once and surfaced as one aggregate WARNING (G4 / INV-PLT-18), so systemic zeroing is loud, not silent; with D-3 rejected there is no serialized fallback to hide it.
 - [Container-relative vs absolute paths] → Option A inherits the same relativity as `logcat_file` (portable in-container, resolves on the same machine outside), avoiding Option B's absolute-path problem.
+- [G8 (real cross-entry-point E2E) is slow/online and not in CI] → accepted: the orchestrated-resume path (case-matrix rows 1/4/6) has no CI net. The structural tripwire is INV-PLT-18 / G1 (round-trip equivalence, in CI), which breaks the instant any runtime field needed for reconstruction is dropped; G8 is run manually in Phase 5 before declaring done.
+- [G5 golden fixtures could bloat the repo (real logcats + MB-sized SA JSONs)] → mitigated: truncate each fixture logcat to the `RVSEC` / `RVSEC-COV` lines actually exercised and subset each SA JSON to the referenced classes/methods, keeping the fixture set small enough to run in the default (non-slow) suite.
 
 ## Resume Entry Points & Case Matrix
 
@@ -145,7 +150,7 @@ Resume has regressed repeatedly because tests set the runtime fields (`results_d
 | G2/G0 | Integration | Two-session resume via stub tool: session1→`tasks.json`→session2 resume; assert resumed row non-zeroed (RED on pre-fix) | `Platform.run()` twice, no emulator | ~2 |
 | G3/G6 | Integration | Consolidation-only pass (all tasks from disk); canary: 100% of RVSEC-COV tasks have `cov_method>0` | reprocess persisted `tasks.json` | ~2 |
 | G4 | Integration | Aggregate health-check WARNING fires with exact `N`; silent when N=0 | caplog assertion, missing-JSON mix | ~2 |
-| G5 | Regression | Golden: ≥10 real 20260604 tasks reconstruct == offline regen | fixtures sampled from real data | ~1 |
+| G5 | Regression | Golden: ≥10 real 20260604 tasks reconstruct == offline regen (logcats truncated to exercised lines, SA JSONs subset to referenced classes) | fixtures sampled from real data | ~1 |
 | INV-PLT-17 | Offline | `verify.py` C3 validates `cov_class` | run on regen CSVs | n/a (script) |
 
 ## Open Questions

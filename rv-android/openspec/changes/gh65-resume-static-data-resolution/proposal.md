@@ -9,7 +9,7 @@ A single root cause produces three symptoms, and one of them is a documented spe
 ## What Changes
 
 - **`result_processor._resolve_static_data`**: when `results_dir` is empty/None, derive it from `os.path.dirname(task.result.logcat_file)` (Option A — `logcat_file` *is* serialized and, at runtime, `task.results_dir == os.path.dirname(task.result.logcat_file)`). No `tasks.json` schema change.
-- **Auditable fallback + accounting**: when the logcat/JSON are genuinely absent, fall back to the serialized `task.result.coverage_metrics` with an explicit log and a counter of affected tasks — reconciling INV-PLT-16 as "no *silent* fallback" rather than "no fallback". The silent `warning` becomes a counted, surfaced outcome.
+- **Unresolved-static-data accounting + loud signal**: when the logcat is present but the JSON is genuinely absent, emit a zeroed coverage row with an explicit per-task warning and increment a counter of affected tasks (incremented **at most once per task**, regardless of how many CSV writers trigger reconstruction), surfaced as one aggregate WARNING (INV-PLT-18). **No** fallback to the serialized `task.result.coverage_metrics`: gh58's removal of the silent cascade stands and **INV-PLT-16 is unchanged** — a serialized fallback would populate `summary.csv` `cov_*` while `coverage.csv` stays empty, exactly the `summary != 0 with coverage_rows = 0` inconsistency `verify.py` C3 (INV-PLT-17) flags as a failure.
 - **`coverage.calculate_metrics`**: count `total_errors`/`unique_errors` **before** the `if not self.classes` early return, so error aggregates survive the legitimate degraded case (logcat present, JSON genuinely absent, e.g. `--skip-static`) — bringing the code into conformance with INV-ANA-25.
 - **Regression test**: exercise the real resume path (`Task.from_dict(Task.to_dict())` round-trip, `results_dir=""`, logcat + co-located JSON present) and assert `cov_method > 0` and `errors > 0`. The gh58 fixture masked the gap by setting `results_dir`/`app` manually.
 - **`scripts/regenerate_results/verify.py` C3**: check `cov_class` (residual; the `cov_class` write fix already landed in `b2bc5aa9`). Remove the stale comment that claims `cov_class` duplicates `cov_method`.
@@ -25,13 +25,13 @@ None.
 
 ### Modified Capabilities
 
-- `platform`: INV-PLT-15 (resume obtains static_data — must state the `results_dir` precondition and how it is satisfied on resume); INV-PLT-16 (the no-fallback rule — reconcile to "no *silent* fallback", allowing an auditable, counted fallback); INV-PLT-17 (`cov_class = class_coverage` — extend the guarantee's reach to the offline tooling).
+- `platform`: INV-PLT-15 (MODIFIED — resume obtains static_data: must state the `results_dir` precondition, how it is satisfied on resume, and that the unresolved-static-data counter increments at most once per task); INV-PLT-17 (`cov_class = class_coverage` — extend the guarantee's reach to the offline tooling); INV-PLT-18 (ADDED — round-trip metric equivalence between live and resumed task, plus a loud aggregate WARNING when resumed tasks reconstruct to zero coverage). **INV-PLT-16 is unchanged**: gh58's "no fallback to serialized `coverage_metrics`" rule stands.
 - `analysis`: ADDS a requirement "Error Aggregates Are Independent of Static Analysis Data" (the testable expression of INV-ANA-25: `calculate_metrics()` counts `total_errors`/`unique_errors` before the empty-`classes` early return) and MODIFIES "Logcat-Based Repository Reconstruction Requires Static Data for Coverage" to assert that those aggregates stay accurate when `static_data` is absent. INV-ANA-25 itself is verified, not amended — the early-return fix makes the code conform to the already-written invariant.
 
 ## Impact
 
 **Modules:**
-- `rv-platform` — `components/result_processor.py` (`_resolve_static_data`: Option A + auditable fallback/accounting); `tests/components/test_result_processor.py` (real-resume regression test, revise `_make_gh58_task`); `tests/execution/test_resume*.py` (integration coverage).
+- `rv-platform` — `components/result_processor.py` (`_resolve_static_data`: Option A + once-per-task unresolved-static-data counter; zeroed row + warning when reconstruction fails, no serialized fallback); `tests/components/test_result_processor.py` (real-resume regression test, revise `_make_gh58_task`); `tests/execution/test_resume*.py` (integration coverage).
 - `rv-android-core` — `domain/coverage.py` (`calculate_metrics`: count errors before the early return). **Not** `domain/task.py` (Option A avoids serializing `results_dir`).
 
 **Tooling (outside `modules/`):**
