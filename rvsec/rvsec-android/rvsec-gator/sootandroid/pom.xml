@@ -83,6 +83,21 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- TestMain is the upstream GATOR (Ohio State 2018) demo test: it
+					     drives the whole pipeline via Main.main against hardcoded paths from
+					     the original author's machine (~/workspace/android/Simplest, ~/Android/Sdk,
+					     ../tools/apktool_2.3.4.jar) that do not exist here, and Main.main calls
+					     System.exit, which crashes the surefire fork. It is not a unit test of
+					     this project's code, so it is excluded from the test run. -->
+					<excludes>
+						<exclude>**/TestMain.java</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 

@@ -3,6 +3,8 @@ package presto.android.gui.clients;
 import static org.junit.Assert.*;
 
 import java.io.InputStreamReader;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.junit.Assume;
 import org.junit.BeforeClass;
@@ -131,6 +133,123 @@ public class BaselineComparisonIT {
 	public void testTransitionCountExact() {
 		int expected = baseline.get("transitions").getAsInt();
 		assertEquals("Transition count must match baseline exactly", expected, transitionCount);
+	}
+
+	/**
+	 * Edge-set diff-zero gate for the gh66 buildFlowThroughContainer optimization
+	 * (INV-ANA-39): the produced {@code transitions[]} must be the *same set of edges*,
+	 * not merely the same count. A count-only check (testTransitionCountExact) would pass
+	 * even if the optimization dropped one edge and added another.
+	 *
+	 * Each edge is keyed on STABLE identifiers — GATOR's numeric node IDs are not stable
+	 * across builds, so source/target window IDs are resolved to their window {@code name}
+	 * via {@code windows[]}, and widget identity comes from each event's inline
+	 * {@code widgetName}/{@code widgetClass}. The key is the same 6-field tuple the corpus
+	 * comparator (scripts/wtg_edge_diff.py) uses: (source window name, target window name,
+	 * event type, widget name, widget class, handler).
+	 *
+	 * Baseline capture (one-time): the pre-change JAR has no {@code transition_edges} in
+	 * the baseline resource, so on the FIRST run (against the pre-change JAR) this test
+	 * PRINTS the computed edge set and skips. Paste that array into
+	 * {@code cryptoapp_baseline.json} as {@code "transition_edges": [...]}; subsequent runs
+	 * (against the gh66 JAR) then assert set equality.
+	 */
+	@Test
+	public void testTransitionEdgeSetExact() {
+		Set<String> actualEdges = extractTransitionEdges(result);
+
+		if (!baseline.has("transition_edges")) {
+			System.out.println("[BaselineComparisonIT] No 'transition_edges' baseline yet. "
+					+ "Capture from the PRE-change JAR by pasting the following into "
+					+ "cryptoapp_baseline.json as \"transition_edges\":");
+			System.out.println("[BaselineComparisonIT] BEGIN transition_edges");
+			for (String e : actualEdges) {
+				System.out.println("    " + gsonQuote(e) + ",");
+			}
+			System.out.println("[BaselineComparisonIT] END transition_edges (" + actualEdges.size() + " edges)");
+			Assume.assumeTrue("Baseline lacks 'transition_edges' — capture it from the pre-change JAR (see test output)",
+					false);
+			return;
+		}
+
+		Set<String> expectedEdges = new TreeSet<>();
+		for (JsonElement e : baseline.getAsJsonArray("transition_edges")) {
+			expectedEdges.add(e.getAsString());
+		}
+
+		Set<String> added = new TreeSet<>(actualEdges);
+		added.removeAll(expectedEdges);
+		Set<String> removed = new TreeSet<>(expectedEdges);
+		removed.removeAll(actualEdges);
+
+		assertTrue("transitions[] edge set diverged from baseline (INV-ANA-39): "
+				+ added.size() + " added, " + removed.size() + " removed.\n"
+				+ "  added:   " + added + "\n"
+				+ "  removed: " + removed,
+				added.isEmpty() && removed.isEmpty());
+	}
+
+	/**
+	 * Build the stable edge-key set of {@code json}'s {@code transitions[]}. Mirrors
+	 * scripts/wtg_edge_diff.py: window IDs → names via {@code windows[]}, widget identity
+	 * from inline event fields, set semantics (duplicate-keyed events collapse).
+	 */
+	private static Set<String> extractTransitionEdges(JsonObject json) {
+		java.util.Map<Long, String> winName = new java.util.HashMap<>();
+		JsonArray windows = json.getAsJsonArray("windows");
+		if (windows != null) {
+			for (JsonElement we : windows) {
+				JsonObject w = we.getAsJsonObject();
+				if (w.has("id")) {
+					winName.put(w.get("id").getAsLong(),
+							w.has("name") && !w.get("name").isJsonNull() ? w.get("name").getAsString() : "");
+				}
+			}
+		}
+
+		Set<String> edges = new TreeSet<>();
+		JsonArray transitions = json.getAsJsonArray("transitions");
+		if (transitions == null) {
+			return edges;
+		}
+		// SOH (U+0001) field separator: it cannot occur in window/class names, event
+		// types, or handler signatures, so the six key fields join unambiguously.
+		final String SEP = "";
+		for (JsonElement te : transitions) {
+			JsonObject tr = te.getAsJsonObject();
+			if (!tr.has("sourceId") || !tr.has("targetId")) {
+				continue;
+			}
+			String src = nameOf(winName, tr.get("sourceId").getAsLong());
+			String tgt = nameOf(winName, tr.get("targetId").getAsLong());
+			JsonArray events = tr.has("events") && !tr.get("events").isJsonNull()
+					? tr.getAsJsonArray("events") : null;
+			if (events == null || events.size() == 0) {
+				edges.add(src + SEP + tgt + SEP + SEP + SEP + SEP);
+				continue;
+			}
+			for (JsonElement ee : events) {
+				JsonObject ev = ee.getAsJsonObject();
+				edges.add(src + SEP + tgt + SEP
+						+ str(ev, "type") + SEP
+						+ str(ev, "widgetName") + SEP
+						+ str(ev, "widgetClass") + SEP
+						+ str(ev, "handler"));
+			}
+		}
+		return edges;
+	}
+
+	private static String nameOf(java.util.Map<Long, String> winName, long id) {
+		return winName.containsKey(id) ? winName.get(id) : "<unresolved:" + id + ">";
+	}
+
+	private static String str(JsonObject o, String key) {
+		return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : "";
+	}
+
+	private static String gsonQuote(String s) {
+		return new com.google.gson.JsonPrimitive(s).toString();
 	}
 
 	// -----------------------------------------------------------------

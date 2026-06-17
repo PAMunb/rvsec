@@ -310,6 +310,14 @@ public class FlowgraphRebuilder {
 
   private void buildFlowThroughContainer() {
     GraphUtil graphUtil = GraphUtil.v();
+    // Memoize container-field resolution across allocation nodes. The same container
+    // statements recur across allocation nodes, and getRead/WriteContainerField are pure
+    // functions of the statement (they read only the statement, the static
+    // container-method maps, and the Scene hierarchy), so resolving each statement once
+    // per pass yields identical field positions. containsKey-null (not computeIfAbsent)
+    // because a null position — a non-container statement — must be cached, not re-resolved.
+    Map<Stmt, Integer> readFieldCache = Maps.newHashMap();
+    Map<Stmt, Integer> writeFieldCache = Maps.newHashMap();
     for (Expr e : flowgraph.allNAllocNodes.keySet()) {
       if (!(e.getType() instanceof RefType)) {
         continue;
@@ -330,8 +338,18 @@ public class FlowgraphRebuilder {
           writes.addAll(varsAtContainerWrite.get(varNode.l));
         }
       }
+      // Hoist the read-target resolution out of the write loop: each read target's field
+      // position and flow-graph node depend only on the read statement, not on the
+      // writer, so resolving them once per allocation node (instead of once per
+      // write-read pair) adds the same edges. Materialize lazily — only after a write
+      // resolves to a non-null writer node — because the node factories
+      // (simpleNode/varNode) lazily create flow-graph nodes: building the targets for an
+      // allocation node whose writes all fail to resolve would create read-target nodes
+      // the per-pair loop never reaches (it never enters the read loop without a writer),
+      // changing the node set the pass produces.
+      List<NNode> readTargets = null;
       for (Stmt src : writes) {
-        Integer srcPos = wtgUtil.getWriteContainerField(src);
+        Integer srcPos = cachedWriteContainerField(src, writeFieldCache);
         if (srcPos == null) {
           Logger.verb(getClass().getSimpleName(), "the target of write container stmt can not be found: " + src);
           continue;
@@ -345,27 +363,66 @@ public class FlowgraphRebuilder {
         if (sn == null) {
           continue;
         }
-        for (Stmt tgt : reads) {
-          Integer tgtPos = wtgUtil.getReadContainerField(tgt);
-          if (tgtPos == null) {
-            Logger.verb(getClass().getSimpleName(), "the target of read container stmt can not be found: " + tgt);
-            continue;
-          }
-          NNode tn = null;
-          if (tgtPos.intValue() < 0) {
-            if (tgt instanceof DefinitionStmt) {
-              tn = varNode(jimpleUtil.lhsLocal(tgt));
-            }
-          } else {
-            tn = simpleNode(tgt.getInvokeExpr().getArg(tgtPos.intValue() - 1));
-          }
-          if (tn == null) {
-            continue;
-          }
+        if (readTargets == null) {
+          readTargets = collectReadTargets(reads, readFieldCache);
+        }
+        for (NNode tn : readTargets) {
           sn.addEdgeTo(tn);
         }
       }
     }
+  }
+
+  // Resolve, for each read statement reachable through the container, the flow-graph node
+  // a writer must flow into. Mirrors the original inner read loop exactly: an unresolved
+  // field position or a null target node is skipped identically, so the returned list
+  // holds exactly the nodes the per-pair loop would have linked. Called only after a
+  // write has resolved (see buildFlowThroughContainer), so the node factories never
+  // create read-target nodes for an allocation node that adds no edge (INV-ANA-39c).
+  private List<NNode> collectReadTargets(Set<Stmt> reads, Map<Stmt, Integer> readFieldCache) {
+    List<NNode> readTargets = Lists.newArrayList();
+    for (Stmt tgt : reads) {
+      Integer tgtPos = cachedReadContainerField(tgt, readFieldCache);
+      if (tgtPos == null) {
+        Logger.verb(getClass().getSimpleName(), "the target of read container stmt can not be found: " + tgt);
+        continue;
+      }
+      NNode tn = null;
+      if (tgtPos.intValue() < 0) {
+        if (tgt instanceof DefinitionStmt) {
+          tn = varNode(jimpleUtil.lhsLocal(tgt));
+        }
+      } else {
+        tn = simpleNode(tgt.getInvokeExpr().getArg(tgtPos.intValue() - 1));
+      }
+      if (tn == null) {
+        continue;
+      }
+      readTargets.add(tn);
+    }
+    return readTargets;
+  }
+
+  // containsKey-null memoization (not computeIfAbsent, which would not cache a null
+  // result): returns the same value wtgUtil.getReadContainerField(s) would, resolving each
+  // statement's container-field position at most once per pass (INV-ANA-39 purity).
+  private Integer cachedReadContainerField(Stmt s, Map<Stmt, Integer> cache) {
+    if (cache.containsKey(s)) {
+      return cache.get(s);
+    }
+    Integer pos = wtgUtil.getReadContainerField(s);
+    cache.put(s, pos);
+    return pos;
+  }
+
+  // Write-side counterpart of cachedReadContainerField, same purity contract.
+  private Integer cachedWriteContainerField(Stmt s, Map<Stmt, Integer> cache) {
+    if (cache.containsKey(s)) {
+      return cache.get(s);
+    }
+    Integer pos = wtgUtil.getWriteContainerField(s);
+    cache.put(s, pos);
+    return pos;
   }
 
   private void recordVarAtContainerRead(Local rcv, Stmt s) {
