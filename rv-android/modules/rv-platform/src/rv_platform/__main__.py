@@ -7,6 +7,7 @@ This module provides command-line interface for the rv-platform system.
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -465,8 +466,12 @@ def _process_results_standalone(results_dir: str) -> int:
             print(f"❌ Results directory not found: {results_dir}", file=sys.stderr)
             return 1
 
-        # Load completed tasks from storage
-        task_storage = TaskStorage(results_dir)
+        # Load completed tasks from storage. TaskStorage takes the tasks.json
+        # FILE path (not the directory) and must be explicitly loaded before
+        # querying — same construction as Platform.__init__.
+        tasks_file = os.path.join(results_dir, "tasks.json")
+        task_storage = TaskStorage(tasks_file)
+        task_storage.load()
         tasks = task_storage.get_tasks()
 
         if not tasks:

@@ -600,6 +600,81 @@ class TestLogcatRepository(ModelTestBase):
         assert metrics_dict["reachable_method_coverage"] == 100.0
         assert metrics_dict["mop_method_coverage"] == 100.0
 
+    def test_metrics_empty_classes_counts_errors(self, repository):
+        """Error aggregates survive the empty-classes early return (D-2, INV-ANA-25).
+
+        Analysis scenario "Metrics Over Empty Classes Still Count Errors": a
+        repository with no static-analysis data but K registered violations (J
+        distinct) MUST report total_errors==K and unique_errors==J via to_dict(),
+        while every coverage percentage stays 0.
+        """
+        # K = 3 violations, J = 2 distinct unique_msg (two share spec/method/message)
+        repeated = RvErrorLog(
+            spec="SpecA",
+            error_type="TypeA",
+            class_full_name="com.example.A",
+            method="m1",
+            source="src",
+            message="boom",
+        )
+        repository.register_rv_error(repeated)
+        repository.register_rv_error(repeated)  # same unique_msg
+        repository.register_rv_error(
+            RvErrorLog(
+                spec="SpecB",
+                error_type="TypeB",
+                class_full_name="com.example.B",
+                method="m2",
+                source="src",
+                message="bang",
+            )
+        )
+
+        # No classes added — static analysis absent.
+        assert len(repository.classes) == 0
+
+        metrics_dict = repository.calculate_metrics().to_dict()
+
+        assert metrics_dict["total_errors"] == 3
+        assert metrics_dict["unique_errors"] == 2
+        assert metrics_dict["method_coverage"] == 0
+        assert metrics_dict["class_coverage"] == 0
+        assert metrics_dict["reachable_method_coverage"] == 0
+        assert metrics_dict["mop_method_coverage"] == 0
+        assert metrics_dict["direct_mop_method_coverage"] == 0
+        assert metrics_dict["activity_coverage"] == 0
+
+    def test_error_count_matches_get_errors_logcat_only(self, repository):
+        """total_errors == get_errors() after a logcat-only reconstruction (D-2).
+
+        Analysis scenario "Error Count Matches get_errors After Logcat-Only
+        Reconstruction": when a repository is reconstructed from a logcat without
+        static data, its `classes` dict is empty (so coverage is zeroed) but each
+        RVSEC violation line is registered. The metrics aggregate consumed by the
+        summary writer MUST match get_errors() exactly. Reproduced here at the
+        domain layer (no static data, N errors registered directly — the same
+        state parse_logcat_file(..., static_data=None) leaves).
+        """
+        n = 4
+        for i in range(n):
+            repository.register_rv_error(
+                RvErrorLog(
+                    spec="Spec",
+                    error_type="Type",
+                    class_full_name="com.example.C",
+                    method=f"m{i}",
+                    source="src",
+                    message=f"violation {i}",
+                )
+            )
+
+        assert len(repository.classes) == 0
+        assert len(repository.get_errors()) == n
+        assert repository.calculate_metrics().to_dict()["total_errors"] == n
+        assert repository.calculate_metrics().to_dict()["total_errors"] == len(
+            repository.get_errors()
+        )
+
     def test_diagnose(
         self, repository, class_data, method_data, coverage_log, error_log
     ):

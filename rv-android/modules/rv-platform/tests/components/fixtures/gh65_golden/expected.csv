@@ -1,0 +1,11 @@
+idx,apk,rep,timeout,tool,cov_method,cov_class,mop_errors_total,mop_errors_unique,rvsec_lines,err_lines
+00,com.illiouchine.jm_19.apk,1,180,ares,92.31,100.0,2,1,14,2
+01,com.shub39.rush_5730.apk,1,180,monkey,85.71,80.0,1,1,13,1
+02,com.destructo.botox_43.apk,1,180,ares,52.38,50.0,15,5,26,15
+03,com.a4a.g8invoicing_48.apk,1,60,droidbot:bfs_greedy,100.0,100.0,1,1,5,1
+04,me.timeto.app_612.apk,1,180,ape,71.43,66.67,6,6,11,6
+05,me.knighthat.kreate_135.apk,1,180,ape,100.0,100.0,6,6,14,6
+06,ch.famoser.mensa_60.apk,1,60,droidbot:bfs_greedy,86.67,100.0,6,6,19,6
+07,nodomain.aditya1875more.stashly_20.apk,1,180,ares,80.0,80.0,2,1,14,2
+08,ru.stersh.youamp_36.apk,1,180,ape,88.89,100.0,6,6,22,6
+09,io.github.wifi_password_manager_12.apk,1,180,ape,26.09,33.33,1,1,7,1

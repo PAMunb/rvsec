@@ -13,7 +13,11 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from rv_android_core.domain.classes import Classes
+from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.task import TaskState
+from rv_android_core.domain.window import Windows
+from rv_android_core.domain.wtg import WindowTransitionGraph
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.logging.constants import (
     CONTEXT_COMPONENT,
@@ -66,6 +70,13 @@ class ResultProcessorComponent:
         self.results_dir = results_dir
         self.error_handler = ErrorHandler.get_instance()
 
+        # IDs of tasks whose static-analysis JSON could not be resolved during
+        # reconstruction (D-3a). Membership-guarded so a task is counted at most
+        # once regardless of how many CSV writers trigger reconstruction; len()
+        # is the aggregate N surfaced by the resume health-check WARNING
+        # (INV-PLT-18). (Re)initialized at the start of execute().
+        self._unresolved_task_ids: set = set()
+
         # Initialize logging with component context
         logging_manager = LoggingManager.get_instance()
         self.logger = logging_manager.get_logger(
@@ -103,6 +114,11 @@ class ResultProcessorComponent:
         with self.logger.with_context(phase="result_processing"):
             self.logger.info(LOG_START.format(phase="experiment result processing"))
 
+            # Re-initialize the unresolved-static-data counter for this pass so a
+            # second consolidation pass (e.g. --process-results) reports only its
+            # own tasks (D-3a; protects G3 reprocessing idempotency).
+            self._unresolved_task_ids = set()
+
             # Filter for completed tasks. This includes tasks from ALL sessions
             # (previous runs loaded from tasks.json + current session), because
             # Platform._process_results() passes task_storage.get_completed_tasks().
@@ -114,13 +130,30 @@ class ResultProcessorComponent:
             # Generate all output files. Each generator handles the distinction
             # between tasks with in-memory repository (current session) and tasks
             # without repository (loaded from tasks.json on resume). For the
-            # latter, MOP violations are reconstructed from persisted logcat files,
-            # while coverage uses the serialized coverage_metrics fallback.
+            # latter, BOTH MOP violations AND per-method coverage are reconstructed
+            # from the persisted logcat + co-located static-analysis JSON
+            # (re-parsed on demand). There is NO fallback to serialized
+            # coverage_metrics (INV-PLT-16): when the JSON is genuinely absent,
+            # coverage is zeroed by construction while MOP errors survive.
             self._generate_coverage_csv(completed_tasks)
             self._generate_errors_csv(completed_tasks)
             self._generate_summary_csv(completed_tasks)
             self._generate_results_json(completed_tasks)
             self._generate_performance_csv(completed_tasks)
+
+            # Resume health check (INV-PLT-18 / G4): if any processed task
+            # reconstructed to zero coverage because its static-analysis JSON
+            # could not be resolved, surface one prominent aggregate WARNING with
+            # the exact N/M count. Silent when N == 0.
+            unresolved = len(self._unresolved_task_ids)
+            if unresolved:
+                self.logger.warning(
+                    f"Resume coverage health: {unresolved}/{len(completed_tasks)} "
+                    "resumed tasks had unresolved static data — coverage zeroed for "
+                    "those tasks (MOP errors preserved). Verify the static-analysis "
+                    "JSON is co-located with each logcat if non-zero coverage was "
+                    "expected."
+                )
 
             self.logger.info(LOG_COMPLETE.format(phase="experiment result processing"))
 
@@ -152,30 +185,76 @@ class ResultProcessorComponent:
     def _resolve_static_data(self, task: Any) -> Optional[Any]:
         """Return static-analysis data for a task, re-parsing the JSON on demand.
 
-        Memoizes the result on ``task.static_data`` so repeated calls during a
-        single CSV generation pass do not re-parse. INV-PLT-15 (gh58): the
-        resume path obtains static data via re-parse rather than serializing
-        it in tasks.json (which would inflate the persistence by MBs per task).
-        """
-        existing = getattr(task, "static_data", None)
-        if existing is not None:
-            return existing
+        INV-PLT-15 (gh58 + gh65): the resume path obtains static data via an
+        on-demand re-parse rather than serializing it in tasks.json (which would
+        inflate the persistence by MBs per task). On resume, ``task.results_dir``
+        is empty — it is not serialized — so the per-APK directory is derived
+        from ``os.path.dirname(task.result.logcat_file)``: at runtime
+        ``task.results_dir == os.path.dirname(logcat_file)`` and the
+        static-analysis JSON is co-located with the logcat (ADR 0003).
 
+        D-3a — two fields with disjoint roles keep the unresolved count robust:
+
+        - ``task.static_data`` is the **parse memo**. A valid ``StaticAnalysisData``
+          is assigned on EVERY path (an empty one when the JSON is absent or the
+          parser raises), so a non-``None`` value short-circuits re-entry WITHOUT
+          re-parsing and is always a legal argument to ``parse_logcat_file``.
+          Consequently ``read_static_analysis_files`` runs at most once per task
+          across all CSV writers, independent of writer ordering.
+        - ``self._unresolved_task_ids`` **counts** tasks whose static data could
+          not be resolved (empty ``classes``), membership-guarded so the count is
+          idempotent across writers; ``len(...)`` is the aggregate N reported by
+          the resume health-check WARNING (INV-PLT-18 / G4).
+
+        Returns the populated ``StaticAnalysisData`` when ``<dir>/<apk>.json``
+        resolves to non-empty classes; ``None`` otherwise (so downstream coverage
+        is zeroed by construction), with ``task.id`` recorded once.
+        """
+        memo = getattr(task, "static_data", None)
+        if memo is not None:
+            # Parse memo holds — never re-parse. Empty classes => unresolved.
+            return memo if memo.classes.classes else None
+
+        static_data = None
         try:
             results_dir = getattr(task, "results_dir", None)
+            if not results_dir:
+                logcat_file = getattr(task.result, "logcat_file", None)
+                results_dir = os.path.dirname(logcat_file) if logcat_file else ""
             apk_name = task.config.apk_name
             code_package = task.app.code_package if getattr(task, "app", None) else None
             static_data = static_analysis_parser.read_static_analysis_files(
                 results_dir, apk_name, code_package
             )
-            task.static_data = static_data
-            return static_data
         except Exception as e:
             self.logger.warning(
                 f"Failed to re-parse static analysis JSON for task {task.id}: {e} — "
                 "per-method coverage will be zero, only MOP violations will be reliable"
             )
+            static_data = None
+
+        # Memoize a VALID StaticAnalysisData on every path (empty when the JSON
+        # is absent or the parser raised). The empty instance is non-None, so it
+        # short-circuits re-entry without re-parsing/re-counting, and it is a
+        # legal (zero-coverage) argument to parse_logcat_file.
+        if static_data is None:
+            static_data = StaticAnalysisData(
+                Classes(), Windows(), WindowTransitionGraph()
+            )
+        task.static_data = static_data
+
+        if not static_data.classes.classes:
+            # Unresolved: count once per task (membership-guarded, order-independent).
+            if task.id not in self._unresolved_task_ids:
+                self._unresolved_task_ids.add(task.id)
+                self.logger.warning(
+                    f"Static analysis JSON unresolved for task {task.id} "
+                    f"(apk={task.config.apk_name}) — per-method coverage zeroed, "
+                    "MOP violations preserved"
+                )
             return None
+
+        return static_data
 
     def _reconstruct_repository_from_logcat(self, task: Any) -> Optional[Any]:
         """Reconstruct a LogcatRepository from the persisted logcat file.

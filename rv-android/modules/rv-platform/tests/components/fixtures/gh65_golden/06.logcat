@@ -1,0 +1,19 @@
+06-05 14:21:56.065  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.MensaApplication: void <init>()>
+06-05 14:21:56.130  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.MensaApplication: void onCreate()>
+06-05 14:21:56.134  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: void <init>()>
+06-05 14:21:56.134  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase: void <init>()>
+06-05 14:21:56.134  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: j4.z c()>
+06-05 14:21:56.136  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: j4.f b()>
+06-05 14:21:56.136  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: java.util.Set e()>
+06-05 14:21:56.136  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: java.util.List a(java.util.LinkedHashMap)>
+06-05 14:21:56.136  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: java.util.LinkedHashMap f()>
+06-05 14:21:56.143  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: n5.g l()>
+06-05 14:21:56.144  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.data.local.room.CacheDatabase_Impl: n5.e k()>
+06-05 14:21:56.220  5042  5042 V RVSEC   : TrustManagerFactorySpec,u8.q,q,<init>,r8-map-id-d2dada378a1994a895efd6a54ae7e533899de2fe29d67e2bb521a59fa43c6ab0:171,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+06-05 14:21:56.220  5042  5042 V RVSEC   : TrustManagerFactorySpec,u8.q,q,<init>,r8-map-id-d2dada378a1994a895efd6a54ae7e533899de2fe29d67e2bb521a59fa43c6ab0:171,InvalidSequenceOfMethodCalls,unknown
+06-05 14:21:56.222  5042  5042 V RVSEC   : SSLContextSpec,e9.a,a,k,r8-map-id-d2dada378a1994a895efd6a54ae7e533899de2fe29d67e2bb521a59fa43c6ab0:8,InvalidSequenceOfMethodCalls,unknown
+06-05 14:21:56.222  5042  5042 V RVSEC   : SSLContextSpec,u8.q,q,<init>,r8-map-id-d2dada378a1994a895efd6a54ae7e533899de2fe29d67e2bb521a59fa43c6ab0:210,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+06-05 14:21:56.222  5042  5042 V RVSEC   : SSLContextSpec,u8.q,q,<init>,r8-map-id-d2dada378a1994a895efd6a54ae7e533899de2fe29d67e2bb521a59fa43c6ab0:210,InvalidSequenceOfMethodCalls,unknown
+06-05 14:21:56.255  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.MainActivity: void <init>()>
+06-05 14:21:56.261  5042  5042 I RVSEC-COV: <ch.florianfrauenfelder.mensazh.MainActivity: void onCreate(android.os.Bundle)>
+06-05 14:21:58.160  5042  5070 V RVSEC   : SecureRandomSpec,r0.e,e,s,r8-map-id-d2dada378a1994a895efd6a54ae7e533899de2fe29d67e2bb521a59fa43c6ab0:6,InvalidSequenceOfMethodCalls,unknown

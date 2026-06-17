@@ -6,9 +6,9 @@ Checks performed (see docs/20260514_regenerar_planilhas.md §8):
      lines in the .logcat must equal the count of rows in errors_regen.csv.
   C2 coverage upper bound: rows in coverage_regen.csv for the tuple must be
      <= count of "RVSEC-COV:" lines in the .logcat (deduplicated).
-  C3 summary <-> coverage coherence: cov_act, cov_method, cov_rv_method on the
-     summary row must equal the last chronological row of coverage_regen.csv
-     (within +-0.01) for the same tuple.
+  C3 summary <-> coverage coherence: cov_act, cov_class, cov_method,
+     cov_rv_method on the summary row must equal the last chronological row of
+     coverage_regen.csv (within +-0.01) for the same tuple.
   C4 sanity: number of summary rows == number of .logcat files discovered.
   C5 errors parity vs original errors_all.csv (optional, --compare-errors):
      row count delta and per-tuple delta.
@@ -36,7 +36,9 @@ from collections import defaultdict
 from multiprocessing import Pool
 from typing import Dict, List, Optional, Tuple
 
-LOGCAT_NAME_RE = re.compile(r"^(?P<apk>.+\.apk)__(?P<rep>\d+)__(?P<timeout>\d+)__(?P<tool>.+)\.logcat$")
+LOGCAT_NAME_RE = re.compile(
+    r"^(?P<apk>.+\.apk)__(?P<rep>\d+)__(?P<timeout>\d+)__(?P<tool>.+)\.logcat$"
+)
 
 # Tag patterns emitted by RVSEC instrumentation. The logcat parser keys off the
 # tag column (col 6 of "threadtime" format), but our verifier only needs counts,
@@ -44,7 +46,9 @@ LOGCAT_NAME_RE = re.compile(r"^(?P<apk>.+\.apk)__(?P<rep>\d+)__(?P<timeout>\d+)_
 RE_RVSEC_ERR = re.compile(r"\bRVSEC\s*:")
 RE_RVSEC_COV = re.compile(r"\bRVSEC-COV\s*:")
 
-Tuple4 = Tuple[str, str, str, str]  # (apk, rep, timeout, tool) as strings to ease CSV joining
+Tuple4 = Tuple[
+    str, str, str, str
+]  # (apk, rep, timeout, tool) as strings to ease CSV joining
 
 
 def parse_logcat_name(filename: str) -> Optional[Tuple4]:
@@ -144,14 +148,18 @@ def verify(
     for key, (raw_err, _raw_cov) in logcat_counts.items():
         regen_err = len(errors_by.get(key, []))
         if regen_err != raw_err:
-            c1_failures.append(f"  {key}: logcat={raw_err} regen={regen_err} (delta={regen_err - raw_err})")
+            c1_failures.append(
+                f"  {key}: logcat={raw_err} regen={regen_err} (delta={regen_err - raw_err})"
+            )
 
     # ---- check C2: coverage upper bound ----
     c2_failures: List[str] = []
     for key, (_raw_err, raw_cov) in logcat_counts.items():
         regen_cov = len(coverage_by.get(key, []))
         if regen_cov > raw_cov:
-            c2_failures.append(f"  {key}: logcat_cov={raw_cov} regen_cov_rows={regen_cov}")
+            c2_failures.append(
+                f"  {key}: logcat_cov={raw_cov} regen_cov_rows={regen_cov}"
+            )
 
     # ---- check C3: summary <-> last coverage row coherence ----
     c3_failures: List[str] = []
@@ -161,13 +169,13 @@ def verify(
             continue
         s = rows[0]
         cov_rows = coverage_by.get(key, [])
-        # Map summary column -> coverage_regen.csv column.
-        # Note: coverage_regen.csv keeps the trimmed schema from result_processor.py
-        # (cov_class duplicates cov_method, cov_rv_method is mop). The summary
-        # uses the full old-experiment names; we cross-check the three that have
-        # a direct counterpart in coverage_regen.csv.
+        # Map summary column -> coverage_regen.csv column. Both CSVs carry a
+        # cov_class column whose value is class_coverage (INV-PLT-17): the
+        # summary's row-constant cov_class MUST equal the last coverage row's
+        # cov_class, so it is cross-checked alongside cov_act/cov_method/mop.
         summary_to_coverage = [
             ("cov_act", "cov_act"),
+            ("cov_class", "cov_class"),
             ("cov_method", "cov_method"),
             ("cov_reaches_target", "cov_rv_method"),
         ]
@@ -176,14 +184,20 @@ def verify(
             # had no static_data. summary cov_* must be 0 in that case.
             for s_col, _ in summary_to_coverage:
                 if float(s.get(s_col, "0") or 0) != 0:
-                    c3_failures.append(f"  {key}: {s_col}={s[s_col]} but coverage_rows=0")
+                    c3_failures.append(
+                        f"  {key}: {s_col}={s[s_col]} but coverage_rows=0"
+                    )
             continue
-        last = cov_rows[-1]  # CSV order preserved; chronological per regenerate_container.py
+        last = cov_rows[
+            -1
+        ]  # CSV order preserved; chronological per regenerate_container.py
         for s_col, c_col in summary_to_coverage:
             sv = float(s.get(s_col, "0") or 0)
             cv = float(last.get(c_col, "0") or 0)
             if abs(sv - cv) > 0.01:
-                c3_failures.append(f"  {key}: summary.{s_col}={sv} vs last_coverage.{c_col}={cv} (delta={sv - cv:.4f})")
+                c3_failures.append(
+                    f"  {key}: summary.{s_col}={sv} vs last_coverage.{c_col}={cv} (delta={sv - cv:.4f})"
+                )
 
     # ---- check C4: sanity (summary rows == discovered logcats) ----
     c4_ok = len(summary_rows) == len(logcat_counts)
@@ -195,12 +209,16 @@ def verify(
         orig_rows = load_csv_rows(original_errors_csv)
         orig_by = group_by_tuple(orig_rows)
         delta = len(errors_rows) - len(orig_rows)
-        c5_lines.append(f"original rows: {len(orig_rows)}  regen rows: {len(errors_rows)}  delta: {delta}")
+        c5_lines.append(
+            f"original rows: {len(orig_rows)}  regen rows: {len(errors_rows)}  delta: {delta}"
+        )
         common = set(orig_by) & set(errors_by)
         differ = sum(1 for k in common if len(orig_by[k]) != len(errors_by[k]))
         only_orig = set(orig_by) - set(errors_by)
         only_regen = set(errors_by) - set(orig_by)
-        c5_lines.append(f"tuples differing: {differ}  only_orig: {len(only_orig)}  only_regen: {len(only_regen)}")
+        c5_lines.append(
+            f"tuples differing: {differ}  only_orig: {len(only_orig)}  only_regen: {len(only_regen)}"
+        )
 
     # ---- write report ----
     def status(ok: bool) -> str:
@@ -220,19 +238,34 @@ def verify(
         f.write(f"## C1 errors strict 1:1 vs `.logcat` -- {status(c1_ok)}\n")
         f.write(f"failures: {len(c1_failures)}\n")
         if c1_failures:
-            f.write("```\n" + "\n".join(c1_failures[:50]) + ("\n... (truncated)" if len(c1_failures) > 50 else "") + "\n```\n")
+            f.write(
+                "```\n"
+                + "\n".join(c1_failures[:50])
+                + ("\n... (truncated)" if len(c1_failures) > 50 else "")
+                + "\n```\n"
+            )
         f.write("\n")
 
         f.write(f"## C2 coverage rows <= RVSEC-COV count -- {status(c2_ok)}\n")
         f.write(f"failures: {len(c2_failures)}\n")
         if c2_failures:
-            f.write("```\n" + "\n".join(c2_failures[:50]) + ("\n... (truncated)" if len(c2_failures) > 50 else "") + "\n```\n")
+            f.write(
+                "```\n"
+                + "\n".join(c2_failures[:50])
+                + ("\n... (truncated)" if len(c2_failures) > 50 else "")
+                + "\n```\n"
+            )
         f.write("\n")
 
         f.write(f"## C3 summary <-> coverage last row coherence -- {status(c3_ok)}\n")
         f.write(f"failures: {len(c3_failures)}\n")
         if c3_failures:
-            f.write("```\n" + "\n".join(c3_failures[:50]) + ("\n... (truncated)" if len(c3_failures) > 50 else "") + "\n```\n")
+            f.write(
+                "```\n"
+                + "\n".join(c3_failures[:50])
+                + ("\n... (truncated)" if len(c3_failures) > 50 else "")
+                + "\n```\n"
+            )
         f.write("\n")
 
         f.write(f"## C4 sanity (summary rows == logcat files) -- {status(c4_ok)}\n")
@@ -250,18 +283,30 @@ def verify(
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     g = ap.add_mutually_exclusive_group(required=True)
-    g.add_argument("--container", help="Verify a single container_dir against its container-level *_regen.csv.")
-    g.add_argument("--full", action="store_true", help="Verify the consolidated CSVs against all .logcat files.")
+    g.add_argument(
+        "--container",
+        help="Verify a single container_dir against its container-level *_regen.csv.",
+    )
+    g.add_argument(
+        "--full",
+        action="store_true",
+        help="Verify the consolidated CSVs against all .logcat files.",
+    )
     ap.add_argument(
         "--results-root",
         default="/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/RESULTADOS",
         help="Root used in --full mode.",
     )
     ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--compare-errors", action="store_true",
-                    help="In --full mode, also run C5 against original errors_all.csv.")
+    ap.add_argument(
+        "--compare-errors",
+        action="store_true",
+        help="In --full mode, also run C5 against original errors_all.csv.",
+    )
     args = ap.parse_args()
 
     if args.container:
@@ -282,7 +327,9 @@ def main() -> int:
         coverage_csv=os.path.join(root, "coverage_regen.csv"),
         errors_csv=os.path.join(root, "errors_regen.csv"),
         report_path=os.path.join(root, "verification_report.md"),
-        original_errors_csv=os.path.join(root, "errors_all.csv") if args.compare_errors else None,
+        original_errors_csv=(
+            os.path.join(root, "errors_all.csv") if args.compare_errors else None
+        ),
         workers=args.workers,
     )
 

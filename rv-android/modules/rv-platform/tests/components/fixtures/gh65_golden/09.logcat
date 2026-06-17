@@ -1,0 +1,7 @@
+06-06 22:44:19.046  3871  3871 I RVSEC-COV: <io.github.wifi_password_manager.App: void <init>()>
+06-06 22:44:19.137  3871  3871 I RVSEC-COV: <io.github.wifi_password_manager.App: void attachBaseContext(android.content.Context)>
+06-06 22:44:19.301  3871  3871 I RVSEC-COV: <io.github.wifi_password_manager.App: void onCreate()>
+06-06 22:44:19.390  3871  3871 V RVSEC   : SecureRandomSpec,an1,an1,t,r8-map-id-2faf11b38e2f46e3b8003078f913bc86aab4d3ea907f115b8e46b387be33d339:6,InvalidSequenceOfMethodCalls,unknown
+06-06 22:44:19.437  3871  3871 I RVSEC-COV: <io.github.wifi_password_manager.MainActivity: void <init>()>
+06-06 22:44:19.526  3871  3871 I RVSEC-COV: <io.github.wifi_password_manager.MainActivity: void onCreate(android.os.Bundle)>
+06-06 22:44:19.586  3871  3871 I RVSEC-COV: <io.github.wifi_password_manager.MainActivity: or2 w()>

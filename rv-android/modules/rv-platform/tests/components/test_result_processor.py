@@ -6,10 +6,14 @@ coverage/error/summary data writing, and logcat reconstruction fallback.
 import csv
 import json
 import os
+import shutil
 from unittest.mock import MagicMock, patch
 
+import pytest
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
+from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 from rv_platform.components.result_processor import ResultProcessorComponent
+from rv_static_analysis.parser.static import static_analysis_parser
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -726,3 +730,385 @@ class TestGh58CovClassSlotFix:
         assert "cov_class" in header, "summary.csv must include cov_class column"
         cov_class_idx = header.index("cov_class")
         assert float(row[cov_class_idx]) == 40.0
+
+
+# ===========================================================================
+# gh65: Resume results_dir derivation + once-per-task unresolved counter
+# ===========================================================================
+
+
+def _make_resume_task(tmp_path, copy_json=True):
+    """Resume-shaped task obtained via a REAL Task.from_dict(Task.to_dict())
+    round-trip (task 3.7), so results_dir="" and app=None exactly as on resume
+    — the precondition the gh58 fixture masked by setting results_dir manually
+    (D-1). The logcat + co-located SA JSON remain on disk in their per-APK dir;
+    logcat_file survives serialization, so dirname(logcat_file) resolves both."""
+    live = _make_gh58_task(tmp_path, copy_json=copy_json)
+    revived = Task.from_dict(live.to_dict())
+    assert revived.results_dir == ""
+    assert revived.app is None
+    return revived
+
+
+class TestGh65ResumeResolution:
+    """D-1 / D-3 / D-3a: derive results_dir from the logcat path, count
+    unresolved static data once per task, no serialized fallback."""
+
+    def test_resolve_static_data_derives_dir_from_logcat(self, tmp_path):
+        """results_dir="" → dir derived from os.path.dirname(logcat_file); the
+        co-located JSON resolves to non-empty static data (D-1, INV-PLT-15)."""
+        task = _make_resume_task(tmp_path, copy_json=True)
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        result = processor._resolve_static_data(task)
+
+        assert result is not None
+        assert result.classes.classes  # non-empty → coverage reconstructible
+        assert task.id not in processor._unresolved_task_ids
+
+    def test_missing_json_counts_and_errors_survive(self, tmp_path):
+        """Logcat present, JSON absent → coverage zeroed, MOP errors preserved,
+        task counted once as unresolved (D-3, D-3a)."""
+        task = _make_resume_task(tmp_path, copy_json=False)
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        result = processor._resolve_static_data(task)
+
+        assert result is None
+        assert processor._unresolved_task_ids == {task.id}
+
+        # Errors survive the missing JSON (reconstructed from the logcat alone).
+        repo = processor._reconstruct_repository_from_logcat(task)
+        assert len(repo.get_errors()) == 2
+        metrics = repo.calculate_metrics().to_dict()
+        assert metrics["method_coverage"] == 0
+        assert metrics["total_errors"] == 2  # D-2: survives empty classes
+
+    def test_unresolved_counter_increments_once_per_task(self, tmp_path):
+        """All three reconstruction call sites for one JSON-absent task →
+        counter == 1 AND the parser is invoked at most once (memo holds)."""
+        from rv_static_analysis.parser.static import (
+            static_analysis_parser as _real_parser,
+        )
+
+        task = _make_resume_task(tmp_path, copy_json=False)
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        cov_writer = csv.writer(open(tmp_path / "c.csv", "w", newline=""))
+        err_writer = csv.writer(open(tmp_path / "e.csv", "w", newline=""))
+
+        with patch(
+            "rv_platform.components.result_processor."
+            "static_analysis_parser.read_static_analysis_files",
+            wraps=_real_parser.read_static_analysis_files,
+        ) as spy:
+            processor._write_task_coverage_data(cov_writer, task)
+            processor._write_task_error_data(err_writer, task)
+            processor._extract_task_data(task)
+
+        assert len(processor._unresolved_task_ids) == 1
+        assert spy.call_count <= 1  # memo short-circuits re-parse across writers
+
+    def test_missing_json_summary_row_zeroed_no_fallback(self, tmp_path):
+        """Serialized coverage_metrics present but JSON absent → summary.csv
+        cov_* stay 0.00 (NO fallback), mop_errors accurate (D-3, INV-PLT-16)."""
+        task = _make_resume_task(tmp_path, copy_json=False)
+        # Stale serialized metrics that MUST NOT leak into the CSV.
+        task.result.coverage_metrics = {
+            "method_coverage": 88.0,
+            "class_coverage": 77.0,
+            "activity_coverage": 66.0,
+            "total_errors": 99,
+        }
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_summary_csv([task])
+
+        with open(os.path.join(results_dir, "summary.csv")) as f:
+            reader = list(csv.reader(f))
+        header, row = reader[0], reader[1]
+
+        def col(name):
+            return row[header.index(name)]
+
+        assert float(col("cov_method")) == 0.00
+        assert float(col("cov_class")) == 0.00
+        assert float(col("cov_act")) == 0.00
+        # MOP errors come from the logcat reconstruction (D-2), not the stale 99.
+        assert int(col("mop_errors_total")) == 2
+
+
+# ===========================================================================
+# gh65 G1: Round-trip metric equivalence (live task == from_dict(to_dict))
+# ===========================================================================
+
+_GH58_CODE_PACKAGE = "com.example.gh58"
+
+
+def _seed_apk_dir(tmp_path, apk_name, copy_json=True, errors=True, coverage=True):
+    """Create a per-APK dir seeded with a real logcat + co-located SA JSON,
+    mirroring what Task.initialize() + a live run produce on disk.
+
+    The gh58 fixture logcat carries 5 RVSEC-COV lines and 2 RVSEC error lines;
+    `coverage`/`errors` select which subset is written so G1 can parametrize
+    over normal / skip-static / cov-only / errors-only shapes.
+    """
+    apk_dir = tmp_path / apk_name
+    apk_dir.mkdir(parents=True, exist_ok=True)
+
+    src_logcat = os.path.join(_GH58_FIXTURE_DIR, "sample_task.logcat")
+    with open(src_logcat) as f:
+        lines = f.readlines()
+    kept = [
+        ln
+        for ln in lines
+        if (coverage and "RVSEC-COV:" in ln) or (errors and " E RVSEC:" in ln)
+    ]
+    logcat_path = apk_dir / f"{apk_name}.logcat"
+    logcat_path.write_text("".join(kept))
+
+    if copy_json:
+        shutil.copy(
+            os.path.join(_GH58_FIXTURE_DIR, "sample_apk.apk.json"),
+            apk_dir / f"{apk_name}.json",
+        )
+    return apk_dir, logcat_path
+
+
+def _make_live_task_with_coverage(
+    tmp_path, apk_name="sample_apk.apk", copy_json=True, errors=True, coverage=True
+):
+    """A completed task whose repository is populated exactly as a live run:
+    initialize() sets results_dir + logcat_file, static_data is parsed from the
+    co-located JSON, and the repository is built from the logcat."""
+    config = TaskConfiguration(
+        apk_name=apk_name,
+        repetition=1,
+        timeout=300,
+        tool_config=ToolConfig(name="monkey"),
+    )
+    task = Task(config)
+    task.initialize(str(tmp_path))  # results_dir == dirname(logcat_file)
+
+    _, _ = _seed_apk_dir(
+        tmp_path, apk_name, copy_json=copy_json, errors=errors, coverage=coverage
+    )
+    # initialize() named the logcat with the experiment-dimension scheme; point
+    # the result at the seeded file (same per-APK dir, so dirname is identical).
+    task.result.logcat_file = str(tmp_path / apk_name / f"{apk_name}.logcat")
+
+    app = MagicMock()
+    app.code_package = _GH58_CODE_PACKAGE
+    app.name = apk_name
+    task.set_app(app)
+
+    task.static_data = static_analysis_parser.read_static_analysis_files(
+        task.results_dir, apk_name, _GH58_CODE_PACKAGE
+    )
+    task.repository = parse_logcat_file(task.result.logcat_file, task.static_data)
+
+    task.update_state(TaskState.RUNNING)
+    task.update_state(TaskState.COMPLETED)
+    return task
+
+
+_G1_METRIC_KEYS = [
+    "class_coverage",
+    "activity_coverage",
+    "method_coverage",
+    "reachable_method_coverage",
+    "mop_method_coverage",
+    "direct_mop_method_coverage",
+    "total_errors",
+    "unique_errors",
+]
+
+
+class TestGh65RoundTripEquivalence:
+    """G1 / INV-PLT-18: a task's metrics MUST be identical whether computed from
+    the live in-memory repository or reconstructed after a real
+    Task.from_dict(Task.to_dict()) round-trip (which drops results_dir/app)."""
+
+    @pytest.mark.parametrize(
+        "label,copy_json,errors,coverage",
+        [
+            ("mop_violations", True, True, True),
+            ("skip_static", False, True, True),
+            ("normal_cov_only", True, False, True),
+        ],
+    )
+    def test_roundtrip_metric_equivalence(
+        self, tmp_path, label, copy_json, errors, coverage
+    ):
+        live = _make_live_task_with_coverage(
+            tmp_path, copy_json=copy_json, errors=errors, coverage=coverage
+        )
+        live_metrics = live.repository.calculate_metrics().to_dict()
+
+        # Real serialization round-trip → results_dir="", app=None.
+        revived = Task.from_dict(live.to_dict())
+        assert revived.results_dir == ""
+        assert revived.app is None
+
+        processor = ResultProcessorComponent([revived], str(tmp_path / "out"))
+        revived.repository = processor._reconstruct_repository_from_logcat(revived)
+        assert revived.repository is not None
+        revived_metrics = revived.repository.calculate_metrics().to_dict()
+
+        for key in _G1_METRIC_KEYS:
+            assert abs(live_metrics[key] - revived_metrics[key]) <= 0.01, (
+                f"[{label}] {key}: live={live_metrics[key]} "
+                f"revived={revived_metrics[key]}"
+            )
+
+        # Sanity: the populated cases actually exercise non-zero coverage/errors.
+        if copy_json and coverage:
+            assert revived_metrics["method_coverage"] > 0
+        if errors:
+            assert revived_metrics["total_errors"] == 2
+
+
+# ===========================================================================
+# gh65 G9: D-3a unresolved-accounting integrity matrix
+# ===========================================================================
+
+
+class TestGh65AccountingIntegrity:
+    """G9 / D-3a: cartesian product of {writer permutations} × {JSON state}.
+    For each cell: counter == (1 if unresolved else 0); parser invoked at most
+    once (memo holds, incl. exception path); re-entry never raises; a second
+    execute()-style pass re-initializes the counter."""
+
+    # The three reconstruction call sites, as callables over (processor, task).
+    @staticmethod
+    def _writers(tmp_path):
+        cov = csv.writer(open(tmp_path / "cov.csv", "w", newline=""))
+        err = csv.writer(open(tmp_path / "err.csv", "w", newline=""))
+        return {
+            "coverage": lambda p, t: p._write_task_coverage_data(cov, t),
+            "error": lambda p, t: p._write_task_error_data(err, t),
+            "extract": lambda p, t: p._extract_task_data(t),
+        }
+
+    @pytest.mark.parametrize(
+        "order",
+        [
+            ("coverage", "error", "extract"),
+            ("error", "extract", "coverage"),
+            ("extract", "coverage", "error"),
+            ("error", "coverage", "extract"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "json_state",
+        ["populated", "absent", "empty", "parser_raises"],
+    )
+    def test_d3a_accounting_matrix(self, tmp_path, order, json_state):
+        copy_json = json_state == "populated"
+        task = _make_resume_task(tmp_path, copy_json=copy_json)
+
+        if json_state == "empty":
+            # JSON present but with no reachability → parser yields empty classes.
+            apk_dir = os.path.dirname(task.result.logcat_file)
+            with open(os.path.join(apk_dir, "sample_apk.apk.json"), "w") as f:
+                json.dump({"package": _GH58_CODE_PACKAGE, "reachability": []}, f)
+
+        processor = ResultProcessorComponent([task], str(tmp_path / "out"))
+        writers = self._writers(tmp_path)
+
+        unresolved_expected = json_state != "populated"
+
+        spy_ctx = patch(
+            "rv_platform.components.result_processor."
+            "static_analysis_parser.read_static_analysis_files",
+            wraps=static_analysis_parser.read_static_analysis_files,
+        )
+        if json_state == "parser_raises":
+            spy_ctx = patch(
+                "rv_platform.components.result_processor."
+                "static_analysis_parser.read_static_analysis_files",
+                side_effect=RuntimeError("boom"),
+            )
+
+        with spy_ctx as spy:
+            for name in order:
+                # (c) re-entry must never raise, regardless of writer/state.
+                writers[name](processor, task)
+            # (b) parser invoked at most once across all writers (memo holds).
+            assert spy.call_count <= 1
+
+        # (a) counter is exactly 1 when unresolved, 0 when populated.
+        assert len(processor._unresolved_task_ids) == (1 if unresolved_expected else 0)
+
+        # (d) a fresh pass (new component, set re-initialized in execute()) starts at 0.
+        processor2 = ResultProcessorComponent([task], str(tmp_path / "out2"))
+        assert len(processor2._unresolved_task_ids) == 0
+
+
+# ===========================================================================
+# gh65 G5: golden regression vs the offline regen reference
+# ===========================================================================
+
+_GH65_GOLDEN_DIR = os.path.join(os.path.dirname(__file__), "fixtures", "gh65_golden")
+
+
+def _load_golden_manifest():
+    with open(os.path.join(_GH65_GOLDEN_DIR, "expected.csv")) as f:
+        return list(csv.DictReader(f))
+
+
+class TestGh65GoldenRegression:
+    """G5: ≥10 real experimento-20260604 tasks (logcat truncated to the
+    exercised RVSEC/RVSEC-COV lines + SA JSON subset to reachability) reconstruct
+    via the resume path to the SAME cov_method/cov_class/mop_errors the validated
+    offline `scripts/regenerate_results/` pipeline produced (within 0.01). This
+    locks the in-container reconstruction to the audited reference."""
+
+    def test_golden_vs_offline_regen(self, tmp_path):
+        manifest = _load_golden_manifest()
+        assert len(manifest) >= 10, "G5 requires ≥10 golden samples"
+
+        mismatches = []
+        for m in manifest:
+            # Resume-shaped task: results_dir="" and app=None; logcat_file points
+            # at the committed fixture, with the SA JSON co-located in the same dir.
+            config = TaskConfiguration(
+                apk_name=m["apk"],
+                repetition=int(m["rep"]),
+                timeout=int(m["timeout"]),
+                tool_config=ToolConfig(name="monkey"),
+            )
+            task = Task(config)
+            assert task.results_dir == "" and task.app is None
+            task.result.logcat_file = os.path.join(
+                _GH65_GOLDEN_DIR, f"{m['idx']}.logcat"
+            )
+            task.update_state(TaskState.RUNNING)
+            task.update_state(TaskState.COMPLETED)
+
+            processor = ResultProcessorComponent([task], str(tmp_path / m["idx"]))
+            repo = processor._reconstruct_repository_from_logcat(task)
+            assert repo is not None, f"{m['apk']}: reconstruction returned None"
+            d = repo.calculate_metrics().to_dict()
+
+            checks = {
+                "cov_method": (d["method_coverage"], float(m["cov_method"])),
+                "cov_class": (d["class_coverage"], float(m["cov_class"])),
+            }
+            for name, (got, exp) in checks.items():
+                if abs(got - exp) > 0.01:
+                    mismatches.append(f"{m['apk']} {name}: got={got:.2f} exp={exp:.2f}")
+            if d["total_errors"] != int(m["mop_errors_total"]):
+                mismatches.append(
+                    f"{m['apk']} mop_errors_total: got={d['total_errors']} "
+                    f"exp={m['mop_errors_total']}"
+                )
+            if d["unique_errors"] != int(m["mop_errors_unique"]):
+                mismatches.append(
+                    f"{m['apk']} mop_errors_unique: got={d['unique_errors']} "
+                    f"exp={m['mop_errors_unique']}"
+                )
+
+        assert not mismatches, "Golden mismatches vs offline regen:\n" + "\n".join(
+            mismatches
+        )

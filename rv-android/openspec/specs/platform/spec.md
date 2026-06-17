@@ -181,11 +181,13 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 - **INV-PLT-14**: `ResultProcessorComponent` MUST generate all five output files (`coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv`) when at least one completed task exists. If no completed tasks exist, it MUST log a warning and skip file generation.
 
-- **INV-PLT-15**: `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data)` with a non-`None` `static_data` whenever the static-analysis JSON exists at `task.results_dir / f"{task.config.apk_name}.json"`. When `task.static_data` is already populated, that value MUST be reused; when it is `None`, the method MUST call `static_analysis_parser.read_static_analysis_files(task.results_dir, task.config.apk_name, task.app.code_package if task.app else None)` to re-parse the JSON on demand. If the JSON is absent, the method MUST log a warning and proceed with `static_data=None` — in that degraded case `errors` are still reliable but per-method coverage MUST be zero.
+- **INV-PLT-15**: `ResultProcessorComponent._resolve_static_data(task)` MUST obtain the per-APK results directory as follows: use `task.results_dir` when it is a non-empty string; otherwise, when `task.results_dir` is empty (the resume case, where it was not serialized) and `task.result.logcat_file` is set, derive it as `os.path.dirname(task.result.logcat_file)` (at runtime `task.results_dir == os.path.dirname(task.result.logcat_file)`, both built from `base_results_dir / apk_name`). With that directory, `_reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data)` with a non-`None` `static_data` whenever the static-analysis JSON exists at `<derived_dir>/f"{task.config.apk_name}.json"`. When `task.static_data` is already populated, that value MUST be reused; when it is `None`, the method MUST call `static_analysis_parser.read_static_analysis_files(<derived_dir>, task.config.apk_name, task.app.code_package if task.app else None)` (note `code_package=None` is tolerated — the GATOR JSON's reachability is already filtered to app classes). If the JSON is absent, the method MUST log a warning, record the task as having unresolved static data, and proceed with `static_data=None` for coverage purposes — in that degraded case `errors` (including the `total_errors`/`unique_errors` aggregates, see analysis INV-ANA-25) are still reliable but per-method coverage MUST be zero. The unresolved count MUST be **at most once per task**, achieved with two fields of disjoint responsibility (not a single overloaded sentinel): (1) `task.static_data` MUST be assigned a *valid* `StaticAnalysisData` on every path — an **empty** `StaticAnalysisData()` in the unresolved case (JSON absent or parser raised) — so it doubles as the parse memo (non-`None` short-circuits re-entry) AND remains a legal argument to `parse_logcat_file`; (2) the count MUST be tracked on a component-level set of task ids (`_unresolved_task_ids`), guarded by membership, so re-entry from any of the four reconstruction call sites (`_write_task_coverage_data`, `_write_task_summary_data`, `_write_task_error_data`, `_extract_task_data`) neither re-parses the JSON nor re-counts. Consequently `static_analysis_parser.read_static_analysis_files` MUST be invoked **at most once per task** across all writers (observable via call count). The count is a property of the task, not of the writer pass; the set MUST be (re)initialized at the start of `ResultProcessorComponent.execute()` so a subsequent consolidation pass reports only that pass.
 
 - **INV-PLT-16**: `_write_task_coverage_data` and `_write_task_summary_data` MUST be unified to a single path that reads from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` has ensured `task.repository` is populated. The pre-existing cascade in `_write_task_summary_data` (3 tiers: `task.result.coverage_metrics` → `task.repository.calculate_metrics()` → zeros) and the `else` branch in `_write_task_coverage_data` (single fallback emitting empty `class/method/signature`) are removed entirely (P3, no backward-compatibility shim). When `_reconstruct_repository_from_logcat` returns `None` (logcat file missing), both writers MUST emit zeroed rows with an explicit warning — they MUST NOT fall back to reading stale serialized values from `task.result.coverage_metrics`.
 
 - **INV-PLT-17**: The `cov_class` column in both `coverage.csv` and `summary.csv` MUST contain the `class_coverage` metric from `CoverageMetrics.to_dict()` (the percentage of called classes over total static classes). This corrects a pre-existing bug where the runtime path in `_write_task_coverage_data` wrote `method_coverage` into the `cov_class` slot.
+
+- **INV-PLT-18**: Reconstructing a resumed task MUST produce CSV-equivalent results to the same task processed live. Formally, for any completed task `t`, the metrics computed from `Task.from_dict(t.to_dict())` followed by `_reconstruct_repository_from_logcat` (with the logcat and co-located static-analysis JSON present) MUST equal `t.repository.calculate_metrics().to_dict()` for every coverage and error field, within a rounding tolerance of `0.01`. This is the round-trip equivalence that any future change dropping a runtime field required for reconstruction MUST break. Additionally, when one or more resumed tasks have a non-empty logcat but reconstruct to zero per-method coverage (static data unresolved), `ResultProcessorComponent` MUST emit a single prominent aggregate WARNING reporting `N/M` affected tasks — the corruption MUST NOT be silent.
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -417,9 +419,9 @@ When the platform resumes an experiment (either Form 1: Expand Experiment or For
 
 The mechanism for achieving this is straightforward: `_process_results()` MUST use `TaskStorage.get_completed_tasks()` as its data source instead of the filtered `Platform.tasks` list. `TaskStorage` is the authoritative source of truth for the experiment state — it contains all tasks from all sessions (loaded from `tasks.json` at startup, updated via `update_task()` during execution). The `ResultProcessorComponent` receives this complete task list and generates output files with all completed tasks included.
 
-Tasks loaded from `tasks.json` (from previous sessions) do not have `task.repository` data — the `LogcatRepository` that `CoverageTracker` populates in-memory during task execution is runtime-only and never serialized. Without special handling, every CSV column derived from per-method calls would be empty, because `register_method_call` requires the `classes` dict populated from static-analysis data. The solution is to reconstruct that data on demand: every task has its static-analysis JSON co-located with the APK in `task.results_dir`, and the existing parser `static_analysis_parser.read_static_analysis_files(results_dir, apk_name, code_package)` already loads it in milliseconds. `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST obtain `static_data` by calling that same function (the very call `StaticAnalysisComponent.load_static_data` makes during real-time execution), then invoke `parse_logcat_file(logcat_file, static_data)` to produce a `LogcatRepository` whose `classes` is populated and whose `register_method_call` correctly accumulates per-method coverage from `RVSEC-COV` entries. With this in place, the runtime path (Branch 1, current session) and the resume path (reconstruct) produce equivalent `LogcatRepository` objects, so all downstream CSV writers operate uniformly.
+Tasks loaded from `tasks.json` (from previous sessions) do not have `task.repository` data — the `LogcatRepository` that `CoverageTracker` populates in-memory during task execution is runtime-only and never serialized. They also do not carry `task.results_dir` or `task.app`: `Task.to_dict()` serializes only `id/config/result`, so `Task.from_dict()` reconstructs them with `results_dir=""` and `app=None`. Without special handling, every CSV column derived from per-method calls would be empty, because `register_method_call` requires the `classes` dict populated from static-analysis data, and the JSON path built from an empty `results_dir` does not resolve. The solution reconstructs both pieces on demand: the per-APK directory is recovered from the serialized `task.result.logcat_file` via `os.path.dirname(...)` (at runtime `task.results_dir == os.path.dirname(task.result.logcat_file)`), and the static-analysis JSON co-located there is loaded by `static_analysis_parser.read_static_analysis_files(<derived_dir>, apk_name, code_package)`. `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST obtain `static_data` this way, then invoke `parse_logcat_file(logcat_file, static_data)` to produce a `LogcatRepository` whose `classes` is populated and whose `register_method_call` correctly accumulates per-method coverage from `RVSEC-COV` entries. With this in place, the runtime path (Branch 1, current session) and the resume path (reconstruct) produce equivalent `LogcatRepository` objects, so all downstream CSV writers operate uniformly.
 
-The reconstruct path also captures `RVSEC` violation entries via `LogcatRepository.register_rv_error`, which stores violations unconditionally and does not need `static_data`. Therefore, even when the static-analysis JSON is absent (e.g., a campaign that ran without static analysis), `errors.csv` is reliable; only the per-method coverage portion is degraded in that case. The reconstruct method MUST log a warning when `static_data` is unavailable so the researcher knows the resulting coverage rows are zero by construction, not by content.
+The reconstruct path also captures `RVSEC` violation entries via `LogcatRepository.register_rv_error`, which stores violations unconditionally and does not need `static_data`. Therefore, even when the static-analysis JSON is absent (e.g., a campaign that ran without static analysis), `errors.csv` is reliable; per `analysis` INV-ANA-25, the `total_errors`/`unique_errors` aggregates from `calculate_metrics().to_dict()` MUST also remain accurate in that degraded case (they MUST NOT be zeroed by the absence of coverage data). Only the per-method coverage portion is degraded. The reconstruct method MUST log a warning AND increment a counter (at most once per task) when `static_data` is unavailable, so the researcher knows the resulting coverage rows are zero by construction, not by content, and the count of affected tasks is surfaced rather than silently absorbed.
 
 The execution summary (returned by `Platform.run()` and displayed by the CLI) MUST also reflect the complete experiment scope. It MUST include the count of skipped tasks (from previous runs) alongside the count of executed tasks, so the researcher sees the full picture: "Total tasks: 5 (2 executed, 3 skipped from previous runs)".
 
@@ -427,20 +429,29 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 
 - **WHEN** `Platform.run()` resumes an experiment by skipping N previously completed tasks and executing M new tasks
 - **THEN** `_process_results()` MUST pass all N+M completed tasks to `ResultProcessorComponent`
-- **AND** `summary.csv` MUST contain N+M rows (one per completed task, from all sessions) with all 13 columns populated from `LogcatRepository.calculate_metrics()`
+- **AND** `summary.csv` MUST contain N+M rows (one per completed task, from all sessions) with all coverage and error columns populated from `LogcatRepository.calculate_metrics()`
 - **AND** `results.json` MUST contain summary data for all N+M completed tasks
 - **AND** `results.json` MUST contain MOP violation details (violation messages, spec names, class/method) for all N+M tasks that have logcat files
 - **AND** `errors.csv` MUST contain MOP violation rows for all N+M tasks that have logcat files with `RVSEC` entries
 - **AND** `coverage.csv` MUST contain per-method entries for all N+M tasks that have logcat files AND static-analysis JSON available (reconstructed for the N resumed tasks via re-parse, native for the M current-session tasks)
 - **AND** `performance.csv` MUST contain entries for at least the M tasks from the current session
 
+#### Scenario: Resume After tasks.json Round-Trip Resolves results_dir from Logcat
+
+- **WHEN** a task is reconstructed via `Task.from_dict(Task.to_dict())` (the real resume path), so `task.results_dir == ""` and `task.app is None`
+- **AND** `task.result.logcat_file` points to an existing logcat in a per-APK directory that also contains the co-located `f"{task.config.apk_name}.json"`
+- **THEN** `_resolve_static_data(task)` MUST derive the directory as `os.path.dirname(task.result.logcat_file)` and call `read_static_analysis_files(<derived_dir>, task.config.apk_name, None)`
+- **AND** the returned `StaticAnalysisData` MUST be non-empty (classes and methods loaded from the JSON)
+- **AND** `repository.calculate_metrics().to_dict()["method_coverage"]` MUST be greater than zero when the logcat contains `RVSEC-COV` entries for reachable methods
+- **AND** `repository.calculate_metrics().to_dict()["total_errors"]` MUST equal the count of `RVSEC` violation entries in the logcat
+
 #### Scenario: Logcat Re-Reading with On-Demand Static Data Re-Parse
 
 - **WHEN** `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` is invoked for a task whose `task.repository` is `None` (loaded from `tasks.json`)
 - **AND** `task.result.logcat_file` points to an existing file on disk
 - **AND** `task.static_data` is `None`
-- **AND** the static-analysis JSON exists at `task.results_dir / f"{task.config.apk_name}.json"`
-- **THEN** the method MUST call `static_analysis_parser.read_static_analysis_files(task.results_dir, task.config.apk_name, task.app.code_package if task.app else None)` to obtain a `StaticAnalysisData` instance
+- **AND** the static-analysis JSON exists at `os.path.dirname(task.result.logcat_file) / f"{task.config.apk_name}.json"`
+- **THEN** the method MUST call `static_analysis_parser.read_static_analysis_files(<derived_dir>, task.config.apk_name, task.app.code_package if task.app else None)` to obtain a `StaticAnalysisData` instance
 - **AND** MUST cache the result on `task.static_data` so repeated invocations within the same `ResultProcessorComponent.execute()` call do not re-parse
 - **AND** MUST call `parse_logcat_file(logcat_file, static_data)` with that data
 - **AND** the returned `LogcatRepository` MUST have `len(get_method_calls()) > 0` for any logcat that contains `RVSEC-COV` entries for methods present in the reachability section
@@ -450,12 +461,48 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 
 - **WHEN** `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` is invoked
 - **AND** `task.result.logcat_file` points to an existing file
-- **AND** the static-analysis JSON does not exist at `task.results_dir / f"{task.config.apk_name}.json"`
-- **THEN** the method MUST log a warning: "Static analysis JSON missing for task {task.id} ({task.config.apk_name}.json) — per-method coverage will be zero, only MOP violations will be reliable"
+- **AND** the static-analysis JSON does not exist at `os.path.dirname(task.result.logcat_file) / f"{task.config.apk_name}.json"`
+- **THEN** the method MUST log a warning identifying the task and the missing JSON, and MUST record the task once in the unresolved-static-data set (`_unresolved_task_ids`)
+- **AND** the task MUST be counted **at most once**, regardless of how many CSV writers (`_write_task_coverage_data`, `_write_task_summary_data`, `_write_task_error_data`, `_extract_task_data`) trigger reconstruction or in what order — `task.static_data` MUST be memoized as an empty `StaticAnalysisData` (not an arbitrary sentinel) so re-entry returns the memo without re-parsing or re-counting, and the membership-guarded set absorbs duplicates
+- **AND** `static_analysis_parser.read_static_analysis_files` MUST be invoked at most once for that task across all writers (the memo short-circuits re-entry, including after a parser exception)
+- **AND** a task whose JSON IS present and populated MUST NOT be added to the set (the resolved↔unresolved distinction is by empty vs non-empty `classes`, not by whether the parser ran)
 - **AND** MUST call `parse_logcat_file(logcat_file, static_data=None)` so `RVSEC` entries are still captured
 - **AND** `errors.csv` MUST contain rows for that task
-- **AND** every coverage-percentage column in `summary.csv` (`cov_act`, `cov_class`, `cov_method`, `cov_rv_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`) MUST be `0.00` for that task
+- **AND** `summary.csv` for that task MUST report `mop_errors_total` and `mop_errors_unique` equal to the actual violation counts (NOT zeroed by the absence of coverage data)
+- **AND** every coverage-percentage column in `summary.csv` (`cov_act`, `cov_class`, `cov_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`) MUST be `0.00` for that task (`cov_rv_method` is intentionally not a `summary.csv` column — see `result_processor._write_summary_data`, where it would alias `cov_reaches_target`; it exists only in `coverage.csv`)
 - **AND** `coverage.csv` MUST have zero per-method rows for that task
+
+#### Scenario: No Fallback to Serialized Coverage Metrics When JSON Is Absent
+
+- **WHEN** coverage cannot be reconstructed for a task (logcat present but static-analysis JSON genuinely absent) and `task.result.coverage_metrics` carries serialized runtime values
+- **THEN** the writer MUST NOT use the serialized `coverage_metrics` to populate `summary.csv` `cov_*` columns
+- **AND** every coverage-percentage column in the `summary.csv` row for that task MUST be `0.00`, consistent with the zero per-method rows in `coverage.csv` (so `verify.py` C3 / INV-PLT-17 holds: `summary cov_* == 0` whenever `coverage_rows == 0`)
+- **AND** the `mop_errors_total`/`mop_errors_unique` columns MUST still equal the actual violation counts (errors are independent of static data, see analysis INV-ANA-25)
+- **AND** the unresolved-static-data counter MUST be incremented (once for the task) and surfaced in the aggregate WARNING
+
+#### Scenario: Orchestrated Resume Skips Static Analysis but Reuses Persisted JSON
+
+- **WHEN** rv-experiment resumes an experiment via `--name` (implicit, when `results/<name>/tasks.json` exists) or `--resume-dir` (explicit), which forces `generate_monitors`, `instrument_apks`, and `static_analysis` to `False`
+- **AND** the static-analysis JSON produced by the original run persists co-located with each task's logcat in the per-APK results directory (`<apk_dir>/<apk_name>.json`)
+- **THEN** `_resolve_static_data` MUST locate that JSON via `os.path.dirname(task.result.logcat_file)` without re-running static analysis (Phase 1 is skipped)
+- **AND** reconstructed per-method coverage MUST be non-zero for any task whose logcat contains `RVSEC-COV` entries for reachable methods
+- **AND** no new GATOR/static-analysis invocation MUST occur during the resumed run
+
+#### Scenario: Round-Trip Metric Equivalence Between Live and Resumed Task
+
+- **WHEN** a completed task `t` has a populated `LogcatRepository` from live execution, and its logcat plus co-located static-analysis JSON exist on disk
+- **AND** a resumed copy is built via `Task.from_dict(t.to_dict())` (so the copy has `results_dir=""`, `app=None`, `repository=None`) and processed through `_resolve_static_data` + `_reconstruct_repository_from_logcat`
+- **THEN** the resumed copy's `calculate_metrics().to_dict()` MUST equal `t.repository.calculate_metrics().to_dict()` for `cov_act`, `cov_class`, `cov_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`, `mop_errors_total`, and `mop_errors_unique`, within a tolerance of `0.01` (INV-PLT-18)
+- **AND** this equivalence MUST hold across at least three logcat fixtures: one with MOP violations, one representing a `--skip-static` run (logcat present, no JSON → coverage zero but errors accurate), and one normal coverage-bearing run
+
+#### Scenario: Resume Coverage Health Check Warning
+
+- **WHEN** `ResultProcessorComponent.execute()` finishes processing all completed tasks
+- **AND** N of the M resumed tasks had a non-empty logcat file but reconstructed to zero per-method coverage because static data was unresolved
+- **THEN** the component MUST emit exactly one prominent aggregate WARNING of the form "Resume coverage health: N/M resumed tasks had unresolved static data — coverage zeroed for those tasks" (INV-PLT-18)
+- **AND** `len(_unresolved_task_ids)` MUST equal N exactly (each affected task counted once)
+- **AND** when N is 0, no such warning MUST be emitted
+- **AND** a subsequent `execute()` pass MUST start from a re-initialized set, so its `N` reflects only that pass (not an accumulation across passes)
 
 #### Scenario: Logcat File Missing on Resume
 

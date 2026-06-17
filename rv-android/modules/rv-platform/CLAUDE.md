@@ -235,7 +235,7 @@ The platform generates the following output files in the results directory:
 | `summary.csv` | Aggregate metrics per task (activities, methods, MOP coverage, errors) |
 | `results.json` | Hierarchical JSON with complete experiment data |
 | `performance.csv` | Task execution timing and performance metrics |
-| `tasks.json` | Task state persistence for experiment continuation (includes ExperimentMetadata with config_checksum and per-task coverage_metrics for resume reconstruction) |
+| `tasks.json` | Task state persistence for experiment continuation (includes ExperimentMetadata with config_checksum and per-task `result`, including `logcat_file` — the resume path reconstructs coverage/MOP from the logcat + co-located SA JSON, not from the serialized `coverage_metrics`) |
 
 ## Experiment Resume
 
@@ -256,19 +256,19 @@ The platform supports resuming interrupted or expanding completed experiments th
 5. Only remaining tasks are executed
 6. `_process_results()` uses `task_storage.get_completed_tasks()` which returns ALL tasks with COMPLETED state from all sessions (previous + current). These are passed to ResultProcessorComponent for unified CSV/JSON generation
 
-### MOP Violation Reconstruction from Logcat
+### Coverage + MOP Reconstruction from Logcat on Resume
 
-Tasks loaded from `tasks.json` have `repository=None` because the in-memory `LogcatRepository` is not serialized. `ResultProcessorComponent` detects this condition in three methods and calls `parse_logcat_file(task.result.logcat_file)` from rv-coverage to reconstruct a `LogcatRepository`. This function parses persisted logcat files and extracts all `RVSEC` log entries (MOP violations).
+Tasks loaded from `tasks.json` have `repository=None` because the in-memory `LogcatRepository` is not serialized. `ResultProcessorComponent` detects this and calls `_reconstruct_repository_from_logcat(task)`, which re-reads `task.result.logcat_file` and re-parses the co-located static-analysis JSON on demand (`_resolve_static_data`) so the reconstructed repository carries **both** per-method coverage AND MOP violations — equivalent to the live path. The four reconstruction call sites are `_write_task_coverage_data()`, `_write_task_error_data()`, `_write_task_summary_data()`, and `_extract_task_data()`.
 
-- **`_write_task_error_data()`**: Checks if `task.repository` is None. If so, reconstructs `LogcatRepository` from the logcat file. Reconstructed violations are written as rows in `errors.csv`
-- **`_extract_task_data()`**: Same reconstruction check. Violation details are included in the hierarchical `results.json` output
-- **`_write_task_coverage_data()`**: Per-method coverage data **cannot** be reconstructed from logcat because `register_method_call()` requires static analysis class data (the list of classes belonging to the application, unavailable for loaded tasks). Instead, this method writes a single summary row using `task.result.coverage_metrics` (which is serialized in `tasks.json`)
+`_resolve_static_data` derives the per-APK directory from `os.path.dirname(task.result.logcat_file)` when `task.results_dir` is empty — which it always is on resume, because `Task.to_dict` serializes only `id/config/result` and `from_dict` leaves `results_dir=""`/`app=None` (gh65). At runtime `task.results_dir == os.path.dirname(logcat_file)` and the SA JSON is co-located with the logcat, so the derived path resolves both. The parser is called with `code_package=None` (app is `None` on resume); GATOR already pre-filtered `reachability[]` to app classes, so no class filter is needed.
+
+No fallback to serialized `task.result.coverage_metrics` (INV-PLT-16): a serialized fallback would populate `summary.csv` `cov_*` while `coverage.csv` (per-method rows, only producible from a populated repository) stays empty — the `summary != 0 with coverage_rows = 0` inconsistency `verify.py` C3 flags. When the logcat is present but the JSON is genuinely absent, both writers emit a **zeroed coverage row** (errors still accurate — `calculate_metrics` counts them before the empty-`classes` early return) and the task is counted once in `_unresolved_task_ids`; `execute()` surfaces the aggregate as one `N/M` resume health-check WARNING (INV-PLT-18). When the logcat itself is missing, no coverage row is emitted.
 
 ### Key Fields
 
 - `Platform._skipped_count`: Number of tasks skipped from previous runs (used in summary)
-- `TaskResult.logcat_file`: Path to persisted logcat file (serialized in `tasks.json`, used for reconstruction)
-- `TaskResult.coverage_metrics`: Summary coverage metrics (serialized in `tasks.json`, used as fallback)
+- `TaskResult.logcat_file`: Path to persisted logcat file (serialized in `tasks.json`; the resume path derives `results_dir` from its dirname and resolves the co-located SA JSON)
+- `ResultProcessorComponent._unresolved_task_ids`: per-pass set of task IDs whose SA JSON could not be resolved; `len(...)` is the `N` in the resume health-check WARNING (re-initialized each `execute()`)
 
 ## Important Notes
 

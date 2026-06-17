@@ -588,6 +588,15 @@ class LogcatRepository:
         """
         metrics = CoverageMetrics()
 
+        # RV property violations are counted from the errors/unique_errors
+        # collections, which are independent of static-analysis class data.
+        # Counting them before the empty-classes early return keeps the error
+        # aggregates accurate in the degraded case (logcat present, static
+        # analysis absent — e.g. --skip-static or a resumed task whose JSON
+        # could not be resolved), conforming to INV-ANA-25.
+        metrics.total_errors = len(self.errors)
+        metrics.unique_errors = len(self.unique_errors)
+
         # Without static analysis data, coverage is undefined (0/0).
         # This happens when --skip-static is used without pre-existing data.
         if not self.classes:
@@ -619,11 +628,7 @@ class LogcatRepository:
                 "Static totals not available, metrics may be inaccurate"
             )
 
-        # Step 2: Count RV property violations (total and deduplicated)
-        metrics.total_errors = len(self.errors)
-        metrics.unique_errors = len(self.unique_errors)
-
-        # Step 3: Aggregate dynamic execution counts across all classes/methods
+        # Step 2: Aggregate dynamic execution counts across all classes/methods
         for class_data in self.classes.values():
             if class_data.called:
                 metrics.called_classes += 1

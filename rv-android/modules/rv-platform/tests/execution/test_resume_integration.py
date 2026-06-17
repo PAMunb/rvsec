@@ -13,6 +13,7 @@ the storage layer. They verify that:
 import csv
 import json
 import os
+import shutil
 from unittest.mock import MagicMock, patch
 
 from rv_android_core.domain.app import App
@@ -21,6 +22,44 @@ from rv_platform.components.result_processor import ResultProcessorComponent
 from rv_platform.config.platform_config import PlatformConfig
 from rv_platform.platform import Platform
 from rv_platform.storage.task_storage import ExperimentMetadata, TaskStorage
+
+_GH58_FIX = os.path.join(
+    os.path.dirname(__file__), "..", "components", "fixtures", "gh58"
+)
+
+
+def _seed_completed_task(results_dir, apk_name, copy_json=True):
+    """Build a COMPLETED task with a real logcat + co-located SA JSON on disk,
+    laid out exactly as Task.initialize() + a live run would (so
+    dirname(logcat_file) == results_dir/apk_name holds the JSON). The gh58
+    fixture logcat carries 5 RVSEC-COV lines and 2 RVSEC error lines."""
+    config = TaskConfiguration(
+        apk_name=apk_name,
+        repetition=1,
+        timeout=300,
+        tool_config=ToolConfig(name="monkey"),
+    )
+    task = Task(config)
+    task.initialize(results_dir)  # sets results_dir == dirname(logcat_file)
+    shutil.copy(os.path.join(_GH58_FIX, "sample_task.logcat"), task.result.logcat_file)
+    if copy_json:
+        shutil.copy(
+            os.path.join(_GH58_FIX, "sample_apk.apk.json"),
+            os.path.join(task.results_dir, apk_name + ".json"),
+        )
+    task.update_state(TaskState.RUNNING)
+    task.result.execution_time_seconds = 60
+    task.update_state(TaskState.COMPLETED)
+    return task
+
+
+def _summary_rows(results_dir):
+    """Return summary.csv as a list of dicts keyed by header."""
+    with open(os.path.join(results_dir, "summary.csv")) as f:
+        reader = list(csv.reader(f))
+    header = reader[0]
+    return [dict(zip(header, row)) for row in reader[1:]]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -495,3 +534,207 @@ class TestResultConsolidationIntegration:
         reps = data["app.apk"]["repetitions"]
         assert "1" in reps, "Rep 1 from session 1 must be in results.json"
         assert "2" in reps, "Rep 2 from session 2 must be in results.json"
+
+
+# ===========================================================================
+# gh65: resume static-data resolution gates (G2/G3/G4/G6)
+# ===========================================================================
+
+
+class TestGh65TwoSessionResume:
+    """G2/G6: a task completed in session 1 and reloaded via real
+    Task.from_dict (results_dir="") MUST reconstruct non-zero coverage and
+    correct MOP errors when consolidated alongside a session-2 task."""
+
+    def test_e2e_two_session_resume(self, tmp_path):
+        results_dir = str(tmp_path / "results")
+        os.makedirs(results_dir, exist_ok=True)
+        storage_file = os.path.join(results_dir, "tasks.json")
+
+        # --- Session 1: complete task A, persist to tasks.json ---
+        task_a = _seed_completed_task(results_dir, "appA.apk", copy_json=True)
+        s1 = TaskStorage(storage_file)
+        s1.load()
+        s1.add_task(task_a)
+        s1.update_task(task_a)
+        s1.save()
+
+        # --- Session 2: reload A from disk (real from_dict), add task B ---
+        s2 = TaskStorage(storage_file)
+        s2.load()
+        completed = s2.get_completed_tasks()
+        assert len(completed) == 1
+        revived_a = completed[0]
+        # The genuine resume precondition this gate defends.
+        assert revived_a.results_dir == ""
+        assert revived_a.app is None
+
+        task_b = _seed_completed_task(results_dir, "appB.apk", copy_json=True)
+        s2.add_task(task_b)
+        s2.update_task(task_b)
+        s2.save()
+
+        all_completed = s2.get_completed_tasks()
+        assert len(all_completed) == 2
+
+        processor = ResultProcessorComponent(all_completed, results_dir)
+        processor.execute({})
+
+        rows = {r["apk"]: r for r in _summary_rows(results_dir)}
+        assert set(rows) == {"appA.apk", "appB.apk"}
+
+        # G2: specifically the RESUMED row A must be non-zeroed.
+        assert float(rows["appA.apk"]["cov_method"]) > 0
+        assert int(rows["appA.apk"]["mop_errors_total"]) == 2
+        assert float(rows["appB.apk"]["cov_method"]) > 0
+        assert int(rows["appB.apk"]["mop_errors_total"]) == 2
+
+        # G6 canary: 100% of RVSEC-COV tasks have cov_method > 0.
+        with_cov = [r for r in rows.values()]
+        assert all(float(r["cov_method"]) > 0 for r in with_cov)
+
+
+class TestGh65ConsolidationOnly:
+    """G3/G6: a pure consolidation pass where ALL tasks are loaded from disk
+    (the path that zeroed T=300) MUST produce correct CSVs for 100% of rows."""
+
+    def test_consolidation_only_all_tasks_from_disk(self, tmp_path):
+        results_dir = str(tmp_path / "results")
+        os.makedirs(results_dir, exist_ok=True)
+        storage_file = os.path.join(results_dir, "tasks.json")
+
+        s1 = TaskStorage(storage_file)
+        s1.load()
+        for name in ("a.apk", "b.apk", "c.apk"):
+            t = _seed_completed_task(results_dir, name, copy_json=True)
+            s1.add_task(t)
+            s1.update_task(t)
+        s1.save()
+
+        # Fresh storage: every task arrives via from_dict (results_dir="").
+        s2 = TaskStorage(storage_file)
+        s2.load()
+        completed = s2.get_completed_tasks()
+        assert len(completed) == 3
+        assert all(t.results_dir == "" for t in completed)
+
+        processor = ResultProcessorComponent(completed, results_dir)
+        processor.execute({})
+
+        rows = _summary_rows(results_dir)
+        assert len(rows) == 3
+        # G6: 100% of rows non-zeroed.
+        assert all(float(r["cov_method"]) > 0 for r in rows)
+        assert all(int(r["mop_errors_total"]) == 2 for r in rows)
+
+
+class TestGh65ResumeHealthCheck:
+    """G4/INV-PLT-18: when ≥1 resumed task has a logcat but no resolvable SA
+    JSON, exactly one aggregate WARNING fires with the exact N/M count; silent
+    when N == 0."""
+
+    def test_warning_fires_with_exact_count(self, tmp_path, caplog):
+        import logging
+
+        results_dir = str(tmp_path / "results")
+        os.makedirs(results_dir, exist_ok=True)
+        storage_file = os.path.join(results_dir, "tasks.json")
+
+        s1 = TaskStorage(storage_file)
+        s1.load()
+        # 2 resolvable + 1 with JSON absent → N/M = 1/3.
+        seeded = [
+            _seed_completed_task(results_dir, "ok1.apk", copy_json=True),
+            _seed_completed_task(results_dir, "ok2.apk", copy_json=True),
+            _seed_completed_task(results_dir, "bad.apk", copy_json=False),
+        ]
+        for t in seeded:
+            s1.add_task(t)
+            s1.update_task(t)
+        s1.save()
+
+        s2 = TaskStorage(storage_file)
+        s2.load()
+        completed = s2.get_completed_tasks()
+        processor = ResultProcessorComponent(completed, results_dir)
+
+        with caplog.at_level(logging.WARNING):
+            processor.execute({})
+
+        health = [
+            r.getMessage()
+            for r in caplog.records
+            if "Resume coverage health" in r.getMessage()
+        ]
+        assert len(health) == 1
+        assert "1/3" in health[0]
+        assert len(processor._unresolved_task_ids) == 1
+
+        # The unresolved task still has accurate MOP errors; coverage zeroed.
+        rows = {r["apk"]: r for r in _summary_rows(results_dir)}
+        assert float(rows["bad.apk"]["cov_method"]) == 0
+        assert int(rows["bad.apk"]["mop_errors_total"]) == 2
+        assert float(rows["ok1.apk"]["cov_method"]) > 0
+
+    def test_no_warning_when_all_resolved(self, tmp_path, caplog):
+        import logging
+
+        results_dir = str(tmp_path / "results")
+        os.makedirs(results_dir, exist_ok=True)
+        storage_file = os.path.join(results_dir, "tasks.json")
+
+        s1 = TaskStorage(storage_file)
+        s1.load()
+        for t in (
+            _seed_completed_task(results_dir, "ok1.apk", copy_json=True),
+            _seed_completed_task(results_dir, "ok2.apk", copy_json=True),
+        ):
+            s1.add_task(t)
+            s1.update_task(t)
+        s1.save()
+
+        s2 = TaskStorage(storage_file)
+        s2.load()
+        processor = ResultProcessorComponent(s2.get_completed_tasks(), results_dir)
+
+        with caplog.at_level(logging.WARNING):
+            processor.execute({})
+
+        health = [
+            r.getMessage()
+            for r in caplog.records
+            if "Resume coverage health" in r.getMessage()
+        ]
+        assert health == []
+        assert len(processor._unresolved_task_ids) == 0
+
+
+class TestGh65StandaloneProcessResults:
+    """G8 case 5 (consolidation-only) at the CLI layer: `rv-platform run
+    --process-results <dir>` loads ALL tasks from tasks.json (via from_dict,
+    results_dir="") and regenerates correct CSVs. Locks the fix to
+    `_process_results_standalone` (it passed the directory to TaskStorage and
+    never called load(), so it always found zero tasks)."""
+
+    def test_process_results_standalone_consolidates_from_disk(self, tmp_path):
+        from rv_platform.__main__ import _process_results_standalone
+
+        results_dir = str(tmp_path / "results")
+        os.makedirs(results_dir, exist_ok=True)
+        storage_file = os.path.join(results_dir, "tasks.json")
+
+        s = TaskStorage(storage_file)
+        s.load()
+        for name in ("a.apk", "b.apk"):
+            t = _seed_completed_task(results_dir, name, copy_json=True)
+            s.add_task(t)
+            s.update_task(t)
+        s.save()
+
+        rc = _process_results_standalone(results_dir)
+        assert rc == 0
+
+        rows = _summary_rows(results_dir)
+        assert len(rows) == 2
+        assert all(float(r["cov_method"]) > 0 for r in rows)
+        assert all(int(r["mop_errors_total"]) == 2 for r in rows)

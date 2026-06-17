@@ -1,0 +1,14 @@
+06-07 00:51:00.868  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.BaseApplication: void <init>()>
+06-07 00:51:00.934  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.BaseApplication: void onCreate()>
+06-07 00:51:00.961  6313  6313 V RVSEC   : SecureRandomSpec,J2.A,A,r,SourceFile:6,InvalidSequenceOfMethodCalls,unknown
+06-07 00:51:00.974  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.MainActivity: void <init>()>
+06-07 00:51:00.982  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.MainActivity: void onCreate(android.os.Bundle)>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase_Impl: void <init>()>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase: void <init>()>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase_Impl: S1.g e()>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase_Impl: n2.j d()>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase_Impl: java.util.Set i()>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase_Impl: java.util.List c(java.util.LinkedHashMap)>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase_Impl: java.util.LinkedHashMap j()>
+06-07 00:51:04.266  6313  6313 I RVSEC-COV: <nodomain.aditya1875more.stashly.data.local.AppDatabase_Impl: j6.g r()>
+06-07 00:51:06.897  6576  6576 V RVSEC   : SecureRandomSpec,J2.A,A,r,SourceFile:6,InvalidSequenceOfMethodCalls,unknown
