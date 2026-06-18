@@ -1,3 +1,10 @@
+> **⛔ DESFECHO (2026-06-18): NÃO-VIÁVEL — revertido. Ver `REPORT-validation.md`.**
+> A premissa do design (grafo de sucessores estático durante o passo) é falsa:
+> `buildFlowThroughContainer` muta o grafo (`addEdgeTo` no laço) e a reachability de cada
+> nó de alocação precisa ver as arestas das iterações anteriores. Pré-computar uma vez
+> zerou `transitions` em 19/20 APKs baseline-`tr>0`. Código revertido ao estado gh66;
+> INV-ANA-45 **não** sincronizada. Resultado negativo documentado; gh70 não vira fix.
+
 ## Why
 
 GitHub Issue: #70
