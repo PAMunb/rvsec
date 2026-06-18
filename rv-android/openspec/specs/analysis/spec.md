@@ -361,7 +361,6 @@ rv-screen-parser:
 - **INV-ANA-36**: `MatchPolicy` is an attribute of the source / target, never a CLI-level override. No `--match-mode` or equivalent flag exists.
 - **INV-ANA-37**: After C1f rename, the monorepo MUST NOT contain references to the legacy field names `reachesMop`, `directlyReachesMop`, `mopMethods`, `handlerReachesMop`, `handlerDirectlyReachesMop`, `reaches_mop`, `directly_reaches_mop`, `handler_reaches_mop`, `handler_directly_reaches_mop`, `target_reaches_mop`, `cov_reaches_mop`, `mop_methods` (Pydantic field), or the class name `MopMethod` outside of these documented exclusions: `MopSpecsTargetSource.java`, CLI flag `--mop-dir`, config attribute `mop_dir`, published CSVs under `results/` and `experimento-*/`, archived OpenSpec deltas, historical commit messages, and `modules/rv-agent/` (deprecated per CLAUDE.md — excluded by directory). The gate MUST scan `rvsec-gator/`, `modules/` (minus `rv-agent/`), and `scripts/`. Verified by `G_no_legacy_mop` CI gate.
 - **INV-ANA-38**: GATOR Jimple definition-resolution helpers (`definitionRhs`, `resolveInt`, `resolveStr`) MUST live in `presto.android.util.JimpleDefUtils` only. `MenuExtractor`, `SpinnerItemExtractor`, and any future consumer MUST call them via the helper class.
-
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -954,4 +953,37 @@ This contract is the formal reason `ResultProcessorComponent._reconstruct_reposi
 - **AND** `LogcatRepository.get_errors()` MUST still return one entry per `RVSEC:` line (errors are unaffected by missing static data)
 - **AND** `LogcatRepository.calculate_metrics().to_dict()["total_errors"]` MUST equal `len(get_errors())` (the empty-`classes` early return MUST NOT zero the error aggregate)
 - **AND** the parser MUST NOT raise an exception
+
+### Requirement: WTG Container-Flow Linking Pass Performance (FR04, NFR04)
+
+GATOR's WTG construction MUST link data flow through container reads and writes in `FlowgraphRebuilder.buildFlowThroughContainer()` (`rvsec-android/rvsec-gator/.../presto/android/gui/wtg/flowgraph/FlowgraphRebuilder.java`) before the WTG stages run. This pass resolves, for each container read/write statement, its container-field position via `WTGUtil.getReadContainerField` / `getWriteContainerField` (`WTGUtil.java`), and adds a flow edge from each writer node to each reader node reachable through the same container.
+
+Because `getReadContainerField` and `getWriteContainerField` are pure functions of the statement, the pass MUST resolve each read statement's field position and target node at most once per allocation node (resolution hoisted out of the inner write loop) and MUST memoize field-position resolution across allocation nodes (`Map<Stmt,Integer>` surviving the outer loop). The target-node computation MUST be guarded so it runs only for allocation nodes that add at least one edge — i.e. only after a write statement resolves to a non-null writer node — because the node-resolution factories (`simpleNode`/`varNode`) lazily create flow-graph nodes; an unguarded hoist would create read-target nodes for allocation nodes the unoptimized pass leaves untouched. These are performance optimizations that MUST preserve the produced edge set exactly (INV-ANA-39); they MUST NOT prune, depth-limit, or otherwise alter the WTG algorithm's result. The per-allocation forward-reachability closure (`GraphUtil.reachableNodes()`) is out of scope for this requirement and remains as-is.
+
+The optimization addresses the dominant pre-WTG cost without changing output, so APKs that previously exceeded the analysis timeout during this pass can complete and emit `transitions[]`. When an APK still times out, the write-first partial-JSON behavior is unchanged: reachability, windows, and components remain populated and `transitions[]` is empty, which downstream consumers (rv-agent, aperv `scoreWtg`) already handle by degrading cleanly (NFR04).
+
+#### Scenario: Optimized pass produces identical transitions on a passing APK
+- **WHEN** GATOR analyzes an APK that already produces `transitions>0` under the unoptimized pass (one of the 72 baseline APKs from the `experimento-20260604` sweep)
+- **THEN** the `transitions[]` section of the produced JSON MUST be identical (diff-zero on the edge set keyed on stable identifiers: source window name, target window name, event type, widget name, and handler signature — not on the GATOR-assigned numeric node IDs, which need not be stable) to the unoptimized output
+- **AND** the `reachability`, `windows`, and `components` sections MUST be unchanged
+
+#### Scenario: Read-field resolution is hoisted out of the write loop
+- **WHEN** `buildFlowThroughContainer()` processes an allocation node whose container has `W` write statements and `R` read statements
+- **THEN** `getReadContainerField(tgt)` MUST be invoked at most `R` times for that allocation node (once per read statement), NOT `W × R` times (once per write-read pair)
+- **AND** the resulting writer-to-reader edges MUST be the same edges the unoptimized `W × R` traversal would add (INV-ANA-39)
+
+#### Scenario: Hoist does not create nodes for an allocation node that adds no edge
+- **WHEN** `buildFlowThroughContainer()` processes an allocation node whose container has read statements but whose write statements all fail to resolve to a writer node (`getWriteContainerField` returns null or the writer node is null)
+- **THEN** the optimized pass MUST NOT invoke the target-node factories (`simpleNode`/`varNode`) for that allocation node's reads, creating no read-target flow-graph nodes — identical to the unoptimized pass, whose nested loop never reaches the read resolution when no writer node exists
+- **AND** the set of flow-graph nodes and the produced edge set MUST be unchanged from the unoptimized pass (INV-ANA-39c)
+
+#### Scenario: Field-position resolution is memoized across allocation nodes
+- **WHEN** the same container statement appears as a read or write across multiple allocation nodes in `flowgraph.allNAllocNodes`
+- **THEN** its container-field position MUST be resolved by `getReadContainerField`/`getWriteContainerField` once and reused from a `Map<Stmt,Integer>` for subsequent allocation nodes
+- **AND** the memoized value MUST equal the value a fresh resolution would return (purity, INV-ANA-39)
+
+#### Scenario: APK that previously timed out completes WTG construction
+- **WHEN** GATOR analyzes an APK that exceeded the analysis timeout inside `buildFlowThroughContainer()` under the unoptimized pass (one of the 97 sweep timeouts)
+- **THEN** the optimized pass MAY allow the analysis to complete within the same timeout and emit a populated `transitions[]`
+- **AND** if it still times out, the partial JSON MUST preserve `reachability`, `windows`, and `components` with `transitions[]` empty, unchanged from the prior timeout behavior (NFR04)
 
