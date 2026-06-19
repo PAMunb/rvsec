@@ -133,6 +133,18 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "docs/20260515_diagnostico_paridade_cgdelegation.md)."
         ),
     )
+    succ_depth: Optional[int] = Field(
+        default=None,
+        description=(
+            "When set, append -succDepth <int> to the GATOR command (top-level "
+            "flag, parsed by Main.java -> Configs.sDepth, default 4). It bounds "
+            "the successor-enumeration depth in WTGHelper.getSuccNode, the "
+            "combinatorial core of WTG construction. Lower values (e.g. 3) cut "
+            "the branching^depth cost so timeout-bound APKs can finish, at the "
+            "price of shorter (fewer multi-hop) transition paths. None -> GATOR "
+            "uses its baked-in default of 4."
+        ),
+    )
     validate_on_init: bool = Field(
         default=True, description="Whether to validate configuration on initialization"
     )
@@ -389,6 +401,9 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
 
         if self.cg_delegation is not None:
             cmd.extend(["-cgDelegation", "true" if self.cg_delegation else "false"])
+
+        if self.succ_depth is not None:
+            cmd.extend(["-succDepth", str(self.succ_depth)])
 
         return cmd
 
