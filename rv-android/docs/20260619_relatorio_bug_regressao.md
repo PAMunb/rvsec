@@ -683,6 +683,77 @@ mecanismo é **orçamento de ações**, não qualidade das decisões:
 latência. Para isolar a qualidade das decisões do LLM, comparar por **orçamento de passos/ações** (igualar nº
 de eventos) ou usar timeout maior. Caso contrário, o "LLM piora cobertura" mede latência de GPU, não a tese.
 
+### 10.5. Telemetria por chamada LLM — confirma "latência, não timeout"
+
+Telemetria `[APE-LLM-TEL]` dos traces (`time_ms` = latência ponta-a-ponta incl. ponte `socat`→SGLang).
+Origem: memo paralelo `docs/20260619_debug_aperv_cobertura.md`; **todos os números abaixo reproduzidos
+exatamente contra os dados crus** (7.640 chamadas em 71 traces, snapshot ~14%).
+
+| Métrica | Valor | | Gatilho (`mode=`) | Chamadas |
+|---|---|---|---|---|
+| mediana | **1.144 ms** | | `random` (rolagem `llmPercentage=0.9`) | 6.912 (90,5%) |
+| média | 1.264 ms | | `new-state` | 727 |
+| p95 | 2.092 ms | | `stagnation` | 1 |
+| p99 | 2.728 ms | | **`result=matched`** | 6.456 (84,5%) |
+| máx | 9.321 ms (1 outlier) | | **`result=no_match`** | 1.184 (15,5%) |
+| **timeouts (≥15 s)** | **0 de 7.640** | | ≥8 s | 2 (0,03%) |
+
+**Leitura — reforça §10.3:**
+- O `llm_timeout_ms=15000` **nunca** dispara (0/7.640; apenas 2 chamadas passaram de 8 s). A hipótese
+  "chamadas estouram 15 s e degradam para `sata_mop`" está **descartada** — o mecanismo é o **custo cumulativo**
+  de ~1,1 s/chamada × ~142 chamadas ≈ 156 s dentro dos 300 s, não estouros isolados.
+- Sem contenção de GPU efetiva nesta janela (`#running-req ≤ 1` no `sglang-server`) — o risco previsto para H3
+  não se materializou ainda.
+- A taxa de 90% (`llm_percentage=0.9`) funciona: 90,5% das chamadas são `mode=random`. O gap até a proporção
+  efetiva (~87,5% das ações via LLM) é o **`no_match` de 15,5%** — coordenada do Qwen3-VL que não casa com
+  widget e é descartada (cai no SATA naquele passo).
+- **Custo de oportunidade (corroborado por contagem independente):** tasks LLM-ativas ~142 ações/300 s vs.
+  ~325 em SATA puro → **~2,3× menos ações**, consistente com a razão 0,50 medida via linhas de boost (§10.3).
+
+**Reconciliação da anomalia dos 2 apps (corrige a conflação do memo):** o memo agrupa `bim.app_1500` e
+`app.notesr_59` como "0 chamadas LLM". A telemetria por chamada (`[APE-LLM-TEL]`) é 0 nos dois, mas o
+contador `LLM Summary calls=` distingue **dois mecanismos diferentes**:
+
+| App | `Summary calls` | `screenshot failed` | `[APE-LLM-TEL]` | Mecanismo |
+|---|---|---|---|---|
+| `bim.app_1500` | **0** | 0 | 0 | LLM **nunca invocado** (app não progride de estado) — SATA puro real |
+| `app.notesr_59` | **167** | **167** | 0 | LLM **tentado 167×**, todas abortam na **captura de tela** (`null=167`, nunca chega ao modelo) — **`FLAG_SECURE`** (confirmado no fonte, §10.6) |
+
+Ambos terminam SATA-like, mas só `bim.app` é "0 chamadas"; `app.notesr` é uma **falha de screenshot** repetida.
+A distinção importa para não inflar artificialmente o "SATA dentro do arm LLM".
+
+### 10.6. Causa-raiz da falha de screenshot: `FLAG_SECURE` (verificado no código-fonte dos apps)
+
+A falha de captura **não é bug do APE-RV** — é **degradação correta** diante de apps que bloqueiam screenshots.
+`ScreenshotCapture.capture()` usa `SurfaceControl.screenshot()` (reflexão, API 29+); quando a janela tem
+`WindowManager.LayoutParams.FLAG_SECURE`, o `SurfaceControl` **exclui a surface segura e retorna `null`**.
+O `LlmRouter` então loga `LLM screenshot capture failed, skipping LLM step`, incrementa `nullCount` e cai no
+SATA naquele passo (`LlmRouter.java:245-249`; `ScreenshotCapture.java` retorna `null` em vez de lançar —
+javadoc explícito). Não há tela → não há prompt multimodal → o LLM **não pode agir** nesses apps.
+
+**Apenas 2 apps do dataset disparam a falha** — e ambos são apps de privacidade/segurança (categoria
+**super-representada** num benchmark JCA/cripto). Causa-raiz confirmada lendo o fonte
+(`rvsec-testes-jca/sources/`):
+
+| App | Onde está o `FLAG_SECURE` | Escopo | 1ª tela (launcher) segura? | Efeito observado |
+|---|---|---|---|---|
+| `app.notesr_59` | `ActivityBase.onCreate()` linhas 25-26 — `getWindow().setFlags(FLAG_SECURE, FLAG_SECURE)`, **incondicional** | **App-wide: 18/18 activities** (todas estendem `ActivityBase`; `MainActivity`=LAUNCHER inclusa) | **SIM** | **100% das chamadas falham** (167/167); LLM totalmente cego no app |
+| `app.passwordstore.agrahn_11602` | `BasePGPActivity.onCreate()` linha 156 + diálogos `PinDialog`/`PasswordDialog`/`TextInputDialog`, **incondicional** | **Parcial**: só telas que estendem `BasePGPActivity` (`DecryptActivity`, `PasswordCreationActivity`, `AutofillDecryptActivity`) + diálogos | **NÃO** (`LaunchActivity` estende só `AppCompatActivity`) | **Falha parcial** (26 no total); LLM funciona na tela inicial, cego ao navegar para decrypt/PIN |
+
+A assimetria **explica exatamente os números**: `notesr` é seguro desde a LAUNCHER → todas as 167 tentativas
+falham; `passwordstore` só protege telas profundas → falhas esporádicas (26), e a maioria das chamadas funciona.
+
+**Implicação (3º modo de degradação do arm LLM, ao lado de latência e B1):** a modalidade LLM tem um **ponto
+cego sistemático** justamente em apps que usam `FLAG_SECURE` — password managers, apps de notas seguras,
+carteiras — que são **frequentes em um benchmark de cripto/JCA**. Nesses apps o `sata_mop_llm` degrada
+silenciosamente para `sata_mop`/SATA, sem nenhum sinal do LLM. Não é budget (latência) — é **limite de
+capacidade**: sem screenshot, não há entrada multimodal. Possíveis mitigações (não implementar agora):
+(a) fallback para representação textual da `GUITree` quando a captura retorna `null` (o LLM ainda poderia
+decidir por árvore de acessibilidade); (b) detectar `FLAG_SECURE` e marcar o app como "LLM-incompatível" no
+relatório, para não contar essas tasks como evidência do arm LLM; (c) excluir/anotar esses apps na análise
+H3. **Para a estatística:** anotar os apps `FLAG_SECURE` (≥1 falha de screenshot) e tratá-los à parte ao
+avaliar H3 — senão eles diluem o efeito do LLM com tasks que são SATA disfarçado.
+
 ### 10.4. Caveats — estes números são PRELIMINARES (não concluir ainda)
 
 > **A corrida ainda está em andamento.** Estes resultados cobrem **~70 de ~507 tarefas/arm** (≈14% do
@@ -696,6 +767,9 @@ de eventos) ou usar timeout maior. Caso contrário, o "LLM piora cobertura" mede
 - [ ] **gh58:** validar as métricas do `tasks.json` contra as linhas `Coverage update` dos logcats antes de
       publicar magnitudes (tasks recuperadas por resume podem zerar no `tasks.json`).
 - [ ] Confirmar que B1 (scorer 100% inerte) e a latência do LLM (½ dos passos) se mantêm no dataset completo.
+- [ ] **Apps `FLAG_SECURE` (§10.6):** varrer `LLM screenshot capture failed` em todos os traces LLM, listar os
+      apps afetados e **anotá-los/tratá-los à parte** na análise H3 (são SATA disfarçado no arm LLM). Hoje: só
+      `app.notesr` (100% cego) e `app.passwordstore` (parcial) — reverificar no dataset completo.
 
 Direção esperada (a confirmar): `sata` ≳ `sata_mop` ≈ `ape` > `sata_mop_llm`; MOP-guidance sem ganho
 mensurável (scorer inerte); regressão real apenas no arm LLM, por latência.
