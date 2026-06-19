@@ -448,4 +448,180 @@ class PointcutMatcherTest {
         assertTrue(platformResult.isEmpty(),
                 "platform class (sun..*) MUST be rejected by the base-aspect filter");
     }
+
+    // ------------------------------------------------------------------
+    // gh62 false-positive guards — argument-register fidelity and
+    // no-over-matching.
+    //
+    // Motivation (run_jca169 MOP analysis, 2026-06-01): the dexlib2 build
+    // surfaced +174% unique JCA violations vs the prior build. Before
+    // trusting that signal we must rule out two false-positive mechanisms
+    // a binding/grammar bug could introduce:
+    //   (1) WRONG/EMPTY ARGUMENT VALUE — the `Unsafe*` / `InvalidKeyStoreType`
+    //       verdicts are ARGUMENT-DEPENDENT (the monitor compares the bound
+    //       `getInstance(String)` algorithm against an allow-list). If the
+    //       matcher bound the wrong operand register (e.g. the receiver, or an
+    //       off-by-one slot), the monitor would read garbage and flag a
+    //       spurious `UnsafeAlgorithm`. These tests pin `arg00` to the EXACT
+    //       operand register that holds the algorithm string, so the monitor
+    //       reads the real value ("MD5"/"TLS"/...), never a wrong/empty slot.
+    //   (2) PHANTOM EVENT (over-match) — `InvalidSequenceOfMethodCalls` is
+    //       SEQUENCE-ONLY; a false positive needs the matcher to fire on a
+    //       call it should not, injecting a phantom event into the FSM. These
+    //       tests assert the call() matcher gates exactly on owner+name+arity
+    //       +return+per-arg and does NOT bleed across owners, names, arities,
+    //       return types, or unrelated subtypes.
+    // ------------------------------------------------------------------
+
+    private static final String MD_OWNER = "Ljava/security/MessageDigest;";
+    private static final String CIPHER_OWNER = "Ljavax/crypto/Cipher;";
+    private static final String PROVIDER_DESC = "Ljava/security/Provider;";
+
+    /** Resolver pre-loaded with the JCA imports used by the fixtures below. */
+    private static PointcutMatcher jcaMatcher() {
+        TypeResolver tr = new TypeResolver(List.of(
+                "java.security.MessageDigest", "javax.crypto.Cipher",
+                "java.lang.String", "java.lang.Object", "java.security.Provider"));
+        InheritanceResolver ir = new InheritanceResolver(
+                new AndroidClassIndex(Path.of("/tmp/nope.jar")), List.of());
+        return new PointcutMatcher(tr, ir);
+    }
+
+    /**
+     * Build a single-invoke fixture with full control over opcode, callee
+     * owner/name/params/return, and the operand registers. The enclosing class
+     * is {@code APP_OWNER} so it survives any base-aspect filter.
+     */
+    private static Fixture invokeFixture(Opcode opcode, String ownerDesc, String name,
+                                         List<String> paramDescs, String returnDesc,
+                                         int[] regs) {
+        ImmutableMethodReference ref = new ImmutableMethodReference(
+                ownerDesc, name, paramDescs, returnDesc);
+        int rc = regs.length;
+        int c = rc > 0 ? regs[0] : 0, d = rc > 1 ? regs[1] : 0, e = rc > 2 ? regs[2] : 0,
+                f = rc > 3 ? regs[3] : 0, g = rc > 4 ? regs[4] : 0;
+        List<com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction> body =
+                new ArrayList<>();
+        body.add(new ImmutableInstruction35c(opcode, rc, c, d, e, f, g, ref));
+        body.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+        int maxReg = 0;
+        for (int r : regs) maxReg = Math.max(maxReg, r);
+        ImmutableMethodImplementation impl = new ImmutableMethodImplementation(
+                maxReg + 1, body, Collections.emptyList(), Collections.emptyList());
+        ImmutableMethod m = new ImmutableMethod(
+                APP_OWNER, "site", Collections.emptyList(), "V",
+                AccessFlags.PUBLIC.getValue() | AccessFlags.STATIC.getValue(),
+                null, null, impl);
+        ClassDef cd = new ImmutableClassDef(
+                APP_OWNER, AccessFlags.PUBLIC.getValue(), "Ljava/lang/Object;",
+                Collections.emptyList(), null, null, Collections.emptyList(), List.of(m));
+        List<Instruction> instructions = new ArrayList<>(body);
+        return new Fixture(cd, m, instructions.get(0), instructions);
+    }
+
+    /** call(static MessageDigest MessageDigest.getInstance(String)). */
+    private static CallPC mdGetInstancePc() {
+        return new CallPC(false, "MessageDigest", "java.security.MessageDigest",
+                "getInstance", exactSpecs("String"), false);
+    }
+
+    // --- (1) argument-register fidelity --------------------------------
+
+    @Test
+    void staticGetInstanceBindsTheRealAlgorithmRegister() {
+        // invoke-static {v5}, MessageDigest.getInstance(String) — the String
+        // algorithm operand is in v5. arg00 MUST bind v5 (the value the monitor
+        // reads to decide UnsafeAlgorithm), and there MUST be no receiver.
+        PointcutMatcher pm = jcaMatcher();
+        Fixture f = invokeFixture(Opcode.INVOKE_STATIC, MD_OWNER, "getInstance",
+                List.of(STRING_DESC), MD_OWNER, new int[]{5});
+        Optional<Match> r = match(pm, mdGetInstancePc(), f);
+        assertTrue(r.isPresent(), "static getInstance(String) MUST match");
+        assertEquals(5, r.get().argBindings.get("arg00"),
+                "arg00 MUST bind the actual String operand register (v5), so the "
+                        + "monitor reads the real algorithm value — not an off-by-one slot");
+        assertEquals(-1, r.get().targetRegister,
+                "a static invoke has NO receiver — targetRegister MUST be -1 "
+                        + "(a phantom receiver would shift the value binding)");
+    }
+
+    @Test
+    void virtualCallBindsArgAfterReceiverNotTheReceiver() {
+        // invoke-virtual {v2, v3}, String.equals(Object) — v2 is the receiver,
+        // v3 is the argument. arg00 MUST bind v3 (the arg), targetRegister v2.
+        // A static-vs-virtual offset bug would bind arg00 to the receiver (v2).
+        PointcutMatcher pm = jcaMatcher();
+        CallPC equalsPc = new CallPC(false, "boolean", "java.lang.String",
+                "equals", exactSpecs("Object"), false);
+        Fixture f = invokeFixture(Opcode.INVOKE_VIRTUAL, "Ljava/lang/String;", "equals",
+                List.of("Ljava/lang/Object;"), "Z", new int[]{2, 3});
+        Optional<Match> r = match(pm, equalsPc, f);
+        assertTrue(r.isPresent(), "virtual equals(Object) MUST match");
+        assertEquals(3, r.get().argBindings.get("arg00"),
+                "arg00 MUST bind the argument register (v3), NOT the receiver (v2)");
+        assertEquals(2, r.get().targetRegister,
+                "targetRegister MUST be the receiver (v2)");
+    }
+
+    // --- (2) no over-matching (phantom-event prevention) ---------------
+
+    @Test
+    void arityMismatchYieldsNoMatch() {
+        // Pointcut getInstance(String) MUST NOT match getInstance(String, Provider):
+        // binding a 2-arg call as if 1-arg would mis-attribute the event.
+        PointcutMatcher pm = jcaMatcher();
+        Fixture twoArg = invokeFixture(Opcode.INVOKE_STATIC, MD_OWNER, "getInstance",
+                List.of(STRING_DESC, PROVIDER_DESC), MD_OWNER, new int[]{4, 5});
+        assertTrue(match(pm, mdGetInstancePc(), twoArg).isEmpty(),
+                "exact-arity pointcut MUST NOT match a higher-arity call site");
+    }
+
+    @Test
+    void ownerMismatchYieldsNoMatch() {
+        // Same name/signature/return on a DIFFERENT owner MUST NOT match —
+        // otherwise Cipher.getInstance would feed the MessageDigest monitor.
+        PointcutMatcher pm = jcaMatcher();
+        Fixture cipher = invokeFixture(Opcode.INVOKE_STATIC, CIPHER_OWNER, "getInstance",
+                List.of(STRING_DESC), MD_OWNER, new int[]{5});
+        assertTrue(match(pm, mdGetInstancePc(), cipher).isEmpty(),
+                "call() owner gate MUST be exact — no cross-API bleed");
+    }
+
+    @Test
+    void methodNameIsExactWithoutGlob() {
+        // getInstance (no trailing '*') MUST NOT prefix-match getInstanceStrong.
+        PointcutMatcher pm = jcaMatcher();
+        Fixture strong = invokeFixture(Opcode.INVOKE_STATIC, MD_OWNER, "getInstanceStrong",
+                List.of(STRING_DESC), MD_OWNER, new int[]{5});
+        assertTrue(match(pm, mdGetInstancePc(), strong).isEmpty(),
+                "a non-glob method name MUST match exactly, not as a prefix");
+    }
+
+    @Test
+    void concreteReturnTypeMismatchYieldsNoMatch() {
+        // Concrete return type is an exact gate: a getInstance whose runtime
+        // return descriptor is Cipher MUST NOT satisfy a pointcut declaring a
+        // MessageDigest return.
+        PointcutMatcher pm = jcaMatcher();
+        Fixture wrongReturn = invokeFixture(Opcode.INVOKE_STATIC, MD_OWNER, "getInstance",
+                List.of(STRING_DESC), CIPHER_OWNER, new int[]{5});
+        assertTrue(match(pm, mdGetInstancePc(), wrongReturn).isEmpty(),
+                "concrete return-type gate MUST be exact");
+    }
+
+    @Test
+    void subtypeOwnerOperatorDoesNotMatchUnrelatedClass() {
+        // call(Cipher+.getInstance(String)) — the T+ owner operator MUST NOT
+        // match an unrelated class with no inheritance edge to Cipher. With an
+        // empty inheritance index, isAssignableFrom(Cipher, NotACipher)=false,
+        // so the widened grammar does not bleed onto arbitrary owners.
+        PointcutMatcher pm = jcaMatcher();
+        CallPC cipherSubtypePc = new CallPC(false, "Cipher", "javax.crypto.Cipher+",
+                "getInstance", exactSpecs("String"), false);
+        Fixture unrelated = invokeFixture(Opcode.INVOKE_STATIC,
+                "Lcom/example/app/NotACipher;", "getInstance",
+                List.of(STRING_DESC), "Ljavax/crypto/Cipher;", new int[]{5});
+        assertTrue(match(pm, cipherSubtypePc, unrelated).isEmpty(),
+                "owner T+ MUST NOT match a class outside the subtype hierarchy");
+    }
 }
