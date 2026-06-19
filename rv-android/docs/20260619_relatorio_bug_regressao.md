@@ -18,6 +18,13 @@ cov_method (mediana, smoke 16 APKs):
   ape 25.3   |   sata 26.3   |   sata_mop 21.6   |   sata_mop_llm 21.5
 ```
 
+> **ATUALIZAÇÃO (§10) — dados do experimento completo em andamento supersedem o smoke.** Com ~70–72
+> tarefas **pareadas** por arm (vs. 16 não-pareadas do smoke), a "regressão" do `sata_mop` vs. `sata`
+> **desaparece — é um EMPATE estatístico** (Δmediana=0; 41–46 de 72 são empates exatos). A queda
+> catastrófica do smoke era artefato de n pequeno + agregação não-pareada (conjuntos de APK distintos
+> por arm). A **única regressão real e reprodutível é o arm LLM** (`sata_mop_llm`: −3,2pp), e o
+> mecanismo é **latência** (executa metade dos passos no orçamento de 300s), **não** B1/B2. Ver §10.
+
 A investigação encontrou **dois problemas independentes**, que juntos produzem o pior cenário para o
 claim central H2:
 
@@ -565,5 +572,130 @@ citados:
 O `LlmRouter` só é instanciado se `Config.llmUrl != null` (`StatefulAgent.java:165`); como o URL estava setado
 e há centenas de linhas `[APE-LLM-PROMPT]`/`[APE-LLM-RESPONSE]` + sumário com `calls>0`, a afirmação de "0
 chamadas" é **factualmente incorreta** para este smoke. (Provável causa do engano: grep por tag/arquivo
-errado.) **Conclusão:** o braço LLM não é um modo de falha; qualquer déficit de cobertura do `sata_mop_llm`
-vem dos mesmos B1/B2/B-gran+B4, não de um LLM inerte.
+errado.) **Conclusão:** o braço LLM não é um modo de falha *por LLM inerte*. **[Refinado em §10:** o LLM
+**está** ativo, mas o arm `sata_mop_llm` **regride mesmo assim** — não por B1/B2, e sim por **latência**:
+cada passo gasta ~1,2 s no modelo e, com `llm_percentage=0.9`, o arm executa **metade** dos passos no
+orçamento de 300 s. Há ainda 2 falhas app-específicas reais — ver §10.3.**]**
+
+---
+
+## 10. Verificação em escala — experimento completo (parcial, em andamento)
+
+**Fonte:** `data/results/cmp_00..05/*/tasks.json` + traces `.trace`, lidos read-only em 2026-06-19 com a
+corrida ainda em progresso. **~70–72 tarefas COMPLETED por arm** (vs. 16 não-pareadas do smoke), 300 s, até
+3 reps. Dedup por `(apk, arm, rep)`. Esta seção **supersede** os números do smoke usados em §0/§3/§4 para a
+comparação `sata_mop` × `sata`.
+
+### 10.1. A "regressão" do `sata_mop` é um EMPATE (pareado)
+
+Agregado **não-pareado** (medianas por arm, enganoso — conjuntos de APK distintos por arm pois a corrida
+está parcial):
+
+```
+arm                 n   meth_med  mop_med  act_med
+ape                88     28.2     31.8    100.0
+aperv:sata         72     33.3     38.6    100.0
+aperv:sata_mop     72     32.8     33.3    100.0
+aperv:sata_mop_llm 71     29.0     30.9     60.0
+```
+
+Análise **pareada** (mesmo `apk`+`rep` nos dois arms; Δ = B − A; empate = |Δ|≤0,5pp):
+
+| Comparação | métrica | n | Δ mediana | Δ média | win/tie/loss |
+|---|---|---|---|---|---|
+| `sata_mop` − `sata` | cov_method | 72 | **+0,00** | −0,61 | 14 / **41** / 17 |
+| `sata_mop` − `sata` | cov_mop    | 72 | **+0,00** | −0,12 | 12 / **46** / 14 |
+| `sata_mop` − `ape`  | cov_method | 71 | +0,00 | +0,27 | 18 / 38 / 15 |
+| `sata` − `ape`      | cov_method | 71 | +0,00 | +0,90 | 17 / 44 / 10 |
+| `sata_mop_llm` − `sata_mop` | cov_method | 71 | −0,08 | **−3,23** | 9 / 32 / **30** |
+| `sata_mop_llm` − `sata_mop` | cov_mop    | 71 | +0,00 | **−3,22** | 5 / 40 / **26** |
+
+**Leitura:** a queda do smoke (`26,3→21,6`) **não se reproduz** no experimento maior — `sata_mop` ≈ `sata`
+(Δmediana=0; 41–46 de 72 são **empates exatos**). Era artefato de n=16 + agregação não-pareada.
+
+#### Comparação dos 4 arms no MESMO conjunto (70 pares `apk`+`rep` com todos os 4 COMPLETED)
+
+Apples-to-apples (apenas APK+rep onde os 4 arms terminaram — n=70 de 90):
+
+| Arm | cov_method (med) | cov_mop (med) | cov_act (med) | passos/tarefa (med) |
+|---|---|---|---|---|
+| `ape` (baseline) | 33,0 | 32,6 | 100,0 | 46 |
+| **`aperv:sata`** (sem MOP) | **33,3** | **38,6** | 100,0 | 43 |
+| `aperv:sata_mop` (com MOP) | 32,8 | 33,3 | 100,0 | 45 |
+| `aperv:sata_mop_llm` (LLM+MOP) | 30,5 | 31,4 | 80,0 | 38 |
+
+Quem **vence sozinho** cada tarefa (n=70; "vence sozinho" = melhor estrito, sem empate):
+
+| Arm | melhor estrito em cov_method | melhor estrito em cov_mop |
+|---|---|---|
+| `ape` | 7 | 4 |
+| **`aperv:sata`** | **12** | **9** |
+| `aperv:sata_mop` | 11 | 9 |
+| `aperv:sata_mop_llm` | 4 | 4 |
+
+**Ranking (parcial): `sata` ≳ `sata_mop` ≈ `ape` > `sata_mop_llm`.**
+
+- **`aperv:sata` (sem MOP) lidera** ou empata no topo — mais vitórias estritas (12/9) e maior `cov_mop`
+  mediana (38,6).
+- **MOP não agrega.** `sata_mop` ≈ `sata` em `cov_method` (empate pareado, 46/70 idênticos). Em `cov_mop` a
+  coluna favorece `sata` (38,6 vs 33,3), e o pareado dá empate-com-leve-vantagem-pro-`sata` (12 W vs 14 L do
+  `sata_mop`). Coerente com o scorer 100% inerte (B1).
+- **`ape` e `sata_mop` empatam no meio**; o fork sem MOP (`sata`) está marginalmente acima do `ape` original.
+- **`sata_mop_llm` é o pior em tudo** (latência — §10.3).
+- **Incômodo para H2:** os dois arms que são a *contribuição* (`sata_mop`, `sata_mop_llm`) **não superam o
+  controle puro `sata`** — um empata, o outro perde. Hoje o melhor sistema é o SATA sem extras.
+
+### 10.2. Os empates exatos são a *assinatura mecânica* do B1 (scorer inerte)
+
+Não é coincidência que 46/72 pares de `cov_mop` sejam idênticos: **se o scorer não faz nada, `sata_mop` ≡
+`sata`**. Confirmado em escala nos traces:
+
+- **72/72** traces `sata_mop` emitem linhas `MOP boost:` → `_mopData != null` em todos (a máquina MOP carrega
+  e roda em 100% dos apps).
+- **21.088 linhas de boost no total; ZERO com `maxBoost>0`** → o scorer é **100% inerte em todo o
+  experimento**. Nenhum widget jamais recebeu boost positivo. (Confirma B1 + B-gran/B4 de §7/§9.6 no dataset
+  grande, não só no smoke.)
+- `MopData: loaded` aparece em 0/72 traces (artefato de captura — stdout do construtor não vai pro `.trace`;
+  as 21k linhas de boost provam que o dado **está** carregado).
+
+→ O **claim central H2 não tem benefício mensurável hoje**, mas **também não causa dano** (`sata_mop` empata
+com `sata`). A calibração de `mop_weight_*` continua sendo "calibrar knobs mortos" (R1b').
+
+### 10.3. A única regressão real é o arm LLM — mecanismo: LATÊNCIA, não decisão ruim
+
+`sata_mop_llm` perde de forma consistente (−3,2pp em ambas as métricas; 26–30 derrotas vs. 5–9 vitórias). O
+mecanismo é **orçamento de ações**, não qualidade das decisões:
+
+- **Throughput**: `sata_mop_llm` executa **metade** dos passos de `sata_mop` no mesmo 300 s — mediana 143 vs.
+  294 linhas de boost/tarefa (proxy de passos), razão mediana **0,50**, **68/71** tarefas com menos passos.
+- **O LLM consome mediana 49% (até 69%) dos 300 s** só esperando o modelo (`time_ms` med ≈ 148 s de 300 s).
+- **As decisões são boas**: `calls` med 122, `matched` med 92, `breaker_trips` med 0 (máx 1). Não é o circuit
+  breaker, não é null em massa. Simplesmente cada passo custa ~1,2 s → menos exploração → menos cobertura.
+  Com `llm_percentage=0.9` (90% dos passos via LLM), o efeito é direto.
+- **2 falhas app-específicas reais** (não sistêmicas):
+  - `bim.app_1500.apk` (3/3 reps): `calls=0` — o LLM nunca foi invocado (app não progride de estado). Este
+    **é** o caso "0 chamadas LLM" que o mimo descreveu — real, porém **app-específico**, não o padrão.
+  - `app.notesr_59.apk` (3/3 reps): `calls≈167–185` mas `matched=0` — **167× `LLM screenshot capture
+    failed`**; sem imagem, nenhuma ação válida. Falha de captura de framebuffer desse app (provável
+    `FLAG_SECURE`/SurfaceView), não do LLM.
+
+**Implicação de desenho:** comparar `sata_mop_llm` por orçamento de *tempo* (300 s) penaliza o LLM pela
+latência. Para isolar a qualidade das decisões do LLM, comparar por **orçamento de passos/ações** (igualar nº
+de eventos) ou usar timeout maior. Caso contrário, o "LLM piora cobertura" mede latência de GPU, não a tese.
+
+### 10.4. Caveats — estes números são PRELIMINARES (não concluir ainda)
+
+> **A corrida ainda está em andamento.** Estes resultados cobrem **~70 de ~507 tarefas/arm** (≈14% do
+> alvo 169×3). São **parciais e preliminares** — servem para *direção* e *mecanismo*, **não** para
+> conclusão. O experimento deve fechar **na manhã de 2026-06-20**; só então rodar a análise final.
+
+**Checklist de fechamento (executar quando a corrida terminar):**
+- [ ] Reexecutar §10.1 + §10.3 com n cheio (~507/arm) e reconfirmar empate `sata_mop`≈`sata` e déficit LLM.
+- [ ] **Wilcoxon pareado** (signed-rank) para cada par de arms em `cov_method` e `cov_mop`; reportar p e
+      tamanho de efeito. A leitura atual "empate" se apoia só em Δmediana=0 + 57–64% de empates exatos.
+- [ ] **gh58:** validar as métricas do `tasks.json` contra as linhas `Coverage update` dos logcats antes de
+      publicar magnitudes (tasks recuperadas por resume podem zerar no `tasks.json`).
+- [ ] Confirmar que B1 (scorer 100% inerte) e a latência do LLM (½ dos passos) se mantêm no dataset completo.
+
+Direção esperada (a confirmar): `sata` ≳ `sata_mop` ≈ `ape` > `sata_mop_llm`; MOP-guidance sem ganho
+mensurável (scorer inerte); regressão real apenas no arm LLM, por latência.
