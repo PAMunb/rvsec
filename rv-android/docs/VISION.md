@@ -1153,3 +1153,115 @@ This document consolidates information from 22+ source documents. The following 
 | 11.3 Element Types | `011_element_type_analysis`, `014_benchmark_comparison`, `019_fara7b_results_comparison` |
 | 12. Selection | `020_final_summary`, `FINAL_REPORT` |
 | 13. Integration | PRD §6.6–§6.8, `rv-agent/docs/architecture.md` |
+
+---
+
+# Appendix A — Domain Fine-Tuning of Qwen3-VL-4B for APE-RV and its A/B Validation
+
+> **Added 2026-06-19.** Sections 1–13 above describe the *selection* of the base VLM (Qwen3-VL-4B-Instruct) for pure visual grounding. This appendix documents the next step: *fine-tuning* that base model for the **APE-RV production task** and the rigorous, statistically-tested validation that the fine-tune actually improved that task. All work lives in the sibling repo **`workspace-rv/rvsec-fine-tuning/`**.
+
+## A.1 Why fine-tune, and for which task
+
+The VLM selection (above) measured **pure visual grounding** — "click the element labeled X", single `android_click(x,y)` tool, **pixel** coordinates, *no widget list in the prompt* (the 57.7% hit rate). The **APE-RV production task is different**: it is an **explore-and-act** task where the model receives the screenshot **plus a list of on-screen widgets with their coordinates already embedded**, and must emit one of **four tools** in **normalized `[0,1000)`** coordinates.
+
+| Dimension | VLM-selection benchmark (§11) | **APE-RV production task (fine-tune target)** |
+|---|---|---|
+| Tools | 1 (`android_click`) | **4** (`click`, `long_click`, `type_text`, `back`) |
+| Coordinates | pixels | **normalized `[0,1000)`** |
+| Widget list in prompt | no | **yes** (`N. Class "text" @(nx,ny)`) |
+| Instruction | "click element X" | explore-and-act (+ recent-action history) |
+
+The canonical production prompt/schema/parser are defined in `rvsec-fine-tuning/aperv_training/format/prompt.py`, `format/tools.py`, and `reward/parser.py`. The consumer is APE-RV's `LlmRouter` (Java, on-device).
+
+## A.2 How the tuning was done
+
+- **Base model:** `Qwen/Qwen3-VL-4B-Instruct`.
+- **Two-phase recipe (gh3 rev 5):** **SFT cold-start → GRPO** (RL), executed on a Colab A100 40 GB. Vision encoder unfrozen during SFT, frozen during GRPO.
+- **Training corpus:** `phtcosta/aperv-v2-grpo-corpus` — 3,000 image-bearing samples (2,000 AMEX + 1,000 AndroidControl), each rendered in the exact production prompt/4-tool/`[0,1000)` format with a labeled ground-truth action.
+- **Artifacts published to HuggingFace Hub:**
+
+| Artifact | HF repo | Role |
+|---|---|---|
+| Base / original | `Qwen/Qwen3-VL-4B-Instruct` | comparison baseline |
+| SFT adapter | `phtcosta/aperv-qwen3vl-4b-v2-sft` | cold-start LoRA |
+| GRPO adapter | `phtcosta/aperv-qwen3vl-4b-v2-grpo` | RL LoRA |
+| **Fine-tuned (merged)** | **`phtcosta/aperv-qwen3vl-4b-v2-merged`** | **production artifact** (SFT→GRPO merged, byte-identical verified) |
+
+The merged model **is committed and present on the HF Hub** (verified during validation).
+
+## A.3 How it was validated (A/B protocol)
+
+Prior offline evals (ScreenSpot) were rejected as **out-of-distribution** — generic GUI grounding, not the APE-RV task. We built a fresh, production-faithful A/B re-measurement (full protocol: `rvsec-fine-tuning/docs/20260619_ab_validation_plan.md`).
+
+```mermaid
+flowchart LR
+    F["Frozen fixture (independent)<br/>phtcosta/aperv-grounding-fixture<br/>468 screenshots, 28 F-Droid APKs<br/>fp 3535ad8e…"] --> A["Arm A = base<br/>Qwen3-VL-4B-Instruct"]
+    F --> B["Arm B = ft<br/>aperv-qwen3vl-4b-v2-merged"]
+    A & B -->|"same vLLM greedy,<br/>same v13 prompt/4-tool/[0,1000),<br/>only weights differ"| M["McNemar paired<br/>+ Wilcoxon + bootstrap CI"]
+    M --> G{"a-priori gate §2.1"}
+    G -->|"all 4 pass"| SHIP["VERDICT: SHIP"]
+```
+
+- **Fixture:** the `rvsec-vision-llm` 468-screenshot set (this VISION.md's benchmark data), **independent of the training corpus** → contamination-free generalization signal. Frozen + published as `phtcosta/aperv-grounding-fixture` (fingerprint `sha256:3535ad8e14586e7b…`).
+- **Conditions:** identical for both arms — vLLM 0.18.1 offline, greedy (temp 0), the production v13 prompt, 4-tool schema, normalized `[0,1000)`. **The only variable is the model weights.**
+- **Primary metric:** paired per-screenshot **`bounds_hit`** (does the emitted coordinate land inside a real on-screen widget) → McNemar exact test.
+- **Production-faithful parsing:** outputs are parsed with APE-RV's `fixMalformedJson` semantics (`reward.parser.try_parse_tool_call`), so the base model's sloppy-but-repairable JSON is treated exactly as production would.
+- **A-priori gate (ratified before running):** SHIP iff Δbounds_hit ≥ +15pp **and** McNemar p < 0.01 **and** no emission regression **and** grounding-among-emitted not −5pp.
+
+## A.4 Results — **the fine-tune worked (decisively)**
+
+### Primary — independent fixture, n = 468 paired screenshots (the gate)
+
+| Metric | A — base | B — ft (v2) | Δ (B−A) |
+|---|---|---|---|
+| **bounds_hit** (primary) | 53.6% [49.1, 58.1] | **92.5% [89.8, 94.6]** | **+38.9 pp** |
+| center_hit (≤50px) | 53.2% | 92.5% | +39.3 pp |
+| emission (production parse) | 59.4% | 93.8% | +34.4 pp |
+| grounding-among-emitted | 90.3% | 98.6% | +8.3 pp |
+| strict clean-format JSON | 0.6% | 71.2% | +70.6 pp |
+
+**Statistics:** bootstrap 95% CI of Δ = **[+34.4, +43.6] pp**; **McNemar p = 6.75e-49** (discordant: 187 screenshots where only the FT hits vs 5 where only the base hits); Wilcoxon per-APK (n=28) p = 5.60e-06.
+
+| Gate condition | Threshold | Observed | Pass |
+|---|---|---|---|
+| Δ bounds_hit ≥ +15pp | +15.0pp | +38.9pp | ✅ |
+| McNemar p < 0.01 | <0.01 | 6.75e-49 | ✅ |
+| no emission regression | B ≥ A | 93.8% vs 59.4% | ✅ |
+| grounding-among-emitted not −5pp | B ≥ A−5pp | 98.6% vs 90.3% | ✅ |
+
+→ **VERDICT: SHIP to the online experiment.**
+
+### Secondary — in-distribution selection correctness (diagnostic, n=200; train split, NOT held-out)
+
+| Metric | base | ft (v2) | Δ |
+|---|---|---|---|
+| emission | 52.0% | 90.0% | +38.0 pp |
+| name_match (right action) | 50.5% | 88.5% | +38.0 pp |
+| action_match (name + coord in labeled bbox) | 21.0% | 56.5% | +35.5 pp |
+
+Same direction and magnitude as the primary result. (In-distribution → measures task-fit, not generalization; reported for corroboration only.)
+
+### Key interpretation
+
+The base model **already grounds reasonably** but **formats its tool calls sloppily** (only 0.6% clean JSON; it emits Qwen-native malformations like `{"x": 500, 548}`). The fine-tune's main win is **reliable, well-formed emission** of the production schema (0.6% → 71.2% clean; 59.4% → 93.8% production-repaired emission), which lifts end-to-end `bounds_hit` from 53.6% to 92.5%. This is exactly the specialization APE-RV needs.
+
+## A.5 Essential files & artifacts
+
+| What | Location |
+|---|---|
+| Fine-tuning pipeline (converters, format, reward, trainers) | `rvsec-fine-tuning/aperv_training/` |
+| Production prompt / tool schema / parser | `aperv_training/format/prompt.py`, `format/tools.py`, `reward/parser.py` |
+| A/B validation **plan** | `rvsec-fine-tuning/docs/20260619_ab_validation_plan.md` |
+| A/B validation **results** (full tables/stats) | `rvsec-fine-tuning/docs/20260619_ab_validation_results.md` |
+| A/B harness (vLLM probe, paired stats, in-dist arm) | `rvsec-fine-tuning/scripts/ab_grounding_vllm.py`, `ab_stats.py`, `ab_indist_vllm.py` |
+| Colab orchestrator notebook | `rvsec-fine-tuning/notebooks/ab_validation.ipynb` |
+| Git branch | `rvsec-fine-tuning@ab-validation` |
+| Fine-tuned model (HF) | `phtcosta/aperv-qwen3vl-4b-v2-merged` |
+| Training corpus (HF) | `phtcosta/aperv-v2-grpo-corpus` |
+| Validation fixture (HF dataset) | `phtcosta/aperv-grounding-fixture` (fp `3535ad8e…`) |
+| Raw run artifacts | Colab `/content/ab/` → `ab_validation_results.zip` |
+
+## A.6 Open gates before production use
+
+1. **Serving equivalence (SGLang ↔ vLLM).** The A/B used vLLM; APE-RV production serves **SGLang**. Re-run `rvsec-fine-tuning/scripts/serving_equivalence_test.py --stack sglang` on the pinned fixture (fp `79f2da9639c37c74`) in an SGLang-capable environment and confirm structural agreement before the online run.
+2. **Online 3-arm emulator experiment.** Confirm the offline gain translates end-to-end on the 169-APK set used for the v1 online regression (v1 had regressed −1.70pp, p=0.0051), to validate the v2 specialization beats the prior.
