@@ -1,0 +1,45 @@
+# Subsystem manifest for rv-doc-arch.
+#
+# A subsystem groups paths that form one architecture unit but do not map to a single
+# module — possibly across languages and across source trees. `rv-doc-arch-analyze` reads
+# this to resolve a `subsystem:<name>` target into concrete (path, language) units.
+#
+# Paths are relative to the rv-android repository root unless absolute. The rvsec Java tree
+# is a sibling of rv-android: ../rvsec/rvsec-android/... resolves to it.
+#
+# To add a subsystem: add a key with one list per language. Keep entries to paths that
+# actually exist (analyze verifies them with `ls`).
+
+instrumentation:
+  description: >-
+    APK instrumentation subsystem: Python variant wrappers + abstractions in rv-android,
+    plus the DEX-native Java/Maven weaving engine in the rvsec tree. Bridged by a
+    subprocess boundary (java -jar instr-cli.jar), with the fat JAR auto-copied into the
+    Python dexlib2 module's lib/ at Maven build time.
+  python:
+    - modules/rv-instrumentation-core
+    - modules/rv-instrumentation
+    - modules/rv-instrumentation-ajc
+    - modules/rv-instrumentation-dexlib2
+  java:
+    - ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2
+  sdd_domain: instrumentation        # openspec/specs/instrumentation/spec.md (FR01-FR03)
+
+instrumentation-java:
+  description: >-
+    Java-only DEX-native weaving engine (rvsec-instrumentation-dexlib2): the Maven
+    multi-module backend invoked by the Python dexlib2 wrapper via java -jar instr-cli.jar.
+    Documents the Java engine in isolation (exercises the generic Java/Maven collector).
+  java:
+    - ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2
+  sdd_domain: instrumentation        # openspec/specs/instrumentation/spec.md (FR01-FR03)
+
+# Example of a Python-only subsystem (uncomment / adapt as needed):
+#
+# analysis:
+#   description: Static analysis, coverage, and screen parsing.
+#   python:
+#     - modules/rv-static-analysis
+#     - modules/rv-coverage
+#     - modules/rv-screen-parser
+#   sdd_domain: analysis
