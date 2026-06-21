@@ -1,0 +1,141 @@
+# Comparação `{{name}}` — Plano de Experimento
+
+**Data:** {{date}}
+**Dataset:** `{{dataset}}`
+**Imagem:** `{{image}}`
+**SGLang:** {{sglang}}
+
+> Gerado por `rv-experiment-compare`. Preencha as seções marcadas com `?`/`<...>` (hipóteses,
+> expectativas, riscos específicos) — os campos derivados já vêm preenchidos.
+
+---
+
+## 1. Objetivo e hipóteses
+
+<Descreva o objetivo. Mantenha a comparação within-família quando aplicável (mesmo binário,
+liga/desliga uma feature) para isolar o efeito sem confundir com diferenças entre ferramentas.>
+
+| ID | Hipótese | Teste | Expectativa |
+|----|----------|-------|-------------|
+| H1 | <...> | Wilcoxon pareado | <p>0.05 / p<0.05> |
+| H2 | <...> | Wilcoxon pareado | <...> |
+
+## 2. Braços comparados ({{n_tools}})
+
+Tool string completa: `{{tools}}`
+
+| Arm | CLI (`--tools`) | MOP | LLM | Papel |
+|-----|-----------------|-----|-----|-------|
+{{arms_table}}
+
+## 3. Dataset e skip de pré-processamento
+
+- **{{n_apks}} APKs** (+ `.apk.json` co-localizado, se houver análise estática).
+- Skip integral do pré-processamento: `RV_SKIP_MONITORS/INSTRUMENT/STATIC_ANALYSIS=true`.
+- **Spec set:** `{{spec_set}}`.
+- Gotcha: o platform copia o `<apk>.json` co-localizado para o results-dir de cada task
+  (`StaticAnalysisComponent.copy_static_analysis_files`) — `--skip-static` não priva os braços MOP do dado.
+
+### 3.1. AVD / ABI
+AVD da imagem: API 30 `google_apis` `x86_64`. Em x86_64 com NDK Translation são elegíveis APKs
+`x86_64`, `arm64-v8a` e sem código nativo. Filtrar `native_code_abis` pela arch da AVD antes de
+estratificar (use `--filter-abi` no gen_compare se o dataset não estiver pré-filtrado).
+
+## 4. Configuração de execução
+
+| Parâmetro | Valor |
+|-----------|-------|
+| Containers | {{containers}} |
+| Timeout | {{timeout}} s |
+| Repetições | {{reps}} |
+| Braços | {{n_tools}} |
+| **Total de tasks** | {{n_tools}} × {{n_apks}} × {{reps}} = **{{total_tasks}}** |
+| Wall-clock estimado | **~<estimar>** (≈ (timeout + boot/install/coverage) × tasks ÷ containers) |
+| Spec set | {{spec_set}} |
+| Janela | headless (`RV_NO_WINDOW=true`) |
+| Tamanhos dos batches | {{sizes}} |
+
+## 5. Imagem docker
+
+`{{image}}` — confirmar que incorpora os fixes do branch alvo (push antes do build se necessário).
+
+## 6. Infraestrutura (gerado)
+
+- Filtros: `data/{{name}}_filters/batch_NN.txt` (round-robin).
+- Compose: `docker/docker-compose.{{name}}.yml` ({{containers}} containers{{sglang}}).
+- Meta: `data/results/{{name}}_compare_meta.json` (lido por monitor/consolidate).
+
+## 7. Preflight + 7.1 Smoke (gate)
+
+Rodar 1 APK × todos os braços × 1 rep e validar: todas COMPLETED; cobertura > 0; braços MOP ≠ braço
+sem-MOP (JSON consumido); braço LLM bate no SGLang com latência < `llm_timeout_ms`; 0 VerifyError.
+Smoke = preflight em escala reduzida antes de comprometer o wall-clock completo.
+
+## 8. Launch e monitoramento
+
+```bash
+docker compose -f docker/docker-compose.{{name}}.yml up -d
+.claude/skills/rv-experiment-compare/scripts/monitor_compare.sh {{name}}
+```
+
+- **Passada de resume final:** ao terminar, re-rodar `up -d` (ou deixar o `monitor_compare.sh` dar
+  o `docker restart`) — o resume pula COMPLETED e re-executa FAILED transientes de install.
+- **NÃO dar `down`** antes de extrair traces (artefatos efêmeros no device: `ape.properties`,
+  `static_analysis.json`).
+
+### 8.1. Resume
+Gatilho: `RV_EXPERIMENT_NAME=<name>_NN` — se já existe `results/<name>_NN/tasks.json`, entra em resume
+implícito (pula COMPLETED, re-roda FAILED/ERROR). Em resume os 3 flags de pré-processamento são forçados
+a `False`. Identidade: `(apk,tool,variant,rep,timeout)`.
+
+### 8.2. Pós-corrida
+Preservar traces (`docker cp` do que não está no bind-mount) antes de qualquer limpeza. Investigar
+achados (latência LLM, proporção de ações, cobertura por braço) → memo de diagnóstico.
+
+## 9. Consolidação (anti-gh58) e deduplicação
+
+```bash
+python3 .claude/skills/rv-experiment-compare/scripts/consolidate_compare.py {{name}}
+```
+
+- **Fonte da verdade = logcats** (CSV por container pode zerar cobertura em resume se o `<apk>.json`
+  não resolver — gh58). Métricas: `cov_*` e `mop_unique` do `tasks.json`; `mop_total` do logcat.
+- **Dedup por identidade** `(apk,tool,variant,rep,timeout)` — nunca por `task_id` (resume infla).
+- Esperado após dedup: **{{total_tasks}} identidades distintas COMPLETED**.
+
+## 10. Métricas e análise estatística
+
+- **Primárias:** cobertura MOP (`methods_mop_reachable_coverage`); violações MOP únicas
+  (`coverage_metrics.total_errors` = distintas por Spec,classe,método,tipo).
+- **Secundárias:** cobertura método/atividades, violações totais (`mop_total`), crashes.
+- **Pareamento por APK:** cada APK = média das {{reps}} reps.
+- **Teste:** Wilcoxon signed-rank pareado, **todos os pares** de braços × todas as métricas
+  (`{{name}}_consolidado/wilcoxon.csv`).
+
+## 11. Fases e timeline
+
+| Fase | Ação |
+|------|------|
+| 1 | Gerar filtros + compose + plano (`gen_compare.py`) |
+| 2 | Preflight / smoke (gate) |
+| 3 | Launch + monitoramento (`monitor_compare.sh`, resume por nome) |
+| 4 | Passada de resume final; preservar traces (NÃO `down`) |
+| 5 | Consolidação offline + dedup (`consolidate_compare.py`) |
+| 6 | Análise estatística + relatório |
+
+## 12. Riscos e mitigações
+
+| Risco | Mitigação |
+|-------|-----------|
+| Contenção de GPU (braços LLM) | `llm_timeout_ms` degrada graciosamente; monitorar latência SGLang |
+| `adb install` transiente sob carga | menos containers + passada de resume final |
+| Braço MOP == sem-MOP (JSON não consumido) | checar no preflight |
+| gh58 zera CSV em resume | consolidar offline dos logcats |
+| Inflação de tasks por re-run | dedup por identidade |
+| `FLAG_SECURE` (braço LLM) | screenshot bloqueado → degrada p/ SATA puro; marcar/excluir na análise |
+
+## 13. Referências
+
+- Comparação de referência: `docs/20260619_comparacao_aperv.md`
+- Memo de diagnóstico de referência: `docs/20260619_debug_aperv_cobertura.md`
+- Skill: `.claude/skills/rv-experiment-compare/`
