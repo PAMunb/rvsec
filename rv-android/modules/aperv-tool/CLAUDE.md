@@ -29,7 +29,7 @@ src/aperv_tool/
         aperv/
             __init__.py
             tool.py                 # ApeRVTool (AbstractTool implementation)
-            ape-rv.jar              # Bundled APE-RV binary (gitignored build artifact)
+            ape-rv.jar              # APE-RV binary (gitignored; built from ape source at Docker image build)
             system-broadcast.json   # Broadcast intent catalog for component triggering
             .gitignore              # Ignores ape-rv.jar
 ```
@@ -106,7 +106,7 @@ All variants use `throttle_ms: 200`. The `dfs` strategy has no named variant but
 
 ## Gotchas
 
-- `ape-rv.jar` is gitignored and must be built from the APE-RV Java project (`$RVSEC_HOME/ape/`) or placed manually. Without it, `_resolve_jar_path()` raises `RVToolExecutionError`.
+- `ape-rv.jar` is gitignored (never committed). The Docker image builds it from source at image-build time: `docker/rvandroid/Dockerfile` clones `https://github.com/phtcosta/ape.git`, runs `mvn package`, and copies `target/ape-rv.jar` into this directory (priority-1 resolution path). For standalone (non-Docker) runs, build it from the APE-RV Java project or place it here manually; without it, `_resolve_jar_path()` raises `RVToolExecutionError`.
 - The `+15s` grace period on the command timeout gives APE-RV time to flush its WTG model. Without this buffer, the process is killed before writing final output.
 - Empty trace file (0 bytes) indicates a silent startup crash. This is logged as a warning, not an error, because coverage may still be captured via logcat.
 - Static analysis JSON for MOP variants must exist at `<task.results_dir>/<apk_name>.json`. If missing, the tool degrades gracefully (runs without MOP data).

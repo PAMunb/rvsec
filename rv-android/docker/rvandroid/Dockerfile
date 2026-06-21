@@ -16,6 +16,21 @@ RUN git clone --branch ${RVSEC_BRANCH} https://github.com/PAMunb/rvsec.git . && 
     cd $RVSEC_HOME/rv-android && \
     uv sync --no-dev
 
+# Build APE-RV from source so the shipped ape-rv.jar always matches current
+# ape (and the current static-analysis JSON schema, gh60 `reachesTarget`). The
+# committed binary was a drift source: a stale jar read the legacy `reachesMop`
+# key, so MOP boost fired in 0/147,153 evaluations (gh71). The base image
+# already provides d8, Maven, Git, and a JDK, so a single stage suffices. The
+# ape ref is the repository default branch (always current); no ARG/SHA pin by
+# design (gh71 D3). The copy target exists because the rvsec clone above brings
+# rv-android/modules/aperv-tool/... into the image.
+RUN git clone https://github.com/phtcosta/ape.git /tmp/ape && \
+    mvn -f /tmp/ape/pom.xml package -DskipTests && \
+    cp /tmp/ape/target/ape-rv.jar \
+       /opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar && \
+    test -s /opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar && \
+    rm -rf /tmp/ape
+
 # Build-time gate: the dexlib2 fat CLI jar must be present for variant
 # selection to work at runtime. Maven's copy-resources step (design D9 in
 # rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli/pom.xml) auto-copies

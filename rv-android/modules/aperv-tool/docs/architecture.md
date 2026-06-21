@@ -188,7 +188,7 @@ aperv-tool/
 │           └── aperv/
 │               ├── __init__.py
 │               ├── tool.py              # ApeRVTool class, constants, property mapping
-│               ├── ape-rv.jar           # Packaged APE-RV binary
+│               ├── ape-rv.jar           # APE-RV binary (gitignored; built from ape source at Docker image build)
 │               └── system-broadcast.json # Broadcast intent catalog for component triggering
 ├── tests/
 │   ├── __init__.py
@@ -533,7 +533,7 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 - **Adding a variant**: Add an entry to the dictionary returned by `get_variants()`. If the variant uses new configuration parameters, add corresponding entries to `APERV_PROPERTY_MAPPING`.
 - **Adding a strategy**: Add the strategy name to `APERV_AVAILABLE_STRATEGIES`. The strategy string is passed directly to APE-RV's `--ape` flag.
-- **Changing the JAR**: Replace `ape-rv.jar` in the `src/aperv_tool/tools/aperv/` directory. The module-local path has highest resolution priority.
+- **Changing the JAR**: The shipped jar is built from `ape` source at Docker image build (`docker/rvandroid/Dockerfile`: clone → `mvn package` → copy); it is gitignored, never committed. To change what ships, change the `ape` source (or pin the clone ref in the Dockerfile). For local non-Docker runs, place a built `ape-rv.jar` in `src/aperv_tool/tools/aperv/` — the module-local path has highest resolution priority.
 - **LLM URL override**: Set `APERV_LLM_BASE_URL` environment variable to redirect LLM requests to a different endpoint (used in Docker environments).
 
 ## Dependencies

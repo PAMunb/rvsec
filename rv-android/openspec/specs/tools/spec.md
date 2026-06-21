@@ -508,3 +508,31 @@ This rule has three concrete consequences:
 - **AND** the message MUST cite `INV-TOOL-20` and `docs/rv_android_architecture.md` (Layer Purity rule)
 - **AND** the lint MUST equally flag `dict(os.environ)` and `os.environ.copy()` in the same scope (environment leak via shallow copy)
 
+### Requirement: Build ape-rv.jar from source in the image
+The rvandroid image build SHALL compile the APE-RV binary from source and place the freshly built jar where `aperv-tool` resolves it, so the shipped jar always matches current `ape` source (and the current static-analysis JSON schema).
+
+#### Scenario: Image built from scratch ships a source-compiled jar
+- **WHEN** the rvandroid image is built from `docker/rvandroid/Dockerfile`
+- **THEN** the Dockerfile clones `https://github.com/phtcosta/ape.git` (default branch, HTTPS, anonymous) AND runs `mvn package` AND copies `target/ape-rv.jar` to `modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar` inside the image
+- **AND** the resulting `ape-rv.jar` is the compiled artifact, not the legacy committed binary
+- **AND** the copied jar exists and is non-empty (build-time verifiable)
+
+#### Scenario: Single-stage build using the base-image toolchain
+- **WHEN** the ape build step runs in the image
+- **THEN** it uses the toolchain already present in `phtcosta/rvandroid_tools:0.9.1` (`d8`, Maven, Git, JDK)
+- **AND** no multi-stage builder is added
+- **AND** the image tag is unchanged (the image is rebuilt in place)
+
+### Requirement: No committed or bind-mounted jar dependency
+The build and the repository SHALL NOT depend on a pre-committed `ape-rv.jar`, removing the drift that caused the stale-jar failure (legacy `reachesMop` vs gh60 `reachesTarget`).
+
+#### Scenario: Committed jar removed and ignored
+- **WHEN** this change is applied
+- **THEN** the git-tracked `ape-rv.jar` under `modules/aperv-tool/src/aperv_tool/tools/aperv/` is deleted (backed up to `backup/` first)
+- **AND** that directory's `.gitignore` ignores `ape-rv.jar`
+- **AND** the deletion and the Dockerfile build step land in a single atomic commit (the jar otherwise enters the image via the `rvsec` clone, so neither half is safe alone)
+
+#### Scenario: ape ref tracks the default branch
+- **WHEN** the image is built at any time
+- **THEN** the `ape` clone uses the repository default branch (current tip), with no build `ARG` and no pinned SHA
+
