@@ -797,4 +797,32 @@ class MatrixIntegrityTest {
         return Paths.get(home, "rvsec", "rvsec-android", "rvsec-instrumentation-dexlib2",
                 "grammar-tests", "src", "test", "java", "br", "unb", "cic", "rv", "grammar");
     }
+
+    // ===== 7.8 / INV-INS-102 (single source of truth — legacy inventories carry the SUPERSEDED banner) =====
+
+    /** The legacy inventory documents are historical only; the matrix is the live contract (gh62 D15).
+     *  Each MUST carry the SUPERSEDED banner in its first three lines so no new test/scenario/invariant
+     *  cites them as authoritative. The banner regex is anchored on the live-contract reference. */
+    private static final Pattern SUPERSEDED_BANNER = Pattern.compile(
+            "^> \\*\\*SUPERSEDED\\*\\* — see `docs/aspectj_grammar_coverage\\.md`.*");
+
+    @Test
+    void testNoCompetingSourceOfTruth() {
+        // The two inventories live next to the matrix at $RVSEC_HOME/rv-android/docs/.
+        Path docsDir = MatrixMarkdownParser.defaultMatrixPath().getParent();
+        for (String name : List.of("AJ_CONSTRUCTIONS_INVENTORY.md", "AJ_TO_DEXLIB2_MAPPING.md")) {
+            Path doc = docsDir.resolve(name);
+            String[] head = readString(doc).split("\n", 4);
+            boolean banner = false;
+            for (int i = 0; i < Math.min(3, head.length); i++) {
+                if (SUPERSEDED_BANNER.matcher(head[i]).matches()) {
+                    banner = true;
+                    break;
+                }
+            }
+            assertTrue(banner,
+                    "file " + name + " was amended without the SUPERSEDED banner — the matrix is the "
+                            + "live contract, see gh62 D15 + INV-INS-102");
+        }
+    }
 }

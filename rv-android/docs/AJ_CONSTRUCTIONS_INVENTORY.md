@@ -1,3 +1,5 @@
+> **SUPERSEDED** — see `docs/aspectj_grammar_coverage.md` as the live contract for the dexlib2 AspectJ surface. This file is preserved as historical inventory only; entries here may diverge from the matrix and SHOULD NOT be cited in new tests, scenarios, or invariants. See gh62 D15 design rationale + INV-INS-102.
+
 # AJ Constructions Inventory
 
 **Purpose**: Enumerate every AspectJ construct that appears in the RVSEC

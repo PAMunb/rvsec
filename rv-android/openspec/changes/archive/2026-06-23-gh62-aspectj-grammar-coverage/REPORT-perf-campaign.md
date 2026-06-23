@@ -125,3 +125,36 @@ Pendências (independentes, fora do escopo deste relatório):
 1. **gh62 §6.S gate(i)** — morto incompleto no APK 11/12; retomar via rv-platform (tag de violação MOP = `RVSEC`, cobertura = `RVSEC-COV`).
 2. **gh62 §7 archive** — sync das delta specs + mover a change para `archive/`; limpar strays untracked.
 3. **Defeito dexlib2-on-Compose (ICCE)** — candidato a nova issue GitHub, com a evidência dos 18 casos em `out/gh62_icce_investigation/`.
+
+---
+
+## 10. Validação experimental ponta-a-ponta — `run_jca169` (ape) vs baseline pré-gh62
+
+Após a campanha de instrumentação, os 169 APKs aprovados rodaram sob a ferramenta `ape` (300s, 3 reps, 10 containers) e os resultados foram comparados **like-for-like** ao experimento anterior (`RESULTADOS/`, mai/2026). Análise completa em `docs/20260601_run_jca169_analise.md` (4 subagentes + sequential-thinking). Esta seção é a evidência de que o build gh62 não só não regride, como **melhora** cobertura e detecção MOP.
+
+**Fato de comparabilidade:** o experimento anterior **também usou `instrumentation_variant='dexlib2'`** (confirmado em `RESULTADOS/m1/.../experiment_config.json`). Logo a comparação é **mesma variante, mesmo tool (ape), mesmo timeout (300s), mesmo conjunto de 169 APKs** — a única diferença é o *build* do dexlib2 (pré-gh62 → gh62, com gh59 wide-slot + gh61 RegisterShifter + gh62).
+
+### 10.1 Cobertura — +10pp real, não inflação
+
+| Recorte (cov_method médio, ape@300) | Valor |
+|---|---|
+| Baseline justo — mesmos 169 APKs, build pré-gh62 | **27,65%** |
+| run_jca169 — build gh62 | **37,7%** |
+
+O +10pp **não é artefato de denominador**: o universo de métodos ficou fixo (4963→5036, +1,5%), enquanto o numerador (métodos efetivamente executados) cresceu **6,6×** (141→932 na amostra). Prova: no build antigo os apps grandes Compose/R8 logavam contagens **byte-idênticas toda rep** (ex.: podcini 1221/1221/1221) — assinatura de crash no launch; no build gh62 variam por rep (5817/4907/6388) — exploração real. **O build gh62 deixa de brickar no launch apps que o dexlib2 anterior quebrava** (coerente com install-pass 158/190 → 169/190).
+
+### 10.2 Detecção MOP — +174% (mesma base ape@300/169)
+
+| Métrica | pré-gh62 | gh62 | Δ |
+|---|---:|---:|---:|
+| Violações ÚNICAS | 260 | **713** | **+174%** |
+| APKs com ≥1 violação | 69 | **106** | +54% |
+| Specs distintos | 5 | **11** | +6 (Cipher, Mac, Signature, KeyPair, KeyManagerFactory, KeyPairGenerator — antes nenhum) |
+
+Não é mero efeito de cobertura (cobertura ×1,34 vs violações ×2,74; categorias inteiras de spec surgiram do zero). 98,2% das violações estão em código de biblioteca/terceiros (okhttp3 dominante), 1,8% no app.
+
+### 10.3 Erros de execução — 1,6%, **0 induzidos pelo gh62**
+
+8/507 task-instances ERROR: 4 falha de `adb install` (infra) + 4 falha de coleta/teardown; todos os 7 APKs distintos têm ≥1 rep COMPLETED; zero `VerifyError`/`ICCE`/`br.unb`/`aspectj` em qualquer logcat. Falhas transitórias de infra sob concorrência, não da instrumentação.
+
+**Conclusão da §10:** o build gh62 é são, **mais explorável e mais sensível a violações MOP** que a linha de base anterior — validação experimental ponta-a-ponta do ciclo gh59+gh61+gh62.
