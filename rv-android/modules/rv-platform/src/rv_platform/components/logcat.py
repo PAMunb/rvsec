@@ -8,7 +8,7 @@ Manages logcat capture and filtering during task execution.
 from typing import Any, Dict
 
 from rv_android_core.domain.task import Task
-from rv_android_core.util.android.logcat_manager import LogcatManager
+from rv_android_core.util.android.logcat_manager import DIAGNOSTIC_TAGS, LogcatManager
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import AnalysisError
 from rv_android_core.util.logging.constants import (
@@ -37,10 +37,18 @@ class LogcatComponent:
     - Provides a clean interface for logcat operations
     """
 
-    def __init__(self, task: Task):
-        """Initialize with task."""
+    def __init__(self, task: Task, logcat_diagnostics: bool = False):
+        """Initialize with task.
+
+        Args:
+            task: The task whose logcat is captured.
+            logcat_diagnostics: When True, augment the capture tag filter with the
+                diagnostic tags (crashes/VerifyError/ANR). Default False keeps the
+                baseline RVSEC/RVSEC-COV command byte-identical (INV-PLT-21).
+        """
         self.name = "LogcatComponent"
         self.task = task
+        self.logcat_diagnostics = logcat_diagnostics
         self.error_handler = ErrorHandler.get_instance()
 
         # Resolve which emulator instance to capture logcat from. In parallel
@@ -125,8 +133,16 @@ class LogcatComponent:
                     )
                 )
 
+                # When diagnostics are enabled, append the diagnostic tags to the
+                # baseline; otherwise pass nothing so LogcatManager emits the
+                # byte-identical baseline command (INV-PLT-21).
+                tags = None
+                if self.logcat_diagnostics:
+                    tags = self.logcat_manager.default_tags + DIAGNOSTIC_TAGS
+
                 result = self.logcat_manager.start_capture(
                     self.task.result.logcat_file,
+                    tags=tags,
                     clear_buffer=self.task.config.clean_logcat,
                 )
 

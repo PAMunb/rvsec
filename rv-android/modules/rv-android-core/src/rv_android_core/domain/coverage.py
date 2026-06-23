@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
 from pydantic import Field
-from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
+from rv_android_core.domain.log import RvCoverageLog, RvDiagnosticEvent, RvErrorLog
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
@@ -476,6 +476,10 @@ class LogcatRepository:
                 Populated by repository_initializer from static analysis data.
             self.errors: Ordered list of all RV property violations detected.
             self.unique_errors: Set of unique error message signatures for deduplication.
+            self.diagnostic_events: Ordered list of execution-level diagnostic events
+                (crashes, VerifyError, ANR). Isolated from coverage/MOP metrics and the
+                error counts — metric calculation reads only self.classes/self.errors,
+                so this collection never perturbs any existing metric (INV-CORE-39).
             self._static_totals: Cached static analysis totals, invalidated when
                 classes are added. Lazily computed by _calculate_static_totals().
         """
@@ -483,6 +487,7 @@ class LogcatRepository:
         self.classes: Dict[str, ClassCoverageData] = {}
         self.errors: List[RvErrorLog] = []
         self.unique_errors: Set[str] = set()
+        self.diagnostic_events: List[RvDiagnosticEvent] = []
 
         # Cache for static analysis totals - calculated once
         self._static_totals: Optional[Dict[str, int]] = None
@@ -568,6 +573,30 @@ class LogcatRepository:
         """
         self.errors.append(error_log)
         self.unique_errors.add(error_log.unique_msg)
+
+    def register_diagnostic_event(self, event: RvDiagnosticEvent) -> None:
+        """
+        Register an execution-level diagnostic event (crash, VerifyError, ANR).
+
+        Kept strictly separate from coverage (`self.classes`) and property-violation
+        (`self.errors`) data: this collection is never read by `calculate_metrics()`,
+        `total_errors`, or `unique_errors`, so diagnostic events cannot affect any
+        coverage/MOP metric or error count (INV-CORE-39).
+
+        Args:
+            event: Parsed diagnostic event produced by the analysis-domain parser
+        """
+        self.diagnostic_events.append(event)
+
+    def get_diagnostic_events(self) -> List[Dict[str, Any]]:
+        """
+        Get all diagnostic events as a list of dictionaries for export/reporting.
+
+        Returns:
+            List of diagnostic event dictionaries sorted by time_since_task_start
+        """
+        event_dicts = [event.to_dict() for event in self.diagnostic_events]
+        return sorted(event_dicts, key=lambda x: x.get("time_since_task_start", 0))
 
     def get_static_method_count(self) -> int:
         """Get the count of methods from static analysis."""

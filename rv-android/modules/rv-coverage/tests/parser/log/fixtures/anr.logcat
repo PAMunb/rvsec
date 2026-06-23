@@ -1,0 +1,3 @@
+06-23 12:00:03.300  1000  1015 W ActivityManager: ANR in br.unb.cic.cryptoapp (br.unb.cic.cryptoapp/.MainActivity)
+06-23 12:00:03.300  1000  1015 W ActivityManager: Reason: Input dispatching timed out
+06-23 12:00:03.300  1000  1015 I ActivityManager: Force finishing activity br.unb.cic.cryptoapp/.MainActivity

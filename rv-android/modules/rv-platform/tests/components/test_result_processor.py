@@ -263,6 +263,148 @@ class TestErrorsCSV:
 
 
 # ===========================================================================
+# App Events CSV Generation (gh72)
+# ===========================================================================
+
+
+def _diagnostic_event_dict(category="crash", time=2):
+    """A diagnostic-event dict as returned by LogcatRepository.get_diagnostic_events()."""
+    return {
+        "category": category,
+        "class_full_name": "java.lang.NullPointerException",
+        "method": "onMenuItemClick",
+        "source": "MainActivity.java:50",
+        "message": "FATAL EXCEPTION: main",
+        "process": "br.unb.cic.cryptoapp",
+        "pid": "7071",
+        "tid": "7071",
+        "fatal": True,
+        "stack_head": "br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)",
+        "n_frames": 4,
+        "original_msg": "FATAL EXCEPTION: main\n\tat ...",
+        "time_since_task_start": time,
+    }
+
+
+class TestAppEventsCSV:
+    # app_events.csv column order per the platform delta spec.
+    HEADER = [
+        "apk",
+        "rep",
+        "timeout",
+        "tool",
+        "time",
+        "category",
+        "exception_class",
+        "method",
+        "source",
+        "message",
+        "process",
+        "pid",
+        "fatal",
+        "n_frames",
+        "stack_head",
+    ]
+
+    def test_one_row_per_event_with_stack_head_only(self, tmp_path):
+        """One row per diagnostic event; only stack_head (no multi-line trace)."""
+        repo = _make_mock_repository()
+        repo.get_diagnostic_events.return_value = [_diagnostic_event_dict()]
+        task = _make_completed_task(repository=repo)
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_app_events_csv([task])
+
+        with open(os.path.join(results_dir, "app_events.csv")) as f:
+            rows = list(csv.reader(f))
+
+        assert rows[0] == self.HEADER
+        assert len(rows) == 2  # header + 1 event
+        row = rows[1]
+        assert row[5] == "crash"  # category
+        assert row[6] == "java.lang.NullPointerException"  # exception_class
+        assert row[10] == "br.unb.cic.cryptoapp"  # process
+        # stack_head present, but no multi-line trace leaked into the CSV
+        assert "MainActivity.java:50" in row[14]
+        assert "\n" not in "".join(row)
+
+    def test_app_events_survives_resume_reconstruction(self, tmp_path):
+        """INV-PLT-20: a task with no in-memory repository repopulates events from
+        the reconstructed-from-logcat repository."""
+        task = _make_completed_task()  # repository=None
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+
+        mock_repo = _make_mock_repository()
+        mock_repo.get_diagnostic_events.return_value = [
+            _diagnostic_event_dict(category="anr", time=3)
+        ]
+        with patch.object(
+            processor, "_reconstruct_repository_from_logcat", return_value=mock_repo
+        ):
+            processor._generate_app_events_csv([task])
+
+        with open(os.path.join(results_dir, "app_events.csv")) as f:
+            rows = list(csv.reader(f))
+        assert len(rows) == 2
+        assert rows[1][5] == "anr"
+
+    def test_empty_when_no_repository_no_logcat(self, tmp_path):
+        """No repository and no logcat → header-only app_events.csv."""
+        task = _make_completed_task()
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+
+        with patch.object(
+            processor, "_reconstruct_repository_from_logcat", return_value=None
+        ):
+            processor._generate_app_events_csv([task])
+
+        with open(os.path.join(results_dir, "app_events.csv")) as f:
+            rows = list(csv.reader(f))
+        assert len(rows) == 1  # header only
+
+    def test_existing_csv_headers_unchanged(self, tmp_path):
+        """INV-PLT-19: generating diagnostics does not alter the coverage/errors/
+        summary headers (byte-identical to baseline)."""
+        repo = _make_mock_repository(
+            method_calls=[],
+            errors=[],
+            static_methods=[MagicMock() for _ in range(3)],
+        )
+        repo.get_diagnostic_events.return_value = [_diagnostic_event_dict()]
+        task = _make_completed_task(repository=repo)
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_coverage_csv([task])
+        processor._generate_errors_csv([task])
+        processor._generate_summary_csv([task])
+        processor._generate_app_events_csv([task])
+
+        def header(name):
+            with open(os.path.join(results_dir, name)) as f:
+                return next(csv.reader(f))
+
+        assert header("errors.csv") == [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "message",
+            "unique_msg",
+        ]
+        # coverage/summary headers must still start with the baseline apk/rep/... keys
+        assert header("coverage.csv")[:4] == ["apk", "rep", "timeout", "tool"]
+        assert header("summary.csv")[:4] == ["apk", "rep", "timeout", "tool"]
+
+
+# ===========================================================================
 # Summary CSV Generation
 # ===========================================================================
 

@@ -170,6 +170,14 @@ class ExperimentConfig(BaseValidatedModel):
         default=True,
         description="Enable ajc library-class quarantine phase (gh50 §16/§19)",
     )
+    # gh72 opt-in diagnostics: when True, logcat capture additionally whitelists
+    # the crash/VerifyError/ANR tags and rv-platform writes app_events.csv. Default
+    # False keeps capture byte-identical to the RVSEC/RVSEC-COV baseline (D9 — never
+    # change an experiment baseline implicitly). Passed through to PlatformConfig.
+    logcat_diagnostics: bool = Field(
+        default=False,
+        description="Capture crash/VerifyError/ANR diagnostic events (opt-in, gh72)",
+    )
 
     # --- 5. Specification set ---
     # Determines which .mop files are used for monitor generation in Phase 1.

@@ -91,6 +91,38 @@ o results-dir mesmo com `--skip-static`, então os braços MOP recebem o dado es
 - Efeito colateral: cada re-execução cria novo UUID → `tasks.json` acumula duplicatas → por isso
   **dedup por identidade** na contagem e na consolidação (nunca `task_id`, nunca grep cru).
 
+### Diagnósticos de execução — `RV_LOGCAT_DIAGNOSTICS` + `app_events.csv` (gh72, opt-in)
+
+Por padrão o pipeline captura **só** `RVSEC`/`RVSEC-COV` (`adb logcat -s RVSEC:V RVSEC-COV:V`): o `-s`
+**silencia crashes/VerifyError/ANR na origem**, então um APK que morre cedo aparece como "ferramenta de
+baixa cobertura" sem registro do porquê (confounder invisível — ~8,8% dos runs abrem buffer de crash
+sem conteúdo na corrida APE×APE-RV).
+
+A flag **opt-in** `RV_LOGCAT_DIAGNOSTICS` (CLI `--logcat-diagnostics/--no-logcat-diagnostics`, default
+`false`) torna isso observável:
+- **Ligada** (gerador `--logcat-diagnostics`): o filtro adiciona `AndroidRuntime:E art:E dalvikvm:E
+  ActivityManager:W` **além** de `RVSEC:V RVSEC-COV:V`, e o `rv-platform` grava um CSV dedicado
+  `app_events.csv` (1 linha por evento: `category` ∈ {crash, verify_error, anr}, `exception_class`,
+  `method`, `source`, `message`, `process`, `pid`, `fatal`, `n_frames`, `stack_head`). O trace completo
+  fica **só** no `.logcat` (a fonte da verdade); o CSV traz só o `stack_head`.
+- **Desligada** (default): comando `adb` e `.logcat` **byte-idênticos** ao baseline — nada muda.
+
+**Isolamento (importante para a comparação):** os eventos diagnósticos vão para uma coleção separada e
+**não entram em nenhuma métrica** — `cov_*`, `mop_*`, `total_errors`/`unique_errors` ficam idênticos com
+a flag on ou off (a captura é **aditiva**). Logo, ligar diagnostics **não invalida** a comparação
+pareada nas métricas primárias; só afeta reprodutibilidade byte-a-byte e volume de logcat
+(desprezível). `app_events.csv` sobrevive ao resume (reconstruído do `.logcat`, como `errors.csv`).
+
+**Quando ligar (D9 — ato deliberado por campanha, nunca na âncora compartilhada por padrão):**
+- **Validação de instrumentação** (ex.: dexlib2 × ajc, onde VerifyError/crash **é** o objeto de estudo)
+  → **ligar** (`--logcat-diagnostics`). Substitui o grep offline manual de `FATAL EXCEPTION`/`VerifyError`.
+- **Comparação de ferramentas** (ex.: APE × APE-RV, cobertura/MOP) → **manter OFF** por padrão; ligar só
+  se você quiser **quantificar o crash como confounder** (decisão explícita, registrar no plano §riscos).
+
+> ⚠️ Tags do device, não do app: as tags emitidas pelo APK instrumentado (`RVSEC*`) **não mudam** — só a
+> captura no device. `art`/`dalvikvm` podem emitir em `W` em vez de `E` em alguns runtimes; se um run de
+> validação mostrar VerifyError de carga perdido, ampliar para `art:W` (risco conhecido do plano gh72).
+
 ---
 
 ## Fase 1 — Setup (gera artefatos)
@@ -102,7 +134,8 @@ Definir com o usuário: dataset, tools, timeout, reps, containers, spec-set, e s
 python3 .claude/skills/rv-experiment-compare/scripts/gen_compare.py \
   --name <name> --dataset <dir-com-apks> \
   --tools "<RV_TOOLS>" \
-  --timeout 300 --reps 3 --containers 6 --spec-set jca [--with-sglang] [--filter-abi]
+  --timeout 300 --reps 3 --containers 6 --spec-set jca \
+  [--with-sglang] [--filter-abi] [--logcat-diagnostics]
 ```
 
 Produz: filtros round-robin, `docker-compose.<name>.yml` (SGLang só se `--with-sglang`),
@@ -111,6 +144,10 @@ hipóteses/expectativas/riscos específicos antes de rodar.
 
 - `--filter-abi`: filtra APKs por ABI compatível com a AVD (x86_64 / arm64-v8a / sem-nativo). Use se
   o dataset não estiver pré-filtrado (memória: ~20% de perda histórica por arch incompatível).
+- `--logcat-diagnostics` (gh72): liga a captura **opt-in** de eventos diagnósticos do app
+  (crashes/VerifyError/ANR) → emite `RV_LOGCAT_DIAGNOSTICS: "true"` no compose e gera `app_events.csv`.
+  **Default OFF** — sem a flag o comando `adb logcat` e os logcats são **byte-idênticos** ao baseline
+  RVSEC/RVSEC-COV (não muda nenhum baseline de comparação). Ver "Diagnósticos de execução" abaixo.
 - O compose é gerado programaticamente (N containers + SGLang condicional); o plano vem de
   `templates/plan.md.tmpl`.
 
@@ -171,6 +208,11 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
 - **Métricas MOP**: `cov_mop = methods_mop_reachable_coverage`; `mop_unique =
   coverage_metrics.total_errors` (= violações distintas por `Spec,classe,método,tipo`); `mop_total` =
   linhas `RVSEC : <Spec>,...` no logcat.
+- **Diagnósticos (gh72)**: só existem se a campanha rodou com `--logcat-diagnostics`. Ficam em
+  `app_events.csv` (por container), **fora** de toda métrica — não entram no `consolidate_compare.py`
+  (que cobre cobertura/MOP). Para analisá-los, ler os `app_events.csv` por container e filtrar offline
+  por `process == <pacote do APK da task>` (atribuição é pelo bloco `Process:`/`ANR in`, não por PID).
+  Reprocessar logcats **antigos** (pré-gh72) **não** recupera crashes — eles nunca foram capturados.
 - **Resume final** recupera FAILED transientes; **não `down`** até extrair traces.
 - **`FLAG_SECURE`**: apps com janela segura bloqueiam screenshot → o braço LLM degrada para SATA puro
   (0 chamadas LLM). É degradação correta, não bug — marcar/excluir essas identidades na comparação
@@ -185,3 +227,5 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
 - Comparação/plano de referência: `docs/20260619_comparacao_aperv.md`
 - Memo de diagnóstico (latência, proporção de ações, Wilcoxon): `docs/20260619_debug_aperv_cobertura.md`
 - Mecânica de resume / skip-flags: `docs/WORKFLOW.md`, `rv-platform/CLAUDE.md`
+- Diagnósticos de execução (flag + `app_events.csv`, decisões D1–D9): `docs/20260621_plano_logcat_tags_expandidas.md`
+  e a change `openspec/changes/gh72-logcat-diagnostic-events/`

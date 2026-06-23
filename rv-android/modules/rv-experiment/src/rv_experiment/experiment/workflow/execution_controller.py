@@ -290,6 +290,7 @@ class ExecutionController:
             no_window=no_window,
             log_level="INFO",
             apks_filter_file=self.config.apks_filter,
+            logcat_diagnostics=self.config.logcat_diagnostics,
         )
 
         self.logger.info(

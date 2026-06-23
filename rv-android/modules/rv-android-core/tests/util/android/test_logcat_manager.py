@@ -21,7 +21,7 @@ managing logcat operations for Android devices, including capturing output and c
 from unittest.mock import MagicMock, patch
 
 import pytest
-from rv_android_core.util.android.logcat_manager import LogcatManager
+from rv_android_core.util.android.logcat_manager import DIAGNOSTIC_TAGS, LogcatManager
 
 
 class TestLogcatManager:
@@ -284,4 +284,72 @@ class TestLogcatManager:
         result = logcat_manager.stop_capture()
 
         # Should succeed trivially
+        assert result is True
+
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_diagnostics_flag_off_byte_identical_command(
+        self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
+    ):
+        """INV-CORE-37: with no diagnostic tags the emitted command is the baseline,
+        byte-for-byte (`-v threadtime -s RVSEC:V RVSEC-COV:V`)."""
+        mock_open_file.return_value = MagicMock()
+        mock_clear_command = MagicMock()
+        mock_logcat_command = MagicMock()
+        mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
+
+        result = logcat_manager.start_capture("/test/output.log")
+
+        mock_command_class.assert_any_call(
+            "adb",
+            [
+                "-s",
+                "emulator-5554",
+                "logcat",
+                "-v",
+                "threadtime",
+                "-s",
+                "RVSEC:V",
+                "RVSEC-COV:V",
+            ],
+        )
+        assert result is True
+
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_diagnostics_tags_additive(
+        self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
+    ):
+        """INV-CORE-38: diagnostic tags are appended after RVSEC/RVSEC-COV (which are
+        preserved unchanged), and priority-bearing tags keep their `:E`/`:W` suffix
+        verbatim (no spurious `:V`)."""
+        mock_open_file.return_value = MagicMock()
+        mock_clear_command = MagicMock()
+        mock_logcat_command = MagicMock()
+        mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
+
+        result = logcat_manager.start_capture(
+            "/test/output.log",
+            tags=logcat_manager.default_tags + DIAGNOSTIC_TAGS,
+        )
+
+        mock_command_class.assert_any_call(
+            "adb",
+            [
+                "-s",
+                "emulator-5554",
+                "logcat",
+                "-v",
+                "threadtime",
+                "-s",
+                "RVSEC:V",
+                "RVSEC-COV:V",
+                "AndroidRuntime:E",
+                "art:E",
+                "dalvikvm:E",
+                "ActivityManager:W",
+            ],
+        )
         assert result is True

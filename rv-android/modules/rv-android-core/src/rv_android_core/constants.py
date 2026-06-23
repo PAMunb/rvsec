@@ -99,6 +99,9 @@ ENV_JVM_MEMORY = "RV_JVM_MEMORY"
 ENV_PYDANTIC = "RV_PYDANTIC"
 ENV_PYDANTIC_STRICT = "RV_PYDANTIC_STRICT"
 ENV_PYDANTIC_LOG = "RV_PYDANTIC_LOG"
+# Opt-in capture of execution-level diagnostic events (crashes, VerifyError, ANR).
+# Default off: when unset, logcat capture stays byte-identical to the RVSEC/RVSEC-COV baseline.
+ENV_LOGCAT_DIAGNOSTICS = "RV_LOGCAT_DIAGNOSTICS"
 
 # Variant system constants
 DEFAULT_VARIANT_NAME = "default"

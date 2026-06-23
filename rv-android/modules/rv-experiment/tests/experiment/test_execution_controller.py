@@ -31,6 +31,7 @@ def mock_config():
     config.output_dir = "/tmp/test_exp"
     config.apks_dir = "/tmp/test_apks"
     config.apks_filter = None
+    config.logcat_diagnostics = False
     config.device_port = None
     config.repetitions = 1
     config.timeouts = [300]

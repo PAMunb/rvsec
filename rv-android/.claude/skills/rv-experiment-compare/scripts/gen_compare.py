@@ -87,6 +87,10 @@ def gen_compose(args, n):
     ]
     if has_llm:
         env.append('    RVSMART_LLM_MODE: "true"')
+    # gh72 — opt-in diagnostics. Emitido APENAS quando --logcat-diagnostics e passado
+    # (ato deliberado por campanha, D9); ausente = baseline byte-identico preservado.
+    if getattr(args, "logcat_diagnostics", False):
+        env.append('    RV_LOGCAT_DIAGNOSTICS: "true"')
     depends = (
         "  depends_on:\n    sglang:\n      condition: service_healthy\n" if has_llm else ""
     )
@@ -205,6 +209,16 @@ def main():
     p.add_argument("--hf-cache", default="/pedro/desenvolvimento/.cache/huggingface")
     p.add_argument("--avd-abi", default="x86_64")
     p.add_argument("--filter-abi", action="store_true", help="filtra APKs por ABI compativel (le .apk.json)")
+    p.add_argument(
+        "--logcat-diagnostics",
+        action="store_true",
+        help=(
+            "liga a captura opt-in de eventos diagnosticos (crashes/VerifyError/ANR) "
+            "-> RV_LOGCAT_DIAGNOSTICS=true + app_events.csv (gh72). Default OFF: "
+            "captura byte-identica ao baseline RVSEC/RVSEC-COV (D9). Ligar e ato "
+            "deliberado por campanha."
+        ),
+    )
     p.add_argument("--force", action="store_true", help="sobrescreve artefatos existentes")
     args = p.parse_args()
     args.date = datetime.now().strftime("%Y%m%d")

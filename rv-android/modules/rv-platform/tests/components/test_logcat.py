@@ -136,8 +136,9 @@ class TestStartCapture:
         result = logcat_component.start_capture()
 
         assert result is True
+        # Diagnostics off (default): tags=None → LogcatManager emits the baseline.
         logcat_component.logcat_manager.start_capture.assert_called_once_with(
-            "/tmp/test_logcat.txt", clear_buffer=True
+            "/tmp/test_logcat.txt", tags=None, clear_buffer=True
         )
 
     def test_start_capture_without_clear_buffer(self, logcat_component, mock_task):
@@ -149,7 +150,7 @@ class TestStartCapture:
 
         assert result is True
         logcat_component.logcat_manager.start_capture.assert_called_once_with(
-            "/tmp/test_logcat.txt", clear_buffer=False
+            "/tmp/test_logcat.txt", tags=None, clear_buffer=False
         )
 
     def test_start_capture_failure_returns_false(self, logcat_component):
@@ -189,6 +190,36 @@ class TestStartCapture:
 
         assert result is False
         logcat_component.error_handler.handle_error.assert_called_once()
+
+
+class TestDiagnosticsFlagThreading:
+    """INV-PLT-21 / gh72: the logcat_diagnostics flag controls the capture tags."""
+
+    def test_flag_off_passes_no_diagnostic_tags(self, mock_task):
+        """Default (flag off): start_capture is called with tags=None (baseline)."""
+        with patch("rv_platform.components.logcat.LogcatManager"):
+            component = LogcatComponent(mock_task)  # default logcat_diagnostics=False
+            component.logcat_manager.start_capture.return_value = True
+
+            component.start_capture()
+
+            _, kwargs = component.logcat_manager.start_capture.call_args
+            assert kwargs["tags"] is None
+
+    def test_flag_on_appends_diagnostic_tags(self, mock_task):
+        """Flag on: start_capture receives default_tags + DIAGNOSTIC_TAGS."""
+        from rv_android_core.util.android.logcat_manager import DIAGNOSTIC_TAGS
+
+        with patch("rv_platform.components.logcat.LogcatManager") as mock_mgr_cls:
+            mock_mgr = mock_mgr_cls.return_value
+            mock_mgr.default_tags = ["RVSEC", "RVSEC-COV"]
+            mock_mgr.start_capture.return_value = True
+
+            component = LogcatComponent(mock_task, logcat_diagnostics=True)
+            component.start_capture()
+
+            _, kwargs = mock_mgr.start_capture.call_args
+            assert kwargs["tags"] == ["RVSEC", "RVSEC-COV"] + DIAGNOSTIC_TAGS
 
 
 # ---------------------------------------------------------------------------

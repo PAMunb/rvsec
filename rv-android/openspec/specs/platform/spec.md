@@ -188,6 +188,10 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **INV-PLT-17**: The `cov_class` column in both `coverage.csv` and `summary.csv` MUST contain the `class_coverage` metric from `CoverageMetrics.to_dict()` (the percentage of called classes over total static classes). This corrects a pre-existing bug where the runtime path in `_write_task_coverage_data` wrote `method_coverage` into the `cov_class` slot.
 
 - **INV-PLT-18**: Reconstructing a resumed task MUST produce CSV-equivalent results to the same task processed live. Formally, for any completed task `t`, the metrics computed from `Task.from_dict(t.to_dict())` followed by `_reconstruct_repository_from_logcat` (with the logcat and co-located static-analysis JSON present) MUST equal `t.repository.calculate_metrics().to_dict()` for every coverage and error field, within a rounding tolerance of `0.01`. This is the round-trip equivalence that any future change dropping a runtime field required for reconstruction MUST break. Additionally, when one or more resumed tasks have a non-empty logcat but reconstruct to zero per-method coverage (static data unresolved), `ResultProcessorComponent` MUST emit a single prominent aggregate WARNING reporting `N/M` affected tasks — the corruption MUST NOT be silent.
+
+- **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv`, and `summary.csv` MUST remain byte-identical to baseline; the diagnostic feature MUST NOT add columns to them.
+- **INV-PLT-20**: Diagnostic events MUST survive the resume reconstruction path — a task whose repository is rebuilt from its `.logcat` MUST still produce its `app_events.csv` rows.
+- **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set (no diagnostic tags passed).
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -669,4 +673,42 @@ This is the sole sanctioned channel for delivering per-tool configuration values
 - **WHEN** `ToolFactory.create_tool(tool_config)` (in `rv_tools.registry.factory`) is invoked
 - **THEN** the only L2 input that influences `AbstractTool.configure()` MUST be the merge of variant defaults and `tool_config.parameters`
 - **AND** the factory MUST NOT read any environment variable, configuration file, or other source to populate the `config` argument
+
+### Requirement: Diagnostic Events CSV Generation (FR14)
+
+`result_processor` SHALL generate a per-run `app_events.csv` containing one row per diagnostic event,
+using `LogcatRepository.get_diagnostic_events()`, with the column set
+`apk,rep,timeout,tool,time,category,exception_class,method,source,message,process,pid,fatal,n_frames,stack_head`.
+The full multi-line stack trace SHALL NOT be written to the CSV (it remains in the `.logcat`). The
+existing `coverage.csv`/`errors.csv`/`summary.csv` writers and schemas SHALL remain unchanged.
+
+#### Scenario: One row per diagnostic event with stack_head only
+- **WHEN** a task's repository holds one crash event for `br.unb.cic.cryptoapp`
+- **THEN** `app_events.csv` contains one row with `category=crash`,
+  `exception_class=java.lang.NullPointerException`, `process=br.unb.cic.cryptoapp`, `fatal=true`,
+  and a non-empty `stack_head`
+- **AND** the row contains no multi-line trace (the full block stays in the `.logcat`)
+
+#### Scenario: Existing CSV schemas unchanged
+- **WHEN** the run completes with diagnostics enabled
+- **THEN** the headers of `coverage.csv`, `errors.csv`, and `summary.csv` are byte-identical to baseline
+
+#### Scenario: app_events survives resume reconstruction
+- **WHEN** a task is processed via `_reconstruct_repository_from_logcat` (resume) and its `.logcat`
+  contains a crash block
+- **THEN** the reconstructed repository yields the crash event and `app_events.csv` includes its row
+
+### Requirement: Capture Flag Threading to LogcatComponent (FR07, FR08)
+
+The platform SHALL thread the `RV_LOGCAT_DIAGNOSTICS` setting from `PlatformConfig` into
+`LogcatComponent`, which SHALL pass the augmented tag set to `LogcatManager.start_capture` only when
+diagnostics are enabled. When disabled, capture SHALL use the baseline tags.
+
+#### Scenario: Enabled flag augments capture
+- **WHEN** `PlatformConfig.logcat_diagnostics` is `true`
+- **THEN** `LogcatComponent` calls `start_capture(tags=default_tags + ["AndroidRuntime:E","art:E","dalvikvm:E","ActivityManager:W"])`
+
+#### Scenario: Disabled flag uses baseline capture
+- **WHEN** `PlatformConfig.logcat_diagnostics` is `false` (default)
+- **THEN** `LogcatComponent` starts capture without passing diagnostic tags (baseline command emitted)
 

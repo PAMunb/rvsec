@@ -1,0 +1,10 @@
+--------- beginning of crash
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: FATAL EXCEPTION: main
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: Process: br.unb.cic.cryptoapp, PID: 7071
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.String android.content.Context.getPackageName()' on a null object reference
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: 	at android.content.ComponentName.<init>(ComponentName.java:130)
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: 	at android.content.Intent.<init>(Intent.java:6056)
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: 	at br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuBuilder.dispatchMenuItemSelected(MenuBuilder.java:826)
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: Caused by: java.lang.NullPointerException
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: 	... 11 more

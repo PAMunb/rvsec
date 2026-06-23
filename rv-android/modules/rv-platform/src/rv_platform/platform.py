@@ -347,7 +347,7 @@ class Platform:
                 components = [
                     StaticAnalysisComponent(task, self.config.apks_dir),
                     EmulatorComponent(task),
-                    LogcatComponent(task),
+                    LogcatComponent(task, self.config.logcat_diagnostics),
                     CoverageComponent(task),
                     ToolExecutionComponent(task, tool),
                 ]

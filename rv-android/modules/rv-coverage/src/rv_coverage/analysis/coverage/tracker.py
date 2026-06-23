@@ -38,6 +38,7 @@ from rv_android_core.util.android.repository_initializer import (
 )
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_coverage.parser.log.diagnostic_parser import DiagnosticEventParser
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
 
@@ -154,6 +155,12 @@ class CoverageTracker:
         # Empty repository -- will be populated from static data (if available) and
         # incrementally from logcat lines as the background thread processes them.
         self.repository = LogcatRepository()
+
+        # Stateful parser for diagnostic events (crashes/VerifyError/ANR). Fed every
+        # line alongside parse_logcat_line; events land in the isolated collection and
+        # never touch coverage/MOP metrics. Flushed when tracking stops so a final
+        # buffered crash is not lost.
+        self._diagnostic_parser = DiagnosticEventParser()
 
         self.is_running = False
         self.thread: Optional[threading.Thread] = None
@@ -323,6 +330,10 @@ class CoverageTracker:
         finally:
             self.is_running = False
 
+            # Emit any diagnostic event still buffered (e.g. a crash at EOF).
+            with self._reader_lock:
+                self.flush_diagnostics()
+
             # Close file handle if needed
             if file_handle and not file_handle.closed:
                 try:
@@ -420,8 +431,35 @@ class CoverageTracker:
                     f"Processed method call: {coverage_log.clazz}.{coverage_log.method} at t={time_since_start}s"
                 )
 
+            # Feed every line to the diagnostic parser independently of the
+            # RVSEC/COV result (a crash line is neither error nor coverage).
+            event = self._diagnostic_parser.feed_line(line)
+            if event:
+                self._register_diagnostic_event(event)
+
         except Exception as e:
             self.logger.error(f"Error processing logcat line: {e}", exc_info=True)
+
+    def _register_diagnostic_event(self, event) -> None:
+        """Stamp the event's relative timing and register it in the isolated
+        diagnostic collection (kept out of all coverage/error metrics)."""
+        if self.tool_execution_start_time and event.time_occurred:
+            time_since_start = int(
+                (event.time_occurred - self.tool_execution_start_time).total_seconds()
+            )
+            event.time_since_task_start = max(0, time_since_start)
+        self.repository.register_diagnostic_event(event)
+        self.logger.warning(
+            f"Diagnostic event ({event.category}) detected: "
+            f"{event.class_full_name} process={event.process}"
+        )
+
+    def flush_diagnostics(self) -> None:
+        """Emit any diagnostic event still buffered in the parser. Called when the
+        tail loop ends so a crash at the very end of the logcat is not lost."""
+        tail = self._diagnostic_parser.flush()
+        if tail:
+            self._register_diagnostic_event(tail)
 
     def _update_coverage_metrics(self) -> None:
         """

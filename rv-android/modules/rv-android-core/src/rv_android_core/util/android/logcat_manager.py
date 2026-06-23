@@ -17,6 +17,12 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
+# Single source of truth for the opt-in diagnostic capture tags (gh72).
+# Each tag carries its own priority suffix (`:E`/`:W`) so the command builder keeps
+# it verbatim instead of appending `:V`. Consumed by the platform LogcatComponent,
+# which appends these to the baseline tags only when RV_LOGCAT_DIAGNOSTICS is set.
+DIAGNOSTIC_TAGS = ["AndroidRuntime:E", "art:E", "dalvikvm:E", "ActivityManager:W"]
+
 
 @validated_model([])
 class LogcatManager(BaseValidatedModel):
@@ -182,9 +188,16 @@ class LogcatManager(BaseValidatedModel):
                 ]
                 if validated_tags:
                     cmd_args.extend(["-s"])  # Tag filter option
-                    # Each tag needs priority level suffix (V=Verbose) for proper filtering
-                    # Without :V, logcat filter doesn't work correctly
-                    cmd_args.extend([f"{tag}:V" for tag in validated_tags])
+                    # Each bare tag needs a priority suffix (V=Verbose) for proper
+                    # filtering; without it the logcat filter does not work correctly.
+                    # A tag that already carries a priority (e.g. "AndroidRuntime:E"
+                    # from DIAGNOSTIC_TAGS) is kept verbatim — appending ":V" would
+                    # produce an invalid "AndroidRuntime:E:V" spec. Baseline tags
+                    # ("RVSEC"/"RVSEC-COV") have no colon, so they still become
+                    # "RVSEC:V"/"RVSEC-COV:V", keeping the flag-off command byte-identical.
+                    cmd_args.extend(
+                        [tag if ":" in tag else f"{tag}:V" for tag in validated_tags]
+                    )
 
                 # Start logcat capture
                 logcat_cmd = Command("adb", cmd_args)

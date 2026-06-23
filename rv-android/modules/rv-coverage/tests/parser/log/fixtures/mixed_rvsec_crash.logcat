@@ -1,0 +1,8 @@
+06-23 12:00:00.000  7071  7071 I RVSEC-COV: <com.foo.Bar: void doIt()>
+06-23 12:00:00.500  7071  7071 I RVSEC: SomeSpec,com.foo.Bar,init,doIt,Bar.java,ERROR_STATE,bad usage
+--------- beginning of crash
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: FATAL EXCEPTION: main
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: Process: br.unb.cic.cryptoapp, PID: 7071
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: java.lang.NullPointerException: boom
+06-23 12:00:01.100  7071  7071 E AndroidRuntime: 	at br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)
+06-23 12:00:02.000  7071  7071 I RVSEC-COV: <com.foo.Bar: void after()>

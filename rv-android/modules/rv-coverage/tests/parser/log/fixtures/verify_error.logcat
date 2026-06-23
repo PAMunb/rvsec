@@ -1,0 +1,1 @@
+06-23 12:00:02.200  1234  1240 E art: Rejecting class com.example.bad.BadClass that attempts to access erroneous method void com.example.bad.BadClass.doStuff(): Verification error

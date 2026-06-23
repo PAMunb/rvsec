@@ -64,7 +64,16 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
         logger.debug("Initializing repository with static analysis data")
         initialize_repository_from_static_data(repository, static_data, "LogcatParser")
 
-    # Process log file line by line for memory efficiency
+    # Local import breaks the module-load cycle: diagnostic_parser imports the
+    # threadtime helpers from this module.
+    from rv_coverage.parser.log.diagnostic_parser import DiagnosticEventParser
+
+    diagnostic_parser = DiagnosticEventParser()
+
+    # Process log file line by line for memory efficiency. Each line drives the
+    # RVSEC/COV parse (unchanged hot path) and, independently, the stateful
+    # diagnostic parser; diagnostic events land in the isolated collection so
+    # reconstruction-on-resume repopulates them too (gh58 path).
     try:
         with open(log_file, "r") as f:
             for line in f:
@@ -74,6 +83,15 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
                     repository.register_rv_error(error_log)
                 elif coverage_log:
                     repository.register_method_call(coverage_log)
+
+                event = diagnostic_parser.feed_line(line)
+                if event:
+                    repository.register_diagnostic_event(event)
+
+        # Emit any event still buffered at end of file.
+        tail = diagnostic_parser.flush()
+        if tail:
+            repository.register_diagnostic_event(tail)
     except Exception as e:
         logger.error(f"Error parsing logcat file {log_file}: {e}", exc_info=True)
 

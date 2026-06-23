@@ -370,6 +370,9 @@ rv-screen-parser:
 - **INV-ANA-36**: `MatchPolicy` is an attribute of the source / target, never a CLI-level override. No `--match-mode` or equivalent flag exists.
 - **INV-ANA-37**: After C1f rename, the monorepo MUST NOT contain references to the legacy field names `reachesMop`, `directlyReachesMop`, `mopMethods`, `handlerReachesMop`, `handlerDirectlyReachesMop`, `reaches_mop`, `directly_reaches_mop`, `handler_reaches_mop`, `handler_directly_reaches_mop`, `target_reaches_mop`, `cov_reaches_mop`, `mop_methods` (Pydantic field), or the class name `MopMethod` outside of these documented exclusions: `MopSpecsTargetSource.java`, CLI flag `--mop-dir`, config attribute `mop_dir`, published CSVs under `results/` and `experimento-*/`, archived OpenSpec deltas, historical commit messages, and `modules/rv-agent/` (deprecated per CLAUDE.md — excluded by directory). The gate MUST scan `rvsec-gator/`, `modules/` (minus `rv-agent/`), and `scripts/`. Verified by `G_no_legacy_mop` CI gate.
 - **INV-ANA-38**: GATOR Jimple definition-resolution helpers (`definitionRhs`, `resolveInt`, `resolveStr`) MUST live in `presto.android.util.JimpleDefUtils` only. `MenuExtractor`, `SpinnerItemExtractor`, and any future consumer MUST call them via the helper class.
+- **INV-ANA-46**: `parse_logcat_line` MUST retain its signature `Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]` and its existing behavior for RVSEC/RVSEC-COV lines (the RVSEC/COV golden output MUST be byte-identical to baseline).
+- **INV-ANA-47**: Tag recognition MUST match the parsed threadtime *tag field*, never a substring of the message; a `RVSEC-COV` line whose message contains `isAndroidRuntime()` MUST NOT produce a diagnostic event.
+- **INV-ANA-48**: A multi-line crash block sharing one `(tag, pid, tid)` MUST yield exactly one `RvDiagnosticEvent`; lines that do not match the threadtime regex (e.g. `--------- beginning of crash`) MUST be skipped without error.
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -1303,4 +1306,45 @@ The optimization addresses the dominant pre-WTG cost without changing output, so
 - **WHEN** GATOR analyzes an APK that exceeded the analysis timeout inside `buildFlowThroughContainer()` under the unoptimized pass (one of the 97 sweep timeouts)
 - **THEN** the optimized pass MAY allow the analysis to complete within the same timeout and emit a populated `transitions[]`
 - **AND** if it still times out, the partial JSON MUST preserve `reachability`, `windows`, and `components` with `transitions[]` empty, unchanged from the prior timeout behavior (NFR04)
+
+### Requirement: Stateful Diagnostic Event Parsing (FR12, FR13)
+
+The analysis domain SHALL provide a stateful `DiagnosticEventParser` that assembles diagnostic events
+from logcat lines while leaving `parse_logcat_line` (RVSEC/RVSEC-COV) unchanged. It SHALL group
+consecutive lines of identical `(tag, pid, tid)` into one event, close the event when the key changes or
+a non-continuation line appears, and emit any buffered event on `flush()` at end of input. Both
+`parse_logcat_file` and `CoverageTracker` SHALL feed every line to a `DiagnosticEventParser` and register
+emitted events via `LogcatRepository.register_diagnostic_event`.
+
+#### Scenario: Multi-line AndroidRuntime FATAL assembled into one crash event
+- **WHEN** the input contains `E AndroidRuntime: FATAL EXCEPTION: main`, then
+  `E AndroidRuntime: Process: br.unb.cic.cryptoapp, PID: 7071`, then
+  `E AndroidRuntime: java.lang.NullPointerException: ...getPackageName()...`, then several
+  `E AndroidRuntime: \tat ...` frames, all with pid/tid `7071/7071`
+- **THEN** exactly one `RvDiagnosticEvent` is emitted with `category="crash"`, `fatal=true`,
+  `exception_class="java.lang.NullPointerException"`, `process="br.unb.cic.cryptoapp"`
+- **AND** `n_frames` equals the number of `\tat` frames and `stack_head` is the first frame
+
+#### Scenario: Event closes on tag/pid change and flush at EOF
+- **WHEN** a crash block is immediately followed by an `RVSEC-COV` line, then input ends
+- **THEN** the crash event is closed when the `(tag,pid,tid)` key changes
+- **AND** `flush()` at EOF emits any still-buffered event so nothing is lost
+
+#### Scenario: VerifyError at class load
+- **WHEN** the input contains `E art: Rejecting class com.foo.Bar ... Verification error`
+- **THEN** one `RvDiagnosticEvent` is emitted with `category="verify_error"` naming the rejected class
+
+#### Scenario: ANR event
+- **WHEN** the input contains `E ActivityManager: ANR in br.unb.cic.cryptoapp` (or `... has died`)
+- **THEN** one `RvDiagnosticEvent` is emitted with `category="anr"` and `process="br.unb.cic.cryptoapp"`
+
+#### Scenario: RVSEC/COV path is unchanged
+- **WHEN** the input is a logcat containing only `RVSEC` and `RVSEC-COV` lines (e.g. an existing
+  `cmp_*` logcat)
+- **THEN** `parse_logcat_line` returns the same `(RvErrorLog, RvCoverageLog)` tuples as baseline
+- **AND** no `RvDiagnosticEvent` is produced
+
+#### Scenario: Tag-field match avoids substring false positive
+- **WHEN** the input contains `I RVSEC-COV: <com.foo.Utils: boolean isAndroidRuntime()>`
+- **THEN** no diagnostic event is produced (the tag field is `RVSEC-COV`, not `AndroidRuntime`)
 

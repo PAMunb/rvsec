@@ -137,6 +137,7 @@ class ResultProcessorComponent:
             # coverage is zeroed by construction while MOP errors survive.
             self._generate_coverage_csv(completed_tasks)
             self._generate_errors_csv(completed_tasks)
+            self._generate_app_events_csv(completed_tasks)
             self._generate_summary_csv(completed_tasks)
             self._generate_results_json(completed_tasks)
             self._generate_performance_csv(completed_tasks)
@@ -568,6 +569,109 @@ class ResultProcessorComponent:
 
         except Exception as e:
             self.logger.warning(f"Failed to write error data for task {task.id}: {e}")
+
+    @ErrorHandler.handle_errors(
+        component="ResultProcessorComponent", phase="app_events_csv_generation"
+    )
+    def _generate_app_events_csv(self, completed_tasks: List[Any]) -> None:
+        """
+        Generate the per-run app_events.csv with one row per diagnostic event
+        (crash / VerifyError / ANR). Only the ``stack_head`` summary is written;
+        the full multi-line trace stays in the ``.logcat`` (decision D3). The
+        existing coverage/errors/summary CSV schemas are untouched (INV-PLT-19).
+
+        Args:
+            completed_tasks: List of completed tasks to process
+        """
+        with self.logger.with_context(phase="app_events_csv_generation"):
+            self.logger.info(LOG_START.format(phase="app events CSV generation"))
+
+            app_events_file = os.path.join(self.results_dir, "app_events.csv")
+
+            with open(app_events_file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+
+                # Header for diagnostic events (full trace stays in the .logcat).
+                writer.writerow(
+                    [
+                        "apk",
+                        "rep",
+                        "timeout",
+                        "tool",
+                        "time",
+                        "category",
+                        "exception_class",
+                        "method",
+                        "source",
+                        "message",
+                        "process",
+                        "pid",
+                        "fatal",
+                        "n_frames",
+                        "stack_head",
+                    ]
+                )
+
+                for task in completed_tasks:
+                    self._write_task_app_events(writer, task)
+
+            self.logger.info(f"App events CSV generated: {app_events_file}")
+
+    def _write_task_app_events(self, writer: csv.writer, task: Any) -> None:
+        """
+        Write diagnostic-event rows for a single task to app_events.csv.
+
+        Like errors.csv, diagnostic events are reconstructible from the logcat
+        (the diagnostic parser runs inside ``parse_logcat_file``), so resumed
+        tasks repopulate their rows from the persisted logcat (INV-PLT-20).
+
+        Args:
+            writer: CSV writer instance
+            task: Task to process for diagnostic-event data
+        """
+        try:
+            config = task.config
+            apk_name = config.apk_name
+            repetition = config.repetition
+            timeout = config.timeout
+            tool_name = config.tool_config.get_full_tool_name()
+
+            repository = None
+            if hasattr(task, "repository") and task.repository:
+                repository = task.repository
+            else:
+                repository = self._reconstruct_repository_from_logcat(task)
+
+            if repository:
+                for i, event in enumerate(repository.get_diagnostic_events(), 1):
+                    time_value = event.get("time_since_task_start", i)
+                    if time_value is None or time_value == 0:
+                        time_value = i
+
+                    writer.writerow(
+                        [
+                            apk_name,
+                            repetition,
+                            timeout,
+                            tool_name,
+                            time_value,
+                            event.get("category", ""),
+                            event.get("class_full_name", ""),
+                            event.get("method", ""),
+                            event.get("source", ""),
+                            event.get("message", ""),
+                            event.get("process", ""),
+                            event.get("pid", ""),
+                            event.get("fatal", False),
+                            event.get("n_frames", 0),
+                            event.get("stack_head", ""),
+                        ]
+                    )
+
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to write app event data for task {task.id}: {e}"
+            )
 
     @ErrorHandler.handle_errors(
         component="ResultProcessorComponent", phase="summary_csv_generation"

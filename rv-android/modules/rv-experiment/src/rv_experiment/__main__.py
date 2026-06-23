@@ -29,6 +29,7 @@ from rv_android_core.constants import (
     ENV_HUMANOID_URL,
     ENV_INSTRUMENTATION_VARIANT,
     ENV_JVM_MEMORY,
+    ENV_LOGCAT_DIAGNOSTICS,
     ENV_NO_QUARANTINE,
     ENV_NO_WINDOW,
     ENV_REPETITIONS,
@@ -438,6 +439,17 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     help="Text file with APK filenames to process (one per line)",
 )
 @click.option(
+    "--logcat-diagnostics/--no-logcat-diagnostics",
+    default=False,
+    envvar=ENV_LOGCAT_DIAGNOSTICS,
+    help=(
+        "Capture execution-level diagnostic events (crashes, VerifyError, ANR) "
+        "into app_events.csv (gh72). Default off — capture stays byte-identical "
+        "to the RVSEC/RVSEC-COV baseline. Positive flag, so RV_LOGCAT_DIAGNOSTICS "
+        "is honored directly by Click without entry-point translation."
+    ),
+)
+@click.option(
     "--name",
     type=str,
     default=None,
@@ -487,6 +499,7 @@ def run(
     enable_quarantine: bool,
     device_port: Optional[int],
     apks_filter: Optional[str],
+    logcat_diagnostics: bool,
     name: Optional[str],
     resume_dir: Optional[str],
     analysis_timeout: Optional[int],
@@ -576,6 +589,7 @@ def run(
                     enable_quarantine=enable_quarantine,
                     analysis_timeout=analysis_timeout,
                     jvm_memory=jvm_memory,
+                    logcat_diagnostics=logcat_diagnostics,
                 )
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
@@ -996,6 +1010,9 @@ def _create_experiment_config_from_cli(
     # env or RVStaticAnalysisConfig default" (resolved in get_static_analysis_config).
     analysis_timeout: Optional[int] = None,
     jvm_memory: Optional[str] = None,
+    # gh72 opt-in diagnostics flag — kwarg with default to keep callers (and
+    # tests) written before gh72 source-compatible. CLI plumbing always passes it.
+    logcat_diagnostics: bool = False,
 ) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
@@ -1121,6 +1138,7 @@ def _create_experiment_config_from_cli(
             run_static_analysis=static_analysis,
             run_execution=run_execution,
             enable_quarantine=enable_quarantine,
+            logcat_diagnostics=logcat_diagnostics,
             specification_set=specification_set,
             custom_specs_dir=custom_specs_dir,
             custom_aspects_dir=custom_aspects_dir,
