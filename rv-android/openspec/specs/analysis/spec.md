@@ -149,6 +149,10 @@ Widget:
   text: str                     # Static text content
   hint: str                     # Hint text for input fields
   input_type: str               # Input type specification
+  prompt: str | None            # android:prompt (Spinner dialog title); null when absent
+  spinner_mode: str | None      # android:spinnerMode ("dropdown" | "dialog" | null)
+  content_description: str | None  # android:contentDescription (accessibility label); null when absent
+  tooltip_text: str | None      # android:tooltipText (long-press hint); null when absent
 
 WindowTransitionGraph:
   graph: networkx.DiGraph       # Directed graph of window transitions
@@ -286,6 +290,8 @@ rv-screen-parser:
 - `mop_dir: str` -- Path to MOP specification directory (source: RVStaticAnalysisConfig, consumed by the analysis client via `-clientParam mopDir=<path>`)
 - `targets_file: str` -- Path to a text file of Soot method signatures, one per line (`#` comments allowed); mutually exclusive with `mop_dir` (source: RVStaticAnalysisConfig CLI `--targets-file`, consumed via `-clientParam targetsFile=<path>`; INV-ANA-33)
 - `cg_algorithm: str` -- Soot call graph algorithm, one of `spark` (default), `cha`, `rta`, `vta` (source: RVStaticAnalysisConfig CLI `--cg-algorithm`, forwarded to GATOR as `-cgAlgorithm`)
+- `cg_delegation: bool` -- Whether WTG construction delegates virtual-dispatch resolution to the SPARK call graph (default `false` after M3 paridade-gate failure, 2026-05-15), passed via `-clientParam cgDelegation=<bool>`. When `true`, `FlowgraphRebuilder.buildCallGraph()` consults `Scene.v().getCallGraph()` and skips the local CHA-style rebuild (opt-in, 2–23× speedup for apps without hybrid-framework wiring). When `false` (default), legacy points-to + CHA-fallback behavior is preserved bit-for-bit (INV-ANA-21). See `docs/20260515_diagnostico_paridade_cgdelegation.md`.
+- `skip_wtg: bool` -- Whether `WTGBuilder.build()` is bypassed (default `false`), passed via `-clientParam skipWtg=<bool>`. When `true`, WTG is not built and `transitions[]` is emitted as an empty array (source: RVStaticAnalysisConfig CLI `--skip-wtg`).
 - `analysis_timeout: float` -- Timeout in seconds for the analysis tool (default: 600.0). Passed both as `Command.timeout` (Python process-level kill) and `--timeout` (GATOR's internal timeout)
 - `analysis_client_jar: str` -- Path to the analysis client fat JAR (`lib/gator/rvsec-analysis-client.jar`)
 - `logcat_file: str` -- Path to Android logcat output file (source: LogcatComponent in rv-platform, consumed by CoverageTracker and CoverageAnalyzer)
@@ -348,7 +354,10 @@ rv-screen-parser:
 
 - **INV-ANA-15**: Coverage metrics MUST be calculated with reachability data as the denominator. `method_coverage` = (called methods) / (total reachable methods from the analysis JSON's reachability section). `mop_method_coverage` = (called methods that reach MOP) / (total methods with reaches_target=true). Without reachability data, percentage-based coverage MUST NOT be reported; only absolute counts are valid.
 
-<!-- INV-ANA-16..24 reserved by gh57-static-analysis-overhaul (in-flight). -->
+- **INV-ANA-20**: `windows[]` MUST be populated in every successful run of `RvsecAnalysisClient.run()` regardless of WTG completion status. The partial-JSON path (`wtg == null`) MUST emit identical widget data to the full-JSON path, differing only in: (a) catch-all WTG-only window entries (fragments, context menus discovered via `wtg.getNodes()` iteration) are absent, and (b) numeric window IDs use the `fallbackId` sequence instead of `windowNodeIds.get(...)`.
+- **INV-ANA-21**: When `cgDelegation=true`, `AndroidCallGraph.v()` MUST NOT be populated by `FlowgraphRebuilder.buildCallGraph()` — virtual-dispatch resolution MUST come exclusively from `Scene.v().getCallGraph()` queries plus a bytecode-scan complement for `IGNORED_CLASSES` library targets. The two-call-graph problem is structurally absent.
+- **INV-ANA-22**: The bytecode-scan WTG complement MUST mirror the policy of `BUG-INV-ANA-19` (existing complement for `directlyReachesTarget`): same `IGNORED_CLASSES` set, same FQN+method-name match policy, same body-retrieval resilience pattern (catch `RuntimeException`/`OutOfMemoryError`, log, continue).
+- **INV-ANA-24**: `MenuExtractor` and `SpinnerItemExtractor` MUST be resilient to body-retrieval failures (same pattern as INV-ANA-17): catch per-method exceptions, log, continue. A single corrupt class MUST NOT abort the extraction.
 
 - **INV-ANA-25**: `parse_logcat_file(logcat_file, static_data)` MUST be invoked with a non-`None` `StaticAnalysisData` whenever the caller intends to reconstruct per-method coverage from a persisted logcat (e.g. on resume, or in offline analysis tooling). When `static_data` is `None`, the returned `LogcatRepository` has `classes = {}`, `register_method_call` silently no-ops for every `RVSEC-COV` entry, and `calculate_metrics().to_dict()` returns zero for `method_coverage`, `class_coverage`, `reachable_method_coverage`, `mop_method_coverage`, and `direct_mop_method_coverage`. Only `total_errors` and `unique_errors` remain accurate. Callers that omit `static_data` MUST do so deliberately (errors-only path) and log the degraded state.
 
@@ -364,7 +373,9 @@ rv-screen-parser:
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
-The system MUST run a single GATOR analysis client to produce a single JSON output file containing four data sections written in priority order: (1) method reachability relative to a `TargetMethodSource` (coverage denominator), (2) window and widget inventory with event listeners, (3) window transition graph, and (4) non-Activity component data (Services, BroadcastReceivers, ContentProviders) with intent-filters/authorities and target reachability. The JSON output MUST end with a sentinel `"complete": true` as the last top-level field on successful completion (INV-ANA-31).
+The system MUST run a single GATOR analysis client to produce a single JSON output file containing four data sections written in priority order: (1) method reachability relative to a `TargetMethodSource` (coverage denominator), (2) window and widget inventory with event listeners, **populated regardless of WTG completion status (INV-ANA-20)**, (3) window transition graph, and (4) non-Activity component data (Services, BroadcastReceivers, ContentProviders) with intent-filters/authorities and target reachability. The JSON output MUST end with a sentinel `"complete": true` as the last top-level field on successful completion (INV-ANA-31).
+
+The partial-write path (`wtg == null`) MUST emit a populated `windows[]` section using the same `extractWindows` helper as the full-write path, supplying `Collections.emptyMap()` for `windowNodeIds` and `null` for the WTG handle (INV-ANA-20). The catch-all loop over `wtg.getNodes()` (which adds fragment/context-menu windows not enumerated by `output.getActivities()`/`getDialogs()`/`getOptionsMenu()`) is guarded by `if (wtg != null)`; its absence in the partial path is the only widget-data difference between the two paths.
 
 The analysis tool is a GATOR client (`RvsecAnalysisClient`) that implements the `GUIAnalysisClient` interface. Following decomposition, `RvsecAnalysisClient` is an orchestrator (~200 LOC) that wires four single-responsibility components plus a streaming enricher: `TargetResolver` (loads from a `TargetMethodSource` and resolves into Soot `Scene`), `ReachabilityEngine` (builds JGraphT call graph, runs multi-source BFS, complements with bytecode scan), `ReachabilityIndex` (encapsulated lookup ADT), `ReachabilityEnricher` (per-node visitor that annotates each window/transition/component/method on the fly using `ReachabilityIndex`, called by the writer during the section walk — NOT a batch materializer), and `JsonReportWriter` (incremental walker that emits each section to the output stream and flushes immediately, invoking `ReachabilityEnricher` callbacks per node to obtain the annotated values; `flush()` per section preserves partial recovery on timeout). The `JsonReportWriter` MUST NOT itself call any `ReachabilityIndex` lookup method (INV-ANA-30); all flag decisions go through the injected `ReachabilityEnricher` callback interface, which is purely a delegate — the writer holds no direct reference to the index.
 
@@ -384,9 +395,9 @@ The execution order inside `run()`:
 
 2. **Enumerates application classes and computes method reachability** using `Scene.v().getApplicationClasses()` for class/method enumeration and `Scene.v().getCallGraph()` + JGraphT for reachability flags. Entry points include: Activity lifecycle handlers and public/protected methods (via `output.getActivities()`), Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`) and public/protected methods (via `XMLParser.getServices()`), BroadcastReceiver lifecycle method (`onReceive`) and public/protected methods (via `XMLParser.getReceivers()`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`) and public/protected methods (via `XMLParser.getProviders()`). For each application method, the `ReachabilityEngine` computes: `reachable` (reachable from entry points), `reachesTarget` (has path to a resolved target method — renamed from `reachesMop`), and `directlyReachesTarget` (directly invokes a resolved target method — renamed from `directlyReachesMop`). The `ReachabilityIndex` materializes these as `Set<String>` for O(1) lookup. This section is written and flushed first.
 
-3. **Extracts windows and widgets** using GATOR's internal APIs (`getActivities()`, `getActivityRoots()`, `PropertyManager`). GATOR's interprocedural analysis provides the widget inventory (IDs, names, types, text, hint, listeners) including dynamically-registered listeners. Two fields not available via GATOR APIs — `inputType` and `entries` — are extracted by parsing the decoded layout XML files at `Configs.resourceLocation`.
+3. **Extracts windows and widgets** using GATOR's internal APIs (`getActivities()`, `getActivityRoots()`, `getDialogs()`, `getDialogRoots()`, `getOptionsMenu()`, `PropertyManager`). GATOR's interprocedural analysis provides the widget inventory (IDs, names, types, text, hint, listeners) including dynamically-registered listeners. Widget XML attributes not available via GATOR APIs — `inputType`, `entries` (from `android:entries="@array/X"`), and the four attributes `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` — are extracted by `enrichFromXml()` from the decoded layout XML files at `Configs.resourceLocation`. The `windows[]` section is written in both the partial-JSON path (after reachability, with `wtg=null`) and the full-JSON path (after WTG completion, with the WTG handle for numeric ID assignment and catch-all enumeration).
 
-4. **Extracts the Window Transition Graph** using GATOR's `WTGBuilder` and `WTGAnalysisOutput`, producing window IDs, transition edges with event types, widget IDs, and handler signatures.
+4. **Extracts the Window Transition Graph** using GATOR's `WTGBuilder` and `WTGAnalysisOutput`, producing window IDs, transition edges with event types, widget IDs, and handler signatures. WTG construction MUST use `Scene.v().getCallGraph()` (the SPARK CG already built by Soot) as the single source of virtual-dispatch resolution when the `cgDelegation` client parameter is `true`; `AndroidCallGraph.v()` MUST NOT be populated by `FlowgraphRebuilder.buildCallGraph()` in this mode (INV-ANA-21). The legacy `AndroidCallGraph` rebuild via `FlowgraphRebuilder.buildCallGraph()` MUST be preserved behind `cgDelegation=false` (default after the M3 paridade-gate decision in `docs/20260515_diagnostico_paridade_cgdelegation.md`), where rollback is bit-for-bit. Edges to library classes quarantined by SPARK's `IGNORED_CLASSES` are recovered via a WTG-level bytecode-scan complement (INV-ANA-22). WTG construction is skipped entirely when the `skipWtg` client parameter is `true` (see the `skipWtg` ADDED requirement), in which case `transitions[]` is emitted as an empty array.
 
 5. **Extracts non-Activity components** (Services, BroadcastReceivers, ContentProviders) from `XMLParser.getServices()`, `XMLParser.getReceivers()`, and `XMLParser.getProviders()`, enriched with intent-filters from `IntentFilterManager`, `android:exported` attribute, and target reachability cross-referenced with the reachability BFS results. This section is written and flushed last.
 
@@ -451,6 +462,43 @@ The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:t
 - **THEN** the resulting `set(method.signature for method in data.methods if method.reaches_target)` MUST be equal to the same set computed from the gh57 baseline at commit `b2e04a26` (`reaches_mop` semantically — set comparison transparent to rename)
 - **AND** the resulting `set(method.signature for method in data.methods if method.directly_reaches_target)` MUST be equal to the corresponding baseline set
 - **AND** `cryptoapp.apk` MUST report exactly 16 target methods (INV-ANA-35)
+
+#### Scenario: WTG timeout still produces populated windows[] in partial JSON
+
+- **WHEN** GATOR analyzes an APK whose WTG construction exceeds the external sweep timeout (e.g. `ac.mdiq.podcini.X_256.apk` from the original-APK corpus at `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs/`), and the Java process is killed via SIGTERM during `WTGBuilder.build()`
+- **THEN** the JSON file written before the kill MUST contain a fully-populated `windows[]` section with all activities, dialogs, options-menu skeletons, and their widgets (including listeners, text, hint, inputType, entries) extracted from `GUIAnalysisOutput`
+- **AND** the JSON `transitions[]` MUST be `[]` (empty array, not missing)
+- **AND** the JSON `windows[].widgets[]` MUST NOT contain the catch-all WTG-only entries (fragments, context menus that depend on `wtg.getNodes()` enumeration) — these are skipped because `wtg == null` (INV-ANA-20)
+- **AND** numeric `windows[].id` values MUST come from the `fallbackId` sequence (starting at `100000`) or from `dialog.id`/`menu.id` fallbacks, since `windowNodeIds` is an empty map in the partial-write path
+
+#### Scenario: WTG built using legacy call graph (cgDelegation=false, default post-M3)
+
+- **WHEN** `RvsecAnalysisClient.run()` is invoked with default client parameters (`cgDelegation` defaults to `false` per `docs/20260515_diagnostico_paridade_cgdelegation.md`)
+- **AND** `WTGBuilder.build(output)` is called and reaches `FlowgraphRebuilder.buildCallGraph()`
+- **THEN** `FlowgraphRebuilder.buildCallGraph()` MUST take the legacy points-to + CHA-fallback code path (`buildCallGraphLegacy` — `hier.virtualDispatch()` + `hier.getConcreteSubtypes()`)
+- **AND** `AndroidCallGraph.v()` MUST be populated as before the change
+- **AND** the output `transitions[]` MUST match exactly the pre-change baseline for the same APK on this code path (rollback is bit-for-bit on the WTG section)
+
+#### Scenario: WTG built using SPARK call graph (cgDelegation=true, opt-in)
+
+- **WHEN** `RvsecAnalysisClient.run()` is invoked with `-clientParam cgDelegation=true`
+- **AND** `WTGBuilder.build(output)` is called and reaches `FlowgraphRebuilder.buildCallGraph()`
+- **THEN** `FlowgraphRebuilder.buildCallGraph()` MUST consult `Scene.v().getCallGraph()` to resolve virtual-dispatch targets for each `InvokeExpr` site
+- **AND** `AndroidCallGraph.v()` MUST NOT be populated via the legacy CHA-style loop (INV-ANA-21)
+- **AND** for `InvokeExpr` sites whose declared callee class is in `IGNORED_CLASSES` (SPARK quarantine — `java.*`, `javax.*`, `sun.*`, `android.*`, `androidx.*`, `dalvik.*`), edges MUST be recovered via the WTG-level bytecode-scan complement (INV-ANA-22)
+
+#### Scenario: Hybrid-framework apps lose transitions in cgDelegation=true mode
+
+This scenario documents a known limitation of the opt-in SPARK delegation path until a follow-up change ports the CHA fallback at application-class scope for zero-edge invoke sites.
+
+- **GIVEN** an APK whose UI listener dispatch is routed through synthetic lambdas (`$$ExternalSyntheticLambda*`) declared in application packages, instantiated through native bridges (React Native, Flutter, Capacitor)
+- **WHEN** the analyzer runs with `-clientParam cgDelegation=true`
+- **THEN** the WTG MAY fail to create WTGNodes for the entry activities (the SPARK call graph lacks the edges that signal "this activity is live")
+- **AND** the resulting `transitions[]` section MAY be empty for those apps
+- **AND** the activities WILL appear in `windows[]` with fallback IDs (≥100000)
+- **AND** consumers MUST treat an empty `transitions[]` paired with fallback-IDed windows as an analyzer limitation, not a "no transitions exist" assertion (reference: `docs/20260515_diagnostico_paridade_cgdelegation.md`)
+
+This limitation does NOT apply to `cgDelegation=false` (the default), which uses the legacy CHA fallback over application-class subtypes and captures these lambdas.
 
 #### Scenario: GATOR crashes during call graph construction
 
@@ -755,6 +803,275 @@ The `rv-static-analysis` CLI MUST expose `--cg-algorithm {spark,cha,rta,vta}` (d
 
 - **WHEN** the user omits `--cg-algorithm`
 - **THEN** the GATOR command MUST include `-cgAlgorithm spark`
+
+### Requirement: `skipWtg` Client Parameter for WTG Bypass (FR05, NFR06)
+
+The `RvsecAnalysisClient` MUST honor a new client parameter `skipWtg=true` / `skipWtg=false` (default `false`). When `true`, `WTGBuilder.build()` MUST NOT be invoked: control flows directly from the reachability+windows partial-JSON write to the components section, and `transitions[]` is emitted as an empty array. When `false` (default), the existing WTG flow is preserved.
+
+The sweep launcher `scripts/static_analysis_sweep.py` MUST expose a `--skip-wtg` boolean argument that propagates as `-clientParam skipWtg=true` to GATOR. The default is `false`. The flag exists to save wall-clock on APKs known to time out in WTG construction, when `transitions[]` is not required by the downstream consumer (e.g. aperv:sata_mop, which degrades gracefully via `MopScorer.scoreWtg → 0`).
+
+When `skipWtg=true` is passed, `RvsecAnalysisClient` MUST log a single line at INFO: `[RvsecAnalysisClient] WTG skipped by client parameter`. The JSON `transitions[]` MUST be `[]` (not absent).
+
+#### Scenario: skipWtg=true bypasses WTGBuilder
+
+- **WHEN** `RvsecAnalysisClient.run()` is invoked with `-clientParam skipWtg=true`
+- **THEN** `WTGBuilder.build()` MUST NOT be called
+- **AND** no WTG-stage log lines (`stage 1 finishes`, ..., `stage 6 finishes`) MUST appear in stdout
+- **AND** the output JSON MUST contain `"transitions": []`
+- **AND** the output JSON `windows[]` MUST be populated (via the partial-JSON path with `wtg=null`)
+- **AND** stdout MUST contain the line `[RvsecAnalysisClient] WTG skipped by client parameter`
+
+#### Scenario: sweep --skip-wtg propagates to GATOR
+
+- **WHEN** `scripts/static_analysis_sweep.py` is invoked with `--skip-wtg`
+- **THEN** the GATOR command line for each APK MUST contain `-clientParam skipWtg=true`
+- **AND** the sweep progress log MUST reflect that WTG is skipped (one line per batch: `[SWEEP] skipWtg=true active for this run`)
+
+### Requirement: Widget XML Attribute Extensions (FR06)
+
+The `enrichFromXml()` method of `RvsecAnalysisClient` MUST extract four additional widget attributes from decoded layout XML files (`Configs.resourceLocation`), in addition to the existing `inputType` and `entries` extraction. The four attributes are:
+
+- `android:prompt` → widget field `prompt` (string, applies primarily to Spinner — the title shown when `spinnerMode="dialog"`).
+- `android:spinnerMode` → widget field `spinnerMode` (string enum: `"dropdown"` | `"dialog"` | `null`).
+- `android:contentDescription` → widget field `contentDescription` (string, accessibility label).
+- `android:tooltipText` → widget field `tooltipText` (string, long-press hint).
+
+Missing attributes MUST map to `null` (not empty string), so the JSON consumer can distinguish "attribute absent" from "attribute present but empty".
+
+#### Scenario: Spinner widget gets prompt and spinnerMode
+
+- **WHEN** a decoded layout XML file at `Configs.resourceLocation/layout/foo.xml` contains `<Spinner android:id="@+id/bar" android:prompt="@string/p" android:spinnerMode="dialog"/>`
+- **AND** `enrichFromXml` processes that file for an activity whose root contains a widget with `idName == "bar"`
+- **THEN** the corresponding widget in `windows[].widgets[]` MUST have `prompt = "<resolved p text>"` (after `@string/` resolution) and `spinnerMode = "dialog"`
+
+#### Scenario: Button widget gets contentDescription and tooltipText
+
+- **WHEN** a decoded layout XML contains `<Button android:id="@+id/b" android:contentDescription="Save" android:tooltipText="Save the form"/>`
+- **THEN** the corresponding widget MUST have `contentDescription = "Save"` and `tooltipText = "Save the form"`
+
+#### Scenario: Missing XML attribute maps to null
+
+- **WHEN** a widget in a layout has no `android:prompt` attribute set
+- **THEN** the JSON `windows[].widgets[].prompt` MUST be `null` (not empty string `""` and not absent from the object)
+
+### Requirement: Inflated OPTIONSMENU Items via Existing GUI Flow Graph (FR06)
+
+`RvsecAnalysisClient.extractWindows()` MUST emit the menu items of every XML-inflated options menu (i.e. menus populated by `MenuInflater.inflate(R.menu.<name>, menu)` inside `onCreateOptionsMenu`). The data is already produced by the existing GATOR pipeline: `FixpointSolver.processMenuInflaterCalls()` resolves the layout id to the activity's `NOptionsMenuNode`, and `FixpointSolver.doMenuInflate()` builds an `NMenuItemInflNode` for every `<item>` in the menu XML, attaches it as a child of the `NOptionsMenuNode` (via `addParent` / `children`), and populates its id node, text, and hint. Today this data is discarded by `extractWindows` because the OPTIONSMENU branch hardcodes `widgets: []`.
+
+The fix MUST walk `menu.getChildren()` for each `NOptionsMenuNode` and feed the children into the existing `collectWidgets(output, child, widgets, visited)` recursion, mirroring the dialog-handling block immediately above (which already does this for `NDialogNode` via `output.getDialogRoots(dialog)`).
+
+This requirement covers **only the XML-inflation path**. Programmatic construction (`menu.add(...)` inside `onCreateOptionsMenu`) is covered separately by the requirement "Programmatic Options-Menu Extraction via Soot CFG" — the two are complementary and may produce items for the same OPTIONSMENU when an activity mixes XML inflation with programmatic additions; in that case, the JSON output contains both sets of items in `widgets[]` (no deduplication needed because the id space is disjoint by construction — XML items carry the `R.id` from the menu resource, programmatic items carry the int constant passed to `Menu.add`).
+
+#### Scenario: XML-inflated options menu populates items
+
+- **WHEN** an activity calls `inflater.inflate(R.menu.foo, menu)` inside `onCreateOptionsMenu` with a valid `res/menu/foo.xml` containing items `@+id/a`, `@+id/b`
+- **AND** the analysis pipeline (`FixpointSolver.doMenuInflate`) has built `NMenuItemInflNode` children of the `NOptionsMenuNode` for that activity
+- **THEN** the `windows[type="OPTIONSMENU"]` entry for the activity MUST have `widgets[]` containing two entries with the respective ids and resolved titles
+- **AND** each entry MUST include the same fields as widgets in ACTIVITY/DIALOG windows (`id`, `idName`, `type`, `text`, `hint`, `listeners`, plus the four XML attributes from "Widget XML Attribute Extensions" — all `null` for menu items)
+
+#### Scenario: cryptoapp baseline regression test
+
+- **WHEN** the analysis runs on `apks_examples/cryptoapp.apk` (which has `onCreateOptionsMenu` calling `inflater.inflate(R.menu.cryptoapp_menu, menu)` and `res/menu/cryptoapp_menu.xml` containing 3 items: `menu_item_message_digest`, `menu_item_cipher`, `menu_item_home`)
+- **THEN** the produced JSON MUST have `windows[where type="OPTIONSMENU" and name endsWith "#OptionsMenu"].widgets[]` with exactly 3 entries
+- **AND** each of the 3 entries MUST have a non-null `id` corresponding to the menu-item resource id
+
+### Requirement: Programmatic Options-Menu Extraction via Soot CFG (FR06)
+
+A new class `MenuExtractor` (in the `rvsec-gator` client module) MUST trace programmatic options-menu construction in `onCreateOptionsMenu(Menu)` methods of application activities. The extractor MUST resolve the following invocation patterns via Soot CFG walking from the entry point of `onCreateOptionsMenu`:
+
+- `Menu.add(int groupId, int itemId, int order, CharSequence title)` → menu item with literal `title`.
+- `Menu.add(int groupId, int itemId, int order, int titleRes)` → menu item with title resolved from `@string/<name>` via the existing `XMLParser`/string-resource lookup.
+- `Menu.addSubMenu(int groupId, int itemId, int order, CharSequence title)` → submenu node followed by `getSubItems` CFG-forward walk to collect `SubMenu.add(...)` invocations.
+- `Menu.addSubMenu(int groupId, int itemId, int order, int titleRes)` → same with string-resource resolution.
+
+The extractor populates `windows[type="OPTIONSMENU"].widgets[].items[]` as a recursive widget-entry list (each `items[]` entry is itself a widget object that may contain its own `items[]` for submenus). Widget IDs come from the `itemId` argument of the `Menu.add` call (literal int constant).
+
+The extractor MUST be resilient to body-retrieval failures (catch per-method exceptions, log, continue — same pattern as INV-ANA-17, codified as INV-ANA-24).
+
+#### Scenario: Programmatic Menu.add with literal CharSequence
+
+- **WHEN** an activity's `onCreateOptionsMenu(Menu menu)` body contains the Jimple equivalent of `menu.add(0, 100, 0, "Settings")`
+- **AND** `MenuExtractor` walks the CFG of that method
+- **THEN** the `windows[type="OPTIONSMENU"]` entry for that activity MUST contain a widget with `items[]` including `{id: 100, text: "Settings", type: "MenuItem"}`
+
+#### Scenario: Programmatic Menu.add with @string resource
+
+- **WHEN** the activity calls `menu.add(0, 200, 0, R.string.cfg_label)` where `R.string.cfg_label` resolves to `"Configuration"`
+- **THEN** the corresponding menu item MUST have `text: "Configuration"` (resolved via the existing string-resource lookup helpers in `RvsecAnalysisClient`)
+
+#### Scenario: SubMenu followed by SubMenu.add chains
+
+- **WHEN** the activity calls `SubMenu sub = menu.addSubMenu(0, 300, 0, "Tools"); sub.add(0, 301, 0, "Export"); sub.add(0, 302, 0, "Import")`
+- **THEN** the corresponding submenu widget MUST have `id: 300`, `text: "Tools"`, and `items: [{id: 301, text: "Export"}, {id: 302, text: "Import"}]` (recursive structure)
+
+#### Scenario: Body-retrieval failure does not abort extraction
+
+- **WHEN** `MenuExtractor` attempts to walk the CFG of an activity's `onCreateOptionsMenu` and Soot raises a `RuntimeException` during `retrieveActiveBody()`
+- **THEN** the extractor MUST catch the exception, emit a WARN log with the activity class name, and continue with the next activity (INV-ANA-24)
+- **AND** the JSON `windows[type="OPTIONSMENU"]` for the failing activity MUST have `items: []` (empty, not missing the widget)
+
+### Requirement: Programmatic Spinner Items via ArrayAdapter Dataflow (FR06, MVP)
+
+A new class `SpinnerItemExtractor` (in the `rvsec-gator` client module) MUST resolve Spinner items populated programmatically via `ArrayAdapter`. The MVP scope covers exactly two patterns:
+
+1. **Literal constructor**: `new ArrayAdapter<>(ctx, layoutId, items)` where `items` is a literal `String[]` array (`new String[]{"a", "b", "c"}`) or a literal `List<String>` (`Arrays.asList(...)` over literal strings).
+2. **Programmatic add**: `adapter.add(s)` / `adapter.addAll(arr)` where `s` is a literal string and `arr` is a literal `String[]`.
+
+Resolution MUST use the SPARK points-to set (`Scene.v().getPointsToAnalysis()`) to find the receiver type of the `setAdapter` call and to trace the def-use chain of the items argument to its allocation site. The receiver Spinner is identified by walking back from `spinner.setAdapter(adapter)` to a `findViewById` whose argument is the Spinner widget ID.
+
+**Out of scope for MVP** (deferred to a future change, gated on corpus coverage measurement):
+- `getResources().getStringArray(R.array.X)` source (resolution of `R.array` to `arrays.xml`).
+- Kotlin `listOf("a", "b")` source (Kotlin desugaring to `Arrays.asList`).
+- Dynamic strings (concatenation, function calls, field reads).
+
+When the extractor cannot fully resolve an item (e.g. it traces back to a non-literal), the partial result MUST be emitted (literals resolved, non-literals omitted with a per-Spinner WARN log). The extractor MUST union its results into `windows[].widgets[where type="Spinner"].entries[]` after the XML-based `enrichFromXml` runs, so XML-defined `entries` from `android:entries="@array/X"` are preserved and the programmatic items are appended.
+
+The extractor MUST carry a corpus-coverage telemetry log: `[SpinnerItemExtractor] processed N spinners: X literal-constructor, Y add/addAll, Z unresolved`.
+
+#### Scenario: Literal constructor populates Spinner entries
+
+- **WHEN** an activity's code contains the Jimple equivalent of `ArrayAdapter<String> a = new ArrayAdapter<>(this, R.layout.spinner_item, new String[]{"red", "green", "blue"}); spinner.setAdapter(a)` and `spinner = findViewById(R.id.color)`
+- **THEN** the widget `windows[].widgets[where idName="color"].entries` MUST be `["red", "green", "blue"]`
+
+#### Scenario: adapter.add() calls populate entries incrementally
+
+- **WHEN** an activity's code contains `ArrayAdapter<String> a = new ArrayAdapter<>(this, R.layout.spinner_item); a.add("alpha"); a.add("beta"); spinner.setAdapter(a)`
+- **THEN** the widget `entries` MUST be `["alpha", "beta"]`
+
+#### Scenario: XML entries and programmatic entries coexist
+
+- **WHEN** a Spinner has both `android:entries="@array/preset"` (resolving to `["x", "y"]`) and a runtime `adapter.add("z")` call that is later set via `setAdapter`
+- **THEN** the JSON `entries` MUST contain both XML entries first then programmatic entries: `["x", "y", "z"]`
+
+#### Scenario: Non-literal item is logged and skipped
+
+- **WHEN** an activity's code calls `adapter.add(getString(R.string.dynamic))` where the string-resource lookup is hidden behind a method call
+- **THEN** `SpinnerItemExtractor` MUST emit a WARN log identifying the unresolved item and continue
+- **AND** the JSON `entries` for that Spinner MUST contain only the items that WERE resolved (not the unresolved one)
+
+### Requirement: Reachability BFS Handles Isolated Entry-Point Seeds (FR04)
+
+The multi-source BFS that produces `reachable[]` MUST add every entry-point seed to its visited set even when the seed has no incident edges in the SPARK call graph. Today the graph is constructed by `buildJGraph` only from CG edges, so entry points with no outgoing/incoming calls are absent from the vertex set, and the existing `if (graph.containsVertex(seed) && visited.add(seed))` guard silently drops them. The downstream effect is a deflated `reachable[]` that misrepresents legitimate callbacks (e.g. a `BroadcastReceiver.onReceive` that the SPARK CG could not link to a call site) as dead code, inflating the apparent gap between `reachable[]` and the application surface.
+
+The fix is structural: the BFS MUST treat seeds as roots unconditionally. Implementations may either (a) call `graph.addVertex(seed)` immediately before the visited-check, or (b) pre-populate the vertex set with the full seed set inside `buildJGraph` before iterating edges. Either is acceptable; the observable contract is that an entry-point that exists in the application's class hierarchy MUST appear in `reachable[]` even when the call graph yields no edge for it.
+
+#### Scenario: Entry-point seed without CG edges remains reachable
+
+- **WHEN** `getEntryPoints(output)` returns a `SootMethod m` whose vertex would not be added by `buildJGraph` (no edge in `Scene.v().getCallGraph()` involves `m`)
+- **THEN** `multiSourceBfs` MUST nevertheless include `m` in the returned set
+- **AND** the serialized `reachable[]` field MUST contain `m`'s canonical signature
+- **AND** the bytecode-scan complement (`findDirectTargetCallersByBytecodeScan`) MUST still observe `m` as a candidate caller of target signatures if its body contains a matching invoke
+
+#### Scenario: Synthetic graph without edges
+
+- **GIVEN** a `DefaultDirectedGraph` containing zero edges
+- **AND** a non-empty `seeds` set
+- **WHEN** `multiSourceBfs(graph, seeds)` is invoked
+- **THEN** the returned set MUST equal `seeds` (no member is silently dropped)
+
+### Requirement: XML Enrichment Recognizes Both `@id/` and `@+id/` Prefixes (FR06)
+
+The widget enrichment pass that reads `res/layout/*.xml` MUST recognize both `@id/foo` (reference) and `@+id/foo` (declaration) forms when matching the `android:id` attribute against the in-memory widget map. The current implementation accepts only `@id/`; since the **declaration** form `@+id/foo` is overwhelmingly more common in Android layouts (any widget being created for the first time uses `@+id`), most XML-declared widgets are silently skipped by enrichment and their `inputType`, `entries`, `prompt`, `spinnerMode`, `contentDescription`, and `tooltipText` fields remain `null` even when present in the source layout.
+
+#### Scenario: Layout uses `@+id/` declaration form
+
+- **GIVEN** a layout file containing `<EditText android:id="@+id/password" android:inputType="textPassword"/>`
+- **AND** the widget `password` is present in the in-memory widget map for the activity
+- **WHEN** `enrichFromElement` traverses this element
+- **THEN** the widget's `inputType` field MUST be set to `"textPassword"`
+
+#### Scenario: Layout uses `@id/` reference form
+
+- **GIVEN** a layout file containing `<Spinner android:id="@id/country_picker" android:entries="@array/countries"/>` (a reference to an id declared in `ids.xml` or elsewhere)
+- **WHEN** `enrichFromElement` traverses this element
+- **THEN** the widget's `entries[]` field MUST be populated from `@array/countries` (existing behavior preserved)
+
+#### Scenario: Element without id is ignored
+
+- **GIVEN** a `<TextView>` element with no `android:id` attribute (or with an empty string)
+- **WHEN** `enrichFromElement` evaluates the element
+- **THEN** no enrichment side-effects MUST occur (no map lookups, no NullPointerException)
+
+### Requirement: `MenuExtractor` Resolves `R.string.*` Titles (FR06)
+
+The programmatic-menu extractor MUST resolve `R.string.*` resource ids passed as the title argument of `Menu.add(group, id, order, int)` to the corresponding string value. The constructor accepts a `Function<Integer, String> resIdResolver` and ultimately defers the lookup to its caller. `RvsecAnalysisClient` MUST supply a resolver that maps a numeric resource id to the string value by combining: (1) the SPARK-resident `R.string` inner class to derive the symbolic name from the integer constant, and (2) the existing `Configs.resourceLocation` strings-XML parsing path (the same mechanism `putStringAttr` uses for `@string/` references). Today the caller supplies `resId -> null`, so any menu item created via `Menu.add(group, id, order, R.string.foo)` is serialized with `text=""`, which masks the item from downstream consumers that key off the title (e.g. APE-RV when ranking event affordances).
+
+The resolver MUST tolerate missing mappings (return null/empty when the numeric id is not a `R.string.*` member of the analyzed APK), and the extractor MUST fall back to the existing empty-string default in that case. No exception MUST propagate from the resolver into the extractor's main path.
+
+#### Scenario: `Menu.add` with `R.string.foo` resolves to the string value
+
+- **GIVEN** an `onCreateOptionsMenu` body containing `menu.add(0, R.id.action_settings, 0, R.string.menu_settings)`
+- **AND** `res/values/strings.xml` declares `<string name="menu_settings">Settings</string>`
+- **WHEN** `MenuExtractor.extractItems(activity)` runs with the production resolver
+- **THEN** the resulting widget map MUST contain `"text" -> "Settings"` (not `""`)
+
+#### Scenario: Resolver returns null for an unknown id
+
+- **GIVEN** a `Menu.add` whose title argument is an `IntConstant` not present in the APK's `R.string`
+- **WHEN** `MenuExtractor.resolveTitle` invokes the resolver
+- **THEN** the resolver MUST return null
+- **AND** the widget's `text` field MUST be `""` (the existing empty-string default — no NullPointerException)
+
+#### Scenario: `Menu.add` with a literal CharSequence is unaffected
+
+- **GIVEN** an invocation `menu.add(0, R.id.foo, 0, "Direct Title")` (StringConstant)
+- **WHEN** `MenuExtractor.resolveTitle` runs
+- **THEN** the widget's `text` MUST equal `"Direct Title"` (the resolver MUST NOT be consulted)
+
+### Requirement: `SpinnerItemExtractor` Unwraps Cast Expressions for `findViewById` (FR06)
+
+When resolving the receiver of a `setAdapter` call to its underlying Spinner widget id, the extractor MUST follow `CastExpr` definitions. The dominant Jimple pattern for the source `Spinner s = (Spinner) findViewById(R.id.foo)` materializes as two statements: `$r1 = findViewById($id)` and `$r2 = (android.widget.Spinner) $r1`. The current `resolveSpinnerWidgetId` reads `definitionRhs(spinnerLocal)` once and only matches `InvokeExpr`, so the cast result `$r2` (whose RHS is a `CastExpr`, not an `InvokeExpr`) breaks the chain and the widget id is never recovered. Without this fix, Spinners declared with the typical cast pattern surface in `widgets[]` but their `entries[]` field stays empty even though `SpinnerItemExtractor` correctly identified the ArrayAdapter literal items.
+
+The fix MUST traverse cast chains bounded by `SimpleLocalDefs`'s fixed-point property: when `definitionRhs(local)` returns a `CastExpr`, the extractor recurses on `(Local) castExpr.getOp()`. Recursion terminates because each step reduces to a new local whose def must be reachable (or unresolvable, in which case the existing single-reaching-def policy returns null). The recursion depth is bounded by the number of casts in the chain (typically 1).
+
+#### Scenario: Spinner declared with cast pattern
+
+- **GIVEN** a method containing `$r1 = findViewById(R.id.spinner); $r2 = (Spinner) $r1; $r2.setAdapter($adapter)`
+- **AND** `$adapter` was built from a literal `new ArrayAdapter<>(this, layout, new String[]{"A","B","C"})`
+- **WHEN** `SpinnerItemExtractor.extractItems` processes the method body
+- **THEN** the returned map MUST contain `R.id.spinner -> ["A","B","C"]`
+
+#### Scenario: Chained casts terminate at the first findViewById
+
+- **GIVEN** statements `$r1 = findViewById($id); $r2 = (View) $r1; $r3 = (Spinner) $r2; $r3.setAdapter(...)`
+- **WHEN** the extractor walks the cast chain
+- **THEN** the spinner widget id MUST resolve to the value of `$id` from the original `findViewById` call
+
+#### Scenario: Unresolvable receiver does not crash
+
+- **GIVEN** a `setAdapter` call whose receiver's reaching def is ambiguous (multiple defs) or non-local (a field load)
+- **WHEN** the extractor attempts to resolve the widget id
+- **THEN** `resolveSpinnerWidgetId` MUST return null
+- **AND** the extractor MUST count this as an unresolved case (existing `stats.unresolved++`) and continue
+
+### Requirement: GATOR Invocation Robustness (FR04)
+
+The Python invoker (`rv-static-analysis`) MUST invoke the GATOR launcher using the running interpreter (`sys.executable`) — never a literal `"python"` string. The launcher is a Python script with `#!/usr/bin/env python3` shebang, but the invoker passes it as `<interpreter> <script> <args>`, so the interpreter argument is what reaches `execve`. Hardcoding `"python"` breaks on systems where the `python-is-python3` shim is absent (clean containers, fresh shells on non-Debian distros, CI runners without the shim package), producing a `CommandNotFoundError` that gets caught upstream as a warning and yields a silently-empty JSON output. The invoker MUST always pick the actual Python 3.x binary that is executing the workspace (uv's `.venv/bin/python` in the standard layout), which is reachable by construction.
+
+Additionally, `StaticAnalyzer._run_analysis` MUST validate, after the GATOR command returns (including the timeout-tolerant `RVCommandTimeoutError` path), that the output JSON file exists on disk. If absent, the method MUST raise `StaticAnalysisException` with a message identifying the missing path and pointing at interpreter / launcher reachability as the likely cause. This converts upstream silent failures (e.g. `CommandNotFoundError` swallowed by the `ErrorHandler` decorator, a JVM crash before any output was flushed, a permission error on the output directory) into hard, observable errors before the parser is invoked and before the downstream summary CSV is written with misleading zero-coverage metrics.
+
+A timed-out GATOR invocation produces a partial JSON file (the client flushes reachability first, then windows, then transitions, with intermediate flushes — INV-ANA-06), so the existence check passes on timeout. Only the genuinely-empty case (no file at all) escalates.
+
+#### Scenario: Interpreter resolution uses the running Python
+
+- **WHEN** `RVStaticAnalysisConfig.get_tool_command("analysis", apk_path, output_file)` is called from any context (CLI, rv-experiment pre-processing, unit tests)
+- **THEN** the returned command list's first element MUST equal `sys.executable` (the absolute path of the running Python 3.x interpreter)
+- **AND** the second element MUST be the path to the `gator` launcher script
+- **AND** the command MUST be reachable via `execve` on any POSIX system that has the same uv-managed virtualenv on PATH (no dependency on `/usr/bin/python` existing)
+
+#### Scenario: Missing output JSON escalates to StaticAnalysisException
+
+- **WHEN** `StaticAnalyzer._run_analysis` completes (either via successful `Command.invoke` return or via the `RVCommandTimeoutError` partial-success path)
+- **AND** the configured output file does not exist on disk
+- **THEN** the method MUST raise `StaticAnalysisException` with a message that includes the missing path and the diagnostic hint "check that the python interpreter and gator launcher are reachable"
+- **AND** the `analyze()` wrapper MUST propagate the exception into `result.success = False` and `result.errors`, not swallow it as a warning
+
+#### Scenario: Timeout with partial JSON is not escalated
+
+- **WHEN** the GATOR invocation hits the analysis timeout and `RVCommandTimeoutError` is caught
+- **AND** the GATOR client wrote at least the reachability section before being killed (partial JSON exists)
+- **THEN** `_run_analysis` MUST NOT raise — the existence check sees the partial file and returns normally
+- **AND** `result.timed_out` MUST be set to `True` so downstream consumers can distinguish a partial run from a clean one
 
 ### Requirement: Method Coverage Tracking (FR12, NFR06)
 
