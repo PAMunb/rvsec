@@ -42,7 +42,7 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
 |-----------|---------------|-------|--------|
 | `UsedJcaMethodsVisitor.visit(ImportDeclaration)` | Register wildcard-import packages instead of discarding them | `import java.util.*;` | packages map `{java.util, java.io, ...}` |
 | `UsedJcaMethodsVisitor.visit(MethodPointCut)` | Resolve owner (imports → `Class.forName`), strip `+`, keep name pattern | `call(* Collection+.add*(..))` | `MopMethod{java.util.Collection, add*, includeSubtypes=true, nameIsPattern=true}` |
-| `MopMethod` (extractor model) | Carry the two new flags | — | fields `includeSubtypes`, `nameIsPattern` |
+| `MopMethod` (extractor model) | Carry the two new flags **and include them in `equals`/`hashCode`/`toString`** (else flag-differing pointcuts are silently deduped in the visitor's `Set<MopMethod>`) | — | fields `includeSubtypes`, `nameIsPattern` |
 | `TargetMethod` (gator commons) | Carry the two new flags | `MopMethod` | fields `includeSubtypes`, `nameIsPattern` |
 | `MopSpecsTargetSource.load()` | Propagate flags `MopMethod → TargetMethod` | `Set<MopMethod>` | `Set<TargetMethod>` |
 | `TargetMatching` (new helper, gator client) | `nameMatches(pattern,name)` + `canStoreType(sub,sup)` + `forceResolveTargets(scene)` | `TargetMethod`, Soot types | boolean / resolved types |
@@ -54,9 +54,9 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
 | Requirement | Implementation | Test |
 |-------------|---------------|------|
 | INV-ANA-40 (extractor wildcard/`+`/pattern) | `UsedJcaMethodsVisitor.visit(ImportDeclaration\|MethodPointCut)` | `UsedMethodsGenericTest` (parse generic_new → N>0); extractor run asserts 27→N>0, 23→120 |
-| INV-ANA-41 (flag propagation) | `MopSpecsTargetSource.load()` + `MopMethod`/`TargetMethod` ctors | `MopSpecsTargetSourceTest` (generic flags true, jca flags false) |
-| INV-ANA-42 (A2 predicate, both points) | `TargetMatching.canStoreType` in `TargetResolver.resolveInScene` + `findDirectTargetCallersByBytecodeScan` | `TargetMatchingTest` (class→iface, iface→iface); `RvsecAnalysisClient` IT |
-| INV-ANA-43 (Scene force-resolve + degrade) | `TargetMatching.forceResolveTargets` + degrade branch | `TargetMatchingTest` (absent type → equals + warn) |
+| INV-ANA-41 (flag propagation) | `MopSpecsTargetSource.load()` + `MopMethod`/`TargetMethod` ctors | `MopSpecsTargetSourceTest` (generic flags true, jca flags false) — **task 2.4b** |
+| INV-ANA-42 (A2 predicate, both points + cascade) | `TargetMatching` in `TargetResolver.resolveInScene` + `ReachabilityEngine`/`findDirectTargetCallersByBytecodeScan` carrying `Set<TargetMethod>` (hybrid scan) | `TargetMatchingTest` (class→iface, **iface→iface `List<:Iterable`**, bare `*`); `RvsecAnalysisClient` IT |
+| INV-ANA-43 (Scene force-resolve + phantom-aware degrade) | `TargetMatching.forceResolveTargets` + `isPhantom`/`resolvingLevel` guard + degrade branch | `TargetMatchingTest` (absent type **and phantom owner** → equals + warn) |
 | INV-ANA-44 (schema invariance) | no JSON writer change; assert key-set equality | JSON key-set diff generic vs jca; `MopSpecsParityTest` (INV-ANA-35) |
 
 ## Goals / Non-Goals
@@ -84,13 +84,20 @@ omits sub-interfaces (`java.util.List` absent), so an interface-typed call site 
 against `Iterable+.iterator` is missed. A2 asks `canStoreType(List, Iterable)=true` at the call site
 and is correct by construction (the call-site type is always in the Scene). **Recorded as an ADR.**
 
-**D2 — Force-resolve target super-types into the Scene + degrade-to-exact-with-log.** `canStoreType`
-returns a non-answer when a type is absent from the Scene (spike: `ByteArrayInputStream <: Closeable :
-one side NOT in Scene`). The call-site type is always loaded, but the declared super-type may not be.
-Mitigation: `Scene.v().forceResolve(fqn, SootClass.HIERARCHY)` for each declared target owner before
-building the `FastHierarchy`; if a type is still absent at match time, degrade that owner to exact
-`equals` and log a warning. Alternative (do nothing) rejected: silent false-negatives. This is the
-highest-risk point — validated in the IT against the real `RvsecAnalysisClient` scene.
+**D2 — Force-resolve target super-types into the Scene + phantom-aware degrade-to-exact-with-log.**
+The real failure mode (verified empirically against Soot 4.7.1 in the gator fat jar) is **not** an
+exception and **not** a "non-answer": because GATOR runs with `allow_phantom_refs=true`, an unresolvable
+type force-resolves to a **phantom** `SootClass` at `BODIES` level, so `checkLevel(HIERARCHY)` passes and
+`canStoreType` returns a **definite `false`** that silently masks a false-negative. (The spike line
+`ByteArrayInputStream <: Closeable : one side NOT in Scene` was the spike's own `containsClass` guard,
+not a `canStoreType` result.) The call-site type is normally loaded, but a declared super-type may be
+phantom/absent. Mitigation: `Scene.v().forceResolve(fqn, SootClass.HIERARCHY)` for each declared target
+owner before building the `FastHierarchy`; then, at match time, guard on `isPhantom()` /
+`resolvingLevel() < HIERARCHY` (NOT merely `containsClass`) — if phantom/absent, degrade that owner to
+exact `equals` and log a warning once per owner. A `try/catch` is **not** the right mitigation (the call
+does not throw for natural phantoms — it would be dead code). Alternative (do nothing) rejected: silent
+false-negatives. This is the highest-risk point — validated in the IT against the real
+`RvsecAnalysisClient` scene, where a degrade on a `generic_new` owner is a **hard gate** (blocks the sweep).
 
 **D3 — Output schema unchanged (B descartada).** Per-spec attribution already lives at runtime (the
 `.mop` handlers log `RVSEC ... ::: <SpecName>`, parsed by `rv-coverage` into `errors.csv`); coverage
@@ -98,9 +105,15 @@ uses the aggregated `reachesTarget` as denominator (`result_processor.py:402-435
 `targetSummary` to the JSON is unnecessary and the destructive variant would silently break the ape
 `opt*` parser. Alternative (additive `targetSummary`) rejected as unneeded complexity (P1).
 
-**D4 — Name-pattern matching: trailing-`*` prefix semantics.** The only wildcard method names in
-`generic_new` are `add*`, `remove*`, `retain*` (trailing `*`). `nameMatches(pattern, name)` is
-`pattern.endsWith("*") ? name.startsWith(prefix) : name.equals(pattern)`. No general glob needed (P1).
+**D4 — Name-pattern matching: trailing-`*` prefix semantics, including the bare `*`.** The wildcard
+method names in `generic_new` are **8** (verified by grep — the earlier "only 3" was wrong): `add*`,
+`remove*`, `retain*`, `clear*`, `put*`, `offer*`, `write*`, and the bare `*` (`call(* Iterator.*(..))`,
+in `Collections_SynchronizedCollection.mop` and `Collections_SynchronizedMap.mop`).
+`nameMatches(pattern, name)` is `pattern.endsWith("*") ? name.startsWith(pattern[:-1]) :
+name.equals(pattern)`. The bare `*` reduces to prefix `""`, so `name.startsWith("")` matches every
+method of the owner — this is the **intended** AspectJ semantics for `Iterator.*`, and MUST NOT be
+special-cased to `false` (rejecting an earlier review suggestion that would have broken these specs). A
+non-trailing-`*` pattern falls through to `equals` (safe literal). No general glob (`*Listener`) needed (P1).
 
 **D5 — Extractor owner resolution: explicit imports first, `Class.forName` over wildcard packages
 second.** All 21 `generic_new` owners are JDK classes (`java.lang`/`util`/`io`/`net`), resolvable at
@@ -126,13 +139,21 @@ recorded in ADR 0004 ("Representation" alternative). Task 2.1 enforces "do not c
 
 ## API Design
 
-### `boolean TargetMatching.matches(SootMethodRef callSite, TargetMethod t, FastHierarchy fh)`
-- **Pre**: `callSite.getDeclaringClass()` is resolved in the Scene; `t` is a loaded target.
-- **Behavior**: if `!t.includeSubtypes` → `callSite.declaringClass.name.equals(t.className) &&
-  nameMatches(t, callSite.name)` (exact path, unchanged). If `t.includeSubtypes` → `nameMatches(t,
-  callSite.name) && fh.canStoreType(callSite.declaringClass.type, superType(t))` where `superType(t)`
-  is the resolved `RefType` of `t.className`; if `superType(t)` is absent from the Scene → fall back to
-  exact `equals` and log once per owner.
+### `boolean TargetMatching.matches(Type callSiteType, String callSiteName, TargetMethod t, FastHierarchy fh)`
+- **Signature decided** (closes the open question in task 2.3): the helper takes the **raw** call-site
+  `(Type, String)`, NOT a `SootMethodRef`. Both match points adapt with zero allocation —
+  `resolveInScene` passes `method.getDeclaringClass().getType()` + `method.getName()` (`SootMethod`); the
+  bytecode scan passes `ref.getDeclaringClass().getType()` + `ref.getName()` (`SootMethodRef`). This
+  avoids a `makeRef()` allocation per Scene method in `resolveInScene`. `STRICT` param-matching stays in
+  `resolveInScene` (not folded into this helper, which is lenient by design).
+- **Pre**: the call-site `Type` is in the Scene; `t` is a loaded target.
+- **Behavior**: evaluate `nameMatches(t, callSiteName)` **first** (cheap short-circuit — return `false`
+  with no hierarchy query if it fails). Then: if `!t.includeSubtypes` →
+  `callSiteType.toString().equals(t.className)` (exact path, unchanged). If `t.includeSubtypes` →
+  `fh.canStoreType(callSiteType, superType(t))` where `superType(t)` is the **cached** resolved `RefType`
+  of `t.className` (resolved once per target, not per invoke). **Phantom guard**: if the `SootClass` of
+  `t.className` `isPhantom()` or `resolvingLevel() < HIERARCHY`, do NOT call `canStoreType` (it would
+  return a definite, wrong `false`); fall back to exact `equals` and log once per owner.
 - **Post**: returns whether the call site is a target invocation. No Scene mutation.
 
 ### `Set<RefType> TargetMatching.forceResolveTargets(Set<TargetMethod> targets)`
@@ -150,8 +171,16 @@ recorded in ADR 0004 ("Representation" alternative). Task 2.1 enforces "do not c
 3. `forceResolveTargets` loads declared super-types into the Scene.
 4. `TargetResolver.resolveInScene` seeds the reverse-BFS `Set<SootMethod>` by applying `matches(...)`
    across scene methods; `ReachabilityEngine` runs the reverse-BFS unchanged.
-5. `findDirectTargetCallersByBytecodeScan` applies `matches(...)` per invoke against declared
-   super-types (not pre-resolved keys), recovering literal subtype invocations (BUG-INV-ANA-19).
+5. **Contract change (cascade):** the declared `Set<TargetMethod>` (super-type FQN + flags) must reach
+   the second match point. Today `RvsecAnalysisClient.run()` holds both `targetSpecs`
+   (`Set<TargetMethod>`) and the resolved `targetMethods` (`Set<SootMethod>`), but `ReachabilityEngine`'s
+   constructor receives **only** `targetMethods`, and `findDirectTargetCallersByBytecodeScan(appClasses,
+   Set<SootMethod> targets)` rebuilds a `Set<String> targetKeys`. So `ReachabilityEngine` and the scan
+   MUST be extended to also carry `Set<TargetMethod>`. The scan becomes **hybrid**: a `Set<String>` of
+   exact `class#method` keys for `!includeSubtypes` targets (JCA O(1) lookup + parity preserved) plus
+   iteration over the `includeSubtypes` targets (grouped by distinct super-type to amortize resolution)
+   applying `matches(...)` per invoke against the declared super-type — recovering literal subtype
+   invocations (BUG-INV-ANA-19).
 6. JSON written with the unchanged key set; only boolean values reflect the new matches.
 
 ## Error Handling
@@ -168,6 +197,11 @@ recorded in ADR 0004 ("Representation" alternative). Task 2.1 enforces "do not c
   the IT on the real `RvsecAnalysisClient` scene before any sweep.
 - **`canStoreType` cost in the scan** → O(1) amortized in `FastHierarchy`; the scan already iterates all
   invokes. Measured in the IT.
+- **`resolveInScene` loses its `equals(fqn)` fast-reject** for subtype targets → it iterates
+  `Scene.getClasses()` × methods × targets, and with `includeSubtypes` the per-pair cost rises from a
+  string-equal to a `canStoreType`. Mitigated by ordering `nameMatches` before `canStoreType` (name
+  short-circuit) and caching the resolved `superType(t)` `RefType` once per target (RISK-005, now
+  broadened to cover both match points, not just the scan).
 - **Quasi-universal owners** (`Object+`, `Iterable+`) inflate `reachesTarget` → correct per the spec;
   any dataset-level exclusion is a downstream decision, not a matcher concern.
 - **Extractor↔gator rebuild coupling** → mitigated by the mandatory 2-step order (D6).
@@ -177,9 +211,10 @@ recorded in ADR 0004 ("Representation" alternative). Task 2.1 enforces "do not c
 | Layer | What to test | How | Count |
 |-------|-------------|-----|-------|
 | Unit (extractor) | Parse generic_new → N>0 targets, flags set; jca → 120, flags false | JUnit on `UsedJcaMethodsVisitor`/`JavamopFacade` with the 27+23 specs | ~4 |
-| Unit (matcher) | `canStoreType` class→iface, iface→iface (`List<:Iterable`); name pattern `add*`; absent-type degrade | JUnit on `TargetMatching` with a minimal Scene | ~5 |
+| Unit (matcher) | `canStoreType` class→iface, **iface→iface (`List<:Iterable` — the only case that distinguishes A2 from A1)**; name patterns `add*`…`write*` and bare `*`; non-trailing pattern → `equals`; absent-type **and phantom owner** degrade | JUnit on `TargetMatching` with a minimal Scene | ~7 |
+| Source | `MopSpecsTargetSource.load()` propagates flags (generic true / jca false) | `MopSpecsTargetSourceTest` (INV-ANA-41 — task 2.4b) | ~2 |
 | Parity | JCA byte-for-byte (`MopSpecsTargetSource.load` vs historical) | `MopSpecsParityTest` (INV-ANA-35) | existing |
-| Integration | 1 APK against generic_new: `reachesTarget>0`; `canStoreType` in real `RvsecAnalysisClient` scene; JSON key-set == jca run; **negative — a non-target call site stays `reachesTarget=false` (no subtype over-match)** | gator E2E on a small APK | ~3 |
+| Integration | 1 APK against generic_new: `reachesTarget>0`; `canStoreType` in real `RvsecAnalysisClient` scene; JSON key-set == jca run; **negative — a subtype-receiver call with a non-matching name (`ArrayList.remove` vs `add*`; `String.length` vs `Object+.wait/notify`) stays `reachesTarget=false` (name-axis, since `Object+` makes every type a subtype)** | gator E2E on a small APK | ~3 |
 
 ## Open Questions
 

@@ -32,11 +32,16 @@ validation are in `docs/20260617_sa_generic_new.md` (§1–§14) and `docs/20260
   replace `equals(className)` with `FastHierarchy.canStoreType(callSiteType, declaredSuperType)` and
   `equals(methodName)` with pattern matching, **when** `includeSubtypes` is set. Interface-typed call
   sites (e.g. `java.util.List.iterator`) are matched because `canStoreType` covers interface→interface.
+  This requires propagating the declared `Set<TargetMethod>` (super-type FQN + flags) to **both** points
+  — today `ReachabilityEngine` and the bytecode scan receive only the resolved `Set<SootMethod>`, so the
+  scan becomes **hybrid** (exact `class#method` keys for JCA owners + `canStoreType` for subtype owners).
 
 - **Scene resolution of the target super-type** — before building the `FastHierarchy`, force-resolve
-  each declared target owner into the Soot `Scene` (`forceResolve(fqn, HIERARCHY)`); when a type is
-  still absent, **degrade to exact `equals` + log** (no silent false-negative). This closes the one
-  high-risk gap surfaced by the spike (`canStoreType` returns a non-answer when a type is not loaded).
+  each declared target owner into the Soot `Scene` (`forceResolve(fqn, HIERARCHY)`); guard on
+  `isPhantom()`/`resolvingLevel()` (not just `containsClass`) and, when a type is phantom or absent,
+  **degrade to exact `equals` + log** (no silent false-negative). This closes the one high-risk gap:
+  under `allow_phantom_refs=true` an unresolvable owner becomes a phantom and `canStoreType` returns a
+  silent (wrong) `false` — verified empirically against Soot 4.7.1 (it does **not** throw).
 
 - **Output schema — UNCHANGED.** No new or renamed JSON keys. `reachesTarget`/`directlyReachesTarget`
   keep their shape; they only become *more correct* (more `true` on specs with `+`). Per-spec

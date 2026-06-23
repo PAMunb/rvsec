@@ -62,9 +62,16 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   `call(...)` pointcut: wildcard-import packages MUST be registered (the `isAsterisk()` import MUST NOT
   be discarded); a trailing `+` on the owner MUST be stripped and the resulting `MopMethod` MUST carry
   `includeSubtypes=true`; the simple owner name MUST be resolved to an FQN via explicit imports first
-  and `Class.forName(pkg + "." + simple)` over the wildcard packages second; a wildcard method name
-  (`add*`) MUST be preserved as a pattern with `nameIsPattern=true`. For `generic_new` (27 specs) the
-  emitted set MUST have cardinality > 0 (currently 0). All 21 `generic_new` owners are JDK classes
+  and `Class.forName(pkg + "." + simple)` over the wildcard packages second. The implicit `java.lang`
+  package MUST be seeded by default (Java imports it implicitly; the owners `Object+` and `Comparable+`
+  appear in `generic_new` without an explicit `import java.lang.*`). A wildcard method name MUST be
+  preserved as a pattern with `nameIsPattern=true`; the patterns actually present in `generic_new` are
+  `add*`, `remove*`, `retain*`, `clear*`, `put*`, `offer*`, `write*` and the bare `*`
+  (`call(* Iterator.*(..))`) — a trailing `*` matches by prefix and the bare `*` matches every method of
+  the owner (prefix `""`). The `MopMethod` identity (`equals`/`hashCode`) MUST include `includeSubtypes`
+  and `nameIsPattern`, so two pointcuts that differ only by `+` or by name-pattern are not silently
+  deduplicated in the extractor's `Set<MopMethod>`. For `generic_new` (27 specs) the emitted set MUST
+  have cardinality > 0 (currently 0). All 21 `generic_new` owners are JDK classes
   (`java.lang`/`util`/`io`/`net`); an owner that cannot be resolved MUST be logged and skipped.
 
 - **INV-ANA-41**: `MopSpecsTargetSource.load()` MUST propagate `includeSubtypes` and `nameIsPattern`
@@ -75,15 +82,28 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   (which seeds the reverse call-graph BFS) and `RvsecAnalysisClient.findDirectTargetCallersByBytecodeScan`
   (the direct bytecode scan) — MUST match a call site by `nameMatches(pattern) &&
   FastHierarchy.canStoreType(callSiteDeclaringType, declaredSuperType)` evaluated against the **declared
-  super-type**, NOT against pre-resolved exact keys. The predicate MUST match interface→interface
-  (e.g. `java.util.List <: java.lang.Iterable`) so interface-typed call sites are covered. When
-  `includeSubtypes=false`, both points MUST use the exact `equals(className) && equals(methodName)`
-  path unchanged.
+  super-type**, NOT against pre-resolved exact keys. To make this possible the declared
+  `Set<TargetMethod>` (which carries the super-type FQN and the two flags) MUST be propagated to **both**
+  match points: today `ReachabilityEngine` and `findDirectTargetCallersByBytecodeScan` receive only the
+  resolved `Set<SootMethod>` (which has lost the declared owner and flags), so their contract MUST be
+  extended to also carry the `Set<TargetMethod>`. `nameMatches` MUST be evaluated **before**
+  `canStoreType` (cheap name short-circuit before the hierarchy query). The exact (`!includeSubtypes`)
+  targets MUST retain the existing `Set<String>` `class#method` key path (a **hybrid** scan), so the JCA
+  O(1) lookup, performance, and byte-for-byte parity (INV-ANA-35) are unchanged. The predicate MUST
+  match interface→interface (e.g. `java.util.List <: java.lang.Iterable`) so interface-typed call sites
+  are covered. When `includeSubtypes=false`, both points MUST use the exact `equals(className) &&
+  equals(methodName)` path unchanged.
 
 - **INV-ANA-43**: Before `FastHierarchy.canStoreType` is queried, each declared target owner FQN MUST
-  be force-resolved into the Soot `Scene` at HIERARCHY level. If a type is still absent from the Scene
-  at match time, that owner MUST degrade to exact `equals` matching and the degradation MUST be logged
-  (no silent false-negative). `canStoreType` MUST NOT be called with a type absent from the Scene.
+  be force-resolved into the Soot `Scene` at HIERARCHY level. Because GATOR runs Soot with
+  `allow_phantom_refs=true`, `forceResolve` of an unresolvable type yields a **phantom** `SootClass`
+  that satisfies `Scene.containsClass` yet carries no hierarchy. Empirically (Soot 4.7.1, run against the
+  gator fat jar) such a phantom resolves at `BODIES` level, so `checkLevel(HIERARCHY)` passes and
+  `canStoreType` returns a **definite `false`** — it does **not** throw, and it silently masks a
+  false-negative. Therefore the degrade criterion MUST be `isPhantom()` or `resolvingLevel() < HIERARCHY`
+  on the declared super-type — **not** merely `containsClass`. An owner that is absent or phantom MUST
+  degrade to exact `equals` matching and the degradation MUST be logged (no silent false-negative).
+  `canStoreType` MUST NOT be called with a phantom or absent type.
 
 - **INV-ANA-44**: The GATOR JSON output schema MUST be unchanged by this capability — no new, renamed,
   or removed keys. The key set of a `generic_new` run MUST be identical to that of a `jca` run; only
@@ -116,10 +136,18 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 - **AND** over all 27 `generic_new` specs the emitted target set MUST have cardinality > 0 (currently 0)
 - **AND** the same extractor run on the 23 `jca` specs MUST still emit 120 targets, each with `includeSubtypes=false` and `nameIsPattern=false`
 
-#### Scenario: Wildcard method name is preserved as a pattern
+#### Scenario: Wildcard method names are preserved as patterns (including the bare `*`)
 - **WHEN** a pointcut declares `call(* Collection+.add*(..))`
 - **THEN** the emitted `MopMethod` MUST carry `nameIsPattern=true` with stored name pattern `add*`
 - **AND** the matcher MUST match call-site method names `add` and `addAll` but MUST NOT match `remove`
+- **AND** every trailing-`*` pattern present in `generic_new` — `add*`, `remove*`, `retain*`, `clear*`, `put*`, `offer*`, `write*` — MUST be preserved and matched by prefix
+- **AND** the bare pattern `*` (`call(* Iterator.*(..))`, exact owner `Iterator`) MUST match every method name of the owner (prefix `""`): this match-all is the intended AspectJ semantics, not a degenerate case, and MUST NOT be rejected/forced to `false`
+
+#### Scenario: Flags propagate from MopMethod to TargetMethod (INV-ANA-41)
+- **WHEN** `MopSpecsTargetSource.load()` maps the extracted `MopMethod` set to `TargetMethod` entries
+- **THEN** each `TargetMethod` derived from a `generic_new` `+`/wildcard pointcut MUST carry `includeSubtypes=true` (and `nameIsPattern=true` for wildcard names) — the flags MUST NOT be dropped at this boundary
+- **AND** each `TargetMethod` derived from a `jca` spec MUST carry `includeSubtypes=false` and `nameIsPattern=false`
+- **AND** `TargetMethod.equals`/`hashCode` MUST include both flags so two targets differing only by a flag are not collapsed in the `Set<TargetMethod>`, while every constructor call site (`MopSpecsTargetSource`, `SignatureFileTargetSource`, tests) MUST default both flags to `false` so the JCA/signature-file paths stay on exact matching (INV-ANA-35)
 
 #### Scenario: Subtype match on a concrete library type
 - **WHEN** an APK method calls `java.util.ArrayList.addAll(Collection)` and the active target is `Collection+.addAll` with `includeSubtypes=true`
@@ -139,7 +167,8 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 #### Scenario: Target super-type force-resolved into the Scene with graceful degradation
 - **WHEN** the declared target owner `java.io.Closeable` is not yet loaded as a `SootClass` in the Scene
 - **THEN** the matcher MUST force-resolve `java.io.Closeable` at HIERARCHY level before calling `canStoreType`
-- **AND** IF a declared owner remains absent from the Scene at match time THEN that owner MUST degrade to exact `equals` matching and the degradation MUST be logged as a warning (no silent false-negative)
+- **AND** because Soot runs with `allow_phantom_refs=true`, the matcher MUST treat a resolved-but-**phantom** owner (or one whose `resolvingLevel() < HIERARCHY`) as unresolved — `containsClass` alone is insufficient, since `canStoreType` would return a definite (wrong) `false` rather than throwing
+- **AND** IF a declared owner remains absent or phantom at match time THEN that owner MUST degrade to exact `equals` matching and the degradation MUST be logged as a warning (no silent false-negative)
 
 #### Scenario: Output schema unchanged across spec sets
 - **WHEN** GATOR writes the static-analysis JSON for an APK against `generic_new`
@@ -147,10 +176,11 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 - **AND** the Python parser boundary (`static_analysis_parser.py`) and ape `MopData.java` MUST require no key-mapping change
 
 #### Scenario: Non-target call site stays unmatched — no subtype over-match (negative E2E)
-- **WHEN** the integration APK runs against `generic_new` and a method invokes only call sites whose declaring type is NOT a subtype of any declared owner (e.g. `java.lang.String.length()`, unrelated to `Collection+`/`Iterable+`/`Map+`)
-- **THEN** `FastHierarchy.canStoreType` MUST return `false` for those call sites and the method MUST be reported `reachesTarget=false` and `directlyReachesTarget=false`
-- **AND** a method-name that does not match a declared pattern (e.g. `remove` against `add*`) on an otherwise-subtype receiver MUST also stay `reachesTarget=false`
-- **AND** the count of `directlyReachesTarget=true` methods under `generic_new` MUST equal the count of methods that genuinely invoke a subtype/pattern match — subtype widening introduces zero spurious positives (the false-positive complement of INV-ANA-42)
+- **NOTE** `generic_new` includes `Object+` owners (`Object_MonitorOwner.mop`: `wait`/`notify`/`notifyAll`), so **every** call-site declaring type IS a subtype of some declared owner. Non-matches are therefore decided on the **method-name axis**, not the type axis. (The earlier `String.length()` "not a subtype" framing was incorrect: `String <: Object`.)
+- **WHEN** a method invokes a call site whose declaring type is a subtype of a declared owner but whose method name does NOT match that owner's declared pattern/name — e.g. `java.lang.String.length()` (`String <: Object+` but `length` ∉ {`wait`,`notify`,`notifyAll`}), or `java.util.ArrayList.remove(...)` against `Collection+.add*`
+- **THEN** the method MUST be reported `reachesTarget=false` and `directlyReachesTarget=false`
+- **AND** `nameMatches` MUST reject the name **before** `canStoreType` is consulted, so a non-matching name short-circuits regardless of subtype
+- **AND** subtype/pattern widening MUST introduce zero spurious positives on the IT APK: on a small APK with an enumerable set of target call sites, the `directlyReachesTarget=true` set MUST correspond to genuine subtype+name matches. Where exhaustive ground-truth labelling is impractical this is verified by **spot-checks + sampled inspection** (an honest, bounded criterion — not a completeness proof)
 
 #### Scenario: JCA exact path preserved (parity)
 - **WHEN** the matcher resolves a JCA target such as `Cipher.getInstance(String)` (`includeSubtypes=false`)

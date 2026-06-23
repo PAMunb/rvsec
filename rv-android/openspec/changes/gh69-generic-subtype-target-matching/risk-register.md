@@ -22,33 +22,40 @@ the cross-module rebuild and the external hierarchy API introduce.
 |------------|-------|
 | Critical | 0 |
 | High | 1 |
-| Medium | 3 |
-| Low | 4 |
-| **Total** | **8** |
+| Medium | 5 |
+| Low | 3 |
+| **Total** | **9** |
 
 | ID | Title | Category | Prob. | Effect | Level |
 |----|-------|----------|-------|--------|-------|
-| RISK-001 | Target super-type absent from Scene → `canStoreType` non-answer | Technology (external dep) | Moderate | Serious | **High** |
+| RISK-001 | Target super-type **phantom**/absent → `canStoreType` silent wrong `false` | Technology (external dep) | Moderate | Serious | **High** |
 | RISK-002 | JCA parity regression (INV-ANA-35 / `MopSpecsParityTest`) | Product (regression) | Low | Serious | **Medium** |
 | RISK-003 | Out-of-order rebuild links stale `.m2` extractor (fix never ships) | Tools (build coupling) | Moderate | Tolerable | **Medium** |
 | RISK-004 | Quasi-universal specs (`Object+`, `Iterable+`, `Comparable+`) inflate `reachesTarget` | Requirements (scope) | High | Tolerable | **Medium** |
-| RISK-005 | `canStoreType` cost in the bytecode scan | Technology (performance) | Low | Tolerable | **Low** |
+| RISK-005 | `canStoreType` cost at **both** match points (scan **and** `resolveInScene`) | Technology (performance) | Low | Tolerable | **Low** |
 | RISK-006 | Non-JDK owner via wildcard import fails `Class.forName` | Technology (extractor) | Very Low | Tolerable | **Low** |
-| RISK-007 | Accidental output-schema change breaks the 2 consumers | Product (interface) | Low | Serious | **Low** |
+| RISK-007 | Accidental output-schema change breaks the 2 consumers | Product (interface) | Low | Serious | **Medium** |
 | RISK-008 | 3-way sync ordering on `analysis` (gh60→gh66→gh69); + gh66 concurrent `FlowgraphRebuilder` edit (RISK-003) | Process (sync ordering) | Moderate | Tolerable | **Low** |
+| RISK-009 | Second match point left non-subtype-aware (bytecode-scan contract gap) | Product (architecture) | Moderate | Serious | **Medium** |
 
 ---
 
 ## Top Risks
 
-### RISK-001: Target super-type absent from Scene → `canStoreType` returns a non-answer
+### RISK-001: Target super-type phantom/absent in Scene → `canStoreType` returns a silent wrong `false`
 - **Category**: Technology (external dependency — Soot 4.7.1 `FastHierarchy`)
 - **Description**: `canStoreType(sub, sup)` only answers correctly when **both** types are loaded in the
-  Soot `Scene`. The call-site type is always loaded, but a declared **target super-type** (e.g.
-  `Closeable`, `Iterable`) may not be. The spike observed exactly this: `ByteArrayInputStream <: Closeable
-  : one side NOT in Scene`. If unmitigated, the predicate silently returns a non-answer →
-  false-negatives → `reachesTarget=false` where it should be `true` — the same failure mode this change
-  exists to fix, now hidden instead of zeroed.
+  Soot `Scene` with a real hierarchy. The call-site type is normally loaded, but a declared **target
+  super-type** (e.g. `Closeable`, `Iterable`) may not be. **Mechanism corrected after empirical
+  verification (Soot 4.7.1, run against the gator fat jar):** under `allow_phantom_refs=true` an
+  unresolvable owner force-resolves to a **phantom** `SootClass` at `BODIES` level — it passes
+  `Scene.containsClass`, `checkLevel(HIERARCHY)` passes (`3>=1`), and `canStoreType` returns a **definite
+  `false`** rather than throwing or signalling a "non-answer". The spike line `ByteArrayInputStream <:
+  Closeable : one side NOT in Scene` was the spike's own `containsClass` guard, not a `canStoreType`
+  result. If unmitigated, the predicate silently returns `false` → false-negatives → `reachesTarget=false`
+  where it should be `true` — the same failure mode this change exists to fix, now hidden instead of
+  zeroed. (A reviewer hypothesis that `canStoreType` *throws* on phantom was empirically refuted; a pure
+  `try/catch` mitigation would be dead code.)
 - **Why this is the top risk (Risk Projection)**: the spike that proved A2 was **standalone**; it did
   **not** exercise the production Scene configuration of `RvsecAnalysisClient` (its own class-path,
   `whole-program`, exclude/include lists, phantom-ref policy). Whether `forceResolve` actually populates
@@ -59,7 +66,10 @@ the cross-module rebuild and the external hierarchy API introduce.
 - **Mitigation strategy**: Minimization + Avoidance
   - **Avoidance**: `Scene.v().forceResolve(fqn, SootClass.HIERARCHY)` for **every distinct declared
     target owner** before building the `FastHierarchy` (`TargetMatching.forceResolveTargets`, INV-ANA-43 / D2).
-  - **Minimization (no silent FN)**: any owner still absent at match time **degrades to exact `equals`
+  - **Phantom-aware guard (the actual mitigation)**: classify an owner as resolved ONLY if
+    `!isPhantom() && resolvingLevel() >= HIERARCHY` — **not** merely `containsClass` (a phantom passes
+    `containsClass`). Guard before calling `canStoreType`.
+  - **Minimization (no silent FN)**: any owner phantom/absent at match time **degrades to exact `equals`
     and logs a warning once per owner** — wrong matches become detectable, never silent.
   - **Verification gate**: the IT MUST exercise `canStoreType` against the **real `RvsecAnalysisClient`
     scene** (not a synthetic minimal Scene) and assert `reachesTarget>0` on a known generic-positive APK
@@ -163,16 +173,24 @@ the cross-module rebuild and the external hierarchy API introduce.
 
 ---
 
-### RISK-005: `canStoreType` cost in the bytecode scan
+### RISK-005: `canStoreType` cost at **both** match points (bytecode scan **and** `resolveInScene`)
 - **Category**: Technology (performance)
-- **Description**: The direct bytecode scan iterates every invoke; adding `canStoreType` per candidate
-  could add measurable cost on large APKs.
+- **Description**: Two hot loops, not one. (a) The direct bytecode scan iterates every invoke; adding
+  `canStoreType` per candidate adds cost. (b) **`TargetResolver.resolveInScene` (verified) iterates
+  `Scene.getClasses()` × methods × targets and today fast-rejects via `t.getClassName().equals(fqn)`
+  before any work** — for `includeSubtypes` targets that string fast-reject **disappears**, turning every
+  (Scene-method × subtype-target) pair into a `canStoreType`. With `android.jar`/JDK in whole-program
+  that is tens of thousands of classes × ~71 subtype targets. The original register covered only the
+  scan; `resolveInScene` is the larger hot spot.
 - **Probability**: Low · **Effect**: Tolerable · **Level**: Low
 - **Mitigation strategy**: Minimization + measurement
-  - `FastHierarchy.canStoreType` is **O(1) amortized** (interval-encoded class hierarchy); the scan
-    already iterates all invokes, so the added work is per-invoke constant.
-  - Measure scan wall-time in the IT on a representative APK; compare to a JCA-equivalent run.
-- **Indicators**: IT scan time within the same order of magnitude as the JCA baseline scan.
+  - `FastHierarchy.canStoreType` is **O(1) amortized** (interval-encoded class hierarchy).
+  - **Mandatory ordering**: evaluate `nameMatches` **before** `canStoreType` at both points (cheap name
+    short-circuit replaces the lost `equals(fqn)` fast-reject) — promoted from contingency to design
+    requirement (tasks 2.3/3.1).
+  - **Cache** the resolved `superType(t)` `RefType` once per target (not per invoke/per Scene-method).
+  - Measure wall-time of **both** the scan and `resolveInScene` in the IT; compare to a JCA-equivalent run.
+- **Indicators**: IT scan time **and** `resolveInScene` time within the same order of magnitude as the JCA baseline.
 - **Contingency**:
   - **Trigger**: scan time regresses materially (e.g. >2×) on the IT APK.
   - **Actions**: cache resolved `superType(t)` `RefType` per target (resolve once, not per invoke);
@@ -210,7 +228,8 @@ the cross-module rebuild and the external hierarchy API introduce.
   optional-field-tolerant). An accidental key add/rename/removal while editing the writer area would
   break one or both consumers, even though no schema change is intended.
 - **Probability**: Low (the change explicitly touches matching, not the JSON writer) · **Effect**:
-  Serious (silent breakage of downstream coverage + ape) · **Level**: Low
+  Serious (silent breakage of downstream coverage + ape) · **Level**: Medium (reclassified for
+  consistency with RISK-002, also Low×Serious → Medium; the previous "Low" was internally inconsistent)
 - **Mitigation strategy**: Avoidance (invariant) + verification gate
   - **Schema invariance is an invariant** (INV-ANA-44, decision B/D3): no JSON writer change at all;
     only boolean *values* of `reachesTarget`/`directlyReachesTarget` move.
@@ -257,6 +276,34 @@ the cross-module rebuild and the external hierarchy API introduce.
 
 ---
 
+### RISK-009: Second match point left non-subtype-aware (bytecode-scan contract gap)
+- **Category**: Product (architecture completeness)
+- **Description**: Surfaced by multi-LLM artefact review and **verified against source**:
+  `findDirectTargetCallersByBytecodeScan(appClasses, Set<SootMethod>)` and `ReachabilityEngine` receive
+  only the **resolved** `Set<SootMethod>`, which has lost the declared owner FQN and the
+  `includeSubtypes`/`nameIsPattern` flags; the scan rebuilds exact `class#method` string keys. If an
+  implementer follows a naive "swap `equals` for `matches`" reading, the bytecode scan **cannot** evaluate
+  `canStoreType` against the declared super-type — so the second match point silently stays exact-only and
+  INV-ANA-42 ("predicate at both points") is half-met. `RvsecAnalysisClient.run()` already holds the
+  declared `Set<TargetMethod> targetSpecs` in scope, so the fix is a contract change, not new analysis.
+- **Probability**: Moderate (easy to miss; the original tasks under-specified it) · **Effect**: Serious
+  (one of the two reachability match points would under-report `reachesTarget` for subtype owners) ·
+  **Level**: Medium
+- **Mitigation strategy**: Avoidance (explicit contract change) + verification
+  - Extend `ReachabilityEngine`'s constructor/`run(...)` and `findDirectTargetCallersByBytecodeScan` to
+    also carry `Set<TargetMethod> targetSpecs`; **hybrid scan** preserving the `Set<String>` exact path
+    for `!includeSubtypes` (JCA O(1)/parity) + per-invoke `canStoreType` for `includeSubtypes` targets
+    (now an explicit step in **task 3.2**, with design Data-Flow §5 describing the cascade).
+- **Indicators**: a `generic_new` IT method reachable **only** via the direct bytecode scan (not the CG)
+  reports `directlyReachesTarget=true`; unit/IT exercises the scan with at least one subtype target.
+- **Contingency**:
+  - **Trigger**: the scan still consumes `Set<SootMethod>`/`targetKeys` after implementation.
+  - **Actions**: thread `Set<TargetMethod>` through `ReachabilityEngine`; re-run the scan-only IT.
+  - **Owner**: implementer (gator client).
+- **Status**: Open
+
+---
+
 ## Monitoring Schedule
 
 - **Review cadence**: at each Full-SDD phase boundary during the change —
@@ -269,11 +316,13 @@ the cross-module rebuild and the external hierarchy API introduce.
     all hard gates.
 - **Risk review checklist** (run at each boundary):
   - [ ] Any new risk surfaced by the IT on the real scene?
-  - [ ] RISK-001 degrade-warning count still 0?
+  - [ ] RISK-001 degrade-warning count still 0 for the 21 owners; no owner phantom (`isPhantom` guard active)?
   - [ ] RISK-002 parity still byte-for-byte / JCA count == 120?
   - [ ] RISK-003 post-rebuild generic target count > 0; `sootandroid` in rebuild; WTG no crash?
+  - [ ] RISK-005 `resolveInScene` + scan wall-time within JCA order of magnitude?
   - [ ] RISK-007 key-set diff still empty?
   - [ ] RISK-008 (at Phase 6 only) `analysis/spec.md` already has INV-ANA-33/35 (gh60 synced first)?
+  - [ ] RISK-009 bytecode scan carries `Set<TargetMethod>` (scan-only IT method reports subtype `directlyReachesTarget=true`)?
   - [ ] Any risk closeable?
 - **Owner**: change author (Pedro Costa).
 
@@ -284,3 +333,7 @@ the cross-module rebuild and the external hierarchy API introduce.
 | 2026-06-17 | all | Register created at end of Design phase from `design.md` + `docs/20260617_sa_generic_new.md` §12/§14 |
 | 2026-06-17 | RISK-008 | Added (sync ordering gh60→gh69) from adversarial artifact validation `docs/20260617_sa_generic_new.md` §15 |
 | 2026-06-17 | RISK-008 / RISK-003 | Broadened to 3-way ordering gh60→gh66→gh69 + gh66 concurrent `FlowgraphRebuilder` edit overlap (per operator note: gh66 in-flight) |
+| 2026-06-23 | RISK-001 | Mechanism corrected after **empirical** Soot 4.7.1 verification: phantom owner → `canStoreType` returns silent wrong `false` (does NOT throw; phantom resolves at `BODIES`). Mitigation is an `isPhantom()`/`resolvingLevel` guard, not `try/catch`. |
+| 2026-06-23 | RISK-005 | Broadened to cover `resolveInScene` (loss of `equals(fqn)` fast-reject), not just the bytecode scan. |
+| 2026-06-23 | RISK-007 | Reclassified Low→Medium for internal consistency with RISK-002 (both Low×Serious). |
+| 2026-06-23 | RISK-009 | Added: bytecode-scan/`ReachabilityEngine` contract gap (declared `Set<TargetMethod>` not propagated to the second match point) — from multi-LLM review, source-verified. |
