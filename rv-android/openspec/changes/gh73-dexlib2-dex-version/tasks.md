@@ -36,9 +36,9 @@ Required so the monitor dex (produced by d8, not dexlib2) is also ≥ `037`; wit
 
 ## 6. Image rebuild, report, close-out
 
-- [ ] 6.1 Commit the fix on `modules` (`closes #73`; NO co-author trailer — user is sole author) and push to `origin/modules`.
+- [x] 6.1 Commit the fix on `modules` (`closes #73`; NO co-author trailer — user is sole author) and push to `origin/modules`. — DONE: commit `d73ebc41`, pushed `c2083c92..d73ebc41`.
 - [ ] 6.2 Rebuild the image via `docker/rvandroid/build.sh` (clones `PAMunb/rvsec@modules`); confirm `instr-cli.jar` inside `phtcosta/rvandroid:0.9.1` carries the fix.
-- [ ] 6.3 Update report §7.1 (absolute path in plan.md) to APPLIED + VERIFIED with commit hash + re-verification numbers.
+- [x] 6.3 Update report §7.1 (absolute path in plan.md) to APPLIED + VERIFIED with commit hash + re-verification numbers. — DONE: §7.1 UPDATE block added (commit `d73ebc41`, openbible 208 / lumo 2424 / cryptoapp dex035).
 - [ ] 6.4 Verify all acceptance criteria in plan.md §5 are met; move the Kanban card (#73) to Done.
 
 ## 7. Verification (final)
