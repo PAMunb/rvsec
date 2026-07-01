@@ -37,12 +37,12 @@ Required so the monitor dex (produced by d8, not dexlib2) is also ≥ `037`; wit
 ## 6. Image rebuild, report, close-out
 
 - [x] 6.1 Commit the fix on `modules` (`closes #73`; NO co-author trailer — user is sole author) and push to `origin/modules`. — DONE: commit `d73ebc41`, pushed `c2083c92..d73ebc41`.
-- [ ] 6.2 Rebuild the image via `docker/rvandroid/build.sh` (clones `PAMunb/rvsec@modules`); confirm `instr-cli.jar` inside `phtcosta/rvandroid:0.9.1` carries the fix.
+- [~] 6.2 Rebuild the image via `docker/rvandroid/build.sh` (clones `PAMunb/rvsec@modules`); confirm `instr-cli.jar` inside `phtcosta/rvandroid:0.9.1` carries the fix. — DEFERRED (no network for days): full `--no-cache` rebuild not viable. Delivery changed to a surgical, offline swap of the fixed fat jar (`.../rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar`, has `opcodesForDex`) into the existing image — either a thin `FROM phtcosta/rvandroid:0.9.1` + `COPY` layer (→ `:0.9.1-gh73`) or a runtime `-v` mount over `/opt/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar`. Handed to the rvsec-dataset session (prompt provided) to execute + validate on the 2 pilots before the 225-APK run.
 - [x] 6.3 Update report §7.1 (absolute path in plan.md) to APPLIED + VERIFIED with commit hash + re-verification numbers. — DONE: §7.1 UPDATE block added (commit `d73ebc41`, openbible 208 / lumo 2424 / cryptoapp dex035).
-- [ ] 6.4 Verify all acceptance criteria in plan.md §5 are met; move the Kanban card (#73) to Done.
+- [x] 6.4 Verify all acceptance criteria in plan.md §5 are met; move the Kanban card (#73) to Done. — DONE: all code/empirical criteria in §5 met; Kanban #73 → Done; issue #73 CLOSED (manually — `closes #73` doesn't auto-fire from non-default `modules`). Only the image-delivery bullet is deferred to the surgical jar swap (see 6.2).
 
 ## 7. Verification (final)
 
 - [x] 7.1 `mvn -pl cli -am test` (or module test goal) green where a harness exists. — DONE: full `cli -am` suite green (all modules 0 failures/0 errors), incl. `DexVersionPreservationTest` (2/2).
 - [x] 7.2 Diff review: changes limited to the read-opcodes call site, the d8 `--min-api` arg, the threaded API value, and tests — weave/coverage/merger untouched. — DONE: `git diff` = `BatchRunner.java` (+51/-9), `MonitorBuilder.java` (+17/-3), new `DexVersionPreservationTest.java`; no other files.
-- [ ] 7.3 All acceptance criteria from plan.md §5 checked.
+- [x] 7.3 All acceptance criteria from plan.md §5 checked. — DONE: all code + empirical criteria checked in plan.md §5 (opcodes fix, `--min-api`, build, openbible 10×dex038/COV=208, lumo 20×dex039/COV=2424, cryptoapp dex035 round-trip, unit test, diff scope). The two delivery-only bullets (image rebuilt / report VERIFIED): report done (6.3); image delivery deferred to the offline surgical jar swap (6.2).
