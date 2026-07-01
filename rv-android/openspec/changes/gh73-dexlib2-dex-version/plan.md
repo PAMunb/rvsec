@@ -130,26 +130,27 @@ This is a small, single-module change; no subagent fan-out is needed (well under
 
 ## 5. Acceptance Criteria
 
-- [ ] `BatchRunner.extractDexes` uses `Opcodes.forDexVersion(parsedInputVersion)` per dex
+- [x] `BatchRunner.extractDexes` uses `Opcodes.forDexVersion(parsedInputVersion)` per dex
       (with a `getDefault()` fallback on unsupported versions); `Opcodes.getDefault()` is
       no longer the read opcodes for the happy path.
-- [ ] `MonitorBuilder.runD8` passes `--min-api <maxInputApi>` to `d8`.
-- [ ] Local build succeeds: `mvn -q -pl cli -am package` produces `cli/target/instr-cli.jar`.
-- [ ] dexdump/magic check — re-instrument openbible (minSdk 27) with the fixed jar: every
+- [x] `MonitorBuilder.runD8` passes `--min-api <maxInputApi>` to `d8`.
+- [x] Local build succeeds: `mvn -q -pl cli -am package` produces `cli/target/instr-cli.jar`.
+- [x] dexdump/magic check — re-instrument openbible (minSdk 27) with the fixed jar: every
       output `classes*.dex` — **app dexes (Group A) and the monitor dex (Group B)** — is
-      `dex038` (not `035`).
-- [ ] dexdump/magic check — re-instrument lumo (minSdk 29): every output `classes*.dex`
-      (app + monitor) is `dex039` (not `035`).
-- [ ] DEX `≤ API23` inputs round-trip unchanged (a `dex035` input stays `dex035`; no
-      spurious upgrade).
-- [ ] Unit test added (where a harness exists) asserting the read+write version round-trip.
-- [ ] Real re-verification, openbible (pkg `com.schwegelbin.openbible`): install + launch
+      `dex038` (not `035`). → 10/10 dex038, 0 dex035.
+- [x] dexdump/magic check — re-instrument lumo (minSdk 29): every output `classes*.dex`
+      (app + monitor) is `dex039` (not `035`). → 20/20 dex039, 0 dex035.
+- [x] DEX `≤ API23` inputs round-trip unchanged (a `dex035` input stays `dex035`; no
+      spurious upgrade). → cryptoapp 7/7 stay dex035.
+- [x] Unit test added (where a harness exists) asserting the read+write version round-trip.
+      → `DexVersionPreservationTest` (2/2 green).
+- [x] Real re-verification, openbible (pkg `com.schwegelbin.openbible`): install + launch
       on AVD `RVSec` → no `IncompatibleClassChangeError`/`FATAL EXCEPTION`, `Displayed`
-      present in logcat, `RVSEC-COV` count > 0 (reference: 208).
-- [ ] Real re-verification, lumo (manifest pkg `me.proton.lumo`, file
+      present in logcat, `RVSEC-COV` count > 0 (reference: 208). → PASS, RVSEC-COV=208.
+- [x] Real re-verification, lumo (manifest pkg `me.proton.lumo`, file
       `me.proton.android.lumo_50.apk`): launch → no crash, `Displayed` present,
-      `RVSEC-COV` > 0 (reference: 2424).
-- [ ] Coverage/weave logic unchanged (diff touches only the read-opcodes call site, the
+      `RVSEC-COV` > 0 (reference: 2424). → PASS, RVSEC-COV=2424.
+- [x] Coverage/weave logic unchanged (diff touches only the read-opcodes call site, the
       d8 `--min-api` arg, the threaded API value, and tests).
 - [ ] _(delivery — tasks §6)_ Image `phtcosta/rvandroid:0.9.1` rebuilt from
       `PAMunb/rvsec@modules` with the fix; `instr-cli.jar` inside the image carries the change.

@@ -47,9 +47,13 @@ public final class MonitorBuilder {
      * Compile {@code sourceDir/**\/*.java} to {@code .class} under
      * {@code outputDir/classes/} then run d8 to produce {@code outputDir/dex/}.
      *
+     * @param minApi the max input-DEX API of the target APK (computed by the
+     *     caller from the app dexes); passed to d8 as {@code --min-api} so the
+     *     monitor DEX is emitted at the same version as the (version-preserved)
+     *     app dexes, instead of d8's low default.
      * @return the list of produced .dex files (ordered by classes<N>.dex name).
      */
-    public List<Path> build(Path sourceDir, Path outputDir) throws IOException {
+    public List<Path> build(Path sourceDir, Path outputDir, int minApi) throws IOException {
         Objects.requireNonNull(sourceDir);
         Objects.requireNonNull(outputDir);
 
@@ -59,7 +63,7 @@ public final class MonitorBuilder {
         Files.createDirectories(dexDir);
 
         compileJavaSources(sourceDir, classesDir);
-        return runD8(classesDir, dexDir);
+        return runD8(classesDir, dexDir, minApi);
     }
 
     private void compileJavaSources(Path sourceDir, Path classesDir) throws IOException {
@@ -97,7 +101,7 @@ public final class MonitorBuilder {
         runSubprocess("javac", cmd);
     }
 
-    private List<Path> runD8(Path classesDir, Path dexDir) throws IOException {
+    private List<Path> runD8(Path classesDir, Path dexDir, int minApi) throws IOException {
         // Collect every .class under classesDir.
         List<String> classFiles;
         try (Stream<Path> walk = Files.walk(classesDir)) {
@@ -114,6 +118,13 @@ public final class MonitorBuilder {
         List<String> cmd = new ArrayList<>();
         cmd.add(config.d8Bin.toString());
         cmd.add("--output"); cmd.add(dexDir.toString());
+        // Emit the monitor DEX at the app's DEX-format API so it matches the
+        // version-preserved app dexes. Without --min-api d8 defaults to a low
+        // version, which would leave the monitor dex below 037 even after the
+        // app dexes keep their own version. --lib android.jar is intentionally
+        // omitted: monitor sources are plain Java 1.8 and the runtime jars are
+        // already d8 inputs, so --min-api alone avoids the low-version outcome.
+        cmd.add("--min-api"); cmd.add(Integer.toString(minApi));
         cmd.addAll(classFiles);
 
         // Include the runtime support jars (rv-monitor-rt, rvsec-agent, …)

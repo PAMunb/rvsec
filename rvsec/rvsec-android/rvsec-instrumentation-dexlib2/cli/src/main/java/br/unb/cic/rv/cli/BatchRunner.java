@@ -110,6 +110,17 @@ public final class BatchRunner {
                 return failed(apk, "no classes*.dex entries in APK", "apk_read");
             }
 
+            // Max DEX-format API across the APK's input dexes (each dex's
+            // preserved opcodes.api). Threaded into the monitor builder so d8
+            // emits the monitor DEX at >= this API via --min-api; without it the
+            // d8-produced monitor dex would default low even though the app
+            // dexes now preserve their own version.
+            int maxInputApi = 0;
+            for (ExtractedDex ed : dexes) {
+                maxInputApi = Math.max(maxInputApi, ed.dex.getOpcodes().api);
+            }
+            counts.put("maxInputApi", maxInputApi);
+
             // Phase 4: weave + serialize per DEX.
             Path workDir = cfg.workDir() != null
                     ? cfg.workDir()
@@ -284,7 +295,7 @@ public final class BatchRunner {
             // 5b. javac + d8 → monitor DEX(es).
             MonitorBuilder mb = new MonitorBuilder(cfg.builderConfig().validated());
             Path monitorOut = workDir.resolve("monitor-build");
-            List<Path> monitorDexes = mb.build(cfg.monitorSrcDir(), monitorOut);
+            List<Path> monitorDexes = mb.build(cfg.monitorSrcDir(), monitorOut, maxInputApi);
             counts.put("monitorDexes", monitorDexes.size());
 
             if (!canMerge) {
@@ -330,17 +341,45 @@ public final class BatchRunner {
                 ZipEntry e = entries.nextElement();
                 String n = e.getName();
                 if (!n.startsWith("classes") || !n.endsWith(".dex")) continue;
-                try (InputStream in = zf.getInputStream(e);
-                     java.io.BufferedInputStream buf = new java.io.BufferedInputStream(in)) {
-                    out.add(new ExtractedDex(
-                            n,
-                            DexBackedDexFile.fromInputStream(Opcodes.getDefault(), buf)));
+                byte[] bytes;
+                try (InputStream in = zf.getInputStream(e)) {
+                    bytes = in.readAllBytes();
                 }
+                // Preserve the input DEX format version. Reading with
+                // Opcodes.forDexVersion(parsedVersion) makes DexPool.writeTo
+                // stamp the SAME version on output (the writer's magic derives
+                // from opcodes.api). Reading with Opcodes.getDefault() instead
+                // (== forApi(20) → dex035 in smali 3.0.9) would downgrade every
+                // output DEX to 035; Kotlin/Compose interface static/default
+                // methods are legal only in dex >= 037, so a downgraded 037+ app
+                // crashes at runtime with IncompatibleClassChangeError.
+                Opcodes opcodes = opcodesForDex(bytes, n);
+                out.add(new ExtractedDex(n, new DexBackedDexFile(opcodes, bytes)));
             }
         }
         // Sort by entry name so classes.dex precedes classes2.dex precedes ...
         out.sort((a, b) -> a.entryName.compareTo(b.entryName));
         return out.toArray(new ExtractedDex[0]);
+    }
+
+    /**
+     * Resolve the {@link Opcodes} matching the DEX container version parsed from
+     * the file's 8-byte magic header {@code "dex\n0XY\0"} — bytes {@code [4,7)}
+     * are the ASCII version digits {@code XY}. Falls back to
+     * {@link Opcodes#getDefault()} when {@link Opcodes#forDexVersion(int)} rejects
+     * the version (e.g. {@code dex036}, absent from the dataset), logging the
+     * entry name and raw version.
+     */
+    static Opcodes opcodesForDex(byte[] dex, String entryName) {
+        int version = (dex[4] - '0') * 100 + (dex[5] - '0') * 10 + (dex[6] - '0');
+        try {
+            return Opcodes.forDexVersion(version);
+        } catch (RuntimeException ex) {
+            System.err.println("[dexlib2] unsupported DEX version " + version
+                    + " for entry " + entryName
+                    + "; falling back to Opcodes.getDefault()");
+            return Opcodes.getDefault();
+        }
     }
 
     private record ExtractedDex(String entryName, DexBackedDexFile dex) {}
