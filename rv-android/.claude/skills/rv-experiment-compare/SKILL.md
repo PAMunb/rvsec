@@ -50,11 +50,52 @@ initialize/execute/cleanup: **emulador** (ciclo todo gerenciado pelo platform �
 `rvagent-tool` = rv-agent/LLM). Uma task = `(apk, tool, variant, rep, timeout)`; os N braços são
 **interleaved** por APK no mesmo experimento.
 
-**Imagem Docker:** `phtcosta/rvandroid:<tag>` (default `0.9.1`). Cadeia de build (todas na mesma tag):
-`rvsec_base` → `rvsec_android` (SDK/emulador API 30 x86_64, GATOR, KVM) → `rvandroid_tools`
-(droidbot/ape/fastbot) → `rvandroid` (clone `PAMunb/rvsec` branch `modules` + `mvn install` + `uv sync`).
-⚠️ O estágio final faz `git clone` do branch → **os commits relevantes precisam estar pushed antes do
-build**. Braços LLM exigem `lmsysorg/sglang:v0.5.6.post2` + GPU + modelo no `HF_CACHE`.
+**Imagem Docker:** `phtcosta/rvandroid:<tag>` (default `0.9.1`). Cadeia de build (Dockerfiles em
+`docker/<layer>/Dockerfile`, todas publicadas na mesma tag — ver `docker/README.md` para a tabela
+completa e `docker/build_all.sh` para o build encadeado):
+
+| Layer | Dockerfile | Imagem | Conteúdo relevante |
+|-------|-----------|--------|---------------------|
+| 1 | `docker/base/Dockerfile` | `rvsec_base` | Ubuntu 22.04, Java 8, Python 3.10, uv |
+| 2 | `docker/android/Dockerfile` | `rvsec_android` | SDK/emulador API 30 `x86_64`, GATOR, KVM |
+| 3 | `docker/tools/Dockerfile` | `rvandroid_tools` | clona `honeynet/droidbot`; base para APE/FastBot |
+| 4 | `docker/rvandroid/Dockerfile` | `rvandroid` (produção) | clona `PAMunb/rvsec` branch `modules` (`ARG RVSEC_BRANCH`) + `mvn install` + `uv sync`; **builda `ape-rv.jar` a partir do source** (ver abaixo); `LABEL rvsec.branch` |
+
+⚠️ O estágio 4 faz `git clone` do branch `rvsec` → **os commits relevantes precisam estar pushed antes
+do build**. Braços LLM exigem `lmsysorg/sglang:v0.5.6.post2` + GPU + modelo no `HF_CACHE`.
+
+### `ape-rv.jar` — build-from-source sem pin de SHA (gh71 D3)
+
+`docker/rvandroid/Dockerfile` clona `https://github.com/phtcosta/ape.git` (repo APE-RV, separado do
+`rvsec`) **na branch default, sem `ARG`/SHA fixo** — decisão deliberada (ver comentário no Dockerfile,
+gh71 D3): o jar comitado historicamente ficava desatualizado (ex.: lia a chave legada `reachesMop` em
+vez de `reachesTarget`, causando 0 boost de MOP em 147k avaliações). Builda com
+`mvn -f /tmp/ape/pom.xml package -DskipTests` e copia para
+`modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar`.
+
+**Implicação**: o commit exato do `ape` embutido numa tag de imagem é **o que era HEAD do branch
+default no instante do `docker build`**, não é rastreável via `docker inspect` diretamente. Para
+auditar qual commit foi usado:
+
+```bash
+# 1. Timestamp de build da imagem (== timestamp do `mvn package`, pois o Dockerfile builda e
+#    copia o jar no mesmo RUN — o mtime do jar dentro do container bate com o Created da imagem)
+docker inspect phtcosta/rvandroid:<tag> --format '{{.Created}}'
+
+# 2. No repo local do ape (mesmo remote do Dockerfile), achar o commit HEAD nesse instante
+cd <path-para-o-repo-ape-local>
+git log --since="<Created menos alguns min>" --until="<Created>" --oneline
+
+# 3. Comparar HEAD local atual vs esse commit — se o diff for só docs/openspec (propostas ainda
+#    não implementadas), o jar da imagem está funcionalmente ao dia; se houver diff de código-fonte
+#    Java, a imagem está desatualizada e precisa rebuild antes de rodar a comparação.
+git diff --stat <commit-do-build>..HEAD -- . ':!docs' ':!openspec'
+```
+
+Rode esse check **antes de qualquer comparação que dependa do comportamento do APE-RV** (ex.: braços
+`aperv:sata`/`aperv:sata_mop`) — sobretudo se houve trabalho recente no repo `ape` (ex.: mudanças em
+`mop-guidance`/priorização MOP), pois um jar desatualizado na imagem invalida silenciosamente H1/H2 do
+plano da comparação sem erro visível em runtime.
 
 ## Conceitos críticos: skips, timeouts e resume
 
