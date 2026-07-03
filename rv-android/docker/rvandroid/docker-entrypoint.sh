@@ -88,4 +88,14 @@ SKIP_FLAG_ARGS=()
 [ "${RV_NO_QUARANTINE:-}" = "true" ]        && SKIP_FLAG_ARGS+=(--no-quarantine)
 
 echo "=== RV-Android Docker: validation passed; exec rv-experiment ==="
-exec uv run rv-experiment run "${SKIP_FLAG_ARGS[@]}"
+# --frozen --no-dev: `uv run` alone performs an implicit sync against ALL
+# dependency-groups (including [dependency-groups] dev in pyproject.toml —
+# pytest, flake8, hypothesis, etc), even though the image is built with
+# `uv sync --no-dev`. Every container start would then try to fetch ~13
+# dev-only packages from PyPI for no production benefit; a network hiccup
+# during that fetch kills the container before rv-experiment even starts
+# (observed 2026-07-02, cmpds run: 4/8 containers died on PyPI timeouts for
+# pycodestyle/pytest/sortedcontainers/pyflakes). These flags make `uv run`
+# use the .venv exactly as built at image-build time, with zero network
+# calls at container start.
+exec uv run --frozen --no-dev rv-experiment run "${SKIP_FLAG_ARGS[@]}"
