@@ -35,7 +35,7 @@ the cross-module rebuild and the external hierarchy API introduce.
 | RISK-005 | `canStoreType` cost at **both** match points (scan **and** `resolveInScene`) | Technology (performance) | Low | Tolerable | **Low** |
 | RISK-006 | Non-JDK owner via wildcard import fails `Class.forName` | Technology (extractor) | Very Low | Tolerable | **Low** |
 | RISK-007 | Accidental output-schema change breaks the 2 consumers | Product (interface) | Low | Serious | **Medium** |
-| RISK-008 | 3-way sync ordering on `analysis` (gh60→gh66→gh69); + gh66 concurrent `FlowgraphRebuilder` edit (RISK-003) | Process (sync ordering) | Moderate | Tolerable | **Low** |
+| RISK-008 | Sync/archive ordering on `analysis` — gh60/gh66 now synced (constraint satisfied); residual = gh70 INV-ANA-45 anomaly + Phase-6 slot check | Process (sync ordering) | Low | Tolerable | **Low** |
 | RISK-009 | Second match point left non-subtype-aware (bytecode-scan contract gap) | Product (architecture) | Moderate | Serious | **Medium** |
 
 ---
@@ -245,34 +245,51 @@ the cross-module rebuild and the external hierarchy API introduce.
 
 ---
 
-### RISK-008: 3-way sync/archive ordering on the `analysis` capability (gh60 → gh66 → gh69)
+### RISK-008: Sync/archive ordering on the `analysis` capability (largely mitigated — gh60/gh66 already synced)
 - **Category**: Process (OpenSpec sync ordering / cross-change dependency)
-- **Description**: **Three** in-flight changes stack deltas on the same `analysis` capability —
-  **gh60-targets-core** (INV-ANA-33..38, the `TargetMethod`/`MatchPolicy`/`TargetResolver` abstraction),
-  **gh66-gator-wtg-flowcontainer-perf** (INV-ANA-39), and this change gh69 (INV-ANA-40..44). gh69's delta
-  **references** INV-ANA-33/35 and the gh60 abstraction. Verified: `openspec/specs/analysis/spec.md`
-  currently contains **none** of INV-ANA-33..44 — none of the three is synced yet. If gh69 is
-  `/opsx:sync`-ed/archived **before gh60**, the resulting `analysis/spec.md` carries references to
-  invariants that do not exist in the synced spec (the same class of friction recorded for the gh50/52/53
-  batch sync). gh66 does **not** reference gh60/gh69 invariants (technically independent), but syncing out
-  of number order risks merge conflicts on the shared capability text.
-- **Probability**: Moderate (three changes in-flight; easy to archive in the wrong order) ·
-  **Effect**: Tolerable (caught at sync time; recoverable by syncing in order, no data loss) ·
-  **Level**: Low
-- **Mitigation strategy**: Avoidance (process ordering)
-  - **Mandatory order**: **gh60 first**, then gh66, then gh69 (ascending INV-ANA-number order). gh60
-    before gh69 is hard (dangling 33/35 otherwise); gh66 before gh69 is soft (conflict-avoidance).
-    Encoded in `proposal.md` §Impact (gh60 dependency bullet).
-  - At gh69 Phase 6, before `/opsx:archive`, confirm `openspec/specs/analysis/spec.md` already contains
-    INV-ANA-33/35 (and, ideally, INV-ANA-39 from gh66).
-- **Indicators**: `grep -n 'INV-ANA-33\|INV-ANA-35' openspec/specs/analysis/spec.md` is **non-empty**
-  before gh69 sync.
+- **Description**: The original hazard was a **3-way ordering** constraint: gh69's delta **references**
+  INV-ANA-33/35 (the gh60 `TargetMethod`/`MatchPolicy`/`TargetResolver` abstraction), so syncing gh69
+  before gh60 would leave dangling references in `openspec/specs/analysis/spec.md`. **As of 2026-07-06
+  this hard ordering constraint is satisfied** — verified against the repo:
+  - **gh60-targets-core** is **archived** (`openspec/changes/archive/2026-06-17-gh60-targets-core`), and
+    **INV-ANA-33 and INV-ANA-35 are present** in the synced `openspec/specs/analysis/spec.md`. The
+    dangling-reference hazard this risk guarded against **no longer exists**.
+  - **gh66-gator-wtg-flowcontainer-perf** is **archived** (2026-06-18); **INV-ANA-39 is synced**.
+  - Two **later** changes archived after gh66 consumed higher invariant numbers: **gh70-wtg-reachability-sharing**
+    (2026-06-18, INV-ANA-45) and **gh72-logcat-diagnostic-events** (2026-06-23, INV-ANA-46/47/48).
+  - gh69 claims **INV-ANA-40..44**, which are **free** in the synced spec (no active change — gh67/gh48/gh-tbd —
+    reivindica 40-49), so gh69 can sync 40-44 **without collision**.
+
+  **Residual (why this is not yet Closed):**
+  1. **gh70 INV-ANA-45 sync anomaly** — INV-ANA-45 does **not** appear in the synced `analysis/spec.md`
+     even though gh70 is archived; the synced inventory jumps **39 → 46, 47, 48**, skipping 45. gh69's
+     insertion of 40-44 is therefore **non-contiguous** (45 pending/absent above it, 46-48 taken). This
+     is a spec-inventory gap to **reconcile at gh69 sync**, not a blocker for gh69's own numbers.
+  2. **Phase-6 slot re-check** — before `/opsx:archive`, re-confirm 40-44 are still free (no new change
+     grabbed them in the interim) and that INV-ANA-33/35 are still present.
+- **Probability**: Low (the hard ordering dependency is already discharged; only a bookkeeping re-check
+  and one inventory anomaly remain) · **Effect**: Tolerable (caught at sync time; recoverable, no data
+  loss) · **Level**: Low
+- **Mitigation strategy**: Avoidance (process) — largely discharged
+  - **Ordering constraint satisfied**: gh60 and gh66 are archived and synced; gh69 no longer depends on
+    an un-synced predecessor.
+  - **At gh69 Phase 6**, before `/opsx:archive`: (a) confirm `openspec/specs/analysis/spec.md` still
+    contains INV-ANA-33/35 (it does today) and that 40-44 are still unclaimed; (b) reconcile the gh70
+    INV-ANA-45 gap — decide whether gh69's sync should backfill 45 or leave it for a gh70 re-sync, so the
+    synced inventory ends contiguous.
+- **Indicators**:
+  - `grep -n 'INV-ANA-33\|INV-ANA-35' openspec/specs/analysis/spec.md` **non-empty** (currently true).
+  - `grep -n 'INV-ANA-4[0-4]' openspec/specs/analysis/spec.md` **empty** before gh69 sync (slots free).
+  - `grep -n 'INV-ANA-45' openspec/specs/analysis/spec.md` — currently **empty** (the anomaly); watch
+    whether it is backfilled at gh69 sync.
 - **Contingency**:
-  - **Trigger**: gh69 about to be synced while the grep above is empty.
-  - **Actions**: sync/archive gh60 (then gh66) first; then sync gh69; re-grep the synced spec for any
-    remaining dangling INV-ANA references.
+  - **Trigger**: at gh69 Phase 6, INV-ANA-40..44 are no longer free, INV-ANA-33/35 are missing, or the
+    45 gap causes a non-contiguous synced inventory that a reviewer flags.
+  - **Actions**: renumber gh69's delta to the next free contiguous block if 40-44 got taken; if
+    INV-ANA-33/35 regressed, re-sync gh60's delta; reconcile the gh70 INV-ANA-45 gap (backfill at gh69
+    sync or open a gh70 re-sync) so `analysis/spec.md` ends contiguous.
   - **Owner**: change author (archive sequencing).
-- **Status**: Open
+- **Status**: Largely mitigated — near-closeable (residual = Phase-6 slot re-check + gh70 INV-ANA-45 reconciliation)
 
 ---
 
@@ -321,7 +338,7 @@ the cross-module rebuild and the external hierarchy API introduce.
   - [ ] RISK-003 post-rebuild generic target count > 0; `sootandroid` in rebuild; WTG no crash?
   - [ ] RISK-005 `resolveInScene` + scan wall-time within JCA order of magnitude?
   - [ ] RISK-007 key-set diff still empty?
-  - [ ] RISK-008 (at Phase 6 only) `analysis/spec.md` already has INV-ANA-33/35 (gh60 synced first)?
+  - [ ] RISK-008 (at Phase 6 only) `analysis/spec.md` still has INV-ANA-33/35 (gh60/gh66 already synced) **and** INV-ANA-40..44 still free; gh70 INV-ANA-45 gap reconciled at sync?
   - [ ] RISK-009 bytecode scan carries `Set<TargetMethod>` (scan-only IT method reports subtype `directlyReachesTarget=true`)?
   - [ ] Any risk closeable?
 - **Owner**: change author (Pedro Costa).
@@ -337,3 +354,4 @@ the cross-module rebuild and the external hierarchy API introduce.
 | 2026-06-23 | RISK-005 | Broadened to cover `resolveInScene` (loss of `equals(fqn)` fast-reject), not just the bytecode scan. |
 | 2026-06-23 | RISK-007 | Reclassified Low→Medium for internal consistency with RISK-002 (both Low×Serious). |
 | 2026-06-23 | RISK-009 | Added: bytecode-scan/`ReachabilityEngine` contract gap (declared `Set<TargetMethod>` not propagated to the second match point) — from multi-LLM review, source-verified. |
+| 2026-07-06 | RISK-008 | Downgraded to **largely mitigated / near-closeable** (Prob. Moderate→Low, Status Open→Largely-mitigated; Level stays Low). Verified against repo: gh60 (INV-ANA-33/35) and gh66 (INV-ANA-39) are **archived and synced** into `analysis/spec.md` — the hard 3-way ordering constraint is discharged and the dangling-reference hazard no longer exists. gh69's INV-ANA-40..44 slots are **free** (no active claimant). Residual narrowed to: (a) Phase-6 re-check that 40-44 remain free and 33/35 remain present, and (b) reconcile the **gh70 INV-ANA-45 sync anomaly** (synced inventory jumps 39→46,47,48; 45 absent, 46-48 from gh70/gh72) so gh69's sync ends contiguous. Summary count unchanged (Level Low → Low). |

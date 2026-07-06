@@ -76,19 +76,20 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
 - **Requirements**: FR04 (WTG), FR05 (GUI elements), FR06 (method reachability) — the reachability
   target-set computation. Relates to INV-ANA-15 (coverage denominator uses `reaches_target`),
   INV-ANA-18 (Soot 4.7.1), BUG-INV-ANA-19 (bytecode-scan complement gains the subtype predicate).
-- **Dependency on gh60-targets-core** (issue #60, OPEN): the `TargetMethod`/`MatchPolicy`/
+- **Dependency on gh60-targets-core** (issue #60, ARCHIVED 2026-06-17): the `TargetMethod`/`MatchPolicy`/
   `TargetResolver`/`MopSpecsTargetSource` abstraction and INV-ANA-33/35 are introduced there. The
   code is already in the gator source; this change extends it. INV-ANA-35 parity (JCA byte-for-byte)
   MUST be preserved.
-  - **Mandatory archive/sync order — gh60 → gh66 → gh69**: three changes stack deltas on the same
-    `analysis` capability (gh60: INV-ANA-33..38; gh66 `gator-wtg-flowcontainer-perf`: INV-ANA-39; gh69:
-    INV-ANA-40..44). This change's spec delta references INV-ANA-33/35 and the `TargetMethod`/
-    `MatchPolicy`/`TargetResolver` abstraction, which live only in gh60's not-yet-synced delta
-    (`openspec/specs/analysis/spec.md` currently contains neither). If gh69 is `/opsx:sync`-ed/archived
-    before gh60, the synced spec carries dangling references to INV-ANA-33/35. **gh60 MUST sync/archive
-    first**; gh66 is independent of gh69 (does not reference 33/35) but should sync in number order
-    (gh60→gh66→gh69) to avoid merge conflicts on the shared capability. See RISK-008. This bites only at
-    Phase 6 (archive), not at `/opsx:apply`.
+  - **Sync/archive ordering — constraint now SATISFIED (as of 2026-07-06)**: gh60 (INV-ANA-33..38) and
+    gh66 `gator-wtg-flowcontainer-perf` (INV-ANA-39) are **already archived and synced** — the synced
+    `openspec/specs/analysis/spec.md` now contains INV-ANA-33/35, so this change's references resolve and
+    the earlier "gh60 MUST sync first / dangling reference" hazard no longer applies. gh69 claims
+    INV-ANA-40..44, which are **free** in the synced spec and unclaimed by any active change. Two residual
+    Phase-6 checks remain (not blockers for `/opsx:apply`): (a) confirm 40-44 are still free and INV-ANA-33/35
+    still present at archive time; (b) reconcile a pre-existing sync anomaly — two changes archived *after*
+    gh66 took higher numbers (gh70-wtg-reachability-sharing: INV-ANA-45; gh72-logcat-diagnostic-events:
+    INV-ANA-46/47/48) yet the synced inventory jumps 39 → 46,47,48, so gh70's INV-ANA-45 is **absent** from
+    the synced spec. gh69's insertion at 40-44 is therefore non-contiguous but collision-free. See RISK-008.
 - **Invariant preserved**: `FlowgraphRebuilder` arity guard (WTG SPARK cgDelegation) lives in source
   (`FlowgraphRebuilder.java:212-225,704-717`) — including `sootandroid` in the rebuild keeps it.
 - **Downstream (out of scope)**: the 400-APK `generic_new` reachability sweep and the generic dataset
