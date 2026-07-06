@@ -1,0 +1,14 @@
+dev.patri9ck.a2ln_25.apk
+dev.sebaubuntu.athena_17.apk
+dev.spiegl.flyingcarpet_21.apk
+dev.ukanth.ufirewall_20260301.apk
+dnsfilter.android_1506007.apk
+eu.darken.myperm_20101000.apk
+eu.darken.sdmse_10705000.apk
+eu.faircode.email_2322.apk
+eu.opencloud.android_9.apk
+eu.pretix.pretixscan.droid_103.apk
+fr.corenting.traficparis_34.apk
+fr.gaulupeau.apps.InThePoche_234.apk
+github.paroj.dsub2000_217.apk
+inc.flide.vi8_170500.apk

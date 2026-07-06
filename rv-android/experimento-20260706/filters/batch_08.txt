@@ -1,0 +1,14 @@
+de.blau.android_3404.apk
+de.grobox.liberario_131.apk
+de.kitshn.android_20100.apk
+de.luhmer.owncloudnewsreader_196.apk
+de.lukasneugebauer.nextcloudcookbook_62.apk
+de.markusfisch.android.binaryeye_174.apk
+de.markusfisch.android.shadereditor_93.apk
+de.saschahlusiak.freebloks_181.apk
+de.stephanlindauer.criticalmaps_104.apk
+de.z11.roboyard_140.apk
+dev.anilbeesetti.nextplayer_42.apk
+dev.dettmer.simplenotes_41.apk
+dev.itsvic.parceltracker_10501000.apk
+dev.leonlatsch.photok_62.apk

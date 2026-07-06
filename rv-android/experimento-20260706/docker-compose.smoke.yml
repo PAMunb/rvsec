@@ -1,0 +1,49 @@
+# Smoke test: 1 container, 2 APKs × 11 tools × 1 rep, dois timeouts (rodadas sequenciais).
+# Roda numa VM já com o dataset scp'ado em /home/pedro/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706.
+#
+# Uso (na VM):
+#   cd /home/pedro/experimento-20260706
+#   bash scripts/run_smoke.sh
+#
+# Click do rv-experiment só aceita um --timeout por invocação → rodamos duas vezes
+# (RV_TIMEOUTS=60, depois 120) com mesmo RV_EXPERIMENT_NAME; auto-resume via tasks.json.
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: rv-humanoid
+    ports:
+      - "50405:50405"
+
+  smoke:
+    image: phtcosta/rvandroid:0.9.1
+    container_name: val_smoke
+    depends_on:
+      - humanoid
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "16g"
+    environment:
+      RV_EXPERIMENT_NAME: smoke
+      RV_TOOLS: "monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting"
+      RV_TIMEOUTS: "${SMOKE_TIMEOUT:-60}"
+      RV_REPETITIONS: "1"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca"
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/smoke_batch.txt"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_HUMANOID_URL: "rv-humanoid:50405"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/smoke:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock

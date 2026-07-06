@@ -1,0 +1,110 @@
+# Experimento 2026-07-06 — re-run JCA no dataset novo (219 APKs, sem obfuscação).
+# 4 containers paralelos por VM + 1 service humanoid compartilhado.
+#
+# Desenho IDÊNTICO ao experimento-20260604; mudam apenas:
+#   - dataset  : 219 APKs instrumentados (dexlib2) de APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706
+#   - imagem   : phtcosta/rvandroid:0.9.1 (fix --frozen --no-dev do entrypoint JÁ baked, commit 14013b60)
+#
+# Dataset esperado em cada VM (scp): /home/pedro/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706
+#   (219 .apk instrumentados + 219 .apk.json de análise estática — só reachability é usada).
+#
+# Disparo (em cada VM, sequencial sobre 3 timeouts):
+#   cd /home/pedro/experimento-20260706
+#   ./scripts/run_experiment.sh m1     # ou m2, m3, m4
+#
+# Auto-resume: re-rodar `docker compose up -d` recupera de `tasks.json` qualquer combo
+# (apk, tool, variant, rep, timeout) já completado — entre falhas e entre passadas de timeout
+# (mesmo RV_EXPERIMENT_NAME por container).
+#
+# Mapeamento batch → VM (cada VM carrega seu .env.mN):
+#   m1:  batch_00..03   m2:  batch_04..07   m3:  batch_08..11   m4:  batch_12..15
+#
+# Default abaixo (sem --env-file) = m1.
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.1
+  depends_on:
+    - humanoid
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+x-rvandroid-env: &rvandroid-env
+  RV_TOOLS: "monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting"
+  RV_TIMEOUTS: "${EXP_TIMEOUT:-60}"
+  RV_REPETITIONS: "3"
+  RV_NO_WINDOW: "true"
+  RV_SPEC_SET: "jca"
+  RV_INSTRUMENTATION_VARIANT: "dexlib2"
+  RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+  RV_SKIP_MONITORS: "true"
+  RV_SKIP_INSTRUMENT: "true"
+  RV_SKIP_STATIC_ANALYSIS: "true"
+  RV_HUMANOID_URL: "rv-humanoid:50405"
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: rv-humanoid
+    ports:
+      - "50405:50405"
+
+  exp_00:
+    <<: *rvandroid-base
+    container_name: exp_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/${BATCH_0:-batch_00}.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_00:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  exp_01:
+    <<: *rvandroid-base
+    container_name: exp_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/${BATCH_1:-batch_01}.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_01:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  exp_02:
+    <<: *rvandroid-base
+    container_name: exp_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/${BATCH_2:-batch_02}.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_02:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  exp_03:
+    <<: *rvandroid-base
+    container_name: exp_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/${BATCH_3:-batch_03}.txt"
+      RV_DELAY: "90"
+    volumes:
+      - /home/pedro/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_03:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock

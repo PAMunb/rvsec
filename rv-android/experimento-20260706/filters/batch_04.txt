@@ -1,0 +1,14 @@
+com.hegocre.nextcloudpasswords_38.apk
+com.hwloc.lstopo_80283.apk
+com.infomaniak.euria_100400301.apk
+com.infomaniak.mail_12900101.apk
+com.infomaniak.meet_28.apk
+com.ivanovsky.passnotes_11700.apk
+com.iyps_158.apk
+com.jerboa_87.apk
+com.js.nowakelock_87.apk
+com.kin.easynotes_14.apk
+com.kolktech.linxshare_22.apk
+com.kwasow.musekit_1721768604.apk
+com.kylecorry.trail_sense_145.apk
+com.learntube.app_1009.apk
