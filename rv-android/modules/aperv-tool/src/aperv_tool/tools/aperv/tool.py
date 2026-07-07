@@ -87,8 +87,17 @@ APERV_PROPERTY_MAPPING = {
     # MOP weight parameters
     "mop_weight_direct": "ape.mopWeightDirect",
     "mop_weight_transitive": "ape.mopWeightTransitive",
+    # mop_weight_activity: ape.mopWeightActivity was removed from Config.java on the
+    # mop-fairtest branch (replaced by component triggering + mopWeightOpenMenu); the
+    # key is inert (an unknown ape.property is ignored by Config.java) and kept only
+    # for backward-compat with pre-mop-fairtest configs. calibração v4 does NOT search it.
     "mop_weight_activity": "ape.mopWeightActivity",
+    "mop_weight_open_menu": "ape.mopWeightOpenMenu",
     "mop_weight_wtg": "ape.mopWeightWtg",
+    # gh11/gh13: per-step component-trigger probability (default 0.0 = disabled).
+    "component_percentage": "ape.componentPercentage",
+    # mop-fairtest: cap on deterministic MOP short-circuit picks per (widget,type,activity).
+    "mop_target_pick_cap": "ape.mopTargetPickCap",
     "coverage_boost_weight": "ape.coverageBoostWeight",
     # LLM parameters
     "llm_url": "ape.llmUrl",
