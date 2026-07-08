@@ -16,6 +16,22 @@ RV behaviors are silently ON in **every** arm, including the intended non-MOP ba
 blocks the experiment (memo §3). There is also no `ape_pure` arm and no `sata_mop_widget` /
 `sata_mop_activity` / `sata_mop_act_frontier` decomposition.
 
+**MOP-substrate validity precondition (found + fixed 2026-07-08).** A device investigation on the
+APE-RV side (`ape-mop-fairtest`, `rv-scoring-pipeline` task 7.6) found that on `cryptoapp` the MOP
+signal was **inert on every step** (`mop=0`, no `decision_source=MOP`) — the historical "MOP arm ≈ sata"
+null. Root cause: `MopData`'s widget→MOP join was an exact signature match that **dropped D8-desugared
+lambda click handlers** (`X$$ExternalSyntheticLambda…`), and the activity-level predicate
+(`components.activities[].reachesTarget`) shared the same producer call-graph gap — so a crypto app whose
+Execute button provably runs `Cipher` had **zero** MOP-bearing widgets and activities. This made every
+MOP arm degenerate. The sibling change `mop-reach-strategies` (branch `mop-fairtest`, commit `40cc2f9`)
+**fixed it consumer-side, with no GATOR / static-analysis re-run** (the data was already in the JSON):
+FIX 2 recovers lambda handlers from the enclosing class's reaching `lambda$…` methods; A′
+(`mop_activity_source_components`) adds a reachability-method-level activity source. Device re-smoke
+confirms MOP now fires (`flagged=3 recovered=1`; Execute button selected `decision_source=MOP mop=300`).
+**Implication for this experiment:** the `sata_mop_*` arms are only non-degenerate on a jar that includes
+`40cc2f9`+. The R1 jar cross-check (task 6.4) is therefore also a MOP-substrate gate — see the added
+provenance check. No GATOR re-run and no producer change are required.
+
 ## What Changes
 
 - **Complete `APERV_PROPERTY_MAPPING`** — add every arm-defining flag missing today. Existing RV flags

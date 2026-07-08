@@ -47,6 +47,7 @@
 - [ ] 6.2 Run `/rv-verify aperv-tool` (guard + arm + command + properties tests green)
 - [ ] 6.3 `openspec validate gh74-aperv-arm-variants --strict` passes
 - [ ] 6.4 R1 cross-check (design R1/D5) — once the APE-RV `rv-scoring-pipeline`/`mop-reach-strategies` jar is built, grep its `Config.java` for the 11 new `ape.*` names and confirm they match INV-APV-13 verbatim (a mismatch makes the property inert). Gate before the paired experiment; non-blocking for archive
+- [ ] 6.4b MOP-substrate provenance gate (R4) — confirm the experiment jar includes the `mop-reach-strategies` substrate fix (commit `40cc2f9`+), NOT a pre-fix `mop-fairtest` jar. Cheap runtime check: a `sata_mop` smoke on `cryptoapp` MUST emit the load line with the FIX-3 fields `handlersUnmatched=… syntheticLambda=… recovered=…` AND at least one `[APE-STEP] … decision_source=MOP mop>0`. A jar without the fix emits neither (MOP inert, `mop=0` everywhere → the arm silently degenerates to `sata`, invalidating every `sata_mop_*` contrast). Gate before the paired experiment; non-blocking for archive
 - [ ] 6.5 Invoke `/rv-code-reviewer` via the Skill tool: "Review gh74 aperv arm variants (mapping completeness + frozen arms + seed wiring + guard tests)"
 - [ ] 6.6 Run `/opsx:verify` to validate implementation against specs/aperv/spec.md (INV-APV-13..19)
 
