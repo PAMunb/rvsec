@@ -19,7 +19,7 @@ blocks the experiment (memo §3). There is also no `ape_pure` arm and no `sata_m
 ## What Changes
 
 - **Complete `APERV_PROPERTY_MAPPING`** — add every arm-defining flag missing today. Existing RV flags
-  not yet mapped: `frontier_boost_weight`, `activity_trigger_enabled`, `sibling_state_penalty`,
+  not yet mapped: `frontier_boost_weight`, `activity_trigger_enabled`,
   `back_menu_pick_cap`, `foreign_activity_guard`, `tree_package_guard`, `dynamic_epsilon`,
   `heuristic_input`, `fuzz_input_typed`. New flags fixed by the sibling changes `rv-scoring-pipeline` /
   `mop-reach-strategies` (repo APE-RV, branch `mop-fairtest`): `ape_pure_mode`, `form_completion_enabled`,

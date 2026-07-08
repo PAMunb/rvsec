@@ -40,14 +40,14 @@ References: proposal.md; specs/aperv/spec.md (INV-APV-13..19); the arm matrix (d
 
 | Component | Responsibility | Change |
 |-----------|---------------|--------|
-| `APERV_PROPERTY_MAPPING` (tool.py:74-113) | Python key → `ape.*` name | Add the 20 arm-defining entries (9 existing-but-unmapped RV flags + 11 new) |
-| `ARM_DEFINING_KEYS` (new constant, tool.py) | Single source of truth for the guard | Enumerate the 20 arm-defining Python keys |
+| `APERV_PROPERTY_MAPPING` (tool.py:74-113) | Python key → `ape.*` name | Add the 19 arm-defining entries (8 existing-but-unmapped RV flags + 11 new) |
+| `ARM_DEFINING_KEYS` (new constant, tool.py) | Single source of truth for the guard | Enumerate the 19 arm-defining Python keys |
 | `_ARM_DEFINING_EXEMPT` (new constant, tool.py) | Named exemption set | The six gh43 `sata_mop_llm_<prompt>` names |
 | `get_variants()` (tool.py:201-301) | Frozen variant dicts | 4 new variants; make existing explicit; `sata_mop`→alias of `sata_mop_widget` |
 | `_build_main_command()` (tool.py:487-542) | Build `app_process` argv | Append `-s <seed>` when `_tool_config` has `seed` |
 | `tests/test_aperv_tool.py` | Guard + per-arm assertions | Add guard tests (INV-APV-13/14) + arm-value tests |
 
-To avoid duplicating ~20 keys across ~11 variants, the implementation SHOULD define a shared
+To avoid duplicating ~19 keys across ~11 variants, the implementation SHOULD define a shared
 `_BASELINE_ARM_FLAGS` dict (RV exploration ON, MOP/reach/frontier/trigger off) and a `_MOP_SUBSTRATE`
 dict (mop_data + 4 weights), then spread + override per arm (e.g. `{**_BASELINE_ARM_FLAGS, "strategy":
 "bfs"}`). This keeps the arms readable and the guard green without copy-paste drift (P1). `sata_mop` and
@@ -57,7 +57,7 @@ dict (mop_data + 4 weights), then spread + override per arm (e.g. `{**_BASELINE_
 
 | Requirement / INV | Implementation | Test |
 |-------------------|----------------|------|
-| INV-APV-13 (mapping completeness) | 20 new `APERV_PROPERTY_MAPPING` entries | `test_all_arm_defining_keys_are_mapped` |
+| INV-APV-13 (mapping completeness) | 19 new `APERV_PROPERTY_MAPPING` entries | `test_all_arm_defining_keys_are_mapped` |
 | INV-APV-14 (variant explicitness) | `_BASELINE_ARM_FLAGS` spread into every non-exempt variant | `test_non_exempt_variants_set_all_arm_defining_keys` |
 | INV-APV-15 (`ARM_DEFINING_KEYS` constant) | module-level `frozenset` | `test_arm_defining_keys_excludes_mop_data_and_strategy` |
 | INV-APV-16 (`sata_mop` alias) | shared dict object | `test_sata_mop_is_alias_of_widget` |
@@ -149,7 +149,7 @@ affecting the rest.
   arm would not steer as intended and the failure is invisible in `ape.properties`. Mitigation: names
   pinned from design §3 (INV-APV-13); a Verification task cross-checks them against the sibling jar's
   `Config.java` once `rv-scoring-pipeline`/`mop-reach-strategies` land (before the experiment runs).
-- **R2 — 20 explicit keys × 11 variants is verbose and drift-prone** → mitigated by the shared
+- **R2 — 19 explicit keys × 11 variants is verbose and drift-prone** → mitigated by the shared
   `_BASELINE_ARM_FLAGS`/`_MOP_SUBSTRATE` dicts (D-Architecture) and the guard test.
 - **R3 — Reviewer disagrees with including seed wiring (D6)** → isolated in one requirement/INV and one
   command edit; removable to a follow-up without touching the mapping/variants/guard.

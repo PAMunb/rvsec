@@ -23,7 +23,7 @@ The `ape.*` property names for the eleven new flags are frozen by the APE-RV sib
 `rv-scoring-pipeline` and `mop-reach-strategies` (branch `mop-fairtest`, design
 `ape-mop-fairtest/docs/20260708_arquitetura_separacao_aperv.md` §3). The values written per arm follow the
 arm matrix (design §4); baseline values equal the current `Config` defaults made explicit
-(`Config.java` on `mop-fairtest`: `siblingStatePenalty=24`, `backMenuPickCap=3`, `mopWeightDirect=500`,
+(`Config.java` on `mop-fairtest`: `backMenuPickCap=3`, `mopWeightDirect=500`,
 `mopWeightTransitive=300`, `mopWeightOpenMenu=250`, `mopWeightWtg=200`, the guards/typed-input all `true`).
 
 ## Data Contracts
@@ -51,7 +51,7 @@ arm matrix (design §4); baseline values equal the current `Config` defaults mad
 
 - **INV-APV-13**: `APERV_PROPERTY_MAPPING` MUST contain an entry for every key in `ARM_DEFINING_KEYS`. The
   Python→Java names MUST be: `ape_pure_mode`→`ape.apePureMode`, `frontier_boost_weight`→`ape.frontierBoostWeight`,
-  `activity_trigger_enabled`→`ape.activityTriggerEnabled`, `sibling_state_penalty`→`ape.siblingStatePenalty`,
+  `activity_trigger_enabled`→`ape.activityTriggerEnabled`,
   `back_menu_pick_cap`→`ape.backMenuPickCap`, `foreign_activity_guard`→`ape.foreignActivityGuard`,
   `tree_package_guard`→`ape.treePackageGuard`, `dynamic_epsilon`→`ape.dynamicEpsilon`,
   `heuristic_input`→`ape.heuristicInput`, `fuzz_input_typed`→`ape.fuzzInputTyped`,
@@ -72,7 +72,9 @@ arm matrix (design §4); baseline values equal the current `Config` defaults mad
   Python-only orchestration keys and MUST NOT be in `ARM_DEFINING_KEYS`; the MOP weight keys
   (`mop_weight_direct`/`mop_weight_transitive`/`mop_weight_open_menu`/`mop_weight_wtg`) are gated by
   `mop_data` (a null `MopData` disables scoring regardless of weights) and are therefore NOT arm-defining,
-  but MUST be set explicitly in the MOP arms for auditability.
+  but MUST be set explicitly in the MOP arms for auditability. `max_idle_timeout_ms`
+  (→ `ape.maxIdleTimeoutMs`) is likewise an arm-neutral tuning knob: it is in `APERV_PROPERTY_MAPPING` but
+  NOT in `ARM_DEFINING_KEYS`, and need not be set per-variant.
 
 - **INV-APV-16**: `get_variants()["sata_mop"]` MUST be identical to `get_variants()["sata_mop_widget"]`
   (the documented alias). Changing the widget arm MUST change the alias in lockstep (they SHOULD reference
@@ -107,8 +109,8 @@ variants, and prompt experiment variants. Every variant SHALL include a `"strate
 Every variant **except** the exempt prompt-experiment variants (INV-APV-17) SHALL set every key in
 `ARM_DEFINING_KEYS` explicitly (INV-APV-14) so the arm's behavior is defined by the variant dictionary and
 never by a jar `Config` default. Baseline arms (`default`/`sata`, `bfs`, `random`) SHALL set the RV
-exploration flags to the current jar defaults made explicit (`sibling_state_penalty=24`,
-`back_menu_pick_cap=3`, `foreign_activity_guard=true`, `tree_package_guard=true`, `dynamic_epsilon=true`,
+exploration flags to the current jar defaults made explicit (`back_menu_pick_cap=3`,
+`foreign_activity_guard=true`, `tree_package_guard=true`, `dynamic_epsilon=true`,
 `heuristic_input=true`, `fuzz_input_typed=true`, `form_completion_enabled=true`, `step_telemetry_enabled=true`,
 `model_menu_enabled=true`, `least_visited_priority_tiebreak=true`, `tree_enhancements_enabled=true`,
 `activity_budget_enabled=true`, `llm_percentage_no_substrate=-1`) and the MOP/reach/frontier/trigger flags
@@ -244,8 +246,8 @@ property names:
 | `max_states_per_activity` | `ape.maxStatesPerActivity` | Exploration |
 | `trivial_activity_rank_threshold` | `ape.trivialActivityRankThreshold` | Exploration |
 | `do_back_to_trivial_activity` | `ape.doBackToTrivialActivity` | Exploration |
-| `sibling_state_penalty` | `ape.siblingStatePenalty` | RV exploration (arm-defining) |
 | `back_menu_pick_cap` | `ape.backMenuPickCap` | RV exploration (arm-defining) |
+| `max_idle_timeout_ms` | `ape.maxIdleTimeoutMs` | arm-neutral (global tuning knob) |
 | `foreign_activity_guard` | `ape.foreignActivityGuard` | RV exploration (arm-defining) |
 | `tree_package_guard` | `ape.treePackageGuard` | RV exploration (arm-defining) |
 | `dynamic_epsilon` | `ape.dynamicEpsilon` | RV exploration (arm-defining) |
