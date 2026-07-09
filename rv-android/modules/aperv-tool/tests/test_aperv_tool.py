@@ -550,7 +550,9 @@ class TestArmVariants:
             if name in aperv_mod._ARM_DEFINING_EXEMPT:
                 continue
             missing = aperv_mod.ARM_DEFINING_KEYS - set(cfg)
-            assert not missing, f"variant {name!r} missing arm-defining keys: {sorted(missing)}"
+            assert (
+                not missing
+            ), f"variant {name!r} missing arm-defining keys: {sorted(missing)}"
 
     def test_sata_mop_is_alias_of_widget(self):
         # INV-APV-16 (task 4.4): same object, equal dict.
@@ -559,7 +561,12 @@ class TestArmVariants:
 
     def test_new_arm_variants_present(self):
         variants = ApeRVTool.get_variants()
-        for name in ["ape_pure", "sata_mop_widget", "sata_mop_activity", "sata_mop_act_frontier"]:
+        for name in [
+            "ape_pure",
+            "sata_mop_widget",
+            "sata_mop_activity",
+            "sata_mop_act_frontier",
+        ]:
             assert name in variants, f"missing new arm variant {name!r}"
 
     def test_ape_pure_kill_switch_and_offs(self):
@@ -637,14 +644,14 @@ class TestSeedPropagation:
         # serial flag — assert on the tail after --ape so the two do not collide.)
         self.tool._tool_config["seed"] = 42
         cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 60)
-        tail = cmd.args[cmd.args.index("--ape"):]
+        tail = cmd.args[cmd.args.index("--ape") :]
         assert "-s" in tail
         assert tail[tail.index("-s") + 1] == "42"
 
     def test_no_seed_omits_dash_s(self):
         # INV-APV-18: no seed configured → no -s in the Monkey args (after --ape).
         cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 60)
-        tail = cmd.args[cmd.args.index("--ape"):]
+        tail = cmd.args[cmd.args.index("--ape") :]
         assert "-s" not in tail
 
 
