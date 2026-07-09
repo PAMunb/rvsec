@@ -186,6 +186,81 @@ _ARM_DEFINING_EXEMPT = frozenset(
     }
 )
 
+# RV exploration ON at the current mop-fairtest jar defaults, made explicit; MOP / reach /
+# frontier / component-triggering OFF. Spread into every non-MOP baseline arm so no
+# arm-defining flag falls back to a jar Config default (INV-APV-14). This dict enumerates
+# exactly the 19 ARM_DEFINING_KEYS, so any variant spreading it satisfies the guard.
+_BASELINE_ARM_FLAGS = {
+    "back_menu_pick_cap": 3,
+    "foreign_activity_guard": True,
+    "tree_package_guard": True,
+    "dynamic_epsilon": True,
+    "heuristic_input": True,
+    "fuzz_input_typed": True,
+    "form_completion_enabled": True,
+    "step_telemetry_enabled": True,
+    "model_menu_enabled": True,
+    "least_visited_priority_tiebreak": True,
+    "tree_enhancements_enabled": True,
+    "activity_budget_enabled": True,
+    "llm_percentage_no_substrate": -1,
+    "ape_pure_mode": False,
+    "frontier_boost_weight": 0,
+    "activity_trigger_enabled": False,
+    "mop_activity_source_components": False,
+    "mop_frontier_weight": 0,
+    "trigger_mop_first": False,
+}
+
+# Every arm-defining flag at its off/zero value + the kill-switch ON. Used by ape_pure so
+# the original-APE baseline is auditable from ape.properties without trusting the jar's
+# apePureMode to force RV off (defense-in-depth, design D1). Also 19 keys → guard-clean.
+_APE_PURE_ARM_FLAGS = {
+    "back_menu_pick_cap": 0,
+    "foreign_activity_guard": False,
+    "tree_package_guard": False,
+    "dynamic_epsilon": False,
+    "heuristic_input": False,
+    "fuzz_input_typed": False,
+    "form_completion_enabled": False,
+    "step_telemetry_enabled": False,
+    "model_menu_enabled": False,
+    "least_visited_priority_tiebreak": False,
+    "tree_enhancements_enabled": False,
+    "activity_budget_enabled": False,
+    "llm_percentage_no_substrate": -1,
+    "ape_pure_mode": True,
+    "frontier_boost_weight": 0,
+    "activity_trigger_enabled": False,
+    "mop_activity_source_components": False,
+    "mop_frontier_weight": 0,
+    "trigger_mop_first": False,
+}
+
+# The MOP substrate: static-analysis data path + the four MOP scoring weights. Spread into
+# every MOP arm. Weights are gated by mop_data (a null MopData disables scoring regardless),
+# so they are NOT arm-defining, but are pinned here for auditability (INV-APV-15).
+_MOP_SUBSTRATE = {
+    "mop_data": "static_analysis",
+    "mop_weight_direct": 500,
+    "mop_weight_transitive": 300,
+    "mop_weight_open_menu": 250,
+    "mop_weight_wtg": 200,
+}
+
+# The LLM sampling block shared by the LLM arms (sata_llm / sata_mop_llm). 10.0.2.2 is the
+# Android emulator alias for host loopback; APERV_LLM_BASE_URL overrides at configure().
+_LLM_FLAGS = {
+    "llm_url": "http://10.0.2.2:30000/v1",
+    "llm_on_new_state": "true",
+    "llm_on_stagnation": "true",
+    "llm_model": "default",
+    "llm_temperature": 0.3,
+    "llm_top_p": 0.6,
+    "llm_top_k": 50,
+    "llm_timeout_ms": 15000,
+}
+
 
 class ApeRVTool(AbstractTool):
     """
@@ -211,7 +286,9 @@ class ApeRVTool(AbstractTool):
       APE-RV output is captured only for diagnostics
 
     ### Key Features:
-    - Seven named variants: default, sata, sata_mop, bfs, random, sata_llm, sata_mop_llm
+    - Named variants: eleven arm-defining-explicit arms (default, sata, bfs, random,
+      ape_pure, sata_mop_widget, sata_mop [alias], sata_mop_activity,
+      sata_mop_act_frontier, sata_llm, sata_mop_llm) + six frozen gh43 prompt arms
     - Eager strategy validation in configure() catches typos before device access
     - ape.properties injection configures GUI throttle without modifying the JAR
     - Timeout is treated as expected exit (exploration tools run until time limit)
@@ -276,90 +353,73 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants.
 
-        Returns 7 variants. The "default" variant maps to sata (INV-TOOL-02).
-        The "sata_mop" variant enables MOP-guided scoring via static analysis
-        data. The "sata_llm" and "sata_mop_llm" variants add LLM guidance
-        via an OpenAI-compatible endpoint (gh6 APE-RV LLM integration).
+        Eleven non-exempt arms + six exempt gh43 prompt-experiment arms. Every non-exempt
+        arm sets every key in ARM_DEFINING_KEYS explicitly (INV-APV-14), spreading the shared
+        _BASELINE_ARM_FLAGS (RV exploration ON, MOP/reach off) and — for MOP arms —
+        _MOP_SUBSTRATE, so an arm's identity is its variant dict and never a jar Config
+        default. "default" aliases sata (INV-TOOL-02); "sata_mop" aliases sata_mop_widget by
+        shared object (INV-APV-16). The six gh43 arms are frozen and EXEMPT (INV-APV-17).
 
         Returns:
             Dictionary mapping variant names to configuration parameters
         """
-        # Each variant is a frozen config dict merged into _tool_config by configure().
-        # "mop_data" and "strategy" are Python-only keys consumed during execution;
-        # they are NOT written to ape.properties (see APERV_PROPERTY_MAPPING).
+        # "mop_data" and "strategy" are Python-only keys consumed during execution; they are
+        # NOT written to ape.properties (no APERV_PROPERTY_MAPPING entry). Build sata_mop_widget
+        # once and bind sata_mop to the same object so the alias holds by construction (D4).
+        sata_mop_widget = {
+            **_BASELINE_ARM_FLAGS,
+            **_MOP_SUBSTRATE,
+            "strategy": "sata",
+            "throttle_ms": 200,
+        }
         return {
-            # "default" maps to sata because SATA (adaptive random) provides the best
-            # general-purpose exploration coverage without requiring static analysis data.
-            "default": {
-                "strategy": "sata",
-                "throttle_ms": 200,
+            # Baseline arms — RV exploration ON (defaults explicit), MOP/reach OFF.
+            "default": {**_BASELINE_ARM_FLAGS, "strategy": "sata", "throttle_ms": 200},
+            "sata": {**_BASELINE_ARM_FLAGS, "strategy": "sata", "throttle_ms": 200},
+            "bfs": {**_BASELINE_ARM_FLAGS, "strategy": "bfs", "throttle_ms": 200},
+            "random": {**_BASELINE_ARM_FLAGS, "strategy": "random", "throttle_ms": 200},
+            # ape_pure — original APE via the apePureMode kill-switch; every RV flag off.
+            "ape_pure": {**_APE_PURE_ARM_FLAGS, "strategy": "sata", "throttle_ms": 200},
+            # MOP arms — decompose the reach mechanism (widget → +A′ → +B+E-min).
+            "sata_mop_widget": sata_mop_widget,
+            # sata_mop is the back-compat alias of sata_mop_widget (same object, INV-APV-16).
+            "sata_mop": sata_mop_widget,
+            "sata_mop_activity": {
+                **sata_mop_widget,
+                "mop_activity_source_components": True,
             },
-            "sata": {
-                "strategy": "sata",
-                "throttle_ms": 200,
+            "sata_mop_act_frontier": {
+                **sata_mop_widget,
+                "mop_activity_source_components": True,
+                "frontier_boost_weight": 200,
+                "mop_frontier_weight": 200,
+                "activity_trigger_enabled": True,
+                "trigger_mop_first": True,
             },
-            # sata_mop enables MOP-guided scoring: APE-RV reads a static analysis JSON
-            # that maps activities to monitored operations, biasing exploration toward
-            # screens more likely to trigger coverage events.
-            "sata_mop": {
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "mop_data": "static_analysis",
-            },
-            "bfs": {
-                "strategy": "bfs",
-                "throttle_ms": 200,
-            },
-            "random": {
-                "strategy": "random",
-                "throttle_ms": 200,
-            },
-            # LLM variants use 10.0.2.2 (Android emulator's alias for host loopback)
-            # to reach the SGLang server running on the host machine. The env var
-            # APERV_LLM_BASE_URL overrides this for Docker or non-emulator setups.
+            # LLM arms — full arm-defining baseline + LLM sampling block.
             "sata_llm": {
+                **_BASELINE_ARM_FLAGS,
+                **_LLM_FLAGS,
                 "strategy": "sata",
                 "throttle_ms": 200,
-                "llm_url": "http://10.0.2.2:30000/v1",
-                "llm_on_new_state": "true",
-                "llm_on_stagnation": "true",
-                "llm_model": "default",
-                "llm_temperature": 0.3,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_timeout_ms": 15000,
             },
             "sata_mop_llm": {
+                **_BASELINE_ARM_FLAGS,
+                **_MOP_SUBSTRATE,
+                **_LLM_FLAGS,
                 "strategy": "sata",
                 "throttle_ms": 200,
-                "mop_data": "static_analysis",
-                "llm_url": "http://10.0.2.2:30000/v1",
-                "llm_on_new_state": "true",
-                "llm_on_stagnation": "true",
-                "llm_model": "default",
-                "llm_temperature": 0.3,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_timeout_ms": 15000,
             },
-            # --- Prompt variant experiment variants (gh43) ---
-            # All use sata + mop + llm at 70% rate.
-            # Differ only in llm_prompt_variant.
-            # Generated via dict comprehension to avoid duplicating the full config
-            # block 6 times — each variant is identical except for the prompt variant name.
+            # --- Prompt variant experiment variants (gh43) — FROZEN / EXEMPT (INV-APV-17) ---
+            # Six controlled prompt-ablation arms, sata + mop + llm at 70% rate, differing
+            # only in llm_prompt_variant. Frozen exactly as authored for reproducibility;
+            # deliberately NOT carrying the arm-defining baseline (exempt from INV-APV-14).
             **{
                 f"sata_mop_llm_{v}": {
                     "strategy": "sata",
                     "throttle_ms": 200,
                     "mop_data": "static_analysis",
-                    "llm_url": "http://10.0.2.2:30000/v1",
-                    "llm_on_new_state": "true",
-                    "llm_on_stagnation": "true",
-                    "llm_model": "default",
-                    "llm_temperature": 0.3,
-                    "llm_top_p": 0.6,
-                    "llm_top_k": 50,
-                    "llm_timeout_ms": 15000,
+                    **_LLM_FLAGS,
                     "llm_percentage": 0.7,
                     "llm_prompt_variant": v,
                 }

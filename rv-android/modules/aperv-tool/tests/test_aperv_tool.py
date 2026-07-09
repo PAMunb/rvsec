@@ -538,3 +538,83 @@ class TestArmDefiningConstants:
         # Task 1.4 / INV-APV-15: arm-neutral tuning knob — mapped, not arm-defining.
         assert APERV_PROPERTY_MAPPING["max_idle_timeout_ms"] == "ape.maxIdleTimeoutMs"
         assert "max_idle_timeout_ms" not in aperv_mod.ARM_DEFINING_KEYS
+
+
+class TestArmVariants:
+    """Group 2: frozen arm variants (INV-APV-14/16, Variants requirement)."""
+
+    def test_non_exempt_variants_set_all_arm_defining_keys(self):
+        # INV-APV-14 (task 4.2): the executable explicitness guard.
+        variants = ApeRVTool.get_variants()
+        for name, cfg in variants.items():
+            if name in aperv_mod._ARM_DEFINING_EXEMPT:
+                continue
+            missing = aperv_mod.ARM_DEFINING_KEYS - set(cfg)
+            assert not missing, f"variant {name!r} missing arm-defining keys: {sorted(missing)}"
+
+    def test_sata_mop_is_alias_of_widget(self):
+        # INV-APV-16 (task 4.4): same object, equal dict.
+        variants = ApeRVTool.get_variants()
+        assert variants["sata_mop"] == variants["sata_mop_widget"]
+
+    def test_new_arm_variants_present(self):
+        variants = ApeRVTool.get_variants()
+        for name in ["ape_pure", "sata_mop_widget", "sata_mop_activity", "sata_mop_act_frontier"]:
+            assert name in variants, f"missing new arm variant {name!r}"
+
+    def test_ape_pure_kill_switch_and_offs(self):
+        # Task 2.3 / spec scenario: kill-switch true, every RV flag off, no mop_data.
+        cfg = ApeRVTool.get_variants()["ape_pure"]
+        assert cfg["ape_pure_mode"] is True
+        assert cfg["dynamic_epsilon"] is False
+        assert cfg["form_completion_enabled"] is False
+        assert cfg["model_menu_enabled"] is False
+        assert cfg["tree_enhancements_enabled"] is False
+        assert cfg["frontier_boost_weight"] == 0
+        assert cfg["activity_trigger_enabled"] is False
+        assert "mop_data" not in cfg
+
+    def test_sata_baseline_disables_reach_explicitly(self):
+        # Spec scenario: baseline sata arm disables RV steering explicitly.
+        cfg = ApeRVTool.get_variants()["sata"]
+        assert cfg["frontier_boost_weight"] == 0
+        assert cfg["activity_trigger_enabled"] is False
+        assert cfg["dynamic_epsilon"] is True
+        assert cfg["ape_pure_mode"] is False
+        assert "mop_data" not in cfg
+
+    def test_sata_mop_widget_values(self):
+        # Spec scenario: sata_mop_widget is the MOP control arm.
+        cfg = ApeRVTool.get_variants()["sata_mop_widget"]
+        assert cfg["mop_data"] == "static_analysis"
+        assert cfg["mop_weight_direct"] == 500
+        assert cfg["mop_weight_transitive"] == 300
+        assert cfg["mop_weight_open_menu"] == 250
+        assert cfg["mop_weight_wtg"] == 200
+        assert cfg["mop_activity_source_components"] is False
+        assert cfg["frontier_boost_weight"] == 0
+        assert cfg["mop_frontier_weight"] == 0
+        assert cfg["activity_trigger_enabled"] is False
+        assert cfg["trigger_mop_first"] is False
+
+    def test_sata_mop_activity_differs_only_by_a_prime(self):
+        # Spec scenario: sata_mop_activity isolates strategy A′.
+        variants = ApeRVTool.get_variants()
+        widget = variants["sata_mop_widget"]
+        activity = variants["sata_mop_activity"]
+        assert activity["mop_activity_source_components"] is True
+        # Every other arm-defining key equals the widget arm.
+        for key in aperv_mod.ARM_DEFINING_KEYS:
+            if key == "mop_activity_source_components":
+                continue
+            assert activity[key] == widget[key], f"{key} diverged from widget arm"
+
+    def test_sata_mop_act_frontier_reach_package(self):
+        # Spec scenario: sata_mop_act_frontier enables the reach package A′+B+E-min.
+        cfg = ApeRVTool.get_variants()["sata_mop_act_frontier"]
+        assert cfg["mop_activity_source_components"] is True
+        assert cfg["frontier_boost_weight"] == 200
+        assert cfg["mop_frontier_weight"] == 200
+        assert cfg["activity_trigger_enabled"] is True
+        assert cfg["trigger_mop_first"] is True
+        assert cfg["mop_data"] == "static_analysis"
