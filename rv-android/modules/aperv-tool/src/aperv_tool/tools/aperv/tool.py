@@ -99,6 +99,32 @@ APERV_PROPERTY_MAPPING = {
     # mop-fairtest: cap on deterministic MOP short-circuit picks per (widget,type,activity).
     "mop_target_pick_cap": "ape.mopTargetPickCap",
     "coverage_boost_weight": "ape.coverageBoostWeight",
+    # RV exploration flags — arm-defining (gh43 + rv-scoring-pipeline). Made explicit
+    # per arm so no arm-defining behavior falls back to a jar Config default (INV-APV-13/14).
+    "back_menu_pick_cap": "ape.backMenuPickCap",
+    "foreign_activity_guard": "ape.foreignActivityGuard",
+    "tree_package_guard": "ape.treePackageGuard",
+    "dynamic_epsilon": "ape.dynamicEpsilon",
+    "heuristic_input": "ape.heuristicInput",
+    "fuzz_input_typed": "ape.fuzzInputTyped",
+    "form_completion_enabled": "ape.formCompletionEnabled",
+    "step_telemetry_enabled": "ape.stepTelemetryEnabled",
+    "model_menu_enabled": "ape.modelMenuEnabled",
+    "least_visited_priority_tiebreak": "ape.leastVisitedPriorityTiebreak",
+    "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
+    "activity_budget_enabled": "ape.activityBudgetEnabled",
+    # Kill-switch — arm-defining (rv-scoring-pipeline apePureMode baseline).
+    "ape_pure_mode": "ape.apePureMode",
+    # MOP reach strategies — arm-defining (mop-reach-strategies: A′/B/E-min).
+    "mop_activity_source_components": "ape.mopActivitySourceComponents",
+    "mop_frontier_weight": "ape.mopFrontierWeight",
+    "trigger_mop_first": "ape.triggerMopFirst",
+    # Frontier boosting + component triggering — arm-defining (gh43).
+    "frontier_boost_weight": "ape.frontierBoostWeight",
+    "activity_trigger_enabled": "ape.activityTriggerEnabled",
+    # Arm-neutral global tuning knob (idle-timeout-cap): mapped so an experiment can
+    # lower the idle-drain ceiling globally, but NOT arm-defining (applies to every arm).
+    "max_idle_timeout_ms": "ape.maxIdleTimeoutMs",
     # LLM parameters
     "llm_url": "ape.llmUrl",
     "llm_on_new_state": "ape.llmOnNewState",
@@ -109,8 +135,56 @@ APERV_PROPERTY_MAPPING = {
     "llm_top_k": "ape.llmTopK",
     "llm_timeout_ms": "ape.llmTimeoutMs",
     "llm_percentage": "ape.llmPercentage",
+    # mop-reach-strategies F′ seam — arm-defining (LLM boost when substrate is widgetless).
+    "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
     "llm_prompt_variant": "ape.llmPromptVariant",
 }
+
+
+# The Python config keys whose value defines what an experiment arm *is* (INV-APV-15).
+# Single source of truth for the guard tests: every member MUST be in
+# APERV_PROPERTY_MAPPING (INV-APV-13) and set explicitly in every non-exempt variant
+# (INV-APV-14). Excludes mop_data/strategy (Python-only orchestration) and the
+# mop_weight_* keys (gated by mop_data — a null MopData disables scoring regardless of
+# weight, so they cannot contaminate a non-MOP arm) and max_idle_timeout_ms (arm-neutral).
+ARM_DEFINING_KEYS = frozenset(
+    {
+        "ape_pure_mode",
+        "frontier_boost_weight",
+        "activity_trigger_enabled",
+        "back_menu_pick_cap",
+        "foreign_activity_guard",
+        "tree_package_guard",
+        "dynamic_epsilon",
+        "heuristic_input",
+        "fuzz_input_typed",
+        "form_completion_enabled",
+        "step_telemetry_enabled",
+        "model_menu_enabled",
+        "least_visited_priority_tiebreak",
+        "tree_enhancements_enabled",
+        "activity_budget_enabled",
+        "mop_activity_source_components",
+        "mop_frontier_weight",
+        "trigger_mop_first",
+        "llm_percentage_no_substrate",
+    }
+)
+
+# The six gh43 prompt-experiment variants are frozen for historical reproducibility and
+# EXEMPT from the arm-defining explicitness policy (INV-APV-17). An explicit named set —
+# NOT a `sata_mop_llm_` prefix match — so a future non-exempt sata_mop_llm_* arm cannot be
+# silently absorbed into the exemption and escape the guard.
+_ARM_DEFINING_EXEMPT = frozenset(
+    {
+        "sata_mop_llm_ape_current",
+        "sata_mop_llm_ape_reasoning",
+        "sata_mop_llm_compact_v1",
+        "sata_mop_llm_v13",
+        "sata_mop_llm_v17",
+        "sata_mop_llm_visual_only",
+    }
+)
 
 
 class ApeRVTool(AbstractTool):

@@ -12,9 +12,11 @@ from unittest.mock import MagicMock
 import pytest
 from rv_android_core.util.error.exceptions import ConfigurationError
 
+import aperv_tool.tools.aperv.tool as aperv_mod
 from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
+    APERV_PROPERTY_MAPPING,
     ApeRVTool,
 )
 
@@ -459,3 +461,80 @@ class TestPushPropertiesCalibration:
         # Python-only keys absent
         assert "strategy" not in props
         assert "mop_data" not in props
+
+
+# The 19 arm-defining Python keys → frozen ape.* names (spec INV-APV-13, verbatim).
+# Pinned here so a typo'd java name in the mapping (which would make the property
+# inert on the jar with no error — R1/D5) fails a unit test, not the experiment.
+_EXPECTED_ARM_DEFINING_MAPPING = {
+    "ape_pure_mode": "ape.apePureMode",
+    "frontier_boost_weight": "ape.frontierBoostWeight",
+    "activity_trigger_enabled": "ape.activityTriggerEnabled",
+    "back_menu_pick_cap": "ape.backMenuPickCap",
+    "foreign_activity_guard": "ape.foreignActivityGuard",
+    "tree_package_guard": "ape.treePackageGuard",
+    "dynamic_epsilon": "ape.dynamicEpsilon",
+    "heuristic_input": "ape.heuristicInput",
+    "fuzz_input_typed": "ape.fuzzInputTyped",
+    "form_completion_enabled": "ape.formCompletionEnabled",
+    "step_telemetry_enabled": "ape.stepTelemetryEnabled",
+    "model_menu_enabled": "ape.modelMenuEnabled",
+    "least_visited_priority_tiebreak": "ape.leastVisitedPriorityTiebreak",
+    "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
+    "activity_budget_enabled": "ape.activityBudgetEnabled",
+    "mop_activity_source_components": "ape.mopActivitySourceComponents",
+    "mop_frontier_weight": "ape.mopFrontierWeight",
+    "trigger_mop_first": "ape.triggerMopFirst",
+    "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
+}
+
+_EXPECTED_EXEMPT_VARIANTS = {
+    "sata_mop_llm_ape_current",
+    "sata_mop_llm_ape_reasoning",
+    "sata_mop_llm_compact_v1",
+    "sata_mop_llm_v13",
+    "sata_mop_llm_v17",
+    "sata_mop_llm_visual_only",
+}
+
+
+class TestArmDefiningConstants:
+    """Group 1 guard: ARM_DEFINING_KEYS + _ARM_DEFINING_EXEMPT + mapping (INV-APV-13/15/17)."""
+
+    def test_all_arm_defining_keys_are_mapped(self):
+        # INV-APV-13 (task 4.1): every arm-defining key reaches ape.properties.
+        missing = aperv_mod.ARM_DEFINING_KEYS - set(APERV_PROPERTY_MAPPING)
+        assert not missing, f"arm-defining keys absent from mapping: {sorted(missing)}"
+
+    def test_arm_defining_keys_count_is_19(self):
+        assert len(aperv_mod.ARM_DEFINING_KEYS) == 19
+
+    def test_arm_defining_keys_excludes_orchestration_and_weights(self):
+        # INV-APV-15: mop_data/strategy are Python-only; mop_weight_* are gated by
+        # mop_data (null MopData disables scoring) so they are NOT arm-defining.
+        forbidden = {
+            "mop_data",
+            "strategy",
+            "mop_weight_direct",
+            "mop_weight_transitive",
+            "mop_weight_activity",
+            "mop_weight_open_menu",
+            "mop_weight_wtg",
+            "max_idle_timeout_ms",
+        }
+        assert forbidden.isdisjoint(aperv_mod.ARM_DEFINING_KEYS)
+
+    def test_arm_defining_maps_to_frozen_java_names(self):
+        # INV-APV-13 verbatim: pin the 19 python→java names so a typo fails here.
+        assert set(aperv_mod.ARM_DEFINING_KEYS) == set(_EXPECTED_ARM_DEFINING_MAPPING)
+        for py_key, java_key in _EXPECTED_ARM_DEFINING_MAPPING.items():
+            assert APERV_PROPERTY_MAPPING[py_key] == java_key
+
+    def test_exempt_set_is_exactly_the_six_gh43_variants(self):
+        # INV-APV-17: explicit named set, not a prefix match.
+        assert aperv_mod._ARM_DEFINING_EXEMPT == _EXPECTED_EXEMPT_VARIANTS
+
+    def test_max_idle_timeout_mapped_but_not_arm_defining(self):
+        # Task 1.4 / INV-APV-15: arm-neutral tuning knob — mapped, not arm-defining.
+        assert APERV_PROPERTY_MAPPING["max_idle_timeout_ms"] == "ape.maxIdleTimeoutMs"
+        assert "max_idle_timeout_ms" not in aperv_mod.ARM_DEFINING_KEYS
