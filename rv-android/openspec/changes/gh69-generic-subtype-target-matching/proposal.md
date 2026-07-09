@@ -24,13 +24,17 @@ validation are in `docs/20260617_sa_generic_new.md` (§1–§14) and `docs/20260
   suffix from owners and flag `includeSubtypes`, resolve simple owner names to FQN via explicit
   imports first and `Class.forName` over wildcard packages second (all 21 owners are JDK classes),
   and preserve wildcard method names (`add*`) as a pattern rather than a literal. New `MopMethod`
-  flags: `includeSubtypes`, `nameIsPattern`.
+  flags: `includeSubtypes`, `nameIsPattern`. **Coverage boundary (documented, accepted)**: only
+  `call(...)` pointcuts are extracted — the 3 specs whose sole pointcut is `staticinitialization(Owner+)`
+  and the 3 constructor `call(Owner.new(..))` pointcuts remain without static targets (net 24/27 specs
+  with ≥1 target; see design Non-Goals and INV-ANA-40 scope boundary).
 
 - **Matcher (`rvsec-gator`, `commons` + `client`)** — make target matching subtype/wildcard-aware
   via decision **A2**: carry `includeSubtypes` + name-pattern on `TargetMethod`, and at the two match
   points (`TargetResolver.resolveInScene` and `RvsecAnalysisClient.findDirectTargetCallersByBytecodeScan`)
   replace `equals(className)` with `FastHierarchy.canStoreType(callSiteType, declaredSuperType)` and
-  `equals(methodName)` with pattern matching, **when** `includeSubtypes` is set. Interface-typed call
+  `equals(methodName)` with pattern matching, **when** `includeSubtypes` is set (the name check runs
+  **first** — cheap short-circuit before the hierarchy query; see design D-API). Interface-typed call
   sites (e.g. `java.util.List.iterator`) are matched because `canStoreType` covers interface→interface.
   This requires propagating the declared `Set<TargetMethod>` (super-type FQN + flags) to **both** points
   — today `ReachabilityEngine` and the bytecode scan receive only the resolved `Set<SootMethod>`, so the
@@ -92,5 +96,11 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
     the synced spec. gh69's insertion at 40-44 is therefore non-contiguous but collision-free. See RISK-008.
 - **Invariant preserved**: `FlowgraphRebuilder` arity guard (WTG SPARK cgDelegation) lives in source
   (`FlowgraphRebuilder.java:212-225,704-717`) — including `sootandroid` in the rebuild keeps it.
-- **Downstream (out of scope)**: the 400-APK `generic_new` reachability sweep and the generic dataset
-  definition are a separate later change (`docs/20260611_sweep_generic_new_400.md`).
+- **Downstream (out of scope)**: the `generic_new` reachability sweep and the generic dataset definition
+  are a separate later change. **Corpus updated 2026-07-09**: the generic experiment will draw APKs from
+  the new dataset repo (`rvsec-dataset`, 219 curated apps), superseding the 400-APK sweep corpus;
+  `docs/20260611_sweep_generic_new_400.md` remains the procedure reference. Caveat for that downstream
+  change: with quasi-universal owners (`Object+`, `Iterable+`) `reachesTarget` saturates near-true across
+  APKs, and decision B (no per-owner attribution in the JSON) means the dataset filter cannot statically
+  discriminate universal from selective targets — the downstream change must plan around this (per-owner
+  side data or runtime attribution).

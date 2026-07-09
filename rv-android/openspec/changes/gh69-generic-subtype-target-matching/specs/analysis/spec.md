@@ -63,16 +63,33 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   be discarded); a trailing `+` on the owner MUST be stripped and the resulting `MopMethod` MUST carry
   `includeSubtypes=true`; the simple owner name MUST be resolved to an FQN via explicit imports first
   and `Class.forName(pkg + "." + simple)` over the wildcard packages second. The implicit `java.lang`
-  package MUST be seeded by default (Java imports it implicitly; the owners `Object+` and `Comparable+`
-  appear in `generic_new` without an explicit `import java.lang.*`). A wildcard method name MUST be
+  package MUST be seeded by default as defense-in-depth (Java imports it implicitly, so a future spec may
+  legitimately omit it; every current `generic_new` spec with a `java.lang` owner — `Object_MonitorOwner`,
+  `Comparable_CompareToNull*`, `CharSequence_UndefinedHashCode` — does carry an explicit
+  `import java.lang.*;`, verified 2026-07-09, so today's owners already resolve via wildcard-import
+  registration alone). A wildcard method name MUST be
   preserved as a pattern with `nameIsPattern=true`; the patterns actually present in `generic_new` are
   `add*`, `remove*`, `retain*`, `clear*`, `put*`, `offer*`, `write*` and the bare `*`
   (`call(* Iterator.*(..))`) — a trailing `*` matches by prefix and the bare `*` matches every method of
   the owner (prefix `""`). The `MopMethod` identity (`equals`/`hashCode`) MUST include `includeSubtypes`
   and `nameIsPattern`, so two pointcuts that differ only by `+` or by name-pattern are not silently
   deduplicated in the extractor's `Set<MopMethod>`. For `generic_new` (27 specs) the emitted set MUST
-  have cardinality > 0 (currently 0). All 21 `generic_new` owners are JDK classes
-  (`java.lang`/`util`/`io`/`net`); an owner that cannot be resolved MUST be logged and skipped.
+  have cardinality > 0 (currently 0); the exact expected cardinality MUST be pinned in the unit test at
+  implementation time (reference enumeration 2026-07-09: **67 distinct `(owner, method-name)` `call()`
+  pairs** after excluding the 3 constructor pointcuts; params/flag granularity may raise the final N).
+  All 21 distinct `call()` owners are JDK classes (`java.lang`/`util`/`io`/`net`) — 23 owners exist in
+  total counting the two `staticinitialization`-only owners `Serializable`/`URLConnection`, which are
+  out of scope (see below); an owner that cannot be resolved MUST be logged and skipped.
+
+  **Scope boundary (documented static false-negatives, accepted):** this invariant covers `call(...)`
+  pointcuts only. (a) Three specs whose ONLY pointcut is `staticinitialization(Owner+)` —
+  `Collection_HashCode`, `Serializable_NoArgConstructor`, `URLConnection_OverrideGetPermission` —
+  contribute **zero** static targets (the pointcut never reaches `visit(MethodPointCut)`), so they can
+  never set `reachesTarget` even though the runtime monitor fires on class-load. (b) Constructor
+  pointcuts `call(Owner.new(..))` — `ServerSocket.new(int,int)`, `ServerSocket.new(int,int,InetAddress)`,
+  `TreeMap.new(Map)` — are NOT extracted (Soot represents constructors as `<init>`; no `new`→`<init>`
+  mapping in this change); both owning specs still emit targets via their other `call()` pointcuts.
+  Net coverage: **24/27 specs** with ≥1 static target.
 
 - **INV-ANA-41**: `MopSpecsTargetSource.load()` MUST propagate `includeSubtypes` and `nameIsPattern`
   from each `MopMethod` to the corresponding `TargetMethod`. A target derived from a JCA spec (no `+`,
@@ -147,7 +164,7 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 - **WHEN** `MopSpecsTargetSource.load()` maps the extracted `MopMethod` set to `TargetMethod` entries
 - **THEN** each `TargetMethod` derived from a `generic_new` `+`/wildcard pointcut MUST carry `includeSubtypes=true` (and `nameIsPattern=true` for wildcard names) — the flags MUST NOT be dropped at this boundary
 - **AND** each `TargetMethod` derived from a `jca` spec MUST carry `includeSubtypes=false` and `nameIsPattern=false`
-- **AND** `TargetMethod.equals`/`hashCode` MUST include both flags so two targets differing only by a flag are not collapsed in the `Set<TargetMethod>`, while every constructor call site (`MopSpecsTargetSource`, `SignatureFileTargetSource`, tests) MUST default both flags to `false` so the JCA/signature-file paths stay on exact matching (INV-ANA-35)
+- **AND** `TargetMethod.equals`/`hashCode` MUST include both flags so two targets differing only by a flag are not collapsed in the `Set<TargetMethod>`; `MopSpecsTargetSource` is the ONE constructor call site that passes the **real extracted flags** (per the two clauses above), while every other call site (`SignatureFileTargetSource`, tests) MUST pass both flags as `false` so the JCA/signature-file paths stay on exact matching (INV-ANA-35)
 
 #### Scenario: Subtype match on a concrete library type
 - **WHEN** an APK method calls `java.util.ArrayList.addAll(Collection)` and the active target is `Collection+.addAll` with `includeSubtypes=true`

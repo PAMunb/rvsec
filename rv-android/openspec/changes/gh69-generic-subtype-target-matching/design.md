@@ -53,7 +53,7 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
 
 | Requirement | Implementation | Test |
 |-------------|---------------|------|
-| INV-ANA-40 (extractor wildcard/`+`/pattern) | `UsedJcaMethodsVisitor.visit(ImportDeclaration\|MethodPointCut)` | `UsedMethodsGenericTest` (parse generic_new → N>0); extractor run asserts 27→N>0, 23→120 |
+| INV-ANA-40 (extractor wildcard/`+`/pattern) | `UsedJcaMethodsVisitor.visit(ImportDeclaration\|MethodPointCut)` | `UsedMethodsGenericTest` (parse generic_new → exact N pinned at implementation, ref. enumeration 67 distinct call() pairs); extractor run asserts 27→N (24 specs with ≥1 target), 23→120 |
 | INV-ANA-41 (flag propagation) | `MopSpecsTargetSource.load()` + `MopMethod`/`TargetMethod` ctors | `MopSpecsTargetSourceTest` (generic flags true, jca flags false) — **task 2.4b** |
 | INV-ANA-42 (A2 predicate, both points + cascade) | `TargetMatching` in `TargetResolver.resolveInScene` + `ReachabilityEngine`/`findDirectTargetCallersByBytecodeScan` carrying `Set<TargetMethod>` (hybrid scan) | `TargetMatchingTest` (class→iface, **iface→iface `List<:Iterable`**, bare `*`); `RvsecAnalysisClient` IT |
 | INV-ANA-43 (Scene force-resolve + phantom-aware degrade) | `TargetMatching.forceResolveTargets` + `isPhantom`/`resolvingLevel` guard + degrade branch | `TargetMatchingTest` (absent type **and phantom owner** → equals + warn) |
@@ -74,6 +74,12 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
   handled by `getParams`; out of scope).
 - Mitigating quasi-universal specs (`Object+`, `Iterable+`, `Comparable+`) inflating `reachesTarget` —
   accepted as correct behavior here; any dataset-level exclusion is a downstream concern.
+- Extracting **non-`call()` pointcut shapes** (documented static false-negatives, bounded): the 3 specs
+  whose only pointcut is `staticinitialization(Owner+)` (`Collection_HashCode`,
+  `Serializable_NoArgConstructor`, `URLConnection_OverrideGetPermission`) emit zero static targets, and
+  the 3 constructor pointcuts `call(Owner.new(..))` (`ServerSocket.new` ×2, `TreeMap.new`) are not
+  extracted (Soot `<init>` mapping not implemented). Net static coverage is 24/27 specs; the runtime
+  monitor still covers all 27. See INV-ANA-40 scope boundary.
 
 ## Decisions
 
@@ -92,7 +98,10 @@ type force-resolves to a **phantom** `SootClass` at `BODIES` level, so `checkLev
 `ByteArrayInputStream <: Closeable : one side NOT in Scene` was the spike's own `containsClass` guard,
 not a `canStoreType` result.) The call-site type is normally loaded, but a declared super-type may be
 phantom/absent. Mitigation: `Scene.v().forceResolve(fqn, SootClass.HIERARCHY)` for each declared target
-owner before building the `FastHierarchy`; then, at match time, guard on `isPhantom()` /
+owner before building the `FastHierarchy` — **ordering requirement**: `forceResolveTargets` MUST run
+before the first `Scene.v().getOrMakeFastHierarchy()` call anywhere in the run (Soot caches the
+`FastHierarchy`; types resolved after it is materialized are not incorporated), and the IT logs whether
+the hierarchy was already built when `forceResolveTargets` ran; then, at match time, guard on `isPhantom()` /
 `resolvingLevel() < HIERARCHY` (NOT merely `containsClass`) — if phantom/absent, degrade that owner to
 exact `equals` and log a warning once per owner. A `try/catch` is **not** the right mitigation (the call
 does not throw for natural phantoms — it would be dead code). Alternative (do nothing) rejected: silent
@@ -210,7 +219,7 @@ recorded in ADR 0004 ("Representation" alternative). Task 2.1 enforces "do not c
 
 | Layer | What to test | How | Count |
 |-------|-------------|-----|-------|
-| Unit (extractor) | Parse generic_new → N>0 targets, flags set; jca → 120, flags false | JUnit on `UsedJcaMethodsVisitor`/`JavamopFacade` with the 27+23 specs | ~4 |
+| Unit (extractor) | Parse generic_new → exact pinned N targets (ref. 67 distinct call() pairs; 3 ctor-skip notices; 24/27 specs covered), flags set; jca → 120, flags false | JUnit on `UsedJcaMethodsVisitor`/`JavamopFacade` with the 27+23 specs | ~4 |
 | Unit (matcher) | `canStoreType` class→iface, **iface→iface (`List<:Iterable` — the only case that distinguishes A2 from A1)**; name patterns `add*`…`write*` and bare `*`; non-trailing pattern → `equals`; absent-type **and phantom owner** degrade | JUnit on `TargetMatching` with a minimal Scene | ~7 |
 | Source | `MopSpecsTargetSource.load()` propagates flags (generic true / jca false) | `MopSpecsTargetSourceTest` (INV-ANA-41 — task 2.4b) | ~2 |
 | Parity | JCA byte-for-byte (`MopSpecsTargetSource.load` vs historical) | `MopSpecsParityTest` (INV-ANA-35) | existing |

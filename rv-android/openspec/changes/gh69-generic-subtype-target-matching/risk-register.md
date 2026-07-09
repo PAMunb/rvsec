@@ -22,9 +22,9 @@ the cross-module rebuild and the external hierarchy API introduce.
 |------------|-------|
 | Critical | 0 |
 | High | 1 |
-| Medium | 5 |
+| Medium | 6 |
 | Low | 3 |
-| **Total** | **9** |
+| **Total** | **10** |
 
 | ID | Title | Category | Prob. | Effect | Level |
 |----|-------|----------|-------|--------|-------|
@@ -37,6 +37,7 @@ the cross-module rebuild and the external hierarchy API introduce.
 | RISK-007 | Accidental output-schema change breaks the 2 consumers | Product (interface) | Low | Serious | **Medium** |
 | RISK-008 | Sync/archive ordering on `analysis` — gh60/gh66 now synced (constraint satisfied); residual = gh70 INV-ANA-45 anomaly + Phase-6 slot check | Process (sync ordering) | Low | Tolerable | **Low** |
 | RISK-009 | Second match point left non-subtype-aware (bytecode-scan contract gap) | Product (architecture) | Moderate | Serious | **Medium** |
+| RISK-010 | Non-`call()` pointcuts uncovered: 3 `staticinitialization`-only specs + 3 ctor pointcuts yield no static targets | Requirements (coverage boundary) | High (certain) | Tolerable | **Medium** |
 
 ---
 
@@ -190,9 +191,10 @@ the cross-module rebuild and the external hierarchy API introduce.
     requirement (tasks 2.3/3.1).
   - **Cache** the resolved `superType(t)` `RefType` once per target (not per invoke/per Scene-method).
   - Measure wall-time of **both** the scan and `resolveInScene` in the IT; compare to a JCA-equivalent run.
-- **Indicators**: IT scan time **and** `resolveInScene` time within the same order of magnitude as the JCA baseline.
+- **Indicators**: IT scan time **and** `resolveInScene` time each ≤ **2×** the JCA baseline (this is the
+  single gate — the earlier "same order of magnitude" phrasing was looser than the trigger and is superseded).
 - **Contingency**:
-  - **Trigger**: scan time regresses materially (e.g. >2×) on the IT APK.
+  - **Trigger**: scan or `resolveInScene` time > 2× the JCA baseline on the IT APK.
   - **Actions**: cache resolved `superType(t)` `RefType` per target (resolve once, not per invoke);
     short-circuit the predicate when `!includeSubtypes`.
   - **Owner**: implementer.
@@ -321,6 +323,35 @@ the cross-module rebuild and the external hierarchy API introduce.
 
 ---
 
+### RISK-010: Non-`call()` pointcut shapes yield no static targets (3 staticinit-only specs + 3 constructor pointcuts)
+- **Category**: Requirements (coverage boundary) — surfaced by the 2026-07-09 multi-agent artifact
+  validation (ground-truth pass over the 27 `.mop` files).
+- **Description**: The extractor design covers `call(...)` pointcuts only. (a) Three specs whose ONLY
+  pointcut is `staticinitialization(Owner+)` — `Collection_HashCode`, `Serializable_NoArgConstructor`,
+  `URLConnection_OverrideGetPermission` — emit **zero** static targets and can never set
+  `reachesTarget`, though the runtime monitor still fires on class-load. (b) Three constructor pointcuts
+  `call(Owner.new(..))` (`ServerSocket.new` ×2, `TreeMap.new`) are not extracted (Soot models
+  constructors as `<init>`; no `new`→`<init>` mapping); both owning specs keep other `call()` targets.
+  Net static coverage: 24/27 specs. The distinct-owner total is 23 (21 `call()` owners + `Serializable`/
+  `URLConnection` from staticinit).
+- **Probability**: High (certain — structural) · **Effect**: Tolerable (bounded; quasi-universal owners
+  dominate `reachesTarget` anyway; runtime coverage unaffected) · **Level**: Medium
+- **Mitigation strategy**: Acceptance (documented scope decision)
+  - Documented in proposal (coverage boundary), design (Non-Goals), and INV-ANA-40 (scope boundary).
+  - Task 1.3(d) logs+skips constructor pointcuts with a notice; task 1.4 asserts exactly 3 ctor-skip
+    notices, so the boundary is visible, never silent.
+  - A `new`→`<init>` mapping (cheap) and a class-init target concept (non-trivial) are explicit
+    candidates for the downstream generic-dataset change, not this one (P1).
+- **Indicators**: extractor logs exactly 3 constructor-skip notices for `generic_new`; the 3
+  staticinit-only specs absent from the target set (expected); 24/27 specs with ≥1 target.
+- **Contingency**:
+  - **Trigger**: the downstream dataset change needs class-init or constructor events statically.
+  - **Actions**: implement `new`→`<init>` mapping first (small); design class-init targets separately.
+  - **Owner**: downstream sweep/dataset change author.
+- **Status**: Open (accepted)
+
+---
+
 ## Monitoring Schedule
 
 - **Review cadence**: at each Full-SDD phase boundary during the change —
@@ -354,4 +385,7 @@ the cross-module rebuild and the external hierarchy API introduce.
 | 2026-06-23 | RISK-005 | Broadened to cover `resolveInScene` (loss of `equals(fqn)` fast-reject), not just the bytecode scan. |
 | 2026-06-23 | RISK-007 | Reclassified Low→Medium for internal consistency with RISK-002 (both Low×Serious). |
 | 2026-06-23 | RISK-009 | Added: bytecode-scan/`ReachabilityEngine` contract gap (declared `Set<TargetMethod>` not propagated to the second match point) — from multi-LLM review, source-verified. |
+| 2026-07-09 | RISK-010 | Added from multi-agent artifact validation (ground-truth pass over the 27 `.mop` files): 3 `staticinitialization`-only specs + 3 constructor pointcuts yield no static targets — accepted + documented in proposal/design/INV-ANA-40; tasks 1.3(d)/1.4 make the boundary observable. Summary 9→10 risks (Medium 5→6). |
+| 2026-07-09 | RISK-005 | Gate unified: indicator and trigger both ≤/> **2×** the JCA baseline (the looser "order of magnitude" phrasing superseded). |
+| 2026-07-09 | — | Validation corrections applied across artifacts: spec "Flags propagate" scenario no longer lists `MopSpecsTargetSource` among default-false call sites (contradicted INV-ANA-41); `java.lang` seeding re-justified as defense-in-depth (all current `java.lang`-owner specs carry explicit `import java.lang.*;` — the earlier "no explicit import" claim was refuted against the files); generic target-count acceptance strengthened from "N>0" to pin-exact-N (reference enumeration: 67 distinct call() pairs); task 2.1 drops the optional 5-arg overload (P3); D2 gains the FastHierarchy ordering requirement; task 5.2 smoke corpus switched to `rvsec-dataset`. Soot 4.7.1 claim re-verified CORRECT (pom.properties inside shipped `rvsec-gator.jar`). |
 | 2026-07-06 | RISK-008 | Downgraded to **largely mitigated / near-closeable** (Prob. Moderate→Low, Status Open→Largely-mitigated; Level stays Low). Verified against repo: gh60 (INV-ANA-33/35) and gh66 (INV-ANA-39) are **archived and synced** into `analysis/spec.md` — the hard 3-way ordering constraint is discharged and the dangling-reference hazard no longer exists. gh69's INV-ANA-40..44 slots are **free** (no active claimant). Residual narrowed to: (a) Phase-6 re-check that 40-44 remain free and 33/35 remain present, and (b) reconcile the **gh70 INV-ANA-45 sync anomaly** (synced inventory jumps 39→46,47,48; 45 absent, 46-48 from gh70/gh72) so gh69's sync ends contiguous. Summary count unchanged (Level Low → Low). |
