@@ -49,7 +49,7 @@
 - [x] 6.4 R1 cross-check DONE (no device): all 20 ape.* names (19 arm-defining + maxIdleTimeoutMs) exist verbatim in mop-fairtest Config.java @2f95711 — no inert-property risk. Gate before experiment: PASS. R1 cross-check (design R1/D5) — once the APE-RV `rv-scoring-pipeline`/`mop-reach-strategies` jar is built, grep its `Config.java` for the 11 new `ape.*` names and confirm they match INV-APV-13 verbatim (a mismatch makes the property inert). Gate before the paired experiment; non-blocking for archive
 - [ ] 6.4b [DEFERRED — needs emulator; do at cmpft4 smoke gate before launch] MOP-substrate provenance gate (R4) — confirm the experiment jar includes the `mop-reach-strategies` substrate fix (commit `40cc2f9`+), NOT a pre-fix `mop-fairtest` jar. Cheap runtime check: a `sata_mop` smoke on `cryptoapp` MUST emit the load line with the FIX-3 fields `handlersUnmatched=… syntheticLambda=… recovered=…` AND at least one `[APE-STEP] … decision_source=MOP mop>0`. A jar without the fix emits neither (MOP inert, `mop=0` everywhere → the arm silently degenerates to `sata`, invalidating every `sata_mop_*` contrast). Gate before the paired experiment; non-blocking for archive
 - [ ] 6.5 [SKIPPED per user — rv-android skills not run this session] Invoke `/rv-code-reviewer` via the Skill tool: "Review gh74 aperv arm variants (mapping completeness + frozen arms + seed wiring + guard tests)"
-- [ ] 6.6 Run `/opsx:verify` to validate implementation against specs/aperv/spec.md (INV-APV-13..19)
+- [x] 6.6 Run `/opsx:verify` — PASS (see report): 27/30 tasks done, 3 remaining are device-deferred (6.4b) / skipped-per-user (6.5); all 7 invariants INV-APV-13..19 implemented + covered by 61 green tests; no CRITICAL issues
 
 ### Acceptance criteria
 
