@@ -23,7 +23,7 @@
 
 ## 3. Seed propagation (tool.py _build_main_command) — INV-APV-18
 
-- [ ] 3.1 In `_build_main_command`, after the `--ape <strategy>` args, append `["-s", str(seed)]` when `seed = self._tool_config.get("seed")` is not None. Leave the command unchanged when no seed is configured (design D6; jar honors `-s` per Monkey.java:881-882 + RandomHelper.seed, INV-EXPL-14). `seed` has no `APERV_PROPERTY_MAPPING` entry so it is never written to `ape.properties`
+- [x] 3.1 In `_build_main_command`, after the `--ape <strategy>` args, append `["-s", str(seed)]` when `seed = self._tool_config.get("seed")` is not None. Leave the command unchanged when no seed is configured (design D6; jar honors `-s` per Monkey.java:881-882 + RandomHelper.seed, INV-EXPL-14). `seed` has no `APERV_PROPERTY_MAPPING` entry so it is never written to `ape.properties`
 
 ## 4. Guard + arm tests (tests/test_aperv_tool.py) — INV-APV-13, INV-APV-14, INV-APV-16, INV-APV-17, INV-APV-18
 
@@ -32,9 +32,9 @@
 - [x] 4.3 `test_arm_defining_keys_excludes_mop_data_and_strategy` + `test_exempt_set_is_exactly_the_six_gh43_variants` (INV-APV-15, INV-APV-17) — pulled forward as group-1 RED tests (excludes weights + max_idle_timeout too)
 - [x] 4.4 `test_sata_mop_is_alias_of_widget`: `variants["sata_mop"] == variants["sata_mop_widget"]` (INV-APV-16)
 - [x] 4.5 Per-arm value tests: `ape_pure` (kill-switch true + RV offs), `sata` (frontier 0 / trigger false, no mop_data), `sata_mop_widget` (weights + reach off), `sata_mop_activity` (only A′ differs from widget), `sata_mop_act_frontier` (frontier 200 / mop_frontier 200 / trigger true)
-- [ ] 4.6 Properties tests (extend the existing `_push_properties` capture harness): `sata` writes `ape.frontierBoostWeight=0` + `ape.activityTriggerEnabled=false`; `ape_pure` writes `ape.apePureMode=true`; `sata_mop_act_frontier` writes `ape.mopFrontierWeight=200` + `ape.triggerMopFirst=true`; `seed` never appears in properties
-- [ ] 4.7 Command tests: `test_seed_passed_as_dash_s` (`_tool_config` has `seed=42` → `-s 42` after `--ape`), `test_no_seed_omits_dash_s` (INV-APV-18)
-- [ ] 4.8 Run `/rv-test-run aperv-tool`
+- [x] 4.6 Properties tests (extend the existing `_push_properties` capture harness): `sata` writes `ape.frontierBoostWeight=0` + `ape.activityTriggerEnabled=false`; `ape_pure` writes `ape.apePureMode=true`; `sata_mop_act_frontier` writes `ape.mopFrontierWeight=200` + `ape.triggerMopFirst=true`; `seed` never appears in properties
+- [x] 4.7 Command tests: `test_seed_passed_as_dash_s` (`_tool_config` has `seed=42` → `-s 42` after `--ape`), `test_no_seed_omits_dash_s` (INV-APV-18)
+- [x] 4.8 Run `/rv-test-run aperv-tool` — 61 passed (0 fail)
 
 ## 5. Seed investigation writeup (documentation) — issue #74 point 3
 

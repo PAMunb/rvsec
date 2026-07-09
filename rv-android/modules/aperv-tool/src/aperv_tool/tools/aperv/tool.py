@@ -599,7 +599,14 @@ class ApeRVTool(AbstractTool):
             lines.append("ape.mopDataPath=/data/local/tmp/static_analysis.json")
         for python_key, java_key in APERV_PROPERTY_MAPPING.items():
             if python_key in self._tool_config:
-                lines.append(f"{java_key}={self._tool_config[python_key]}")
+                value = self._tool_config[python_key]
+                # Serialize Python bools as lowercase true/false so the line matches what
+                # the jar's Config loader expects (arm flags are Python bools in the variant
+                # dicts; LLM keys are already lowercase strings). bool is an int subclass,
+                # so this branch must precede any numeric handling.
+                if isinstance(value, bool):
+                    value = "true" if value else "false"
+                lines.append(f"{java_key}={value}")
         properties_content = "\n".join(lines) + "\n"
 
         # Write to a temp file first because adb push requires a local file path.
@@ -669,6 +676,14 @@ class ApeRVTool(AbstractTool):
             "--ape",
             strategy,
         ]
+
+        # Seed propagation (INV-APV-18): a configured seed reaches Monkey as `-s <seed>`
+        # (parsed at Monkey.java:881-882, seeding RandomHelper) so paired-by-app runs are
+        # reproducible. This Monkey `-s` is distinct from the adb `-s <serial>` at arg[0].
+        # `seed` has no APERV_PROPERTY_MAPPING entry, so it never lands in ape.properties.
+        seed = self._tool_config.get("seed")
+        if seed is not None:
+            cmd_args += ["-s", str(seed)]
 
         # +15s grace period gives APE-RV time to flush its WTG model and exit
         # cleanly after --running-minutes expires. Without this buffer, the

@@ -618,3 +618,85 @@ class TestArmVariants:
         assert cfg["activity_trigger_enabled"] is True
         assert cfg["trigger_mop_first"] is True
         assert cfg["mop_data"] == "static_analysis"
+
+
+class TestSeedPropagation:
+    """Group 3: seed reaches the jar as -s <seed>, never ape.properties (INV-APV-18)."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+        self.tool.configure({"strategy": "sata", "throttle_ms": 200})
+
+    def _make_app(self, package="br.unb.cic.cryptoapp"):
+        app = MagicMock()
+        app.package_name = package
+        return app
+
+    def test_seed_passed_as_dash_s(self):
+        # INV-APV-18: -s <seed> appears after --ape <strategy>. (arg[0] -s is the adb
+        # serial flag — assert on the tail after --ape so the two do not collide.)
+        self.tool._tool_config["seed"] = 42
+        cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 60)
+        tail = cmd.args[cmd.args.index("--ape"):]
+        assert "-s" in tail
+        assert tail[tail.index("-s") + 1] == "42"
+
+    def test_no_seed_omits_dash_s(self):
+        # INV-APV-18: no seed configured → no -s in the Monkey args (after --ape).
+        cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 60)
+        tail = cmd.args[cmd.args.index("--ape"):]
+        assert "-s" not in tail
+
+
+class TestArmProperties:
+    """Group 4: arm-defining flags reach ape.properties (lowercased bools); seed excluded."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def _capture_properties(self, tmp_path, config, mop_json_pushed=False):
+        self.tool.configure(config)
+        captured = {}
+
+        def fake_push(local_path, device_path, device_serial, trace_file_path):
+            with open(local_path) as f:
+                captured["properties"] = f.read()
+
+        self.tool._push_file_to_device = fake_push
+        trace = str(tmp_path / "trace.bin")
+        open(trace, "w").close()
+        self.tool._push_properties("emulator-5554", trace, mop_json_pushed)
+        return captured["properties"]
+
+    def test_sata_arm_writes_reach_offs_lowercase(self, tmp_path):
+        # Spec scenario: arm-defining flags appear in properties for a baseline arm.
+        props = self._capture_properties(tmp_path, ApeRVTool.get_variants()["sata"])
+        assert "ape.frontierBoostWeight=0" in props
+        assert "ape.activityTriggerEnabled=false" in props
+        assert "ape.dynamicEpsilon=true" in props
+        assert "ape.mopDataPath" not in props
+
+    def test_ape_pure_writes_kill_switch_lowercase(self, tmp_path):
+        # Spec scenario: kill-switch flag appears in properties for ape_pure.
+        props = self._capture_properties(tmp_path, ApeRVTool.get_variants()["ape_pure"])
+        assert "ape.apePureMode=true" in props
+        assert "ape.frontierBoostWeight=0" in props
+        assert "ape.activityTriggerEnabled=false" in props
+
+    def test_act_frontier_writes_reach_package(self, tmp_path):
+        # Spec scenario: reach-package flags appear for sata_mop_act_frontier.
+        props = self._capture_properties(
+            tmp_path,
+            ApeRVTool.get_variants()["sata_mop_act_frontier"],
+            mop_json_pushed=True,
+        )
+        assert "ape.mopActivitySourceComponents=true" in props
+        assert "ape.mopFrontierWeight=200" in props
+        assert "ape.triggerMopFirst=true" in props
+        assert "ape.mopDataPath=/data/local/tmp/static_analysis.json" in props
+
+    def test_seed_not_written_to_properties(self, tmp_path):
+        # Spec scenario: seed is a CLI-only, Python-only key — never in ape.properties.
+        cfg = {**ApeRVTool.get_variants()["sata"], "seed": 42}
+        props = self._capture_properties(tmp_path, cfg)
+        assert "seed" not in props
