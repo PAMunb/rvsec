@@ -61,7 +61,7 @@ provenance check. No GATOR re-run and no producer change are required.
 
 - **Seed propagation** — the paired-by-app design requires the same seed per arm. Investigation
   (this change) confirms the `mop-fairtest` **jar already honors the seed**: `Monkey` parses `-s SEED`
-  (`Monkey.java:881-882`) and seeds both `mRandom` and APE's `RandomHelper` with it
+  (`Monkey.java:886-887`) and seeds both `mRandom` and APE's `RandomHelper` with it
   (`Monkey.java:731`, INV-EXPL-14). The defect is on the **rv-android side**: `_build_main_command`
   (tool.py:487-542) never emits `-s <seed>`, so `mSeed` stays `0` → non-deterministic
   (`Monkey.java:670-671`). This change wires a configured `seed` into the command. (Author decision — see

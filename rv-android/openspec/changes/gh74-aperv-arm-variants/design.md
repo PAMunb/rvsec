@@ -114,7 +114,7 @@ task once the sibling jar is available); until then the names are copied verbati
 **D6 — Seed wiring is included in this change (author decision beyond the issue's "verification-only"
 framing).** The issue scoped seed as investigation and said "if the defect is in the jar, file an issue in
 the APE-RV repo (the fix is not in this change)". The investigation's finding is the opposite: the
-**jar is correct** on `mop-fairtest` (it parses `-s SEED` at `Monkey.java:881-882` and seeds
+**jar is correct** on `mop-fairtest` (it parses `-s SEED` at `Monkey.java:886-887` and seeds
 `RandomHelper` at `Monkey.java:731`, INV-EXPL-14), so the conditional never fires. The defect is entirely
 in `aperv-tool._build_main_command`, which never emits `-s`. Because (a) it is rv-android code, (b) it is a
 one-line-shaped, well-understood append, and (c) it is a hard prerequisite of the paired-by-app experiment

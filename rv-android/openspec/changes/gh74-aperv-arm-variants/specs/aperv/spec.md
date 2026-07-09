@@ -367,7 +367,7 @@ configured, the command SHALL NOT include `-s`, preserving the current default w
 non-deterministically.
 
 The `mop-fairtest` APE-RV jar already honors a passed seed: `Monkey` parses `-s SEED`
-(`Monkey.java:881-882`), and when `mSeed != 0` it seeds both `Monkey.mRandom` and APE's `RandomHelper`
+(`Monkey.java:886-887`), and when `mSeed != 0` it seeds both `Monkey.mRandom` and APE's `RandomHelper`
 (`Monkey.java:731`, `RandomHelper.seed(mSeed)`, INV-EXPL-14) — so a fixed seed makes a run reproducible.
 The rv-android-side gap (the command never emitting `-s`) is what this requirement closes; no jar change
 is required.

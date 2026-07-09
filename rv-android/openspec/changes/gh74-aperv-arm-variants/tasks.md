@@ -23,7 +23,7 @@
 
 ## 3. Seed propagation (tool.py _build_main_command) — INV-APV-18
 
-- [x] 3.1 In `_build_main_command`, after the `--ape <strategy>` args, append `["-s", str(seed)]` when `seed = self._tool_config.get("seed")` is not None. Leave the command unchanged when no seed is configured (design D6; jar honors `-s` per Monkey.java:881-882 + RandomHelper.seed, INV-EXPL-14). `seed` has no `APERV_PROPERTY_MAPPING` entry so it is never written to `ape.properties`
+- [x] 3.1 In `_build_main_command`, after the `--ape <strategy>` args, append `["-s", str(seed)]` when `seed = self._tool_config.get("seed")` is not None. Leave the command unchanged when no seed is configured (design D6; jar honors `-s` per Monkey.java:886-887 + RandomHelper.seed, INV-EXPL-14). `seed` has no `APERV_PROPERTY_MAPPING` entry so it is never written to `ape.properties`
 
 ## 4. Guard + arm tests (tests/test_aperv_tool.py) — INV-APV-13, INV-APV-14, INV-APV-16, INV-APV-17, INV-APV-18
 
@@ -38,8 +38,8 @@
 
 ## 5. Seed investigation writeup (documentation) — issue #74 point 3
 
-- [ ] 5.1 Record the investigation finding (design D6, already captured): the `mop-fairtest` jar **honors** a passed seed (`Monkey.java:881-882` parses `-s SEED`; `Monkey.java:731` seeds `RandomHelper`, INV-EXPL-14) — the defect was rv-android-side (`_build_main_command` never emitted `-s`), closed by task 3.1. No APE-RV-repo issue is needed (the jar is correct); tick issue #74's seed-verification criterion
-- [ ] 5.2 If, at R1 cross-check (task 6.4), the built jar's `Config`/`Monkey` diverges from this finding (e.g. `-s` not parsed, or `RandomHelper` not seeded), THEN open an issue in the APE-RV repo and reference it here — otherwise mark N/A
+- [x] 5.1 Record the investigation finding (design D6, already captured): the `mop-fairtest` jar **honors** a passed seed (`Monkey.java:886-887` parses `-s SEED`; `Monkey.java:731` seeds `RandomHelper`, INV-EXPL-14) — the defect was rv-android-side (`_build_main_command` never emitted `-s`), closed by task 3.1. No APE-RV-repo issue is needed (the jar is correct); tick issue #74's seed-verification criterion. **Verified @2f95711**: parse at Monkey.java:886-887 (not 881-882 — citation drift corrected), RandomHelper.seed at :731, new Random(mSeed) at :697. Writeup: docs/20260708_gh74_seed_investigation.md
+- [x] 5.2 [N/A — jar verified correct @2f95711, no divergence] If, at R1 cross-check (task 6.4), the built jar's `Config`/`Monkey` diverges from this finding (e.g. `-s` not parsed, or `RandomHelper` not seeded), THEN open an issue in the APE-RV repo and reference it here — otherwise mark N/A
 
 ## 6. Verification
 
