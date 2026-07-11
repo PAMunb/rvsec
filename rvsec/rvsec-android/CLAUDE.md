@@ -17,10 +17,10 @@ Pure dependency/version glue for the Android side of RVSEC: no code of its own, 
 |---|---|---|
 | `rvsec-apk` | active | `rvsec-apk/CLAUDE.md` |
 | `rvsec-logger-logcat` | active | `rvsec-logger-logcat/CLAUDE.md` |
-| `rvsec-gator` | active | out of scope for this pass |
+| `rvsec-gator` | active | `rvsec-gator/CLAUDE.md` |
 | `rvsmart` | **DISCONTINUED** (still listed in `<modules>`, builds, but not documented here) | none |
 | `rvsec-frame-computer` | active | `rvsec-frame-computer/CLAUDE.md` |
-| `rvsec-instrumentation-dexlib2` | active (multi-module aggregator itself: `coverage-weaver`, `cli`, `dex-mutator`, `grammar-tests`, `descriptor-reader`, `advice-emitter`, `monitor-builder`, `multidex-merger`, `pointcut-engine`, `validator`) | out of scope for this pass |
+| `rvsec-instrumentation-dexlib2` | active — multi-module aggregator (dexlib2 weaver) | `rvsec-instrumentation-dexlib2/CLAUDE.md` |
 
 ## Shared versions (`<properties>`)
 
