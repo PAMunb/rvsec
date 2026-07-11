@@ -6,21 +6,18 @@ Logcat-based violation logger for runtime verification on Android devices.
 
 Implements the logging interface from `rvsec-core` using Android's logcat system.
 When an instrumented APK runs on a device/emulator, this logger outputs violation
-events with `RVSEC` error tags to logcat. The Python `rv-platform` module captures
-these tags in real-time via `adb logcat` to track specification violations and
-method coverage.
+events with the `RVSEC` tag to logcat. The Python `rv-platform` module captures
+this tag in real-time via `adb logcat` to track specification violations.
 
 ## Log Format
 
 Violations are logged as:
 ```
-E/RVSEC: <spec_name> violated at <class>.<method>(<signature>)
+V/RVSEC: <errorSummary>,<expecting>
 ```
 
-Coverage events:
-```
-I/RVSEC_COV: <class>.<method>(<signature>)
-```
+Coverage events (`RVSEC-COV`) are produced separately by the weaver's `Coverage.aj`,
+not by this module.
 
 ## Integration
 

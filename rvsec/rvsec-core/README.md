@@ -12,8 +12,10 @@ violation reporting interfaces, and shared constants. Acts as the common depende
 
 - **Error types**: Classification of runtime verification violations (property violations,
   API misuse patterns)
-- **Logger interfaces**: Abstract logging contract implemented by `rvsec-logger-csv`
-  and `rvsec-logger-logcat`
+- **Error collection**: `rvsec-logger-csv` and `rvsec-android/rvsec-logger-logcat` each
+  independently define their own `br.unb.cic.mop.eh.ErrorCollector` class under the same
+  fully-qualified name; exactly one is selected by the classpath at build/run time (csv or
+  logcat, never both) — not a shared interface
 - **Shared constants**: Specification set identifiers, error tag formats
 
 ## Build

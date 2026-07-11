@@ -5,7 +5,7 @@ of Android applications.
 
 ## Purpose
 
-Contains 336 `.mop` specification files defining properties to monitor at runtime.
+Contains 168 `.mop` specification files defining properties to monitor at runtime.
 These specs are compiled by `mop-maven-plugin` into runtime monitors that detect
 API misuse patterns during application execution.
 
@@ -20,9 +20,9 @@ Detect misuse of JCA cryptographic APIs:
 - MessageDigest used for password hashing
 - SSLContext with permissive TrustManager
 
-Example spec (`Cipher_Encrypt.mop`):
+Example spec (`CipherSpec.mop`):
 ```
-Cipher_Encrypt(Cipher c) {
+CipherSpec(Cipher c) {
     event init after(Cipher c) : call(* Cipher.init(int, ..)) && target(c) {}
     event encrypt after(Cipher c) : call(* Cipher.doFinal(..)) && target(c) {}
 
@@ -47,7 +47,7 @@ Additional API patterns added for Android-specific verification.
 ## Directory Structure
 
 ```
-src/main/mop/
+src/main/resources/
     jca/           — JCA cryptographic specs (23 files)
     generic/       — General API pattern specs (118 files)
     generic_new/   — Additional Android specs (27 files)

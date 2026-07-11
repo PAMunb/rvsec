@@ -18,7 +18,10 @@ mvn clean install
 
 ## Usage
 
-Configured in the rvsec parent POM to run during the `generate-sources` phase:
+This plugin exposes two goals: `mop-gen` (bound to the `generate-sources`
+phase, runs JavaMOP with `-merge` and RV-Monitor) and `agent-gen` (bound to
+the `process-classes` phase, runs `javamopagent` to build `JavaMOPAgent`).
+Configured in the rvsec parent POM:
 
 ```xml
 <plugin>
@@ -27,7 +30,8 @@ Configured in the rvsec parent POM to run during the `generate-sources` phase:
     <executions>
         <execution>
             <goals>
-                <goal>mop</goal>
+                <goal>mop-gen</goal>
+                <goal>agent-gen</goal>
             </goals>
         </execution>
     </executions>

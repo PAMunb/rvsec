@@ -1,37 +1,38 @@
 # rvsec-agent
 
-Runtime instrumentation agent for the RVSec framework. Provides the AspectJ-based
-monitoring infrastructure that gets woven into Android APKs during instrumentation.
+Runtime instrumentation agent for the RVSec framework. Provides the JSE `-javaagent`-based
+monitoring infrastructure generated from the JCA specs and exercised by the module's
+JUnit test suite via Surefire.
 
 ## Purpose
 
-rvsec-agent contains the runtime monitoring aspects and support classes that are
-injected into Android applications by the `rv-instrumentation` Python module. When
-an instrumented APK runs, these aspects intercept calls to monitored APIs (e.g.,
-JCA cryptographic operations) and log violations detected by RV-Monitor-generated
+rvsec-agent contains the generated runtime monitor classes and support classes that are
+loaded into the JVM via `-javaagent` when the module's JUnit tests run under Surefire.
+When a test runs, the agent intercepts calls to monitored APIs (e.g.,
+JCA cryptographic operations) and logs violations detected by RV-Monitor-generated
 monitors.
 
 ## Architecture
 
 The agent consists of:
 
-- **AspectJ aspects**: Pointcuts and advice that intercept method calls to monitored APIs
+- **Generated monitor** (`MultiSpec_1RuntimeMonitor.java`): Pure `-javaagent` bytecode
+  instrumentation (via `rv-monitor-rt`, with `aspectjweaver` explicitly excluded — this
+  module does not use AspectJ weaving) that intercepts calls to monitored APIs
 - **Monitor runtime**: Generated monitor classes from RV-Monitor that track property
   violations at runtime
-- **Logging bridge**: Outputs violation events via Android logcat using RVSEC error tags,
-  which are captured by rv-platform's logcat infrastructure
-- **Coverage aspect** (`Coverage.aj`): Tracks method execution coverage by logging
-  method entry events to logcat
+- **Logging bridge**: Outputs violation events via `rvsec-logger-csv`, captured in
+  `output/summary.csv`
 
 ## Integration
 
 ```
-.mop specs (rvsec-mop)
-    -> JavaMOP + RV-Monitor (rv-monitor-generator)
-    -> Generated monitors + aspects
-    -> Woven into APK (rv-instrumentation)
-    -> rvsec-agent runtime classes execute inside APK
-    -> Logcat output -> rv-platform captures coverage + violations
+.mop specs (rvsec-mop, jca set)
+    -> mop-maven-plugin (mop-gen + agent-gen)
+    -> Generated MultiSpec_1RuntimeMonitor.java + JavaMOPAgent.jar
+    -> Surefire runs JUnit tests with -javaagent:JavaMOPAgent.jar
+    -> rvsec-core + rvsec-logger-csv
+    -> output/summary.csv
 ```
 
 ## Build
@@ -43,10 +44,11 @@ cd rvsec
 mvn clean install -DskipTests
 ```
 
-The agent JAR is used by `rv-instrumentation` during the AspectJ weaving phase.
+The agent JAR (`JavaMOPAgent.jar`) is passed to Surefire via `-javaagent` when this
+module's JUnit tests run.
 
 ## Dependencies
 
 - `rvsec-core`: Shared domain models and interfaces
 - `rvsec-logger-csv`: CSV-based violation logging
-- AspectJ runtime (provided by the weaving process)
+- `rv-monitor-rt` (AspectJ weaver excluded — pure `-javaagent` instrumentation)
