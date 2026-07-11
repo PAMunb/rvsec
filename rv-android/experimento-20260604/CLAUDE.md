@@ -19,6 +19,8 @@ gh62 aspectj-grammar, fix `KeyManagerFactorySpec.mop`). README.md = runbook deta
 
 ## Estado (atualize ao avançar) — 2026-06-05
 
+> _Snapshot histórico as-of 2026-06-05 (momento do lançamento); o run foi concluído desde então — não reflete o estado final._
+
 - **Pré-processing: COMPLETO.**
   - Imagens 0.9.0 reconstruídas + **pushadas no Docker Hub** (rvandroid/ares/qtesting `{0.9.0,latest}`).
   - 169/169 instrumentados (dexlib2), 169/169 SA com reachability.
@@ -140,6 +142,8 @@ python3 scripts/rv_status.py --results results --prefix exp_ --tools 11 --reps 3
 
 ## Consolidação pós-run (obrigatória — por causa do gotcha #7)
 
+> _Aplica-se APENAS a este run (pré-gh65); superada para runs novos — ver gotcha #7._
+
 Os CSVs gerados dentro dos containers (`results/exp_NN/exp_NN/{summary,coverage,errors}.csv`)
 têm T=60 e T=180 **zerados** por causa do bug de resume. A verdade está nos **logcats por-timeout**
 (completos em disco) + `coverage_metrics` no `tasks.json`. Depois do experimento:
@@ -151,12 +155,11 @@ têm T=60 e T=180 **zerados** por causa do bug de resume. A verdade está nos **
    (existe no dataset). Ambos recuperáveis.
 
 ## Regras herdadas (CLAUDE.md raiz)
-- **★ NUNCA tomar decisão que altere parâmetro/config do experimento (memória, timeouts, tools,
-  reps, compose, .env, script) sem autorização EXPLÍCITA do usuário — é experimento científico,
-  decisão exclusiva dele. Diante de OOM/hang/falha: diagnosticar e REPORTAR com opções; esperar.
-  Ver gotcha #4 (erro do 8g→10g em 2026-06-08).**
-- **NUNCA** gerenciar emuladores Android manualmente — rv-platform cuida de tudo.
+- Regras gerais herdadas do CLAUDE.md raiz (emulador Android nunca gerenciado à mão, "MOP" = operações monitoradas, sem `Co-Authored-By`).
+- **★ Regra local do experimento — NUNCA tomar decisão que altere parâmetro/config do experimento
+  (memória, timeouts, tools, reps, compose, .env, script) sem autorização EXPLÍCITA do usuário — é
+  experimento científico, decisão exclusiva dele. Diante de OOM/hang/falha: diagnosticar e REPORTAR
+  com opções; esperar. Ver gotcha #4 (erro do 8g→10g em 2026-06-08).**
 - Análise estática roda só em APKs **originais** (`JOAO/APKs`), nunca instrumentados.
-- "MOP" = operações monitoradas (não "segurança"). Sem `Co-Authored-By` em commits.
 - Acesso às VMs: `gcloud compute ssh <vm> --project=research-318211 --zone=us-central1-f`
   (se travar sob carga, ver gotcha #9 — usar `ssh pedro@<IP_externo>` direto).

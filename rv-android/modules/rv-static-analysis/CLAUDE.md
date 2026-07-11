@@ -1,311 +1,44 @@
-# CLAUDE.md - rv-static-analysis Module
+# CLAUDE.md - rv-static-analysis
 
-This file provides guidance to Claude Code when working with the rv-static-analysis module.
+Guidance for Claude Code working in the rv-static-analysis module. See `rv-android/CLAUDE.md` for workspace-wide setup (uv sync, pytest, env vars, spec sets).
 
-## Module Overview
+## Purpose
+Runs unified GATOR static analysis on APKs and parses the single JSON output into `StaticAnalysisData` domain objects (reachability, windows, transitions, components). Feeds navigation guidance and MOP prioritization in rv-agent, and the coverage denominator in rv-coverage.
 
-The rv-static-analysis module runs unified GATOR-based static analysis on Android applications, producing a single JSON output with reachability, windows, and transitions data. It provides both analysis orchestration (running GATOR) and parsing (loading JSON into domain objects).
+- `StaticAnalyzer` (`analysis/static/static_analysis.py`) — orchestrates one GATOR invocation, produces `StaticAnalysisData`.
+- `RVStaticAnalysisConfig` (`config.py`) — Pydantic config.
+- Parser (`parser/static/static_analysis_parser.py`) — `parse_file()` / `StaticAnalysisParser`.
 
-### Purpose
+Authoritative JSON contract (schema + field semantics) lives with the producer: `rvsec/rvsec-android/rvsec-gator/CLAUDE.md` and `rv-android/openspec/specs/analysis/spec.md`. Section invariants (priority ordering, graceful degradation) are specified in `analysis/spec.md` — do not restate them here.
 
-- Run unified GATOR analysis client on Android APKs
-- Parse analysis JSON into `StaticAnalysisData` domain objects
-- Provide configuration management for the analysis pipeline
-- Enable navigation guidance and MOP prioritization in rv-agent
+## Config resolution
+Priority: (1) explicit params → (2) `rvsec_root` standard layout → (3) `RVSEC_HOME` → (4) cwd parent.
+Key fields: `rvsec_root`, `lib_dir`, `gator_dir`, `analysis_client_jar`, `android_jar`, `mop_dir`, `output_dir`, `jvm_memory` (default `8g`), `cg_algorithm` (`spark|cha|rta|vta`, default `spark`), `skip_wtg` (default `False`).
+`get_tool_command()` builds the GATOR command; standard layout expects `rv-android/lib/gator/{gator,rvsec-analysis-client.jar}` and `rvsec/rvsec-mop/src/main/resources/jca/`.
 
-### Key Features
+**`sys.executable` launcher:** `get_tool_command()` invokes the GATOR launcher with `sys.executable`, not literal `"python"` — avoids failures on systems without `/usr/bin/python` (clean Debian/Ubuntu, containers lacking `python-is-python3`).
 
-- **Single-Client Architecture**: One GATOR invocation produces all analysis data (reachability, windows, transitions) in a single JSON file
-- **Priority-Ordered Output**: Reachability written first, then windows, then transitions — timeout preserves the most critical data
-- **Graceful Degradation**: Parser recovers partial data when sections are missing (e.g., timeout killed analysis before transitions were written)
-- **File-Level Caching**: If output JSON already exists, analysis is skipped
-- **Optional WTG Skip**: `skip_wtg=True` (CLI flag `--skip-wtg`) appends `-clientParam skipWtg=true`, causing the GATOR client to emit reachability + `windows[]` and return without building the WTG. Intended for known-slow APKs where WTG construction is guaranteed to time out.
+## Parser semantics
+Parses four sections — `reachability`, `windows`, `transitions`, `components` — each independently via order-independent key lookup, plus a trailing `complete` flag (incomplete/truncated samples set it `False`). A missing/corrupt section (e.g. timeout killed GATOR mid-write) yields empty domain objects rather than a failure. The authoritative on-disk write order lives with the producer (`rvsec/rvsec-android/rvsec-gator/CLAUDE.md`).
 
-## Architecture
+- **`code_package` prefix filter:** only classes whose name starts with `code_package` are kept. Handles APKs where the manifest package differs from the implementation package (Godot: manifest `ir.hsn6.trans`, code `org.godotengine.godot`). rv-platform passes `app.code_package` (not `package_name`) for this reason.
+- **SignatureNormalizer** normalizes inner-class notation (`.` → `$`). GATOR already writes `$` via `SootClass.getName()`, so this is a safety-net no-op on well-formed output.
 
-### Directory Structure
+## CLI flags
+- `--cg-algorithm` (default `spark`) — call-graph algorithm.
+- `--analysis-timeout <s>` (gh55) — per-APK GATOR timeout; **required for standalone runs** (see caveat).
+- `--skip-wtg` (gh57) — appends `-clientParam skipWtg=true`; GATOR emits reachability + `windows[]` and returns without building the WTG (`transitions[]` empty). For known-slow APKs where WTG construction is guaranteed to time out.
 
-```
-rv-static-analysis/
-├── src/rv_static_analysis/
-│   ├── __init__.py              # Public API: StaticAnalyzer, RVStaticAnalysisConfig
-│   ├── __main__.py              # CLI entry point
-│   ├── config.py                # RVStaticAnalysisConfig (Pydantic model)
-│   ├── analysis/
-│   │   └── static/
-│   │       └── static_analysis.py  # StaticAnalyzer, StaticAnalysisResult
-│   └── parser/
-│       └── static/
-│           └── static_analysis_parser.py  # parse_file(), StaticAnalysisParser
-└── tests/
-    ├── conftest.py              # Test fixtures (parser, tmp_path helpers)
-    ├── test_config.py           # Configuration tests
-    ├── analysis/
-    │   └── static/
-    │       └── test_static_analysis.py  # Analyzer tests
-    ├── parser/
-    │   └── static/
-    │       └── test_static_analysis_parser.py  # Parser tests (55 tests)
-    └── resources/
-        └── cryptoapp.apk.json   # Reference analysis output for testing
-```
+### Standalone env-var caveat (gh55)
+`__main__` is argparse-based, not Click, so it does **not** honor `RV_SA_TIMEOUT` / `RV_JVM_MEMORY` when run directly (`uv run rv-static-analysis ...`). Those env vars only bridge through rv-experiment (gh55 §9 Click `envvar=`). For standalone runs use `--analysis-timeout` (added precisely to close this gap). Architectural fix tracked in `openspec/changes/gh-tbd-env-vars-architecture/`.
 
-### Core Components
+## Integration seams
+- **rv-android-core:** `App`, `StaticAnalysisData`/`Classes`/`Windows`/`WindowTransitionGraph`/`Components`, `SignatureNormalizer`, `EXTENSION_STATIC_ANALYSIS`, base analyzer/error/logging infra.
+- **rv-platform:** `StaticAnalysisComponent` calls `analyze()` in pre-processing, passing `app.code_package`.
+- **rv-agent:** WTG → `TransitionManager`/`NavigationGuidance`; MOP flags → `RVAgentVisitor` action prioritization.
+- **rv-coverage:** `Classes.methods` is the coverage denominator; `reachable` flag splits reachable vs unreachable.
 
-#### StaticAnalyzer (`analysis/static/static_analysis.py`)
-
-Orchestrates GATOR execution and produces `StaticAnalysisData`:
-
-```python
-from rv_static_analysis import StaticAnalyzer, RVStaticAnalysisConfig
-from rv_android_core.domain.app import App
-
-config = RVStaticAnalysisConfig(rvsec_root="/path/to/rvsec")
-app = App("/path/to/app.apk")
-analyzer = StaticAnalyzer(app=app, config=config, output_dir="/output")
-
-result = analyzer.analyze()
-if result.success:
-    static_data = analyzer.get_static_data()  # Returns StaticAnalysisData
-```
-
-#### RVStaticAnalysisConfig (`config.py`)
-
-Pydantic configuration model with priority-based path resolution:
-
-```python
-from rv_static_analysis.config import RVStaticAnalysisConfig
-
-# Priority order:
-# 1. Explicit parameters (highest)
-# 2. rvsec_root with standard layout
-# 3. RVSEC_HOME environment variable
-# 4. Current working directory parent
-
-config = RVStaticAnalysisConfig(
-    rvsec_root="/path/to/rvsec",
-    output_dir="/output",
-    jvm_memory="8g",         # JVM heap for GATOR (default: 8g)
-    validate_on_init=True    # Validate GATOR availability
-)
-
-# Build GATOR command
-cmd = config.get_tool_command("analysis", apk_path, output_file, code_package="com.example")
-```
-
-Key config fields: `rvsec_root`, `lib_dir`, `gator_dir`, `analysis_client_jar`, `android_jar`, `mop_dir`, `output_dir`, `jvm_memory`, `cg_algorithm` (default `spark`), `skip_wtg` (default `False`).
-
-**Python interpreter**: `get_tool_command()` uses `sys.executable` for the GATOR launcher invocation rather than the literal `"python"`. This avoids failures on systems without `/usr/bin/python` (clean Debian/Ubuntu, containers without `python-is-python3`).
-
-#### Parser (`parser/static/static_analysis_parser.py`)
-
-Parses unified JSON into `StaticAnalysisData`:
-
-```python
-from rv_static_analysis.parser.static.static_analysis_parser import parse_file
-
-# Convenience function (recommended)
-static_data = parse_file("/path/to/app.apk.json", "com.example.app")
-
-# Class-based API
-from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
-parser = StaticAnalysisParser()
-static_data = parser.parse_file("/path/to/app.apk.json", "com.example.app")
-```
-
-The parser processes three JSON sections:
-1. **reachability**: Classes, methods, component type/main flags, MOP reachability flags
-2. **windows**: Window definitions with widgets, event listeners, inputType, hint, entries, plus the XML attribute extensions `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` — populated for Spinner/AutoCompleteTextView and any widget carrying accessibility metadata
-3. **transitions**: WTG edges between windows with triggering events
-
-**Important**: The `code_package` parameter filters classes by prefix — only classes starting with `code_package` are included. This handles APKs where the manifest package differs from the implementation package (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`).
-
-**SignatureNormalizer** normalizes inner class notation (`.` → `$`) for consistent matching. The GATOR client writes `$` notation via `SootClass.getName()`, so the normalizer is a safety net — it should be a no-op on well-formed output.
-
-## JSON Output Format
-
-Analysis produces one JSON file per APK: `{app_name}.json`
-
-```json
-{
-  "reachability": [
-    {
-      "className": "com.example.MainActivity",
-      "componentType": "activity",
-      "isMain": true,
-      "methods": [
-        {
-          "name": "onCreate",
-          "signature": "<com.example.MainActivity: void onCreate(android.os.Bundle)>",
-          "reachable": true,
-          "reachesTarget": true,
-          "directlyReachesTarget": false
-        }
-      ]
-    }
-  ],
-  "windows": [
-    {
-      "id": 1234,
-      "name": "com.example.MainActivity",
-      "type": "ACTIVITY",
-      "isMain": true,
-      "widgets": [
-        {
-          "id": 5678,
-          "name": "buttonSubmit",
-          "type": "Button",
-          "text": "Submit",
-          "hint": "Click to submit",
-          "inputType": "none",
-          "entries": [],
-          "prompt": null,
-          "spinnerMode": null,
-          "contentDescription": "Submit form",
-          "tooltipText": null,
-          "listeners": [
-            {
-              "eventType": "click",
-              "handlerMethod": "<com.example.MainActivity$1: void onClick(android.view.View)>"
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "transitions": [
-    {
-      "sourceId": 1234,
-      "targetId": 5679,
-      "events": [
-        {
-          "widgetId": 5678,
-          "type": "click",
-          "handlerMethod": "<com.example.MainActivity: void showSettings(android.view.View)>"
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Development Commands
-
-### Running Tests
-
-```bash
-cd modules/rv-static-analysis
-
-# All tests
-uv run pytest tests/ -v
-
-# Parser tests (55 tests — includes baseline equivalence, normalizer safety net)
-uv run pytest tests/parser/ -v
-
-# Analyzer tests (13 tests)
-uv run pytest tests/analysis/ -v
-
-# Configuration tests (8 tests)
-uv run pytest tests/test_config.py -v
-```
-
-### CLI Usage
-
-```bash
-# Analyze single APK
-rv-static-analysis analyze --apk /path/to/app.apk --output /output
-
-# Batch analyze
-rv-static-analysis batch --apks-dir /path/to/apks --output /output
-
-# Verbose with summary
-rv-static-analysis analyze --apk app.apk --output /output --verbose --summary
-
-# Override per-APK GATOR timeout (gh55) — required for standalone runs
-rv-static-analysis batch --apks-dir /path/to/apks --output /output --analysis-timeout 1800
-
-# Skip WTG construction (gh57) — partial JSON: reachability + windows only, transitions[] empty
-rv-static-analysis analyze --apk app.apk --output /output --skip-wtg
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `RVSEC_HOME` | RVSEC installation root | `/home/user/rvsec` |
-| `ANDROID_HOME` | Android SDK path | `/opt/android-sdk` |
-| `RV_SA_TIMEOUT` | Per-APK GATOR timeout (seconds). **Honored only via rv-experiment** (gh55 §9 Click `envvar=` bridge). Standalone `uv run rv-static-analysis` ignores this var — use `--analysis-timeout` instead. | `1800` |
-| `RV_JVM_MEMORY` | JVM `-Xmx` for the GATOR subprocess (e.g. `4g`). Same standalone caveat as `RV_SA_TIMEOUT`. | `4g` |
-
-### Standalone Execution Caveat (gh55 gambiarra)
-
-`rv-static-analysis.__main__` is `argparse`-based, not Click. It does NOT honor `RV_*` env vars when invoked directly (`uv run rv-static-analysis ...`). The env-var path only works when invoked through `rv-experiment` (which has the gh55 §9 Click `envvar=` bridge). The architectural fix lives in the follow-up change at `openspec/changes/gh-tbd-env-vars-architecture/`. For standalone runs, use the explicit `--analysis-timeout` CLI flag (gh55 added it precisely to close this gap).
-
-### Standard Directory Layout
-
-```
-$RVSEC_HOME/
-├── rv-android/
-│   └── lib/
-│       └── gator/
-│           ├── gator                         # Python launcher script
-│           └── rvsec-analysis-client.jar     # Unified analysis client JAR
-└── rvsec/rvsec-mop/src/main/resources/jca/   # MOP specifications
-```
-
-### Validation
-
-Configuration validation checks:
-1. GATOR directory exists with Python launcher
-2. Analysis client JAR available
-3. Android SDK platforms directory with android.jar
-4. MOP specifications directory (for reachability analysis)
-
-## Integration Points
-
-### With rv-android-core
-
-- `App` domain model for APK metadata (package_name, code_package)
-- `StaticAnalysisData`, `Classes`, `Windows`, `WindowTransitionGraph` domain models
-- `EXTENSION_STATIC_ANALYSIS = ".json"` constant
-- `SignatureNormalizer` for inner class notation
-- `ErrorHandler`, `LoggingManager`, `BaseAnalyzer`
-
-### With rv-platform
-
-- `StaticAnalysisComponent` calls `StaticAnalyzer.analyze()` in pre-processing
-- Passes `app.code_package` (not `package_name`) to parser for correct class filtering
-
-### With rv-agent
-
-- `TransitionManager` uses WTG for navigation guidance
-- `RVAgentVisitor` uses MOP flags for action prioritization
-- `NavigationGuidance` provides unvisited-screen hints from WTG
-
-### With rv-coverage
-
-- `Classes.methods` defines the method universe (denominator for coverage %)
-- `reachable` flag distinguishes reachable vs unreachable methods
-
-## Error Handling
-
-- `StaticAnalysisException`: Analysis execution failures, including the defensive post-condition raised when GATOR returns but no output JSON exists at the expected path (signals a swallowed `CommandNotFoundError` or interpreter/launcher unreachable, preventing silent zero-coverage downstream)
-- `ConfigurationError`: Invalid configuration
-- Parser returns empty sections for missing/malformed JSON data (graceful degradation)
-- Timeout produces partial JSON — parser recovers whatever sections were written
-
-## Development Notes
-
-This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
-
-**Key points:**
-- Run `uv sync` from the project root to install all modules
-- Source code changes are reflected immediately (no reinstall needed)
-- Only reinstall if `pyproject.toml` dependencies change
-
-```bash
-# From project root
-uv sync             # Install/update all modules (also removes unused packages)
-```
+## Error handling
+- `StaticAnalysisException` — execution failures, **including the defensive post-condition** raised when GATOR returns but no output JSON exists at the expected path (catches a swallowed `CommandNotFoundError` / unreachable launcher, preventing silent zero-coverage downstream).
+- `ConfigurationError` — invalid config.
+- Parser returns empty sections for missing/malformed data; timeout produces partial JSON that the parser recovers.
