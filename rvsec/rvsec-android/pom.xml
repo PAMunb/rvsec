@@ -46,21 +46,6 @@
 			</dependency>
 			<dependency>
 				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-gesda-common</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-gesda-core</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>br.unb.cic</groupId>
-				<artifactId>rvsec-reachability</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>br.unb.cic</groupId>
 				<artifactId>rvsec-gator-commons</artifactId>
 				<version>${project.version}</version>
 			</dependency>

@@ -68,7 +68,7 @@
 	<build>
 		<finalName>${final.jar.name}</finalName>
 		<plugins>
-			<!-- Fat JAR (same pattern as rvsec-reachability) -->
+			<!-- Fat JAR (jar-with-dependencies assembly) -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
