@@ -77,7 +77,7 @@ if [[ ! -s "$CP_FILE" || "$VALIDATOR_DIR/pom.xml" -nt "$CP_FILE" ]]; then
   echo "[runner] resolving validator classpath..."
   (cd "$VALIDATOR_DIR" && mvn -q dependency:build-classpath -Dmdep.outputFile="$CP_FILE" >/dev/null)
 fi
-VALIDATOR_JAR="$VALIDATOR_DIR/target/validator-0.9.1-SNAPSHOT.jar"
+VALIDATOR_JAR="$VALIDATOR_DIR/target/validator-0.9.2-SNAPSHOT.jar"
 CP="$(cat "$CP_FILE"):$VALIDATOR_JAR"
 RUN_VALIDATOR=(java -cp "$CP" br.unb.cic.rv.validator.ValidationCli)
 

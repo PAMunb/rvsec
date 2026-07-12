@@ -1,4 +1,4 @@
-FROM phtcosta/rvandroid_tools:0.9.1
+FROM phtcosta/rvandroid_tools:0.9.2
 
 ENV RVSEC_HOME=/opt/rvsec
 

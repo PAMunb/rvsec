@@ -1,3 +1,3 @@
 #!/bin/env bash
 
-docker run -it --rm --device /dev/kvm phtcosta/rvandroid:0.9.1 bash
+docker run -it --rm --device /dev/kvm phtcosta/rvandroid:0.9.2 bash

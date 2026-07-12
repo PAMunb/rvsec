@@ -17,7 +17,7 @@ services:
       start_period: 30s
 
   rvandroid:
-    image: phtcosta/rvandroid:0.9.1
+    image: phtcosta/rvandroid:0.9.2
     container_name: rvandroid
     environment:
       - RV_TOOLS=${RV_TOOLS:-monkey}

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=0.9.1
+VERSION=0.9.2
 IMAGE=phtcosta/rvandroid_dev
 
 docker build -t $IMAGE:$VERSION -f $(dirname $0)/Dockerfile $(dirname $0)/../..

@@ -199,7 +199,7 @@ def main():
     p.add_argument("--reps", type=int, default=3)
     p.add_argument("--containers", type=int, default=6)
     p.add_argument("--spec-set", default="jca")
-    p.add_argument("--image", default="phtcosta/rvandroid:0.9.1")
+    p.add_argument("--image", default="phtcosta/rvandroid:0.9.2")
     p.add_argument("--cpus", default="4")
     p.add_argument("--memory", default="10g")
     p.add_argument("--with-sglang", action="store_true", help="inclui servico SGLang (braco LLM)")
