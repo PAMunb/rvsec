@@ -192,6 +192,8 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv`, and `summary.csv` MUST remain byte-identical to baseline; the diagnostic feature MUST NOT add columns to them.
 - **INV-PLT-20**: Diagnostic events MUST survive the resume reconstruction path — a task whose repository is rebuilt from its `.logcat` MUST still produce its `app_events.csv` rows.
 - **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set (no diagnostic tags passed).
+
+- **INV-PLT-22**: The `rv-platform run --timeouts` argument MUST be declared as a string and parsed into `List[int]` with the same rules as the rv-experiment CLI (comma split, whitespace trim, positive integers only, order preserved, no deduplication). Invalid input MUST abort with a CLI usage error before `PlatformConfig` construction.
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -711,4 +713,33 @@ diagnostics are enabled. When disabled, capture SHALL use the baseline tags.
 #### Scenario: Disabled flag uses baseline capture
 - **WHEN** `PlatformConfig.logcat_diagnostics` is `false` (default)
 - **THEN** `LogcatComponent` starts capture without passing diagnostic tags (baseline command emitted)
+
+### Requirement: Standalone CLI Timeout List (FR08)
+
+The `rv-platform run` command MUST expose `--timeouts` (string, comma-separated positive
+integers, default `"300"`) and MUST parse it into a `List[int]` assigned to
+`PlatformConfig.timeouts`. Parsing and validation MUST match the rv-experiment CLI behavior
+(INV-PLT-22), so a researcher can move an invocation between the two entry points without
+changing the flag value.
+
+The scalar flag `--timeout` MUST NOT exist on `rv-platform run` (hard rename, P3 — no alias).
+
+#### Scenario: Multiple Timeouts via Standalone CLI
+
+- **WHEN** the user runs `rv-platform run --tools monkey --apks-dir ./apks_examples --timeouts 60,300`
+  against a directory with 1 APK and default repetitions (1)
+- **THEN** `PlatformConfig.timeouts` MUST be `[60, 300]`
+- **AND** `Platform._generate_tasks()` MUST produce exactly 2 tasks (1 APK × 1 tool × 1 rep × 2
+  timeouts)
+
+#### Scenario: Invalid Timeout Rejected Before Platform Setup
+
+- **WHEN** the user runs `rv-platform run --tools monkey --timeouts 300,-5`
+- **THEN** the CLI MUST exit with a usage error stating timeouts must be positive integers
+- **AND** no `PlatformConfig` MUST be constructed and no task generation MUST occur
+
+#### Scenario: Old Scalar Flag No Longer Exists
+
+- **WHEN** the user runs `rv-platform run --tools monkey --timeout 300`
+- **THEN** argparse MUST reject the unknown argument `--timeout` with a usage error
 
