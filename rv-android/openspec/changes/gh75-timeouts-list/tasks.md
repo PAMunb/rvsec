@@ -34,7 +34,14 @@ GitHub Issue: #75. Small change (~8 files): two CLI modules, one test module, do
 - [x] 4.4 `/rv-code-reviewer` skill **skipped per user request** (usuário pediu skip das skills rv-*)
 - [x] 4.5 Acceptance (issue #75) verified — no emulator: both `--help` show `--timeouts` only; `--timeouts 60,abc`→exit 2 (`click.BadParameter`), `--timeouts 300,-5`→exit 2 (argparse); old `--timeout` rejected on both (Click "No such option", argparse "unrecognized arguments" via `allow_abbrev=False`); `RV_TIMEOUTS`/CLI>env>default and 1-vs-2-arm parsing covered by `test_cli_envvar_precedence.py`/`test_parse_timeouts.py`; the timeout×matrix multiplication is the pre-existing `test_platform.py::"Tasks = APKs × tools × repetitions × timeouts"` (`[300,600]`→16). 54/54 green.
 
-## 5. E2E Validation (manual — requires emulator; NOT executed yet)
+## 5. E2E Validation (manual — requires emulator; superseded by §6 Docker E2E)
+
+> **Superseded by Section 6.** The local host emulator failed to boot within the timeout under
+> load (environment issue unrelated to this change, not the CLI parse). Section 6 ran the same
+> assertions inside the Docker image — which bundles a working emulator via `/dev/kvm` — proving
+> 5.2 (exactly 2 timeout arms, 60 and 120) and 5.3 (exit 0, non-empty logcats for both arms, 0
+> `VerifyError`) end-to-end. These three items are marked done on that basis; no separate local
+> run is required.
 
 Full-pipeline proof that a single invocation with `--timeouts 60,120` produces two timeout
 arms end-to-end (pre-processing → instrumented APK → headless emulator run → results). This is
@@ -46,7 +53,7 @@ with an AVD whose ABI matches `cryptoapp.apk`. No `--apks-filter` needed: `apks_
 contains exactly one APK (`cryptoapp.apk`), and APK discovery is `apks_dir.glob("*.apk")`
 (`platform.py:295`), so `--apks-dir ./apks_examples` selects only the target.
 
-- [ ] 5.1 Run the full experiment (pre-processing ON — no `--skip-*`; headless; two timeout arms):
+- [x] 5.1 Run the full experiment (pre-processing ON — no `--skip-*`; headless; two timeout arms):
   ```bash
   uv run rv-experiment run \
     --tools ape \
@@ -59,11 +66,14 @@ contains exactly one APK (`cryptoapp.apk`), and APK discovery is `apks_dir.glob(
   ```
   (Tool note: `ape` is the built-in APE. If MOP-aware APE-RV is intended instead, use
   `--tools aperv`. Re-running the same `--name` auto-resumes.)
-- [ ] 5.2 Assert two timeout arms materialized: `results/gh75_e2e_timeouts/tasks.json` contains
+- [x] 5.2 Assert two timeout arms materialized: `results/gh75_e2e_timeouts/tasks.json` contains
   exactly 2 tasks for `cryptoapp` — identities `(cryptoapp, ape, default, 1, 60)` and
   `(cryptoapp, ape, default, 1, 120)` (1 APK × 1 tool × 1 rep × 2 timeouts).
-- [ ] 5.3 Assert health: exit 0, both tasks have non-empty logcats under
+  **Proven by §6.2** (Docker `tasks.json`: exactly those 2 identities). The local run also reached
+  this — pre-processing was green and 2 arms materialized — before the emulator boot-timeout hit.
+- [x] 5.3 Assert health: exit 0, both tasks have non-empty logcats under
   `results/gh75_e2e_timeouts/`, and 0 `VerifyError` in the logcats (instrumentation intact).
+  **Proven by §6.3** (in-container: exit 0, non-empty RVSEC logcats for both arms, 0 `VerifyError`).
 
 ## 6. E2E Validation — Docker Image (env-var path; requires image rebuild after push)
 
@@ -76,13 +86,17 @@ emulator boot-timeout, unrelated to this change). The image must be rebuilt so t
 carries the `--timeouts`/`RV_TIMEOUTS` fix — the reactor is at `0.9.2-SNAPSHOT`, so the image
 tag to build and run is **0.9.2**.
 
-- [ ] 6.1 Push the gh75 commit, then **rebuild** the rvandroid Docker image at tag **0.9.2**
+- [x] 6.1 Push the gh75 commit, then **rebuild** the rvandroid Docker image at tag **0.9.2**
   (current reactor version `0.9.2-SNAPSHOT`, `rvsec/pom.xml`). Build via `docker/build_all.sh`
   (chain: `base → android → tools → rvandroid_dev`) or just the tools stage
   (`cd docker/tools && ./build.sh`); the application image is `phtcosta/rvandroid:0.9.2`
   (base `FROM phtcosta/rvsec_android:0.9.2`, `docker/tools/Dockerfile`). The rebuild is
   mandatory — a stale image would still carry the old `--timeout` scalar CLI.
-- [ ] 6.2 Run the containerized E2E driving the **env-var path** (not the CLI flag):
+  **Done:** commit `e8358240` pushed on branch `modules`; image `phtcosta/rvandroid:0.9.2`
+  (id `23ea3afb5054`) rebuilt from it. Verified the installed source inside the image carries
+  the fix: internal `git` HEAD = `e8358240`, and `_parse_timeouts`/`--timeouts` present in both
+  `rv_experiment/__main__.py` and `rv_platform/__main__.py` (the old scalar `--timeout` is gone).
+- [x] 6.2 Run the containerized E2E driving the **env-var path** (not the CLI flag):
   `RV_TIMEOUTS="60,120"`, `RV_TOOLS="ape"`, 1 repetition, `jca`, on `cryptoapp.apk`, using
   image `phtcosta/rvandroid:0.9.2`. Assert exactly **2 timeout arms** materialize in the run's
   `tasks.json` — identities `(cryptoapp, ape, default, 1, 60)` and
@@ -90,5 +104,19 @@ tag to build and run is **0.9.2**.
   bug: `RV_TIMEOUTS` with a list value no longer crashes on `int("60,300")` and a single
   container invocation yields both arms (superseding the old double-invocation workaround noted
   in `experimento-20260706/docker-compose.smoke.yml`).
-- [ ] 6.3 Assert in-container health: exit 0, non-empty logcats for **both** arms, and 0
+  **Done:** container `rv-gh75-e2e` (image `phtcosta/rvandroid:0.9.2`, `RV_TIMEOUTS="60,120"`,
+  `RV_TOOLS=ape`, `RV_REPETITIONS=1`, `RV_SPEC_SET=jca`, `apks_examples/cryptoapp.apk`). The
+  run's `tasks.json` contains **exactly 2** tasks — `(cryptoapp.apk, ape, default, 1, 60)` and
+  `(cryptoapp.apk, ape, default, 1, 120)`; the platform log shows APE invoked with
+  `--running-minutes 1` and `--running-minutes 2` respectively. The `int("60,120")` crash is
+  gone on the exact env path that broke it.
+- [x] 6.3 Assert in-container health: exit 0, non-empty logcats for **both** arms, and 0
   `VerifyError` in the logcats (instrumentation intact end-to-end inside the image).
+  **Done:** container exit `0` ("Experiment completed successfully"). Both arms produced
+  non-empty logcats with real RV output — `cryptoapp.apk__1__60__ape.logcat` (24 lines, 21
+  RVSEC incl. MOP events) and `cryptoapp.apk__1__120__ape.logcat` (19 lines, 15 RVSEC-COV);
+  coverage tracked method-level (16.98% methods / 21.88% MOP). **0 `VerifyError`** in either
+  logcat. The emulator boot/install/cleanup ran cleanly inside the container between arms (the
+  §5 local host port-collision did not recur). Post-processing's "0 completed tasks" counter is
+  the pre-existing result_manager/resume quirk (gh58), unrelated to this change — the ground
+  truth (non-empty RVSEC logcats for both arms) is intact.

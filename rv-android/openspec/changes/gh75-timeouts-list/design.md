@@ -83,10 +83,19 @@ rv-experiment __main__.py            rv-platform __main__.py
 
 ## Decisions
 
-1. **String option + manual split, not Click callbacks or custom ParamType.** Mirrors `--tools`
-   exactly — the established repo pattern for list-valued options that must also arrive via a
-   single env var. A custom `ParamType` would work for Click but has no argparse counterpart,
-   breaking parity. Rejected: `multiple=True` (poor `envvar` interaction, no argparse parity).
+1. **String option + `_parse_timeouts` split, no custom ParamType.** Mirrors `--tools` — the
+   established repo pattern for list-valued options that must also arrive via a single env var.
+   A custom `ParamType` would work for Click but has no argparse counterpart, breaking parity.
+   Rejected: `multiple=True` (poor `envvar` interaction, no argparse parity). **Where the parse
+   runs differs per CLI, forced by each framework's error path:** rv-experiment wires
+   `_parse_timeouts` as a Click **`callback=`** (not a call inside `run()`), because `run()` is
+   wrapped by `@handle_errors`, which absorbs every exception and would turn a `BadParameter`
+   into a silent exit 0 — the callback runs during Click's parameter processing, before that
+   wrapper, so the usage error surfaces and exits 2 (INV-EXP-33 fail-fast). rv-platform wires it
+   as argparse **`type=_parse_timeouts`** (plus `allow_abbrev=False` on the `run` subparser), so
+   `parse_args()` raises the usage error and exits 2 before `PlatformConfig` is built, since
+   `cmd_run`'s `except` would otherwise return 1. Both satisfy "parse at the CLI boundary, fail
+   before setup"; the invariants do not mandate the mechanism.
 
 2. **Duplicate the ~6-line parser in each CLI, not a shared helper in rv-android-core.** P1:
    the `--tools` precedent already duplicates split logic per CLI; the two copies raise
@@ -129,11 +138,12 @@ def _parse_timeouts(raw: str) -> list[int]:
 - **Postconditions**: non-empty `list[int]`, all `> 0`, user order preserved.
 - **Errors**: `click.BadParameter` (Click renders usage + message, exit code 2).
 
-rv-platform flavor: identical body; error path calls `parser.error(...)` (or raises
-`argparse.ArgumentTypeError` if wired as `type=`) so argparse renders usage and exits 2.
-Wiring note: argparse `type=` callables run per-token — since the whole CSV is one token, a
-plain post-parse call in `_create_platform_config` is simpler and keeps the two flavors
-symmetric.
+rv-platform flavor: identical body, but raises `argparse.ArgumentTypeError` (Click's
+`BadParameter` has no argparse analogue). It is wired as the argument's `type=_parse_timeouts`
+so argparse runs it during `parse_args()` and renders the usage error (exit 2) before any
+`PlatformConfig` is built — the whole CSV is a single token, so the `type=` callable receives it
+whole. `allow_abbrev=False` on the `run` subparser stops the removed `--timeout` from being
+accepted as a prefix abbreviation of `--timeouts`.
 
 ### Click option (rv-experiment)
 
@@ -142,14 +152,17 @@ symmetric.
     "--timeouts",
     default=str(DEFAULT_TIMEOUT),
     envvar=ENV_TIMEOUTS,
+    callback=_timeouts_callback,  # parses to List[int] before @handle_errors-wrapped run()
     help=f'Execution timeouts in seconds, comma-separated (e.g. "300" or "60,300"; default: {DEFAULT_TIMEOUT})',
 )
 ```
 
-`run()` signature: `timeout: int` → `timeouts: str`. At config construction
-(`__main__.py:1133`): `timeouts=_parse_timeouts(timeouts)`. Parse early in `run()` so the
-failure precedes any setup and the parsed list is available for log lines (`__main__.py:542,606`
-display the list instead of the scalar).
+`_timeouts_callback` is a thin wrapper that calls `_parse_timeouts(value)` — Click runs it during
+parameter processing, so `run()` receives `timeouts` already as `List[int]`. `run()`'s signature
+becomes `timeouts: List[int]` (not `str`); it assigns the list straight to
+`ExperimentConfig.timeouts` and the log lines (`__main__.py:542,606`) display the list. The parse
+therefore precedes any experiment setup and, crucially, precedes the `@handle_errors` wrapper that
+would otherwise swallow the `BadParameter` (see Decision 1).
 
 ## Data Flow
 
