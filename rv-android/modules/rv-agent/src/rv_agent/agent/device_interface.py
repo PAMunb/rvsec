@@ -461,6 +461,77 @@ class DeviceInterface:
             self.logger.error(f"Keycode press failed: {e}")
             return False
 
+    def start_service(self, component: str) -> bool:
+        """
+        Start an Android service via ``am start-service`` (component triggering).
+
+        Dispatches ``adb shell am start-service -n <component>``. Used by the
+        component-trigger stagnation escape to reach MOP-reaching services without
+        going through the UI. ``am`` returns exit code 0 even on some failures and
+        prints ``Error:``/``Exception`` to stdout, so both signals are checked.
+
+        Args:
+            component: Explicit component name ``<package>/<class>``.
+
+        Returns:
+            True when the dispatch succeeded, False otherwise.
+        """
+        return self._run_am(["start-service", "-n", component])
+
+    def send_broadcast(self, component: str, action: Optional[str] = None) -> bool:
+        """
+        Send a broadcast via ``am broadcast`` (component triggering).
+
+        Dispatches ``adb shell am broadcast -n <component>`` (optionally with
+        ``-a <action>``). Used by the component-trigger stagnation escape to reach
+        MOP-reaching receivers.
+
+        Args:
+            component: Explicit component name ``<package>/<class>``.
+            action: Optional intent action to attach with ``-a``.
+
+        Returns:
+            True when the dispatch succeeded, False otherwise.
+        """
+        args = ["broadcast", "-n", component]
+        if action:
+            args += ["-a", action]
+        return self._run_am(args)
+
+    def _run_am(self, am_args: list[str]) -> bool:
+        """
+        Run an ``am`` subcommand over adb and report success.
+
+        ``am`` frequently exits 0 while printing ``Error:`` / ``Exception`` to
+        stdout on a failed dispatch, so success requires BOTH a zero return code
+        AND no error marker in the combined output.
+
+        Args:
+            am_args: The ``am`` argument vector (e.g. ``["start-service", "-n", c]``).
+
+        Returns:
+            True when the command dispatched cleanly, False otherwise.
+        """
+        import subprocess
+
+        cmd = ["adb", "-s", self.device_id, "shell", "am", *am_args]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        except Exception as e:
+            self.logger.error(f"am dispatch failed ({' '.join(am_args)}): {e}")
+            return False
+
+        combined = f"{result.stdout or ''}{result.stderr or ''}"
+        if result.returncode != 0 or "Error" in combined or "Exception" in combined:
+            self.logger.warning(
+                f"am dispatch reported failure ({' '.join(am_args)}): "
+                f"rc={result.returncode} out={combined.strip()!r}"
+            )
+            return False
+
+        self.logger.debug(f"am dispatch ok: {' '.join(am_args)}")
+        return True
+
     def swipe(
         self, start_x: int, start_y: int, end_x: int, end_y: int, duration: float = 0.5
     ) -> bool:

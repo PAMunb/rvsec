@@ -33,15 +33,15 @@
 
 ## 3. MOP-reach strategies + component triggering (INV-AGT-45..50)
 
-- [ ] 3.1 Implement A′ in `services/transition_manager.py`: `activity_has_mop(activity)` sourcing from `StaticAnalysisData.components.activities[].reaches_target` when `mop_activity_source_components=True`, additive to the existing widget/method source (port `MopData.java:385-389` from `ape-mop-fairtest`)
-- [ ] 3.2 Implement DIALOG→host-activity re-key in `TransitionManager` via WTG edges, applied before any MOP predicate/navigation lookup (INV-AGT-50, port of INV-MOP-25 semantics)
-- [ ] 3.3 Implement `MopFrontierScorer` in `ranking/scorers.py` (INV-AGT-46): `mop_frontier_weight` added only when target activity `activity_has_mop` AND unvisited in `DynamicStateGraph`; register with the pipeline (port `MopFrontierPass`)
-- [ ] 3.4 Implement E-mín MOP-first launch-queue ordering in `strategies/rvagent_strategy/rvagent_strategy.py` gated by `trigger_mop_first` (INV-AGT-47, port `SataAgent.selectTriggerCandidate:650-666`)
-- [ ] 3.5 Create `services/component_trigger.py`: plateau-gated (existing `PlateauDetector`) trigger of MOP-reaching services/receivers via `am start-service`/`am broadcast` through DeviceInterface; activities excluded; `component_percentage` cadence; dispatch-failure denylist (INV-AGT-48; assess E-ext exported-components inclusion here — open question in design.md)
-- [ ] 3.6 Implement static-data fail-fast at load (INV-AGT-49): structural validation of `classes`/`windows`/`wtg`/`components`, explicit error naming the invalid field; absent data keeps graceful degradation
-- [ ] 3.7 Add unit tests for 3.1-3.6 using `tests/fixtures/static_analysis/cryptoapp/` fixtures (extend fixture with `components` entries as needed)
-- [ ] 3.8 Run `/rv-doc-code modules/rv-agent/src/rv_agent/services/component_trigger.py`
-- [ ] 3.9 Run `/rv-test-run rv-agent`
+- [x] 3.1 Implement A′ in `services/transition_manager.py`: `activity_has_mop(activity)` sourcing from `StaticAnalysisData.components.activities[].reaches_target` when `mop_activity_source_components=True`, additive to the existing widget/method source (port `MopData.java:385-389` from `ape-mop-fairtest`)
+- [x] 3.2 Implement DIALOG→host-activity re-key in `TransitionManager` via WTG edges, applied before any MOP predicate/navigation lookup (INV-AGT-50, port of INV-MOP-25 semantics)
+- [x] 3.3 Implement `MopFrontierScorer` in `ranking/scorers.py` (INV-AGT-46): `mop_frontier_weight` added only when target activity `activity_has_mop` AND unvisited in `DynamicStateGraph`; register with the pipeline (port `MopFrontierPass`)
+- [x] 3.4 Implement E-mín MOP-first launch-queue ordering in `strategies/rvagent_strategy/rvagent_strategy.py` gated by `trigger_mop_first` (INV-AGT-47, port `SataAgent.selectTriggerCandidate:650-666`)
+- [x] 3.5 Create `services/component_trigger.py`: plateau-gated (existing `PlateauDetector`) trigger of MOP-reaching services/receivers via `am start-service`/`am broadcast` through DeviceInterface; activities excluded; `component_percentage` cadence; dispatch-failure denylist (INV-AGT-48; assess E-ext exported-components inclusion here — open question in design.md)
+- [x] 3.6 Implement static-data fail-fast at load (INV-AGT-49): structural validation of `classes`/`windows`/`wtg`/`components`, explicit error naming the invalid field; absent data keeps graceful degradation
+- [x] 3.7 Add unit tests for 3.1-3.6 using `tests/fixtures/static_analysis/cryptoapp/` fixtures (extend fixture with `components` entries as needed)
+- [x] 3.8 Run `/rv-doc-code modules/rv-agent/src/rv_agent/services/component_trigger.py`
+- [x] 3.9 Run `/rv-test-run rv-agent`
 
 ## 4. Exploration guards and caps (INV-AGT-51)
 

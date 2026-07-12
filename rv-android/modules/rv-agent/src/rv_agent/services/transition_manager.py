@@ -31,7 +31,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.domain.window import WindowType
 from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_android_core.util.error.exceptions import RVValidationError
 from rv_screen_parser.parser.screen.visitor.model import ItemAction, ScreenDescription
 
 # Max hops for MOP BFS path (matches Strategy A's MAX_BACKTRACK_HOPS)
@@ -65,6 +67,7 @@ class TransitionManager:
         self,
         static_data: Optional[StaticAnalysisData],
         dynamic_graph: DynamicStateGraph,
+        mop_activity_source_components: bool = False,
     ):
         """
         Initialize TransitionManager.
@@ -72,15 +75,22 @@ class TransitionManager:
         Args:
             static_data: Static analysis data (optional).
             dynamic_graph: Dynamic state graph for runtime tracking.
+            mop_activity_source_components: A′ flag (INV-AGT-45). When True,
+                ``activity_has_mop`` additionally sources MOP activities from
+                ``static_data.components.activities[].reaches_target``, on top of
+                the always-on widget/method reachability source.
 
         State:
             self.wtg: WindowTransitionGraph extracted from static data, or None.
             self._activity_to_window_id: Cache mapping runtime activity names
                 to static Window IDs. Populated lazily on first lookup.
             self._visited_activities: Set of activity names visited during exploration.
+            self._mop_activities_cache: Base-activity names that reach a monitored
+                operation, computed once on first ``activity_has_mop`` query.
         """
         self.static_data = static_data
         self.dynamic_graph = dynamic_graph
+        self.mop_activity_source_components = mop_activity_source_components
         self.logger = logging.getLogger(__name__)
 
         # Extract WTG from static data if available
@@ -93,6 +103,9 @@ class TransitionManager:
 
         # Track visited activities
         self._visited_activities: Set[str] = set()
+
+        # MOP-reaching base-activity set (A′ + DIALOG re-key), computed lazily.
+        self._mop_activities_cache: Optional[Set[str]] = None
 
         self.logger.info(
             f"TransitionManager initialized. "
@@ -167,6 +180,157 @@ class TransitionManager:
             activity: Activity name that was visited.
         """
         self._visited_activities.add(activity)
+
+    def activity_has_mop(self, activity: str) -> bool:
+        """
+        Report whether an activity reaches a monitored operation (A′, INV-AGT-45).
+
+        An activity is MOP-reaching when it appears in the precomputed MOP set,
+        which unions three sources (see ``_mop_reaching_activities``): the
+        always-on widget and method reachability, the component source
+        (``components.activities[].reaches_target``, gated by
+        ``mop_activity_source_components``), and DIALOG windows re-keyed to their
+        host activity (INV-AGT-50). Matching is on the base activity name (the
+        GATOR ``Activity#hash`` suffix is stripped), so a windowed key resolves to
+        the same activity a caller passes as a fully-qualified class name.
+
+        Args:
+            activity: Activity class name (e.g. "com.app.CryptoActivity").
+
+        Returns:
+            True when the activity reaches a monitored operation.
+        """
+        if not activity:
+            return False
+        return self._base_activity(activity) in self._mop_reaching_activities()
+
+    def _mop_reaching_activities(self) -> Set[str]:
+        """
+        Compute (once, then cache) the set of MOP-reaching base-activity names.
+
+        The set is the union of the widget/method reachability source (always on,
+        the Python analog of the per-class reachability aggregate in
+        ``MopData.java:385-389``), the component source (A′, gated by
+        ``mop_activity_source_components``), and the DIALOG re-key that transfers a
+        flagged dialog's MOP-ness to its host activity (INV-AGT-50). Recomputation
+        is unnecessary within a run because ``static_data`` is immutable.
+        """
+        if self._mop_activities_cache is not None:
+            return self._mop_activities_cache
+
+        mop: Set[str] = set()
+        if not self.static_data:
+            self._mop_activities_cache = mop
+            return mop
+
+        # Method source (pre-existing): activity classes whose own lifecycle /
+        # callback methods reach a monitored operation.
+        classes = getattr(self.static_data, "classes", None)
+        methods = getattr(classes, "methods", None) if classes else None
+        if methods:
+            for method in methods.values():
+                cls = getattr(method, "class_name", None)
+                if cls and (
+                    getattr(method, "directly_reaches_target", False)
+                    or getattr(method, "reaches_target", False)
+                ):
+                    mop.add(self._base_activity(cls))
+
+        # Widget source (pre-existing): activities hosting a MOP-reaching widget.
+        # A reaching widget wires an event to a handler in a class that may not be
+        # the activity itself, so this attributes MOP to the hosting activity.
+        window_list = self._window_list()
+        for window in window_list:
+            key = self._base_activity(window.activity or window.name)
+            if key not in mop and self._window_has_mop_widget(window):
+                mop.add(key)
+
+        # Component source (A′, INV-AGT-45): gated by the flag.
+        if self.mop_activity_source_components:
+            components = getattr(self.static_data, "components", None)
+            if components:
+                for comp in components.activities:
+                    if getattr(comp, "reaches_target", False) and comp.class_name:
+                        mop.add(self._base_activity(comp.class_name))
+
+        # DIALOG re-key (INV-AGT-50): a MOP-flagged dialog contributes to its host.
+        self._rekey_dialogs_to_host(mop)
+
+        self._mop_activities_cache = mop
+        return mop
+
+    def _window_list(self) -> List[Any]:
+        """Return the static window list, or an empty list when unavailable."""
+        windows = getattr(self.static_data, "windows", None)
+        window_list = getattr(windows, "windows", None) if windows else None
+        return list(window_list) if window_list else []
+
+    def _window_has_mop_widget(self, window: Any) -> bool:
+        """Report whether a window hosts a widget whose event reaches a MOP method."""
+        widgets = getattr(window, "widgets", None)
+        if not widgets:
+            return False
+        for widget in widgets.values():
+            for event in getattr(widget, "events", []) or []:
+                signature = getattr(event, "signature", None)
+                if not signature:
+                    continue
+                method = self._get_method(signature)
+                if method and (
+                    getattr(method, "directly_reaches_target", False)
+                    or getattr(method, "reaches_target", False)
+                ):
+                    return True
+        return False
+
+    def _rekey_dialogs_to_host(self, mop: Set[str]) -> None:
+        """
+        Transfer each MOP-flagged DIALOG window's MOP-ness to its host activity.
+
+        Port of ``MopData.rekeyDialogsToHost`` (INV-MOP-25 semantics). A DIALOG
+        window is not an activity a predicate can key on directly; a MOP flag
+        attached to the dialog would be invisible to activity-level predicates
+        without this re-key. The host is the source of the first incoming WTG edge
+        into the dialog window (first edge wins, matching the port). Orphan dialogs
+        (no incoming edge) keep only their own key.
+
+        Args:
+            mop: The MOP-activity set, mutated in place with the resolved hosts.
+        """
+        if not self.wtg:
+            return
+        window_list = self._window_list()
+        if not window_list:
+            return
+
+        by_id = {w.id: w for w in window_list}
+        hosts_to_add: Set[str] = set()
+        for window in window_list:
+            if getattr(window, "type", None) != WindowType.DIALOG:
+                continue
+            if self._base_activity(window.name) not in mop:
+                continue  # only MOP-flagged dialogs transfer to their host
+            host = self._host_activity_for_window(window.id, by_id)
+            if host:
+                hosts_to_add.add(self._base_activity(host))
+        mop.update(hosts_to_add)
+
+    def _host_activity_for_window(
+        self, window_id: str, by_id: Dict[str, Any]
+    ) -> Optional[str]:
+        """Return the activity of the first WTG source that transitions into a window."""
+        for transition in self.wtg.get_transitions():
+            if transition.get("target") == window_id:
+                source = by_id.get(transition.get("source"))
+                if source is not None:
+                    return source.activity or source.name
+        return None
+
+    @staticmethod
+    def _base_activity(name: str) -> str:
+        """Strip the GATOR window suffix (``Activity#hash`` -> ``Activity``)."""
+        idx = name.find("#")
+        return name[:idx] if idx >= 0 else name
 
     def get_unvisited_targets(self, current_activity: str) -> List[Dict[str, Any]]:
         """
@@ -790,3 +954,52 @@ class TransitionManager:
             )
 
         return summary
+
+
+# Required top-level fields of the static-analysis contract. `classes`, `windows`,
+# and `wtg` are enforced by the Pydantic model; `components` has a default factory
+# so it is always present but its entries are re-checked below (INV-AGT-49).
+_REQUIRED_STATIC_FIELDS = ("classes", "windows", "wtg", "components")
+
+
+def validate_static_data(static_data: Optional[StaticAnalysisData]) -> None:
+    """
+    Fail-fast structural validation of static-analysis data at load (INV-AGT-49).
+
+    A present-but-invalid ``StaticAnalysisData`` must abort the run with an
+    explicit error naming the offending field, rather than degrade silently and
+    produce misleading exploration. Absence of static data entirely is a
+    supported degraded mode (WTG guidance disabled) and returns without error —
+    absence and invalidity are deliberately distinct (see the delta spec
+    scenarios "Invalid Components Field Aborts" / "Absent Static Data Degrades
+    Gracefully").
+
+    The Pydantic model already guarantees ``classes``/``windows``/``wtg`` are
+    present and structurally valid; this boundary guard additionally rejects a
+    ``components`` catalog carrying a component with an empty ``class_name`` — a
+    shape that can only arise from malformed producer output bypassing model
+    validation, and that would break the ``activity_has_mop`` / component-trigger
+    keys downstream.
+
+    Args:
+        static_data: The loaded static-analysis data, or None.
+
+    Raises:
+        RVValidationError: A required field is missing or a component entry has an
+            empty ``class_name``; the message names the invalid field.
+    """
+    if static_data is None:
+        return  # absence is a supported degraded mode (WTG guidance disabled)
+
+    for field in _REQUIRED_STATIC_FIELDS:
+        if getattr(static_data, field, None) is None:
+            raise RVValidationError(
+                f"static analysis data is invalid: required field '{field}' is missing"
+            )
+
+    for comp in static_data.components.get_all():
+        if not getattr(comp, "class_name", None):
+            raise RVValidationError(
+                "static analysis data is invalid: field 'components' has a "
+                "component with an empty or missing class_name"
+            )

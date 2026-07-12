@@ -44,7 +44,10 @@ from rv_agent.routing.fallback_manager import FallbackManager
 from rv_agent.routing.routing_manager import RoutingManager
 from rv_agent.services.navigation_guidance import NavigationGuidance
 from rv_agent.services.screen_analyzer import ScreenProcessor
-from rv_agent.services.transition_manager import TransitionManager
+from rv_agent.services.transition_manager import (
+    TransitionManager,
+    validate_static_data,
+)
 from rv_agent.services.vision_service import ImageHandler
 from rv_agent.strategies.strategy_registry import StrategyRegistry
 from rv_android_core.domain.static import StaticAnalysisData
@@ -101,6 +104,10 @@ class AgentFactory:
         """
         logger.info("AgentFactory: Creating RVAgent instance")
 
+        # Fail-fast on present-but-invalid static data (INV-AGT-49), before any
+        # device time. Absent static data is a supported degraded mode (no-op).
+        validate_static_data(static_data)
+
         # Validate configuration
         mode = config.get_agent_mode()
         if mode not in ["pure_algorithm", "llm_only", "multimode"]:
@@ -121,9 +128,12 @@ class AgentFactory:
         )
         logger.info("Created DynamicStateGraph")
 
-        # Create transition manager (integrates WTG with dynamic graph)
+        # Create transition manager (integrates WTG with dynamic graph). The A′
+        # flag (INV-AGT-45) widens activity_has_mop to the component source.
         transition_manager = TransitionManager(
-            static_data=static_data, dynamic_graph=dynamic_graph
+            static_data=static_data,
+            dynamic_graph=dynamic_graph,
+            mop_activity_source_components=config.mop_activity_source_components,
         )
         logger.info("Created TransitionManager")
 

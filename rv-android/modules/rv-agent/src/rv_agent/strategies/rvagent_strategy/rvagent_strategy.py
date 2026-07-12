@@ -1133,6 +1133,39 @@ class RVAgentStrategy(ExplorationStrategy):
                 activities.add(node.activity)
         return activities
 
+    def order_activity_launch_queue(self, activities: List[str]) -> List[str]:
+        """
+        Order the activity launch queue MOP-first (E-mín, INV-AGT-47).
+
+        Port of ``SataAgent.selectTriggerCandidate`` ordering semantics: when
+        ``trigger_mop_first`` is set, activities that reach a monitored operation
+        (``TransitionManager.activity_has_mop`` — the A′-augmented predicate) are
+        launched before all others. The partition is stable, so relative order
+        within the MOP group and within the non-MOP group is unchanged. With the
+        flag off (or no ``TransitionManager``), the queue is returned untouched.
+
+        Activities are launched through the normal launcher; this ordering never
+        uses component-trigger intents (those dispatch non-activity components).
+
+        Args:
+            activities: The activity launch queue, in its natural order.
+
+        Returns:
+            A new list ordered MOP-first when ``trigger_mop_first`` is set,
+            otherwise a copy of the input order.
+        """
+        if not self.config.trigger_mop_first or not self.transition_manager:
+            return list(activities)
+
+        mop_first: List[str] = []
+        rest: List[str] = []
+        for activity in activities:
+            if self.transition_manager.activity_has_mop(activity):
+                mop_first.append(activity)
+            else:
+                rest.append(activity)
+        return mop_first + rest
+
     def _prepare_input_action(
         self, action: ItemAction, current_hash: str
     ) -> Optional[ItemAction]:

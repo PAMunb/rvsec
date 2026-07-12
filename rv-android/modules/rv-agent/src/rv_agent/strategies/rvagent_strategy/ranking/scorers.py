@@ -163,6 +163,59 @@ class WtgScorer(Scorer):
         return 0.0
 
 
+class MopFrontierScorer(Scorer):
+    """
+    Additive frontier boost toward MOP-reaching unvisited activities (INV-AGT-46).
+
+    Port of APE-RV ``MopFrontierPass`` (branch ``mop-fairtest``): the strictly
+    narrower sibling of the generic frontier boost. It adds ``mop_frontier_weight``
+    to an action ONLY when the action's resolved WTG target activity is BOTH
+    MOP-reaching (``TransitionManager.activity_has_mop``) AND unvisited (no node in
+    the dynamic state graph — read here from ``context.visited_activities``, which
+    is derived from graph activity nodes). The boost is independent of and additive
+    with the generic frontier / WTG boosts; it never overwrites them.
+
+    Gated by ``mop_frontier_weight`` (default 0.0 → scorer excluded from the
+    pipeline, byte-identical to absent). ``pure_mode`` forces the weight to 0, so
+    the scorer excludes itself and the pure arm never sees the boost.
+    """
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize MopFrontierScorer.
+
+        Args:
+            config: Optional config supplying ``mop_frontier_weight``.
+        """
+        self.weight = config.mop_frontier_weight if config else 0.0
+
+    def is_enabled(self, config: "RVAgentConfig") -> bool:
+        """Active only while the frontier weight is non-zero (pure_mode zeroes it)."""
+        return config.mop_frontier_weight > 0
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        tm = context.transition_manager
+        if tm is None or getattr(tm, "wtg", None) is None:
+            return 0.0
+
+        # Resolve the action's WTG target activity via the same navigation
+        # guidance the WtgScorer consults. A suggestion carries the target
+        # activity for the on-screen action it was matched to.
+        guidance = tm.get_navigation_guidance(
+            current_activity=context.screen_desc.activity,
+            screen_desc=context.screen_desc,
+        )
+        for suggestion in guidance.get("suggested_actions", []):
+            if suggestion.get("action_id") != action.id:
+                continue
+            target = suggestion.get("target_activity")
+            if not target or target in context.visited_activities:
+                return 0.0  # unresolved or already-visited target: no frontier boost
+            return self.weight if tm.activity_has_mop(target) else 0.0
+
+        return 0.0
+
+
 class GradualDecayScorer(Scorer):
     """
     Scores actions with gradual decay based on visit count.

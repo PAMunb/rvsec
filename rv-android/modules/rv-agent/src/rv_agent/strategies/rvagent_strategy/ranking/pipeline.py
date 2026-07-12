@@ -40,6 +40,7 @@ from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     ComponentPriorityScorer,
     CoverageDensityScorer,
     GradualDecayScorer,
+    MopFrontierScorer,
     MopScorer,
     SaturationScorer,
     Scorer,
@@ -127,6 +128,7 @@ class ScoringPipeline:
         # themselves once their weights are 0 (which pure_mode guarantees).
         candidates: List[Scorer] = [
             MopScorer(config=config),
+            MopFrontierScorer(config=config),
             WtgScorer(config=config),
             SaturationScorer(config=config),
             ComponentPriorityScorer(config=config),
