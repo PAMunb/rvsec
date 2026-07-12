@@ -60,7 +60,8 @@
 - [ ] 5.5 Add `decision_source` attribution (fair-test E): exactly one value per executed decision, taxonomy and precedence (MOP > WTG > Menu > Form > Coverage; plus `component_trigger`, `llm`, `base`) identical to the aperv `.trace`; wire through `metrics/exporter.py` and the per-step trace CSV
 - [ ] 5.6 Add per-step timing (`clock=`) to the trace
 - [ ] 5.7 Add unit tests: seed reproducibility (same fixture+seed ⇒ same sequence), density counting, form convergence, typed input, attribution precedence, pure-arm attribution = `base`
-- [ ] 5.8 Run `/rv-test-run rv-agent`
+- [ ] 5.8 Wire `ComponentTriggerService` into the exploration loop (delivered as a unit in 3.5 but not yet instantiated or called — INV-AGT-48 is unit-verified but never exercised at runtime): instantiate it in `AgentFactory`/strategy and call `maybe_trigger(...)` gated on `PlateauDetector.is_plateau_reached()` in the `execute`/`learn` node; when it returns non-None (a dispatch happened) set `decision_source='component_trigger'` (match 5.5) and feed `PlateauDetector.record_iteration` as progress so a successful trigger resets stagnation. Include an E2E `am`-dispatch smoke gate via rv-experiment — a unit test with a mocked `DeviceInterface` does NOT catch the real `am start-service` background-start restriction on API ≥ 26/30
+- [ ] 5.9 Run `/rv-test-run rv-agent`
 
 ## 6. Launcher with dose/denylist
 
@@ -77,6 +78,7 @@
 - [ ] 7.5 Run `/rv-test-run rvagent-tool`
 - [ ] 7.6 E2E gate (pure arm): `uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeouts 60` — completes with trace containing only `decision_source=base`, `[RV-ARCH]` audit line present, teardown clean
 - [ ] 7.7 Local calibration smoke for `mop_frontier_weight` × `frontier_boost_weight` interaction (cryptoapp, both weights on): record chosen weights in design.md; freeze any additional steering arms (arm-neutral names) based on the result — MANDATORY before any comparison with aperv
+  - MOP census gate (E-ext reopening condition): during this calibration, measure the fraction of `apks_examples/` APKs with ≥1 MOP-reaching (`reaches_target=True`) service/receiver. E-ext (exported non-MOP components) was deliberately kept OUT — the port is a faithful census-only reading of aperv ("Exported status is NOT consulted"). If the census is too sparse (the component trigger almost never fires), reopen E-ext as its OWN `arm_defining` flag (e.g. `component_trigger_exported`), NEVER folded under `component_trigger_enabled` — a shared gate would contaminate the arm. Reopening is conditional on this empirical result, not assumed.
 - [ ] 7.8 Run `/rv-verify rvagent-tool`
 
 ## 8. LLM mode block (LAST by decision)

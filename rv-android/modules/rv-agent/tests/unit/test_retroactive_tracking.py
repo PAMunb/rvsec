@@ -15,6 +15,7 @@ import pytest
 from rv_agent import tracking as track
 from rv_agent.agent.dynamic_state_graph import DynamicStateGraph
 from rv_agent.domain.screen_node import ScreenNode
+from support_config import make_agent_config
 
 
 @pytest.fixture(autouse=True)
@@ -31,46 +32,8 @@ def reset_tracking_counters():
 
 
 def _make_config(**overrides):
-    """Create a minimal mock RVAgentConfig with defaults for RVAgentStrategy."""
-    cfg = MagicMock()
-    cfg.seed = None
-    cfg.plateau_window = 10
-    cfg.max_input_variations = 3
-    cfg.mop_max_input_variations = 11
-    cfg.stochastic_probability = 0.15
-    cfg.stochastic_temperature = 1.0
-    cfg.backtrack_saturation_threshold = 0.8
-    cfg.package_name = "com.example.app"
-    cfg.device_dimensions = (1080, 1920)
-    cfg.scroll_probability = 0.15
-    cfg.multi_value_saturation_threshold = 4
-    # Scorer config fields used by ActionRanker scorers
-    cfg.mop_direct_score = 500
-    cfg.mop_transitive_score = 300
-    cfg.wtg_guided_score = 150
-    cfg.unsaturated_bonus = 100
-    cfg.component_high_priority = 50
-    cfg.component_medium_priority = 40
-    cfg.strength_weight = 50
-    cfg.gradual_decay_base = 200
-    cfg.gradual_decay_rate = 0.7
-    cfg.gradual_decay_min_visits = 5
-    cfg.coverage_density_weight = 200
-    cfg.visitation_penalty_factor = 15
-    cfg.reward_gamma = 0.8
-    cfg.reward_n_steps = 5
-    cfg.reward_score_weight = 1.0
-    cfg.max_re_enables = 6
-    cfg.coverage_threshold = 0.9
-    cfg.ui_coverage_threshold = 0.9
-    cfg.mop_nav_weight = 2.0
-    cfg.mop_nav_cooldown = 3
-    cfg.mop_bfs_depth_limit = 5
-    cfg.max_backtrack_hops = 8
-    cfg.max_coverage_hops = 5
-    for key, value in overrides.items():
-        setattr(cfg, key, value)
-    return cfg
+    """Create a real RVAgentConfig with test defaults (shared factory)."""
+    return make_agent_config(package_name="com.example.app", **overrides)
 
 
 def _make_strategy(config=None):

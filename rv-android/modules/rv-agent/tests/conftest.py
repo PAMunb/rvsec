@@ -19,6 +19,9 @@ import pytest
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add the tests/ directory itself so the shared `support_config` factories are
+# importable as a top-level module from any test file (conftest loads first).
+sys.path.insert(0, str(Path(__file__).parent))
 
 
 # =============================================================================

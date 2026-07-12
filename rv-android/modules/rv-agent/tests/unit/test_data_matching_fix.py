@@ -30,6 +30,7 @@ from rv_agent.memory.element_id import make_element_id
 from rv_agent.memory.ui_coverage import UICoverageTracker
 from rv_agent.services.transition_manager import TransitionManager
 from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrategy
+from support_config import make_agent_config
 
 # ---------------------------------------------------------------------------
 # Shared helpers (mirrors test_plateau_detection_fix.py conventions)
@@ -37,37 +38,8 @@ from rv_agent.strategies.rvagent_strategy.rvagent_strategy import RVAgentStrateg
 
 
 def _make_config(**overrides):
-    """Create a minimal mock config for RVAgentStrategy."""
-    config = MagicMock()
-    config.seed = None
-    config.plateau_window = 10
-    config.max_input_variations = 3
-    config.mop_max_input_variations = 11
-    config.stochastic_probability = 0.15
-    config.stochastic_temperature = 1.0
-    config.package_name = "com.test.app"
-    config.device_dimensions = (1080, 1920)
-    config.scroll_probability = 0.15
-    config.backtrack_saturation_threshold = 0.8
-    config.max_re_enables = 6
-    config.ui_coverage_threshold = 0.9
-    config.mop_direct_score = 500.0
-    config.mop_transitive_score = 300.0
-    config.wtg_guided_score = 150.0
-    config.unsaturated_bonus = 100.0
-    config.visitation_penalty_factor = -15.0
-    config.strength_weight = 50.0
-    config.gradual_decay_base = 200.0
-    config.gradual_decay_rate = 0.7
-    config.gradual_decay_min_visits = 5
-    config.component_high_priority = 50.0
-    config.component_medium_priority = 40.0
-    config.reward_gamma = 0.8
-    config.reward_score_weight = 1.0
-    config.coverage_density_weight = 200.0
-    for k, v in overrides.items():
-        setattr(config, k, v)
-    return config
+    """Create a real RVAgentConfig with test defaults (shared factory)."""
+    return make_agent_config(**overrides)
 
 
 def _make_strategy():

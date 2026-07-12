@@ -10,32 +10,28 @@ import pytest
 from rv_agent.agent.agent_factory import AgentFactory
 from rv_agent.agent.device_interface import DeviceInterface
 from rv_agent.agent.rv_agent import RVAgent
-from rv_agent.config.agent_config import RVAgentConfig
+from support_config import make_config_mock
 
 
 @pytest.fixture
 def base_config():
-    """Create base configuration for testing."""
-    config = MagicMock(spec=RVAgentConfig)
+    """Base config mock seeded with real RVAgentConfig defaults.
+
+    A mock (not a real config) because the factory tests patch
+    ``get_agent_mode``; every field beyond the few overridden here comes from
+    the model defaults, so new config fields need no change here.
+    """
+    config = make_config_mock(
+        package_name="com.example.app",
+        strategy="dfs",
+        timeout=100,
+        screenshot_dir="/tmp/screenshots",
+        max_external_attempts=3,
+        plateau_window=5,
+        prompt_version="v12",
+        stochastic_probability=0.3,
+    )
     config.get_agent_mode.return_value = "pure_algorithm"
-    config.package_name = "com.example.app"
-    config.device_id = "emulator-5554"
-    config.strategy = "dfs"
-    config.timeout = 100
-    config.screenshot_dir = "/tmp/screenshots"
-    config.screenshot_rotation_limit = 50
-    config.device_dimensions = (1080, 1920)
-    config.optimized_dimensions = (704, 1248)
-    config.max_external_attempts = 3
-    config.plateau_window = 5
-    config.max_input_variations = 3
-    config.llm_timeout = 30.0
-    config.prompt_version = "v12"
-    config.stochastic_probability = 0.3
-    config.stochastic_temperature = 1.0
-    config.multi_value_saturation_threshold = 4
-    config.max_short_term_iterations = 10
-    config.max_long_term_states = 1000
     return config
 
 
