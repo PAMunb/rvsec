@@ -89,6 +89,33 @@ python3 scripts/rv_status.py --results results --prefix exp_ \
     --apks 219 --tools 11 --reps 3 --timeouts 60,180,300 [--watch 30] [--json]
 ```
 
+O `health_check.py` (cron horário) anexa a cada ciclo no `MONITORAMENTO.md` o
+**formato-padrão de progresso (v2.1, definido 2026-07-08)**: **uma tabela curta por
+VM** (`### mN`) com granularidade por **container** + linha `**total**`, seguidas de uma
+**tabela-resumo geral** (1 linha por VM + `TOTAL`). Tabelas curtas evitam a quebra de
+tabelas altas em alguns visualizadores.
+
+Tabela por VM (`### mN`):
+
+| container | docker | timeout 60·180·300 | ok | err | feito | alvo | % |
+|-----------|--------|--------------------|----:|----:|------:|-----:|--:|
+
+- **container** = `exp_00..03`; **docker** = estado do container (`Up`, `exit`=OOM a recuperar, `gone`/`dead`). A linha `**total**` agrega a VM.
+- **timeout 60·180·300** = `feito` (ok+err) de cada uma das 3 passadas de timeout, SEMPRE nas 3 posições (uma passada não iniciada aparece como `0`). Como as passadas rodam **sequenciais**, esta célula revela onde o container está no ciclo. Alvo por passada = `alvo/3`.
+- **ok** = COMPLETED; **err** = ERROR (a maioria transitória: `emulator/boot`, `install/adb`, esperam mop-up); **feito** = ok+err.
+- **alvo** = APKs do container × 11 tools × 3 reps × 3 passadas (lista autoritativa). Container com 14 APKs → 1.386; com 13 → 1.287.
+- **%** = feito ÷ alvo. Consistência: por container, `p60+p180+p300 = feito`.
+
+Tabela-resumo geral (visão agregada de sempre):
+
+| VM | estado | timeout 60·180·300 | ok | err | feito | alvo | % |
+|----|--------|--------------------|----:|----:|------:|-----:|--:|
+
+- 1 linha por VM (`timeout` = soma das passadas dos containers) + linha `TOTAL`. Totais por VM: m1=5.544, m2=5.544, m3=5.445, m4=5.148 → **21.681** no `TOTAL`.
+
+Fonte: `rv_status.py` exporta por container `by_timeout` já reduzido a `{ok, err, done}`
+(lido do `tasks.json`, no host — sem `docker exec`).
+
 ## Coleta + consolidação (LOCAL, após as VMs)
 
 1. Copiar os resultados das 4 VMs para o layout esperado:
