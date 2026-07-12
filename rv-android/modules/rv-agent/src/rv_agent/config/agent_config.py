@@ -224,18 +224,23 @@ class RVAgentConfig(BaseValidatedModel):
     )
 
     # === SCORER WEIGHTS (Calibration Parameters) ===
-    # MopScorer - prioritizes actions reaching monitored operations
+    # MopScorer - prioritizes actions reaching monitored operations.
+    # The MOP/WTG scorer weights are arm-defining: they gate whether MOP/WTG
+    # steering is active at all (weight == 0 excludes the scorer from the
+    # pipeline). pure_mode forces them to 0, degenerating to the base policy.
     mop_direct_score: float = Field(
         default=500.0,
         ge=0.0,
         le=1000.0,
         description="Score for actions directly reaching MOP methods",
+        json_schema_extra={"arm_defining": True},
     )
     mop_transitive_score: float = Field(
         default=300.0,
         ge=0.0,
         le=600.0,
         description="Score for actions transitively reaching MOP methods",
+        json_schema_extra={"arm_defining": True},
     )
 
     # WtgScorer - prioritizes WTG-guided navigation
@@ -244,6 +249,7 @@ class RVAgentConfig(BaseValidatedModel):
         ge=0.0,
         le=500.0,
         description="Score for WTG-guided actions leading to unvisited screens",
+        json_schema_extra={"arm_defining": True},
     )
 
     # SaturationScorer - bonus for unsaturated states
@@ -413,6 +419,106 @@ class RVAgentConfig(BaseValidatedModel):
         ge=0.0,
         le=0.5,
         description="Probability of scroll action for dynamic content discovery",
+    )
+
+    # === RV STEERING FLAGS (ported from APE-RV branch mop-fairtest) ===
+    # These flags select an experimental arm on top of the base exploration
+    # policy. Every steering flag defaults to off/0 so an unchanged config
+    # behaves exactly as before the port. `pure_mode` is the arm kill-switch:
+    # when True it forces every flag marked `arm_defining` (see the MOP/WTG
+    # weights above plus the flags in this section) to its off/0 value before
+    # the scoring pipeline is assembled, so the `pure_algorithm` arm is
+    # provably free of MOP steering. The kill-switch registry lives in
+    # `ranking/pipeline.py`; a completeness check fails fast (ConfigurationError)
+    # if any `arm_defining` field is missing from that registry. `pure_mode`
+    # itself is NOT arm_defining — it drives the kill-switch, it is not forced.
+    pure_mode: bool = Field(
+        default=False,
+        description="Kill-switch: force all registered RV steering flags off/0 (pure base policy)",
+    )
+
+    # B: additive frontier boost for MOP-reaching unvisited activities (0 = off)
+    mop_frontier_weight: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1000.0,
+        description="MopFrontierScorer weight; 0.0 disables the frontier boost",
+        json_schema_extra={"arm_defining": True},
+    )
+    # A': also source MOP activities from StaticAnalysisData.components
+    mop_activity_source_components: bool = Field(
+        default=False,
+        description="Source MOP activities from components[].reaches_target (A')",
+        json_schema_extra={"arm_defining": True},
+    )
+    # E-min: order the activity launch queue MOP-first
+    trigger_mop_first: bool = Field(
+        default=False,
+        description="Order the activity launch queue so MOP-reaching activities go first",
+        json_schema_extra={"arm_defining": True},
+    )
+    # Stagnation escape: trigger MOP-reaching non-activity components on plateau
+    component_trigger_enabled: bool = Field(
+        default=False,
+        description="Enable plateau-gated triggering of MOP-reaching services/receivers",
+        json_schema_extra={"arm_defining": True},
+    )
+    # Cadence for component triggering; a tuning knob gated by
+    # component_trigger_enabled, so it is NOT itself arm_defining.
+    component_percentage: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="Component-trigger cadence (fraction of opportunities that dispatch)",
+    )
+    # fair-test C: boost by density of MOP-flagged widgets in the target state
+    state_mop_density_enabled: bool = Field(
+        default=False,
+        description="Enable StateMopDensityScorer (density of MOP-flagged widgets)",
+        json_schema_extra={"arm_defining": True},
+    )
+    # fair-test D: prefer filling empty inputs before submit
+    form_completion_enabled: bool = Field(
+        default=False,
+        description="Enable FormCompletionScorer (fill-before-submit)",
+        json_schema_extra={"arm_defining": True},
+    )
+
+    # === EXPLORATION GUARDS AND CAPS (off by default) ===
+    # Each guard/cap is arm_defining: it steers exploration away from the base
+    # policy, so pure_mode forces it off. Integer caps use 0 to mean disabled.
+    foreign_activity_guard: bool = Field(
+        default=False,
+        description="Escape (BACK/relaunch) when the foreground activity is foreign to the target package",
+        json_schema_extra={"arm_defining": True},
+    )
+    back_menu_pick_cap: int = Field(
+        default=0,
+        ge=0,
+        description="Max consecutive BACK/MENU picks before filtering them (0 = disabled)",
+        json_schema_extra={"arm_defining": True},
+    )
+    mop_target_pick_cap: int = Field(
+        default=0,
+        ge=0,
+        description="Picks after which a MOP target stops receiving MOP boosts (0 = disabled)",
+        json_schema_extra={"arm_defining": True},
+    )
+    idle_timeout_cap: int = Field(
+        default=0,
+        ge=0,
+        description="Bounded wait on idle screens in seconds (0 = disabled)",
+        json_schema_extra={"arm_defining": True},
+    )
+    dynamic_epsilon: bool = Field(
+        default=False,
+        description="Adapt the exploration epsilon to stagnation",
+        json_schema_extra={"arm_defining": True},
+    )
+    activity_budget_enabled: bool = Field(
+        default=False,
+        description="Deprioritize an activity that has consumed its per-activity action budget",
+        json_schema_extra={"arm_defining": True},
     )
 
     def get_langchain_config(self) -> Dict[str, Any]:

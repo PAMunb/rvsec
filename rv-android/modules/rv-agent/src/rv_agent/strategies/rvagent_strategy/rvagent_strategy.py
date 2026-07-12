@@ -47,17 +47,8 @@ from rv_agent.strategies.rvagent_strategy.input_value_generator import (
 from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
 from rv_agent.strategies.rvagent_strategy.plateau_detector import PlateauDetector
 from rv_agent.strategies.rvagent_strategy.ranking import (
-    ActionRanker,
-    ComponentPriorityScorer,
-    CoverageDensityScorer,
-    GradualDecayScorer,
-    MopScorer,
     RankingContext,
-    SaturationScorer,
-    StrengthScorer,
-    SystemElementFilter,
-    VisitationPenaltyScorer,
-    WtgScorer,
+    ScoringPipeline,
 )
 from rv_agent.strategies.rvagent_strategy.reward_propagator import RewardPropagator
 from rv_agent.strategies.rvagent_strategy.successor_tracker import SuccessorTracker
@@ -259,26 +250,12 @@ class RVAgentStrategy(ExplorationStrategy):
         )
         self.coverage_metrics = CoverageMetrics(graph, ui_coverage)
 
-        # Action ranking system with 9 weighted scorers.
-        # Scores are additive: each scorer contributes an independent score,
-        # and the total determines action priority. Positive scorers promote
-        # desirable actions; penalty scorers demote undesirable ones.
-        # The scorer order here is for readability only -- ActionRanker sums all.
-        self.action_ranker = ActionRanker(
-            scorers=[
-                # Prioritization scorers (positive contributions)
-                MopScorer(config=config),           # +500 (DM) / +300 (M) for MOP-reaching actions
-                WtgScorer(config=config),           # +150 for WTG-guided navigation to unvisited screens
-                SaturationScorer(config=config),    # +100 * (1 - saturation) for unsaturated states
-                ComponentPriorityScorer(config=config),  # +50 buttons, +40 toggles, etc.
-                StrengthScorer(config=config),      # Historical success rate + reward propagation
-                GradualDecayScorer(config=config),  # 200 * 0.7^visits, encourages fresh actions
-                CoverageDensityScorer(config=config),  # 200 * coverage_gap for untested elements
-                # Penalty scorers (negative contributions)
-                SystemElementFilter(),              # -5000 for system UI (nav bar, status bar)
-                VisitationPenaltyScorer(config=config),  # -15 * log(1 + visits) logarithmic penalty
-            ]
-        )
+        # Action ranking system assembled from config by ScoringPipeline --
+        # the single assembly point for scorers (INV-AGT-42). The pipeline
+        # applies the pure_mode kill-switch, selects the scorers enabled for
+        # this arm, and logs the composition as one [RV-ARCH] audit line.
+        # Scores are additive: ActionRanker sums each enabled scorer's score.
+        self.action_ranker = ScoringPipeline.from_config(config)
 
         # N-step reward propagator for action value estimation.
         # When positive events occur (new state discovered, MOP triggered),

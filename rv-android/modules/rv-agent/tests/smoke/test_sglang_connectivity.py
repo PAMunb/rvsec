@@ -13,6 +13,11 @@ from langchain_openai import ChatOpenAI
 pytestmark = [pytest.mark.smoke, pytest.mark.sglang]
 
 
+@pytest.fixture(autouse=True)
+def _skip_without_sglang(require_sglang):
+    """Every test in this module hits the live SGLang server (gh77 task 1.3)."""
+
+
 class TestSGLangConnectivity:
     """Test SGLang server connectivity."""
 

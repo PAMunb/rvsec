@@ -19,7 +19,7 @@ class TestToolBinding:
         from rv_agent.llm.llm_client import get_android_tools
 
         tools = get_android_tools()
-        assert len(tools) == 7
+        assert len(tools) == 8
 
     def test_tool_names(self):
         """All expected tools are present."""
@@ -33,13 +33,14 @@ class TestToolBinding:
             "android_type_text",
             "android_long_click",
             "android_swipe",
+            "android_drag",
             "android_scroll",
             "android_back",
             "android_home",
         }
         assert tool_names == expected
 
-    def test_bind_tools_to_llm(self, sglang_url, sglang_model):
+    def test_bind_tools_to_llm(self, require_sglang, sglang_url, sglang_model):
         """Tools bind to ChatOpenAI without error."""
         from rv_agent.llm.llm_client import get_android_tools
 
@@ -68,7 +69,7 @@ class TestToolBinding:
             assert hasattr(tool, "description")
             assert tool.name.startswith("android_")
 
-    def test_invoke_with_tools(self, sglang_url, sglang_model):
+    def test_invoke_with_tools(self, require_sglang, sglang_url, sglang_model):
         """LLM invocation with tools returns response."""
         from rv_agent.llm.llm_client import get_android_tools
 
@@ -103,7 +104,7 @@ class TestToolBinding:
             has_content or has_tool_calls
         ), "Response has neither content nor tool_calls"
 
-    def test_tool_call_extraction(self, sglang_url, sglang_model):
+    def test_tool_call_extraction(self, require_sglang, sglang_url, sglang_model):
         """Tool calls can be extracted from response."""
         from rv_agent.llm.llm_client import get_android_tools
 

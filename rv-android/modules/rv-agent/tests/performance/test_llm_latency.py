@@ -20,6 +20,11 @@ from rv_agent.llm.llm_client import get_android_tools
 pytestmark = [pytest.mark.performance]
 
 
+@pytest.fixture(autouse=True)
+def _skip_without_sglang(require_sglang):
+    """Every test in this module hits the live SGLang server (gh77 task 1.3)."""
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================

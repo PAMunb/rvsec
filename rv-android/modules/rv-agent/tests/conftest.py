@@ -11,6 +11,7 @@ Provides fixtures for:
 import base64
 import os
 import sys
+from functools import lru_cache
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -35,6 +36,28 @@ def sglang_url():
 def sglang_model():
     """SGLang model name."""
     return os.getenv("SGLANG_MODEL", "Qwen/Qwen3-VL-4B-Instruct")
+
+
+@lru_cache(maxsize=None)
+def _sglang_reachable(url: str) -> bool:
+    """Probe the SGLang server once per URL. Cached so a whole run pays the
+    connection cost at most once. Any transport error means unreachable."""
+    import httpx
+
+    try:
+        # /models is the OpenAI-compatible liveness endpoint (url already ends in /v1).
+        response = httpx.get(f"{url}/models", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+@pytest.fixture
+def require_sglang(sglang_url):
+    """Skip the requesting test when the SGLang server is not reachable, so the
+    offline suite stays green without a running LLM backend (gh77 task 1.3)."""
+    if not _sglang_reachable(sglang_url):
+        pytest.skip(f"SGLang server not reachable at {sglang_url}")
 
 
 @pytest.fixture

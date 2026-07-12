@@ -8,10 +8,12 @@ Two structural ideas organize the delta. First, the composite action ranking bec
 
 Concept taxonomy (flag names, weight semantics, `decision_source` values) is mirrored 1:1 with APE-RV so traces and analyses are directly comparable between the two tools; any divergence must be documented here.
 
+**Field-name convention** (design Decision #3, snake_cased on the Python side): where this spec names fields of the shared core model `rv_android_core.domain.components`, it uses the actual Pydantic attributes, not the APE-RV Java / static-analysis JSON camelCase source. The two identifiers that recur here map as follows — `reaches_target` (Python attribute; camelCase `reachesTarget` in the Java/JSON lineage) is the MOP-reachability flag on `ComponentInfo`, and `class_name` (Python attribute; the JSON key, not `name`) is the fully-qualified component identifier. `activity_has_mop` reads `component.reaches_target` for the activity resolved by `component.class_name`; the predicate MUST bind to these attribute names.
+
 ## Data Contracts
 
 ### Input
-- `StaticAnalysisData.components: Components` — component catalog (activities with `reachesTarget`, services, receivers, providers) produced by the rv-platform static-analysis pipeline; consumed read-only (source: `task.static_data`, `rv_platform/components/static_analysis.py:109-142`).
+- `StaticAnalysisData.components: Components` — component catalog (activities with `reaches_target`, services, receivers, providers) produced by the rv-platform static-analysis pipeline; consumed read-only (source: `task.static_data`, `rv_platform/components/static_analysis.py:109-142`).
 - `RVAgentConfig` new fields (Pydantic, `modules/rv-agent/src/rv_agent/config/agent_config.py`): `pure_mode: bool = False`, `mop_frontier_weight: float = 0.0`, `mop_activity_source_components: bool = False`, `trigger_mop_first: bool = False`, `component_trigger_enabled: bool = False`, `component_percentage: float = 0.05`, `state_mop_density_enabled: bool = False`, `form_completion_enabled: bool = False`, `seed: Optional[int] = None`, plus guard/cap fields (`foreign_activity_guard`, `back_menu_pick_cap`, `mop_target_pick_cap`, `idle_timeout_cap`, `dynamic_epsilon`, `activity_budget_enabled`).
 
 ### Output
@@ -31,9 +33,9 @@ Concept taxonomy (flag names, weight semantics, `decision_source` values) is mir
 - **INV-AGT-42**: The scoring pipeline MUST be assembled in exactly one place (`ScoringPipeline.from_config`), and the assembled composition (scorer names and effective flag values) MUST be logged at startup as a single `[RV-ARCH]` line.
 - **INV-AGT-43**: When `pure_mode` is True, every flag registered as an RV steering flag MUST be forced to its off/0 value before assembly, and each forced key MUST be logged. Every arm-defining configuration field MUST be registered with the kill-switch; a completeness test MUST fail when a new arm-defining field is added without registration.
 - **INV-AGT-44**: With all RV steering flags off (equivalently, `pure_mode=True`), action selection MUST be equivalent to the documented base policy — same ranking for the same fixture and seed (parity, mirror of APE-RV INV-ARCH-01).
-- **INV-AGT-45**: When `mop_activity_source_components` is True, `activity_has_mop(activity)` MUST return True for every activity listed in `StaticAnalysisData.components.activities` with `reachesTarget=True`, in addition to the pre-existing widget/method reachability source.
+- **INV-AGT-45**: When `mop_activity_source_components` is True, `activity_has_mop(activity)` MUST return True for every activity listed in `StaticAnalysisData.components.activities` with `reaches_target=True`, in addition to the pre-existing widget/method reachability source.
 - **INV-AGT-46**: `MopFrontierScorer` MUST add `mop_frontier_weight` only when the action's resolved target activity both satisfies `activity_has_mop` AND has no node in the dynamic state graph (unvisited). The boost is additive with, and independent of, the generic frontier boost.
-- **INV-AGT-47**: When `trigger_mop_first` is True, the activity launch queue MUST order activities with `reachesTarget=True` before all others; ordering among equals is otherwise unchanged.
+- **INV-AGT-47**: When `trigger_mop_first` is True, the activity launch queue MUST order activities with `reaches_target=True` before all others; ordering among equals is otherwise unchanged.
 - **INV-AGT-48**: Component triggering MUST fire only when the plateau detector signals stagnation, MUST dispatch only non-activity components (services, receivers/broadcasts), and MUST respect the `component_percentage` cadence.
 - **INV-AGT-49**: Static analysis data MUST be validated fail-fast at load; a run MUST NOT proceed silently with partially valid static data.
 - **INV-AGT-50**: DIALOG-type windows MUST be re-keyed to their host activity via WTG edges before any MOP predicate or navigation lookup uses the window key.
@@ -192,7 +194,7 @@ rv-agent MUST use the Window Transition Graph (from GATOR static analysis) to gu
 2. `NavigationGuidance`: Provides unified navigation context to both LLM and algorithm. Enriches LLM prompts with MOP-specific hints when static analysis data is available.
 3. `WtgScorer`: Gives priority scores to actions that WTG indicates lead to unvisited screens.
 
-**Component-Sourced MOP Activities (A′)**: When `mop_activity_source_components` is True, `TransitionManager` MUST additionally source MOP activities from `StaticAnalysisData.components.activities[].reachesTarget` — an activity is MOP-reaching when it appears there with `reachesTarget=True`, in addition to the pre-existing widget/method reachability source. This predicate is the shared basis for `MopFrontierScorer`, MOP-first launch ordering, and component triggering. (In APE-RV this raised the fraction of apps with at least one MOP activity from 17.8% to 83.6%.)
+**Component-Sourced MOP Activities (A′)**: When `mop_activity_source_components` is True, `TransitionManager` MUST additionally source MOP activities from `StaticAnalysisData.components.activities[].reaches_target` — an activity is MOP-reaching when it appears there with `reaches_target=True`, in addition to the pre-existing widget/method reachability source. This predicate is the shared basis for `MopFrontierScorer`, MOP-first launch ordering, and component triggering. (In APE-RV this raised the fraction of apps with at least one MOP activity from 17.8% to 83.6%.)
 
 **DIALOG Window Re-Keying**: Before any MOP predicate or navigation lookup uses a window key, `TransitionManager` MUST re-key DIALOG-type windows to their host activity by following WTG edges (port of the APE-RV parser-fidelity change, INV-MOP-25 semantics). Without the re-key, MOP flags attached to dialog windows are invisible to activity-level predicates.
 
@@ -220,7 +222,7 @@ When static data is not available, all three components gracefully degrade: `Nav
 
 #### Scenario: Component-Sourced MOP Activity (A′)
 
-- **WHEN** `mop_activity_source_components = True` and `StaticAnalysisData.components.activities` contains `{"name": "com.app.CryptoActivity", "reachesTarget": true}`
+- **WHEN** `mop_activity_source_components = True` and `StaticAnalysisData.components.activities` contains `{"class_name": "com.app.CryptoActivity", "reaches_target": true}`
 - **AND** no widget/method reachability entry exists for "com.app.CryptoActivity"
 - **THEN** `activity_has_mop("com.app.CryptoActivity")` MUST return True
 - **AND** with `mop_activity_source_components = False` the same call MUST return False (pre-existing source only)
@@ -274,11 +276,11 @@ When static data is not available, all three components gracefully degrade: `Nav
 
 ### Requirement: MOP-First Activity Launch Ordering with Dose Control
 
-When `trigger_mop_first` is True, the exploration strategy MUST order the activity launch queue so that activities satisfying `activity_has_mop` (i.e., `reachesTarget=True` via the A′ predicate) are launched before all other activities; relative order within each group is unchanged. The launch policy MUST additionally support **dose control**: a configurable launch cadence, a per-run launch cap, and a **denylist** of activities whose launch failed (a denylisted activity is never re-launched in the same run). Activities are launched through the normal launcher; launch ordering never uses component-trigger intents.
+When `trigger_mop_first` is True, the exploration strategy MUST order the activity launch queue so that activities satisfying `activity_has_mop` (i.e., `reaches_target=True` via the A′ predicate) are launched before all other activities; relative order within each group is unchanged. The launch policy MUST additionally support **dose control**: a configurable launch cadence, a per-run launch cap, and a **denylist** of activities whose launch failed (a denylisted activity is never re-launched in the same run). Activities are launched through the normal launcher; launch ordering never uses component-trigger intents.
 
 #### Scenario: MOP-First Queue Ordering
 
-- **WHEN** `trigger_mop_first = True` and the launch queue contains ["AboutActivity", "CryptoActivity", "HelpActivity"] where only "CryptoActivity" has `reachesTarget = True`
+- **WHEN** `trigger_mop_first = True` and the launch queue contains ["AboutActivity", "CryptoActivity", "HelpActivity"] where only "CryptoActivity" has `reaches_target = True`
 - **THEN** the effective launch order MUST be ["CryptoActivity", "AboutActivity", "HelpActivity"]
 - **AND** with `trigger_mop_first = False` the original order MUST be preserved
 
@@ -321,7 +323,7 @@ Static analysis data MUST be validated when loaded: required fields (`classes`, 
 
 #### Scenario: Invalid Components Field Aborts
 
-- **WHEN** `task.static_data` is present but `components` is structurally invalid (e.g., activities entries missing the `name` field)
+- **WHEN** `task.static_data` is present but `components` is structurally invalid (e.g., activities entries missing the required `class_name` field)
 - **THEN** the load MUST raise a validation error naming `components`
 - **AND** no exploration step MUST execute
 

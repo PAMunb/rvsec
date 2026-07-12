@@ -54,6 +54,24 @@ class Scorer(ABC):
             Score value (higher = higher priority)
         """
 
+    def is_enabled(self, config: "RVAgentConfig") -> bool:
+        """
+        Report whether this scorer should join the assembled pipeline.
+
+        Consulted once by ``ScoringPipeline.from_config`` at assembly time.
+        Base-policy scorers are always active and use this default (True).
+        Steering scorers override it to return the value of their arm-defining
+        flag, so ``pure_mode`` (which forces every registered flag off/0)
+        removes them from the pipeline entirely — no dead weights at runtime.
+
+        Args:
+            config: The (already kill-switch-resolved) agent configuration.
+
+        Returns:
+            True to include this scorer in the pipeline, False to exclude it.
+        """
+        return True
+
 
 class MopScorer(Scorer):
     """
@@ -80,6 +98,10 @@ class MopScorer(Scorer):
         else:
             self.direct_score = self.DEFAULT_DIRECT_SCORE
             self.transitive_score = self.DEFAULT_TRANSITIVE_SCORE
+
+    def is_enabled(self, config: "RVAgentConfig") -> bool:
+        """Active only while some MOP weight is non-zero (pure_mode zeroes both)."""
+        return config.mop_direct_score > 0 or config.mop_transitive_score > 0
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         if action.directly_reaches_target:
@@ -110,6 +132,10 @@ class WtgScorer(Scorer):
             self.guided_score = config.wtg_guided_score
         else:
             self.guided_score = self.DEFAULT_GUIDED_SCORE
+
+    def is_enabled(self, config: "RVAgentConfig") -> bool:
+        """Active only while the WTG guided score is non-zero (pure_mode zeroes it)."""
+        return config.wtg_guided_score > 0
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         if not context.transition_manager:

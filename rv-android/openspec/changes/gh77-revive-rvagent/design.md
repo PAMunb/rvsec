@@ -53,7 +53,7 @@ RankingContext (ranking/context.py)   ── extended with activity_has_mop,
 
 Around the pipeline, four supporting extensions:
 
-1. **MOP-reach predicates** (`services/transition_manager.py`, `services/navigation_guidance.py`): read `StaticAnalysisData.components` to implement A′ (`components.activities[].reachesTarget` as a source of MOP activities → `activity_has_mop(activity)`), plus the DIALOG→host-activity re-key over `windows` + `wtg` edges (port of INV-MOP-25 semantics).
+1. **MOP-reach predicates** (`services/transition_manager.py`, `services/navigation_guidance.py`): read `StaticAnalysisData.components` to implement A′ (`components.activities[].reaches_target` as a source of MOP activities → `activity_has_mop(activity)`), plus the DIALOG→host-activity re-key over `windows` + `wtg` edges (port of INV-MOP-25 semantics).
 2. **Launch policy** (`strategies/rvagent_strategy/rvagent_strategy.py`): E-mín (MOP-first ordering of the activity launch queue using the A′ predicate) and the dose/denylist launcher (live-consumer denylist, configurable cadence, per-run cap).
 3. **Component triggering service** (new module under `services/`): on plateau (existing `PlateauDetector` fires), trigger MOP-reaching non-activity components (services/receivers/broadcast catalog) via `am start-service`/`am broadcast` through the rv-uiautomator `DeviceInterface`; activities keep going through the normal launcher.
 4. **Guards/caps as pre-ranking filters and node policy**: foreign-activity/package guards, BACK/MENU pick cap, MOP-target revisit cap, idle-timeout cap, dynamic epsilon, per-activity action budget — implemented as filters before `ActionRanker.rank()` plus policy in the LangGraph `execute`/`validation` nodes.
@@ -88,7 +88,7 @@ Invariant IDs: new agent invariants start at INV-AGT-42 (main spec currently top
 | INV-AGT-42 (single pipeline assembly + audit log) | `ranking/pipeline.py::ScoringPipeline.from_config` | `test_pipeline_assembly_logged` |
 | INV-AGT-43 (pure-arm kill-switch forces all RV flags off; new flags must register) | `pipeline.py` registry + `agent_config.py::pure_mode` | `test_pure_mode_forces_all_registered_flags`, registry-completeness test |
 | INV-AGT-44 (pure-arm parity: all flags off ⇒ base policy) | gated scorers return no RV boost | `test_pure_arm_parity` (golden ranking, fixed seed) |
-| INV-AGT-45 (A′: `activity_has_mop` sourced from `components.activities[].reachesTarget`) | `transition_manager.py` | `test_activity_has_mop_from_components` |
+| INV-AGT-45 (A′: `activity_has_mop` sourced from `components.activities[].reaches_target`) | `transition_manager.py` | `test_activity_has_mop_from_components` |
 | INV-AGT-46 (B: MOP-frontier boost only when target MOP-reaching AND unvisited) | `MopFrontierScorer` | `test_mop_frontier_scorer_conditions` |
 | INV-AGT-47 (E-mín: MOP-first launch ordering) | `rvagent_strategy.py` launch policy | `test_launch_queue_mop_first` |
 | INV-AGT-48 (component triggering only on plateau; activities excluded from trigger) | `services/component_trigger.py` | `test_trigger_on_plateau_only`, `test_activities_not_triggered` |
@@ -99,7 +99,8 @@ Invariant IDs: new agent invariants start at INV-AGT-42 (main spec currently top
 | INV-AGT-53 (deterministic seed reproducibility) | seeded RNG threaded through strategy | `test_seed_reproducibility` |
 | INV-RVA-01..04 (variant families; all arm-defining keys explicit; mapping completeness; LLM/steering isolation) | `rvagent_tool/tools/rvagent/tool.py::get_variants` + mapping | guard pytest (aperv pattern) |
 | INV-RVA-05 (teardown in `finally`) | `rvagent_tool` execute path | `test_teardown_always_runs` |
-| Reactivation (CI) | `.github/workflows/ci.yml` (repo root) | CI run itself |
+| INV-RVA-06 (arm-neutral variant/prompt naming) | `rvagent_tool` variants + `prompts/` identifiers | naming guard test (rejects lineage-prefixed names) |
+| Reactivation (CI) | `.github/workflows/ci.yml` (rvsec reactor root; reverts `rv-agent` exclusion only) | CI run itself |
 
 Exact invariant wording lives in the delta specs (`specs/agent/spec.md`, `specs/rvagent-tool/spec.md`).
 
@@ -142,7 +143,7 @@ Default True for base-policy scorers; RV steering scorers return the value of th
 ### `TransitionManager.activity_has_mop(activity: str) -> bool`
 
 - **Preconditions**: `static_data.components` loaded (fail-fast happened at load).
-- **Postconditions**: True iff the activity (post DIALOG re-key normalization) appears with `reachesTarget=True` in `components.activities` or via the pre-existing widget/method reachability source.
+- **Postconditions**: True iff the activity (post DIALOG re-key normalization) appears with `reaches_target=True` in `components.activities` or via the pre-existing widget/method reachability source.
 
 ### `ComponentTriggerService.maybe_trigger(plateau: bool) -> Optional[TriggerAction]`
 

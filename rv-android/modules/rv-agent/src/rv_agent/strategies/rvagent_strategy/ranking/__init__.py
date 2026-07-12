@@ -13,6 +13,10 @@ from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import (
     ScoredAction,
 )
 from rv_agent.strategies.rvagent_strategy.ranking.context import RankingContext
+from rv_agent.strategies.rvagent_strategy.ranking.pipeline import (
+    RV_STEERING_FLAGS,
+    ScoringPipeline,
+)
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     ComponentPriorityScorer,
     CoverageDensityScorer,
@@ -30,6 +34,8 @@ __all__ = [
     "RankingContext",
     "ActionRanker",
     "ScoredAction",
+    "ScoringPipeline",
+    "RV_STEERING_FLAGS",
     "Scorer",
     "MopScorer",
     "WtgScorer",

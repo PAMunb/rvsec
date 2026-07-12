@@ -225,8 +225,13 @@ def device_id():
 
 
 @pytest.fixture(scope="session")
-def device(device_id):
-    """Create DeviceInterface for session."""
+def device(device_id, check_emulator):
+    """Create DeviceInterface for session.
+
+    Depends on check_emulator so that, without a running emulator, the test
+    skips cleanly instead of erroring during setup (gh77 task 1.4: keeps the
+    offline suite green when online tests are collected without a marker filter).
+    """
     device = DeviceInterface(device_id)
     yield device
     # Cleanup: go home

@@ -13,27 +13,27 @@
 
 ## 1. Reactivation (CI + test hygiene)
 
-- [ ] 1.1 Re-include rv-agent and rvagent-tool in the per-module CI loop in `.github/workflows/ci.yml` (revert the exclusion from commit `674642a0`), keeping the CI contract `--import-mode=importlib -o "addopts="`
-- [ ] 1.2 Remove the obsolete recovery-mode tests in `modules/rv-agent/tests/performance/test_multimode_proportion.py::TestRecoveryMode` (they reference `recovery_mode_active`/`RECOVERY_FAILURE_THRESHOLD`, deleted from `RoutingManager`); back up removed test code to `backup/` per P3
-- [ ] 1.3 Mark the 13 SGLang-dependent tests (`tests/smoke/test_sglang_connectivity.py`, `tests/performance/test_llm_latency.py`, `tests/smoke/test_tool_binding.py`) with a server-availability skip condition so the offline suite is green
-- [ ] 1.4 Confirm `tests/online/` (39 emulator-dependent errors) is excluded from the offline CI selection
-- [ ] 1.5 Run `uv run pytest modules/rv-agent/tests --import-mode=importlib -o "addopts=" -q` — offline suite must be green
-- [ ] 1.6 Run `/rv-test-run rvagent-tool`
+- [x] 1.1 Re-include rv-agent in the per-module CI loop in `.github/workflows/ci.yml` (at the **rvsec reactor root**, one level above `rv-android/`; the file's per-module loop excludes only `rv-agent` and `rv-agent-validation` — revert the `rv-agent` exclusion from commit `674642a0`), keeping the CI contract `--import-mode=importlib -o "addopts="`. `rvagent-tool` is NOT in the exclusion list — confirm its tests already run green in the loop and fix if red (no exclusion revert needed for it)
+- [x] 1.2 Remove the obsolete recovery-mode tests in `modules/rv-agent/tests/performance/test_multimode_proportion.py::TestRecoveryMode` (they reference `recovery_mode_active`/`RECOVERY_FAILURE_THRESHOLD`, deleted from `RoutingManager`); back up removed test code to `backup/` per P3
+- [x] 1.3 Mark the 13 SGLang-dependent tests (`tests/smoke/test_sglang_connectivity.py`, `tests/performance/test_llm_latency.py`, `tests/smoke/test_tool_binding.py`) with a server-availability skip condition so the offline suite is green
+- [x] 1.4 Confirm `tests/online/` (39 emulator-dependent errors) is excluded from the offline CI selection
+- [x] 1.5 Run `uv run pytest modules/rv-agent/tests --import-mode=importlib -o "addopts=" -q` — offline suite must be green
+- [x] 1.6 Run `/rv-test-run rvagent-tool`
 
 ## 2. ScoringPipeline + pure-arm kill-switch (INV-AGT-42..44)
 
-- [ ] 2.1 Add new `RVAgentConfig` fields (Pydantic, defaults off/0, per design API section): `pure_mode`, `mop_frontier_weight`, `mop_activity_source_components`, `trigger_mop_first`, `component_trigger_enabled`, `component_percentage`, `state_mop_density_enabled`, `form_completion_enabled`, `seed`, guard/cap fields — in `modules/rv-agent/src/rv_agent/config/agent_config.py`
-- [ ] 2.2 Add `Scorer.is_enabled(config) -> bool` to the ABC in `ranking/scorers.py` (default True; steering scorers return their flag)
-- [ ] 2.3 Create `ranking/pipeline.py` with `ScoringPipeline.from_config(config) -> ActionRanker`: single assembly point, `[RV-ARCH] scorers=[...] flags={...}` startup audit line, RV-steering-flag registry, `ConfigurationError` on unregistered arm-defining flag
-- [ ] 2.4 Implement `pure_mode` enforcement: force all registered flags off/0 before assembly, log each forced key (INV-AGT-43); replace all ad-hoc scorer instantiation call sites with `ScoringPipeline.from_config` (grep for `ActionRanker(` constructions)
-- [ ] 2.5 Add unit tests: assembly audit log, kill-switch forcing + logging, registry completeness (new arm-defining field without registration fails), `ConfigurationError` fail-fast
-- [ ] 2.6 Add pure-arm parity test (INV-AGT-44): golden ranking on cryptoapp fixtures with fixed seed, all flags off ≡ `pure_mode=True` ≡ documented base policy
-- [ ] 2.7 Run `/rv-doc-code modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ranking/pipeline.py`
-- [ ] 2.8 Run `/rv-test-run rv-agent`
+- [x] 2.1 Add new `RVAgentConfig` fields (Pydantic, defaults off/0, per design API section): `pure_mode`, `mop_frontier_weight`, `mop_activity_source_components`, `trigger_mop_first`, `component_trigger_enabled`, `component_percentage`, `state_mop_density_enabled`, `form_completion_enabled`, `seed`, guard/cap fields — in `modules/rv-agent/src/rv_agent/config/agent_config.py`
+- [x] 2.2 Add `Scorer.is_enabled(config) -> bool` to the ABC in `ranking/scorers.py` (default True; steering scorers return their flag)
+- [x] 2.3 Create `ranking/pipeline.py` with `ScoringPipeline.from_config(config) -> ActionRanker`: single assembly point, `[RV-ARCH] scorers=[...] flags={...}` startup audit line, RV-steering-flag registry, `ConfigurationError` on unregistered arm-defining flag
+- [x] 2.4 Implement `pure_mode` enforcement: force all registered flags off/0 before assembly, log each forced key (INV-AGT-43); replace all ad-hoc scorer instantiation call sites with `ScoringPipeline.from_config` (grep for `ActionRanker(` constructions)
+- [x] 2.5 Add unit tests: assembly audit log, kill-switch forcing + logging, registry completeness (new arm-defining field without registration fails), `ConfigurationError` fail-fast
+- [x] 2.6 Add pure-arm parity test (INV-AGT-44): golden ranking on cryptoapp fixtures with fixed seed, all flags off ≡ `pure_mode=True` ≡ documented base policy
+- [x] 2.7 Run `/rv-doc-code modules/rv-agent/src/rv_agent/strategies/rvagent_strategy/ranking/pipeline.py`
+- [x] 2.8 Run `/rv-test-run rv-agent`
 
 ## 3. MOP-reach strategies + component triggering (INV-AGT-45..50)
 
-- [ ] 3.1 Implement A′ in `services/transition_manager.py`: `activity_has_mop(activity)` sourcing from `StaticAnalysisData.components.activities[].reachesTarget` when `mop_activity_source_components=True`, additive to the existing widget/method source (port `MopData.java:385-389` from `ape-mop-fairtest`)
+- [ ] 3.1 Implement A′ in `services/transition_manager.py`: `activity_has_mop(activity)` sourcing from `StaticAnalysisData.components.activities[].reaches_target` when `mop_activity_source_components=True`, additive to the existing widget/method source (port `MopData.java:385-389` from `ape-mop-fairtest`)
 - [ ] 3.2 Implement DIALOG→host-activity re-key in `TransitionManager` via WTG edges, applied before any MOP predicate/navigation lookup (INV-AGT-50, port of INV-MOP-25 semantics)
 - [ ] 3.3 Implement `MopFrontierScorer` in `ranking/scorers.py` (INV-AGT-46): `mop_frontier_weight` added only when target activity `activity_has_mop` AND unvisited in `DynamicStateGraph`; register with the pipeline (port `MopFrontierPass`)
 - [ ] 3.4 Implement E-mín MOP-first launch-queue ordering in `strategies/rvagent_strategy/rvagent_strategy.py` gated by `trigger_mop_first` (INV-AGT-47, port `SataAgent.selectTriggerCandidate:650-666`)

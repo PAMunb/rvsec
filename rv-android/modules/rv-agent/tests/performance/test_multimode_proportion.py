@@ -146,20 +146,6 @@ class TestLLMOnlyMode:
             assert route == "llm", f"Expected llm, got {route}"
 
 
-class TestRecoveryMode:
-    """Tests for recovery mode behavior."""
-
-    def test_recovery_mode_exists(self, routing_manager):
-        """Test that recovery mode attributes exist."""
-        assert hasattr(routing_manager, "recovery_mode_active")
-        assert hasattr(routing_manager, "consecutive_llm_failures")
-
-    def test_recovery_threshold_constant(self):
-        """Test recovery threshold constant is defined."""
-        assert RoutingManager.RECOVERY_FAILURE_THRESHOLD == 3
-        assert RoutingManager.RECOVERY_ACTION_COUNT == 10
-
-
 # =============================================================================
 # Statistical Tests
 # =============================================================================
