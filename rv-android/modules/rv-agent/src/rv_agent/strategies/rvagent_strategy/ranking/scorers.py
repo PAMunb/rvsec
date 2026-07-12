@@ -239,6 +239,166 @@ class MopFrontierScorer(Scorer):
         return 0.0
 
 
+class StateMopDensityScorer(Scorer):
+    """
+    State-level boost by the density of MOP-flagged widgets (fair-test C, INV-MOP-24).
+
+    Density is the fraction of on-screen widgets that reach a monitored operation,
+    counting ONLY the widgets flagged by static analysis
+    (``reaches_target``/``directly_reaches_target``):
+
+        density = MOP-flagged widgets / total widgets   (0.0 when the screen is empty)
+
+    The boost is ``weight * density``, applied uniformly to every candidate on the
+    screen — a per-state scalar that raises the standing of MOP-dense screens rather
+    than reordering actions within one screen. This mirrors APE-RV ``stateMopDensity``
+    (branch ``mop-fairtest``), which is itself a per-state navigation signal; the
+    rv-agent spec deliberately expresses it as the ratio flagged/total (INV-MOP-24
+    scenario: 10 widgets, 4 flagged → 0.4) rather than APE-RV's raw ``1+count``.
+
+    Gated by ``state_mop_density_enabled`` (off by default → excluded from the
+    pipeline). ``pure_mode`` forces the flag off, so the pure arm never sees it.
+    """
+
+    DEFAULT_WEIGHT = 100.0
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """
+        Initialize StateMopDensityScorer.
+
+        Args:
+            config: Present for a uniform scorer constructor signature; the
+                density boost uses the fixed ``DEFAULT_WEIGHT`` (this arm is
+                boolean-gated, with weight calibration deferred to the local
+                smoke in the variants task group).
+        """
+        self.weight = self.DEFAULT_WEIGHT
+
+    def is_enabled(self, config: "RVAgentConfig") -> bool:
+        """Active only while ``state_mop_density_enabled`` is set (pure_mode clears it)."""
+        return config.state_mop_density_enabled
+
+    @staticmethod
+    def state_density(context: "RankingContext") -> float:
+        """
+        Return the fraction of on-screen widgets that are MOP-flagged.
+
+        Counts a widget as MOP-flagged when any of its actions reaches a monitored
+        operation. Returns 0.0 for an empty screen (and, implicitly, for any screen
+        with no flagged widgets), so a non-MOP screen contributes no boost.
+        """
+        items = getattr(context.screen_desc, "items", None) or []
+        total = len(items)
+        if total == 0:
+            return 0.0
+        flagged = sum(
+            1
+            for item in items
+            if any(
+                a.directly_reaches_target or a.reaches_target
+                for a in getattr(item, "actions", [])
+            )
+        )
+        return flagged / total
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        return self.weight * self.state_density(context)
+
+
+class FormCompletionScorer(Scorer):
+    """
+    Fill-before-submit boost (fair-test D, port of APE-RV ``FormCompletionPass``).
+
+    While the form has NOT converged — at least one empty ``EditText`` remains on the
+    screen — every empty text-input action is boosted by ``FILL_WEIGHT`` and submit
+    actions get no boost (excluded until convergence). Once every text field holds
+    real text (converged), the submit candidate receives ``SUBMIT_WEIGHT``.
+    Convergence is a predicate over the ACTUAL widget text (``view["text"]``), not a
+    model flag, so it terminates as fields are filled (port of
+    ``FormCompletion.hasUnfilledEditText``, INV-FORM-07).
+
+    Gated by ``form_completion_enabled`` (off by default). ``pure_mode`` forces it off.
+    """
+
+    FILL_WEIGHT = 150.0
+    SUBMIT_WEIGHT = 100.0
+
+    # Case-insensitive submit-word list, matched as a substring of the widget label
+    # (port of FormCompletion's submit words). "sign in"/"signin" both listed so the
+    # spaced and unspaced button labels are covered.
+    SUBMIT_WORDS = (
+        "submit",
+        "ok",
+        "send",
+        "login",
+        "sign in",
+        "signin",
+        "encrypt",
+        "decrypt",
+        "generate",
+        "save",
+        "confirm",
+        "next",
+        "done",
+    )
+
+    def __init__(self, config: Optional["RVAgentConfig"] = None):
+        """Accept config for a uniform scorer constructor signature (weights are fixed)."""
+
+    def is_enabled(self, config: "RVAgentConfig") -> bool:
+        """Active only while ``form_completion_enabled`` is set (pure_mode clears it)."""
+        return config.form_completion_enabled
+
+    @staticmethod
+    def _is_edittext(view_class: str) -> bool:
+        """True for text-entry widget classes (EditText / autocomplete variants)."""
+        return "EditText" in view_class or "AutoCompleteTextView" in view_class
+
+    @staticmethod
+    def _is_empty(text: Optional[str]) -> bool:
+        """True when a field holds no real text (None or whitespace-only)."""
+        return not (text or "").strip()
+
+    @classmethod
+    def _is_unfilled_edittext(cls, action: "ItemAction") -> bool:
+        """True when the action targets an empty text-entry widget."""
+        view = action.target_view or {}
+        return cls._is_edittext(view.get("class", "")) and cls._is_empty(
+            view.get("text", "")
+        )
+
+    @classmethod
+    def _is_submit(cls, action: "ItemAction") -> bool:
+        """True when the action's widget label matches a submit word."""
+        view = action.target_view or {}
+        label = " ".join(
+            str(view.get(key, "") or "")
+            for key in ("text", "content_description", "content-desc", "content_desc")
+        ).lower()
+        return any(word in label for word in cls.SUBMIT_WORDS)
+
+    @classmethod
+    def _has_unfilled(cls, context: "RankingContext") -> bool:
+        """True while any on-screen EditText still holds no real text (not converged)."""
+        items = getattr(context.screen_desc, "items", None) or []
+        for item in items:
+            view = getattr(item, "view", None) or {}
+            if cls._is_edittext(view.get("class", "")) and cls._is_empty(
+                view.get("text", "")
+            ):
+                return True
+        return False
+
+    def score(self, action: "ItemAction", context: "RankingContext") -> float:
+        if self._is_unfilled_edittext(action):
+            return self.FILL_WEIGHT
+        if self._is_submit(action):
+            # Submit is excluded from the boost until the form converges; once every
+            # field holds text it becomes the preferred next action.
+            return 0.0 if self._has_unfilled(context) else self.SUBMIT_WEIGHT
+        return 0.0
+
+
 class GradualDecayScorer(Scorer):
     """
     Scores actions with gradual decay based on visit count.

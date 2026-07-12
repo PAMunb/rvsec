@@ -30,7 +30,8 @@ scorers remain.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+import random
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel
 from rv_android_core.util.error.exceptions import ConfigurationError
@@ -39,11 +40,13 @@ from rv_agent.strategies.rvagent_strategy.ranking.action_ranker import ActionRan
 from rv_agent.strategies.rvagent_strategy.ranking.scorers import (
     ComponentPriorityScorer,
     CoverageDensityScorer,
+    FormCompletionScorer,
     GradualDecayScorer,
     MopFrontierScorer,
     MopScorer,
     SaturationScorer,
     Scorer,
+    StateMopDensityScorer,
     StrengthScorer,
     SystemElementFilter,
     VisitationPenaltyScorer,
@@ -94,7 +97,9 @@ class ScoringPipeline:
     """
 
     @staticmethod
-    def from_config(config: "RVAgentConfig") -> ActionRanker:
+    def from_config(
+        config: "RVAgentConfig", rng: Optional[random.Random] = None
+    ) -> ActionRanker:
         """
         Build the `ActionRanker` for the arm described by `config`.
 
@@ -106,6 +111,9 @@ class ScoringPipeline:
             config: Agent configuration. Mutated in place when `pure_mode` is
                 True (registered flags forced off) so the whole run observes the
                 pure arm from one source of truth.
+            rng: Seeded RNG threaded into the `ActionRanker` so stochastic
+                selection is reproducible under a fixed `config.seed`
+                (INV-AGT-53). None → the ranker builds its own unseeded RNG.
 
         Returns:
             An `ActionRanker` holding exactly the scorers enabled for this arm.
@@ -129,6 +137,8 @@ class ScoringPipeline:
         candidates: List[Scorer] = [
             MopScorer(config=config),
             MopFrontierScorer(config=config),
+            StateMopDensityScorer(config=config),
+            FormCompletionScorer(config=config),
             WtgScorer(config=config),
             SaturationScorer(config=config),
             ComponentPriorityScorer(config=config),
@@ -141,7 +151,7 @@ class ScoringPipeline:
         enabled = [scorer for scorer in candidates if scorer.is_enabled(config)]
 
         _log_composition(enabled, config)
-        return ActionRanker(enabled)
+        return ActionRanker(enabled, rng=rng)
 
 
 def _validate_registry(config: "RVAgentConfig") -> None:

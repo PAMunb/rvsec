@@ -33,6 +33,7 @@ behaviors in Android applications.
 import logging
 import math
 import random
+import time
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 from rv_agent import tracking as track
@@ -43,9 +44,14 @@ from rv_agent.strategies.base_strategy import ExplorationStrategy
 from rv_agent.strategies.rvagent_strategy.coverage_metrics import CoverageMetrics
 from rv_agent.strategies.rvagent_strategy.input_value_generator import (
     InputValueGenerator,
+    infer_input_type,
 )
 from rv_agent.strategies.rvagent_strategy.path_buffer import PathBuffer
 from rv_agent.strategies.rvagent_strategy.plateau_detector import PlateauDetector
+from rv_agent.metrics.step_trace import (
+    attribute_decision_source,
+    scorer_boosts,
+)
 from rv_agent.strategies.rvagent_strategy.ranking import (
     RankingContext,
     ScoringPipeline,
@@ -62,57 +68,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Input type patterns for field inference (password flag > hint > content_desc > resource_id)
-_INPUT_TYPE_PATTERNS = [
-    ("email", ["email", "e-mail"]),
-    ("phone", ["phone", "mobile", "tel"]),
-    ("url", ["url", "website", "link"]),
-    ("search", ["search", "query", "find"]),
-    ("date", ["date", "birthday", "dob"]),
-    ("time", ["time", "hour"]),
-    ("number", ["number", "amount", "quantity", "price"]),
-    ("zip", ["zip", "postal", "cep"]),
-    ("verification_code", ["code", "otp", "verification", "pin"]),
-    ("username", ["username", "user_name", "login"]),
-    ("name", ["name", "nome"]),
-    ("address", ["address", "endereco"]),
-]
-
-
-def _infer_input_type(target_view: Optional[Dict]) -> str:
-    """Infer input field type from target_view attributes.
-
-    Check view attributes in priority order: password flag, hint text,
-    content description, resource ID. Match against _INPUT_TYPE_PATTERNS
-    keywords to determine the semantic input type for value generation.
-
-    Args:
-        target_view: Widget view dictionary with UI attributes, or None.
-
-    Returns:
-        Input type string (e.g., "email", "password", "phone", "text").
-        Defaults to "text" when no pattern matches or target_view is None.
-    """
-    if not target_view:
-        return "text"
-    if target_view.get("password") or target_view.get("is_password"):
-        return "password"
-    for field in [
-        (target_view.get("hint") or ""),
-        (
-            target_view.get("content-desc")
-            or target_view.get("content_description")
-            or ""
-        ),
-        (target_view.get("resource-id") or target_view.get("resource_id") or ""),
-    ]:
-        lower = field.lower()
-        if not lower:
-            continue
-        for input_type, keywords in _INPUT_TYPE_PATTERNS:
-            if any(kw in lower for kw in keywords):
-                return input_type
-    return "text"
+# Maximum labels the ±2 containment lookup feeds to type inference, and the pixel
+# radius within which a text label counts as "near" the input widget. The radius
+# is a spatial proxy for the ±2 hierarchy containment: in a form, the field label
+# sits directly above or beside its input, so the nearest labels are its siblings.
+_MAX_NEARBY_LABELS = 2
+_NEARBY_LABEL_RADIUS_PX = 400
 
 
 class RVAgentStrategy(ExplorationStrategy):
@@ -223,9 +184,14 @@ class RVAgentStrategy(ExplorationStrategy):
         self.static_data = static_data
         self.transition_manager = transition_manager
 
-        # Initialize random seed for reproducibility
+        # Seeded RNG threaded through every stochastic choice (INV-AGT-53): the
+        # stochastic-vs-deterministic mode draw in _select_priority_action and
+        # the Gumbel-max sampling in ActionRanker (passed to from_config below).
+        # random.Random(None) seeds from system entropy, so an unset seed stays
+        # non-reproducible — the documented base behavior. seed is arm-neutral
+        # (a shared fair-test control), so pure_mode does NOT zero it.
+        self._rng = random.Random(config.seed)
         if config.seed is not None:
-            random.seed(config.seed)
             logger.info(f"Random seed initialized: {config.seed}")
 
         # Use runtime device_dimensions if provided, otherwise from config
@@ -255,7 +221,8 @@ class RVAgentStrategy(ExplorationStrategy):
         # applies the pure_mode kill-switch, selects the scorers enabled for
         # this arm, and logs the composition as one [RV-ARCH] audit line.
         # Scores are additive: ActionRanker sums each enabled scorer's score.
-        self.action_ranker = ScoringPipeline.from_config(config)
+        # The seeded RNG is threaded in so Gumbel-max sampling is reproducible.
+        self.action_ranker = ScoringPipeline.from_config(config, rng=self._rng)
 
         # N-step reward propagator for action value estimation.
         # When positive events occur (new state discovered, MOP triggered),
@@ -296,6 +263,16 @@ class RVAgentStrategy(ExplorationStrategy):
         # BACK decisions have been returned in a row; reset by any non-BACK
         # decision. Only consulted when config.back_menu_pick_cap > 0.
         self._consecutive_back_menu: int = 0
+
+        # Per-step decision-source attribution (fair-test E, INV-AGT-52). The
+        # last attributed source and its boosts are recomputed at each scored
+        # selection. The optional StepTraceWriter is attached by the agent via
+        # enable_step_trace when a trace path is configured; _trace_start anchors
+        # the wall-clock offset written as clock= on each row.
+        self.last_decision_source: str = "base"
+        self._last_boosts: Dict[str, float] = {}
+        self._step_trace = None
+        self._trace_start: float = time.monotonic()
 
         # Tracks whether the current iteration discovered a new state.
         # Set in select_next_action() BEFORE get_or_create_state() adds it
@@ -578,7 +555,9 @@ class RVAgentStrategy(ExplorationStrategy):
         # (11 for MOP-reaching fields, fewer for regular fields).
         if selected_action.event == WidgetEventType.TEXT_CHANGE:
             original_action = selected_action
-            selected_action = self._prepare_input_action(selected_action, current_hash)
+            selected_action = self._prepare_input_action(
+                selected_action, current_hash, screen_desc
+            )
             if not selected_action:
                 # Value exhausted - mark action as executed to prevent re-selection
                 # Action signatures use device-space coordinates (INV-AGT-40)
@@ -979,7 +958,7 @@ class RVAgentStrategy(ExplorationStrategy):
         # (e.g., always clicking the same high-score button) while still
         # respecting the general priority order. Probability is boosted
         # to 0.5 during plateau detection to inject more randomness.
-        use_stochastic = random.random() < self.stochastic_probability
+        use_stochastic = self._rng.random() < self.stochastic_probability
         if use_stochastic and len(actions) > 1:
             selected = self.action_ranker.select_stochastic(
                 actions, context, temperature=self.stochastic_temperature
@@ -1008,7 +987,56 @@ class RVAgentStrategy(ExplorationStrategy):
                 priority=priority,
             )
 
+            # Attribute exactly one decision_source to this scored decision
+            # (INV-AGT-52) and record the per-step trace row. Precedence
+            # mop > wtg > menu > form > coverage; base when no steering scorer
+            # contributed (the pure arm always attributes base).
+            self._last_boosts = scorer_boosts(
+                selected, context, self.action_ranker.scorers
+            )
+            self.last_decision_source = attribute_decision_source(
+                selected, context, self.action_ranker.scorers
+            )
+            self._write_trace_row(
+                screen_desc, context.current_state_hash, selected, action_type
+            )
+
         return selected
+
+    def enable_step_trace(self, writer) -> None:
+        """Attach a StepTraceWriter and reset the wall-clock origin.
+
+        Called by the agent when ``metrics_output_dir`` is configured. Until
+        attached, attribution is still computed (``last_decision_source``) but no
+        CSV rows are written.
+        """
+        self._step_trace = writer
+        self._trace_start = time.monotonic()
+
+    def _write_trace_row(
+        self,
+        screen_desc: ScreenDescription,
+        state_hash: str,
+        selected: ItemAction,
+        action_type: str,
+    ) -> None:
+        """Write one attribution row to the step-trace CSV, if a writer is attached."""
+        if self._step_trace is None:
+            return
+        try:
+            clock_ms = int((time.monotonic() - self._trace_start) * 1000)
+            coords = selected.coordinates if selected.coordinates else (0, 0)
+            self._step_trace.write_row(
+                step=self._current_iteration,
+                clock_ms=clock_ms,
+                activity=getattr(screen_desc, "activity", "") or "",
+                state=state_hash or "",
+                action=f"{action_type}@{coords}",
+                decision_source=self.last_decision_source,
+                boosts=self._last_boosts,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to write step-trace row: {e}")
 
     def _select_with_score_decay(
         self,
@@ -1269,7 +1297,10 @@ class RVAgentStrategy(ExplorationStrategy):
         return action
 
     def _prepare_input_action(
-        self, action: ItemAction, current_hash: str
+        self,
+        action: ItemAction,
+        current_hash: str,
+        screen_desc: Optional[ScreenDescription] = None,
     ) -> Optional[ItemAction]:
         """
         Prepare input action with test value.
@@ -1280,6 +1311,9 @@ class RVAgentStrategy(ExplorationStrategy):
         Args:
             action: TEXT_CHANGE action
             current_hash: Current state hash
+            screen_desc: Current screen, used to source ±2 containment labels for
+                typed-input inference (fair-test F). Optional so callers/tests
+                without a screen fall back to the widget's own attributes.
 
         Returns:
             Action with test value, or None if exhausted
@@ -1287,8 +1321,10 @@ class RVAgentStrategy(ExplorationStrategy):
         element_id = action.widget_id or make_element_id_from_tuple(action.coordinates)
         is_mop = action.reaches_target or action.directly_reaches_target
 
-        # Infer input type from target_view (password flag > hint > content_desc > resource_id)
-        input_type = _infer_input_type(action.target_view)
+        # Infer input type from the widget's own attributes first, then from the
+        # nearest on-screen labels (±2 containment proxy). Token-based matching.
+        nearby_labels = self._nearby_labels(action, screen_desc)
+        input_type = infer_input_type(action.target_view, nearby_labels)
 
         # Get next test value
         test_value = self.value_generator.get_next_value(
@@ -1310,6 +1346,58 @@ class RVAgentStrategy(ExplorationStrategy):
             f"Input field {element_id} ({input_type}): testing value '{test_value[:20]}'"
         )
         return action_with_input
+
+    def _nearby_labels(
+        self, action: ItemAction, screen_desc: Optional[ScreenDescription]
+    ) -> List[str]:
+        """Return the texts of on-screen labels nearest the input widget.
+
+        Spatial proxy for ±2 hierarchy containment (fair-test F): a form field's
+        label sits directly above or beside its input, so the closest text labels
+        within ``_NEARBY_LABEL_RADIUS_PX`` are effectively its siblings. Returns up
+        to ``_MAX_NEARBY_LABELS`` label texts, nearest first; empty when no screen
+        is available or no label is close enough. The input widget itself is
+        skipped (zero distance).
+        """
+        if screen_desc is None:
+            return []
+        origin = action.coordinates or self._widget_center(action.target_view)
+        if origin is None:
+            return []
+
+        candidates: List[Tuple[float, str]] = []
+        for item in getattr(screen_desc, "items", None) or []:
+            view = getattr(item, "view", None) or {}
+            text = (view.get("text") or "").strip()
+            if not text:
+                continue
+            center = self._widget_center(view)
+            if center is None:
+                continue
+            distance = math.hypot(center[0] - origin[0], center[1] - origin[1])
+            if distance == 0 or distance > _NEARBY_LABEL_RADIUS_PX:
+                continue
+            candidates.append((distance, text))
+
+        candidates.sort(key=lambda pair: pair[0])
+        return [text for _, text in candidates[:_MAX_NEARBY_LABELS]]
+
+    @staticmethod
+    def _widget_center(view: Optional[Dict]) -> Optional[Tuple[int, int]]:
+        """Compute a widget's bounds center (x, y), or None when unparseable.
+
+        Accepts the ``[[x1, y1], [x2, y2]]`` bounds shape used by the screen parser.
+        """
+        if not view:
+            return None
+        bounds = view.get("bounds")
+        if isinstance(bounds, (list, tuple)) and len(bounds) == 2:
+            try:
+                (x1, y1), (x2, y2) = bounds
+                return ((int(x1) + int(x2)) // 2, (int(y1) + int(y2)) // 2)
+            except (TypeError, ValueError):
+                return None
+        return None
 
     def _is_system_action(self, action: ItemAction) -> bool:
         """

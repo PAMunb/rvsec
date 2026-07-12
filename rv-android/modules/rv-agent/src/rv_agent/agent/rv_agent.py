@@ -42,6 +42,7 @@ from rv_agent.agent.nodes import (
     validate_action_node,
 )
 from rv_agent.agent.nodes.exploration_policy import NodeExplorationPolicy
+from rv_agent.services.component_trigger import ComponentTriggerService
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.action import ActionNormalizer
 from rv_agent.domain.state import AgentState
@@ -191,6 +192,17 @@ class RVAgent:
         # epsilon, per-activity action budget. All off by default — the object is
         # inert unless the matching arm flag is enabled.
         self.exploration_policy = NodeExplorationPolicy(config)
+
+        # Component-triggering stagnation escape (INV-AGT-48). Off by default
+        # (component_trigger_enabled); the service is inert (empty catalog when no
+        # static data, and gated on the flag/plateau/cadence internally). learn_node
+        # calls maybe_trigger on a plateau signal.
+        self.component_trigger_service = ComponentTriggerService(
+            package_name=config.package_name,
+            components=static_data.components if static_data else None,
+            device=device,
+            config=config,
+        )
 
         logger.info("RVAgent initialized with modular architecture")
         logger.info(f"Mode: {mode}")
@@ -360,6 +372,32 @@ class RVAgent:
             except Exception as e:
                 logger.warning(f"Failed to set up trace file: {e}")
 
+        # Set up the per-step decision_source trace CSV (fair-test E, INV-AGT-52).
+        # This is a structured, row-per-decision companion to the RVTRACK .trace
+        # log above: each row records the attributed decision_source and clock=
+        # offset so a run compares row-for-row with the aperv trace. Attached to
+        # the strategy, which writes a row at every scored selection.
+        step_trace_writer = None
+        if self.config.metrics_output_dir and hasattr(
+            self.strategy, "enable_step_trace"
+        ):
+            try:
+                from rv_agent.metrics import MetricsExporter
+                from rv_agent.metrics.step_trace import StepTraceWriter
+
+                csv_filename = MetricsExporter.build_filename(
+                    self.config.package_name,
+                    self.config.agent_mode,
+                    self.config.timeout,
+                    self.config.repetition,
+                ).replace(".rvagent_metrics.json", ".trace.csv")
+                csv_path = Path(self.config.metrics_output_dir) / csv_filename
+                step_trace_writer = StepTraceWriter(str(csv_path))
+                self.strategy.enable_step_trace(step_trace_writer)
+                logger.info(f"Step-trace CSV: {csv_path}")
+            except Exception as e:
+                logger.warning(f"Failed to set up step-trace CSV: {e}")
+
         # Initialize state.
         # This dict IS the LangGraph AgentState. Each graph.invoke() reads from
         # it, runs all nodes, and returns an updated copy. The external loop
@@ -521,5 +559,9 @@ class RVAgent:
         if trace_handler:
             logging.getLogger("rv_agent").removeHandler(trace_handler)
             trace_handler.close()
+
+        # Flush and close the per-step decision_source trace CSV
+        if step_trace_writer is not None:
+            step_trace_writer.close()
 
         return results

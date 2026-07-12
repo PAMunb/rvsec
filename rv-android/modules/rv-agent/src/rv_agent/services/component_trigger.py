@@ -82,8 +82,11 @@ class ComponentTriggerService:
         """
         self._package = package_name
         self._device = device
-        self._enabled = config.component_trigger_enabled
-        self._cadence = config.component_percentage
+        # getattr-with-default so an incomplete test double (a bare
+        # MagicMock(spec=RVAgentConfig) without the gh77 fields seeded) reads as
+        # disabled rather than raising — a real RVAgentConfig always has them.
+        self._enabled = getattr(config, "component_trigger_enabled", False)
+        self._cadence = getattr(config, "component_percentage", 0.0)
         self._candidates: List["ComponentInfo"] = self._build_candidates(components)
         self._denylist: Set[str] = set()
         self._cursor = 0

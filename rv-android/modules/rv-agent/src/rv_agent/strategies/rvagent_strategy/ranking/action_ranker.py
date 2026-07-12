@@ -36,14 +36,21 @@ class ActionRanker:
     Supports both deterministic and stochastic (Gumbel-max) selection.
     """
 
-    def __init__(self, scorers: List["Scorer"]):
+    def __init__(
+        self, scorers: List["Scorer"], rng: Optional[random.Random] = None
+    ):
         """
         Initialize with a list of Scorers.
 
         Args:
             scorers: List of Scorer instances to use for ranking
+            rng: Seeded RNG threaded from the strategy so stochastic selection is
+                reproducible under a fixed ``config.seed`` (INV-AGT-53). When None,
+                an unseeded ``random.Random()`` is used — non-reproducible, which
+                preserves the pre-seed behavior for callers that pass no seed.
         """
         self.scorers = scorers
+        self.rng = rng if rng is not None else random.Random()
 
     def rank(
         self, actions: List["ItemAction"], context: "RankingContext"
@@ -136,7 +143,7 @@ class ActionRanker:
 
         perturbed = []
         for scored in ranked:
-            u = random.uniform(0.001, 0.999)
+            u = self.rng.uniform(0.001, 0.999)
             gumbel_noise = -math.log(-math.log(u))
             perturbed_score = scored.score + gumbel_noise * temperature
             perturbed.append((perturbed_score, scored.action))

@@ -52,6 +52,7 @@ from rv_agent import tracking as track
 from rv_agent.agent.nodes.exploration_policy import NodeExplorationPolicy
 from rv_agent.domain.state import AgentState
 from rv_agent.memory.element_id import make_element_id
+from rv_agent.services.component_trigger import ComponentTriggerService
 from rv_agent.services.error_detection import ValidationErrorResult, VisualErrorDetector
 
 logger = logging.getLogger(__name__)
@@ -200,6 +201,46 @@ def _apply_node_policies(
             force_back = True
 
     return force_back
+
+
+def _maybe_trigger_component(agent: "RVAgent", iteration: int) -> None:
+    """Dispatch a MOP-reaching component when exploration has plateaued (INV-AGT-48).
+
+    Reads the plateau signal from the strategy's ``PlateauDetector`` and asks the
+    ``ComponentTriggerService`` to fire; the service itself enforces the enabled
+    flag, cadence, and denylist, so this is a no-op unless the arm is on and a
+    plateau is signalled. On a successful dispatch the decision is attributed
+    ``component_trigger`` (matching the trace taxonomy in step_trace) and the
+    plateau detector is fed a progress tick so the stagnation window resets — a
+    successful escape must not immediately re-trigger.
+
+    Uses the concrete-type guard (like ``_apply_node_policies``): unit tests pass a
+    ``MagicMock`` agent, which would auto-create a truthy service attribute.
+    """
+    service = getattr(agent, "component_trigger_service", None)
+    if not isinstance(service, ComponentTriggerService):
+        return
+
+    plateau_detector = getattr(agent.strategy, "plateau_detector", None)
+    plateau_reached = bool(
+        plateau_detector is not None and plateau_detector.is_plateau_reached()
+    )
+
+    triggered = service.maybe_trigger(plateau_reached)
+    if not triggered:
+        return
+
+    # Attribute the escape and reset stagnation: the dispatch is progress, so the
+    # plateau window records a discovery and the agent stops re-firing next step.
+    if hasattr(agent.strategy, "last_decision_source"):
+        agent.strategy.last_decision_source = "component_trigger"
+    if plateau_detector is not None:
+        plateau_detector.record_iteration(discovered_new_state=True)
+    logger.info(
+        "learn_node: component_trigger dispatched %s at iteration %d",
+        triggered,
+        iteration,
+    )
 
 
 def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
@@ -450,6 +491,12 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
     # set, so with the base policy this phase is a no-op and behavior is
     # byte-identical. force_back is escalated (never de-escalated) here.
     force_back = _apply_node_policies(agent, state, current_hash, iteration, force_back)
+
+    # Phase 4c: Component-triggering stagnation escape (INV-AGT-48). Off by
+    # default; fires only when component_trigger_enabled AND the plateau detector
+    # signals stagnation AND the cadence allows. A successful dispatch resets the
+    # plateau window so the escape is not immediately repeated.
+    _maybe_trigger_component(agent, iteration)
 
     # Phase 5: Continuation check and tracking
     continuation = agent.memory_coordinator.check_continuation(

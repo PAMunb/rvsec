@@ -7,6 +7,7 @@ specialized test values.
 """
 
 import logging
+import re
 from collections import defaultdict
 from typing import Dict, List, Optional
 
@@ -14,6 +15,105 @@ from faker import Faker
 from rv_agent import tracking as track
 
 logger = logging.getLogger(__name__)
+
+
+# Input-type keyword patterns, tried in priority order (first match wins). Each
+# keyword is matched against the field's TOKENS (see `tokenize`), not as a raw
+# substring, so "email" matches the token in "Email address" while "count" does
+# NOT match inside "account" — the substring false-positive fixed by fair-test F
+# (INV-INP-05). Multi-token keywords ("e-mail", "user_name") match when all their
+# tokens are present.
+_INPUT_TYPE_PATTERNS = [
+    ("email", ["email", "e-mail"]),
+    ("phone", ["phone", "mobile", "tel"]),
+    ("url", ["url", "website", "link"]),
+    ("search", ["search", "query", "find"]),
+    ("date", ["date", "birthday", "dob"]),
+    ("time", ["time", "hour"]),
+    ("number", ["number", "amount", "quantity", "price"]),
+    ("zip", ["zip", "postal", "cep"]),
+    ("verification_code", ["code", "otp", "verification", "pin"]),
+    ("username", ["username", "user_name", "login"]),
+    ("name", ["name", "nome"]),
+    ("address", ["address", "endereco"]),
+]
+
+# camelCase boundary (insert a space) and the separators that split identifiers
+# and labels into tokens (underscore, hyphen, dot, slash, colon, whitespace).
+_CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+_TOKEN_SEPARATORS = re.compile(r"[_\-./:\s]+")
+
+
+def tokenize(text: Optional[str]) -> set:
+    """Split a label or resource id into a lowercased token set.
+
+    Splits camelCase boundaries (``emailAddress`` → ``email address``) and the
+    ``_-./:`` + whitespace separators (``com.app:id/email_field`` → tokens), then
+    lowercases. Keyword matching operates on these tokens, so a keyword matches a
+    whole token only — never a substring of a longer word.
+    """
+    if not text:
+        return set()
+    spaced = _CAMEL_BOUNDARY.sub(r"\1 \2", text)
+    return {token for token in _TOKEN_SEPARATORS.split(spaced.lower()) if token}
+
+
+def _match_type(tokens: set) -> Optional[str]:
+    """Return the first input type whose keyword tokens are all present, else None."""
+    for input_type, keywords in _INPUT_TYPE_PATTERNS:
+        for keyword in keywords:
+            keyword_tokens = tokenize(keyword)
+            if keyword_tokens and keyword_tokens <= tokens:
+                return input_type
+    return None
+
+
+def infer_input_type(
+    target_view: Optional[Dict], nearby_labels: Optional[List[str]] = None
+) -> str:
+    """Infer input field type from the widget's own attributes and nearby labels.
+
+    Sources are consulted in order — the widget's own attributes FIRST (password
+    flag, hint, content description, resource id), then any ``nearby_labels`` from
+    the ±2 hierarchy containment lookup (fair-test F / INV-MOP-23: own id wins over
+    a neighbor). The first source that matches a type via token-based keyword
+    matching decides the type.
+
+    Args:
+        target_view: Widget view dictionary with UI attributes, or None.
+        nearby_labels: Label texts of widgets near the input (siblings/ancestors
+            within ±2 hierarchy levels), used only when the widget's own
+            attributes do not resolve a type.
+
+    Returns:
+        Input type string (e.g., "email", "password", "phone", "text").
+        Defaults to "text" when no source matches or ``target_view`` is None.
+    """
+    view = target_view or {}
+    if view.get("password") or view.get("is_password"):
+        return "password"
+
+    sources = [
+        view.get("hint") or "",
+        (
+            view.get("content-desc")
+            or view.get("content_description")
+            or view.get("content_desc")
+            or ""
+        ),
+        (view.get("resource-id") or view.get("resource_id") or ""),
+    ]
+    if nearby_labels:
+        sources.extend(nearby_labels)
+
+    for source in sources:
+        tokens = tokenize(source)
+        if not tokens:
+            continue
+        matched = _match_type(tokens)
+        if matched:
+            return matched
+    return "text"
 
 
 class InputValueGenerator:
