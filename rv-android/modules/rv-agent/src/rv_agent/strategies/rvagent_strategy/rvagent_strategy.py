@@ -292,6 +292,11 @@ class RVAgentStrategy(ExplorationStrategy):
         # When TIER3 backtrack to a state fails N times, skip that state.
         self._backtrack_failures: Dict[str, int] = {}
 
+        # BACK/MENU consecutive-pick cap counter (INV-AGT-51). Counts how many
+        # BACK decisions have been returned in a row; reset by any non-BACK
+        # decision. Only consulted when config.back_menu_pick_cap > 0.
+        self._consecutive_back_menu: int = 0
+
         # Tracks whether the current iteration discovered a new state.
         # Set in select_next_action() BEFORE get_or_create_state() adds it
         # to the graph. Used by record_transition() to pass the correct
@@ -333,6 +338,27 @@ class RVAgentStrategy(ExplorationStrategy):
         # Store current_hash for use by _build_ranking_context and other
         # internal methods that don't receive it as a parameter.
         self._current_hash = current_hash
+
+        # Foreign-activity guard (INV-AGT-51): when the foreground activity is
+        # foreign to the target package, escape instead of ranking/executing the
+        # foreign screen's widgets. Off by default (byte-identical to base).
+        if self.config.foreign_activity_guard and self._is_foreign_foreground(
+            screen_desc
+        ):
+            foreign_pkg = self._foreground_package(screen_desc)
+            track.foreign_activity_escape(
+                iter=self._current_iteration,
+                activity=screen_desc.activity,
+                package=foreign_pkg,
+            )
+            logger.info(
+                f"Foreign-activity guard: escaping foreign foreground "
+                f"'{screen_desc.activity}' (package={foreign_pkg})"
+            )
+            # Raw escape BACK — independent of the BACK/MENU pick cap (port of
+            # APE-RV: the foreign-guard BACK is a raw key event, not a
+            # discretionary pick, so it never feeds the cap counter).
+            return self._create_back_action()
 
         # _current_iteration is set externally by algorithm_node from the
         # agent loop's iteration counter, ensuring all RVTRACK logs use the
@@ -495,7 +521,7 @@ class RVAgentStrategy(ExplorationStrategy):
                         action_type="RESTART_APP",
                         reason="saturated_no_path_no_actions",
                     )
-                    return self._create_restart_action()
+                    return self._apply_back_menu_cap(self._create_restart_action())
 
         if not selected_action and all_filtered_actions:
             # TIER 4 - SCORED CONTINUOUS: All visible actions tested
@@ -508,7 +534,7 @@ class RVAgentStrategy(ExplorationStrategy):
             )
             if scroll_action:
                 logger.info("RVAgent SCROLL: scrolling to reveal more content")
-                return scroll_action
+                return self._apply_back_menu_cap(scroll_action)
 
             # Select action using scored selection with logarithmic execution-count decay.
             # Tier 4 runs when all visible actions have been tested at least once.
@@ -524,7 +550,7 @@ class RVAgentStrategy(ExplorationStrategy):
                 logger.info(
                     f"RVAgent: All actions scored zero on {current_hash[:8]}, returning BACK"
                 )
-                return self._create_back_action()
+                return self._apply_back_menu_cap(self._create_back_action())
 
             # Action signatures use device-space coordinates (INV-AGT-40)
             exec_count = node.get_action_execution_count(
@@ -543,7 +569,7 @@ class RVAgentStrategy(ExplorationStrategy):
             logger.info(
                 f"RVAgent: No actions available on state {current_hash[:8]}, returning BACK"
             )
-            return self._create_back_action()
+            return self._apply_back_menu_cap(self._create_back_action())
 
         # 6. Handle input fields with value generation.
         # TEXT_CHANGE actions (EditText fields) are tested with multiple values
@@ -595,7 +621,7 @@ class RVAgentStrategy(ExplorationStrategy):
                     )
                 else:
                     # Fallback to BACK if no untested actions
-                    return self._create_back_action()
+                    return self._apply_back_menu_cap(self._create_back_action())
 
         # 7. Pre-mark action as executed BEFORE actual execution
         # WHY: If the app crashes during execution, we won't retry the same action.
@@ -630,7 +656,7 @@ class RVAgentStrategy(ExplorationStrategy):
             f"{'[DM]' if selected_action.directly_reaches_target else '[M]' if selected_action.reaches_target else 'UI'})"
         )
 
-        return selected_action
+        return self._apply_back_menu_cap(selected_action)
 
     def record_transition(self, from_hash: str, to_hash: str, action_signature: tuple):
         """
@@ -1166,6 +1192,82 @@ class RVAgentStrategy(ExplorationStrategy):
                 rest.append(activity)
         return mop_first + rest
 
+    def _foreground_package(self, screen_desc: ScreenDescription) -> str:
+        """Return the dominant package of the current screen's actionable items.
+
+        Uses the most frequent non-empty item package as the foreground package.
+        Returns "" when no item carries package information.
+        """
+        counts: Dict[str, int] = {}
+        for item in screen_desc.items:
+            pkg = item.view.get("package", "")
+            if pkg:
+                counts[pkg] = counts.get(pkg, 0) + 1
+        if not counts:
+            return ""
+        return max(counts, key=counts.get)
+
+    def _is_foreign_foreground(self, screen_desc: ScreenDescription) -> bool:
+        """Report whether the foreground screen is foreign to the target package.
+
+        Foreign means every actionable item belongs to a package that is neither
+        the target package nor a system-dialog package (permission dialogs,
+        alerts). Screens with no package information cannot be judged and are
+        treated as native, so the guard never escapes on ambiguous input.
+        """
+        if not self.target_package:
+            return False
+        packages = {
+            item.view.get("package", "")
+            for item in screen_desc.items
+            if item.view.get("package")
+        }
+        if not packages:
+            return False
+        return all(
+            pkg != self.target_package and pkg not in self.SYSTEM_DIALOG_PACKAGES
+            for pkg in packages
+        )
+
+    def _apply_back_menu_cap(self, action: ItemAction) -> ItemAction:
+        """Apply the BACK/MENU consecutive-pick cap to a chosen action (INV-AGT-51).
+
+        Counts consecutive BACK decisions; once ``back_menu_pick_cap`` is
+        reached, a further BACK pick is filtered and replaced by a relaunch
+        (RESTART) so the agent breaks out of a BACK loop instead of spamming it.
+        Any non-BACK decision lifts the filter by resetting the streak. With the
+        cap at 0 (default) this is a byte-identical no-op — the base policy sees
+        the action unchanged and the streak counter is never consulted.
+
+        Note: there is no MENU action in the current parse; BACK is the only
+        menu-style system decision the strategy emits, so the cap operates on
+        BACK. RESTART (the escape) is not itself counted as a BACK pick.
+
+        Args:
+            action: The action the strategy is about to return.
+
+        Returns:
+            The same action, or a relaunch action when the cap filters a BACK.
+        """
+        cap = self.config.back_menu_pick_cap
+        if cap <= 0:
+            return action
+
+        if action.event == WidgetEventType.BACK:
+            if self._consecutive_back_menu >= cap:
+                track.back_menu_cap_filtered(iter=self._current_iteration, cap=cap)
+                logger.info(
+                    f"BACK/MENU cap reached ({cap}): filtering BACK, relaunching"
+                )
+                self._consecutive_back_menu = 0
+                return self._create_restart_action()
+            self._consecutive_back_menu += 1
+            return action
+
+        # Any non-BACK decision lifts the cap for the next round.
+        self._consecutive_back_menu = 0
+        return action
+
     def _prepare_input_action(
         self, action: ItemAction, current_hash: str
     ) -> Optional[ItemAction]:
@@ -1276,6 +1378,7 @@ class RVAgentStrategy(ExplorationStrategy):
 
         # Reset gh26 state
         self._backtrack_failures.clear()
+        self._consecutive_back_menu = 0
         self.stochastic_probability = self.config.stochastic_probability
 
         logger.info("RVAgentStrategy state reset")

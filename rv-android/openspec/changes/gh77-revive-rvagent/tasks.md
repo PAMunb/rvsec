@@ -45,11 +45,14 @@
 
 ## 4. Exploration guards and caps (INV-AGT-51)
 
-- [ ] 4.1 Implement pre-ranking candidate filters: foreign-activity guard, foreign-tree guard, BACK/MENU consecutive-pick cap, MOP-target revisit cap (stops MOP boost only, base scorers unaffected)
-- [ ] 4.2 Implement node-level policy: idle-timeout cap, dynamic epsilon, per-activity action budget — in the LangGraph `execute`/`validation` nodes (`agent/nodes/`)
-- [ ] 4.3 Add per-guard telemetry counters (each rejection counted)
-- [ ] 4.4 Add unit tests per guard/cap (foreign escape, BACK cap lift, revisit cap boost-stop, budget deprioritization)
-- [ ] 4.5 Run `/rv-test-run rv-agent`
+- [x] 4.1 Implement pre-ranking candidate filters: foreign-activity guard, foreign-tree guard, BACK/MENU consecutive-pick cap, MOP-target revisit cap (stops MOP boost only, base scorers unaffected)
+- [x] 4.2 Implement node-level policy: idle-timeout cap, dynamic epsilon, per-activity action budget — in the LangGraph `execute`/`validation` nodes (`agent/nodes/`)
+  - Delivered as `agent/nodes/exploration_policy.py::NodeExplorationPolicy`, applied from `learn_node` (Phase 4b, gated per flag). Ported APE-RV formulas: epsilon `0.02 + 0.13·coverage_gap`, budget `50 + 5·widgets` (frozen, no reset), idle bounded wait → escape. `learn_node` (post-execution) is the node seam that carries the required state (hashes, activity, coverage); `execute`/`validation` are per-action pass-throughs without it.
+- [x] 4.3 Add per-guard telemetry counters (each rejection counted)
+- [x] 4.4 Add unit tests per guard/cap (foreign escape, BACK cap lift, revisit cap boost-stop, budget deprioritization)
+  - `tests/unit/test_gh77_guards_caps.py` (21 tests). NOTE: the BACK/MENU cap is implemented with the delta-spec's **consecutive + lift** semantics (INV-AGT-51 scenario), which diverges from APE-RV's monotonic-per-activity `backMenuPicks` (never lifts) — the spec is the binding contract for rv-agent.
+- [x] 4.5 Run `/rv-test-run rv-agent`
+  - Full offline suite green: 1841 passed, 76 skipped. Pure-arm parity green (byte-identical with all guards off). rvagent-tool regression: 19 passed.
 
 ## 5. Fair-test items (INV-AGT-52..53 + scorers C/D/F)
 

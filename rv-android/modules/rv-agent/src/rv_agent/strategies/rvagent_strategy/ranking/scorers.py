@@ -95,9 +95,13 @@ class MopScorer(Scorer):
         if config:
             self.direct_score = config.mop_direct_score
             self.transitive_score = config.mop_transitive_score
+            # MOP-target revisit cap (INV-AGT-51). 0 disables it — the boost is
+            # never suppressed and behavior is byte-identical to the base policy.
+            self._pick_cap = config.mop_target_pick_cap
         else:
             self.direct_score = self.DEFAULT_DIRECT_SCORE
             self.transitive_score = self.DEFAULT_TRANSITIVE_SCORE
+            self._pick_cap = 0
 
     def is_enabled(self, config: "RVAgentConfig") -> bool:
         """Active only while some MOP weight is non-zero (pure_mode zeroes both)."""
@@ -105,10 +109,29 @@ class MopScorer(Scorer):
 
     def score(self, action: "ItemAction", context: "RankingContext") -> float:
         if action.directly_reaches_target:
-            return self.direct_score
+            boost = self.direct_score
         elif action.reaches_target:
-            return self.transitive_score
-        return 0.0
+            boost = self.transitive_score
+        else:
+            return 0.0
+
+        # MOP-target revisit cap: once this target has been picked `_pick_cap`
+        # times (its per-state execution count), drop ONLY the MOP boost so the
+        # agent stops re-fixating on it. Base-policy scorers keep scoring it
+        # normally (they run independently in ActionRanker).
+        if self._pick_cap > 0:
+            node = context.graph.states.get(context.current_state_hash)
+            if node is not None:
+                picks = node.get_action_execution_count(action.coords_for_matching)
+                if picks >= self._pick_cap:
+                    track.mop_target_cap_boost_stopped(
+                        iter=getattr(context, "iteration", 0),
+                        cap=self._pick_cap,
+                        coords=action.coordinates or (0, 0),
+                    )
+                    return 0.0
+
+        return boost
 
 
 class WtgScorer(Scorer):

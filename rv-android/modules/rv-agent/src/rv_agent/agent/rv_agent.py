@@ -41,6 +41,7 @@ from rv_agent.agent.nodes import (
     parse_ui_node,
     validate_action_node,
 )
+from rv_agent.agent.nodes.exploration_policy import NodeExplorationPolicy
 from rv_agent.config.agent_config import RVAgentConfig
 from rv_agent.domain.action import ActionNormalizer
 from rv_agent.domain.state import AgentState
@@ -185,6 +186,11 @@ class RVAgent:
         # deadlock = decision router returns no action to execute.
         self.consecutive_no_action = 0
         self.NO_ACTION_THRESHOLD = 3  # Force BACK after 3 iterations without action
+
+        # Node-level exploration policies (INV-AGT-51): idle-timeout cap, dynamic
+        # epsilon, per-activity action budget. All off by default — the object is
+        # inert unless the matching arm flag is enabled.
+        self.exploration_policy = NodeExplorationPolicy(config)
 
         logger.info("RVAgent initialized with modular architecture")
         logger.info(f"Mode: {mode}")

@@ -42,12 +42,14 @@ happened) and planning (what to do next) by translating evidence into control si
 """
 
 import logging
+import time
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from rv_agent.agent.rv_agent import RVAgent
 
 from rv_agent import tracking as track
+from rv_agent.agent.nodes.exploration_policy import NodeExplorationPolicy
 from rv_agent.domain.state import AgentState
 from rv_agent.memory.element_id import make_element_id
 from rv_agent.services.error_detection import ValidationErrorResult, VisualErrorDetector
@@ -126,6 +128,78 @@ def _detect_validation_error(
         max_indicator_size=agent.config.error_max_indicator_size,
         max_indicator_count=agent.config.error_max_indicator_count,
     )
+
+
+def _apply_node_policies(
+    agent: "RVAgent",
+    state: AgentState,
+    current_hash: Optional[str],
+    iteration: int,
+    force_back: bool,
+) -> bool:
+    """Apply the three node-level exploration policies (INV-AGT-51).
+
+    Returns ``force_back``, possibly escalated to True by the idle-timeout cap or
+    the per-activity action budget. Each policy is gated by its own arm flag;
+    with all off this returns ``force_back`` unchanged (byte-identical base
+    behavior). Dynamic epsilon adjusts the strategy's ``stochastic_probability``
+    in place and has no ``force_back`` effect.
+
+    Args:
+        agent: RVAgent with ``exploration_policy``, ``ui_coverage``, ``strategy``.
+        state: Current agent state (screen hashes, current_activity).
+        current_hash: Current screen hash (may be None).
+        iteration: Current iteration number, for telemetry.
+        force_back: The force-back flag as computed by stuck detection.
+
+    Returns:
+        The (possibly escalated) force_back flag.
+    """
+    # Require a real policy instance: mock agents in unit tests auto-create a
+    # truthy MagicMock for any attribute, so guard on the concrete type (same
+    # test-double guard pattern as ScoringPipeline.from_config).
+    policy = getattr(agent, "exploration_policy", None)
+    if not isinstance(policy, NodeExplorationPolicy):
+        return force_back
+    config = agent.config
+
+    # Read the arm flags via getattr-with-default so an incomplete mock config
+    # (e.g. a bare MagicMock(spec=RVAgentConfig) without the gh77 fields seeded)
+    # reads as disabled rather than raising — a real config always has them.
+    dynamic_epsilon = getattr(config, "dynamic_epsilon", False)
+    idle_timeout_cap = getattr(config, "idle_timeout_cap", 0)
+    activity_budget_enabled = getattr(config, "activity_budget_enabled", False)
+
+    # Dynamic epsilon: scale exploration randomness by the current state's
+    # coverage gap. Adjusts the strategy's stochastic_probability directly.
+    if dynamic_epsilon and current_hash:
+        if hasattr(agent.strategy, "stochastic_probability"):
+            gap = agent.ui_coverage.get_coverage_gap(current_hash)
+            agent.strategy.stochastic_probability = policy.effective_epsilon(
+                config.stochastic_probability, gap
+            )
+
+    # Idle-timeout cap: escape a screen that has stayed unchanged past the cap.
+    if idle_timeout_cap and idle_timeout_cap > 0:
+        screen_changed = bool(current_hash) and current_hash != state.get(
+            "previous_screen_hash"
+        )
+        if policy.check_idle(time.time(), screen_changed, iteration):
+            force_back = True
+            agent._last_action_was_stuck_back = True
+
+    # Per-activity action budget: deprioritize (leave) an activity that has
+    # consumed its per-run action budget.
+    if activity_budget_enabled:
+        activity = state.get("current_activity")
+        widget_count = (
+            agent.ui_coverage.get_element_count(current_hash) if current_hash else 0
+        )
+        policy.register_activity(activity, widget_count)
+        if policy.record_and_check_budget(activity, iteration):
+            force_back = True
+
+    return force_back
 
 
 def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
@@ -370,6 +444,12 @@ def learn_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
                 force_restart = True
                 stuck_recovery.record_restart()
                 agent._last_action_was_stuck_back = True
+
+    # Phase 4b: Node-level exploration policies (INV-AGT-51).
+    # All three are off by default; each block runs only when its arm flag is
+    # set, so with the base policy this phase is a no-op and behavior is
+    # byte-identical. force_back is escalated (never de-escalated) here.
+    force_back = _apply_node_policies(agent, state, current_hash, iteration, force_back)
 
     # Phase 5: Continuation check and tracking
     continuation = agent.memory_coordinator.check_continuation(

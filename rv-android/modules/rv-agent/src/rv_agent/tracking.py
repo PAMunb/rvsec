@@ -52,6 +52,14 @@ _counters: Dict[str, int] = {
     "restart_count": 0,
     "error_recovery_count": 0,
     "navigation_guidance_error": 0,
+    # Exploration guards and caps (INV-AGT-51). Each key counts one guard
+    # rejection / policy action. All stay at 0 unless the matching arm flag is
+    # enabled, so the pure arm reports zeros across the board.
+    "foreign_activity_guard_escapes": 0,
+    "back_menu_cap_filtered": 0,
+    "mop_target_cap_boost_stopped": 0,
+    "idle_timeout_waits": 0,
+    "activity_budget_deprioritized": 0,
 }
 
 
@@ -547,3 +555,47 @@ def element_match(
             result=result,
         )
     )
+
+
+def foreign_activity_escape(iter: int, activity: str, package: str) -> None:
+    """Log a foreign-activity guard escape (INV-AGT-51).
+
+    Fired when the foreground activity is foreign to the target package and the
+    guard forces an escape instead of ranking the foreign screen's widgets.
+    """
+    _counters["foreign_activity_guard_escapes"] += 1
+    logger.info(_fmt("GUARD", iter=iter, guard="foreign_activity", activity=activity,
+                     package=package))
+
+
+def back_menu_cap_filtered(iter: int, cap: int) -> None:
+    """Log a BACK/MENU consecutive-pick cap rejection (INV-AGT-51).
+
+    Fired when the cap is reached and a further BACK/MENU pick is filtered out
+    (the strategy escalates to a relaunch instead).
+    """
+    _counters["back_menu_cap_filtered"] += 1
+    logger.info(_fmt("GUARD", iter=iter, guard="back_menu_cap", cap=cap))
+
+
+def mop_target_cap_boost_stopped(iter: int, cap: int, coords: Tuple[int, int]) -> None:
+    """Log a MOP-target revisit cap suppressing the MOP boost (INV-AGT-51).
+
+    Fired when a MOP-reaching target has been picked ``cap`` times; only the MOP
+    boost is dropped — base-policy scorers keep scoring the target.
+    """
+    _counters["mop_target_cap_boost_stopped"] += 1
+    logger.info(_fmt("GUARD", iter=iter, guard="mop_target_cap", cap=cap, coords=coords))
+
+
+def idle_timeout_wait(iter: int, cap: int) -> None:
+    """Log an idle-timeout cap firing on an idle screen (INV-AGT-51)."""
+    _counters["idle_timeout_waits"] += 1
+    logger.info(_fmt("GUARD", iter=iter, guard="idle_timeout", cap=cap))
+
+
+def activity_budget_deprioritized(iter: int, activity: str, budget: int) -> None:
+    """Log a per-activity action-budget deprioritization (INV-AGT-51)."""
+    _counters["activity_budget_deprioritized"] += 1
+    logger.info(_fmt("GUARD", iter=iter, guard="activity_budget", activity=activity,
+                     budget=budget))
