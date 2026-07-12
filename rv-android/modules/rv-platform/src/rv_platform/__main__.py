@@ -18,6 +18,25 @@ from rv_platform.platform import Platform
 from rv_tools.registry.registry import ToolRegistry
 
 
+def _parse_timeouts(raw: str) -> list[int]:
+    """Parse the ``--timeouts`` CSV string into a list of positive integers.
+
+    Mirror of the rv-experiment helper (INV-PLT-22): comma split, whitespace
+    trim, positive integers only, user order preserved, no deduplication. Wired
+    as the argument's ``type=`` so argparse runs it during ``parse_args()`` and
+    renders a usage error (exit 2) before any ``PlatformConfig`` is built.
+    """
+    try:
+        values = [int(t.strip()) for t in raw.split(",") if t.strip()]
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(
+            f"timeouts must be comma-separated integers: {raw!r}"
+        ) from e
+    if not values or any(v <= 0 for v in values):
+        raise argparse.ArgumentTypeError(f"timeouts must be positive integers: {raw!r}")
+    return values
+
+
 def add_performance_arguments(parser):
     """
     Add performance monitoring arguments to CLI parser.
@@ -71,8 +90,11 @@ def create_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Run command with both config file and CLI options
+    # allow_abbrev=False so the removed scalar `--timeout` is not silently
+    # accepted as a prefix abbreviation of `--timeouts` — the hard rename (P3)
+    # must reject it (exit 2), matching the Click side which never abbreviates.
     run_parser = subparsers.add_parser(
-        "run", help="Execute platform with configuration"
+        "run", help="Execute platform with configuration", allow_abbrev=False
     )
     run_parser.add_argument(
         "--config", "-c", help="Path to platform configuration file"
@@ -96,10 +118,13 @@ def create_parser() -> argparse.ArgumentParser:
         "--repetitions", type=int, default=1, help="Number of repetitions (default: 1)"
     )
     run_parser.add_argument(
-        "--timeout",
-        type=int,
-        default=300,
-        help="Execution timeout in seconds (default: 300)",
+        "--timeouts",
+        type=_parse_timeouts,
+        default=[300],
+        help=(
+            "Execution timeouts in seconds, comma-separated "
+            '(e.g. "300" or "60,300"; default: 300)'
+        ),
     )
     run_parser.add_argument(
         "--no-window", action="store_true", help="Run emulator in headless mode"
@@ -403,7 +428,7 @@ def _create_config_from_cli(args) -> PlatformConfig:
         apks_dir=args.apks_dir,
         tools=tools,
         repetitions=args.repetitions,
-        timeouts=[args.timeout],
+        timeouts=args.timeouts,
         results_dir=results_dir,
         no_window=args.no_window,
         log_level="INFO",

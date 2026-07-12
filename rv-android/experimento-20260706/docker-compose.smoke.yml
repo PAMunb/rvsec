@@ -5,8 +5,11 @@
 #   cd /home/pedro/experimento-20260706
 #   bash scripts/run_smoke.sh
 #
-# Click do rv-experiment só aceita um --timeout por invocação → rodamos duas vezes
-# (RV_TIMEOUTS=60, depois 120) com mesmo RV_EXPERIMENT_NAME; auto-resume via tasks.json.
+# Nota: desde o gh75, RV_TIMEOUTS aceita lista (ex.: "60,120") e uma única
+# invocação gera os dois arms de timeout — a dupla execução sequencial (rodar com
+# 60 e depois 120, encadeada por auto-resume) deixou de ser necessária. O
+# scripts/run_smoke.sh ainda faz o loop por passada; migrá-lo para uma lista única
+# é opcional e fica fora deste change.
 
 services:
   humanoid:

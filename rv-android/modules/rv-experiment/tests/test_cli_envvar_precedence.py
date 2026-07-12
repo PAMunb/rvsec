@@ -21,11 +21,10 @@ from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
-
+from rv_experiment.__main__ import _create_experiment_config_from_cli as _orig_factory
 from rv_experiment.__main__ import (
-    _create_experiment_config_from_cli as _orig_factory,
+    cli,
 )
-from rv_experiment.__main__ import cli
 from rv_experiment.constants import DEFAULT_TIMEOUT
 
 # Resolve params by name via inspect.signature — robust to the (already
@@ -53,7 +52,7 @@ def captured_args():
     def _capture(*args, **kwargs):
         bound = _FACTORY_SIG.bind(*args, **kwargs).arguments
         captured["tools"] = bound["tools"]
-        captured["timeout"] = bound["timeout"]
+        captured["timeouts"] = bound["timeouts"]
         captured["instrumentation_variant"] = bound["instrumentation_variant"]
         raise _StopRun()
 
@@ -92,17 +91,40 @@ def test_tools_cli_overrides_env(runner, captured_args):
 
 def test_timeouts_default_when_neither_cli_nor_env(runner, captured_args):
     _invoke(runner, [])
-    assert captured_args["timeout"] == DEFAULT_TIMEOUT
+    assert captured_args["timeouts"] == [DEFAULT_TIMEOUT]
 
 
 def test_timeouts_env_only(runner, captured_args):
     _invoke(runner, [], env={"RV_TIMEOUTS": "180"})
-    assert captured_args["timeout"] == 180
+    assert captured_args["timeouts"] == [180]
 
 
 def test_timeouts_cli_overrides_env(runner, captured_args):
-    _invoke(runner, ["--timeout", "60"], env={"RV_TIMEOUTS": "180"})
-    assert captured_args["timeout"] == 60
+    _invoke(runner, ["--timeouts", "60"], env={"RV_TIMEOUTS": "180"})
+    assert captured_args["timeouts"] == [60]
+
+
+def test_timeouts_list_via_env(runner, captured_args):
+    # RV_TIMEOUTS="60,300" must yield two arms, not crash on int("60,300").
+    _invoke(runner, [], env={"RV_TIMEOUTS": "60,300"})
+    assert captured_args["timeouts"] == [60, 300]
+
+
+def test_timeouts_list_cli_overrides_env(runner, captured_args):
+    _invoke(runner, ["--timeouts", "60,120"], env={"RV_TIMEOUTS": "300"})
+    assert captured_args["timeouts"] == [60, 120]
+
+
+def test_timeouts_invalid_token_fails_fast(runner, captured_args):
+    result = _invoke(runner, ["--timeouts", "60,abc"])
+    assert result.exit_code == 2
+    assert "timeouts must be" in result.output
+
+
+def test_old_scalar_timeout_flag_rejected(runner, captured_args):
+    result = _invoke(runner, ["--timeout", "300"])
+    assert result.exit_code == 2
+    assert "--timeout" in result.output
 
 
 def test_instrumentation_variant_default_when_neither_cli_nor_env(

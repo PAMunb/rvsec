@@ -52,7 +52,7 @@ def _call_create_config(
     return _create_experiment_config_from_cli(
         ctx=ctx,
         tools=tools,
-        timeout=60,
+        timeouts=[60],
         repetitions=1,
         apks_dir=apks_dir,
         specification_set="jca",

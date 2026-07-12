@@ -240,6 +240,39 @@ class CLIContext:
 pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 
 
+def _parse_timeouts(raw: str) -> List[int]:
+    """Parse the ``--timeouts`` CSV string into a list of positive integers.
+
+    The option is declared as a string (mirroring ``--tools``) so the same
+    value can arrive via the flag, the ``RV_TIMEOUTS`` env var, or the default
+    without Click coercing it to ``int`` — that coercion is exactly what breaks
+    ``RV_TIMEOUTS="60,300"``. Splitting/validation therefore happens here, at the
+    CLI boundary, before any experiment setup (INV-EXP-33). Order is preserved
+    and duplicates are kept: the resume mechanism skips identity-colliding tasks.
+    """
+    try:
+        values = [int(t.strip()) for t in raw.split(",") if t.strip()]
+    except ValueError as e:
+        raise click.BadParameter(
+            f"timeouts must be comma-separated integers: {raw!r}"
+        ) from e
+    if not values or any(v <= 0 for v in values):
+        raise click.BadParameter(f"timeouts must be positive integers: {raw!r}")
+    return values
+
+
+def _timeouts_callback(ctx, param, value: str) -> List[int]:
+    """Click callback that parses ``--timeouts`` during parameter processing.
+
+    Runs before ``run()`` executes and outside its ``@handle_errors`` wrapper
+    (which absorbs every exception and would turn a ``BadParameter`` into a
+    silent exit 0). Raising here lets Click render the usage error and exit 2,
+    satisfying INV-EXP-33's fail-fast contract. ``value`` is the Click-resolved
+    string (flag, ``RV_TIMEOUTS`` env, or default).
+    """
+    return _parse_timeouts(value)
+
+
 @click.group()
 # gh55 §9 GAMBIARRA — first envvar= entry. See
 # `openspec/changes/gh55-env-purity-avd-api30/design.md` "Known Limitations
@@ -330,10 +363,14 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     help="Configuration file path (JSON format)",
 )
 @click.option(
-    "--timeout",
-    default=DEFAULT_TIMEOUT,
+    "--timeouts",
+    default=str(DEFAULT_TIMEOUT),
     envvar=ENV_TIMEOUTS,
-    help=f"Execution timeout in seconds (default: {DEFAULT_TIMEOUT})",
+    callback=_timeouts_callback,
+    help=(
+        "Execution timeouts in seconds, comma-separated "
+        f'(e.g. "300" or "60,300"; default: {DEFAULT_TIMEOUT})'
+    ),
 )
 @click.option(
     "--repetitions",
@@ -483,7 +520,7 @@ def run(
     ctx: CLIContext,
     tools: str,
     config: Optional[str],
-    timeout: int,
+    timeouts: List[int],
     repetitions: int,
     apks_dir: str,
     specification_set: str,
@@ -535,11 +572,13 @@ def run(
     - `generic`: Generic programming pattern monitoring (e.g., Iterator usage patterns)
     - `custom`: Custom specification sets for domain-specific monitored operations
     """
+    # `timeouts` arrives already parsed to List[int] by the --timeouts Click
+    # callback (INV-EXP-33), which runs before this @handle_errors-wrapped body.
     with ctx.logger.with_context(
         command="run",
         tools=tools,
         config=config,
-        timeout=timeout,
+        timeouts=timeouts,
         repetitions=repetitions,
         specification_set=specification_set,
     ):
@@ -569,7 +608,7 @@ def run(
                 experiment_config = _create_experiment_config_from_cli(
                     ctx,
                     tools,
-                    timeout,
+                    timeouts,
                     repetitions,
                     apks_dir,
                     specification_set,
@@ -603,7 +642,8 @@ def run(
             click.echo(
                 f"📊 Monitored operations: {experiment_config.specification_set}"
             )
-            click.echo(f"⏱️  Timeout: {timeout}s, Repetitions: {repetitions}")
+            timeouts_display = ", ".join(f"{t}s" for t in timeouts)
+            click.echo(f"⏱️  Timeouts: {timeouts_display}, Repetitions: {repetitions}")
             click.echo(f"📁 Output directory: {experiment_config.output_dir}")
             click.echo(f"📱 APK directory: {apks_dir}")
 
@@ -984,7 +1024,7 @@ def _split_tool_specifications(tools_string: str) -> list[str]:
 def _create_experiment_config_from_cli(
     ctx: CLIContext,
     tools: str,
-    timeout: int,
+    timeouts: List[int],
     repetitions: int,
     apks_dir: str,
     specification_set: str,
@@ -1027,7 +1067,7 @@ def _create_experiment_config_from_cli(
     Args:
         ctx: CLI context with logging and tool registry access
         tools: Comma-separated tool specifications string
-        timeout: Execution timeout in seconds
+        timeouts: Execution timeouts in seconds (already parsed to a list)
         repetitions: Number of experiment repetitions
         apks_dir: Directory containing APK files
         specification_set: Monitored operations specification set (jca, generic, custom)
@@ -1130,7 +1170,7 @@ def _create_experiment_config_from_cli(
             results_dir=output_dir,
             tool_configs=tool_configs,
             repetitions=repetitions,
-            timeouts=[timeout],
+            timeouts=timeouts,
             no_window=no_window,
             generate_monitors=generate_monitors,
             instrument_apks=instrument_apks,
