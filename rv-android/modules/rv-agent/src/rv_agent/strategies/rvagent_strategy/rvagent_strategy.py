@@ -264,6 +264,18 @@ class RVAgentStrategy(ExplorationStrategy):
         # decision. Only consulted when config.back_menu_pick_cap > 0.
         self._consecutive_back_menu: int = 0
 
+        # E-mín launcher dose state (INV-AGT-47 dose control). All three are
+        # consulted only when config.trigger_mop_first is set (the launcher gate).
+        #   _launch_denylist: activities whose launch failed — never re-launched
+        #                     in this run (Scenario "Failed Launch Enters Denylist").
+        #   _launch_count:    direct launches dispatched this run, capped by
+        #                     config.launch_cap (Scenario "Per-Run Launch Cap").
+        #   _steps_since_launch: cadence counter; the launcher fires once every
+        #                     config.launch_cadence selection steps.
+        self._launch_denylist: Set[str] = set()
+        self._launch_count: int = 0
+        self._steps_since_launch: int = 0
+
         # Per-step decision-source attribution (fair-test E, INV-AGT-52). The
         # last attributed source and its boosts are recomputed at each scored
         # selection. The optional StepTraceWriter is attached by the agent via
@@ -1220,6 +1232,93 @@ class RVAgentStrategy(ExplorationStrategy):
                 rest.append(activity)
         return mop_first + rest
 
+    def maybe_launch_activity(
+        self, activities: List[str], visited: Optional[Set[str]] = None
+    ) -> Optional[str]:
+        """
+        Pick the next activity to launch under the dose policy, or None (INV-AGT-47).
+
+        Dose control over the E-mín launcher (design Data Flow step 5): activities
+        are first ordered MOP-first (``order_activity_launch_queue``), then the
+        first activity that is neither already visited nor denylisted is launched —
+        but only when the cadence/cap gate allows a launch this step. When the gate
+        does not allow it, or no eligible activity remains, None is returned and the
+        agent continues normal UI-driven exploration unaffected.
+
+        The step counter advances on every call (a "launch opportunity"). It is
+        reset to zero only at a firing point, so the launcher fires once every
+        ``config.launch_cadence`` calls. The per-run budget (``config.launch_cap``)
+        is consumed only when an activity is actually selected — an opportunity that
+        fires but finds no eligible activity costs no budget. Port of
+        ``SataAgent.selectNewActionNonnull`` launcher block + ``shouldFireLauncher``.
+
+        Args:
+            activities: The candidate activity launch queue, in natural order.
+            visited: Activities already reached this run (skipped). When None, the
+                strategy's visited set is used (``_get_visited_activities``).
+
+        Returns:
+            The activity name to launch, or None when the dose gate blocks a launch
+            or no eligible activity remains.
+        """
+        self._steps_since_launch += 1
+        if not self._launcher_should_fire():
+            return None
+        # Firing point: reset the cadence counter regardless of the outcome so
+        # firing stays periodic and the queue is not re-scanned every step.
+        self._steps_since_launch = 0
+        if visited is None:
+            visited = self._get_visited_activities()
+        candidate = self._select_launch_candidate(activities, visited)
+        if candidate is not None:
+            # Budget consumed only on an actual launch (Scenario "Per-Run Launch Cap").
+            self._launch_count += 1
+        return candidate
+
+    def _launcher_should_fire(self) -> bool:
+        """
+        Report whether the dose gate permits a direct launch this step.
+
+        The launcher fires only when it is enabled (``trigger_mop_first``), the
+        cadence period has elapsed (``_steps_since_launch >= config.launch_cadence``),
+        and the per-run budget is not exhausted (``config.launch_cap == 0`` means
+        unlimited, otherwise fire only while ``_launch_count < config.launch_cap``).
+        With ``trigger_mop_first`` off this is a byte-identical no-op — the pure arm
+        never launches.
+        """
+        if not self.config.trigger_mop_first:
+            return False
+        if self._steps_since_launch < self.config.launch_cadence:
+            return False
+        cap = self.config.launch_cap
+        return cap == 0 or self._launch_count < cap
+
+    def _select_launch_candidate(
+        self, activities: List[str], visited: Set[str]
+    ) -> Optional[str]:
+        """
+        Return the first MOP-first-ordered activity eligible to launch, or None.
+
+        Eligibility: not already visited and not on the failed-launch denylist. The
+        queue is ordered MOP-first via ``order_activity_launch_queue`` so, when
+        ``trigger_mop_first`` is set, MOP-reaching activities are preferred.
+        """
+        for activity in self.order_activity_launch_queue(activities):
+            if activity in visited or activity in self._launch_denylist:
+                continue
+            return activity
+        return None
+
+    def record_launch_failure(self, activity: str) -> None:
+        """
+        Denylist an activity whose launch failed (spec Scenario "Failed Launch").
+
+        A denylisted activity is never returned by ``maybe_launch_activity`` again
+        in the same run, so a launch that does not reach the foreground is not
+        retried and wasted. The denylist is cleared on ``reset`` (per-run scope).
+        """
+        self._launch_denylist.add(activity)
+
     def _foreground_package(self, screen_desc: ScreenDescription) -> str:
         """Return the dominant package of the current screen's actionable items.
 
@@ -1467,6 +1566,12 @@ class RVAgentStrategy(ExplorationStrategy):
         # Reset gh26 state
         self._backtrack_failures.clear()
         self._consecutive_back_menu = 0
+
+        # Reset E-mín launcher dose state (per-run scope, INV-AGT-47).
+        self._launch_denylist.clear()
+        self._launch_count = 0
+        self._steps_since_launch = 0
+
         self.stochastic_probability = self.config.stochastic_probability
 
         logger.info("RVAgentStrategy state reset")

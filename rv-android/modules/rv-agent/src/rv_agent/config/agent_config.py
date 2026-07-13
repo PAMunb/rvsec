@@ -457,6 +457,23 @@ class RVAgentConfig(BaseValidatedModel):
         description="Order the activity launch queue so MOP-reaching activities go first",
         json_schema_extra={"arm_defining": True},
     )
+    # E-min launcher dose knobs. These are subordinate to trigger_mop_first (the
+    # launcher gate): with it off the launcher never fires, so the knobs are
+    # inert. They are therefore NOT arm_defining — pure_mode turns the arm off via
+    # trigger_mop_first, not via these. This mirrors component_percentage's
+    # relation to component_trigger_enabled, and matches APE-RV's activity-trigger
+    # -dose sub-params (activityTriggerStagnationStep / activityTriggerMaxPerRun),
+    # which are exempt from apePureMode for the same reason.
+    launch_cadence: int = Field(
+        default=50,
+        ge=1,
+        description="Launcher firing period in selection steps (dose knob)",
+    )
+    launch_cap: int = Field(
+        default=0,
+        ge=0,
+        description="Per-run cap on direct activity launches (dose); 0 = unlimited",
+    )
     # Stagnation escape: trigger MOP-reaching non-activity components on plateau
     component_trigger_enabled: bool = Field(
         default=False,

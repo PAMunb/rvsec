@@ -77,9 +77,12 @@
 
 ## 6. Launcher with dose/denylist
 
-- [ ] 6.1 Extend the launch policy in `rvagent_strategy.py`: configurable launch cadence, per-run launch cap (dose), failed-launch denylist (never re-launch in-run) — port of `mop-activity-consumers`/`activity-trigger-dose`/`mop-census-launcher` from `ape-mop-fairtest`
-- [ ] 6.2 Add unit tests: denylist entry on failure, cap enforcement, cadence
-- [ ] 6.3 Run `/rv-verify rv-agent`
+- [x] 6.1 Extend the launch policy in `rvagent_strategy.py`: configurable launch cadence, per-run launch cap (dose), failed-launch denylist (never re-launch in-run) — port of `mop-activity-consumers`/`activity-trigger-dose`/`mop-census-launcher` from `ape-mop-fairtest`
+  - `maybe_launch_activity` / `_launcher_should_fire` / `_select_launch_candidate` / `record_launch_failure` on `RVAgentStrategy` (delivered as a unit, no runtime caller — same pattern as 3.4/5.8). Config knobs `launch_cadence` (default 50, ge=1) + `launch_cap` (default 0=unlimited) added to `agent_config.py`, subordinate to `trigger_mop_first` so NOT arm_defining (mirrors `component_percentage`; matches APE-RV activity-trigger-dose sub-params exempt from `apePureMode` — `ApePureModeKillSwitchTest`). Nothing registered in `RV_STEERING_FLAGS`. `pure_mode` forces `trigger_mop_first` off → launcher is a byte-identical no-op. Per-run state cleared in `reset()`. Port of `SataAgent.selectNewActionNonnull` launcher block + `shouldFireLauncher`/`selectTriggerCandidate` seams.
+- [x] 6.2 Add unit tests: denylist entry on failure, cap enforcement, cadence
+  - `tests/unit/test_gh77_launcher.py` (14 tests, `make_agent_config`): denylist-on-failure + skip-on-reselect + empty-candidate-costs-no-budget; cap stop/unlimited/normal-exploration-unaffected; cadence period + re-arm; MOP-first selection + visited skipping (explicit + strategy-default); pure-arm no-op (dose off + pure_mode forces trigger_mop_first off via `from_config` kill-switch); reset clears dose state. rv-agent offline: 1890 passed / 76 skipped (1876 + 14). Pure-arm parity + pipeline: 11 passed.
+- [x] 6.3 Run `/rv-verify rv-agent`
+  - Verdict WARN, no blocking failures: unit 1626 + integration 227 green (offline selection), MI grade A. The FAIL rows (black/isort 4 files, flake8 185×E501) are pre-existing module-wide style debt (owned by Group 9.4 `/rv-qa-lint-fix`), NOT introduced here — the three files I touched are verified clean: `test_gh77_launcher.py` black+isort+flake8 clean; my new lines in `agent_config.py`/`rvagent_strategy.py` have zero E501. mypy skipped (module has no mypy config); dependency-security could not run (sandbox lacks network for `safety`). Full offline suite reconfirmed: 1890 passed / 76 skipped; pure-arm parity 11 green.
 
 ## 7. rvagent-tool variants policy + calibration (INV-RVA-01..06)
 
