@@ -9,6 +9,49 @@ from typing import Any, Dict, Optional
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 
+# Local, explicit copy of the agent-side kill-switch registry (RV_STEERING_FLAGS
+# in rv_agent `strategies/rvagent_strategy/ranking/pipeline.py`): every
+# arm-defining key mapped to its off/0 value. Kept as a literal here so tool
+# registration stays free of the heavy rv_agent import (the tool imports rv_agent
+# lazily inside execute). The guard pytest asserts this dict equals
+# RV_STEERING_FLAGS, so any drift between the two fails CI (INV-RVA-01/02).
+RV_STEERING_OFF: Dict[str, Any] = {
+    # MOP/WTG scorer weights — gate whether MOP/WTG steering is active at all.
+    "mop_direct_score": 0.0,
+    "mop_transitive_score": 0.0,
+    "wtg_guided_score": 0.0,
+    # Ported steering scorers / launch / trigger flags.
+    "mop_frontier_weight": 0.0,
+    "mop_activity_source_components": False,
+    "trigger_mop_first": False,
+    "component_trigger_enabled": False,
+    "state_mop_density_enabled": False,
+    "form_completion_enabled": False,
+    # Exploration guards and caps.
+    "foreign_activity_guard": False,
+    "back_menu_pick_cap": 0,
+    "mop_target_pick_cap": 0,
+    "idle_timeout_cap": 0,
+    "dynamic_epsilon": False,
+    "activity_budget_enabled": False,
+}
+
+# Mapped-but-not-arm-defining knobs. These flow through for calibration and
+# `@param=value` overrides but are NOT required in every variant: each is
+# subordinate to a gate flag (launch cadence/cap gated by trigger_mop_first,
+# component cadence gated by component_trigger_enabled) or is the deterministic
+# seed. `pure_mode` is the kill-switch *driver* (not itself arm-defining) and
+# must still reach RVAgentConfig. Mirrors the aperv precedent of mapping
+# max_idle_timeout_ms / activity-trigger-dose sub-params without marking them
+# arm-defining.
+RV_TUNING_PARAMS = (
+    "pure_mode",
+    "seed",
+    "launch_cadence",
+    "launch_cap",
+    "component_percentage",
+)
+
 
 def build_agent_config_dict(
     task: Task, app: App, tool_config: Dict[str, Any]
@@ -147,6 +190,20 @@ def build_agent_config_dict(
         "llm_max_retries",
     ]
     for param in fallback_params:
+        if param in tool_config:
+            config_dict[param] = tool_config[param]
+
+    # Map gh77 RV steering flags (arm-defining) + kill-switch driver + tuning
+    # knobs. The arm-defining keys are the single source of truth in
+    # RV_STEERING_OFF (a pinned copy of the agent kill-switch registry); mapping
+    # every one of them here is what INV-RVA-02 requires — no arm-defining key may
+    # be silently dropped on the way to RVAgentConfig. RV_TUNING_PARAMS carries
+    # pure_mode (the kill-switch driver), seed, and the gate-subordinate cadence/
+    # cap knobs. (mop_direct_score/mop_transitive_score/wtg_guided_score also
+    # appear in scorer_params above; re-listing them here is a harmless idempotent
+    # pass-through and keeps the arm-defining mapping visible in one place.)
+    rv_arm_params = list(RV_STEERING_OFF) + list(RV_TUNING_PARAMS)
+    for param in rv_arm_params:
         if param in tool_config:
             config_dict[param] = tool_config[param]
 

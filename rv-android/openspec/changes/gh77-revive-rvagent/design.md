@@ -125,7 +125,7 @@ Exact invariant wording lives in the delta specs (`specs/agent/spec.md`, `specs/
 3. **Taxonomy mirrored 1:1 with APE-RV.** Flag names (snake_cased), weight semantics, and `decision_source` values match the Java side so specs and analyses serve both tools; divergences must be documented in the delta specs. Cost: occasional awkward names in Python; benefit: cross-tool comparability, single mental model. Dual maintenance is a known trade-off, accepted by scope decision.
 4. **pure_algorithm first, LLM last.** All steering work (pipeline, scorers, strategies, guards, fair-test, variants) lands and is validated with the LLM path untouched; the LLM block (llm_only/multimode, routing, LLM observability) is the final task group. Rationale: the pure arm is the measurement baseline and has no SGLang dependency, so every intermediate state is CI-verifiable offline.
 5. **Component triggering as a host-side service via `am`.** In-device APE-RV dispatches intents directly; the host-side equivalent is `adb shell am` through the existing `DeviceInterface`. Activities are excluded from triggering (gh11 correction) — they go through the normal launcher with E-mín ordering.
-6. **Calibration smoke before comparison.** `mop_frontier_weight` × `frontier_boost_weight` are additive frontier boosts; a local calibration smoke (cryptoapp) is a mandatory gate before any side-by-side with aperv.
+6. **Calibration smoke before comparison.** `mop_frontier_weight` × `wtg_guided_score` are the two additive frontier boosts (the generic frontier is `WtgScorer`, not a nonexistent `frontier_boost_weight`); a local calibration smoke (cryptoapp) is a mandatory gate before any side-by-side with aperv. **Calibrated 2026-07-13** (task 7.7, `docs/20260713_calibracao_frontier_gh77.md`): frozen at `mop_frontier_weight=200`, `wtg_guided_score=150`. The smoke confirmed the additive interaction — on an unvisited MOP-reaching activity both scorers fire (200+150=350) vs 150 for a generic unvisited activity, the intended MOP-over-generic frontier separation. Frozen as the arm-neutral `mop_frontier` variant in `RVAgentTool.get_variants()`.
 7. **CI re-inclusion is a one-line revert with test hygiene, done first.** Reverting the exclusion from `674642a0` plus fixing the 2 obsolete tests and marking SGLang-dependent tests (`pytest.mark.skipif` on server availability) makes every subsequent task group CI-guarded from day one.
 
 ## API Design
@@ -191,7 +191,7 @@ seed: Optional[int] = None                 # fair-test A
 
 ## Risks / Trade-offs
 
-- [Additive frontier boosts interact (`mop_frontier_weight` × `frontier_boost_weight`)] → mandatory local calibration smoke before any aperv comparison.
+- [Additive frontier boosts interact (`mop_frontier_weight` × `wtg_guided_score`)] → mandatory local calibration smoke before any aperv comparison (done 2026-07-13; frozen 200/150 in the `mop_frontier` arm — see Decision 6).
 - [Dual maintenance of MOP concepts in Java (APE-RV) and Python (rv-agent)] → 1:1 taxonomy mirroring; divergences documented in delta specs.
 - [Host-side latency makes scale comparison unfair] → scope pinned to local executions; the tool's value is fast concept iteration, not benchmark participation.
 - [Hybrid LLM historically underperformed pure algorithm in rvsmart (−1.65pp, p=0.003)] → pure-arm kill-switch + parity test make remeasurement honest; LLM block last keeps steering results independent.
