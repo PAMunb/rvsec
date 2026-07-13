@@ -1032,20 +1032,68 @@ class RVAgentStrategy(ExplorationStrategy):
         selected: ItemAction,
         action_type: str,
     ) -> None:
-        """Write one attribution row to the step-trace CSV, if a writer is attached."""
+        """Write one attribution row for a scored (algorithm-path) selection."""
+        coords = selected.coordinates if selected.coordinates else (0, 0)
+        self._emit_trace_row(
+            step=self._current_iteration,
+            activity=getattr(screen_desc, "activity", "") or "",
+            state=state_hash or "",
+            action=f"{action_type}@{coords}",
+            source=self.last_decision_source,
+            boosts=self._last_boosts,
+        )
+
+    def record_llm_decision(
+        self, iteration: int, activity: str, state_hash: str, action: str
+    ) -> None:
+        """Attribute an LLM-decided action and write its step-trace row.
+
+        The LLM path selects actions in ``llm_node``, bypassing
+        ``_select_priority_action``, so attribution and trace-row writing happen
+        here instead — the direct analog of what the scored path does at
+        selection time. ``decision_source`` is the whole-decision channel
+        ``"llm"`` (INV-AGT-52); boosts are all zero because no scorer contributed
+        to an LLM choice. ``last_decision_source`` is updated so downstream reads
+        see the current provenance.
+        """
+        self.last_decision_source = "llm"
+        self._last_boosts = {}
+        self._emit_trace_row(
+            step=iteration,
+            activity=activity or "",
+            state=state_hash or "",
+            action=action,
+            source="llm",
+            boosts=self._last_boosts,
+        )
+
+    def _emit_trace_row(
+        self,
+        step: int,
+        activity: str,
+        state: str,
+        action: str,
+        source: str,
+        boosts: Dict[str, float],
+    ) -> None:
+        """Write one row to the step-trace CSV, if a writer is attached.
+
+        Shared by the scored path (``_write_trace_row``) and the LLM path
+        (``record_llm_decision``); the wall-clock offset is measured from
+        ``_trace_start`` at write time.
+        """
         if self._step_trace is None:
             return
         try:
             clock_ms = int((time.monotonic() - self._trace_start) * 1000)
-            coords = selected.coordinates if selected.coordinates else (0, 0)
             self._step_trace.write_row(
-                step=self._current_iteration,
+                step=step,
                 clock_ms=clock_ms,
-                activity=getattr(screen_desc, "activity", "") or "",
-                state=state_hash or "",
-                action=f"{action_type}@{coords}",
-                decision_source=self.last_decision_source,
-                boosts=self._last_boosts,
+                activity=activity or "",
+                state=state or "",
+                action=action,
+                decision_source=source,
+                boosts=boosts,
             )
         except Exception as e:
             logger.warning(f"Failed to write step-trace row: {e}")

@@ -108,11 +108,17 @@
 ## 8. LLM mode block (LAST by decision)
 
 - [ ] 8.1 Revalidate SGLang default URL/model (`http://192.168.0.36:30000/v1`, Qwen3-VL-4B) and hybrid tool calling (native `bind_tools` + XML fallback via `rv_agent/llm/tools/tool_call_parser.py`) against the SGLang version pinned by APE-RV (v0.5.6.post2)
+  - OFFLINE PART DONE: defaults confirmed in `config/agent_config.py` (`llm_base_url=http://192.168.0.36:30000/v1`, `llm_model=Qwen/Qwen3-VL-4B-Instruct`, `prompt_version=v13`, `v17` present, `llm_temperature=0.01`). Hybrid parser logic unit-verified offline: `tests/unit/test_llm_client.py::{test_native_tool_calls_extracted,test_fallback_parsing_xml,test_fallback_parsing_json,test_fallback_parsing_pythonic}` (31 passed). **LIVE revalidation against SGLang v0.5.6.post2 PENDING** (machine busy with experiment; needs SGLang up). Task stays [ ] until the live check runs; changing pinned deps/URL/model would need explicit authorization (design Decision D).
 - [ ] 8.2 Revalidate `llm_only` and `multimode` variants end-to-end (routing proportions, prompt v13/v17 selection); confirm LLM arms remain isolated from steering flags (INV-RVA-04) and no artificial call limits exist
-- [ ] 8.3 Add LLM observability: screenshot-failure counters in routing telemetry; `decision_source="llm"` attribution for LLM-decided actions
-- [ ] 8.4 Add/adapt tests (skip-conditioned on SGLang availability, offline-green per Group 1)
+  - OFFLINE PART DONE: INV-RVA-04 isolation + no call-limit guarded green — `rvagent-tool tests/unit/test_gh77_variants.py::{test_llm_arms_disable_all_steering,test_no_variant_imposes_llm_call_limit}`; source grep for any LLM call-limit/budget/cap key is empty (project policy holds). Routing proportion logic (multimode 70/30 seeded) covered offline by `routing_manager` unit/integration tests (`test_llm_percentage_calculation`). **LIVE end-to-end proportions/prompt selection PENDING** (needs SGLang up). Task stays [ ] until the live run.
+- [x] 8.3 Add LLM observability: screenshot-failure counters in routing telemetry; `decision_source="llm"` attribution for LLM-decided actions
+  - `RoutingManager.record_screenshot_failure()` + `screenshot_failed` counter surfaced in `get_decision_counters()` and the agent results dict; `capture_screenshot_node` calls it on both failure branches (optimization-fail + capture exception). LLM-decided actions now attribute `decision_source="llm"` and write a trace row: `RVAgentStrategy.record_llm_decision()` (shared `_emit_trace_row` refactor, whole-decision channel, zero boosts), wired from `llm_node._record_llm_trace` at decision time (analog of `_select_priority_action`). Offline-tested (see 8.4). Existing `get_decision_counters` mock fixtures updated to the new contract (4 test files). rv-agent offline: 1901 passed / 76 skipped; parity+pipeline+rvagent-tool 48 passed; pyflakes clean on touched files.
+- [x] 8.4 Add/adapt tests (skip-conditioned on SGLang availability, offline-green per Group 1)
+  - `tests/unit/test_gh77_llm_observability.py` (11 tests, arm-neutral, `make_agent_config`): override-`llm` precedence; `record_llm_decision` sets source + zeros boosts + writes row (and no-op without a writer); `llm_node._record_llm_trace` wiring (delegates to strategy; no-op for strategies without the method); screenshot counter init/increment/exposure; `capture_screenshot_node` counts optimization-fail + capture-exception, not success. The 13 pre-existing SGLang-dependent tests stay skip-conditioned (offline-green, live only).
 - [ ] 8.5 E2E gate (LLM arm, local): `uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeouts 60` with SGLang up
-- [ ] 8.6 Run `/rv-test-run rv-agent`
+  - **NOT RUN — deferred** (machine busy with a running experiment; requires emulator + SGLang up). Stays [ ] pending a machine-free window with SGLang.
+- [x] 8.6 Run `/rv-test-run rv-agent`
+  - 1637 unit tests passed, 0 failed (CI contract). Full offline suite reconfirmed: 1901 passed / 76 skipped.
 
 ## 9. Close-out & verification
 

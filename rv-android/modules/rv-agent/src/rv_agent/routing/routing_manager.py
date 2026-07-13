@@ -107,6 +107,7 @@ class RoutingManager:
         self.algorithm_chosen = 0  # Algorithm path chosen
         self.forced_back_count = 0  # BACK from stuck detection
         self.llm_validation_failed = 0  # LLM actions that failed validation
+        self.screenshot_failed = 0  # Screenshot capture/optimize failures (LLM path)
 
         self.logger = logging.getLogger(__name__)
 
@@ -213,6 +214,16 @@ class RoutingManager:
             "current_action": action,
         }
 
+    def record_screenshot_failure(self) -> None:
+        """Count a failed screenshot capture/optimization on the LLM path.
+
+        Screenshots feed the vision LLM; a capture or optimization failure ends
+        the iteration without an LLM decision. Surfaced in the routing telemetry
+        (``get_decision_counters``) as an observability signal for LLM arms —
+        a rising count flags a device/capture problem rather than agent logic.
+        """
+        self.screenshot_failed += 1
+
     def _create_back_action(self, reason: str) -> Dict[str, Any]:
         """Create a BACK action for loop recovery."""
         return {
@@ -235,6 +246,7 @@ class RoutingManager:
             - "algorithm_percentage" (float): Algorithm proportion of primary actions.
             - "forced_back" (int): BACK actions from stuck detection.
             - "llm_validation_failed" (int): LLM actions that failed validation.
+            - "screenshot_failed" (int): Screenshot capture/optimize failures.
             - "restart_count" (int): App restarts from Level 2 stuck recovery.
             - "error_recovery_count" (int): Error recovery actions (force_fill_input).
             - "primary_total" (int): Sum of llm_executed and algorithm_chosen.
@@ -266,6 +278,7 @@ class RoutingManager:
             # Event counters
             "forced_back": self.forced_back_count,
             "llm_validation_failed": self.llm_validation_failed,
+            "screenshot_failed": self.screenshot_failed,
             "restart_count": track._counters["restart_count"],
             "error_recovery_count": track._counters["error_recovery_count"],
             # Totals

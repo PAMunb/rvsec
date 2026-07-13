@@ -536,6 +536,7 @@ class RVAgent:
             "llm_percentage": counters["llm_percentage"],
             "algorithm_percentage": counters["algorithm_percentage"],
             "llm_validation_failed": counters["llm_validation_failed"],
+            "screenshot_failed": counters["screenshot_failed"],
             "forced_back": counters["forced_back"],
             "memory_stats": memory_stats,
             "ui_coverage": ui_coverage_metrics,

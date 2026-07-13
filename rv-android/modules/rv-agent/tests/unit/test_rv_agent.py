@@ -86,6 +86,7 @@ def mock_dependencies():
         "llm_percentage": 0.0,
         "algorithm_percentage": 0.0,
         "llm_validation_failed": 0,
+        "screenshot_failed": 0,
         "forced_back": 0,
         "primary_total": 0,
     }
@@ -732,6 +733,7 @@ class TestRunMethod:
             "llm_percentage": 70.0,
             "algorithm_percentage": 30.0,
             "llm_validation_failed": 0,
+            "screenshot_failed": 0,
             "forced_back": 0,
             "primary_total": 10,
         }

@@ -174,6 +174,7 @@ class TestTotalErrorLimit:
             "llm_percentage": 0.0,
             "algorithm_percentage": 0.0,
             "llm_validation_failed": 0,
+            "screenshot_failed": 0,
             "forced_back": 0,
         }
         tool_executor = MagicMock()

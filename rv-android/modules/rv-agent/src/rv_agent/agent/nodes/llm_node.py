@@ -86,6 +86,14 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         if hasattr(response, "content") and response.content:
             llm_reasoning = response.content[:500]
 
+    # Attribute this LLM-decided action in the step trace (INV-AGT-52 `llm`
+    # channel). The LLM path bypasses the strategy's scored selection, so the
+    # trace row is written here — the analog of _select_priority_action writing
+    # at selection time. Only genuine LLM choices are recorded; a null action
+    # (validation substitutes BACK downstream) is not an LLM decision.
+    if llm_action is not None:
+        _record_llm_trace(agent, state, llm_action)
+
     # Track LLM call metrics
     track.llm(
         iter=iteration,
@@ -110,3 +118,35 @@ def llm_generate_node(agent: "RVAgent", state: AgentState) -> Dict[str, Any]:
         "decision_maker": "llm",
         "current_item_action": None,  # Clear stale value from algorithm iterations
     }
+
+
+def _record_llm_trace(
+    agent: "RVAgent", state: AgentState, llm_action: Dict[str, Any]
+) -> None:
+    """Write the step-trace row for an LLM-decided action, if supported.
+
+    Reads the screen the LLM acted on (activity + state hash) and the chosen
+    action, then delegates to the strategy's ``record_llm_decision``. Guarded on
+    the strategy exposing the method: non-rvagent strategies (dfs/bfs/greedy)
+    and mock strategies have no step trace, so this is a no-op for them.
+    """
+    strategy = getattr(agent, "strategy", None)
+    if not hasattr(strategy, "record_llm_decision"):
+        return
+
+    screen_desc = state.get("screen_description")
+    activity = getattr(screen_desc, "activity", "") or ""
+    state_hash = state.get("current_screen_hash", "") or ""
+
+    action_type = llm_action.get("action_type") or llm_action.get("tool_name") or "LLM"
+    coords = (llm_action.get("x", 0), llm_action.get("y", 0))
+
+    try:
+        strategy.record_llm_decision(
+            iteration=state.get("iteration", 0),
+            activity=activity,
+            state_hash=state_hash,
+            action=f"{action_type}@{coords}",
+        )
+    except Exception as e:  # trace writing must never break the workflow
+        logger.warning(f"Failed to record LLM decision trace: {e}")
