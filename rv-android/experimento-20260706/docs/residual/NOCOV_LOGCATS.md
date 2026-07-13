@@ -124,6 +124,51 @@ e por timeout flat — assinatura de janela ruim de infraestrutura, não de app 
 Estes 46 **seriam recuperáveis por re-run** (ao contrário da Classe 1), mas representam 0,21% das
 21.681 execuções, espalhados por 40 (APK,tool) distintos.
 
+## Plano de recuperação por re-run (Classe 2)
+
+Decisão (2026-07-12): **vamos tentar re-rodar as 46 transitórias nas VMs** para recuperar dado. As
+189 determinísticas (Classe 1) ficam de fora — re-run reproduz o `Error type 3`, é teto estrutural.
+
+**Teto de recuperação:** o piso de dado útil subiria de **21.446 (98,92%)** para no máximo
+**21.492 (99,08%)** — os 189 são irrecuperáveis por construção.
+
+**Alvos, agrupados por célula `(apk, tool, timeout)` × 3 reps** (o critério real de transitoriedade —
+se outra rep do mesmo combo tem dado, a falha é flake de janela, não do combo):
+
+| Confiança | Células | Execuções | Descrição |
+|---|---:|---:|---|
+| **Alta** (aposta segura) | 36 × 1/3 + 2 × 2/3 = 38 | 40 | ≥1 rep do mesmo combo já rodou com dado → flake de infra puro |
+| **A inspecionar antes** | 2 × 3/3 | 6 | trio inteiro sem dado → isolar infra vs. interação apk×tool sistemática |
+
+As 2 células a 3/3 (0 de 3 reps com dado) a validar antes de re-rodar:
+
+- `info.metadude.android.hope.schedule_110.apk` × `ares` × 300s
+- `com.sakethh.linkora_50.apk` × `droidmate` × 60s
+
+Se qualquer delas voltar a falhar 3/3 no re-run, reclassificar como determinística (interação
+apk×tool), não como perda transitória.
+
+**Distribuição das 46 por tool / VM / timeout** (para dimensionar o re-run):
+
+| tool | N | | VM | N | | timeout | N |
+|---|---:|---|---|---:|---|---|---:|
+| droidmate | 19 | | m2 | 17 | | 60s | 23 |
+| ares | 17 | | m3 | 16 | | 300s | 16 |
+| droidbot (3 var.) | 7 | | m4 | 7 | | 180s | 7 |
+| humanoid | 2 | | m1 | 6 | | | |
+| qtesting | 1 | | | | | | |
+
+Lista exata das 46 identidades `(apk, tool, rep, timeout, vm)`: filtrar `nocov_235.csv` por
+`reason == transient_infra`.
+
+```bash
+awk -F, '$NF=="transient_infra"' experimento-20260706/docs/residual/nocov_235.csv
+```
+
+**Ainda não executado** — VMs paradas; re-run a agendar (VMs gcloud têm IP efêmero, reconferir com
+`gcloud compute instances list`). A recuperação será medida pelo mesmo critério: `grep 'RVSEC-COV'`
+no logcat re-gerado da identidade.
+
 ## Distribuição agregada dos 235
 
 - Por tool: qtesting 190 (189 + 1 transitório), droidmate 19, ares 17, droidbot 6 (dfs_naive 3,
@@ -137,6 +182,13 @@ A consolidação offline reparsa todo logcat; estes 235 entram como linhas de **
 eventos MOP** no `summary_regen.csv` (não são excluídos automaticamente). Como tratá-los na análise
 (zero legítimo vs. exclusão do denominador per-tool) é decisão de análise do artigo — os dados para
 qualquer dos dois tratamentos estão em `nocov_235.csv`.
+
+**Nota (achado da consolidação 2026-07-12):** o `summary_regen.csv` tem **334** linhas totalmente
+zero, não 235. As **99** adicionais **lançaram** (têm RVSEC-COV) mas fecharam com coverage/MOP zero —
+98 do `com.google.android.stardroid` (defeito determinístico do `PackageFilter`, que exclui
+`Lcom/google/` e engole o namespace próprio do app) + 1 execução avulsa transitória do
+`org.wikipedia`. Fenômeno **distinto** destes 235 (aqui o app nunca lança; lá lança e não é
+instrumentado). Detalhe e causa-raiz: `ZEROCOV_STARDROID.md`.
 
 ## Reprodução
 
