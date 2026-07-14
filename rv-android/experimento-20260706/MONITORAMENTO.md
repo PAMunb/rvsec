@@ -13431,3 +13431,32 @@ _estado: SSH_FALHOU — sem dados de container neste ciclo._
 - m2: SSH inacessível —  - The resource 'projects/research-318211/zones/us-central1-f/instances/m2-exp02' was not found (sem ação)
 - m3: SSH inacessível —  - The resource 'projects/research-318211/zones/us-central1-f/instances/m3-exp02' was not found (sem ação)
 - m4: SSH inacessível —  - The resource 'projects/research-318211/zones/us-central1-f/instances/m4-exp02' was not found (sem ação)
+
+## Ciclo 2026-07-14 13:00:01 (local)
+
+### m1
+_estado: SSH_FALHOU — sem dados de container neste ciclo._
+
+### m2
+_estado: SSH_FALHOU — sem dados de container neste ciclo._
+
+### m3
+_estado: SSH_FALHOU — sem dados de container neste ciclo._
+
+### m4
+_estado: SSH_FALHOU — sem dados de container neste ciclo._
+
+### Resumo geral
+| VM | estado | timeout 60·180·300 | ok | err | feito | alvo | % |
+|----|--------|--------------------|----:|----:|------:|-----:|--:|
+| m1 | SSH_FALHOU | — | ? | ? | ? | ? | ? |
+| m2 | SSH_FALHOU | — | ? | ? | ? | ? | ? |
+| m3 | SSH_FALHOU | — | ? | ? | ? | ? | ? |
+| m4 | SSH_FALHOU | — | ? | ? | ? | ? | ? |
+| **TOTAL** | — | — | **0** | **0** | **0** | **0** | **0,0 %** |
+
+**Problemas / eventos:**
+- m1: SSH inacessível —  - The resource 'projects/research-318211/zones/us-central1-f/instances/m1-exp02' was not found (sem ação)
+- m2: SSH inacessível —  - The resource 'projects/research-318211/zones/us-central1-f/instances/m2-exp02' was not found (sem ação)
+- m3: SSH inacessível —  - The resource 'projects/research-318211/zones/us-central1-f/instances/m3-exp02' was not found (sem ação)
+- m4: SSH inacessível —  - The resource 'projects/research-318211/zones/us-central1-f/instances/m4-exp02' was not found (sem ação)
