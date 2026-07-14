@@ -79,10 +79,14 @@ for vm in ('m1', 'm2', 'm3', 'm4'):
 print(f"  {'Σ':4} {len(gtot):>10} {target:>6} {target - len(gtot):>7}   ({100*len(gtot)/target:.2f}%)")
 PY
 
-echo "  -- gate VerifyError (por VM) --"
+# grep paralelo (xargs -P) restrito aos .logcat: um VerifyError de runtime é logado
+# no logcat, não nos .trace (ação da tool). Evita ler ~2,5 G de traces por VM e usa
+# os núcleos disponíveis — o grep -rl recursivo single-thread levava ~1 h POR VM num HDD.
+echo "  -- gate VerifyError (por VM; grep paralelo só em .logcat) --"
 ve_total=0
 for vm in "${VMS[@]}"; do
-    n=$(grep -rl VerifyError "${RESULTS_ROOT}/${vm}/results/exp_"*/ 2>/dev/null | wc -l || true)
+    n=$(find "${RESULTS_ROOT}/${vm}/results/exp_"*/ -name '*.logcat' -size +0c 2>/dev/null \
+        | xargs -r -P16 -d '\n' grep -l VerifyError 2>/dev/null | wc -l || true)
     echo "     ${vm} VE_files=${n}"
     ve_total=$((ve_total + n))
 done

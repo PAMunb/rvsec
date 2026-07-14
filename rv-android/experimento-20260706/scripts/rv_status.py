@@ -182,6 +182,7 @@ def load_container(results_dir: Path, container: str) -> dict:
         "duplicates": 0,
         "by_tool": defaultdict(lambda: Counter()),
         "by_timeout": defaultdict(lambda: Counter()),
+        "by_rep": defaultdict(lambda: Counter()),
         "errors": Counter(),
         "apk_states": defaultdict(list),       # apk -> [states] (1 por identidade)
         "running_now": [],                     # (apk, tool, age_s)
@@ -220,11 +221,13 @@ def load_container(results_dir: Path, container: str) -> dict:
         res = task.get("result", {})
         tool = reconstruct_tool(cfg.get("tool_config", {}))
         timeout = cfg.get("timeout", "?")
+        rep = cfg.get("repetition", "?")
         apk = cfg.get("apk_name", "?")
 
         info["total"] += 1
         info["by_tool"][tool][state] += 1
         info["by_timeout"][timeout][state] += 1
+        info["by_rep"][rep][state] += 1
         info["apk_states"][apk].append(state)
 
         if state in DONE_STATES:
@@ -494,6 +497,17 @@ def render(snap: dict, args) -> str:
     return "\n".join(lines)
 
 
+def _ok_err_done(counter: Counter) -> dict:
+    """Reduz um Counter de estados a {ok, err, done} (done = ok + err).
+
+    Usado no export por-container de by_timeout/by_rep para o consumidor (health_check)
+    não precisar reclassificar estados — os conjuntos DONE/FAIL vivem só aqui.
+    """
+    ok = sum(counter[s] for s in DONE_STATES)
+    err = sum(counter[s] for s in FAIL_STATES)
+    return {"ok": ok, "err": err, "done": ok + err}
+
+
 def to_json(snap: dict) -> dict:
     """Versão serializável (sem defaultdict/Counter aninhados pesados)."""
     agg = snap["agg"]
@@ -514,7 +528,10 @@ def to_json(snap: dict) -> dict:
         "containers": [
             {"container": ci["container"], "docker": ci["docker"],
              "completed": ci["completed"], "failed": ci["failed"],
-             "active": ci["active"], "total": ci["total"]}
+             "active": ci["active"], "total": ci["total"],
+             "expected_tasks": ci.get("expected_tasks"),
+             "by_timeout": {str(t): _ok_err_done(c) for t, c in ci["by_timeout"].items()},
+             "by_rep": {str(r): _ok_err_done(c) for r, c in ci["by_rep"].items()}}
             for ci in snap["containers"]
         ],
     }

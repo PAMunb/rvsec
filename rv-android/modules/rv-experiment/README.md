@@ -39,7 +39,7 @@ uv run rv-experiment run [OPTIONS]
 |--------|---------|-------------|
 | `--tools, -t` | `monkey` | Comma-separated tools with variants and parameters |
 | `--config, -c` | — | Configuration file path (JSON) |
-| `--timeout` | 300 | Execution timeout per APK in seconds |
+| `--timeouts` | 300 | Execution timeouts per APK in seconds, comma-separated (e.g. `300` or `60,300`); each value is one arm of the task matrix |
 | `--repetitions, -r` | 1 | Number of repetitions |
 | `--apks-dir, -a` | `./apks_examples/` | Directory containing APK files |
 | `--specification-set` | `jca` | Specification set: `jca`, `generic`, `custom` |
@@ -80,7 +80,7 @@ uv run rv-experiment run \
   --tools "rvagent:pure_algorithm@mop_direct_score=400,stochastic_probability=0.5" \
   --apks-dir ./data/calibration_dataset \
   --skip-monitors --skip-instrument --skip-static \
-  --timeout 300
+  --timeouts 300
 
 # Pre-processing only (no task execution)
 uv run rv-experiment run \
@@ -215,7 +215,7 @@ python scripts/parallel_run.py \
   --tools ape,fastbot,rvagent:pure_algorithm \
   --apks-dir ./data/calibration_dataset \
   --n-emulators 6 \
-  --timeout 300 \
+  --timeouts 300 \
   --output-base ./results/baseline \
   --skip-preprocessing
 ```
@@ -258,7 +258,7 @@ Quick reference (subset — see CLAUDE.md for complete coverage and for the stan
 | Environment Variable | CLI Argument | Description |
 |---------------------|--------------|-------------|
 | `RV_TOOLS` | `--tools` | Tool specification (same DSL as CLI) |
-| `RV_TIMEOUTS` | `--timeout` | Execution timeout in seconds |
+| `RV_TIMEOUTS` | `--timeouts` | Execution timeouts in seconds, comma-separated (one arm per value) |
 | `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
 | `RV_APKS_DIR` | `--apks-dir` | APK directory path |
 | `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode (`true`/`false`) |

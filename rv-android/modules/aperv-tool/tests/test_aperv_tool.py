@@ -539,6 +539,21 @@ class TestArmDefiningConstants:
         assert APERV_PROPERTY_MAPPING["max_idle_timeout_ms"] == "ape.maxIdleTimeoutMs"
         assert "max_idle_timeout_ms" not in aperv_mod.ARM_DEFINING_KEYS
 
+    def test_activity_trigger_dose_mapped_but_not_arm_defining(self):
+        # activity-trigger-dose: the launcher cadence/cap are arm-neutral tuning knobs —
+        # mapped to ape.properties, shared identically by both arms of a paired run, so
+        # NOT arm-defining (same rationale as max_idle_timeout_ms).
+        assert (
+            APERV_PROPERTY_MAPPING["activity_trigger_stagnation_step"]
+            == "ape.activityTriggerStagnationStep"
+        )
+        assert (
+            APERV_PROPERTY_MAPPING["activity_trigger_max_per_run"]
+            == "ape.activityTriggerMaxPerRun"
+        )
+        assert "activity_trigger_stagnation_step" not in aperv_mod.ARM_DEFINING_KEYS
+        assert "activity_trigger_max_per_run" not in aperv_mod.ARM_DEFINING_KEYS
+
 
 class TestArmVariants:
     """Group 2: frozen arm variants (INV-APV-14/16, Variants requirement)."""

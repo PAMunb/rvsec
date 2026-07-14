@@ -110,7 +110,7 @@ uv sync --extras dev
 rv-platform run --tools monkey
 
 # Multi-tool experiment with variants
-rv-platform run --tools "monkey:default,droidbot:dfs_greedy" --repetitions 3 --timeout 600
+rv-platform run --tools "monkey:default,droidbot:dfs_greedy" --repetitions 3 --timeouts 600
 
 # Custom APK directory and results
 rv-platform run --tools monkey --apks-dir ./my_apks --results-dir ./my_results

@@ -125,6 +125,14 @@ APERV_PROPERTY_MAPPING = {
     # Arm-neutral global tuning knob (idle-timeout-cap): mapped so an experiment can
     # lower the idle-drain ceiling globally, but NOT arm-defining (applies to every arm).
     "max_idle_timeout_ms": "ape.maxIdleTimeoutMs",
+    # Arm-neutral launcher-dose sub-params (activity-trigger-dose): the launcher cadence
+    # (stagnation step at which it fires) and the per-run launch cap. Mapped so an
+    # experiment can dose the launcher, but NOT arm-defining — a paired comparison sets
+    # the same dose on both arms, so these values are identical across arms and cannot
+    # define an arm (same rationale as max_idle_timeout_ms). They tune the arm-defining
+    # activity_trigger_enabled without themselves selecting a behavior.
+    "activity_trigger_stagnation_step": "ape.activityTriggerStagnationStep",
+    "activity_trigger_max_per_run": "ape.activityTriggerMaxPerRun",
     # LLM parameters
     "llm_url": "ape.llmUrl",
     "llm_on_new_state": "ape.llmOnNewState",

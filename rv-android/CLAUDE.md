@@ -68,7 +68,7 @@ uv run rv-platform run --tools monkey --apks-dir ./apks_examples
 ### RV-Agent
 Two modes: **standalone CLI** (`rv-agent` — user manages emulator/APK) or **via rv-experiment** (`rvagent` tool — platform manages everything).
 ```bash
-uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
+uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeouts 60
 cd modules/rv-agent && uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
 ```
 

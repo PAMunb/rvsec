@@ -806,7 +806,7 @@ uv run rv-experiment run --tools monkey,droidbot:dfs_greedy --specification-set 
 Direct task execution without the experiment wrapper. Assumes APKs are already instrumented if RV coverage is desired.
 
 ```bash
-uv run rv-platform run --tools monkey --apks-dir ./apks_examples --timeout 300
+uv run rv-platform run --tools monkey --apks-dir ./apks_examples --timeouts 300
 ```
 
 ### 9.3 rv-agent CLI (Standalone)
@@ -823,7 +823,7 @@ uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeo
 rv-agent runs as a tool within rv-experiment, which manages the emulator, APK installation, and coverage tracking.
 
 ```bash
-uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeouts 300
 ```
 
 ## 10. Research Integration

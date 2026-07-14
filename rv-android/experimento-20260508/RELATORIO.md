@@ -41,11 +41,21 @@ Gaps esperados:
 
 ### 2.2 Consolidados na raiz de RESULTADOS
 
+**Versão atual** (regenerada em 2026-05-14 a partir dos `.logcat` brutos — ver §6):
+
 | Arquivo | Linhas (sem header) | Descrição |
 |---------|---------------------|-----------|
-| `summary_all.csv` | 16 952 | 1 linha por (apk × tool × rep × timeout) com coverage final + count de violações MOP |
-| `coverage_all.csv` | 759 630 | snapshots periódicos de cobertura ao longo da execução |
-| `errors_all.csv` | 237 156 | cada violação MOP detectada (apk, tool, rep, timeout, spec, class, method, message) |
+| `summary_all.csv` | 18 267 | 1 linha por `(apk, rep, timeout, tool)` com `.logcat` presente. Colunas: `cov_act, cov_class, cov_method, cov_reachable, cov_reaches_mop, cov_directly_reaches_mop, mop_errors_total, mop_errors_unique` |
+| `coverage_all.csv` | 2 782 586 | 1 linha por método único chamado (ordem cronológica). Colunas: `time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method`. Cobertura progressiva cumulativa |
+| `errors_all.csv` | 240 182 | 1 linha por violação MOP (com duplicações). Total; contagem unique vive em `summary.mop_errors_unique`. Colunas: `time, spec, class, method, message, unique_msg` |
+
+**Versão original** (gerada em runtime pelo `result_processor.py`, com bug em `_reconstruct_repository_from_logcat` — sem `static_data`) preservada em `RESULTADOS/backup_pre_regen/`:
+
+| Arquivo | Linhas | Diferença vs regen |
+|---------|-------:|---------------------|
+| `summary_all.csv` | 16 952 | −1 315 tasks (post-processor não escreveu) |
+| `coverage_all.csv` | 759 630 | `class/method/signature` vazios, `cov_method == cov_rv_method` (denominadores degenerados) |
+| `errors_all.csv` | 237 156 | −3 026 (perdia eventos cold-start antes de `tool_execution_start_time`) |
 
 Smoke tests (`vmsmoke/`, `minismoke/`) **não** entram nos consolidados.
 
@@ -256,6 +266,108 @@ Distribuição **uniforme** entre as VMs (9,7 %–11,3 %) — nenhuma VM doente;
 - `experimento-20260508/scripts/run_experiment.sh` — orquestração 3-pass
 - `experimento-20260508/filters/batch_{00..15}.txt` — 16 listas round-robin de APKs
 - `experimento-20260508/data/validation_filters/validation_apks.txt` — 190 APKs canônicos
+
+## 9. Regeneração das planilhas consolidadas (2026-05-14)
+
+### 9.1 Motivação
+
+Os consolidados originais (`summary_all.csv`, `coverage_all.csv`, `errors_all.csv`) gerados em runtime pelo `result_processor.py` tinham 3 problemas:
+
+| CSV | Problema |
+|-----|----------|
+| `summary_all.csv` | Faltavam 1 315 tasks que rodaram mas o post-processor não chegou a escrever; schema reduzido (4 cols de cov vs 6 do experimento ASE-journal antigo). |
+| `coverage_all.csv` | Bug em `_reconstruct_repository_from_logcat` (`result_processor.py:177`): chamava `parse_logcat_file(file)` sem `static_data`, deixando o `LogcatRepository` sem denominadores nem flag de MOP-method. Resultado: `class/method/signature` vazios e `cov_method == cov_rv_method` em todas as linhas. |
+| `errors_all.csv` | Tracker em runtime perdia eventos cold-start (RVSEC disparados entre a carga da instrumentação e o set de `tool_execution_start_time`). |
+
+### 9.2 Pipeline (3 níveis, bottom-up)
+
+Implementado em `rv-android/scripts/regenerate_results/`, reusando exclusivamente APIs públicas do rv-android (sem alterar código de produção):
+
+```
+nível 1 — POR CONTAINER (16 unidades em paralelo)
+  regenerate_container.py
+    walk RESULTADOS/m<i>/results/exp_<j>/exp_<j>/*.logcat
+    parse <apk>__<rep>__<timeout>__<tool>.logcat
+    load StaticAnalysisData de APKS_FINAL_JCA_DEXLIB/<apk>.json (package="")
+    parse_logcat_file(path, static_data) → LogcatRepository
+    aproxima t0 = primeiro RVSEC/RVSEC-COV timestamp do logcat
+    emite {summary,coverage,errors}_regen.csv no próprio dir do container
+
+nível 2 — POR VM
+  concat_vm.py m1 m2 m3 m4
+    append header-aware dos 4 containers → RESULTADOS/m<i>/*_regen.csv
+
+nível 3 — CONSOLIDADO
+  concat_all.py
+    append header-aware das 4 VMs → RESULTADOS/*_regen.csv
+```
+
+Orquestração: `run_all.sh` (16 containers × 4 workers = 64 processos concorrentes em 64 cores).
+
+### 9.3 Scripts
+
+| Arquivo | Função |
+|---------|--------|
+| `scripts/regenerate_results/regenerate_container.py` | Nível 1 worker — reparseia logcats de 1 container, escreve 3 CSVs |
+| `scripts/regenerate_results/concat_vm.py` | Nível 2 — concatena 4 containers de 1 VM |
+| `scripts/regenerate_results/concat_all.py` | Nível 3 — concatena as 4 VMs |
+| `scripts/regenerate_results/run_all.sh` | Orquestra os 3 níveis |
+| `scripts/regenerate_results/verify.py` | Auditoria 1:1 vs `.logcat` raw, gera `verification_report.md` |
+| `scripts/regenerate_results/README.md` | Documentação operacional |
+
+Plano detalhado e decisões de design em `docs/20260514_regenerar_planilhas.md`.
+
+### 9.4 APIs do rv-android reusadas
+
+- `rv_coverage.parser.log.logcat_parser.parse_logcat_file(path, static_data)` — line-by-line, retorna `LogcatRepository`
+- `rv_static_analysis.parser.static.static_analysis_parser.StaticAnalysisParser.parse_file(json, "")` — carrega `StaticAnalysisData`
+- `rv_android_core.domain.coverage.LogcatRepository` — `calculate_metrics()`, `get_method_calls()` (deduplicado, sortado por first-call), `get_errors()` (todas as ocorrências), `unique_errors` (set)
+
+Static data carregado de `/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB/<apk>.json` (190 JSONs, gerados pelo GATOR upstream com filtragem por code_package via `PackageDetector`).
+
+### 9.5 Verificação
+
+`verify.py --full --compare-errors` executou 5 checks:
+
+| Check | Resultado |
+|-------|-----------|
+| C1 errors estrito 1:1 vs `.logcat` (count `RVSEC:`) | PASS (0 falhas em 18 267 tuplas) |
+| C2 coverage rows ≤ count `RVSEC-COV` (deduplicado) | PASS (0 falhas) |
+| C3 summary ↔ última linha coverage coerentes (±0.01) | PASS (0 falhas) |
+| C4 sanity (summary rows == logcats descobertos) | PASS (18 267 == 18 267) |
+| C5 paridade vs `errors_all.csv` original | +3 026 rows recuperados (412 tuplas novas + 223 eventos cold-start em 72 tuplas existentes); 0 perdidos |
+
+Relatório completo em `RESULTADOS/verification_report.md`.
+
+### 9.6 Aproximação de `time`
+
+`tool_execution_start_time` (epoch usado pelo `CoverageTracker` em runtime) **não persiste no `.logcat`**. Aproximação offline: `t0 = primeiro RVSEC/RVSEC-COV timestamp do logcat`. Erro esperado <1 s (instrumentação dispara quase imediatamente no app launch). Como consequência, `errors_all.csv` regen captura ~3 000 eventos cold-start adicionais que o tracker original descartava por terem `time_since_task_start < 0`.
+
+### 9.7 Originais preservados
+
+`RESULTADOS/backup_pre_regen/{summary,coverage,errors}_all.csv` — versão runtime original, intocada.
+
+### 9.8 Comandos para reproduzir
+
+```bash
+cd /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android
+
+# 1. Regenerar
+bash scripts/regenerate_results/run_all.sh
+
+# 2. Auditar
+uv run python scripts/regenerate_results/verify.py --full --compare-errors
+
+# 3. Promover (manual, só após verify PASS)
+cd /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/RESULTADOS
+mkdir -p backup_pre_regen
+for f in summary coverage errors; do
+    mv ${f}_all.csv backup_pre_regen/
+    cp ${f}_regen.csv ${f}_all.csv
+done
+```
+
+Tempo de execução: ~3-4 min em host 64-core, SSD.
 
 ## 8. Próximos passos (sugestões)
 

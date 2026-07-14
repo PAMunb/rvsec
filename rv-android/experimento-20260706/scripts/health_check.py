@@ -35,6 +35,7 @@ LOG = LOCAL_DIR / "MONITORAMENTO.md"
 STATE = LOCAL_DIR / ".monitor_state.json"
 VMS = ["m1", "m2", "m3", "m4"]
 TARGET = {"m1": 5544, "m2": 5544, "m3": 5445, "m4": 5148}
+PASSES = ["60", "180", "300"]  # passadas de timeout SEQUENCIAIS (ordem fixa na tabela)
 SSH_TIMEOUT = 150
 MAX_RESUMES = 12  # teto de resumes por VM antes de exigir intervenção humana
 
@@ -151,6 +152,7 @@ def analyze(vm):
     result.update(
         done=done, completed=completed, failed=failed, active=active,
         remaining=remaining, expected=expected, pct=pct, eta=eta,
+        containers=data.get("containers") or [],
     )
 
     # coleta de problemas (sempre logados, independem da ação)
@@ -216,17 +218,121 @@ def main():
     save_state(state)
 
     # monta a seção markdown do ciclo (ts = hora LOCAL da verificação)
-    lines = [f"\n## Ciclo {ts} (local)", ""]
-    lines.append("| VM | estado | % | ok | fail | active | remaining | ETA | ação |")
-    lines.append("|----|--------|---|----|------|--------|-----------|-----|------|")
+    #
+    # Formato de tabela padrão (definido 2026-07-08, v2): granularidade por CONTAINER.
+    # Cada container é uma linha; cada VM tem uma linha-total; há um TOTAL global. Colunas:
+    #   VM | container | docker | timeout (60·180·300, feito por passada) |
+    #   ok | err | feito | alvo | %
+    # `feito` = ok+err (COMPLETED+ERROR); `alvo` = APKs_do_container × tools × reps × 3
+    # passadas (lista autoritativa). As 3 passadas de timeout rodam SEQUENCIAIS, então
+    # `timeout` revela onde o container está no ciclo (alvo por passada = alvo/3). `%` =
+    # feito/alvo. Números em pt-BR (milhar ".", decimal ","). Fonte: rv_status.py
+    # por-container (by_timeout já reduzido a ok/err/done).
+    def mil(n):
+        return f"{n:,}".replace(",", ".") if isinstance(n, int) else str(n)
+
+    def dec(x):
+        return f"{x:.1f}".replace(".", ",") if isinstance(x, (int, float)) else str(x)
+
+    def dk(status):
+        # abrevia o status docker do container para caber na célula
+        return {"running": "Up", "exited": "exit", "gone": "gone",
+                "dead": "dead", "restarting": "rest"}.get(status, status or "?")
+
+    def cell_passes(bt):
+        # bt: {"60": {done,ok,err}, "180": {...}, "300": {...}} → "429·380·0".
+        # Passadas fixas 60·180·300 SEMPRE nas 3 posições (uma passada não iniciada
+        # aparece como 0, não some — as passadas rodam sequenciais e a posição importa).
+        bt = bt or {}
+        return "·".join(mil((bt.get(t) or {}).get("done", 0)) for t in PASSES)
+
+    # Layout (v2.1): UMA tabela curta POR VM (`### mN` + 4 containers + linha
+    # **total**) — tabelas curtas não quebram em visualizadores que truncam
+    # tabelas altas — SEGUIDAS de uma tabela-RESUMO GERAL (1 linha por VM + TOTAL),
+    # para a visão agregada de sempre. `vm_passes` = soma das passadas dos containers.
+    def vm_passes(conts):
+        agg = {t: 0 for t in PASSES}
+        for c in conts:
+            for t, v in (c.get("by_timeout") or {}).items():
+                if t in agg:
+                    agg[t] += (v or {}).get("done", 0)
+        return "·".join(mil(agg[t]) for t in PASSES)
+
+    det_header = ("| container | docker | timeout 60·180·300 | "
+                  "ok | err | feito | alvo | % |")
+    det_sep = ("|-----------|--------|--------------------|"
+               "----:|----:|------:|-----:|--:|")
+
+    lines = [f"\n## Ciclo {ts} (local)"]
+    summary = []  # (vm, estado, passes, ok, err, done, exp, pct)
+    tot_ok = tot_err = tot_done = tot_exp = 0
     for r in reports:
-        eta = r.get("eta")
-        eta_s = f"~{eta/3600:.1f}h" if isinstance(eta, (int, float)) and eta else "—"
+        vm = r["vm"]
+        conts = sorted(r.get("containers") or [], key=lambda x: x.get("container", ""))
+        lines.append("")
+        lines.append(f"### {vm}")
+        if conts:
+            lines.append(det_header)
+            lines.append(det_sep)
+            for c in conts:
+                c_ok = c.get("completed") or 0
+                c_err = c.get("failed") or 0
+                c_done = c_ok + c_err
+                c_exp = c.get("expected_tasks")
+                c_pct = (100 * c_done / c_exp) if isinstance(c_exp, int) and c_exp else None
+                lines.append(
+                    f"| {c.get('container','?')} | {dk(c.get('docker'))} | "
+                    f"{cell_passes(c.get('by_timeout'))} | "
+                    f"{mil(c_ok)} | {mil(c_err)} | {mil(c_done)} | "
+                    f"{mil(c_exp) if isinstance(c_exp, int) else '?'} | "
+                    f"{dec(c_pct) + ' %' if c_pct is not None else '?'} |"
+                )
+        else:
+            lines.append(f"_estado: {r.get('state','?')} — sem dados de container neste ciclo._")
+
+        # total da VM (usa os agregados do rv_status; robusto mesmo sem containers)
+        ok = r.get("completed")
+        err = r.get("failed")
+        exp = r.get("expected")
+        done = ok + err if isinstance(ok, int) and isinstance(err, int) else r.get("done")
+        pct = (100 * done / exp) if isinstance(done, int) and isinstance(exp, int) and exp else None
+        if isinstance(ok, int):
+            tot_ok += ok
+        if isinstance(err, int):
+            tot_err += err
+        if isinstance(done, int):
+            tot_done += done
+        if isinstance(exp, int):
+            tot_exp += exp
+        if conts:
+            lines.append(
+                f"| **total** | — | {vm_passes(conts)} | "
+                f"**{mil(ok if ok is not None else '?')}** | **{mil(err if err is not None else '?')}** | "
+                f"**{mil(done if done is not None else '?')}** | "
+                f"**{mil(exp if exp is not None else '?')}** | "
+                f"**{dec(pct) + ' %' if pct is not None else '?'}** |"
+            )
+        summary.append((vm, r.get("state", "?"), vm_passes(conts) if conts else "—",
+                        ok, err, done, exp, pct))
+
+    # tabela-resumo geral (1 linha por VM + TOTAL) — a visão agregada de sempre
+    tot_pct = (100 * tot_done / tot_exp) if tot_exp else 0.0
+    lines.append("")
+    lines.append("### Resumo geral")
+    lines.append("| VM | estado | timeout 60·180·300 | ok | err | feito | alvo | % |")
+    lines.append("|----|--------|--------------------|----:|----:|------:|-----:|--:|")
+    for vm, estado, passes, ok, err, done, exp, pct in summary:
         lines.append(
-            f"| {r['vm']} | {r.get('state','?')} | {r.get('pct',0):.1f}% | "
-            f"{r.get('completed','?')} | {r.get('failed','?')} | {r.get('active','?')} | "
-            f"{r.get('remaining','?')} | {eta_s} | {r.get('action','—')} |"
+            f"| {vm} | {estado} | {passes} | "
+            f"{mil(ok if ok is not None else '?')} | {mil(err if err is not None else '?')} | "
+            f"{mil(done if done is not None else '?')} | "
+            f"{mil(exp if exp is not None else '?')} | "
+            f"{dec(pct) + ' %' if pct is not None else '?'} |"
         )
+    lines.append(
+        f"| **TOTAL** | — | — | **{mil(tot_ok)}** | **{mil(tot_err)}** | "
+        f"**{mil(tot_done)}** | **{mil(tot_exp)}** | **{dec(tot_pct)} %** |"
+    )
     problems = [p for r in reports for p in r["problems"]]
     if problems:
         lines.append("")

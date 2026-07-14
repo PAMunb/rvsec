@@ -384,7 +384,7 @@ This section traces how data moves through rv-experiment during a complete exper
 %%{init: {'theme': 'neutral'}}%%
 flowchart LR
     subgraph Input["User Input"]
-        CLIArgs["CLI arguments\n(--tools, --timeout, etc.)"]
+        CLIArgs["CLI arguments\n(--tools, --timeouts, etc.)"]
         JSONFile["JSON config file\n(--config)"]
         EnvVars["Environment vars\n(RVSEC_HOME, etc.)"]
         DockerVars["Docker env vars\n(RV_TOOLS, etc.)"]

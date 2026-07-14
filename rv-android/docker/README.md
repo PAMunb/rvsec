@@ -19,7 +19,7 @@ The Docker image chain builds incrementally:
 | Environment Variable | CLI Flag | Description |
 |---------------------|----------|-------------|
 | `RV_TOOLS` | `--tools` | Tool specification (e.g., `monkey,droidbot:dfs_greedy`) |
-| `RV_TIMEOUTS` | `--timeout` | Execution timeout in seconds |
+| `RV_TIMEOUTS` | `--timeouts` | Execution timeouts in seconds, comma-separated (one arm per value) |
 | `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
 | `RV_APKS_DIR` | `--apks-dir` | APK directory path |
 | `RV_NO_WINDOW` | `--no-window` / `--window` | Emulator headless mode |

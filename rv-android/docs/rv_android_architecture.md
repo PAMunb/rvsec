@@ -575,7 +575,7 @@ class ExplorationStrategy(ABC):
 **Description**: A user runs rv-platform directly without the experiment wrapper, using pre-instrumented APKs.
 
 **Flow**:
-1. User runs `rv-platform run --tools droidbot:dfs_greedy --apks-dir ./instrumented_apks/ --timeout 600`
+1. User runs `rv-platform run --tools droidbot:dfs_greedy --apks-dir ./instrumented_apks/ --timeouts 600`
 2. Platform discovers APKs, generates tasks, executes them through the component pipeline
 3. No pre-processing occurs (rv-platform does not generate monitors or instrument APKs)
 4. Results are written to the default results directory

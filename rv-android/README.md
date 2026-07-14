@@ -78,13 +78,16 @@ All 13 modules are installed in editable mode via the root `pyproject.toml`. Sou
 
 ```bash
 # Run experiment with Monkey tool
-uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeout 300
+uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeouts 300
 
 # Run with multiple tools and DroidBot variant
-uv run rv-experiment run --tools monkey,droidbot:dfs_greedy --timeout 600 --repetitions 3
+uv run rv-experiment run --tools monkey,droidbot:dfs_greedy --timeouts 600 --repetitions 3
+
+# Run two timeout arms in one invocation
+uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeouts 60,300
 
 # Run with rv-agent (LLM-driven testing)
-uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeouts 60
 
 # Skip pre-processing (use pre-processed APKs from a previous run)
 uv run rv-experiment run --tools monkey --apks-dir results/my_exp/instrumented_apks \
@@ -185,7 +188,7 @@ cd modules/rv-agent
 uv run rv-agent run --package com.example.app --mode multimode --timeout 60
 
 # Via rv-experiment (recommended — platform manages emulator and APK)
-uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 60
+uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeouts 60
 ```
 
 ## Experiment Resume
@@ -290,7 +293,7 @@ uv run rv-experiment run --tools <tools> [options]
 
 # Options
 --tools TOOLS              # Tool specification DSL (required)
---timeout SECONDS          # Execution timeout (default: 300)
+--timeouts CSV             # Execution timeouts, comma-separated (e.g. 300 or 60,300; default: 300)
 --repetitions N            # Number of repetitions (default: 1)
 --apks-dir DIR             # APK directory (default: ./apks_examples)
 --specification-set SET    # jca, generic, or custom (default: jca)
@@ -352,7 +355,7 @@ documentation, and source code. Pattern rationale: `docs/adr/0001-env-var-patter
 | `RV_INSTRUMENTATION_VARIANT` | `--instrumentation-variant` | `ajc` | rv-experiment (L5) | Instrumentation pipeline (`ajc` or `dexlib2`) |
 | `RV_SPEC_SET` | `--specification-set` | `jca` | rv-experiment (L5) | Specification set (`jca`, `generic`, `custom`) |
 | `RV_APKS_FILTER` | `--apks-filter` | (none) | rv-experiment (L5) | APK basename filter file (one per line) |
-| `RV_TIMEOUTS` | `--timeout` | `300` | rv-experiment (L5) | Per-task timeout (seconds) |
+| `RV_TIMEOUTS` | `--timeouts` | `300` | rv-experiment (L5) | Per-task timeouts (seconds); comma-separated list, one arm per value |
 | `RV_REPETITIONS` | `--repetitions` | `1` | rv-experiment (L5) | Repetitions per (APK, tool, timeout) |
 | `RV_DEVICE_PORT` | `--device-port` | (auto) | rv-experiment (L5) | Adb device port for parallel containers |
 | `RV_NO_WINDOW` | `--no-window` / `--window` | `true` | rv-experiment (L5) | Headless emulator |
