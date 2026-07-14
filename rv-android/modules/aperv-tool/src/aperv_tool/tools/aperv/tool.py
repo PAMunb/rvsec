@@ -115,10 +115,12 @@ APERV_PROPERTY_MAPPING = {
     "activity_budget_enabled": "ape.activityBudgetEnabled",
     # Kill-switch — arm-defining (rv-scoring-pipeline apePureMode baseline).
     "ape_pure_mode": "ape.apePureMode",
-    # MOP reach strategies — arm-defining (mop-reach-strategies: A′/B/E-min).
+    # MOP reach strategies — arm-defining (mop-reach-strategies: A′/B). E-min is the
+    # activity-trigger launcher (activity_trigger_enabled below); trigger_mop_first was
+    # removed after the APE-RV jar deleted Config.triggerMopFirst (mop-census-launcher),
+    # making ape.triggerMopFirst inert — see task group 7.
     "mop_activity_source_components": "ape.mopActivitySourceComponents",
     "mop_frontier_weight": "ape.mopFrontierWeight",
-    "trigger_mop_first": "ape.triggerMopFirst",
     # Frontier boosting + component triggering — arm-defining (gh43).
     "frontier_boost_weight": "ape.frontierBoostWeight",
     "activity_trigger_enabled": "ape.activityTriggerEnabled",
@@ -174,7 +176,6 @@ ARM_DEFINING_KEYS = frozenset(
         "activity_budget_enabled",
         "mop_activity_source_components",
         "mop_frontier_weight",
-        "trigger_mop_first",
         "llm_percentage_no_substrate",
     }
 )
@@ -197,7 +198,7 @@ _ARM_DEFINING_EXEMPT = frozenset(
 # RV exploration ON at the current mop-fairtest jar defaults, made explicit; MOP / reach /
 # frontier / component-triggering OFF. Spread into every non-MOP baseline arm so no
 # arm-defining flag falls back to a jar Config default (INV-APV-14). This dict enumerates
-# exactly the 19 ARM_DEFINING_KEYS, so any variant spreading it satisfies the guard.
+# exactly the 18 ARM_DEFINING_KEYS, so any variant spreading it satisfies the guard.
 _BASELINE_ARM_FLAGS = {
     "back_menu_pick_cap": 3,
     "foreign_activity_guard": True,
@@ -217,12 +218,11 @@ _BASELINE_ARM_FLAGS = {
     "activity_trigger_enabled": False,
     "mop_activity_source_components": False,
     "mop_frontier_weight": 0,
-    "trigger_mop_first": False,
 }
 
 # Every arm-defining flag at its off/zero value + the kill-switch ON. Used by ape_pure so
 # the original-APE baseline is auditable from ape.properties without trusting the jar's
-# apePureMode to force RV off (defense-in-depth, design D1). Also 19 keys → guard-clean.
+# apePureMode to force RV off (defense-in-depth, design D1). Also 18 keys → guard-clean.
 _APE_PURE_ARM_FLAGS = {
     "back_menu_pick_cap": 0,
     "foreign_activity_guard": False,
@@ -242,7 +242,6 @@ _APE_PURE_ARM_FLAGS = {
     "activity_trigger_enabled": False,
     "mop_activity_source_components": False,
     "mop_frontier_weight": 0,
-    "trigger_mop_first": False,
 }
 
 # The MOP substrate: static-analysis data path + the four MOP scoring weights. Spread into
@@ -396,13 +395,14 @@ class ApeRVTool(AbstractTool):
                 **sata_mop_widget,
                 "mop_activity_source_components": True,
             },
+            # E-min is the activity-trigger launcher (activity_trigger_enabled); trigger_mop_first
+            # was removed after the jar deleted Config.triggerMopFirst (mop-census-launcher).
             "sata_mop_act_frontier": {
                 **sata_mop_widget,
                 "mop_activity_source_components": True,
                 "frontier_boost_weight": 200,
                 "mop_frontier_weight": 200,
                 "activity_trigger_enabled": True,
-                "trigger_mop_first": True,
             },
             # LLM arms — full arm-defining baseline + LLM sampling block.
             "sata_llm": {

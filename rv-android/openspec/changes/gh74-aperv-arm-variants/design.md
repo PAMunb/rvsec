@@ -12,7 +12,10 @@ The APE-RV re-architecture (`ape-mop-fairtest/docs/20260708_arquitetura_separaca
 side: it introduces the `apePureMode` kill-switch and flags for the previously flag-less behaviors
 (`formCompletionEnabled`, `stepTelemetryEnabled`, `modelMenuEnabled`, `leastVisitedPriorityTiebreak`,
 `treeEnhancementsEnabled`, `activityBudgetEnabled`) and the reach strategies (`mopActivitySourceComponents`,
-`mopFrontierWeight`, `triggerMopFirst`, `llmPercentageNoSubstrate`). This change is the rv-android
+`mopFrontierWeight`, `triggerMopFirst`, `llmPercentageNoSubstrate`).
+<!-- SUPERSEDED (task group 7): triggerMopFirst was later deleted from the jar by mop-census-launcher;
+     it is no longer arm-defining and was dropped from aperv-tool. See spec Purpose reconciliation note. -->
+This change is the rv-android
 counterpart (design §6.1): complete the mapping, freeze the arm variants, and add a guard so the "arm =
 explicit variant dict" contract cannot rot. It is Python-only and touches one module (`aperv-tool`).
 

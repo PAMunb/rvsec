@@ -51,6 +51,30 @@
 - [ ] 6.5 [SKIPPED per user — rv-android skills not run this session] Invoke `/rv-code-reviewer` via the Skill tool: "Review gh74 aperv arm variants (mapping completeness + frozen arms + seed wiring + guard tests)"
 - [x] 6.6 Run `/opsx:verify` — PASS (see report): 27/30 tasks done, 3 remaining are device-deferred (6.4b) / skipped-per-user (6.5); all 7 invariants INV-APV-13..19 implemented + covered by 61 green tests; no CRITICAL issues
 
+## 7. Reconcile trigger_mop_first removal (jar deleted Config.triggerMopFirst) — INV-APV-13
+
+<!-- Added after mop-census-launcher (APE-RV repo, merged to master @5b19ef7) deleted
+     Config.triggerMopFirst from the jar. The launcher is now cadence-based + census-only, with no
+     MOP-first ordering flag. ape.triggerMopFirst is inert on the shipped jar, so keeping
+     trigger_mop_first as an arm-defining key would violate INV-APV-13 (every arm-defining key must
+     map to a property the jar honors). This supersedes the trigger_mop_first entries in tasks 1.1,
+     1.3, 2.1, 2.6, 4.6. rv-agent keeps its own independent trigger_mop_first — NOT touched. -->
+
+- [x] 7.1 RED (`tests/test_aperv_tool.py`): drop `trigger_mop_first` from `_EXPECTED_ARM_DEFINING_MAPPING`;
+      rename `test_arm_defining_keys_count_is_19`→`_is_18` (`== 18`); assert `trigger_mop_first not in cfg`
+      for `sata_mop_act_frontier` and `ape.triggerMopFirst not in props`; drop the `sata_mop_widget`
+      `trigger_mop_first is False` assertion. Ran `uv run pytest` → 4 failed (count, mapping-set,
+      act_frontier value, act_frontier properties) as designed
+- [x] 7.2 GREEN (`tool.py`): remove `trigger_mop_first` from `APERV_PROPERTY_MAPPING`, `ARM_DEFINING_KEYS`
+      (19→18), `_BASELINE_ARM_FLAGS`, `_APE_PURE_ARM_FLAGS`, and the `sata_mop_act_frontier` variant
+      (E-min now carried by `activity_trigger_enabled` alone); update the "19 keys" comments to 18
+- [x] 7.3 Spec/design/proposal sync: delta spec `specs/aperv/spec.md` — INV-APV-13 mapping list, the
+      baseline OFF prose, the MOP-arm table (E-min column), the `sata_mop_widget` / `sata_mop_act_frontier`
+      / create-tool / act_frontier-properties scenarios, and the property-mapping table row; a Purpose
+      reconciliation note; superseded pointers in `design.md` + `proposal.md`
+- [x] 7.4 `uv run pytest` → 62 passed (0 fail); black+isort clean
+- [x] 7.5 `openspec validate gh74-aperv-arm-variants --strict` — valid
+
 ### Acceptance criteria
 
 - `ARM_DEFINING_KEYS` (19 keys) exists; every member is in `APERV_PROPERTY_MAPPING` (guard 4.1 green).

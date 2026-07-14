@@ -42,6 +42,8 @@ provenance check. No GATOR re-run and no producer change are required.
   `step_telemetry_enabled`, `model_menu_enabled`, `least_visited_priority_tiebreak`,
   `tree_enhancements_enabled`, `activity_budget_enabled`, `mop_activity_source_components`,
   `mop_frontier_weight`, `trigger_mop_first`, `llm_percentage_no_substrate`.
+  <!-- SUPERSEDED (task group 7): trigger_mop_first was later deleted from the jar by mop-census-launcher
+       and dropped from aperv-tool (no longer arm-defining). See spec Purpose reconciliation note. -->
 
 - **Four new frozen variants** — `ape_pure` (`ape_pure_mode=true`, no `mop_data`), `sata_mop_widget`
   (current widget mechanism, the MOP control), `sata_mop_activity` (isolates strategy A′ via

@@ -16,8 +16,19 @@ invariant cannot silently rot as flags are added.
 
 The delta also decomposes the MOP arm into `sata_mop_widget` (current widget mechanism — control),
 `sata_mop_activity` (isolates reach strategy A′), and `sata_mop_act_frontier` (the reach package
-A′+B+E-min), adds the `ape_pure` baseline (original APE via the kill-switch), and wires the experiment
-seed into the APE-RV command so paired-by-app runs are reproducible.
+A′+B+E-min, where E-min is the activity-trigger launcher), adds the `ape_pure` baseline (original APE
+via the kill-switch), and wires the experiment seed into the APE-RV command so paired-by-app runs are
+reproducible.
+
+> **Reconciliation note (trigger_mop_first removed).** This delta originally included `trigger_mop_first`
+> as an arm-defining flag (mapped to `ape.triggerMopFirst`, set `true` in `sata_mop_act_frontier`). The
+> APE-RV `mop-census-launcher` change (merged to APE-RV `master`) **deleted `Config.triggerMopFirst`** from
+> the jar — the launcher is now cadence-based and census-only, with no MOP-first ordering flag. Writing
+> `ape.triggerMopFirst` to a jar that no longer reads it is inert, which would violate INV-APV-13 (every
+> arm-defining key must map to a property the jar honors). `trigger_mop_first` is therefore dropped from
+> `ARM_DEFINING_KEYS`, `APERV_PROPERTY_MAPPING`, and every variant. E-min in `sata_mop_act_frontier` is now
+> carried solely by `activity_trigger_enabled=true`. The `rv-agent` module keeps its own independent
+> `trigger_mop_first` (a different tool) and is unaffected.
 
 The `ape.*` property names for the eleven new flags are frozen by the APE-RV sibling changes
 `rv-scoring-pipeline` and `mop-reach-strategies` (branch `mop-fairtest`, design
@@ -59,7 +70,9 @@ arm matrix (design §4); baseline values equal the current `Config` defaults mad
   `model_menu_enabled`→`ape.modelMenuEnabled`, `least_visited_priority_tiebreak`→`ape.leastVisitedPriorityTiebreak`,
   `tree_enhancements_enabled`→`ape.treeEnhancementsEnabled`, `activity_budget_enabled`→`ape.activityBudgetEnabled`,
   `mop_activity_source_components`→`ape.mopActivitySourceComponents`, `mop_frontier_weight`→`ape.mopFrontierWeight`,
-  `trigger_mop_first`→`ape.triggerMopFirst`, `llm_percentage_no_substrate`→`ape.llmPercentageNoSubstrate`.
+  `llm_percentage_no_substrate`→`ape.llmPercentageNoSubstrate`. (`trigger_mop_first` was removed — the
+  APE-RV jar deleted `Config.triggerMopFirst` in `mop-census-launcher`, making `ape.triggerMopFirst` inert;
+  it is no longer an arm-defining key. See the Purpose note.)
 
 - **INV-APV-14**: Every variant returned by `get_variants()` **except** the exempt ones (INV-APV-17) MUST
   set **every** key in `ARM_DEFINING_KEYS` explicitly in its dictionary. A variant MUST NOT rely on a jar
@@ -113,9 +126,9 @@ exploration flags to the current jar defaults made explicit (`back_menu_pick_cap
 `foreign_activity_guard=true`, `tree_package_guard=true`, `dynamic_epsilon=true`,
 `heuristic_input=true`, `fuzz_input_typed=true`, `form_completion_enabled=true`, `step_telemetry_enabled=true`,
 `model_menu_enabled=true`, `least_visited_priority_tiebreak=true`, `tree_enhancements_enabled=true`,
-`activity_budget_enabled=true`, `llm_percentage_no_substrate=-1`) and the MOP/reach/frontier/trigger flags
+`activity_budget_enabled=true`, `llm_percentage_no_substrate=-1`) and the MOP/reach/frontier flags
 OFF (`ape_pure_mode=false`, `frontier_boost_weight=0`, `activity_trigger_enabled=false`,
-`mop_activity_source_components=false`, `mop_frontier_weight=0`, `trigger_mop_first=false`).
+`mop_activity_source_components=false`, `mop_frontier_weight=0`).
 
 #### Base Variants
 
@@ -137,11 +150,11 @@ The MOP arms decompose the reach mechanism. All set `mop_data="static_analysis"`
 explicitly (`mop_weight_direct=500`, `mop_weight_transitive=300`, `mop_weight_open_menu=250`,
 `mop_weight_wtg=200`) and keep the full RV exploration baseline ON.
 
-| Variant | mop_activity_source_components (A′) | frontier_boost_weight | mop_frontier_weight (B) | activity_trigger_enabled + trigger_mop_first (E-min) | Notes |
-|---------|-------------------------------------|-----------------------|-------------------------|------------------------------------------------------|-------|
-| `sata_mop_widget` | `false` | `0` | `0` | `false` / `false` | Current widget mechanism (MOP control) |
-| `sata_mop_activity` | `true` | `0` | `0` | `false` / `false` | Isolates strategy A′ |
-| `sata_mop_act_frontier` | `true` | `200` | `200` | `true` / `true` | Reach package A′+B+E-min |
+| Variant | mop_activity_source_components (A′) | frontier_boost_weight | mop_frontier_weight (B) | activity_trigger_enabled (E-min) | Notes |
+|---------|-------------------------------------|-----------------------|-------------------------|----------------------------------|-------|
+| `sata_mop_widget` | `false` | `0` | `0` | `false` | Current widget mechanism (MOP control) |
+| `sata_mop_activity` | `true` | `0` | `0` | `false` | Isolates strategy A′ |
+| `sata_mop_act_frontier` | `true` | `200` | `200` | `true` | Reach package A′+B+E-min |
 | `sata_mop` | — alias of `sata_mop_widget` (identical dict, INV-APV-16) — | | | | Back-compat name |
 
 The `mop_frontier_weight=200` value for `sata_mop_act_frontier` is a calibration starting point (design
@@ -193,7 +206,8 @@ arm-defining explicitness policy (INV-APV-14) to preserve historical reproducibi
 - **WHEN** `get_variants()["sata_mop_widget"]` is read
 - **THEN** `mop_data` SHALL equal `"static_analysis"`
 - **AND** `mop_weight_direct == 500`, `mop_weight_transitive == 300`, `mop_weight_open_menu == 250`, `mop_weight_wtg == 200`
-- **AND** `mop_activity_source_components == False`, `frontier_boost_weight == 0`, `mop_frontier_weight == 0`, `activity_trigger_enabled == False`, `trigger_mop_first == False`
+- **AND** `mop_activity_source_components == False`, `frontier_boost_weight == 0`, `mop_frontier_weight == 0`, `activity_trigger_enabled == False`
+- **AND** `trigger_mop_first` SHALL NOT be present (removed — jar deleted the property)
 
 #### Scenario: sata_mop_activity isolates strategy A′
 - **WHEN** `get_variants()["sata_mop_activity"]` is read
@@ -202,8 +216,9 @@ arm-defining explicitness policy (INV-APV-14) to preserve historical reproducibi
 
 #### Scenario: sata_mop_act_frontier enables the reach package
 - **WHEN** `get_variants()["sata_mop_act_frontier"]` is read
-- **THEN** `mop_activity_source_components == True`, `frontier_boost_weight == 200`, `mop_frontier_weight == 200`, `activity_trigger_enabled == True`, `trigger_mop_first == True`
+- **THEN** `mop_activity_source_components == True`, `frontier_boost_weight == 200`, `mop_frontier_weight == 200`, `activity_trigger_enabled == True`
 - **AND** `mop_data` SHALL equal `"static_analysis"`
+- **AND** `trigger_mop_first` SHALL NOT be present (E-min is carried by `activity_trigger_enabled` alone)
 
 #### Scenario: sata_mop is an alias of sata_mop_widget
 - **WHEN** `get_variants()["sata_mop"]` and `get_variants()["sata_mop_widget"]` are compared
@@ -218,7 +233,7 @@ arm-defining explicitness policy (INV-APV-14) to preserve historical reproducibi
 - **WHEN** `ToolFactory.create_tool(ToolConfig(name="aperv", variant="sata_mop_act_frontier"))` is called
 - **THEN** the factory SHALL return a configured `ApeRVTool` instance
 - **AND** `tool._tool_config["mop_data"]` SHALL be `"static_analysis"`
-- **AND** `tool._tool_config["trigger_mop_first"]` SHALL be `True`
+- **AND** `tool._tool_config["activity_trigger_enabled"]` SHALL be `True`
 
 ---
 
@@ -267,9 +282,8 @@ property names:
 | `mop_weight_wtg` | `ape.mopWeightWtg` | MOP |
 | `mop_activity_source_components` | `ape.mopActivitySourceComponents` | MOP reach A′ (arm-defining) |
 | `mop_frontier_weight` | `ape.mopFrontierWeight` | MOP reach B (arm-defining) |
-| `trigger_mop_first` | `ape.triggerMopFirst` | MOP reach E-min (arm-defining) |
 | `frontier_boost_weight` | `ape.frontierBoostWeight` | Frontier (arm-defining) |
-| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | Component triggering (arm-defining) |
+| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | Component triggering / MOP reach E-min (arm-defining) |
 | `component_percentage` | `ape.componentPercentage` | Component triggering |
 | `mop_target_pick_cap` | `ape.mopTargetPickCap` | MOP |
 | `coverage_boost_weight` | `ape.coverageBoostWeight` | Coverage |
@@ -305,8 +319,9 @@ name-mismatch is inert, not an error).
 #### Scenario: Reach-package flags appear in properties for sata_mop_act_frontier
 - **WHEN** `_push_properties()` is called for `sata_mop_act_frontier` with `mop_json_pushed=True`
 - **THEN** the properties file SHALL contain `ape.mopActivitySourceComponents=true`
-- **AND** it SHALL contain `ape.mopFrontierWeight=200` and `ape.triggerMopFirst=true`
+- **AND** it SHALL contain `ape.mopFrontierWeight=200` and `ape.activityTriggerEnabled=true`
 - **AND** it SHALL contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
+- **AND** it SHALL NOT contain `ape.triggerMopFirst` (property removed)
 
 #### Scenario: Python-only keys are still excluded
 - **WHEN** `_push_properties()` is called for a variant whose `_tool_config` contains `strategy`, `mop_data`, and `seed`
