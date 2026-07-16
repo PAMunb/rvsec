@@ -37,6 +37,7 @@ model. Within rv-platform, it sits alongside other AbstractTool implementations
 - Downstream: rv-android logcat reads Coverage.aj output during execution
 """
 
+import json
 import os
 import tempfile
 from typing import Any, Dict
@@ -582,6 +583,82 @@ class ApeRVTool(AbstractTool):
             return json_path
         return None
 
+    def _compact_static_analysis_json(self, source_path: str) -> str | None:
+        """
+        Compact the static analysis JSON into a temporary file for device push.
+
+        Compaction is two lossless operations: deduplicating exact-duplicate
+        entries in `transitions` (preserving first-occurrence order) and
+        serializing without pretty-print whitespace. No field is projected away.
+
+        This exists because the Java side applies a pre-read footprint guard
+        (MopData.java:202) that rejects any file above roughly maxMemory()/6 —
+        about 32 MB at the emulator's ~192 MB heap. An oversized JSON makes the
+        MOP arms abort with 0 steps while the non-MOP baselines explore normally,
+        which is a per-app fairness gap rather than a crash. Duplicate edges carry
+        no information: no consumer of the edge list in the sibling `ape` repo
+        reads multiplicity (all are set-membership or first-match-fixed-weight),
+        so removing them is safe. Order is preserved because rekeyDialogsToHost
+        (MopData.java:884) resolves the first inbound edge and breaks (INV-APV-22).
+
+        Runs unconditionally rather than above a size threshold (INV-APV-23): a
+        threshold would leave this path exercised on ~1 app in 181 and would
+        duplicate the Java-side PARSE_FOOTPRINT_FACTOR as a second constant to
+        keep in sync across repositories.
+
+        Args:
+            source_path: Path to the source JSON, from _find_static_analysis_file()
+
+        Returns:
+            Path to the compacted temp file, or None if compaction failed —
+            the caller treats None as "push the source unchanged" (INV-APV-24).
+        """
+        tmp_path: str | None = None
+        try:
+            with open(source_path, "r") as source_file:
+                document = json.load(source_file)
+
+            # Dedup by canonical serialization of the whole entry rather than an
+            # explicit (sourceId, targetId, events) key tuple: identical for the
+            # current schema, but stays correct if the producer adds a field later,
+            # where a fixed tuple would silently collapse distinct entries (D4).
+            transitions = document.get("transitions")
+            if isinstance(transitions, list):
+                seen: set[str] = set()
+                unique = []
+                for entry in transitions:
+                    fingerprint = json.dumps(entry, sort_keys=True)
+                    if fingerprint not in seen:
+                        seen.add(fingerprint)
+                        unique.append(entry)
+                document["transitions"] = unique
+
+            # delete=False so the file survives until the caller unlinks it after
+            # the push, mirroring the _push_properties() temp-file idiom.
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as tmp:
+                tmp_path = tmp.name
+                json.dump(document, tmp, separators=(",", ":"))
+
+            return tmp_path
+        except (json.JSONDecodeError, OSError, MemoryError) as e:
+            # Never raise: a compaction problem must not become a task failure in
+            # one arm only, which would manufacture the very between-arm asymmetry
+            # this function exists to remove (INV-APV-24, D3).
+            self.logger.warning(
+                f"Failed to compact static analysis JSON {source_path}: {e}. "
+                f"Falling back to pushing the source file unchanged."
+            )
+            if tmp_path:
+                # Remove the partial temp file so no temp survives the fallback
+                # path (INV-APV-25). The source is untouched either way.
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            return None
+
     def _push_properties(
         self, device_serial: str, trace_file_path: str, mop_json_pushed: bool = False
     ) -> None:
@@ -771,19 +848,32 @@ class ApeRVTool(AbstractTool):
             )
 
         # Step 1c: Optionally push static analysis JSON for MOP-guided variants.
-        # The flag tracks whether the push succeeded so _push_properties() knows
-        # whether to include ape.mopDataPath in the generated properties file.
+        # The JSON is compacted into a temp file first so it clears the Java-side
+        # footprint guard (MopData.java:202); the source stays byte-identical as an
+        # archived artifact that offline consolidation and resume re-parse
+        # (INV-APV-20). The flag tracks whether the push succeeded so
+        # _push_properties() knows whether to include ape.mopDataPath — it is set
+        # identically on the compacted and the fallback path, so a compaction
+        # failure is invisible to ape.properties.
         mop_json_pushed = False
         if self._tool_config.get("mop_data") == "static_analysis":
             static_json = self._find_static_analysis_file(task)
             if static_json:
-                self._push_file_to_device(
-                    static_json,
-                    "/data/local/tmp/static_analysis.json",
-                    device_serial,
-                    task.result.trace_file,
-                )
-                mop_json_pushed = True
+                compacted = self._compact_static_analysis_json(static_json)
+                push_path = compacted or static_json
+                try:
+                    self._push_file_to_device(
+                        push_path,
+                        "/data/local/tmp/static_analysis.json",
+                        device_serial,
+                        task.result.trace_file,
+                    )
+                    mop_json_pushed = True
+                finally:
+                    # Unlink in a finally so no temp survives even when the push
+                    # raises RVToolExecutionError (INV-APV-25).
+                    if compacted:
+                        os.unlink(compacted)
             else:
                 self.logger.warning(
                     "sata_mop: static analysis file not found in results_dir, "

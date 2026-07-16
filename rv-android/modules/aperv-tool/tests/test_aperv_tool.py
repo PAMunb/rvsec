@@ -5,8 +5,10 @@ Tests cover: tool spec, variants, configure, JAR search paths, command building,
 constants, and empty trace detection.
 """
 
+import json
 import logging
 import os
+import tempfile
 from unittest.mock import MagicMock
 
 import pytest
@@ -725,3 +727,306 @@ class TestArmProperties:
         cfg = {**ApeRVTool.get_variants()["sata"], "seed": 42}
         props = self._capture_properties(tmp_path, cfg)
         assert "seed" not in props
+
+
+# --- gh80: static analysis JSON compaction -----------------------------------
+
+# A source document carrying all seven top-level keys the producer emits, with
+# duplicate transitions in the [A, B, A, C, B] shape the spec scenario names.
+TRANSITION_A = {"sourceId": "w1", "targetId": "w2", "events": ["click"]}
+TRANSITION_B = {"sourceId": "w2", "targetId": "w3", "events": ["swipe"]}
+TRANSITION_C = {"sourceId": "w3", "targetId": "w1", "events": ["back"]}
+
+SOURCE_DOCUMENT = {
+    "package": "br.unb.cic.cryptoapp",
+    "mainActivity": "br.unb.cic.cryptoapp.MainActivity",
+    "components": {"activities": ["MainActivity", "SecondActivity"]},
+    "reachability": {"br.unb.cic.cryptoapp.MainActivity": ["onCreate", "doCrypto"]},
+    "windows": [{"id": "w1", "title": "main"}],
+    "transitions": [TRANSITION_A, TRANSITION_B, TRANSITION_A, TRANSITION_C, TRANSITION_B],
+    "complete": True,
+}
+
+
+def _write_source(tmp_path, document=None, raw=None):
+    """Write a source JSON (pretty-printed, as the producer emits it)."""
+    path = tmp_path / "app.apk.json"
+    if raw is not None:
+        path.write_text(raw)
+    else:
+        path.write_text(json.dumps(document, indent=2))
+    return str(path)
+
+
+class TestCompactStaticAnalysisJson:
+    """Group 1: _compact_static_analysis_json() semantics (INV-APV-20..25)."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def test_dedup_preserves_first_occurrence_order(self, tmp_path):
+        # INV-APV-22: [A, B, A, C, B] -> exactly [A, B, C]. Order is load-bearing
+        # because rekeyDialogsToHost takes the first inbound edge and breaks.
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        assert compacted is not None
+        with open(compacted) as f:
+            result = json.load(f)
+        assert result["transitions"] == [TRANSITION_A, TRANSITION_B, TRANSITION_C]
+        os.unlink(compacted)
+
+    def test_all_top_level_keys_survive_unchanged(self, tmp_path):
+        # INV-APV-21: no field is projected away; only transitions is touched.
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        with open(compacted) as f:
+            result = json.load(f)
+        assert set(result.keys()) == set(SOURCE_DOCUMENT.keys())
+        for key in SOURCE_DOCUMENT:
+            if key != "transitions":
+                assert result[key] == SOURCE_DOCUMENT[key]
+        os.unlink(compacted)
+
+    def test_output_has_no_pretty_print_whitespace(self, tmp_path):
+        # INV-APV-21(b): minified serialization, and it re-parses to the same
+        # document modulo the transitions dedup.
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        raw = open(compacted).read()
+        assert "\n" not in raw
+        assert ", " not in raw
+        assert ": " not in raw
+        expected = {**SOURCE_DOCUMENT, "transitions": [TRANSITION_A, TRANSITION_B, TRANSITION_C]}
+        assert json.loads(raw) == expected
+        os.unlink(compacted)
+
+    def test_source_file_is_byte_identical_after_call(self, tmp_path):
+        # INV-APV-20: the source is an archived artifact — never written.
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+        before = open(source, "rb").read()
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        assert open(source, "rb").read() == before
+        assert compacted != source
+        os.unlink(compacted)
+
+    def test_document_without_transitions_key(self, tmp_path):
+        # Spec scenario: the key is not added when the source lacks it.
+        document = {"package": "com.example", "complete": True}
+        source = _write_source(tmp_path, document)
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        with open(compacted) as f:
+            result = json.load(f)
+        assert "transitions" not in result
+        assert result == document
+        os.unlink(compacted)
+
+    def test_document_with_empty_transitions(self, tmp_path):
+        # Spec scenario: sdmse/email ship transitions: [] — it stays [].
+        document = {**SOURCE_DOCUMENT, "transitions": []}
+        source = _write_source(tmp_path, document)
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        with open(compacted) as f:
+            result = json.load(f)
+        assert result["transitions"] == []
+        os.unlink(compacted)
+
+    def test_malformed_json_returns_none_and_warns(self, tmp_path, caplog):
+        # INV-APV-24 + INV-APV-25: fall back, warn, raise nothing, leak no temp.
+        source = _write_source(tmp_path, raw="{not valid json")
+        before_temps = set(os.listdir(tempfile.gettempdir()))
+
+        with caplog.at_level(logging.WARNING):
+            compacted = self.tool._compact_static_analysis_json(source)
+
+        assert compacted is None
+        assert source in caplog.text
+        assert set(os.listdir(tempfile.gettempdir())) == before_temps
+
+    def test_oserror_on_temp_write_returns_none(self, tmp_path, caplog, monkeypatch):
+        # INV-APV-24, OSError leg: temp file cannot be created (e.g. disk full).
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+        before_temps = set(os.listdir(tempfile.gettempdir()))
+
+        def raise_oserror(*args, **kwargs):
+            raise OSError("No space left on device")
+
+        monkeypatch.setattr(aperv_mod.tempfile, "NamedTemporaryFile", raise_oserror)
+
+        with caplog.at_level(logging.WARNING):
+            compacted = self.tool._compact_static_analysis_json(source)
+
+        assert compacted is None
+        assert source in caplog.text
+        assert set(os.listdir(tempfile.gettempdir())) == before_temps
+
+    def test_memoryerror_on_load_returns_none(self, tmp_path, caplog, monkeypatch):
+        # INV-APV-24, MemoryError leg: host cannot hold the document. Degrades to
+        # the source push; the Java guard then decides (D3).
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+        before_temps = set(os.listdir(tempfile.gettempdir()))
+
+        def raise_memoryerror(*args, **kwargs):
+            raise MemoryError("document too large")
+
+        monkeypatch.setattr(aperv_mod.json, "load", raise_memoryerror)
+
+        with caplog.at_level(logging.WARNING):
+            compacted = self.tool._compact_static_analysis_json(source)
+
+        assert compacted is None
+        assert source in caplog.text
+        assert set(os.listdir(tempfile.gettempdir())) == before_temps
+
+
+class TestExecuteCompactionFlow:
+    """Group 2: Step 1c wiring — which path is pushed, and temp lifetime."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+        self.pushed = []
+
+    def _make_task(self, tmp_path, source_path=None):
+        task = MagicMock()
+        task.results_dir = str(tmp_path)
+        task.config.apk_name = "app.apk"
+        task.config.device_id = "emulator-5554"
+        task.config.timeout = 60
+        trace = tmp_path / "trace.bin"
+        trace.write_bytes(b"")
+        task.result.trace_file = str(trace)
+        return task
+
+    def _run(self, tmp_path, variant):
+        """Execute the flow with the device and the jar stubbed out."""
+        self.tool.configure(ApeRVTool.get_variants()[variant])
+        task = self._make_task(tmp_path)
+        app = MagicMock()
+        app.package_name = "br.unb.cic.cryptoapp"
+
+        def fake_push(local_path, device_path, device_serial, trace_file_path):
+            # Snapshot content at push time: the temp is unlinked right after.
+            content = open(local_path, "rb").read() if os.path.isfile(local_path) else None
+            self.pushed.append((local_path, device_path, content))
+
+        self.tool._resolve_jar_path = lambda: str(tmp_path / "ape-rv.jar")
+        (tmp_path / "ape-rv.jar").write_bytes(b"jar")
+        self.tool._push_file_to_device = fake_push
+
+        result = MagicMock()
+        result.code = 0
+        main_cmd = MagicMock()
+        main_cmd.invoke.return_value = result
+        self.tool._build_main_command = lambda *a, **kw: main_cmd
+
+        self.tool.execute_tool_specific_logic(task, app)
+        return task
+
+    def _static_pushes(self):
+        return [p for p in self.pushed if p[1] == "/data/local/tmp/static_analysis.json"]
+
+    def test_pushes_compacted_temp_not_source(self, tmp_path):
+        # Spec scenario: the compacted temp reaches the device, not the source.
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+
+        self._run(tmp_path, "sata_mop_act_frontier")
+
+        pushes = self._static_pushes()
+        assert len(pushes) == 1
+        local_path, _, content = pushes[0]
+        assert local_path != source
+        assert json.loads(content)["transitions"] == [
+            TRANSITION_A,
+            TRANSITION_B,
+            TRANSITION_C,
+        ]
+
+    def test_falls_back_to_source_when_compaction_fails(self, tmp_path):
+        # Spec scenario: malformed source -> the source itself is pushed, and
+        # ape.mopDataPath is emitted exactly as on the success path.
+        source = _write_source(tmp_path, raw="{not valid json")
+        captured = {}
+        original_push_properties = self.tool._push_properties
+
+        def spy_push_properties(device_serial, trace_file_path, mop_json_pushed=False):
+            captured["mop_json_pushed"] = mop_json_pushed
+            return original_push_properties(device_serial, trace_file_path, mop_json_pushed)
+
+        self.tool._push_properties = spy_push_properties
+
+        self._run(tmp_path, "sata_mop_act_frontier")
+
+        pushes = self._static_pushes()
+        assert len(pushes) == 1
+        assert pushes[0][0] == source
+        # INV-APV-24: the fallback is invisible to ape.properties.
+        assert captured["mop_json_pushed"] is True
+        props = next(
+            p for p in self.pushed if p[1] == APERV_DEVICE_PROPERTIES_PATH
+        )[2].decode()
+        assert "ape.mopDataPath=/data/local/tmp/static_analysis.json" in props
+
+    def test_no_compaction_when_mop_data_unset(self, tmp_path):
+        # Spec scenario: sata/ape_pure push no static analysis JSON at all.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        calls = []
+        self.tool._compact_static_analysis_json = lambda p: calls.append(p)
+
+        self._run(tmp_path, "sata")
+
+        assert self._static_pushes() == []
+        assert calls == []
+
+    def test_no_temp_leak_on_success_and_fallback(self, tmp_path):
+        # INV-APV-25: no temp survives execute_tool_specific_logic() on either path.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        before = set(os.listdir(tempfile.gettempdir()))
+        self._run(tmp_path, "sata_mop_act_frontier")
+        assert set(os.listdir(tempfile.gettempdir())) == before
+
+        self.tool = ApeRVTool()
+        self.pushed = []
+        _write_source(tmp_path, raw="{not valid json")
+        before = set(os.listdir(tempfile.gettempdir()))
+        self._run(tmp_path, "sata_mop_act_frontier")
+        assert set(os.listdir(tempfile.gettempdir())) == before
+
+    def test_small_json_is_compacted_anyway(self, tmp_path):
+        # INV-APV-23: no size gate — a ~100 KB source is compacted like any other.
+        document = {
+            **SOURCE_DOCUMENT,
+            "windows": [{"id": f"w{i}", "title": "x" * 100} for i in range(800)],
+        }
+        source = _write_source(tmp_path, document)
+        assert os.path.getsize(source) > 100_000
+
+        self._run(tmp_path, "sata_mop_act_frontier")
+
+        local_path, _, content = self._static_pushes()[0]
+        assert local_path != source
+        assert b"\n" not in content
+
+    def test_no_compaction_when_json_not_found(self, tmp_path, caplog):
+        # Spec scenario (retained): mop_data set but no JSON in results_dir —
+        # the not-found branch must not attempt compaction. Distinct from the
+        # mop_data-unset case, which never reaches this branch at all.
+        calls = []
+        self.tool._compact_static_analysis_json = lambda p: calls.append(p)
+
+        with caplog.at_level(logging.WARNING):
+            self._run(tmp_path, "sata_mop_act_frontier")
+
+        assert calls == []
+        assert self._static_pushes() == []
+        assert "static analysis file not found in results_dir" in caplog.text

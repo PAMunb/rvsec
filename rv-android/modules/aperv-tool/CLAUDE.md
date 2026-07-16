@@ -45,7 +45,7 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 2. `execute_tool_specific_logic(task, app)`:
    - Resolves `ape-rv.jar` by priority: module dir > `$RVSEC_HOME/ape/target/` > `$TOOLS_DIR/aperv/`.
    - Pushes JAR to `/data/local/tmp/ape-rv.jar`; `system-broadcast.json` to `/data/local/tmp/` (optional).
-   - MOP variants: pushes static-analysis JSON to `/data/local/tmp/static_analysis.json`.
+   - MOP variants: compacts the static-analysis JSON into a temp file (dedup `transitions` + minify), pushes the **compacted copy** to `/data/local/tmp/static_analysis.json`, then unlinks the temp. The source at `<results_dir>/<apk_name>.json` is never modified. Compaction failure falls back to pushing the source unchanged.
    - Generates + pushes `ape.properties`, then runs `adb shell CLASSPATH=... app_process`.
 
 `APERV_PROPERTY_MAPPING` translates Python config keys → Java `ape.properties` keys. Keys not in the mapping (e.g. `strategy`, `mop_data`) are Python-only and never written to properties.
@@ -64,3 +64,5 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 - The `+15s` grace on the command timeout lets APE-RV flush its WTG model before the process is killed.
 - Empty (0-byte) trace file = silent startup crash; logged as a warning, not an error (coverage may still come from logcat).
 - Static-analysis JSON for MOP variants must exist at `<task.results_dir>/<apk_name>.json`; if missing the tool degrades gracefully (runs without MOP data).
+- The JSON is compacted before the push because the Java side rejects any file above ~32 MB (`MopData.java:202`, `maxMemory()/PARSE_FOOTPRINT_FACTOR`) *before* parsing, and an oversized file makes the MOP arms abort with 0 steps while the non-MOP baselines explore normally — a per-app fairness gap, not a crash. Measured on `org.quantumbadger.redreader_117`: 50.6 MB → 21.0 MB, 24,300 → 7,124 `transitions` (70.7% exact duplicates), ~1.4s.
+- `[APE-MOP-DATA] transitions=N` now reports the **unique** edge count, not the raw one (7,124 vs 24,300 on `redreader`). Do not compare that field across campaigns spanning this change (NFR08). Measured over the 181-APK `cmpma` set: 130 JSONs carry `transitions > 0` and **27 of them contain duplicates**, so the field shifts on those 27 and is unchanged on the other 103. `redreader` is a far outlier (70.7% duplicates); the next highest is `dev.ukanth.ufirewall` at 30.2%.
