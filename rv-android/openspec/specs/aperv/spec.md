@@ -52,7 +52,10 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **[Device]**: `ape-rv.jar` pushed to `/data/local/tmp/ape-rv.jar`
 - **[Device]**: `system-broadcast.json` pushed to `/data/local/tmp/system-broadcast.json` (if file exists in module directory)
-- **[Device]**: `static_analysis.json` pushed to `/data/local/tmp/static_analysis.json` (MOP variants only, when file is found)
+- **[Device]**: `/data/local/tmp/static_analysis.json` receives the compacted static analysis document (or the source document, on fallback) -- MOP variants only, when the file is found
+- **[Filesystem]**: on the success path, a temporary file holding the compacted document is created and unlinked after the push completes
+- **[Filesystem]**: on the fallback path, any temporary file created before the failure is unlinked by the compaction function before it returns, so no temporary file exists at push time
+- **[Filesystem]**: `<task.results_dir>/<task.config.apk_name>.json` is read and never written
 - **[Device]**: `ape.properties` pushed to `/data/local/tmp/ape.properties` (when `_tool_config` is non-empty)
 - **[Logcat]**: APE-RV writes `RVSEC-COV` log lines during execution (read by rv-android coverage infrastructure)
 - **[Network]**: LLM variants send HTTP requests from the emulator to the SGLang server (via `10.0.2.2` loopback or overridden URL)
@@ -75,7 +78,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-05**: `get_variants()` SHALL return a dict containing at minimum the keys `["default", "sata", "sata_mop", "bfs", "random", "sata_llm", "sata_mop_llm"]` plus the prompt variant experiment variants (`sata_mop_llm_<prompt>`). The `"default"` key SHALL map to the `sata` strategy (INV-TOOL-02 compliance).
 
-- **INV-APV-06**: The `sata_mop` variant SHALL set `mop_data` to `"static_analysis"`. When `mop_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate and push the static analysis JSON to the device. If the JSON is not found, execution SHALL continue without MOP data (graceful degradation).
+- **INV-APV-06**: The `sata_mop` variant SHALL set `mop_data` to `"static_analysis"`. When `mop_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the static analysis JSON, compact it (INV-APV-21), and push the compacted document to the device; when compaction fails, the source document SHALL be pushed instead (INV-APV-24). If the JSON is not found, execution SHALL continue without MOP data (graceful degradation).
 
 - **INV-APV-07**: `ApeRVTool.TOOL_SPEC.process_pattern` SHALL be `"com.android.commands.monkey"`. This is the same value used by the builtin `ape` tool. `AbstractTool.kill_related_processes()` uses this pattern to terminate device-side processes after execution. As a consequence, `ape` and `aperv` MUST NOT run concurrently on the same device -- each cleanup would terminate the other's process. Experiments using `aperv` SHALL NOT include the builtin `ape` tool in the same run.
 
@@ -88,6 +91,18 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - **INV-APV-11**: Timeout is ALWAYS controlled by `task.config.timeout` (set by rv-platform). The `running_minutes` passed to APE is derived from `max(1, task.config.timeout // 60)`. Variants MUST NOT hardcode a timeout.
 
 - **INV-APV-12**: Non-zero exit codes from APE-RV SHALL NOT be treated as failures. APE-RV exits with non-zero codes when it detects app crashes during exploration (e.g., exit code 211). Coverage is collected via logcat regardless. Only `RVCommandTimeoutError` is re-raised as `RVToolTimeoutError`.
+
+- **INV-APV-20**: Compaction SHALL write to a temporary file. The source file at `<task.results_dir>/<task.config.apk_name>.json` SHALL remain byte-identical after `execute_tool_specific_logic()` returns. This file is an archived experiment artifact: offline consolidation and `ResultProcessorComponent._resolve_static_data` re-parse it on resume. Keeping it byte-identical to the producer's output preserves it as ground truth rather than a derived artifact, and confines this change to the device-push path.
+
+- **INV-APV-21**: Compaction SHALL be lossless. It SHALL consist of exactly two operations: (a) removing exact-duplicate entries from `transitions`, and (b) serializing without pretty-print whitespace. Every top-level key present in the source document (`package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`) SHALL be present in the compacted document. No field SHALL be projected away, renamed, or rewritten.
+
+- **INV-APV-22**: Deduplication of `transitions` SHALL preserve the order of first occurrence. `rekeyDialogsToHost` (`MopData.java:884`) resolves the first inbound edge and breaks, making edge order semantically load-bearing even though edge multiplicity is not.
+
+- **INV-APV-23**: Compaction SHALL run unconditionally on every MOP-arm push, with no size threshold gating it.
+
+- **INV-APV-24**: Any failure during compaction SHALL be caught, SHALL log a warning, and SHALL fall back to pushing the source file unchanged. Compaction SHALL NOT raise, and SHALL NOT be a task-failure path. The fallback preserves the pre-change behavior as a floor.
+
+- **INV-APV-25**: No temporary file SHALL survive `execute_tool_specific_logic()`, on either the success or the fallback path.
 
 ## Requirements
 
@@ -227,7 +242,7 @@ The first existing path that contains `ape-rv.jar` wins. If no path resolves, `R
 
 3. **Push broadcast catalog**: If `system-broadcast.json` exists in the module directory (`os.path.dirname(__file__)`), push it to `/data/local/tmp/system-broadcast.json`. This catalog provides typed extras for system broadcast intents used by APE-RV's component triggering. If the file is absent, skip (APE-RV degrades gracefully).
 
-4. **Push static analysis JSON** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. If found, push to `/data/local/tmp/static_analysis.json` and set `mop_json_pushed = True`. If not found, log a warning and continue without MOP data.
+4. **Compact and push static analysis JSON** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. If found, compact it into a temporary file (deduplicate `transitions`, serialize without pretty-print whitespace -- see "Static Analysis JSON Compaction"), push the compacted file to `/data/local/tmp/static_analysis.json`, unlink the temporary file, and set `mop_json_pushed = True`. If compaction fails, log a warning and push the source file unchanged, still setting `mop_json_pushed = True`. If the JSON is not found, log a warning and continue without MOP data.
 
 5. **Push ape.properties**: Generate `ape.properties` from `_tool_config` using `APERV_PROPERTY_MAPPING` to translate Python keys to Java property names. When `mop_json_pushed` is True, include `ape.mopDataPath=/data/local/tmp/static_analysis.json`. Push to `/data/local/tmp/ape.properties`.
 
@@ -243,7 +258,10 @@ adb -s <serial> shell CLASSPATH=/data/local/tmp/ape-rv.jar /system/bin/app_proce
   com.android.commands.monkey.Monkey -p <package_name>
   --running-minutes <max(1, timeout_seconds // 60)>
   --ape <strategy>
+  [-s <seed>]
 ```
+
+The trailing `-s <seed>` is appended only when a seed is configured (`tool.py:765-771`). The seed argument itself is owned by change `gh74-aperv-arm-variants` (INV-APV-18), which is implemented in code but whose delta is not yet synced; it is reproduced here so this spec does not freeze the seedless form as the contract.
 
 #### Scenario: Successful APE-RV execution with sata variant
 - **WHEN** `execute_tool_specific_logic(task, app)` is called with `strategy="sata"`, timeout=60
@@ -251,17 +269,29 @@ adb -s <serial> shell CLASSPATH=/data/local/tmp/ape-rv.jar /system/bin/app_proce
 - **AND** the adb command SHALL include `--running-minutes 1` and `--ape sata`
 - **AND** stdout+stderr SHALL be written to `task.result.trace_file`
 - **AND** no static analysis JSON SHALL be pushed to the device
+- **AND** no compaction SHALL be attempted
 
 #### Scenario: sata_mop execution with static analysis JSON present
 - **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
 - **AND** `_find_static_analysis_file(task)` returns a valid path
-- **THEN** the static analysis JSON SHALL be pushed to `/data/local/tmp/static_analysis.json`
+- **THEN** the JSON SHALL be compacted into a temporary file
+- **AND** the compacted file SHALL be pushed to `/data/local/tmp/static_analysis.json`
+- **AND** the source file SHALL remain byte-identical
 - **AND** `ape.properties` SHALL contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
+
+#### Scenario: sata_mop execution when compaction fails
+- **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
+- **AND** `_find_static_analysis_file(task)` returns a path whose content is not parseable as JSON
+- **THEN** a WARNING SHALL be logged
+- **AND** the source file SHALL be pushed unchanged to `/data/local/tmp/static_analysis.json`
+- **AND** `ape.properties` SHALL contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
+- **AND** execution SHALL continue normally
 
 #### Scenario: sata_mop execution with static analysis JSON absent
 - **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
 - **AND** no static analysis JSON file is found in `task.results_dir`
 - **THEN** a WARNING SHALL be logged: `"sata_mop: static analysis file not found in results_dir, running without MOP data"`
+- **AND** no compaction SHALL be attempted
 - **AND** `ape.properties` SHALL NOT contain `ape.mopDataPath`
 - **AND** execution SHALL continue (APE-RV runs as plain `sata`)
 
@@ -368,6 +398,71 @@ The method SHALL return the absolute path if the file exists, or `None` otherwis
 #### Scenario: Standalone execution without results_dir
 - **WHEN** `task.results_dir` is None or absent
 - **THEN** `None` SHALL be returned without error
+
+---
+
+### Requirement: Static Analysis JSON Compaction (FR19, FR04, NFR04)
+
+`ApeRVTool` SHALL compact the static analysis JSON into a temporary file before pushing it to the device, and SHALL push the compacted file rather than the source file.
+
+Compaction SHALL consist of exactly two lossless operations. First, entries in the `transitions` array SHALL be deduplicated by exact equality of the whole entry, preserving first-occurrence order. Entries carry exactly the keys `sourceId`, `targetId`, and `events`, so whole-entry canonical equality is identical to the `(sourceId, targetId, events)` tuple and cannot silently ignore a field added later. Second, the document SHALL be serialized without pretty-print whitespace.
+
+The source file SHALL NOT be modified (INV-APV-20). Compaction SHALL run unconditionally, not gated on file size (INV-APV-23). No field SHALL be projected away (INV-APV-21).
+
+Any failure -- malformed JSON, filesystem error writing the temporary file, or memory exhaustion loading the document -- SHALL be caught, SHALL emit a warning, and SHALL degrade to pushing the source file unchanged (INV-APV-24). The temporary file SHALL be unlinked after the push on every path (INV-APV-25).
+
+#### Scenario: Oversized JSON compacted below the Java footprint ceiling
+- **WHEN** `execute_tool_specific_logic(task, app)` runs with `mop_data="static_analysis"`
+- **AND** `_find_static_analysis_file(task)` returns a 50.6 MB JSON with 24,300 `transitions` entries of which 7,124 are unique (`org.quantumbadger.redreader_117.apk.json`)
+- **THEN** the file pushed to `/data/local/tmp/static_analysis.json` SHALL be approximately 21.0 MB
+- **AND** it SHALL contain exactly 7,124 `transitions` entries
+- **AND** it SHALL be below the ~32 MB guard ceiling of `MopData.java:202`, so the MOP arm SHALL explore with more than 0 steps
+
+#### Scenario: Source file is never modified
+- **WHEN** compaction runs on `<task.results_dir>/<apk_name>.json`
+- **THEN** the source file SHALL be byte-identical to its content before the call
+- **AND** it SHALL remain byte-identical to the producer's output, so offline consolidation and `ResultProcessorComponent._resolve_static_data` on resume re-parse the archived artifact rather than a derived one
+
+#### Scenario: Deduplication preserves first-occurrence order
+- **WHEN** `transitions` is `[A, B, A, C, B]` where A, B, C are distinct entries
+- **THEN** the compacted `transitions` SHALL be exactly `[A, B, C]`
+- **AND** the relative order SHALL match first occurrence in the source
+
+#### Scenario: All top-level keys survive compaction
+- **WHEN** the source document has top-level keys `package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`
+- **THEN** the compacted document SHALL contain all seven keys
+- **AND** the value of every key other than `transitions` SHALL be unchanged
+
+#### Scenario: Small JSON is compacted anyway
+- **WHEN** the source JSON is 100 KB, well below the ceiling
+- **THEN** compaction SHALL still run (INV-APV-23)
+- **AND** the compacted file SHALL be pushed
+
+#### Scenario: JSON with no transitions key
+- **WHEN** the source document has no `transitions` key
+- **THEN** compaction SHALL succeed and minify the document
+- **AND** no `transitions` key SHALL be added
+
+#### Scenario: JSON with empty transitions array
+- **WHEN** the source document has `transitions: []` (as in `sdmse` at 23.7 MB and `email` at 20.8 MB, the two next-largest JSONs in the `cmpma` set)
+- **THEN** compaction SHALL succeed
+- **AND** `transitions` SHALL remain `[]`
+
+#### Scenario: Malformed JSON falls back to pushing the original
+- **WHEN** the source file is not parseable as JSON
+- **THEN** a warning SHALL be logged naming the file and the failure
+- **AND** the source file SHALL be pushed unchanged to `/data/local/tmp/static_analysis.json`
+- **AND** no exception SHALL propagate out of `execute_tool_specific_logic()`
+- **AND** `ape.properties` SHALL still contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
+
+#### Scenario: No temporary file leaks on the success path
+- **WHEN** compaction succeeds and the push completes
+- **THEN** the temporary file SHALL NOT exist after `execute_tool_specific_logic()` returns
+
+#### Scenario: No temporary file leaks on the fallback path
+- **WHEN** compaction fails after the temporary file was created
+- **THEN** the temporary file SHALL NOT exist after `execute_tool_specific_logic()` returns
+- **AND** the source file SHALL have been pushed
 
 ---
 
