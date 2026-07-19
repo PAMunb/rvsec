@@ -114,4 +114,55 @@ class EmitPlanShapeTest {
         assertThrows(IllegalStateException.class,
                 () -> guard.emit(ctx(EmitterTestFixtures.adviceBefore("x"))));
     }
+
+    // ------------------------------------------------------------------
+    // IfGuardEmitter error paths (INV-INS-66 fail-loud contract): a guard is
+    // NEVER silently dropped to an always-match, which would weave an invoke the
+    // source intended to gate. Each of these raises UnsupportedAspectConstructError
+    // rather than emitting an ungated plan. These paths (and the exception class
+    // itself) were entirely dark.
+    // ------------------------------------------------------------------
+
+    @Test
+    void ifGuardWithoutIfClauseFailsLoud() {
+        // The emitter is selected but the advice expression carries NO if(...)
+        // clause — extractIfExpression returns null → fail loud (never an
+        // ungated always-match plan).
+        IfGuardEmitter guard = new IfGuardEmitter().wrapping(new BeforeEmitter());
+        assertThrows(UnsupportedAspectConstructError.class,
+                () -> guard.emit(ctx(adviceBefore("noif"))),
+                "an if-guard emitter over an expression with no if(...) clause MUST fail loud");
+    }
+
+    @Test
+    void ifGuardWithUnsupportedShapeFailsLoud() {
+        // if(it.size() > 0) matches neither NULL_CHECK nor NOT_HOLDS_LOCK — the
+        // only two lowered shapes — so it MUST be rejected, not woven ungated.
+        IfGuardEmitter guard = new IfGuardEmitter().wrapping(new BeforeEmitter());
+        assertThrows(UnsupportedAspectConstructError.class,
+                () -> guard.emit(ctx(EmitterTestFixtures.adviceWithUnsupportedIfGuard("bad"))),
+                "an if(...) shape outside the two lowered forms MUST fail loud");
+    }
+
+    @Test
+    void ifGuardWithUnresolvableBoundFailsLoud() {
+        // if(ghost == null) has a lowered shape (NULL_CHECK), but 'ghost' is not a
+        // resolvable target/args binding for this match — the guard cannot be gated
+        // to a real register, so it MUST fail loud rather than gate on garbage.
+        AdviceDescriptor a = adviceBefore("g");
+        a.setExpression("call(public boolean Iterator.hasNext()) && target(it) && if(ghost == null)");
+        IfGuardEmitter guard = new IfGuardEmitter().wrapping(new BeforeEmitter());
+        assertThrows(UnsupportedAspectConstructError.class,
+                () -> guard.emit(ctx(a)),
+                "a null-check over an unresolvable bound MUST fail loud (no register to gate on)");
+    }
+
+    @Test
+    void ifGuardKindNamesTheWrappedDelegate() {
+        // kind() composes the delegate's kind; the raw (delegate-less) form
+        // reports the placeholder marker.
+        assertEquals("if-guarded[before]",
+                new IfGuardEmitter().wrapping(new BeforeEmitter()).kind());
+        assertEquals("if-guarded[-]", new IfGuardEmitter().kind());
+    }
 }
