@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -383,3 +384,401 @@ class TestAbstractScreenVisitor:
 
         node = Node({"resource_id": "simple_id"})
         assert visitor._with_resource_id(node) == " (id: simple_id)"
+
+    # ------------------------------------------------------------------
+    # get_screen_description (base implementation, line 141)
+    # ------------------------------------------------------------------
+    def test_base_get_screen_description_returns_items(self, visitor):
+        """The base get_screen_description wraps activity + items unchanged.
+
+        MockScreenVisitor overrides the method, so we call the base class
+        implementation explicitly to exercise the un-overridden production path
+        that concrete visitors inherit when they do not customize it.
+        """
+        item = ScreenItem({"id": "x"}, "Item X", [])
+        visitor.items = [item]
+
+        description = AbstractScreenVisitor.get_screen_description(visitor)
+
+        assert isinstance(description, ScreenDescription)
+        assert description.activity == visitor.activity
+        assert description.items == [item]
+
+    # ------------------------------------------------------------------
+    # visit() deprecated dispatcher (lines 153-165)
+    # ------------------------------------------------------------------
+    def test_visit_skips_already_visited_node(self, visitor, node):
+        """A node whose identifier is already recorded must not be re-dispatched.
+
+        Basis-path coverage of the early-return guard that prevents duplicate
+        processing of the same UI element within one traversal.
+        """
+        visitor.visit_node = MagicMock()
+        visitor.visit_leaf_node = MagicMock()
+        visitor.visited_nodes.add(node.unique_identifier)
+
+        visitor.visit(node)
+
+        visitor.visit_node.assert_not_called()
+        visitor.visit_leaf_node.assert_not_called()
+
+    def test_visit_skips_system_button(self, visitor):
+        """A system navigation button must be filtered out before dispatch.
+
+        Uses a real system resource ID so should_exclude_system_button returns
+        True, verifying the second early-return branch of visit().
+        """
+        visitor.visit_node = MagicMock()
+        visitor.visit_leaf_node = MagicMock()
+        system_node = Node({"resource_id": "com.android.systemui:id/home"})
+
+        visitor.visit(system_node)
+
+        visitor.visit_node.assert_not_called()
+        visitor.visit_leaf_node.assert_not_called()
+
+    def test_visit_dispatches_childless_node_to_visit_node(self, visitor, node):
+        """A node without children is dispatched to visit_node.
+
+        Traces the ``if not node.children`` branch (line 162-163).
+        """
+        visitor.visit_node = MagicMock()
+        visitor.visit_leaf_node = MagicMock()
+
+        visitor.visit(node)
+
+        visitor.visit_node.assert_called_once_with(node)
+        visitor.visit_leaf_node.assert_not_called()
+
+    def test_visit_dispatches_node_with_children_to_visit_leaf_node(
+        self, visitor, node, parent_node
+    ):
+        """A node with children is dispatched to visit_leaf_node.
+
+        Traces the ``else`` branch (line 164-165). Naming is inverted in the
+        deprecated method, but this test documents its current behavior.
+        """
+        node.children = [parent_node]
+        visitor.visit_node = MagicMock()
+        visitor.visit_leaf_node = MagicMock()
+
+        visitor.visit(node)
+
+        visitor.visit_leaf_node.assert_called_once_with(node)
+        visitor.visit_node.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # find_matching_widget text-content fallback (lines 194-200)
+    # ------------------------------------------------------------------
+    def test_find_matching_widget_by_text(self, visitor):
+        """When resource-ID lookup fails, matching falls back to text content.
+
+        GATOR sometimes lacks the resource name but records the widget's text,
+        so the visitor scans window widgets for a text match as a second strategy.
+        """
+        mock_window = MagicMock(spec=Window)
+        mock_window.get_widget_by_name.return_value = None
+        text_widget = MagicMock(spec=Widget)
+        text_widget.text = "Submit"
+        mock_window.widgets = {"w1": text_widget}
+        visitor.window = mock_window
+
+        result = visitor.find_matching_widget(
+            {"resource_id": "com.x:id/unknown", "text": "Submit"}
+        )
+
+        assert result is text_widget
+        assert visitor.window_info["matched_widgets"] == 1
+
+    def test_find_matching_widget_text_no_match_returns_none(self, visitor):
+        """No resource-ID and no text match yields None (line 200)."""
+        mock_window = MagicMock(spec=Window)
+        mock_window.get_widget_by_name.return_value = None
+        other_widget = MagicMock(spec=Widget)
+        other_widget.text = "Cancel"
+        mock_window.widgets = {"w1": other_widget}
+        visitor.window = mock_window
+
+        result = visitor.find_matching_widget(
+            {"resource_id": "com.x:id/unknown", "text": "Submit"}
+        )
+
+        assert result is None
+
+    # ------------------------------------------------------------------
+    # is_always_clickable_type (lines 233, 238, 243)
+    # ------------------------------------------------------------------
+    def test_is_always_clickable_type_no_view_class(self, visitor):
+        """A node with an empty view_class is never inherently clickable (line 233)."""
+        assert visitor.is_always_clickable_type(Node({})) is False
+
+    def test_is_always_clickable_type_exact_match(self, visitor):
+        """A simple class name present in the set matches exactly (line 238).
+
+        The fully-qualified Material Chip resolves to simple name 'Chip', which
+        is an exact member of ALWAYS_CLICKABLE_TYPES.
+        """
+        node = Node({"class": "com.google.android.material.chip.Chip"})
+        assert visitor.is_always_clickable_type(node) is True
+
+    def test_is_always_clickable_type_partial_match(self, visitor):
+        """A class whose name merely contains a known type matches (line 243).
+
+        'CustomTabWidget' is not an exact member, but 'Tab' is a substring,
+        covering the partial-match fallback for vendor-nested classes.
+        """
+        node = Node({"class": "com.vendor.CustomTabWidget"})
+        assert visitor.is_always_clickable_type(node) is True
+
+    # ------------------------------------------------------------------
+    # MOP reachability helpers: not-found paths (lines 261, 277)
+    # ------------------------------------------------------------------
+    def test_check_method_reaches_target_missing_returns_false(self, visitor):
+        """An unknown signature reaches no monitored operation (line 261)."""
+        visitor.static_info.classes.methods = {}
+        assert visitor._check_method_reaches_target("does.not.exist") is False
+
+    def test_check_method_directly_reaches_target_missing_returns_false(self, visitor):
+        """An unknown signature directly reaches no monitored operation (line 277)."""
+        visitor.static_info.classes.methods = {}
+        assert (
+            visitor._check_method_directly_reaches_target("does.not.exist") is False
+        )
+
+    # ------------------------------------------------------------------
+    # should_exclude_system_button heuristics (329, 345, 351-359, 365-380, 388, 392)
+    # ------------------------------------------------------------------
+    def test_exclude_by_keyboard_package(self, visitor):
+        """A node from an input-method package is a keyboard element (line 329)."""
+        node = Node({"package": "com.android.inputmethod.latin"})
+        assert visitor.should_exclude_system_button(node) is True
+
+    def test_exclude_by_keyboard_class(self, visitor):
+        """A node whose class name mentions a keyboard type is excluded (line 345)."""
+        node = Node({"class": "com.vendor.SoftKeyboardView"})
+        assert visitor.should_exclude_system_button(node) is True
+
+    def test_exclude_by_navigation_bounds(self, visitor):
+        """A node positioned inside the reported nav area is excluded (351-359).
+
+        When system_navigation_bounds is present, any node whose top edge is at
+        or below the nav-bar top is treated as part of the system navigation.
+        """
+        visitor.system_navigation_bounds = {"present": True, "top": 1000}
+        node = Node({"bounds": [[0, 1100], [200, 1200]]})
+        assert visitor.should_exclude_system_button(node) is True
+
+    def test_exclude_by_keyboard_key_heuristic(self, visitor):
+        """A tiny single-character button in the lower half is a keyboard key.
+
+        Covers the size/position/text heuristic (365-380) that catches custom
+        keyboards lacking a recognizable package or class.
+        """
+        visitor.device_info = {"displayHeight": 2000}
+        node = Node({"bounds": [[10, 1500], [60, 1550]], "text": "A"})
+        assert visitor.should_exclude_system_button(node) is True
+
+    def test_exclude_by_content_description(self, visitor):
+        """A 'go back' content description marks a system button (line 388)."""
+        node = Node({"content_description": "Go back"})
+        assert visitor.should_exclude_system_button(node) is True
+
+    def test_exclude_by_soft_button_class(self, visitor):
+        """A class naming both 'soft' and 'button' is a soft navigation button (392)."""
+        node = Node({"class": "com.vendor.SoftNavButton"})
+        assert visitor.should_exclude_system_button(node) is True
+
+    # ------------------------------------------------------------------
+    # get_possible_actions: bounds-based coordinate fallback (431-436)
+    # ------------------------------------------------------------------
+    def test_get_possible_actions_bounds_coordinate_fallback(self, visitor):
+        """When a node lacks center_coordinates, coordinates come from bounds.
+
+        Real Node objects always expose center_coordinates, so this uses a
+        lightweight stub without that attribute to exercise the ``elif 'bounds'``
+        fallback that computes the center from the raw bounds array.
+        """
+        visitor._update_action_mop_related_info = MagicMock()
+        fake_node = SimpleNamespace(
+            data={"bounds": [[10, 20], [30, 40]]},
+            clickable=True,
+            checkable=False,
+            checked=False,
+            editable=False,
+            long_clickable=False,
+            scrollable=False,
+            view_class="android.widget.Button",
+            view_text="",
+        )
+
+        actions = visitor.get_possible_actions(fake_node, visitor.counter)
+
+        assert len(actions) == 1
+        assert actions[0].coordinates == (20, 30)
+
+    # ------------------------------------------------------------------
+    # get_possible_actions: check/uncheck actions (442-466, 514, 561-584)
+    # ------------------------------------------------------------------
+    def test_get_possible_actions_prioritize_check_checked(self, visitor):
+        """prioritize_check on a checked node yields an UNCHECK action (442-454)."""
+        visitor._update_action_mop_related_info = MagicMock()
+        node = Node(
+            {"class": "android.widget.CheckBox", "checkable": True, "checked": True}
+        )
+
+        actions = visitor.get_possible_actions(
+            node, visitor.counter, prioritize_check=True
+        )
+
+        assert len(actions) == 1
+        assert actions[0].text.startswith("UNCHECK")
+
+    def test_get_possible_actions_prioritize_check_unchecked(self, visitor):
+        """prioritize_check on an unchecked node yields a CHECK action (455-466)."""
+        visitor._update_action_mop_related_info = MagicMock()
+        node = Node(
+            {"class": "android.widget.CheckBox", "checkable": True, "checked": False}
+        )
+
+        actions = visitor.get_possible_actions(
+            node, visitor.counter, prioritize_check=True
+        )
+
+        assert len(actions) == 1
+        assert actions[0].text.startswith("CHECK")
+
+    def test_get_possible_actions_normal_check_unchecked(self, visitor):
+        """A checkable node at normal priority produces a CHECK action (514, 573-584)."""
+        visitor._update_action_mop_related_info = MagicMock()
+        node = Node(
+            {"class": "android.widget.CheckBox", "checkable": True, "checked": False}
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        assert any(a.text.startswith("CHECK") for a in actions)
+
+    def test_get_possible_actions_normal_check_checked(self, visitor):
+        """A checked node at normal priority produces an UNCHECK action (561-572)."""
+        visitor._update_action_mop_related_info = MagicMock()
+        node = Node(
+            {"class": "android.widget.CheckBox", "checkable": True, "checked": True}
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        assert any(a.text.startswith("UNCHECK") for a in actions)
+
+    # ------------------------------------------------------------------
+    # get_possible_actions: scroll direction restriction (526, 528)
+    # ------------------------------------------------------------------
+    def test_get_possible_actions_vertical_scroll_only(self, visitor):
+        """ListView/ScrollView are restricted to vertical scrolling (line 526)."""
+        visitor._update_action_mop_related_info = MagicMock()
+        node = Node({"class": "android.widget.ListView", "scrollable": True})
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        directions = {a.text.split()[1] for a in actions}
+        assert directions == {"UP", "DOWN"}
+
+    def test_get_possible_actions_horizontal_scroll_only(self, visitor):
+        """HorizontalScrollView is restricted to horizontal scrolling (line 528)."""
+        visitor._update_action_mop_related_info = MagicMock()
+        node = Node(
+            {"class": "android.widget.HorizontalScrollView", "scrollable": True}
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        directions = {a.text.split()[1] for a in actions}
+        assert directions == {"LEFT", "RIGHT"}
+
+    # ------------------------------------------------------------------
+    # _update_action_mop_related_info: no matching widget (line 600)
+    # ------------------------------------------------------------------
+    def test_update_action_mop_no_matching_widget(self, visitor, node):
+        """With no matching widget the action text is left unchanged (line 600)."""
+        visitor.window = None
+        action = ItemAction(1, "CLICK (1)", WidgetEventType.CLICK, False, False)
+
+        visitor._update_action_mop_related_info(action, node)
+
+        assert action.text == "CLICK (1)"
+        assert action.reaches_target is False
+
+    # ------------------------------------------------------------------
+    # Formatting helpers: empty / truncated / field branches
+    # ------------------------------------------------------------------
+    def test_with_text_no_text(self, visitor):
+        """A node without text reports 'with no text' (line 770)."""
+        assert visitor._with_text(Node({})) == "with no text"
+
+    def test_with_field_none_widget(self, visitor):
+        """A None widget yields an empty field description (line 781)."""
+        assert visitor._with_field(None) == ""
+
+    def test_with_field_assigned(self, visitor):
+        """A widget carrying a field reports the assignment (line 784)."""
+        widget = SimpleNamespace(field="mSecretKey")
+        assert visitor._with_field(widget) == "is assigned to a field"
+
+    def test_has_focus_missing_attribute(self, visitor):
+        """A node object without a 'focused' attribute yields '' (line 797)."""
+        assert visitor._has_focus(SimpleNamespace()) == ""
+
+    def test_with_description_empty(self, visitor):
+        """A node without a content description yields '' (line 812)."""
+        assert visitor._with_description(Node({})) == ""
+
+    def test_with_description_truncated(self, visitor):
+        """A long content description is truncated with an indicator (line 818)."""
+        result = visitor._with_description(Node({"content_description": "d" * 60}))
+        assert "truncated" in result
+
+    def test_with_resource_id_empty(self, visitor):
+        """A node without a resource ID yields '' (line 833)."""
+        assert visitor._with_resource_id(Node({})) == ""
+
+    def test_with_hint_empty(self, visitor):
+        """A node without a hint yields '' (line 855)."""
+        assert visitor._with_hint(Node({})) == ""
+
+    def test_with_hint_truncated(self, visitor):
+        """A long hint is truncated with an indicator (line 862)."""
+        assert "truncated" in visitor._with_hint(Node({"hint": "h" * 60}))
+
+    def test_with_hint_short(self, visitor):
+        """A short hint is returned verbatim (line 864)."""
+        assert visitor._with_hint(Node({"hint": "email"})) == " with hint 'email'"
+
+    # ------------------------------------------------------------------
+    # Coordinate formatting helpers (880-884, 900-909, 925-927)
+    # ------------------------------------------------------------------
+    def test_with_position_missing_center(self, visitor):
+        """A node without center_coordinates yields '' (line 881)."""
+        assert visitor._with_position(SimpleNamespace()) == ""
+
+    def test_with_position_from_bounds(self, visitor):
+        """center_coordinates are formatted as a position string (883-884)."""
+        node = Node({"bounds": [[10, 20], [30, 40]]})
+        assert visitor._with_position(node) == " at position (20, 30)"
+
+    def test_with_bounds_empty(self, visitor):
+        """A node with empty bounds yields '' (line 900-901)."""
+        assert visitor._with_bounds(Node({"bounds": []})) == ""
+
+    def test_with_bounds_formatted(self, visitor):
+        """Two-corner bounds are formatted as coordinate arrays (903-907)."""
+        node = Node({"bounds": [[10, 20], [30, 40]]})
+        assert visitor._with_bounds(node) == " - bounds[[10, 20], [30, 40]]"
+
+    def test_with_bounds_malformed_length(self, visitor):
+        """Bounds that are not exactly two corners yield '' (line 909)."""
+        assert visitor._with_bounds(Node({"bounds": [[10, 20]]})) == ""
+
+    def test_with_complete_coordinates(self, visitor):
+        """Complete coordinates concatenate position and bounds (925-927)."""
+        node = Node({"bounds": [[10, 20], [30, 40]]})
+        result = visitor._with_complete_coordinates(node)
+        assert result == " at position (20, 30) - bounds[[10, 20], [30, 40]]"
