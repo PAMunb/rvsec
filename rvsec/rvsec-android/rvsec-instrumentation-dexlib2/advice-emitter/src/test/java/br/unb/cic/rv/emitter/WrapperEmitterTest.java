@@ -700,6 +700,34 @@ class WrapperEmitterTest {
                 "no wrapper methods for a constructor target; got:\n" + src);
     }
 
+    @Test
+    void beforeAdviceIsNotRoutedThroughAWrapper(@TempDir Path out) throws IOException {
+        // shouldWrap keeps only after-side advice: before-advice reads pre-call
+        // registers directly via the inline BeforeEmitter, so it carries no
+        // register-aliasing risk and must be filtered out of wrapper generation. A
+        // descriptor mixing a before- and an after-advice over the same target must
+        // yield exactly one wrapper — for the after-advice — with the before-advice
+        // silently skipped. Guards the !shouldWrap continue in generate().
+        AdviceDescriptor before = adviceAfterReturning(
+                "getInstance", "Cipher",
+                "call(public static Cipher Cipher.getInstance(String))", List.of(), "result");
+        before.setPosition("before");
+        AdviceDescriptor after = adviceAfterReturning(
+                "getInstance", "Cipher",
+                "call(public static Cipher Cipher.getInstance(String))", List.of(), "result");
+
+        AspectDescriptor d = new AspectDescriptor();
+        d.setShortName("Test");
+        d.setImports(List.of("javax.crypto.Cipher", "java.lang.String"));
+        d.setAdvices(List.of(before, after));
+
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertEquals(1, entries.size(),
+                "only the after-advice is wrapped; the before-advice is skipped");
+        assertEquals("javax_crypto_Cipher_getInstance", entries.get(0).wrapperName);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
