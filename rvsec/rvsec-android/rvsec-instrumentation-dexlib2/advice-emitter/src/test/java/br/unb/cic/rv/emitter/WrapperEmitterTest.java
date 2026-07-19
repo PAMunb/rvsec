@@ -522,6 +522,43 @@ class WrapperEmitterTest {
         assertEquals(List.of("byte[]"), exactRank.get(0).originalParamFqn);
     }
 
+    @Test
+    void indexExpansionMatchesWildcardAndSubtypeParamPatterns(@TempDir Path out)
+            throws IOException {
+        // Two type-pattern param forms that only the index path can resolve:
+        //   - "*" (accept any single non-primitive): patternMatchesFqnRaw takes the
+        //     wildcard branch and matches the lone rank-0 reference param. Against
+        //     the fixture's getInstance overloads only the arity-1 getInstance(String)
+        //     qualifies, so exactly one wrapper is emitted.
+        //   - "Provider+" (any subtype of Provider): splitParams strips the '+' into
+        //     ParamSpec.isSubtype(), which flags needsExpansion and routes the param
+        //     through index.isAssignableFrom. getInstance(String, Provider) matches
+        //     (Provider is assignable to Provider), yielding one wrapper.
+        // Together they light the wildcard param branch and the subtype-param
+        // (isSubtype → isAssignableFrom) branch that the return-type subtype test
+        // does not reach.
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+
+        List<WrapperEmitter.WrapperEntry> wildcard = WrapperEmitter.generate(
+                newDescriptor(adviceAfterReturning("getInstance", "Cipher",
+                        "call(public static Cipher Cipher.getInstance(*))",
+                        List.of(), "result")),
+                out, idx);
+        assertEquals(1, wildcard.size(),
+                "'*' matches the single arity-1 getInstance(String) overload");
+        assertEquals(List.of("java.lang.String"), wildcard.get(0).originalParamFqn);
+
+        List<WrapperEmitter.WrapperEntry> subtype = WrapperEmitter.generate(
+                newDescriptor(adviceAfterReturning("getInstance", "Cipher",
+                        "call(public static Cipher Cipher.getInstance(String, Provider+))",
+                        List.of(), "result")),
+                out, idx);
+        assertEquals(1, subtype.size(),
+                "'Provider+' subtype pattern matches the getInstance(String, Provider) overload");
+        assertEquals(List.of("java.lang.String", "java.security.Provider"),
+                subtype.get(0).originalParamFqn);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
