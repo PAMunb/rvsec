@@ -559,6 +559,37 @@ class WrapperEmitterTest {
                 subtype.get(0).originalParamFqn);
     }
 
+    @Test
+    void literalFallbackLowersSubtypeReturnToBaseType(@TempDir Path out) throws IOException {
+        // A "Cipher+" return pattern forces needsExpansion, but with NO index the
+        // expansion short-circuits to empty and the literal fallback takes over. The
+        // fallback cannot enumerate subtypes, so it lowers the pattern to its base
+        // type by stripping the trailing '+' (stripSubtypePlus) before resolving —
+        // the generated wrapper is typed to javax.crypto.Cipher and polymorphism
+        // handles the subtypes at runtime. Guards the '+'-stripping branch of
+        // stripSubtypePlus on the return type, which the index-driven subtype tests
+        // never reach (they resolve concrete overloads instead of falling back).
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static Cipher+ Cipher.getInstance(String))",
+                List.of(),
+                "result"));
+
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+
+        assertEquals(1, entries.size(),
+                "a subtype return must still yield one literal-fallback wrapper");
+        assertEquals("javax.crypto.Cipher", entries.get(0).originalReturnFqn,
+                "the '+' subtype marker must be stripped and the base type resolved");
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains(
+                        "public static javax.crypto.Cipher "
+                                + "javax_crypto_Cipher_getInstance(java.lang.String p0)"),
+                "wrapper return type must be the lowered base type, not 'Cipher+'; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
