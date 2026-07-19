@@ -193,6 +193,46 @@ class DexWeaverStaticInitWeaveTest {
                 "no method may be touched for out-of-scope staticinit advice");
     }
 
+    @Test
+    void classInvariantCommonPointcutGatesStaticInitPerClass() {
+        // §4.PERF.P2.1 × §4.Y: a class-invariant commonPointcut (here
+        // !within(com.other..*) — the same shape as the canonical
+        // !within(...RVMObject+) exclusion) is HOISTED to a once-per-class
+        // gate in BOTH the staticinit pre-pass and the main loop, instead of
+        // being AND-composed into every probe. The advice pattern (com..*)
+        // matches both classes, so the exclusion below can only come from the
+        // commonPointcut gate — proving the gate actually reaches the
+        // staticinit pre-pass.
+        DexFile dex = new ImmutableDexFile(Opcodes.getDefault(), List.of(
+                classWithoutClinit(NO_CLINIT_DESC),
+                classWithoutClinit(OUTSIDE_DESC)));
+        RecordingSupplier supplier = new RecordingSupplier();
+
+        AspectDescriptor descriptor = signatureDescriptor();
+        descriptor.getAdvices().get(0).setExpression(
+                "staticinitialization(com..*)");
+        descriptor.setCommonPointcut("!within(com.other..*)");
+
+        DexWeaver weaver = new DexWeaver(new EmitterDispatch(), new RegisterAllocator());
+        DexWeaver.WeaveReport report = weaver.weave(
+                dex, descriptor, new TypeResolver(List.of()),
+                inheritance(dex), supplier);
+
+        assertEquals(1, report.staticInitSynthesized(),
+                "NoClinit passes the common gate and is synthesized");
+        assertTrue(supplier.synthesized.containsKey(NO_CLINIT_DESC));
+        assertEquals(1, supplier.synthesized.size(),
+                "Outside is rejected by the hoisted commonPointcut gate — "
+                        + "the advice pattern alone would have matched it");
+        // The §4.PERF.P2.1 instrumentation counter: with the hoist, the
+        // common verdict is evaluated once per class per pass (staticinit
+        // pre-pass: 2 classes; main per-method loop: 2 classes) — NOT once
+        // per (instruction × advice), which is the regression the counter
+        // exists to catch.
+        assertEquals(4, weaver.getCommonAstEvals(),
+                "hoisted gate: one eval per class per pass (2 classes × 2 passes)");
+    }
+
     // ------------------------------------------------------------------
     // assertion helper: the §4.Y 4-instruction Signature delivery
     // ------------------------------------------------------------------
