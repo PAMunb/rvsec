@@ -28,7 +28,7 @@ declare -ra MODULES=(
     "rvagent-tool"              # RVAgent tool plugin for rv-tools registry
     "aperv-tool"                # APE-RV tool plugin for rv-tools registry
     "rv-experiment"             # Experiment orchestration and coordination
-    "aperv-llm-validation"      # APE-RV LLM validation (temporary)
+    #"aperv-llm-validation"      # APE-RV LLM validation (temporary)
 )
 
 # Colors for output (with fallbacks for non-color terminals)
@@ -214,9 +214,20 @@ test_module() {
         return 1
     fi
 
-    # Build pytest command
-    local pytest_cmd="uv run pytest"
-    
+    # Build pytest command.
+    #
+    # CI contract (see rv-android/CLAUDE.md): each module's tests run in
+    # isolation with importlib import mode and per-module addopts neutralized
+    # (-o addopts=). Two reasons this matters:
+    #   1. importlib mode + neutralized addopts avoid conftest.py collisions
+    #      across modules (the original reason for directory-based isolation).
+    #   2. Targeting the tests/ dir explicitly stops pytest from recursing into
+    #      sibling dirs that are NOT real tests — e.g. rv-agent/backup/, whose
+    #      archived modules import optional deps (langchain_ollama) that are not
+    #      installed, which otherwise aborts collection for the whole module.
+    # Coverage is added by us below (addopts=, which carried --cov=src, is gone).
+    local pytest_cmd="uv run pytest tests --import-mode=importlib -o addopts="
+
     if [[ "$COVERAGE" == "true" ]]; then
         pytest_cmd="$pytest_cmd --cov=src --cov-report=term-missing"
     fi

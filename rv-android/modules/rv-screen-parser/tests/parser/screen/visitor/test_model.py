@@ -753,5 +753,468 @@ class TestNode:
         assert str(node3) == "android.widget.LinearLayout - LinearLayout"
 
 
+class TestItemActionCoordinateValidation:
+    """
+    Coordinate validation and coordinate-resolution edge cases for ItemAction.
+
+    These target the failure branches of ``validate_coordinates`` and the
+    malformed-bounds fallbacks in the coordinate-resolution helpers, which the
+    happy-path tests above never exercise. Boundary Value Analysis drives the
+    coordinate cases: the boundary is x/y >= 0, so we test -1 (just outside) and
+    a well-formed pair (inside).
+    """
+
+    def test_validate_coordinates_none_passes_through(self):
+        """None is a valid 'no coordinates' sentinel and must pass unchanged."""
+        assert ItemAction.validate_coordinates(None) is None
+
+    def test_validate_coordinates_valid_tuple_returned(self):
+        """A well-formed (x, y) integer tuple is returned unchanged."""
+        assert ItemAction.validate_coordinates((10, 20)) == (10, 20)
+
+    def test_validate_coordinates_rejects_non_tuple(self):
+        """A list (not a tuple) fails the isinstance/length guard."""
+        with pytest.raises(ValueError, match="tuple of"):
+            ItemAction.validate_coordinates([10, 20])
+
+    def test_validate_coordinates_rejects_wrong_length(self):
+        """A 3-element tuple fails the length guard (must be exactly two)."""
+        with pytest.raises(ValueError, match="tuple of"):
+            ItemAction.validate_coordinates((10, 20, 30))
+
+    def test_validate_coordinates_rejects_non_integer_values(self):
+        """Non-integer coordinate values are rejected."""
+        with pytest.raises(ValueError, match="must be integers"):
+            ItemAction.validate_coordinates(("10", "20"))
+
+    def test_validate_coordinates_rejects_negative_values(self):
+        """Negative coordinates are below the valid boundary (>= 0)."""
+        with pytest.raises(ValueError, match="non-negative"):
+            ItemAction.validate_coordinates((-1, 20))
+
+    def test_get_target_identifier_malformed_bounds_returns_empty(self):
+        """
+        Malformed bounds (inner lists that cannot unpack into x, y) must be
+        swallowed by the except guard, yielding the empty-string fallback.
+        """
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            target_view={"bounds": [[1], [2]]},
+        )
+        assert action.get_target_identifier() == ""
+
+    def test_get_execution_coordinates_malformed_bounds_returns_none(self):
+        """Malformed bounds cause coordinate resolution to fall back to None."""
+        action = ItemAction(
+            id=1,
+            text="CLICK (1)",
+            event=WidgetEventType.CLICK,
+            target_view={"bounds": [[1], [2]]},
+        )
+        assert action.get_execution_coordinates() is None
+
+    def test_coords_for_matching_with_explicit_coordinates(self):
+        """
+        coords_for_matching pairs the resolved DEVICE-space coordinates with the
+        action type; explicit coordinates are used directly.
+        """
+        action = ItemAction(
+            id=1, text="CLICK (1)", event=WidgetEventType.CLICK, coordinates=(5, 6)
+        )
+        assert action.coords_for_matching == ((5, 6), "click")
+
+    def test_coords_for_matching_without_coordinates_uses_zero_origin(self):
+        """When coordinates cannot be resolved, the signature falls back to (0, 0)."""
+        action = ItemAction(id=2, text="SET_TEXT (2)", event=WidgetEventType.TEXT_CHANGE)
+        assert action.coords_for_matching == ((0, 0), "set_text")
+
+
+class TestScreenItemActionQueries:
+    """
+    Action-type query helpers and view validation for ScreenItem.
+
+    Decision-table coverage: an item with a mix of action types must return the
+    matching subset for a queried type and an empty list for an absent type.
+    """
+
+    @pytest.fixture
+    def item_with_mixed_actions(self):
+        """A ScreenItem carrying one click action and one set_text action."""
+        actions = [
+            ItemAction(1, "CLICK (1)", WidgetEventType.CLICK),
+            ItemAction(2, "SET_TEXT (2)", WidgetEventType.TEXT_CHANGE),
+        ]
+        return ScreenItem(
+            view={"class": "android.widget.EditText"},
+            base_description="Field",
+            actions=actions,
+        )
+
+    def test_get_actions_by_type_returns_matching_subset(self, item_with_mixed_actions):
+        """Filtering by 'set_text' returns only the TEXT_CHANGE action."""
+        result = item_with_mixed_actions.get_actions_by_type("set_text")
+        assert len(result) == 1
+        assert result[0].id == 2
+
+    def test_get_actions_by_type_absent_type_returns_empty(
+        self, item_with_mixed_actions
+    ):
+        """Filtering by an action type no action has returns an empty list."""
+        assert item_with_mixed_actions.get_actions_by_type("scroll") == []
+
+    def test_has_action_type_true_when_present(self, item_with_mixed_actions):
+        """has_action_type reports True for a type the item supports."""
+        assert item_with_mixed_actions.has_action_type("click") is True
+
+    def test_has_action_type_false_when_absent(self, item_with_mixed_actions):
+        """has_action_type reports False for a type the item lacks."""
+        assert item_with_mixed_actions.has_action_type("long_click") is False
+
+    def test_validate_view_data_rejects_non_dict(self):
+        """
+        The view validator guards against non-dict input. Pydantic's own type
+        coercion normally runs first, so the guard is exercised by invoking the
+        classmethod validator directly with a non-dict value.
+        """
+        with pytest.raises(ValueError, match="must be a dictionary"):
+            ScreenItem.validate_view_data("not a dict")
+
+
+class TestScreenDescriptionQueries:
+    """
+    Aggregation and lookup helpers on ScreenDescription.
+
+    These cover the action-lookup and counting methods that the initialization
+    tests above do not reach directly.
+    """
+
+    @pytest.fixture
+    def screen(self):
+        """A two-item screen: a button (click) and an editable field (set_text)."""
+        items = [
+            ScreenItem(
+                view={"class": "android.widget.Button"},
+                base_description="Button 1",
+                actions=[ItemAction(1, "CLICK (1)", WidgetEventType.CLICK)],
+            ),
+            ScreenItem(
+                view={"class": "android.widget.EditText"},
+                base_description="Field 1",
+                actions=[ItemAction(2, "SET_TEXT (2)", WidgetEventType.TEXT_CHANGE)],
+            ),
+        ]
+        return ScreenDescription(activity="com.example.Act", items=items)
+
+    def test_get_action_by_id_found(self, screen):
+        """A known action id resolves to its ItemAction via the lookup map."""
+        action = screen.get_action_by_id(2)
+        assert action is not None
+        assert action.text == "SET_TEXT (2)"
+
+    def test_get_action_by_id_missing_returns_none(self, screen):
+        """An unknown action id resolves to None."""
+        assert screen.get_action_by_id(999) is None
+
+    def test_get_all_actions_flattens_every_item(self, screen):
+        """get_all_actions concatenates actions across all items."""
+        all_actions = screen.get_all_actions()
+        assert [a.id for a in all_actions] == [1, 2]
+
+    def test_get_actions_by_type_filters_across_items(self, screen):
+        """Screen-wide filtering returns only actions of the requested type."""
+        clicks = screen.get_actions_by_type("click")
+        assert len(clicks) == 1
+        assert clicks[0].id == 1
+
+    def test_get_element_count(self, screen):
+        """Element count reflects the number of items on the screen."""
+        assert screen.get_element_count() == 2
+
+    def test_get_action_count(self, screen):
+        """Action count reflects the total actions across all items."""
+        assert screen.get_action_count() == 2
+
+
+class TestCounterValidationAndReset:
+    """
+    Counter validation boundary and reset behaviour.
+
+    Boundary Value Analysis: the valid range is value >= 0, so -1 is the
+    just-outside case and 0 the boundary.
+    """
+
+    def test_validate_counter_value_rejects_negative(self):
+        """Constructing a Counter with a negative value is rejected."""
+        with pytest.raises(ValueError):
+            Counter(value=-1)
+
+    def test_reset_sets_new_start_value(self):
+        """reset moves the counter to a non-negative start value."""
+        counter = Counter(value=7)
+        counter.reset(3)
+        assert counter.value == 3
+
+    def test_reset_default_returns_to_zero(self):
+        """reset with no argument returns the counter to zero."""
+        counter = Counter(value=7)
+        counter.reset()
+        assert counter.value == 0
+
+    def test_reset_rejects_negative_start_value(self):
+        """reset guards against negative start values."""
+        counter = Counter(value=7)
+        with pytest.raises(ValueError, match="non-negative"):
+            counter.reset(-1)
+
+
+class TestNodeDerivedPropertiesAndHelpers:
+    """
+    Node derived-property inference, raw-data access, and display-text fallbacks.
+    """
+
+    def test_edit_text_infers_editable_when_not_reported(self):
+        """
+        UIAutomator does not always report the 'editable' attribute. An EditText
+        node without it must still be treated as editable (and thus actionable).
+        """
+        node = Node(data={"class": "android.widget.EditText"})
+        assert node.editable is True
+        assert node.actionable is True
+
+    def test_get_property_returns_raw_value_and_default(self):
+        """_get_property reads directly from raw data, using the default when absent."""
+        node = Node(data={"class": "android.widget.Button", "custom": "x"})
+        assert node._get_property("custom", "fallback") == "x"
+        assert node._get_property("missing", "fallback") == "fallback"
+
+    def test_validate_data_structure_rejects_non_dict(self):
+        """The data validator rejects non-dict input when invoked directly."""
+        with pytest.raises(ValueError, match="must be a dictionary"):
+            Node.validate_data_structure("not a dict")
+
+    def test_center_coordinates_malformed_bounds_returns_origin(self):
+        """
+        Bounds whose inner lists cannot unpack into (x, y) trigger the except
+        guard, falling back to the (0, 0) origin.
+        """
+        node = Node(data={"class": "android.widget.Button", "bounds": [[1], [2]]})
+        assert node.center_coordinates == (0, 0)
+
+    def test_get_display_text_prefers_content_description_over_hint(self):
+        """
+        With no visible text, get_display_text falls back to the accessibility
+        content description before considering hint or resource id.
+        """
+        node = Node(
+            data={"class": "android.widget.ImageView", "content_description": "logo"}
+        )
+        assert node.get_display_text() == "logo"
+
+    def test_get_display_text_falls_back_to_hint(self):
+        """With no text and no content description, the hint text is used."""
+        node = Node(data={"class": "android.widget.EditText", "hint": "Enter name"})
+        assert node.get_display_text() == "Enter name"
+
+    def test_find_children_by_resource_id_recursive(self):
+        """
+        find_children_by_resource_id collects matches across the full descendant
+        tree, not just direct children.
+        """
+        root = Node(data={"class": "android.widget.LinearLayout"})
+        nested = Node(data={"class": "android.widget.FrameLayout"})
+        match1 = Node(data={"class": "android.widget.Button", "resource_id": "target"})
+        match2 = Node(data={"class": "android.widget.TextView", "resource_id": "target"})
+        other = Node(data={"class": "android.widget.TextView", "resource_id": "other"})
+
+        root.children = [match1, nested, other]
+        nested.children = [match2]
+
+        found = root.find_children_by_resource_id("target")
+        assert len(found) == 2
+        assert {n.view_class for n in found} == {
+            "android.widget.Button",
+            "android.widget.TextView",
+        }
+
+
+class RecordingVisitor:
+    """
+    Minimal visitor that records the (method, resource_id) of every dispatch.
+
+    Used to exercise the REAL Node.accept dispatch (leaf and container) rather
+    than a monkey-patched replacement, so the actual branching in
+    _handle_leaf_node / _handle_container_node is covered.
+    """
+
+    def __init__(self):
+        self.calls = []
+
+    def visit_button(self, node):
+        self.calls.append(("visit_button", node.resource_id))
+
+    def visit_node(self, node):
+        self.calls.append(("visit_node", node.resource_id))
+
+    def visit_spinner(self, node):
+        self.calls.append(("visit_spinner", node.resource_id))
+
+    def visit_radio_group(self, node):
+        self.calls.append(("visit_radio_group", node.resource_id))
+
+    def visit_chip_group(self, node):
+        self.calls.append(("visit_chip_group", node.resource_id))
+
+
+class TestNodeAcceptDispatch:
+    """
+    Real visitor-pattern dispatch through Node.accept for leaf and container nodes.
+
+    Basis Path Testing: each branch of _handle_leaf_node and
+    _handle_container_node is driven by a concrete node/visitor combination.
+    """
+
+    def test_container_generic_recurses_children(self):
+        """
+        A generic container (LinearLayout) invokes visit_node on itself, then
+        recurses into children, dispatching each leaf to its handler.
+        """
+        container = Node(
+            data={"class": "android.widget.LinearLayout", "resource_id": "root"}
+        )
+        button = Node(
+            data={"class": "android.widget.Button", "resource_id": "btn"}
+        )
+        container.children = [button]
+
+        visitor = RecordingVisitor()
+        container.accept(visitor)
+
+        assert visitor.calls == [
+            ("visit_node", "root"),
+            ("visit_button", "btn"),
+        ]
+
+    def test_container_spinner_dispatches_to_visit_spinner(self):
+        """A Spinner container with children dispatches to visit_spinner, not visit_node."""
+        spinner = Node(
+            data={"class": "android.widget.Spinner", "resource_id": "sp"}
+        )
+        spinner.children = [Node(data={"class": "android.widget.TextView"})]
+
+        visitor = RecordingVisitor()
+        spinner.accept(visitor)
+
+        assert visitor.calls == [("visit_spinner", "sp")]
+
+    def test_container_radio_group_dispatches_to_visit_radio_group(self):
+        """A RadioGroup container dispatches to visit_radio_group."""
+        group = Node(
+            data={"class": "android.widget.RadioGroup", "resource_id": "rg"}
+        )
+        group.children = [Node(data={"class": "android.widget.RadioButton"})]
+
+        visitor = RecordingVisitor()
+        group.accept(visitor)
+
+        assert visitor.calls == [("visit_radio_group", "rg")]
+
+    def test_container_chip_group_uses_handler_when_available(self):
+        """A ChipGroup dispatches to visit_chip_group when the visitor provides it."""
+        group = Node(
+            data={
+                "class": "com.google.android.material.chip.ChipGroup",
+                "resource_id": "cg",
+            }
+        )
+        group.children = [
+            Node(data={"class": "com.google.android.material.chip.Chip"})
+        ]
+
+        visitor = RecordingVisitor()
+        group.accept(visitor)
+
+        assert visitor.calls == [("visit_chip_group", "cg")]
+
+    def test_container_chip_group_falls_back_to_children(self):
+        """
+        A ChipGroup falls back to processing children individually when the
+        visitor has no visit_chip_group handler.
+        """
+
+        class ChipVisitor:
+            def __init__(self):
+                self.calls = []
+
+            def visit_button(self, node):
+                self.calls.append(("visit_button", node.resource_id))
+
+        group = Node(
+            data={
+                "class": "com.google.android.material.chip.ChipGroup",
+                "resource_id": "cg",
+            }
+        )
+        # Chip class maps to visit_button in the leaf handler mapping.
+        chip = Node(
+            data={
+                "class": "com.google.android.material.chip.Chip",
+                "resource_id": "chip1",
+            }
+        )
+        group.children = [chip]
+
+        visitor = ChipVisitor()
+        group.accept(visitor)
+
+        assert visitor.calls == [("visit_button", "chip1")]
+
+    def test_leaf_excluded_system_button_short_circuits(self):
+        """
+        When the visitor flags a leaf as a system navigation/status button, the
+        leaf handler returns immediately without dispatching any visit_* method.
+        """
+
+        class ExcludingVisitor:
+            def __init__(self):
+                self.calls = []
+
+            def should_exclude_system_button(self, node):
+                return True
+
+            def visit_button(self, node):
+                self.calls.append("visit_button")
+
+        node = Node(
+            data={"class": "android.widget.Button", "resource_id": "navbar"}
+        )
+        visitor = ExcludingVisitor()
+        node.accept(visitor)
+
+        assert visitor.calls == []
+
+    def test_leaf_falls_back_to_generic_handler(self):
+        """
+        A Button leaf whose visitor lacks visit_button falls back to the generic
+        visit_leaf_node handler.
+        """
+
+        class GenericOnlyVisitor:
+            def __init__(self):
+                self.calls = []
+
+            def visit_leaf_node(self, node):
+                self.calls.append(("visit_leaf_node", node.resource_id))
+
+        node = Node(
+            data={"class": "android.widget.Button", "resource_id": "btn"}
+        )
+        visitor = GenericOnlyVisitor()
+        node.accept(visitor)
+
+        assert visitor.calls == [("visit_leaf_node", "btn")]
+
+
 if __name__ == "__main__":
     pytest.main()
