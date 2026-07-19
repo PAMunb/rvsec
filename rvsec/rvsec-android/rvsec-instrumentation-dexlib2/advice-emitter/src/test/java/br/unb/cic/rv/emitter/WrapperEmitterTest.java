@@ -139,6 +139,29 @@ class WrapperEmitterTest {
     }
 
     @Test
+    void indexExpansionAppliesTrailingVarargsPrefixFilter(@TempDir Path out) throws IOException {
+        // "doFinal(byte[], ..)" fixes the first param and lets the tail vary: the
+        // fixture's doFinal([B) and doFinal([BII) share the byte[] prefix and both
+        // become wrappers, but the zero-arg doFinal() has fewer params than the
+        // fixed prefix and must be dropped. Guards the fixed-prefix arity/pattern
+        // check under trailing varargs (regression for the specs.size()-1 off-by-one).
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "doFinal",
+                "Cipher",
+                "call(public byte[] Cipher.doFinal(byte[], ..)) && target(c)",
+                List.of(new ParameterDescriptor("Cipher", "c")),
+                "result"));
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertEquals(2, entries.size(),
+                "byte[]-prefix must match the ([B) and ([BII) overloads, not the zero-arg ()");
+        assertTrue(entries.stream().noneMatch(e -> e.isStatic),
+                "doFinal is an instance method on every matched overload");
+        assertTrue(entries.stream().allMatch(e -> e.originalParamFqn.get(0).equals("byte[]")),
+                "every matched overload keeps byte[] as its fixed first param");
+    }
+
+    @Test
     void nullIndexFallsBackToSkip(@TempDir Path out) throws IOException {
         AspectDescriptor d = newDescriptor(adviceAfterReturning(
                 "getInstance",

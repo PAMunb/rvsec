@@ -285,28 +285,24 @@ public final class WrapperEmitter {
                                                       boolean instanceAllowed) {
         if (ct == null || ct.isConstructor()) return Collections.emptyList();
 
+        // The parser folds a trailing ".." into ct.varargs() and keeps
+        // paramSpecs as exactly the fixed positional head, so ct.varargs() is
+        // the single varargs signal here.
         boolean hasTrailingVarargs = ct.varargs();
         boolean needsExpansion = hasTrailingVarargs;
         List<CallPC.ParamSpec> specs = ct.paramSpecs();
-        for (int i = 0; i < specs.size(); i++) {
-            CallPC.ParamSpec ps = specs.get(i);
+        for (CallPC.ParamSpec ps : specs) {
             String p = ps.descriptor();
             if (p == null) continue;
             if (ps.isSubtype()) needsExpansion = true;
             if ("..".equals(p)) {
-                needsExpansion = true;
-                // Trailing ".." is a variadic TAIL: it matches zero-or-more
-                // parameters after a known fixed prefix, so every android.jar
-                // overload sharing that prefix is a legitimate concrete target and
-                // each becomes its own wrapper. A MIDDLE ".." instead demands "any
-                // number of params HERE, then these exact params after" — the count
-                // and positions of the fixed suffix cannot be pinned to concrete
-                // slots, so it has no finite lowering to a Java method signature.
-                // Rather than guess, we skip the whole pointcut (INV-INS-66 surface).
-                if (i == specs.size() - 1) hasTrailingVarargs = true;
-                else {
-                    return Collections.emptyList();
-                }
+                // A ".." surviving in the head is a non-trailing wildcard:
+                // "any number of params HERE, then these exact params after".
+                // The count and positions of the fixed suffix cannot be pinned
+                // to concrete slots, so it has no finite lowering to a Java
+                // method signature. Rather than guess, we skip the whole
+                // pointcut (INV-INS-66 surface).
+                return Collections.emptyList();
             }
         }
         boolean returnIsSubtypePattern = ct.returnType() != null
@@ -331,15 +327,12 @@ public final class WrapperEmitter {
         if (methods.isEmpty()) return Collections.emptyList();
 
         // fixedPrefix = how many leading params must match a concrete overload
-        // exactly. With a trailing "..", the last spec IS the varargs marker and is
-        // not itself a matchable parameter, so drop it from the count; otherwise
-        // every spec is fixed and must line up one-to-one with the overload arity.
-        int fixedPrefix = hasTrailingVarargs
-                ? specs.size() - 1
-                : specs.size();
-        // When the param list is just "(..)" the parser leaves paramSpecs
-        // empty AND sets varargs=true; fixedPrefix becomes -1 so clamp it.
-        if (fixedPrefix < 0) fixedPrefix = 0;
+        // exactly. paramSpecs is the fixed positional head (the parser already
+        // removed a trailing ".." into ct.varargs()), so every spec — including
+        // the last — must line up with the candidate overload. For "(..)" the
+        // head is empty and every overload matches; without varargs the arity
+        // check below enforces a one-to-one match.
+        int fixedPrefix = specs.size();
 
         List<ConcreteCall> out = new ArrayList<>();
         for (AndroidClassIndex.MethodInfo m : methods) {

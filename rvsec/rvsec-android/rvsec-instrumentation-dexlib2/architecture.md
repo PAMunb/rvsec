@@ -329,7 +329,15 @@ frame, and the weaver rewrites the call site to `invoke-static` keeping the regi
 `move-result` untouched, so the caller's registers are byte-identical. Without this,
 after-returning advice on static factories (the canonical JCA case) would be uninstrumentable
 safely; inline AFTER is now reserved for the one safe case (constructor invokes, which return
-void and have no `move-result`).
+void and have no `move-result`). The wrapper set is bounded by the pointcut with full
+fixed-prefix fidelity (INV-INS-103): for a trailing-varargs `call(...)` the parser's
+`paramSpecs` is exactly the fixed head (`(byte[], ..)` → head `[byte[]]`, varargs flag), and
+`WrapperEmitter.expandCallTarget` admits an android.jar overload only if it has at least that
+many parameters and every fixed parameter — including the last — matches positionally; a `..`
+that survives in the head is a non-trailing wildcard with no finite lowering, so the whole
+pointcut is skipped rather than guessed. This is what keeps `doFinal(byte[], ..)` from wrapping
+the zero-arg `doFinal()` and, for subtype aliasing (INV-INS-68 phase 2), guarantees the aliased
+subtype keys inherit an already-correct overload set.
 
 **Frame growth by MMI clone, with mandatory supplier notification (INV-INS-80 / INV-INS-87).**
 dexlib2 declares `MutableMethodImplementation.registerCount` private final with no setter, so the
@@ -925,7 +933,7 @@ narrated in the [Rationale](#7-rationale) section above.
 | Type | IDs | Where realized |
 |------|-----|----------------|
 | Functional requirements | FR01, FR02, FR03 | the full weave pipeline: `cli/BatchRunner.runPipeline` orchestrating descriptor-reader → pointcut-engine → advice-emitter → dex-mutator → coverage-weaver → monitor-builder → multidex-merger |
-| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator` |
+| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87, INV-INS-103 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator`; INV-INS-103 `advice-emitter/WrapperEmitter.expandCallTarget` |
 | NFRs | NFR03, NFR04, NFR05, NFR06, NFR07 | see [Rationale](#7-rationale) |
 
 **Related documentation:** per-module 4+1 docs (`modules/<m>/docs/architecture.md`), ADRs
