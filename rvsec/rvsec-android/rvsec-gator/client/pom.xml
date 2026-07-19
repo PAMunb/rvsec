@@ -16,6 +16,7 @@
 	<properties>
 		<final.jar.name>rvsec-analysis-client</final.jar.name>
 		<skipITs>true</skipITs>
+		<jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
 	</properties>
 
 	<dependencies>
@@ -68,6 +69,32 @@
 	<build>
 		<finalName>${final.jar.name}</finalName>
 		<plugins>
+			<!-- Coverage measurement (local, temporary — same setup as the dexlib2
+				 aggregator pom). prepare-agent wires the JaCoCo runtime agent into the
+				 surefire JVM; the report goal (bound to the test phase) converts the
+				 recorded jacoco.exec into target/site/jacoco (HTML/XML/CSV). Captures
+				 UNIT-test coverage (surefire); the *IT.java failsafe tests are skipped
+				 by default and do not contribute. Intended to move to rvsec-android later. -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco-maven-plugin.version}</version>
+				<executions>
+					<execution>
+						<id>jacoco-prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>jacoco-report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 			<!-- Fat JAR (jar-with-dependencies assembly) -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
