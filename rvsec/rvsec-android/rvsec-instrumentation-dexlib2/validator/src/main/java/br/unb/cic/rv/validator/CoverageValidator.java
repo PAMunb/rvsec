@@ -52,6 +52,18 @@ public final class CoverageValidator {
 
     private CoverageValidator() {}
 
+    /**
+     * Compute the Layer-5 coverage-recall report by pairing ajc and dexlib2
+     * logcat trees by APK name, unioning each side's distinct
+     * {@code RVSEC-COV} signatures per APK, and applying the two-part gate
+     * (micro-averaged recall ≥ 0.99 AND {@code |aggregateDelta|} within
+     * {@code 0.01 × totalAjc}).
+     *
+     * @param ajcLogcatDir    logcat tree from the ajc pipeline (baseline)
+     * @param dexlibLogcatDir logcat tree from the dexlib2 pipeline (candidate)
+     * @return a {@link Report} whose {@code passed} reflects the gate and whose
+     *         metrics carry per-APK and aggregate recall/delta diagnostics
+     */
     public static Report compare(Path ajcLogcatDir, Path dexlibLogcatDir) throws IOException {
         Map<String, Object> metrics = new LinkedHashMap<>();
         metrics.put("ajcLogcatDir", ajcLogcatDir.toString());
@@ -86,6 +98,11 @@ public final class CoverageValidator {
         }
         metrics.put("skippedNotPaired", skipped);
 
+        // Empty-pairs branch: recall is vacuously 1.0 (nothing to miss), yet
+        // this FAILS the gate deliberately. Zero paired APKs means the two
+        // trees never overlapped — a configuration/plumbing error, not a clean
+        // comparison. Passing here would let a mis-pointed input silently
+        // "prove" parity, so we treat no-evidence as gate failure.
         if (paired.isEmpty()) {
             metrics.put("totalPairs", 0);
             metrics.put("perApk", new LinkedHashMap<String, Object>());
@@ -134,6 +151,11 @@ public final class CoverageValidator {
         long medianDelta = medianLong(deltas);
 
         boolean recallOk = aggregateRecall >= GATE_RECALL_THRESHOLD;
+        // Delta gate: the net signature count difference (dexlib2 − ajc) must
+        // stay within 1% of the ajc total. Recall alone only bounds MISSED
+        // signatures; this two-sided budget also catches a dexlib2 side that
+        // OVER-emits (extra signatures ajc never produced), which would inflate
+        // coverage without recall noticing.
         boolean deltaOk = Math.abs(aggregateDelta) <= GATE_DELTA_PP_THRESHOLD * totalAjc;
         boolean passed = recallOk && deltaOk;
 

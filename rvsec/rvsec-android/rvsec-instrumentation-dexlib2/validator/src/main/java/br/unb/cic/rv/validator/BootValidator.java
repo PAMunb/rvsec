@@ -245,14 +245,43 @@ public final class BootValidator {
                 Path apkOutDir = Files.createDirectories(outputDir.resolve(stripExt(name)));
                 Path bootLog = apkOutDir.resolve("boot.logcat");
 
+                // The per-APK adb sequence below is ORDER-SENSITIVE: each step
+                // establishes a precondition the next one relies on. Doing them
+                // out of order silently corrupts the capture (e.g. picking up a
+                // stale install's logcat lines, or stalling on a permission
+                // prompt).
+
+                // Step 1: uninstall any prior copy so the reinstall starts from
+                // a clean slate — a leftover install from an earlier run could
+                // keep granted permissions or cached state that masks a
+                // regression we are trying to reproduce.
                 runAdb(adb, opts.adbSerial, 10, "uninstall", pkg);
+
+                // Step 2: install fresh with -r (reinstall keeping data if any)
+                // and -g (grant ALL runtime permissions at install time). -g is
+                // essential: without it the app would block on a runtime
+                // permission dialog during the monkey run, producing no boot
+                // trace and a false "clean" capture.
                 int instExit = runAdb(adb, opts.adbSerial, 60, "install", "-r", "-g", apk.toString());
                 if (instExit != 0) {
                     failures.put(name, "adb install failed with exit " + instExit);
                     continue;
                 }
+
+                // Step 3: clear the device log buffer so ONLY this run's lines
+                // are captured. Must come AFTER install (install itself emits
+                // PackageManager chatter we don't want) and BEFORE launch.
                 runAdb(adb, opts.adbSerial, 10, "logcat", "-c");
+
+                // Step 4: drive the app with a single monkey event. This is a
+                // boot smoke test — one event is enough to force class loading
+                // and surface any VerifyError raised while verifying the woven
+                // bytecode; we are not exercising features here.
                 runAdb(adb, opts.adbSerial, 10, "shell", "monkey", "-p", pkg, "-v", "1");
+
+                // Step 5: sleep so the app has time to boot, load classes, and
+                // let any asynchronous VerifyError reach the log buffer before
+                // we dump it.
                 try {
                     Thread.sleep(Math.max(1, opts.captureSeconds) * 1000L);
                 } catch (InterruptedException ie) {
@@ -260,12 +289,20 @@ public final class BootValidator {
                     failures.put(name, "interrupted during capture sleep");
                     continue;
                 }
+
+                // Step 6: dump (-d = print-and-exit, not follow) the buffer to
+                // the per-APK boot.logcat that analyze() will later scan for
+                // VerifyError sites. threadtime format keeps tag/pid columns.
                 int dumpExit = runAdbToFile(adb, opts.adbSerial, 60, bootLog,
                         "logcat", "-d", "-v", "threadtime");
                 if (dumpExit != 0) {
                     failures.put(name, "adb logcat -d failed with exit " + dumpExit);
                     continue;
                 }
+
+                // Step 7: uninstall so the device is left clean for the next
+                // APK (and the next run) — prevents package-name collisions and
+                // keeps residual state from leaking between captures.
                 runAdb(adb, opts.adbSerial, 10, "uninstall", pkg);
                 succeeded++;
             } catch (IOException | InterruptedException e) {
@@ -364,6 +401,17 @@ public final class BootValidator {
     private static final Pattern PKG_SHAPE = Pattern.compile(
             "([a-zA-Z][a-zA-Z0-9_]*(?:\\.[a-zA-Z][a-zA-Z0-9_]*){1,})");
 
+    /**
+     * First token in {@code s} that looks like the app's own package name.
+     * The prefix blocklist skips framework/library namespaces
+     * ({@code android.}, {@code androidx.}, {@code java.}, {@code javax.},
+     * {@code com.android.}, {@code com.google.android.}) because those appear
+     * throughout the AXML string pool (attribute namespaces, referenced
+     * framework classes) and would otherwise be returned before the app's
+     * real package. Filtering them out lets the first surviving dotted token
+     * be the application id we need for the adb commands. This is a heuristic
+     * for the aapt2-unavailable fallback only, not a full AXML decode.
+     */
     private static String firstPackageLikeToken(String s) {
         Matcher m = PKG_SHAPE.matcher(s);
         while (m.find()) {
@@ -429,17 +477,27 @@ public final class BootValidator {
 
     // --- value types --------------------------------------------------------
 
+    /** Tunables for {@link #capture}; all optional with the defaults below. */
     public static final class BootCaptureOptions {
+        /** {@code adb -s} device serial; null/empty targets the single attached device. */
         public String adbSerial;
+        /** Seconds to let each app boot before dumping logcat. */
         public int captureSeconds = 30;
+        /** Explicit adb executable; null defaults to {@code adb} on PATH. */
         public Path adbBinary;
+        /** Explicit aapt2 executable for package extraction; null triggers ANDROID_HOME resolution then AXML byte-scan fallback. */
         public Path aapt2Binary;
     }
 
+    /** Operational outcome of a {@link #capture} run (not a gate — see class javadoc). */
     public static final class CaptureReport {
+        /** Root directory the per-APK {@code boot.logcat} files were written under. */
         public final Path outputDir;
+        /** Number of {@code .apk} files discovered under the input directory. */
         public final int totalApks;
+        /** Number of APKs whose full install→monkey→dump→uninstall cycle succeeded. */
         public final int succeeded;
+        /** APK filename → failure reason for every APK that did not complete. */
         public final Map<String, String> failures;
 
         public CaptureReport(Path outputDir, int totalApks, int succeeded,

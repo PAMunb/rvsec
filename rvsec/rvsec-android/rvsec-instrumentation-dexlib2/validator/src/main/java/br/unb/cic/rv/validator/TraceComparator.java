@@ -432,7 +432,16 @@ public final class TraceComparator {
             List<ObservedEvent> ajcSpec = filterBySpec(ajcObs, spec);
             List<ObservedEvent> dexSpec = filterBySpec(dexObs, spec);
 
-            // For each oracle event in this spec, did each pipeline fire it?
+            // Confusion matrix for this spec, oracle-anchored:
+            //   TP = oracle events this pipeline actually fired (matched()).
+            //   FN = oracle events it FAILED to fire (oracleSize - TP), i.e. a
+            //        violation the ground truth expected but the trace missed.
+            //   FP = observed events for this spec matching NO oracle entry,
+            //        i.e. a violation the pipeline reported that shouldn't exist.
+            // TP/FN are counted by iterating the oracle (each oracle event is
+            // one gold item); FP is counted by iterating the observations. The
+            // per-event ratings[a,d] pair feeds Cohen's kappa (agreement between
+            // the two pipelines on each oracle event).
             List<int[]> ratings = new ArrayList<>(specOracle.size());
             int ajcTp = 0;
             int dexTp = 0;
@@ -445,7 +454,6 @@ public final class TraceComparator {
             }
             int ajcFn = specOracle.size() - ajcTp;
             int dexFn = specOracle.size() - dexTp;
-            // FP = observed events for this spec that don't match any oracle entry.
             int ajcFp = countFalsePositives(ajcSpec, specOracle);
             int dexFp = countFalsePositives(dexSpec, specOracle);
 
@@ -509,6 +517,21 @@ public final class TraceComparator {
         return out;
     }
 
+    /**
+     * Harmonic-mean F1 with vacuous-truth edge conventions:
+     * <ul>
+     *   <li>{@code (tp + fp) == 0} → precision = 1.0. The pipeline made NO
+     *       predictions for this spec, so it produced no false positives;
+     *       precision is vacuously perfect ("everything I predicted was
+     *       correct" is trivially true over an empty prediction set).</li>
+     *   <li>{@code (tp + fn) == 0} → recall = 1.0. The oracle expected NO
+     *       events for this spec, so there was nothing to miss; recall is
+     *       vacuously perfect.</li>
+     * </ul>
+     * The two edges compose sensibly: an empty oracle scored against an empty
+     * trace yields P=R=1.0 ⇒ F1=1.0. If both precision and recall collapse to
+     * zero, F1 is forced to 0.0 to avoid a 0/0.
+     */
     private static double f1(int tp, int fp, int fn) {
         double p = (tp + fp) == 0 ? 1.0 : (double) tp / (tp + fp);
         double r = (tp + fn) == 0 ? 1.0 : (double) tp / (tp + fn);
@@ -582,6 +605,17 @@ public final class TraceComparator {
         List<String> lines = Files.readAllLines(yaml);
         List<OracleEvent> events = new ArrayList<>();
 
+        // State-machine state carried across lines:
+        //   inEvents    — are we currently inside the expected_events block?
+        //   baseIndent  — indent of the "expected_events:" key; the block ends
+        //                 when a line dedents back to (or past) this column.
+        //   itemIndent  — indent of the "- " dash that opened the current list
+        //                 item; continuation keys must be indented DEEPER than
+        //                 this to belong to that item.
+        //   haveCurrent — an item is open and its accumulated fields are pending
+        //                 a flush() into the events list.
+        // Indentation is the ONLY structural signal here (no tokenizer), so the
+        // three indent columns fully determine the transitions below.
         boolean inEvents = false;
         Integer baseIndent = null;
         Integer itemIndent = null;
@@ -598,18 +632,25 @@ public final class TraceComparator {
             int indent = leadingSpaces(stripped);
             String content = stripped.substring(indent);
 
+            // Step 1: before the block, wait for the "expected_events:" key.
             if (!inEvents) {
                 // Detect inline empty list: `expected_events: []`
                 if (content.startsWith("expected_events:")) {
                     String rhs = content.substring("expected_events:".length()).strip();
                     if (rhs.equals("[]")) return Collections.emptyList();
                     inEvents = true;
+                    // Remember this column so Step 2 can detect the block's end.
                     baseIndent = indent;
                 }
                 continue;
             }
 
-            // We're inside expected_events. A top-level key at indent <= baseIndent ends the block.
+            // Step 2: inside the block, a line that dedents to <= baseIndent is a
+            // sibling top-level key, so the expected_events block is over. Flush
+            // any item still open, then RE-EVALUATE this same line at top level:
+            // if it happens to be another "expected_events:" key we re-enter the
+            // block rather than dropping the line (defensive against a schema
+            // that repeats the key), which a plain "continue" would lose.
             if (indent <= baseIndent) {
                 if (haveCurrent) {
                     flush(events, spec, etype, locClass, locMethod, msgSub);
@@ -623,7 +664,10 @@ public final class TraceComparator {
                 continue;
             }
 
-            // List item start: "- id: N" at item indent.
+            // Step 3: a "- " at this deeper indent opens a NEW list item. Flush
+            // the previous item first, reset the field accumulators, and record
+            // this dash's column as itemIndent so Step 4 can tell continuation
+            // keys (deeper) from the next dash (same column).
             if (content.startsWith("- ")) {
                 if (haveCurrent) {
                     flush(events, spec, etype, locClass, locMethod, msgSub);
@@ -649,7 +693,10 @@ public final class TraceComparator {
                 continue;
             }
 
-            // Continuation key for the current item (indent > itemIndent).
+            // Step 4: a key indented DEEPER than the dash is a continuation key
+            // of the current item (e.g. "error_type:", "location:"); accumulate
+            // it into the same field holder. A key at itemIndent would instead
+            // be the next dash handled by Step 3.
             if (haveCurrent && itemIndent != null && indent > itemIndent) {
                 String[] kv = splitKv(content);
                 if (kv == null) continue;
@@ -662,6 +709,8 @@ public final class TraceComparator {
                 msgSub = (String) o[4];
             }
         }
+        // Step 5: end-of-file flush — the last item has no following line to
+        // trigger its flush inside the loop, so emit it here if one is open.
         if (inEvents && haveCurrent) {
             flush(events, spec, etype, locClass, locMethod, msgSub);
         }

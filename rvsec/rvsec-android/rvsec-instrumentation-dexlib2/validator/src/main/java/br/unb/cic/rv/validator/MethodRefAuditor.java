@@ -110,15 +110,31 @@ public final class MethodRefAuditor {
         return summary;
     }
 
+    /**
+     * APPROXIMATION — NOT the true DEX {@code method_ids} count, and the whole
+     * overflow gate keys on this number, so its bias must be understood.
+     *
+     * <p>It counts only methods DECLARED by the classes in this DEX. The real
+     * {@code method_ids} pool (the table bounded by Dalvik's 65,536 limit) also
+     * contains every method REFERENCED by an invoke — framework/library methods
+     * that are called but not defined here. Those referenced-only entries are
+     * NOT counted, so this figure <b>under-counts</b> the true pool, typically
+     * by a wide margin for app DEX files that call heavily into the framework.
+     *
+     * <p>Why the gate tolerates the under-count: the audit is a coarse preflight
+     * whose purpose is only to flag DEX files already close to the ceiling
+     * BEFORE weaving adds more. Two things keep the under-count from making the
+     * gate unsafe in practice — (1) the thresholds sit well below the hard
+     * limit (warn 62k / error 65k vs 65,536, a ~500-ref margin at the error
+     * line), and (2) {@code projectedAddedRefs} is a deliberately generous
+     * upper bound on what the weaver contributes. It remains a KNOWN LIMITATION
+     * that an APK dominated by external references could be nearer the limit
+     * than this count suggests; a precise gate would read the DEX header's
+     * {@code method_ids_size} directly.
+     */
     private static int countMethodRefs(DexFile dx) {
-        // Cheap estimator: the DexBacked implementation exposes method pool size
-        // via its internal header; we approximate by iterating classes + methods.
         int count = 0;
         for (var cd : dx.getClasses()) {
-            // Field + method counts give a lower bound; for audit purposes we
-            // count methods + inherited method-refs (approximated by the union
-            // of declared methods across the class set, which the compiler has
-            // already uniquefied).
             for (var m : cd.getMethods()) count++;
         }
         return count;

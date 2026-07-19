@@ -232,17 +232,24 @@ public final class BaksmaliDiffer {
      */
     private static String deriveWrapperName(AdviceDescriptor advice, TypeResolver resolver,
                                             Map<String, Integer> nameCounts) {
+        // Intent: reproduce, from the AspectJ pointcut expression string alone,
+        // the exact wrapper method name WrapperEmitter would mint for this
+        // advice — WITHOUT loading an AndroidClassIndex. The name is
+        // "<fqType-with-dots-as-underscores>_<method>" (plus a collision
+        // suffix), parsed out of the "call(<modifiers> <ret> Type.method(args))"
+        // clause by locating the method's parameter paren and reading backwards.
         String expr = advice.getExpression();
         if (expr == null) return null;
-        // Find the call(...) clause's parameter-list paren — the dot
-        // immediately before it separates the type FQN from the method name.
+        // Step 1: locate the "call(" clause. Its inner "Type.method(args)" is
+        // where the wrapped signature lives; the dot just before the method's
+        // parameter paren is the type-FQN / method-name boundary.
         int callIdx = expr.indexOf("call(");
         if (callIdx < 0) return null;
-        // Walk forward from after "call(" to find the FIRST '(' that opens a
-        // method's parameter list (skipping the call's own opening paren).
-        // The descriptor shape always has exactly one method-paren inside the
-        // call(...) clause, so the next unescaped '(' after the modifier list
-        // and the type/method tokens is what we want.
+        // Step 2: paren-walk forward from just after "call(" to find the FIRST
+        // '(' that opens the METHOD's parameter list. We start at depth 1
+        // (already inside call's own paren) so depth==1 identifies a paren at
+        // the call clause's own level — that is the method paren. The descriptor
+        // shape has exactly one such method-paren inside call(...).
         int paren = -1;
         int depth = 1; // we're already inside call(
         for (int i = callIdx + 5; i < expr.length(); i++) {
@@ -256,11 +263,13 @@ public final class BaksmaliDiffer {
             }
         }
         if (paren < 0) return null;
+        // Step 3: the last '.' before that paren splits type FQN from method name.
         int dot = expr.lastIndexOf('.', paren - 1);
         if (dot < 0 || dot < callIdx) return null;
-        // Walk back from the dot through type-name characters (letters,
-        // digits, '_', '$', '.', '+') until we hit a separator (whitespace,
-        // '(', '&', '|'). The result is the dotted type FQN.
+        // Step 4: walk back from the dot through type-name characters (letters,
+        // digits, '_', '$', '.', '+') until a separator (whitespace, '(', '&',
+        // '|') — the return-type/modifier boundary. The span is the dotted type
+        // FQN; a trailing '+' (AspectJ subtype wildcard) is dropped.
         int typeEnd = dot;
         int typeStart = typeEnd;
         while (typeStart > callIdx + 5) {
@@ -274,6 +283,11 @@ public final class BaksmaliDiffer {
         if (type.endsWith("+")) type = type.substring(0, type.length() - 1);
         String method = expr.substring(dot + 1, paren).trim();
         if (type.isEmpty() || method.isEmpty()) return null;
+        // Step 5: rebuild the FQN. A simple (dot-less) type name is resolved via
+        // the aspect's import table (TypeResolver); an already-qualified name is
+        // used as-is. Dots then become underscores to form the wrapper base
+        // name, and repeated bases get a numeric suffix exactly as
+        // WrapperEmitter disambiguates overloads.
         String fqType = type.contains(".") ? type : resolver.resolveFqn(type);
         if (fqType == null) fqType = type;
         String base = fqType.replace('.', '_') + "_" + method;

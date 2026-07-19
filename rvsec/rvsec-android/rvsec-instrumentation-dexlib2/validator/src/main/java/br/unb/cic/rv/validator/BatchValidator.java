@@ -316,6 +316,31 @@ public final class BatchValidator {
 
     // --- per-spec analyzer --------------------------------------------------
 
+    /**
+     * Per-spec second scope: reads the Layer-3-batch per-spec CSV, groups rows
+     * by spec, and runs two TOST families per spec — F1 (paired dexlib2−ajc
+     * diff) and κ (one-sample lower bound) — then rolls them up into one gate.
+     *
+     * <h3>Asymmetric aggregate gate (deliberate)</h3>
+     * The three sub-gates are NOT held to the same bar:
+     * <ul>
+     *   <li><b>F1 non-inferiority — required for ALL specs.</b> A dexlib2
+     *       pipeline that regresses recall/precision on even ONE spec is a
+     *       correctness defect (it would silently miss or invent violations
+     *       for that spec), so {@code f1NonInfPassedCount == totalSpecs} is
+     *       mandatory — a single failure fails the gate.</li>
+     *   <li><b>F1 equivalence and κ — required for ≥{@code equivalence_specs_min_pct}
+     *       (default 80%) of specs.</b> Equivalence (two-sided TOST) is the
+     *       STRICTER, more data-hungry bar: a spec with few paired
+     *       observations can fail to PROVE equivalence yet still be
+     *       non-inferior. Demanding 100% equivalence would make the gate
+     *       hostage to low-sample specs, so we accept the documented 80%
+     *       majority while still forbidding any non-inferiority regression.</li>
+     * </ul>
+     * In short: non-inferiority is the safety floor (all specs, no exceptions);
+     * equivalence/κ is the tighter statistical claim where a per-spec-count
+     * quorum is sufficient.
+     */
     private static PerSpecOutcome analyzePerSpec(Path csv, Thresholds th) throws IOException {
         Map<String, List<SpecRow>> bySpec = readPerSpecCsv(csv);
 
@@ -377,9 +402,11 @@ public final class BatchValidator {
             perSpecOut.put(spec, specBlock);
         }
 
-        // Aggregate gate evaluation. equivalence_specs_min_pct is treated as
-        // an inclusive lower bound (>=) so that the documented 0.80 threshold
-        // is met by exactly 4-of-5 specs (4/5 == 0.80).
+        // Aggregate gate evaluation — see the method javadoc for WHY the bars
+        // differ. Non-inferiority requires a 1.0 ratio (every spec); equivalence
+        // and kappa require only equivalence_specs_min_pct. That fraction is an
+        // inclusive lower bound (>=) so the documented 0.80 threshold is met by
+        // exactly 4-of-5 specs (4/5 == 0.80).
         double f1NonInfRatioRequired = 1.0; // gates.non_inferiority == required
         double f1EquivRatioRequired = th.equivalenceSpecsMinPct;
         double kappaRatioRequired = th.equivalenceSpecsMinPct;
@@ -808,25 +835,39 @@ public final class BatchValidator {
 
     // --- value types --------------------------------------------------------
 
-    /** Pre-registered thresholds parsed from {@code layer4-thresholds.yaml}. */
+    /** Pre-registered thresholds parsed from {@code layer4-thresholds.yaml} (defaults shown). */
     static final class Thresholds {
+        /** Significance level for every one-sided TOST decision. */
         double alpha = 0.05;
+        /** Equivalence bound (percentage points) for the cov_method TOST. */
         double deltaCovMethod = 0.02;
+        /** Equivalence bound for the per-spec F1 TOST. */
         double deltaPerSpecF1 = 0.02;
+        /** Equivalence bound for the per-spec κ one-sample test (shift = 1 − this). */
         double deltaPerSpecKappa = 0.05;
+        /** Minimum paired/max-keys recovery rate the pairing must clear. */
         double recoveryRateMin = 0.90;
+        /** Fraction of specs that must pass equivalence/κ (majority quorum). */
         double equivalenceSpecsMinPct = 0.80;
+        /** Whether F1 non-inferiority is required for all specs (gates.non_inferiority). */
         boolean nonInferiorityRequired = true;
     }
 
     /** TOST output for a paired diff vector. */
     static final class TostBlock {
+        /** Median of the raw paired diff vector. */
         final double median;
+        /** Lower bound of the 90% bootstrap CI on the median. */
         final double ci90Lower;
+        /** Upper bound of the 90% bootstrap CI on the median. */
         final double ci90Upper;
+        /** One-sided p-value for the lower-bound (non-inferiority) test. */
         final double pValueLower;
+        /** One-sided p-value for the upper-bound (not-too-much-better) test. */
         final double pValueUpper;
+        /** True when {@code pValueLower < alpha} (dexlib2 not worse than ajc). */
         final boolean nonInferiorityPassed;
+        /** True when both p-values clear alpha (two-sided equivalence). */
         final boolean equivalencePassed;
         TostBlock(double median, double ci90Lower, double ci90Upper,
                   double pValueLower, double pValueUpper,
@@ -843,10 +884,15 @@ public final class BatchValidator {
 
     /** One-sample lower-bound TOST output for a κ vector. */
     static final class KappaTostBlock {
+        /** Median of the raw κ vector (unshifted). */
         final double median;
+        /** Lower bound of the 90% bootstrap CI on the κ median. */
         final double ci90Lower;
+        /** Upper bound of the 90% bootstrap CI on the κ median. */
         final double ci90Upper;
+        /** One-sided p-value for {@code median(κ) > 1 − delta}. */
         final double pValueLower;
+        /** True when {@code pValueLower < alpha} (κ agreement is high enough). */
         final boolean passed;
         KappaTostBlock(double median, double ci90Lower, double ci90Upper,
                        double pValueLower, boolean passed) {
@@ -860,12 +906,19 @@ public final class BatchValidator {
 
     /** One row of the per-spec metrics CSV, restricted to fields used here. */
     static final class SpecRow {
+        /** APK filename this row was measured on. */
         final String apk;
+        /** Repetition index of the run. */
         final String rep;
+        /** Testing tool that drove the run. */
         final String tool;
+        /** Monitored-operation spec name this row scores. */
         final String spec;
+        /** F1 of the ajc pipeline for this (apk, rep, tool, spec) cell. */
         final double ajcF1;
+        /** F1 of the dexlib2 pipeline for the same cell. */
         final double dexF1;
+        /** Cohen's κ agreement between the two pipelines for the cell. */
         final double kappa;
         SpecRow(String apk, String rep, String tool, String spec,
                 double ajcF1, double dexF1, double kappa) {
@@ -881,8 +934,11 @@ public final class BatchValidator {
 
     /** Bundled output of the per-spec analyzer (per-spec details + summary + gate). */
     static final class PerSpecOutcome {
+        /** spec → {F1 block, κ block, specPassed} detail map for the report. */
         final Map<String, Object> perSpec;
+        /** Roll-up counts and sub-gate booleans across all specs. */
         final Map<String, Object> summary;
+        /** Combined per-spec gate result (non-inferiority ∧ equivalence ∧ κ). */
         final boolean gatePassed;
         PerSpecOutcome(Map<String, Object> perSpec, Map<String, Object> summary, boolean gatePassed) {
             this.perSpec = perSpec;
@@ -893,10 +949,15 @@ public final class BatchValidator {
 
     /** One row of {@code summary.csv}, restricted to fields used by the analyzer. */
     static final class SummaryRow {
+        /** APK filename for this run. */
         final String apk;
+        /** Repetition index of the run. */
         final String rep;
+        /** Testing tool that drove the run. */
         final String tool;
+        /** Method coverage (the metric the cov_method TOST is run on). */
         final double covMethod;
+        /** Monitored-operation method coverage (carried but not gated here). */
         final double covRvMethod;
         SummaryRow(String apk, String rep, String tool, double covMethod, double covRvMethod) {
             this.apk = apk;
@@ -907,18 +968,29 @@ public final class BatchValidator {
         }
     }
 
+    /** Tunables for {@link #orchestrate}; defaults shown. */
     public static final class BatchOrchestrationOptions {
+        /** Instrumentation variants to run; each gets its own {@code <variant>/summary.csv}. */
         public List<String> variants = List.of("ajc", "dexlib2");
+        /** Testing tools to fan out over. */
         public List<String> tools = List.of("aperv", "monkey", "fastbot");
+        /** Repetitions per (variant, tool) cell. */
         public int reps = 3;
+        /** Per-cell run timeout in seconds (the process wait is 4× this). */
         public int timeoutSeconds = 300;
+        /** Optional {@code docker-compose.yml}; null uses the default compose resolution. */
         public Path dockerComposeFile;
     }
 
+    /** Operational outcome of an {@link #orchestrate} run (not a gate — see class javadoc). */
     public static final class OrchestrationReport {
+        /** Root directory the per-variant summaries were written under. */
         public final Path outputDir;
+        /** Total (variant × tool × rep) cells attempted. */
         public final int totalCells;
+        /** Cells whose docker compose run exited cleanly. */
         public final int succeededCells;
+        /** {@code variant/tool/repN} → failure reason for every failed cell. */
         public final Map<String, String> failures;
 
         public OrchestrationReport(Path outputDir, int totalCells, int succeededCells,
