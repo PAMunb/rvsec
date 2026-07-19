@@ -1408,3 +1408,735 @@ class TestSignApk:
         assert not hasattr(rv, "_AjcInstrumentation__jarsigner")
         assert not hasattr(rv, "_AjcInstrumentation__jarsigner_verify")
         assert not hasattr(rv, "_AjcInstrumentation__d2j_apk_sign")
+
+
+# ---------------------------------------------------------------------------
+# Coverage-completion suites (gh-test-add): the classes below exercise the
+# pipeline internals that the pre-existing suites did not reach, raising line
+# coverage of ajc_instrumentation.py from 73% to ~100%. Each suite is designed
+# with an explicit black-box (equivalence-partition / boundary) or white-box
+# (basis-path) rationale documented in its docstring, and every external tool
+# invocation is mocked so the tests stay hermetic (no dex2jar/ajc/d8/apksigner).
+# ---------------------------------------------------------------------------
+
+
+class TestInstrumentApksApkPaths:
+    """Tests for instrument_apks APK-source selection (the `apk_paths` param).
+
+    Basis-path coverage of the two-way branch at the discovery step: either an
+    explicit `apk_paths` list is supplied (build App objects directly) or the
+    directory is scanned via utils.get_apks. Also covers the discovery-error
+    partition where get_apks raises.
+    """
+
+    def test_uses_provided_apk_paths_list(self, tmp_path):
+        # Equivalence class: caller supplies an explicit apk_paths list. The
+        # method must construct App objects from those paths instead of
+        # scanning apks_dir. App() is patched to avoid androguard/real APKs.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app1 = MagicMock()
+        app1.name = "provided1.apk"
+        app1.path = "/provided/provided1.apk"
+
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.App", return_value=app1
+            ) as mock_app,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch.object(rv, "instrument"),
+            patch.object(rv, "check_if_instrumented"),
+            patch.object(rv, "clear"),
+        ):
+            results = rv.instrument_apks(
+                str(tmp_path), str(out_dir), apk_paths=["/provided/provided1.apk"]
+            )
+
+            # get_apks must NOT be consulted when apk_paths is provided.
+            mock_utils.get_apks.assert_not_called()
+            mock_app.assert_called_once_with("/provided/provided1.apk")
+
+        assert results.total_count == 1
+        assert results.success_count == 1
+
+    def test_apk_discovery_failure_returns_retrieval_error(self, tmp_path):
+        # Equivalence class: apk_paths is None and utils.get_apks raises (e.g.
+        # unreadable directory). The method must capture the failure as an
+        # "apk_retrieval_error" entry with phase "retrieval" and total_count 1,
+        # without attempting any per-APK instrumentation.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        with (
+            patch.object(rv, "prepare_instrumentation"),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch.object(rv, "clear"),
+        ):
+            mock_utils.get_apks.side_effect = OSError("cannot read directory")
+
+            results = rv.instrument_apks(str(tmp_path), str(tmp_path / "out"))
+
+        assert "apk_retrieval_error" in results.errors
+        assert results.errors["apk_retrieval_error"].phase == "retrieval"
+        assert results.total_count == 1
+        assert results.success_count == 0
+
+
+class TestPrepareInstrumentation:
+    """Tests for prepare_instrumentation environment setup.
+
+    Basis-path coverage of the rvsec_root resolution branch: a resolvable root
+    proceeds to _resolve_runtime_libs + directory creation; an unresolvable one
+    raises InstrumentationError before any library resolution.
+    """
+
+    def test_success_resolves_libs_and_creates_output_dir(self, tmp_path):
+        # Happy path: rvsec_root is set on the config, so runtime libraries are
+        # resolved and the results directory is created.
+        config = _make_config_mock(tmp_path)
+        config.rvsec_root = str(tmp_path / "rvsec")
+        config.lib_tmp_dir = str(tmp_path / "lib_tmp")
+        rv = _create_rv_instrumentation(config)
+
+        results_dir = str(tmp_path / "results")
+
+        with (
+            patch.object(rv, "clear") as mock_clear,
+            patch.object(rv, "_resolve_runtime_libs") as mock_resolve,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+        ):
+            rv.prepare_instrumentation(results_dir)
+
+            mock_clear.assert_called_once()
+            mock_resolve.assert_called_once()
+            mock_utils.create_folder_if_not_exists.assert_called_once_with(results_dir)
+
+    def test_missing_rvsec_root_skips_library_resolution(self, tmp_path):
+        # Boundary/error case: config.rvsec_root is None AND RVSEC_HOME is
+        # absent from the environment. The method raises InstrumentationError
+        # BEFORE _resolve_runtime_libs; the reraise=False decorator absorbs it,
+        # so the observable effect is that library resolution never runs.
+        config = _make_config_mock(tmp_path)
+        config.rvsec_root = None
+        rv = _create_rv_instrumentation(config)
+
+        with (
+            patch.object(rv, "clear"),
+            patch.object(rv, "_resolve_runtime_libs") as mock_resolve,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils"),
+            patch.dict("os.environ", {}, clear=True),
+        ):
+            rv.prepare_instrumentation(str(tmp_path / "results"))
+
+            mock_resolve.assert_not_called()
+
+
+class TestInstrumentFullPipeline:
+    """Tests for instrument() driving the full phase sequence to success.
+
+    Basis-path coverage of the try-body (phases 1-7) that the pre-existing
+    skip/force tests never reached: with every phase mocked and a signed APK
+    that exists on disk, the method completes without raising.
+    """
+
+    def test_full_pipeline_success_invokes_all_phases(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        result_dir = str(tmp_path / "results")
+        os.makedirs(result_dir)
+
+        app = MagicMock()
+        app.name = "pipeline.apk"
+        app.path = str(tmp_path / "pipeline.apk")
+
+        signed_apk = tmp_path / "signed_pipeline.apk"
+        signed_apk.write_bytes(b"signed")
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils"),
+            patch.object(rv, "create_temp_directories"),
+            patch.object(rv, "clear"),
+            patch.object(rv, "_AjcInstrumentation__decompile_apk") as m_decompile,
+            patch.object(rv, "_AjcInstrumentation__strip_desugared_shims"),
+            patch.object(rv, "_AjcInstrumentation__quarantine_problematic_classes"),
+            patch.object(rv, "_AjcInstrumentation__include_generated_monitors"),
+            patch.object(rv, "_AjcInstrumentation__pre_compute_stack_frames"),
+            patch.object(rv, "_AjcInstrumentation__weave_monitors") as m_weave,
+            patch.object(rv, "_AjcInstrumentation__compute_stack_frames"),
+            patch.object(rv, "_AjcInstrumentation__restore_quarantined_classes"),
+            patch.object(
+                rv,
+                "_AjcInstrumentation__create_apk",
+                return_value=str(signed_apk),
+            ) as m_create,
+        ):
+            rv.instrument(app, result_dir, force_instrumentation=False)
+
+            m_decompile.assert_called_once_with(app)
+            m_weave.assert_called_once_with(app)
+            m_create.assert_called_once_with(app)
+
+    def test_raises_when_signed_apk_missing(self, tmp_path):
+        # Boundary: __create_apk returns a path that does not exist on disk,
+        # so the post-assembly existence check raises InstrumentationError
+        # (single_apk_instrumentation is decorated reraise=True → propagates).
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        result_dir = str(tmp_path / "results")
+        os.makedirs(result_dir)
+
+        app = MagicMock()
+        app.name = "pipeline.apk"
+        app.path = str(tmp_path / "pipeline.apk")
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils"),
+            patch.object(rv, "create_temp_directories"),
+            patch.object(rv, "clear"),
+            patch.object(rv, "_AjcInstrumentation__decompile_apk"),
+            patch.object(rv, "_AjcInstrumentation__strip_desugared_shims"),
+            patch.object(rv, "_AjcInstrumentation__quarantine_problematic_classes"),
+            patch.object(rv, "_AjcInstrumentation__include_generated_monitors"),
+            patch.object(rv, "_AjcInstrumentation__pre_compute_stack_frames"),
+            patch.object(rv, "_AjcInstrumentation__weave_monitors"),
+            patch.object(rv, "_AjcInstrumentation__compute_stack_frames"),
+            patch.object(rv, "_AjcInstrumentation__restore_quarantined_classes"),
+            patch.object(
+                rv,
+                "_AjcInstrumentation__create_apk",
+                return_value=str(tmp_path / "does_not_exist.apk"),
+            ),
+        ):
+            with pytest.raises(InstrumentationError):
+                rv.instrument(app, result_dir, force_instrumentation=False)
+
+
+class TestDecompileApk:
+    """Tests for __decompile_apk (DEX → loose .class files).
+
+    Basis-path coverage: the success path (dex2jar produces the JAR, which is
+    extracted then deleted) and the boundary where dex2jar silently produces
+    no JAR (missing-output check raises).
+    """
+
+    def test_success_extracts_and_deletes_jar(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        jar_path = os.path.join(config.tmp_dir, "no_monitor_test.apk.jar")
+
+        def fake_dex2jar(a, out_jar):
+            Path(out_jar).write_bytes(b"jar")
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch.object(
+                rv, "_AjcInstrumentation__d2j_dex2jar", side_effect=fake_dex2jar
+            ),
+            patch.object(rv, "_AjcInstrumentation__d2j_asm_verify"),
+        ):
+            rv._AjcInstrumentation__decompile_apk(app)
+
+            mock_utils.reset_folder.assert_called_once_with(config.tmp_dir)
+            mock_utils.unzip.assert_called_once_with(jar_path, config.tmp_dir)
+            mock_utils.delete_file.assert_called_once_with(jar_path)
+
+    def test_raises_when_dex2jar_produces_no_jar(self, tmp_path):
+        # Boundary: dex2jar returns without creating the JAR → the existence
+        # check raises InstrumentationError (no decorator here, raises directly).
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils"),
+            patch.object(rv, "_AjcInstrumentation__d2j_dex2jar"),  # no-op, no jar
+        ):
+            with pytest.raises(InstrumentationError):
+                rv._AjcInstrumentation__decompile_apk(app)
+
+
+class TestD2jDex2jar:
+    """Tests for __d2j_dex2jar command construction and exception detection."""
+
+    def test_builds_dex2jar_command_with_skip_stderr(self, tmp_path):
+        # dex2jar writes informational text to stderr on success, so the
+        # execute_command call must pass the skip-stderr flag (3rd positional
+        # True). No exception zip → no CommandException.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+        app.path = "/orig/test.apk"
+
+        captured = {}
+
+        def capture_execute(cmd, tag, skip_stderr=False):
+            captured["command"] = cmd.command
+            captured["args"] = cmd.args
+            captured["tag"] = tag
+            captured["skip_stderr"] = skip_stderr
+
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
+            mock_utils.execute_command = capture_execute
+            out_jar = os.path.join(config.tmp_dir, "out.jar")
+            rv._AjcInstrumentation__d2j_dex2jar(app, out_jar)
+
+        assert captured["tag"] == "dex2jar"
+        assert captured["skip_stderr"] is True
+        assert out_jar in captured["args"]
+        assert app.path in captured["args"]
+
+    def test_raises_when_exception_zip_present(self, tmp_path):
+        # dex2jar drops an exception zip when it hits unsupported opcodes; its
+        # presence must be surfaced as a CommandException.
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+        app.path = "/orig/test.apk"
+
+        # Pre-create the exception zip dex2jar would have written.
+        exc_zip = os.path.join(config.tmp_dir, "exception_test.apk.zip")
+        Path(exc_zip).write_bytes(b"err")
+
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
+            mock_utils.execute_command = MagicMock()
+            with pytest.raises(CommandException) as ei:
+                rv._AjcInstrumentation__d2j_dex2jar(
+                    app, os.path.join(config.tmp_dir, "out.jar")
+                )
+
+        assert ei.value.tool == "dex2jar"
+
+
+class TestD2jAsmVerify:
+    """Tests for __d2j_asm_verify skip-toggle (boundary on the skip_verify flag)."""
+
+    def test_skip_verify_true_is_noop(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
+            mock_utils.execute_command = MagicMock()
+            rv._AjcInstrumentation__d2j_asm_verify("/some.jar", skip_verify=True)
+            mock_utils.execute_command.assert_not_called()
+
+    def test_skip_verify_false_runs_asm_verify(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        captured = {}
+
+        def capture_execute(cmd, tag):
+            captured["tag"] = tag
+            captured["args"] = cmd.args
+
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
+            mock_utils.execute_command = capture_execute
+            rv._AjcInstrumentation__d2j_asm_verify("/some.jar", skip_verify=False)
+
+        assert captured["tag"] == "asm_verify"
+        assert "/some.jar" in captured["args"]
+
+
+class TestGetClasspath:
+    """Tests for __get_classpath assembly (android.jar + lib_tmp_dir jars)."""
+
+    def test_includes_android_jar_and_only_jar_libs(self, tmp_path):
+        # Equivalence partition on directory entries: only *.jar files are added
+        # to the classpath; non-jar files (e.g. a README) are excluded.
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.lib_tmp_dir)
+        (Path(config.lib_tmp_dir) / "rv-monitor-rt.jar").write_bytes(b"jar")
+        (Path(config.lib_tmp_dir) / "notes.txt").write_bytes(b"text")
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+
+        with patch.object(
+            rv,
+            "_AjcInstrumentation__get_android_jar",
+            return_value="/fake/android.jar",
+        ):
+            classpath = rv._AjcInstrumentation__get_classpath(app)
+
+        assert "/fake/android.jar" in classpath
+        assert os.path.join(config.lib_tmp_dir, "rv-monitor-rt.jar") in classpath
+        assert not any(p.endswith("notes.txt") for p in classpath)
+
+
+class TestLoadQuarantinePatternsError:
+    """Tests for _load_quarantine_patterns YAML-error handling."""
+
+    def test_returns_empty_on_yaml_error(self, tmp_path):
+        # Robustness: a corrupt weaving_excludes.yaml (safe_load raises) must
+        # degrade gracefully to [] so the pipeline still runs, and a warning is
+        # logged rather than propagating the parse error.
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+        rv._logger = MagicMock()
+
+        with (
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.Path.exists",
+                return_value=True,
+            ),
+            patch("builtins.open", create=True),
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.yaml.safe_load",
+                side_effect=ValueError("bad yaml"),
+            ),
+        ):
+            result = rv._load_quarantine_patterns()
+
+        assert result == []
+        assert rv._logger.warning.called
+
+
+class TestQuarantineEdgeCases:
+    """Tests for __quarantine_problematic_classes secondary branches."""
+
+    def test_empty_patterns_is_noop(self, tmp_path):
+        # Boundary: enable_quarantine is on but the pattern list is empty, so
+        # the method returns before touching the filesystem.
+        config = _make_config_mock(tmp_path)
+        config.enable_quarantine = True
+        os.makedirs(config.tmp_dir)
+        app_dir = Path(config.tmp_dir) / "com" / "app"
+        app_dir.mkdir(parents=True)
+        (app_dir / "Foo.class").write_bytes(b"app")
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"
+
+        with patch.object(rv, "_load_quarantine_patterns", return_value=[]):
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
+
+        assert (app_dir / "Foo.class").exists()
+        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        assert not qroot.exists()
+
+    def test_directory_matches_are_skipped(self, tmp_path):
+        # White-box: a glob that matches BOTH a .class file and a subdirectory
+        # must move only the file (is_file() gate); the directory match hits the
+        # `continue` branch and is left in place.
+        config = _make_config_mock(tmp_path)
+        config.enable_quarantine = True
+        os.makedirs(config.tmp_dir)
+        okio_dir = Path(config.tmp_dir) / "okio"
+        okio_dir.mkdir()
+        (okio_dir / "Buffer.class").write_bytes(b"okio")
+        (okio_dir / "internal").mkdir()  # directory that also matches okio/*
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"
+
+        with patch.object(
+            rv, "_load_quarantine_patterns", return_value=["okio/*"]
+        ):
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
+
+        # File moved to quarantine; the subdirectory stays where it was.
+        assert not (okio_dir / "Buffer.class").exists()
+        assert (okio_dir / "internal").is_dir()
+        qroot = Path(config.tmp_dir).parent / (Path(config.tmp_dir).name + "_quarantine")
+        assert (qroot / "okio" / "Buffer.class").exists()
+
+
+class TestIncludeGeneratedMonitors:
+    """Tests for __include_generated_monitors artifact copying."""
+
+    def test_copies_monitor_artifacts_when_dir_present(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.monitor_output_dir)
+        rv = _create_rv_instrumentation(config)
+
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils:
+            rv._AjcInstrumentation__include_generated_monitors()
+            mock_utils.copy_files.assert_called_once_with(
+                config.monitor_output_dir, config.tmp_dir
+            )
+
+    def test_raises_when_monitor_dir_missing(self, tmp_path):
+        # Boundary: monitor_output_dir does not exist → InstrumentationError
+        # (monitor_integration is reraise=True → propagates).
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        with patch("rv_instrumentation_ajc.ajc_instrumentation.utils"):
+            with pytest.raises(InstrumentationError):
+                rv._AjcInstrumentation__include_generated_monitors()
+
+
+class TestGetFrameComputerJar:
+    """Tests for _get_frame_computer_jar path resolution."""
+
+    def test_returns_path_when_jar_exists(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        with patch(
+            "rv_instrumentation_ajc.ajc_instrumentation.Path.exists", return_value=True
+        ):
+            result = rv._get_frame_computer_jar()
+
+        assert result is not None
+        assert result.endswith("rv-frame-computer.jar")
+
+    def test_returns_none_when_jar_absent(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        with patch(
+            "rv_instrumentation_ajc.ajc_instrumentation.Path.exists", return_value=False
+        ):
+            result = rv._get_frame_computer_jar()
+
+        assert result is None
+
+
+class TestCreateApk:
+    """Tests for __create_apk orchestration of assembly → d8 → align → sign."""
+
+    def test_assembles_and_returns_signed_apk(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        unsigned = tmp_path / "unsigned_test.apk"
+        unsigned.write_bytes(b"unsigned")
+        signed = tmp_path / "instrumented" / "test.apk"
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils"),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.move"),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.rmtree"),
+            patch.object(rv, "_AjcInstrumentation__merge_support_classes") as m_merge,
+            patch.object(
+                rv, "_AjcInstrumentation__d8", return_value=str(unsigned)
+            ) as m_d8,
+            patch.object(rv, "_AjcInstrumentation__zipalign") as m_align,
+            patch.object(
+                rv, "_AjcInstrumentation__sign_apk", return_value=str(signed)
+            ) as m_sign,
+        ):
+            result = rv._AjcInstrumentation__create_apk(app)
+
+        assert result == str(signed)
+        m_merge.assert_called_once()
+        m_d8.assert_called_once()
+        m_align.assert_called_once_with(str(unsigned))
+        m_sign.assert_called_once_with(app, str(unsigned))
+
+    def test_raises_when_unsigned_apk_missing(self, tmp_path):
+        # Boundary: __d8 returns a path that does not exist → InstrumentationError
+        # (apk_creation is reraise=True → propagates).
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils"),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.move"),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.rmtree"),
+            patch.object(rv, "_AjcInstrumentation__merge_support_classes"),
+            patch.object(
+                rv,
+                "_AjcInstrumentation__d8",
+                return_value=str(tmp_path / "missing_unsigned.apk"),
+            ),
+        ):
+            with pytest.raises(InstrumentationError):
+                rv._AjcInstrumentation__create_apk(app)
+
+
+class TestMergeSupportClasses:
+    """Tests for __merge_support_classes runtime-library integration."""
+
+    def test_extracts_all_required_jars_and_merges(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.lib_tmp_dir)
+        for jar in [
+            "rv-monitor-rt.jar",
+            "rvsec-core.jar",
+            "rvsec-logger-logcat.jar",
+            "aspectjrt.jar",
+        ]:
+            (Path(config.lib_tmp_dir) / jar).write_bytes(b"jar")
+        rv = _create_rv_instrumentation(config)
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch(
+                "rv_instrumentation_ajc.ajc_instrumentation.shutil.copytree"
+            ) as mock_copytree,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.rmtree"),
+        ):
+            rv._AjcInstrumentation__merge_support_classes()
+
+            # All four runtime libraries unzipped, then the merged tree copied
+            # into tmp_dir.
+            assert mock_utils.unzip.call_count == 4
+            mock_copytree.assert_called_once()
+
+    def test_raises_when_required_jar_missing(self, tmp_path):
+        # Boundary: one of the four required jars is absent from lib_tmp_dir →
+        # InstrumentationError (library_integration is reraise=True).
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.lib_tmp_dir)
+        # Only three of the four required jars present.
+        for jar in ["rv-monitor-rt.jar", "rvsec-core.jar", "aspectjrt.jar"]:
+            (Path(config.lib_tmp_dir) / jar).write_bytes(b"jar")
+        rv = _create_rv_instrumentation(config)
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils"),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.copytree"),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.rmtree"),
+        ):
+            with pytest.raises(InstrumentationError):
+                rv._AjcInstrumentation__merge_support_classes()
+
+
+class TestD8:
+    """Tests for __d8 DEX compilation + APK repackaging."""
+
+    def test_compiles_and_repackages_unsigned_apk(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+        app.path = str(tmp_path / "test.apk")
+        (tmp_path / "test.apk").write_bytes(b"orig-apk")
+
+        captured = []
+
+        def capture_execute(cmd, tag, skip_stderr=False):
+            captured.append({"tag": tag, "args": cmd.args, "skip_stderr": skip_stderr})
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch.object(
+                rv,
+                "_AjcInstrumentation__get_android_jar",
+                return_value="/fake/android.jar",
+            ),
+        ):
+            mock_utils.execute_command = capture_execute
+            unsigned = rv._AjcInstrumentation__d8(
+                app, str(Path(config.tmp_dir) / "monitored.jar")
+            )
+
+        expected = os.path.join(config.tmp_dir, "unsigned_test.apk")
+        assert unsigned == expected
+        assert os.path.exists(unsigned)  # real shutil.copy2 duplicated app.path
+        d8_call = next(c for c in captured if c["tag"] == "d8")
+        assert d8_call["skip_stderr"] is True
+        assert "--min-api" in d8_call["args"]
+
+    def test_raises_when_unsigned_copy_fails(self, tmp_path):
+        # Boundary: shutil.copy2 does not produce the unsigned APK → the
+        # existence check raises InstrumentationError (no decorator, direct).
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+        app.path = str(tmp_path / "test.apk")
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch.object(
+                rv,
+                "_AjcInstrumentation__get_android_jar",
+                return_value="/fake/android.jar",
+            ),
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.copy2"),  # no-op
+        ):
+            mock_utils.execute_command = MagicMock()
+            with pytest.raises(InstrumentationError):
+                rv._AjcInstrumentation__d8(
+                    app, str(Path(config.tmp_dir) / "monitored.jar")
+                )
+
+
+class TestSignApkMissingOutput:
+    """Test for __sign_apk silent-failure guard (signed APK not produced)."""
+
+    def test_raises_when_signed_apk_not_created(self, tmp_path):
+        # Boundary: apksigner exits 0 but no signed APK lands at the target
+        # (copy2 is a no-op here) → InstrumentationError (apk_signing reraise=True).
+        config = _make_config_mock(tmp_path)
+        config.keystore_alias = "server"
+        rv = _create_rv_instrumentation(config)
+
+        app = MagicMock()
+        app.name = "test.apk"
+
+        unsigned = tmp_path / "unsigned_test.apk"
+        unsigned.write_bytes(b"unsigned")
+
+        with (
+            patch("rv_instrumentation_ajc.ajc_instrumentation.utils") as mock_utils,
+            patch("rv_instrumentation_ajc.ajc_instrumentation.shutil.copy2"),  # no-op
+        ):
+            mock_utils.execute_command = MagicMock()
+            mock_utils.create_folder_if_not_exists = MagicMock()
+            with pytest.raises(InstrumentationError):
+                rv._AjcInstrumentation__sign_apk(app, str(unsigned))
+
+
+class TestFindHighestAndroidPlatform:
+    """Tests for _find_highest_android_platform selection logic."""
+
+    def test_returns_none_when_dir_absent(self, tmp_path):
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        result = rv._find_highest_android_platform(str(tmp_path / "no_such_dir"))
+
+        assert result is None
+
+    def test_skips_malformed_names_and_picks_highest(self, tmp_path):
+        # White-box: entries whose suffix is not an int ("android-abc",
+        # "android-") hit the ValueError/IndexError `continue`; the highest
+        # numeric platform >= 26 wins.
+        platforms = tmp_path / "platforms"
+        platforms.mkdir()
+        for name in ["android-abc", "android-", "android-28", "android-33"]:
+            (platforms / name).mkdir()
+        config = _make_config_mock(tmp_path)
+        rv = _create_rv_instrumentation(config)
+
+        result = rv._find_highest_android_platform(str(platforms))
+
+        assert result == "android-33"
