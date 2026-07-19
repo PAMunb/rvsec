@@ -153,6 +153,49 @@ class WrapperEmitterTest {
                 "varargs must not produce wrappers when AndroidClassIndex is null");
     }
 
+    @Test
+    void literalFallbackEmitsStaticWrapperWithoutIndex(@TempDir Path out) throws IOException {
+        // With NO AndroidClassIndex the emitter falls back to the descriptor's
+        // literal types: expandCallTarget short-circuits (index == null), so the
+        // whole wrapper must be materialized from the pointcut text alone. A plain
+        // static target has to survive that path and resolve its simple names
+        // ("Cipher", "String") through the descriptor imports — no android.jar is
+        // consulted. This is the back-compat path unit tests without a fixture jar
+        // rely on; if the fallback ever regressed to dropping static targets the
+        // monitor would silently lose every getInstance event.
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static Cipher Cipher.getInstance(String))",
+                List.of(),
+                "result"));
+
+        // Two-arg overload = the index-less back-compat entry point.
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+
+        assertEquals(1, entries.size(), "static target must yield one literal-fallback wrapper");
+        WrapperEmitter.WrapperEntry e = entries.get(0);
+        assertTrue(e.isStatic, "the literal fallback always marks the target static");
+        assertEquals("javax_crypto_Cipher_getInstance", e.wrapperName);
+        assertEquals("javax.crypto.Cipher", e.originalClassFqn);
+        assertEquals(List.of("java.lang.String"), e.originalParamFqn,
+                "String must resolve to java.lang.String via the descriptor imports");
+        assertEquals("javax.crypto.Cipher", e.originalReturnFqn);
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains(
+                        "public static javax.crypto.Cipher "
+                                + "javax_crypto_Cipher_getInstance(java.lang.String p0)"),
+                "static wrapper signature; got:\n" + src);
+        assertTrue(src.contains(
+                        "javax.crypto.Cipher result = javax.crypto.Cipher.getInstance(p0);"),
+                "static wrapper delegates to Cls.method(args); got:\n" + src);
+        assertTrue(src.contains("MultiSpec_1RuntimeMonitor.event(result);"),
+                "monitor call receives the returning value; got:\n" + src);
+        assertTrue(src.contains("return result;"),
+                "non-void wrapper returns the original result; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
