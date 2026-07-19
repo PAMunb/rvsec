@@ -4,6 +4,12 @@ Main Platform class for rv-platform.
 
 This module provides the primary interface for executing Android experiments
 through the rv-platform system.
+
+Platform is the entry point that realizes four platform-spec Requirements
+(openspec/specs/platform/spec.md): "Task Generation (FR08)",
+"Component-Based Task Execution (FR09, NFR02)",
+"Experiment Resume Integration (FR10-ext)", and
+"Result Consolidation on Resume (FR10-ext)".
 """
 
 import hashlib
@@ -33,8 +39,14 @@ class Platform:
     """
     Main entry point for rv-platform execution.
 
+    Implements platform-spec Requirements "Task Generation (FR08)",
+    "Component-Based Task Execution (FR09, NFR02)",
+    "Experiment Resume Integration (FR10-ext)", and
+    "Result Consolidation on Resume (FR10-ext)"
+    (openspec/specs/platform/spec.md).
+
     ### Architectural Decisions:
-    - Provides simple, clean interface for standalone usage
+    - Exposes a single run() entry point for standalone or service use
     - Manages task generation and execution coordination
     - Integrates with existing rv-android-core infrastructure
     ### Role in the System:
@@ -87,10 +99,13 @@ class Platform:
         # Task management with persistent storage
         self.task_factory = TaskFactory(Task)
 
-        # TaskStorage is the persistence backbone for experiment resume. On first
+        # TaskStorage is the persistence backbone for experiment resume,
+        # realizing Requirement "Persistent Task Storage (FR10, NFR08)". On first
         # run, load() finds no file and starts empty. On subsequent runs, load()
         # deserializes all previously completed tasks from tasks.json so that
-        # _skip_completed_tasks() can identify which work units are already done.
+        # _skip_completed_tasks() can identify which work units are already done —
+        # the deserialize-then-diff step of Requirement "Experiment Resume
+        # Integration (FR10-ext)".
         tasks_file = os.path.join(config.results_dir, "tasks.json")
         self.task_storage = TaskStorage(tasks_file, self.task_factory)
         self.task_storage.load()
@@ -136,13 +151,18 @@ class Platform:
 
             # --- Phase 1: Task Generation ---
             # Build the full task matrix: APKs x tools x repetitions x timeouts.
-            # All possible tasks are generated upfront so resume logic can diff
-            # against previously completed tasks.
+            # Requirement "Task Generation (FR08)"; INV-PLT-01 fixes the count at
+            # exactly |APKs| x |tool_configs| x repetitions x |timeouts|. The full
+            # matrix is generated upfront so resume logic can diff against
+            # previously completed tasks.
             self._generate_tasks()
 
-            # Store experiment metadata for continuation support.
-            # The config checksum enables detecting config changes between runs,
-            # so we can warn if a resumed experiment has different parameters.
+            # Store experiment metadata for continuation support — the wiring step
+            # of Requirement "Experiment Resume Integration (FR10-ext)" and
+            # Scenario "First Run Stores Metadata" (experiment_id = results_dir
+            # path, stored via set_experiment_metadata). config_checksum is the
+            # SHA-256 of the sorted-key JSON config (INV-PLT-12), which lets a
+            # resumed run detect changed parameters and warn without blocking.
             config_dict = self.config.model_dump(mode="json")
             metadata = ExperimentMetadata.create_from_config(
                 experiment_id=str(self.config.results_dir), config_dict=config_dict
@@ -150,17 +170,20 @@ class Platform:
             self.task_storage.set_experiment_metadata(metadata)
 
             # --- Phase 2: Resume Check ---
-            # Match generated tasks against completed tasks in TaskStorage by
-            # identity tuple (apk, tool, variant, repetition, timeout). Matched
-            # tasks are removed from self.tasks so they are not re-executed.
+            # Requirement "Experiment Resume Integration (FR10-ext)". Match
+            # generated tasks against completed tasks in TaskStorage by identity
+            # tuple (apk, tool, variant, repetition, timeout). Matched tasks are
+            # removed from self.tasks so they are not re-executed.
             self._skip_completed_tasks()
 
             # --- Phase 3: Execution ---
             results = self._execute_tasks()
 
             # --- Phase 4: Result Processing ---
-            # Generate CSV/JSON from ALL completed tasks (previous + current).
-            # Uses task_storage.get_completed_tasks() as the single source of truth,
+            # Requirement "Result Consolidation on Resume (FR10-ext)", Scenario
+            # "Result Processing After Resume Includes All Sessions". Generate
+            # CSV/JSON from ALL completed tasks (previous + current). Uses
+            # task_storage.get_completed_tasks() as the single source of truth,
             # which merges tasks from all sessions. Using self.tasks here would only
             # include tasks from the current session, producing incomplete output on
             # resume. Skippable for debugging or standalone result processing later.
@@ -168,6 +191,8 @@ class Platform:
                 self._process_results()
 
             # --- Phase 5: Summary ---
+            # Scenario "Execution Summary Includes Skipped Count": the summary
+            # carries _skipped_count alongside the tasks executed this session.
             summary = self._generate_summary(results, self._skipped_count)
 
             self.logger.info("Platform execution completed successfully")
@@ -179,7 +204,14 @@ class Platform:
             raise
 
     def _generate_tasks(self) -> None:
-        """Generate tasks based on configuration."""
+        """Generate tasks based on configuration.
+
+        Realizes Requirement "Task Generation (FR08)". Each combination in the
+        Cartesian product becomes one Task, covering Scenarios "Basic Task
+        Generation" and "Multi-Variant Task Generation". Variant expansion is
+        already done at the CLI parser layer, so self.config.tools is a flat list
+        of ToolConfig objects with singular variants.
+        """
         self.logger.info("Generating tasks")
 
         # Discover APKs
@@ -187,8 +219,10 @@ class Platform:
         self.logger.info(f"Discovered {len(apks)} APK files")
 
         # Cartesian product: every APK x tool x repetition x timeout produces one task.
-        # This exhaustive generation is intentional: resume logic later filters out
-        # tasks that were already completed, so the full matrix must be known upfront.
+        # This is the INV-PLT-01 site: exactly |APKs| x |tool_configs| x
+        # repetitions x |timeouts| tasks. repetitions iterate 1..config.repetitions
+        # inclusive. The exhaustive generation is intentional: resume logic later
+        # filters out tasks already completed, so the full matrix must be known upfront.
         task_count = 0
         for apk_path in apks:
             apk_name = apk_path.name
@@ -231,16 +265,26 @@ class Platform:
         """
         Skip tasks already completed in a previous run (resume support).
 
-        Match tasks by identity tuple (apk_name, tool_name, variant, repetition,
-        timeout) against completed tasks in TaskStorage. Log a warning if the
-        config checksum differs from the previous run. Update _skipped_count
-        and filter self.tasks in place.
+        Realizes Requirement "Experiment Resume Integration (FR10-ext)" and
+        Scenario "Skip Completed Tasks During Resume". Match tasks by identity
+        tuple (apk_name, tool_name, variant, repetition, timeout) against
+        completed tasks in TaskStorage. Log a warning if the config checksum
+        differs from the previous run. Update _skipped_count and filter
+        self.tasks in place.
         """
+        # Scenario "Resume With No Completed Tasks": nothing to skip, so this is
+        # effectively a fresh run reusing the same directory — return silently.
         completed_tasks = self.task_storage.get_completed_tasks()
         if not completed_tasks:
             return
 
-        # Validate configuration consistency via checksum
+        # Validate configuration consistency via checksum (INV-PLT-12).
+        # This is the platform-owned user-visible WARNING with the first 8 hex of
+        # the stored and current checksums; TaskStorage.check_continuation_compatibility()
+        # only logs the mismatch at DEBUG. Mismatch = Scenario "Resume With Changed
+        # Configuration" (message below); match = Scenario "Resume With Same
+        # Configuration". Either way, execution proceeds — a config change does not
+        # block resume, because task identity is independent of the checksum.
         config_dict = self.config.model_dump(mode="json")
         if not self.task_storage.check_continuation_compatibility(config_dict):
             stored = (
@@ -255,9 +299,12 @@ class Platform:
                 f"Config changed since last run (stored: {stored}, current: {current}) — resuming anyway"
             )
 
-        # Identity tuple uniquely identifies a task across sessions. Two tasks
-        # with the same identity are considered the "same work unit" regardless
-        # of task_id (which is a UUID generated fresh each run).
+        # Identity tuple uniquely identifies a task across sessions and is the
+        # resume identity key of Scenario "Skip Completed Tasks During Resume".
+        # Two tasks with the same identity are the "same work unit" regardless of
+        # task_id (a UUID generated fresh each run). Only COMPLETED tasks reach
+        # this set — ERROR-state tasks are NOT skipped and re-execute on resume,
+        # giving the researcher a chance to recover from transient failures.
         def task_identity(task):
             tc = task.config
             return (
@@ -285,11 +332,16 @@ class Platform:
         """
         Discover APK files in the configured directory.
 
-        If apks_filter_file is set, only APKs whose filename appears in the
-        filter file are included.
+        Supports Requirement "Task Generation (FR08)" by supplying the APK axis of
+        the task matrix. Globs *.apk (sorted alphabetically) and raises ValueError
+        when none are found (Scenario "No APKs Found"). If apks_filter_file is set,
+        only APKs whose filename appears in the filter file are included.
 
         Returns:
             List of APK file paths
+
+        Raises:
+            ValueError: If no APK files are found, or none match the filter file.
         """
         apks_dir = Path(self.config.apks_dir)
         apk_files = list(apks_dir.glob("*.apk"))
@@ -314,7 +366,8 @@ class Platform:
         """
         Execute all generated tasks sequentially.
 
-        For each task: load the tool, create a TaskExecutor with registered
+        Realizes Requirement "Component-Based Task Execution (FR09, NFR02)". For
+        each task: load the tool, create a TaskExecutor with registered
         components (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution),
         execute, and persist the result to TaskStorage. Failed tasks are caught,
         marked as ERROR, and included in the results.
@@ -343,7 +396,10 @@ class Platform:
 
                 # Registration order matters: StaticAnalysis and Coverage run outside
                 # the emulator session (phases 1-2), while Emulator/Logcat/ToolExecution
-                # run inside the emulator context manager (phase 3).
+                # run inside the emulator context manager (phase 3) — the ordering of
+                # Scenario "Successful Three-Phase Execution". This is where the ordered
+                # list is assembled; TaskExecutor enforces the phase gating itself
+                # (INV-PLT-13, related context — not enforced here).
                 components = [
                     StaticAnalysisComponent(task, self.config.apks_dir),
                     EmulatorComponent(task),
@@ -359,8 +415,10 @@ class Platform:
                 success = executor.execute()
 
                 # Step 4: Persist task result immediately after completion.
-                # Atomic write ensures crash recovery: if the process dies before
-                # the next task, this task's result is already on disk.
+                # Ties to Requirement "Persistent Task Storage (FR10, NFR08)": the
+                # atomic save (INV-PLT-03) plus auto_save (INV-PLT-08) ensure crash
+                # recovery — if the process dies before the next task, this task's
+                # result is already on disk and resume will skip it.
                 self.task_storage.update_task(task)
 
                 # Collect result
@@ -385,12 +443,17 @@ class Platform:
                 error_message = self._extract_meaningful_error_message(e)
 
                 self.logger.error(f"Task execution failed: {error_message}")
+                # Terminal-state transition RUNNING -> ERROR (INV-PLT-02: ERROR is a
+                # valid terminal state).
                 task.update_state(task.result.state.__class__.ERROR, error_message)
 
-                # Persist failed tasks too so they are not re-executed on resume.
-                # This is critical: without this, a crash-and-resume cycle would
-                # re-run tasks that already failed, wasting experiment time. The
-                # atomic write in TaskStorage.save() guarantees this survives crashes.
+                # Persist the failed task as a durable record of the attempt, via the
+                # atomic save of Requirement "Persistent Task Storage (FR10, NFR08)"
+                # (INV-PLT-03 + INV-PLT-08). Note the record does not suppress
+                # re-execution: per Scenario "Skip Completed Tasks During Resume",
+                # ERROR-state tasks are NOT skipped and re-run on the next resume — only
+                # COMPLETED tasks are skipped. Persisting them keeps the history complete
+                # and lets result processing see every attempt.
                 self.task_storage.update_task(task)
 
                 result = {
@@ -429,7 +492,11 @@ class Platform:
         # Walk through the exception chain to find the root cause
         current = exception
         while current:
-            # Check for timeout scenarios
+            # Check for timeout scenarios. The "(expected behavior)" wording
+            # reflects the design where timeouts are the normal termination
+            # mechanism for time-bounded experiments (related context: INV-PLT-04).
+            # This method only shapes the message; the True-return that actually
+            # turns a timeout into success lives in ToolExecutionComponent, not here.
             if isinstance(current, RVToolTimeoutError):
                 tool_name = getattr(current, "tool_name", "unknown tool")
                 timeout_seconds = getattr(current, "timeout_seconds", None)
@@ -493,6 +560,13 @@ class Platform:
         """
         Generate execution summary.
 
+        Supports Requirement "Result Consolidation on Resume (FR10-ext)": the
+        skipped_tasks field plus the "N skipped from previous runs" log realize
+        Scenario "Execution Summary Includes Skipped Count", while a first run
+        yields skipped_count == 0 per Scenario "First Run (No Resume) Has Zero
+        Skipped". total_tasks reflects only the tasks executed THIS session (M),
+        not the consolidated N+M.
+
         Args:
             results: List of task results from this session
             skipped_count: Number of tasks skipped from previous runs (resume)
@@ -548,16 +622,22 @@ class Platform:
         """
         Generate CSV/JSON files from completed experiment tasks.
 
-        This method processes completed tasks to generate standardized output
-        files for analysis and research purposes.
+        Realizes Requirement "Result Consolidation on Resume (FR10-ext)" and
+        Scenario "Result Processing After Resume Includes All Sessions": the data
+        source is the all-sessions view, so output covers every completed task.
+        This method reads that view and hands it to ResultProcessorComponent,
+        which writes the standardized CSV/JSON output files.
         """
         self.logger.info("Processing experiment results")
 
-        # TaskStorage is the single source of truth for result processing.
-        # It merges tasks from ALL sessions: previous runs (loaded from tasks.json
-        # on startup) plus the current session. Using self.tasks instead would
-        # only include tasks executed NOW, producing incomplete CSV/JSON when
-        # resuming an experiment. This is the key invariant for resume correctness.
+        # TaskStorage.get_completed_tasks() is the all-sessions single source of
+        # truth for result processing — NOT self.tasks. It merges tasks from ALL
+        # sessions: previous runs (loaded from tasks.json on startup) plus the
+        # current session. Using self.tasks instead would only include tasks
+        # executed NOW, producing incomplete CSV/JSON when resuming an experiment.
+        # This is the key invariant for resume correctness. (ResultProcessorComponent
+        # further filters to COMPLETED-only per INV-PLT-10; that filter lives in the
+        # component, so here only the data source is established.)
         all_completed = list(self.task_storage.get_completed_tasks())
         processor = ResultProcessorComponent(all_completed, self.config.results_dir)
 
