@@ -20,6 +20,17 @@ public final class BuilderConfig {
     public final Path d8Bin;
     public final Path jdkRtJar;
     public final Path androidJar;
+    /**
+     * Runtime support jars fed to both {@code javac} (compile) and {@code d8}
+     * (dexed inline by {@link MonitorBuilder}; see {@code runD8}). The list
+     * arrives pre-narrowed by the Python wrapper to the monitors' runtime
+     * allowlist ({@code rv-monitor-rt}, {@code rvsec-core},
+     * {@code rvsec-logger-logcat}); the wrapper drops the rest of the
+     * {@code mvn dependency:copy-dependencies} output (aspectjrt, kotlin,
+     * surefire) because dexing them would bloat the APK and can make d8 fail
+     * with duplicate-type errors. See {@code instrumentation.md} §4 steps 2
+     * and 9.
+     */
     public final List<Path> classpath;
 
     public BuilderConfig(Path javacBin, Path d8Bin, Path jdkRtJar, Path androidJar,

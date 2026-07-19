@@ -434,6 +434,15 @@ public final class BatchRunner {
     /**
      * Per-APK outcome returned by the pipeline. Serialized to the
      * {@code InstrumentationResults} JSON the Python wrapper parses.
+     *
+     * <p>A {@code success=true} / {@code phase=signed} entry is not the final
+     * verdict: the Python wrapper re-checks each claimed success against the
+     * filesystem ({@code _demote_silent_failures}) and demotes any entry whose
+     * APK is missing from the output dir to an error. This covers the gh53
+     * case where a silent {@code javac}/{@code d8} drop lets the pipeline
+     * report a signed success without producing an installable APK, which
+     * downstream reads as a phantom 0%-coverage run. See
+     * {@code instrumentation.md} §4 step 11 / §7.
      */
     public record PerApkResult(
             String apkName,

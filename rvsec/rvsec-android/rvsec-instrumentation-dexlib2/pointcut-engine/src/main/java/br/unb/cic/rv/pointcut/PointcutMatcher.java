@@ -428,8 +428,8 @@ public final class PointcutMatcher {
         int targetRegister = isStaticInvoke
                 ? -1
                 : (regs.length > 0 ? regs[0] : -1);
-        // Two-predicate constructor gate (D3, defence in depth): the descriptor
-        // predicate (cp.isConstructor()) AND the method-name predicate
+        // Two-predicate constructor gate (INV-INS-70, D3, defence in depth): the
+        // descriptor predicate (cp.isConstructor()) AND the method-name predicate
         // (mr.getName().equals("<init>")) must agree. invoke-direct is also
         // used for private non-constructor methods and super-<init> chaining
         // outside the advice contract — relying on either predicate alone
