@@ -3,7 +3,7 @@ Tests for Platform — task generation, APK discovery, resume (skip completed),
 error message extraction, and summary generation.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from rv_android_core.domain.app import App
@@ -284,3 +284,286 @@ class TestGenerateSummary:
         assert summary["total_tasks"] == 0
         assert summary["success_rate"] == 0
         assert summary["average_execution_time"] == 0
+
+
+# ===========================================================================
+# run() error handling (except branch)
+# ===========================================================================
+
+
+class TestRunErrorHandling:
+    """Cover the run() except branch (lines 176-179).
+
+    Basis Path Testing: run() has a happy path (already covered indirectly)
+    and an error path where any phase raises. We force the first phase
+    (_generate_tasks) to raise and assert the exception is re-raised after
+    error_handler.handle_error is invoked.
+    """
+
+    def test_run_reraises_and_reports_on_failure(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        boom = RuntimeError("gen fail")
+        platform._generate_tasks = MagicMock(side_effect=boom)
+        platform.error_handler.handle_error = MagicMock()
+
+        with pytest.raises(RuntimeError, match="gen fail"):
+            platform.run()
+
+        # error_handler must receive the original exception with phase context
+        platform.error_handler.handle_error.assert_called_once()
+        called_exc = platform.error_handler.handle_error.call_args[0][0]
+        assert called_exc is boom
+
+
+# ===========================================================================
+# run() happy-path orchestration (lines 146-174)
+# ===========================================================================
+
+
+class TestRunHappyPath:
+    """Cover the run() success body (lines 146-174).
+
+    Basis Path Testing: the five-phase orchestration between task generation
+    and summary. All phase methods are stubbed so only the orchestration glue
+    (metadata build, set_experiment_metadata, result-processing gate, summary)
+    executes.
+    """
+
+    def test_run_executes_all_phases_and_returns_summary(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        platform._generate_tasks = MagicMock()
+        platform._skip_completed_tasks = MagicMock()
+        platform._execute_tasks = MagicMock(return_value=[])
+        platform._process_results = MagicMock()
+        platform.task_storage.set_experiment_metadata = MagicMock()
+        platform._skipped_count = 3
+
+        summary = platform.run()
+
+        # Orchestration wired the phases together
+        platform._generate_tasks.assert_called_once()
+        platform._skip_completed_tasks.assert_called_once()
+        platform._execute_tasks.assert_called_once()
+        platform._process_results.assert_called_once()
+        platform.task_storage.set_experiment_metadata.assert_called_once()
+        # Summary reflects the (empty) results plus the skipped count
+        assert summary["total_tasks"] == 0
+        assert summary["skipped_tasks"] == 3
+
+    def test_run_skips_result_processing_when_configured(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        platform._generate_tasks = MagicMock()
+        platform._skip_completed_tasks = MagicMock()
+        platform._execute_tasks = MagicMock(return_value=[])
+        platform._process_results = MagicMock()
+        platform.config.skip_result_processing = True
+
+        platform.run()
+
+        platform._process_results.assert_not_called()
+
+
+# ===========================================================================
+# _process_results() (lines 554-571)
+# ===========================================================================
+
+
+class TestProcessResults:
+    """Cover _process_results() (lines 554-571).
+
+    ResultProcessorComponent is patched at the module path so its
+    initialize/execute/cleanup lifecycle is invoked without real file I/O.
+    """
+
+    def test_process_results_runs_component_lifecycle(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        platform.task_storage.get_completed_tasks = MagicMock(return_value=[])
+
+        with patch("rv_platform.platform.ResultProcessorComponent") as MockProc:
+            platform._process_results()
+
+        instance = MockProc.return_value
+        instance.initialize.assert_called_once()
+        instance.execute.assert_called_once()
+        instance.cleanup.assert_called_once()
+
+
+# ===========================================================================
+# _discover_apks() empty-directory direct branch (line 298)
+# ===========================================================================
+
+
+class TestDiscoverApksEmptyDirect:
+    """Cover the raise at line 298 directly.
+
+    Error guessing: existing test_raises_on_empty_directory trips
+    validate_dependencies in __init__, never reaching _discover_apks. Here we
+    build a valid platform, then repoint apks_dir at an empty dir and call
+    _discover_apks() directly so the glob returns no files.
+    """
+
+    def test_discover_apks_raises_when_dir_empty(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        platform.config.apks_dir = str(empty)
+        with pytest.raises(ValueError, match="No APK files found"):
+            platform._discover_apks()
+
+
+# ===========================================================================
+# _execute_tasks() full method (success + except paths)
+# ===========================================================================
+
+
+class TestExecuteTasks:
+    """Cover _execute_tasks() (lines 327-412).
+
+    Basis Path Testing: two paths through the per-task loop — the success
+    path (executor.execute returns) and the except path (executor.execute
+    raises). All heavy collaborators (TaskExecutor + the five components) are
+    patched at the module path rv_platform.platform.* so construction is
+    side-effect-free.
+    """
+
+    def _one_task_platform(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        with patch.object(App, "model_post_init", lambda self, ctx: None):
+            platform._generate_tasks()
+        assert len(platform.tasks) == 1
+        return platform
+
+    def test_success_path_collects_result_and_persists(self, tmp_path):
+        platform = self._one_task_platform(tmp_path)
+
+        with patch("rv_platform.platform.TaskExecutor") as MockExec, patch(
+            "rv_platform.platform.StaticAnalysisComponent"
+        ), patch("rv_platform.platform.EmulatorComponent"), patch(
+            "rv_platform.platform.LogcatComponent"
+        ), patch(
+            "rv_platform.platform.CoverageComponent"
+        ), patch(
+            "rv_platform.platform.ToolExecutionComponent"
+        ):
+            MockExec.return_value.execute.return_value = True
+            platform._load_tool = MagicMock(return_value=MagicMock())
+            platform.task_storage.update_task = MagicMock()
+
+            results = platform._execute_tasks()
+
+        assert len(results) == 1
+        assert results[0]["success"] is True
+        assert results[0]["apk_name"] == "app.apk"
+        assert results[0]["tool_name"] == "monkey"
+        assert platform.task_storage.update_task.called
+
+    def test_except_path_marks_error_and_persists(self, tmp_path):
+        platform = self._one_task_platform(tmp_path)
+
+        with patch("rv_platform.platform.TaskExecutor") as MockExec, patch(
+            "rv_platform.platform.StaticAnalysisComponent"
+        ), patch("rv_platform.platform.EmulatorComponent"), patch(
+            "rv_platform.platform.LogcatComponent"
+        ), patch(
+            "rv_platform.platform.CoverageComponent"
+        ), patch(
+            "rv_platform.platform.ToolExecutionComponent"
+        ):
+            MockExec.return_value.execute.side_effect = RuntimeError("exec boom")
+            platform._load_tool = MagicMock(return_value=MagicMock())
+            platform.task_storage.update_task = MagicMock()
+
+            results = platform._execute_tasks()
+
+        assert len(results) == 1
+        assert results[0]["success"] is False
+        assert "exec boom" in results[0]["error_message"]
+        # Task marked ERROR and persisted (crash-recovery invariant)
+        assert platform.tasks[0].result.state == TaskState.ERROR
+        assert platform.task_storage.update_task.called
+
+
+# ===========================================================================
+# _extract_meaningful_error_message() .message branch (line 448)
+# ===========================================================================
+
+
+class TestExtractMessageAttr:
+    """Cover the generic `.message` branch (line 448).
+
+    Equivalence Partitioning: distinct from the RVToolTimeoutError /
+    RVToolExecutionError partitions already covered — a non-RV exception that
+    nonetheless carries a truthy `.message` attribute must short-circuit to it
+    before the fallback str(exception).
+    """
+
+    def test_non_rv_exception_with_message_attr(self, tmp_path):
+        platform = _make_platform(tmp_path)
+
+        class CustomErr(Exception):
+            def __init__(self):
+                super().__init__("x")
+                self.message = "custom detail"
+                self.cause = None
+
+        msg = platform._extract_meaningful_error_message(CustomErr())
+        assert msg == "custom detail"
+
+
+# ===========================================================================
+# _load_tool() three sub-branches (lines 475-488)
+# ===========================================================================
+
+
+class TestLoadTool:
+    """Cover _load_tool() success and both failure branches.
+
+    Decision table:
+      - valid ToolConfig + factory ok         -> returns tool instance
+      - non-ToolConfig input                   -> inner ValueError re-wrapped
+      - valid ToolConfig + factory raises      -> RuntimeError re-wrapped
+    """
+
+    def test_success_returns_factory_instance(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        sentinel = MagicMock()
+        platform.tool_factory.create_tool = MagicMock(return_value=sentinel)
+        tc = ToolConfig(name="monkey")
+        assert platform._load_tool(tc) is sentinel
+
+    def test_non_toolconfig_raises_wrapped(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        with pytest.raises(ValueError, match="Failed to load tool"):
+            platform._load_tool("not-a-toolconfig")
+
+    def test_factory_error_raises_wrapped(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        platform.tool_factory.create_tool = MagicMock(
+            side_effect=RuntimeError("boom")
+        )
+        tc = ToolConfig(name="monkey")
+        with pytest.raises(ValueError, match="Failed to load tool"):
+            platform._load_tool(tc)
+
+
+# ===========================================================================
+# Task accessors (lines 535, 544)
+# ===========================================================================
+
+
+class TestTaskAccessors:
+    """Cover get_tasks() and get_tasks_summary()."""
+
+    def test_get_tasks_returns_task_list(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        sentinel = ["t1", "t2"]
+        platform.tasks = sentinel
+        assert platform.get_tasks() is sentinel
+
+    def test_get_tasks_summary_serializes_each_task(self, tmp_path):
+        platform = _make_platform(tmp_path)
+        fake = MagicMock()
+        fake.to_dict.return_value = {"id": "x"}
+        platform.tasks = [fake]
+        assert platform.get_tasks_summary() == [{"id": "x"}]
+        assert fake.to_dict.called
