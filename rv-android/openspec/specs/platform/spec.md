@@ -194,6 +194,8 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set (no diagnostic tags passed).
 
 - **INV-PLT-22**: The `rv-platform run --timeouts` argument MUST be declared as a string and parsed into `List[int]` with the same rules as the rv-experiment CLI (comma split, whitespace trim, positive integers only, order preserved, no deduplication). Invalid input MUST abort with a CLI usage error before `PlatformConfig` construction.
+- **INV-PLT-23**: `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data, tool_execution_start=task.result.tool_execution_start)` whenever `task.result.tool_execution_start` is non-`None`, so reconstructed repositories carry the same `time_since_task_start` values the live `CoverageTracker` would have produced (analysis INV-ANA-49). When it is `None`, the component MUST log a warning for that task and proceed; the zeros in the output are then an explicit degraded state, not silent corruption.
+- **INV-PLT-24**: CSV writers MUST NOT fabricate `time` values. The `time` column of `coverage.csv`, `errors.csv`, and `app_events.csv` MUST be exactly the entry's `time_since_task_start` (with `0` representable, meaning first-second occurrence). Substituting row indices, counters, or any other synthesized value for missing or zero timing is prohibited — this extends the INV-PLT-18 live/resume round-trip equivalence to the `time` column: for any completed task with `tool_execution_start` persisted, the `time` column produced from `Task.from_dict(t.to_dict())` + reconstruction MUST equal the one produced from the live repository.
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -580,6 +582,8 @@ Result processing is invoked by `Platform._process_results()` after all tasks ha
 
 Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` are produced from the same `LogcatRepository.calculate_metrics()` source. There is no separate "Branch 2 fallback" path that bypasses repository data for resumed tasks; reconstruction of `task.repository` from logcat + static-analysis JSON (see Requirement "Result Consolidation on Resume (FR10-ext)") ensures both writers operate uniformly on a populated repository.
 
+The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `time_since_task_start` — integer seconds elapsed since tool execution start — on both the live path (stamped by `CoverageTracker`) and the reconstruction path (stamped by `parse_logcat_file` from the persisted `tool_execution_start`, INV-PLT-23). Writers MUST NOT substitute row indices or any other fabricated value when timing is `0` or missing (INV-PLT-24): `0` is a legitimate first-second timestamp, and a repository reconstructed without an epoch produces `0`s that MUST be written as-is with the degraded state logged.
+
 #### Scenario: Full Result Generation
 
 - **WHEN** an experiment completes with 5 tasks, all in `COMPLETED` state
@@ -591,6 +595,7 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 - **WHEN** `coverage.csv` is generated for a completed task with repository data
 - **THEN** the header row MUST be: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target`
 - **AND** each method call MUST produce one row with progressive coverage metrics (cumulative unique methods / total methods)
+- **AND** the `time` value of each row MUST be the method's `time_since_task_start` (first-call time), written as-is — including `0` for first-second calls — with rows ordered chronologically by it
 - **AND** `cov_method`, `cov_act`, `cov_rv_method` MUST be cumulative-progressive (each row reflects the cumulative state up to and including that call)
 - **AND** `cov_class`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target` MUST equal the final task value from `repository.calculate_metrics().to_dict()` and are row-constant — `cov_class` MUST be `class_coverage` (NOT `method_coverage` as in the pre-fix code), `cov_reachable` MUST be `reachable_method_coverage`, `cov_reaches_target` MUST be `mop_method_coverage`, `cov_directly_reaches_target` MUST be `direct_mop_method_coverage`. Rationale: these metrics are derived from static-analysis denominators that do not change during execution; row-constant values match the offline regen tooling and downstream notebooks already in use
 - **AND** coverage percentages MUST be rounded to 2 decimal places
@@ -600,7 +605,20 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 - **WHEN** `errors.csv` is generated for a completed task with monitored operations violations
 - **THEN** the header row MUST be: `apk, rep, timeout, tool, time, spec, class, method, message, unique_msg`
 - **AND** each violation MUST produce one row
+- **AND** the `time` value MUST be the violation's `time_since_task_start`, written as-is — a violation at second zero produces `0`, and no row index or counter is ever substituted (INV-PLT-24)
 - **AND** `unique_msg` MUST be constructed as `class:::method:::spec:::error_type:::message` if not already provided
+
+#### Scenario: Time Column Round-Trip Equivalence on Resume
+
+- **WHEN** a task completed live (repository populated by `CoverageTracker`, `tool_execution_start` persisted) is serialized to `tasks.json`, reloaded via `Task.from_dict`, and processed through `_reconstruct_repository_from_logcat`
+- **THEN** the `time` column of `coverage.csv` and `errors.csv` rows for that task MUST be identical to the rows the live repository would have produced
+- **AND** the `time` values MUST NOT form a sequential row counter uncorrelated with the logcat timestamps
+
+#### Scenario: Reconstruction Without Persisted Epoch Degrades Explicitly
+
+- **WHEN** a task from a legacy `tasks.json` with `tool_execution_start = None` is reconstructed
+- **THEN** the `time` values for that task MUST be `0` (never row indices)
+- **AND** a warning identifying the task MUST be logged
 
 #### Scenario: Summary CSV Format
 
@@ -684,6 +702,10 @@ using `LogcatRepository.get_diagnostic_events()`, with the column set
 The full multi-line stack trace SHALL NOT be written to the CSV (it remains in the `.logcat`). The
 existing `coverage.csv`/`errors.csv`/`summary.csv` writers and schemas SHALL remain unchanged.
 
+The `time` value of each row MUST be the event's `time_since_task_start` (seconds since tool execution
+start), written as-is on both the live and reconstruction paths — `0` is a legitimate first-second
+value, and no row index or counter is ever substituted (INV-PLT-24).
+
 #### Scenario: One row per diagnostic event with stack_head only
 - **WHEN** a task's repository holds one crash event for `br.unb.cic.cryptoapp`
 - **THEN** `app_events.csv` contains one row with `category=crash`,
@@ -699,6 +721,8 @@ existing `coverage.csv`/`errors.csv`/`summary.csv` writers and schemas SHALL rem
 - **WHEN** a task is processed via `_reconstruct_repository_from_logcat` (resume) and its `.logcat`
   contains a crash block
 - **THEN** the reconstructed repository yields the crash event and `app_events.csv` includes its row
+- **AND** the row's `time` value equals the event's `time_since_task_start` stamped from the persisted
+  `tool_execution_start` (not a row index)
 
 ### Requirement: Capture Flag Threading to LogcatComponent (FR07, FR08)
 
