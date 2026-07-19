@@ -284,6 +284,45 @@ class WrapperEmitterTest {
                 "array-returning static call must delegate with all three args; got:\n" + src);
     }
 
+    @Test
+    void indexExpansionMatchesReturnSubtypePattern(@TempDir Path out) throws IOException {
+        // A "Cipher+" return pattern (any subtype of Cipher) forces expansion and
+        // routes the return type through the subtype branch of patternMatchesFqn:
+        // getInstance returns javax.crypto.Cipher, which is assignable to Cipher,
+        // so the String-arg overload still matches. Guards returnIsSubtypePattern
+        // and index.isAssignableFrom on the return type.
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static Cipher+ Cipher.getInstance(String))",
+                List.of(),
+                "result"));
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertEquals(1, entries.size(),
+                "return-subtype pattern must still resolve the String-arg overload");
+        assertEquals(List.of("java.lang.String"), entries.get(0).originalParamFqn);
+    }
+
+    @Test
+    void indexExpansionRejectsMidListVarargs(@TempDir Path out) throws IOException {
+        // A MIDDLE ".." has no finite lowering, so expandCallTarget bails to an
+        // empty list even with the index present; the literal fallback then also
+        // vetoes it (mid-list wildcard). Net: zero wrappers. This is the
+        // index-present twin of literalFallbackSkipsMidListWildcardParam, covering
+        // the middle-".." early return inside expandCallTarget.
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static Cipher Cipher.getInstance(String, .., int))",
+                List.of(),
+                "result"));
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertTrue(entries.isEmpty(),
+                "a mid-list '..' must produce no wrappers even with the index present");
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
