@@ -252,6 +252,38 @@ class WrapperEmitterTest {
                 "a mid-list '..' wildcard must veto the literal-fallback wrapper");
     }
 
+    @Test
+    void literalFallbackResolvesArrayAndPrimitiveTypes(@TempDir Path out) throws IOException {
+        // resolveFqn has to peel "[]" suffixes, resolve the element type, and
+        // reattach the array rank — and route primitives (byte, int) through the
+        // primitive branch instead of the import table. A static target mixing a
+        // reference type, an array, and a primitive exercises all three: array
+        // return (byte[]), array param (byte[]) and primitive param (int) must
+        // survive the fallback with their ranks and primitiveness intact.
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static byte[] Cipher.getInstance(String, byte[], int))",
+                List.of(),
+                "result"));
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+
+        assertEquals(1, entries.size());
+        WrapperEmitter.WrapperEntry e = entries.get(0);
+        assertEquals(List.of("java.lang.String", "byte[]", "int"), e.originalParamFqn,
+                "array rank and primitive types must survive resolveFqn");
+        assertEquals("byte[]", e.originalReturnFqn, "array return rank must be preserved");
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains(
+                        "public static byte[] javax_crypto_Cipher_getInstance("
+                                + "java.lang.String p0, byte[] p1, int p2)"),
+                "wrapper signature must carry array + primitive params; got:\n" + src);
+        assertTrue(src.contains(
+                        "byte[] result = javax.crypto.Cipher.getInstance(p0, p1, p2);"),
+                "array-returning static call must delegate with all three args; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
