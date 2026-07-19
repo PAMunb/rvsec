@@ -369,6 +369,47 @@ class WrapperEmitterTest {
                 "RV runtime import must be filtered out; got:\n" + src);
     }
 
+    @Test
+    void instanceWrapperMapsTargetToRecvAndArgPositionally(@TempDir Path out) throws IOException {
+        // For an instance target the receiver is materialized as "recv" and is NOT
+        // one of the positional wrapper params (p0..pN). buildMonitorArgs must map
+        // the advice's target(c) binding to "recv" WITHOUT advancing the positional
+        // cursor, so the next binding args(input) still lands on p0 (not p1) and
+        // the returning value maps to "result". A monitor call referencing all
+        // three (c, input, result) proves the alignment end-to-end — an off-by-one
+        // here would silently feed the monitor the wrong DEX registers.
+        AdviceDescriptor advice = new AdviceDescriptor();
+        advice.setName("doFinal");
+        advice.setSpecName("Cipher");
+        advice.setPosition("after");
+        advice.setAround(false);
+        advice.setParameters(List.of(
+                new ParameterDescriptor("Cipher", "c"),
+                new ParameterDescriptor("byte[]", "input")));
+        advice.setReturning(List.of(new ParameterDescriptor("byte[]", "result")));
+        advice.setExpression(
+                "call(public byte[] Cipher.doFinal(byte[])) && target(c) && args(input)");
+        MonitorCallDescriptor mc = new MonitorCallDescriptor();
+        mc.setMethod("MultiSpec_1RuntimeMonitor.event");
+        mc.setSpecName("Cipher");
+        mc.setEventId("event");
+        mc.setUniqueId("event");
+        mc.setArgs(List.of("c", "input", "result"));
+        advice.setMonitorCalls(List.of(mc));
+
+        AspectDescriptor d = newDescriptor(advice);
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertEquals(1, entries.size(), "byte[]-arg doFinal has exactly one overload");
+        assertFalse(entries.get(0).isStatic, "doFinal is an instance method");
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains("javax.crypto.Cipher recv, byte[] p0"),
+                "receiver is recv and the single arg is p0; got:\n" + src);
+        assertTrue(src.contains("MultiSpec_1RuntimeMonitor.event(recv, p0, result);"),
+                "target→recv, args→p0 (not p1), returning→result; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
