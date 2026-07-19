@@ -8,7 +8,7 @@ from rv_android_core.domain.coverage import (
     LogcatRepository,
     MethodCoverageData,
 )
-from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
+from rv_android_core.domain.log import RvCoverageLog, RvDiagnosticEvent, RvErrorLog
 
 from .test_framework import ModelTestBase
 
@@ -87,6 +87,73 @@ class TestMethodCoverageData(ModelTestBase):
         assert method_data.call_count == 3
         assert method_data.first_called_at == call_times[0]
         assert method_data.last_called_at == call_times[-1]
+
+    def test_to_dict_with_timestamps(self, method_data):
+        """to_dict() emits ISO strings for both datetimes once the method is called.
+
+        Basis-path: exercises the truthy branch of both `if self.first_called_at`
+        and `if self.last_called_at` in to_dict() (lines 146-152).
+        """
+        call_time = datetime(2023, 5, 4, 10, 30, 0)
+        method_data.register_call(call_time, time_since_task_start=7)
+
+        result = method_data.to_dict()
+
+        # Static/dynamic scalar fields
+        assert result["class_name"] == "com.example.TestClass"
+        assert result["method_name"] == "testMethod"
+        assert result["signature"] == (
+            "com.example.TestClass.testMethod(Ljava/lang/String;)V"
+        )
+        assert result["parameters"] == ["java.lang.String"]
+        assert result["reachable"] is True
+        assert result["reaches_target"] is True
+        assert result["directly_reaches_target"] is False
+        assert result["called"] is True
+        assert result["call_count"] == 1
+        # Both timestamps present as ISO strings
+        assert result["first_called_at"] == call_time.isoformat()
+        assert result["last_called_at"] == call_time.isoformat()
+
+    def test_to_dict_without_timestamps(self, method_data):
+        """to_dict() yields None for both datetimes on a never-called method.
+
+        Basis-path: exercises the falsy (else) branch of both datetime guards in
+        to_dict() (lines 148-149, 153-154).
+        """
+        result = method_data.to_dict()
+
+        assert result["called"] is False
+        assert result["call_count"] == 0
+        assert result["first_called_at"] is None
+        assert result["last_called_at"] is None
+
+    def test_from_coverage_log(self):
+        """from_coverage_log() builds a called instance mirroring the log entry.
+
+        Traceability: the classmethod is the bridge from a raw RvCoverageLog to a
+        MethodCoverageData, registering the first call and preserving timing.
+        """
+        log = RvCoverageLog(
+            clazz="com.example.Foo",
+            method="bar",
+            params="java.lang.String;int",
+            signature="com.example.Foo.bar(Ljava/lang/String;I)V",
+            original_msg="RVSEC-COV raw line",
+            time_occurred=datetime(2023, 6, 1, 9, 0, 0),
+            time_since_task_start=12,
+        )
+
+        instance = MethodCoverageData.from_coverage_log(log)
+
+        assert instance.class_name == log.clazz
+        assert instance.method_name == log.method
+        assert instance.signature == log.signature
+        assert instance.parameters == log.get_parameters_list()
+        # register_call runs inside the classmethod
+        assert instance.called is True
+        assert instance.call_count == 1
+        assert instance.time_since_task_start == log.time_since_task_start
 
 
 class TestClassCoverageData(ModelTestBase):
@@ -221,6 +288,35 @@ class TestClassCoverageData(ModelTestBase):
         assert (
             class_data.called_mop_reaching_method_count == 1
         )  # Still 1 since method2 doesn't reach MOP
+
+    def test_to_dict(self, class_data, method_data_1, method_data_2):
+        """to_dict() aggregates class metadata, per-metric counts, and methods list.
+
+        Covers ClassCoverageData.to_dict() (line 309): asserts identity fields,
+        every count property, and that `methods` is a serialized list.
+        """
+        class_data.add_method(method_data_1)
+        class_data.add_method(method_data_2)
+        class_data.register_method_call(method_data_1.signature)
+
+        result = class_data.to_dict()
+
+        assert result["name"] == "com.example.TestClass"
+        assert result["component_type"] == "activity"
+        assert result["is_main"] is False
+        assert result["method_count"] == 2
+        assert result["called_method_count"] == 1
+        assert result["reachable_method_count"] == 2
+        assert result["called_reachable_method_count"] == 1
+        assert result["mop_reaching_method_count"] == 1
+        assert result["called_mop_reaching_method_count"] == 1
+        assert isinstance(result["methods"], list)
+        assert len(result["methods"]) == 2
+        # Each entry is a method dict (from MethodCoverageData.to_dict())
+        assert {m["signature"] for m in result["methods"]} == {
+            method_data_1.signature,
+            method_data_2.signature,
+        }
 
 
 class TestCoverageMetrics(ModelTestBase):
@@ -705,3 +801,296 @@ class TestLogcatRepository(ModelTestBase):
         assert diagnostics["unique_error_count"] == 1
         assert diagnostics["static_totals"] is not None
         assert len(diagnostics["issues"]) == 0  # No issues expected
+
+    @pytest.fixture
+    def diagnostic_event(self):
+        """Create a minimal valid RvDiagnosticEvent instance for testing."""
+        return RvDiagnosticEvent(
+            category="crash",
+            class_full_name="java.lang.NullPointerException",
+            method="onCreate",
+            message="FATAL EXCEPTION: main",
+            source="MainActivity.java:42",
+            process="com.example.app",
+            pid="1234",
+            tid="1234",
+            fatal=True,
+            stack_head="at com.example.MainActivity.onCreate(MainActivity.java:42)",
+            n_frames=5,
+            original_msg="FATAL EXCEPTION: main\n\tat ...",
+            time_occurred=datetime(2023, 7, 1, 8, 0, 0),
+            time_since_task_start=3,
+        )
+
+    def test_register_diagnostic_event(self, repository, diagnostic_event):
+        """register_diagnostic_event() appends to the isolated diagnostic collection.
+
+        Covers line 589. Diagnostic events are kept separate from coverage/errors
+        (INV-CORE-39); this only asserts the append side effect.
+        """
+        repository.register_diagnostic_event(diagnostic_event)
+
+        assert len(repository.diagnostic_events) == 1
+        assert repository.diagnostic_events[0] is diagnostic_event
+
+    def test_get_diagnostic_events_sorted(self, repository):
+        """get_diagnostic_events() returns dicts sorted ascending by task time.
+
+        Covers lines 598-599. Registers two events out of chronological order and
+        asserts the returned list is dict-serialized and time-sorted.
+        """
+        later = RvDiagnosticEvent(
+            category="crash",
+            class_full_name="java.lang.IllegalStateException",
+            method="onResume",
+            message="FATAL EXCEPTION: main",
+            time_since_task_start=20,
+        )
+        earlier = RvDiagnosticEvent(
+            category="verify_error",
+            class_full_name="com.example.Rejected",
+            method="",
+            message="Rejecting class",
+            time_since_task_start=5,
+        )
+        # Register out of order to prove sorting happens on read.
+        repository.register_diagnostic_event(later)
+        repository.register_diagnostic_event(earlier)
+
+        result = repository.get_diagnostic_events()
+
+        assert len(result) == 2
+        assert all(isinstance(d, dict) for d in result)
+        assert [d["time_since_task_start"] for d in result] == [5, 20]
+
+    def test_calculate_metrics_static_totals_unavailable(
+        self, repository, class_data, method_data
+    ):
+        """Defensive else path when static totals are empty/unavailable.
+
+        Covers lines 656-658: with at least one class present (so the empty-classes
+        early return at 631 is skipped) but `_static_totals` forced to an empty dict
+        ({} is falsy yet not None, so line 638 does NOT recompute and line 642's
+        `if self._static_totals:` is False), calculate_metrics() must fall through to
+        the defensive "static totals unavailable" branch without crashing. Total
+        counts stay 0 because the totals dict was emptied.
+        """
+        class_data.add_method(method_data)
+        repository.add_class(class_data)
+
+        # Force the falsy-but-not-None state that triggers the defensive else.
+        repository._static_totals = {}
+
+        metrics = repository.calculate_metrics()
+
+        assert isinstance(metrics, CoverageMetrics)
+        assert metrics.total_methods == 0
+        assert metrics.total_classes == 0
+
+    def test_calculate_metrics_direct_target_called(self, repository):
+        """called_direct_target_methods increments for a called direct-MOP method.
+
+        Covers line 677 (and, as a side effect, line 777's
+        total_direct_target_methods increment inside _calculate_static_totals).
+        """
+        cls = ClassCoverageData(
+            name="com.example.DirectClass", component_type="activity"
+        )
+        direct_method = MethodCoverageData(
+            class_name="com.example.DirectClass",
+            method_name="doCrypto",
+            signature="com.example.DirectClass.doCrypto()V",
+            parameters=[],
+            reachable=True,
+            reaches_target=True,
+            directly_reaches_target=True,
+        )
+        cls.add_method(direct_method)
+        cls.register_method_call(direct_method.signature)
+        repository.add_class(cls)
+
+        metrics = repository.calculate_metrics()
+
+        assert metrics.called_direct_target_methods == 1
+        # Static side effect: _calculate_static_totals counted the direct method.
+        assert metrics.total_direct_target_methods == 1
+
+    def test_calculate_coverage_metrics(
+        self, repository, class_data, method_data, coverage_log
+    ):
+        """calculate_coverage_metrics() returns the standardized percentage dict.
+
+        Covers lines 698-714. A repo with one called method yields 100% class and
+        method coverage plus the full standardized key set.
+        """
+        class_data.add_method(method_data)
+        repository.add_class(class_data)
+        repository.register_method_call(coverage_log)
+
+        result = repository.calculate_coverage_metrics()
+
+        assert result["total_classes"] == 1
+        assert result["covered_classes"] == 1
+        assert result["class_coverage_percentage"] == 100.0
+        assert result["total_methods"] == 1
+        assert result["covered_methods"] == 1
+        assert result["method_coverage_percentage"] == 100.0
+        # Standardized keys expected by downstream consumers
+        assert "mop_method_coverage_percentage" in result
+        assert "total_errors" in result
+        assert "timestamp" in result
+
+    def test_diagnose_static_totals_zero_methods(self, repository):
+        """diagnose() flags static totals that report zero methods.
+
+        Covers line 815: a class WITH NO methods makes _calculate_static_totals
+        produce total_methods == 0 (not None), tripping the `elif` branch.
+        """
+        repository.add_class(ClassCoverageData(name="com.example.Empty"))
+        # Force _static_totals to a non-None dict whose total_methods is 0.
+        repository.get_static_method_count()
+
+        diagnostics = repository.diagnose()
+
+        assert "Static totals shows zero methods" in diagnostics["issues"]
+
+    def test_to_dict(self, repository, class_data, method_data, error_log):
+        """to_dict() serializes metrics, classes, and error aggregates.
+
+        Covers lines 827-829: asserts the top-level keys and that the error count
+        matches the number of registered violations.
+        """
+        class_data.add_method(method_data)
+        repository.add_class(class_data)
+        repository.register_rv_error(error_log)
+
+        result = repository.to_dict()
+
+        assert "metrics" in result
+        assert "classes" in result
+        assert "errors" in result
+        assert "com.example.TestClass" in result["classes"]
+        assert result["errors"]["count"] == 1
+        assert result["errors"]["unique_count"] == 1
+
+    def test_get_method_calls(self, repository):
+        """get_method_calls() returns one time-sorted entry per called method.
+
+        Covers lines 855-889. Two called methods with distinct task times must come
+        back sorted ascending by "time", each carrying the full CSV-row key set. The
+        class is an activity, so the "activity" key equals the class name.
+        """
+        cls = ClassCoverageData(
+            name="com.example.ActivityClass", component_type="activity"
+        )
+        early_method = MethodCoverageData(
+            class_name="com.example.ActivityClass",
+            method_name="first",
+            signature="com.example.ActivityClass.first()V",
+            parameters=[],
+            reaches_target=True,
+        )
+        late_method = MethodCoverageData(
+            class_name="com.example.ActivityClass",
+            method_name="second",
+            signature="com.example.ActivityClass.second()V",
+            parameters=[],
+            reaches_target=False,
+        )
+        cls.add_method(early_method)
+        cls.add_method(late_method)
+        # Register with explicit, out-of-order task times to prove sorting.
+        cls.register_method_call(
+            late_method.signature,
+            datetime(2023, 8, 1, 10, 0, 0),
+            time_since_task_start=30,
+        )
+        cls.register_method_call(
+            early_method.signature,
+            datetime(2023, 8, 1, 10, 0, 0),
+            time_since_task_start=5,
+        )
+        repository.add_class(cls)
+
+        calls = repository.get_method_calls()
+
+        assert len(calls) == 2
+        # Sorted ascending by task time.
+        assert [c["time"] for c in calls] == [5, 30]
+        first = calls[0]
+        for key in (
+            "time",
+            "class_name",
+            "method_name",
+            "signature",
+            "is_mop_method",
+            "activity",
+            "call_count",
+            "first_called_at",
+            "last_called_at",
+        ):
+            assert key in first
+        # Activity branch: component_type == "activity" -> activity == class name.
+        assert first["activity"] == "com.example.ActivityClass"
+        assert first["method_name"] == "first"
+        assert first["is_mop_method"] is True
+
+    def test_get_static_methods(self, repository, class_data, method_data):
+        """get_static_methods() returns all method signatures across classes.
+
+        Covers lines 913-916.
+        """
+        class_data.add_method(method_data)
+        repository.add_class(class_data)
+
+        signatures = repository.get_static_methods()
+
+        assert signatures == [method_data.signature]
+
+    def test_get_static_activities(self, repository):
+        """get_static_activities() returns only activity-typed class names.
+
+        Covers line 925: with one activity and one non-activity class, only the
+        activity name is returned.
+        """
+        activity = ClassCoverageData(
+            name="com.example.MyActivity", component_type="activity"
+        )
+        service = ClassCoverageData(
+            name="com.example.MyService", component_type="service"
+        )
+        repository.add_class(activity)
+        repository.add_class(service)
+
+        activities = repository.get_static_activities()
+
+        assert activities == ["com.example.MyActivity"]
+
+    def test_get_target_methods(self, repository):
+        """get_target_methods() returns only signatures that reach MOP operations.
+
+        Covers lines 938-943: equivalence partitioning on `reaches_target` -
+        exactly the True-partition signature is returned.
+        """
+        cls = ClassCoverageData(name="com.example.TargetClass")
+        mop_method = MethodCoverageData(
+            class_name="com.example.TargetClass",
+            method_name="reaches",
+            signature="com.example.TargetClass.reaches()V",
+            parameters=[],
+            reaches_target=True,
+        )
+        non_mop_method = MethodCoverageData(
+            class_name="com.example.TargetClass",
+            method_name="plain",
+            signature="com.example.TargetClass.plain()V",
+            parameters=[],
+            reaches_target=False,
+        )
+        cls.add_method(mop_method)
+        cls.add_method(non_mop_method)
+        repository.add_class(cls)
+
+        targets = repository.get_target_methods()
+
+        assert targets == [mop_method.signature]
