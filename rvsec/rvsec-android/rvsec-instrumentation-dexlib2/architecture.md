@@ -603,8 +603,9 @@ insertion shifts only already-processed indices; and `spillLowRegisters` is atom
 (INV-INS-80) so a mid-stream overflow never leaves a half-shifted method in the cache.
 
 The **coverage-weaver** is a second, orthogonal executor. `CoverageWeaver.weave` prepends
-`invoke-static Lmop/Coverage;.log(...)V` to every method `PackageFilter` does not exclude — the
-DEX-native equivalent of the legacy `Coverage.aj` rule. `SignatureFormatter` precomputes the
+`invoke-static Lmop/Coverage;.log(...)V` to every method the canonical `PackageFilter`
+(INV-INS-53) does not exclude — the DEX-native equivalent of the legacy `Coverage.aj` exclusion
+rule, so the two variants measure coverage over the same app-code population. `SignatureFormatter` precomputes the
 signature string at weave time (no runtime reflection) in the Soot-style shape the legacy aspect
 emitted, so Layer-5 RVSEC-COV recall comparisons line up. It reuses dex-mutator's
 `RegisterShifter.spillLowRegisters` for the scratch register. It is separate because it is gated
@@ -924,7 +925,7 @@ narrated in the [Rationale](#7-rationale) section above.
 | Type | IDs | Where realized |
 |------|-----|----------------|
 | Functional requirements | FR01, FR02, FR03 | the full weave pipeline: `cli/BatchRunner.runPipeline` orchestrating descriptor-reader → pointcut-engine → advice-emitter → dex-mutator → coverage-weaver → monitor-builder → multidex-merger |
-| Invariants | INV-INS-52, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator` |
+| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator` |
 | NFRs | NFR03, NFR04, NFR05, NFR06, NFR07 | see [Rationale](#7-rationale) |
 
 **Related documentation:** per-module 4+1 docs (`modules/<m>/docs/architecture.md`), ADRs
