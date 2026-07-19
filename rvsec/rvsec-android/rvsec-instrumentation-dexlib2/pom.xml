@@ -36,6 +36,7 @@
         <asm.version>9.7.1</asm.version>
         <slf4j.version>2.0.16</slf4j.version>
         <junit-jupiter.version>5.11.3</junit-jupiter.version>
+        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
     </properties>
 
     <repositories>
@@ -92,4 +93,41 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <!--
+      Code-coverage instrumentation for every child module. Declared here in the
+      dexlib2 aggregator (temporary home): being the parent of all 10 modules,
+      the plugin is inherited so each module records its own jacoco.exec and
+      emits a per-module HTML/XML report under target/site/jacoco. Intended to
+      move higher in the pom hierarchy (rvsec-android) later.
+
+      prepare-agent wires the JaCoCo runtime agent into the surefire JVM before
+      tests run; the report goal (bound to the test phase) converts the recorded
+      jacoco.exec into target/site/jacoco. Modules with no tests simply produce
+      no execution data and the report goal skips them without failing.
+    -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
