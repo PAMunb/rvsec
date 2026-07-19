@@ -480,6 +480,48 @@ class WrapperEmitterTest {
                 "monitor call maps args positionally to p0, p1; got:\n" + src);
     }
 
+    @Test
+    void indexExpansionRejectsArrayRankMismatchedParams(@TempDir Path out) throws IOException {
+        // Array dimensions must match EXACTLY: patternMatchesFqnRaw peels each "[]"
+        // off the pattern and requires the concrete param to shed the same number.
+        // The fixture's doFinal([B) has a rank-1 byte[] param, so:
+        //   - a rank-2 pattern (byte[][]) has MORE dims than the actual → the peel
+        //     loop hits a non-array base and rejects (guards the "actual lacks a
+        //     '[]' the pattern demands" branch);
+        //   - a rank-0 pattern (byte) has FEWER dims than the actual byte[] → the
+        //     "actual has a trailing '[]' the pattern doesn't" guard rejects.
+        // Both must yield zero wrappers even though the arity (1) lines up, proving
+        // the rank check — not the arity check — is what filters them. The rank-1
+        // control (byte[]) still matches, so a zero result cannot be blamed on a
+        // parse failure or a missing overload.
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+
+        List<WrapperEmitter.WrapperEntry> tooManyDims = WrapperEmitter.generate(
+                newDescriptor(adviceAfterReturning("doFinal", "Cipher",
+                        "call(public byte[] Cipher.doFinal(byte[][])) && target(c)",
+                        List.of(new ParameterDescriptor("Cipher", "c")), "result")),
+                out, idx);
+        assertTrue(tooManyDims.isEmpty(),
+                "a rank-2 byte[][] pattern must not match the rank-1 byte[] overload");
+
+        List<WrapperEmitter.WrapperEntry> tooFewDims = WrapperEmitter.generate(
+                newDescriptor(adviceAfterReturning("doFinal", "Cipher",
+                        "call(public byte[] Cipher.doFinal(byte)) && target(c)",
+                        List.of(new ParameterDescriptor("Cipher", "c")), "result")),
+                out, idx);
+        assertTrue(tooFewDims.isEmpty(),
+                "a rank-0 byte pattern must not match the rank-1 byte[] overload");
+
+        List<WrapperEmitter.WrapperEntry> exactRank = WrapperEmitter.generate(
+                newDescriptor(adviceAfterReturning("doFinal", "Cipher",
+                        "call(public byte[] Cipher.doFinal(byte[])) && target(c)",
+                        List.of(new ParameterDescriptor("Cipher", "c")), "result")),
+                out, idx);
+        assertEquals(1, exactRank.size(),
+                "the rank-1 byte[] pattern still matches doFinal([B) — control case");
+        assertEquals(List.of("byte[]"), exactRank.get(0).originalParamFqn);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
