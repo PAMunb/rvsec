@@ -295,10 +295,16 @@ public final class WrapperEmitter {
             if (ps.isSubtype()) needsExpansion = true;
             if ("..".equals(p)) {
                 needsExpansion = true;
+                // Trailing ".." is a variadic TAIL: it matches zero-or-more
+                // parameters after a known fixed prefix, so every android.jar
+                // overload sharing that prefix is a legitimate concrete target and
+                // each becomes its own wrapper. A MIDDLE ".." instead demands "any
+                // number of params HERE, then these exact params after" — the count
+                // and positions of the fixed suffix cannot be pinned to concrete
+                // slots, so it has no finite lowering to a Java method signature.
+                // Rather than guess, we skip the whole pointcut (INV-INS-66 surface).
                 if (i == specs.size() - 1) hasTrailingVarargs = true;
                 else {
-                    // Middle-position ".." cannot be lowered to a Java
-                    // signature; the prototipo logged + skipped.
                     return Collections.emptyList();
                 }
             }
@@ -324,6 +330,10 @@ public final class WrapperEmitter {
                 index.methods(declFqn, ct.methodName(), /*onlyStatic=*/ false);
         if (methods.isEmpty()) return Collections.emptyList();
 
+        // fixedPrefix = how many leading params must match a concrete overload
+        // exactly. With a trailing "..", the last spec IS the varargs marker and is
+        // not itself a matchable parameter, so drop it from the count; otherwise
+        // every spec is fixed and must line up one-to-one with the overload arity.
         int fixedPrefix = hasTrailingVarargs
                 ? specs.size() - 1
                 : specs.size();
@@ -389,6 +399,12 @@ public final class WrapperEmitter {
                                                 TypeResolver resolver, AndroidClassIndex index) {
         String raw = rawIn;
 
+        // Array dimensions must match EXACTLY, and are compared before any type
+        // logic: peel each "[]" off the pattern, then require the actual type to
+        // shed the same number of "[]" — a String[] pattern must not match a bare
+        // String or a String[][]. Both `supertype` assignability and exact match
+        // apply only to the element type left after peeling, never across differing
+        // array ranks (Object[] is not assignable from String in this comparison).
         int arrays = 0;
         while (raw.endsWith("[]")) { arrays++; raw = raw.substring(0, raw.length() - 2); }
 
@@ -397,6 +413,7 @@ public final class WrapperEmitter {
             if (!actualBase.endsWith("[]")) return false;
             actualBase = actualBase.substring(0, actualBase.length() - 2);
         }
+        // Actual has MORE dimensions than the pattern: reject (rank mismatch).
         if (actualBase.endsWith("[]") && arrays == 0) return false;
 
         if (isPrimitiveFqn(raw)) return actualBase.equals(raw);
@@ -404,6 +421,9 @@ public final class WrapperEmitter {
 
         String patternFqn = raw.contains(".") ? raw : resolver.resolveFqn(raw);
         if (patternFqn == null) return false;
+        // Exact pattern ("X") demands identical FQN; subtype pattern ("X+") accepts
+        // any type X is assignable from. The `supertype` flag was set by the caller
+        // when it stripped the trailing "+", so it never reaches the string compare.
         if (!supertype) return actualBase.equals(patternFqn);
         return index.isAssignableFrom(patternFqn, actualBase);
     }
@@ -640,6 +660,12 @@ public final class WrapperEmitter {
         // For static wrappers every advice parameter maps positionally to
         // wrapper params.
         String targetName = !isStatic ? extractTargetBinding(advice.getExpression()) : null;
+        // wrapperIdx walks the positional wrapper params p0..pN. The target
+        // binding is NOT one of them — it is the receiver, already materialized as
+        // "recv" — so when we hit it we bind to "recv" and `continue` WITHOUT
+        // advancing wrapperIdx. Bumping the index there would shift every following
+        // positional param by one (p0 read as p1, ...), misaligning the monitor
+        // call arguments against the actual wrapper signature.
         int wrapperIdx = 0;
         for (ParameterDescriptor pd : advice.getParameters()) {
             if (targetName != null && targetName.equals(pd.getName())) {

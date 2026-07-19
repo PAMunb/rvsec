@@ -188,6 +188,16 @@ public final class RegisterShifter {
         //           payload instruction).
         //   Pass 3: replace every remaining position (branches, regular
         //           instructions, array payloads) with the rehomed form.
+        // Why the placeholder pre-fill is load-bearing for label re-homing:
+        // newLabelForIndex(i) resolves to the MethodLocation dst ALREADY holds at
+        // index i — it does not create positions. Every label consumer downstream
+        // (switch payloads and branches here; try-block start/end/handler spans in
+        // bumpRegisterCount, which call dst.newLabelForIndex AFTER this returns)
+        // therefore needs a real instruction sitting at each source index first.
+        // Seeding N return-void no-ops makes all indices in [0, n) resolvable, so a
+        // try range whose handler sits at the last instruction re-homes onto a live
+        // location instead of falling off the end of a still-empty MMI. That is the
+        // try/catch re-homing correctness behind INV-INS-80.
         List<BuilderInstruction> srcInsns = src.getInstructions();
         int n = srcInsns.size();
         for (int i = 0; i < n; i++) {
@@ -299,6 +309,15 @@ public final class RegisterShifter {
     static BuilderInstruction shift(BuilderInstruction in, int threshold, int delta) {
         Format fmt = in.getOpcode().format;
         Opcode op = in.getOpcode();
+        // The register field WIDTH per format decides whether a +delta shift can
+        // overflow. The cases below group into three width classes, and only the
+        // 4-bit class is a real hazard for the spill path (delta pushes v15 → v16):
+        //   - 4-bit fields (shift4): 11n vA; 12x/22c/22s/22t both regs; 35c slots.
+        //     shift4 throws RegisterOverflow4Bit so shiftExpanding can widen them.
+        //   - 8-bit fields (shift8): 11x, 21*, 22b, 22x vA, 23x, 31*, 51l — headroom
+        //     to v255, only overflow on pathological frames (shift8 throws hard).
+        //   - 16-bit fields (shift16): 22x vB, 32x both regs, 3rc start reg — the
+        //     widest encodable slot; overflow here means the method is unspillable.
         switch (fmt) {
             // No register operands.
             case Format10x:
@@ -392,6 +411,9 @@ public final class RegisterShifter {
                         i.getTarget());
             }
             case Format22x: {
+                // Mixed width: vA is 8-bit (shift8), vB is 16-bit (shift16). This
+                // is the target shape overflowed 4-bit moves widen into, which is
+                // why the /from16 destination stays 8-bit while the source is wide.
                 BuilderInstruction22x i = (BuilderInstruction22x) in;
                 return new BuilderInstruction22x(op,
                         shift8(i.getRegisterA(), threshold, delta),
@@ -643,6 +665,12 @@ public final class RegisterShifter {
             int b = rawShift(i.getRegisterB(), threshold, delta);
             boolean aOver = a > 0xF;
             boolean bOver = b > 0xF;
+            // Both operands overflowing is vetoed rather than bridged: the single
+            // scratch slot can stage exactly one operand, so relieving both would
+            // need a second scratch register we are not guaranteed to have free
+            // (spillLowRegisters only frees `scratchReg`). Refusing here lets the
+            // caller skip the method cleanly instead of emitting an invoke whose
+            // second high operand still cannot be encoded in a 4-bit field.
             if (aOver && bOver) return null;
             if (a > 0xFF || b > 0xFFFF) return null; // scratch uses 22x (8-bit dest, 16-bit src)
             return expand22cViaScratch(op, a, b, aOver, i.getReference(), scratchReg);
@@ -654,6 +682,11 @@ public final class RegisterShifter {
     private static List<BuilderInstruction> expand22cViaScratch(
             Opcode op, int a, int b, boolean aOver,
             com.android.tools.smali.dexlib2.iface.reference.Reference ref, int scratch) {
+        // Step 1: classify vA. isDestWrite22c decides the emission ORDER (write-back
+        // vs. read-prep, below); isObjectSlot22cA and the wide check pick the move
+        // flavor so the staged value keeps its verifier type — a reference bridged
+        // with a primitive `move` (or vice versa) fails ART verification, and a
+        // 64-bit value staged with a narrow `move` truncates its high half.
         boolean aIsWrite = isDestWrite22c(op);
         boolean aIsWide  = (op == Opcode.IGET_WIDE || op == Opcode.IPUT_WIDE);
         Opcode moveForA = aIsWide ? Opcode.MOVE_WIDE_FROM16
@@ -662,19 +695,32 @@ public final class RegisterShifter {
         if (aOver) {
             int highA = a;
             if (aIsWrite) {
-                // iget / instance-of / new-array — vA is destination. Write into scratch,
-                // then move scratch → highA.
+                // Step 2a (WRITE, iget* / instance-of / new-array): vA is the
+                // DESTINATION. The core op must run FIRST, producing into the
+                // low scratch slot, THEN move-from16 copies the result up to the
+                // real high slot. Ordering the move after the core op is what
+                // makes the value land in highA — reversing it would overwrite
+                // highA before the op ever produced anything.
                 BuilderInstruction22c core = new BuilderInstruction22c(op, scratch, b, ref);
                 BuilderInstruction22x back = new BuilderInstruction22x(moveForA, highA, scratch);
                 return java.util.Arrays.asList(core, back);
             } else {
-                // iput — vA is READ. Move highA → scratch, then iput with scratch.
+                // Step 2b (READ, iput*): vA is the SOURCE value being stored. The
+                // move-from16 must run FIRST to stage highA down into scratch,
+                // THEN the core op reads scratch. The order is the mirror of the
+                // write case: here we must not touch the core op until the source
+                // has been read into a 4-bit-encodable slot.
                 BuilderInstruction22x prep = new BuilderInstruction22x(moveForA, scratch, highA);
                 BuilderInstruction22c core = new BuilderInstruction22c(op, scratch, b, ref);
                 return java.util.Arrays.asList(prep, core);
             }
         } else {
-            // vB overflowed. vB is always a READ (receiver / size / src for instance-of).
+            // Step 3 (vB overflowed): vB is ALWAYS a read (receiver for iget/iput,
+            // src for instance-of, size for new-array), so it takes the read-prep
+            // order unconditionally — stage highB into scratch, then run the core
+            // op against scratch. isObjectSlot22cB picks the move flavor: object
+            // for reference receivers/sources, narrow for the int-domain size of
+            // new-array (an object-move on an int size would mistype the slot).
             Opcode moveForB = isObjectSlot22cB(op) ? Opcode.MOVE_OBJECT_FROM16 : Opcode.MOVE_FROM16;
             int highB = b;
             BuilderInstruction22x prep = new BuilderInstruction22x(moveForB, scratch, highB);
@@ -696,6 +742,10 @@ public final class RegisterShifter {
         }
     }
 
+    // Classifies whether vA is written (iget*/instance-of/new-array produce INTO
+    // vA) or read (iput* stores FROM vA). This is the single fact that flips the
+    // bridging order in expand22cViaScratch: a destination is copied up AFTER the
+    // core op, a source is staged down BEFORE it.
     private static boolean isDestWrite22c(Opcode op) {
         switch (op) {
             case IGET: case IGET_WIDE: case IGET_OBJECT:
@@ -708,12 +758,18 @@ public final class RegisterShifter {
         }
     }
 
-    /** Type of vA (destination for iget*; value for iput*): object vs. int-domain. */
+    // Type of vA (destination for iget*; value for iput*): object vs. int-domain.
+    // Drives the move flavor so the bridged value keeps its verifier type — a
+    // reference must travel via move-object-from16, an int/float via move-from16.
+    // NEW_ARRAY is object here because its vA is the freshly-allocated array ref.
     private static boolean isObjectSlot22cA(Opcode op) {
         return op == Opcode.IGET_OBJECT || op == Opcode.IPUT_OBJECT || op == Opcode.NEW_ARRAY;
     }
 
-    /** Type of vB (receiver for iget/iput; src for instance-of; size for new-array). */
+    // Type of vB (receiver for iget/iput; src for instance-of; size for new-array).
+    // Same purpose as isObjectSlot22cA but for the read operand: field-access
+    // receivers and the instance-of source are references, whereas NEW_ARRAY's vB
+    // is the int-domain length — moving it as an object would mistype the slot.
     private static boolean isObjectSlot22cB(Opcode op) {
         switch (op) {
             case IGET: case IGET_WIDE: case IGET_OBJECT:

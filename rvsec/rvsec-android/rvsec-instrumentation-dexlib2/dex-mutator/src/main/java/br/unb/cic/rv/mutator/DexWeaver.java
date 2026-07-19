@@ -503,6 +503,14 @@ public final class DexWeaver {
                             continue;
                         }
                         if (mutCached == null) mutCached = mut;
+                        // Ordering invariant (INV-INS-87): allocate MAY grow the
+                        // frame and hand back a fresh clone, so the swap+replaceImpl
+                        // for that clone MUST land BEFORE applyPlan runs — applyPlan
+                        // (and any §4.T rebuild it triggers) must mutate the grown
+                        // MMI, and the supplier must be pointed at it before
+                        // serialization reads the method. Doing applyPlan on the
+                        // pre-growth `mut` would emit into an MMI the supplier no
+                        // longer serves, losing the extra registers on disk.
                         RegisterAllocation alloc = allocator.allocate(mut, plan.registers());
                         if (alloc.newImpl() != null) {
                             // Frame growth via clone returned a fresh MMI;
