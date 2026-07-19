@@ -632,6 +632,39 @@ class WrapperEmitterTest {
                 "args→p0 positionally and returning→result, with no recv reference; got:\n" + src);
     }
 
+    @Test
+    void blankAndUnparseablePointcutsAreSkipped(@TempDir Path out) throws IOException {
+        // firstCallTarget guards against two malformed after-advices that must never
+        // produce a wrapper:
+        //   - a blank expression short-circuits before the parser even runs
+        //     (isBlank() → null), and
+        //   - an unparseable expression ("call(foobar)" has no return-type space, so
+        //     parseCallBody throws PointcutParseException) is swallowed by the
+        //     catch(RuntimeException) → null.
+        // Both advices drop out with no call target, so no entries are produced and
+        // the emitter still writes a well-formed empty MonitorWrappers shell (the
+        // bodyStarted==false path) so monitor-builder compiles uniformly.
+        AdviceDescriptor blank = adviceAfterReturning(
+                "getInstance", "Cipher", "   ", List.of(), "result");
+        AdviceDescriptor unparseable = adviceAfterReturning(
+                "getInstance", "Cipher", "call(foobar)", List.of(), "result");
+        AspectDescriptor d = new AspectDescriptor();
+        d.setShortName("Test");
+        d.setImports(List.of("javax.crypto.Cipher"));
+        d.setAdvices(List.of(blank, unparseable));
+
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertTrue(entries.isEmpty(),
+                "blank and unparseable pointcuts must yield no wrapper entries");
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains("public final class MonitorWrappers {"),
+                "an empty wrapper shell must still be emitted; got:\n" + src);
+        assertFalse(src.contains("public static "),
+                "no wrapper methods must be generated for skipped advices; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
