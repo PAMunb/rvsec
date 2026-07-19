@@ -511,6 +511,51 @@ class MonitorInvokeBindingTest {
         assertEquals("unused", ex.bindingName);
     }
 
+    @Test
+    void unresolvedTargetBindingTriggersUnresolvedBindingException() {
+        // The THIRD binding kind (after args and returning): target(name) when
+        // the matcher produced no receiver register. resolveBindings only maps
+        // target(name) → match.targetRegister when targetRegister >= 0; a match
+        // with targetRegister == -1 (e.g. the pointcut matched a site whose
+        // receiver slot was not pinned) leaves "it" out of the map, so the
+        // monitor arg referencing it is unresolved. Substituting v0 here would
+        // be the exact INV-INS-71 bug (a receiver-typed operand pointing at an
+        // unrelated register), so the contract is to throw and skip the site.
+        AdviceDescriptor a = advice("t1", "before",
+                "call(public boolean Iterator.hasNext()) && target(it)",
+                List.of(new ParameterDescriptor("Iterator", "it")),
+                null, null, "hasNextEvent", List.of("it"));
+        Match match = new Match(new LinkedHashMap<>(), /*receiver=*/ -1, null, false);
+        TypeResolver resolver = new TypeResolver(List.of("java.util.Iterator"));
+        EmitContext ctx = new EmitContext(a, match, resolver, MONITOR_OWNER);
+
+        MonitorInvokeBuilder.UnresolvedBindingException ex = assertThrows(
+                MonitorInvokeBuilder.UnresolvedBindingException.class,
+                () -> MonitorInvokeBuilder.buildInvoke(ctx));
+        assertEquals("t1", ex.adviceName);
+        assertEquals("it", ex.bindingName,
+                "the unresolved target-binding name surfaced for operator logging");
+    }
+
+    @Test
+    void resolvedTargetBindingProducesInvoke() {
+        // Positive control for the test above: the SAME target(it) advice with a
+        // real receiver register (v3) resolves cleanly to a monitor invoke. This
+        // proves the throw above is caused specifically by targetRegister == -1,
+        // not by target(it) being an unparseable or intrinsically bad binding.
+        AdviceDescriptor a = advice("t1", "before",
+                "call(public boolean Iterator.hasNext()) && target(it)",
+                List.of(new ParameterDescriptor("Iterator", "it")),
+                null, null, "hasNextEvent", List.of("it"));
+        Match match = new Match(new LinkedHashMap<>(), /*receiver=*/ 3, null, false);
+        TypeResolver resolver = new TypeResolver(List.of("java.util.Iterator"));
+        EmitContext ctx = new EmitContext(a, match, resolver, MONITOR_OWNER);
+
+        List<BuilderInstruction> invoke = MonitorInvokeBuilder.buildInvoke(ctx);
+        assertFalse(invoke.isEmpty(),
+                "a target(it) binding with a real receiver register must emit the monitor invoke");
+    }
+
     // -------------------------------------------------------------------------
     // Task 3.4 extension: returning(name) with high registers (>v15) forces
     // Format35c → Format3rc escalation while preserving register identity.
