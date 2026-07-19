@@ -49,4 +49,54 @@ class PackageFilterTest {
         // Defensive: don't propagate nulls; treat as "skip".
         assertTrue(PackageFilter.isExcluded(null));
     }
+
+    // ------------------------------------------------------------------
+    // INV-INS-53 boundary fidelity: each excluded prefix carries a trailing
+    // slash (e.g. "Ljava/"), so a sibling package that merely SHARES the
+    // leading letters ("Ljavafoo/") MUST NOT be swept up. This is the recall
+    // guard the line-coverage number hides: dropping the trailing slash from a
+    // prefix would silently exclude real application packages from RVSEC-COV.
+    // ------------------------------------------------------------------
+
+    @Test
+    void prefixBoundaryDoesNotFalselyExcludeSiblingPackages() {
+        // Each of these shares the excluded prefix's letters but breaks at the
+        // slash boundary — they are APPLICATION code and MUST be included.
+        assertFalse(PackageFilter.isExcluded("Ljavafoo/Bar;"),
+                "Ljavafoo/ MUST NOT be excluded by the Ljava/ prefix (slash boundary)");
+        assertFalse(PackageFilter.isExcluded("Ljavaxfoo/Bar;"),
+                "Ljavaxfoo/ MUST NOT be excluded by the Ljavax/ prefix");
+        assertFalse(PackageFilter.isExcluded("Lsunny/Bar;"),
+                "Lsunny/ MUST NOT be excluded by the Lsun/ prefix");
+        assertFalse(PackageFilter.isExcluded("Landroidfoo/Bar;"),
+                "Landroidfoo/ MUST NOT be excluded by the Landroid/ prefix");
+        assertFalse(PackageFilter.isExcluded("Lkotlinfoo/Bar;"),
+                "Lkotlinfoo/ MUST NOT be excluded by the Lkotlin/ prefix");
+        assertFalse(PackageFilter.isExcluded("Lcom/googlefoo/Bar;"),
+                "Lcom/googlefoo/ MUST NOT be excluded by the Lcom/google/ prefix");
+    }
+
+    @Test
+    void nonExcludedOrgAndComNamespacesAreIncluded() {
+        // Lcom/ and Lorg/ are NOT blanket-excluded — only specific sub-namespaces
+        // are. Arbitrary org/com application packages MUST survive the filter.
+        assertFalse(PackageFilter.isExcluded("Lcom/example/App;"));
+        assertFalse(PackageFilter.isExcluded("Lcom/squareup/okhttp/Client;"));
+        assertFalse(PackageFilter.isExcluded("Lorg/example/Service;"));
+        // apache is excluded ONLY for commons/geronimo — other apache subpackages
+        // (e.g. an app bundling org.apache.http) are application code.
+        assertFalse(PackageFilter.isExcluded("Lorg/apache/http/HttpClient;"),
+                "Lorg/apache/http/ MUST NOT be excluded — only commons/geronimo are");
+    }
+
+    @Test
+    void remainingExcludedPrefixesAreExcluded() {
+        // The exclusion prefixes not asserted elsewhere — each must skip.
+        assertTrue(PackageFilter.isExcluded("Lsun/security/ssl/SSLContextImpl;"));
+        assertTrue(PackageFilter.isExcluded("Lcom/runtimeverification/rvmonitor/Foo;"));
+        assertTrue(PackageFilter.isExcluded("Lorg/aspectj/lang/JoinPoint;"));
+        assertTrue(PackageFilter.isExcluded("Lorg/apache/commons/lang3/StringUtils;"));
+        assertTrue(PackageFilter.isExcluded("Lorg/apache/geronimo/mail/Foo;"));
+        assertTrue(PackageFilter.isExcluded("Lnet/sf/cglib/proxy/Enhancer;"));
+    }
 }
