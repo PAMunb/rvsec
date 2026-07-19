@@ -614,7 +614,7 @@ class ErrorDetector:
                         dialog_w,
                         dialog_h,
                         confidence,
-                        ErrorType.DIALOG,
+                        ErrorType.DIALOG_ERROR,
                         error_text,
                     )
                     if dialog:

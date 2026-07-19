@@ -93,6 +93,7 @@ class ErrorType(str, Enum):
     DIALOG_ERROR = "dialog_error"
     DIALOG_TEXT_ERROR = "dialog_text_error"
     TOAST_NOTIFICATION = "toast_notification"
+    BANNER = "banner"
     UNKNOWN_ERROR = "unknown_error"
 
 
