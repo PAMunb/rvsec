@@ -5,6 +5,12 @@ Provide type-safe configuration for Android testing experiments using Pydantic
 validation. Sub-module configurations (monitor generation, instrumentation,
 static analysis) are created just-in-time when accessed, keeping initialization
 lightweight and avoiding unnecessary validation of unused modules.
+
+The just-in-time design realizes Requirement "Just-in-Time Sub-Module
+Configuration (FR17, NFR05)" (experiment domain spec): eager construction of all
+sub-module configs at __init__ would fail on absent optional modules and validate
+paths that a skipped phase never needs. Every JIT getter resolves RVSEC_HOME
+through the shared three-level hierarchy of INV-EXP-05 via get_effective_rvsec_root().
 """
 
 import json
@@ -53,6 +59,10 @@ if TYPE_CHECKING:
 class ExperimentConfig(BaseValidatedModel):
     """Central configuration for Android testing experiments.
 
+    This is the model of Requirement "Experiment Configuration (FR15)" (experiment
+    domain spec): the validated Pydantic aggregate of every parameter a complete
+    experiment run needs, built from CLI arguments or loaded from JSON via --config.
+
     ### Role in the System:
     Primary configuration class used by ExperimentController, CLI, and
     configuration factory. Bridges CLI arguments to experiment orchestration
@@ -63,16 +73,17 @@ class ExperimentConfig(BaseValidatedModel):
     - Sub-module configurations (RVGeneratorConfig, AjcInstrumentationConfig,
       RVStaticAnalysisConfig) are created on-demand via get_*_config() methods,
       not at initialization. This avoids validation failures when modules
-      are not needed (e.g., skip-monitors flag).
+      are not needed (e.g., skip-monitors flag). Realizes FR17.
     - RVSEC_HOME resolution follows a priority hierarchy: config override
-      first, then environment variable, then error.
+      first, then environment variable, then error. This is INV-EXP-05,
+      implemented once in get_effective_rvsec_root().
     - Pydantic validation via BaseValidatedModel provides type safety
-      at system boundaries.
+      at system boundaries; the semantic gate is INV-EXP-03 (validate()).
 
     ### Key Features:
     - Tool configuration with variant and parameter support
     - Three specification sets: JCA, generic, custom
-    - Resume mode with automatic pre-processing skip
+    - Resume mode with automatic pre-processing skip (INV-EXP-13)
     - APK filtering via external file
     - Serialization to/from JSON for persistence and templates
 
@@ -139,6 +150,9 @@ class ExperimentConfig(BaseValidatedModel):
     # On resume, all three are forced to False by the CLI layer because
     # artifacts (monitors, instrumented APKs, static analysis JSON)
     # already exist from the first run. Re-running would overwrite them.
+    # This auto-skip-on-resume behavior is INV-EXP-13; the forcing is done
+    # by the CLI per Requirement "Experiment Resume via CLI (FR16-ext)"
+    # (the config model only carries the resulting flag values).
     generate_monitors: bool = Field(default=True, description="Generate monitors")
     instrument_apks: bool = Field(default=True, description="Instrument APKs")
     # gh52 variant switch: which instrumentation backend to use.
@@ -238,7 +252,8 @@ class ExperimentConfig(BaseValidatedModel):
     created_at: Optional[str] = Field(default=None, description="Creation timestamp")
 
     # Resume support: when True, all Phase 1 flags are ignored (forced to False
-    # by CLI layer). rv-platform loads completed tasks from tasks.json and skips
+    # by CLI layer per INV-EXP-13 / Requirement "Experiment Resume via CLI
+    # (FR16-ext)"). rv-platform loads completed tasks from tasks.json and skips
     # them, executing only new/pending tasks. Resume is triggered by:
     # - --resume-dir (explicit): points to existing results directory
     # - --name (implicit): if results/<name>/tasks.json exists, resume activates
@@ -254,6 +269,12 @@ class ExperimentConfig(BaseValidatedModel):
 
         Set default name from timestamp, resolve output_dir and results_dir,
         set creation timestamp, and run validation.
+
+        This is the INV-EXP-12 site: it MUST set defaults for name
+        (timestamp-based), output_dir ("out"), results_dir, and created_at
+        (ISO timestamp) whenever those fields are empty or None. It ends by
+        calling validate() — the INV-EXP-03 gate — so any constructed
+        ExperimentConfig is always validated before use.
 
         State:
             name: Defaults to "experiment_YYYYMMDD_HHMMSS" if empty
@@ -304,6 +325,13 @@ class ExperimentConfig(BaseValidatedModel):
         """
         Comprehensive validation of experiment configuration.
 
+        This is the enforcement site for INV-EXP-03: validate() MUST run before
+        experiment execution and check (a) name is non-empty, (b) at least one
+        tool is configured, (c) repetitions > 0, (d) all timeouts > 0, (e) the
+        APK source directory exists and contains .apk files (via
+        _validate_apk_sources), and (f) specification_set is one of "jca",
+        "generic", "custom". Each check below is tagged with its clause letter.
+
         ### Validation Strategy:
         - Basic parameter validation (names, timeouts, repetitions)
         - Tool configuration validation
@@ -316,15 +344,19 @@ class ExperimentConfig(BaseValidatedModel):
             ConfigurationError: If configuration structure is inconsistent
         """
         # Validate basic configuration
+        # INV-EXP-03 (a): name is non-empty.
         if not self.name:
             raise ValueError("Experiment name cannot be empty")
 
+        # INV-EXP-03 (b): at least one tool is configured.
         if not self.tool_configs:
             raise ValueError("At least one tool must be configured")
 
+        # INV-EXP-03 (c): repetitions > 0.
         if self.repetitions <= 0:
             raise ValueError("Repetitions must be positive")
 
+        # INV-EXP-03 (d): all timeouts > 0.
         if not self.timeouts or any(t <= 0 for t in self.timeouts):
             raise ValueError("All timeouts must be positive")
 
@@ -333,14 +365,17 @@ class ExperimentConfig(BaseValidatedModel):
             if not tool_config.name:
                 raise ValueError("Tool configuration must have a name")
 
-        # Validate APK sources
+        # Validate APK sources — INV-EXP-03 (e): APK source directory exists and
+        # contains .apk files (delegated to _validate_apk_sources).
         if not self._validate_apk_sources():
             raise ConfigurationError(
                 "No valid APK source directory configured. Ensure apks_dir exists and contains APK files."
             )
 
-        # Validate specification set. "jca" and "generic" map to predefined directories
-        # under RVSEC_HOME; "custom" requires a user-provided path to .mop files.
+        # Validate specification set — INV-EXP-03 (f): specification_set is one of
+        # "jca", "generic", "custom". "jca" and "generic" map to predefined
+        # directories under RVSEC_HOME; "custom" requires a user-provided path to
+        # .mop files.
         valid_spec_sets = ["jca", "generic", "custom"]
         if self.specification_set not in valid_spec_sets:
             raise ValueError(
@@ -361,6 +396,9 @@ class ExperimentConfig(BaseValidatedModel):
     def _validate_apk_sources(self) -> bool:
         """
         Validate that APK source directory is available and contains APK files.
+
+        Implements INV-EXP-03 clause (e): the APK source directory MUST exist and
+        MUST contain at least one .apk file. Called by validate().
 
         Returns:
             True if valid APK sources are configured, False otherwise
@@ -504,6 +542,11 @@ class ExperimentConfig(BaseValidatedModel):
         Used by get_monitored_operations_config() to validate custom
         specification directories before monitor generation.
 
+        Supports Scenario "JIT Configuration for Custom Specification Set"
+        (experiment domain spec): a custom specs dir MUST contain at least one
+        .mop file, otherwise get_monitored_operations_config() raises
+        ConfigurationError("Invalid specs dir: ...").
+
         Args:
             directory_path_str: Path to specification directory to validate
 
@@ -538,6 +581,15 @@ class ExperimentConfig(BaseValidatedModel):
         """
         Just-in-time configuration for monitor generation based on specification set.
 
+        FR17 JIT method (Requirement "Just-in-Time Sub-Module Configuration
+        (FR17, NFR05)"). Resolves RVSEC_HOME via the INV-EXP-05 three-level
+        hierarchy (get_effective_rvsec_root) and builds an RVGeneratorConfig only
+        when PreProcessor invokes it. The specification_set -> directory mapping is
+        asserted by that Requirement and by Scenario "JIT Configuration for Monitor
+        Generation With JCA Specs": jca -> .../resources/jca,
+        generic -> .../resources/generic, custom -> custom_specs_dir, and
+        aspects_dir -> .../resources/aspect.
+
         ### Configuration Pattern:
         This method creates monitor generation configuration only when needed,
         providing flexibility while maintaining module independence.
@@ -566,6 +618,8 @@ class ExperimentConfig(BaseValidatedModel):
         #     jca/       <- JCA crypto API specs (.mop files)
         #     generic/   <- generic API usage specs (.mop files)
         #     aspect/    <- shared AspectJ aspects
+        # This mapping is the one asserted by Scenario "JIT Configuration for
+        # Monitor Generation With JCA Specs".
         mop_base_dir = os.path.join(
             rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources"
         )
@@ -576,9 +630,15 @@ class ExperimentConfig(BaseValidatedModel):
         elif self.specification_set == "custom":
             if self.custom_specs_dir:
                 mop_specs_dir = self.custom_specs_dir
+                # Scenario "JIT Configuration for Custom Specification Set": a
+                # custom dir without any .mop file raises this exact message.
                 if not self.validate_specs_dir(mop_specs_dir):
                     raise ConfigurationError(f"Invalid specs dir: {mop_specs_dir}")
             else:
+                # Config-layer backstop for INV-EXP-04: the CLI raises a
+                # ClickException first (Scenario "Custom Specification Set Without
+                # Directory"), but a config constructed programmatically without
+                # custom_specs_dir is still rejected here.
                 raise ConfigurationError(
                     f"Unsupported specification set: {self.specification_set}"
                 )
@@ -591,6 +651,8 @@ class ExperimentConfig(BaseValidatedModel):
             # Explicit paths prevent RVGeneratorConfig's internal resolver from
             # overriding mop_specs_dir with a default — we need the spec-set-specific
             # directory determined above, not whatever the config class thinks is default.
+            # Scenario "JIT Configuration for Custom Aspects Directory": when
+            # custom_aspects_dir is set it is used verbatim, never the RVSEC default.
             if self.custom_aspects_dir:
                 aspects_dir = self.custom_aspects_dir
             else:
@@ -622,6 +684,11 @@ class ExperimentConfig(BaseValidatedModel):
     def get_instrumentation_config(self) -> AjcInstrumentationConfig:
         """
         Just-in-time configuration for APK instrumentation.
+
+        FR17 JIT method (Requirement "Just-in-Time Sub-Module Configuration
+        (FR17, NFR05)"); resolves RVSEC_HOME via INV-EXP-05
+        (get_effective_rvsec_root). Returns an AjcInstrumentationConfig for the
+        ajc backend.
 
         ### Just-in-Time Configuration Pattern:
         This method creates instrumentation configuration only when needed,
@@ -675,6 +742,12 @@ class ExperimentConfig(BaseValidatedModel):
         Alias used by PreProcessor for consistent naming with other
         get_*_config() methods.
 
+        This is the exact method name enumerated by INV-EXP-05 and Requirement
+        "Just-in-Time Sub-Module Configuration (FR17, NFR05)"
+        ("get_rv_instrumentation_config()") as one of the three JIT config
+        methods that MUST resolve RVSEC_HOME via the three-level hierarchy; it
+        satisfies that contract by delegating to get_instrumentation_config().
+
         Returns:
             AjcInstrumentationConfig instance with instrumentation configuration
 
@@ -686,6 +759,10 @@ class ExperimentConfig(BaseValidatedModel):
 
     def get_dexlib_instrumentation_config(self):
         """Build a DexlibInstrumentationConfig for the gh52 variant.
+
+        Still an FR17 just-in-time sub-module config method (Requirement
+        "Just-in-Time Sub-Module Configuration (FR17, NFR05)") — the dexlib2
+        DEX-native alternative to the ajc backend, built only when accessed.
 
         Mirrors :meth:`get_instrumentation_config` for the legacy ajc path:
         resolves the canonical ``output_dir/MONITORS_DIR`` +
@@ -748,9 +825,16 @@ class ExperimentConfig(BaseValidatedModel):
     def get_static_analysis_config(self) -> RVStaticAnalysisConfig:
         """Create static analysis configuration on demand.
 
-        Resolve GATOR tool paths from RVSEC_HOME and configure analysis
-        output directory. Supports RV_SA_TIMEOUT and RV_JVM_MEMORY env
-        vars to override default timeout and JVM memory settings.
+        FR17 JIT method (Requirement "Just-in-Time Sub-Module Configuration
+        (FR17, NFR05)"); resolves RVSEC_HOME via INV-EXP-05
+        (get_effective_rvsec_root). Resolve GATOR tool paths from RVSEC_HOME and
+        configure analysis output directory. Supports RV_SA_TIMEOUT and
+        RV_JVM_MEMORY env vars to override default timeout and JVM memory settings.
+
+        The CLI > env > default precedence for analysis_timeout / jvm_memory is
+        Requirement "Static-Analysis Tuning CLI Flags (FR15, NFR05)", formalized
+        as INV-EXP-32, and exercised by Scenarios "CLI flag overrides env var",
+        "Env var works without Docker", and "Default applies when neither is set".
 
         Returns:
             RVStaticAnalysisConfig with tool paths and output directory
@@ -829,6 +913,13 @@ class ExperimentConfig(BaseValidatedModel):
         Convert raw dict entries in tool_configs to ToolConfig instances
         before constructing the model.
 
+        Supports Requirement "Experiment Configuration (FR15)" and the JSON
+        round-trip it mandates (Scenario "JSON config round-trip"). Per P3 (No
+        Backward Compatibility), deserialization uses CURRENT field names only —
+        ToolConfig with `variant: str` (singular), never the removed
+        `variants: List[str]`; old plural-format JSON is intentionally
+        unsupported.
+
         Args:
             data: Configuration dictionary from storage or API
 
@@ -861,6 +952,10 @@ class ExperimentConfig(BaseValidatedModel):
     def from_file(cls, file_path: str) -> "ExperimentConfig":
         """Load and validate configuration from JSON file.
 
+        Supports Requirement "Experiment Configuration (FR15)": the --config file
+        loader behind Scenario "JSON config round-trip", reloading a saved
+        experiment_config.json into an equivalent config.
+
         Args:
             file_path: Path to configuration file (JSON format)
 
@@ -881,6 +976,11 @@ class ExperimentConfig(BaseValidatedModel):
 
     def save_to_file(self, file_path: str) -> None:
         """Save configuration to JSON file, creating parent directories.
+
+        Supports Requirement "Experiment Configuration (FR15)" and Scenario "JSON
+        config auto-save on experiment run": the persisted experiment_config.json
+        is written in the current unified ToolConfig format (variant: str) and is
+        reloadable via `rv-experiment run --config <path>`.
 
         Args:
             file_path: Destination path for the JSON configuration file
@@ -911,6 +1011,12 @@ class ExperimentConfig(BaseValidatedModel):
 
         Dispatch to the appropriate get_*_config() method based on module name.
         Return empty dict for unrecognized modules.
+
+        Realizes the FR17 requirement (Requirement "Just-in-Time Sub-Module
+        Configuration (FR17, NFR05)") that get_module_config() be "a generic
+        dispatcher that routes module names to the appropriate JIT method",
+        supporting "rv-monitor-generator", "rv-instrumentation", and
+        "rv-static-analysis".
 
         Args:
             module_name: One of "rv-monitor-generator", "rv-instrumentation",
@@ -951,6 +1057,13 @@ class ExperimentConfig(BaseValidatedModel):
         """
         Get RVSEC_HOME with configuration hierarchy support.
 
+        Shared implementation of INV-EXP-05 — the three-level RVSEC_HOME priority
+        hierarchy — called by every JIT getter (get_monitored_operations_config,
+        get_rv_instrumentation_config, get_static_analysis_config). Scenario
+        "RVSEC_HOME Not Available" fixes the exact error message raised when
+        neither source is defined; Scenario "RVSEC_HOME Path Does Not Exist"
+        fixes the message raised when rvsec_root points at a missing path.
+
         ### Configuration Hierarchy:
         1. Priority 1: Configuration override (self.rvsec_root) - enables experiment-specific paths
         2. Priority 2: Environment variable (ENV_RVSEC_HOME) - system default
@@ -959,7 +1072,7 @@ class ExperimentConfig(BaseValidatedModel):
         ### Role in the System:
         - Provides centralized RVSEC_HOME resolution for all module configurations
         - Enables experiment-specific path overrides for isolated execution
-        - Maintains backward compatibility with environment variable usage
+        - Resolves RVSEC_HOME from the environment variable when no config override is set
         - Validates path existence regardless of source
 
         Returns:
@@ -968,7 +1081,8 @@ class ExperimentConfig(BaseValidatedModel):
         Raises:
             ConfigurationError: If RVSEC_HOME not found in configuration or environment
         """
-        # Priority 1: Configuration override takes precedence
+        # Priority 1: Configuration override takes precedence.
+        # Scenario "RVSEC_HOME Path Does Not Exist" pins this exact message.
         if self.rvsec_root:
             if not os.path.exists(self.rvsec_root):
                 raise ConfigurationError(
@@ -985,7 +1099,8 @@ class ExperimentConfig(BaseValidatedModel):
                 )
             return env_value
 
-        # Priority 3: Error for required configuration
+        # Priority 3: Error for required configuration.
+        # Scenario "RVSEC_HOME Not Available" pins this exact message.
         raise ConfigurationError(
             "RVSEC_HOME not found in configuration or environment. "
             "Set rvsec_root field in configuration or RVSEC_HOME environment variable"

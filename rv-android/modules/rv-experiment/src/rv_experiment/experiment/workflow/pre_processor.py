@@ -25,6 +25,10 @@ class PreProcessor:
     """
     A specialized component for handling the pre-processing phase of experiments.
 
+    This component IS Phase 1 (pre-processing) of the Three-Phase Workflow (FR15).
+    Phase 1 supports three independent operations — monitor generation, APK
+    instrumentation, and static analysis — each individually enabled or skipped.
+
     ### Architectural Decisions:
     - Separates pre-processing concerns from the main experiment controller
     - Provides a clear interface for configurable pre-processing operations
@@ -80,11 +84,16 @@ class PreProcessor:
         #   Input:  Original APKs from apks_dir (NOT instrumented — see below)
         #   Output: Static analysis JSON alongside instrumented APKs
         #
-        # Steps must run in order: Step 2 depends on Step 1's output.
-        # Step 3 is independent of Steps 1-2 but runs last by convention.
+        # FR15: Phase 1 operations MUST execute in this order — monitor
+        # generation, then instrumentation, then static analysis. Step 2
+        # depends on Step 1's generated monitors; static analysis is placed
+        # last by convention (it reads original APKs, not Step 1/2 output).
         #
-        # When resuming, all three flags are forced to False by the CLI layer
-        # because artifacts already exist from the previous run.
+        # On resume, INV-EXP-13 forces all three skip flags at the CLI layer
+        # so the pre-processing artifacts from the original run are reused
+        # intact rather than regenerated. The three warning branches below
+        # enforce INV-EXP-07: a skipped step MUST NOT execute and MUST log a
+        # warning (see Scenario "Experiment With All Pre-Processing Skipped").
         # =====================================================================
         with self.logger.with_context(phase="pre_processing"):
             self.logger.info(LOG_START.format(phase="APK pre-processing"))
@@ -129,8 +138,10 @@ class PreProcessor:
                 monitor_output_dir = os.path.join(self.config.output_dir, MONITORS_DIR)
                 os.makedirs(monitor_output_dir, exist_ok=True)
 
-                # get_monitored_operations_config() creates an RVGeneratorConfig
-                # just-in-time, resolving RVSEC_HOME and the spec directory path.
+                # FR17 + INV-EXP-05: get_monitored_operations_config() builds an
+                # RVGeneratorConfig just-in-time, resolving RVSEC_HOME via the
+                # three-level priority hierarchy (rvsec_root field → RVSEC_HOME
+                # env var → ConfigurationError) and the spec directory path.
                 rv_config = self.config.get_monitored_operations_config()
 
                 # Import and use monitor generator
@@ -148,6 +159,10 @@ class PreProcessor:
                     self.logger.info("Monitors generated")
 
             except ImportError:
+                # Scenario "Module Import Failure for Optional Sub-Modules":
+                # the optional monitor-generator module may be absent, so catch
+                # ImportError, log the warning, and let process() continue with
+                # the remaining steps rather than aborting Phase 1.
                 self.logger.warning(
                     "Monitor generator module not available - skipping monitor generation"
                 )
@@ -162,7 +177,13 @@ class PreProcessor:
                 self.error_handler.handle_error(e, error_context)
 
     def _instrument_apks(self):
-        """Instrument APKs with runtime verification monitors."""
+        """Instrument APKs with runtime verification monitors.
+
+        Phase 1 instrumentation step (FR15). If instrumentation fails or the
+        module is unavailable, originals are copied as a fallback so the
+        experiment does not abort (INV-EXP-08; Scenario "Pre-Processing Failure
+        Does Not Abort Experiment").
+        """
         # Instrumentation pipeline (per APK):
         # 1. dex2jar: Convert DEX bytecode to JAR (Java bytecode)
         # 2. AspectJ: Weave monitor aspects into the JAR (requires Step 1 monitors)
@@ -184,7 +205,9 @@ class PreProcessor:
 
                 # Dispatch on the variant flag through the canonical factory
                 # (INV-INS-36). Both variants implement Instrumenter so
-                # downstream logic doesn't branch further.
+                # downstream logic doesn't branch further. FR17: the
+                # get_*_instrumentation_config() call builds the sub-module
+                # config just-in-time when this phase actually runs.
                 variant = getattr(self.config, "instrumentation_variant", "ajc")
                 instrumentation_config = (
                     self.config.get_dexlib_instrumentation_config()
@@ -218,12 +241,18 @@ class PreProcessor:
                     self.logger.info("Instrumentation completed")
 
             except ImportError:
+                # INV-EXP-08: module unavailable → copy originals so the
+                # experiment does not abort (Scenario "Pre-Processing Failure
+                # Does Not Abort Experiment").
                 self.logger.warning(
                     "Instrumentation module not available - copying original APKs"
                 )
                 self._copy_original_apks()
                 # Note: Instrumentation errors will be tracked and reported by ResultManager
             except Exception as e:
+                # INV-EXP-08: any instrumentation failure → copy originals so
+                # the experiment continues rather than aborting (Scenario
+                # "Pre-Processing Failure Does Not Abort Experiment").
                 error_context = {
                     "component": "PreProcessor",
                     "operation": "apk_instrumentation",
@@ -237,10 +266,12 @@ class PreProcessor:
     def _copy_original_apks(self):
         """Copy original APKs to output directory as fallback.
 
-        Called when instrumentation fails or the instrumentation module is
-        unavailable. Ensures Phase 2 (execution) always has APKs to work with,
-        even though they won't have MOP monitors woven in — coverage will be 0%
-        for monitored operations, but the tools can still exercise the app.
+        Enforces INV-EXP-08: called when instrumentation fails or the module is
+        unavailable, this copies originals to instrumented_apks/ so the
+        experiment does not abort (Scenario "Pre-Processing Failure Does Not
+        Abort Experiment"). Ensures Phase 2 (execution) always has APKs to work
+        with, even though they won't have MOP monitors woven in — coverage will
+        be 0% for monitored operations, but the tools can still exercise the app.
         """
         instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
         os.makedirs(instrumented_dir, exist_ok=True)
@@ -258,8 +289,11 @@ class PreProcessor:
         """
         Run static analysis on all instrumented APKs.
 
-        Uses the StaticAnalyzer class to perform static analysis on APKs,
-        following the standardized analyzer pattern.
+        Phase 1 static-analysis step (FR15). Uses the StaticAnalyzer class to
+        perform static analysis on APKs, following the standardized analyzer
+        pattern. Per FR15, analysis runs on ORIGINAL APKs because GATOR/Soot
+        needs unmodified DEX bytecode — AspectJ-woven bytecode crashes Soot's
+        TypeResolver.
         """
         with self.logger.with_context(phase="static_analysis"):
             self.logger.info(LOG_START.format(phase="static analysis"))
@@ -269,6 +303,8 @@ class PreProcessor:
                     StaticAnalyzer,
                 )
 
+                # FR17: get_static_analysis_config() builds the rv-static-analysis
+                # sub-module config just-in-time when this phase actually runs.
                 static_config = self.config.get_static_analysis_config()
 
                 # Static analysis uses ORIGINAL APKs (not instrumented) because
@@ -350,11 +386,14 @@ class PreProcessor:
     def _get_target_apks_for_analysis(self) -> List[str]:
         """Get original APKs for static analysis, filtered by instrumentation success.
 
-        Only returns original APK paths for APKs that have a corresponding
-        instrumented file in instrumented_apks/. GATOR/Soot cannot process
-        instrumented APKs (AspectJ-woven bytecode causes TypeResolver errors),
-        so static analysis runs on originals — but only for APKs that will
-        enter the experiment, which requires successful instrumentation.
+        Enforces INV-EXP-15: only returns original APK paths for APKs that have
+        a corresponding instrumented file in instrumented_apks/; APKs that
+        failed instrumentation are logged as skipped and excluded (Scenario
+        "Mixed instrumentation results filter downstream phases"). GATOR/Soot
+        cannot process instrumented APKs (AspectJ-woven bytecode causes
+        TypeResolver errors), so static analysis runs on originals — but only
+        for APKs that will enter the experiment, which requires successful
+        instrumentation.
         """
         instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
 
@@ -384,17 +423,23 @@ class PreProcessor:
         """
         Get instrumented APKs that have static analysis data.
 
-        Only returns APKs from instrumented_apks/ that have a corresponding
-        .apk.json file (static analysis output). APKs without SA data produce
-        meaningless coverage results and are excluded from execution.
+        Enforces INV-EXP-16: only returns APKs from instrumented_apks/ that have
+        a corresponding .apk.json file (static analysis output); APKs without SA
+        data are logged with a warning and excluded from execution because they
+        produce meaningless coverage results. The filter keys on file presence,
+        not flags, so it works with both --static-analysis and --skip-static
+        when pre-existing artifacts are available.
 
         Returns:
             List of App objects for APKs with both instrumentation and SA data
         """
         # Called by ExperimentController._run_execution() to feed APKs into Phase 2.
         # Filtering by .json presence ensures only APKs with useful SA data
-        # enter the experiment. Falls back to original APKs when no APKs
-        # pass the filter (e.g., --skip-static without pre-existing artifacts).
+        # enter the experiment. When no APK passes the filter, falls back to
+        # original APKs from apks_dir (Scenario "Experiment With All
+        # Pre-Processing Skipped"). This also closes the INV-EXP-08 loop:
+        # originals copied by _copy_original_apks() lack .apk.json, so INV-EXP-16
+        # excludes them and this fallback runs the experiment on originals.
         with self.logger.with_context(phase="find_instrumented_apks"):
             apks = []
             instrumented_dir = os.path.join(

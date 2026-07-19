@@ -30,25 +30,33 @@ from rv_experiment.experiment.workflow.pre_processor import PreProcessor
 class ExperimentController:
     """Orchestrate three-phase experiment workflow for Android testing.
 
+    Implements the "Three-Phase Workflow" requirement (FR15, NFR08): this is
+    the sole facade over pre-processing, execution, and post-processing, and it
+    is where the experiment domain's core invariants are enforced.
+
     ### Role in the System:
     Central orchestrator that coordinates experiment lifecycle without
     performing task execution itself. Delegates pre-processing to PreProcessor,
     execution to ExecutionController (which wraps rv-platform), and
     post-processing to PostProcessor.
 
-    ### Architectural Decisions:
-    - No data transfer between rv-platform and rv-experiment. Results stay
-      in rv-platform; this controller tracks only success/failure status.
-    - Pre-processing runs monitor generation, APK instrumentation, and
-      static analysis as independent steps before execution begins.
-    - Post-processing is limited to basic diagnostics. CSV/JSON result
-      generation is handled entirely by rv-platform.
+    ### Architectural Decisions (spec-anchored):
+    - Enforces INV-EXP-02: no data transfer from rv-platform back to
+      rv-experiment. Results stay in rv-platform; this controller reads only
+      the aggregate success/failure status returned by ExecutionController.
+    - Enforces INV-EXP-01: pre-processing (monitor generation, APK
+      instrumentation, static analysis) runs to completion before execution
+      begins, and execution completes before post-processing starts.
+    - Enforces INV-EXP-11 (via PostProcessor): post-processing is limited to
+      basic diagnostics (instrument_errors.json + completion metadata). CSV/JSON
+      result generation is handled entirely by rv-platform.
 
     ### Key Features:
-    - Three-phase workflow: pre-processing, execution, post-processing
-    - Experiment configuration persistence for reproducibility
+    - Three-phase workflow: pre-processing, execution, post-processing (FR15)
+    - Experiment configuration persistence for reproducibility (NFR08;
+      Scenario: "JSON config auto-save on experiment run")
     - Tool creation via ToolFactory with variant support
-    - Resume support through rv-platform task tracking
+    - Resume support through rv-platform task tracking (FR16-ext)
 
     ### Integration Points:
     - PreProcessor: Monitor generation, APK instrumentation, static analysis
@@ -64,8 +72,11 @@ class ExperimentController:
     # Phase 2: Execution — delegate to rv-platform for task execution
     # Phase 3: Post-processing — generate diagnostics and summary reports
     #
-    # Each phase is independently skippable via ExperimentConfig flags.
-    # On resume, all Phase 1 steps are auto-skipped (artifacts already exist).
+    # INV-EXP-01: this strict pre->exec->post order is mandatory — Phase 2 never
+    # starts before Phase 1 completes, Phase 3 never before Phase 2 completes.
+    # Within Phase 1, each step is independently skippable via ExperimentConfig
+    # flags (INV-EXP-07). On resume, all Phase 1 steps are auto-skipped because
+    # the CLI forces the three flags to False (INV-EXP-13 — artifacts already exist).
     # =========================================================================
 
     @ErrorHandler.handle_errors(
@@ -91,9 +102,12 @@ class ExperimentController:
         self.config = config
         self.experiment_id = experiment_id or datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # config.results_dir already contains the full experiment path
-        # (e.g., "results/smoke_exp" or "results/cli_experiment_20260212_...")
-        # set by __main__.py before calling execute_with_config()
+        # INV-EXP-14 (flat results dir): use config.results_dir verbatim — never
+        # append config.name or any subdirectory. config.results_dir already
+        # contains the full experiment path (e.g., "results/smoke_exp" or
+        # "results/cli_experiment_20260212_...") built by __main__.py before it
+        # calls execute_with_config(). Appending here would produce the doubled
+        # "results/my_experiment/my_experiment" path that breaks resume detection.
         self.results_dir = config.results_dir or f"./{rv_cte.RESULTS_DIR}"
         os.makedirs(self.results_dir, exist_ok=True)
 
@@ -105,11 +119,12 @@ class ExperimentController:
             {CONTEXT_COMPONENT: "ExperimentController"},
         )
 
-        # Initialize the three workflow components — one per phase.
+        # Initialize the three workflow components — one per phase (FR15 facade).
         # PreProcessor handles Phase 1 (monitor gen, instrumentation, static analysis).
         # ExecutionController wraps rv-platform for Phase 2 (task execution).
         # PostProcessor generates Phase 3 diagnostics (instrumentation errors, completion).
-        # Each component is stateless across phases — no data flows between them.
+        # Each component is stateless across phases — no data flows between them,
+        # reinforcing the one-way experiment->platform contract of INV-EXP-02.
         self.pre_processor = PreProcessor(config)
         self.execution_controller = ExecutionController(config)
         self.post_processor = PostProcessor(self.results_dir)
@@ -122,10 +137,18 @@ class ExperimentController:
     def run(self) -> bool:
         """Execute the complete three-phase experiment workflow.
 
+        Realizes FR15 and enforces INV-EXP-01 (strict pre->exec->post ordering):
         Phase 1 (pre-processing) runs monitor generation, APK instrumentation,
-        and static analysis based on config flags. Phase 2 (execution) delegates
-        to rv-platform via ExecutionController. Phase 3 (post-processing)
-        generates completion diagnostics.
+        and static analysis based on config flags; Phase 2 (execution) delegates
+        to rv-platform via ExecutionController; Phase 3 (post-processing)
+        generates completion diagnostics. The phases run in this fixed order and
+        Phase 3 executes even when Phase 2 reports failure (see below).
+
+        Failure handling maps to the spec scenarios: an execution failure sets
+        the return to False (Scenario: "Execution Phase Failure Propagation" —
+        the exception surfaces from ExecutionController and is caught here), while
+        pre-processing failures do not abort (INV-EXP-08; Scenario: "Pre-Processing
+        Failure Does Not Abort Experiment").
 
         Returns:
             True if all phases completed successfully, False if execution
@@ -136,26 +159,33 @@ class ExperimentController:
         ):
             self.logger.info(LOG_START.format(phase=f"experiment {self.experiment_id}"))
 
-            # Save experiment configuration to results directory for reproducibility.
-            # The JSON snapshot captures the exact config used, enabling re-runs
-            # with identical parameters and audit trails for published results.
+            # Save experiment configuration to results directory for reproducibility
+            # (NFR08; Scenario: "JSON config auto-save on experiment run"). The JSON
+            # snapshot captures the exact config used, is written in the unified
+            # ToolConfig format, and is re-loadable via `rv-experiment run --config`,
+            # enabling identical re-runs and audit trails for published results.
             self.save_experiment_config()
 
             try:
                 success = True
 
-                # Phase 1: Pre-processing — generate monitors, instrument APKs, run static analysis.
-                # Each step is controlled by a separate flag in ExperimentConfig.
-                # When resuming, all flags are forced to False by the CLI layer
-                # because artifacts (monitors, instrumented APKs, static analysis JSON)
-                # already exist from the first run. Re-running would overwrite them.
+                # Phase 1 of INV-EXP-01: Pre-processing — generate monitors,
+                # instrument APKs, run static analysis. Each step is controlled by a
+                # separate flag in ExperimentConfig and respected per INV-EXP-07.
+                # When resuming, all three flags are forced to False by the CLI layer
+                # (INV-EXP-13) because artifacts (monitors, instrumented APKs, static
+                # analysis JSON) already exist from the first run — re-running would
+                # overwrite them and could desync the coverage denominator.
                 self.logger.info("Starting pre-processing phase")
                 self._run_pre_processing()
 
-                # Phase 2: Execution — delegate to rv-platform via ExecutionController.
-                # rv-platform handles the full task lifecycle: emulator management,
-                # tool execution, logcat capture, coverage tracking, and CSV/JSON
-                # result generation. No data transfers back to rv-experiment.
+                # Phase 2 of INV-EXP-01: Execution — delegate to rv-platform via
+                # ExecutionController. rv-platform handles the full task lifecycle:
+                # emulator management, tool execution, logcat capture, coverage
+                # tracking, and CSV/JSON result generation. Per INV-EXP-02 no result
+                # data transfers back — only the aggregate success/failure status.
+                # The run_execution flag (CLI --skip-execution) lets Phase 2 be
+                # bypassed while still producing Phase 3 diagnostics.
                 if self.config.run_execution:
                     self.logger.info("Starting execution phase")
                     execution_success = self._run_execution()
@@ -166,10 +196,13 @@ class ExperimentController:
                 else:
                     self.logger.info("Execution phase skipped (--skip-execution)")
 
-                # Phase 3: Post-processing — generate diagnostics and summary reports.
-                # Intentionally lightweight: only produces instrumentation error JSON
-                # and a completion timestamp. All heavy result processing (CSV, coverage
-                # reports, MOP violation summaries) happens in rv-platform during Phase 2.
+                # Phase 3 of INV-EXP-01: Post-processing — generate diagnostics and
+                # summary reports. Intentionally lightweight: only produces the
+                # instrument_errors.json (always written, even if empty — INV-EXP-11)
+                # and a completion timestamp. All heavy result processing (CSV,
+                # coverage reports, MOP violation summaries) happens in rv-platform
+                # during Phase 2. Phase 3 runs unconditionally — even when Phase 2 was
+                # skipped or produced no APKs (Scenario: "No APKs Available for Execution").
                 self.logger.info("Starting post-processing phase")
                 self.post_processor.process()
 
@@ -190,10 +223,15 @@ class ExperimentController:
                 return False
 
     def _run_pre_processing(self):
-        """Execute pre-processing phase with instrumentation error tracking."""
+        """Execute pre-processing phase with instrumentation error tracking.
+
+        Passes the three per-step flags straight through so PreProcessor can
+        honor INV-EXP-07 (skip the corresponding step and log a warning).
+        """
         # Delegate to PreProcessor with per-step flags from ExperimentConfig.
         # Each flag can be individually disabled via CLI (--skip-monitors, etc.)
-        # or automatically disabled on resume (all three forced to False).
+        # per INV-EXP-07, or automatically disabled on resume (INV-EXP-13 forces
+        # all three to False).
         self.pre_processor.process(
             generate_monitors=self.config.generate_monitors,
             instrument=self.config.instrument_apks,
@@ -205,14 +243,21 @@ class ExperimentController:
 
         Retrieve instrumented APKs from pre-processor, create tool instances
         via ToolFactory, configure ExecutionController, and delegate execution
-        to rv-platform.
+        to rv-platform. This is Phase 2 of INV-EXP-01 and the site of two spec
+        scenarios: the empty-APK guard (Scenario: "No APKs Available for
+        Execution") and the failure wrap (Scenario: "Execution Phase Failure
+        Propagation").
 
         Returns:
-            True if all tasks completed successfully, False otherwise
+            True if all tasks completed successfully, False if no APKs are
+            available for execution
 
         Raises:
             RVExperimentExecutionError: If execution setup or platform
-                coordination fails
+                coordination fails. Per Scenario "Execution Phase Failure
+                Propagation", any exception from ExecutionController.run() is
+                caught and re-raised as this typed error; run() then catches it,
+                logs it, and returns False.
         """
         try:
             # Get instrumented APKs from the pre-processing output directory.
@@ -221,6 +266,11 @@ class ExperimentController:
             # are what rv-platform will install on emulators for task execution.
             apks = self.pre_processor.get_instrumented_apks()
 
+            # Scenario: "No APKs Available for Execution" — when get_instrumented_apks()
+            # returns an empty list (no instrumented APKs found and no original APKs
+            # available), log and return False WITHOUT creating a Platform instance.
+            # Phase 3 still runs afterward (run() calls post_processor.process()
+            # unconditionally), so diagnostics are produced even on this early return.
             if not apks:
                 self.logger.error("No APKs available for execution")
                 return False
@@ -252,6 +302,11 @@ class ExperimentController:
             return success
 
         except Exception as e:
+            # Scenario: "Execution Phase Failure Propagation" — wrap any platform
+            # failure in the domain-typed RVExperimentExecutionError so run()'s
+            # handler can distinguish execution faults, log them, and return False
+            # (never re-raising past run()). The `from e` chain preserves the
+            # original cause for debugging.
             self.logger.error(f"Execution phase failed: {e}")
             raise RVExperimentExecutionError(f"Execution failed: {e}") from e
 
@@ -308,7 +363,17 @@ class ExperimentController:
         }
 
     def save_experiment_config(self) -> None:
-        """Save the experiment configuration to the results directory."""
+        """Save the experiment configuration to the results directory.
+
+        Realizes NFR08 (reproducibility) and the Scenario "JSON config auto-save
+        on experiment run": writes the full ExperimentConfig as
+        experiment_config.json in the results directory using the unified
+        ToolConfig format (variant: str, not variants: List[str]). The saved file
+        is re-loadable via `rv-experiment run --config <path>`, enabling identical
+        re-runs and audit trails. A save failure is logged as a warning and does
+        not abort the experiment — the config snapshot is a diagnostic aid, not a
+        precondition for execution.
+        """
         config_file = os.path.join(self.results_dir, "experiment_config.json")
 
         try:

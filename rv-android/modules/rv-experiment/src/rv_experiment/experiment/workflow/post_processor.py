@@ -4,6 +4,17 @@ Clean post-processor component for RV-Android experiments.
 
 This module provides minimal post-processing functionality focused only on
 basic experiment diagnostics. All result processing is handled by rv-platform.
+
+This is Phase 3 of the three-phase experiment workflow. Per the spec Requirement
+"Three-Phase Workflow (FR15, NFR08)": "Phase 3 (post-processing) MUST create
+basic diagnostics and completion metadata. It does not read back task results —
+rv-platform handles result processing."
+
+The deliberate absence of any result/coverage/error-log read-back realizes
+INV-EXP-02: rv-experiment MUST NOT read back task results, coverage data, or
+error logs from rv-platform after execution — data flows one-way from
+rv-experiment to rv-platform. Keeping this phase minimal is what preserves that
+one-way boundary.
 """
 
 import os
@@ -27,6 +38,11 @@ class PostProcessor:
     experiment diagnostics. All CSV and JSON result processing is handled by
     rv-platform's ResultProcessorComponent for proper separation of concerns.
 
+    This is the Phase 3 implementation of the spec Requirement "Three-Phase
+    Workflow (FR15, NFR08)". Its two outputs — `instrument_errors.json` and
+    `experiment_completion.json` — are the post-processing contract asserted by
+    Scenario "Full Experiment With All Phases Enabled".
+
     ### Architectural Role:
     - Provides basic experiment completion diagnostics
     - Generates simple experiment metadata
@@ -36,7 +52,8 @@ class PostProcessor:
     - No result processing (delegated to rv-platform)
     - No data access from tasks or storage
     - Only basic diagnostics
-    - Clean separation from data processing concerns
+    - Clean separation from data processing concerns (upholds INV-EXP-02: no
+      read-back of task results, coverage, or error logs)
     """
 
     def __init__(self, results_dir: str):
@@ -54,6 +71,13 @@ class PostProcessor:
         # which ResultManager uses to identify instrumentation failures.
         # On first run before execution, the file may not exist — TaskStorage
         # handles this gracefully by returning an empty task list.
+        #
+        # Boundary note vs INV-EXP-02: INV-EXP-02 forbids reading back task
+        # *results* — coverage data and error logs — from rv-platform. Reading
+        # per-task instrumentation-failure *status metadata* here is the
+        # sanctioned exception: it is the only input needed to build
+        # instrument_errors.json (INV-EXP-11), and it carries no coverage or
+        # result-log payload, so the one-way data flow stays intact.
         tasks_file = os.path.join(results_dir, "tasks.json")
         self.task_storage = TaskStorage(tasks_file)
         self.task_storage.load()
@@ -70,6 +94,15 @@ class PostProcessor:
 
         This method handles only basic post-processing diagnostics.
         All result processing is handled by rv-platform automatically.
+
+        Orchestrates the two Phase 3 outputs required by Scenario "Full
+        Experiment With All Phases Enabled": `instrument_errors.json` and
+        `experiment_completion.json`, both written to the results directory.
+
+        Per Scenario "No APKs Available for Execution", Phase 3 MUST still
+        execute to produce diagnostics even when Phase 2 created no Platform and
+        ran nothing — hence this method is always invoked and never gated on
+        whether any APKs were executed.
         """
         # Phase 3: Post-processing — generate diagnostics and summary reports.
         #
@@ -95,6 +128,16 @@ class PostProcessor:
     def _generate_instrumentation_errors(self):
         """
         Generate instrumentation errors JSON using ResultManager.
+
+        Delegates to `ResultManager`, which writes `instrument_errors.json`.
+        Per INV-EXP-11, this file MUST be produced even when no instrumentation
+        errors occurred — in that case it contains an empty JSON object `{}`.
+        Per Scenario "Mixed instrumentation results filter downstream phases",
+        when APKs fail instrumentation the file MUST contain one entry per
+        failed APK with accurate phase information (e.g. 3 failures → 3 entries).
+
+        Any failure here is swallowed via ErrorHandler rather than re-raised, so
+        Phase 3 never aborts the experiment on account of report generation.
         """
         with self.logger.with_context(phase="instrumentation_errors"):
             self.logger.info(
@@ -124,6 +167,19 @@ class PostProcessor:
     def _generate_completion_diagnostics(self):
         """
         Generate basic completion diagnostics for the experiment.
+
+        Writes `experiment_completion.json` with `results_directory`,
+        `completion_timestamp`, and `post_processing_completed`. This is the
+        completion-metadata half of the Phase 3 output contract in Scenario
+        "Full Experiment With All Phases Enabled" (the other half being
+        `instrument_errors.json`).
+
+        WHY a timestamp marker: it lets automated pipelines detect that an
+        experiment ran to completion without having to inspect or read back any
+        task results — which INV-EXP-02 forbids anyway. The marker is metadata,
+        not result data.
+
+        Any failure is swallowed via ErrorHandler so Phase 3 never aborts.
         """
         with self.logger.with_context(phase="completion_diagnostics"):
             self.logger.info(
@@ -175,6 +231,11 @@ class PostProcessor:
     def _save_diagnostics(self, diagnostic_path: str, diagnostic_info: dict):
         """
         Save diagnostic information to file.
+
+        Persists the `experiment_completion.json` payload that fulfils the
+        completion-metadata half of Scenario "Full Experiment With All Phases
+        Enabled". A save failure is logged as a warning (not raised) so Phase 3
+        completes regardless.
 
         Args:
             diagnostic_path: Path to save diagnostics

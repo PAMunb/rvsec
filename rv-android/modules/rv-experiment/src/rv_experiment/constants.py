@@ -12,6 +12,13 @@ Following the original RV-Android structure with clear separation of concerns:
 - Provides consistent directory structure across all experiment components
 - Ensures compatibility with original behavior while maintaining modularity
 - Enables proper separation between pre-processing and experiment results
+
+Spec cross-reference (openspec/specs/experiment/spec.md): this layout embodies
+INV-EXP-14 ("The experiment results directory MUST be a flat path without internal
+nesting") — one flat directory per experiment under results/ holds tasks.json and
+the *.csv reports directly; INV-EXP-11 (PostProcessor writes instrument_errors.json
+"in the results directory"); and INV-EXP-12 (ExperimentConfig defaults: output_dir
+"out" = INSTRUMENTED_DIR, results_dir "results" = RESULTS_DIR).
 """
 
 import os
@@ -35,10 +42,20 @@ WORKING_DIR = os.getcwd()
 #
 # When --name is used, output_dir is set to results/<name>/ so artifacts
 # and results coexist. When not, output_dir defaults to out/ (INSTRUMENTED_DIR).
+# RESULTS_DIR is the INV-EXP-12 default for results_dir and the root of the
+# INV-EXP-14 flat results path. INSTRUMENTED_DIR is the INV-EXP-12 default for
+# output_dir (shared pre-processing artifacts).
 RESULTS_DIR = "results"
 INSTRUMENTED_DIR = "out"
 MONITORS_DIR = "monitors"
+# INSTRUMENTED_APKS_DIR is the filter basis for INV-EXP-15 (static-analysis targeting:
+# only APKs with a corresponding instrumented file) and INV-EXP-16 (execution targeting:
+# only APKs with a matching `.apk.json` static-analysis output in this same dir), and the
+# INV-EXP-08 fallback destination (original APKs copied here when instrumentation fails).
+# Static-analysis JSON is emitted here, not under STATIC_ANALYSIS_DIR.
 INSTRUMENTED_APKS_DIR = "instrumented_apks"
+# Legacy: output now goes to instrumented_apks/. INV-EXP-16 reads `.apk.json`
+# static-analysis output from instrumented_apks/, not from this directory.
 STATIC_ANALYSIS_DIR = "static_analysis"
 
 # Default source directories
@@ -54,7 +71,11 @@ EXPERIMENT_TASKS_FILE = "tasks.json"
 
 EXTENSION_ASPECTJ = ".aj"
 
-# Default timeouts and repetitions
+# Default timeouts and repetitions.
+# DEFAULT_TIMEOUT (300s) and DEFAULT_REPETITIONS (1) are the defaults asserted by
+# Scenario "Single Tool With Default Configuration" under Requirement "CLI with Tool
+# Specification DSL (FR16, NFR05)": "the experiment MUST execute with default timeout
+# (300s), default repetitions (1), and default specification set (jca)".
 DEFAULT_TIMEOUT = 300
 DEFAULT_REPETITIONS = 1
 DEFAULT_TOOL_TIMEOUT = 60
@@ -63,6 +84,10 @@ DEFAULT_TOOL_TIMEOUT = 60
 # JCA and generic are predefined directories under RVSEC_HOME containing .mop files.
 # Custom allows user-provided .mop files via --custom-specs-dir.
 # An experiment uses exactly one spec set — they are mutually exclusive.
+# SPEC_SET_CUSTOM triggers INV-EXP-04: when specification_set is "custom",
+# custom_specs_dir MUST be set and point to a directory containing at least one .mop
+# file, else the CLI raises ClickException before execution. DEFAULT_SPEC_SET (jca) is
+# the default from Scenario "Single Tool With Default Configuration".
 SPEC_SET_JCA = "jca"
 SPEC_SET_GENERIC = "generic"
 SPEC_SET_CUSTOM = "custom"

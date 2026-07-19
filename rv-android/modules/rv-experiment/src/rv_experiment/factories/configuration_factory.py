@@ -5,8 +5,15 @@ Provide factory methods for creating ExperimentConfig instances from different
 sources: CLI arguments, dictionaries, and pre-built templates. The factory
 handles tool specification DSL parsing, default generation, and validation.
 
-Used by the CLI layer (__main__.py) and programmatic callers to create
-properly validated experiment configurations without manual field wiring.
+Relates to Requirement "Experiment Configuration (FR15)" (build a validated
+ExperimentConfig aggregating all experiment parameters) and Requirement
+"CLI with Tool Specification DSL (FR16, NFR05)" (the tool-spec DSL parsing).
+See openspec/specs/experiment/spec.md.
+
+TODO(dead-code): ConfigurationFactory has no production caller — only re-exported by
+factories/__init__.py and covered by tests/test_configuration_factory*.py. The live CLI
+(__main__.py) uses its own DSL parser (parse_tool_specification) and ExperimentController
+builds ExperimentConfig directly. Candidate for P1/P3 removal.
 """
 
 import uuid
@@ -25,11 +32,19 @@ class ConfigurationFactory:
 
     ### Role in the System:
     Provides factory methods for creating ExperimentConfig from CLI arguments,
-    dictionaries, and pre-built templates. Centralizes configuration creation
-    logic that would otherwise be duplicated across callers.
+    dictionaries, and pre-built templates. Relates to Requirement "Experiment
+    Configuration (FR15)" and Requirement "CLI with Tool Specification DSL
+    (FR16, NFR05)" (openspec/specs/experiment/spec.md).
+
+    Note (current state): this class has no production caller — the live CLI in
+    __main__.py builds ExperimentConfig via its own DSL parser, so this factory
+    is exercised only by tests. See the module-level TODO(dead-code). Some
+    methods below are additionally broken against the current ExperimentConfig
+    model (see per-method TODOs), so do not treat this class as an authoritative
+    reference for how a valid config is built.
 
     ### Key Methods:
-    - create_cli_config(): Build config from CLI-style parameters
+    - create_cli_config(): Build config from CLI-style parameters (currently broken)
     - create_full_config(): Build config with explicit tool_configs
     - create_basic/advanced/llm_template(): Pre-built configs for common scenarios
     - parse_tool_specifications(): Parse tool DSL strings into structured dicts
@@ -60,12 +75,18 @@ class ConfigurationFactory:
         **kwargs,
     ) -> ExperimentConfig:
         """
-        Create CLI experiment configuration using factory pattern.
+        Build a CLI-style ExperimentConfig from loose parameters.
 
-        ### Factory Pattern Implementation:
-        This method implements the factory pattern for CLI configuration creation,
-        providing intelligent defaults while allowing customization through parameters.
-        It eliminates complex coordination in favor of simple parameter passing.
+        Intended to serve Requirement "Experiment Configuration (FR15)" by
+        producing a validated ExperimentConfig from CLI-shaped inputs. It does
+        NOT currently satisfy that requirement: the ExperimentConfig call below
+        passes kwargs (experiment_dir, experiment_id, tools, timeout) that are
+        not fields on the current model. ExperimentConfig is declared with
+        model_config = ConfigDict(extra="forbid") (config.py) and its real
+        fields are name/output_dir/tool_configs/timeouts (plural). Pydantic
+        therefore raises ValidationError on every call, and the
+        @ErrorHandler.handle_errors decorator swallows it, so this method always
+        returns None. The test suite documents this current behavior.
 
         Args:
             tools: List of tool specifications with variants and parameters
@@ -77,8 +98,12 @@ class ConfigurationFactory:
             **kwargs: Additional configuration parameters
 
         Returns:
-            Configured ExperimentConfig instance
+            Intended: a configured ExperimentConfig. Actual: None (see above).
         """
+        # TODO(FR16): create_cli_config passes non-existent kwargs (experiment_dir/experiment_id/
+        # tools/timeout) to ExperimentConfig, which is extra="forbid" with fields
+        # name/output_dir/tool_configs/timeouts → ValidationError, swallowed to None by ErrorHandler.
+        # Broken against the current model; needs a separate OpenSpec change.
         try:
             # Generate unique experiment ID
             experiment_id = (
@@ -122,12 +147,12 @@ class ConfigurationFactory:
         **kwargs,
     ) -> ExperimentConfig:
         """
-        Create full experiment configuration using factory pattern.
+        Build an ExperimentConfig from explicit tool_configs.
 
-        ### Factory Pattern Implementation:
-        This method creates comprehensive experiment configurations for complex
-        scenarios, providing full control over all experiment parameters while
-        maintaining clean factory-based creation patterns.
+        Supports Requirement "Experiment Configuration (FR15)": constructs
+        ExperimentConfig with the current model fields (name, tool_configs,
+        output_dir), so it is structurally valid — unlike create_cli_config.
+        Has no production caller (see the module-level TODO(dead-code)).
 
         Args:
             name: Experiment name
@@ -169,11 +194,10 @@ class ConfigurationFactory:
     )
     def create_basic_template(self) -> ExperimentConfig:
         """
-        Create basic configuration template using factory pattern.
+        Return a pre-built ExperimentConfig for a single-tool (monkey) run.
 
-        ### Template Factory Pattern:
-        This method implements the template factory pattern for creating basic
-        experiment configurations with sensible defaults for typical scenarios.
+        Supports Requirement "Experiment Configuration (FR15)"; uses the current
+        model fields.
 
         Returns:
             Basic ExperimentConfig template
@@ -191,11 +215,10 @@ class ConfigurationFactory:
     )
     def create_advanced_template(self) -> ExperimentConfig:
         """
-        Create advanced configuration template using factory pattern.
+        Return a pre-built multi-tool ExperimentConfig (monkey + droidbot).
 
-        ### Template Factory Pattern:
-        This method creates advanced configuration templates showcasing all
-        available options and complex experiment scenarios.
+        Supports Requirement "Experiment Configuration (FR15)"; uses the current
+        model fields, including a variant (singular) on the droidbot ToolConfig.
 
         Returns:
             Advanced ExperimentConfig template
@@ -217,7 +240,10 @@ class ConfigurationFactory:
     )
     def create_llm_template(self) -> ExperimentConfig:
         """
-        Create LLM-focused configuration template.
+        Return a pre-built ExperimentConfig for an LLM-driven (rvagent) run.
+
+        Supports Requirement "Experiment Configuration (FR15)"; uses the current
+        model fields.
 
         Returns:
             LLM-focused ExperimentConfig template
@@ -241,10 +267,12 @@ class ConfigurationFactory:
         """
         Parse tool specification strings into structured configurations.
 
-        ### Tool Specification DSL Factory:
-        This method implements the tool specification DSL factory pattern,
-        parsing tool:variant@parameter strings into structured configurations
-        suitable for factory-based component creation.
+        Relates to Requirement "CLI with Tool Specification DSL (FR16, NFR05)":
+        parses the DSL `tool_name[:variant1][:variant2][@param1=value1,...]` per
+        spec. This method receives an ALREADY-SPLIT List[str] (one entry per
+        tool), so it does not perform the multi-tool comma-splitting governed by
+        INV-EXP-09 — that param-aware comma split is done by the live parser in
+        __main__.py, not here.
 
         Args:
             tool_specs: List of tool specification strings
@@ -271,15 +299,25 @@ class ConfigurationFactory:
         """
         Parse a single tool specification string.
 
-        ### Tool Specification DSL:
-        Format: `tool_name[:variant1][:variant2][@param1=value1,param2=value2]`
+        DSL format: `tool_name[:variant1][:variant2][@param1=value1,param2=value2]`,
+        related to Requirement "CLI with Tool Specification DSL (FR16, NFR05)".
+        This method handles commas WITHIN one already-split spec's `@params`
+        section only.
 
         Args:
             tool_spec: Tool specification string to parse
 
         Returns:
-            Structured tool configuration dictionary
+            Structured tool configuration dictionary with keys name/variants/parameters.
+
+            The "variants" key holds a PLURAL list, which is the shape that
+            Requirement "Experiment Configuration (FR15)" declares unsupported:
+            the current model uses ToolConfig(variant: str, singular), and per P3
+            the old plural `variants: [...]` format was dropped. See TODO(FR15).
         """
+        # TODO(FR15): _parse_single_tool_spec emits the {"variants": [...]} plural-list shape that
+        # Requirement "Experiment Configuration (FR15)" declares unsupported — the current model uses
+        # ToolConfig(variant: str, singular). Dead output shape; needs a separate OpenSpec change.
         # The DSL uses two delimiters:
         # - '@' separates tool identity from parameters
         # - ':' separates tool name from variant names
@@ -321,12 +359,15 @@ class ConfigurationFactory:
         self, config_data: Dict[str, Any], config_type: str = "cli"
     ) -> ExperimentConfig:
         """
-        Create configuration from dictionary using factory pattern.
+        Build an ExperimentConfig from a dictionary via ExperimentConfig.from_dict.
 
-        ### Dictionary Factory Pattern:
-        This method implements the dictionary factory pattern for creating
-        configurations from structured data, supporting both CLI and full
-        configuration formats with proper validation.
+        Relates to Requirement "Experiment Configuration (FR15)"; delegates
+        deserialization to ExperimentConfig.from_dict() then calls validate().
+
+        Current state: the "cli" and "full" branches both call the same
+        ExperimentConfig.from_dict(config_data), so config_type is not a
+        behavioral distinction here — the only effect is rejecting an unknown
+        value with ValueError.
 
         Args:
             config_data: Configuration data dictionary

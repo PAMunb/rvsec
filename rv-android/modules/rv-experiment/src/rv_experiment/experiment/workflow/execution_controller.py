@@ -36,10 +36,14 @@ class ExecutionController:
     Bridge between rv-experiment orchestration and rv-platform execution.
     Translate ExperimentConfig parameters into PlatformConfig, initialize the
     Platform instance, and delegate all task execution and result processing.
+    Implements Phase 2 (execution) of FR15's Three-Phase Workflow.
 
     ### Architectural Decisions:
     - No data transfer back to rv-experiment. Results remain in rv-platform;
-      this controller only tracks success/failure status.
+      this controller only tracks success/failure status. Enforces INV-EXP-02:
+      rv-experiment MUST NOT read back task results, coverage data, or error
+      logs from rv-platform; the only information flowing back is the aggregate
+      success/failure status dictionary returned by Platform.run().
     - Device port injection into tool parameters enables parallel execution
       across multiple emulator instances.
     - Falls back to original APK directory when instrumented directory is
@@ -84,6 +88,8 @@ class ExecutionController:
         # Platform integration state — set by setup(), consumed by run().
         # This two-step lifecycle exists because setup() needs APK/tool info
         # that is only available after Phase 1 (pre-processing) completes.
+        # Enforces INV-EXP-06: setup() MUST be called before run(); these
+        # attributes start as None so run() can detect a missing setup() call.
         self.platform = None
         self.platform_config = None
         self.has_errors = False
@@ -104,7 +110,11 @@ class ExecutionController:
         """Configure rv-platform for experiment execution.
 
         Create PlatformConfig from experiment parameters and initialize the
-        Platform instance. Must be called before run().
+        Platform instance. Must be called before run() (INV-EXP-06).
+
+        Realizes the first half of FR15 Phase 2 (execution): translate the
+        experiment configuration into a PlatformConfig and create the Platform
+        instance that run() will later drive.
 
         Args:
             apks: Application objects to test (instrumented or original)
@@ -141,8 +151,9 @@ class ExecutionController:
         """Execute experiment tasks through rv-platform.
 
         Delegate complete execution to Platform.run(), which handles emulator
-        lifecycle, tool execution, and result processing. Only success/failure
-        status is tracked locally.
+        lifecycle, tool execution, and result processing. Completes FR15 Phase 2
+        by calling Platform.run(). Only success/failure status is tracked
+        locally (INV-EXP-02).
 
         Returns:
             True if all tasks completed successfully, False if any task failed
@@ -151,6 +162,9 @@ class ExecutionController:
             RVExperimentExecutionError: If setup() was not called or platform
                 execution raises an unrecoverable error
         """
+        # Enforces INV-EXP-06: calling run() without a prior setup() MUST raise
+        # RVExperimentExecutionError. platform/platform_config are only set by
+        # setup(), so a None value here means setup() was skipped.
         if not self.platform or not self.platform_config:
             raise RVExperimentExecutionError(
                 "Execution controller not properly set up. Call setup() first."
@@ -169,6 +183,9 @@ class ExecutionController:
                 # Only success/failure status crosses the module boundary.
                 # Detailed results (CSV, coverage, MOP violations) remain in rv-platform's
                 # results directory — rv-experiment never reads or transforms them.
+                # Enforces INV-EXP-02: the only data flowing back is the aggregate
+                # dict (total_tasks/successful_tasks/failed_tasks counts); we read
+                # only the failed_tasks count to derive local success/failure state.
                 self.has_errors = results.get("failed_tasks", 0) > 0
 
                 # Log execution statistics
@@ -184,6 +201,10 @@ class ExecutionController:
                 return success
 
             except Exception as e:
+                # Scenario "Execution Phase Failure Propagation": WHEN Platform.run()
+                # raises during Phase 2, THEN run() sets has_errors=True and raises
+                # RVExperimentExecutionError, which ExperimentController catches, logs,
+                # and turns into a False return from the experiment.
                 self.has_errors = True
                 self.logger.error(
                     LOG_ERROR.format(phase="platform execution", error=str(e))
@@ -227,9 +248,12 @@ class ExecutionController:
         # Both rv-experiment and rv-platform write to the same flat directory
         # (e.g., results/my_exp/), so tasks.json, CSV reports, and experiment
         # config all coexist in one location for easy inspection.
+        # Enforces INV-EXP-14: the results directory MUST be a flat path without
+        # internal nesting — results_dir is passed straight through, never with
+        # config.name or another subdirectory component appended.
         platform_results_dir = results_dir
 
-        # Prefer instrumented APKs produced by Phase 1.
+        # Prefer instrumented APKs produced by Phase 1, per FR15 Phase 2 execution.
         # Falls back to original APKs when instrumentation was skipped (--skip-instrument
         # or resume mode). This fallback is critical: without it, the platform would
         # fail to find APKs when pre-processing is disabled.
@@ -263,7 +287,8 @@ class ExecutionController:
             params = dict(original_config.parameters)
 
             # Inject device_port into tool parameters for parallel container execution.
-            # In Docker-based batch runs, each container gets a unique emulator port
+            # Supports the "Docker Execution Mode" requirement (FR16-ext): in
+            # Docker-based batch runs, each container gets a unique emulator port
             # (e.g., 5554, 5556, 5558). Tools need this to connect to the right
             # emulator instance via ADB. The three keys (device_port, device_serial,
             # device_id) cover different tool conventions for device addressing.
@@ -306,6 +331,10 @@ class ExecutionController:
     def get_statistics(self) -> Dict[str, Any]:
         """Get execution statistics from platform integration.
 
+        Enforces INV-EXP-02: returns only locally tracked status plus the
+        results directory path — never reads back detailed task results or
+        coverage data from rv-platform.
+
         Returns:
             Dictionary with keys:
                 - status: "not_executed" if platform was never run
@@ -337,6 +366,10 @@ class ExecutionController:
     )
     def get_coverage_report(self) -> Dict[str, Any]:
         """Get coverage report summary from platform execution.
+
+        Enforces INV-EXP-02: reports only the has_errors status and the
+        results directory path where rv-platform owns the coverage data — it
+        does not read back or transform the detailed coverage results.
 
         Returns:
             Dictionary with keys:

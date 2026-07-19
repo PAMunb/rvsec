@@ -9,6 +9,9 @@ validate (check configuration files).
 
 Supports two execution modes: CLI mode with tool specification DSL
 (tool:variant@param=value) and config-file mode with JSON configuration.
+
+Implements Requirement "CLI with Tool Specification DSL (FR16, NFR05)"
+in openspec/specs/experiment/spec.md.
 """
 
 import json
@@ -162,7 +165,17 @@ class CLIContext:
         Parse tool specification string into ToolConfig instances.
 
         Multi-variant specs are expanded at parse time: `droidbot:dfs_greedy:bfs_greedy`
-        produces TWO ToolConfig instances, one per variant.
+        produces TWO ToolConfig instances, one per variant. This is the
+        enforcement site for Requirement "CLI with Tool Specification DSL
+        (FR16, NFR05)" Scenario "CLI variant expansion at parse time" and
+        Scenario "Multiple Tools With Variants and Parameters" in
+        openspec/specs/experiment/spec.md.
+
+        Scope: this method parses ONE tool spec. Splitting the `--tools`
+        string into separate tool specs (INV-EXP-09, commas inside `@`
+        parameter sections) is done upstream by `_split_tool_specifications`.
+        Here, comma handling applies only to the `@`-parameter list within a
+        single spec.
 
         ### Tool Specification DSL:
         Format: `tool_name[:variant1][:variant2][@param1=value1,param2=value2]`
@@ -249,6 +262,11 @@ def _parse_timeouts(raw: str) -> List[int]:
     ``RV_TIMEOUTS="60,300"``. Splitting/validation therefore happens here, at the
     CLI boundary, before any experiment setup (INV-EXP-33). Order is preserved
     and duplicates are kept: the resume mechanism skips identity-colliding tasks.
+
+    Enforces Requirement "Timeout List CLI Flag (FR08, FR16, NFR05)": an empty
+    result list, a non-integer token, or any value ``<= 0`` aborts with a
+    ``click.BadParameter`` error (Scenario "Invalid Timeout Value Fails Fast"
+    and Scenario "Non-Positive Timeout Fails Fast").
     """
     try:
         values = [int(t.strip()) for t in raw.split(",") if t.strip()]
@@ -267,8 +285,10 @@ def _timeouts_callback(ctx, param, value: str) -> List[int]:
     Runs before ``run()`` executes and outside its ``@handle_errors`` wrapper
     (which absorbs every exception and would turn a ``BadParameter`` into a
     silent exit 0). Raising here lets Click render the usage error and exit 2,
-    satisfying INV-EXP-33's fail-fast contract. ``value`` is the Click-resolved
-    string (flag, ``RV_TIMEOUTS`` env, or default).
+    satisfying INV-EXP-33's fail-fast contract (Requirement "Timeout List CLI
+    Flag (FR08, FR16, NFR05)", Scenario "Invalid Timeout Value Fails Fast").
+    ``value`` is the Click-resolved string (flag, ``RV_TIMEOUTS`` env, or
+    default; CLI > env > default precedence per INV-EXP-32).
     """
     return _parse_timeouts(value)
 
@@ -302,6 +322,12 @@ def _timeouts_callback(ctx, param, value: str) -> List[int]:
 def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     """
     RV-Experiment - Android Testing Orchestrator for Monitored Operations
+
+    Root of the four-command CLI in Requirement "CLI with Tool Specification
+    DSL (FR16, NFR05)". The per-option `envvar=` entries on this group and on
+    `run` back Requirement "Docker Execution Mode (FR16-ext, NFR08)": each
+    `RV_*` variable resolves to the same option whether set via `docker run -e`
+    or in a plain shell. See openspec/specs/experiment/spec.md.
 
     ### CLI Features:
 
@@ -362,6 +388,8 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     type=click.Path(exists=True),
     help="Configuration file path (JSON format)",
 )
+# --timeouts: Requirement "Timeout List CLI Flag (FR08, FR16, NFR05)". Parsed
+# to List[int] at the CLI boundary by _timeouts_callback (INV-EXP-33).
 @click.option(
     "--timeouts",
     default=str(DEFAULT_TIMEOUT),
@@ -387,6 +415,8 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     type=click.Path(),
     help=f"Directory containing APK files (default: ./{DEFAULT_APKS_DIR}/)",
 )
+# --specification-set + --custom-specs-dir: INV-EXP-04 — "custom" requires
+# --custom-specs-dir; run() raises ClickException before execution otherwise.
 @click.option(
     "--specification-set",
     default=DEFAULT_SPEC_SET,
@@ -404,6 +434,9 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     type=click.Path(exists=True),
     help="Custom AspectJ aspects directory path (optional, defaults to standard RVSEC aspects)",
 )
+# Pre-processing skip flags: Requirement "CLI with Tool Specification DSL
+# (FR16, NFR05)" — these map directly to the generate_monitors,
+# instrument_apks, and run_static_analysis fields of ExperimentConfig.
 @click.option(
     "--generate-monitors/--skip-monitors",
     default=True,
@@ -438,6 +471,8 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     type=click.Path(),
     help="Output directory for experiment results (default: auto-generated)",
 )
+# --no-window/--window: Requirement "CLI with Tool Specification DSL
+# (FR16, NFR05)" — --no-window (headless) is the default.
 @click.option(
     "--no-window/--window",
     default=True,
@@ -486,6 +521,10 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
         "is honored directly by Click without entry-point translation."
     ),
 )
+# --name / --resume-dir: Requirement "Experiment Resume via CLI (FR16-ext)".
+# On resume the pre-processing flags (generate_monitors/instrument_apks/
+# run_static_analysis) are forced to False (INV-EXP-13); --resume-dir takes
+# precedence over --name. Resolved in _create_experiment_config_from_cli.
 @click.option(
     "--name",
     type=str,
@@ -543,12 +582,17 @@ def run(
     jvm_memory: Optional[str],
 ):
     """
-    Execute experiment with modern tool specification parsing and configuration support.
+    Execute an experiment from CLI arguments or a JSON configuration file.
+
+    Implements the `run` command of Requirement "CLI with Tool Specification
+    DSL (FR16, NFR05)" (openspec/specs/experiment/spec.md).
 
     ### Execution Strategy:
-    This command supports two primary execution modes:
+    This command supports two mutually exclusive execution modes:
     1. **CLI Mode**: Direct tool specification via command line arguments
-    2. **Config Mode**: File-based configuration for complex experiment scenarios
+    2. **Config Mode**: File-based configuration loaded via `--config`
+       (Scenario "Configuration File Mode"): `--tools` is not parsed and
+       validate() runs before execution
 
     ### CLI Mode Examples:
     ```bash
@@ -586,6 +630,8 @@ def run(
 
         # Early validation: "custom" spec set requires a user-provided directory of .mop files.
         # This check happens before config creation to provide a clear CLI error message.
+        # INV-EXP-04 / Scenario "Custom Specification Set Without Directory": the
+        # ClickException message below is asserted verbatim by the spec.
         if specification_set == "custom" and not custom_specs_dir:
             raise click.ClickException(
                 "Custom specification directory (--custom-specs-dir) is required "
@@ -596,6 +642,9 @@ def run(
             # Two mutually exclusive config sources: --config (JSON file) takes
             # precedence over CLI arguments. Both produce an ExperimentConfig that
             # follows the same validation and execution path below.
+            # Scenario "Configuration File Mode": in the --config branch the
+            # config is loaded via ExperimentConfig.from_file and --tools is NOT
+            # parsed; validate() (below) still runs before execution.
             if config:
                 ctx.logger.info(f"Loading experiment configuration from: {config}")
                 experiment_config = ExperimentConfig.from_file(config)
@@ -633,6 +682,9 @@ def run(
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
             # invalid spec set) rather than failing mid-experiment after pre-processing.
+            # Requirement "CLI with Tool Specification DSL (FR16, NFR05)" and
+            # Scenario "Configuration File Mode": validate() MUST run before
+            # execution in both CLI and --config modes.
             experiment_config.validate()
 
             # Display experiment information
@@ -687,21 +739,25 @@ def config(
     ctx: CLIContext, template_type: str, output: Optional[str], output_format: str
 ):
     """
-    Generate configuration templates for complex experiment scenarios.
+    Generate ExperimentConfig templates for different experiment scenarios.
+
+    The `config` command of Requirement "CLI with Tool Specification DSL
+    (FR16, NFR05)"; the emitted templates are ExperimentConfig instances per
+    Requirement "Experiment Configuration (FR15)". See
+    openspec/specs/experiment/spec.md.
 
     ### Template Types:
 
     **Basic Template:**
-    Simple configuration for standard experiments with common tools and JCA monitored operations.
+    Single-tool-and-variant configuration with JCA monitored operations.
     Suitable for initial experiments and basic tool comparisons.
 
     **Advanced Template:**
-    Comprehensive configuration showcasing multiple tools, variants, and extensive
-    parameter customization for thorough testing scenarios.
+    Multiple tools, variants, and parameter customization.
 
     **Research Template:**
-    Specialized configuration for academic research with comprehensive monitored operations
-    coverage, statistical rigor, and extensive result collection.
+    Configuration for academic research with higher repetitions and longer
+    timeouts for repeated-measures result collection.
 
     ### Examples:
     ```bash
@@ -776,6 +832,9 @@ def list_tools(ctx: CLIContext, detailed: bool, filter_by: str):
     """
     List available testing tools and their capabilities.
 
+    The `list-tools` command of Requirement "CLI with Tool Specification DSL
+    (FR16, NFR05)" (openspec/specs/experiment/spec.md).
+
     ### Tool Categories:
 
     **Basic Tools:**
@@ -802,7 +861,7 @@ def list_tools(ctx: CLIContext, detailed: bool, filter_by: str):
     ```
 
     ### Tool Specification DSL:
-    Each tool supports the modern specification format:
+    Each tool supports the specification format:
     - Basic usage: `tool_name`
     - With variants: `tool_name:variant1:variant2`
     - With parameters: `tool_name@param1=value1,param2=value2`
@@ -897,6 +956,11 @@ def validate(ctx: CLIContext, config_file: str):
     """
     Validate configuration files and tool specifications.
 
+    The `validate` command of Requirement "CLI with Tool Specification DSL
+    (FR16, NFR05)": builds an ExperimentConfig via `from_dict`, runs
+    `validate()`, and checks tool availability against the registry. See
+    openspec/specs/experiment/spec.md.
+
     ### Validation Features:
     - Configuration file structure and syntax validation
     - Tool specification format verification
@@ -972,6 +1036,12 @@ def validate(ctx: CLIContext, config_file: str):
 def _split_tool_specifications(tools_string: str) -> list[str]:
     """
     Split tool specification string into individual tool specs.
+
+    Enforcement site for INV-EXP-09 (Requirement "CLI with Tool Specification
+    DSL (FR16, NFR05)", Scenario "Parameters With Commas Inside Tool
+    Specification"): a comma followed by a parameter-like token (containing
+    `=`) MUST be treated as a parameter separator within the same tool spec,
+    not as a tool separator. See openspec/specs/experiment/spec.md.
 
     Handles the case where parameters use comma as separator:
     Format: tool1[:variant][@param1=val1,param2=val2],tool2[:variant][@params]
@@ -1055,14 +1125,18 @@ def _create_experiment_config_from_cli(
     logcat_diagnostics: bool = False,
 ) -> ExperimentConfig:
     """
-    Create ExperimentConfig from CLI arguments with comprehensive tool parsing.
+    Create ExperimentConfig from CLI arguments.
+
+    Backs the CLI-mode path of Requirement "CLI with Tool Specification DSL
+    (FR16, NFR05)" and the resume paths of Requirement "Experiment Resume via
+    CLI (FR16-ext)". See openspec/specs/experiment/spec.md.
 
     ### Configuration Creation Strategy:
     - Parses tool specifications using DSL format
     - Creates ToolConfig instances for each parsed tool
     - Generates unique experiment identifier with timestamp
-    - Applies intelligent defaults for unspecified parameters
-    - Validates configuration integrity before returning
+    - Detects resume mode and forces pre-processing flags off (INV-EXP-13)
+    - Builds the flat results path before ExperimentConfig (INV-EXP-14)
 
     Args:
         ctx: CLI context with logging and tool registry access
@@ -1112,7 +1186,15 @@ def _create_experiment_config_from_cli(
         # experiment identity and output directory are resolved.
         # Precedence: --resume-dir > --name (with existing tasks.json) > new experiment.
         #
-        # Resume invariant: ALL pre-processing flags are forced to False on resume.
+        # Requirement "Experiment Resume via CLI (FR16-ext)". The three paths
+        # below correspond to the spec Scenarios:
+        #   - --resume-dir set        -> "Resume With --resume-dir Flag"
+        #   - --name with tasks.json  -> "Resume With --name Detecting Existing Results"
+        #   - --name without results  -> "First Run With --name (No Existing Results)"
+        #   - both flags set          -> "--resume-dir Overrides --name"
+        #
+        # Resume invariant (INV-EXP-13): on resume, generate_monitors,
+        # instrument_apks, and run_static_analysis are all forced to False.
         # This prevents re-generating monitors and re-instrumenting APKs, which
         # would overwrite the artifacts that the original run already produced.
         # rv-platform handles task-level resume via tasks.json independently.
@@ -1163,6 +1245,10 @@ def _create_experiment_config_from_cli(
         # output_dir is used by pre-processing (monitors, instrumented APKs);
         # results_dir is used by rv-platform (tasks.json, CSV, JSON reports).
         # Both are the same directory to keep all experiment artifacts together.
+        # INV-EXP-14: the CLI layer (__main__.py) constructs the COMPLETE results
+        # path here (results/<name> or results/cli_experiment_...) before passing
+        # it to ExperimentConfig.results_dir; ExperimentController uses it as-is,
+        # flat with no further nesting.
         experiment_config = ExperimentConfig(
             name=experiment_id,
             description="Experiment created via CLI interface",
@@ -1205,12 +1291,15 @@ def _create_experiment_config_from_cli(
 
 def _create_template_configuration(template_type: str) -> ExperimentConfig:
     """
-    Create template configuration for different experiment scenarios.
+    Create a template ExperimentConfig for a given experiment scenario.
+
+    Produces ExperimentConfig instances per Requirement "Experiment
+    Configuration (FR15)" (openspec/specs/experiment/spec.md).
 
     ### Template Creation Strategy:
-    - Basic: Simple single-tool experiments with standard monitored operations
-    - Advanced: Multi-tool comparisons with variants and comprehensive configuration
-    - Research: Academic-focused configuration with statistical rigor and documentation
+    - Basic: single-tool experiments with standard monitored operations
+    - Advanced: multi-tool comparisons with variants and parameters
+    - Research: higher repetitions and longer timeouts for repeated-measures runs
 
     Args:
         template_type: Type of template to create ('basic', 'advanced', 'research')
@@ -1305,19 +1394,17 @@ def _create_template_configuration(template_type: str) -> ExperimentConfig:
 @ErrorHandler.handle_errors(component="CLIMain", phase="main_entry_point")
 def main():
     """
-    Main entry point for the RV-Experiment CLI.
+    Console entry point for the RV-Experiment CLI.
 
-    ### Entry Point Strategy:
-    - Provides comprehensive error handling for all CLI operations
-    - Supports graceful interruption with proper cleanup
-    - Maintains proper exit codes for integration with automation systems
-    - Demonstrates clean architectural patterns through CLI usage
+    Registered as the `rv-experiment` script in pyproject.toml
+    ([project.scripts]). Invokes the Click `cli` group and normalizes exit
+    codes for automation.
 
     ### Error Handling:
     - Uses rv-android-core ErrorHandler for consistent error management
-    - Provides user-friendly error messages with technical details in logs
-    - Implements graceful degradation for missing components
-    - Supports both interactive and programmatic usage patterns
+    - KeyboardInterrupt exits with code 130 (standard SIGINT code)
+    - SystemExit is re-raised unchanged to preserve Click's exit codes
+    - A final except is the last-resort safety net (exit 1)
     """
     try:
         cli()
@@ -1334,6 +1421,7 @@ def main():
 
 
 def run_local():
+    """Local dev/debug helper. The console entry point is `main()`."""
     ctx = CLIContext()
     ctx.configure_logging(True)
 
