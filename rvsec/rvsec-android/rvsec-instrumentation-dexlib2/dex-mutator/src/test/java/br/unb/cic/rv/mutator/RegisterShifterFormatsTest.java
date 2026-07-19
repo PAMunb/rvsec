@@ -12,6 +12,7 @@ import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction12x
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction21c;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction21t;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction22c;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction22x;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction23x;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction31i;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction31t;
@@ -27,12 +28,14 @@ import com.android.tools.smali.dexlib2.iface.MethodImplementation;
 import com.android.tools.smali.dexlib2.iface.reference.FieldReference;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 import com.android.tools.smali.dexlib2.iface.reference.StringReference;
+import com.android.tools.smali.dexlib2.iface.reference.TypeReference;
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef;
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile;
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableStringReference;
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference;
 import com.android.tools.smali.dexlib2.writer.pool.DexPool;
 import org.junit.jupiter.api.Test;
 
@@ -563,5 +566,176 @@ class RegisterShifterFormatsTest {
         assertEquals(preRegisters, postRegisters,
                 "INV-INS-80: no instruction operand may be mutated when spill throws "
                         + "(half-shifted MMI is the gh61 sw1.<init> regression mode)");
+    }
+
+    // ------------------------------------------------------------------
+    // 4-bit overflow WIDENING (success path). The atomicity test above pins
+    // the VETO half (an unwidenable 35c → rethrow); these pin the other half:
+    // when a 4-bit operand crosses v15 in a widenable format, shiftExpanding
+    // MUST re-encode it into the corresponding /from16 form (bumping nothing
+    // it isn't allowed to) rather than skip the instruction — the "advice
+    // insertion MUST NOT be silently skipped due to register pressure" clause.
+    // A wrong widen opcode (move vs move-object vs move-wide) or a reversed
+    // core/move order emits bytecode ART rejects with VerifyError on-device,
+    // which no other test in this module would catch.
+    // ------------------------------------------------------------------
+
+    /** v15 → v16 in a 12x narrow move must widen to 22x move/from16, operands shifted. */
+    @Test
+    void overflow12xMove_widensToMoveFrom16() {
+        BuilderInstruction in = new BuilderInstruction12x(Opcode.MOVE, 15, 14);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(1, out.size(), "narrow-move widen is a single 22x instruction");
+        assertInstanceOf(BuilderInstruction22x.class, out.get(0));
+        BuilderInstruction22x w = (BuilderInstruction22x) out.get(0);
+        assertEquals(Opcode.MOVE_FROM16, w.getOpcode());
+        assertEquals(16, w.getRegisterA(), "dest v15 shifted +1 → v16 (8-bit slot)");
+        assertEquals(15, w.getRegisterB(), "src v14 shifted +1 → v15 (16-bit slot)");
+    }
+
+    /** MOVE_WIDE must widen to MOVE_WIDE_FROM16 (not the narrow form). */
+    @Test
+    void overflow12xMoveWide_widensToMoveWideFrom16() {
+        BuilderInstruction in = new BuilderInstruction12x(Opcode.MOVE_WIDE, 15, 14);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(1, out.size());
+        BuilderInstruction22x w = (BuilderInstruction22x) out.get(0);
+        assertEquals(Opcode.MOVE_WIDE_FROM16, w.getOpcode(),
+                "a wide value widened with a narrow move would truncate its high half");
+        assertEquals(16, w.getRegisterA());
+        assertEquals(15, w.getRegisterB());
+    }
+
+    /** MOVE_OBJECT must widen to MOVE_OBJECT_FROM16 (reference type preserved). */
+    @Test
+    void overflow12xMoveObject_widensToMoveObjectFrom16() {
+        BuilderInstruction in = new BuilderInstruction12x(Opcode.MOVE_OBJECT, 15, 14);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(1, out.size());
+        BuilderInstruction22x w = (BuilderInstruction22x) out.get(0);
+        assertEquals(Opcode.MOVE_OBJECT_FROM16, w.getOpcode(),
+                "a reference bridged with a primitive move fails ART verification");
+        assertEquals(16, w.getRegisterA());
+        assertEquals(15, w.getRegisterB());
+    }
+
+    /** A non-move 12x op (NEG_INT) has no /from16 widen form → veto, rethrow the overflow. */
+    @Test
+    void overflow12xNonMove_isVetoedAndRethrows() {
+        BuilderInstruction in = new BuilderInstruction12x(Opcode.NEG_INT, 15, 14);
+        assertThrows(RegisterShifter.RegisterOverflow4Bit.class,
+                () -> RegisterShifter.shiftExpanding(in, 0, 1, 0),
+                "no widen surrogate for a unary-arith 12x → the caller must skip the method");
+    }
+
+    /** iget-object with an overflowed DESTINATION (vA): core op first, then move-object back up. */
+    @Test
+    void overflow22cIgetObject_vAWrite_emitsCoreThenMoveBack() {
+        FieldReference ref = new ImmutableFieldReference(
+                "Lcom/example/Foo;", "field", "Ljava/lang/Object;");
+        BuilderInstruction in = new BuilderInstruction22c(Opcode.IGET_OBJECT, 15, 3, ref);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(2, out.size());
+        // [0] core: produce into the low scratch slot first.
+        BuilderInstruction22c core = (BuilderInstruction22c) out.get(0);
+        assertEquals(Opcode.IGET_OBJECT, core.getOpcode());
+        assertEquals(0, core.getRegisterA(), "core writes into scratch v0");
+        assertEquals(4, core.getRegisterB(), "receiver v3 shifted +1 → v4");
+        assertSame(ref, core.getReference());
+        // [1] move the result up to the real (now high) destination.
+        BuilderInstruction22x back = (BuilderInstruction22x) out.get(1);
+        assertEquals(Opcode.MOVE_OBJECT_FROM16, back.getOpcode());
+        assertEquals(16, back.getRegisterA(), "dest v15 shifted +1 → v16");
+        assertEquals(0, back.getRegisterB(), "copied up from scratch v0");
+    }
+
+    /** iput with an overflowed SOURCE (vA): stage the source down first, then the core op. */
+    @Test
+    void overflow22cIput_vARead_emitsMovePrepThenCore() {
+        FieldReference ref = new ImmutableFieldReference(
+                "Lcom/example/Foo;", "field", "I");
+        BuilderInstruction in = new BuilderInstruction22c(Opcode.IPUT, 15, 3, ref);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(2, out.size());
+        // [0] prep: stage the high source into scratch (narrow move — int field).
+        BuilderInstruction22x prep = (BuilderInstruction22x) out.get(0);
+        assertEquals(Opcode.MOVE_FROM16, prep.getOpcode(),
+                "int-typed iput source must travel via the narrow move");
+        assertEquals(0, prep.getRegisterA(), "staged into scratch v0");
+        assertEquals(16, prep.getRegisterB(), "source v15 shifted +1 → v16");
+        // [1] core reads the staged scratch value.
+        BuilderInstruction22c core = (BuilderInstruction22c) out.get(1);
+        assertEquals(Opcode.IPUT, core.getOpcode());
+        assertEquals(0, core.getRegisterA(), "core reads scratch v0");
+        assertEquals(4, core.getRegisterB());
+    }
+
+    /** iget-wide destination overflow must bridge back with the WIDE move flavor. */
+    @Test
+    void overflow22cIgetWide_vAWide_emitsMoveWideBack() {
+        FieldReference ref = new ImmutableFieldReference(
+                "Lcom/example/Foo;", "field", "J");
+        BuilderInstruction in = new BuilderInstruction22c(Opcode.IGET_WIDE, 15, 3, ref);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(2, out.size());
+        assertEquals(Opcode.IGET_WIDE, ((BuilderInstruction22c) out.get(0)).getOpcode());
+        BuilderInstruction22x back = (BuilderInstruction22x) out.get(1);
+        assertEquals(Opcode.MOVE_WIDE_FROM16, back.getOpcode(),
+                "a narrow move-back would truncate the high half of the 64-bit field value");
+        assertEquals(16, back.getRegisterA());
+        assertEquals(0, back.getRegisterB());
+    }
+
+    /** iget with an overflowed RECEIVER (vB): reference receiver → move-object prep, then core. */
+    @Test
+    void overflow22cIget_vBReceiver_emitsMoveObjectPrepThenCore() {
+        FieldReference ref = new ImmutableFieldReference(
+                "Lcom/example/Foo;", "field", "I");
+        BuilderInstruction in = new BuilderInstruction22c(Opcode.IGET, 3, 15, ref);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(2, out.size());
+        BuilderInstruction22x prep = (BuilderInstruction22x) out.get(0);
+        assertEquals(Opcode.MOVE_OBJECT_FROM16, prep.getOpcode(),
+                "the field-access receiver is a reference — must stage via move-object");
+        assertEquals(0, prep.getRegisterA(), "staged into scratch v0");
+        assertEquals(16, prep.getRegisterB(), "receiver v15 shifted +1 → v16");
+        BuilderInstruction22c core = (BuilderInstruction22c) out.get(1);
+        assertEquals(Opcode.IGET, core.getOpcode());
+        assertEquals(4, core.getRegisterA(), "dest v3 shifted +1 → v4");
+        assertEquals(0, core.getRegisterB(), "core reads receiver from scratch v0");
+    }
+
+    /** new-array with an overflowed SIZE (vB): the int size must stage via the NARROW move. */
+    @Test
+    void overflow22cNewArray_vBSize_emitsNarrowMovePrep() {
+        TypeReference ref = new ImmutableTypeReference("[I");
+        BuilderInstruction in = new BuilderInstruction22c(Opcode.NEW_ARRAY, 3, 15, ref);
+        List<BuilderInstruction> out = RegisterShifter.shiftExpanding(in, 0, 1, 0);
+
+        assertEquals(2, out.size());
+        BuilderInstruction22x prep = (BuilderInstruction22x) out.get(0);
+        assertEquals(Opcode.MOVE_FROM16, prep.getOpcode(),
+                "new-array vB is the int-domain length — an object move would mistype the slot");
+        assertEquals(0, prep.getRegisterA());
+        assertEquals(16, prep.getRegisterB());
+        assertEquals(Opcode.NEW_ARRAY, ((BuilderInstruction22c) out.get(1)).getOpcode());
+    }
+
+    /** 22c with BOTH operands overflowing has only one scratch slot → veto, rethrow. */
+    @Test
+    void overflow22cBothOperands_isVetoedAndRethrows() {
+        FieldReference ref = new ImmutableFieldReference(
+                "Lcom/example/Foo;", "field", "I");
+        BuilderInstruction in = new BuilderInstruction22c(Opcode.IGET, 15, 15, ref);
+        assertThrows(RegisterShifter.RegisterOverflow4Bit.class,
+                () -> RegisterShifter.shiftExpanding(in, 0, 1, 0),
+                "a single scratch can stage only one operand — both high must be refused cleanly");
     }
 }
