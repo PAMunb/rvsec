@@ -2,10 +2,13 @@ package br.unb.cic.rv.pointcut;
 
 import com.android.tools.smali.dexlib2.AccessFlags;
 import com.android.tools.smali.dexlib2.Opcode;
+import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
+import com.android.tools.smali.dexlib2.iface.DexFile;
 import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef;
+import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile;
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod;
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation;
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x;
@@ -623,5 +626,63 @@ class PointcutMatcherTest {
                 List.of(STRING_DESC), "Ljavax/crypto/Cipher;", new int[]{5});
         assertTrue(match(pm, cipherSubtypePc, unrelated).isEmpty(),
                 "owner T+ MUST NOT match a class outside the subtype hierarchy");
+    }
+
+    // ------------------------------------------------------------------
+    // §4.O — owner T+ POSITIVE match (spec.md:1509). The symmetric partner of
+    // subtypeOwnerOperatorDoesNotMatchUnrelatedClass above: with a real APK
+    // subtype edge, call(Cipher+.doFinal()) MUST match a call whose declared
+    // owner is a Cipher subtype, AND the exact-owner match MUST still succeed.
+    // ------------------------------------------------------------------
+
+    private static final String SUBCIPHER_OWNER = "Lcom/example/app/MyCipher;";
+
+    /** APK dex declaring {@code MyCipher extends Cipher} — the subtype edge that
+     *  makes {@code isAssignableFrom(Cipher, MyCipher)} true. */
+    private static DexFile cipherSubtypeDex() {
+        ClassDef sub = new ImmutableClassDef(
+                SUBCIPHER_OWNER, AccessFlags.PUBLIC.getValue(), CIPHER_OWNER,
+                Collections.emptyList(), null, null,
+                Collections.emptyList(), Collections.emptyList());
+        return new ImmutableDexFile(Opcodes.getDefault(), List.of(sub));
+    }
+
+    /** Like {@link #jcaMatcher()} but with the Cipher subtype edge seeded. */
+    private static PointcutMatcher cipherSubtypeMatcher() {
+        TypeResolver tr = new TypeResolver(List.of("javax.crypto.Cipher", "java.lang.String"));
+        InheritanceResolver ir = new InheritanceResolver(
+                new AndroidClassIndex(Path.of("/tmp/nope.jar")), List.of(cipherSubtypeDex()));
+        return new PointcutMatcher(tr, ir);
+    }
+
+    /** call(byte[] Cipher+.doFinal()) — subtype operator on the owner, no params. */
+    private static CallPC cipherPlusDoFinalPc() {
+        return new CallPC(false, "byte[]", "javax.crypto.Cipher+",
+                "doFinal", exactSpecs(), false);
+    }
+
+    @Test
+    void subtypeOwnerOperatorMatchesActualSubtype() {
+        // invoke-virtual {v2}, MyCipher.doFinal()[B where MyCipher extends Cipher.
+        // call(Cipher+.doFinal()) MUST match through isAssignableFrom (§4.O).
+        PointcutMatcher pm = cipherSubtypeMatcher();
+        Fixture f = invokeFixture(Opcode.INVOKE_VIRTUAL, SUBCIPHER_OWNER, "doFinal",
+                List.of(), "[B", new int[]{2});
+        Optional<Match> r = match(pm, cipherPlusDoFinalPc(), f);
+        assertTrue(r.isPresent(),
+                "owner T+ MUST match a call whose declared owner is a subtype of Cipher");
+        assertEquals(2, r.get().targetRegister,
+                "the matched virtual invoke's receiver (v2) MUST be captured");
+    }
+
+    @Test
+    void subtypeOwnerOperatorStillMatchesExactOwner() {
+        // The + owner path MUST preserve the exact-owner match: call(Cipher+.doFinal())
+        // at a call whose declared owner is exactly Cipher (reflexive isAssignableFrom).
+        PointcutMatcher pm = cipherSubtypeMatcher();
+        Fixture f = invokeFixture(Opcode.INVOKE_VIRTUAL, CIPHER_OWNER, "doFinal",
+                List.of(), "[B", new int[]{2});
+        assertTrue(match(pm, cipherPlusDoFinalPc(), f).isPresent(),
+                "owner T+ MUST still match a receiver of the EXACT declared type Cipher");
     }
 }
