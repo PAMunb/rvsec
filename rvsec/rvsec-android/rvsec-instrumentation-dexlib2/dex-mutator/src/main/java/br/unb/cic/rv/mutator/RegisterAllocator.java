@@ -21,9 +21,10 @@ import java.util.List;
  * </ol>
  *
  * <p>The allocator never returns high-index registers to the caller —
- * the shifter's expansion to {@code /from16} / {@code /from32} is handled
- * inside that class, so from the caller's perspective the returned scratch
- * indices are safe to use in any instruction format.
+ * the shifter's expansion of 4-bit register-index overflows to the wider
+ * {@code /from16} format is handled inside that class, so from the caller's
+ * perspective the returned scratch indices are safe to use in any instruction
+ * format.
  */
 public final class RegisterAllocator {
 

@@ -7,10 +7,10 @@
  *       the {@code expression} and {@code imports} strings emitted by patched JavaMOP.</li>
  *   <li>Produces a typed {@link br.unb.cic.rv.pointcut.PointcutExpression} AST
  *       consumed by {@code advice-emitter} when planning injection.</li>
- *   <li>Does not touch dexlib2: the actual DEX-level matching happens in
- *       {@code pointcut-engine.PointcutMatcher} (task 3.6) which this module
- *       will host; it takes dexlib2 {@code ClassDef}/{@code Method}/{@code Instruction}
- *       plus the AST produced here.</li>
+ *   <li>Hosts {@link br.unb.cic.rv.pointcut.PointcutMatcher}, which performs the
+ *       DEX-level matching: it takes dexlib2
+ *       {@code ClassDef}/{@code Method}/{@code Instruction} plus the AST produced
+ *       here.</li>
  * </ul>
  *
  * <p>Position enum and PointcutExpression AST types deliberately live here (not in

@@ -64,9 +64,12 @@ import java.util.Optional;
  * <p>The weaver never mutates the input {@link DexFile} directly: it builds
  * a {@code MutableDexFile}-shaped delta and returns it. (Dexlib2's immutable
  * model requires a rewrite step anyway; we lean on that to keep the input
- * side effect-free.) Plans requiring {@code <clinit>} synthesis, try/catch
- * ranges, or wrapper rewrites are marked in the returned weave report and
- * handled by follow-on passes (task 5.x integration).
+ * side effect-free.) {@code <clinit>} synthesis, try/catch installation, and
+ * wrapper-invoke rewrites are all realized within this same weave pass — via
+ * {@code StaticInitSynthesizer} for a missing {@code <clinit>},
+ * {@link InstructionInjector#installTryCatch} for {@code after() throwing}
+ * ranges, and the {@code wrapperReplacements} map (INV-INS-66) for wrapped
+ * callees — and are recorded in the returned {@link WeaveReport}.
  */
 public final class DexWeaver {
 
@@ -911,9 +914,12 @@ public final class DexWeaver {
                 return inj.installTryCatch(idx, plan, exceptionRegister);
             }
             case REPLACE:
-                // Pending: REPLACE plans swap the invoke reference; the plan
-                // carries the required data but full realization lives
-                // alongside WrapperEmitter rewrites (task 5.x).
+                // Invoke-reference replacement is not applied per-site here: the
+                // weaver rewrites wrapped invokes through the wrapperReplacements
+                // map (see field doc, INV-INS-66), swapping the callee reference
+                // during instruction iteration rather than through a REPLACE plan.
+                // This branch therefore makes no MMI change and falls through to
+                // return null.
                 break;
             default:
                 throw new IllegalStateException("unknown insertion point: " + plan.insertionPoint());

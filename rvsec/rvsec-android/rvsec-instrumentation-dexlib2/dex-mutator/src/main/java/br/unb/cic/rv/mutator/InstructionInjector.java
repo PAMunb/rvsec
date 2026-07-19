@@ -27,10 +27,12 @@ import java.util.Objects;
  * Primitive operations that realize an {@link EmitPlan} against a
  * dexlib2 {@link MutableMethodImplementation}.
  *
- * <p>This class does NOT resolve register aliasing, synthesize {@code <clinit>}
- * when missing, or install try/catch labels — those responsibilities belong to
- * the caller ({@link DexWeaver}) because they require cross-method context
- * (e.g., ClassDef-level mutation for {@code <clinit>} synthesis).
+ * <p>This class does NOT resolve register aliasing or synthesize {@code <clinit>}
+ * when missing — those responsibilities belong to the caller ({@link DexWeaver})
+ * because they require cross-method or ClassDef-level context. Try/catch
+ * installation, however, is owned here: {@link #installTryCatch} materialises the
+ * {@code after() throwing(...)} handler and rebuilds the method's try-block table
+ * with the range-split layout.
  *
  * <p>What it does:
  * <ul>
@@ -41,6 +43,10 @@ import java.util.Objects;
  *       existing invoke at {@code index} (used by
  *       {@code advice-emitter.WrapperEmitter} to route through
  *       {@code mop.MonitorWrappers}).</li>
+ *   <li>{@link #installTryCatch} — appends a {@code move-exception} / advice /
+ *       {@code throw} handler at the method end and rebuilds the try-block table
+ *       so the matched invoke is guarded, listing the new advice handler ahead
+ *       of any pre-existing user handler (ART scans in declaration order).</li>
  * </ul>
  */
 public final class InstructionInjector {

@@ -58,6 +58,11 @@ import java.util.zip.ZipFile;
  *       but build/sign was skipped (caller didn't supply
  *       {@code --monitor-src-dir} or builder/merger paths). The mutated DEXes
  *       live under {@code workDir} for downstream consumption.</li>
+ *   <li>{@code phase=build_only} + {@code success=false}: DEX mutation and the
+ *       monitor DEX build both succeeded, but repack/sign was skipped (caller
+ *       didn't supply {@code --apksigner}/{@code --zipalign}/{@code --keystore}
+ *       + {@code --output}). The mutated app DEXes and freshly built monitor
+ *       DEX(es) live under {@code workDir}.</li>
  *   <li>{@code phase=apk_read|io_error|config_validation|uncaught} +
  *       {@code success=false}: well-formed failure; the Python wrapper
  *       continues onto the next APK.</li>

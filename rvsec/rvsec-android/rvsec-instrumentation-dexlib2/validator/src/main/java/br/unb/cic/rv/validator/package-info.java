@@ -15,10 +15,12 @@
  *   <li>{@link br.unb.cic.rv.validator.MethodRefAuditor} — Layer-4
  *       preflight: projects post-weaving method-ref counts per DEX,
  *       flags overflow candidates (INV-INS-62).</li>
- *   <li>{@link br.unb.cic.rv.validator.Layer1BaksmaliDiffer} / Layer2BootValidator /
- *       Layer3TraceComparator / Layer4BatchValidator / Layer5CoverageValidator
- *       — skeletons with clear gate semantics; full execution deferred
- *       to Phase 5 infra run.</li>
+ *   <li>{@link br.unb.cic.rv.validator.BaksmaliDiffer} /
+ *       {@link br.unb.cic.rv.validator.BootValidator} /
+ *       {@link br.unb.cic.rv.validator.TraceComparator} /
+ *       {@link br.unb.cic.rv.validator.BatchValidator} /
+ *       {@link br.unb.cic.rv.validator.CoverageValidator}
+ *       — the per-layer validators, each with its own gate semantics.</li>
  * </ul>
  *
  * <p>Spec-set agnostic: every check works identically for JCA and Generic

@@ -24,7 +24,7 @@ import java.util.List;
 @Command(
         name = "instr-cli",
         mixinStandardHelpOptions = true,
-        version = "0.8.0-SNAPSHOT",
+        version = "0.9.1-SNAPSHOT",
         description = "DEX-native bytecode weaver for rvsec monitors. Spec-set agnostic.",
         subcommands = {InstrumentationCli.Instrument.class, InstrumentationCli.Batch.class}
 )

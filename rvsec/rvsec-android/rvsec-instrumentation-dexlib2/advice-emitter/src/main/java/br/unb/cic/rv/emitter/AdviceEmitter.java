@@ -14,10 +14,9 @@ public interface AdviceEmitter {
      * @return an {@link EmitPlan} describing what to inject and where, never
      *         {@code null}. When the advice is unsupported on this match (e.g.
      *         {@code around} advice hitting this weaver), the emitter throws
-     *         {@code UnsupportedAspectConstructError} (defined in
-     *         {@code rv-instrumentation-dexlib2} Python wrapper; Java side
-     *         throws {@link UnsupportedOperationException} until a Java-side
-     *         sibling error type is introduced in Group 5).
+     *         {@link UnsupportedOperationException}; the
+     *         {@code rv-instrumentation-dexlib2} Python wrapper surfaces this to
+     *         callers as {@code UnsupportedAspectConstructError}.
      */
     EmitPlan emit(EmitContext ctx);
 

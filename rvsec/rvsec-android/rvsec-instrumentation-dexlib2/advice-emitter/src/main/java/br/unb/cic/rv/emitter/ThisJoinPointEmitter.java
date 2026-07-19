@@ -20,12 +20,12 @@ import br.unb.cic.rv.descriptor.AdviceDescriptor;
 public final class ThisJoinPointEmitter {
 
     public String signatureFor(AdviceDescriptor advice) {
-        // The advice descriptor does not carry the matched call-site signature
-        // directly — that depends on the matched ClassDef/Method, which the
-        // emitter pipeline resolves at weave time. This method serves as a
-        // single place where the format is decided; the real value is
-        // populated by the dex-mutator's SignatureFormatter (task 5.x) and
-        // threaded into EmitContext before reaching the emitters.
+        // Intentional pass-through (decision Q5): return the advice's raw
+        // pointcut expression unchanged (empty string when absent). The matched
+        // call-site signature depends on the ClassDef/Method resolved at weave
+        // time, which this stateless helper does not see; the emitter pipeline
+        // supplies the concrete signature through EmitContext. Forwarding the raw
+        // expression here is the deliberate current behaviour, not a placeholder.
         return advice.getExpression() != null ? advice.getExpression() : "";
     }
 

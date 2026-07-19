@@ -17,8 +17,11 @@ import java.util.List;
  *       {@code $ANDROID_HOME/platforms/}).</li>
  * </ol>
  *
- * <p>Fails fast when a required input cannot be resolved — the {@code ciphertext}
- * of a monitor-builder or multidex-merger tool path missing.
+ * <p>Fails fast (throws {@link IllegalArgumentException}) when the one strictly
+ * required input — the Android platform {@code android.jar}, from
+ * {@code --android-jar} or {@code ANDROID_HOME} — cannot be resolved. The
+ * monitor-builder and multidex-merger tool paths are resolved best-effort and
+ * validated later, at use time.
  */
 public final class ConfigResolver {
 
