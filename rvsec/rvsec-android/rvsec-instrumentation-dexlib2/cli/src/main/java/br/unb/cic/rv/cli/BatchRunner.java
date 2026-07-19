@@ -72,11 +72,30 @@ public final class BatchRunner {
 
     private BatchRunner() {}
 
+    /**
+     * Run the pipeline against a single APK and print its {@link PerApkResult}
+     * to stdout. Used by the picocli {@code instrument} subcommand, where the
+     * caller wants immediate console feedback rather than a results file.
+     */
     public static void instrumentOne(EffectiveConfig cfg, Path apk) {
         PerApkResult result = runPipeline(cfg, apk);
         System.out.println("instr-cli result: " + result);
     }
 
+    /**
+     * Run the pipeline over every {@code *.apk} directly under {@code apksDir}
+     * (sorted by filename for deterministic ordering), collecting one
+     * {@link PerApkResult} per APK. Unlike {@link #instrumentOne}, failures on
+     * individual APKs do not abort the batch — each result records its own
+     * {@code success}/{@code phase}, and the Python wrapper inspects the
+     * aggregate to decide what to retry.
+     *
+     * @param resultsJson where to write the aggregate results as JSON
+     *                    ({@code {"variant": "dexlib2", "results": [...]}});
+     *                    when {@code null}, the results are only summarized to
+     *                    stdout and no file is written (used by callers that
+     *                    just want a quick console summary, e.g. ad-hoc runs).
+     */
     public static void instrumentBatch(EffectiveConfig cfg, Path apksDir, Path resultsJson) {
         List<PerApkResult> results = new ArrayList<>();
         try (Stream<Path> apks = Files.list(apksDir)) {
@@ -94,6 +113,18 @@ public final class BatchRunner {
         System.out.println("instr-cli batch: " + successes + "/" + results.size() + " succeeded");
     }
 
+    /**
+     * Run every pipeline phase for one APK, stopping at the first phase whose
+     * prerequisites are missing and reporting that phase's partial outcome
+     * rather than throwing. This lets a batch keep going when e.g. only the
+     * read-side flags were supplied (dry runs, CI smoke checks) without the
+     * caller having to pre-validate which optional flags were passed.
+     *
+     * @return a {@link PerApkResult} whose {@code phase}/{@code success}
+     *         combination pinpoints exactly how far the pipeline got (see the
+     *         phase-outcome table in the class Javadoc); {@code weaveCounts}
+     *         carries the per-phase statistics accumulated up to that point.
+     */
     static PerApkResult runPipeline(EffectiveConfig cfg, Path apk) {
         Map<String, Integer> counts = new LinkedHashMap<>();
         try {

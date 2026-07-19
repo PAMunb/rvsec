@@ -27,6 +27,15 @@ public final class ConfigResolver {
 
     private ConfigResolver() {}
 
+    /**
+     * Resolve one {@link EffectiveConfig} field at a time using
+     * flag &gt; environment variable &gt; built-in default precedence, then
+     * assemble the immutable {@link EffectiveConfig} the pipeline consumes.
+     *
+     * @throws IllegalArgumentException if the Android platform jar cannot be
+     *         resolved from either {@code --android-jar} or
+     *         {@code ANDROID_HOME}
+     */
     public static EffectiveConfig resolve(InstrumentationCli args) {
         // Read-side prerequisites are always required: runPipeline reads the
         // descriptor + opens the APK + matches against android.jar.

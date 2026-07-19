@@ -93,6 +93,16 @@ public final class CoverageWeaver {
         default void replaceImpl(Method method, MutableMethodImplementation newImpl) { }
     }
 
+    /**
+     * Walk every class/method in {@code dexFile}, injecting the coverage log
+     * call at the entry of each non-excluded, non-abstract method.
+     *
+     * @return a {@link CoverageReport} tallying how many classes/methods were
+     *         seen, how many were skipped (excluded package or no
+     *         implementation), and how many instrumentations failed because
+     *         the register spill needed to free a scratch register could not
+     *         be performed (see {@link #injectLogCall}).
+     */
     public CoverageReport weave(DexFile dexFile, MutableImplSupplier mutableSupplier) {
         Objects.requireNonNull(dexFile);
         int classesSeen = 0;
