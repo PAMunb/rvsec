@@ -527,3 +527,166 @@ class TestLogcatParser:
 
             # Check unique error tracking
             assert len(repository.unique_errors) == 2
+
+
+class TestReconstructionTimeStamping:
+    """gh83 / INV-ANA-49: parse_logcat_file stamps time_since_task_start from
+    the caller-supplied tool execution start epoch, using the same arithmetic
+    as the live CoverageTracker (max(0, int(delta_seconds)))."""
+
+    SIGNATURE = "<com.example.app.MainActivity: void onCreate(android.os.Bundle)>"
+
+    @pytest.fixture
+    def static_data(self):
+        """Minimal StaticAnalysisData with one class/method matching SIGNATURE."""
+        from rv_android_core.domain.classes import Classes, Method
+        from rv_android_core.domain.static import StaticAnalysisData
+        from rv_android_core.domain.window import Windows
+        from rv_android_core.domain.wtg import WindowTransitionGraph
+
+        classes = Classes()
+        clazz = classes.add_clazz("com.example.app.MainActivity", "ACTIVITY", True)
+        clazz.add_method(
+            Method(
+                class_name="com.example.app.MainActivity",
+                name="onCreate",
+                params=["android.os.Bundle"],
+                signature=self.SIGNATURE,
+                reachable=True,
+                reaches_target=True,
+                directly_reaches_target=True,
+            )
+        )
+        return StaticAnalysisData(
+            classes=classes, windows=Windows(), wtg=WindowTransitionGraph()
+        )
+
+    @pytest.fixture
+    def epoch(self):
+        """Tool execution start aligned with the 07-15 logcat lines below.
+
+        The year matches _convert_to_datetime's inference (current year for a
+        July log line), so the offsets are exact regardless of when the test runs.
+        """
+        return datetime(datetime.now().year, 7, 15, 14, 30, 0)
+
+    def _write_logcat(self, content: str) -> str:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".logcat", delete=False) as f:
+            f.write(content)
+            return f.name
+
+    def test_reconstruction_stamps_time_errors_coverage_events(
+        self, static_data, epoch
+    ):
+        """Errors, coverage entries, and diagnostic events all carry real offsets."""
+        content = (
+            "07-15 14:30:05.000 1234 5678 E RVSEC: Cipher,com.example.app.CipherUtil,init,encrypt,CipherUtil.java:10,Cipher_1,key reuse\n"
+            f"07-15 14:30:12.000 1234 5678 I RVSEC-COV: {self.SIGNATURE}\n"
+            "07-15 14:30:20.000 7071 7071 E AndroidRuntime: FATAL EXCEPTION: main\n"
+            "07-15 14:30:20.000 7071 7071 E AndroidRuntime: Process: com.example.app, PID: 7071\n"
+            "07-15 14:30:20.000 7071 7071 E AndroidRuntime: java.lang.NullPointerException: boom\n"
+            "07-15 14:30:20.000 7071 7071 E AndroidRuntime: \tat com.example.app.MainActivity.onCreate(MainActivity.java:50)\n"
+        )
+        path = self._write_logcat(content)
+        try:
+            repository = parse_logcat_file(
+                path, static_data, tool_execution_start=epoch
+            )
+
+            errors = repository.get_errors()
+            assert len(errors) == 1
+            assert errors[0]["time_since_task_start"] == 5
+
+            calls = repository.get_method_calls()
+            assert len(calls) == 1
+            assert calls[0]["time"] == 12
+
+            method_data = repository.classes["com.example.app.MainActivity"].methods[
+                self.SIGNATURE
+            ]
+            assert method_data.time_since_task_start == 12
+
+            events = repository.get_diagnostic_events()
+            assert len(events) == 1
+            assert events[0]["time_since_task_start"] == 20
+        finally:
+            os.unlink(path)
+
+    def test_reconstruction_preserves_first_call_time(self, static_data, epoch):
+        """Repeated calls to the same method keep the FIRST call's stamp."""
+        content = (
+            f"07-15 14:30:12.000 1234 5678 I RVSEC-COV: {self.SIGNATURE}\n"
+            f"07-15 14:30:45.000 1234 5678 I RVSEC-COV: {self.SIGNATURE}\n"
+        )
+        path = self._write_logcat(content)
+        try:
+            repository = parse_logcat_file(
+                path, static_data, tool_execution_start=epoch
+            )
+            calls = repository.get_method_calls()
+            assert len(calls) == 1
+            assert calls[0]["time"] == 12
+        finally:
+            os.unlink(path)
+
+    def test_reconstruction_clamps_negative_offsets(self, static_data, epoch):
+        """Entries buffered from before tool start clamp to 0, never negative."""
+        content = "07-15 14:29:58.000 1234 5678 E RVSEC: Cipher,com.example.app.CipherUtil,init,encrypt,CipherUtil.java:10,Cipher_1,key reuse\n"
+        path = self._write_logcat(content)
+        try:
+            repository = parse_logcat_file(
+                path, static_data, tool_execution_start=epoch
+            )
+            errors = repository.get_errors()
+            assert len(errors) == 1
+            assert errors[0]["time_since_task_start"] == 0
+        finally:
+            os.unlink(path)
+
+    def test_reconstruction_without_epoch_warns_once(self, static_data, caplog):
+        """No epoch: all stamps stay 0 and exactly one degraded-timing warning."""
+        import logging as logging_mod
+
+        content = (
+            "07-15 14:30:05.000 1234 5678 E RVSEC: Cipher,com.example.app.CipherUtil,init,encrypt,CipherUtil.java:10,Cipher_1,key reuse\n"
+            f"07-15 14:30:12.000 1234 5678 I RVSEC-COV: {self.SIGNATURE}\n"
+        )
+        path = self._write_logcat(content)
+        try:
+            with caplog.at_level(
+                logging_mod.WARNING, logger="rv_coverage.parser.log.logcat_parser"
+            ):
+                repository = parse_logcat_file(path, static_data)
+
+            assert repository.get_errors()[0]["time_since_task_start"] == 0
+            assert repository.get_method_calls()[0]["time"] == 0
+
+            timing_warnings = [
+                r
+                for r in caplog.records
+                if r.levelno == logging_mod.WARNING and "timing" in r.message.lower()
+            ]
+            assert len(timing_warnings) == 1
+        finally:
+            os.unlink(path)
+
+    def test_reconstruction_without_entries_does_not_warn(self, caplog):
+        """No RVSEC/COV/diagnostic entries parsed: no degraded-timing warning."""
+        import logging as logging_mod
+
+        content = "07-15 14:30:05.000 1234 5678 I SomeTag: irrelevant line\n"
+        path = self._write_logcat(content)
+        try:
+            with caplog.at_level(
+                logging_mod.WARNING, logger="rv_coverage.parser.log.logcat_parser"
+            ):
+                parse_logcat_file(path)
+
+            timing_warnings = [
+                r
+                for r in caplog.records
+                if r.levelno == logging_mod.WARNING and "timing" in r.message.lower()
+            ]
+            assert len(timing_warnings) == 0
+        finally:
+            os.unlink(path)

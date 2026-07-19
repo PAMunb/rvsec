@@ -137,7 +137,12 @@ class CoverageComponent:
                 f"Parsing existing logcat file: {self.task.result.logcat_file}"
             )
             try:
-                self.repository = parse_logcat_file(self.task.result.logcat_file)
+                # Forward the tool execution start epoch so parsed entries carry
+                # real time_since_task_start values (gh83, INV-ANA-49).
+                self.repository = parse_logcat_file(
+                    self.task.result.logcat_file,
+                    tool_execution_start=self.task.result.tool_execution_start,
+                )
                 self.task.repository = self.repository
             except Exception as e:
                 self.logger.error(f"Error parsing logcat file: {e}")

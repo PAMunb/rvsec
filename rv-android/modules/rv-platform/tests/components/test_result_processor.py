@@ -7,6 +7,7 @@ import csv
 import json
 import os
 import shutil
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -610,6 +611,122 @@ class TestLogcatReconstruction:
             result = processor._reconstruct_repository_from_logcat(task)
 
         assert result is None
+
+
+# ===========================================================================
+# gh83: Reconstruction time stamping + writer fabrication-guard removal
+# ===========================================================================
+
+
+class TestGh83ReconstructionTimeStamping:
+    """INV-PLT-23/24: the reconstruction path forwards the persisted
+    tool_execution_start epoch to parse_logcat_file, and CSV writers emit
+    time_since_task_start as-is (0 is a legitimate first-second value, never
+    replaced by a row index)."""
+
+    def test_reconstruct_passes_tool_execution_start(self, tmp_path):
+        """The persisted epoch is forwarded to parse_logcat_file (INV-PLT-23)."""
+        logcat_file = tmp_path / "task.logcat"
+        logcat_file.write_text("some logcat content\n")
+
+        task = _make_completed_task()
+        task.result.logcat_file = str(logcat_file)
+        epoch = datetime(2026, 3, 24, 19, 37, 0)
+        task.result.tool_execution_start = epoch
+
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        mock_repo = MagicMock()
+        mock_repo.errors = []
+        with patch.object(processor, "_resolve_static_data", return_value=None):
+            with patch(
+                "rv_platform.components.result_processor.parse_logcat_file",
+                return_value=mock_repo,
+            ) as spy:
+                result = processor._reconstruct_repository_from_logcat(task)
+
+        assert result is mock_repo
+        spy.assert_called_once()
+        assert spy.call_args.kwargs["tool_execution_start"] == epoch
+
+    def test_reconstruct_warns_when_epoch_missing(self, tmp_path):
+        """Missing epoch (legacy tasks.json): WARNING names the task, parsing
+        proceeds with tool_execution_start=None (explicit degraded state)."""
+        logcat_file = tmp_path / "task.logcat"
+        logcat_file.write_text("some logcat content\n")
+
+        task = _make_completed_task()
+        task.result.logcat_file = str(logcat_file)
+        assert task.result.tool_execution_start is None
+
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        mock_repo = MagicMock()
+        mock_repo.errors = []
+        with patch.object(processor, "_resolve_static_data", return_value=None):
+            with patch(
+                "rv_platform.components.result_processor.parse_logcat_file",
+                return_value=mock_repo,
+            ) as spy:
+                with patch.object(processor, "logger") as mock_logger:
+                    processor._reconstruct_repository_from_logcat(task)
+
+        assert spy.call_args.kwargs["tool_execution_start"] is None
+        epoch_warnings = [
+            call
+            for call in mock_logger.warning.call_args_list
+            if str(task.id) in call.args[0]
+            and "tool execution start" in call.args[0].lower()
+        ]
+        assert len(epoch_warnings) == 1
+
+    def test_errors_csv_time_zero_not_replaced(self, tmp_path):
+        """A violation at t=0 writes 0 in the time column, not the row index."""
+        errors = [
+            {
+                "class_full_name": "javax.crypto.Cipher",
+                "method": "init",
+                "spec": "Cipher_1",
+                "error_type": "violation",
+                "message": "bad init",
+                "unique_msg": "Cipher:::init:::Cipher_1:::violation:::bad init",
+                "time_since_task_start": 0,
+            },
+            {
+                "class_full_name": "javax.crypto.KeyGenerator",
+                "method": "getInstance",
+                "spec": "KeyGeneratorSpec",
+                "error_type": "violation",
+                "message": "weak key",
+                "unique_msg": "KeyGenerator:::getInstance:::KeyGeneratorSpec:::violation:::weak key",
+                "time_since_task_start": 17,
+            },
+        ]
+        repo = _make_mock_repository(errors=errors)
+        task = _make_completed_task(repository=repo)
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_errors_csv([task])
+
+        with open(os.path.join(results_dir, "errors.csv")) as f:
+            rows = list(csv.reader(f))
+        assert rows[1][4] == "0"  # time column: as-is, not row index 1
+        assert rows[2][4] == "17"
+
+    def test_app_events_csv_time_zero_not_replaced(self, tmp_path):
+        """A diagnostic event at t=0 writes 0 in the time column, not the row index."""
+        repo = _make_mock_repository()
+        repo.get_diagnostic_events.return_value = [_diagnostic_event_dict(time=0)]
+        task = _make_completed_task(repository=repo)
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_app_events_csv([task])
+
+        with open(os.path.join(results_dir, "app_events.csv")) as f:
+            rows = list(csv.reader(f))
+        assert rows[1][4] == "0"  # time column: as-is, not row index 1
 
 
 # ===========================================================================
@@ -1254,3 +1371,131 @@ class TestGh65GoldenRegression:
         assert not mismatches, "Golden mismatches vs offline regen:\n" + "\n".join(
             mismatches
         )
+
+
+# ===========================================================================
+# gh83: Time column round-trip equivalence (live vs reconstructed)
+# ===========================================================================
+
+
+_GH83_FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures", "gh83")
+
+
+def _gh83_epoch():
+    """Tool execution start aligned with the 05-14 10:00:00 fixture timeline.
+
+    The year matches _convert_to_datetime's inference (current year for a May
+    log line), so offsets are exact regardless of when the test runs.
+    """
+    return datetime(datetime.now().year, 5, 14, 10, 0, 0)
+
+
+def _make_gh83_live_task(tmp_path):
+    """Task whose repository was built LIVE by CoverageTracker (epoch-stamped),
+    with logcat + static JSON seeded on disk so the same task can later be
+    reconstructed from its serialized form."""
+    from rv_coverage.analysis.coverage.tracker import CoverageTracker
+
+    task = _make_completed_task(apk="sample_apk.apk")
+
+    apk_dir = tmp_path / "sample_apk.apk"
+    apk_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(
+        os.path.join(_GH83_FIXTURE_DIR, "sample_task.logcat"),
+        apk_dir / "sample_apk.logcat",
+    )
+    shutil.copy(
+        os.path.join(_GH58_FIXTURE_DIR, "sample_apk.apk.json"),
+        apk_dir / "sample_apk.apk.json",
+    )
+    task.result.logcat_file = str(apk_dir / "sample_apk.logcat")
+    task.result.tool_execution_start = _gh83_epoch()
+
+    static_data = static_analysis_parser.read_static_analysis_files(
+        str(apk_dir), "sample_apk.apk", _GH58_CODE_PACKAGE
+    )
+    tracker = CoverageTracker(
+        logcat_file=task.result.logcat_file,
+        static_data=static_data,
+        task_start_time=_gh83_epoch(),
+        task_id=task.id,
+    )
+    with open(task.result.logcat_file) as f:
+        tracker.process_lines(f.readlines())
+    task.repository = tracker.repository
+    return task
+
+
+def _csv_rows(results_dir, name):
+    with open(os.path.join(results_dir, name)) as f:
+        return list(csv.reader(f))
+
+
+def _time_column(rows):
+    idx = rows[0].index("time")
+    return [row[idx] for row in rows[1:]]
+
+
+class TestGh83TimeRoundTrip:
+    """Delta spec scenario "Time Column Round-Trip Equivalence on Resume":
+    serialize a live task, reconstruct it from logcat + tasks.json data, and
+    the time columns of all three CSVs must be identical to the live output."""
+
+    def _generate_csvs(self, task, results_dir):
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_coverage_csv([task])
+        processor._generate_errors_csv([task])
+        processor._generate_app_events_csv([task])
+
+    def test_time_column_round_trip_live_vs_reconstructed(self, tmp_path):
+        live_task = _make_gh83_live_task(tmp_path)
+        live_dir = str(tmp_path / "live_results")
+        self._generate_csvs(live_task, live_dir)
+
+        # Serialize → reload, exactly what tasks.json resume does. The reloaded
+        # task has no repository (runtime-only), forcing reconstruction.
+        reloaded = Task.from_dict(live_task.to_dict())
+        assert reloaded is not None
+        assert reloaded.result.tool_execution_start == _gh83_epoch()
+        reloaded.repository = None
+        rec_dir = str(tmp_path / "reconstructed_results")
+        self._generate_csvs(reloaded, rec_dir)
+
+        for csv_name in ("coverage.csv", "errors.csv", "app_events.csv"):
+            live_rows = _csv_rows(live_dir, csv_name)
+            rec_rows = _csv_rows(rec_dir, csv_name)
+            assert len(live_rows) == len(rec_rows), csv_name
+            assert len(live_rows) > 1, f"{csv_name} produced no data rows"
+            assert _time_column(live_rows) == _time_column(rec_rows), csv_name
+
+        # Real offsets from the fixture timeline — never a 1..N counter.
+        assert _time_column(_csv_rows(rec_dir, "coverage.csv")) == [
+            "3",
+            "5",
+            "8",
+            "25",
+        ]
+        assert _time_column(_csv_rows(rec_dir, "errors.csv")) == ["17"]
+        assert _time_column(_csv_rows(rec_dir, "app_events.csv")) == ["20"]
+
+    def test_reconstructed_coverage_csv_chronological_order(self, tmp_path):
+        """coverage.csv rows for a reconstructed task are ordered by real time
+        and the progressive cov_method column is monotonically non-decreasing."""
+        live_task = _make_gh83_live_task(tmp_path)
+        reloaded = Task.from_dict(live_task.to_dict())
+        reloaded.repository = None
+
+        rec_dir = str(tmp_path / "reconstructed_results")
+        self._generate_csvs(reloaded, rec_dir)
+
+        rows = _csv_rows(rec_dir, "coverage.csv")
+        header, data = rows[0], rows[1:]
+        assert len(data) == 4
+
+        times = [int(v) for v in _time_column(rows)]
+        assert times == sorted(times)
+
+        cov_method_idx = header.index("cov_method")
+        cov_method = [float(row[cov_method_idx]) for row in data]
+        assert cov_method == sorted(cov_method)
+        assert cov_method[-1] > cov_method[0]  # progressive, not row-constant

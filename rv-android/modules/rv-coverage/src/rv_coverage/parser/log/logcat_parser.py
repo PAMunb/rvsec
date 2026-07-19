@@ -39,7 +39,21 @@ from rv_android_core.util.android.repository_initializer import (
 )
 
 
-def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
+def _stamp_time(time_occurred: datetime, tool_execution_start: datetime) -> int:
+    """Seconds elapsed from tool execution start to ``time_occurred`` (INV-ANA-49).
+
+    Same arithmetic as the live ``CoverageTracker._process_line``: truncate to
+    whole seconds and clamp to zero — logcat lines buffered from before tool
+    start (e.g., a previous run) would otherwise yield negative offsets.
+    """
+    return max(0, int((time_occurred - tool_execution_start).total_seconds()))
+
+
+def parse_logcat_file(
+    log_file: str,
+    static_data=None,
+    tool_execution_start: Optional[datetime] = None,
+) -> LogcatRepository:
     """
     Parse a logcat file and return a populated LogcatRepository.
 
@@ -47,10 +61,20 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     error entries and RVSEC-COV coverage entries. Optionally initialize the
     repository with static analysis data to enable reachability-based metrics.
 
+    When ``tool_execution_start`` is given, every parsed error, coverage entry,
+    and diagnostic event is stamped with ``time_since_task_start`` (seconds
+    since that epoch, INV-ANA-49) before registration — reconstructed
+    repositories are then temporally equivalent to ones populated live by
+    ``CoverageTracker``. Without it, all stamps keep the default ``0`` and one
+    warning flags the degraded timing (callers that only need MOP violations
+    omit it deliberately).
+
     Args:
         log_file: Absolute path to the logcat file.
         static_data: Optional StaticAnalysisData to pre-populate the repository
             with reachable classes and methods.
+        tool_execution_start: Optional tool execution start epoch (e.g.,
+            ``TaskResult.tool_execution_start`` restored from tasks.json).
 
     Returns:
         LogcatRepository containing all parsed errors and method calls.
@@ -74,26 +98,57 @@ def parse_logcat_file(log_file: str, static_data=None) -> LogcatRepository:
     # RVSEC/COV parse (unchanged hot path) and, independently, the stateful
     # diagnostic parser; diagnostic events land in the isolated collection so
     # reconstruction-on-resume repopulates them too (gh58 path).
+    #
+    # Timing MUST be stamped before registration: register_method_call collapses
+    # repeated calls into MethodCoverageData keyed by first call, so the
+    # first-call time is unrecoverable afterwards (design gh83, Decision 1).
+    entries_parsed = False
     try:
         with open(log_file, "r") as f:
             for line in f:
                 error_log, coverage_log = parse_logcat_line(line)
 
                 if error_log:
+                    if tool_execution_start and error_log.time_occurred:
+                        error_log.time_since_task_start = _stamp_time(
+                            error_log.time_occurred, tool_execution_start
+                        )
+                    entries_parsed = True
                     repository.register_rv_error(error_log)
                 elif coverage_log:
+                    if tool_execution_start and coverage_log.time_occurred:
+                        coverage_log.time_since_task_start = _stamp_time(
+                            coverage_log.time_occurred, tool_execution_start
+                        )
+                    entries_parsed = True
                     repository.register_method_call(coverage_log)
 
                 event = diagnostic_parser.feed_line(line)
                 if event:
+                    if tool_execution_start and event.time_occurred:
+                        event.time_since_task_start = _stamp_time(
+                            event.time_occurred, tool_execution_start
+                        )
+                    entries_parsed = True
                     repository.register_diagnostic_event(event)
 
         # Emit any event still buffered at end of file.
         tail = diagnostic_parser.flush()
         if tail:
+            if tool_execution_start and tail.time_occurred:
+                tail.time_since_task_start = _stamp_time(
+                    tail.time_occurred, tool_execution_start
+                )
+            entries_parsed = True
             repository.register_diagnostic_event(tail)
     except Exception as e:
         logger.error(f"Error parsing logcat file {log_file}: {e}", exc_info=True)
+
+    if tool_execution_start is None and entries_parsed:
+        logger.warning(
+            f"No tool execution start epoch supplied for {log_file} — "
+            "reconstructed timing is unavailable, time_since_task_start values remain 0"
+        )
 
     return repository
 

@@ -235,6 +235,31 @@ class TestCoverageComponentBranchCoverage:
         assert component.repository is fake_repo
         assert component.task.repository is fake_repo
 
+    def test_parse_existing_logcat_forwards_tool_execution_start(
+        self, task_with_app, tmp_path, monkeypatch
+    ):
+        """gh83 (design Decision 5): _parse_existing_logcat() forwards the task's
+        tool_execution_start epoch so parsed entries carry real timing."""
+        from datetime import datetime
+
+        import rv_platform.components.coverage as cov_mod
+
+        logcat = tmp_path / "existing.logcat"
+        logcat.write_text("some logcat content\n")
+
+        component = CoverageComponent(task_with_app)
+        component.task.result.logcat_file = str(logcat)
+        epoch = datetime(2026, 3, 24, 19, 37, 0)
+        component.task.result.tool_execution_start = epoch
+
+        spy = MagicMock(return_value=MagicMock())
+        monkeypatch.setattr(cov_mod, "parse_logcat_file", spy)
+
+        component._parse_existing_logcat()
+
+        spy.assert_called_once()
+        assert spy.call_args.kwargs["tool_execution_start"] == epoch
+
     def test_parse_existing_logcat_swallows_exception(
         self, task_with_app, tmp_path, monkeypatch
     ):
@@ -379,8 +404,8 @@ class TestCoverageComponentBranchCoverage:
         and returns False (lines 315-323)."""
         component = CoverageComponent(task_with_app)
         component.coverage_tracker = MagicMock()
-        component.coverage_tracker.repository.calculate_metrics.side_effect = (
-            Exception("calc fail")
+        component.coverage_tracker.repository.calculate_metrics.side_effect = Exception(
+            "calc fail"
         )
 
         assert component.process_results() is False

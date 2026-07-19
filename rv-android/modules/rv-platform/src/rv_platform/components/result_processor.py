@@ -2,8 +2,20 @@
 """
 Result processor component for RV-Platform.
 
-This component processes completed experiment tasks to generate CSV and JSON
-output files for analysis and research purposes.
+This component processes completed experiment tasks and writes the experiment's
+output files. It implements platform Requirement "Result Generation (FR14)":
+only tasks in ``TaskState.COMPLETED`` are processed, and it produces six files —
+the five FR14 files (``coverage.csv``, ``errors.csv``, ``summary.csv``,
+``results.json``, ``performance.csv``) plus ``app_events.csv`` from Requirement
+"Diagnostic Events CSV Generation (FR14)". Result processing can be skipped
+during execution and run standalone later via ``rv-platform run
+--process-results`` (Scenario "Standalone Result Processing").
+
+On resume it also implements Requirement "Result Consolidation on Resume
+(FR10-ext)": tasks loaded from ``tasks.json`` arrive with ``repository=None`` /
+``results_dir=""`` / ``app=None``, so both MOP violations and per-method
+coverage are reconstructed on demand from the persisted logcat and the
+co-located static-analysis JSON.
 """
 
 import csv
@@ -31,31 +43,34 @@ from rv_static_analysis.parser.static import static_analysis_parser
 
 class ResultProcessorComponent:
     """
-    Result processor component for generating CSV and JSON output files.
+    Generate the experiment output files from completed tasks.
 
-    This component processes completed experiment tasks to extract metrics,
-    coverage data, and error information, then generates standardized output
-    files for analysis and research.
+    Implements platform Requirement "Result Generation (FR14)": processes only
+    tasks in ``TaskState.COMPLETED`` and writes six files — the five FR14 files
+    (``coverage.csv``, ``errors.csv``, ``summary.csv``, ``results.json``,
+    ``performance.csv``) plus ``app_events.csv`` from Requirement "Diagnostic
+    Events CSV Generation (FR14)".
 
     ### Architectural Role:
-    - Processes completed experiment tasks to generate research output files
-    - Creates standardized CSV files (coverage.csv, errors.csv, summary.csv)
-    - Generates comprehensive JSON results files for structured data analysis
-    - Operates independently of specific experiment frameworks
-    - Provides consistent output format across different execution contexts
+    - Writes coverage.csv, errors.csv, summary.csv, results.json,
+      performance.csv (FR14) and app_events.csv (diagnostic FR14).
+    - Reconstructs resumed tasks (Requirement "Result Consolidation on Resume
+      (FR10-ext)"): for tasks loaded from tasks.json with no in-memory
+      repository, both MOP violations and per-method coverage are rebuilt from
+      the persisted logcat plus co-located static-analysis JSON.
+    - Runs from Platform._process_results() after execution, or standalone via
+      --process-results (Scenario "Standalone Result Processing").
 
-    ### Key Capabilities:
-    - Process method coverage data with timing information
-    - Extract and format monitored operations violations
-    - Calculate aggregate metrics and coverage statistics
-    - Generate experiment metadata and completion reports
-    - Handle missing data gracefully with appropriate fallbacks
+    ### Key Features:
+    - Per-method coverage rows with progressive and row-constant metrics.
+    - Monitored-operations violation rows (reconstructible from logcat alone).
+    - Aggregate per-task summary and hierarchical JSON.
 
     ### Integration Points:
-    - Uses ErrorHandler decorator for comprehensive error processing
-    - Uses LoggingManager for consistent logging with context support
-    - Processes tasks with repository data containing method calls and errors
-    - Maintains compatibility with existing result analysis workflows
+    - ErrorHandler decorators isolate per-file generation failures.
+    - LoggingManager provides context-scoped logging.
+    - Reads repository data (method calls and errors) or reconstructs it from
+      logcat when the in-memory repository is absent (resume).
     """
 
     def __init__(self, tasks: List[Any], results_dir: str):
@@ -74,7 +89,11 @@ class ResultProcessorComponent:
         # reconstruction (D-3a). Membership-guarded so a task is counted at most
         # once regardless of how many CSV writers trigger reconstruction; len()
         # is the aggregate N surfaced by the resume health-check WARNING
-        # (INV-PLT-18). (Re)initialized at the start of execute().
+        # (INV-PLT-18). This component-level counter is one of the two disjoint
+        # fields of INV-PLT-15 — it counts tasks, distinct from the per-task
+        # task.static_data parse-memo. (Re)initialized at the start of execute()
+        # so each pass reports only its own tasks (Scenario "Resume Coverage
+        # Health Check Warning").
         self._unresolved_task_ids: set = set()
 
         # Initialize logging with component context
@@ -116,14 +135,19 @@ class ResultProcessorComponent:
 
             # Re-initialize the unresolved-static-data counter for this pass so a
             # second consolidation pass (e.g. --process-results) reports only its
-            # own tasks (D-3a; protects G3 reprocessing idempotency).
+            # own tasks (D-3a; protects G3 reprocessing idempotency). Per-pass
+            # re-init is Scenario "Resume Coverage Health Check Warning".
             self._unresolved_task_ids = set()
 
             # Filter for completed tasks. This includes tasks from ALL sessions
             # (previous runs loaded from tasks.json + current session), because
-            # Platform._process_results() passes task_storage.get_completed_tasks().
+            # Platform._process_results() passes task_storage.get_completed_tasks()
+            # (Requirement "Result Consolidation on Resume (FR10-ext)", Scenario
+            # "Result Processing After Resume Includes All Sessions").
             completed_tasks = self._filter_completed_tasks()
             if not completed_tasks:
+                # Requirement "Result Generation (FR14)", Scenario "No Completed
+                # Tasks": log a warning and generate no files.
                 self.logger.warning("No completed tasks found for result processing")
                 return
 
@@ -135,6 +159,9 @@ class ResultProcessorComponent:
             # (re-parsed on demand). There is NO fallback to serialized
             # coverage_metrics (INV-PLT-16): when the JSON is genuinely absent,
             # coverage is zeroed by construction while MOP errors survive.
+            # The first five files are Requirement "Result Generation (FR14)";
+            # app_events.csv is Requirement "Diagnostic Events CSV Generation
+            # (FR14)".
             self._generate_coverage_csv(completed_tasks)
             self._generate_errors_csv(completed_tasks)
             self._generate_app_events_csv(completed_tasks)
@@ -145,7 +172,9 @@ class ResultProcessorComponent:
             # Resume health check (INV-PLT-18 / G4): if any processed task
             # reconstructed to zero coverage because its static-analysis JSON
             # could not be resolved, surface one prominent aggregate WARNING with
-            # the exact N/M count. Silent when N == 0.
+            # the exact N/M count. Silent when N == 0. Exactly one WARNING per
+            # pass over a set re-initialized above (Scenario "Resume Coverage
+            # Health Check Warning").
             unresolved = len(self._unresolved_task_ids)
             if unresolved:
                 self.logger.warning(
@@ -167,6 +196,11 @@ class ResultProcessorComponent:
     def _filter_completed_tasks(self) -> List[Any]:
         """
         Filter tasks to only include completed ones.
+
+        Requirement "Result Generation (FR14)": the component processes only
+        tasks with ``TaskState.COMPLETED``; any other state is excluded. When
+        none qualify, ``execute()`` skips all file generation (Scenario "No
+        Completed Tasks").
 
         Returns:
             List of completed tasks ready for processing
@@ -210,6 +244,15 @@ class ResultProcessorComponent:
         Returns the populated ``StaticAnalysisData`` when ``<dir>/<apk>.json``
         resolves to non-empty classes; ``None`` otherwise (so downstream coverage
         is zeroed by construction), with ``task.id`` recorded once.
+
+        Scenarios (Requirement "Result Consolidation on Resume (FR10-ext)"):
+        "Resume After tasks.json Round-Trip Resolves results_dir from Logcat"
+        (empty ``results_dir`` derived from the logcat dirname), "Static Analysis
+        JSON Missing on Resume" (absent JSON → ``None``, task recorded once), and
+        "Orchestrated Resume Skips Static Analysis but Reuses Persisted JSON"
+        (locate the co-located JSON without re-running GATOR). In the degraded
+        JSON-absent case, MOP errors — including ``total_errors``/``unique_errors``
+        — stay reliable per analysis INV-ANA-25; only per-method coverage zeroes.
         """
         memo = getattr(task, "static_data", None)
         if memo is not None:
@@ -267,6 +310,18 @@ class ResultProcessorComponent:
         repository has both MOP violation data AND per-method coverage data —
         equivalent to the runtime path. See INV-PLT-15 (gh58).
 
+        The persisted ``task.result.tool_execution_start`` epoch is forwarded to
+        ``parse_logcat_file`` so reconstructed entries carry the same
+        ``time_since_task_start`` values the live tracker would have produced
+        (INV-PLT-23). When the epoch is absent (legacy tasks.json), a WARNING is
+        logged and timing stays 0 — an explicit degraded state, never fabricated.
+
+        Scenarios (Requirement "Result Consolidation on Resume (FR10-ext)"):
+        "Logcat Re-Reading with On-Demand Static Data Re-Parse" (re-parse JSON,
+        cache on ``task.static_data``, re-read the logcat) and "Logcat File
+        Missing on Resume" (return ``None`` only when the logcat file itself is
+        missing).
+
         Args:
             task: Task whose repository needs reconstruction
 
@@ -283,9 +338,18 @@ class ResultProcessorComponent:
             )
             return None
 
+        tool_execution_start = getattr(task.result, "tool_execution_start", None)
+        if tool_execution_start is None:
+            self.logger.warning(
+                f"No tool execution start persisted for task {task.id} — "
+                "reconstructed time values remain 0 (INV-PLT-23)"
+            )
+
         try:
             static_data = self._resolve_static_data(task)
-            repository = parse_logcat_file(logcat_file, static_data)
+            repository = parse_logcat_file(
+                logcat_file, static_data, tool_execution_start=tool_execution_start
+            )
             error_count = len(repository.errors)
             coverage_note = (
                 "with per-method coverage"
@@ -307,6 +371,9 @@ class ResultProcessorComponent:
     def _generate_coverage_csv(self, completed_tasks: List[Any]) -> None:
         """
         Generate detailed coverage CSV file with per-method coverage data.
+
+        Requirement "Result Generation (FR14)", Scenario "Coverage CSV Format".
+        The 15-column header below is byte-identical to baseline (INV-PLT-19).
 
         Args:
             completed_tasks: List of completed tasks to process
@@ -352,6 +419,7 @@ class ResultProcessorComponent:
     def _write_task_coverage_data(self, writer: csv.writer, task: Any) -> None:
         """Write per-method coverage rows for a single task (gh58 unified path).
 
+        Requirement "Result Generation (FR14)", Scenario "Coverage CSV Format".
         On resume, ``task.repository`` may be None; this method calls
         ``_reconstruct_repository_from_logcat`` to obtain a populated
         ``LogcatRepository`` (re-parsing static-analysis JSON on demand).
@@ -469,6 +537,9 @@ class ResultProcessorComponent:
         """
         Generate detailed errors CSV file with monitored operations violations.
 
+        Requirement "Result Generation (FR14)", Scenario "Errors CSV Format".
+        The 10-column header below is byte-identical to baseline (INV-PLT-19).
+
         Args:
             completed_tasks: List of completed tasks to process
         """
@@ -523,6 +594,8 @@ class ResultProcessorComponent:
             # analysis context. This is the key asymmetry with coverage.csv:
             # - errors.csv: reconstructible from logcat (RVSEC markers are self-contained)
             # - coverage.csv: NOT reconstructible (needs static analysis class list)
+            # Requirement "Result Consolidation on Resume (FR10-ext)": errors stay
+            # reliable even when the static JSON is absent (analysis INV-ANA-25).
             repository = None
             if hasattr(task, "repository") and task.repository:
                 repository = task.repository
@@ -533,7 +606,7 @@ class ResultProcessorComponent:
                 errors = repository.get_errors()
 
                 # Process each monitored operations violation
-                for i, error in enumerate(errors, 1):
+                for error in errors:
                     # Extract fields from error data
                     class_full_name = error.get("class_full_name", "")
                     method = error.get("method", "")
@@ -547,10 +620,9 @@ class ResultProcessorComponent:
                         f"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}",
                     )
 
-                    # Use timing data if available
-                    time_value = error.get("time_since_task_start", i)
-                    if time_value is None or time_value == 0:
-                        time_value = i
+                    # time is written as-is (INV-PLT-24): 0 means "within the
+                    # first second of tool execution", never a fabricated value.
+                    time_value = error.get("time_since_task_start", 0)
 
                     writer.writerow(
                         [
@@ -579,6 +651,10 @@ class ResultProcessorComponent:
         (crash / VerifyError / ANR). Only the ``stack_head`` summary is written;
         the full multi-line trace stays in the ``.logcat`` (decision D3). The
         existing coverage/errors/summary CSV schemas are untouched (INV-PLT-19).
+
+        Requirement "Diagnostic Events CSV Generation (FR14)", Scenarios "One
+        row per diagnostic event with stack_head only" and "Existing CSV schemas
+        unchanged".
 
         Args:
             completed_tasks: List of completed tasks to process
@@ -623,7 +699,9 @@ class ResultProcessorComponent:
 
         Like errors.csv, diagnostic events are reconstructible from the logcat
         (the diagnostic parser runs inside ``parse_logcat_file``), so resumed
-        tasks repopulate their rows from the persisted logcat (INV-PLT-20).
+        tasks repopulate their rows from the persisted logcat (INV-PLT-20;
+        Requirement "Diagnostic Events CSV Generation (FR14)", Scenario
+        "app_events survives resume reconstruction").
 
         Args:
             writer: CSV writer instance
@@ -643,10 +721,10 @@ class ResultProcessorComponent:
                 repository = self._reconstruct_repository_from_logcat(task)
 
             if repository:
-                for i, event in enumerate(repository.get_diagnostic_events(), 1):
-                    time_value = event.get("time_since_task_start", i)
-                    if time_value is None or time_value == 0:
-                        time_value = i
+                for event in repository.get_diagnostic_events():
+                    # time is written as-is (INV-PLT-24): 0 means "within the
+                    # first second of tool execution", never a fabricated value.
+                    time_value = event.get("time_since_task_start", 0)
 
                     writer.writerow(
                         [
@@ -679,6 +757,9 @@ class ResultProcessorComponent:
     def _generate_summary_csv(self, completed_tasks: List[Any]) -> None:
         """
         Generate summary CSV file with aggregate metrics per task.
+
+        Requirement "Result Generation (FR14)", Scenario "Summary CSV Format".
+        The 12-column header below is byte-identical to baseline (INV-PLT-19).
 
         Args:
             completed_tasks: List of completed tasks to process
@@ -723,11 +804,14 @@ class ResultProcessorComponent:
     def _write_task_summary_data(self, writer: csv.writer, task: Any) -> None:
         """Write one summary row per task (gh58 unified path).
 
+        Requirement "Result Generation (FR14)", Scenario "Summary CSV Format".
         Reads exclusively from ``repository.calculate_metrics().to_dict()``
         after ``_reconstruct_repository_from_logcat`` ensures the repository
         is populated. The legacy 3-tier cascade (result.coverage_metrics →
         repository → zeros) is removed (INV-PLT-16); when the logcat is
-        missing entirely, a zeroed row with explicit warning is emitted.
+        missing entirely, a zeroed row with explicit warning is emitted
+        (Scenario "Logcat File Missing on Resume" and Scenario "No Fallback to
+        Serialized Coverage Metrics When JSON Is Absent").
         """
         try:
             config = task.config
@@ -778,7 +862,12 @@ class ResultProcessorComponent:
     )
     def _generate_results_json(self, completed_tasks: List[Any]) -> None:
         """
-        Generate comprehensive results JSON file with structured experiment data.
+        Generate the results JSON file with structured experiment data.
+
+        Requirement "Result Generation (FR14)", Scenario "Results JSON
+        Hierarchical Structure": keyed apk -> repetitions -> rep -> timeouts ->
+        timeout -> tools -> tool_name, each entry carrying ``summary`` and
+        ``monitored_operations_errors``.
 
         Args:
             completed_tasks: List of completed tasks to process
@@ -827,7 +916,18 @@ class ResultProcessorComponent:
 
     def _extract_task_data(self, task: Any) -> Dict[str, Any]:
         """
-        Extract comprehensive data for a single task.
+        Extract the per-task entry for results.json.
+
+        Requirement "Result Consolidation on Resume (FR10-ext)". The
+        ``if task.repository:`` branch produces summary metrics plus MOP
+        violation details from the populated repository (Scenario "Result
+        Processing After Resume Includes All Sessions"). The ``else`` branch is
+        reached only when ``task.repository`` was never populated (the logcat
+        genuinely missing): ``execute()`` runs the coverage and summary writers
+        first, and on resume those writers mutate ``task.repository`` via
+        ``_reconstruct_repository_from_logcat``. In the ``else`` branch, summary
+        values are read from the serialized ``task.result.coverage_metrics`` and
+        MOP violation details are reconstructed independently from the logcat.
 
         Args:
             task: Task to extract data from
@@ -949,6 +1049,11 @@ class ResultProcessorComponent:
         """
         Generate performance CSV file using PerformanceProcessorComponent.
 
+        Requirement "Result Generation (FR14)": ``performance.csv`` is one of the
+        five FR14 files. Generation is delegated to
+        ``PerformanceProcessorComponent``; ``_create_empty_performance_csv`` is
+        the fallback path when that delegation fails.
+
         Args:
             completed_tasks: List of completed tasks to process
         """
@@ -980,6 +1085,10 @@ class ResultProcessorComponent:
     def _create_empty_performance_csv(self) -> None:
         """
         Create an empty performance CSV file as fallback.
+
+        Requirement "Result Generation (FR14)": fallback for ``performance.csv``
+        when ``PerformanceProcessorComponent`` delegation raises, so the file
+        still exists with basic per-task timing rows.
         """
         try:
             performance_file = os.path.join(self.results_dir, "performance.csv")
