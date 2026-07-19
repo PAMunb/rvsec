@@ -590,6 +590,48 @@ class WrapperEmitterTest {
                 "wrapper return type must be the lowered base type, not 'Cipher+'; got:\n" + src);
     }
 
+    @Test
+    void instanceWrapperWithoutTargetClauseMapsArgsPositionally(@TempDir Path out)
+            throws IOException {
+        // An instance-target advice that binds args(input) but has NO target(...)
+        // clause: the receiver is still materialized as "recv" (instance methods
+        // always get one), but the advice never references it. extractTargetBinding
+        // finds no "target(" and returns null, so buildMonitorArgs skips the
+        // recv-mapping branch entirely and maps every advice parameter positionally
+        // from p0. The monitor call must reference p0 and result — never recv —
+        // proving the null-target path aligns args against the wrapper signature
+        // without a phantom receiver slot.
+        AdviceDescriptor advice = new AdviceDescriptor();
+        advice.setName("doFinal");
+        advice.setSpecName("Cipher");
+        advice.setPosition("after");
+        advice.setAround(false);
+        advice.setParameters(List.of(new ParameterDescriptor("byte[]", "input")));
+        advice.setReturning(List.of(new ParameterDescriptor("byte[]", "result")));
+        advice.setExpression(
+                "call(public byte[] Cipher.doFinal(byte[])) && args(input)");
+        MonitorCallDescriptor mc = new MonitorCallDescriptor();
+        mc.setMethod("MultiSpec_1RuntimeMonitor.event");
+        mc.setSpecName("Cipher");
+        mc.setEventId("event");
+        mc.setUniqueId("event");
+        mc.setArgs(List.of("input", "result"));
+        advice.setMonitorCalls(List.of(mc));
+
+        AspectDescriptor d = newDescriptor(advice);
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertEquals(1, entries.size(), "byte[]-arg doFinal has exactly one overload");
+        assertFalse(entries.get(0).isStatic, "doFinal is an instance method");
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains("javax.crypto.Cipher recv, byte[] p0"),
+                "the receiver is still emitted as recv even without a target() clause; got:\n"
+                        + src);
+        assertTrue(src.contains("MultiSpec_1RuntimeMonitor.event(p0, result);"),
+                "args→p0 positionally and returning→result, with no recv reference; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
