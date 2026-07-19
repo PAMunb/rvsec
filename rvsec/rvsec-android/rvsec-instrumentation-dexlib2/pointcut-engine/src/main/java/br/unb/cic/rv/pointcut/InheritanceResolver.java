@@ -95,14 +95,30 @@ public final class InheritanceResolver {
         return out;
     }
 
+    /**
+     * Walks the superclass/interface chain starting at {@code currentDesc}, staying
+     * within APK-declared classes ({@link #apkByDescriptor}) for as long as possible
+     * and falling back to {@link AndroidClassIndex} the moment the chain leaves the
+     * APK — the two are separate graphs (dexlib2 {@link ClassDef} vs. the framework
+     * class index) with no single lookup spanning both, so the walk must switch
+     * resolution source mid-hierarchy rather than at the top.
+     *
+     * @param currentDesc type descriptor of the node being visited
+     * @param targetDesc type descriptor being searched for (the candidate supertype)
+     * @param visited descriptors already visited, to break cycles/re-visits
+     * @return true if {@code targetDesc} is reachable from {@code currentDesc}
+     */
     private boolean walkApkAncestors(String currentDesc, String targetDesc, Set<String> visited) {
         if (!visited.add(currentDesc)) return false;
         if (currentDesc.equals(targetDesc)) return true;
 
         ClassDef cd = apkByDescriptor.get(currentDesc);
         if (cd == null) {
-            // Not in APK — either already in Android API land (delegate handles it)
-            // or a reference to a class we don't have (give up this branch).
+            // currentDesc has no APK ClassDef, so this recursive branch cannot go
+            // any further within the APK graph. It is not a failure: it means an
+            // ancestor further up already crossed into android.jar (handled below,
+            // at the level that still had a ClassDef to read super/interfaces from)
+            // or targetDesc was never reachable at all.
             return false;
         }
         if (cd.getSuperclass() != null
@@ -112,8 +128,12 @@ public final class InheritanceResolver {
         for (String iface : cd.getInterfaces()) {
             if (walkApkAncestors(iface, targetDesc, visited)) return true;
         }
-        // Also cross into Android chains from APK leaves: super/interfaces that
-        // don't live in the APK must live in android.jar.
+        // Cross into android.jar from this APK leaf: cd's superclass/interfaces are
+        // descriptors, not framework metadata, so once one of them is absent from
+        // apkByDescriptor the only remaining chain lives in AndroidClassIndex. This
+        // check happens here (not by recursing into walkApkAncestors again) because
+        // that recursive call would hit the cd == null branch above and dead-end
+        // without ever asking AndroidClassIndex.
         if (cd.getSuperclass() != null && !apkByDescriptor.containsKey(cd.getSuperclass())) {
             if (android.isAssignableFrom(fromDescriptor(targetDesc),
                     fromDescriptor(cd.getSuperclass()))) {

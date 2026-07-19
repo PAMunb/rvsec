@@ -145,16 +145,36 @@ public final class PointcutExpressionParser {
 
     // --- call(...) body parser -----------------------------------------------
 
+    /**
+     * Parses a {@code call(...)} body into a {@link CallPC}, distinguishing the
+     * constructor form ({@code <owner>.new(<params>)}) from the method form
+     * ({@code <return> <owner>.<name>(<params>)}) purely by index arithmetic —
+     * there is no tokenizer here because the two forms only differ in whether a
+     * return type precedes the owner, and AspectJ signatures never nest a space
+     * inside the owner/name portion (generics/arrays are elsewhere in the string).
+     *
+     * @param body the raw text between {@code call(} and the matching {@code )},
+     *             e.g. {@code "void javax.crypto.Cipher.init(int, java.security.Key)"}
+     * @return the structured call pointcut with owner/name/params resolved
+     * @throws PointcutParseException if {@code body} matches neither form
+     */
     private static CallPC parseCallBody(String body) {
-        // Strip optional modifier prefix (public/private/...).
+        // Step 1: strip an optional modifier prefix (public/private/...) — AspectJ
+        // allows a leading access modifier on the signature pattern, and it is
+        // never part of the owner/name/params we need below.
         String s = body.trim();
         s = stripModifiers(s);
 
-        // Constructor: <owner>.new(<params>)
+        // Step 2: constructor form <owner>.new(<params>) has no return type, so it
+        // must be detected before we assume a leading-space split works — checking
+        // for ".new(" first avoids misreading "new" as a return type.
         int newIdx = indexOfOwnerDotNew(s);
         if (newIdx >= 0) {
             String owner = s.substring(0, newIdx).trim();
             int openParen = s.indexOf('(', newIdx);
+            // matchingClose bounds the argument list at the ')' that balances this
+            // '(', so nested parens inside a param type (e.g. a generic bound)
+            // don't truncate the param list early.
             int closeParen = matchingClose(s, openParen);
             String params = s.substring(openParen + 1, closeParen);
             CallPC.ParamList paramList = splitParams(params);
@@ -162,7 +182,9 @@ public final class PointcutExpressionParser {
                     paramList.head(), paramList.trailingVarargs());
         }
 
-        // Method: <return> <owner>.<name>(<params>)
+        // Step 3: method form <return> <owner>.<name>(<params>). The first space
+        // is the only reliable boundary between the return type and the rest,
+        // since return types never contain spaces (arrays/generics use [] / <>).
         int firstSpace = s.indexOf(' ');
         if (firstSpace < 0) {
             throw new PointcutParseException("malformed call() body: " + body);
@@ -173,6 +195,9 @@ public final class PointcutExpressionParser {
         if (openParen < 0) {
             throw new PointcutParseException("malformed call() body (no '(' ): " + body);
         }
+        // Step 4: the LAST '.' before '(' splits declaring type from member name —
+        // not the first — because the declaring type itself is dot-qualified
+        // (e.g. "javax.crypto.Cipher.init"); only the final segment is the method.
         String ownerAndName = rest.substring(0, openParen).trim();
         int lastDot = ownerAndName.lastIndexOf('.');
         if (lastDot < 0) {
@@ -181,6 +206,8 @@ public final class PointcutExpressionParser {
         }
         String owner = ownerAndName.substring(0, lastDot);
         String name = ownerAndName.substring(lastDot + 1);
+        // Step 5: same matchingClose bounding as the constructor form, applied to
+        // the method's parameter list.
         int closeParen = matchingClose(rest, openParen);
         String params = rest.substring(openParen + 1, closeParen);
         CallPC.ParamList paramList = splitParams(params);

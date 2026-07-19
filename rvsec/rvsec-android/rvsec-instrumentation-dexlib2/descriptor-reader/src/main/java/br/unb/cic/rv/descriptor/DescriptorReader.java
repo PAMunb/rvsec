@@ -35,10 +35,12 @@ public final class DescriptorReader {
         }
     }
 
+    /** Convenience overload for callers holding an NIO {@link Path} instead of a {@link File}. */
     public static AspectDescriptor read(Path path) {
         return read(path.toFile());
     }
 
+    /** Reads the descriptor from an already-open stream (e.g. a classpath resource). */
     public static AspectDescriptor read(InputStream in) {
         try {
             return MAPPER.readValue(in, AspectDescriptor.class);
@@ -49,6 +51,7 @@ public final class DescriptorReader {
         }
     }
 
+    /** Reads the descriptor from an in-memory JSON string (mainly used by tests). */
     public static AspectDescriptor read(String json) {
         try {
             return MAPPER.readValue(json, AspectDescriptor.class);
