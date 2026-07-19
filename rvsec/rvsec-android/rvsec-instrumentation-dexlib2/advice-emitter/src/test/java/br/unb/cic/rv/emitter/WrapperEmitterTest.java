@@ -196,6 +196,62 @@ class WrapperEmitterTest {
                 "non-void wrapper returns the original result; got:\n" + src);
     }
 
+    @Test
+    void literalFallbackSkipsInstanceTargetWithoutStaticModifier(@TempDir Path out)
+            throws IOException {
+        // No android.jar → no way to read ACC_STATIC from bytecode, so the
+        // fallback trusts the lexical `static` modifier in the call() text. An
+        // instance target (no `static` prefix) cannot be safely wrapped without
+        // the index (the wrapper would need a receiver whose type the fallback
+        // can't confirm), so it is dropped. Guards targetLooksStatic == false.
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "doFinal",
+                "Cipher",
+                "call(public byte[] Cipher.doFinal(byte[]))",
+                List.of(),
+                "result"));
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        assertTrue(entries.isEmpty(),
+                "instance target must be skipped by the index-less fallback");
+    }
+
+    @Test
+    void literalFallbackSkipsAmbiguousObjectParam(@TempDir Path out) throws IOException {
+        // The descriptor encodes an un-enumerable overload as a solitary Object
+        // parameter; without the index the fallback cannot tell which concrete
+        // Cipher.getInstance(String, ?) overload it means, so emitting
+        // getInstance(String, Object) would not match any real method. A non-
+        // leading Object param therefore vetoes the wrapper. Guards
+        // hasAmbiguousObjectParam == true.
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static Cipher Cipher.getInstance(String, Object))",
+                List.of(),
+                "result"));
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        assertTrue(entries.isEmpty(),
+                "a non-leading Object param must veto the literal-fallback wrapper");
+    }
+
+    @Test
+    void literalFallbackSkipsMidListWildcardParam(@TempDir Path out) throws IOException {
+        // A MIDDLE ".." (as opposed to a trailing one, which the parser folds into
+        // the varargs flag) survives as a literal ParamSpec descriptor. It has no
+        // finite lowering to a Java signature, so the fallback skips the whole
+        // pointcut. Guards hasWildcardParamSpec == true while CallPC.varargs() is
+        // false (the trailing "int" keeps varargs off).
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static Cipher Cipher.getInstance(String, .., int))",
+                List.of(),
+                "result"));
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        assertTrue(entries.isEmpty(),
+                "a mid-list '..' wildcard must veto the literal-fallback wrapper");
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
