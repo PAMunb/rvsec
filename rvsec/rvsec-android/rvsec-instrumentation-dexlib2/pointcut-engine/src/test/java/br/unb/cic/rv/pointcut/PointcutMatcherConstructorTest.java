@@ -74,6 +74,11 @@ class PointcutMatcherConstructorTest {
         return new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, vDest);
     }
 
+    /** {@code move-result vDest} — plain single-slot result (int/boolean/…). */
+    private static Instruction moveResult(int vDest) {
+        return new ImmutableInstruction11x(Opcode.MOVE_RESULT, vDest);
+    }
+
     /** {@code move-result-wide vDest} — pair (vDest, vDest+1). */
     private static Instruction moveResultWide(int vDest) {
         return new ImmutableInstruction11x(Opcode.MOVE_RESULT_WIDE, vDest);
@@ -147,6 +152,29 @@ class PointcutMatcherConstructorTest {
                 "virtual instance receiver MUST equal regs[0]");
         assertEquals(5, m.argBindings.get("$return"),
                 "$return MUST equal the move-result-object destination register");
+    }
+
+    @Test
+    void virtualInvokeWithPlainMoveResultCapturesDollarReturn() {
+        // invoke-virtual {v2}, Cipher.getBlockSize()I
+        // move-result v4  — the plain single-slot form (int return), the third
+        // move-result opcode alongside -object and -wide. $return MUST bind v4.
+        CallPC cp = virtualPc("javax.crypto.Cipher", "int",
+                "getBlockSize", List.of());
+        MethodReference mr = ref("Ljavax/crypto/Cipher;", "getBlockSize",
+                List.of(), "I");
+        int[] regs = {2};
+        List<Instruction> insns = List.of(
+                returnVoid(),          // idx 0
+                moveResult(4));        // idx 1 — peeked from invokeIndex=0
+
+        Match m = PointcutMatcher.buildCallMatch(cp, mr, regs,
+                /*isStaticInvoke*/ false, insns, /*invokeIndex*/ 0);
+
+        assertFalse(m.isConstructor);
+        assertEquals(2, m.targetRegister, "virtual instance receiver MUST equal regs[0]");
+        assertEquals(4, m.argBindings.get("$return"),
+                "$return MUST equal the plain move-result destination register");
     }
 
     @Test
@@ -303,6 +331,34 @@ class PointcutMatcherConstructorTest {
         // since isStaticInvoke=false.
         assertEquals(2, m.targetRegister);
         assertEquals(3, m.argBindings.get("arg00"));
+    }
+
+    @Test
+    void constructorFollowedByMoveResultStillSkipsDollarReturn() {
+        // invoke-direct {v4, v3}, Foo.<init>(int)V *immediately followed by* a
+        // move-result-object. Real constructors never emit a move-result*, but
+        // this fixture isolates the guard: the $return peek is gated on
+        // !isConstructor, NOT on "no move-result present". Both predicates agree
+        // (cp.isConstructor && mr.name==<init>) so isConstructor=true and the peek
+        // MUST be skipped even though a move-result sits at idx+1. If the guard
+        // ever weakened to key off the follow-up opcode alone, $return would wrongly
+        // appear — the existing return-void fixtures could not catch that.
+        CallPC cp = constructorPc("Foo", List.of("int"));
+        MethodReference mr = ref(FOO_OWNER, "<init>", List.of("I"), "V");
+        int[] regs = {4, 3};
+        List<Instruction> insns = List.of(
+                returnVoid(),          // idx 0
+                moveResultObject(9));  // idx 1 — would be peeked if not a constructor
+
+        Match m = PointcutMatcher.buildCallMatch(cp, mr, regs,
+                /*isStaticInvoke*/ false, insns, /*invokeIndex*/ 0);
+
+        assertTrue(m.isConstructor, "both predicates agree → isConstructor=true");
+        assertEquals(4, m.targetRegister, "constructor receiver MUST equal regs[0]");
+        assertEquals(3, m.argBindings.get("arg00"), "first user param at regs[1]");
+        assertFalse(m.argBindings.containsKey("$return"),
+                "the $return peek MUST be skipped for constructors even when a "
+                        + "move-result* follows (the guard is !isConstructor, not opcode-based)");
     }
 
     // -------------------------------------------------------------------------
