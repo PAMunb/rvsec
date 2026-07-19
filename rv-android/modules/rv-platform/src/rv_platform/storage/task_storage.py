@@ -1,10 +1,11 @@
-# rvandroid/experiment/task/storage.py
 """
 Task storage system for persisting task information.
 
-This module provides a robust storage mechanism for task state and results,
-supporting atomic file operations, transaction management, and comprehensive
-error handling.
+Implements Requirement "Persistent Task Storage (FR10, NFR08)": persists task
+state to a JSON file (tasks.json) using atomic file operations, thread-safe
+access, and transaction buffering. The persisted file enables experiment
+continuation after interruption and is the authoritative record of task
+execution history across all sessions.
 """
 
 import hashlib
@@ -28,21 +29,25 @@ class ExperimentMetadata(BaseValidatedModel):
     """
     Minimal experiment metadata for storage and continuation support.
 
+    Defined here per Requirement "Experiment Resume Integration (FR10-ext)":
+    this is the metadata type persisted in the `experiment` section of
+    tasks.json and read back on resume to validate configuration consistency.
+
     ### Architectural Decisions:
     - Stores only essential runtime data to avoid duplication with ExperimentConfig
     - Uses config_checksum to detect configuration changes for continuation validation
-    - Maintains minimal footprint for performance and storage efficiency
-    - Provides experiment lifecycle tracking without config redundancy
 
     ### Role in the System:
     - Tracks experiment execution status and lifecycle
-    - Enables experiment continuation detection and validation
-    - Provides runtime statistics without duplicating configuration data
-    - Supports experiment recovery and status reporting
+    - Enables experiment continuation detection and validation via config_checksum
     """
 
     experiment_id: str = Field(description="Unique experiment identifier")
     start_time: datetime = Field(description="Experiment start timestamp")
+    # INV-PLT-12: config_checksum is the SHA-256 hex digest of the
+    # JSON-serialized configuration dictionary with sorted keys. Sorted keys
+    # make serialization deterministic so the same config always hashes
+    # identically across runs.
     config_checksum: str = Field(
         description="SHA-256 checksum of experiment configuration"
     )
@@ -57,6 +62,11 @@ class ExperimentMetadata(BaseValidatedModel):
         """
         Create metadata from experiment configuration.
 
+        Called on the live path by Platform.run() (platform.py:147) after task
+        generation, implementing Scenario "First Run Stores Metadata":
+        config_checksum is the SHA-256 of json.dumps(config_dict, sort_keys=True),
+        start_time is the current timestamp, and current_status is "running".
+
         Args:
             experiment_id: Unique experiment identifier
             config_dict: Experiment configuration dictionary
@@ -64,7 +74,10 @@ class ExperimentMetadata(BaseValidatedModel):
         Returns:
             ExperimentMetadata instance
         """
-        # Calculate config checksum for continuation validation
+        # INV-PLT-12: config_checksum MUST be the SHA-256 hex digest of the
+        # JSON-serialized config with sorted keys. This is the value later
+        # compared by check_continuation_compatibility() to decide resume
+        # compatibility.
         config_json = json.dumps(config_dict, sort_keys=True)
         config_checksum = hashlib.sha256(config_json.encode()).hexdigest()
 
@@ -80,17 +93,18 @@ class StorageConfig(BaseValidatedModel):
     """
     Configuration for task storage behavior and metadata management.
 
+    Defaults enable metadata persistence, statistics computation, and auto-save.
+    No production code constructs a non-default StorageConfig; the live path
+    (Platform) uses the defaults, so metadata (the `experiment` section) and
+    statistics are always written and update_task() auto-saves after each task.
+
     ### Architectural Decisions:
     - Separates storage behavior configuration from experiment configuration
-    - Provides fine-grained control over storage features and performance
-    - Enables storage optimization strategies for different experiment types
-    - Maintains backwards compatibility through sensible defaults
+    - Provides fine-grained control over storage features via boolean flags
 
     ### Role in the System:
-    - Controls storage feature enablement and behavior
-    - Provides storage performance tuning capabilities
-    - Enables experiment-specific storage optimization
-    - Supports different storage strategies for various use cases
+    - Controls storage feature enablement and behavior (metadata, statistics,
+      auto_save) consumed by TaskStorage.save()/update_task()
     """
 
     enable_metadata: bool = Field(
@@ -108,19 +122,21 @@ class StorageConfig(BaseValidatedModel):
 
 class ExperimentStatistics(BaseValidatedModel):
     """
-    Runtime experiment statistics calculated from task data.
+    Runtime experiment statistics computed from task data.
+
+    Populates the `statistics` section of tasks.json per Requirement
+    "Persistent Task Storage (FR10, NFR08)". Computed inside save() when
+    enable_statistics is True (the default) and written on every save. The
+    cached public accessor get_statistics() has no production caller (used by
+    unit tests only); the live path reaches this type through save().
 
     ### Architectural Decisions:
     - Calculates statistics from task data rather than storing redundant information
-    - Provides comprehensive experiment progress and performance metrics
     - Updates dynamically based on current task states
-    - Optimized for frequent recalculation without performance impact
 
     ### Role in the System:
-    - Provides real-time experiment progress information
-    - Enables experiment monitoring and reporting
-    - Supports experiment continuation decision making
-    - Facilitates experiment performance analysis
+    - Records experiment progress (counts, completion percentage, execution
+      times) in the persisted `statistics` section
     """
 
     total_tasks: int = Field(default=0, description="Total number of tasks")
@@ -145,19 +161,26 @@ class TaskStorage(ITaskStorage):
     """
     Manages task persistence with atomic operations, transaction support, and experiment metadata.
 
+    Implements Requirement "Persistent Task Storage (FR10, NFR08)" and enforces
+    the storage invariants:
+    - INV-PLT-03: atomic save (write-to-temp, fsync, rename) in save().
+    - INV-PLT-07: thread-safe access — every method that reads or mutates the
+      task dictionary acquires the RLock.
+    - INV-PLT-08: auto_save — update_task() calls save() when auto_save is True.
+    - INV-PLT-11: transaction buffering — changes are held in transaction_tasks
+      and applied only on commit.
+
     ### Architectural Decisions:
-    - Implements atomic file operations to prevent data corruption
-    - Uses a thread-safe design for concurrent access
-    - Provides transaction support for multi-step operations
+    - Implements atomic file operations to prevent data corruption (INV-PLT-03)
+    - Uses a thread-safe RLock design for concurrent access (INV-PLT-07)
+    - Provides transaction buffering for multi-step operations (INV-PLT-11)
     - Includes minimal experiment metadata for continuation support
-    - Enables flexible task querying and filtering with enhanced statistics
 
     ### Role in the System:
     - Persists task information to disk with experiment metadata
     - Retrieves task information from storage with continuation support
-    - Ensures data integrity during storage operations
-    - Supports filtering and querying of tasks with statistics
-    - Provides experiment continuation and recovery capabilities
+    - Is the authoritative all-sessions task source consumed by result
+      consolidation on resume (get_completed_tasks())
     """
 
     def __init__(
@@ -224,6 +247,14 @@ class TaskStorage(ITaskStorage):
         """
         Load tasks from storage file.
 
+        Part of Requirement "Persistent Task Storage (FR10, NFR08)". Two cases:
+        Scenario "Load From Non-Existent File" — when the file is absent, start
+        with empty storage, set loaded=True, and raise no error; and Scenario
+        "Load From Existing Storage" — deserialize every task via
+        TaskFactory.create_task_from_dict(), load experiment metadata when
+        enable_metadata is True, log prior statistics if present, and set
+        loaded=True.
+
         Returns:
             True if loading succeeded, False otherwise
         """
@@ -282,9 +313,16 @@ class TaskStorage(ITaskStorage):
         """
         Save tasks to storage file with atomic write-then-rename.
 
-        Write to a temporary file first, fsync, then atomically rename to
-        the target path. Include experiment metadata and statistics when
-        enabled in StorageConfig.
+        Enforces INV-PLT-03 and Scenario "Atomic Save Operation": write to a
+        temporary file ({storage_file}.tmp), f.flush() + os.fsync(), then
+        atomically rename to the target path via shutil.move(); on any failure
+        the temporary file is cleaned up. The storage file is never left in a
+        partially written state even if the process is interrupted mid-write.
+
+        Writes the versioned-v3 format per Requirement "Persistent Task Storage
+        (FR10, NFR08)" with three sections: `tasks`, `experiment` (metadata,
+        when enable_metadata and metadata are set), and `statistics` (computed,
+        when enable_statistics).
 
         Returns:
             True if saving succeeded, False otherwise. On failure, the
@@ -299,8 +337,11 @@ class TaskStorage(ITaskStorage):
 
                 # Prepare the complete persistence payload. Version 3 includes
                 # experiment metadata (config checksum for resume validation) and
-                # per-task coverage_metrics (fallback when LogcatRepository is
-                # not available on resume).
+                # per-task coverage_metrics. Per INV-PLT-16 the resume consumer
+                # (result_processor) no longer falls back to these serialized
+                # coverage_metrics: the field is still persisted here, but on
+                # resume coverage is reconstructed from the logcat + co-located
+                # static-analysis JSON, not read back from this section.
                 data = {
                     "version": 3,
                     "timestamp": datetime.now().isoformat(),
@@ -380,8 +421,9 @@ class TaskStorage(ITaskStorage):
         """
         Add a task to storage.
 
-        If a transaction is in progress, the task is added to the transaction
-        buffer instead of being immediately stored.
+        Acquires the RLock (INV-PLT-07). If a transaction is in progress, the
+        task is routed to the transaction buffer instead of the main dictionary
+        (INV-PLT-11).
 
         Args:
             task: Task to add
@@ -399,8 +441,11 @@ class TaskStorage(ITaskStorage):
         """
         Update a task in storage and save changes if auto_save is enabled.
 
-        If a transaction is in progress, the task is updated in the transaction
-        buffer instead of being immediately stored.
+        Enforcement site for INV-PLT-08: when storage_config.auto_save is True
+        this MUST call save() after updating the task dictionary; when False it
+        MUST NOT. Acquires the RLock (INV-PLT-07). If a transaction is in
+        progress, the task is routed to the transaction buffer instead of the
+        main dictionary and no save occurs until commit (INV-PLT-11).
 
         Args:
             task: Task to update
@@ -474,6 +519,14 @@ class TaskStorage(ITaskStorage):
         """
         Get tasks that are completed.
 
+        Per Requirement "Result Consolidation on Resume (FR10-ext)", this is the
+        authoritative all-sessions data source for result consolidation:
+        Platform._process_results() (platform.py:239) uses it instead of the
+        filtered Platform.tasks list so output files reflect every completed
+        task from all sessions, and _skip_completed_tasks() (platform.py:561)
+        consumes it to skip previously completed tasks — see Scenario "Skip
+        Completed Tasks During Resume".
+
         If a transaction is in progress, the returned list includes all tasks
         with any modifications from the transaction buffer.
 
@@ -509,7 +562,13 @@ class TaskStorage(ITaskStorage):
         Begin a transaction for batching task updates.
 
         Transactions allow multiple task updates to be performed as a single
-        atomic operation, ensuring consistency in the task storage.
+        atomic operation, ensuring consistency in the task storage. This method
+        and its commit/rollback counterparts enforce INV-PLT-11.
+
+        Current-state: no production code invokes the transaction API
+        (begin/commit/rollback/bulk_update have no src caller outside tests).
+        INV-PLT-11 is exercised by the unit tests; it is not on the live
+        execution path.
         """
         with self.lock:
             if self.in_transaction:
@@ -527,6 +586,10 @@ class TaskStorage(ITaskStorage):
     def commit_transaction(self) -> bool:
         """
         Commit the current transaction, applying all changes.
+
+        Enforces INV-PLT-11 and Scenario "Transaction Commit": the buffered
+        changes in transaction_tasks are applied to the main tasks dictionary,
+        save() is called exactly once, and in_transaction is reset to False.
 
         Returns:
             True if commit succeeded, False otherwise
@@ -567,6 +630,10 @@ class TaskStorage(ITaskStorage):
     def rollback_transaction(self) -> None:
         """
         Rollback the current transaction, discarding all changes.
+
+        Enforces INV-PLT-11 and Scenario "Transaction Rollback": the buffered
+        changes are discarded, the main tasks dictionary remains unchanged, and
+        in_transaction is reset to False.
         """
         with self.lock:
             if not self.in_transaction:
@@ -585,7 +652,8 @@ class TaskStorage(ITaskStorage):
         Delete a task from storage.
 
         If a transaction is in progress, the task is marked for deletion in the
-        transaction buffer instead of being immediately removed.
+        transaction buffer instead of being immediately removed (INV-PLT-11),
+        using a None sentinel resolved on commit.
 
         Args:
             task_id: ID of task to delete
@@ -674,6 +742,10 @@ class TaskStorage(ITaskStorage):
         """
         Update multiple tasks in a single transaction.
 
+        Wraps begin_transaction -> update_task (per task) -> commit_transaction
+        so all updates apply as one atomic write (INV-PLT-11), rolling back on
+        any error. Current-state: no production caller (used by unit tests only).
+
         Args:
             tasks: List of tasks to update
 
@@ -707,7 +779,9 @@ class TaskStorage(ITaskStorage):
         Calculate experiment statistics from current task data.
 
         Count tasks by state, compute completion percentage, and aggregate
-        execution times across all tasks with positive execution time.
+        execution times across all tasks with positive execution time. Called
+        by save() to fill the `statistics` section of the versioned format per
+        Requirement "Persistent Task Storage (FR10, NFR08)".
 
         Returns:
             ExperimentStatistics populated with total/completed/failed/pending
@@ -765,6 +839,11 @@ class TaskStorage(ITaskStorage):
         """
         Get current experiment statistics with caching.
 
+        Current-state: this cached public accessor has no production caller
+        (used by unit tests only). The live `statistics` section is written by
+        save() via _calculate_statistics(); this method's 10s cache is a
+        test-only convenience accessor.
+
         Returns:
             ExperimentStatistics with current metrics
         """
@@ -790,6 +869,11 @@ class TaskStorage(ITaskStorage):
         """
         Set experiment metadata for the storage.
 
+        Live path per Scenario "First Run Stores Metadata": Platform.run()
+        calls this after task generation (platform.py:150) so the metadata is
+        persisted to tasks.json on the next save(). Acquires the RLock
+        (INV-PLT-07).
+
         Args:
             metadata: ExperimentMetadata to set
         """
@@ -801,6 +885,8 @@ class TaskStorage(ITaskStorage):
         """
         Get current experiment metadata.
 
+        Current-state: no production caller (used by unit tests only).
+
         Returns:
             ExperimentMetadata if available, None otherwise
         """
@@ -809,6 +895,9 @@ class TaskStorage(ITaskStorage):
     def update_experiment_status(self, status: str) -> None:
         """
         Update experiment status in metadata.
+
+        Current-state: no production caller (used by unit tests only). Acquires
+        the RLock (INV-PLT-07) and auto-saves when auto_save is enabled.
 
         Args:
             status: New experiment status
@@ -823,6 +912,18 @@ class TaskStorage(ITaskStorage):
     def check_continuation_compatibility(self, config_dict: Dict) -> bool:
         """
         Check if experiment can be continued with given configuration.
+
+        INV-PLT-12 comparison site and Scenario "Configuration Checksum
+        Validation": compute the SHA-256 of json.dumps(config_dict,
+        sort_keys=True) and return True only when it equals the stored
+        experiment_metadata.config_checksum. A mismatch is logged at DEBUG with
+        the first 8 characters of both checksums; the user-visible WARNING is
+        the caller _skip_completed_tasks()'s responsibility, not this method's.
+
+        Implements Requirement "Experiment Resume Integration (FR10-ext)" and is
+        called on the live path by platform.py:245 — see Scenarios "Resume With
+        Same Configuration" (identical checksum -> True) and "Resume With
+        Changed Configuration" (differing checksum -> False, resume proceeds).
 
         Args:
             config_dict: New experiment configuration
