@@ -234,6 +234,155 @@ class TestUIAutomator2AdapterConnectedActions:
         assert result is True
 
 
+class TestUIAutomator2AdapterBranchCoverage:
+    """Branch coverage for connect(), settings config, connected except paths,
+    and take_screenshot connected paths. Device is always a MagicMock.
+
+    Justification (Basis Path Testing): each test targets a specific untaken
+    branch — the success/else/except arms of connect(), both guard/except arms
+    of _configure_uiautomator_settings, and the internal except handlers of the
+    connected actions. @ErrorHandler.handle_errors wraps each method, but the
+    method's own try/except fires first, so the EXPLICIT return (False/None/{})
+    is asserted, not the decorator default.
+    """
+
+    # --- connect() ---------------------------------------------------------
+
+    def test_connect_success_sets_connected_and_configures(self, adapter):
+        """Happy path (equivalence: truthy info dict) → True, connected True.
+
+        The mock device carries a REAL settings dict so
+        _configure_uiautomator_settings' item assignment executes (covers the
+        settings-config happy path).
+        """
+        with patch("rv_uiautomator.adapter.uiautomator2.u2") as mock_u2:
+            mock_dev = MagicMock()
+            mock_dev.info = {"productName": "sdk"}
+            mock_dev.settings = {}
+            mock_u2.connect.return_value = mock_dev
+
+            result = adapter.connect("dev")
+
+            assert result is True
+            assert adapter.connected is True
+            assert adapter.device is mock_dev
+            # settings-config happy path executed against the real dict
+            assert adapter.device.settings["wait_timeout"] == WAIT_FOR_IDLE_TIMEOUT
+
+    def test_connect_info_falsy_returns_false(self, adapter):
+        """Boundary: empty info dict is falsy → else arm → False, not connected."""
+        with patch("rv_uiautomator.adapter.uiautomator2.u2") as mock_u2:
+            mock_dev = MagicMock()
+            mock_dev.info = {}
+            mock_u2.connect.return_value = mock_dev
+
+            result = adapter.connect("dev")
+
+            assert result is False
+            assert adapter.connected is False
+
+    def test_connect_exception_returns_false(self, adapter):
+        """Error case: u2.connect raises → except arm → False, not connected."""
+        with patch("rv_uiautomator.adapter.uiautomator2.u2") as mock_u2:
+            mock_u2.connect.side_effect = Exception("boom")
+
+            result = adapter.connect("dev")
+
+            assert result is False
+            assert adapter.connected is False
+
+    # --- _configure_uiautomator_settings ----------------------------------
+
+    def test_configure_settings_guard_no_device(self, adapter):
+        """Guard: device is None → early return, no exception raised."""
+        adapter.device = None
+        # Must not raise
+        assert adapter._configure_uiautomator_settings() is None
+
+    def test_configure_settings_exception_is_swallowed(self, connected_adapter):
+        """Error case: settings assignment raises → warning logged, no re-raise."""
+        connected_adapter.device.settings.__setitem__.side_effect = Exception("nope")
+        # Must not raise
+        assert connected_adapter._configure_uiautomator_settings() is None
+
+    # --- connected-action except branches ---------------------------------
+
+    def test_get_ui_state_exception_returns_empty(self, connected_adapter):
+        """dump_hierarchy raises → internal except → {}."""
+        connected_adapter.device.dump_hierarchy.side_effect = Exception("dump fail")
+        assert connected_adapter.get_ui_state() == {}
+
+    @patch("time.sleep")
+    def test_input_text_exception_returns_false(self, mock_sleep, connected_adapter):
+        """send_keys raises → internal except → False."""
+        connected_adapter.device.send_keys.side_effect = Exception("keys fail")
+        assert connected_adapter.input_text("hello") is False
+
+    @patch("time.sleep")
+    def test_long_click_exception_returns_false(self, mock_sleep, connected_adapter):
+        """long_click raises → internal except → False."""
+        connected_adapter.device.long_click.side_effect = Exception("lc fail")
+        assert connected_adapter.long_click(10, 20) is False
+
+    @patch("time.sleep")
+    def test_swipe_exception_returns_false(self, mock_sleep, connected_adapter):
+        """swipe raises → internal except → False."""
+        connected_adapter.device.swipe.side_effect = Exception("swipe fail")
+        assert connected_adapter.swipe(0, 0, 100, 100) is False
+
+    @patch("time.sleep")
+    def test_press_back_exception_returns_false(self, mock_sleep, connected_adapter):
+        """press('back') raises → internal except → False."""
+        connected_adapter.device.press.side_effect = Exception("back fail")
+        assert connected_adapter.press_back() is False
+
+    @patch("time.sleep")
+    def test_press_home_exception_returns_false(self, mock_sleep, connected_adapter):
+        """press('home') raises → internal except → False."""
+        connected_adapter.device.press.side_effect = Exception("home fail")
+        assert connected_adapter.press_home() is False
+
+    # --- take_screenshot connected paths ----------------------------------
+
+    def test_take_screenshot_success_returns_path(self, connected_adapter):
+        """Happy path: file exists after capture → returns screenshot path."""
+        with patch("rv_uiautomator.adapter.uiautomator2.Path") as mock_path:
+            mock_path.return_value.exists.return_value = True
+
+            result = connected_adapter.take_screenshot()
+
+            assert result is not None
+            assert result.startswith("./screenshot_")
+            assert result.endswith(".png")
+            connected_adapter.device.screenshot.assert_called_once()
+
+    def test_take_screenshot_file_not_created_returns_none(self, connected_adapter):
+        """Else arm: file does not exist → returns None."""
+        with patch("rv_uiautomator.adapter.uiautomator2.Path") as mock_path:
+            mock_path.return_value.exists.return_value = False
+
+            assert connected_adapter.take_screenshot() is None
+
+    def test_take_screenshot_exception_returns_none(self, connected_adapter):
+        """Error case: screenshot raises → internal except → None."""
+        connected_adapter.device.screenshot.side_effect = Exception("shot fail")
+        assert connected_adapter.take_screenshot() is None
+
+    # --- launch_app / stop_app except branches ----------------------------
+
+    @patch("time.sleep")
+    def test_launch_app_exception_returns_false(self, mock_sleep, connected_adapter):
+        """app_start raises → internal except → False."""
+        connected_adapter.device.app_start.side_effect = Exception("start fail")
+        assert connected_adapter.launch_app("com.app") is False
+
+    @patch("time.sleep")
+    def test_stop_app_exception_returns_false(self, mock_sleep, connected_adapter):
+        """app_stop raises → internal except → False."""
+        connected_adapter.device.app_stop.side_effect = Exception("stop fail")
+        assert connected_adapter.stop_app("com.app") is False
+
+
 # ===================================================================
 # UIAutomatorActionExecutor tests
 # ===================================================================
