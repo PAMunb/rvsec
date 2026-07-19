@@ -410,6 +410,53 @@ class WrapperEmitterTest {
                 "target→recv, args→p0 (not p1), returning→result; got:\n" + src);
     }
 
+    @Test
+    void voidTargetEmitsWrapperWithoutResultCapture(@TempDir Path out) throws IOException {
+        // Void-returning targets are common monitored operations (Mac.update,
+        // MessageDigest.update, ...). Their wrapper must NOT declare a `result`
+        // local or a `return` — it just calls the original and fires the monitor.
+        // A plain `after` (no returning clause) also drives the
+        // getReturning() == null branch in buildMonitorArgs. Modeled on the
+        // static void Security.setProperty via the index-less literal fallback.
+        AdviceDescriptor advice = new AdviceDescriptor();
+        advice.setName("setProperty");
+        advice.setSpecName("Security");
+        advice.setPosition("after");
+        advice.setAround(false);
+        advice.setParameters(List.of(
+                new ParameterDescriptor("String", "k"),
+                new ParameterDescriptor("String", "v")));
+        advice.setReturning(null);
+        advice.setExpression(
+                "call(public static void Security.setProperty(String, String)) && args(k, v)");
+        MonitorCallDescriptor mc = new MonitorCallDescriptor();
+        mc.setMethod("MultiSpec_1RuntimeMonitor.event");
+        mc.setSpecName("Security");
+        mc.setEventId("event");
+        mc.setUniqueId("event");
+        mc.setArgs(List.of("k", "v"));
+        advice.setMonitorCalls(List.of(mc));
+
+        AspectDescriptor d = new AspectDescriptor();
+        d.setShortName("Test");
+        d.setImports(List.of("java.security.Security", "java.lang.String"));
+        d.setAdvices(List.of(advice));
+
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        assertEquals(1, entries.size());
+        assertEquals("void", entries.get(0).originalReturnFqn);
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains("java.security.Security.setProperty(p0, p1);"),
+                "void wrapper delegates without capturing a result; got:\n" + src);
+        assertFalse(src.contains("result ="),
+                "void wrapper must not declare a result local; got:\n" + src);
+        assertFalse(src.contains("return result"),
+                "void wrapper must not return a result; got:\n" + src);
+        assertTrue(src.contains("MultiSpec_1RuntimeMonitor.event(p0, p1);"),
+                "monitor call maps args positionally to p0, p1; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
