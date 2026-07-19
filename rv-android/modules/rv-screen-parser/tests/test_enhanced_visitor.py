@@ -1,7 +1,10 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+from rv_android_core.domain.widget import WidgetEventType
+
 from rv_screen_parser.parser.screen.visitor.enhanced_visitor import EnhancedTextVisitor
-from rv_screen_parser.parser.screen.visitor.model import Node
+from rv_screen_parser.parser.screen.visitor.model import Node, ScreenItem
 
 
 class TestEnhancedTextVisitor:
@@ -774,3 +777,681 @@ class TestEnhancedTextVisitor:
         assert screen_desc.activity == "TestActivity"
         # Should include items we added plus a back button item
         assert len(screen_desc.items) >= 1
+
+
+class TestEnhancedTextVisitorBranchCoverage:
+    """Branch-coverage tests for EnhancedTextVisitor.
+
+    Complements ``TestEnhancedTextVisitor`` above by driving the branches that the
+    happy-path tests do not reach: the full ``get_possible_actions`` action-family
+    matrix (click / long-click / check / scroll / set-text), the visitor early
+    returns and container/parent-inheritance paths, the RadioGroup grouping logic,
+    spinner/slider fallbacks, and every ``_determine_*`` / ``_analyze_input_type``
+    classification helper.
+
+    Node construction here follows the model contract in ``model.py``: raw keys go
+    inside the ``data`` dict and use the framework key names ("class" -> view_class,
+    "text" -> view_text). Capability flags ("clickable", "scrollable", ...) are
+    direct keys; ``actionable`` is recomputed from them, never set directly.
+    """
+
+    def _visitor(self):
+        """Create a fresh visitor per test to keep state isolated (Test Independence)."""
+        return EnhancedTextVisitor(MagicMock(), "TestActivity")
+
+    # ------------------------------------------------------------------
+    # A. get_possible_actions -- action-family matrix
+    #
+    # Equivalence Partitioning: each capability flag (clickable, long_clickable,
+    # checkable, scrollable, editable) defines an input class producing a distinct
+    # action family. We exercise one representative per class plus the boundary
+    # cases (text length > 30 truncation, checked vs unchecked, scroll direction
+    # filtering by widget class).
+    # ------------------------------------------------------------------
+    def test_get_possible_actions_click_with_bounds_and_text(self):
+        """Clickable node with bounds+text yields a CLICK with coordinates and text suffix."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.Button",
+                "clickable": True,
+                "bounds": [[0, 0], [10, 20]],
+                "text": "Press",
+            }
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        assert len(actions) == 1
+        assert actions[0].event == WidgetEventType.CLICK
+        assert actions[0].coordinates == (5, 10)  # bounds center (elif "bounds" branch)
+        assert "on 'Press'" in actions[0].text
+
+    def test_get_possible_actions_click_truncates_long_text(self):
+        """CLICK suffix marks '(truncated)' when view_text exceeds 30 chars (boundary)."""
+        visitor = self._visitor()
+        long_text = "x" * 31
+        node = Node(
+            data={
+                "class": "android.widget.Button",
+                "clickable": True,
+                "bounds": [[0, 0], [10, 10]],
+                "text": long_text,
+            }
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        assert "(truncated)" in actions[0].text
+
+    def test_get_possible_actions_long_click(self):
+        """long_clickable node yields a LONG_CLICK action."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.TextView",
+                "long_clickable": True,
+                "text": "Hold",
+            }
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        assert any(a.event == WidgetEventType.LONG_CLICK for a in actions)
+        assert any("LONG_CLICK" in a.text and "on 'Hold'" in a.text for a in actions)
+
+    def test_get_possible_actions_uncheck_when_checked(self):
+        """Checkable+checked node (normal priority) yields an UNCHECK action."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.CheckBox",
+                "checkable": True,
+                "checked": True,
+            }
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        assert len(actions) == 1
+        assert "UNCHECK" in actions[0].text
+
+    def test_get_possible_actions_check_when_unchecked(self):
+        """Checkable+unchecked node (normal priority) yields a CHECK action."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.CheckBox",
+                "checkable": True,
+                "checked": False,
+            }
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+
+        assert len(actions) == 1
+        assert "CHECK" in actions[0].text and "UNCHECK" not in actions[0].text
+
+    def test_get_possible_actions_scroll_generic_four_directions(self):
+        """Generic scrollable container yields all four scroll directions."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.FrameLayout", "scrollable": True}
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+        directions = {a.text.split()[1] for a in actions}
+
+        assert directions == {"UP", "DOWN", "LEFT", "RIGHT"}
+
+    def test_get_possible_actions_scroll_listview_vertical_only(self):
+        """ListView restricts scroll directions to UP/DOWN."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.ListView", "scrollable": True})
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+        directions = {a.text.split()[1] for a in actions}
+
+        assert directions == {"UP", "DOWN"}
+
+    def test_get_possible_actions_scroll_horizontal_only(self):
+        """HorizontalScrollView restricts scroll directions to LEFT/RIGHT."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.HorizontalScrollView",
+                "scrollable": True,
+            }
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+        directions = {a.text.split()[1] for a in actions}
+
+        assert directions == {"LEFT", "RIGHT"}
+
+    def test_get_possible_actions_set_text_with_current_value(self):
+        """Editable node with text produces SET_TEXT carrying the current value hint."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.EditText", "text": "hello"}
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+        set_text = [a for a in actions if a.event == WidgetEventType.TEXT_CHANGE]
+
+        assert len(set_text) == 1
+        assert "current: 'hello'" in set_text[0].text
+
+    def test_get_possible_actions_set_text_with_content_description_hint(self):
+        """Editable node with no text but content_description produces the hint form."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.EditText",
+                "content_description": "search here",
+            }
+        )
+
+        actions = visitor.get_possible_actions(node, visitor.counter)
+        set_text = [a for a in actions if a.event == WidgetEventType.TEXT_CHANGE]
+
+        assert len(set_text) == 1
+        assert "hint: 'search here'" in set_text[0].text
+
+    # ------------------------------------------------------------------
+    # B. get_screen_description -- form detection overview
+    # ------------------------------------------------------------------
+    def test_get_screen_description_reports_detected_form(self):
+        """When form elements exist, the overview item announces 'Form detected with:'."""
+        visitor = self._visitor()
+        visitor.screen_structure["form_elements"].append({"type": "text field"})
+
+        screen_desc = visitor.get_screen_description()
+
+        assert "Form detected with: text field" in screen_desc.items[0].base_description
+
+    # ------------------------------------------------------------------
+    # C. visit_* branch tests
+    # ------------------------------------------------------------------
+    def test_visit_node_early_return_when_already_processed(self):
+        """Container already in processed_parents produces no new item (early return)."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.LinearLayout", "clickable": True}
+        )
+        visitor.processed_parents.add(node.unique_identifier)
+
+        visitor.visit_node(node)
+
+        assert len(visitor.items) == 0
+
+    def test_visit_node_skips_when_child_handles_action(self):
+        """Actionable container with an actionable child yields no own item (dedup)."""
+        visitor = self._visitor()
+        child = Node(data={"class": "android.widget.Button", "clickable": True})
+        node = Node(
+            data={"class": "android.widget.LinearLayout", "clickable": True},
+            children=[child],
+        )
+
+        visitor.visit_node(node)
+
+        assert len(visitor.items) == 0
+
+    def test_visit_leaf_node_early_return_when_already_processed(self):
+        """Leaf already in processed_parents produces no new item (early return)."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.Button", "clickable": True}
+        )
+        visitor.processed_parents.add(node.unique_identifier)
+
+        visitor.visit_leaf_node(node)
+
+        assert len(visitor.items) == 0
+
+    def test_visit_leaf_node_inherits_click_from_clickable_parent(self):
+        """Non-actionable leaf becomes actionable via a clickable parent (inherit path)."""
+        visitor = self._visitor()
+        parent = Node(data={"class": "android.widget.LinearLayout", "clickable": True})
+        child = Node(data={"class": "android.view.View", "text": "child"})
+        child.parent = parent
+
+        visitor.visit_leaf_node(child)
+
+        assert len(visitor.items) == 1
+        assert visitor.items[0].actions  # inherited CLICK present
+
+    def test_visit_text_view_with_text_only(self):
+        """A non-interactive text view with content produces an item and no actions."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.TextView", "text": "Just text"}
+        )
+
+        visitor.visit_text_view(node)
+
+        assert len(visitor.items) == 1
+        assert visitor.items[0].actions == []
+        assert visitor.screen_structure["actionable_count"] == 0
+
+    def test_visit_text_view_clickable_increments_actionable(self):
+        """A clickable text view produces actions and bumps the actionable counter."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.TextView",
+                "text": "Tap",
+                "clickable": True,
+            }
+        )
+
+        visitor.visit_text_view(node)
+
+        assert visitor.items[0].actions
+        assert visitor.screen_structure["actionable_count"] == 1
+
+    def test_visit_toggle_button_form_purpose_tracked(self):
+        """A toggle whose purpose resolves to 'Form' is tracked in form_elements."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.ToggleButton",
+                "checkable": True,
+                "text": "select option",
+            }
+        )
+
+        visitor.visit_toggle_button(node)
+
+        assert any(e["type"] == "toggle" for e in visitor.screen_structure["form_elements"])
+
+    def test_visit_switch_setting_purpose_tracked(self):
+        """A switch whose purpose resolves to 'Setting' is tracked in form_elements."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.Switch",
+                "checkable": True,
+                "text": "setting",
+            }
+        )
+
+        visitor.visit_switch(node)
+
+        assert any(
+            e["type"] == "switch" and e["purpose"] == "setting"
+            for e in visitor.screen_structure["form_elements"]
+        )
+
+    def test_visit_image_button_navigation_tracked(self):
+        """An image button classified as 'Navigation' is tracked in navigation_elements."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.ImageButton",
+                "clickable": True,
+                "content_description": "back",
+            }
+        )
+
+        visitor.visit_image_button(node)
+
+        assert visitor.screen_structure["navigation_elements"]
+
+    def test_visit_image_clickable_increments_actionable(self):
+        """A clickable image with a description produces actions and bumps counters."""
+        visitor = self._visitor()
+        node = Node(
+            data={
+                "class": "android.widget.ImageView",
+                "clickable": True,
+                "content_description": "logo",
+            }
+        )
+
+        visitor.visit_image(node)
+
+        assert len(visitor.items) == 1
+        assert visitor.items[0].actions
+        assert visitor.screen_structure["actionable_count"] == 1
+
+    def test_visit_radio_group_actionable_container(self):
+        """An actionable RadioGroup (no radio children) emits its own group item."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.RadioGroup", "clickable": True}
+        )
+
+        visitor.visit_radio_group(node)
+
+        assert len(visitor.items) == 1
+        assert "Radio button group" in visitor.items[0].base_description
+
+    def test_visit_radio_group_two_buttons_grouped(self):
+        """A RadioGroup with 2+ radio buttons produces one grouped item with SELECT actions."""
+        visitor = self._visitor()
+        rb_with_text = Node(
+            data={
+                "class": "android.widget.RadioButton",
+                "text": "Option A",
+                "bounds": [[0, 0], [10, 10]],
+            }
+        )
+        rb_without_text = Node(
+            data={
+                "class": "android.widget.RadioButton",
+                "bounds": [[0, 20], [10, 30]],
+            }
+        )
+        node = Node(
+            data={"class": "android.widget.RadioGroup", "resource_id": "rg"},
+            children=[rb_with_text, rb_without_text],
+        )
+
+        visitor.visit_radio_group(node)
+
+        assert len(visitor.items) == 1
+        actions = visitor.items[0].actions
+        assert len(actions) == 2
+        assert "SELECT" in actions[0].text and "Option A" in actions[0].text
+        assert "SELECT option 2" in actions[1].text
+        assert any(
+            e["type"] == "radio_group" for e in visitor.screen_structure["form_elements"]
+        )
+        assert rb_with_text.unique_identifier in visitor.processed_parents
+        assert rb_without_text.unique_identifier in visitor.processed_parents
+
+    def test_visit_radio_group_single_button_delegates(self):
+        """A RadioGroup with a single radio child delegates to that child's accept()."""
+        visitor = self._visitor()
+        rb = Node(
+            data={
+                "class": "android.widget.RadioButton",
+                "text": "Only",
+                "bounds": [[0, 0], [10, 10]],
+            }
+        )
+        node = Node(
+            data={"class": "android.widget.RadioGroup"}, children=[rb]
+        )
+
+        visitor.visit_radio_group(node)
+
+        # The single child is visited as a normal radio button.
+        assert len(visitor.items) == 1
+        assert "Radio button" in visitor.items[0].base_description
+
+    def test_visit_spinner_with_children_selected_item(self):
+        """A spinner with children reports the first child's text as the selected item."""
+        visitor = self._visitor()
+        child = Node(data={"class": "android.widget.TextView", "text": "Option1"})
+        node = Node(
+            data={"class": "android.widget.Spinner", "clickable": True},
+            children=[child],
+        )
+
+        visitor.visit_spinner(node)
+
+        assert "selected item 'Option1'" in visitor.items[0].base_description
+
+    def test_visit_spinner_with_widget_entries(self):
+        """A spinner whose widget exposes >3 entries lists three plus a 'more options' note."""
+        visitor = self._visitor()
+        widget = MagicMock()
+        widget.entries = ["a", "b", "c", "d", "e"]
+        widget.events = []
+        visitor.find_matching_widget = lambda data: widget
+        node = Node(data={"class": "android.widget.Spinner", "clickable": True})
+
+        visitor.visit_spinner(node)
+
+        desc = visitor.items[0].base_description
+        assert "with options: a, b, c" in desc
+        assert "2 more options" in desc
+
+    def test_visit_slider_click_fallback_without_valid_bounds(self):
+        """A slider with empty bounds falls back to a single CLICK action."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.SeekBar", "bounds": []}
+        )
+
+        visitor.visit_slider(node)
+
+        actions = visitor.items[0].actions
+        assert len(actions) == 1
+        assert actions[0].event == WidgetEventType.CLICK
+        assert "on slider" in actions[0].text
+
+    # ------------------------------------------------------------------
+    # D. Pure classification helpers
+    #
+    # Decision-table coverage: each helper is a cascade of keyword rules. We hit
+    # each still-uncovered rule with a representative input, choosing keywords that
+    # do not also match an earlier (higher-priority) rule.
+    # ------------------------------------------------------------------
+    @pytest.mark.parametrize(
+        "view_class,extra,expected",
+        [
+            ("androidx.constraintlayout.widget.ConstraintLayout", {}, "Constraint"),
+            (
+                "com.google.android.material.appbar.CoordinatorLayout",
+                {},
+                "Coordinator",
+            ),
+            ("android.widget.GridLayout", {}, "Grid"),
+            ("android.widget.TableLayout", {}, "Table"),
+            ("androidx.drawerlayout.widget.DrawerLayout", {}, "Drawer"),
+            (
+                "android.widget.ScrollView",
+                {"orientation": "vertical"},
+                "Vertical Scrollable",
+            ),
+        ],
+    )
+    def test_infer_layout_type(self, view_class, extra, expected):
+        """Layout inference maps container class names to human-readable layout labels."""
+        visitor = self._visitor()
+        data = {"class": view_class}
+        data.update(extra)
+        node = Node(data=data)
+
+        assert visitor._infer_layout_type(node) == expected
+
+    def test_add_widget_info_directly_reaches_target(self):
+        """Widget events that directly reach a target annotate the item's description."""
+        visitor = self._visitor()
+        event = MagicMock()
+        event.type = WidgetEventType.CLICK
+        event.signature = "sig()"
+        widget = MagicMock()
+        widget.events = [event]
+        visitor._check_method_directly_reaches_target = lambda s: True
+        item = ScreenItem({"class": "x"}, "base", [])
+
+        visitor._add_widget_info(item, widget)
+
+        assert "[Events: CLICK (directly reaches critical operation)]" in item.base_description
+
+    def test_add_widget_info_can_reach_target(self):
+        """Widget events that only indirectly reach a target use the 'can reach' phrasing."""
+        visitor = self._visitor()
+        event = MagicMock()
+        event.type = WidgetEventType.CLICK
+        event.signature = "sig()"
+        widget = MagicMock()
+        widget.events = [event]
+        visitor._check_method_directly_reaches_target = lambda s: False
+        visitor._check_method_reaches_target = lambda s: True
+        item = ScreenItem({"class": "x"}, "base", [])
+
+        visitor._add_widget_info(item, widget)
+
+        assert "(can reach critical operation)" in item.base_description
+
+    def test_format_accessibility_info_empty(self):
+        """A node with no a11y-relevant properties yields an empty accessibility string."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.TextView"})
+
+        assert visitor._format_accessibility_info(node) == ""
+
+    def test_format_bounds_info_wrong_length_returns_empty(self):
+        """Bounds that are truthy but not a 2-point box return an empty string."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.Button", "bounds": [[1, 2]]})
+
+        assert visitor._format_bounds_info(node) == ""
+
+    def test_determine_position_wrong_length_returns_empty(self):
+        """Position inference returns empty when bounds are not a 2-point box."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.Button", "bounds": [[1, 2]]})
+
+        assert visitor._determine_position(node) == ""
+
+    @pytest.mark.parametrize(
+        "data,expected",
+        [
+            ({"resource_id": "search_box"}, "search query"),
+            ({"resource_id": "url_field"}, "URL"),
+            ({"resource_id": "date_field"}, "date"),
+            ({"resource_id": "time_field"}, "time"),
+            ({"resource_id": "zip_code"}, "ZIP/postal code"),
+            ({"resource_id": "address_line"}, "address"),
+            ({"resource_id": "otp_code"}, "verification code"),
+            ({"resource_id": "first_name"}, "first name"),
+            ({"resource_id": "last_name"}, "last name"),
+            ({"resource_id": "display_name"}, "name"),
+            ({"resource_id": "number_field"}, "numeric field"),
+            ({"resource_id": "message_box"}, "multi-line text"),
+        ],
+    )
+    def test_analyze_input_type(self, data, expected):
+        """Input-type analysis classifies fields from resource-id keyword heuristics."""
+        visitor = self._visitor()
+        data = {"class": "android.widget.EditText", **data}
+        node = Node(data=data)
+
+        assert visitor._analyze_input_type(node) == expected
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("proceed", "Confirmation"),
+            ("cancel", "Cancellation"),
+            ("menu", "Menu"),
+        ],
+    )
+    def test_determine_button_purpose(self, text, expected):
+        """Button-purpose classification resolves confirmation/cancellation/menu buttons."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.Button", "text": text})
+
+        assert visitor._determine_button_purpose(node) == expected
+
+    @pytest.mark.parametrize(
+        "data,expected",
+        [
+            ({"resource_id": "label_field"}, "Label"),
+            ({"resource_id": "status_bar"}, "Status"),
+            ({"resource_id": "info_box"}, "Description"),
+            # _determine_text_purpose lowercases text before the all-caps check, so
+            # only strings with no cased letters (e.g. digits) satisfy upper()==text.
+            ({"text": "123"}, "Header"),
+            ({"text": "x" * 101}, "Paragraph"),
+        ],
+    )
+    def test_determine_text_purpose(self, data, expected):
+        """Text-purpose classification labels labels/status/description/header/paragraph."""
+        visitor = self._visitor()
+        data = {"class": "android.widget.TextView", **data}
+        node = Node(data=data)
+
+        assert visitor._determine_text_purpose(node) == expected
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("consent", "Agreement"),
+            ("choose", "Form"),
+        ],
+    )
+    def test_determine_checkbox_purpose(self, text, expected):
+        """Checkbox-purpose classification resolves agreement and form checkboxes."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.CheckBox", "text": text})
+
+        assert visitor._determine_checkbox_purpose(node) == expected
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("feature", "Feature"),
+            ("option", "Form"),
+        ],
+    )
+    def test_determine_toggle_purpose(self, text, expected):
+        """Toggle-purpose classification resolves feature and form toggles."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.ToggleButton", "text": text})
+
+        assert visitor._determine_toggle_purpose(node) == expected
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("bluetooth", "System"),
+            ("toggle", "Setting"),
+            ("choose", "Form"),
+        ],
+    )
+    def test_determine_switch_purpose(self, text, expected):
+        """Switch-purpose classification resolves system/setting/form switches."""
+        visitor = self._visitor()
+        node = Node(data={"class": "android.widget.Switch", "text": text})
+
+        assert visitor._determine_switch_purpose(node) == expected
+
+    @pytest.mark.parametrize(
+        "resource_id,expected",
+        [
+            ("banner_top", "Banner"),
+            ("illustration_main", "Illustration"),
+            ("some_view", "Decorative"),
+        ],
+    )
+    def test_determine_image_purpose(self, resource_id, expected):
+        """Image-purpose classification resolves banner/illustration/decorative images."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.ImageView", "resource_id": resource_id}
+        )
+
+        assert visitor._determine_image_purpose(node) == expected
+
+    def test_determine_slider_purpose_value_selection(self):
+        """Slider-purpose classification resolves value-selection sliders."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.SeekBar", "resource_id": "rating_bar"}
+        )
+
+        assert visitor._determine_slider_purpose(node) == "Value Selection"
+
+    @pytest.mark.parametrize(
+        "resource_id,expected_fragment",
+        [
+            ("phone_input", "[expects numeric format]"),
+            ("url_field", "[expects valid URL format]"),
+        ],
+    )
+    def test_infer_validation_rules_by_input_type(self, resource_id, expected_fragment):
+        """Validation inference appends format expectations for phone and URL fields."""
+        visitor = self._visitor()
+        node = Node(
+            data={"class": "android.widget.EditText", "resource_id": resource_id}
+        )
+
+        assert expected_fragment in visitor._infer_validation_rules(node, widget=None)
