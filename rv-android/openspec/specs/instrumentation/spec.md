@@ -299,6 +299,7 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-100**: The `deferred.md` document MUST contain exactly one entry per matrix row with `Verdict ∈ {EXPLICIT-NO-OP, NOT-NEEDED}` (path α and path β). The document is content-addressed via `deferred.snapshot.sha256` (committed to `grammar-tests/src/test/resources/`); `testDeferredDocumentIsFrozenPostArchive` SHALL verify the live document's SHA against the snapshot and fail if they diverge. Round-8 race-condition fix: the snapshot generation SHALL occur in the same commit as the final `deferred.md` edit (tasks §1.4) to eliminate the round-7 race between `deferred.md` mutations during closure implementation and the post-archive snapshot creation.
 - **INV-INS-101**: (Round-8 introduction — Z-decision per cross-LLM meta-review.) The §4.B `BaseAspectExpander` consumes a `List<String>` whose canonical length in production is twelve (per `DescriptorWriter.defaultBaseAspectExclusions()`); the matcher behaviour MUST be tested at N≥2 to guarantee future-proofing against descriptors that override `--baseaspect` with shorter lists. `NamedReferenceGrammarTest.baseAspectNotwithinExpandsTwelveExclusionsList` SHALL exercise (a) the canonical twelve-entry expansion (production baseline); (b) a synthetic two-entry list (smallest non-degenerate AND-chain — `["foo..*", "bar..*"]`); (c) a synthetic one-entry list (degenerate AND-of-one returns the single `NotWithinPC` directly); (d) the empty-list fail-closed case (`LegacyDescriptorException` per INV-INS-97).
 - **INV-INS-102**: (Round-8 introduction — W-decision per cross-LLM meta-review.) `docs/aspectj_grammar_coverage.md` is the **single source of truth** for the dexlib2 AspectJ surface. The legacy inventory documents at `docs/AJ_CONSTRUCTIONS_INVENTORY.md` and `docs/AJ_TO_DEXLIB2_MAPPING.md` SHALL carry a header banner declaring "SUPERSEDED — see `docs/aspectj_grammar_coverage.md` as the live contract; this file preserved as historical inventory only" and SHALL NOT be cited by any test, scenario, or invariant in this delta spec. `MatrixIntegrityTest.testNoCompetingSourceOfTruth` SHALL fail the build if either legacy document is amended without the banner present (a `git grep -L 'SUPERSEDED' docs/AJ_CONSTRUCTIONS_INVENTORY.md docs/AJ_TO_DEXLIB2_MAPPING.md` style check).
+- **INV-INS-103**: For a `call(...)` pointcut with trailing varargs, `CallPC.paramSpecs` is exactly the fixed positional head and `CallPC.varargs` is the sole varargs signal. Overload expansion MUST verify all `paramSpecs.size()` fixed parameters positionally against a candidate overload's leading parameters and MUST reject candidates with fewer parameters than the fixed head. A `".."` descriptor inside `paramSpecs` is necessarily a non-trailing `..` and MUST cause the whole pointcut to be rejected (empty expansion).
 ## Requirements
 ### Requirement: Monitor Generation from JavaMOP Specifications (FR01, NFR07)
 
@@ -1632,4 +1633,30 @@ The dexlib2 instrumenter SHALL implement functional equivalents for **every** As
 - **AND** at the statically-known `<clinit>` the weaver SHALL emit `const-class vC, <DeclaringType>` + `new-instance vS, Lorg/aspectj/lang/ClassSignature;` + `invoke-direct {vS, vC}, ClassSignature.<init>(Ljava/lang/Class;)V` + `invoke-static {vS}, *staticinitEvent(Lorg/aspectj/lang/Signature;)V`, reusing the `CoverageWeaver` const+invoke + `RegisterShifter` register pattern
 - **AND** `StaticInitializationEmitter` SHALL special-case the literal monitorCall arg token `thisJoinPoint.getStaticPart().getSignature()` (today routed through the generic binding resolver → `UnresolvedBindingException` → the site is silently skipped); the special-case SHALL be the only path that constructs the `ClassSignature`
 - **AND** `StaticInitializationGrammarTest.signatureDeliveryForStaticinitEvent` SHALL verify, for a synthetic class mirroring the three live `generic_new` staticinit sites, that the woven `<clinit>` calls `*staticinitEvent` with a `ClassSignature` whose `getDeclaringType()` returns the matched class (assert `getDeclaringType() == Foo.class`, NOT merely non-null)
+
+### Requirement: Trailing-Varargs Fixed-Prefix Fidelity in Wrapper Overload Expansion
+
+When resolving a `call(...)` pointcut with trailing varargs (`CallPC.varargs == true`) against the android.jar overload index, `WrapperEmitter.expandCallTarget` MUST treat the entire `paramSpecs` list as the fixed parameter prefix: a candidate overload is admitted only if it has at least `paramSpecs.size()` parameters AND every fixed parameter (including the last) matches the candidate's parameter at the same position under the pointcut's type-pattern rules (exact FQN, subtype `+`, primitives, arrays). Candidate overloads with fewer parameters than the fixed prefix, or whose leading parameters do not all match, MUST be rejected.
+
+The parser's representation is authoritative: `PointcutExpressionParser.splitParams` strips a trailing `..` from the head and sets the varargs flag, so expansion MUST NOT assume a `".."` element remains in `paramSpecs`. Any `".."` descriptor actually present in `paramSpecs` is a non-trailing `..` and MUST cause the expansion to return an empty list (no finite lowering exists).
+
+An empty fixed head (`(..)`) MUST keep its match-anything semantics: every declared overload of the named method is admitted, subject only to the return-type pattern.
+
+#### Scenario: Last fixed parameter filters overloads under trailing varargs
+
+- **WHEN** an `after returning` advice carries `call(public byte[] Cipher.doFinal(byte[], ..))` and the android.jar index declares `javax.crypto.Cipher` overloads `doFinal()`, `doFinal(byte[])`, and `doFinal(byte[], int, int)`
+- **THEN** `expandCallTarget` MUST return exactly 2 concrete calls — `doFinal(byte[])` and `doFinal(byte[], int, int)` — because both start with the fixed `byte[]` parameter
+- **AND** the zero-arg `doFinal()` MUST NOT be returned (it has fewer parameters than the fixed prefix)
+- **AND** every returned overload's first parameter MUST be `byte[]`
+
+#### Scenario: Empty fixed head keeps match-anything semantics
+
+- **WHEN** an `after returning` advice carries `call(public static * Cipher.getInstance(..))` and the index declares 3 static `getInstance` overloads
+- **THEN** `expandCallTarget` MUST return all 3 overloads (fixed prefix length 0 constrains nothing)
+
+#### Scenario: Non-trailing wildcard is rejected wholesale
+
+- **WHEN** an advice carries `call(public static Cipher Cipher.getInstance(String, .., int))` — the `..` is followed by `int`, so the parser keeps `".."` as a `ParamSpec` in the head and `varargs` stays false
+- **THEN** `expandCallTarget` MUST return an empty list
+- **AND** no wrapper MUST be emitted for that advice
 
