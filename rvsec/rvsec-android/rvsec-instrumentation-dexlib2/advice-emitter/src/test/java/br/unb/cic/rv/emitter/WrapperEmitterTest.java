@@ -5,6 +5,8 @@ import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.MonitorCallDescriptor;
 import br.unb.cic.rv.descriptor.ParameterDescriptor;
 import br.unb.cic.rv.pointcut.AndroidClassIndex;
+import br.unb.cic.rv.pointcut.CallPC;
+import br.unb.cic.rv.pointcut.TypeResolver;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -663,6 +665,39 @@ class WrapperEmitterTest {
                 "an empty wrapper shell must still be emitted; got:\n" + src);
         assertFalse(src.contains("public static "),
                 "no wrapper methods must be generated for skipped advices; got:\n" + src);
+    }
+
+    @Test
+    void expandCallTargetRejectsNullAndConstructorTargets(@TempDir Path out) throws IOException {
+        // expandCallTarget guards its own entry: a null target and a constructor
+        // target (owner.new(...)) both return an empty overload list before any
+        // android.jar lookup, because constructors never flow through wrappers (the
+        // weaver already holds the freshly-allocated instance as the invoke site's
+        // first register). These are exercised two ways:
+        //   1. directly on the public method (null + a synthesized <init> CallPC), and
+        //   2. end-to-end through generate(), where an after-advice on Cipher.new(..)
+        //      is skipped and the emitter writes the empty MonitorWrappers shell.
+        TypeResolver resolver = new TypeResolver(List.of("javax.crypto.Cipher"));
+        AndroidClassIndex idx = new AndroidClassIndex(androidJar);
+
+        assertTrue(WrapperEmitter.expandCallTarget(null, resolver, idx, true).isEmpty(),
+                "a null call target must expand to no overloads");
+        CallPC ctor = new CallPC(true, "", "javax.crypto.Cipher", "<init>", List.of(), false);
+        assertTrue(WrapperEmitter.expandCallTarget(ctor, resolver, idx, true).isEmpty(),
+                "a constructor call target must expand to no overloads");
+
+        AspectDescriptor d = newDescriptor(adviceAfterReturning(
+                "<init>", "Cipher",
+                "call(Cipher.new(String))", List.of(), "result"));
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        assertTrue(entries.isEmpty(),
+                "a constructor-target after-advice must not produce a wrapper");
+
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+        assertTrue(src.contains("public final class MonitorWrappers {"),
+                "the empty wrapper shell is still emitted; got:\n" + src);
+        assertFalse(src.contains("public static "),
+                "no wrapper methods for a constructor target; got:\n" + src);
     }
 
     // --- fixture helpers -----------------------------------------------------
