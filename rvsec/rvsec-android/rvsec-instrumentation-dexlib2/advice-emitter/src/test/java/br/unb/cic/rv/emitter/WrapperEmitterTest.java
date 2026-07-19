@@ -323,6 +323,52 @@ class WrapperEmitterTest {
                 "a mid-list '..' must produce no wrappers even with the index present");
     }
 
+    @Test
+    void forwardsAppImportsButFiltersAspectJRuntime(@TempDir Path out) throws IOException {
+        // MonitorWrappers.java is compiled by monitor-builder against a classpath
+        // that has android.jar + rv-monitor-rt + rvsec-agent — NOT the AspectJ /
+        // JavaMOP / RV-Monitor runtime jars. So the descriptor's application
+        // imports must be forwarded verbatim while every runtime import
+        // (org.aspectj.*, javamoprt.*, rvmonitorrt.*, com.runtimeverification.*)
+        // is dropped; a blank entry is skipped and the "import x.y.Z;" statement
+        // form is normalized. Exercises isAspectJRuntimeImport's four prefixes and
+        // the import-line stripping in generate().
+        AdviceDescriptor advice = adviceAfterReturning(
+                "getInstance",
+                "Cipher",
+                "call(public static Cipher Cipher.getInstance(String))",
+                List.of(),
+                "result");
+        AspectDescriptor d = new AspectDescriptor();
+        d.setShortName("Test");
+        d.setImports(List.of(
+                "javax.crypto.Cipher",
+                "java.lang.String",
+                "import javax.crypto.KeyGenerator;",     // statement form → normalized
+                "",                                        // blank → skipped
+                "org.aspectj.lang.JoinPoint",             // runtime → dropped
+                "javamoprt.MOPLogging",                    // runtime → dropped
+                "rvmonitorrt.map.RVMMap",                  // runtime → dropped
+                "com.runtimeverification.rvmonitor.X"));   // runtime → dropped
+        d.setAdvices(List.of(advice));
+
+        WrapperEmitter.generate(d, out);
+        String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
+
+        assertTrue(src.contains("import javax.crypto.Cipher;"),
+                "application import must be forwarded; got:\n" + src);
+        assertTrue(src.contains("import javax.crypto.KeyGenerator;"),
+                "statement-form import must be normalized and forwarded; got:\n" + src);
+        assertFalse(src.contains("org.aspectj"),
+                "AspectJ runtime import must be filtered out; got:\n" + src);
+        assertFalse(src.contains("javamoprt"),
+                "JavaMOP runtime import must be filtered out; got:\n" + src);
+        assertFalse(src.contains("rvmonitorrt"),
+                "RV-Monitor runtime import must be filtered out; got:\n" + src);
+        assertFalse(src.contains("com.runtimeverification"),
+                "RV runtime import must be filtered out; got:\n" + src);
+    }
+
     // --- fixture helpers -----------------------------------------------------
 
     private static AspectDescriptor newDescriptor(AdviceDescriptor advice) {
