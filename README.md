@@ -45,8 +45,11 @@ test suite. The final output should looks like:
 
 ## Building and running rv-android
 
-Build all rv-android modules (editable) into a shared virtual environment, then run one
-simple execution over the bundled example APK (`rv-android/apks_examples/cryptoapp.apk`):
+Run the Java build above **first**: the RVSec Maven reactor generates the JAR modules that
+rv-android depends on and copies them into `rv-android/lib/` (frame-computer, gator, apktool,
+mop-extractor, etc.). Then build the rv-android modules (editable) into a shared virtual
+environment and run one simple execution over the bundled example APK
+(`rv-android/apks_examples/cryptoapp.apk`):
 
 ```
 $ cd rv-android && uv sync
