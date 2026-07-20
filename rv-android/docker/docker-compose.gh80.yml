@@ -4,11 +4,11 @@
 # do guard Java (MopData.java:202) nos 181 APKs do cmpma. Antes desta change o braço
 # MOP aborta com 0 steps nesse app enquanto ape/ape_pure/sata exploram normalmente.
 #
-# BIND-MOUNT DO tool.py: a imagem 0.9.2 é buildada a partir do branch `modules` do git
+# BIND-MOUNT DO tool.py: a imagem 0.9.3 é buildada a partir do branch `modules` do git
 # e NÃO contém a compactação (verificado: grep -c _compact_static_analysis_json == 0).
 # O install no container é editable (_editable_impl_aperv_tool.pth), então montar o
 # arquivo por cima injeta a change sem rebuildar 19 GB. Isto é um desvio deliberado do
-# padrão da campanha (imagem 0.9.2 é verificada SEM bind-mount) aceitável para uma
+# padrão da campanha (imagem 0.9.3 é verificada SEM bind-mount) aceitável para uma
 # validação pontual — uma campanha real exige a imagem rebuildada a partir do branch.
 #
 # Uso:
@@ -21,7 +21,7 @@
 
 services:
   gh80_00:
-    image: phtcosta/rvandroid:0.9.2
+    image: phtcosta/rvandroid:0.9.3
     container_name: gh80_00
     environment:
       RV_EXPERIMENT_NAME: gh80_00

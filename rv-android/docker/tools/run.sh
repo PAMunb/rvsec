@@ -14,7 +14,7 @@ RESULTS_DIR=$EXPERIMENT02_BASE_DIR/results
 
 echo "APKS_DIR=${APKS_DIR}"
 
-docker run -it --rm --device /dev/kvm -e PARTITION=24576 -e MEMORY=6144 -e CORES=2 --name rvsec-01 phtcosta/rvandroid_tools:0.9.2 bash
+docker run -it --rm --device /dev/kvm -e PARTITION=24576 -e MEMORY=6144 -e CORES=2 --name rvsec-01 phtcosta/rvandroid_tools:0.9.3 bash
 #docker run -it --rm --entrypoint "/bin/bash" --device /dev/kvm -e PARTITION=24576 -e MEMORY=6144 -e CORES=2 --name rvsec-01 phtcosta/rvandroid:0.0.1
 
 #docker run -it --rm --device /dev/kvm -e PARTITION=24576 -e MEMORY=6144 -e CORES=2 --name rvsec_teste-01 phtcosta/rvandroid_tools:0.0.1
@@ -44,7 +44,7 @@ docker run -it --rm --device /dev/kvm -e PARTITION=24576 -e MEMORY=6144 -e CORES
 # -v $INSTRUMENTED_DIR:/opt/rvsec/rv-android/out \
 # -v $RESULTS_DIR:/opt/rvsec/rv-android/results \
 # -e MEMORY=6144 -e CORES=2 \
-# phtcosta/rvandroid_tools:0.9.2
+# phtcosta/rvandroid_tools:0.9.3
 
 #docker run --rm phtcosta/rvandroid_tools:0.0.1 python --version
 

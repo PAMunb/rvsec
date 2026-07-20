@@ -23,7 +23,7 @@ Spec anatomy: `event` blocks (`call`/`args`/`target`/`condition`) update `Execut
 - ⟶ `rv-experiment`, `rv-static-analysis`, `scripts/check_no_legacy_mop.py` (all Python, `rv-android/`).
 
 ## Build
-Plain resources jar: `mvn clean install` (no compiled classes; `rvsec-mop-0.9.1-SNAPSHOT.jar` just bundles the resources).
+Plain resources jar: `mvn clean install` (no compiled classes; `rvsec-mop-0.9.3-SNAPSHOT.jar` just bundles the resources).
 
 ## Gotchas / README corrections
 - ⚠ `README.md` is **stale**: claims "336 `.mop` files" and path `src/main/mop` — actual is **168** files under `src/main/resources`.

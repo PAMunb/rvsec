@@ -519,7 +519,7 @@ The rvandroid image build SHALL compile the APE-RV binary from source and place 
 
 #### Scenario: Single-stage build using the base-image toolchain
 - **WHEN** the ape build step runs in the image
-- **THEN** it uses the toolchain already present in `phtcosta/rvandroid_tools:0.9.1` (`d8`, Maven, Git, JDK)
+- **THEN** it uses the toolchain already present in `phtcosta/rvandroid_tools:0.9.3` (`d8`, Maven, Git, JDK)
 - **AND** no multi-stage builder is added
 - **AND** the image tag is unchanged (the image is rebuilt in place)
 

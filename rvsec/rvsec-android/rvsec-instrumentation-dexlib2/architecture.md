@@ -31,7 +31,7 @@
 This document describes the **Java/Maven instrumentation backend** of RV-Android — the
 subsystem that physically rewrites Android APK bytecode to install runtime-verification
 monitors. It is the DEX-native instrumentation variant introduced under gh#52
-(`artifactId rvsec-instrumentation-dexlib2`, version `0.9.2-SNAPSHOT`), packaged as a single
+(`artifactId rvsec-instrumentation-dexlib2`, version `0.9.3-SNAPSHOT`), packaged as a single
 fat JAR (`instr-cli.jar`) and driven through a picocli command line. The audience is a **new
 engineer with no prior exposure to this subsystem**: read it top to bottom and you will
 understand what it does, how a single APK flows through it, and why it is built the way it is.
@@ -53,7 +53,7 @@ install runtime-verification monitors. Given a compiled APK and a JSON descripto
 JavaMOP) that says "whenever code calls `javax.crypto.Cipher.getInstance(String)`, notify the
 monitor", it edits the DEX bytecode inside the APK so those calls also fire monitor events at
 runtime, then rebuilds and re-signs the APK. It is a multi-module Maven project
-(`rvsec-instrumentation-dexlib2`, `0.9.2-SNAPSHOT`) packaged as a single fat JAR named
+(`rvsec-instrumentation-dexlib2`, `0.9.3-SNAPSHOT`) packaged as a single fat JAR named
 `instr-cli.jar` and driven entirely through a picocli command line.
 
 **Why this approach.** The earlier RV-Android instrumentation pipeline (the `ajc` variant,

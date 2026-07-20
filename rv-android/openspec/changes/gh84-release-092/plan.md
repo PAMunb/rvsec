@@ -194,11 +194,11 @@ The version bumps are two disjoint passes on two branches; git ops bracket them.
    - Group A (`versions:set -DnewVersion=0.9.2`) → validate `git diff --stat` touches only reactor POMs
    - Group B (`rv-android/pom.xml`), C, F, H, and the `-SNAPSHOT`→`0.9.2` doc rows of Group I
    - Group D/E: **no change** (already `0.9.2`); still refresh the stale-`0.9.1` doc rows of Group I to `0.9.2`
-   - `mvn versions:commit`; run `mvn -o -q -DskipTests validate` + pytest green
+   - `mvn versions:commit`; run `mvn clean install -DskipMopAgent -DskipTests` (full reactor build) + pytest green
    - Commit `release 0.9.2 (closes #84)` (no git tag — user decision)
 4. **On `modules` (0.9.3-SNAPSHOT)** — `git checkout modules`, apply all groups:
    - Group A (`versions:set -DnewVersion=0.9.3-SNAPSHOT`), B, C, D, E, F, H, and all Group I rows → `0.9.3`/`0.9.3-SNAPSHOT`
-   - `mvn versions:commit`; `mvn validate` + pytest green
+   - `mvn versions:commit`; `mvn clean install -DskipMopAgent -DskipTests` (full reactor build) + pytest green
    - Commit `open 0.9.3-SNAPSHOT dev cycle (refs #84)`
 5. **Archive** gh84 on `modules` (`openspec archive`); move Kanban card #84 → Done (after user pushes).
 
@@ -214,7 +214,7 @@ pushes `master` and `modules` after review.
 - [ ] **master**: config scripts (C), test asserts (F), `InstrumentationCli.java` (H), and stale-doc rows (I) at `0.9.2`; Docker chain (D) + Python defaults (E) unchanged at `0.9.2`
 - [ ] **modules**: 46 active POMs at `0.9.3-SNAPSHOT`; scripts/tests/CLI/docs at `0.9.3-SNAPSHOT`; Docker chain (D) + Python defaults (E) + gh80 compose at `0.9.3`
 - [ ] `experimento-*/`, `backup/`, ADRs, plan-docs, and `0.9.0`-pinned experiment compose files **intact**
-- [ ] Both branches: `mvn -o -q -DskipTests validate` (from root) → EXIT=0
+- [ ] Both branches: `mvn clean install -DskipMopAgent -DskipTests` (from root, full reactor build) → EXIT=0
 - [ ] Both branches: `cd rv-android && uv run pytest modules/rv-instrumentation-core/tests/test_instrumenter.py modules/rv-instrumentation-dexlib2/tests/test_dexlib_instrumentation.py --import-mode=importlib -o "addopts="` → 0 failed
 - [ ] `mvn versions:commit` run on both branches (no `*.versionsBackup` left)
 - [ ] **master**: `git grep -n "0.9.2-SNAPSHOT"` → residual only in excluded paths; **modules**: `git grep -n "0.9.2\b"` outside excluded paths → none (all `0.9.3`)
