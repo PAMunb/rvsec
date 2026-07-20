@@ -4,7 +4,7 @@
 
 3rd-level Maven aggregator (`br.unb.cic:rvsec-android`, `packaging=pom`) grouping all
 Android-facing Java modules of RVSEC, under the `rvsec` parent (`br.unb.cic:rvsec`,
-`0.9.1-SNAPSHOT`).
+`0.9.2`).
 
 ## Role in pipeline
 

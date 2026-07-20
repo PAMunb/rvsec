@@ -178,7 +178,7 @@ The following walks through a concrete example: running `uv run rv-experiment ru
 monkey --specification-set jca --apks-dir ./apks_examples --timeouts 60` over `cryptoapp.apk`
 (package `br.unb.cic.cryptoapp`, which calls `javax.crypto.Cipher` and `MessageDigest`), and
 then the same pipeline as deployed in experimento-20260706 (container exp_00, image
-`phtcosta/rvandroid:0.9.1`).
+`phtcosta/rvandroid:0.9.2`).
 
 **1. CLI parsing and config assembly.** Click's `main()` in `rv_experiment/__main__.py`
 parses the tool-spec DSL and builds a single Pydantic `ExperimentConfig` via
@@ -305,7 +305,7 @@ re-reads platform results; `ResultManager` only reports what TaskStorage exposes
 Phase 2 returned failure, Phase 3 still runs so the diagnostic trail is complete.
 
 **10. Deployment — the same pipeline in a container (experimento-20260706).** In production
-the identical flow runs inside `phtcosta/rvandroid:0.9.1`, built as layer 4 of a four-image
+the identical flow runs inside `phtcosta/rvandroid:0.9.2`, built as layer 4 of a four-image
 chain (base: Ubuntu 22.04 + Java 8 + Python/uv; android: SDK + API 25 x86 emulator + KVM;
 tools: DroidBot/APE/FastBot/Docker CLI; rvandroid: the framework, built by cloning the rvsec
 `modules` branch, running the Maven reactor, then `uv sync --no-dev`). The Dockerfile bakes
@@ -1277,7 +1277,7 @@ flowchart TB
         IBASE["rvandroid_base<br/>Ubuntu 22.04 + Java 8 + Python 3.10 + uv"]
         IANDR["rvandroid_android<br/>Android SDK + API 25 x86 AVD + KVM"]
         ITOOL["rvandroid_tools<br/>DroidBot, APE, FastBot, Docker CLI"]
-        IRVA["rvandroid:0.9.1<br/>rvsec clone + Maven reactor + uv sync --no-dev<br/>(ape-rv.jar rebuilt; instr-cli.jar gate)"]
+        IRVA["rvandroid:0.9.2<br/>rvsec clone + Maven reactor + uv sync --no-dev<br/>(ape-rv.jar rebuilt; instr-cli.jar gate)"]
         IBASE --> IANDR --> ITOOL --> IRVA
     end
     DHUB["Docker Hub (phtcosta/*)"]
@@ -1313,7 +1313,7 @@ diagram for legibility).
 | rvandroid_base image | image chain layer 1 | Ubuntu 22.04, Java 8, Python 3.10, uv |
 | rvandroid_android image | image chain layer 2 | Android SDK, API 25 x86 emulator, KVM support |
 | rvandroid_tools image | image chain layer 3 | DroidBot, APE, FastBot, Docker CLI |
-| rvandroid:0.9.1 image | image chain layer 4 | Clones rvsec `modules` branch, runs Maven reactor, `uv sync --no-dev`; rebuilds ape-rv.jar (gh71); build gate on instr-cli.jar; `LABEL rvsec.branch` |
+| rvandroid:0.9.2 image | image chain layer 4 | Clones rvsec `modules` branch, runs Maven reactor, `uv sync --no-dev`; rebuilds ape-rv.jar (gh71); build gate on instr-cli.jar; `LABEL rvsec.branch` |
 | Docker Hub (phtcosta/*) | distribution | VMs pull images; images are never delivered by scp |
 | exp_00..exp_03 containers | per GCP VM (4 VMs) | Each: 4 CPU/10 GB, own `RV_EXPERIMENT_NAME`, device port, results volume, staggered `RV_DELAY` |
 | humanoid service | one per VM | Shared TensorFlow inference server :50405; raw-TCP healthcheck, `start_period: 30s` |

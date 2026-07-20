@@ -1,7 +1,7 @@
 # CLAUDE.md - rvsec (root aggregator)
 
 ## Purpose
-Root Maven reactor (`br.unb.cic:rvsec-parent:0.9.1-SNAPSHOT`, packaging `pom`) that builds RVSEC's Java side end to end: monitor generation tooling, the MOP build-time plugin, and the JSE/Android agent modules.
+Root Maven reactor (`br.unb.cic:rvsec-parent:0.9.2`, packaging `pom`) that builds RVSEC's Java side end to end: monitor generation tooling, the MOP build-time plugin, and the JSE/Android agent modules.
 
 ## Role in the RVSEC pipeline
 Aggregator / build orchestration for pre-processing (monitor generation) and runtime (agent/weaving) modules. Not itself part of the runtime path.

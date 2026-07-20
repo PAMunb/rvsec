@@ -7,7 +7,7 @@
     <parent>
         <groupId>br.unb.cic</groupId>
         <artifactId>rvsec-instrumentation-dexlib2</artifactId>
-        <version>0.9.2-SNAPSHOT</version>
+        <version>0.9.2</version>
     </parent>
 
     <artifactId>monitor-builder</artifactId>

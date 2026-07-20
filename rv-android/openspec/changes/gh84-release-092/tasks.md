@@ -24,7 +24,7 @@
 - [ ] 2.6 Group I: drop `-SNAPSHOT` rows (`architecture.md:34,56`, CLAUDE.md files, `rvsec-mop/CLAUDE.md:26`) → `0.9.2`; refresh stale `0.9.1` doc rows (`subsystem-rv-experiment.md:181,308,1280,1316`, `specs/tools/spec.md:522`, `SKILL.md:53`) → `0.9.2`; confirm/skip the two **Review** rows (`subsystem-rv-experiment.md:550`, `specs/instrumentation/spec.md:1192`)
 - [ ] 2.7 Groups D/E: verify NO change needed (Docker chain + Python defaults already `0.9.2`)
 - [ ] 2.8 `mvn versions:commit` (remove `*.versionsBackup`)
-- [ ] 2.9 `mvn -o -q -DskipTests validate` (root) → EXIT=0
+- [ ] 2.9 `mvn clean install -DskipMopAgent -DskipTests` (root, full reactor build) → EXIT=0
 - [ ] 2.10 `cd rv-android && uv run pytest modules/rv-instrumentation-core/tests/test_instrumenter.py modules/rv-instrumentation-dexlib2/tests/test_dexlib_instrumentation.py --import-mode=importlib -o "addopts="` → 0 failed
 - [ ] 2.11 `git grep -n "0.9.2-SNAPSHOT"` → residual only in excluded paths (`backup/`, `experimento-*/`, ADRs, plan-docs, `openspec/changes/**`)
 - [ ] 2.12 Commit on `master`: `release 0.9.2` (`closes #84`) — no git tag (user decision)
@@ -40,7 +40,7 @@
 - [ ] 3.7 Group F: test asserts → `*-0.9.3-SNAPSHOT.jar`
 - [ ] 3.8 Group H: `InstrumentationCli.java:27` `version = "0.9.3-SNAPSHOT"`
 - [ ] 3.9 Group I: all doc rows → `0.9.3` / `0.9.3-SNAPSHOT` (same Review-row judgment as 2.6)
-- [ ] 3.10 `mvn versions:commit`; `mvn -o -q -DskipTests validate` → EXIT=0
+- [ ] 3.10 `mvn versions:commit`; `mvn clean install -DskipMopAgent -DskipTests` (full reactor build) → EXIT=0
 - [ ] 3.11 Pytest (same command as 2.10) → 0 failed
 - [ ] 3.12 `git grep -n "0.9.2\b"` outside excluded paths → none (all `0.9.3`); confirm `0.9.0`-pinned experiment compose files intact
 - [ ] 3.13 Commit on `modules`: `open 0.9.3-SNAPSHOT dev cycle` (`refs #84`)

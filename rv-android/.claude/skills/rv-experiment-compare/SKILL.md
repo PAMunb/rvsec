@@ -50,7 +50,7 @@ initialize/execute/cleanup: **emulador** (ciclo todo gerenciado pelo platform �
 `rvagent-tool` = rv-agent/LLM). Uma task = `(apk, tool, variant, rep, timeout)`; os N braços são
 **interleaved** por APK no mesmo experimento.
 
-**Imagem Docker:** `phtcosta/rvandroid:<tag>` (default `0.9.1`). Cadeia de build (Dockerfiles em
+**Imagem Docker:** `phtcosta/rvandroid:<tag>` (default `0.9.2`). Cadeia de build (Dockerfiles em
 `docker/<layer>/Dockerfile`, todas publicadas na mesma tag — ver `docker/README.md` para a tabela
 completa e `docker/build_all.sh` para o build encadeado):
 
