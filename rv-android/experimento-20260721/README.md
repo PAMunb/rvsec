@@ -1,6 +1,6 @@
 # Experimento 2026-07-21 — `cmp_llm_20260721` (base × v2, APE corrigido, img 0.9.3)
 
-Re-execução da campanha `cmpm` (docs `20260718_cmpmodels.md`) para **decidir qual modelo LLM
+Re-execução da campanha `cmpm` (docs `../docs/20260718_cmpmodels.md`, em `rv-android/docs/` — fora desta pasta) para **decidir qual modelo LLM
 de visão** entra no experimento final: **base** (`Qwen/Qwen3-VL-4B-Instruct`, stock) × **v2**
 (`phtcosta/aperv-qwen3vl-4b-v2-merged`, tunado), no braço LLM do APE-RV. Mesmo desenho do
 cmpm; muda **apenas a imagem** (0.9.2 → **0.9.3**, com o APE corrigido) — o cmpm ficou
