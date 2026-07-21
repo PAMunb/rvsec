@@ -66,7 +66,7 @@ Status de peer-review: HybridMonkey (ASE'26), LLMDroid (FSE'25), LLM-Explorer (M
 ## 6. Playbook verificado para o APE-RV (síntese)
 
 1. **APE continua primário; LLM dispara só em plateau/estagnação** — 5 ferramentas independentes confirmam que este é o único regime em que LLM ganha do algorítmico no mesmo orçamento de tempo. (→ eixo routing da calibração: `llm_percentage` baixo, `llm_on_stagnation`.)
-2. **Prompt de escolha por índice numerado, não coordenada** — consenso universal; elimina a classe no-match (23,2% das chamadas no cmpm_base). (→ nova variante de prompt no jar, rodada B.)
+2. **Escolha por índice numerado é o consenso da literatura, mas foi deliberadamente descartada no APE-RV**: as tools SOTA tratam o dump da hierarquia como verdade completa; o aperv usa VLM multimodal justamente para tocar elementos dinâmicos que **não aparecem** no dump do UIAutomator (saída por coordenada + tap off-tree `llm_tap`). Restringir a escolha ao dump eliminaria esse diferencial. O desperdício de no-match/parse é atacado por robustez de formato e snapping, mantendo coordenadas (plano de calibração, H4).
 3. **Memória local mínima, stateless-friendly** — tentativas falhas do plateau atual, não trace global. Compatível com o requisito 4B/16GB. (→ variante history-aware compacta.)
 4. **Cache de decisões de escape reutilizado (p≈0,8)** — corta chamadas repetidas ao LLM no mesmo estado. (→ candidato futuro; muda o jar.)
 5. **Sampling**: partir da recomendação vendor (0,7/0,8/20) e do temperature=0,25 do AutoDroid como pontos do sweep; a literatura não responde — medir in-house. (→ eixo sampling.)
