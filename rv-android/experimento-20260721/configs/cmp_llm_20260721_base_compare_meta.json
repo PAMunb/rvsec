@@ -1,0 +1,15 @@
+{
+  "name": "cmp_llm_20260721_base",
+  "tools": [
+    "aperv:sata_mop_llm_v13@llm_temperature=0"
+  ],
+  "n_tools": 1,
+  "reps": 3,
+  "timeout": 300,
+  "containers": 8,
+  "n_apks": 181,
+  "total_tasks": 543,
+  "dataset": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181",
+  "with_sglang": true,
+  "filters_dir": "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/experimento-20260721/filters/base"
+}

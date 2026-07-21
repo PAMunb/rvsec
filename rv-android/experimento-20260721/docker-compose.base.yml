@@ -1,0 +1,171 @@
+# Comparacao 'cmp_llm_20260721_base' — gerado por rv-experiment-compare.
+# Tools: aperv:sata_mop_llm_v13@llm_temperature=0
+# 8 containers, timeout 300s, 3 reps, specs jca.
+# Plano: docs/20260721_cmp_llm_20260721.md (doc mestre da campanha; re-run do cmpm com APE corrigido + img 0.9.3)
+# Uso:
+#   docker compose -f docker-compose.base.yml up -d
+#   scripts/monitor.sh cmp_llm_20260721_base
+#   # passada de resume final ao terminar: re-rodar o up -d (recupera FAILED transientes)
+#   # NAO dar 'down' antes de extrair traces (artefatos efemeros no device)
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.3
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop_llm_v13@llm_temperature=0"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RVSMART_LLM_MODE: "true"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+  depends_on:
+    sglang:
+      condition: service_healthy
+
+services:
+  sglang:
+    image: lmsysorg/sglang:v0.5.6.post2
+    container_name: sglang-server
+    volumes:
+      - ${HF_CACHE:-/pedro/desenvolvimento/.cache/huggingface}:/root/.cache/huggingface
+    ipc: host
+    shm_size: "16g"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      python3 -m sglang.launch_server
+      --model-path Qwen/Qwen3-VL-4B-Instruct
+      --host 0.0.0.0
+      --port 30000
+      --trust-remote-code
+      --attention-backend flashinfer
+      --tool-call-parser qwen
+      --enable-multimodal
+      --context-length 8192
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  cmp_llm_20260721_base_00:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_00:/opt/rvsec/rv-android/results
+
+  cmp_llm_20260721_base_01:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_01:/opt/rvsec/rv-android/results
+
+  cmp_llm_20260721_base_02:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_02:/opt/rvsec/rv-android/results
+
+  cmp_llm_20260721_base_03:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_03:/opt/rvsec/rv-android/results
+
+  cmp_llm_20260721_base_04:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_04:/opt/rvsec/rv-android/results
+
+  cmp_llm_20260721_base_05:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_05:/opt/rvsec/rv-android/results
+
+  cmp_llm_20260721_base_06:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_06:/opt/rvsec/rv-android/results
+
+  cmp_llm_20260721_base_07:
+    <<: *rvandroid-base
+    container_name: cmp_llm_20260721_base_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp_llm_20260721_base_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters/base:/opt/rvsec/rv-android/filters:ro
+      - ./results/cmp_llm_20260721_base_07:/opt/rvsec/rv-android/results
