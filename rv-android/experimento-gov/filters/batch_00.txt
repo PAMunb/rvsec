@@ -1,0 +1,5 @@
+br.com.anatel.consumidor_3.0.3.apk
+br.gov.dataprev.meuimovelrural_3.0.7.apk
+br.gov.mec.jornada.estudante_4.8.2.apk
+br.gov.sinesp.cidadao.android_138.apk
+eSocial.Android_5.0.0.apk

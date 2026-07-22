@@ -1,0 +1,4 @@
+br.gov.dataprev.meucadunico_1.36.03.apk
+br.gov.mec.idiomas_1.0.9.apk
+br.gov.serpro.sougov_5.581.apk
+com.mecenem.app_1.0.5.apk

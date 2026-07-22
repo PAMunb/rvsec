@@ -1,0 +1,4 @@
+br.gov.anac.superapp_2.9.4.apk
+br.gov.fazenda.receita.eprocesso_9.1.1.apk
+br.gov.nfsemobileemissor_1.0.246.apk
+com.celularlegal_2.2.8.apk

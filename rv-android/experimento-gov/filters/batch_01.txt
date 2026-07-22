@@ -1,0 +1,4 @@
+br.com.consumidor_1.0.51.apk
+br.gov.dataprev.meuinss_5.40.00.apk
+br.gov.mec.meclivros_1.0.8.apk
+com.antt.appcidadao_1.0.18.apk

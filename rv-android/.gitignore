@@ -8,6 +8,14 @@
 /apks_mini/
 /results/
 
+# experimento-gov: heavy run artifacts (raw logcats/tasks.json, instrumented
+# APKs, snapshots). Root /results/ and /out/ rules are anchored to rv-android
+# root and do NOT cover these nested paths, so ignore them explicitly.
+/experimento-gov/results/
+/experimento-gov/results.zip
+/experimento-gov/results_g2/
+/experimento-gov/instrumentation/
+
 # gh52: instr-cli fat jar is auto-copied by the Maven build (design D9);
 # not versioned because it's a build output of
 # rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli.

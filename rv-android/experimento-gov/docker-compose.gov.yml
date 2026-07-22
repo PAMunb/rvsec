@@ -1,0 +1,145 @@
+# Experimento gov.br — RV JCA sobre 34 APKs de governo (não-PAIRIP), LOCAL.
+# Tool: APE (vanilla) apenas · instrumentação dexlib2 (dataset já pré-instrumentado) ·
+# specs JCA · 8 containers · timeout 1h · SEM análise estática.
+#
+# Dataset instrumentado (resume-safe, gerado por scripts/instrument_gov.py):
+#   /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS  (34 .apk)
+#   Sem .apk.json (static pulado) — o `ape` vanilla não precisa.
+#
+# Disparo (host local, 1 passada de timeout = 3600s):
+#   cd experimento-gov
+#   EXP_TIMEOUT=3600 docker compose -f docker-compose.gov.yml up -d
+#   docker wait exp_00 exp_01 exp_02 exp_03 exp_04 exp_05 exp_06 exp_07
+#   docker compose -f docker-compose.gov.yml down
+#   (ou use scripts/run_gov.sh, que faz up + wait + down)
+#
+# Auto-resume: re-rodar `up -d` recupera de tasks.json qualquer (apk,tool,variant,rep,timeout)
+# já COMPLETED; ERROR é re-executado. Mesmo RV_EXPERIMENT_NAME por container.
+# Em resume os 3 skips são forçados a true — por isso o dataset é PRÉ-instrumentado.
+
+x-rvandroid-base: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.2
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+x-rvandroid-env: &rvandroid-env
+  RV_TOOLS: "ape"
+  RV_TIMEOUTS: "${EXP_TIMEOUT:-3600}"
+  RV_REPETITIONS: "1"
+  RV_NO_WINDOW: "true"
+  RV_SPEC_SET: "jca"
+  RV_INSTRUMENTATION_VARIANT: "dexlib2"
+  RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+  RV_SKIP_MONITORS: "true"
+  RV_SKIP_INSTRUMENT: "true"
+  RV_SKIP_STATIC_ANALYSIS: "true"
+
+services:
+  exp_00:
+    <<: *rvandroid-base
+    container_name: exp_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_00:/opt/rvsec/rv-android/results
+
+  exp_01:
+    <<: *rvandroid-base
+    container_name: exp_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_01:/opt/rvsec/rv-android/results
+
+  exp_02:
+    <<: *rvandroid-base
+    container_name: exp_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_02:/opt/rvsec/rv-android/results
+
+  exp_03:
+    <<: *rvandroid-base
+    container_name: exp_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_03:/opt/rvsec/rv-android/results
+
+  exp_04:
+    <<: *rvandroid-base
+    container_name: exp_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "80"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_04:/opt/rvsec/rv-android/results
+
+  exp_05:
+    <<: *rvandroid-base
+    container_name: exp_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "100"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_05:/opt/rvsec/rv-android/results
+
+  exp_06:
+    <<: *rvandroid-base
+    container_name: exp_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "120"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_06:/opt/rvsec/rv-android/results
+
+  exp_07:
+    <<: *rvandroid-base
+    container_name: exp_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "140"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_GOV/APKS_INSTRUMENTADOS:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/exp_07:/opt/rvsec/rv-android/results
