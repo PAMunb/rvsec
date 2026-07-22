@@ -1,0 +1,42 @@
+[project]
+name = "rv-instrumentation-ajc"
+version = "0.1.0"
+description = "AspectJ-based APK instrumentation variant (legacy dex2jar+ajc+d8 pipeline)"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-instrumentation-core",
+    "rv-android-core",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+rv-instrumentation-ajc = "rv_instrumentation_ajc.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-instrumentation-core = { workspace = true }
+rv-android-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_instrumentation_ajc"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"assets" = "rv_instrumentation_ajc/assets"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

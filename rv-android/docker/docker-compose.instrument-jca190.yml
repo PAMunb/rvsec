@@ -1,0 +1,178 @@
+# Instrument-only compose: 190 APKs (lista canônica do experimento de 2026-05-08,
+# usada aqui apenas como dataset — execução é local, não tem relação com aquela rodada).
+#
+# Re-instrumentação com a imagem 0.9.0, que inclui as correções:
+#   - gh56 instrumentation binding-correctness
+#   - gh57 static-analysis-overhaul
+#   - gh58 result-processor-static-data
+#
+# 10 containers × 19 APKs each, JCA specs, dexlib2, instrument-only
+# (skip-static — JSONs ground-truth já existem em outro dataset;
+# skip-execution — só queremos os APKs instrumentados).
+#
+# --skip-execution é injetado em runtime via sed do entrypoint, pois o
+# docker-entrypoint.sh baked na imagem não mapeia RV_SKIP_EXECUTION (espelho do
+# padrão de docker-compose.instrument-jca226.yml).
+#
+# Recursos por container: 4 cpu + 10g (sem emulador). Total: 40 cpu + 100g.
+#
+# Uso:
+#   RV_IMAGE=phtcosta/rvandroid:0.9.0 \
+#     docker compose -f docker/docker-compose.instrument-jca190.yml up -d
+#   docker compose -f docker/docker-compose.instrument-jca190.yml logs -f
+#   docker compose -f docker/docker-compose.instrument-jca190.yml down
+#
+# Fontes:
+#   APKs originais:   /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs (400)
+#   Filtros (10):     data/instrument_jca190_filters/instrument_jca190_batch_NN.txt
+#   Resultados:       data/results/instrument_jca190_NN/
+#   APKs finais em:   data/results/instrument_jca190_NN/instrument_jca190_NN/instrumented_apks/*.apk
+
+x-rvandroid: &rvandroid-base
+  image: ${RV_IMAGE:-phtcosta/rvandroid:0.9.0}
+  environment: &rvandroid-env
+    RV_TOOLS: "monkey"
+    RV_TIMEOUTS: "1"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_SKIP_EXECUTION: "true"
+    RV_INSTRUMENTATION_VARIANT: "dexlib2"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  instrument_jca190_00:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_00:/opt/rvsec/rv-android/results
+
+  instrument_jca190_01:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_01.txt"
+      RV_DELAY: "5"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_01:/opt/rvsec/rv-android/results
+
+  instrument_jca190_02:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_02.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_02:/opt/rvsec/rv-android/results
+
+  instrument_jca190_03:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_03.txt"
+      RV_DELAY: "15"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_03:/opt/rvsec/rv-android/results
+
+  instrument_jca190_04:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_04.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_04:/opt/rvsec/rv-android/results
+
+  instrument_jca190_05:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_05.txt"
+      RV_DELAY: "25"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_05:/opt/rvsec/rv-android/results
+
+  instrument_jca190_06:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_06.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_06:/opt/rvsec/rv-android/results
+
+  instrument_jca190_07:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_07.txt"
+      RV_DELAY: "35"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_07:/opt/rvsec/rv-android/results
+
+  instrument_jca190_08:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_08.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_08:/opt/rvsec/rv-android/results
+
+  instrument_jca190_09:
+    <<: *rvandroid-base
+    container_name: instrument_jca190_09
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: instrument_jca190_09
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument_jca190_batch_09.txt"
+      RV_DELAY: "45"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/instrument_jca190_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/instrument_jca190_09:/opt/rvsec/rv-android/results

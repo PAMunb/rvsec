@@ -1,0 +1,15 @@
+<guidance_format>
+RESPOND ONLY in JSON format:
+```json
+{
+  "guidance_type": "STRATEGIC_ADVICE" | "FLOW_CHANGE" | "NO_GUIDANCE",
+  "suggestion": "Brief strategic suggestion (max 100 chars)",
+  "reasoning": "Concise reasoning (max 150 chars)"
+}
+```
+
+GUIDANCE TYPES:
+- STRATEGIC_ADVICE: General optimization recommendation
+- FLOW_CHANGE: Specific strategy or focus change needed
+- NO_GUIDANCE: Current approach is optimal, continue
+</guidance_format>

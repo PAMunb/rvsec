@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>br.unb.cic</groupId>
 		<artifactId>rvsec-parent</artifactId>
-		<version>0.2.0</version>
+		<version>0.9.2</version>
 	</parent>
 
 	<groupId>br.unb.cic</groupId>
@@ -18,7 +18,7 @@
 	<description>Maven plugin to generate the JavaMopAgent</description>
 
 	<prerequisites>
-		<maven>3.5</maven>
+		<maven>3.6</maven>
 	</prerequisites>
 
 	<dependencies>
@@ -48,7 +48,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-plugin-plugin</artifactId>
-					<version>3.6.4</version>
+					<version>3.15.1</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>

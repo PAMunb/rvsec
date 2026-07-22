@@ -1,0 +1,10 @@
+org.dynalogin.android_3.apk
+org.secuso.privacyfriendlyyahtzeedicer_5.apk
+t20kdc.offlinepuzzlesolver_4.apk
+com.github.axet.hourlyreminder_476.apk
+com.pindroid_69.apk
+com.rafapps.simplenotes_7.apk
+com.thibaudperso.sonycamera_24.apk
+org.pulpdust.lesserpad_42.apk
+org.secuso.privacyfriendlydicer_8.apk
+org.secuso.privacyfriendlyludo_5.apk

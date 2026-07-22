@@ -1,0 +1,7 @@
+<guidance_template>
+{% include 'fragments/guidance_context.xml' %}
+
+Based on the above testing context, provide strategic guidance for RVDroid.
+
+{% include 'fragments/guidance_format.xml' %}
+</guidance_template>

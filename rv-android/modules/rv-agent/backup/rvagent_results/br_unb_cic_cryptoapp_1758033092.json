@@ -1,0 +1,73 @@
+{
+  "session_info": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "objective": "comprehensive_autonomous_testing",
+    "duration_seconds": 27.526376008987427,
+    "iterations": 0,
+    "tool_executions": 0,
+    "architecture": "LangGraph_A.2.1_Autonomous",
+    "status": "completed_successfully"
+  },
+  "langgraph_results": {
+    "error": "Recursion limit of 25 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.\nFor troubleshooting, visit: https://python.langchain.com/docs/troubleshooting/errors/GRAPH_RECURSION_LIMIT"
+  },
+  "tool_statistics": {
+    "total_executions": 0,
+    "tools_used": [],
+    "success_rate": 0.0
+  },
+  "memory_statistics": {
+    "total_elements_discovered": 0,
+    "tested_elements": 0,
+    "untested_elements": 0,
+    "coverage_percentage": 0,
+    "success_rate": 0,
+    "successful_coordinates": 0,
+    "failed_coordinates": 0,
+    "total_test_attempts": 0
+  },
+  "memory_summary": {
+    "session_id": "br.unb.cic.cryptoapp_1758033064",
+    "duration_seconds": 27.52638840675354,
+    "coverage_stats": {
+      "total_elements_discovered": 0,
+      "tested_elements": 0,
+      "untested_elements": 0,
+      "coverage_percentage": 0,
+      "success_rate": 0,
+      "successful_coordinates": 0,
+      "failed_coordinates": 0,
+      "total_test_attempts": 0
+    },
+    "short_term_entries": 1,
+    "long_term_entries": 1,
+    "reasoning_entries": 0,
+    "ui_elements_discovered": 0,
+    "successful_patterns": {},
+    "failed_patterns": {},
+    "exploration_suggestions": []
+  },
+  "autonomous_capabilities": {
+    "screenshot_capture": false,
+    "ui_analysis": false,
+    "memory_updates": false,
+    "android_interactions": 0,
+    "reasoning_tracking": false
+  },
+  "performance_metrics": {
+    "overall_success_rate": 0,
+    "coverage_percentage": 0,
+    "tools_per_second": 0.0,
+    "autonomous_efficiency": 0.0
+  },
+  "cli_metadata": {
+    "package": "br.unb.cic.cryptoapp",
+    "device": "emulator-5554",
+    "timeout": 60,
+    "model": "PetrosStav/gemma3-tools:4b",
+    "objective": "comprehensive_autonomous_testing",
+    "execution_time": 24.22312569618225,
+    "timestamp": 1758033092,
+    "success": true
+  }
+}

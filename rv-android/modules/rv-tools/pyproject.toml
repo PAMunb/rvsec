@@ -1,0 +1,45 @@
+[project]
+name = "rv-tools"
+version = "0.1.0"
+description = "Tool registry and plugin system for monitored operations testing"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "pydantic>=2.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_tools"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report=term-missing --cov-config=pyproject.toml"
+pythonpath = ["tests"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "src/rv_tools/builtin/qtesting/src/*"
+]
+parallel = false
+data_file = ".coverage"
+
+#[tool.coverage.report]
+# show_missing = true
+# fail_under = 80
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

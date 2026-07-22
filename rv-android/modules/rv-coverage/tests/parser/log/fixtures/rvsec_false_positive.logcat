@@ -1,0 +1,3 @@
+06-23 12:00:04.400  7071  7071 I RVSEC-COV: <com.foo.Utils: boolean isAndroidRuntime()>
+06-23 12:00:04.400  7071  7071 I RVSEC-COV: <com.foo.Bar: void doIt()>
+06-23 12:00:04.400  7071  7071 I RVSEC: SomeSpec,com.foo.Bar,init,doIt,Bar.java,ERROR_STATE,bad usage

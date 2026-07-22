@@ -1,0 +1,92 @@
+{
+  "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+  "execution_time_s": 21.371103048324585,
+  "total_iterations": 15,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 5,
+      "CLICK": 10
+    },
+    "valid": 10,
+    "invalid": 5,
+    "valid_rate": 0.6666666666666666
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ViewPager",
+      "Button",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "DrawerLayout",
+      "Switch",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 15,
+      "FrameLayout": 45,
+      "LinearLayout": 80,
+      "RelativeLayout": 20,
+      "ViewPager": 15,
+      "TextView": 60,
+      "ImageView": 25,
+      "View": 30,
+      "Button": 30,
+      "DrawerLayout": 10,
+      "ViewGroup": 30,
+      "ImageButton": 20,
+      "Switch": 10
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "40ad5316f66f": 6,
+      "846c8f44a269": 9
+    },
+    "activities": [
+      "org.secuso.privacyfriendlyludo/.activities.MainActivity",
+      "org.secuso.privacyfriendlyludo/.tutorial.TutorialActivity"
+    ],
+    "revisit_rate": 0.8666666666666667
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 92339,
+    "input_tokens": 91647,
+    "output_tokens": 692,
+    "avg_tokens_per_iteration": 6155.933333333333,
+    "max_message_count": 1,
+    "total_time_ms": 19499.483108520508,
+    "avg_time_per_iteration_ms": 1299.965540568034
+  },
+  "device_actions": {
+    "total_actions": 1,
+    "valid_actions": 1,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[NEXT] @ ((849, 1668), (1080, 1794))"
+      }
+    ]
+  }
+}

@@ -1,0 +1,265 @@
+{
+  "test_name": "V10 Baseline - Validated Dataset - 10 Apps",
+  "timestamp": "2025-11-03T14:43:55.565422",
+  "dataset_path": "/home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots",
+  "configuration": {
+    "model": "qwen3-vl:4b",
+    "prompt_version": "v10",
+    "timeout_per_app": 120,
+    "num_apps": 10,
+    "fix_applied": "State transitions tracking corrected"
+  },
+  "summary": {
+    "total_tests": 10,
+    "successful": 8,
+    "failed": 2,
+    "total_iterations": 84,
+    "total_states": 30,
+    "total_transitions": 24,
+    "avg_iterations_per_app": 8.4,
+    "avg_states_per_app": 3.0,
+    "avg_transitions_per_app": 2.4
+  },
+  "individual_results": [
+    {
+      "app": "CryptoApp",
+      "package": "br.unb.cic.cryptoapp",
+      "type": "encryption",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 18,
+        "unique_states": 4,
+        "transitions": 4,
+        "potential_loop": false,
+        "execution_time_s": 127.30750513076782
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": true,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "HashPass",
+      "package": "byrne.utilities.hashpass",
+      "type": "password_utility",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 9,
+        "unique_states": 2,
+        "transitions": 1,
+        "potential_loop": false,
+        "execution_time_s": 122.24142122268677
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": true,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "DNSHero",
+      "package": "com.gianlu.dnshero",
+      "type": "network_tool",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 9,
+        "unique_states": 1,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 126.1540093421936
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "HourlyReminder",
+      "package": "com.github.axet.hourlyreminder",
+      "type": "productivity",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 3,
+        "unique_states": 1,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 326.4170744419098
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "LeafPic",
+      "package": "com.alienpants.leafpicrevived",
+      "type": "gallery",
+      "has_static_analysis": false,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 0,
+        "unique_states": 0,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 2.7402915954589844
+      },
+      "validation": {
+        "generated_actions": false,
+        "discovered_states": false,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": false
+      }
+    },
+    {
+      "app": "RSSReader",
+      "package": "livio.rssreader",
+      "type": "news_reader",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 12,
+        "unique_states": 3,
+        "transitions": 2,
+        "potential_loop": false,
+        "execution_time_s": 127.23200535774231
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": true,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "TowerCollector",
+      "package": "info.zamojski.soft.towercollector",
+      "type": "network_tool",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 14,
+        "unique_states": 9,
+        "transitions": 9,
+        "potential_loop": false,
+        "execution_time_s": 134.63100028038025
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": true,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "PrivacyFriendlyLudo",
+      "package": "org.secuso.privacyfriendlyludo",
+      "type": "game",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 13,
+        "unique_states": 8,
+        "transitions": 7,
+        "potential_loop": false,
+        "execution_time_s": 359.83451557159424
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": true,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "SimpleNotes",
+      "package": "com.rafapps.simplenotes",
+      "type": "productivity",
+      "has_static_analysis": false,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 6,
+        "unique_states": 2,
+        "transitions": 1,
+        "potential_loop": false,
+        "execution_time_s": 149.56459093093872
+      },
+      "validation": {
+        "generated_actions": true,
+        "discovered_states": true,
+        "recorded_transitions": true,
+        "no_immediate_loop": true,
+        "overall_success": true
+      }
+    },
+    {
+      "app": "HexGame",
+      "package": "com.sam.hex",
+      "type": "game",
+      "has_static_analysis": true,
+      "model": "qwen3-vl:4b",
+      "prompt_version": "v10",
+      "timeout": 120,
+      "success": true,
+      "metrics": {
+        "iterations": 0,
+        "unique_states": 0,
+        "transitions": 0,
+        "potential_loop": false,
+        "execution_time_s": 2.9028096199035645
+      },
+      "validation": {
+        "generated_actions": false,
+        "discovered_states": false,
+        "recorded_transitions": false,
+        "no_immediate_loop": true,
+        "overall_success": false
+      }
+    }
+  ]
+}

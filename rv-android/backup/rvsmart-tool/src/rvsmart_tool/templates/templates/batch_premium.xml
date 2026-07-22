@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="batch_premium" version="1.0" extends="system_base">
+  <metadata>
+    <description>Premium batch strategy template - All 4 pillars + Chain-of-Thought (~2000 tokens)</description>
+    <created>2025-08-28</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <conditional>ui_coverage_data</conditional>
+    <optional>transition_data</optional>
+    <optional>system_coverage</optional>
+    <optional>activity</optional>
+    <optional>activity_visits</optional>
+    <optional>coverage_metrics</optional>
+    <optional>mop_recent_errors</optional>
+    <optional>available_transitions</optional>
+    <optional>action_history</optional>
+    <optional>memory_insights</optional>
+    <optional>navigation_path</optional>
+    <optional>recent_iterations</optional>
+    <optional>screenshot_available</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% block strategy_specific_instructions %}
+{% include "batch_instructions" %}
+
+{% include "batch_critical_task" %}
+
+{% include "strategic_guidance" %}
+
+{% include "chain_of_thought" %}
+
+{% if screenshot_available %}
+MULTIMODAL CAPABILITIES:
+- Screenshot provides visual context for comprehensive analysis
+- Generate coordinate actions for visual elements not in UI list
+- Combine textual and visual information for optimal sequence planning
+{% endif %}
+{% endblock %}
+
+{% block response_format_instructions %}
+{% include "batch_format" %}
+
+{% if screenshot_available %}
+{% include "coordinate_precision" %}
+{% endif %}
+
+{% include "optimized_examples" %}
+{% endblock %}]]>
+    </system>
+    <user><![CDATA[
+{% include "context_status" %}
+
+UI Elements:
+{{ ui_elements }}
+
+{% if available_transitions %}
+Transitions: {{ available_transitions }}
+{% endif %}
+
+{% if system_coverage %}
+System Coverage: {{ system_coverage }}
+{% endif %}
+
+{% if screenshot_available %}
+Screenshot shows current app state for visual analysis.
+{% endif %}
+
+Generate 1-5 strategic actions forming logical sequence:]]>
+    </user>
+  </roles>
+</template>

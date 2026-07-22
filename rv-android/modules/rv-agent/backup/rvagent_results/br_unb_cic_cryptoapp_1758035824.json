@@ -1,0 +1,90 @@
+{
+  "session_info": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "objective": "test_crypto_functionality",
+    "duration_seconds": 15.609685182571411,
+    "iterations": 6,
+    "tool_executions": 1,
+    "architecture": "LangGraph_A.2.1_Autonomous",
+    "status": "completed_successfully"
+  },
+  "langgraph_results": {
+    "session_info": {
+      "package": "br.unb.cic.cryptoapp",
+      "objective": "test_crypto_functionality",
+      "duration_seconds": 12.343497276306152,
+      "iterations": 6,
+      "total_tool_calls": 1,
+      "action_count": 1,
+      "status": "fixed_execution_completed"
+    },
+    "execution_details": {
+      "ui_analyses_performed": 0,
+      "clicks_performed": 1,
+      "inputs_performed": 0,
+      "screenshots_taken": 0
+    },
+    "final_message_count": 2,
+    "last_ui_analysis": "",
+    "architecture": "LangGraph_A.2.1_FIXED"
+  },
+  "tool_statistics": {
+    "total_executions": 0,
+    "tools_used": [],
+    "success_rate": 0.0
+  },
+  "memory_statistics": {
+    "total_elements_discovered": 0,
+    "tested_elements": 0,
+    "untested_elements": 0,
+    "coverage_percentage": 0,
+    "success_rate": 0,
+    "successful_coordinates": 0,
+    "failed_coordinates": 0,
+    "total_test_attempts": 0
+  },
+  "memory_summary": {
+    "session_id": "br.unb.cic.cryptoapp_1758035809",
+    "duration_seconds": 15.609694480895996,
+    "coverage_stats": {
+      "total_elements_discovered": 0,
+      "tested_elements": 0,
+      "untested_elements": 0,
+      "coverage_percentage": 0,
+      "success_rate": 0,
+      "successful_coordinates": 0,
+      "failed_coordinates": 0,
+      "total_test_attempts": 0
+    },
+    "short_term_entries": 1,
+    "long_term_entries": 2,
+    "reasoning_entries": 0,
+    "ui_elements_discovered": 0,
+    "successful_patterns": {},
+    "failed_patterns": {},
+    "exploration_suggestions": []
+  },
+  "autonomous_capabilities": {
+    "screenshot_capture": false,
+    "ui_analysis": false,
+    "memory_updates": false,
+    "android_interactions": 0,
+    "reasoning_tracking": false
+  },
+  "performance_metrics": {
+    "overall_success_rate": 0,
+    "coverage_percentage": 0,
+    "tools_per_second": 0.0,
+    "autonomous_efficiency": 0.0
+  },
+  "cli_metadata": {
+    "package": "br.unb.cic.cryptoapp",
+    "device": "emulator-5554",
+    "timeout": 30,
+    "model": "PetrosStav/gemma3-tools:4b",
+    "objective": "test_crypto_functionality",
+    "execution_time": 12.344397783279419,
+    "timestamp": 1758035824,
+    "success": true
+  }
+}

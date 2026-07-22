@@ -1,0 +1,153 @@
+{
+  "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+  "execution_time_s": 25.623008489608765,
+  "total_iterations": 15,
+  "actions": {
+    "by_type": {
+      "CLICK": 15
+    },
+    "valid": 15,
+    "invalid": 0,
+    "valid_rate": 1.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayoutCompat",
+      "ScrollView",
+      "RecyclerView",
+      "TextView",
+      "TableLayout",
+      "unknown",
+      "LinearLayout",
+      "TableRow",
+      "ImageView",
+      "View",
+      "Switch",
+      "ViewGroup",
+      "FrameLayout",
+      "Button",
+      "GridLayout",
+      "RelativeLayout",
+      "ImageButton",
+      "DrawerLayout",
+      "ViewPager"
+    ],
+    "type_counts": {
+      "unknown": 15,
+      "FrameLayout": 59,
+      "LinearLayout": 57,
+      "DrawerLayout": 2,
+      "ViewGroup": 40,
+      "ImageButton": 31,
+      "TextView": 47,
+      "RelativeLayout": 11,
+      "ViewPager": 2,
+      "ImageView": 1123,
+      "Switch": 7,
+      "Button": 4,
+      "View": 28,
+      "RecyclerView": 3,
+      "ScrollView": 1,
+      "TableLayout": 1,
+      "TableRow": 3,
+      "LinearLayoutCompat": 9,
+      "GridLayout": 9
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 8,
+    "screen_visits": {
+      "40ad5316f66f": 1,
+      "846c8f44a269": 1,
+      "20742a4cb8e6": 1,
+      "366ce9639848": 1,
+      "3b248d9f7104": 1,
+      "383bbceb0306": 1,
+      "1a53de792762": 1,
+      "d5d9774b2e41": 8
+    },
+    "activities": [
+      "org.secuso.privacyfriendlyludo/.activities.MainActivity",
+      "org.secuso.privacyfriendlyludo/.tutorial.TutorialActivity",
+      "org.secuso.privacyfriendlyludo/.activities.GameSettingActivity",
+      "org.secuso.privacyfriendlyludo/.activities.GameActivity"
+    ],
+    "revisit_rate": 0.4666666666666667
+  },
+  "memory_graph": {
+    "graph_states": 8,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 8
+  },
+  "llm": {
+    "total_tokens": 26747,
+    "input_tokens": 26069,
+    "output_tokens": 678,
+    "avg_tokens_per_iteration": 1783.1333333333334,
+    "max_message_count": 1,
+    "total_time_ms": 23327.544450759888,
+    "avg_time_per_iteration_ms": 1555.1696300506592
+  },
+  "device_actions": {
+    "total_actions": 7,
+    "valid_actions": 7,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 7
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[NEXT] @ ((849, 1668), (1080, 1794))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[NEW GAME] @ ((163, 1103), (917, 1229))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[NEW GAME] @ ((163, 1103), (917, 1229))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_add_player] @ ((84, 294), (213, 417))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_add_player] @ ((84, 439), (213, 562))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[org.secuso.privacyfriendlyludo:id/button_player_color] @ ((313, 320), (418, 371))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.FrameLayout[Color 1] @ ((329, 772), (455, 898))"
+      }
+    ]
+  }
+}

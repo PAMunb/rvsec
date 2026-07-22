@@ -1,0 +1,38 @@
+[project]
+name = "aperv-llm-validation"
+version = "0.1.0"
+description = "Offline validation module for APE-RV LLM coordinate mapping pipeline"
+readme = "README.md"
+authors = [{name = "RV-Android Team"}]
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.0.0",
+    "Pillow>=10.0.0",
+    "pydantic>=2.9.0",
+    "rich>=13.0.0",
+    "defusedxml>=0.7.0",
+    "scipy>=1.14.0",
+]
+
+[project.scripts]
+aperv-llm-validate = "aperv_llm_validation.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=7.0.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=aperv_llm_validation"
+
+[tool.coverage.run]
+source = ["src/aperv_llm_validation"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aperv_llm_validation"]

@@ -1,0 +1,66 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-parent</artifactId>
+		<version>0.3.0-SNAPSHOT</version>
+		<!--		<relativePath />-->
+	</parent>
+
+	<groupId>br.unb.cic.rvsec</groupId>
+	<artifactId>crylogger</artifactId>
+	<packaging>pom</packaging>
+
+	<name>RVSec :: crylogger</name>
+
+	<properties>
+		<jar.final.name>${jar.base.name}-crylogger</jar.final.name>
+		<jre.lib.dir>${user.home}/.sdkman/candidates/java/8.0.302-open/jre/lib/</jre.lib.dir>
+	</properties>
+
+	<modules>
+		<module>crylogger-rt</module>
+		<module>crylogger-jce</module>
+	</modules>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<finalName>${jar.final.name}</finalName>
+				</configuration>
+			</plugin>
+		</plugins>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-antrun-plugin</artifactId>
+					<executions>
+						<execution>
+							<phase>install</phase>
+							<configuration>
+								<tasks>
+									<mkdir dir="${java.io.tmpdir}/${jar.base.name}" />
+									<unzip src="${jar.location}" dest="${java.io.tmpdir}/${jar.base.name}" />
+									<unzip src="${project.build.directory}/${jar.final.name}.jar" dest="${java.io.tmpdir}/${jar.base.name}" overwrite="true" />
+									<zip destfile="${java.io.tmpdir}/new-${jar.base.name}.jar" basedir="${java.io.tmpdir}/${jar.base.name}" />
+									<copy file="${java.io.tmpdir}/new-${jar.base.name}.jar" tofile="${jar.location}" overwrite="true" />
+									<delete dir="${java.io.tmpdir}/${jar.base.name}" failonerror="false" />
+									<delete file="${java.io.tmpdir}/new-${jar.base.name}.jar" failonerror="false" />
+								</tasks>
+							</configuration>
+							<goals>
+								<goal>run</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+
+</project>

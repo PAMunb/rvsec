@@ -1,0 +1,13 @@
+# Modelfile: Qwen3-VL-4B com contexto estendido (8k)
+# Baseado no qwen3-vl:4b oficial mas com num_ctx aumentado
+# para evitar truncamento em testes longos
+
+FROM qwen3-vl:4b
+
+# Aumentar janela de contexto de 4k (padrão) para 8k
+PARAMETER num_ctx 8192
+
+# Parâmetros otimizados do Phase 0
+PARAMETER temperature 0.25
+PARAMETER top_p 0.8
+PARAMETER top_k 50

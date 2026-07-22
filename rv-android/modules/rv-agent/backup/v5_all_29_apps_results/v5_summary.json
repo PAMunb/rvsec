@@ -1,0 +1,2539 @@
+{
+  "ar.rulosoft.mimanganu_75.apk": {
+    "app_name": "ar.rulosoft.mimanganu_75.apk",
+    "execution_time_s": 17.745684146881104,
+    "total_iterations": 8,
+    "actions": {
+      "by_type": {
+        "CLICK": 8
+      },
+      "valid": 0,
+      "invalid": 8,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "LinearLayoutCompat",
+        "ScrollView",
+        "TextView",
+        "ViewPager",
+        "ImageButton",
+        "Button",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout",
+        "GridView"
+      ],
+      "type_counts": {
+        "unknown": 8,
+        "FrameLayout": 39,
+        "LinearLayout": 19,
+        "TextView": 23,
+        "View": 15,
+        "ScrollView": 2,
+        "Button": 2,
+        "ViewGroup": 42,
+        "LinearLayoutCompat": 14,
+        "ImageView": 7,
+        "ViewPager": 7,
+        "GridView": 7,
+        "ImageButton": 7
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 3,
+      "screen_visits": {
+        "c0ced0784ba1": 1,
+        "a4d35ca5c4e0": 1,
+        "817e5ac27a3b": 6
+      },
+      "activities": [
+        "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity",
+        "ar.rulosoft.mimanganu/.MainActivity"
+      ],
+      "revisit_rate": 0.625
+    },
+    "memory_graph": {
+      "graph_states": 3,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 7
+    },
+    "llm": {
+      "total_tokens": 36124,
+      "input_tokens": 35803,
+      "output_tokens": 321,
+      "avg_tokens_per_iteration": 4515.5,
+      "max_message_count": 1,
+      "total_time_ms": 16877.281427383423,
+      "avg_time_per_iteration_ms": 2109.660178422928
+    },
+    "device_actions": {
+      "total_actions": 2,
+      "valid_actions": 0,
+      "invalid_actions": 2,
+      "valid_rate": 0.0,
+      "action_types": {
+        "CLICK": 2
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((28, 63), (1052, 1793))",
+          "element": "android.widget.FrameLayout[] @ ((28, 63), (1052, 1793))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "No element at coordinates (998, 1581)",
+          "element": null
+        }
+      ]
+    }
+  },
+  "au.com.wallaceit.reddinator_68.apk": {
+    "app_name": "au.com.wallaceit.reddinator_68.apk",
+    "execution_time_s": 18.89075517654419,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "ImageView",
+        "ViewPager",
+        "TextView",
+        "ScrollView",
+        "TableLayout",
+        "TableRow",
+        "RelativeLayout",
+        "ListView",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 21,
+        "LinearLayout": 151,
+        "TextView": 81,
+        "ViewPager": 1,
+        "ScrollView": 1,
+        "TableLayout": 1,
+        "TableRow": 3,
+        "ImageView": 73,
+        "ListView": 9,
+        "RelativeLayout": 72
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 3,
+      "screen_visits": {
+        "94c7a8cbd379": 1,
+        "340fb6eac049": 1,
+        "293cfb41902f": 8
+      },
+      "activities": [
+        "au.com.wallaceit.reddinator/.activity.SubredditSelectActivity",
+        "au.com.wallaceit.reddinator/.activity.MainActivity"
+      ],
+      "revisit_rate": 0.7
+    },
+    "memory_graph": {
+      "graph_states": 3,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 9
+    },
+    "llm": {
+      "total_tokens": 49063,
+      "input_tokens": 48618,
+      "output_tokens": 445,
+      "avg_tokens_per_iteration": 4906.3,
+      "max_message_count": 1,
+      "total_time_ms": 15878.613710403442,
+      "avg_time_per_iteration_ms": 1587.8613710403442
+    },
+    "device_actions": {
+      "total_actions": 2,
+      "valid_actions": 0,
+      "invalid_actions": 2,
+      "valid_rate": 0.0,
+      "action_types": {
+        "CLICK": 2
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.TextView[Front Page] @ ((103, 63), (384, 189))",
+          "element": "android.widget.TextView[Front Page] @ ((103, 63), (384, 189))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.LinearLayout[au.com.wallaceit.reddinator:id/info_header] @ ((141, 84), (939, 336))",
+          "element": "android.widget.LinearLayout[au.com.wallaceit.reddinator:id/info_header] @ ((141, 84), (939, 336))"
+        }
+      ]
+    }
+  },
+  "biz.gyrus.yaab_30.apk": {
+    "app_name": "biz.gyrus.yaab_30.apk",
+    "execution_time_s": 12.128268003463745,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ScrollView",
+        "TextView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 50,
+        "TextView": 20,
+        "View": 10,
+        "ScrollView": 20,
+        "Button": 10
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "c44b8693c270": 10
+      },
+      "activities": [
+        "biz.gyrus.yaab/.MainActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 43361,
+      "input_tokens": 43011,
+      "output_tokens": 350,
+      "avg_tokens_per_iteration": 4336.1,
+      "max_message_count": 1,
+      "total_time_ms": 11099.868535995483,
+      "avg_time_per_iteration_ms": 1109.9868535995483
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "byrne.utilities.hashpass_2.apk": {
+    "app_name": "byrne.utilities.hashpass_2.apk",
+    "execution_time_s": 8.832419872283936,
+    "total_iterations": 7,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 7
+      },
+      "valid": 0,
+      "invalid": 7,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ScrollView",
+        "TextView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 7,
+        "FrameLayout": 28,
+        "LinearLayout": 35,
+        "TextView": 14,
+        "View": 7,
+        "ScrollView": 14,
+        "Button": 7
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "c44b8693c270": 7
+      },
+      "activities": [
+        "byrne.utilities.hashpass/.HashPassActivity"
+      ],
+      "revisit_rate": 0.8571428571428571
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 7
+    },
+    "llm": {
+      "total_tokens": 30288,
+      "input_tokens": 30043,
+      "output_tokens": 245,
+      "avg_tokens_per_iteration": 4326.857142857143,
+      "max_message_count": 1,
+      "total_time_ms": 8090.498447418213,
+      "avg_time_per_iteration_ms": 1155.785492488316
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "ca.farrelltonsolar.classic_314.apk": {
+    "app_name": "ca.farrelltonsolar.classic_314.apk",
+    "execution_time_s": 27.81241512298584,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "ImageView",
+        "Spinner",
+        "TextView",
+        "g0",
+        "DrawerLayout",
+        "ImageButton",
+        "ListView",
+        "ViewGroup",
+        "FrameLayout",
+        "ProgressBar",
+        "TableLayout",
+        "LinearLayout",
+        "GridView",
+        "View",
+        "ViewPager",
+        "TableRow",
+        "RelativeLayout",
+        "HorizontalScrollView",
+        "unknown"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 45,
+        "LinearLayout": 160,
+        "ViewGroup": 21,
+        "ImageButton": 10,
+        "TextView": 325,
+        "g0": 10,
+        "DrawerLayout": 10,
+        "HorizontalScrollView": 10,
+        "ViewPager": 11,
+        "View": 37,
+        "TableLayout": 2,
+        "TableRow": 1,
+        "RelativeLayout": 3,
+        "Spinner": 2,
+        "ImageView": 2,
+        "GridView": 1,
+        "ProgressBar": 1,
+        "ListView": 1
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 10,
+      "screen_visits": {
+        "1ecdce70435a": 1,
+        "b14a7ed099c7": 1,
+        "182eb5822f70": 1,
+        "fc145de28bad": 1,
+        "ceae4f4c59d0": 1,
+        "6c729adbeb6b": 1,
+        "0c5aba563dd8": 1,
+        "6dd54b4931a2": 1,
+        "170615b66401": 1,
+        "00c1a28137c3": 1
+      },
+      "activities": [
+        "ca.farrelltonsolar.classic/.MonitorActivity"
+      ],
+      "revisit_rate": 0.0
+    },
+    "memory_graph": {
+      "graph_states": 10,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 48112,
+      "input_tokens": 47740,
+      "output_tokens": 372,
+      "avg_tokens_per_iteration": 4811.2,
+      "max_message_count": 1,
+      "total_time_ms": 26600.597381591797,
+      "avg_time_per_iteration_ms": 2660.0597381591797
+    },
+    "device_actions": {
+      "total_actions": 10,
+      "valid_actions": 0,
+      "invalid_actions": 10,
+      "valid_rate": 0.0,
+      "action_types": {
+        "CLICK": 10
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))",
+          "element": "android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))",
+          "element": "android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))"
+        },
+        {
+          "step": 3,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/EnergyToday] @ ((39, 376), (1041, 1361))",
+          "element": "android.view.View[ca.farrelltonsolar.classic:id/EnergyToday] @ ((39, 376), (1041, 1361))"
+        },
+        {
+          "step": 4,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/SOC] @ ((66, 403), (1014, 668))",
+          "element": "android.view.View[ca.farrelltonsolar.classic:id/SOC] @ ((66, 403), (1014, 668))"
+        },
+        {
+          "step": 5,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))",
+          "element": "android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))"
+        },
+        {
+          "step": 6,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/BatTemperature] @ ((13, 376), (1067, 827))",
+          "element": "android.view.View[ca.farrelltonsolar.classic:id/BatTemperature] @ ((13, 376), (1067, 827))"
+        },
+        {
+          "step": 7,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))",
+          "element": "android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))"
+        },
+        {
+          "step": 8,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))",
+          "element": "android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))"
+        },
+        {
+          "step": 9,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.TextView[April 2025] @ ((0, 342), (540, 419))",
+          "element": "android.widget.TextView[April 2025] @ ((0, 342), (540, 419))"
+        },
+        {
+          "step": 10,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))",
+          "element": "android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))"
+        }
+      ]
+    }
+  },
+  "cf.playhi.freezeyou_151.apk": {
+    "app_name": "cf.playhi.freezeyou_151.apk",
+    "execution_time_s": 24.05840826034546,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "LinearLayoutCompat",
+        "ScrollView",
+        "TextView",
+        "ImageButton",
+        "RelativeLayout",
+        "Button",
+        "EditText",
+        "ViewGroup",
+        "LinearLayout",
+        "ListView",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 48,
+        "LinearLayout": 52,
+        "LinearLayoutCompat": 7,
+        "ImageView": 28,
+        "TextView": 47,
+        "View": 3,
+        "ScrollView": 7,
+        "Button": 13,
+        "ViewGroup": 2,
+        "EditText": 6,
+        "ListView": 4,
+        "RelativeLayout": 24,
+        "ImageButton": 1
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 6,
+      "screen_visits": {
+        "78acc032f1da": 2,
+        "5b68b709e548": 1,
+        "52fe8a50dede": 1,
+        "09c1c7fd5384": 1,
+        "87fe9d34fd97": 1,
+        "9d530fd2d581": 4
+      },
+      "activities": [
+        "cf.playhi.freezeyou/.ThirdIcon"
+      ],
+      "revisit_rate": 0.4
+    },
+    "memory_graph": {
+      "graph_states": 6,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 45119,
+      "input_tokens": 44722,
+      "output_tokens": 397,
+      "avg_tokens_per_iteration": 4511.9,
+      "max_message_count": 1,
+      "total_time_ms": 22940.068006515503,
+      "avg_time_per_iteration_ms": 2294.0068006515503
+    },
+    "device_actions": {
+      "total_actions": 7,
+      "valid_actions": 0,
+      "invalid_actions": 7,
+      "valid_rate": 0.0,
+      "action_types": {
+        "CLICK": 7
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "No element at coordinates (275, 1590)",
+          "element": null
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "No element at coordinates (970, 1648)",
+          "element": null
+        },
+        {
+          "step": 3,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[cf.playhi.freezeyou:id/action_bar_container] @ ((0, 63), (1080, 210))",
+          "element": "android.widget.FrameLayout[cf.playhi.freezeyou:id/action_bar_container] @ ((0, 63), (1080, 210))"
+        },
+        {
+          "step": 4,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((42, 746), (742, 803))",
+          "element": "android.widget.RelativeLayout[] @ ((42, 746), (742, 803))"
+        },
+        {
+          "step": 5,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((42, 746), (625, 803))",
+          "element": "android.widget.RelativeLayout[] @ ((42, 746), (625, 803))"
+        },
+        {
+          "step": 6,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "No element at coordinates (381, 967)",
+          "element": null
+        },
+        {
+          "step": 7,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "No element at coordinates (801, 1355)",
+          "element": null
+        }
+      ]
+    }
+  },
+  "com.aidinhut.simpletextcrypt_14.apk": {
+    "app_name": "com.aidinhut.simpletextcrypt_14.apk",
+    "execution_time_s": 15.180459260940552,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ScrollView",
+        "TextView",
+        "RelativeLayout",
+        "EditText",
+        "Button",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 47,
+        "ViewGroup": 2,
+        "TextView": 20,
+        "RelativeLayout": 2,
+        "EditText": 1,
+        "Button": 10,
+        "View": 11,
+        "ScrollView": 18
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 2,
+      "screen_visits": {
+        "def0ec2b5bfb": 2,
+        "1efb7fdf0288": 8
+      },
+      "activities": [
+        "com.aidinhut.simpletextcrypt/.LockActivity"
+      ],
+      "revisit_rate": 0.8
+    },
+    "memory_graph": {
+      "graph_states": 2,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 43280,
+      "input_tokens": 42930,
+      "output_tokens": 350,
+      "avg_tokens_per_iteration": 4328.0,
+      "max_message_count": 1,
+      "total_time_ms": 14209.674596786499,
+      "avg_time_per_iteration_ms": 1420.96745967865
+    },
+    "device_actions": {
+      "total_actions": 2,
+      "valid_actions": 0,
+      "invalid_actions": 2,
+      "valid_rate": 0.0,
+      "action_types": {
+        "CLICK": 2
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.LinearLayout[] @ ((42, 252), (1038, 1752))",
+          "element": "android.widget.LinearLayout[] @ ((42, 252), (1038, 1752))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.LinearLayout[] @ ((42, 252), (1038, 1752))",
+          "element": "android.widget.LinearLayout[] @ ((42, 252), (1038, 1752))"
+        }
+      ]
+    }
+  },
+  "com.akop.bach_120.apk": {
+    "app_name": "com.akop.bach_120.apk",
+    "execution_time_s": 12.097487688064575,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "TextView",
+        "RelativeLayout",
+        "RecyclerView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "Switch",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 90,
+        "ImageView": 20,
+        "TextView": 30,
+        "RecyclerView": 10,
+        "RelativeLayout": 10,
+        "Switch": 10,
+        "Button": 20,
+        "View": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "6c2de30746e5": 10
+      },
+      "activities": [
+        "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.ReviewPermissionsActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 45988,
+      "input_tokens": 45627,
+      "output_tokens": 361,
+      "avg_tokens_per_iteration": 4598.8,
+      "max_message_count": 1,
+      "total_time_ms": 11123.07071685791,
+      "avg_time_per_iteration_ms": 1112.307071685791
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.alienpants.leafpicrevived_24.apk": {
+    "app_name": "com.alienpants.leafpicrevived_24.apk",
+    "execution_time_s": 13.943044185638428,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "LinearLayoutCompat",
+        "DrawerLayout",
+        "ImageButton",
+        "TextView",
+        "RelativeLayout",
+        "RecyclerView",
+        "Button",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 60,
+        "LinearLayout": 70,
+        "DrawerLayout": 10,
+        "ViewGroup": 30,
+        "ImageButton": 10,
+        "TextView": 70,
+        "LinearLayoutCompat": 10,
+        "ImageView": 20,
+        "RecyclerView": 10,
+        "RelativeLayout": 20,
+        "Button": 10,
+        "View": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 2,
+      "screen_visits": {
+        "c0ced0784ba1": 1,
+        "42777af72a8c": 9
+      },
+      "activities": [
+        "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity",
+        "com.alienpants.leafpicrevived/.activities.MainActivity"
+      ],
+      "revisit_rate": 0.8
+    },
+    "memory_graph": {
+      "graph_states": 2,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 9
+    },
+    "llm": {
+      "total_tokens": 47586,
+      "input_tokens": 47188,
+      "output_tokens": 398,
+      "avg_tokens_per_iteration": 4758.6,
+      "max_message_count": 1,
+      "total_time_ms": 12967.020511627197,
+      "avg_time_per_iteration_ms": 1296.7020511627197
+    },
+    "device_actions": {
+      "total_actions": 1,
+      "valid_actions": 0,
+      "invalid_actions": 1,
+      "valid_rate": 0.0,
+      "action_types": {
+        "CLICK": 1
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((28, 63), (1052, 1793))",
+          "element": "android.widget.FrameLayout[] @ ((28, 63), (1052, 1793))"
+        }
+      ]
+    }
+  },
+  "com.crazyhitty.chdev.ks.munch_14.apk": {
+    "app_name": "com.crazyhitty.chdev.ks.munch_14.apk",
+    "execution_time_s": 12.004305839538574,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "ViewPager",
+        "TextView",
+        "ImageButton",
+        "RelativeLayout",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 30,
+        "LinearLayout": 50,
+        "ViewGroup": 10,
+        "ViewPager": 10,
+        "RelativeLayout": 20,
+        "TextView": 20,
+        "ImageView": 50,
+        "ImageButton": 10,
+        "View": 10
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "483a77a1c491": 10
+      },
+      "activities": [
+        "com.crazyhitty.chdev.ks.munch/.ui.activities.SplashActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 44173,
+      "input_tokens": 43793,
+      "output_tokens": 380,
+      "avg_tokens_per_iteration": 4417.3,
+      "max_message_count": 1,
+      "total_time_ms": 11028.35202217102,
+      "avg_time_per_iteration_ms": 1102.835202217102
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.cyanogenmod.filemanager.ics_1015.apk": {
+    "app_name": "com.cyanogenmod.filemanager.ics_1015.apk",
+    "execution_time_s": 12.055444955825806,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "TextView",
+        "RelativeLayout",
+        "RecyclerView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "Switch",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 90,
+        "ImageView": 20,
+        "TextView": 30,
+        "RecyclerView": 10,
+        "RelativeLayout": 10,
+        "Switch": 10,
+        "Button": 20,
+        "View": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "6c2de30746e5": 10
+      },
+      "activities": [
+        "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.ReviewPermissionsActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 45957,
+      "input_tokens": 45597,
+      "output_tokens": 360,
+      "avg_tokens_per_iteration": 4595.7,
+      "max_message_count": 1,
+      "total_time_ms": 11071.755647659302,
+      "avg_time_per_iteration_ms": 1107.1755647659302
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.dougkeen.bart_50.apk": {
+    "app_name": "com.dougkeen.bart_50.apk",
+    "execution_time_s": 12.336975574493408,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "LinearLayoutCompat",
+        "TextView",
+        "Button",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 50,
+        "LinearLayout": 20,
+        "ViewGroup": 30,
+        "TextView": 50,
+        "LinearLayoutCompat": 10,
+        "Button": 10,
+        "View": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "f6909f36a285": 10
+      },
+      "activities": [
+        "com.dougkeen.bart/.activities.RoutesListActivity_"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 44831,
+      "input_tokens": 44421,
+      "output_tokens": 410,
+      "avg_tokens_per_iteration": 4483.1,
+      "max_message_count": 1,
+      "total_time_ms": 11393.24402809143,
+      "avg_time_per_iteration_ms": 1139.324402809143
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.dozuki.ifixit_46.apk": {
+    "app_name": "com.dozuki.ifixit_46.apk",
+    "execution_time_s": 12.117469787597656,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "TextView",
+        "RelativeLayout",
+        "RecyclerView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "Switch",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 120,
+        "ImageView": 30,
+        "TextView": 50,
+        "RecyclerView": 10,
+        "RelativeLayout": 20,
+        "Switch": 20,
+        "Button": 20,
+        "View": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "5aee36e1d822": 10
+      },
+      "activities": [
+        "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.ReviewPermissionsActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 48477,
+      "input_tokens": 48117,
+      "output_tokens": 360,
+      "avg_tokens_per_iteration": 4847.7,
+      "max_message_count": 1,
+      "total_time_ms": 11124.361753463745,
+      "avg_time_per_iteration_ms": 1112.4361753463745
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.euedge.openaviationmap.android_16.apk": {
+    "error": "No screenshots found in /home/pedro/desenvolvimento/RV_ANDROID/teste_llm/screenshots/com.euedge.openaviationmap.android_16.apk"
+  },
+  "com.gh4a_73.apk": {
+    "app_name": "com.gh4a_73.apk",
+    "execution_time_s": 12.178739786148071,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "DrawerLayout",
+        "ImageButton",
+        "ScrollView",
+        "TextView",
+        "Button",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 70,
+        "LinearLayout": 40,
+        "DrawerLayout": 10,
+        "ViewGroup": 30,
+        "ImageButton": 10,
+        "ScrollView": 10,
+        "ImageView": 10,
+        "TextView": 10,
+        "Button": 10,
+        "View": 10
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "62ab86fb05a8": 10
+      },
+      "activities": [
+        "com.gh4a/.activities.Github4AndroidActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 43583,
+      "input_tokens": 43213,
+      "output_tokens": 370,
+      "avg_tokens_per_iteration": 4358.3,
+      "max_message_count": 1,
+      "total_time_ms": 11216.369152069092,
+      "avg_time_per_iteration_ms": 1121.6369152069092
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.gianlu.dnshero_40.apk": {
+    "app_name": "com.gianlu.dnshero_40.apk",
+    "execution_time_s": 12.030083179473877,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "ImageView",
+        "TextView",
+        "RelativeLayout",
+        "Button",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 20,
+        "RelativeLayout": 10,
+        "ImageView": 30,
+        "TextView": 20,
+        "Button": 10
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "c0549343706b": 10
+      },
+      "activities": [
+        "com.gianlu.dnshero/.LoadingActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 43325,
+      "input_tokens": 42955,
+      "output_tokens": 370,
+      "avg_tokens_per_iteration": 4332.5,
+      "max_message_count": 1,
+      "total_time_ms": 11070.982694625854,
+      "avg_time_per_iteration_ms": 1107.0982694625854
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.github.axet.hourlyreminder_476.apk": {
+    "app_name": "com.github.axet.hourlyreminder_476.apk",
+    "execution_time_s": 20.42280626296997,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 2,
+      "invalid": 8,
+      "valid_rate": 0.2
+    },
+    "element_coverage": {
+      "types_seen": [
+        "ActionBar$Tab",
+        "View",
+        "ImageView",
+        "LinearLayoutCompat",
+        "ViewPager",
+        "TextView",
+        "ImageButton",
+        "CheckBox",
+        "RecyclerView",
+        "HorizontalScrollView",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "Switch",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 102,
+        "LinearLayout": 72,
+        "ViewGroup": 26,
+        "HorizontalScrollView": 4,
+        "ActionBar$Tab": 12,
+        "TextView": 80,
+        "ImageView": 60,
+        "ViewPager": 4,
+        "RecyclerView": 10,
+        "Switch": 4,
+        "CheckBox": 44,
+        "ImageButton": 18,
+        "View": 16,
+        "LinearLayoutCompat": 6
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 5,
+      "screen_visits": {
+        "64235e1aa1fb": 1,
+        "aabecc24e943": 2,
+        "ec83ef514e01": 1,
+        "d7892d4b49a0": 1,
+        "9db119b2228d": 5
+      },
+      "activities": [
+        "com.google.android.soundpicker/.activity.GalleryActivity",
+        "com.github.axet.hourlyreminder/.activities.MainActivity"
+      ],
+      "revisit_rate": 0.5
+    },
+    "memory_graph": {
+      "graph_states": 5,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 4
+    },
+    "llm": {
+      "total_tokens": 48743,
+      "input_tokens": 48384,
+      "output_tokens": 359,
+      "avg_tokens_per_iteration": 4874.3,
+      "max_message_count": 1,
+      "total_time_ms": 19376.027584075928,
+      "avg_time_per_iteration_ms": 1937.6027584075928
+    },
+    "device_actions": {
+      "total_actions": 5,
+      "valid_actions": 1,
+      "invalid_actions": 4,
+      "valid_rate": 0.2,
+      "action_types": {
+        "CLICK": 5
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.FrameLayout[] @ ((13, 210), (1067, 460))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((34, 350), (1046, 681))",
+          "element": "android.widget.FrameLayout[] @ ((34, 350), (1046, 681))"
+        },
+        {
+          "step": 3,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((34, 350), (1046, 681))",
+          "element": "android.widget.FrameLayout[] @ ((34, 350), (1046, 681))"
+        },
+        {
+          "step": 4,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((34, 350), (1046, 681))",
+          "element": "android.widget.FrameLayout[] @ ((34, 350), (1046, 681))"
+        },
+        {
+          "step": 5,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.ImageView[com.google.android.soundpicker:id/collection_image] @ ((11, 619), (535, 1013))",
+          "element": "android.widget.ImageView[com.google.android.soundpicker:id/collection_image] @ ((11, 619), (535, 1013))"
+        }
+      ]
+    }
+  },
+  "com.hwloc.lstopo_271.apk": {
+    "app_name": "com.hwloc.lstopo_271.apk",
+    "execution_time_s": 24.681264400482178,
+    "total_iterations": 9,
+    "actions": {
+      "by_type": {
+        "CLICK": 9
+      },
+      "valid": 1,
+      "invalid": 8,
+      "valid_rate": 0.1111111111111111
+    },
+    "element_coverage": {
+      "types_seen": [
+        "ImageView",
+        "TextView",
+        "RecyclerView",
+        "DrawerLayout",
+        "ImageButton",
+        "CheckedTextView",
+        "ViewGroup",
+        "RadioButton",
+        "FrameLayout",
+        "RadioGroup",
+        "LinearLayoutCompat",
+        "LinearLayout",
+        "CheckBox",
+        "View",
+        "ScrollView",
+        "ViewPager",
+        "RelativeLayout",
+        "Button",
+        "HorizontalScrollView",
+        "unknown"
+      ],
+      "type_counts": {
+        "unknown": 9,
+        "FrameLayout": 36,
+        "LinearLayout": 105,
+        "DrawerLayout": 5,
+        "ViewGroup": 5,
+        "ImageButton": 5,
+        "Button": 9,
+        "LinearLayoutCompat": 29,
+        "TextView": 112,
+        "View": 25,
+        "RelativeLayout": 27,
+        "HorizontalScrollView": 5,
+        "RecyclerView": 3,
+        "CheckedTextView": 24,
+        "ScrollView": 5,
+        "CheckBox": 6,
+        "RadioGroup": 8,
+        "RadioButton": 12,
+        "ViewPager": 2,
+        "ImageView": 2
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 7,
+      "screen_visits": {
+        "b7446df03013": 2,
+        "ed0b0076fe9c": 1,
+        "8060dd0535d7": 1,
+        "6d34804f6c1a": 1,
+        "8a286ffde012": 1,
+        "b9ec960dd19d": 2,
+        "792c84a97d0e": 1
+      },
+      "activities": [
+        "com.hwloc.lstopo/.MainActivity",
+        "com.hwloc.lstopo/.Options",
+        "com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity"
+      ],
+      "revisit_rate": 0.2222222222222222
+    },
+    "memory_graph": {
+      "graph_states": 7,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 1
+    },
+    "llm": {
+      "total_tokens": 43388,
+      "input_tokens": 43033,
+      "output_tokens": 355,
+      "avg_tokens_per_iteration": 4820.888888888889,
+      "max_message_count": 1,
+      "total_time_ms": 23471.144437789917,
+      "avg_time_per_iteration_ms": 2607.904937532213
+    },
+    "device_actions": {
+      "total_actions": 8,
+      "valid_actions": 1,
+      "invalid_actions": 7,
+      "valid_rate": 0.125,
+      "action_types": {
+        "CLICK": 8
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.TextView[Package L#0] @ ((85, 345), (1080, 394))",
+          "element": "android.widget.TextView[Package L#0] @ ((85, 345), (1080, 394))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "No element at coordinates (378, 1891)",
+          "element": null
+        },
+        {
+          "step": 3,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((0, 987), (735, 1011))",
+          "element": "android.widget.FrameLayout[] @ ((0, 987), (735, 1011))"
+        },
+        {
+          "step": 4,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.view.ViewGroup[com.hwloc.lstopo:id/toolbar] @ ((0, 63), (1080, 210))",
+          "element": "android.view.ViewGroup[com.hwloc.lstopo:id/toolbar] @ ((0, 63), (1080, 210))"
+        },
+        {
+          "step": 5,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))",
+          "element": "android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))"
+        },
+        {
+          "step": 6,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))",
+          "element": "android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))"
+        },
+        {
+          "step": 7,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.LinearLayout[] @ ((70, 1079), (562, 1199))"
+        },
+        {
+          "step": 8,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((0, 987), (735, 1011))",
+          "element": "android.widget.FrameLayout[] @ ((0, 987), (735, 1011))"
+        }
+      ]
+    }
+  },
+  "com.orpheusdroid.sqliteviewer_1.apk": {
+    "app_name": "com.orpheusdroid.sqliteviewer_1.apk",
+    "execution_time_s": 9.815050840377808,
+    "total_iterations": 8,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 8
+      },
+      "valid": 0,
+      "invalid": 8,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ScrollView",
+        "TextView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 8,
+        "FrameLayout": 32,
+        "LinearLayout": 40,
+        "TextView": 16,
+        "View": 8,
+        "ScrollView": 16,
+        "Button": 24
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "73a45af425e6": 8
+      },
+      "activities": [
+        "com.orpheusdroid.sqliteviewer/.ui.FileManagerActivity"
+      ],
+      "revisit_rate": 0.875
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 8
+    },
+    "llm": {
+      "total_tokens": 35671,
+      "input_tokens": 35375,
+      "output_tokens": 296,
+      "avg_tokens_per_iteration": 4458.875,
+      "max_message_count": 1,
+      "total_time_ms": 9027.474641799927,
+      "avg_time_per_iteration_ms": 1128.4343302249908
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.rafapps.simplenotes_7.apk": {
+    "app_name": "com.rafapps.simplenotes_7.apk",
+    "execution_time_s": 11.995084524154663,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "LinearLayoutCompat",
+        "ImageButton",
+        "TextView",
+        "RecyclerView",
+        "Button",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 20,
+        "ViewGroup": 30,
+        "TextView": 20,
+        "LinearLayoutCompat": 20,
+        "ImageView": 10,
+        "Button": 20,
+        "RecyclerView": 10,
+        "ImageButton": 10,
+        "View": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "6ddaadb21b51": 10
+      },
+      "activities": [
+        "com.rafapps.simplenotes/.NotesListActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 44673,
+      "input_tokens": 44303,
+      "output_tokens": 370,
+      "avg_tokens_per_iteration": 4467.3,
+      "max_message_count": 1,
+      "total_time_ms": 10957.282066345215,
+      "avg_time_per_iteration_ms": 1095.7282066345215
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "com.sam.hex_16.apk": {
+    "app_name": "com.sam.hex_16.apk",
+    "execution_time_s": 11.856718063354492,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ScrollView",
+        "TextView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 50,
+        "TextView": 20,
+        "View": 10,
+        "ScrollView": 20,
+        "Button": 10
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "c44b8693c270": 10
+      },
+      "activities": [
+        "com.sam.hex/.startup.StartUpActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 43351,
+      "input_tokens": 43001,
+      "output_tokens": 350,
+      "avg_tokens_per_iteration": 4335.1,
+      "max_message_count": 1,
+      "total_time_ms": 10801.000356674194,
+      "avg_time_per_iteration_ms": 1080.1000356674194
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "cryptoapp.apk": {
+    "app_name": "cryptoapp.apk",
+    "execution_time_s": 13.365192651748657,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 10,
+      "invalid": 0,
+      "valid_rate": 1.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "TextView",
+        "RelativeLayout",
+        "ListView",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 20,
+        "ListView": 10,
+        "LinearLayout": 60,
+        "RelativeLayout": 30,
+        "TextView": 30
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 2,
+      "screen_visits": {
+        "6621483ea510": 1,
+        "18bff88d20d9": 9
+      },
+      "activities": [
+        "br.unb.cic.cryptoapp/.MainActivity"
+      ],
+      "revisit_rate": 0.8
+    },
+    "memory_graph": {
+      "graph_states": 2,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 44483,
+      "input_tokens": 44139,
+      "output_tokens": 344,
+      "avg_tokens_per_iteration": 4448.3,
+      "max_message_count": 1,
+      "total_time_ms": 12285.506248474121,
+      "avg_time_per_iteration_ms": 1228.550624847412
+    },
+    "device_actions": {
+      "total_actions": 1,
+      "valid_actions": 1,
+      "invalid_actions": 0,
+      "valid_rate": 1.0,
+      "action_types": {
+        "CLICK": 1
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.Button[CIPHER] @ ((0, 336), (1080, 462))"
+        }
+      ]
+    }
+  },
+  "info.zamojski.soft.towercollector_2140302.apk": {
+    "app_name": "info.zamojski.soft.towercollector_2140302.apk",
+    "execution_time_s": 13.410415649414062,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "ScrollView",
+        "TextView",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 50,
+        "LinearLayout": 50,
+        "TextView": 20,
+        "ScrollView": 20,
+        "Button": 10
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "5120ea1fa6a6": 10
+      },
+      "activities": [
+        "info.zamojski.soft.towercollector/.MainActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 45523,
+      "input_tokens": 45165,
+      "output_tokens": 358,
+      "avg_tokens_per_iteration": 4552.3,
+      "max_message_count": 1,
+      "total_time_ms": 11295.805215835571,
+      "avg_time_per_iteration_ms": 1129.5805215835571
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "livio.rssreader_101.apk": {
+    "app_name": "livio.rssreader_101.apk",
+    "execution_time_s": 16.62220859527588,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "Image",
+        "LinearLayoutCompat",
+        "ImageButton",
+        "TextView",
+        "ViewPager",
+        "RelativeLayout",
+        "WebView",
+        "CheckBox",
+        "RecyclerView",
+        "Button",
+        "ListView",
+        "ViewGroup",
+        "LinearLayout",
+        "EditText",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 40,
+        "LinearLayout": 10,
+        "ViewGroup": 20,
+        "ImageButton": 11,
+        "TextView": 10,
+        "LinearLayoutCompat": 10,
+        "Button": 218,
+        "ImageView": 10,
+        "RelativeLayout": 10,
+        "ViewPager": 10,
+        "RecyclerView": 10,
+        "WebView": 20,
+        "View": 4246,
+        "Image": 145,
+        "ListView": 64,
+        "EditText": 9,
+        "CheckBox": 9
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 3,
+      "screen_visits": {
+        "1c6ec096bcea": 1,
+        "9e99864f5231": 1,
+        "a4d4438ee9f6": 8
+      },
+      "activities": [
+        "livio.rssreader/.RSSReader",
+        "livio.rssreader/.ShowItem"
+      ],
+      "revisit_rate": 0.7
+    },
+    "memory_graph": {
+      "graph_states": 3,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 9
+    },
+    "llm": {
+      "total_tokens": 49290,
+      "input_tokens": 48886,
+      "output_tokens": 404,
+      "avg_tokens_per_iteration": 4929.0,
+      "max_message_count": 1,
+      "total_time_ms": 14991.293907165527,
+      "avg_time_per_iteration_ms": 1499.1293907165527
+    },
+    "device_actions": {
+      "total_actions": 2,
+      "valid_actions": 0,
+      "invalid_actions": 2,
+      "valid_rate": 0.0,
+      "action_types": {
+        "CLICK": 2
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.TextView[Before my older sister died, I promised her I would live my life fully. That promise helped me find my husband.] @ ((11, 263), (1069, 389))",
+          "element": "android.widget.TextView[Before my older sister died, I promised her I would live my life fully. That promise helped me find my husband.] @ ((11, 263), (1069, 389))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.Image[naomi carmen and her sister standing back to back] @ ((149, 393), (868, 934))",
+          "element": "android.widget.Image[naomi carmen and her sister standing back to back] @ ((149, 393), (868, 934))"
+        }
+      ]
+    }
+  },
+  "org.emunix.insteadlauncher_80601.apk": {
+    "app_name": "org.emunix.insteadlauncher_80601.apk",
+    "execution_time_s": 12.452624082565308,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "LinearLayoutCompat",
+        "ScrollView",
+        "TextView",
+        "ImageButton",
+        "RecyclerView",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 50,
+        "LinearLayout": 40,
+        "ViewGroup": 30,
+        "TextView": 20,
+        "LinearLayoutCompat": 10,
+        "ImageView": 20,
+        "RecyclerView": 10,
+        "ScrollView": 10,
+        "ImageButton": 10,
+        "View": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "b55988c4ee8a": 10
+      },
+      "activities": [
+        "org.emunix.insteadlauncher/.ui.launcher.LauncherActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 44349,
+      "input_tokens": 43979,
+      "output_tokens": 370,
+      "avg_tokens_per_iteration": 4434.9,
+      "max_message_count": 1,
+      "total_time_ms": 11405.83324432373,
+      "avg_time_per_iteration_ms": 1140.583324432373
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "org.pulpdust.lesserpad_42.apk": {
+    "app_name": "org.pulpdust.lesserpad_42.apk",
+    "execution_time_s": 23.74266791343689,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 10
+      },
+      "valid": 9,
+      "invalid": 1,
+      "valid_rate": 0.9
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "Spinner",
+        "ImageButton",
+        "TextView",
+        "TableRow",
+        "RelativeLayout",
+        "EditText",
+        "ListView",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 27,
+        "RelativeLayout": 22,
+        "TableRow": 8,
+        "TextView": 51,
+        "Spinner": 7,
+        "EditText": 6,
+        "ViewGroup": 7,
+        "ImageButton": 13,
+        "LinearLayout": 37,
+        "View": 14,
+        "ListView": 4
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 4,
+      "screen_visits": {
+        "c0c6757a3538": 1,
+        "3d47dc31d2a2": 6,
+        "c3a8b3ef88fc": 1,
+        "0618562376bd": 2
+      },
+      "activities": [
+        "org.pulpdust.lesserpad/.LesserPadListActivity",
+        "org.pulpdust.lesserpad/.LesserPadActivity"
+      ],
+      "revisit_rate": 0.6
+    },
+    "memory_graph": {
+      "graph_states": 4,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 5
+    },
+    "llm": {
+      "total_tokens": 46388,
+      "input_tokens": 45961,
+      "output_tokens": 427,
+      "avg_tokens_per_iteration": 4638.8,
+      "max_message_count": 1,
+      "total_time_ms": 22677.911043167114,
+      "avg_time_per_iteration_ms": 2267.7911043167114
+    },
+    "device_actions": {
+      "total_actions": 7,
+      "valid_actions": 6,
+      "invalid_actions": 1,
+      "valid_rate": 0.8571428571428571,
+      "action_types": {
+        "CLICK": 7
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.TextView[Lesser Pad] @ ((0, 63), (537, 210))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.TextView[New] @ ((0, 63), (537, 210))"
+        },
+        {
+          "step": 3,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.TextView[New] @ ((0, 63), (537, 210))"
+        },
+        {
+          "step": 4,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.ListView[org.pulpdust.lesserpad:id/listView1] @ ((0, 210), (1080, 1647))",
+          "element": "android.widget.ListView[org.pulpdust.lesserpad:id/listView1] @ ((0, 210), (1080, 1647))"
+        },
+        {
+          "step": 5,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.TextView[Test.txt] @ ((0, 63), (537, 210))"
+        },
+        {
+          "step": 6,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.EditText[org.pulpdust.lesserpad_42.apkTest] @ ((0, 210), (1080, 1647))"
+        },
+        {
+          "step": 7,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.EditText[org.pulpdust.lesserpad_42.apkTest] @ ((0, 210), (1080, 1647))"
+        }
+      ]
+    }
+  },
+  "org.secuso.privacyfriendlydicer_8.apk": {
+    "app_name": "org.secuso.privacyfriendlydicer_8.apk",
+    "execution_time_s": 10.32670283317566,
+    "total_iterations": 8,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 8
+      },
+      "valid": 0,
+      "invalid": 8,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "ViewPager",
+        "TextView",
+        "RelativeLayout",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 8,
+        "FrameLayout": 24,
+        "LinearLayout": 32,
+        "RelativeLayout": 16,
+        "ViewPager": 8,
+        "TextView": 24,
+        "ImageView": 8,
+        "View": 16,
+        "Button": 8
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "de02a0575400": 8
+      },
+      "activities": [
+        "org.secuso.privacyfriendlydicer/.ui.TutorialActivity"
+      ],
+      "revisit_rate": 0.875
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 8
+    },
+    "llm": {
+      "total_tokens": 35041,
+      "input_tokens": 34727,
+      "output_tokens": 314,
+      "avg_tokens_per_iteration": 4380.125,
+      "max_message_count": 1,
+      "total_time_ms": 9546.8008518219,
+      "avg_time_per_iteration_ms": 1193.3501064777374
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "org.secuso.privacyfriendlyludo_5.apk": {
+    "app_name": "org.secuso.privacyfriendlyludo_5.apk",
+    "execution_time_s": 12.340179920196533,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "UNKNOWN": 10
+      },
+      "valid": 0,
+      "invalid": 10,
+      "valid_rate": 0.0
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ImageView",
+        "ViewPager",
+        "TextView",
+        "RelativeLayout",
+        "Button",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 30,
+        "LinearLayout": 40,
+        "RelativeLayout": 20,
+        "ViewPager": 10,
+        "TextView": 60,
+        "ImageView": 10,
+        "View": 20,
+        "Button": 20
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 1,
+      "screen_visits": {
+        "40ad5316f66f": 10
+      },
+      "activities": [
+        "org.secuso.privacyfriendlyludo/.tutorial.TutorialActivity"
+      ],
+      "revisit_rate": 0.9
+    },
+    "memory_graph": {
+      "graph_states": 1,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 10
+    },
+    "llm": {
+      "total_tokens": 46265,
+      "input_tokens": 45871,
+      "output_tokens": 394,
+      "avg_tokens_per_iteration": 4626.5,
+      "max_message_count": 1,
+      "total_time_ms": 11338.02604675293,
+      "avg_time_per_iteration_ms": 1133.802604675293
+    },
+    "device_actions": {
+      "total_actions": 0,
+      "valid_actions": 0,
+      "invalid_actions": 0,
+      "valid_rate": 0.0,
+      "action_types": {},
+      "actions": []
+    }
+  },
+  "t20kdc.offlinepuzzlesolver_4.apk": {
+    "app_name": "t20kdc.offlinepuzzlesolver_4.apk",
+    "execution_time_s": 18.536396741867065,
+    "total_iterations": 10,
+    "actions": {
+      "by_type": {
+        "CLICK": 3,
+        "BACK": 7
+      },
+      "valid": 8,
+      "invalid": 2,
+      "valid_rate": 0.8
+    },
+    "element_coverage": {
+      "types_seen": [
+        "View",
+        "ScrollView",
+        "TextView",
+        "WebView",
+        "CheckBox",
+        "Button",
+        "ListView",
+        "ViewGroup",
+        "LinearLayout",
+        "unknown",
+        "FrameLayout",
+        "SeekBar"
+      ],
+      "type_counts": {
+        "unknown": 10,
+        "FrameLayout": 28,
+        "ViewGroup": 16,
+        "TextView": 26,
+        "LinearLayout": 30,
+        "SeekBar": 9,
+        "ScrollView": 1,
+        "CheckBox": 3,
+        "Button": 16,
+        "View": 75,
+        "WebView": 4,
+        "ListView": 4
+      },
+      "interactive_elements": 0
+    },
+    "exploration": {
+      "unique_screens": 5,
+      "screen_visits": {
+        "8e7b1b6799b2": 1,
+        "2bb774699e0c": 1,
+        "4235c7e63c2d": 1,
+        "6571ad3986a6": 1,
+        "2f08cb278b4d": 6
+      },
+      "activities": [
+        "t20kdc.offlinepuzzlesolver/.MainActivity",
+        "t20kdc.offlinepuzzlesolver/.game.NCupsActivity",
+        "t20kdc.offlinepuzzlesolver/.game.NQueensActivity",
+        "t20kdc.offlinepuzzlesolver/.SolutionActivity"
+      ],
+      "revisit_rate": 0.5
+    },
+    "memory_graph": {
+      "graph_states": 5,
+      "graph_transitions": 0,
+      "long_term_patterns": 0,
+      "short_term_iterations": 6
+    },
+    "llm": {
+      "total_tokens": 44863,
+      "input_tokens": 44516,
+      "output_tokens": 347,
+      "avg_tokens_per_iteration": 4486.3,
+      "max_message_count": 1,
+      "total_time_ms": 17354.14958000183,
+      "avg_time_per_iteration_ms": 1735.414958000183
+    },
+    "device_actions": {
+      "total_actions": 4,
+      "valid_actions": 2,
+      "invalid_actions": 2,
+      "valid_rate": 0.5,
+      "action_types": {
+        "CLICK": 3,
+        "BACK": 1
+      },
+      "actions": [
+        {
+          "step": 1,
+          "action_type": "CLICK",
+          "valid": true,
+          "reason": "Valid click action",
+          "element": "android.widget.Button[Sudoku] @ ((84, 681), (996, 807))"
+        },
+        {
+          "step": 2,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.ScrollView[] @ ((21, 456), (1059, 1647))",
+          "element": "android.widget.ScrollView[] @ ((21, 456), (1059, 1647))"
+        },
+        {
+          "step": 3,
+          "action_type": "CLICK",
+          "valid": false,
+          "reason": "Element is not clickable: android.widget.FrameLayout[android:id/content] @ ((0, 63), (1080, 1794))",
+          "element": "android.widget.FrameLayout[android:id/content] @ ((0, 63), (1080, 1794))"
+        },
+        {
+          "step": 4,
+          "action_type": "BACK",
+          "valid": true,
+          "reason": "System action: BACK",
+          "element": null
+        }
+      ]
+    }
+  }
+}

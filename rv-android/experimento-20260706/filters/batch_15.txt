@@ -1,0 +1,13 @@
+org.totschnig.myexpenses_858.apk
+org.transdroid.lite_248.apk
+org.wikipedia_50595.apk
+rocks.poopjournal.metadataremover_20020.apk
+se.arctosoft.vault_41.apk
+se.bitcraze.crazyfliecontrol2_22.apk
+swati4star.createpdf_110.apk
+systems.sieber.droid_scep_7.apk
+ua.acclorite.book_story_14.apk
+ua.com.radiokot.lnaddr2invoice_8.apk
+ua.com.radiokot.photoprism_67.apk
+uk.org.ngo.squeezer_158.apk
+vadimerenkov.aucards_21.apk

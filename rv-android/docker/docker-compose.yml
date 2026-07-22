@@ -1,0 +1,43 @@
+# Single RV-Android container execution.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml up
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: humanoid
+    ports:
+      - 50405:50405
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.create_connection(('127.0.0.1', 50405), timeout=3); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  rvandroid:
+    image: phtcosta/rvandroid:0.9.2
+    container_name: rvandroid
+    environment:
+      - RV_TOOLS=${RV_TOOLS:-monkey}
+      - RV_TIMEOUTS=${RV_TIMEOUTS:-300}
+      - RV_REPETITIONS=${RV_REPETITIONS:-1}
+      - RV_NO_WINDOW=true
+      - RV_SPEC_SET=jca
+      - RV_HUMANOID_URL=humanoid:50405
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BASE_DIR:-./data}/apks:/opt/rvsec/rv-android/apks
+      - ${BASE_DIR:-./data}/out:/opt/rvsec/rv-android/out
+      - ${BASE_DIR:-./data}/results:/opt/rvsec/rv-android/results
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "${CPUS:-4}"
+          memory: "${MEMORY:-8g}"
+    depends_on:
+      humanoid:
+        condition: service_healthy

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template for testing strategy recommendations in RVDroid.
+  
+  This template provides strategic recommendations for the most effective
+  testing approach based on current exploration phase and app state.
+  
+  Variables:
+  - exploration_phase: Current phase of exploration
+  - current_screen: Description of the current screen
+  - progress_metrics: Metrics about testing progress
+  - recent_actions: Summary of recent testing actions
+-->
+<template id="strategy" category="rvdroid" version="1.0">
+    <name>Strategy Recommendation</name>
+    <description>
+        Recommends the most effective testing strategy based on the current exploration phase and app state
+    </description>
+    
+    <system-message><![CDATA[
+You are a test strategy optimization expert for mobile apps.
+Your goal is to recommend the most effective testing approach based on the current exploration phase and app state.
+
+Testing strategies to consider:
+1. Random - useful for initial exploration
+2. Systematic - methodical coverage of all UI elements
+3. Model-based - using app structure knowledge to guide testing
+4. MonitoredMethod-focused - prioritizing components with monitored operations
+5. Greedy - focusing on areas that previously revealed issues
+
+Format your response with:
+1. Assessment of current exploration progress
+2. Recommended strategy with clear rationale
+3. IMPORTANT: Include a structured strategy directive in this format:
+```json
+{
+  "strategy": "strategy_name",
+  "rationale": "explanation for this strategy",
+  "duration": seconds_to_apply,
+  "focus_areas": ["area1", "area2"]
+}
+```
+Keep your recommendation concise and tailored to the current exploration state.
+    ]]></system-message>
+    
+    <user-message><![CDATA[
+I need a testing strategy recommendation.
+
+CURRENT EXPLORATION PHASE: ${exploration_phase}
+
+CURRENT SCREEN:
+${current_screen}
+
+PROGRESS METRICS:
+${progress_metrics}
+
+RECENT ACTIONS:
+${recent_actions}
+
+What testing strategy would be most effective now to maximize testing efficiency and detection of specification violations?
+    ]]></user-message>
+    
+    <parameters>
+        <parameter name="max_tokens" value="500" />
+    </parameters>
+</template>

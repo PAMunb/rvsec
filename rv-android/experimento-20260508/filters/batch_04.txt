@@ -1,0 +1,12 @@
+app.passwordstore.agrahn_11602.apk
+com.anysoftkeyboard.janus_11.apk
+com.dobby.vpn_1002005.apk
+com.grappim.taigamobile.fdroid_38.apk
+com.module.notelycompose.android_33.apk
+com.samyak.repostore_18.apk
+com.yahyaoui.prayermode_10.apk
+dev.dettmer.simplenotes_29.apk
+io.github.snd_r.komelia_18.apk
+nodomain.aditya1875more.stashly_20.apk
+org.fossify.messages_20.apk
+org.woheller69.whobird_51.apk

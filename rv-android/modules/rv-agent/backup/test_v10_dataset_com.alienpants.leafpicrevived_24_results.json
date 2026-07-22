@@ -1,0 +1,24 @@
+{
+  "app": "LeafPic",
+  "package": "com.alienpants.leafpicrevived",
+  "type": "gallery",
+  "has_static_analysis": false,
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 0,
+    "unique_states": 0,
+    "transitions": 0,
+    "potential_loop": false,
+    "execution_time_s": 2.7402915954589844
+  },
+  "validation": {
+    "generated_actions": false,
+    "discovered_states": false,
+    "recorded_transitions": false,
+    "no_immediate_loop": true,
+    "overall_success": false
+  }
+}

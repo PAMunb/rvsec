@@ -1,0 +1,59 @@
+public class br.unb.cic.cryptoapp.util.Utils extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        br.unb.cic.cryptoapp.util.Utils this;
+
+        this := @this: br.unb.cic.cryptoapp.util.Utils;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static java.lang.String bytesToHex(byte[])
+    {
+        byte[] $u7;
+        java.lang.Object[] $u5;
+        byte b;
+        int $u1, $u3;
+        java.lang.StringBuilder sb;
+        java.lang.String $u-1#8;
+        java.lang.Byte $u-1;
+
+        $u7 := @parameter0: byte[];
+
+        sb = new java.lang.StringBuilder;
+
+        specialinvoke sb.<java.lang.StringBuilder: void <init>()>();
+
+        $u1 = lengthof $u7;
+
+        $u3 = 0;
+
+     label1:
+        if $u3 >= $u1 goto label2;
+
+        b = $u7[$u3];
+
+        $u5 = newarray (java.lang.Object)[1];
+
+        $u-1 = staticinvoke <java.lang.Byte: java.lang.Byte valueOf(byte)>(b);
+
+        $u5[0] = $u-1;
+
+        $u-1#8 = staticinvoke <java.lang.String: java.lang.String format(java.lang.String,java.lang.Object[])>("%02x", $u5);
+
+        virtualinvoke sb.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u-1#8);
+
+        $u3 = $u3 + 1;
+
+        goto label1;
+
+     label2:
+        $u-1#8 = virtualinvoke sb.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        return $u-1#8;
+    }
+}

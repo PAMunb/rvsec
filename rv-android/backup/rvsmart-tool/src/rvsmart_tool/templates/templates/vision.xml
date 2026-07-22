@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="vision" version="3.0" extends="system_base">
+  <metadata>
+    <description>Optimized vision template with consolidated instructions, MOP integration, and inheritance from system_base</description>
+    <created>2025-08-15</created>
+    <author>RV-Android Team</author>
+    <updated>2025-08-28</updated>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <optional>activity</optional>
+    <optional>activity_visits</optional>
+    <optional>mop_current</optional>
+    <optional>mop_total</optional>
+    <optional>mop_errors</optional>
+    <optional>recent_history</optional>
+    <optional>available_transitions</optional>
+    <optional>additional_guidelines</optional>
+    <optional>mop_focus</optional>
+    <optional>mop_screen_context</optional>
+    <optional>mop_action_sequence</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% include "vision_system_consolidated" %}
+
+{% if mop_focus %}
+MONITORED OPERATIONS PRIORITY:
+- [DM] elements have highest priority for violation detection
+- [M] elements are secondary priority for coverage
+- Follow natural UI flow while prioritizing monitored operations
+
+{% if mop_screen_context %}
+MOP SCREEN ANALYSIS: {{ mop_screen_context }}
+{% endif %}
+
+{% if mop_action_sequence %}
+MOP ACTION SEQUENCE: {{ mop_action_sequence }}
+{% endif %}
+{% endif %}
+
+{% if additional_guidelines %}
+ADDITIONAL GUIDANCE: {{ additional_guidelines }}
+{% endif %}]]>
+    </system>
+    <user><![CDATA[
+{% include "context_status" %}
+
+UI Actions:
+{{ ui_elements }}
+
+Screenshot shows current app state. Generate 1-5 strategic actions:
+    ]]></user>
+  </roles>
+</template>

@@ -1,0 +1,104 @@
+{
+  "app_name": "com.gianlu.dnshero_40.apk",
+  "execution_time_s": 31.231481075286865,
+  "total_iterations": 25,
+  "actions": {
+    "by_type": {
+      "CLICK": 25
+    },
+    "valid": 25,
+    "invalid": 0,
+    "valid_rate": 1.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ViewGroup",
+      "RecyclerView",
+      "ImageButton",
+      "CardView",
+      "FrameLayout",
+      "TextView",
+      "Button",
+      "unknown",
+      "ImageView",
+      "View",
+      "LinearLayout",
+      "EditText"
+    ],
+    "type_counts": {
+      "unknown": 25,
+      "FrameLayout": 125,
+      "LinearLayout": 472,
+      "ViewGroup": 71,
+      "Button": 2,
+      "View": 50,
+      "ImageView": 186,
+      "TextView": 393,
+      "EditText": 2,
+      "ImageButton": 25,
+      "RecyclerView": 71,
+      "CardView": 69
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 3,
+    "screen_visits": {
+      "c0549343706b": 1,
+      "87c07e069402": 2,
+      "0fe33e7ddec8": 22
+    },
+    "activities": [
+      "com.gianlu.dnshero/.PreferenceActivity",
+      "com.gianlu.dnshero/.LoadingActivity"
+    ],
+    "revisit_rate": 0.88
+  },
+  "memory_graph": {
+    "graph_states": 3,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 45735,
+    "input_tokens": 44691,
+    "output_tokens": 1044,
+    "avg_tokens_per_iteration": 1829.4,
+    "max_message_count": 1,
+    "total_time_ms": 28315.1376247406,
+    "avg_time_per_iteration_ms": 1132.605504989624
+  },
+  "device_actions": {
+    "total_actions": 3,
+    "valid_actions": 3,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "CLICK": 3
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Got it] @ ((744, 464), (975, 590))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[PREFERENCES] @ ((729, 63), (1059, 189))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[PREFERENCES] @ ((729, 63), (1059, 189))"
+      }
+    ]
+  }
+}

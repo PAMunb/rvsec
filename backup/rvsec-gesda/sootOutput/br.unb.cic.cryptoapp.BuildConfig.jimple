@@ -1,0 +1,38 @@
+public final class br.unb.cic.cryptoapp.BuildConfig extends java.lang.Object
+{
+    public static final java.lang.String APPLICATION_ID;
+    public static final java.lang.String BUILD_TYPE;
+    public static final boolean DEBUG;
+    public static final int VERSION_CODE;
+    public static final java.lang.String VERSION_NAME;
+
+    static void <clinit>()
+    {
+        boolean $u-1;
+
+        <br.unb.cic.cryptoapp.BuildConfig: java.lang.String VERSION_NAME> = "1.0";
+
+        <br.unb.cic.cryptoapp.BuildConfig: int VERSION_CODE> = 1;
+
+        <br.unb.cic.cryptoapp.BuildConfig: java.lang.String BUILD_TYPE> = "debug";
+
+        <br.unb.cic.cryptoapp.BuildConfig: java.lang.String APPLICATION_ID> = "br.unb.cic.cryptoapp";
+
+        $u-1 = staticinvoke <java.lang.Boolean: boolean parseBoolean(java.lang.String)>("true");
+
+        <br.unb.cic.cryptoapp.BuildConfig: boolean DEBUG> = $u-1;
+
+        return;
+    }
+
+    public void <init>()
+    {
+        br.unb.cic.cryptoapp.BuildConfig this;
+
+        this := @this: br.unb.cic.cryptoapp.BuildConfig;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+}

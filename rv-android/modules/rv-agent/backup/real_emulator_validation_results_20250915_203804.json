@@ -1,0 +1,586 @@
+{
+  "timestamp": "2025-09-15T20:38:04.237675",
+  "model": "PetrosStav/gemma3-tools:4b",
+  "validation_type": "real_emulator_suite",
+  "total_duration": 194.58474898338318,
+  "tests": {
+    "short_run": {
+      "success": true,
+      "model": "PetrosStav/gemma3-tools:4b",
+      "duration": 69.85246634483337,
+      "exploration_results": {
+        "session": {
+          "package_name": "br.unb.cic.cryptoapp",
+          "objective": "Test all cryptographic functions systematically",
+          "duration": 68.58417558670044,
+          "iterations": 9,
+          "success_count": 8,
+          "error_count": 0,
+          "success_rate": 0.8888888888888888
+        },
+        "react_engine": {
+          "iteration_count": 9,
+          "current_objective": "Test all cryptographic functions systematically",
+          "short_term_memory": {
+            "iteration_count": 9,
+            "current_activity": ".messagedigest.MessageDigestActivity",
+            "total_actions_generated": 9,
+            "total_execution_results": 9,
+            "average_success_rate": 0.8888888888888888,
+            "memory_utilization": "9/10",
+            "latest_iteration": {
+              "timestamp": "2025-09-15T20:35:57.282847",
+              "action_count": 1,
+              "success_rate": 1.0
+            }
+          },
+          "long_term_memory": {
+            "total_states": 2,
+            "total_activities": 1,
+            "total_action_types": 0,
+            "total_actions_executed": 0,
+            "total_successful_actions": 0,
+            "overall_success_rate": 0.0,
+            "total_transitions": 0,
+            "most_visited_states": [
+              {
+                "state_hash": "c741f77dc770",
+                "activity": ".messagedigest.MessageDigestActivity",
+                "visit_count": 8,
+                "elements_count": 50
+              },
+              {
+                "state_hash": "139958a59450",
+                "activity": ".messagedigest.MessageDigestActivity",
+                "visit_count": 1,
+                "elements_count": 50
+              }
+            ]
+          },
+          "ui_coverage": {
+            "total_unique_elements": 2,
+            "total_interactions": 9,
+            "average_interactions_per_element": 4.5,
+            "action_distribution": {
+              "click": 9
+            },
+            "recent_discoveries": 2,
+            "total_screens": 0,
+            "most_tested_elements": [
+              [
+                "buttonGenerateHash Button",
+                5
+              ],
+              [
+                "buttonGenerateHash",
+                4
+              ]
+            ],
+            "least_tested_elements": [],
+            "discovery_timeline_length": 2
+          }
+        },
+        "short_term_memory": {
+          "iteration_count": 9,
+          "current_activity": ".messagedigest.MessageDigestActivity",
+          "total_actions_generated": 9,
+          "total_execution_results": 9,
+          "average_success_rate": 0.8888888888888888,
+          "memory_utilization": "9/10",
+          "latest_iteration": {
+            "timestamp": "2025-09-15T20:35:57.282847",
+            "action_count": 1,
+            "success_rate": 1.0
+          }
+        },
+        "long_term_memory": {
+          "total_states": 2,
+          "total_activities": 1,
+          "total_action_types": 0,
+          "total_actions_executed": 0,
+          "total_successful_actions": 0,
+          "overall_success_rate": 0.0,
+          "total_transitions": 0,
+          "most_visited_states": [
+            {
+              "state_hash": "c741f77dc770",
+              "activity": ".messagedigest.MessageDigestActivity",
+              "visit_count": 8,
+              "elements_count": 50
+            },
+            {
+              "state_hash": "139958a59450",
+              "activity": ".messagedigest.MessageDigestActivity",
+              "visit_count": 1,
+              "elements_count": 50
+            }
+          ]
+        },
+        "ui_coverage": {
+          "total_unique_elements": 2,
+          "total_interactions": 9,
+          "average_interactions_per_element": 4.5,
+          "action_distribution": {
+            "click": 9
+          },
+          "recent_discoveries": 2,
+          "total_screens": 0,
+          "most_tested_elements": [
+            [
+              "buttonGenerateHash Button",
+              5
+            ],
+            [
+              "buttonGenerateHash",
+              4
+            ]
+          ],
+          "least_tested_elements": [],
+          "discovery_timeline_length": 2
+        },
+        "total_unique_elements_tested": 2,
+        "total_interactions": 9,
+        "coverage_efficiency": 0.2222222222222222
+      },
+      "analysis": {
+        "test_type": "real_emulator_autonomous",
+        "model_performance": {
+          "total_iterations": 9,
+          "successful_actions": 8,
+          "error_count": 0,
+          "success_rate": 0.8888888888888888,
+          "duration_seconds": 69.85246634483337
+        },
+        "coverage_analysis": {
+          "unique_elements_tested": 2,
+          "total_interactions": 9,
+          "coverage_efficiency": 0.2222222222222222
+        },
+        "component_performance": {
+          "react_engine": {
+            "iteration_count": 9,
+            "current_objective": "Test all cryptographic functions systematically",
+            "short_term_memory": {
+              "iteration_count": 9,
+              "current_activity": ".messagedigest.MessageDigestActivity",
+              "total_actions_generated": 9,
+              "total_execution_results": 9,
+              "average_success_rate": 0.8888888888888888,
+              "memory_utilization": "9/10",
+              "latest_iteration": {
+                "timestamp": "2025-09-15T20:35:57.282847",
+                "action_count": 1,
+                "success_rate": 1.0
+              }
+            },
+            "long_term_memory": {
+              "total_states": 2,
+              "total_activities": 1,
+              "total_action_types": 0,
+              "total_actions_executed": 0,
+              "total_successful_actions": 0,
+              "overall_success_rate": 0.0,
+              "total_transitions": 0,
+              "most_visited_states": [
+                {
+                  "state_hash": "c741f77dc770",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 8,
+                  "elements_count": 50
+                },
+                {
+                  "state_hash": "139958a59450",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 1,
+                  "elements_count": 50
+                }
+              ]
+            },
+            "ui_coverage": {
+              "total_unique_elements": 2,
+              "total_interactions": 9,
+              "average_interactions_per_element": 4.5,
+              "action_distribution": {
+                "click": 9
+              },
+              "recent_discoveries": 2,
+              "total_screens": 0,
+              "most_tested_elements": [
+                [
+                  "buttonGenerateHash Button",
+                  5
+                ],
+                [
+                  "buttonGenerateHash",
+                  4
+                ]
+              ],
+              "least_tested_elements": [],
+              "discovery_timeline_length": 2
+            }
+          },
+          "ui_coverage": {
+            "total_unique_elements": 2,
+            "total_interactions": 9,
+            "average_interactions_per_element": 4.5,
+            "action_distribution": {
+              "click": 9
+            },
+            "recent_discoveries": 2,
+            "total_screens": 0,
+            "most_tested_elements": [
+              [
+                "buttonGenerateHash Button",
+                5
+              ],
+              [
+                "buttonGenerateHash",
+                4
+              ]
+            ],
+            "least_tested_elements": [],
+            "discovery_timeline_length": 2
+          },
+          "memory_stats": {
+            "short_term": {
+              "iteration_count": 9,
+              "current_activity": ".messagedigest.MessageDigestActivity",
+              "total_actions_generated": 9,
+              "total_execution_results": 9,
+              "average_success_rate": 0.8888888888888888,
+              "memory_utilization": "9/10",
+              "latest_iteration": {
+                "timestamp": "2025-09-15T20:35:57.282847",
+                "action_count": 1,
+                "success_rate": 1.0
+              }
+            },
+            "long_term": {
+              "total_states": 2,
+              "total_activities": 1,
+              "total_action_types": 0,
+              "total_actions_executed": 0,
+              "total_successful_actions": 0,
+              "overall_success_rate": 0.0,
+              "total_transitions": 0,
+              "most_visited_states": [
+                {
+                  "state_hash": "c741f77dc770",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 8,
+                  "elements_count": 50
+                },
+                {
+                  "state_hash": "139958a59450",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 1,
+                  "elements_count": 50
+                }
+              ]
+            }
+          }
+        },
+        "outcome": "SUCCESSFUL",
+        "outcome_reason": "Achieved 88.9% success rate"
+      }
+    },
+    "medium_run": {
+      "success": true,
+      "model": "PetrosStav/gemma3-tools:4b",
+      "duration": 124.72935009002686,
+      "exploration_results": {
+        "session": {
+          "package_name": "br.unb.cic.cryptoapp",
+          "objective": "Test all cryptographic functions systematically",
+          "duration": 124.10536527633667,
+          "iterations": 16,
+          "success_count": 10,
+          "error_count": 1,
+          "success_rate": 0.625
+        },
+        "react_engine": {
+          "iteration_count": 17,
+          "current_objective": "Test all cryptographic functions systematically",
+          "short_term_memory": {
+            "iteration_count": 10,
+            "current_activity": ".messagedigest.MessageDigestActivity",
+            "total_actions_generated": 10,
+            "total_execution_results": 10,
+            "average_success_rate": 0.6,
+            "memory_utilization": "10/10",
+            "latest_iteration": {
+              "timestamp": "2025-09-15T20:37:57.135453",
+              "action_count": 1,
+              "success_rate": 0.0
+            }
+          },
+          "long_term_memory": {
+            "total_states": 2,
+            "total_activities": 1,
+            "total_action_types": 0,
+            "total_actions_executed": 0,
+            "total_successful_actions": 0,
+            "overall_success_rate": 0.0,
+            "total_transitions": 0,
+            "most_visited_states": [
+              {
+                "state_hash": "5bab1f9f1abf",
+                "activity": ".messagedigest.MessageDigestActivity",
+                "visit_count": 8,
+                "elements_count": 50
+              },
+              {
+                "state_hash": "e94fc00d83d9",
+                "activity": ".messagedigest.MessageDigestActivity",
+                "visit_count": 8,
+                "elements_count": 50
+              }
+            ]
+          },
+          "ui_coverage": {
+            "total_unique_elements": 2,
+            "total_interactions": 16,
+            "average_interactions_per_element": 8.0,
+            "action_distribution": {
+              "click": 16
+            },
+            "recent_discoveries": 2,
+            "total_screens": 0,
+            "most_tested_elements": [
+              [
+                "buttonGenerateHash Button",
+                9
+              ],
+              [
+                "buttonGenerateHash",
+                7
+              ]
+            ],
+            "least_tested_elements": [],
+            "discovery_timeline_length": 2
+          }
+        },
+        "short_term_memory": {
+          "iteration_count": 10,
+          "current_activity": ".messagedigest.MessageDigestActivity",
+          "total_actions_generated": 10,
+          "total_execution_results": 10,
+          "average_success_rate": 0.6,
+          "memory_utilization": "10/10",
+          "latest_iteration": {
+            "timestamp": "2025-09-15T20:37:57.135453",
+            "action_count": 1,
+            "success_rate": 0.0
+          }
+        },
+        "long_term_memory": {
+          "total_states": 2,
+          "total_activities": 1,
+          "total_action_types": 0,
+          "total_actions_executed": 0,
+          "total_successful_actions": 0,
+          "overall_success_rate": 0.0,
+          "total_transitions": 0,
+          "most_visited_states": [
+            {
+              "state_hash": "5bab1f9f1abf",
+              "activity": ".messagedigest.MessageDigestActivity",
+              "visit_count": 8,
+              "elements_count": 50
+            },
+            {
+              "state_hash": "e94fc00d83d9",
+              "activity": ".messagedigest.MessageDigestActivity",
+              "visit_count": 8,
+              "elements_count": 50
+            }
+          ]
+        },
+        "ui_coverage": {
+          "total_unique_elements": 2,
+          "total_interactions": 16,
+          "average_interactions_per_element": 8.0,
+          "action_distribution": {
+            "click": 16
+          },
+          "recent_discoveries": 2,
+          "total_screens": 0,
+          "most_tested_elements": [
+            [
+              "buttonGenerateHash Button",
+              9
+            ],
+            [
+              "buttonGenerateHash",
+              7
+            ]
+          ],
+          "least_tested_elements": [],
+          "discovery_timeline_length": 2
+        },
+        "total_unique_elements_tested": 2,
+        "total_interactions": 16,
+        "coverage_efficiency": 0.125
+      },
+      "analysis": {
+        "test_type": "real_emulator_autonomous",
+        "model_performance": {
+          "total_iterations": 16,
+          "successful_actions": 10,
+          "error_count": 1,
+          "success_rate": 0.625,
+          "duration_seconds": 124.72935009002686
+        },
+        "coverage_analysis": {
+          "unique_elements_tested": 2,
+          "total_interactions": 16,
+          "coverage_efficiency": 0.125
+        },
+        "component_performance": {
+          "react_engine": {
+            "iteration_count": 17,
+            "current_objective": "Test all cryptographic functions systematically",
+            "short_term_memory": {
+              "iteration_count": 10,
+              "current_activity": ".messagedigest.MessageDigestActivity",
+              "total_actions_generated": 10,
+              "total_execution_results": 10,
+              "average_success_rate": 0.6,
+              "memory_utilization": "10/10",
+              "latest_iteration": {
+                "timestamp": "2025-09-15T20:37:57.135453",
+                "action_count": 1,
+                "success_rate": 0.0
+              }
+            },
+            "long_term_memory": {
+              "total_states": 2,
+              "total_activities": 1,
+              "total_action_types": 0,
+              "total_actions_executed": 0,
+              "total_successful_actions": 0,
+              "overall_success_rate": 0.0,
+              "total_transitions": 0,
+              "most_visited_states": [
+                {
+                  "state_hash": "5bab1f9f1abf",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 8,
+                  "elements_count": 50
+                },
+                {
+                  "state_hash": "e94fc00d83d9",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 8,
+                  "elements_count": 50
+                }
+              ]
+            },
+            "ui_coverage": {
+              "total_unique_elements": 2,
+              "total_interactions": 16,
+              "average_interactions_per_element": 8.0,
+              "action_distribution": {
+                "click": 16
+              },
+              "recent_discoveries": 2,
+              "total_screens": 0,
+              "most_tested_elements": [
+                [
+                  "buttonGenerateHash Button",
+                  9
+                ],
+                [
+                  "buttonGenerateHash",
+                  7
+                ]
+              ],
+              "least_tested_elements": [],
+              "discovery_timeline_length": 2
+            }
+          },
+          "ui_coverage": {
+            "total_unique_elements": 2,
+            "total_interactions": 16,
+            "average_interactions_per_element": 8.0,
+            "action_distribution": {
+              "click": 16
+            },
+            "recent_discoveries": 2,
+            "total_screens": 0,
+            "most_tested_elements": [
+              [
+                "buttonGenerateHash Button",
+                9
+              ],
+              [
+                "buttonGenerateHash",
+                7
+              ]
+            ],
+            "least_tested_elements": [],
+            "discovery_timeline_length": 2
+          },
+          "memory_stats": {
+            "short_term": {
+              "iteration_count": 10,
+              "current_activity": ".messagedigest.MessageDigestActivity",
+              "total_actions_generated": 10,
+              "total_execution_results": 10,
+              "average_success_rate": 0.6,
+              "memory_utilization": "10/10",
+              "latest_iteration": {
+                "timestamp": "2025-09-15T20:37:57.135453",
+                "action_count": 1,
+                "success_rate": 0.0
+              }
+            },
+            "long_term": {
+              "total_states": 2,
+              "total_activities": 1,
+              "total_action_types": 0,
+              "total_actions_executed": 0,
+              "total_successful_actions": 0,
+              "overall_success_rate": 0.0,
+              "total_transitions": 0,
+              "most_visited_states": [
+                {
+                  "state_hash": "5bab1f9f1abf",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 8,
+                  "elements_count": 50
+                },
+                {
+                  "state_hash": "e94fc00d83d9",
+                  "activity": ".messagedigest.MessageDigestActivity",
+                  "visit_count": 8,
+                  "elements_count": 50
+                }
+              ]
+            }
+          }
+        },
+        "outcome": "SUCCESSFUL",
+        "outcome_reason": "Achieved 62.5% success rate"
+      }
+    }
+  },
+  "summary": {
+    "overall_success": true,
+    "tests_passed": 2,
+    "tests_total": 2,
+    "performance_comparison": {
+      "short_run": {
+        "success_rate": 0.8888888888888888,
+        "iterations": 9,
+        "outcome": "SUCCESSFUL"
+      },
+      "medium_run": {
+        "success_rate": 0.625,
+        "iterations": 16,
+        "outcome": "SUCCESSFUL"
+      }
+    },
+    "assessment": "RVAgent validation SUCCESSFUL - Ready for production testing"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "test_id": "A1_agentexecutor_multimodal_failure",
+  "phase": "A_LangChain_Architecture",
+  "model_name": "PetrosStav/gemma3-tools:4b",
+  "multimodal_support": false,
+  "tool_calling_detected": false,
+  "tool_parsing_success": false,
+  "coordinate_accuracy": Infinity,
+  "hit_rate": 0.0,
+  "coordinate_format": "",
+  "response_time": 4.187115430831909,
+  "memory_usage_mb": 0,
+  "success_rate": 0.0,
+  "error_messages": [],
+  "raw_response": "Agent stopped due to iteration limit or time limit.",
+  "parsed_tools": [],
+  "timestamp": "2025-09-16T09:40:31.535262"
+}

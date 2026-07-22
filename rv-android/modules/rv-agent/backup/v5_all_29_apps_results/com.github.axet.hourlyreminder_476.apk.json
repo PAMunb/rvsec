@@ -1,0 +1,126 @@
+{
+  "app_name": "com.github.axet.hourlyreminder_476.apk",
+  "execution_time_s": 20.42280626296997,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 2,
+    "invalid": 8,
+    "valid_rate": 0.2
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ActionBar$Tab",
+      "View",
+      "ImageView",
+      "LinearLayoutCompat",
+      "ViewPager",
+      "TextView",
+      "ImageButton",
+      "CheckBox",
+      "RecyclerView",
+      "HorizontalScrollView",
+      "ViewGroup",
+      "LinearLayout",
+      "unknown",
+      "Switch",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 102,
+      "LinearLayout": 72,
+      "ViewGroup": 26,
+      "HorizontalScrollView": 4,
+      "ActionBar$Tab": 12,
+      "TextView": 80,
+      "ImageView": 60,
+      "ViewPager": 4,
+      "RecyclerView": 10,
+      "Switch": 4,
+      "CheckBox": 44,
+      "ImageButton": 18,
+      "View": 16,
+      "LinearLayoutCompat": 6
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 5,
+    "screen_visits": {
+      "64235e1aa1fb": 1,
+      "aabecc24e943": 2,
+      "ec83ef514e01": 1,
+      "d7892d4b49a0": 1,
+      "9db119b2228d": 5
+    },
+    "activities": [
+      "com.google.android.soundpicker/.activity.GalleryActivity",
+      "com.github.axet.hourlyreminder/.activities.MainActivity"
+    ],
+    "revisit_rate": 0.5
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 4
+  },
+  "llm": {
+    "total_tokens": 48743,
+    "input_tokens": 48384,
+    "output_tokens": 359,
+    "avg_tokens_per_iteration": 4874.3,
+    "max_message_count": 1,
+    "total_time_ms": 19376.027584075928,
+    "avg_time_per_iteration_ms": 1937.6027584075928
+  },
+  "device_actions": {
+    "total_actions": 5,
+    "valid_actions": 1,
+    "invalid_actions": 4,
+    "valid_rate": 0.2,
+    "action_types": {
+      "CLICK": 5
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.FrameLayout[] @ ((13, 210), (1067, 460))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((34, 350), (1046, 681))",
+        "element": "android.widget.FrameLayout[] @ ((34, 350), (1046, 681))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((34, 350), (1046, 681))",
+        "element": "android.widget.FrameLayout[] @ ((34, 350), (1046, 681))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((34, 350), (1046, 681))",
+        "element": "android.widget.FrameLayout[] @ ((34, 350), (1046, 681))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.ImageView[com.google.android.soundpicker:id/collection_image] @ ((11, 619), (535, 1013))",
+        "element": "android.widget.ImageView[com.google.android.soundpicker:id/collection_image] @ ((11, 619), (535, 1013))"
+      }
+    ]
+  }
+}

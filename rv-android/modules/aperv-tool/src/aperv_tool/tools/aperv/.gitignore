@@ -1,0 +1,3 @@
+# Built from source at image build (clone phtcosta/ape -> mvn package -> copy).
+# Never committed: see docker/rvandroid/Dockerfile and openspec change gh71.
+ape-rv.jar

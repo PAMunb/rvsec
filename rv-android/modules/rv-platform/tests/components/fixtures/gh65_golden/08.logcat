@@ -1,0 +1,22 @@
+06-09 16:17:49.996  3954  3954 I RVSEC-COV: <ru.stersh.youamp.App: void <init>()>
+06-09 16:17:50.007  3954  3954 I RVSEC-COV: <ru.stersh.youamp.App: void onCreate()>
+06-09 16:17:50.080  3954  3954 V RVSEC   : SecureRandomSpec,k8.a,a,C,r8-map-id-1ca78de74557279a33074458e2151d2a5a07b48c7fbe9f0b759bc8c9318fd379:6,InvalidSequenceOfMethodCalls,unknown
+06-09 16:17:50.097  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase_Impl: void <init>()>
+06-09 16:17:50.097  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase: void <init>()>
+06-09 16:17:50.097  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase_Impl: o4.f c()>
+06-09 16:17:50.098  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase_Impl: u7.f b()>
+06-09 16:17:50.098  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase_Impl: java.util.Set e()>
+06-09 16:17:50.098  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase_Impl: java.util.List a(java.util.LinkedHashMap)>
+06-09 16:17:50.098  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase_Impl: java.util.LinkedHashMap f()>
+06-09 16:17:50.099  3954  3954 I RVSEC-COV: <ru.stersh.youamp.core.db.AppDatabase_Impl: dg.e k()>
+06-09 16:17:50.108  3954  3954 I RVSEC-COV: <ru.stersh.youamp.MainActivity: void <init>()>
+06-09 16:17:50.115  3954  3954 I RVSEC-COV: <ru.stersh.youamp.MainActivity: void onCreate(android.os.Bundle)>
+06-09 16:17:50.841  3954  3954 I RVSEC-COV: <ru.stersh.youamp.audio.MusicService: void <init>()>
+06-09 16:17:50.883  3954  3954 I RVSEC-COV: <ru.stersh.youamp.audio.MusicService: void onCreate()>
+06-09 16:17:50.888  3954  3954 V RVSEC   : TrustManagerFactorySpec,vd.r,r,<init>,r8-map-id-1ca78de74557279a33074458e2151d2a5a07b48c7fbe9f0b759bc8c9318fd379:238,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+06-09 16:17:50.889  3954  3954 V RVSEC   : TrustManagerFactorySpec,vd.r,r,<init>,r8-map-id-1ca78de74557279a33074458e2151d2a5a07b48c7fbe9f0b759bc8c9318fd379:238,InvalidSequenceOfMethodCalls,unknown
+06-09 16:17:50.890  3954  3954 V RVSEC   : SSLContextSpec,fe.a,a,k,r8-map-id-1ca78de74557279a33074458e2151d2a5a07b48c7fbe9f0b759bc8c9318fd379:8,InvalidSequenceOfMethodCalls,unknown
+06-09 16:17:50.891  3954  3954 V RVSEC   : SSLContextSpec,vd.r,r,<init>,r8-map-id-1ca78de74557279a33074458e2151d2a5a07b48c7fbe9f0b759bc8c9318fd379:276,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+06-09 16:17:50.891  3954  3954 V RVSEC   : SSLContextSpec,vd.r,r,<init>,r8-map-id-1ca78de74557279a33074458e2151d2a5a07b48c7fbe9f0b759bc8c9318fd379:276,InvalidSequenceOfMethodCalls,unknown
+06-09 16:17:51.494  3954  3954 I RVSEC-COV: <ru.stersh.youamp.audio.MusicService: i7.m1 g(i7.c2)>
+06-09 16:17:51.494  3954  3954 I RVSEC-COV: <ru.stersh.youamp.audio.MusicService: i7.m1 f(i7.c2)>

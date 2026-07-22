@@ -1,0 +1,35 @@
+{
+  "name": "basic_experiment_template",
+  "description": "Basic experiment template with standard tools and JCA monitored operations",
+  "output_dir": "results/basic_experiment_template",
+  "experiment_id": "basic_experiment_template",
+  "tool_configs": [
+    {
+      "name": "monkey",
+      "variants": [],
+      "parameters": {},
+      "timeout_override": null,
+      "enabled": true
+    }
+  ],
+  "repetitions": 1,
+  "timeouts": [
+    60
+  ],
+  "no_window": true,
+  "generate_monitors": true,
+  "instrument_apks": true,
+  "run_static_analysis": true,
+  "specification_set": "jca",
+  "apk_path": null,
+  "apk_dir": "./apks_examples/",
+  "apk_patterns": [
+    "*.apk"
+  ],
+  "metadata": {
+    "template_type": "basic",
+    "target_audience": "general_testing",
+    "monitored_operations_focus": "JCA cryptography API monitoring"
+  },
+  "created_at": "2025-06-11T14:35:23.736601"
+}

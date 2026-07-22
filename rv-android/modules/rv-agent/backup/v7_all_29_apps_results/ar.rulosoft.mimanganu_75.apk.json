@@ -1,0 +1,151 @@
+{
+  "app_name": "ar.rulosoft.mimanganu_75.apk",
+  "execution_time_s": 21.674023151397705,
+  "total_iterations": 8,
+  "actions": {
+    "by_type": {
+      "CLICK": 8
+    },
+    "valid": 7,
+    "invalid": 1,
+    "valid_rate": 0.875
+  },
+  "element_coverage": {
+    "types_seen": [
+      "LinearLayout",
+      "View",
+      "ScrollView",
+      "GridView",
+      "Button",
+      "CheckBox",
+      "RecyclerView",
+      "unknown",
+      "LinearLayoutCompat",
+      "RelativeLayout",
+      "ViewPager",
+      "ImageButton",
+      "ViewGroup",
+      "ImageView",
+      "TextView",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 8,
+      "FrameLayout": 38,
+      "LinearLayout": 28,
+      "TextView": 29,
+      "View": 9,
+      "ScrollView": 7,
+      "Button": 10,
+      "ViewGroup": 20,
+      "LinearLayoutCompat": 8,
+      "ImageView": 27,
+      "ViewPager": 2,
+      "GridView": 4,
+      "ImageButton": 4,
+      "RelativeLayout": 13,
+      "RecyclerView": 1,
+      "CheckBox": 68
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 7,
+    "screen_visits": {
+      "c0ced0784ba1": 1,
+      "a4d35ca5c4e0": 1,
+      "817e5ac27a3b": 1,
+      "d8c21c6cb734": 1,
+      "38da6cd192a1": 2,
+      "aa518e286c8e": 1,
+      "2f70b6f198b5": 1
+    },
+    "activities": [
+      "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity",
+      "ar.rulosoft.mimanganu/.MainActivity"
+    ],
+    "revisit_rate": 0.125
+  },
+  "memory_graph": {
+    "graph_states": 7,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 7
+  },
+  "llm": {
+    "total_tokens": 36650,
+    "input_tokens": 36345,
+    "output_tokens": 305,
+    "avg_tokens_per_iteration": 4581.25,
+    "max_message_count": 1,
+    "total_time_ms": 20768.330097198486,
+    "avg_time_per_iteration_ms": 2596.041262149811
+  },
+  "device_actions": {
+    "total_actions": 8,
+    "valid_actions": 7,
+    "invalid_actions": 1,
+    "valid_rate": 0.875,
+    "action_types": {
+      "CLICK": 8
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Allow] @ ((70, 981), (1010, 1128))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[READ LATER] @ ((537, 998), (810, 1124))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[ar.rulosoft.mimanganu:id/floatingActionButton_add] @ ((891, 1605), (1038, 1752))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[TuMangaOnline] @ ((251, 342), (803, 437))",
+        "element": "android.widget.TextView[TuMangaOnline] @ ((251, 342), (803, 437))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Navigate up] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[Action] @ ((70, 199), (259, 283))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[Adventure] @ ((540, 199), (792, 283))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Navigate up] @ ((0, 63), (147, 210))"
+      }
+    ]
+  }
+}

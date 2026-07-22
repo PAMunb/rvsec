@@ -1,0 +1,92 @@
+[project]
+name = "rv-android"
+version = "0.1.0"
+description = "RV-Android Modular Platform Workspace"
+authors = [{name = "RV-Android Team"}]
+requires-python = ">=3.12"
+dependencies = [
+    # Workspace members (resolved via [tool.uv.sources])
+    "rv-android-core",
+    "rv-monitor-generator",
+    "rv-instrumentation",
+    "rv-instrumentation-core",
+    "rv-instrumentation-ajc",
+    "rv-instrumentation-dexlib2",
+    "rv-static-analysis",
+    "rv-screen-parser",
+    "rv-coverage",
+    "rv-tools",
+    "rv-uiautomator",
+    "rv-platform",
+    "rv-agent",
+    "rvagent-tool",
+    "aperv-tool",
+    "rv-experiment",
+    "aperv-llm-validation",
+    # Shared third-party
+    "requests>=2.32.0",
+    "pyyaml>=6.0",
+    "faker>=29.0.0",
+    "androguard==3.4.0a1",
+    "networkx>=3.5",
+    "python-dotenv>=1.1.1",
+    "seaborn>=0.13.2",
+    "matplotlib>=3.10.5",
+    "langchain-openai>=0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "hypothesis>=6.135.26",
+    "black>=24.0.0",
+    "flake8>=7.0.0",
+    "pylint>=3.2.0",
+    "mypy>=1.11.0",
+    "bandit>=1.7.0",
+    "vulture>=2.7.0",
+    "safety>=3.2.0",
+    "radon>=6.0.0",
+    "autoflake>=2.3.0",
+    "isort>=5.13.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["modules/*"]
+exclude = ["modules/rvsmart-tool"]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-monitor-generator = { workspace = true }
+rv-instrumentation = { workspace = true }
+rv-instrumentation-core = { workspace = true }
+rv-instrumentation-ajc = { workspace = true }
+rv-instrumentation-dexlib2 = { workspace = true }
+rv-static-analysis = { workspace = true }
+rv-screen-parser = { workspace = true }
+rv-coverage = { workspace = true }
+rv-tools = { workspace = true }
+rv-uiautomator = { workspace = true }
+rv-platform = { workspace = true }
+rv-agent = { workspace = true }
+rvagent-tool = { workspace = true }
+aperv-tool = { workspace = true }
+rv-experiment = { workspace = true }
+aperv-llm-validation = { workspace = true }
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = ["*/qtesting/*", "*/droidmate/*", "backup/*"]

@@ -1,0 +1,58 @@
+{
+  "test_info": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "mode": "pure_algorithm",
+    "strategy": "rvagent",
+    "duration_s": 180,
+    "execution_time_s": 181.46,
+    "timestamp": "2025-11-14T17:19:10.706072"
+  },
+  "execution": {
+    "iterations": 70,
+    "actions_executed": 0,
+    "algorithm_chosen": 64,
+    "llm_executed": 0,
+    "forced_back": 6
+  },
+  "rvagent_strategy": {
+    "depth": 63,
+    "states_visited": 23,
+    "stack_size": 23
+  },
+  "coverage": {
+    "states_discovered": 23,
+    "graph_overall_coverage": 0.0,
+    "total_actions_executed": 108,
+    "ui_elements_discovered": 0,
+    "ui_elements_tested": 0,
+    "ui_coverage_rate": 0.0,
+    "mop_methods_reached": 0,
+    "total_transitions": 60
+  },
+  "plateau": {
+    "window_size": 10,
+    "iterations_tracked": 10,
+    "states_in_window": 0,
+    "mop_in_window": 0,
+    "total_iterations": 60,
+    "total_states_discovered": 0,
+    "total_mop_methods_executed": 0,
+    "unique_mop_methods": 0,
+    "plateau_reached": true
+  },
+  "successor_tracking": {
+    "total_successors_tracked": 52,
+    "incomplete_successors": 52,
+    "complete_successors": 0
+  },
+  "input_generation": {
+    "total_elements_tested": 2,
+    "exhausted_elements": 0,
+    "active_elements": 2,
+    "total_values_tested": 3
+  },
+  "memory": {
+    "ui_coverage": {},
+    "dynamic_graph": {}
+  }
+}

@@ -1,0 +1,151 @@
+# Experiment: aperv:sata_mop vs 400 F-Droid APKs (JCA) — 8 containers, 300s exec timeout.
+# 8 containers × ~50 APKs each, 30-min SA timeout, 1 rep, JCA specs.
+# Estimated wall time: 16-24h (SA-dominated).
+#
+# Run 2 (after gh50 Sections 9-18 landed):
+# - zipalign after apksigner (§9.7)
+# - skip_stderr=True on d8/ajc/maven/frame_computer (§10, §14, §15)
+# - ASM COMPUTE_FRAMES pre-ajc (§12)
+# - strip pre-desugared j$/** (§13)
+# - quarantine okio/media3/tika/licensing/bouncycastle/web3j (§16)
+# - AVD API 30 x86_64 (§17)
+# - apksigner v1+v2+v3 (§18)
+#
+# Previous overnight results preserved at data/results/jca400_20260421_{00..05}
+# for direct comparison.
+#
+# Host resources: 64 cores, 125 GB RAM. Per-container: 8 cpus + 14 GB.
+#
+# Usage (from project root):
+#   docker compose -f docker/docker-compose.jca400-aperv.yml up -d
+#   bash scripts/monitor_jca400.sh                      # snapshot progress
+#   watch -n 60 bash scripts/monitor_jca400.sh          # live progress
+#   docker compose -f docker/docker-compose.jca400-aperv.yml down
+#
+# Resume after interruption: re-run `docker compose ... up -d` — containers
+# detect results/jca400_XX/tasks.json and auto-skip completed tasks.
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SA_TIMEOUT: "1800"
+    RV_JVM_MEMORY: "12G"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "8"
+        memory: "14g"
+
+services:
+  jca400_00:
+    <<: *rvandroid-base
+    container_name: jca400_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_00:/opt/rvsec/rv-android/results
+
+  jca400_01:
+    <<: *rvandroid-base
+    container_name: jca400_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_01.txt"
+      RV_DELAY: "15"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_01:/opt/rvsec/rv-android/results
+
+  jca400_02:
+    <<: *rvandroid-base
+    container_name: jca400_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_02.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_02:/opt/rvsec/rv-android/results
+
+  jca400_03:
+    <<: *rvandroid-base
+    container_name: jca400_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_03.txt"
+      RV_DELAY: "45"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_03:/opt/rvsec/rv-android/results
+
+  jca400_04:
+    <<: *rvandroid-base
+    container_name: jca400_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_04.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_04:/opt/rvsec/rv-android/results
+
+  jca400_05:
+    <<: *rvandroid-base
+    container_name: jca400_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_05.txt"
+      RV_DELAY: "75"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_05:/opt/rvsec/rv-android/results
+
+  jca400_06:
+    <<: *rvandroid-base
+    container_name: jca400_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_06.txt"
+      RV_DELAY: "90"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_06:/opt/rvsec/rv-android/results
+
+  jca400_07:
+    <<: *rvandroid-base
+    container_name: jca400_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca400_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/jca400_batch_07.txt"
+      RV_DELAY: "105"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKs:/opt/rvsec/rv-android/apks:ro
+      - ../data/jca400_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca400_07:/opt/rvsec/rv-android/results

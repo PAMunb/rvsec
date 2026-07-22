@@ -1,0 +1,5 @@
+06-08 20:25:58.955  4520  4520 I RVSEC-COV: <com.a4a.g8invoicing.G8Invoicing: void <init>()>
+06-08 20:25:58.968  4520  4520 I RVSEC-COV: <com.a4a.g8invoicing.G8Invoicing: void onCreate()>
+06-08 20:25:58.997  4520  4520 V RVSEC   : SecureRandomSpec,U3.a,a,v,r8-map-id-1fd53efde81335c1bb832c57b0a1e9ca13140ac88b1a1a00fa83f292cb911f68:6,InvalidSequenceOfMethodCalls,unknown
+06-08 20:25:59.032  4520  4520 I RVSEC-COV: <com.a4a.g8invoicing.MainActivity: void <init>()>
+06-08 20:25:59.107  4520  4520 I RVSEC-COV: <com.a4a.g8invoicing.MainActivity: void onCreate(android.os.Bundle)>

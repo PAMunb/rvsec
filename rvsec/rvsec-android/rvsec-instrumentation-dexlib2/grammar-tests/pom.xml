@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.unb.cic</groupId>
+        <artifactId>rvsec-instrumentation-dexlib2</artifactId>
+        <version>0.9.2</version>
+    </parent>
+
+    <artifactId>grammar-tests</artifactId>
+    <name>RVSec :: Android :: Instrumentation (dexlib2) :: grammar-tests</name>
+    <description>Test-only executable oracle for docs/aspectj_grammar_coverage.md. One test method per matrix
+        row; MatrixIntegrityTest enforces matrix↔code↔deferred consistency. No main/ source, no shaded jar,
+        excluded from the instr-cli shade plugin (gh62).</description>
+
+    <!-- gh62 note: commonmark, junit-platform-launcher and junit-pioneer are pinned inline here
+         (not in the parent dependencyManagement) because they are consumed by this single test-only
+         module — centralising one-module versions in the reactor-wide parent would add coupling for
+         no reuse (P1). junit-jupiter inherits its managed version from the parent (5.11.3). -->
+    <properties>
+        <commonmark.version>0.24.0</commonmark.version>
+        <junit-platform-launcher.version>1.11.3</junit-platform-launcher.version>
+        <junit-pioneer.version>2.3.0</junit-pioneer.version>
+        <!-- Default RVSEC_HOME for the surefire forks (grammar-tests → dexlib2 → rvsec-android →
+             rvsec → $RVSEC_HOME); the ambient RVSEC_HOME env var wins when present (CI; §6.10). -->
+        <rvsec.home>${project.basedir}/../../../..</rvsec.home>
+    </properties>
+
+    <dependencies>
+        <!-- Production modules under test (the matrix's Parser/Matcher/Emitter anchors). -->
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>pointcut-engine</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>advice-emitter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>dex-mutator</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- descriptor-reader: AspectDescriptor.baseAspectExclusions schema test (INV-INS-97). -->
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>descriptor-reader</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- coverage-weaver: cited by path-β assertion tests as the named upstream absorber (round-8). -->
+        <dependency>
+            <groupId>br.unb.cic</groupId>
+            <artifactId>coverage-weaver</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Test framework. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Required by testSkipCountEqualsZero (JUnit Platform launcher discovery). -->
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>${junit-platform-launcher.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Markdown table parsing for MatrixMarkdownParser. -->
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark</artifactId>
+            <version>${commonmark.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark-ext-gfm-tables</artifactId>
+            <version>${commonmark.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- @SetSystemProperty / @ClearEnvironmentVariable for DemandCounter path-resolution tests. -->
+        <dependency>
+            <groupId>org.junit-pioneer</groupId>
+            <artifactId>junit-pioneer</artifactId>
+            <version>${junit-pioneer.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- gh62: make the integrity tests self-sufficient and deterministic across every
+                 surefire fork. RVSEC_HOME resolves to this module's grandparent-of-reactor directory
+                 (grammar-tests → dexlib2 → rvsec-android → rvsec → $RVSEC_HOME). It is overridable
+                 by the ambient RVSEC_HOME env (CI sets it; §6.10) — the property default only fills
+                 the gap so DemandCounter / MatrixMarkdownParser / deferred.md resolution never depend
+                 on the fork inheriting the launching shell's environment. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <RVSEC_HOME>${rvsec.home}</RVSEC_HOME>
+                    </environmentVariables>
+                    <!-- The matcher engine carries process-wide static state by design
+                         (TypeResolver PRIMITIVES/BUILTIN tables; AndroidClassIndex / InheritanceResolver
+                         per-instance caches that the *GrammarTest fixtures build from synthetic class
+                         graphs). Each *GrammarTest is self-consistent and passes in isolation, but in a
+                         single shared surefire fork a class graph installed by one sibling
+                         (e.g. StaticInitializationGrammarTest's synthetic Collection subtype chain) can
+                         leave a stale subtype verdict that another class's fixture (e.g.
+                         CallReturnWildcardGrammarTest, which constructs its own TypeResolver +
+                         InheritanceResolver per call) inherits via the shared JVM — making the suite
+                         order-dependent. Run one class per fork so every grammar test starts from clean
+                         process state; this is the canonical Maven remedy for process-static-state
+                         suites and makes the suite order-independent without weakening any assertion. -->
+                    <reuseForks>false</reuseForks>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

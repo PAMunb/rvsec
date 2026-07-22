@@ -1,0 +1,13 @@
+06-09 17:44:04.604  3599  3599 I RVSEC-COV: <com.shub39.rush.app.RushApplication: void <init>()>
+06-09 17:44:04.615  3599  3599 I RVSEC-COV: <com.shub39.rush.app.RushApplication: void onCreate()>
+06-09 17:44:04.624  3599  3599 V RVSEC   : SecureRandomSpec,sq,sq,C,r8-map-id-da04f4a992ac52d709446ff0033d89b93752474791129f1b1537c106df7644b2:6,InvalidSequenceOfMethodCalls,unknown
+06-09 17:44:04.648  3599  3599 I RVSEC-COV: <com.shub39.rush.app.MainActivity: void <init>()>
+06-09 17:44:04.658  3599  3599 I RVSEC-COV: <com.shub39.rush.app.MainActivity: void onCreate(android.os.Bundle)>
+06-09 17:44:05.082  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase_Impl: void <init>()>
+06-09 17:44:05.082  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase: void <init>()>
+06-09 17:44:05.082  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase_Impl: hk0 c()>
+06-09 17:44:05.083  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase_Impl: af1 b()>
+06-09 17:44:05.083  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase_Impl: java.util.Set e()>
+06-09 17:44:05.083  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase_Impl: java.util.List a(java.util.LinkedHashMap)>
+06-09 17:44:05.083  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase_Impl: java.util.LinkedHashMap f()>
+06-09 17:44:05.084  3599  3599 I RVSEC-COV: <com.shub39.rush.data.database.SongDatabase_Impl: ze3 k()>

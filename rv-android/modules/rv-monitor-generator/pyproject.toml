@@ -1,0 +1,47 @@
+[project]
+name = "rv-monitor-generator"
+version = "0.1.0"
+description = "JavaMOP and RV-Monitor integration"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "pydantic>=2.9.0",
+]
+
+[project.scripts]
+rv-monitor-generator = "rv_monitor_generator.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_monitor_generator"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+markers = [
+    "slow: integration tests that require valid RVSEC installation; deselected by CI default",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+# show_missing = true
+# fail_under = 80
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

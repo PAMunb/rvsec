@@ -1,0 +1,143 @@
+{
+  "app_name": "com.gianlu.dnshero_40.apk",
+  "execution_time_s": 45.675599575042725,
+  "total_iterations": 25,
+  "actions": {
+    "by_type": {
+      "CLICK": 25
+    },
+    "valid": 24,
+    "invalid": 1,
+    "valid_rate": 0.96
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ViewPager",
+      "ScrollView",
+      "Button",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "LinearLayout",
+      "FrameLayout",
+      "CheckBox",
+      "RecyclerView",
+      "CardView",
+      "EditText",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 25,
+      "FrameLayout": 121,
+      "LinearLayout": 124,
+      "ViewGroup": 41,
+      "Button": 6,
+      "View": 50,
+      "ImageView": 14,
+      "TextView": 81,
+      "EditText": 2,
+      "ImageButton": 21,
+      "RecyclerView": 5,
+      "CardView": 3,
+      "ScrollView": 22,
+      "CheckBox": 6,
+      "ViewPager": 4
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 7,
+    "screen_visits": {
+      "c0549343706b": 1,
+      "87c07e069402": 2,
+      "0fe33e7ddec8": 1,
+      "daaeb0ab39bc": 1,
+      "d01eed84b102": 1,
+      "792c84a97d0e": 4,
+      "0c401f191242": 15
+    },
+    "activities": [
+      "com.gianlu.dnshero/.PreferenceActivity",
+      "com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity",
+      "com.gianlu.dnshero/.LoadingActivity"
+    ],
+    "revisit_rate": 0.72
+  },
+  "memory_graph": {
+    "graph_states": 6,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 153394,
+    "input_tokens": 152064,
+    "output_tokens": 1330,
+    "avg_tokens_per_iteration": 6135.76,
+    "max_message_count": 1,
+    "total_time_ms": 42854.450941085815,
+    "avg_time_per_iteration_ms": 1714.1780376434326
+  },
+  "device_actions": {
+    "total_actions": 7,
+    "valid_actions": 6,
+    "invalid_actions": 1,
+    "valid_rate": 0.8571428571428571,
+    "action_types": {
+      "CLICK": 7
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Got it] @ ((744, 464), (975, 590))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[PREFERENCES] @ ((729, 63), (1059, 189))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((95, 793), (985, 954))",
+        "element": "android.widget.FrameLayout[] @ ((95, 793), (985, 954))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Navigate up] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Navigate up] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[Navigate up] @ ((0, 63), (147, 210))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Accept & continue] @ ((357, 1657), (723, 1752))"
+      }
+    ]
+  }
+}

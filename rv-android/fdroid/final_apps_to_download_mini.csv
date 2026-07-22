@@ -1,0 +1,51 @@
+package,name,categories,mop,min_sdk,target_sdk,file,sourceCode,lastUpdated
+ar.rulosoft.mimanganu,Mi Manga Nu,['Reading'],Yes,14,26,ar.rulosoft.mimanganu_75.apk,https://github.com/raulhaag/MiMangaNu,2018-02-15
+at.bitfire.davdroid,DAVx⁵,['Internet'],Yes,21,33,at.bitfire.davdroid_403060100.apk,https://github.com/bitfireAT/davx5-ose/,2023-09-12
+ch.protonvpn.android,ProtonVPN - Secure and Free VPN,"['Connectivity', 'Internet']",Yes,23,31,ch.protonvpn.android_604074100.apk,https://github.com/ProtonVPN/android-app,2023-09-12
+com.btcontract.wallet,Simple Bitcoin Wallet,['Money'],Yes,21,33,com.btcontract.wallet_97.apk,https://github.com/akumaigorodski/wallet,2023-09-12
+com.commonslab.commonslab,CommonsLab,"['Internet', 'Multimedia']",Yes,17,25,com.commonslab.commonslab_3.apk,https://github.com/CommonsLab/CommonsLab,2017-08-29
+com.eletac.tronwallet,Tron Wallet,['Money'],Yes,21,27,com.eletac.tronwallet_11.apk,https://github.com/Dryec/tron-wallet-android,2018-09-05
+com.example.openpass,OpenPass,['Security'],Yes,16,16,com.example.openpass_1.apk,https://github.com/ars3niy/openpass,2017-08-06
+com.iboalali.sysnotifsnooze,"Hide ""running in the background"" Notification",['System'],Yes,26,28,com.iboalali.sysnotifsnooze_102.apk,https://github.com/gloomy-ghost/sysnotifsnooze,2018-10-19
+com.ichi2.anki,AnkiDroid,['Science & Education'],Yes,21,33,com.ichi2.anki_21605300.apk,https://github.com/ankidroid/Anki-Android,2023-09-12
+com.infomaniak.drive,Infomaniak kDrive,['Internet'],Yes,21,34,com.infomaniak.drive_40202501.apk,https://github.com/Infomaniak/android-kDrive,2023-09-12
+com.infomaniak.mail,Infomaniak Mail,['Internet'],Yes,25,34,com.infomaniak.mail_10001201.apk,https://github.com/Infomaniak/android-kMail,2023-09-12
+com.maxfierke.sandwichroulette,SandwichRoulette,['Games'],Yes,7,10,com.maxfierke.sandwichroulette_2.apk,https://github.com/maxfierke/sandwichroulette,2012-08-28
+com.nextcloud.android.beta,Nextcloud Dev,['Internet'],Yes,24,33,com.nextcloud.android.beta_20230906.apk,https://github.com/nextcloud/android,2023-09-12
+com.nhellfire.kerneladiutor,Kernel Adiutor,['System'],Yes,15,27,com.nhellfire.kerneladiutor_248.apk,https://github.com/NHellFire/KernelAdiutor,2018-02-15
+com.outdoordevs.ellaism.wallet,Ellaism Wallet,['Money'],Yes,16,26,com.outdoordevs.ellaism.wallet_35.apk,https://github.com/ellaism/Lunary-Ethereum-Wallet,2018-08-11
+com.owncloud.android,ownCloud,['Internet'],Yes,23,33,com.owncloud.android_41000000.apk,https://github.com/owncloud/android,2023-09-12
+com.quaap.primary,Primary,"['Games', 'Science & Education']",Yes,19,28,com.quaap.primary_33.apk,https://github.com/quaap/Primary,2018-08-21
+com.ruesga.android.wallpapers.photophase,PhotoPhase,['Theming'],Yes,15,27,com.ruesga.android.wallpapers.photophase_1036.apk,https://github.com/jruesga/PhotoPhase,2018-02-19
+com.valleytg.oasvn.android,OASVN Pro,['Development'],Yes,8,14,com.valleytg.oasvn.android_11.apk,http://www.valleytg.com:8090/secure/Dashboard.jspa,2012-09-30
+com.vitorpamplona.amethyst,Amethyst,['Internet'],Yes,26,34,com.vitorpamplona.amethyst_293.apk,https://github.com/vitorpamplona/amethyst,2023-09-12
+de.fmaul.android.cmis,CMIS Browser,['System'],Yes,4,4,de.fmaul.android.cmis_8.apk,https://archive.softwareheritage.org/browse/origin/https://android-cmis-browser.googlecode.com/hg//directory/,2012-03-09
+de.igloffstein.maik.aRevelation,aRevelation,['Security'],Yes,22,28,de.igloffstein.maik.aRevelation_19.apk,https://github.com/OldSparkyMI/aRevelation,2018-11-16
+de.nulide.findmydevice,Find My Device (FMD),"['Phone & SMS', 'Security', 'System']",Yes,19,33,de.nulide.findmydevice_23.apk,https://gitlab.com/Nulide/findmydevice,2023-09-12
+de.schildbach.oeffi,Offi,['Navigation'],Yes,21,33,de.schildbach.oeffi_120112.apk,https://gitlab.com/oeffi/oeffi,2023-09-12
+de.schildbach.wallet,Bitcoin Wallet,['Money'],Yes,26,33,de.schildbach.wallet_100600_58dcd8a.apk,https://github.com/bitcoin-wallet/bitcoin-wallet,2023-09-12
+de.schildbach.wallet_test,Bitcoin Wallet [testnet3],['Money'],Yes,26,33,de.schildbach.wallet_test_100600_58dcd8a.apk,https://github.com/bitcoin-wallet/bitcoin-wallet,2023-09-12
+de.tutao.tutanota,Tutanota,['Internet'],Yes,23,33,de.tutao.tutanota_396249.apk,https://github.com/tutao/tutanota,2023-09-12
+es.cesar.quitesleep,QuiteSleep,['Phone & SMS'],Yes,5,14,es.cesar.quitesleep_13.apk,https://github.com/cesarvaliente/quitesleep,2012-08-28
+eu.faircode.email,FairEmail,['Internet'],Yes,21,34,eu.faircode.email_2097.apk,https://github.com/M66B/FairEmail,2023-09-12
+fr.kwiatkowski.ApkTrack,ApkTrack,['System'],Yes,15,25,fr.kwiatkowski.ApkTrack_24.apk,https://github.com/JusticeRage/ApkTrack,2018-01-14
+jp.gr.java_conf.hatalab.mnv,miniNoteViewer,['Writing'],Yes,4,4,jp.gr.java_conf.hatalab.mnv_40.apk,https://bitbucket.org/dalb8/mininoteviewer,2012-11-29
+max.music_cyclon,music-cyclon,['Multimedia'],Yes,14,23,max.music_cyclon_4.apk,https://github.com/maxammann/music-cyclon,2018-11-01
+ml.docilealligator.infinityforreddit,Infinity for Reddit,"['Internet', 'Multimedia', 'Reading']",Yes,21,33,ml.docilealligator.infinityforreddit_131.apk,https://github.com/Docile-Alligator/Infinity-For-Reddit,2023-09-12
+net.ivpn.client,IVPN - Secure VPN for Privacy,['Security'],Yes,21,33,net.ivpn.client_126.apk,https://github.com/ivpn/android-app,2023-09-12
+net.jjc1138.android.scrobbler,Scrobble Droid,['Multimedia'],Yes,4,4,net.jjc1138.android.scrobbler_7.apk,https://github.com/JJC1138/scrobbledroid,2012-09-21
+net.opendasharchive.openarchive.release,OpenArchive,['Multimedia'],Yes,10,16,net.opendasharchive.openarchive.release_16.apk,https://github.com/OpenArchive/Save-app-android,2017-12-03
+net.oschina.app,OSChina,['Reading'],Yes,4,4,net.oschina.app_18.apk,https://github.com/oschina/android-app,2013-02-01
+net.osmand.plus,OsmAnd~,['Navigation'],Yes,23,31,net.osmand.plus_451003.apk,https://github.com/osmandapp/Osmand,2023-09-12
+org.daylightingsociety.wherearetheeyes,WhereAreTheEyes,"['Navigation', 'Security']",Yes,15,23,org.daylightingsociety.wherearetheeyes_6.apk,https://github.com/DaylightingSociety/WhereAreTheEyes,2017-09-26
+org.forkgram.messenger,Forkgram,['Internet'],Yes,19,30,org.forkgram.messenger_372608.apk,https://github.com/Forkgram/TelegramAndroid,2023-09-12
+org.geometerplus.zlibrary.ui.android,FBReader,['Reading'],Yes,11,17,org.geometerplus.zlibrary.ui.android_2050920.apk,https://github.com/geometer/FBReaderJ,2017-09-10
+org.gmote.client.android,Gmote,['Multimedia'],Yes,,1,org.gmote.client.android_5.apk,https://code.google.com/p/gmote/source,2012-09-24
+org.koitharu.kotatsu,Kotatsu,"['Multimedia', 'Reading']",Yes,21,34,org.koitharu.kotatsu_576.apk,https://github.com/KotatsuApp/Kotatsu,2023-09-12
+org.notabug.lifeuser.moviedb,Movie DB,['Multimedia'],Yes,15,25,org.notabug.lifeuser.moviedb_211.apk,https://notabug.org/nvb/MovieDB,2018-09-20
+org.opengpx,OpenGPX,['Navigation'],Yes,4,4,org.opengpx_192.apk,https://code.google.com/p/opengpx/source,2013-01-29
+org.openhab.habdroid.beta,openHAB Beta,['Internet'],Yes,21,33,org.openhab.habdroid.beta_497.apk,https://github.com/openhab/openhab-android,2023-09-12
+org.sickstache,SickStache,['Multimedia'],Yes,8,15,org.sickstache_43.apk,https://github.com/Buttink/sick-stache,2012-10-26
+org.yaxim.androidclient,yaxim,['Internet'],Yes,7,17,org.yaxim.androidclient_53.apk,https://github.com/yaxim-org/yaxim,2018-11-16
+pt.ipleiria.mymusicqoe,MyMusicQoE,['Multimedia'],Yes,14,22,pt.ipleiria.mymusicqoe_12.apk,https://github.com/albertolalanda/new-ultrasonic-fork-for-MyMusicQoE,2018-09-10
+se.lublin.mumla,Mumla,['Internet'],Yes,14,33,se.lublin.mumla_100.apk,https://gitlab.com/quite/mumla,2023-09-12

@@ -1,0 +1,49 @@
+schema: rv-sdd
+
+context: |
+  Project: RV-Android
+  Type: Modular framework for Android app testing with runtime verification
+  Language: Python 3.11+
+  Stack: uv workspace, Pydantic v2, LangGraph, SGLang/Qwen3-VL, JavaMOP/RV-Monitor
+  Architecture: 16 uv workspace modules in editable mode (shared venv)
+  Academic context: PhD thesis on detecting cryptographic API misuses via RV
+
+  CRITICAL RULE — Existing system (brownfield):
+  Specs document the CURRENT behavior of the system.
+  Future changes use the OpenSpec workflow (proposal -> specs -> design -> tasks).
+  Do not create aspirational specs — only what is implemented.
+
+  DEVELOPMENT PRINCIPLES (see docs/WORKFLOW.md Section 4 and CLAUDE.md "Development Principles"):
+  P1 Simplicity — minimal complexity, no premature abstractions
+  P2 Human-readable — deep narrative docs, self-contained for implementers
+  P3 No backward compatibility — delete dead code, no adapters/shims, backup to backup/
+  P4 Current-state comments — no migration history, no promotional language
+
+  Spec Domains:
+  - core: rv-android-core (domain models, events, errors, logging, utilities)
+  - platform: rv-platform (task execution engine, components, storage, results)
+  - experiment: rv-experiment (orchestration, CLI, 3-phase workflow)
+  - agent: rv-agent (LLM exploration, LangGraph, strategies, memory)
+  - instrumentation: rv-monitor-generator + rv-instrumentation-core + rv-instrumentation + rv-instrumentation-ajc + rv-instrumentation-dexlib2 (RV pipeline)
+  - analysis: rv-static-analysis + rv-coverage + rv-screen-parser
+  - tools: rv-tools + rv-uiautomator (tool infrastructure, device interaction)
+
+  Schemas:
+  - rv-sdd: Full/FF SDD workflow (proposal -> specs -> design -> tasks). Default.
+  - quick-path: Mechanical changes (plan -> tasks). Use with --schema quick-path.
+
+  Templates: docs/templates/spec-template.md, docs/templates/design-template.md, .claude/skills/rv-doc-adr/templates/adr.md
+  PRD: docs/PRD.md
+  Workflow: docs/WORKFLOW.md
+
+rules:
+  tasks:
+    - Include a final Verification group with /rv-qa-lint-fix, /rv-verify, and acceptance criteria
+    - Annotate skill invocations (/rv-doc-code, /rv-test-run, /rv-qa-lint-fix, /rv-verify) as checkbox items where they add value
+    - For changes touching 20+ files, include subagent dispatch hints as HTML comments at the top
+    - In rv-sdd changes, use component skills directly (not orchestrators) — OpenSpec artifacts cover analysis and planning
+    - In quick-path changes, orchestrators are appropriate when their structured workflow adds value over plan.md
+  adr:
+    - Follow template structure from .claude/skills/rv-doc-adr/templates/adr.md
+    - English language throughout
+    - Include alternatives considered with specific trade-offs

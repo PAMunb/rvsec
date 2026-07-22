@@ -1,0 +1,56 @@
+[project]
+name = "rv-platform"
+version = "0.1.0"
+description = "Independent and central executor for Android experiments"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "rv-tools",
+    "rv-coverage",
+    "rv-static-analysis",
+    "rvagent-tool",
+    "pydantic>=2.9.0",
+    "pandas>=2.3.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "hypothesis>=6.135.26",
+]
+
+[project.scripts]
+rv-platform = "rv_platform.__main__:main"
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-tools = { workspace = true }
+rv-coverage = { workspace = true }
+rv-static-analysis = { workspace = true }
+rvagent-tool = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_platform"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+# show_missing = true
+# fail_under = 80
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

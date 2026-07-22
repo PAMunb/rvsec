@@ -1,0 +1,105 @@
+{
+  "model_name": "qwen2.5vl:7b",
+  "test_phase": "FASE_B1_SIMPLE",
+  "approach": "direct_structured_json_output",
+  "vision_optimizations_applied": true,
+  "status": "MODERATE",
+  "metrics": {
+    "multimodal_support": true,
+    "tool_calling_detected": true,
+    "response_time": 4.040320158004761,
+    "iterations_completed": 3,
+    "tool_executions": 3,
+    "success_rate": 100.0,
+    "multimodal_history": [
+      true,
+      true,
+      true
+    ]
+  },
+  "parsing_success_rate": 100.0,
+  "coordinate_accuracy": 0.0,
+  "coordinate_validations": [
+    {
+      "iteration": 1,
+      "coords": [
+        150,
+        294
+      ],
+      "valid": false,
+      "distance": 73.59347797189639,
+      "element_description": "MD2 button in the CryptoApp dropdown menu",
+      "confidence": "high"
+    },
+    {
+      "iteration": 2,
+      "coords": [
+        150,
+        294
+      ],
+      "valid": false,
+      "distance": 73.59347797189639,
+      "element_description": "MD2 button in the CryptoApp",
+      "confidence": "high"
+    },
+    {
+      "iteration": 3,
+      "coords": [
+        150,
+        294
+      ],
+      "valid": false,
+      "distance": 73.59347797189639,
+      "element_description": "MD2 button in the CryptoApp dropdown menu",
+      "confidence": "high"
+    }
+  ],
+  "iteration_results": [
+    {
+      "iteration": 1,
+      "parsed_successfully": true,
+      "action": {
+        "action": "android_click",
+        "coordinates": [
+          150,
+          294
+        ],
+        "element_description": "MD2 button in the CryptoApp dropdown menu",
+        "reasoning": "Selecting MD2 from the dropdown menu is a critical action to test the app's functionality for different cryptographic algorithms.",
+        "confidence": "high"
+      },
+      "raw_response": "{\n    \"action\": \"android_click\",\n    \"coordinates\": [150, 294],\n    \"element_description\": \"MD2 button in the CryptoApp dropdown menu\",\n    \"reasoning\": \"Selecting MD2 from the dropdown menu is a crit"
+    },
+    {
+      "iteration": 2,
+      "parsed_successfully": true,
+      "action": {
+        "action": "android_click",
+        "coordinates": [
+          150,
+          294
+        ],
+        "element_description": "MD2 button in the CryptoApp",
+        "reasoning": "Clicking the MD2 button is essential for testing the app's functionality related to Message Digest 2, which is a cryptographic hash function.",
+        "confidence": "high"
+      },
+      "raw_response": "{\n    \"action\": \"android_click\",\n    \"coordinates\": [150, 294],\n    \"element_description\": \"MD2 button in the CryptoApp\",\n    \"reasoning\": \"Clicking the MD2 button is essential for testing the app's f"
+    },
+    {
+      "iteration": 3,
+      "parsed_successfully": true,
+      "action": {
+        "action": "android_click",
+        "coordinates": [
+          150,
+          294
+        ],
+        "element_description": "MD2 button in the CryptoApp dropdown menu",
+        "reasoning": "Selecting MD2 from the dropdown menu is a critical action to test the app's functionality for different cryptographic algorithms.",
+        "confidence": "high"
+      },
+      "raw_response": "{\n    \"action\": \"android_click\",\n    \"coordinates\": [150, 294],\n    \"element_description\": \"MD2 button in the CryptoApp dropdown menu\",\n    \"reasoning\": \"Selecting MD2 from the dropdown menu is a crit"
+    }
+  ],
+  "timestamp": "2025-09-16T10:29:27.128356"
+}

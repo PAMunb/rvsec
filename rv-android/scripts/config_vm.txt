@@ -1,36 +1,61 @@
-sudo apt install git unzip zip python3-pip python-is-python3 wget
+sudo apt install git unzip zip python3-pip python3-venv python-is-python3 wget curl cpu-checker lshw
 
-git clone https://github.com/PAMunb/rvsec.git
-cd rvsec/
-git checkout develop
+egrep -c '(vmx|svm)' /proc/cpuinfo
+sudo kvm-ok
 
 curl -s "https://get.sdkman.io" | bash
 source "$HOME/.sdkman/bin/sdkman-init.sh"
-sdk install java 8.0.302-open 
-sdk install maven 3.8.6
+sdk install java 8.0.302-open
+sdk install java 11.0.21-tem (default)
+sdk install maven 3.9.5
 
-cd /home/pedro/.sdkman/candidates/java/8.0.302-open/jre/bin/
-ln -s ../../bin/javac
+# TODO configure docker:
+# https://docs.docker.com/engine/install/debian/
 
-cd ~/rvsec
+cd
+mkdir aspectj
+wget 'https://www.eclipse.org/downloads/download.php?file=/tools/aspectj/aspectj-1.9.6.jar&r=1' -O aspectj-1.9.6.jar
+java -jar aspectj-1.9.6.jar -to aspectj
 
 
+cd
+git clone --branch taint https://github.com/PAMunb/rvsec.git
+cd rvsec/
+#git checkout develop
 mvn clean install -DskipTests -DskipMopAgent
+
 
 mkdir /home/pedro/tmp
 mkdir /home/pedro/android
 mkdir /home/pedro/rvsec/rv-android/out
 mkdir /home/pedro/rvsec/rv-android/apks
 
+
 # manual steps
 # /etc/profile
 # export ASPECTJ_HOME=/home/pedro/aspectj
 # export ANDROID_HOME=/home/pedro/android
 # export ANDROID_SDK_ROOT=/home/pedro/android
-# export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools/33.0.0:/home/pedro/.local/bin:$ASPECTJ_HOME/bin:$PATH
-# TODO: change memory in ajc script ....
+# export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/build-tools/34.0.0:/home/pedro/.local/bin:$ASPECTJ_HOME/bin:$PATH
+# WARNING: change memory in ajc script .... -Xmx4096M
+
 
 cd /home/pedro/rvsec/rv-android/scripts
-
 ./config_android.sh
-./config_droidbot.sh
+
+# TODO Edit setup.py: 'androguard>=3.4.0a1' to 'androguard==3.4.0a1'
+#./config_droidbot.sh
+
+
+cd /home/pedro/rvsec/rv-android
+#pip install virtualenv
+#python -m venv venv
+#source venv/bin/activate
+#pip list
+pip3 install -r requirements.txt
+
+# run humanoid
+
+#./run_experiment.sh
+
+https://developer.android.com/studio/run/emulator-acceleration#vm-linux

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".cipher.CipherActivity">
+
+    <TextView
+        android:id="@+id/cipherTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"
+        android:text="@string/cteCipher" />
+
+    <EditText
+        android:id="@+id/editTextCipherEncrypt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"
+        android:ems="10"
+        android:hint="Input text ..."
+        android:tooltipText="Enter the text ..."
+        android:inputType="textPersonName" />
+
+    <TextView
+        android:id="@+id/textViewCypherEncryptResult"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"  />
+
+    <Button
+        android:id="@+id/btn_cipher_encrypt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0"
+        android:tooltipText="Tooltip text ..."
+        android:text="@string/btnCipher" />
+
+</LinearLayout>

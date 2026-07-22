@@ -1,0 +1,534 @@
+"""
+Real-time coverage tracking for Android runtime verification.
+
+Monitor logcat output in real-time during test execution, extracting coverage
+information and formal property violations as they occur. Provide incremental
+metric calculation with change detection optimization.
+
+### Role in the System:
+CoverageTracker is the primary real-time monitoring component used by rv-platform's
+TaskExecutor during tool execution. It runs a background thread that tails the logcat
+file, parsing each new line for RVSEC/RVSEC-COV tags and updating a LogcatRepository.
+
+### Architectural Decisions:
+- Background thread with adaptive sleep (0.5s with data, 1.0s idle) balances latency
+  and CPU usage for continuous logcat monitoring
+- Change detection flag avoids redundant metric calculations when no new data arrives
+- Direct LogcatRepository integration (no wrapper) for minimal latency in the hot path
+- RLock allows the tracking thread and metric readers to coexist safely
+
+### Integration Points:
+- LogcatRepository (rv-android-core): stores coverage and error data
+- parse_logcat_line (rv-coverage): parses individual logcat entries
+- StaticAnalysisData (rv-android-core): initializes reachable method universe
+- LoggingManager (rv-android-core): structured logging with component context
+"""
+
+import os
+import threading
+import time
+from contextlib import contextmanager
+from datetime import datetime
+from typing import Dict, List, Optional
+
+from rv_android_core.domain.coverage import LogcatRepository
+from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.util.android.repository_initializer import (
+    initialize_repository_from_static_data,
+)
+from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
+from rv_android_core.util.logging.manager import LoggingManager
+from rv_coverage.parser.log.diagnostic_parser import DiagnosticEventParser
+from rv_coverage.parser.log.logcat_parser import parse_logcat_line
+
+
+class CoverageTracker:
+    """
+    Real-time coverage tracking system for Android application testing.
+
+    The CoverageTracker monitors logcat output in real-time, extracting coverage
+    information and formal property violations as they occur during test execution.
+    It serves as the primary real-time monitoring component in the RV-Android system.
+
+    ### Architectural Decisions:
+    - **Real-Time Processing**: Continuously monitors logcat files for new entries,
+      providing immediate coverage feedback during test execution
+    - **Direct Repository Integration**: Uses LogcatRepository directly without wrapper
+      layers for optimal performance and minimal latency
+    - **Thread-Safe Operation**: Implements proper threading patterns for concurrent
+      logcat processing without blocking test execution
+    - **Performance Optimization**: Uses change detection to minimize unnecessary
+      metric calculations and reduce CPU overhead
+    - **Context Manager Support**: Provides convenient context manager interface
+      for automated lifecycle management
+
+    ### Role in the System:
+    - **Real-Time Monitor**: Primary component for live coverage monitoring during tests
+    - **Data Collector**: Extracts and processes coverage information from logcat streams
+    - **Metric Provider**: Calculates and maintains up-to-date coverage metrics
+    - **Error Detector**: Identifies and reports formal property violations as they occur
+    - **State Manager**: Maintains consistent coverage state throughout test lifecycle
+
+    ### Integration Points:
+    - **LogcatRepository**: Direct repository access for immediate data storage
+    - **LoggingManager**: Standardized logging with contextual information
+    - **ErrorHandler**: Robust error handling for logcat parsing failures
+    - **StaticAnalysisData**: Initialization from static analysis results
+
+    ### Performance Considerations:
+    - **Change Detection**: Only calculates metrics when data has actually changed
+    - **Efficient Threading**: Uses optimized sleep patterns based on data availability
+    - **Memory Management**: Processes logcat entries incrementally without accumulation
+    - **CPU Optimization**: Minimizes redundant calculations through caching strategies
+    - **I/O Efficiency**: Uses file positioning to avoid re-reading processed data
+
+    ### Usage Patterns:
+    ```python
+    # Context manager usage (recommended)
+    with CoverageTracker(logcat_file, static_data) as tracker:
+        # Run tests, tracker monitors automatically
+        pass
+
+    # Manual lifecycle management
+    tracker = CoverageTracker(logcat_file, static_data)
+    tracker.start()
+    try:
+        # Run tests
+        pass
+    finally:
+        tracker.stop()
+
+    # Get real-time metrics
+    metrics = tracker.get_coverage_metrics()
+    ```
+
+    ### Thread Safety:
+    All public methods are thread-safe and can be called from multiple threads
+    concurrently. Internal state is protected by appropriate locking mechanisms.
+    """
+
+    def __init__(
+        self,
+        logcat_file: str,
+        static_data: Optional[StaticAnalysisData] = None,
+        task_start_time: Optional[datetime] = None,
+        task_id: Optional[str] = None,
+    ):
+        """
+        Initialize the coverage tracker with optional task correlation.
+
+        Args:
+            logcat_file: Path to the logcat file to monitor.
+            static_data: Optional static analysis data providing the reachable
+                method universe for coverage percentage calculations.
+            task_start_time: When tool execution started, used to calculate
+                relative timing on coverage and error entries. Should be
+                the tool_execution_start time, not task creation time.
+            task_id: Optional task identifier for log correlation.
+
+        State:
+            repository: LogcatRepository storing all coverage and error data.
+            is_running: Whether the background tracking thread is active.
+            thread: Background daemon thread tailing the logcat file.
+            _stop_event: Threading event to signal the tracking thread to stop.
+            _reader_lock: RLock protecting concurrent file reads and state access.
+            last_update_time: Timestamp of the last metric calculation.
+            total_errors: Running count of property violations detected.
+            total_method_calls: Running count of method calls recorded.
+            _previous_metrics: Last computed metrics snapshot for change detection.
+            _data_changed_since_last_update: Flag to skip redundant metric
+                calculations when no new data has arrived.
+        """
+        self.logcat_file = logcat_file
+        self.static_data = static_data
+        # Using task_start_time parameter name for compatibility, but this should contain tool_execution_start time
+        self.tool_execution_start_time = task_start_time
+        self.task_id = task_id
+
+        # Set up logging
+        logging_manager = LoggingManager.get_instance()
+        self.logger = logging_manager.get_logger(
+            "rv_coverage.analysis.coverage.tracker",
+            {CONTEXT_COMPONENT: "CoverageTracker"},
+        )
+
+        # Empty repository -- will be populated from static data (if available) and
+        # incrementally from logcat lines as the background thread processes them.
+        self.repository = LogcatRepository()
+
+        # Stateful parser for diagnostic events (crashes/VerifyError/ANR). Fed every
+        # line alongside parse_logcat_line; events land in the isolated collection and
+        # never touch coverage/MOP metrics. Flushed when tracking stops so a final
+        # buffered crash is not lost.
+        self._diagnostic_parser = DiagnosticEventParser()
+
+        self.is_running = False
+        self.thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+        self._reader_lock = threading.RLock()
+
+        self.last_update_time = datetime.now()
+        self.total_errors = 0
+        self.total_method_calls = 0
+
+        self._previous_metrics = {
+            "method_coverage": 0.0,
+            "activity_coverage": 0.0,
+            "mop_method_coverage": 0.0,
+            "called_methods": 0,
+            "total_activities": 0,
+            "unique_errors": 0,
+        }
+
+        self._data_changed_since_last_update = False
+
+        # Pre-populate the repository with the full method universe from static analysis,
+        # so coverage percentages are calculated against reachable methods (denominator)
+        # rather than only against methods seen at runtime.
+        if static_data and static_data.classes:
+            self._initialize_from_static_data()
+
+    def _initialize_from_static_data(self) -> None:
+        """Initialize the repository from static analysis data."""
+        try:
+            self.logger.info("Initializing coverage tracker from static analysis data")
+
+            # Use centralized repository initializer to eliminate code duplication
+            initialize_repository_from_static_data(
+                self.repository, self.static_data, self.__class__.__name__
+            )
+
+            # Log summary of initialized data
+            total_methods = sum(
+                len(class_info.methods)
+                for class_info in self.static_data.classes.classes.values()
+            )
+            self.logger.info(
+                f"Initialized repository with {len(self.repository.classes)} classes "
+                f"and {total_methods} methods from static data"
+            )
+
+        except Exception as e:
+            self.logger.error(
+                f"Error initializing from static data: {e}", exc_info=True
+            )
+
+    def start(self) -> None:
+        """
+        Start the background thread that tails the logcat file.
+
+        Create the logcat file and parent directories if they do not exist,
+        then spawn a daemon thread that continuously reads new lines.
+
+        Raises:
+            Exception: If the logcat file cannot be created or the thread
+                fails to start. The tracker is left in a stopped state.
+        """
+        if self.is_running:
+            self.logger.warning("Coverage tracker is already running")
+            return
+
+        # Ensure logcat file exists
+        try:
+            parent_dir = os.path.dirname(self.logcat_file)
+            if not os.path.exists(parent_dir):
+                os.makedirs(parent_dir, exist_ok=True)
+
+            # Create empty file if it doesn't exist
+            if not os.path.exists(self.logcat_file):
+                with open(self.logcat_file, "w"):
+                    pass
+
+            # Reset tracker state
+            self._stop_event.clear()
+            self.is_running = True
+
+            # Start tracking thread
+            self.thread = threading.Thread(target=self._track_coverage, daemon=True)
+            self.thread.start()
+
+            self.logger.info(f"Coverage tracker started for {self.logcat_file}")
+
+        except Exception as e:
+            self.is_running = False
+            self.logger.error(f"Failed to start coverage tracker: {e}")
+            raise
+
+    def stop(self) -> None:
+        """
+        Stop the background tracking thread.
+
+        Signal the thread to terminate and wait up to 5 seconds for it to
+        join. Log a warning if the thread does not terminate gracefully.
+        Safe to call when the tracker is already stopped.
+        """
+        if not self.is_running:
+            return
+
+        try:
+            self._stop_event.set()
+
+            if self.thread:
+                # Give thread time to terminate
+                self.thread.join(timeout=5.0)
+
+                # Check if still alive
+                if self.thread.is_alive():
+                    self.logger.warning(
+                        "Coverage tracker thread did not terminate gracefully"
+                    )
+
+            self.is_running = False
+            self.logger.info("Coverage tracker stopped")
+
+        except Exception as e:
+            self.logger.error(f"Error stopping coverage tracker: {e}")
+            self.is_running = False
+
+    def _track_coverage(self) -> None:
+        """Tail the logcat file, processing new lines and updating metrics."""
+        file_handle = None
+
+        try:
+            with open(self.logcat_file, "r") as f:
+                file_handle = f
+
+                # Step 1: Drain any lines already in the file (e.g., logcat started before tracker)
+                with self._reader_lock:
+                    self.process_lines(f.readlines())
+
+                # Step 2: Seek to EOF so subsequent reads only pick up new lines
+                f.seek(0, os.SEEK_END)
+
+                # Step 3: Tail loop -- read new lines as logcat appends them
+                while not self._stop_event.is_set():
+                    with self._reader_lock:
+                        new_lines = f.readlines()
+
+                    if new_lines:
+                        self.process_lines(new_lines)
+                        # Recalculate metrics right away so callers see fresh data
+                        self._update_coverage_metrics()
+                        self.last_update_time = datetime.now()
+                    else:
+                        # Periodic metric refresh (every 10s) catches edge cases where
+                        # the repository was mutated outside the normal line path.
+                        if (
+                            datetime.now() - self.last_update_time
+                        ).total_seconds() >= 10:
+                            self._update_coverage_metrics()
+                            self.last_update_time = datetime.now()
+
+                    # Adaptive sleep: shorter when data is flowing (0.5s) to keep
+                    # latency low, longer when idle (1.0s) to reduce CPU usage.
+                    sleep_time = 0.5 if new_lines else 1.0
+                    time.sleep(sleep_time)
+
+        except Exception as e:
+            self.logger.error(f"Error tracking coverage: {e}", exc_info=True)
+
+        finally:
+            self.is_running = False
+
+            # Emit any diagnostic event still buffered (e.g. a crash at EOF).
+            with self._reader_lock:
+                self.flush_diagnostics()
+
+            # Close file handle if needed
+            if file_handle and not file_handle.closed:
+                try:
+                    file_handle.close()
+                except Exception:
+                    pass
+
+    @contextmanager
+    def track_coverage(self):
+        """
+        Context manager for tracking coverage.
+
+        Start the background thread on entry and stop it on exit, ensuring
+        proper cleanup even if an exception occurs.
+
+        Yields:
+            This tracker instance for metric queries during execution.
+        """
+        self.start()
+        try:
+            yield self
+        finally:
+            self.stop()
+
+    def process_lines(self, lines: List[str]) -> None:
+        """
+        Process multiple logcat lines for coverage and error data.
+
+        Args:
+            lines: Raw logcat lines to parse. Non-RVSEC lines are silently
+                skipped.
+        """
+        for line in lines:
+            self._process_line(line)
+
+    def _process_line(self, line: str) -> None:
+        """Parse one logcat line and register any error or coverage entry."""
+        try:
+            # Skip empty lines
+            if not line.strip():
+                return
+
+            # parse_logcat_line returns a mutually exclusive tuple: at most one of
+            # error_log or coverage_log is non-None. Both are None for non-RVSEC lines.
+            error_log, coverage_log = parse_logcat_line(line)
+
+            if error_log:
+                # Compute relative timestamp: seconds since the testing tool started.
+                # Uses the logcat entry's own timestamp (parsed from the MM-DD HH:MM:SS
+                # prefix), not wall-clock time, so the offset stays consistent even if
+                # the tracker processes the line with delay.
+                if self.tool_execution_start_time and error_log.time_occurred:
+                    time_since_start = int(
+                        (
+                            error_log.time_occurred - self.tool_execution_start_time
+                        ).total_seconds()
+                    )
+                    # Clamp to zero -- negative values occur when the logcat line predates
+                    # the tool start (e.g., buffered lines from a previous run).
+                    time_since_start = max(0, time_since_start)
+                else:
+                    time_since_start = 0
+
+                # Set timing info for error
+                error_log.time_since_task_start = time_since_start
+                self.repository.register_rv_error(error_log)
+                self.total_errors += 1
+                self._data_changed_since_last_update = True  # Mark data as changed
+
+                self.logger.warning(
+                    f"MOP violation detected: {error_log.spec} in {error_log.class_full_name}.{error_log.method}"
+                )
+                self.logger.info(
+                    f"Tracked formal property violation in {error_log.class_full_name}.{error_log.method}: {error_log.message}"
+                )
+
+            elif coverage_log:
+                # Calculate time since tool execution start using logcat timestamp
+                if self.tool_execution_start_time and coverage_log.time_occurred:
+                    time_since_start = int(
+                        (
+                            coverage_log.time_occurred - self.tool_execution_start_time
+                        ).total_seconds()
+                    )
+                    time_since_start = max(0, time_since_start)  # Ensure non-negative
+                else:
+                    time_since_start = 0
+
+                # Set timing info for coverage
+                coverage_log.time_since_task_start = time_since_start
+                self.repository.register_method_call(coverage_log)
+                self.total_method_calls += 1
+                self._data_changed_since_last_update = True  # Mark data as changed
+                self.logger.debug(
+                    f"Processed method call: {coverage_log.clazz}.{coverage_log.method} at t={time_since_start}s"
+                )
+
+            # Feed every line to the diagnostic parser independently of the
+            # RVSEC/COV result (a crash line is neither error nor coverage).
+            event = self._diagnostic_parser.feed_line(line)
+            if event:
+                self._register_diagnostic_event(event)
+
+        except Exception as e:
+            self.logger.error(f"Error processing logcat line: {e}", exc_info=True)
+
+    def _register_diagnostic_event(self, event) -> None:
+        """Stamp the event's relative timing and register it in the isolated
+        diagnostic collection (kept out of all coverage/error metrics)."""
+        if self.tool_execution_start_time and event.time_occurred:
+            time_since_start = int(
+                (event.time_occurred - self.tool_execution_start_time).total_seconds()
+            )
+            event.time_since_task_start = max(0, time_since_start)
+        self.repository.register_diagnostic_event(event)
+        self.logger.warning(
+            f"Diagnostic event ({event.category}) detected: "
+            f"{event.class_full_name} process={event.process}"
+        )
+
+    def flush_diagnostics(self) -> None:
+        """Emit any diagnostic event still buffered in the parser. Called when the
+        tail loop ends so a crash at the very end of the logcat is not lost."""
+        tail = self._diagnostic_parser.flush()
+        if tail:
+            self._register_diagnostic_event(tail)
+
+    def _update_coverage_metrics(self) -> None:
+        """
+        Update coverage metrics and log changes when data has changed.
+
+        ### Performance Optimization:
+        Uses data change tracking to avoid unnecessary metric calculations and
+        only processes metrics when new data has been added since the last update.
+        This significantly reduces CPU usage by eliminating redundant calculations.
+        """
+        try:
+            # Only calculate metrics if data has changed since last update
+            if not self._data_changed_since_last_update:
+                return
+
+            # Get repository for metrics calculation
+            metrics = self.repository.calculate_metrics()
+
+            # Convert to dict once to avoid multiple expensive calls
+            metrics_dict = metrics.to_dict()
+
+            # Extract metrics from the cached dict
+            current_metrics = {
+                "method_coverage": metrics_dict.get("method_coverage", 0.0),
+                "activity_coverage": metrics_dict.get("activity_coverage", 0.0),
+                "mop_method_coverage": metrics_dict.get("mop_method_coverage", 0.0),
+                "called_methods": metrics.called_methods,
+                "total_activities": metrics.total_activities,
+                "unique_errors": metrics.unique_errors,
+            }
+
+            # Check if any metrics have actually changed from previous values
+            changed = False
+            for key, value in current_metrics.items():
+                if self._previous_metrics.get(key) != value:
+                    changed = True
+                    break
+
+            # Only log if metrics have changed
+            if changed:
+                # Update previous metrics
+                self._previous_metrics = current_metrics.copy()
+
+                self.logger.debug(f"Coverage updated: {current_metrics}")
+
+                # Log update since changes occurred
+                self.logger.info(
+                    f"Coverage update - Methods: {current_metrics['method_coverage']:.2f}%, "
+                    f"Activities: {current_metrics['activity_coverage']:.2f}%, "
+                    f"MOP Methods: {current_metrics['mop_method_coverage']:.2f}%, "
+                    f"Called methods: {current_metrics['called_methods']}"
+                )
+
+            # Reset data changed flag after processing
+            self._data_changed_since_last_update = False
+
+        except Exception as e:
+            self.logger.error(f"Error updating coverage metrics: {e}", exc_info=True)
+
+    def get_coverage_metrics(self) -> Dict[str, float]:
+        """
+        Get the current coverage metrics from the repository.
+
+        Thread-safe: can be called from any thread while the tracker is running.
+
+        Returns:
+            Dictionary with keys such as ``method_coverage``,
+            ``activity_coverage``, ``mop_method_coverage``, ``called_methods``,
+            and ``unique_errors``.
+        """
+        metrics = self.repository.calculate_metrics()
+        return metrics.to_dict()

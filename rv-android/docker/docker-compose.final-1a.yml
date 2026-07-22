@@ -1,0 +1,188 @@
+# FINAL 1a: baseline × (ape + aperv:sata) × 2 reps — anchor for ape original and aperv without MOP
+#
+# 12 containers × 9GB RAM × 600s timeout × 2 reps × 169 APKs × ape,aperv:sata
+# JAR: ape-rv-baseline.jar
+#
+# Wall time estimate:
+#   max 15 APKs/container × 2 tools × 2 reps × 640s = 38400s = 10.67h
+#
+# Launched automatically by /tmp/reval_orchestrator.sh
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:sata"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "2"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "9g"
+
+services:
+  final_1a_baseline_00:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_00:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_01:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_01.txt"
+      RV_DELAY: "8"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_01:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_02:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_02.txt"
+      RV_DELAY: "16"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_02:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_03:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_03.txt"
+      RV_DELAY: "24"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_03:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_04:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_04.txt"
+      RV_DELAY: "32"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_04:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_05:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_05.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_05:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_06:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_06.txt"
+      RV_DELAY: "48"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_06:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_07:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_07.txt"
+      RV_DELAY: "56"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_07:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_08:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_08.txt"
+      RV_DELAY: "64"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_08:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_09:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_09
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_09
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_09.txt"
+      RV_DELAY: "72"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_09:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_10:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_10
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_10
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_10.txt"
+      RV_DELAY: "80"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_10:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+
+  final_1a_baseline_11:
+    <<: *rvandroid-base
+    container_name: final_1a_baseline_11
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: final_1a_baseline_11
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/reval_final_batch_11.txt"
+      RV_DELAY: "88"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/final_1a_baseline_11:/opt/rvsec/rv-android/results
+      - /home/pedro/tmp/aperv-jars/ape-rv-baseline.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+

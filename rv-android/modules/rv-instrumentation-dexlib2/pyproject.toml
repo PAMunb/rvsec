@@ -1,0 +1,32 @@
+[project]
+name = "rv-instrumentation-dexlib2"
+version = "0.1.0"
+description = "Python wrapper for the DEX-native weaver (rvsec-instrumentation-dexlib2 Java CLI). Spec-set agnostic."
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "rv-instrumentation-core",
+    "pydantic>=2.9.0",
+]
+
+[project.scripts]
+rv-instrumentation-dexlib2 = "rv_instrumentation_dexlib2.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-instrumentation-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_instrumentation_dexlib2"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

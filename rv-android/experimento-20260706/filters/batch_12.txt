@@ -1,0 +1,13 @@
+me.proton.android.lumo_50.apk
+me.rosuh.easywatermark_21000.apk
+me.testcase.ognarviewer_25.apk
+me.timschneeberger.rootlessjamesdsp_51.apk
+me.zhanghai.android.untracker_9.apk
+net.adhikary.mrtbuddy_24.apk
+net.christianbeier.droidvnc_ng_60.apk
+net.gaast.giggity_769.apk
+net.osmtracker_73.apk
+net.pfiers.osmfocus_1009013.apk
+net.phbwt.paperwork_1003007.apk
+nz.eloque.foss_wallet_111.apk
+org.blackcandy.androidApp_7.apk

@@ -1,0 +1,14 @@
+{
+  "app": "CryptoApp",
+  "package": "br.unb.cic.cryptoapp",
+  "model": "qwen3-vl:4b",
+  "timeout": 60,
+  "result": {
+    "status": "completed",
+    "iterations": 7,
+    "execution_time_s": 77.22127938270569,
+    "unique_states": 4,
+    "total_transitions": 4
+  },
+  "execution_time": 77.22147226333618
+}

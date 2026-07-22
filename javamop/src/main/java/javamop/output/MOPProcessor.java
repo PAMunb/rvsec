@@ -99,23 +99,42 @@ public class MOPProcessor {
      */
     public String generateAJFile(MOPSpecFile mopSpecFile) throws MOPException, IOException {
         String result = "";
-        
+
         // register all user variables to MOPNameSpace to avoid conflicts
         for(JavaMOPSpec mopSpec : mopSpecFile.getSpecs())
             registerUserVar(mopSpec);
-        
+
         // Error Checker
         for(JavaMOPSpec mopSpec : mopSpecFile.getSpecs()){
             MOPErrorChecker.verify(mopSpec);
         }
-        
+
         // Generate output code
 
         result = (new AspectJCode(name, mopSpecFile)).toString();
 
         // Do indentation
         result = Tool.changeIndentation(result, "", "\t");
-        
+
         return result;
+    }
+
+    /**
+     * Convert a {@link MOPSpecFile} into a JSON descriptor consumed by prototipo-dexlib2.
+     *
+     * <p>Contains the same semantic information as {@link #generateAJFile(MOPSpecFile)} but in
+     * structured form (pointcuts, parameters, advice position, returning/throwing, monitor calls).
+     * See {@link AspectJDescriptor} and
+     * {@link javamop.output.descriptor.DescriptorWriter}.
+     *
+     * @param mopSpecFile The parameter to convert.
+     * @return Pretty-printed JSON string.
+     * @throws MOPException If there is a logic error in conversion or JSON serialization fails.
+     */
+    public String generateDescriptorFile(MOPSpecFile mopSpecFile) throws MOPException {
+        // Note: this method must be called AFTER generateAJFile(), which registers user variables
+        // in MOPNameSpace and runs MOPErrorChecker.verify. We intentionally do not repeat those
+        // steps here — MOPNameSpace is single-shot and cannot be updated after first use.
+        return new AspectJDescriptor(name, mopSpecFile).toJson();
     }
 }

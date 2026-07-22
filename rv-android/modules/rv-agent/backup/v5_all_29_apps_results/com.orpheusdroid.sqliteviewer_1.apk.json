@@ -1,0 +1,67 @@
+{
+  "app_name": "com.orpheusdroid.sqliteviewer_1.apk",
+  "execution_time_s": 9.815050840377808,
+  "total_iterations": 8,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 8
+    },
+    "valid": 0,
+    "invalid": 8,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "View",
+      "ScrollView",
+      "TextView",
+      "Button",
+      "LinearLayout",
+      "unknown",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 8,
+      "FrameLayout": 32,
+      "LinearLayout": 40,
+      "TextView": 16,
+      "View": 8,
+      "ScrollView": 16,
+      "Button": 24
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 1,
+    "screen_visits": {
+      "73a45af425e6": 8
+    },
+    "activities": [
+      "com.orpheusdroid.sqliteviewer/.ui.FileManagerActivity"
+    ],
+    "revisit_rate": 0.875
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 8
+  },
+  "llm": {
+    "total_tokens": 35671,
+    "input_tokens": 35375,
+    "output_tokens": 296,
+    "avg_tokens_per_iteration": 4458.875,
+    "max_message_count": 1,
+    "total_time_ms": 9027.474641799927,
+    "avg_time_per_iteration_ms": 1128.4343302249908
+  },
+  "device_actions": {
+    "total_actions": 0,
+    "valid_actions": 0,
+    "invalid_actions": 0,
+    "valid_rate": 0.0,
+    "action_types": {},
+    "actions": []
+  }
+}

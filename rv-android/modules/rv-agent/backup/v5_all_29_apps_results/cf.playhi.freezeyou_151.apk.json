@@ -1,0 +1,138 @@
+{
+  "app_name": "cf.playhi.freezeyou_151.apk",
+  "execution_time_s": 24.05840826034546,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 0,
+    "invalid": 10,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "View",
+      "ImageView",
+      "LinearLayoutCompat",
+      "ScrollView",
+      "TextView",
+      "ImageButton",
+      "RelativeLayout",
+      "Button",
+      "EditText",
+      "ViewGroup",
+      "LinearLayout",
+      "ListView",
+      "unknown",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 48,
+      "LinearLayout": 52,
+      "LinearLayoutCompat": 7,
+      "ImageView": 28,
+      "TextView": 47,
+      "View": 3,
+      "ScrollView": 7,
+      "Button": 13,
+      "ViewGroup": 2,
+      "EditText": 6,
+      "ListView": 4,
+      "RelativeLayout": 24,
+      "ImageButton": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 6,
+    "screen_visits": {
+      "78acc032f1da": 2,
+      "5b68b709e548": 1,
+      "52fe8a50dede": 1,
+      "09c1c7fd5384": 1,
+      "87fe9d34fd97": 1,
+      "9d530fd2d581": 4
+    },
+    "activities": [
+      "cf.playhi.freezeyou/.ThirdIcon"
+    ],
+    "revisit_rate": 0.4
+  },
+  "memory_graph": {
+    "graph_states": 6,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 45119,
+    "input_tokens": 44722,
+    "output_tokens": 397,
+    "avg_tokens_per_iteration": 4511.9,
+    "max_message_count": 1,
+    "total_time_ms": 22940.068006515503,
+    "avg_time_per_iteration_ms": 2294.0068006515503
+  },
+  "device_actions": {
+    "total_actions": 7,
+    "valid_actions": 0,
+    "invalid_actions": 7,
+    "valid_rate": 0.0,
+    "action_types": {
+      "CLICK": 7
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "No element at coordinates (275, 1590)",
+        "element": null
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "No element at coordinates (970, 1648)",
+        "element": null
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[cf.playhi.freezeyou:id/action_bar_container] @ ((0, 63), (1080, 210))",
+        "element": "android.widget.FrameLayout[cf.playhi.freezeyou:id/action_bar_container] @ ((0, 63), (1080, 210))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((42, 746), (742, 803))",
+        "element": "android.widget.RelativeLayout[] @ ((42, 746), (742, 803))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((42, 746), (625, 803))",
+        "element": "android.widget.RelativeLayout[] @ ((42, 746), (625, 803))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "No element at coordinates (381, 967)",
+        "element": null
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "No element at coordinates (801, 1355)",
+        "element": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+[project]
+name = "rv-uiautomator"
+version = "0.1.0"
+description = "Shared UIAutomator components for RV-Android tools"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "rv-screen-parser",
+    "uiautomator2>=3.3.1",
+    "pillow>=10.0.0",
+    "pydantic>=2.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "hypothesis>=6.135.26",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-screen-parser = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_uiautomator"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

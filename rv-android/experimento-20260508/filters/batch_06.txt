@@ -1,0 +1,12 @@
+app.pwhs.blockads_45.apk
+com.axiel7.anihyou_108.apk
+com.eblan.launcher_59.apk
+com.greenart7c3.nostrsigner_186.apk
+com.mrl.pixiv_20100.apk
+com.schwegelbin.openbible_41.apk
+com.zhangke.fread_108010.apk
+dev.pranav.applock_223.apk
+io.github.wiiznokes.gitnote_16.apk
+org.archivekeep.ArchiveKeep_50.apk
+org.fossify.notes_13.apk
+ru.application.homemedkit_70.apk

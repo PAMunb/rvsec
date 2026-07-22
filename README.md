@@ -1,5 +1,7 @@
 # RVSec
 
+[![CI Pipeline](https://github.com/PAMunb/rvsec/actions/workflows/ci.yml/badge.svg?branch=modules)](https://github.com/PAMunb/rvsec/actions/workflows/ci.yml)
+
 RVSec implements a runtime verification infrastructure 
 for identifying crypto API misuses via dynamic analyses. 
 The main components in this repository are:
@@ -12,19 +14,19 @@ The main components in this repository are:
 
 ## Requirements
 
-   * JDK: it is necessary to install the Java Development Kit (tested with Java 11) 
-   * AspectJ: it is necessary to install AspectJ and set the ASPECTJ_HOME variable
-   * Maven: it is necessary to install maven in order to build rvsec
+   * JDK 21+: install the Java Development Kit (the reference dev/Docker environment uses JDK 25; bytecode target is 21)
+   * AspectJ 1.9.25.1: install AspectJ and set the ASPECTJ_HOME variable
+   * Maven: install Maven to build rvsec
+   * For rv-android: Python >= 3.12 and uv; the Android SDK (emulator + platform-tools) with ANDROID_HOME set; RVSEC_HOME set to the RVSEC workspace root
    
 ## Building RVSec (Java)
 
    * Build the RVSec agent
    
 ```
-$ ./configure.sh
-$ mvn clean install -DskipTests
-$ cd rvsec/rvsec-agent
-$ mvn test
+$ cd rvsec && source ./config.sh          # sets CLASSPATH (needs ASPECTJ_HOME)
+$ cd .. && mvn clean install -DskipTests -DskipMopAgent
+$ cd rvsec/rvsec-agent && mvn test        # builds + exercises the JSE agent
 ```
 
 Executing the above commands generates the RVSec agent and executes the 
@@ -39,6 +41,19 @@ test suite. The final output should looks like:
 [INFO] Total time:  01:25 min
 [INFO] Finished at: 2023-06-05T11:16:21-03:00
 [INFO] ------------------------------------------------------------------------
+```
+
+## Building and running rv-android
+
+Run the Java build above **first**: the RVSec Maven reactor generates the JAR modules that
+rv-android depends on and copies them into `rv-android/lib/` (frame-computer, gator, apktool,
+mop-extractor, etc.). Then build the rv-android modules (editable) into a shared virtual
+environment and run one simple execution over the bundled example APK
+(`rv-android/apks_examples/cryptoapp.apk`):
+
+```
+$ cd rv-android && uv sync
+$ uv run rv-experiment run --tools monkey --apks-dir ./apks_examples --timeouts 300
 ```
 
 ## MOP specifications 

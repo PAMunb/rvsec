@@ -1,38 +1,26 @@
-/lib_tmp/
-/results/
+/__pycache__/
+/apks/
+/bin/
+/mop_out/
 /out/
+/lib_tmp/
 /tmp/
-/android-apks/
-/apks_pilot/
-/apks_test/
-/apks_selecionados/
-/mop-out/
-/com.gaurav.avnc_14.apk
-/com.hwloc.lstopo_266.apk
-/com.vecturagames.android.app.passwordgenerator_35.apk
-/14-30-com.vecturagames.android.app.passwordgenerator_35.apk
-/21-30-com.hwloc.lstopo_266.apk
-/21-31-org.alberto97.ouilookup_14.apk
-/24-30-com.blogspot.e_kanivets.moneytracker_36.apk
-/26-29-app.zeusln.zeus_25.apk
-/ademar.bitac_5.apk
-/com.btcontract.wallet_86.apk
-/com.coinerella.peercoin_106.apk
-/com.emanuelef.remote_capture_60.apk
-/com.greenaddress.greenbits_android_wallet.testnet_205.apk
-/com.marv42.ebt.newnote_5300.apk
-/de.php_tech.piggybudget_25.apk
-/de.salomax.currencies_11703.apk
-/de.varengold.activeTAN_34.apk
-/hashengineering.darkcoin.wallet_70311.apk
-/me.hackerchick.catima_92.apk
-/opencontacts.open.com.opencontacts_24.apk
-/org.ebur.debitum_14.apk
-/protect.gift_card_guard_6.apk
-/protect.rentalcalc_6.apk
-/ru.valle.btc_260.apk
-/threads.server_272.apk
-/xyz.hisname.fireflyiii_112.apk
+/apks_mini/
+/results/
+
+# gh52: instr-cli fat jar is auto-copied by the Maven build (design D9);
+# not versioned because it's a build output of
+# rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli.
+modules/rv-instrumentation-dexlib2/lib/*.jar
+
+# AspectJ compiler crash dumps — produced by ajc when weaving fails on
+# specific classes. Useful for debugging individual instrumentation runs
+# but transient; not part of the source tree.
+ajcore.*.txt
+
+# Calibration datasets (instrumented APKs + SA JSONs, ~658MB)
+modules/rv-agent-validation/data/calibration_dataset/
+modules/rv-agent-validation/data/calibration_dataset_v2/
 
 
 # Byte-compiled / optimized / DLL files
@@ -42,6 +30,8 @@ __pycache__/
 
 # C extensions
 *.so
+# Exception: FastBot native libraries (required for tool execution)
+!modules/rv-tools/src/rv_tools/builtin/fastbot/libs/**/*.so
 
 # Distribution / packaging
 .Python
@@ -51,13 +41,12 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -87,6 +76,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+cover/
 
 # Translations
 *.mo
@@ -109,6 +99,7 @@ instance/
 docs/_build/
 
 # PyBuilder
+.pybuilder/
 target/
 
 # Jupyter Notebook
@@ -119,7 +110,9 @@ profile_default/
 ipython_config.py
 
 # pyenv
-.python-version
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
@@ -128,7 +121,22 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+# uv
+#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://docs.astral.sh/uv/concepts/projects/layout/#the-lockfile
+#uv.lock
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#pdm.lock
+#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+#   in version control.
+#   https://pdm.fming.dev/#use-with-ide
+.pdm.toml
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
 # Celery stuff
@@ -164,5 +172,45 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-/apks/
-/tmp_apks/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#  and can be added to the global gitignore or merged into this file.  For a more nuclear
+#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+#.idea/
+
+/instrumented/
+/final_results_analysis_generic.json
+/final_results_analysis_jca.json
+/merged_instrument_errors.json
+/merged_results_analysis.json
+/exp01_generic_instrument_errors.json
+/exp01_generic_results.json
+/exp01_generic_summary.csv
+/exp01_jca_coverage.csv
+/exp01_jca_errors.csv
+/exp01_jca_instrument_errors.json
+/exp01_jca_results.json
+/exp01_jca_summary.csv
+/exp02_generic_coverage.csv
+/exp02_generic_errors.csv
+/exp02_generic_instrument_errors.json
+/exp02_generic_results.json
+/exp02_generic_summary.csv
+/exp02_jca_coverage.csv
+/exp02_jca_errors.csv
+/exp02_jca_instrument_errors.json
+/exp02_jca_results.json
+/exp02_jca_summary.csv
+
+# Claude Code (contains API keys and local state)
+.claude/.mcp.json
+.claude/memory.json
+.claude/settings.local.json

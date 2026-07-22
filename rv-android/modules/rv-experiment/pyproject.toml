@@ -1,0 +1,65 @@
+[project]
+name = "rv-experiment"
+version = "0.1.0"
+description = "Experiment orchestration and coordination for RV-Android platform"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9.0",
+    "matplotlib>=3.9.0",
+    # Module dependencies (orchestrator)
+    "rv-platform",
+    "rv-android-core",
+    "rv-monitor-generator",
+    "rv-instrumentation",
+    "rv-instrumentation-ajc",
+    "rv-instrumentation-dexlib2",
+    "rv-static-analysis",
+    "rv-screen-parser",
+    "rv-coverage",
+    "rv-tools",
+]
+
+[project.scripts]
+rv-experiment = "rv_experiment.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-platform = { workspace = true }
+rv-android-core = { workspace = true }
+rv-monitor-generator = { workspace = true }
+rv-instrumentation = { workspace = true }
+rv-instrumentation-ajc = { workspace = true }
+rv-instrumentation-dexlib2 = { workspace = true }
+rv-static-analysis = { workspace = true }
+rv-screen-parser = { workspace = true }
+rv-coverage = { workspace = true }
+rv-tools = { workspace = true }
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+pythonpath = ["tests"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+# show_missing = true
+# fail_under = 80
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_experiment"]

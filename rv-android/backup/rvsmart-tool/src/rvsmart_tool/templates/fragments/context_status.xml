@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="context_status">
+  <![CDATA[
+**CURRENT STATUS:**
+Activity: {{ activity }}{% if activity_visits is defined %} (visits: {{ activity_visits }}){% endif %}
+{% if coverage_metrics is defined and coverage_metrics -%}
+Coverage: Methods {{ coverage_metrics.method_coverage|round(1) }}% | Activities {{ coverage_metrics.activity_coverage|round(1) }}% | MOP {{ coverage_metrics.mop_method_coverage|round(1) }}%{% if coverage_metrics.unique_errors > 0 %} | **MOP Violations: {{ coverage_metrics.unique_errors }}**{% endif %}
+{% endif -%}
+{% if mop_recent_errors is defined and mop_recent_errors -%}
+**MOP VIOLATIONS:**
+{%- for error in mop_recent_errors %}
+- {{ error.spec }}: {{ error.method }} - {{ error.message }}
+{%- endfor %}
+{% endif -%}
+{% if recent_iterations is defined and recent_iterations -%}
+{# RICH context mode - condensed sliding window #}
+**RECENT ACTIONS:**
+{%- for iteration in recent_iterations %}
+Iter {{ iteration['iteration_number'] }}: {% for action in iteration.get('actions_executed', [])[:2] -%}{{ action.get('action_type', 'action') }}{% if not loop.last %}, {% endif %}{%- endfor %}{% if iteration.get('coverage_progress') %} | M={{ iteration['coverage_progress'].get('method_coverage', 0)|round(1) }}%{% endif %}
+{% endfor -%}
+{% else -%}
+{# STATELESS context mode - show traditional history sections #}
+{%- if action_history is defined and action_history %}
+{{ action_history }}
+{%- elif recent_history is defined and recent_history %}
+Last Actions: {{ recent_history }}
+{%- endif %}
+{%- if memory_insights is defined and memory_insights %}
+{{ memory_insights }}
+{%- endif %}
+{%- if navigation_path is defined and navigation_path %}
+Navigation Path: {{ navigation_path|join(' → ') }}
+{%- endif %}
+{%- if available_transitions is defined and available_transitions %}
+Transitions: {{ available_transitions }}
+{%- endif %}
+{%- endif %}
+  ]]>
+</fragment>

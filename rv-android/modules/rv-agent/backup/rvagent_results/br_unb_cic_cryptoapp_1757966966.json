@@ -1,0 +1,80 @@
+{
+  "session": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "objective": "explore_application",
+    "duration": 63.16285848617554,
+    "iterations": 0,
+    "success_count": 0,
+    "error_count": 197,
+    "success_rate": 0.0
+  },
+  "react_engine": {
+    "iteration_count": 197,
+    "current_objective": "explore_application",
+    "short_term_memory": {
+      "iteration_count": 0,
+      "current_activity": null,
+      "memory_status": "empty"
+    },
+    "long_term_memory": {
+      "total_states": 0,
+      "total_activities": 0,
+      "total_action_types": 0,
+      "total_actions_executed": 0,
+      "total_successful_actions": 0,
+      "overall_success_rate": 0.0,
+      "total_transitions": 0,
+      "most_visited_states": []
+    },
+    "ui_coverage": {
+      "total_unique_elements": 0,
+      "total_interactions": 0,
+      "average_interactions_per_element": 0,
+      "action_distribution": {},
+      "recent_discoveries": 0,
+      "total_screens": 0,
+      "most_tested_elements": [],
+      "least_tested_elements": [],
+      "discovery_timeline_length": 0
+    }
+  },
+  "short_term_memory": {
+    "iteration_count": 0,
+    "current_activity": null,
+    "memory_status": "empty"
+  },
+  "long_term_memory": {
+    "total_states": 0,
+    "total_activities": 0,
+    "total_action_types": 0,
+    "total_actions_executed": 0,
+    "total_successful_actions": 0,
+    "overall_success_rate": 0.0,
+    "total_transitions": 0,
+    "most_visited_states": []
+  },
+  "ui_coverage": {
+    "total_unique_elements": 0,
+    "total_interactions": 0,
+    "average_interactions_per_element": 0,
+    "action_distribution": {},
+    "recent_discoveries": 0,
+    "total_screens": 0,
+    "most_tested_elements": [],
+    "least_tested_elements": [],
+    "discovery_timeline_length": 0
+  },
+  "total_unique_elements_tested": 0,
+  "total_interactions": 0,
+  "coverage_efficiency": 0.0,
+  "cli_metadata": {
+    "package": "br.unb.cic.cryptoapp",
+    "device": "emulator-5554",
+    "timeout": 60,
+    "model": "PetrosStav/gemma3-tools:4b",
+    "objective": "explore_application",
+    "execution_time": 60.13846254348755,
+    "timestamp": 1757966966,
+    "success": true
+  }
+}

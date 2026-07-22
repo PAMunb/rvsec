@@ -1,0 +1,14 @@
+com.starry.myne_500.apk
+com.surfaceocean.nexttraceroute_16.apk
+com.swordfish.lemuroid_252.apk
+com.tananaev.passportreader_22.apk
+com.termux_1022.apk
+com.tk.quicksearch_65.apk
+com.trianguloy.urlchecker_47.apk
+com.unciv.app_1228.apk
+com.vermont.possin_8.apk
+com.vishaltelangre.nerdcalci_490.apk
+com.vrem.wifianalyzer_71.apk
+com.w2sv.wifiwidget_71.apk
+com.yogeshpaliyal.deepr_28.apk
+com.yogeshpaliyal.keypass_1442.apk

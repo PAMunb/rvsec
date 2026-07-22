@@ -1,0 +1,75 @@
+"""
+Constants for RVSmart tool configuration and operation.
+
+This module defines constants used throughout the RVSmart tool for
+configuration, action processing, and UIAutomator integration.
+"""
+
+# Tool identification
+RVSMART_TOOL_NAME = "rvsmart"
+RVSMART_DESCRIPTION = "LLM-based Android testing tool with UIAutomator integration"
+
+# UIAutomator execution configuration
+DEFAULT_ACTION_DELAY = 1.0
+STATE_STABILIZATION_DELAY = 2.0
+MAX_CONSECUTIVE_ERRORS = 5
+
+# External navigation limits
+MAX_EXTERNAL_ATTEMPTS = 3
+EXTERNAL_NAVIGATION_RESET_THRESHOLD = 1
+
+# Action processing
+ACTION_GENERATION_TIMEOUT = 60
+MAX_RETRIES_PER_ACTION = 3
+
+# Multimodal action types
+CUSTOM_COORDINATE_ACTION_ID = "coord"
+ACTION_TYPE_CLICK = "click"
+ACTION_TYPE_LONG_CLICK = "long_click" 
+ACTION_TYPE_SET_TEXT = "set_text"
+ACTION_TYPE_TEXT_CHANGE = "text_change"
+ACTION_TYPE_SCROLL = "scroll"
+ACTION_TYPE_KEY_EVENT = "key_event"
+
+# Action validation
+COORDINATE_VALIDATION_MIN = 0
+COORDINATE_VALIDATION_MAX = 4096
+ACTION_ID_RANGE_MIN = 1
+ACTION_ID_RANGE_MAX = 100
+
+# Vision strategy configuration
+VISION_STRATEGY_NAME = "vision"
+VISION_MAX_TOKENS_DEFAULT = 1200
+VISION_TEMPERATURE_DEFAULT = 0.3
+
+# Context mode variant identifiers for tool registration
+VARIANT_VISION_DEFAULT = "vision"
+VARIANT_VISION_CONTEXT = "vision_context"
+VARIANT_SINGLE_DEFAULT = "single"
+VARIANT_SINGLE_CONTEXT = "single_context"
+VARIANT_BATCH_DEFAULT = "batch"
+VARIANT_BATCH_CONTEXT = "batch_context"
+
+# Rich context configuration defaults
+RICH_CONTEXT_WINDOW_DEFAULT = 10
+RICH_CONTEXT_COMPRESSION_DEFAULT = True
+RICH_CONTEXT_COVERAGE_TIMELINE_DEFAULT = False
+
+# Screenshot management
+SCREENSHOT_ROTATION_LIMIT = 10
+SCREENSHOT_TEMP_DIR = "screenshots"
+SCREENSHOT_CLEANUP_ENABLED = True
+
+# Error recovery configuration
+APP_RESTART_MAX_ATTEMPTS = 1
+DEVICE_RECONNECT_TIMEOUT = 5
+ERROR_RECOVERY_ENABLED = True
+
+# Metrics collection constants
+PARSING_ERROR_COUNTER = "parsing_errors"
+ACTION_GENERATION_COUNTER = "action_generation_failures"
+METRICS_COLLECTION_ENABLED = True
+
+# Execution flow constants
+NO_ACTIONS_RETURN_VALUE = False  # Return False when no actions generated (clearer than True)
+EXTERNAL_NAVIGATION_BREAK_ENABLED = False  # Use recovery instead of immediate break

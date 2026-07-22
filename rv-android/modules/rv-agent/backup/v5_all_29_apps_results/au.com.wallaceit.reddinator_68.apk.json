@@ -1,0 +1,95 @@
+{
+  "app_name": "au.com.wallaceit.reddinator_68.apk",
+  "execution_time_s": 18.89075517654419,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 0,
+    "invalid": 10,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ImageView",
+      "ViewPager",
+      "TextView",
+      "ScrollView",
+      "TableLayout",
+      "TableRow",
+      "RelativeLayout",
+      "ListView",
+      "LinearLayout",
+      "unknown",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 21,
+      "LinearLayout": 151,
+      "TextView": 81,
+      "ViewPager": 1,
+      "ScrollView": 1,
+      "TableLayout": 1,
+      "TableRow": 3,
+      "ImageView": 73,
+      "ListView": 9,
+      "RelativeLayout": 72
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 3,
+    "screen_visits": {
+      "94c7a8cbd379": 1,
+      "340fb6eac049": 1,
+      "293cfb41902f": 8
+    },
+    "activities": [
+      "au.com.wallaceit.reddinator/.activity.SubredditSelectActivity",
+      "au.com.wallaceit.reddinator/.activity.MainActivity"
+    ],
+    "revisit_rate": 0.7
+  },
+  "memory_graph": {
+    "graph_states": 3,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 9
+  },
+  "llm": {
+    "total_tokens": 49063,
+    "input_tokens": 48618,
+    "output_tokens": 445,
+    "avg_tokens_per_iteration": 4906.3,
+    "max_message_count": 1,
+    "total_time_ms": 15878.613710403442,
+    "avg_time_per_iteration_ms": 1587.8613710403442
+  },
+  "device_actions": {
+    "total_actions": 2,
+    "valid_actions": 0,
+    "invalid_actions": 2,
+    "valid_rate": 0.0,
+    "action_types": {
+      "CLICK": 2
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Front Page] @ ((103, 63), (384, 189))",
+        "element": "android.widget.TextView[Front Page] @ ((103, 63), (384, 189))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.LinearLayout[au.com.wallaceit.reddinator:id/info_header] @ ((141, 84), (939, 336))",
+        "element": "android.widget.LinearLayout[au.com.wallaceit.reddinator:id/info_header] @ ((141, 84), (939, 336))"
+      }
+    ]
+  }
+}

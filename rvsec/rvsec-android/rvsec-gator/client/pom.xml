@@ -1,0 +1,148 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-gator-parent</artifactId>
+		<version>0.9.2</version>
+	</parent>
+
+	<artifactId>rvsec-gator-client</artifactId>
+
+	<name>RVSec :: Android :: GATOR :: Client</name>
+
+	<properties>
+		<final.jar.name>rvsec-analysis-client</final.jar.name>
+		<skipITs>true</skipITs>
+		<jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
+	</properties>
+
+	<dependencies>
+		<!-- On GATOR's classpath at runtime (provided = compile-only, not packaged in fat JAR) -->
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-gator-sootandroid</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+		</dependency>
+
+		<!-- JGraphT for multi-source BFS reachability -->
+		<dependency>
+			<groupId>org.jgrapht</groupId>
+			<artifactId>jgrapht-core</artifactId>
+		</dependency>
+
+		<!-- MOP spec parser -->
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-mop-extractor</artifactId>
+		</dependency>
+
+		<!-- APK metadata reader (exclude FlowDroid/Soot) -->
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-apk</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+					<artifactId>soot-infoflow</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>de.fraunhofer.sit.sse.flowdroid</groupId>
+					<artifactId>soot-infoflow-android</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<finalName>${final.jar.name}</finalName>
+		<plugins>
+			<!-- Coverage measurement (local, temporary — same setup as the dexlib2
+				 aggregator pom). prepare-agent wires the JaCoCo runtime agent into the
+				 surefire JVM; the report goal (bound to the test phase) converts the
+				 recorded jacoco.exec into target/site/jacoco (HTML/XML/CSV). Captures
+				 UNIT-test coverage (surefire); the *IT.java failsafe tests are skipped
+				 by default and do not contribute. Intended to move to rvsec-android later. -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco-maven-plugin.version}</version>
+				<executions>
+					<execution>
+						<id>jacoco-prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>jacoco-report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- Fat JAR (jar-with-dependencies assembly) -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+					<finalName>${final.jar.name}</finalName>
+					<appendAssemblyId>false</appendAssemblyId>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- Inherits maven-resources-plugin from rvsec-gator-parent:
+				 copies ${final.jar.name}.jar to ${main.basedir}/rv-android/lib/gator/ on install.
+				 No override needed - parent config + overridden final.jar.name is sufficient. -->
+
+			<!-- Integration tests (*IT.java) — skipped by default, run with -DskipITs=false -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>3.5.4</version>
+				<configuration>
+					<skipITs>${skipITs}</skipITs>
+					<forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
+					<!-- Disable module path to avoid split-package conflict
+					     between jakarta.activation and java.xml (Java 21) -->
+					<useModulePath>false</useModulePath>
+					<environmentVariables>
+						<RVSEC_HOME>${main.basedir}</RVSEC_HOME>
+					</environmentVariables>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

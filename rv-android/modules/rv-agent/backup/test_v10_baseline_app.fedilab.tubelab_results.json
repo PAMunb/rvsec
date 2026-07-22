@@ -1,0 +1,23 @@
+{
+  "app": "Tubelab",
+  "package": "app.fedilab.tubelab",
+  "type": "video_player",
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 5,
+    "unique_states": 2,
+    "transitions": 0,
+    "potential_loop": false,
+    "execution_time_s": 334.97651052474976
+  },
+  "validation": {
+    "generated_actions": true,
+    "discovered_states": true,
+    "recorded_transitions": false,
+    "no_immediate_loop": true,
+    "overall_success": true
+  }
+}

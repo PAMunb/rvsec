@@ -1,0 +1,115 @@
+name: CI Pipeline
+on:
+  push:
+    branches:
+      - develop
+      - modules
+  pull_request:
+    branches:
+      - develop
+      - modules
+
+jobs:
+  maven-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Remove backup directories
+        run: rm -rf rv-android/backup/ rv-android/docs/backup/ rv-android/modules/rv-agent/backup/ rv-android/modules/rv-agent-validation/backup/
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build Maven project (excluding rvsmart)
+        run: mvn clean install -DskipTests -DskipMopAgent -pl '!rvsec/rvsec-android/rvsmart'
+
+      # gh62 — grammar coverage integrity gate. Runs the dexlib2 grammar-tests submodule, which
+      # enforces matrix<->code<->deferred consistency (MatrixIntegrityTest, AbsorptionClaimsContractTest)
+      # at every CI run. The checkout root already contains both rvsec/ and rv-android/, so $RVSEC_HOME
+      # is the workspace root; DemandCounter reads the .mop corpora under it and MatrixMarkdownParser /
+      # the deferred.md SHA tripwire resolve rv-android/docs + rv-android/openspec under it.
+      - name: Grammar coverage integrity gate (gh62)
+        working-directory: rvsec/rvsec-android/rvsec-instrumentation-dexlib2
+        env:
+          RVSEC_HOME: ${{ github.workspace }}
+        run: |
+          # Sanity: the JCA .mop corpus must be present, else DemandCounter.countMop fails opaque.
+          test -d "$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca" || { echo "ERROR: $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca missing - DemandCounter cannot resolve the .mop corpora"; exit 1; }
+          mvn -ntp -B -pl grammar-tests -am -DskipTests=false test
+          # Visibility: print the NOT-NEEDED β absorber-test count tracked at every run.
+          ABSORBERS=$(grep -c "NOT-NEEDED β" "$RVSEC_HOME/rv-android/docs/aspectj_grammar_coverage.md" || true)
+          echo "gh62 absorber (NOT-NEEDED β) matrix rows: $ABSORBERS"
+
+  python-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Remove backup directories
+        run: rm -rf rv-android/backup/ rv-android/docs/backup/ rv-android/modules/rv-agent/backup/ rv-android/modules/rv-agent-validation/backup/
+
+      - name: Install system dependencies
+        run: sudo apt install -y tesseract-ocr
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: rv-android/uv.lock
+
+      - name: Set RVSEC environment
+        run: echo "RVSEC_HOME=${{ github.workspace }}" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: uv sync
+        working-directory: rv-android
+
+      - name: Run tests with coverage (per-module to isolate conftest)
+        working-directory: rv-android
+        run: |
+          failed=0
+          mkdir -p .cov-parts
+          for module in modules/*/; do
+            # rv-agent-validation is a temporary validation module, excluded from CI.
+            if [ -d "$module/tests" ] && [ "$(basename $module)" != "rv-agent-validation" ]; then
+              module_name=$(basename $module)
+              echo "=== Testing $module_name ==="
+              uv run pytest "$module/tests" \
+                -m "not (slow or online or sglang or performance or dataset)" \
+                --import-mode=importlib --tb=short -q \
+                -o "addopts=" \
+                --cov="$module/src" --cov-report= || failed=1
+              if [ -f .coverage ]; then
+                mv .coverage ".cov-parts/.coverage.$module_name"
+              fi
+            fi
+          done
+          exit $failed
+
+      - name: Combine coverage reports
+        if: always()
+        working-directory: rv-android
+        run: |
+          uv run coverage combine --data-file=.coverage .cov-parts/.coverage.*
+          uv run coverage xml -o coverage.xml
+          uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          files: rv-android/coverage.xml
+          flags: python
+          fail_ci_if_error: false

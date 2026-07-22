@@ -1,0 +1,18 @@
+# Packages excluded from AspectJ weaving to prevent stack map frame corruption.
+# Aligned with Coverage.aj exclusions. Patterns use AspectJ within() syntax.
+# The weaver skips these classes entirely — their bytecode passes through untouched.
+excludes:
+  - "com.google..*"
+  - "androidx..*"
+  - "kotlin..*"
+  - "kotlinx..*"
+  - "android.support..*"
+  - "android..*"
+  - "com.android..*"
+  - "j$..*"
+  - "org.apache..*"
+  - "com.facebook..*"
+  - "okhttp3..*"
+  - "okio..*"
+  - "com.squareup..*"
+  - "io.reactivex..*"

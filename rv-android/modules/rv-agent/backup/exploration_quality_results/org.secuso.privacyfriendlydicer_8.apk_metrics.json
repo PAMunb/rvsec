@@ -1,0 +1,92 @@
+{
+  "app_name": "org.secuso.privacyfriendlydicer_8.apk",
+  "execution_time_s": 11.878473281860352,
+  "total_iterations": 8,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 2,
+      "BACK": 6
+    },
+    "valid": 6,
+    "invalid": 2,
+    "valid_rate": 0.75
+  },
+  "element_coverage": {
+    "types_seen": [
+      "View",
+      "ImageButton",
+      "TextView",
+      "Button",
+      "SeekBar",
+      "ViewGroup",
+      "RelativeLayout",
+      "ImageView",
+      "DrawerLayout",
+      "FrameLayout",
+      "unknown",
+      "ViewPager",
+      "LinearLayout"
+    ],
+    "type_counts": {
+      "unknown": 8,
+      "FrameLayout": 24,
+      "LinearLayout": 26,
+      "RelativeLayout": 4,
+      "ViewPager": 2,
+      "TextView": 42,
+      "ImageView": 62,
+      "View": 10,
+      "Button": 8,
+      "DrawerLayout": 6,
+      "ViewGroup": 18,
+      "ImageButton": 6,
+      "SeekBar": 12
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 2,
+    "screen_visits": {
+      "de02a0575400": 3,
+      "1f68a6242c20": 5
+    },
+    "activities": [
+      "org.secuso.privacyfriendlydicer/.ui.MainActivity",
+      "org.secuso.privacyfriendlydicer/.ui.TutorialActivity"
+    ],
+    "revisit_rate": 0.75
+  },
+  "memory_graph": {
+    "graph_states": 2,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 5
+  },
+  "llm": {
+    "total_tokens": 23481,
+    "input_tokens": 23086,
+    "output_tokens": 395,
+    "avg_tokens_per_iteration": 2935.125,
+    "max_message_count": 1,
+    "total_time_ms": 10868.298768997192,
+    "avg_time_per_iteration_ms": 1358.537346124649
+  },
+  "device_actions": {
+    "total_actions": 1,
+    "valid_actions": 1,
+    "invalid_actions": 0,
+    "valid_rate": 1.0,
+    "action_types": {
+      "BACK": 1
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "BACK",
+        "valid": true,
+        "reason": "System action: BACK",
+        "element": null
+      }
+    ]
+  }
+}

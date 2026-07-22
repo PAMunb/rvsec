@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="history_section">
+  <![CDATA[
+{% if action_history %}
+HISTORY:
+{{ action_history }}
+{% endif %}
+
+{% if memory_insights %}
+{{ memory_insights }}
+{% endif %}
+
+{% if transition_guidance %}
+NAVIGATION GUIDANCE:
+{% if transition_guidance is mapping %}
+  {% if transition_guidance.visit_count is defined %}
+  - This screen has been visited {{ transition_guidance.visit_count }} time(s)
+  {% endif %}
+  {% if transition_guidance.unexplored_elements is defined and transition_guidance.unexplored_elements > 0 %}
+  - There are {{ transition_guidance.unexplored_elements }} UI elements on this screen that have not yet been tested
+  {% endif %}
+  {% if transition_guidance.suggested_targets is defined and transition_guidance.suggested_targets %}
+  - Suggested exploration targets:
+    {% for target in transition_guidance.suggested_targets %}
+      * {{ target.name }} ({{ target.visits }} visits)
+    {% endfor %}
+  {% endif %}
+{% else %}
+  {{ transition_guidance }}
+{% endif %}
+{% endif %}
+  ]]>
+</fragment>

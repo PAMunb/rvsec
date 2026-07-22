@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="system_guidelines">
+  <![CDATA[
+GUIDELINES:
+- Logical order: complete forms before submit, open dropdowns before select
+- Prioritize: [DM] → [M] → untested → systematic exploration
+- Natural flow: appropriate values, complete sequences
+- Strategic focus: coverage expansion and MOP discovery
+  ]]>
+</fragment>

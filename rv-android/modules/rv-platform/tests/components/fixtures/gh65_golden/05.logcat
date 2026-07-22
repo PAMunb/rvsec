@@ -1,0 +1,14 @@
+06-06 21:07:22.643  4034  4034 V RVSEC   : SecureRandomSpec,io.ktor.http.URLUtilsKt,URLUtilsKt,generateV4,SourceFile:6,InvalidSequenceOfMethodCalls,unknown
+06-06 21:07:23.721  4034  4034 V RVSEC   : TrustManagerFactorySpec,okhttp3.OkHttpClient,OkHttpClient,<init>,SourceFile:250,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+06-06 21:07:23.726  4034  4034 V RVSEC   : TrustManagerFactorySpec,okhttp3.OkHttpClient,OkHttpClient,<init>,SourceFile:250,InvalidSequenceOfMethodCalls,unknown
+06-06 21:07:23.729  4034  4034 V RVSEC   : SSLContextSpec,okhttp3.internal.platform.Platform,Platform,newSSLContext,SourceFile:3,InvalidSequenceOfMethodCalls,unknown
+06-06 21:07:23.738  4034  4034 V RVSEC   : SSLContextSpec,okhttp3.OkHttpClient,OkHttpClient,<init>,SourceFile:289,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+06-06 21:07:23.739  4034  4034 V RVSEC   : SSLContextSpec,okhttp3.OkHttpClient,OkHttpClient,<init>,SourceFile:289,InvalidSequenceOfMethodCalls,unknown
+06-06 21:07:24.526  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.Drawable0_commonMainKt: void <clinit>()>
+06-06 21:07:24.527  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.Drawable0_commonMainKt: org.jetbrains.compose.resources.DrawableResource getCross_shuffle()>
+06-06 21:07:24.527  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.String0_commonMainKt: void <clinit>()>
+06-06 21:07:24.527  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.String0_commonMainKt: org.jetbrains.compose.resources.StringResource getSort_random()>
+06-06 21:07:24.528  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.Drawable0_commonMainKt: org.jetbrains.compose.resources.DrawableResource getTitle()>
+06-06 21:07:24.528  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.String0_commonMainKt: org.jetbrains.compose.resources.StringResource getSort_title()>
+06-06 21:07:24.528  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.Drawable0_commonMainKt: org.jetbrains.compose.resources.DrawableResource getCalendar()>
+06-06 21:07:24.528  4034  4034 I RVSEC-COV: <me.knighthat.kreate.composeapp.generated.resources.String0_commonMainKt: org.jetbrains.compose.resources.StringResource getSort_date_added()>

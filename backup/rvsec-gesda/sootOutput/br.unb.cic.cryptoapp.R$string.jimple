@@ -1,0 +1,43 @@
+public final class br.unb.cic.cryptoapp.R$string extends java.lang.Object
+{
+    public static final int app_name;
+    public static final int btnCipher;
+    public static final int btnGenerateHash;
+    public static final int cteCipher;
+    public static final int cteMessageDigest;
+    public static final int msgError;
+    public static final int msgHashGenerated;
+    public static final int msgInvalidInput;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$string this;
+
+        this := @this: br.unb.cic.cryptoapp.R$string;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$string: int msgInvalidInput> = 2131755094;
+
+        <br.unb.cic.cryptoapp.R$string: int msgHashGenerated> = 2131755093;
+
+        <br.unb.cic.cryptoapp.R$string: int msgError> = 2131755092;
+
+        <br.unb.cic.cryptoapp.R$string: int cteMessageDigest> = 2131755048;
+
+        <br.unb.cic.cryptoapp.R$string: int cteCipher> = 2131755047;
+
+        <br.unb.cic.cryptoapp.R$string: int btnGenerateHash> = 2131755041;
+
+        <br.unb.cic.cryptoapp.R$string: int btnCipher> = 2131755040;
+
+        <br.unb.cic.cryptoapp.R$string: int app_name> = 2131755036;
+
+        return;
+    }
+}

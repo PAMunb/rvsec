@@ -1,0 +1,30 @@
+# gh61 yu5.<init> post-fix snapshot
+# APK: data/results/instrument_jca190_07/instrument_jca190_07/instrumented_apks/com.github.soundpod_16.apk
+# Captured: 2026-05-25T19:49:20-03:00
+# Source: classes.dex / yu5.smali (baksmali 3.0.8)
+#
+# NOTE: yu5.<init> in soundpod_16 was NOT the right validation target.
+#   - Original APK already had .registers 34 (no instrumentation-driven bump needed).
+#   - yu5.<init> body has zero MOP-relevant calls (only field assignments).
+#   - pre=34, post=34, original=34 — consistent, but doesn't exercise the fix.
+#
+# Persistence evidence collected from com.shub39.rush_5730 instead:
+#   of.<init>(I)V:                .registers 2→3
+#   of.execute(Runnable)V:        .registers 2→3
+#   dp1.<init>:                   .registers 2→3
+#   dp1.<other>:                  .registers 1→2
+#   dw.<init>(...,...,...,...,...,I)V (3 overloads): .registers 7→8
+#   kf1.<some>:                   .registers 1→2
+#   y21.<init>(I,String,String,Z)V: .registers 5→6
+# Conclusion: RegisterShifter clone path persists registerCount through dex serialization.
+
+.method public constructor <init>(Ljava/lang/String;Lmu5;Ljava/lang/String;Ljava/lang/String;Lcs0;Lcs0;JJJLok0;ILxr;JJJJZLgl3;IIJIILjava/lang/String;Ljava/lang/Boolean;)V
+    .registers 34
+
+    invoke-virtual {p2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-virtual {p3}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-virtual {p4}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    invoke-virtual {p5}, Ljava/lang/Object;->getClass()Ljava/lang/Class;

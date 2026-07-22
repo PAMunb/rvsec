@@ -1,0 +1,49 @@
+public final class br.unb.cic.cryptoapp.R$color extends java.lang.Object
+{
+    public static final int black;
+    public static final int purple_200;
+    public static final int purple_500;
+    public static final int purple_700;
+    public static final int teal_200;
+    public static final int teal_700;
+    public static final int unb_blue;
+    public static final int unb_blue2;
+    public static final int unb_green;
+    public static final int white;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$color this;
+
+        this := @this: br.unb.cic.cryptoapp.R$color;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$color: int white> = 2131100252;
+
+        <br.unb.cic.cryptoapp.R$color: int unb_green> = 2131100251;
+
+        <br.unb.cic.cryptoapp.R$color: int unb_blue2> = 2131100250;
+
+        <br.unb.cic.cryptoapp.R$color: int unb_blue> = 2131100249;
+
+        <br.unb.cic.cryptoapp.R$color: int teal_700> = 2131100243;
+
+        <br.unb.cic.cryptoapp.R$color: int teal_200> = 2131100242;
+
+        <br.unb.cic.cryptoapp.R$color: int purple_700> = 2131100228;
+
+        <br.unb.cic.cryptoapp.R$color: int purple_500> = 2131100227;
+
+        <br.unb.cic.cryptoapp.R$color: int purple_200> = 2131100226;
+
+        <br.unb.cic.cryptoapp.R$color: int black> = 2131099681;
+
+        return;
+    }
+}

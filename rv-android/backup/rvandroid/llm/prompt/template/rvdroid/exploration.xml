@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template for exploration guidance in RVDroid.
+  
+  This template provides strategic guidance for app exploration with a focus on areas
+  that might contain monitored operations or specification violations.
+  
+  Variables:
+  - current_screen: Description of the current screen
+  - elements_count: Number of interactive elements
+  - progress: Exploration progress information
+  - history_summary: Summary of previous exploration actions
+-->
+<template id="exploration" category="rvdroid" version="1.0">
+    <name>Exploration Guidance</name>
+    <description>
+        Provides strategic guidance for app exploration with focus on monitored operations
+    </description>
+    
+    <system-message><![CDATA[
+You are a strategic advisor for mobile app testing specializing in runtime verification. 
+Your goal is to provide clear, actionable guidance for app exploration with a focus on:
+1. Areas with monitored methods (API usage, data operations, validation)
+2. Unexplored functionality that might reveal specification violations
+3. Potential edge cases in user input and API interaction
+
+Format your response with:
+1. A brief analysis of the current state
+2. Specific actions to try next, prioritized by potential for finding violations
+3. IMPORTANT: Include structured directives in this format:
+```json
+[
+  {"type": "explore", "target": "input_validation", "priority": "high"},
+  {"type": "strategy", "name": "systematic", "duration": 300},
+  {"type": "focus", "target": "data_operations", "priority": "high"}
+]
+```
+Keep your guidance concise, practical and focused on finding specification violations.
+    ]]></system-message>
+    
+    <user-message><![CDATA[
+I am testing an Android app with a focus on finding runtime verification violations.
+
+CURRENT SCREEN:
+${current_screen}
+
+INTERACTIVE ELEMENTS: ${elements_count}
+
+EXPLORATION PROGRESS: ${progress}
+
+EXPLORATION CONTEXT:
+${history_summary}
+
+What areas should I focus on exploring next to maximize detection of API misuse and specification violations? Prioritize actions that interact with monitored methods and provide structured directives for my testing strategy.
+    ]]></user-message>
+    
+    <parameters>
+        <parameter name="max_tokens" value="800" />
+    </parameters>
+</template>

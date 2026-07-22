@@ -27,6 +27,14 @@ src/main/mop/*.rvm
 src/main/mop/*.aj
 
 target
+# Allow `target` as a Java package name under src/{main,test}/java
+# (gh60 introduces presto.android.gui.clients.target). The bare `target`
+# rule above otherwise swallows source-side packages of the same name.
+!**/src/main/java/**/target/
+!**/src/main/java/**/target/**
+!**/src/test/java/**/target/
+!**/src/test/java/**/target/**
 .idea
 output
 project
+bin

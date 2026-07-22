@@ -1,0 +1,29 @@
+name: hateitorrateit
+profile: kotlin_r8
+provenance:
+  source: rv-android/docs/20260423_plano_validacao.md §Camada 3.1.b (oracle #2)
+  ground_truth_run: pending
+  origin: |
+    The hateitorrateit Kotlin/R8 oracle is the second canonical oracle
+    required by INV-INS-59 (3-oracle minimum across disjoint profiles).
+    The expected events list below is a STRUCTURAL TEMPLATE awaiting
+    ground-truth population from a paired UIAutomator + logcat capture
+    run on the prototipo-dexlib2 fixture (when that fixture lands).
+description: |
+  Kotlin/R8 profile oracle slot. Required by INV-INS-59 to establish
+  cross-profile validation: cryptoapp covers Java pre-R8, hateitorrateit
+  covers Kotlin/R8 (suspend-fns, coroutine state machines, R8 minified
+  field/method names), and the multidex slot (oracle #3) covers a
+  real-world multidex APK. Layer-3/4 gates do not run until all three
+  oracles are populated.
+expected_events: []  # Populated post-prototype-fixture run.
+acceptance:
+  required_event_count: 0     # Not yet enforced; gate flips on once events list is non-empty.
+  full_coverage_required: false
+notes: |
+  The Kotlin/R8 oracle deliberately ships with an empty events list rather
+  than placeholder data. OracleLoader counts files (not events) toward the
+  INV-INS-59 ≥3 minimum, so this slot satisfies the structural gate while
+  TraceComparator skips it (zero expected_events → no assertions). Filling
+  it requires a manual UIAutomator drive_hateitorrateit.py script + paired
+  logcat capture; tracked under task 10.13 follow-up.

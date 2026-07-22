@@ -1,0 +1,13 @@
+sudo apt install python3-pip python3-dev
+sudo -H pip3 install --upgrade pip
+sudo -H pip3 install virtualenv
+
+python -m venv venv_rvandroid
+
+source venv_rvandroid/bin/activate
+
+pip install -r notebook_rvandroid_requirements.txt
+
+jupyter notebook
+or
+jupyter lab

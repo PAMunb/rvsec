@@ -1,0 +1,199 @@
+{
+  "app_name": "com.github.axet.hourlyreminder_476.apk",
+  "execution_time_s": 57.42404103279114,
+  "total_iterations": 22,
+  "actions": {
+    "by_type": {
+      "CLICK": 22
+    },
+    "valid": 19,
+    "invalid": 3,
+    "valid_rate": 0.8636363636363636
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "LinearLayoutCompat",
+      "ViewGroup",
+      "ViewPager",
+      "Button",
+      "LinearLayout",
+      "FrameLayout",
+      "CheckBox",
+      "ActionBar$Tab",
+      "TextView",
+      "View",
+      "RecyclerView",
+      "DrawerLayout",
+      "EditText",
+      "Switch",
+      "ScrollView",
+      "ImageButton",
+      "ImageView",
+      "Chip",
+      "RelativeLayout",
+      "HorizontalScrollView"
+    ],
+    "type_counts": {
+      "unknown": 22,
+      "FrameLayout": 248,
+      "LinearLayout": 204,
+      "ViewGroup": 25,
+      "HorizontalScrollView": 30,
+      "ActionBar$Tab": 41,
+      "TextView": 181,
+      "ImageView": 105,
+      "ViewPager": 18,
+      "RecyclerView": 8,
+      "Switch": 7,
+      "CheckBox": 129,
+      "ImageButton": 18,
+      "View": 39,
+      "LinearLayoutCompat": 18,
+      "DrawerLayout": 1,
+      "Chip": 4,
+      "RelativeLayout": 14,
+      "EditText": 1,
+      "ScrollView": 27,
+      "Button": 29
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 9,
+    "screen_visits": {
+      "64235e1aa1fb": 1,
+      "d7892d4b49a0": 3,
+      "9db119b2228d": 2,
+      "f4ad3d5ea073": 1,
+      "1d3d2f91b842": 1,
+      "1803a1e86fce": 1,
+      "ba846c66b8e0": 1,
+      "9a01451277e6": 2,
+      "48df09d03e92": 10
+    },
+    "activities": [
+      "com.google.android.soundpicker/.activity.GalleryActivity",
+      "com.android.documentsui/.picker.PickActivity",
+      "com.github.axet.hourlyreminder/.activities.MainActivity"
+    ],
+    "revisit_rate": 0.5909090909090909
+  },
+  "memory_graph": {
+    "graph_states": 9,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 5
+  },
+  "llm": {
+    "total_tokens": 142489,
+    "input_tokens": 141612,
+    "output_tokens": 877,
+    "avg_tokens_per_iteration": 6476.772727272727,
+    "max_message_count": 1,
+    "total_time_ms": 44654.998779296875,
+    "avg_time_per_iteration_ms": 2029.7726717862215
+  },
+  "device_actions": {
+    "total_actions": 13,
+    "valid_actions": 9,
+    "invalid_actions": 4,
+    "valid_rate": 0.6923076923076923,
+    "action_types": {
+      "CLICK": 13
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.ImageButton[com.github.axet.hourlyreminder:id/fab] @ ((891, 1605), (1038, 1752))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[M] @ ((49, 440), (167, 558))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[M] @ ((49, 440), (167, 558))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[M] @ ((49, 440), (167, 558))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Default (Pixie Dust) \u2014 My Sounds] @ ((63, 338), (1017, 395))",
+        "element": "android.widget.TextView[Default (Pixie Dust) \u2014 My Sounds] @ ((63, 338), (1017, 395))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Default (Pixie Dust) \u2014 My Sounds] @ ((63, 338), (1017, 395))",
+        "element": "android.widget.TextView[Default (Pixie Dust) \u2014 My Sounds] @ ((63, 338), (1017, 395))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "com.google.android.material.chip.Chip[Images] @ ((21, 231), (277, 357))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[com.github.axet.hourlyreminder:id/custom] @ ((70, 850), (1010, 968))",
+        "element": "android.widget.FrameLayout[com.github.axet.hourlyreminder:id/custom] @ ((70, 850), (1010, 968))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.LinearLayout[] @ ((152, 525), (956, 593))",
+        "element": "android.widget.LinearLayout[] @ ((152, 525), (956, 593))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[12] @ ((132, 567), (237, 672))"
+      },
+      {
+        "step": 11,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.CheckBox[1] @ ((266, 567), (371, 672))"
+      },
+      {
+        "step": 12,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Switch[OFF] @ ((924, 261), (1046, 332))"
+      },
+      {
+        "step": 13,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 1614), (978, 1740))"
+      }
+    ]
+  }
+}

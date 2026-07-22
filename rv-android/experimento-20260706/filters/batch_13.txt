@@ -1,0 +1,13 @@
+org.bombusmod_1430.apk
+org.cry.otp_31.apk
+org.css_apps_m3.password_manager_16.apk
+org.fedorahosted.freeotp_48.apk
+org.fossify.calendar_20.apk
+org.fossify.keyboard_14.apk
+org.fossify.math_10.apk
+org.fossify.messages_20.apk
+org.fossify.musicplayer_14.apk
+org.fossify.notes_13.apk
+org.fossify.paint_7.apk
+org.fossify.voicerecorder_18.apk
+org.glpi.inventory.agent_39469.apk

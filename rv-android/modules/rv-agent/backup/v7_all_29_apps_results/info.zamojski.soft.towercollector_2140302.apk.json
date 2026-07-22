@@ -1,0 +1,172 @@
+{
+  "app_name": "info.zamojski.soft.towercollector_2140302.apk",
+  "execution_time_s": 28.52434229850769,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 4,
+    "invalid": 6,
+    "valid_rate": 0.4
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ImageView",
+      "LinearLayout",
+      "ScrollView",
+      "TableRow",
+      "LinearLayoutCompat",
+      "TableLayout",
+      "TextView",
+      "Button",
+      "RecyclerView",
+      "HorizontalScrollView",
+      "ViewPager",
+      "Spinner",
+      "View",
+      "ListView",
+      "RelativeLayout",
+      "ImageButton",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 40,
+      "LinearLayout": 113,
+      "ViewGroup": 11,
+      "TextView": 90,
+      "LinearLayoutCompat": 4,
+      "Button": 17,
+      "HorizontalScrollView": 4,
+      "ViewPager": 4,
+      "TableLayout": 8,
+      "TableRow": 12,
+      "View": 14,
+      "ScrollView": 5,
+      "ImageButton": 2,
+      "RelativeLayout": 18,
+      "Spinner": 1,
+      "RecyclerView": 2,
+      "ImageView": 24,
+      "ListView": 2
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 8,
+    "screen_visits": {
+      "5120ea1fa6a6": 1,
+      "05fce23b3c08": 2,
+      "736923d04ce9": 1,
+      "d5b946522493": 1,
+      "3ab929c7608f": 1,
+      "75b1b9194c0d": 1,
+      "0411643a2358": 1,
+      "c1effe3689a5": 2
+    },
+    "activities": [
+      "com.android.settings/.Settings$HighPowerApplicationsActivity",
+      "info.zamojski.soft.towercollector/.MainActivity"
+    ],
+    "revisit_rate": 0.2
+  },
+  "memory_graph": {
+    "graph_states": 8,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 6
+  },
+  "llm": {
+    "total_tokens": 46965,
+    "input_tokens": 46599,
+    "output_tokens": 366,
+    "avg_tokens_per_iteration": 4696.5,
+    "max_message_count": 1,
+    "total_time_ms": 26267.781496047974,
+    "avg_time_per_iteration_ms": 2626.7781496047974
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 4,
+    "invalid_actions": 6,
+    "valid_rate": 0.4,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 1614), (978, 1740))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TableLayout[] @ ((0, 336), (1080, 409))",
+        "element": "android.widget.TableLayout[] @ ((0, 336), (1080, 409))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[CANCEL] @ ((544, 1082), (746, 1208))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Carrier Provisioning Service] @ ((189, 462), (699, 519))",
+        "element": "android.widget.TextView[Carrier Provisioning Service] @ ((189, 462), (699, 519))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TableLayout[] @ ((0, 336), (1080, 409))",
+        "element": "android.widget.TableLayout[] @ ((0, 336), (1080, 409))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Measurements:] @ ((23, 495), (496, 568))",
+        "element": "android.widget.TextView[Measurements:] @ ((23, 495), (496, 568))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((810, 998), (978, 1124))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ENABLE] @ ((424, 975), (655, 1101))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Export] @ ((692, 107), (1005, 164))",
+        "element": "android.widget.TextView[Export] @ ((692, 107), (1005, 164))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Preferences] @ ((692, 359), (1005, 416))",
+        "element": "android.widget.TextView[Preferences] @ ((692, 359), (1005, 416))"
+      }
+    ]
+  }
+}

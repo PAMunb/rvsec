@@ -1,0 +1,160 @@
+{
+  "app_name": "com.hwloc.lstopo_271.apk",
+  "execution_time_s": 24.681264400482178,
+  "total_iterations": 9,
+  "actions": {
+    "by_type": {
+      "CLICK": 9
+    },
+    "valid": 1,
+    "invalid": 8,
+    "valid_rate": 0.1111111111111111
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ImageView",
+      "TextView",
+      "RecyclerView",
+      "DrawerLayout",
+      "ImageButton",
+      "CheckedTextView",
+      "ViewGroup",
+      "RadioButton",
+      "FrameLayout",
+      "RadioGroup",
+      "LinearLayoutCompat",
+      "LinearLayout",
+      "CheckBox",
+      "View",
+      "ScrollView",
+      "ViewPager",
+      "RelativeLayout",
+      "Button",
+      "HorizontalScrollView",
+      "unknown"
+    ],
+    "type_counts": {
+      "unknown": 9,
+      "FrameLayout": 36,
+      "LinearLayout": 105,
+      "DrawerLayout": 5,
+      "ViewGroup": 5,
+      "ImageButton": 5,
+      "Button": 9,
+      "LinearLayoutCompat": 29,
+      "TextView": 112,
+      "View": 25,
+      "RelativeLayout": 27,
+      "HorizontalScrollView": 5,
+      "RecyclerView": 3,
+      "CheckedTextView": 24,
+      "ScrollView": 5,
+      "CheckBox": 6,
+      "RadioGroup": 8,
+      "RadioButton": 12,
+      "ViewPager": 2,
+      "ImageView": 2
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 7,
+    "screen_visits": {
+      "b7446df03013": 2,
+      "ed0b0076fe9c": 1,
+      "8060dd0535d7": 1,
+      "6d34804f6c1a": 1,
+      "8a286ffde012": 1,
+      "b9ec960dd19d": 2,
+      "792c84a97d0e": 1
+    },
+    "activities": [
+      "com.hwloc.lstopo/.MainActivity",
+      "com.hwloc.lstopo/.Options",
+      "com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity"
+    ],
+    "revisit_rate": 0.2222222222222222
+  },
+  "memory_graph": {
+    "graph_states": 7,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 1
+  },
+  "llm": {
+    "total_tokens": 43388,
+    "input_tokens": 43033,
+    "output_tokens": 355,
+    "avg_tokens_per_iteration": 4820.888888888889,
+    "max_message_count": 1,
+    "total_time_ms": 23471.144437789917,
+    "avg_time_per_iteration_ms": 2607.904937532213
+  },
+  "device_actions": {
+    "total_actions": 8,
+    "valid_actions": 1,
+    "invalid_actions": 7,
+    "valid_rate": 0.125,
+    "action_types": {
+      "CLICK": 8
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Package L#0] @ ((85, 345), (1080, 394))",
+        "element": "android.widget.TextView[Package L#0] @ ((85, 345), (1080, 394))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "No element at coordinates (378, 1891)",
+        "element": null
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((0, 987), (735, 1011))",
+        "element": "android.widget.FrameLayout[] @ ((0, 987), (735, 1011))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.view.ViewGroup[com.hwloc.lstopo:id/toolbar] @ ((0, 63), (1080, 210))",
+        "element": "android.view.ViewGroup[com.hwloc.lstopo:id/toolbar] @ ((0, 63), (1080, 210))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))",
+        "element": "android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))",
+        "element": "android.widget.RadioGroup[com.hwloc.lstopo:id/IO_objects_group1] @ ((121, 1193), (959, 1324))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.LinearLayout[] @ ((70, 1079), (562, 1199))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.FrameLayout[] @ ((0, 987), (735, 1011))",
+        "element": "android.widget.FrameLayout[] @ ((0, 987), (735, 1011))"
+      }
+    ]
+  }
+}

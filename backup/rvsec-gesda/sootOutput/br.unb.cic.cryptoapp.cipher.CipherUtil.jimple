@@ -1,0 +1,211 @@
+public class br.unb.cic.cryptoapp.cipher.CipherUtil extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        br.unb.cic.cryptoapp.cipher.CipherUtil this;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    private byte[] aes(java.lang.String) throws java.lang.Exception
+    {
+        byte[] $u-1#6;
+        javax.crypto.spec.SecretKeySpec aesCipher;
+        javax.crypto.Cipher $u-1#10;
+        javax.crypto.KeyGenerator $u-1;
+        java.nio.charset.Charset $u5;
+        br.unb.cic.cryptoapp.cipher.CipherUtil this;
+        java.lang.String $u7;
+        javax.crypto.SecretKey $u-1#4;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        $u7 := @parameter0: java.lang.String;
+
+        $u-1 = staticinvoke <javax.crypto.KeyGenerator: javax.crypto.KeyGenerator getInstance(java.lang.String)>("AES");
+
+        virtualinvoke $u-1.<javax.crypto.KeyGenerator: void init(int)>(128);
+
+        $u-1#4 = virtualinvoke $u-1.<javax.crypto.KeyGenerator: javax.crypto.SecretKey generateKey()>();
+
+        $u-1#6 = interfaceinvoke $u-1#4.<javax.crypto.SecretKey: byte[] getEncoded()>();
+
+        aesCipher = new javax.crypto.spec.SecretKeySpec;
+
+        specialinvoke aesCipher.<javax.crypto.spec.SecretKeySpec: void <init>(byte[],java.lang.String)>($u-1#6, "AES");
+
+        $u-1#10 = staticinvoke <javax.crypto.Cipher: javax.crypto.Cipher getInstance(java.lang.String)>("AES/GCM/NoPadding");
+
+        virtualinvoke $u-1#10.<javax.crypto.Cipher: void init(int,java.security.Key)>(1, aesCipher);
+
+        $u5 = <java.nio.charset.StandardCharsets: java.nio.charset.Charset UTF_8>;
+
+        $u-1#6 = virtualinvoke $u7.<java.lang.String: byte[] getBytes(java.nio.charset.Charset)>($u5);
+
+        $u-1#6 = virtualinvoke $u-1#10.<javax.crypto.Cipher: byte[] doFinal(byte[])>($u-1#6);
+
+        return $u-1#6;
+    }
+
+    private byte[] des(java.lang.String) throws java.lang.Exception
+    {
+        byte[] $u-1#8;
+        java.nio.charset.Charset $u3;
+        br.unb.cic.cryptoapp.cipher.CipherUtil this;
+        java.lang.String $u5;
+        javax.crypto.SecretKey $u-1#3;
+        javax.crypto.Cipher $u-1#4;
+        javax.crypto.KeyGenerator $u-1;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        $u5 := @parameter0: java.lang.String;
+
+        $u-1 = staticinvoke <javax.crypto.KeyGenerator: javax.crypto.KeyGenerator getInstance(java.lang.String)>("DES");
+
+        $u-1#3 = virtualinvoke $u-1.<javax.crypto.KeyGenerator: javax.crypto.SecretKey generateKey()>();
+
+        $u-1#4 = staticinvoke <javax.crypto.Cipher: javax.crypto.Cipher getInstance(java.lang.String)>("DES");
+
+        virtualinvoke $u-1#4.<javax.crypto.Cipher: void init(int,java.security.Key)>(1, $u-1#3);
+
+        $u3 = <java.nio.charset.StandardCharsets: java.nio.charset.Charset UTF_8>;
+
+        $u-1#8 = virtualinvoke $u5.<java.lang.String: byte[] getBytes(java.nio.charset.Charset)>($u3);
+
+        $u-1#8 = virtualinvoke $u-1#4.<javax.crypto.Cipher: byte[] doFinal(byte[])>($u-1#8);
+
+        return $u-1#8;
+    }
+
+    public java.lang.String encrypt(java.lang.String) throws java.lang.Exception
+    {
+        byte[] $u-1#7;
+        br.unb.cic.cryptoapp.cipher.CipherUtil this;
+        int $u-1;
+        java.util.Random random;
+        java.lang.StringBuilder $u3;
+        java.lang.String $u6;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        $u6 := @parameter0: java.lang.String;
+
+        random = new java.util.Random;
+
+        specialinvoke random.<java.util.Random: void <init>()>();
+
+        $u-1 = virtualinvoke random.<java.util.Random: int nextInt(int)>(10);
+
+        if $u-1 <= 6 goto label1;
+
+        $u-1#7 = specialinvoke this.<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] aes(java.lang.String)>($u6);
+
+        $u6 = "AES: ";
+
+        goto label2;
+
+     label1:
+        $u-1#7 = specialinvoke this.<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] des(java.lang.String)>($u6);
+
+        $u6 = "DES: ";
+
+     label2:
+        $u3 = new java.lang.StringBuilder;
+
+        specialinvoke $u3.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke $u3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u6);
+
+        $u6 = staticinvoke <br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>($u-1#7);
+
+        virtualinvoke $u3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u6);
+
+        $u6 = virtualinvoke $u3.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        return $u6;
+    }
+
+    public java.lang.String encrypt(java.lang.String, boolean) throws java.lang.Exception
+    {
+        byte[] $u-1#7;
+        br.unb.cic.cryptoapp.cipher.CipherUtil this;
+        int $u-1;
+        java.util.Random random;
+        java.lang.StringBuilder random#12;
+        java.lang.String $u6;
+        boolean $u7;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        $u6 := @parameter0: java.lang.String;
+
+        $u7 := @parameter1: boolean;
+
+        if $u7 == 0 goto label3;
+
+        random = new java.util.Random;
+
+        specialinvoke random.<java.util.Random: void <init>()>();
+
+        $u-1 = virtualinvoke random.<java.util.Random: int nextInt(int)>(10);
+
+        if $u-1 <= 6 goto label1;
+
+        $u-1#7 = specialinvoke this.<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] aes(java.lang.String)>($u6);
+
+        $u6 = "AES: ";
+
+        goto label2;
+
+     label1:
+        $u-1#7 = specialinvoke this.<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] des(java.lang.String)>($u6);
+
+        $u6 = "DES: ";
+
+     label2:
+        goto label4;
+
+     label3:
+        $u-1#7 = specialinvoke this.<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] des(java.lang.String)>($u6);
+
+        $u6 = "DES: ";
+
+     label4:
+        random#12 = new java.lang.StringBuilder;
+
+        specialinvoke random#12.<java.lang.StringBuilder: void <init>()>();
+
+        virtualinvoke random#12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u6);
+
+        $u6 = staticinvoke <br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>($u-1#7);
+
+        virtualinvoke random#12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($u6);
+
+        $u6 = virtualinvoke random#12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        return $u6;
+    }
+
+    public java.lang.String unreachableEncrypt(java.lang.String) throws java.lang.Exception
+    {
+        byte[] $u-1;
+        java.lang.String $u3;
+        br.unb.cic.cryptoapp.cipher.CipherUtil this;
+
+        this := @this: br.unb.cic.cryptoapp.cipher.CipherUtil;
+
+        $u3 := @parameter0: java.lang.String;
+
+        $u-1 = specialinvoke this.<br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] des(java.lang.String)>($u3);
+
+        $u3 = staticinvoke <br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>($u-1);
+
+        return $u3;
+    }
+}

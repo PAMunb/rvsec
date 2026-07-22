@@ -1,0 +1,100 @@
+# Exp6 Mini: Rerun 10 act-only losers WITHOUT Activity triggering
+# Validates that removing Activity triggers fixes the regressions.
+# 5 containers, 2 APKs each, 600s, 3 reps = 30 tasks (~40min)
+#
+# Usage:
+#   docker compose -f docker/docker-compose.exp6-mini.yml up -d
+#   watch -n 30 bash scripts/monitor_exp6_mini.sh
+#   docker compose -f docker/docker-compose.exp6-mini.yml down
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  exp6m_00:
+    <<: *rvandroid-base
+    container_name: exp6m_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp6m_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp6_mini_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp6m_00:/opt/rvsec/rv-android/results
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/target/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/data/system-broadcast.json:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/system-broadcast.json:ro
+
+  exp6m_01:
+    <<: *rvandroid-base
+    container_name: exp6m_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp6m_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp6_mini_batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp6m_01:/opt/rvsec/rv-android/results
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/target/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/data/system-broadcast.json:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/system-broadcast.json:ro
+
+  exp6m_02:
+    <<: *rvandroid-base
+    container_name: exp6m_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp6m_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp6_mini_batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp6m_02:/opt/rvsec/rv-android/results
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/target/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/data/system-broadcast.json:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/system-broadcast.json:ro
+
+  exp6m_03:
+    <<: *rvandroid-base
+    container_name: exp6m_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp6m_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp6_mini_batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp6m_03:/opt/rvsec/rv-android/results
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/target/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/data/system-broadcast.json:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/system-broadcast.json:ro
+
+  exp6m_04:
+    <<: *rvandroid-base
+    container_name: exp6m_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp6m_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp6_mini_batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp6m_04:/opt/rvsec/rv-android/results
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/target/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ape/data/system-broadcast.json:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/system-broadcast.json:ro

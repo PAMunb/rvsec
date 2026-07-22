@@ -1,0 +1,58 @@
+[tool.poetry]
+name = "rv-llm"
+version = "0.1.0"
+description = "LLM integration infrastructure and prompt framework for RV-Android"
+authors = ["RV-Android Team"]
+readme = "README.md"
+packages = [{include = "rv_llm", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+rv-android-core = {path = "../rv-android-core", develop = true}
+rv-screen-parser = {path = "../rv-screen-parser", develop = true}
+pydantic = "^2.9.0"
+
+# LLM-specific dependencies
+requests = "^2.32.0"  # Para APIs HTTP
+httpx = "^0.28.0"  # Cliente HTTP async moderno
+jinja2 = "^3.1.0"  # Template engine para prompts
+
+# Provider-specific dependencies
+ollama = "^0.6.0"  # Ollama SDK
+openai = "^1.56.0"  # OpenAI API
+anthropic = "^0.61.0"  # Anthropic Claude API
+boto3 = "^1.35.0"  # AWS Bedrock
+google-generativeai = "^0.8.0"  # Google Gemini API
+
+# HuggingFace dependencies
+torch = "^2.5.0"  # PyTorch for HuggingFace models
+transformers = "^4.47.0"  # HuggingFace transformers
+accelerate = "^1.7.0"  # For model optimization
+bitsandbytes = "^0.46.0"  # For quantization
+python-dotenv = "^1.1.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-cov = "^6.0.0"
+hypothesis = "^6.135.26"
+
+# Sem CLI inicialmente - apenas uso programático
+vulture = "^2.14"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+# show_missing = true
+# fail_under = 80
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

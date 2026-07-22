@@ -1,0 +1,165 @@
+# RVSmart comparison experiment: rvsmart:mvp vs rvsmart:arrival_first_v17
+# 8 containers, 100 APKs (stratified), 600s timeout, 3 reps, JCA specs.
+# APE/FastBot data from baseline_v2 — only rvsmart variants executed here.
+#
+# Usage:
+#   # 1. Ensure batch files exist: data/apks/batch_00.txt .. batch_07.txt
+#   # 2. Launch:
+#   docker compose -f docker/docker-compose.comparacao.yml up -d
+#   # 3. Monitor:
+#   bash scripts/monitor_comparacao.sh
+#   # 4. Stop:
+#   docker compose -f docker/docker-compose.comparacao.yml down
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "rvsmart:mvp,rvsmart:arrival_first_v17"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RVSMART_LLM_MODE: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "8g"
+  depends_on:
+    sglang:
+      condition: service_healthy
+
+services:
+  sglang:
+    image: lmsysorg/sglang:latest
+    container_name: sglang-server
+    volumes:
+      - ${HF_CACHE:-/pedro/desenvolvimento/.cache/huggingface}:/root/.cache/huggingface
+    ipc: host
+    shm_size: "16g"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      python3 -m sglang.launch_server
+      --model-path Qwen/Qwen3-VL-4B-Instruct
+      --host 0.0.0.0
+      --port 30000
+      --trust-remote-code
+      --attention-backend flashinfer
+      --tool-call-parser qwen
+      --enable-multimodal
+      --context-length 8192
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  cmp01:
+    <<: *rvandroid-base
+    container_name: cmp01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp01:/opt/rvsec/rv-android/results
+
+  cmp02:
+    <<: *rvandroid-base
+    container_name: cmp02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp02:/opt/rvsec/rv-android/results
+
+  cmp03:
+    <<: *rvandroid-base
+    container_name: cmp03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp03:/opt/rvsec/rv-android/results
+
+  cmp04:
+    <<: *rvandroid-base
+    container_name: cmp04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp04:/opt/rvsec/rv-android/results
+
+  cmp05:
+    <<: *rvandroid-base
+    container_name: cmp05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp05:/opt/rvsec/rv-android/results
+
+  cmp06:
+    <<: *rvandroid-base
+    container_name: cmp06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp06:/opt/rvsec/rv-android/results
+
+  cmp07:
+    <<: *rvandroid-base
+    container_name: cmp07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp07:/opt/rvsec/rv-android/results
+
+  cmp08:
+    <<: *rvandroid-base
+    container_name: cmp08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: cmp08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/cmp08:/opt/rvsec/rv-android/results

@@ -1,0 +1,67 @@
+# Ignore common development files and directories
+.git
+.gitignore
+.gitmodules
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.swp
+.project
+.classpath
+.settings/
+.metadata/
+.m2/
+.gradle/
+.classpath
+.cproject
+.project
+.settings/
+.toolstmp/
+.cache/
+.tox/
+.mypy_cache/
+.pytest_cache/
+build/
+dist/
+node_modules/
+npm-debug.log
+yarn-error.log
+target/
+out/
+results/
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Specific to this project - intermediate and temporary files
+# These are commented out as 'target/' covers most compiled Java artifacts.
+# Keeping them here for clarity if specific sub-module targets were needed.
+# rvsec/rvsec-mop/target/
+# rvsec/rvsec-core/target/
+# rvsec/rvsec-logger/target/
+# rvsec/rv-android/target/
+# rvsec/javamop/
+# rvsec/rv-monitor/
+# rvsec/rvsec-reach/target/
+# rvsec/rvsec-gesda/target/
+# rvsec/rvsec-gator/target/
+
+# Ignore outputs of previous Docker builds if they are not meant to be part of the context
+docker/
+
+# Ignore zip files
+*.zip
+
+# Ignore documentation related build artifacts
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf
+*.synctex.gz

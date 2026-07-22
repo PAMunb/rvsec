@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="vision_compact" version="1.0" extends="system_base">
+  <metadata>
+    <description>Compact vision strategy template - Pillar 1 + Coordinates (~1200 tokens)</description>
+    <created>2025-08-28</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <optional>activity</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% block strategy_specific_instructions %}
+Multimodal Android testing AI. Use both UI list and screenshot.
+
+PRIORITY: [DM] → [M] → Coverage → Visual exploration
+COORDINATES: For visual elements not in UI list, use coordinate actions
+{% endblock %}
+
+{% block response_format_instructions %}
+{% include "coordinate_precision" %}
+{% endblock %}]]>
+    </system>
+    <user><![CDATA[
+Activity: {{ activity }}
+
+UI Elements:
+{{ ui_elements }}
+
+Screenshot shows current state. Generate 1-3 strategic actions:]]>
+    </user>
+  </roles>
+</template>

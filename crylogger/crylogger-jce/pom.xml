@@ -1,0 +1,31 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>br.unb.cic.rvsec</groupId>
+		<artifactId>crylogger</artifactId>
+		<version>0.3.0-SNAPSHOT</version>
+	</parent>
+	<artifactId>crylogger-jce</artifactId>
+
+	<properties>
+		<jar.base.name>jce</jar.base.name>
+		<jar.location>${jre.lib.dir}/jce.jar</jar.location>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>br.unb.cic.rvsec</groupId>
+			<artifactId>crylogger-rt</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+	</dependencies>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+</project>

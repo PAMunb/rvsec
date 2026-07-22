@@ -1,0 +1,52 @@
+[project]
+name = "rv-screen-parser"
+version = "0.1.0"
+description = "Android screen parsing for DroidBot and UIAutomator with visitor pattern"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "pydantic>=2.9.0",
+    # Screen parsing dependencies
+    "lxml>=5.3.0",
+    "beautifulsoup4>=4.12.0",
+    "uiautomator2>=3.3.1",
+    # Screenshot analysis dependencies
+    "pytesseract>=0.3.0",
+    "opencv-python-headless>=4.10.0",
+    "pillow>=10.4.0",
+    "numpy>=2.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_screen_parser"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+# show_missing = true
+# fail_under = 80
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,14 @@
+06-06 14:06:17.808  5778  5778 I RVSEC-COV: <com.illiouchine.jm.MajorityUrnApplication: void <init>()>
+06-06 14:06:17.889  5778  5778 I RVSEC-COV: <com.illiouchine.jm.MajorityUrnApplication: void onCreate()>
+06-06 14:06:17.914  5778  5778 V RVSEC   : SecureRandomSpec,z4.s,s,t,r8-map-id-1960f28686709e5b7664f5d3ad5845f326be4680b2b13559f1bc2a8a8a6dad1c:6,InvalidSequenceOfMethodCalls,unknown
+06-06 14:06:17.919  5778  5778 I RVSEC-COV: <com.illiouchine.jm.MainActivity: void <init>()>
+06-06 14:06:17.926  5778  5778 I RVSEC-COV: <com.illiouchine.jm.MainActivity: void onCreate(android.os.Bundle)>
+06-06 14:06:23.780  6051  6051 V RVSEC   : SecureRandomSpec,z4.s,s,t,r8-map-id-1960f28686709e5b7664f5d3ad5845f326be4680b2b13559f1bc2a8a8a6dad1c:6,InvalidSequenceOfMethodCalls,unknown
+06-06 14:06:24.005  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase_Impl: void <init>()>
+06-06 14:06:24.005  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase: void <init>()>
+06-06 14:06:24.005  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase_Impl: j4.g c()>
+06-06 14:06:24.005  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase_Impl: z4.g b()>
+06-06 14:06:24.006  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase_Impl: java.util.Set e()>
+06-06 14:06:24.006  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase_Impl: java.util.List a(java.util.LinkedHashMap)>
+06-06 14:06:24.006  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase_Impl: java.util.LinkedHashMap f()>
+06-06 14:06:24.006  6051  6051 I RVSEC-COV: <com.illiouchine.jm.data.room.PollDataBase_Impl: u5.g k()>

@@ -1,0 +1,6 @@
+*.rvm
+*.aj
+*.java
+
+target
+

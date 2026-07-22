@@ -1,0 +1,21 @@
+{
+  "app": "cryptoapp.apk",
+  "version": "v7",
+  "prompt": "v5",
+  "total_iterations": 10,
+  "device_actions": {
+    "total_actions": 10,
+    "action_types": {
+      "CLICK": 10
+    }
+  },
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    }
+  },
+  "unknown_rate": 0.0,
+  "unique_screens": 0,
+  "unique_activities": 0,
+  "has_static_analysis": false
+}

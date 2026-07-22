@@ -1,0 +1,3102 @@
+{
+  "total_apps": 28,
+  "total_screenshots": 468,
+  "successful_parses": 465,
+  "failed_parses": 3,
+  "native_tool_calls": 0,
+  "json_parser_used": 465,
+  "errors": 0,
+  "apps_results": {
+    "ar.rulosoft.mimanganu_75.apk": {
+      "total": 8,
+      "success": 8,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 8,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "au.com.wallaceit.reddinator_68.apk": {
+      "total": 13,
+      "success": 13,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 13,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "biz.gyrus.yaab_30.apk": {
+      "total": 12,
+      "success": 12,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 12,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "byrne.utilities.hashpass_2.apk": {
+      "total": 7,
+      "success": 7,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 7,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "ca.farrelltonsolar.classic_314.apk": {
+      "total": 25,
+      "success": 24,
+      "failed": 1,
+      "native": 0,
+      "json_parser": 24,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "025.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "021.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": false,
+          "method": "none",
+          "tool_calls_count": 0,
+          "screenshot": "016.png",
+          "response_preview": " addCriterion\n<tool_call>\n{\"name\": \"android_click\", \"arguments\": {\"element_description\": \"Use Fahrenheitheit scale\", \"x\": 366, 322, \"y\": 322}}\n</tool_call>"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "024.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "022.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "023.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "cf.playhi.freezeyou_151.apk": {
+      "total": 16,
+      "success": 16,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 16,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.aidinhut.simpletextcrypt_14.apk": {
+      "total": 15,
+      "success": 15,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 15,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 4,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.akop.bach_120.apk": {
+      "total": 12,
+      "success": 12,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 12,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.alienpants.leafpicrevived_24.apk": {
+      "total": 36,
+      "success": 36,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 36,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "029.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "027.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "025.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "021.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "031.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "035.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "030.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "028.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "034.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "033.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "024.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "022.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "036.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "032.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "026.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "023.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.crazyhitty.chdev.ks.munch_14.apk": {
+      "total": 20,
+      "success": 20,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 20,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 2,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 2,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.cyanogenmod.filemanager.ics_1015.apk": {
+      "total": 21,
+      "success": 21,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 21,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "021.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.dougkeen.bart_50.apk": {
+      "total": 12,
+      "success": 12,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 12,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.dozuki.ifixit_46.apk": {
+      "total": 13,
+      "success": 13,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 13,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.gh4a_73.apk": {
+      "total": 17,
+      "success": 17,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 17,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.gianlu.dnshero_40.apk": {
+      "total": 27,
+      "success": 27,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 27,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "027.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "025.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "021.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "024.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "022.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "026.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "023.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.github.axet.hourlyreminder_476.apk": {
+      "total": 32,
+      "success": 32,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 32,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "029.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "027.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "025.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "021.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "031.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "030.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "028.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "024.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "022.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "032.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "026.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "023.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.hwloc.lstopo_271.apk": {
+      "total": 9,
+      "success": 9,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 9,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.orpheusdroid.sqliteviewer_1.apk": {
+      "total": 8,
+      "success": 8,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 8,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.rafapps.simplenotes_7.apk": {
+      "total": 10,
+      "success": 10,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 10,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "com.sam.hex_16.apk": {
+      "total": 22,
+      "success": 22,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 22,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "021.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "022.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "cryptoapp.apk": {
+      "total": 25,
+      "success": 25,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 25,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "025.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "021.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "024.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "022.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 3,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "023.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "info.zamojski.soft.towercollector_2140302.apk": {
+      "total": 20,
+      "success": 20,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 20,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "020.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "livio.rssreader_101.apk": {
+      "total": 17,
+      "success": 16,
+      "failed": 1,
+      "native": 0,
+      "json_parser": 16,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": false,
+          "method": "none",
+          "tool_calls_count": 0,
+          "screenshot": "012.png",
+          "response_preview": " addCriterion\n<tool_call>\n{\"name\": \"android_click\", \"arguments\": {\"element_description\": \"Regular text text\", \"x\": 364, 372, \"y\": 372}}\n</tool_call>"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "org.emunix.insteadlauncher_80601.apk": {
+      "total": 19,
+      "success": 18,
+      "failed": 1,
+      "native": 0,
+      "json_parser": 18,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": false,
+          "method": "none",
+          "tool_calls_count": 0,
+          "screenshot": "016.png",
+          "response_preview": " addCriterion\n<tool_call>\n{\"name\": \"android_click\", \"arguments\": {\"element_description\": \"Play music\", \"x\": 364, 402, \"y\": 364}}\n</tool_call>"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "018.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "019.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "org.pulpdust.lesserpad_42.apk": {
+      "total": 17,
+      "success": 17,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 17,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "017.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "016.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "org.secuso.privacyfriendlydicer_8.apk": {
+      "total": 8,
+      "success": 8,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 8,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "org.secuso.privacyfriendlyludo_5.apk": {
+      "total": 15,
+      "success": 15,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 15,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "013.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "014.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "015.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    },
+    "t20kdc.offlinepuzzlesolver_4.apk": {
+      "total": 12,
+      "success": 12,
+      "failed": 0,
+      "native": 0,
+      "json_parser": 12,
+      "errors": 0,
+      "results": [
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "011.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "012.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "004.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "001.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "010.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "009.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "003.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "007.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "008.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "006.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "002.png"
+        },
+        {
+          "success": true,
+          "method": "json_parser",
+          "tool_calls_count": 1,
+          "screenshot": "005.png"
+        }
+      ]
+    }
+  }
+}

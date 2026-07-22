@@ -1,0 +1,40 @@
+[project]
+name = "rv-instrumentation"
+version = "0.1.0"
+description = "Parent canonical: factory dispatching to ajc/dexlib2 variants + shared keystore asset"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-instrumentation-core",
+    "rv-instrumentation-ajc",
+    "rv-instrumentation-dexlib2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-instrumentation-core = { workspace = true }
+rv-instrumentation-ajc = { workspace = true }
+rv-instrumentation-dexlib2 = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_instrumentation"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"assets" = "rv_instrumentation/assets"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

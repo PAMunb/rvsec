@@ -1,0 +1,24 @@
+{
+  "app": "PrivacyFriendlyLudo",
+  "package": "org.secuso.privacyfriendlyludo",
+  "type": "game",
+  "has_static_analysis": true,
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 13,
+    "unique_states": 8,
+    "transitions": 7,
+    "potential_loop": false,
+    "execution_time_s": 359.83451557159424
+  },
+  "validation": {
+    "generated_actions": true,
+    "discovered_states": true,
+    "recorded_transitions": true,
+    "no_immediate_loop": true,
+    "overall_success": true
+  }
+}

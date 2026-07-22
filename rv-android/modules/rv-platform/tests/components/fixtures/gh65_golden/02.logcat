@@ -1,0 +1,26 @@
+06-06 11:53:13.315  5785  5785 I RVSEC-COV: <com.destructo.botox.MainActivity: void <init>()>
+06-06 11:53:13.328  5785  5785 I RVSEC-COV: <com.destructo.botox.MainActivity: void onCreate(android.os.Bundle)>
+06-06 11:53:13.413  5785  5785 I RVSEC-COV: <com.destructo.botox.MainActivity: void t()>
+06-06 11:53:28.734  6100  6100 I RVSEC-COV: <com.destructo.botox.BootReceiver: void <init>()>
+06-06 11:53:28.735  6100  6100 I RVSEC-COV: <com.destructo.botox.BootReceiver: void onReceive(android.content.Context,android.content.Intent)>
+06-06 11:53:28.736  6100  6100 I RVSEC-COV: <com.destructo.botox.MyForegroundService: void <init>()>
+06-06 11:53:28.744  6100  6100 V RVSEC   : TrustManagerFactorySpec,n3.n,n,n,Unknown Source:14,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+06-06 11:53:28.744  6100  6100 V RVSEC   : TrustManagerFactorySpec,n3.n,n,n,Unknown Source:14,InvalidSequenceOfMethodCalls,unknown
+06-06 11:53:28.745  6100  6100 V RVSEC   : SSLContextSpec,n3.n,n,l,Unknown Source:7,InvalidSequenceOfMethodCalls,unknown
+06-06 11:53:28.745  6100  6100 V RVSEC   : SSLContextSpec,n3.n,n,m,Unknown Source:16,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+06-06 11:53:28.745  6100  6100 V RVSEC   : SSLContextSpec,n3.n,n,m,Unknown Source:16,InvalidSequenceOfMethodCalls,unknown
+06-06 11:53:28.746  6100  6100 I RVSEC-COV: <com.destructo.botox.MyForegroundService: void onCreate()>
+06-06 11:53:28.749  6100  6100 I RVSEC-COV: <com.destructo.botox.MyForegroundService: void a()>
+06-06 11:53:28.754  6100  6100 I RVSEC-COV: <com.destructo.botox.MyForegroundService: int onStartCommand(android.content.Intent,int,int)>
+06-06 11:53:43.346  6100  6100 I RVSEC-COV: <com.destructo.botox.SubscriptionActivity: void <init>()>
+06-06 11:53:43.371  6100  6100 I RVSEC-COV: <com.destructo.botox.SubscriptionActivity: void onCreate(android.os.Bundle)>
+06-06 11:55:30.743  8763  8763 V RVSEC   : TrustManagerFactorySpec,n3.n,n,n,Unknown Source:14,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+06-06 11:55:30.743  8763  8763 V RVSEC   : TrustManagerFactorySpec,n3.n,n,n,Unknown Source:14,InvalidSequenceOfMethodCalls,unknown
+06-06 11:55:30.744  8763  8763 V RVSEC   : SSLContextSpec,n3.n,n,l,Unknown Source:7,InvalidSequenceOfMethodCalls,unknown
+06-06 11:55:30.744  8763  8763 V RVSEC   : SSLContextSpec,n3.n,n,m,Unknown Source:16,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+06-06 11:55:30.744  8763  8763 V RVSEC   : SSLContextSpec,n3.n,n,m,Unknown Source:16,InvalidSequenceOfMethodCalls,unknown
+06-06 11:55:33.828  8983  8983 V RVSEC   : TrustManagerFactorySpec,n3.n,n,n,Unknown Source:14,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+06-06 11:55:33.829  8983  8983 V RVSEC   : TrustManagerFactorySpec,n3.n,n,n,Unknown Source:14,InvalidSequenceOfMethodCalls,unknown
+06-06 11:55:33.830  8983  8983 V RVSEC   : SSLContextSpec,n3.n,n,l,Unknown Source:7,InvalidSequenceOfMethodCalls,unknown
+06-06 11:55:33.830  8983  8983 V RVSEC   : SSLContextSpec,n3.n,n,m,Unknown Source:16,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+06-06 11:55:33.831  8983  8983 V RVSEC   : SSLContextSpec,n3.n,n,m,Unknown Source:16,InvalidSequenceOfMethodCalls,unknown

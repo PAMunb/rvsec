@@ -1,0 +1,59 @@
+{
+  "test_info": {
+    "test": "HuggingFace Focused Vision Models",
+    "strategy": "API + local loading + structured generation",
+    "comparison": "vs Ollama test_001 results"
+  },
+  "results": [
+    {
+      "model": "microsoft/Phi-3-vision-128k-instruct",
+      "inference_api_available": false,
+      "local_loading_success": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0,
+      "inference_time_s": 0,
+      "structured_generation": false,
+      "vision_sample": null
+    },
+    {
+      "model": "Qwen/Qwen2-VL-7B-Instruct",
+      "inference_api_available": false,
+      "local_loading_success": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0,
+      "inference_time_s": 0,
+      "structured_generation": false,
+      "vision_sample": null
+    },
+    {
+      "model": "llava-hf/llava-1.5-7b-hf",
+      "inference_api_available": false,
+      "local_loading_success": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0,
+      "inference_time_s": 0,
+      "structured_generation": false,
+      "vision_sample": null
+    },
+    {
+      "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+      "inference_api_available": false,
+      "local_loading_success": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0,
+      "inference_time_s": 0,
+      "structured_generation": false,
+      "vision_sample": null
+    },
+    {
+      "model": "microsoft/Phi-3.5-mini-instruct",
+      "inference_api_available": false,
+      "local_loading_success": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0,
+      "inference_time_s": 0,
+      "structured_generation": false,
+      "vision_sample": null
+    }
+  ]
+}

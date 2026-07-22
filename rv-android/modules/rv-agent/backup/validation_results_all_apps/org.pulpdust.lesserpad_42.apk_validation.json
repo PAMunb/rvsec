@@ -1,0 +1,118 @@
+{
+  "app_name": "org.pulpdust.lesserpad_42.apk",
+  "execution_time_s": 27.005311965942383,
+  "total_iterations": 17,
+  "actions": {
+    "by_type": {
+      "CLICK": 17
+    },
+    "valid": 0,
+    "invalid": 17,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ViewGroup",
+      "ListView",
+      "FrameLayout",
+      "Spinner",
+      "TextView",
+      "TableRow",
+      "unknown",
+      "RelativeLayout",
+      "ImageButton",
+      "View",
+      "LinearLayout",
+      "EditText"
+    ],
+    "type_counts": {
+      "unknown": 17,
+      "FrameLayout": 51,
+      "RelativeLayout": 17,
+      "TableRow": 18,
+      "TextView": 86,
+      "Spinner": 17,
+      "EditText": 16,
+      "ViewGroup": 17,
+      "ImageButton": 33,
+      "LinearLayout": 17,
+      "View": 34,
+      "ListView": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 3,
+    "screen_visits": {
+      "c0c6757a3538": 1,
+      "3d47dc31d2a2": 15,
+      "c3a8b3ef88fc": 1
+    },
+    "activities": [
+      "org.pulpdust.lesserpad/.LesserPadListActivity",
+      "org.pulpdust.lesserpad/.LesserPadActivity"
+    ],
+    "revisit_rate": 0.8235294117647058
+  },
+  "memory_graph": {
+    "graph_states": 3,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 30892,
+    "input_tokens": 29943,
+    "output_tokens": 949,
+    "avg_tokens_per_iteration": 1817.1764705882354,
+    "max_message_count": 1,
+    "total_time_ms": 24500.768899917603,
+    "avg_time_per_iteration_ms": 1441.2216999951531
+  },
+  "device_actions": {
+    "total_actions": 5,
+    "valid_actions": 0,
+    "invalid_actions": 5,
+    "valid_rate": 0.0,
+    "action_types": {
+      "CLICK": 5
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))",
+        "element": "android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))",
+        "element": "android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))",
+        "element": "android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))",
+        "element": "android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))",
+        "element": "android.widget.TextView[Unfiled] @ ((542, 108), (954, 165))"
+      }
+    ]
+  }
+}

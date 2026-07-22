@@ -75,7 +75,7 @@ public final class SeparateAgentGenerator {
         }
 
         final int ajcReturn = runCommandDir(outputDir, verbose, "java", "-cp", completeClassPath,
-                "org.aspectj.tools.ajc.Main", "-1.6", "-d", agentDir.getAbsolutePath(),
+                "org.aspectj.tools.ajc.Main", "-21", "-d", agentDir.getAbsolutePath(),
                 "-outxml", agentAspect.getAbsolutePath());
 
         if(ajcReturn != 0) {
@@ -214,7 +214,7 @@ public final class SeparateAgentGenerator {
         }
 
         final int ajcReturn = runCommandDir(outputDir, verbose, "java", "-cp", completeClassPath,
-                "org.aspectj.tools.ajc.Main", "-1.6", "-d", agentDir.getAbsolutePath(),
+                "org.aspectj.tools.ajc.Main", "-21", "-d", agentDir.getAbsolutePath(),
                 "-outxml", emopAspectDir.getAbsolutePath() + "/*.aj");
 
         if(ajcReturn != 0) {

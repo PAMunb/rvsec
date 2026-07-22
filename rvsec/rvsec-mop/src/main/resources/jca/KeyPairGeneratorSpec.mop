@@ -1,0 +1,119 @@
+package mop;
+
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+
+/**
+ * KeyPairGeneratorSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.KeyPairGenerator class.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyPairGenerator.crysl
+ */
+KeyPairGeneratorSpec(KeyPairGenerator k) {
+
+    List<String> safeAlgorithms = Arrays.asList("RSA", "EC", "DSA", "DiffieHellman", "DH");
+
+    KeyPairGenerator kpg = null;
+    KeyPair kp;
+    String algorithm;
+
+    private boolean validate(int keySize) {
+      switch(algorithm) {
+        case "RSA": return Arrays.asList(4096, 3072, 2048).contains(keySize);
+        case "DSA": return keySize == 2048;
+        case "DiffieHellman": return keySize == 2048;
+        case "DH": return keySize == 2048;
+        case "EC": return keySize == 256;
+      }
+      return false;
+    }
+
+    event g1 after(String alg) returning(KeyPairGenerator k):
+      call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
+      args(alg) &&
+      condition(safeAlgorithms.contains(alg)) {
+        kpg = k;
+        algorithm = alg;
+    }
+
+    event g2 after(String alg, String provider) returning(KeyPairGenerator k):
+      call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)) &&
+      args(alg, provider) &&
+      condition(safeAlgorithms.contains(alg)) {
+        kpg = k;
+        algorithm = alg;
+    }
+
+    event g3 after(String alg) returning(KeyPairGenerator k):
+      call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
+      args(alg) &&
+      condition(!safeAlgorithms.contains(alg)) {
+        algorithm = alg;
+    }
+
+    /*
+    It can be very difficult to format code properly inside these .mop files.
+     */
+    event init1 after(int keySize, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(int)) &&
+      args(keySize) &&
+      target(k) &&
+      condition(validate(keySize)) {
+         if (!safeAlgorithms.contains(algorithm)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" +
+             __LOC, " expecting one of " + String.join(",", safeAlgorithms) + " but found " + algorithm + "."));
+         }
+      }
+
+    event init2 after(int keySize, SecureRandom random, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(int, SecureRandom)) &&
+      args(keySize, random) &&
+      target(k) &&
+      condition(validate(keySize)) { }
+
+    event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
+      args(params) &&
+      target(k)  { }
+
+    event init4 after(AlgorithmParameterSpec params, SecureRandom random, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) &&
+      args(params, random) &&
+      target(k) { }
+
+    event initError after(int keySize, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(int)) &&
+      args(keySize) &&
+      target(k) &&
+      condition(!validate(keySize)) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "KeyPairGeneratorSpec", "" + __LOC,
+                               "invalid key size for algorithm " + algorithm + "."));
+    }
+
+    event gen after(KeyPairGenerator k) returning(KeyPair keyPair):
+      (call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) &&
+      target(k) {
+       kp = keyPair;
+       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
+    }
+
+    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4) gen
+
+    @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC));
+      ExecutionContext.instance().remove(Property.GENERATED_KEY_PAIR, kp);
+    }
+
+    @match {
+       ExecutionContext.instance().setObjectAsInAcceptingState(kpg);
+    }
+
+}

@@ -1,0 +1,176 @@
+# Risk Register: gh66-gator-wtg-flowcontainer-perf
+
+**GitHub Issue**: #66
+**Change**: Optimize GATOR `FlowgraphRebuilder.buildFlowThroughContainer()` (Fix 1 only) — hoist read-side container-field resolution out of the writes loop (guarded against node-creation side effects) + memoize `getRead/WriteContainerField` in a `Map<Stmt,Integer>` — preserving an edge-set-identical WTG `transitions[]`.
+**Track**: Full SDD (edits the GATOR analysis engine and relaxes the standing "do not touch GATOR" rule; ADR-recorded). Single monorepo (`PAMunb/rvsec`); one commit covers source + tracked artifacts.
+**Owner**: Pedro Costa
+**Date**: 2026-06-17
+**References**: `design.md` (D1–D5, Risks), `proposal.md`, `tasks.md`, ADR (D1), `docs/20260613_wtg_timeout_buildflowthroughcontainer.md`, prior arity fix `e584894a`.
+
+This register applies the **proactive strategy** principle: every risk below is identified before the Java edit lands, so the diff-zero gate (INV-ANA-39) and the rebuild-before-validate discipline are in place as mitigations, not as post-failure fire-fighting. It augments the design's Risks section with empirically-verified findings (see *Investigation Findings*), and was corrected after the researcher confirmed the single-monorepo topology and the by-design Maven-generated JAR.
+
+---
+
+## Investigation Findings (ground truth for this register)
+
+Verified against the working tree on 2026-06-17 (corrected after researcher confirmation):
+
+1. **Single repo, single working tree.** `git rev-parse --show-toplevel` from BOTH `rv-android` and the GATOR Java tree (`rvsec/rvsec-android/rvsec-gator/...`) returns the same root `/.../workspace-rv/rvsec` (`remote.origin.url = git@github.com:PAMunb/rvsec.git`). `rv-android` and GATOR are subdirectories of ONE monorepo, not separate repos or working trees. The earlier "cross-repo / cross-working-tree" framing was **wrong**: a single commit covers the Java source edit and every tracked artifact together. This removes the cross-tree coordination hazard entirely (RISK-002 downgraded).
+2. **The shipped JAR is gitignored — by design.** `git check-ignore lib/gator/rvsec-gator.jar` → **IGNORED**. This is intentional: the JAR is a **build artifact** produced by the `rvsec-gator` Maven module, and a Maven plugin copies it into `lib/gator/`. The source is version-controlled and the JAR is reproducible from it. The only residual consequence for this change: git cannot prove the JAR in `lib/gator/` was built from the patched source, and the 72-APK diff-zero gate cannot detect a *never-rebuilt* (stale) JAR (a stale JAR reproduces the old behavior, which is byte-identical to the baseline by definition). The cheap behavioral check that the new code actually runs is the **jstack re-probe (task 4.3)**. Probability is Low because the Maven plugin performs the copy automatically — there is no hand-copy step to forget (RISK-001 downgraded to Low).
+3. **Resolver purity confirmed.** `WTGUtil.getReadContainerField(Stmt s)` (WTGUtil.java:919) reads only `s` (its invoke expr / resolved `SootMethod`), the instance map `readContainerMethods`, and the class hierarchy `hier`. It performs no per-call mutation. It is **pure for a fixed Soot Scene** — which validates the memoization-safety claim (INV-ANA-39) and pinpoints the only non-purity hazard precisely: `hier` is Scene-global; memoization is safe *within one `buildFlowThroughContainer` invocation* (the method-local cache lifetime D4 mandates). `getWriteContainerField` (WTGUtil.java:872) has the same shape.
+
+---
+
+## Summary
+
+| Risk Level | Count |
+|------------|-------|
+| Critical | 0 |
+| High | 0 |
+| Medium | 3 |
+| Low | 5 |
+
+The change is low *correctness* risk **once the hoist is guarded** (RISK-004b): the diff-zero gate is edge-exact and the resolvers are verified pure, but the gate covers only the 72 baseline — the one correctness hazard it cannot see (the node-creation side effect of an unguarded hoist on a recovered APK) is closed three ways: by construction (D3 guard), by review (checkpoint 2.6a), and **empirically** (the guard differential 4.1b on a sample including the 97, plus the edge-set regression IT 4.A2 in CI). Governance risk is low (single monorepo, single commit; the gitignored JAR is a Maven-generated build artifact, copied by a Maven plugin). The residual risk concentrates in **effectiveness** (Fix 1 alone may not clear enough timeouts, RISK-003) and **scope discipline** (RISK-006) — neither threatens correctness, only the value delivered. Two durability reminders survive: rebuild via Maven before validating, and let the **jstack re-probe (task 4.3)** behaviorally confirm the new code shipped (diff-zero cannot detect a stale JAR).
+
+---
+
+## Top Risks
+
+### RISK-001: Validating against a stale (never-rebuilt) JAR
+- **Category**: Tools / Technology (build process discipline)
+- **Description**: `lib/gator/rvsec-gator.jar` is **gitignored by design** — it is a build artifact generated by the `rvsec-gator` Maven module and copied into `lib/gator/` by a Maven plugin. Because it is not version-controlled, git cannot prove the JAR currently in `lib/gator/` was built from the patched source. The only failure this enables: if validation is run against a JAR that was **never rebuilt** after the source edit, the 72-APK diff-zero gate passes deceptively — a stale JAR reproduces the old behavior, which is byte-identical to the baseline (the baseline *was* produced by the old JAR). Diff-zero cannot distinguish "new code, correct" from "old code, never recompiled."
+- **Probability**: **Low** (10–25%) — the Maven plugin performs the build-and-copy automatically; there is no manual hand-copy step to forget. The hazard is only "ran validation without rebuilding first."
+- **Effect**: **Moderate** — a "completed" change would ship no behavioral change and the 97-timeout recovery never materializes; but the jstack re-probe catches it immediately and the fix is to simply rebuild.
+- **Risk Level**: **Low** — *Risk Projection*: Low likelihood × Moderate effect.
+- **Mitigation Strategy**: Minimization.
+- **Actions**:
+  1. **(Behavioral proof)** Run the **jstack re-probe (task 4.3)** after rebuilding — a stale JAR still shows `getReadContainerField`/`SootMethodRefImpl.resolve` dominating `main`; the corrected JAR does not. This is the one check that distinguishes new-vs-old JAR behaviorally; treat it as a **mandatory gate**.
+  2. Rebuild via Maven (which triggers the plugin copy) immediately before validation, in one session; do not reuse a pre-existing JAR.
+  3. **(Minimization)** Record the build timestamp + source SHA in the consolidated report `docs/20260613_relatorio_sweep_wtg_jca_169.md` (task 3.3), since the JAR itself is intentionally untracked.
+- **Indicators**: jstack re-probe still shows `getReadContainerField` hot (RED — stale JAR, rebuild); JAR mtime older than the Java edit (YELLOW).
+- **Status**: Open.
+
+### RISK-002: Fresh-clone rebuild does not reproduce the validated JAR
+- **Category**: Tools / Technology (rebuild reproducibility)
+- **Description**: Single monorepo, single commit (verified: `rv-android` and the GATOR tree share the git root `/.../workspace-rv/rvsec`, remote `PAMunb/rvsec`). The Java source edit and all tracked artifacts land in **one atomic commit** — there is no cross-tree partial-landing hazard. The residual point: since the JAR is a build output (RISK-001), a fresh clone must *rebuild* it via Maven, and that rebuild must reproduce the behavior that was validated locally. A toolchain difference at rebuild time (covered more fully by RISK-005) could yield a JAR that differs from the one the 72-APK diff-zero was run against.
+- **Probability**: **Low** (10–25%) — same committed source + same Maven build is deterministic enough; the environment is recent and known-good.
+- **Effect**: **Tolerable** — caught by re-running diff-zero on a clean rebuild before declaring done.
+- **Risk Level**: **Low** — *Risk Projection*: Low × Tolerable.
+- **Mitigation Strategy**: Minimization.
+- **Actions**:
+  1. ✅ **Done** — the exact Maven command (`cd rvsec/rvsec-android/rvsec-gator && mvn clean install -DskipTests -pl sootandroid,client -am`, `install` phase triggers the plugin copy; Soot 4.7.1 unchanged per INV-ANA-18) is pinned in tasks.md §3.1 so any rebuild is reproducible.
+  2. Verify a clean rebuild from the committed source reproduces a JAR that passes the 72-APK diff-zero before declaring done.
+- **Indicators**: rebuild-from-committed-source diverges from the locally validated JAR on diff-zero (RED).
+- **Status**: Open (command pinned; clean-rebuild reproducibility still to verify at done).
+
+### RISK-003: Fix 1 alone does not move enough of the 97 timeouts below the timeout
+- **Category**: Technology / Estimation (effectiveness)
+- **Description**: The diagnosis names **two** hot spots. Fix 1 addresses the read-side container-field resolution; the per-allocation `GraphUtil.reachableNodes()` transitive closure (FlowgraphRebuilder.java:319, Fix 2) is **explicitly untouched**. APKs dominated by the reachability closure rather than by field resolution will keep timing out, so the recovered-transitions count (task 4.2) may be small — the constant-factor win may not cross the wall-clock threshold for most of the 97.
+- **Probability**: **Moderate** (25–50%) — the jstack on `ch.famoser.mensa` localized cost to `getReadContainerField`, but that is one app; the 97 are heterogeneous and line 319 is a known co-dominant cost.
+- **Effect**: **Tolerable** — *not a correctness or schedule failure*. The consumer (aperv `scoreWtg`, rv-agent navigation) **degrades cleanly** to `scoreWtg→0` when `transitions[]` is empty; the 72 already-shipped stay valid; the change is purely additive. Worst case the change recovers few APKs and Fix 2 becomes a follow-up.
+- **Risk Level**: **Medium** — *Risk Projection*: Moderate × Tolerable. Listed prominently because it governs whether the change *delivers value*, even though it cannot *break* anything.
+- **Mitigation Strategy**: Minimization + Contingency (this is partly an accepted risk by design — D2 chose "measure Fix 1 first").
+- **Actions**:
+  1. Task 4.2 **measures and records** the recovery number — this is the decision input, not a pass/fail gate. Treat any positive recovery as success for *this* change.
+  2. **(Contingency)** If recovery is marginal, open Fix 2 (per-alloc reachability) as a separate Full SDD change; do NOT scope-creep it into gh66 (see RISK-006).
+  3. Re-probe with jstack post-fix (task 4.3): if `main` is now dominated by line 319 `reachableNodes`, that empirically scopes the Fix 2 follow-up.
+- **Indicators**: recovery count near 0 (YELLOW — Fix 2 likely needed); jstack now hot on `reachableNodes`/`GraphUtil` (informational — confirms Fix 2 target).
+- **Status**: Open (accepted-by-design; outcome measured, not gated).
+
+### RISK-004: Hoist/memoization diverges from the unoptimized pass (edges or created nodes)
+- **Category**: Technology (correctness)
+- **Description**: Two distinct divergence hazards, one of which the diff-zero gate cannot see:
+  - **(a) Memoization non-purity** — memoization is only edge-set-identical if `getRead/WriteContainerField(s)` returns the same value for a given `s` throughout one `buildFlowThroughContainer` invocation. **Verified pure**: the resolvers read only `s`, the static method maps, and Scene-global `hier` — no per-call mutation (Finding 3). Residual hazard: a future Soot/GATOR change making the result depend on mutable per-alloc state, or a `Stmt` identity/equality collision. The `computeIfAbsent`-vs-`containsKey` trap (D4) lives here too: `null` is a legitimate return, and `computeIfAbsent` would not cache it (a *performance* bug that silently negates the fix, not a correctness one).
+  - **(b) Node-creation side effect of an unguarded hoist** — the target-node factories `simpleNode`/`varNode` (`FlowgraphRebuilder.java:794-839`) are **not** pure getters: they lazily create+register flow-graph nodes (`classConstNode` does `new NClassConstantNode` + `flowgraph.allNNodes.add`; `varNode`/`fieldNode`/`stringConstantNode`/`allocNode` get-or-create). In the original, the read loop runs only after a write resolves to a non-null `sn`, so `tn` is never computed for an alloc node that adds no edge. An **unguarded** precompute would call the factories for every read of every alloc node — creating read-target nodes the unoptimized pass never creates. **This is the load-bearing hazard**: it can manifest on an alloc node with reads but no resolvable writes, and that divergence may surface **only on a previously-timed-out APK**, which has no `transitions[]` baseline — so the diff-zero gate on the 72 **cannot** catch it. It must be prevented by construction (the D3 guard), not validated away.
+- **Probability**: **Low** (10–25%) — resolvers verified pure; hazard (b) requires an alloc node with reads-but-no-resolvable-writes whose read-target value is not already interned by the main flowgraph build (most read args are already-created locals), but the case is real and unbounded over the 97.
+- **Effect**: **Serious** *if it occurred* — a divergent edge or an extra flow-graph node changes the WTG result, violating the binding constraint.
+- **Risk Level**: **Medium** — *Risk Projection*: Low × Serious.
+- **Mitigation Strategy**: Avoidance — hazard (a) by the byte-exact gate; hazard (b) **by construction** (the guard), since the gate cannot reach the 97.
+- **Actions** (hazard (b) is controlled THREE ways — by construction, by review, and empirically — because the diff-zero gate cannot reach the 97):
+  1. **Guard the hoist (D3)**: lazily materialize `readTargets` only on the first non-null `sn`; never invoke `simpleNode`/`varNode` for an alloc node that adds no edge (INV-ANA-39c). Code review (task 5.1 / checkpoint 2.6a) verifies the guard is present.
+  2. **Guard differential, empirical (task 4.1b)**: A/B the pre-change vs corrected JAR with a throwaway node counter; assert the `flowgraph.allNNodes` delta during `buildFlowThroughContainer` is identical AND the divergence-prone case (reads, no resolvable write) is actually exercised (>0) on ≥1 APK. This is the empirical proof of (b) on un-baselined APKs.
+  3. **INV-ANA-39 diff-zero on the 72 baseline (task 4.1)** — ANY added/removed edge (keyed on stable identifiers: source/target window name, event type, widget name, handler signature — NOT raw node IDs; see task 4.1a) fails the change. Covers hazard (a) and any edge effect of (b) landing on the 72.
+  4. **Edge-set regression IT (task 4.A2)** — `BaselineComparisonIT` upgraded from count to edge set guards the contract in CI on `cryptoapp` on every build.
+  5. Implement D4 exactly: `containsKey`-then-`get` to cache `null`; **never** `computeIfAbsent`. Code review (task 5.1) checks this explicitly.
+  6. Keep caches method-local, declared before the outer `allNAllocNodes` loop (D4) — lifetime tight, no cross-invocation/cross-analysis staleness.
+  7. **Purity unit test (task 2.7, mandatory)**: `cached(s) == fresh(s)` including the `null` case (`rvsec-gator` has a JUnit test tree — no longer optional).
+- **Indicators**: any added/removed edge on the 72 (RED — block); `computeIfAbsent` present in the diff (RED — block at review); `simpleNode`/`varNode` reachable before a non-null `sn` in the diff (RED — block at review, hazard (b)); guard-differential `allNNodes` delta differs between original and corrected (RED — block, hazard (b) realized); guard differential never hits case (ii) on any sampled APK (YELLOW — guard unexercised, widen the sample before trusting it).
+- **Status**: Open (edges gated at 4.1 + 4.A2; node-creation gated at code review 2.6a/5.1 AND the empirical guard differential 4.1b).
+
+### RISK-005: External tooling break — Maven build or Soot 4.7.1 behavior
+- **Category**: Tools / Technology (build environment)
+- **Description**: The fix requires a successful Maven build of `rvsec-gator` against Soot 4.7.1 and the existing GATOR/Android dependency set. A toolchain drift (JDK version, Maven plugin, Soot transitive dep, AndroidManifest/SDK jars) could make the rebuilt JAR fail to build, or build but behave differently from the 2026-06-13 reference build that produced the current JAR.
+- **Probability**: **Low** (10–25%) — the current JAR was built 2026-06-13 from this tree; the environment is recent and known-good.
+- **Effect**: **Tolerable** — caught immediately at build time (3.1) or by diff-zero (4.1); does not ship silently.
+- **Risk Level**: **Low** — *Risk Projection*: Low × Tolerable.
+- **Mitigation Strategy**: Minimization.
+- **Actions**:
+  1. Mirror the exact build that produced the 2026-06-13 JAR (same JDK/Maven/profile); record the command in tasks.md §3.1.
+  2. Sanity-check: build *first* with no source change and confirm the resulting JAR reproduces the 72 diff-zero (isolates "build env changed" from "my edit changed behavior").
+  3. INV-ANA-18 (Soot version) is an existing analysis invariant — do not bump Soot as part of this change.
+- **Indicators**: Maven build failure (RED); unchanged-source rebuild fails diff-zero (RED — environment regression, separate from gh66).
+- **Status**: Open.
+
+### RISK-006: Scope creep — Fix 2 or WTG-algorithm alteration smuggled in
+- **Category**: Requirements (scope discipline)
+- **Description**: Strong temptation to "while I'm in here" also do Fix 2 (per-alloc `reachableNodes`, line 319) or to make WTG "smaller/faster" by pruning, depth-limiting, or touching `sDepth`. Both are **forbidden**: Fix 2 is delicate to keep byte-identical (D2 deferred it deliberately), and any pruning/depth change **alters the WTG result**, breaking the binding constraint and invalidating the diff-zero gate's meaning.
+- **Probability**: **Moderate** (25–50%) — the diagnosis presents three fixes together; the asymptotic payoff of Fix 2 is tempting and line 319 is right next to the edited code.
+- **Effect**: **Serious** — a result-altering change masquerading as a perf fix; the 72 diff-zero would *fail* (good, it catches pruning) but a Fix 2 attempt that *happens* to pass on the 72 could ship subtle divergence on the 97; either way it blows the change's risk profile and ADR scope.
+- **Risk Level**: **Medium** — *Risk Projection*: Moderate × Serious.
+- **Mitigation Strategy**: Avoidance (explicit non-goals + task gate).
+- **Actions**:
+  1. Task 2.6 is an explicit **negative checkpoint**: confirm line 319 `reachableNodes` is left untouched. Code review (5.1) verifies the diff touches only the read-side hoist + memoization + the line-334 write-resolver swap.
+  2. Non-Goals in design.md are binding: no pruning, no `sDepth`, no depth limits, no parallelization.
+  3. If Fix 2 looks warranted post-measurement (RISK-003), it is a **separate change** with its own ADR/validation — never folded into gh66.
+- **Indicators**: diff touches line 319 or any WTG-stage/`sDepth` code (RED — block at review); diff adds pruning/limit logic (RED).
+- **Status**: Open (gated at review).
+
+### RISK-007: Verbose-log volume change misread as a behavioral change
+- **Category**: Technology (observability artifact)
+- **Description**: Hoisting the read resolution (D3) emits the `Logger.verb` "read container stmt can not be found" message **once per unresolved `tgt`** instead of `|writes|×` per unresolved `tgt`. This is a *log-volume reduction at verbose level only* — no edge changes — but a reviewer or a downstream log-diff could misread the reduced message count as "the pass did less work / dropped edges."
+- **Probability**: **Low** (10–25%).
+- **Effect**: **Insignificant** — cosmetic; does not affect `transitions[]` or any consumed JSON.
+- **Risk Level**: **Low**.
+- **Mitigation Strategy**: Minimization (documentation).
+- **Actions**:
+  1. D3 already documents this as an intended side effect; note it in the code-review prompt (5.1) so the reduced log count is expected, not flagged as a regression.
+  2. Validation compares **edges** (diff-zero on `transitions[]`), not log lines — the gate is immune to this.
+- **Indicators**: a log-line-count diff cited as evidence of behavior change (YELLOW — clarify).
+- **Status**: Open (documented).
+
+### RISK-008: NFR04 timeout-degradation path inadvertently altered
+- **Category**: Technology (resilience contract)
+- **Description**: NFR04 requires that on timeout the write-first partial JSON still carries `reachability` + `windows` + `components` with `transitions[]` empty. The fix is in `preBuild` *before* the WTG stages and does not touch the partial-JSON/timeout path, but a careless edit (e.g. moving cache declarations or throwing on a cache miss) could perturb control flow on the timeout path.
+- **Probability**: **Very Low** (<10%) — the edit is confined to `buildFlowThroughContainer`'s internal loop structure; the timeout/write-first machinery is elsewhere.
+- **Effect**: **Serious** *if it occurred* — the clean-degradation guarantee the consumer relies on (`scoreWtg→0`) would break.
+- **Risk Level**: **Low** — *Risk Projection*: Very Low × Serious.
+- **Mitigation Strategy**: Avoidance (regression check).
+- **Actions**:
+  1. Task 4.4: on an APK that still times out, confirm partial JSON keeps reach+windows+components with `transitions[]` empty.
+  2. The cached resolvers must not throw — they delegate to resolvers that already catch and return `null` (verified); never add a throw.
+- **Indicators**: a still-timing-out APK loses `reachability`/`windows`/`components` from its partial JSON (RED — block).
+- **Status**: Open (gated at 4.4).
+
+---
+
+## Monitoring Schedule
+
+- **Review cadence**: at each task-group boundary in `tasks.md` (after Group 2 Java edit, after Group 3 JAR build, after Group 4 validation). This is a small, short-lived change — no recurring calendar review needed.
+- **Hard gates before "done"** (all must be GREEN):
+  1. **Automated tests pass** (`mvn verify`): purity unit test (task 2.7 / 4.A1) and edge-set regression IT (task 4.A2).
+  2. RISK-004a/006: edge-set diff-zero on the 72 baseline (task 4.1, exact comparator from 4.1a keyed on stable identifiers) — zero added/removed edges, diff touches only the intended lines.
+  3. RISK-004b: hoist guard verified **two ways** — code-review checkpoint (task 2.6a) AND the empirical guard differential (task 4.1b: corrected-vs-original `allNNodes` delta identical, and the divergence-prone case actually exercised). **This is the control for the 97 recovered APKs, which have no diff-zero baseline.**
+  4. RISK-001: jstack re-probe (task 4.3) confirms the hot spot moved off `getReadContainerField` — **the behavioral proof the new JAR shipped**.
+  5. RISK-008: NFR04 partial-JSON regression check (task 4.4).
+  6. RISK-002: clean rebuild-from-committed-source reproduces a diff-zero-passing JAR (task 4.5).
+- **Measured, not gated**: RISK-003 recovery count (task 4.2) — records value delivered; informs the Fix 2 follow-up decision.
+- **Next review**: at Group 2 completion (Java edit landed).
+
+## Change Log
+
+| Date | Risk | Change |
+|------|------|--------|
+| 2026-06-17 | — | Register created (task 1.2). Initial topology read assumed two working trees and a high-severity gitignored-JAR drift risk (2 High). |
+| 2026-06-17 | RISK-001, RISK-002 | **Corrected after researcher confirmation.** Topology is a single monorepo (`PAMunb/rvsec`), one commit — RISK-002 reframed from "two-tree partial landing" to "fresh-clone rebuild reproducibility", downgraded High→Low. The JAR is gitignored **by design** (Maven module builds it, Maven plugin copies it) — RISK-001 reframed from "source↔JAR drift" to "validating against a never-rebuilt JAR", downgraded High→Low (the plugin auto-copies; no hand-copy to forget). Net: 2 High → 0 High; jstack re-probe (4.3) retained as the mandatory behavioral gate. |
+| 2026-06-17 | RISK-004, RISK-002 | **Adversarial-review corrections (pre-apply).** RISK-004 expanded to name the load-bearing hazard the diff-zero gate cannot see: the **node-creation side effect** of an unguarded hoist (`simpleNode`/`varNode` lazily create flow-graph nodes), which can diverge only on a recovered APK that has no baseline. Closed **by construction** via the D3 guard (lazy `readTargets` materialization) + code-review checkpoint 2.6a. Also pinned the exact Maven build command in tasks §3.1 (RISK-002 action 1 done) and specified the exact diff-zero comparator (stable-identifier key, not raw node IDs; `_backup/` excluded) in task 4.1a. "byte-identical" wording reconciled to "edge-set-identical" across artifacts. Counts unchanged (0 High / 3 Medium / 5 Low). |
+| 2026-06-17 | RISK-004 | **Validation hardened (rigorous, layered).** Confirmed `rvsec-gator` has a JUnit/IT test tree (21 tests; the design Open Question is resolved). Added mandatory automated layers — purity unit test (2.7/4.A1) and an **edge-set regression IT** upgrading `BaselineComparisonIT` from `transitions.size()` to full edge-set comparison (4.A2) — and an **empirical guard differential** (4.1b: A/B `allNNodes`-delta check that the guard creates no extra nodes and is actually exercised on the un-baselined 97). Hazard (b) now controlled three ways (construction + review + empirical), not review-only. Clean-rebuild reproducibility promoted to an explicit gate (4.5). Counts unchanged (0 High / 3 Medium / 5 Low). |

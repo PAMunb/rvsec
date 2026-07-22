@@ -46,7 +46,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
            call(public PBEKeySpec.new(char[], byte[], int, int)) &&
            args(password, salt, iterationCount, keyLength) &&
            condition( iterationCount < 10000 ) {
-               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpec",
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec",
                   ""  + __LOC, "third argument should be >= 1000"));
          }
 
@@ -54,7 +54,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
           args(password, salt, iterationCount, keyLength) &&
           condition( ! ExecutionContext.instance().validate(Property.RANDOMIZED, password) ) {
-             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpec",
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec",
                   "" + __LOC, "first argument should have been randomized" ));
         }
 
@@ -62,7 +62,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
           args(password, salt, iterationCount, keyLength) &&
           condition( ! ExecutionContext.instance().validate(Property.RANDOMIZED, salt) ) {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpec",
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec",
                  "" + __LOC, "second argument should have been randomized"));
         }
 
@@ -75,7 +75,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
         ere : c1 c2
 
         @fail {
-          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpec",
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec",
                "" + __LOC));
           __RESET;
         }

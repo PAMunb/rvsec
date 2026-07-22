@@ -1,0 +1,179 @@
+@startuml 
+class CipherInputStreamSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+ 
+  .. USES ..
+ 
+} 
+class CipherOutputStreamSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+ 
+  .. USES ..
+ 
+} 
+class CipherSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} ENCRYPTED 
+{field} WRAPPED_KEY 
+ 
+  .. USES ..
+{field} GENERATED_KEY 
+{field} GENERATED_PRIVATE_KEY 
+{field} GENERATED_PUBLIC_KEY 
+ 
+} 
+class DHGenParameterSpecSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} PREPARED_DH 
+ 
+  .. USES ..
+ 
+} 
+class GCMParameterSpecSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} PREPARED_GCM 
+ 
+  .. USES ..
+{field} RANDOMIZED 
+ 
+} 
+class HMACParameterSpecSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} PREPARED_HMAC 
+ 
+  .. USES ..
+ 
+} 
+class IvParameterSpecSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} PREPARED_IV 
+ 
+  .. USES ..
+{field} RANDOMIZED 
+ 
+} 
+class KeyGeneratorSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_KEY 
+ 
+  .. USES ..
+ 
+} 
+class KeyManagerFactorySpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_KEY_MANAGERS 
+ 
+  .. USES ..
+ 
+} 
+class KeyPairGeneratorSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_KEY_PAIR 
+ 
+  .. USES ..
+ 
+} 
+class KeyPairSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_PUBLIC_KEY 
+ 
+  .. USES ..
+ 
+} 
+class KeyStoreSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_KEY 
+{field} GENERATED_KEY_STORE 
+ 
+  .. USES ..
+ 
+} 
+class MacSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_MAC 
+ 
+  .. USES ..
+{field} GENERATED_KEY 
+ 
+} 
+class MessageDigestSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} DIGESTED 
+ 
+  .. USES ..
+ 
+} 
+class PBEKeySpecSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} SPECCED_KEY 
+ 
+  .. USES ..
+{field} RANDOMIZED 
+ 
+} 
+class PBEParameterSpecSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} PREPARED_PBE 
+ 
+  .. USES ..
+{field} RANDOMIZED 
+ 
+} 
+class RandomStringPasswordSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} RANDOMIZED 
+ 
+  .. USES ..
+{field} RANDOMIZED 
+ 
+} 
+class SSLContextSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATE_SSL_ENGINE 
+{field} GENERATE_SSL_CONTEXT 
+ 
+  .. USES ..
+ 
+} 
+class SecretKeySpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} RANDOMIZED 
+ 
+  .. USES ..
+{field} GENERATED_KEY 
+ 
+} 
+class SecretKeySpecSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_KEY 
+ 
+  .. USES ..
+{field} RANDOMIZED 
+ 
+} 
+class SecureRandomSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} RANDOMIZED 
+ 
+  .. USES ..
+{field} RANDOMIZED 
+ 
+} 
+class SignatureSpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} SIGNED 
+{field} VERIFIED 
+ 
+  .. USES ..
+ 
+} 
+class TrustManagerFactorySpec << (M,LightSkyBlue) MOP Spec>> { 
+  .. DEFINES ..
+{field} GENERATED_TRUST_MANAGER 
+{field} GENERATED_KEY_MANAGERS 
+ 
+  .. USES ..
+ 
+} 
+ 
+@enduml

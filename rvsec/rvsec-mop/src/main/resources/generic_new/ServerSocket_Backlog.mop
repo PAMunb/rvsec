@@ -1,0 +1,39 @@
+package mop;
+
+import java.net.*;
+
+/**
+ * Warns if a ServerSocket object is constructed with an invalid backlog
+ * value.
+ *
+ * The backlog argument must be a positive value greater than 0. If the value
+ * passed if equal or less than 0, then the default value will be assumed.
+ * http://docs.oracle.com/javase/6/docs/api/java/net/ServerSocket.html#ServerSocket%28int,%20int%29
+ *
+ * @severity warning
+ */
+ServerSocket_Backlog() {
+	private void check(int backlog, String msg) {
+		if (backlog > 0)
+			return;
+
+  android.util.Log.v("RVSEC", "[helper] ::: ServerSocket_Backlog " + msg);
+  android.util.Log.v("RVSEC", "[helper] ::: ServerSocket_Backlog " + "The backlog argument " + backlog + " is invalid; it should be greater than 0.");
+	}
+
+	event construct before(int backlog) :
+		(
+			call(ServerSocket.new(int, int)) ||
+			call(ServerSocket.new(int, int, InetAddress))
+		) && args(*, backlog, ..)
+	{
+		this.check(backlog, "");
+	}
+
+	event set before(int backlog) :
+		call(* ServerSocket+.bind(SocketAddress, int)) && args(*, backlog)
+	{
+		this.check(backlog, "");
+	}
+}
+

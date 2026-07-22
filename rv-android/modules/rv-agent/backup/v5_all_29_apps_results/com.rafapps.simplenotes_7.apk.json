@@ -1,0 +1,75 @@
+{
+  "app_name": "com.rafapps.simplenotes_7.apk",
+  "execution_time_s": 11.995084524154663,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "UNKNOWN": 10
+    },
+    "valid": 0,
+    "invalid": 10,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "View",
+      "ImageView",
+      "LinearLayoutCompat",
+      "ImageButton",
+      "TextView",
+      "RecyclerView",
+      "Button",
+      "ViewGroup",
+      "LinearLayout",
+      "unknown",
+      "FrameLayout"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 40,
+      "LinearLayout": 20,
+      "ViewGroup": 30,
+      "TextView": 20,
+      "LinearLayoutCompat": 20,
+      "ImageView": 10,
+      "Button": 20,
+      "RecyclerView": 10,
+      "ImageButton": 10,
+      "View": 20
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 1,
+    "screen_visits": {
+      "6ddaadb21b51": 10
+    },
+    "activities": [
+      "com.rafapps.simplenotes/.NotesListActivity"
+    ],
+    "revisit_rate": 0.9
+  },
+  "memory_graph": {
+    "graph_states": 1,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 44673,
+    "input_tokens": 44303,
+    "output_tokens": 370,
+    "avg_tokens_per_iteration": 4467.3,
+    "max_message_count": 1,
+    "total_time_ms": 10957.282066345215,
+    "avg_time_per_iteration_ms": 1095.7282066345215
+  },
+  "device_actions": {
+    "total_actions": 0,
+    "valid_actions": 0,
+    "invalid_actions": 0,
+    "valid_rate": 0.0,
+    "action_types": {},
+    "actions": []
+  }
+}

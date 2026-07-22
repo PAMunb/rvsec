@@ -1,0 +1,162 @@
+# Experiment 3: APE-RV LLM baseline — aperv:sata_mop_llm
+# 8 containers, 169 APKs, 600s timeout, 3 reps, JCA specs.
+# Requires GPU for SGLang (Qwen3-VL-4B-Instruct).
+#
+# Usage:
+#   docker compose -f docker/docker-compose.exp3-aperv-llm.yml up -d
+#   bash scripts/monitor_exp3.sh
+#   docker compose -f docker/docker-compose.exp3-aperv-llm.yml down
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:sata_mop_llm"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RVSMART_LLM_MODE: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+  depends_on:
+    sglang:
+      condition: service_healthy
+
+services:
+  sglang:
+    image: lmsysorg/sglang:latest
+    container_name: sglang-server
+    volumes:
+      - ${HF_CACHE:-/pedro/desenvolvimento/.cache/huggingface}:/root/.cache/huggingface
+    ipc: host
+    shm_size: "16g"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      python3 -m sglang.launch_server
+      --model-path Qwen/Qwen3-VL-4B-Instruct
+      --host 0.0.0.0
+      --port 30000
+      --trust-remote-code
+      --attention-backend flashinfer
+      --tool-call-parser qwen
+      --enable-multimodal
+      --context-length 8192
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  exp3_00:
+    <<: *rvandroid-base
+    container_name: exp3_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_00:/opt/rvsec/rv-android/results
+
+  exp3_01:
+    <<: *rvandroid-base
+    container_name: exp3_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_01:/opt/rvsec/rv-android/results
+
+  exp3_02:
+    <<: *rvandroid-base
+    container_name: exp3_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_02:/opt/rvsec/rv-android/results
+
+  exp3_03:
+    <<: *rvandroid-base
+    container_name: exp3_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_03:/opt/rvsec/rv-android/results
+
+  exp3_04:
+    <<: *rvandroid-base
+    container_name: exp3_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_04:/opt/rvsec/rv-android/results
+
+  exp3_05:
+    <<: *rvandroid-base
+    container_name: exp3_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_05:/opt/rvsec/rv-android/results
+
+  exp3_06:
+    <<: *rvandroid-base
+    container_name: exp3_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_06:/opt/rvsec/rv-android/results
+
+  exp3_07:
+    <<: *rvandroid-base
+    container_name: exp3_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp3_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/exp3_batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/exp3_07:/opt/rvsec/rv-android/results
+

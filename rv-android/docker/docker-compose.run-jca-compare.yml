@@ -1,0 +1,201 @@
+# Comparison study: dexlib2 vs ajc instrumentation × 4 tools × 3 reps × 119 APKs.
+# 10 rv-android containers (5 dexlib2 + 5 ajc, paired same-batch) + 1 humanoid inference server.
+#
+# Window: ~27h estimated wall time per container (288 tasks × ~335s ≈ 26h47m).
+# Started after run_jca_ajc instrumentation + install validation completed (2026-05-03).
+#
+# Pré-requisitos (validados):
+#   - APKS_JCA_dexlib2/  (224 .apk + 380 .json side-by-side, 119 in intersection)
+#   - APKS_JCA_androguard/ (119 .apk + 380 .json, intersection-survivors of ajc instr+install)
+#   - data/run_jca_compare_filters/run_jca_compare_batch_{0..4}.txt (5 batches × 24/23 APKs = 119)
+#   - phtcosta/humanoid:1.0 image pulled (depends_on: humanoid)
+#
+# Skip flags (all 3): monitors + instrument + static
+#   - APKs já instrumentados em ambas variants
+#   - JSONs gh51 lado a lado dos .apk em ambos dirs
+#
+# Pairing: container N (dex) + container N (ajc) recebem o MESMO batch_N.txt.
+# Permite paired comparison per-APK no analysis.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.run-jca-compare.yml up -d
+#   watch -n 120 'docker ps --filter name=jca_compare --format "table {{.Names}}\t{{.Status}}"'
+
+x-rvandroid: &rvandroid-base
+  image: ${RV_IMAGE:-phtcosta/rvandroid:0.8.0}
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:sata_mop,fastbot"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_HUMANOID_URL: "humanoid:50405"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+  depends_on:
+    - humanoid
+
+services:
+  # External Humanoid inference HTTP server (shared by all 10 rv containers)
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: jca_compare_humanoid
+    ports:
+      - "50405:50405"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: "4g"
+
+  # ---------- 5 containers: dexlib2-instrumented APKs ----------
+  jca_compare_dex_0:
+    <<: *rvandroid-base
+    container_name: jca_compare_dex_0
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_dex_0
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_0.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_dex_0:/opt/rvsec/rv-android/results
+
+  jca_compare_dex_1:
+    <<: *rvandroid-base
+    container_name: jca_compare_dex_1
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_dex_1
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_1.txt"
+      RV_DELAY: "5"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_dex_1:/opt/rvsec/rv-android/results
+
+  jca_compare_dex_2:
+    <<: *rvandroid-base
+    container_name: jca_compare_dex_2
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_dex_2
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_2.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_dex_2:/opt/rvsec/rv-android/results
+
+  jca_compare_dex_3:
+    <<: *rvandroid-base
+    container_name: jca_compare_dex_3
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_dex_3
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_3.txt"
+      RV_DELAY: "15"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_dex_3:/opt/rvsec/rv-android/results
+
+  jca_compare_dex_4:
+    <<: *rvandroid-base
+    container_name: jca_compare_dex_4
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_dex_4
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_4.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_dex_4:/opt/rvsec/rv-android/results
+
+  # ---------- 5 containers: ajc-instrumented APKs (paired same batches) ----------
+  jca_compare_ajc_0:
+    <<: *rvandroid-base
+    container_name: jca_compare_ajc_0
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_ajc_0
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_0.txt"
+      RV_DELAY: "25"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_androguard:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_ajc_0:/opt/rvsec/rv-android/results
+
+  jca_compare_ajc_1:
+    <<: *rvandroid-base
+    container_name: jca_compare_ajc_1
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_ajc_1
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_1.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_androguard:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_ajc_1:/opt/rvsec/rv-android/results
+
+  jca_compare_ajc_2:
+    <<: *rvandroid-base
+    container_name: jca_compare_ajc_2
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_ajc_2
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_2.txt"
+      RV_DELAY: "35"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_androguard:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_ajc_2:/opt/rvsec/rv-android/results
+
+  jca_compare_ajc_3:
+    <<: *rvandroid-base
+    container_name: jca_compare_ajc_3
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_ajc_3
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_3.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_androguard:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_ajc_3:/opt/rvsec/rv-android/results
+
+  jca_compare_ajc_4:
+    <<: *rvandroid-base
+    container_name: jca_compare_ajc_4
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: jca_compare_ajc_4
+      RV_INSTRUMENTATION_VARIANT: "ajc"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/run_jca_compare_batch_4.txt"
+      RV_DELAY: "45"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_JCA_androguard:/opt/rvsec/rv-android/apks:ro
+      - ../data/run_jca_compare_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/jca_compare_ajc_4:/opt/rvsec/rv-android/results

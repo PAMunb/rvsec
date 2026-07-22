@@ -1,0 +1,14 @@
+{
+  "name": "smoke",
+  "tools": "monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting",
+  "timeouts": [60, 120],
+  "repetitions": 1,
+  "apks_dir": "/opt/rvsec/rv-android/apks",
+  "apks_filter": "/opt/rvsec/rv-android/filters/smoke_batch.txt",
+  "specification_set": "jca",
+  "instrumentation_variant": "dexlib2",
+  "skip_monitors": true,
+  "skip_instrument": true,
+  "skip_static": true,
+  "no_window": true
+}

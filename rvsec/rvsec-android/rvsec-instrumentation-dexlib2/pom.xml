@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>br.unb.cic</groupId>
+        <artifactId>rvsec-android</artifactId>
+        <version>0.9.2</version>
+    </parent>
+
+    <artifactId>rvsec-instrumentation-dexlib2</artifactId>
+    <packaging>pom</packaging>
+
+    <name>RVSec :: Android :: Instrumentation (dexlib2)</name>
+    <description>DEX-native bytecode weaver (replaces dex2jar + ajc + d8 for the Android instrumentation pipeline — see gh#52)</description>
+
+    <modules>
+        <module>descriptor-reader</module>
+        <module>pointcut-engine</module>
+        <module>advice-emitter</module>
+        <module>dex-mutator</module>
+        <module>coverage-weaver</module>
+        <module>monitor-builder</module>
+        <module>multidex-merger</module>
+        <module>cli</module>
+        <module>validator</module>
+        <module>grammar-tests</module>
+    </modules>
+
+    <properties>
+        <smali.version>3.0.9</smali.version>
+        <jackson.version>2.18.2</jackson.version>
+        <picocli.version>4.7.6</picocli.version>
+        <asm.version>9.7.1</asm.version>
+        <slf4j.version>2.0.16</slf4j.version>
+        <junit-jupiter.version>5.11.3</junit-jupiter.version>
+        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>google</id>
+            <name>Google Maven</name>
+            <url>https://maven.google.com</url>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.android.tools.smali</groupId>
+                <artifactId>smali-dexlib2</artifactId>
+                <version>${smali.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.android.tools.smali</groupId>
+                <artifactId>smali-baksmali</artifactId>
+                <version>${smali.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>info.picocli</groupId>
+                <artifactId>picocli</artifactId>
+                <version>${picocli.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm</artifactId>
+                <version>${asm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit-jupiter.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!--
+      Code-coverage instrumentation for every child module. Declared here in the
+      dexlib2 aggregator (temporary home): being the parent of all 10 modules,
+      the plugin is inherited so each module records its own jacoco.exec and
+      emits a per-module HTML/XML report under target/site/jacoco. Intended to
+      move higher in the pom hierarchy (rvsec-android) later.
+
+      prepare-agent wires the JaCoCo runtime agent into the surefire JVM before
+      tests run; the report goal (bound to the test phase) converts the recorded
+      jacoco.exec into target/site/jacoco. Modules with no tests simply produce
+      no execution data and the report goal skips them without failing.
+    -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

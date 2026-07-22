@@ -1,0 +1,55 @@
+name: layer4-thresholds
+description: |
+  Pre-registered per-metric equivalence bounds for the Layer-4 batch run
+  (BatchValidator over JCA-400 × 3 tools × 3 reps). Committed BEFORE any
+  batch run so the pre-registration is auditable via git log (INV-INS-58).
+
+  Methodology: paired Wilcoxon signed-rank Two One-Sided Tests (TOST) per
+  spec at α = 0.05. Equivalence is declared when both one-sided null
+  hypotheses (lower and upper bound) are rejected. Non-inferiority
+  (mandatory gate) is the lower-bound TOST alone.
+
+provenance:
+  source: rv-android/docs/20260423_plano_validacao.md §Camada 4
+  decision: ADR-DEX-NATIVE D6 (validation methodology)
+  invariant: INV-INS-58
+  pre_registered_on: 2026-04-25  # date this file was committed
+
+statistical_test:
+  paired: true
+  test: wilcoxon_signed_rank_tost
+  alpha: 0.05
+  hypothesis_pairing: per-spec  # one paired test per (variant_pair, spec)
+
+equivalence_bounds:
+  cov_method:
+    delta: 0.02   # 2 percentage points
+    units: proportion
+    rationale: |
+      Coverage measured as fraction of monitored methods reached. A 2pp
+      gap is below the run-to-run noise floor observed in the def_val
+      phase-B baseline (~3pp std-dev across replicas).
+  per_spec_f1:
+    delta: 0.02
+    units: f1_score
+    rationale: |
+      F1 ≥ 0.98 is the Layer-3 gate; bound matches the residual headroom
+      from that gate (any drop ≤ 2% is within tool jitter).
+  per_spec_kappa:
+    delta: 0.05
+    units: cohen_kappa
+    rationale: |
+      Cohen's kappa is more sensitive to rare events; 0.05 is the
+      conventional substantial-agreement boundary.
+
+gates:
+  recovery_rate_min: 0.90
+  non_inferiority: required          # lower-bound TOST must reject for every spec
+  equivalence_specs_min_pct: 0.80    # both bounds must reject on ≥ 80% of specs
+
+notes: |
+  Failing any single mandatory gate blocks Phase-5 ratification regardless
+  of secondary metrics. Equivalence_specs_min_pct allows up to 20% of specs
+  to be non-equivalent (e.g. specs the dexlib2 pipeline genuinely improves
+  on by more than ±2pp), provided non-inferiority still holds for those
+  specs (the dexlib2 variant must never be statistically worse).

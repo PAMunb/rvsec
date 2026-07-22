@@ -1,0 +1,126 @@
+# gh35 bugfix validation: rvsmart:mvp (pure algorithm) on 16 worst-vs-APE apps.
+# 8 containers, 2 APKs each, 600s timeout, 1 rep, JCA specs.
+# No LLM/SGLang — pure algorithm mode.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.test-gh35.yml up -d
+#   bash scripts/monitor_comparacao.sh data/results
+#   docker compose -f docker/docker-compose.test-gh35.yml down
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.8.0
+  environment: &rvandroid-env
+    RV_TOOLS: "rvsmart:mvp"
+    RV_TIMEOUTS: "600"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "12g"
+
+services:
+  gh35_00:
+    <<: *rvandroid-base
+    container_name: gh35_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_00:/opt/rvsec/rv-android/results
+
+  gh35_01:
+    <<: *rvandroid-base
+    container_name: gh35_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_01:/opt/rvsec/rv-android/results
+
+  gh35_02:
+    <<: *rvandroid-base
+    container_name: gh35_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_02:/opt/rvsec/rv-android/results
+
+  gh35_03:
+    <<: *rvandroid-base
+    container_name: gh35_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_03:/opt/rvsec/rv-android/results
+
+  gh35_04:
+    <<: *rvandroid-base
+    container_name: gh35_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_04:/opt/rvsec/rv-android/results
+
+  gh35_05:
+    <<: *rvandroid-base
+    container_name: gh35_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_05:/opt/rvsec/rv-android/results
+
+  gh35_06:
+    <<: *rvandroid-base
+    container_name: gh35_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_06:/opt/rvsec/rv-android/results
+
+  gh35_07:
+    <<: *rvandroid-base
+    container_name: gh35_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh35_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/gh35_batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/gh35_07:/opt/rvsec/rv-android/results

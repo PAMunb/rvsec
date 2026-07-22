@@ -1,0 +1,71 @@
+# Mini test: 1 APK, 60s timeout, 4 tools (rvsmart:mvp, rvsmart:arrival_first_v17, ape, fastbot).
+# Validates Docker infra before the full comparison experiment.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.test.yml up -d
+#   docker compose -f docker/docker-compose.test.yml logs -f
+#   docker compose -f docker/docker-compose.test.yml down
+
+services:
+  sglang:
+    image: lmsysorg/sglang:latest
+    container_name: sglang-server
+    volumes:
+      - ${HF_CACHE:-/pedro/desenvolvimento/.cache/huggingface}:/root/.cache/huggingface
+    ipc: host
+    shm_size: "16g"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      python3 -m sglang.launch_server
+      --model-path Qwen/Qwen3-VL-4B-Instruct
+      --host 0.0.0.0
+      --port 30000
+      --trust-remote-code
+      --attention-backend flashinfer
+      --tool-call-parser qwen
+      --enable-multimodal
+      --context-length 8192
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  test02:
+    image: phtcosta/rvandroid:0.8.0
+    container_name: test02
+    environment:
+      RV_TOOLS: "rvsmart:mvp,rvsmart:arrival_first_v17,ape,fastbot"
+      RV_TIMEOUTS: "60"
+      RV_REPETITIONS: "1"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_EXPERIMENT_NAME: "test02"
+      RV_DEVICE_PORT: "5554"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/apks/test_1apk.txt"
+      RV_DELAY: "0"
+      RVSMART_LLM_MODE: "true"
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "8g"
+    volumes:
+      - ${BASE_DIR:-../data}/apks:/opt/rvsec/rv-android/apks:ro
+      - ${BASE_DIR:-../data}/results/test02:/opt/rvsec/rv-android/results
+    depends_on:
+      sglang:
+        condition: service_healthy

@@ -1,0 +1,122 @@
+version: "3.7"
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: humanoid
+    ports:
+      - 50405:50405
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:50405"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+  rv01:
+    image: phtcosta/rvandroid:0.0.1
+    container_name: rv01
+    environment:
+      - RV_REPETITIONS=1
+      - RV_TIMEOUTS=600
+      - RV_TOOLS=ape ares droidbot droidbot_bfs_greedy droidbot_bfs_naive droidbot_dfs_greedy droidmate fastbot humanoid monkey qtesting
+      - RV_HUMANOID_URL=humanoid:50405
+      - ENV_NO_WINDOW=true
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/01/apks:/opt/rvsec/rv-android/apks
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/01/instrumented:/opt/rvsec/rv-android/out
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/01/results:/opt/rvsec/rv-android/results
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16g
+    depends_on:
+      - humanoid
+  rv02:
+    image: phtcosta/rvandroid:0.0.1
+    container_name: rv02
+    environment:
+      - RV_REPETITIONS=1
+      - RV_TIMEOUTS=600
+      - RV_TOOLS=ape ares droidbot droidbot_bfs_greedy droidbot_bfs_naive droidbot_dfs_greedy droidmate fastbot humanoid monkey qtesting
+      - RV_HUMANOID_URL=humanoid:50405
+      - ENV_NO_WINDOW=true
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/02/apks:/opt/rvsec/rv-android/apks
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/02/instrumented:/opt/rvsec/rv-android/out
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/02/results:/opt/rvsec/rv-android/results
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16g
+    depends_on:
+      - humanoid
+  rv03:
+    image: phtcosta/rvandroid:0.0.1
+    container_name: rv03
+    environment:
+      - RV_REPETITIONS=1
+      - RV_TIMEOUTS=600
+      - RV_TOOLS=ape ares droidbot droidbot_bfs_greedy droidbot_bfs_naive droidbot_dfs_greedy droidmate fastbot humanoid monkey qtesting
+      - RV_HUMANOID_URL=humanoid:50405
+      - ENV_NO_WINDOW=true
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/03/apks:/opt/rvsec/rv-android/apks
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/03/instrumented:/opt/rvsec/rv-android/out
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/03/results:/opt/rvsec/rv-android/results
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16g
+    depends_on:
+      - humanoid
+  rv04:
+    image: phtcosta/rvandroid:0.0.1
+    container_name: rv04
+    environment:
+      - RV_REPETITIONS=1
+      - RV_TIMEOUTS=600
+      - RV_TOOLS=ape ares droidbot droidbot_bfs_greedy droidbot_bfs_naive droidbot_dfs_greedy droidmate fastbot humanoid monkey qtesting
+      - RV_HUMANOID_URL=humanoid:50405
+      - ENV_NO_WINDOW=true
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/04/apks:/opt/rvsec/rv-android/apks
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/04/instrumented:/opt/rvsec/rv-android/out
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/04/results:/opt/rvsec/rv-android/results
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16g
+    depends_on:
+      - humanoid
+  rv05:
+    image: phtcosta/rvandroid:0.0.1
+    container_name: rv05
+    environment:
+      - RV_REPETITIONS=1
+      - RV_TIMEOUTS=600
+      - RV_TOOLS=ape ares droidbot droidbot_bfs_greedy droidbot_bfs_naive droidbot_dfs_greedy droidmate fastbot humanoid monkey qtesting
+      - RV_HUMANOID_URL=humanoid:50405
+      - ENV_NO_WINDOW=true
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/05/apks:/opt/rvsec/rv-android/apks
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/05/instrumented:/opt/rvsec/rv-android/out
+      - /home/pedro/desenvolvimento/RV_ANDROID/EXPERIMENTO_02/BASE/para05/05/results:/opt/rvsec/rv-android/results
+    devices:
+      - /dev/kvm:/dev/kvm
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 16g
+    depends_on:
+      - humanoid

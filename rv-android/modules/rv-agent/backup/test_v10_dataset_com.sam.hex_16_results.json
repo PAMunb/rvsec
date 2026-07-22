@@ -1,0 +1,24 @@
+{
+  "app": "HexGame",
+  "package": "com.sam.hex",
+  "type": "game",
+  "has_static_analysis": true,
+  "model": "qwen3-vl:4b",
+  "prompt_version": "v10",
+  "timeout": 120,
+  "success": true,
+  "metrics": {
+    "iterations": 0,
+    "unique_states": 0,
+    "transitions": 0,
+    "potential_loop": false,
+    "execution_time_s": 2.9028096199035645
+  },
+  "validation": {
+    "generated_actions": false,
+    "discovered_states": false,
+    "recorded_transitions": false,
+    "no_immediate_loop": true,
+    "overall_success": false
+  }
+}

@@ -1,0 +1,463 @@
+package br.unb.cic.rv.pointcut;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Recursive-descent parser for AspectJ pointcut expressions emitted by JavaMOP.
+ *
+ * <p>Grammar (see {@link PointcutExpression} for the high-level shape):
+ * <pre>
+ *   or      := and ('||' and)*
+ *   and     := unary ('&amp;&amp;' unary)*
+ *   unary   := '!' unary | primary
+ *   primary := '(' or ')'
+ *            | keyword '(' body ')'      // call/execution/args/target/within/staticinitialization/if/adviceexecution
+ *            | namedRef                   // e.g. BaseAspect.notwithin()
+ * </pre>
+ *
+ * <p>{@code body} is read as the balanced-parentheses suffix up to the matching
+ * {@code ')'}. For {@code call(...)} and {@code staticinitialization(...)} the body
+ * has its own structure — parsed by {@link #parseCallBody} / {@link #parseStaticInitBody}.
+ *
+ * <p>Unknown keywords become {@link NamedRefPC} so parsing never aborts on an
+ * unrecognized reference; the weaver decides how to interpret these (typically
+ * treat-as-true).
+ */
+public final class PointcutExpressionParser {
+
+    private final String src;
+    private int pos;
+
+    private PointcutExpressionParser(String src) {
+        this.src = src;
+        this.pos = 0;
+    }
+
+    public static PointcutExpression parse(String expression) {
+        if (expression == null || expression.isBlank()) {
+            throw new PointcutParseException("empty pointcut expression");
+        }
+        PointcutExpressionParser p = new PointcutExpressionParser(expression.trim());
+        PointcutExpression result = p.parseOr();
+        p.skipWs();
+        if (p.pos < p.src.length()) {
+            throw new PointcutParseException(
+                    "trailing characters at offset " + p.pos + " in: " + expression);
+        }
+        return result;
+    }
+
+    // --- expression grammar --------------------------------------------------
+
+    private PointcutExpression parseOr() {
+        PointcutExpression left = parseAnd();
+        while (peekOp("||")) {
+            consume("||");
+            PointcutExpression right = parseAnd();
+            left = new CombinedPC(CombinedPC.Op.OR, left, right);
+        }
+        return left;
+    }
+
+    private PointcutExpression parseAnd() {
+        PointcutExpression left = parseUnary();
+        while (peekOp("&&")) {
+            consume("&&");
+            PointcutExpression right = parseUnary();
+            left = new CombinedPC(CombinedPC.Op.AND, left, right);
+        }
+        return left;
+    }
+
+    private PointcutExpression parseUnary() {
+        skipWs();
+        if (peekChar('!')) {
+            pos++;
+            skipWs();
+            // !within(...) is the dominant negation in our corpus; we
+            // specialize to NotWithinPC so matchers don't have to re-check
+            // the inner shape.
+            if (peekKeyword("within")) {
+                consumeKeyword("within");
+                String body = readParenBody();
+                return new NotWithinPC(body.trim());
+            }
+            // !target(Type) / !args(Type) (§4.N): parse the inner primary so it
+            // carries its resolved type, then wrap a type/binding-form
+            // TargetPC/ArgsPC in a NegationPC the matcher inverts. Any other
+            // inner shape keeps the lossy NamedRef fallback below.
+            if (peekKeyword("target") || peekKeyword("args")) {
+                PointcutExpression inner = parsePrimary();
+                if (inner instanceof TargetPC || inner instanceof ArgsPC) {
+                    return new NegationPC(inner);
+                }
+                return new NamedRefPC("!" + asText(inner));
+            }
+            // Generic negation over other primary nodes: wrap in a NamedRef
+            // that preserves the inner text; matchers rarely encounter this
+            // in rv-monitor-generated expressions.
+            PointcutExpression inner = parsePrimary();
+            return new NamedRefPC("!" + asText(inner));
+        }
+        return parsePrimary();
+    }
+
+    private PointcutExpression parsePrimary() {
+        skipWs();
+        if (pos >= src.length()) {
+            throw new PointcutParseException("unexpected end of expression");
+        }
+        if (peekChar('(')) {
+            pos++;
+            PointcutExpression inner = parseOr();
+            skipWs();
+            expectChar(')');
+            return inner;
+        }
+        String keyword = readKeyword();
+        if (keyword.isEmpty()) {
+            throw new PointcutParseException(
+                    "expected pointcut keyword at offset " + pos + " in: " + src);
+        }
+        skipWs();
+        if (!peekChar('(')) {
+            // A bare identifier with no parens — treat as named reference token.
+            return new NamedRefPC(keyword);
+        }
+        String body = readParenBody();
+        return dispatch(keyword, body);
+    }
+
+    private PointcutExpression dispatch(String keyword, String body) {
+        switch (keyword) {
+            case "call":                  return parseCallBody(body);
+            case "execution":             return new ExecutionPC(body.trim());
+            case "args":                  return parseArgsBody(body);
+            case "target":                return parseTargetBody(body);
+            case "within":                return new WithinPC(body.trim());
+            case "staticinitialization":  return new StaticInitPC(body.trim());
+            case "if":                    return new IfPC(body.trim());
+            case "adviceexecution":       return new NamedRefPC("adviceexecution()");
+            default:                      return new NamedRefPC(keyword + "(" + body + ")");
+        }
+    }
+
+    // --- call(...) body parser -----------------------------------------------
+
+    /**
+     * Parses a {@code call(...)} body into a {@link CallPC}, distinguishing the
+     * constructor form ({@code <owner>.new(<params>)}) from the method form
+     * ({@code <return> <owner>.<name>(<params>)}) purely by index arithmetic —
+     * there is no tokenizer here because the two forms only differ in whether a
+     * return type precedes the owner, and AspectJ signatures never nest a space
+     * inside the owner/name portion (generics/arrays are elsewhere in the string).
+     *
+     * @param body the raw text between {@code call(} and the matching {@code )},
+     *             e.g. {@code "void javax.crypto.Cipher.init(int, java.security.Key)"}
+     * @return the structured call pointcut with owner/name/params resolved
+     * @throws PointcutParseException if {@code body} matches neither form
+     */
+    private static CallPC parseCallBody(String body) {
+        // Step 1: strip an optional modifier prefix (public/private/...) — AspectJ
+        // allows a leading access modifier on the signature pattern, and it is
+        // never part of the owner/name/params we need below.
+        String s = body.trim();
+        s = stripModifiers(s);
+
+        // Step 2: constructor form <owner>.new(<params>) has no return type, so it
+        // must be detected before we assume a leading-space split works — checking
+        // for ".new(" first avoids misreading "new" as a return type.
+        int newIdx = indexOfOwnerDotNew(s);
+        if (newIdx >= 0) {
+            String owner = s.substring(0, newIdx).trim();
+            int openParen = s.indexOf('(', newIdx);
+            // matchingClose bounds the argument list at the ')' that balances this
+            // '(', so nested parens inside a param type (e.g. a generic bound)
+            // don't truncate the param list early.
+            int closeParen = matchingClose(s, openParen);
+            String params = s.substring(openParen + 1, closeParen);
+            CallPC.ParamList paramList = splitParams(params);
+            return new CallPC(true, "", owner, "<init>",
+                    paramList.head(), paramList.trailingVarargs());
+        }
+
+        // Step 3: method form <return> <owner>.<name>(<params>). The first space
+        // is the only reliable boundary between the return type and the rest,
+        // since return types never contain spaces (arrays/generics use [] / <>).
+        int firstSpace = s.indexOf(' ');
+        if (firstSpace < 0) {
+            throw new PointcutParseException("malformed call() body: " + body);
+        }
+        String returnType = s.substring(0, firstSpace).trim();
+        String rest = s.substring(firstSpace + 1).trim();
+        int openParen = rest.indexOf('(');
+        if (openParen < 0) {
+            throw new PointcutParseException("malformed call() body (no '(' ): " + body);
+        }
+        // Step 4: the LAST '.' before '(' splits declaring type from member name —
+        // not the first — because the declaring type itself is dot-qualified
+        // (e.g. "javax.crypto.Cipher.init"); only the final segment is the method.
+        String ownerAndName = rest.substring(0, openParen).trim();
+        int lastDot = ownerAndName.lastIndexOf('.');
+        if (lastDot < 0) {
+            throw new PointcutParseException(
+                    "malformed call() body (no owner.method): " + body);
+        }
+        String owner = ownerAndName.substring(0, lastDot);
+        String name = ownerAndName.substring(lastDot + 1);
+        // Step 5: same matchingClose bounding as the constructor form, applied to
+        // the method's parameter list.
+        int closeParen = matchingClose(rest, openParen);
+        String params = rest.substring(openParen + 1, closeParen);
+        CallPC.ParamList paramList = splitParams(params);
+        return new CallPC(false, returnType, owner, name,
+                paramList.head(), paramList.trailingVarargs());
+    }
+
+    /**
+     * Parse an {@code args(...)} body into two parallel views (§4.AT).
+     *
+     * <p>{@code names} is the legacy binding-name collector (every trimmed,
+     * non-empty, non-{@code ..} element — UNCHANGED, so the advice-emitter binding
+     * path is byte-identical). {@code types} preserves POSITIONAL structure for the
+     * matcher, classifying each comma-separated element with the SAME binding-vs-type
+     * heuristic §4.TT uses for {@code target(...)}:
+     * <ul>
+     *   <li>a binding name (lowercase simple ident, no dots/{@code +}/{@code *}) →
+     *       {@code null} (no type filter at that position);</li>
+     *   <li>a Type (capitalized simple name, qualified name, or trailing {@code T+})
+     *       → the type spelling;</li>
+     *   <li>{@code "*"} → accept-any-single;</li>
+     *   <li>{@code ".."} → trailing accept-any-rest.</li>
+     * </ul>
+     * When no element is a Type, {@link ArgsPC#hasTypeConstraint()} is false and the
+     * matcher behaviour is unchanged (always-match binding collector).
+     */
+    private static ArgsPC parseArgsBody(String body) {
+        List<String> names = new ArrayList<>();
+        List<String> types = new ArrayList<>();
+        for (String part : body.split(",")) {
+            String n = part.trim();
+            if (n.isEmpty()) continue;
+            if ("..".equals(n)) {
+                types.add("..");
+                continue;
+            }
+            // names is the legacy collector — keep every non-empty/non-".." element
+            // (including "*"), so .names() is unchanged for the emitter.
+            names.add(n);
+            if ("*".equals(n)) {
+                types.add("*");
+            } else if (isBindingName(n)) {
+                types.add(null);
+            } else {
+                types.add(n);
+            }
+        }
+        return new ArgsPC(names, types);
+    }
+
+    /**
+     * Distinguish {@code target(name)} (advice-parameter binding) from
+     * {@code target(Type)} (type pattern). A binding name is a lowercase simple
+     * identifier with no dots and no subtype/wildcard markers (e.g. {@code o},
+     * {@code map}, {@code iterator} — all spellings seen in the corpus). Anything
+     * else — a capitalized simple name ({@code Cipher}), a qualified name
+     * ({@code javax.crypto.Cipher}), or a trailing {@code +}/{@code *} — is a type.
+     * The type form drives subtype-aware receiver matching (§4.TT); the binding
+     * form is inert at match time (always-match collector).
+     */
+    private static TargetPC parseTargetBody(String body) {
+        String s = body.trim();
+        return isBindingName(s) ? TargetPC.binding(s) : TargetPC.type(s);
+    }
+
+    private static boolean isBindingName(String s) {
+        if (s.isEmpty()) return false;
+        if (!Character.isLowerCase(s.charAt(0))) return false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            // A binding identifier is letters/digits/_/$ only — a dot (qualified
+            // name), '+' (subtype), or '*' (wildcard) makes it a type pattern.
+            if (!(Character.isLetterOrDigit(c) || c == '_' || c == '$')) return false;
+        }
+        return true;
+    }
+
+    // --- tokenization helpers ------------------------------------------------
+
+    private static final String[] MODIFIERS = {
+            "public", "private", "protected", "static", "final",
+            "abstract", "synchronized", "native"
+    };
+
+    private static String stripModifiers(String body) {
+        String s = body;
+        boolean stripped;
+        do {
+            stripped = false;
+            for (String mod : MODIFIERS) {
+                if (s.startsWith(mod) && s.length() > mod.length()
+                        && Character.isWhitespace(s.charAt(mod.length()))) {
+                    s = s.substring(mod.length()).trim();
+                    stripped = true;
+                    break;
+                }
+            }
+        } while (stripped);
+        return s;
+    }
+
+    /** Locate {@code <owner>.new} preceding an opening paren, returning the index of {@code .new}. */
+    private static int indexOfOwnerDotNew(String s) {
+        int idx = 0;
+        while (true) {
+            int dotNew = s.indexOf(".new", idx);
+            if (dotNew < 0) return -1;
+            // Ensure .new is followed by ( (ignoring whitespace).
+            int after = dotNew + ".new".length();
+            while (after < s.length() && Character.isWhitespace(s.charAt(after))) after++;
+            if (after < s.length() && s.charAt(after) == '(') {
+                return dotNew;
+            }
+            idx = dotNew + 1;
+        }
+    }
+
+    private static int matchingClose(String s, int openIdx) {
+        int depth = 0;
+        for (int i = openIdx; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '(') depth++;
+            else if (c == ')') {
+                depth--;
+                if (depth == 0) return i;
+            }
+        }
+        throw new PointcutParseException("unbalanced parens in: " + s);
+    }
+
+    /**
+     * Split a {@code call()} param list into a fixed positional head plus a
+     * trailing-varargs flag. A trailing {@code ..} (the AspectJ varargs
+     * sentinel) sets {@code trailingVarargs} and is dropped from the head;
+     * this covers both standalone {@code (..)} (empty head, match-anything)
+     * and trailing-mixed {@code (String, ..)} (head {@code [String]}, tail
+     * accepts any). Trailing {@code +} on a head param marks the AspectJ
+     * subtype operator and is captured in {@link CallPC.ParamSpec#isSubtype()}
+     * — the descriptor itself does not carry the {@code +}. Array forms
+     * ({@code Foo[]}) keep their literal descriptors and are never marked
+     * subtype.
+     */
+    private static CallPC.ParamList splitParams(String params) {
+        List<CallPC.ParamSpec> head = new ArrayList<>();
+        String s = params.trim();
+        if (s.isEmpty()) return new CallPC.ParamList(head, false);
+        String[] parts = s.split(",");
+        boolean trailingVarargs = "..".equals(parts[parts.length - 1].trim());
+        // A trailing ".." only marks varargs; it is never a head element.
+        int headCount = trailingVarargs ? parts.length - 1 : parts.length;
+        for (int i = 0; i < headCount; i++) {
+            String p = parts[i].trim();
+            boolean isSubtype = false;
+            // Array forms (Foo[]) keep their literal descriptor; only a true
+            // trailing "+" denotes subtype.
+            if (p.endsWith("+")) {
+                isSubtype = true;
+                p = p.substring(0, p.length() - 1).trim();
+            }
+            head.add(new CallPC.ParamSpec(p, isSubtype));
+        }
+        return new CallPC.ParamList(head, trailingVarargs);
+    }
+
+    // --- cursor primitives ---------------------------------------------------
+
+    private void skipWs() {
+        while (pos < src.length() && Character.isWhitespace(src.charAt(pos))) {
+            pos++;
+        }
+    }
+
+    private boolean peekChar(char c) {
+        skipWs();
+        return pos < src.length() && src.charAt(pos) == c;
+    }
+
+    private boolean peekOp(String op) {
+        skipWs();
+        return src.regionMatches(pos, op, 0, op.length());
+    }
+
+    private boolean peekKeyword(String kw) {
+        skipWs();
+        if (!src.regionMatches(pos, kw, 0, kw.length())) return false;
+        int end = pos + kw.length();
+        return end == src.length() || !isIdentPart(src.charAt(end));
+    }
+
+    private void consume(String op) {
+        skipWs();
+        if (!src.regionMatches(pos, op, 0, op.length())) {
+            throw new PointcutParseException("expected '" + op + "' at offset " + pos);
+        }
+        pos += op.length();
+    }
+
+    private void consumeKeyword(String kw) {
+        skipWs();
+        if (!peekKeyword(kw)) {
+            throw new PointcutParseException("expected keyword '" + kw + "' at offset " + pos);
+        }
+        pos += kw.length();
+    }
+
+    private void expectChar(char c) {
+        skipWs();
+        if (pos >= src.length() || src.charAt(pos) != c) {
+            throw new PointcutParseException("expected '" + c + "' at offset " + pos);
+        }
+        pos++;
+    }
+
+    /** Read a keyword or qualified identifier (may contain dots, e.g. {@code BaseAspect.notwithin}). */
+    private String readKeyword() {
+        skipWs();
+        int start = pos;
+        while (pos < src.length() && isIdentPart(src.charAt(pos))) {
+            pos++;
+        }
+        return src.substring(start, pos);
+    }
+
+    /** Read the balanced parenthesized body starting at the current {@code (}. */
+    private String readParenBody() {
+        skipWs();
+        expectChar('(');
+        int start = pos;
+        int depth = 1;
+        while (pos < src.length()) {
+            char c = src.charAt(pos);
+            if (c == '(') depth++;
+            else if (c == ')') {
+                depth--;
+                if (depth == 0) {
+                    String body = src.substring(start, pos);
+                    pos++;
+                    return body;
+                }
+            }
+            pos++;
+        }
+        throw new PointcutParseException("unterminated parenthesized body at offset " + start);
+    }
+
+    private static boolean isIdentPart(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || c == '$' || c == '.';
+    }
+
+    private static String asText(PointcutExpression e) {
+        return e.toString();
+    }
+}

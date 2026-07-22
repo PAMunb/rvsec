@@ -1,0 +1,28 @@
+public final class br.unb.cic.cryptoapp.R$layout extends java.lang.Object
+{
+    public static final int activity_cipher;
+    public static final int activity_main;
+    public static final int activity_message_digest;
+
+    private void <init>()
+    {
+        br.unb.cic.cryptoapp.R$layout this;
+
+        this := @this: br.unb.cic.cryptoapp.R$layout;
+
+        specialinvoke this.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <br.unb.cic.cryptoapp.R$layout: int activity_message_digest> = 2131492894;
+
+        <br.unb.cic.cryptoapp.R$layout: int activity_main> = 2131492893;
+
+        <br.unb.cic.cryptoapp.R$layout: int activity_cipher> = 2131492892;
+
+        return;
+    }
+}

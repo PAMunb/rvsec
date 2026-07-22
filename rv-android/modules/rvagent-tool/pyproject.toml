@@ -1,0 +1,44 @@
+[project]
+name = "rvagent-tool"
+version = "0.1.0"
+description = "RV-Agent tool wrapper for rv-platform integration"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rv-android-core",
+    "rv-agent",
+    "rv-tools",
+    "pydantic>=2.9.0",
+]
+
+[project.entry-points."rv_tools.plugins"]
+rvagent = "rvagent_tool.tools.rvagent.tool:RVAgentTool"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-agent = { workspace = true }
+rv-tools = { workspace = true }
+
+[tool.pytest.ini_options]
+addopts = "--cov=src"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rvagent_tool"]

@@ -1,0 +1,76 @@
+<resources>
+    <string name="app_name">Crypto App</string>
+    <string name="cteMessageDigest">Message Digest</string>
+    <string name="btnGenerateHash">Generate Hash</string>
+    <string name="msgHashGenerated">Hash Generated!!!</string>
+    <string name="cteCipher">Cipher</string>
+    <string name="btnCipher">Encrypt</string>
+    <string name="msgError">Error</string>
+    <string name="msgInvalidInput">Invalid input!!!</string>
+
+    <string name="crypto_activity_title">Cryptography Tool</string>
+
+    <!-- Tab Titles -->
+    <string name="tab_secret_key">Secret Key</string>
+    <string name="tab_key_pair">Key Pair</string>
+    <string name="tab_hash">Hash</string>
+    <string name="tab_hmac">HMAC</string>
+
+    <!-- Operation Modes -->
+    <string name="mode_encrypt">Encrypt</string>
+    <string name="mode_decrypt">Decrypt</string>
+    <string name="mode_generate">Generate</string>
+    <string name="mode_encrypt_sign">Encrypt/Sign</string>
+    <string name="mode_decrypt_verify">Decrypt/Verify</string>
+    <string name="mode_generate_key_pair">Generate Key Pair</string>
+
+    <!-- Labels -->
+    <string name="select_algorithm">Select Algorithm</string>
+    <string name="input_text">Input Text</string>
+    <string name="key_input">Key (leave empty to generate)</string>
+    <string name="execute">Execute</string>
+    <string name="result">Result</string>
+    <string name="public_key">Public Key</string>
+    <string name="private_key">Private Key</string>
+    <string name="iv">Initialization Vector (IV)</string>
+
+    <!-- Error Messages -->
+    <string name="error_input_required">Input text is required</string>
+    <string name="error_key_required">Secret key is required for decryption</string>
+    <string name="error_generate_key_pair">Generate a key pair first</string>
+
+    <!-- Secret Key Algorithms -->
+    <string-array name="secret_key_algorithms">
+        <item>AES</item>
+        <item>DES</item>
+        <item>TripleDES</item>
+        <item>Blowfish</item>
+        <item>RC4</item>
+    </string-array>
+
+    <!-- Key Pair Algorithms -->
+    <string-array name="key_pair_algorithms">
+        <item>RSA</item>
+        <item>DSA</item>
+        <item>EC</item>
+        <item>DiffieHellman</item>
+    </string-array>
+
+    <!-- Hash Algorithms -->
+    <string-array name="hash_algorithms">
+        <item>MD5</item>
+        <item>SHA-1</item>
+        <item>SHA-256</item>
+        <item>SHA-384</item>
+        <item>SHA-512</item>
+    </string-array>
+
+    <!-- HMAC Algorithms -->
+    <string-array name="hmac_algorithms">
+        <item>HmacMD5</item>
+        <item>HmacSHA1</item>
+        <item>HmacSHA256</item>
+        <item>HmacSHA384</item>
+        <item>HmacSHA512</item>
+    </string-array>
+</resources>

@@ -1,16 +1,20 @@
 package br.unb.cic.mop.bench01;
 
-import br.unb.cic.mop.eh.ErrorCollector;
-import br.unb.cic.misc.Assertions;
-import br.unb.cic.mop.ExecutionContext;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 
 import org.junit.Before;
 import org.junit.Test;
 
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import java.security.*;
-import java.security.spec.AlgorithmParameterSpec;
+import br.unb.cic.misc.Assertions;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.eh.ErrorCollector;
 
 public class KeyGeneratorTest {
     @Before
@@ -25,7 +29,7 @@ public class KeyGeneratorTest {
         generator.init(192);
         SecretKey key = generator.generateKey();
         Assertions.expectingEmptySetOfErrors();
-        Assertions.hasEnsuredPredicate(ExecutionContext.Property.GENERATED_KEY, key);
+        Assertions.hasEnsuredPredicate(Property.GENERATED_KEY, key);
     }
 
     @Test

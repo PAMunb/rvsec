@@ -412,4 +412,26 @@ public class AdviceAndPointCut {
     public String getParametersDeclStr() {
         return parameters.parameterDeclString();
     }
+
+    // ---- Getters added for descriptor emission (Fase 1 do prototipo-dexlib2) ----
+
+    public String getSpecName() {
+        return specName;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public MOPParameters getParameters() {
+        return parameters;
+    }
+
+    public LinkedList<EventDefinition> getEvents() {
+        return events;
+    }
+
+    public HashMap<EventDefinition, AdviceBody> getAdvices() {
+        return advices;
+    }
 }

@@ -1,0 +1,158 @@
+# Experimento final gh59: APE × N APKs (N = APKs aprovados na validação install/launch
+# pós-2ª-rodada-instrumentação com o fix gh59 PointcutMatcher+MonitorInvokeBuilder).
+#
+# **Objetivo**: validar end-to-end que o dataset re-instrumentado está usável pra
+# experimento de RV-Android — APE explora cada APK por 5 min, 3 reps, emite eventos
+# MOP e cobertura, sem regressões em relação ao smoke 2026-05-07 (169/190 APKs
+# disparam JCA em 300s pelo APE).
+#
+# **NÃO é re-instrumentação** — o pipeline pula monitor-gen, instrumentation e
+# static-analysis. Os APKs já estão instrumentados em
+# /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB e os SA
+# JSONs estão lado a lado (190 .apk.json pré-existentes da v1).
+#
+# **Filtro**: data/exp_ape_gh59_filters/pass_apks.txt — só os APKs que passaram
+# em scripts/validate_instrument_jca190.py (FAIL_VERIFY/FAIL_FATAL/FAIL_INSTALL
+# ficam de fora — APE não consegue explorar APKs que crasham no launch).
+#
+# **8 containers paralelos** × 4 cpu + 8g memory = 32 cpu + 64g RAM (cabe nos
+# 70g livres). Round-robin entre 8 batches.
+#
+# **Tempo estimado** (timeout 300s, overhead AVD-reuse ~90s/task):
+#   - tasks por container: (N / 8) × 3 reps ≈ ~61 (com N=163)
+#   - wall-clock por container: ~61 × 390s ≈ 6h36min
+#   - wall-clock total: ~6h40min (containers em paralelo, com pequena variância)
+#
+# Uso:
+#   bash scripts/stage_apks_exp_ape_gh59.sh         # rsync APKs novos pra APKS_FINAL_JCA_DEXLIB
+#   bash scripts/generate_filters_exp_ape_gh59.sh   # gera filtros PASS-only + 8 batches
+#   docker compose -f docker/docker-compose.exp-ape-gh59.yml up -d
+#   docker compose -f docker/docker-compose.exp-ape-gh59.yml logs -f
+#   docker compose -f docker/docker-compose.exp-ape-gh59.yml down
+
+x-rvandroid: &rvandroid-base
+  image: ${RV_IMAGE:-phtcosta/rvandroid:0.9.0}
+  environment: &rvandroid-env
+    RV_TOOLS: "ape"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_INSTRUMENTATION_VARIANT: "dexlib2"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "8g"
+
+services:
+  exp_ape_gh59_00:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_00:/opt/rvsec/rv-android/results
+
+  exp_ape_gh59_01:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_01:/opt/rvsec/rv-android/results
+
+  exp_ape_gh59_02:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_02:/opt/rvsec/rv-android/results
+
+  exp_ape_gh59_03:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_03:/opt/rvsec/rv-android/results
+
+  exp_ape_gh59_04:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_04:/opt/rvsec/rv-android/results
+
+  exp_ape_gh59_05:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_05:/opt/rvsec/rv-android/results
+
+  exp_ape_gh59_06:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_06:/opt/rvsec/rv-android/results
+
+  exp_ape_gh59_07:
+    <<: *rvandroid-base
+    container_name: exp_ape_gh59_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: exp_ape_gh59_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB:/opt/rvsec/rv-android/apks:ro
+      - ../data/exp_ape_gh59_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/exp_ape_gh59_07:/opt/rvsec/rv-android/results

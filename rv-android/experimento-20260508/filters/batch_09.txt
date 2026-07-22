@@ -1,0 +1,12 @@
+bim.app_1500.apk
+com.blankdev.sidestep_17.apk
+com.foss.aihub_10.apk
+com.infomaniak.euria_100300001.apk
+com.nospeak.app_1000010.apk
+com.shub39.grit_5840.apk
+com.zoffcc.applications.undereat_10031.apk
+gizz.tapes.foss_63.apk
+luci.sixsixsix.powerampache2.fdroid_93.apk
+org.css_apps_m3.password_manager_13.apk
+org.fossify.voicerecorder_18.apk
+spam.blocker_506.apk

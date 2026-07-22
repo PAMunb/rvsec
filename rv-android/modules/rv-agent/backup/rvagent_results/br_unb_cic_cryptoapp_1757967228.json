@@ -1,0 +1,182 @@
+{
+  "session": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "objective": "explore_application",
+    "duration": 68.41330456733704,
+    "iterations": 7,
+    "success_count": 16,
+    "error_count": 0,
+    "success_rate": 2.2857142857142856
+  },
+  "react_engine": {
+    "iteration_count": 7,
+    "current_objective": "explore_application",
+    "short_term_memory": {
+      "iteration_count": 7,
+      "current_activity": "unknown",
+      "total_actions_generated": 34,
+      "total_execution_results": 34,
+      "average_success_rate": 0.4714285714285714,
+      "memory_utilization": "7/10",
+      "latest_iteration": {
+        "timestamp": "2025-09-15T17:13:45.888750",
+        "action_count": 5,
+        "success_rate": 0.2
+      }
+    },
+    "long_term_memory": {
+      "total_states": 2,
+      "total_activities": 1,
+      "total_action_types": 0,
+      "total_actions_executed": 0,
+      "total_successful_actions": 0,
+      "overall_success_rate": 0.0,
+      "total_transitions": 0,
+      "most_visited_states": [
+        {
+          "state_hash": "879931b30c0f",
+          "activity": "unknown",
+          "visit_count": 5,
+          "elements_count": 8
+        },
+        {
+          "state_hash": "9f19a02e96b1",
+          "activity": "unknown",
+          "visit_count": 2,
+          "elements_count": 8
+        }
+      ]
+    },
+    "ui_coverage": {
+      "total_unique_elements": 8,
+      "total_interactions": 34,
+      "average_interactions_per_element": 4.25,
+      "action_distribution": {
+        "click": 21,
+        "scroll": 6,
+        "screenshot": 7
+      },
+      "recent_discoveries": 8,
+      "total_screens": 0,
+      "most_tested_elements": [
+        [
+          "",
+          13
+        ],
+        [
+          "Home button",
+          6
+        ],
+        [
+          "Overview",
+          5
+        ]
+      ],
+      "least_tested_elements": [
+        [
+          "home FrameLayout",
+          1
+        ],
+        [
+          "home_button ImageView",
+          1
+        ],
+        [
+          "More options",
+          1
+        ]
+      ],
+      "discovery_timeline_length": 8
+    }
+  },
+  "short_term_memory": {
+    "iteration_count": 7,
+    "current_activity": "unknown",
+    "total_actions_generated": 34,
+    "total_execution_results": 34,
+    "average_success_rate": 0.4714285714285714,
+    "memory_utilization": "7/10",
+    "latest_iteration": {
+      "timestamp": "2025-09-15T17:13:45.888750",
+      "action_count": 5,
+      "success_rate": 0.2
+    }
+  },
+  "long_term_memory": {
+    "total_states": 2,
+    "total_activities": 1,
+    "total_action_types": 0,
+    "total_actions_executed": 0,
+    "total_successful_actions": 0,
+    "overall_success_rate": 0.0,
+    "total_transitions": 0,
+    "most_visited_states": [
+      {
+        "state_hash": "879931b30c0f",
+        "activity": "unknown",
+        "visit_count": 5,
+        "elements_count": 8
+      },
+      {
+        "state_hash": "9f19a02e96b1",
+        "activity": "unknown",
+        "visit_count": 2,
+        "elements_count": 8
+      }
+    ]
+  },
+  "ui_coverage": {
+    "total_unique_elements": 8,
+    "total_interactions": 34,
+    "average_interactions_per_element": 4.25,
+    "action_distribution": {
+      "click": 21,
+      "scroll": 6,
+      "screenshot": 7
+    },
+    "recent_discoveries": 8,
+    "total_screens": 0,
+    "most_tested_elements": [
+      [
+        "",
+        13
+      ],
+      [
+        "Home button",
+        6
+      ],
+      [
+        "Overview",
+        5
+      ]
+    ],
+    "least_tested_elements": [
+      [
+        "home FrameLayout",
+        1
+      ],
+      [
+        "home_button ImageView",
+        1
+      ],
+      [
+        "More options",
+        1
+      ]
+    ],
+    "discovery_timeline_length": 8
+  },
+  "total_unique_elements_tested": 8,
+  "total_interactions": 34,
+  "coverage_efficiency": 1.1428571428571428,
+  "cli_metadata": {
+    "package": "br.unb.cic.cryptoapp",
+    "device": "emulator-5554",
+    "timeout": 60,
+    "model": "PetrosStav/gemma3-tools:4b",
+    "objective": "explore_application",
+    "execution_time": 65.39081168174744,
+    "timestamp": 1757967228,
+    "success": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "workflow": "speckit",
+  "specName": "instrumentation",
+  "branch": "instrumentation",
+  "selectedAt": "2026-04-24T13:03:07.449Z",
+  "currentStep": "specify",
+  "status": "draft",
+  "stepHistory": {},
+  "transitions": []
+}

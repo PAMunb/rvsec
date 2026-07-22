@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>br.unb.cic</groupId>
 		<artifactId>rvsec-parent</artifactId>
-		<version>0.2.0</version>
+		<version>0.9.2</version>
 	</parent>
 
 	<groupId>br.unb.cic</groupId>
@@ -22,10 +22,13 @@
 	</properties>
 
 	<modules>
+		<module>rvsec-mop</module>
+		<module>rvsec-mop-extractor</module>
+		<module>rvsec-mop-defsuses</module>		
 		<module>rvsec-core</module>
 		<module>rvsec-logger-csv</module>
-		<module>rvsec-logger-logcat</module>
 		<module>rvsec-agent</module>
+		<module>rvsec-android</module>		
 	</modules>
 
 	<profiles>

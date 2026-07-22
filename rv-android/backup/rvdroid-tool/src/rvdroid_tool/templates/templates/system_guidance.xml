@@ -1,0 +1,3 @@
+<system_guidance>
+{% include 'fragments/guidance_system.xml' %}
+</system_guidance>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fragment name="user_base">
+  <![CDATA[
+Current Activity: {{ activity | default("Unknown") }}
+
+{% if static_context is defined %}
+{{ static_context }}
+{% endif %}
+
+Current UI Elements and Available Actions:
+{% if ui_elements is defined %}
+{{ ui_elements }}
+{% else %}
+No UI elements information available.
+{% endif %}
+
+{% if action_history %}
+{% include "history_section" %}
+{% endif %}
+  ]]>
+</fragment>

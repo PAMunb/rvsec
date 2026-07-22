@@ -1,0 +1,98 @@
+{
+  "test_info": {
+    "test": "HuggingFace Native Function Calling",
+    "gpu_limit": "16GB",
+    "quantization": "4-bit",
+    "app": "cryptoapp.apk"
+  },
+  "model_results": [
+    {
+      "model": "microsoft/Phi-4-multimodal-instruct",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "Model 'microsoft/Phi-4-multimodal-instruct' doesn't support task 'conversational'. Supported tasks: 'automatic-speech-recognition', got: 'conversational'"
+    },
+    {
+      "model": "microsoft/Phi-3.5-vision-instruct",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "404 Client Error: Not Found for url: https://router.huggingface.co/hf-inference/models/microsoft/Phi-3.5-vision-instruct/v1/chat/completions (Request ID: Root=1-68c847a7-27390c1f35da6e070cb8cac2;caabfdcb-61a7-488f-a926-27c4913b3dd9)"
+    },
+    {
+      "model": "microsoft/Phi-3-vision-128k-instruct",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "404 Client Error: Not Found for url: https://router.huggingface.co/hf-inference/models/microsoft/Phi-3-vision-128k-instruct/v1/chat/completions (Request ID: Root=1-68c847a9-591b85632f85ecb70ad4ce86;cd3611bb-dbb4-4583-84f1-516c657496ff)"
+    },
+    {
+      "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "404 Client Error: Not Found for url: https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-VL-7B-Instruct/v1/chat/completions (Request ID: Root=1-68c847aa-08d4e27607fcefda7d64c655;62e57cb3-9ed1-4e60-901d-0db72b644b8c)"
+    },
+    {
+      "model": "google/gemma-3-4b-it",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "404 Client Error: Not Found for url: https://router.huggingface.co/hf-inference/models/google/gemma-3-4b-it/v1/chat/completions (Request ID: Root=1-68c847ab-7e267f825374745459e47cfb;7a6ba668-b478-45a3-9760-2b9ba9d98273)"
+    },
+    {
+      "model": "OpenGVLab/ZeroGUI-AndroidLab-7B",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "404 Client Error: Not Found for url: https://router.huggingface.co/hf-inference/models/OpenGVLab/ZeroGUI-AndroidLab-7B/v1/chat/completions (Request ID: Root=1-68c847ac-24f56b25098f9c812e96c88e;ac6b0f87-dad5-4eb4-bba5-786558716fb2)"
+    },
+    {
+      "model": "Hcompany/Holo1.5-7B",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "404 Client Error: Not Found for url: https://router.huggingface.co/hf-inference/models/Hcompany/Holo1.5-7B/v1/chat/completions (Request ID: Root=1-68c847ad-5f178d756d3d9b1101fe9d46;805e3ce1-8d0e-49fd-b2bb-271801ad99be)"
+    },
+    {
+      "model": "openbmb/MiniCPM-V-4_5",
+      "vision_support": false,
+      "function_calling_support": false,
+      "cryptoapp_buttons_found": 0,
+      "gpu_memory_gb": 0.0,
+      "inference_time_s": 0,
+      "function_calls": [],
+      "vision_sample": null,
+      "error": "404 Client Error: Not Found for url: https://router.huggingface.co/hf-inference/models/openbmb/MiniCPM-V-4_5/v1/chat/completions (Request ID: Root=1-68c847af-37403afb1a705a417c978670;1771a072-0446-48d1-90aa-e6ea41097e0d)"
+    }
+  ]
+}

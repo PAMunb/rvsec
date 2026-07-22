@@ -1,0 +1,56 @@
+[project]
+name = "rv-agent"
+version = "0.1.0"
+description = "Autonomous Android testing agent with LangChain and SGLang"
+authors = [{name = "RV-Android Team"}]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # LangChain ecosystem (SGLang via OpenAI-compatible API)
+    "langchain>=1.2",
+    "langchain-core>=1.2",
+    "langchain-openai>=1.1",
+    # LangGraph for workflow
+    "langgraph>=1.0",
+    "langgraph-checkpoint>=4.0",
+    "langgraph-checkpoint-sqlite>=3.0",
+    # Utils
+    "requests>=2.32.0",
+    "httpx>=0.28.0",
+    "pydantic>=2.9.0",
+    "pillow>=10.0.0",
+    "python-dotenv>=1.0.0",
+    "backoff>=2.2.1",
+    "scipy>=1.14.0",
+    "faker>=29.0.0",
+    # CLI
+    "click>=8.1.0",
+    # Core dependencies
+    "rv-android-core",
+    "rv-screen-parser",
+    "rv-uiautomator",
+    "rv-static-analysis",
+]
+
+[project.scripts]
+rv-agent = "rv_agent.cli.main:cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=7.0.0",
+    "hypothesis>=6.100.2",
+]
+
+[tool.uv.sources]
+rv-android-core = { workspace = true }
+rv-screen-parser = { workspace = true }
+rv-uiautomator = { workspace = true }
+rv-static-analysis = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rv_agent"]

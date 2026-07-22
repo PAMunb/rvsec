@@ -1,0 +1,14 @@
+app.eduroam.geteduroam_2685.apk
+app.maskan.chat_90.apk
+app.michaelwuensch.bitbanana_79.apk
+app.pachli_50.apk
+app.plugbrain.android_154.apk
+app.pwhs.universalinstaller_24.apk
+at.bitfire.davdroid_405140001.apk
+at.linuxtage.Eventfahrplan_1700028.apk
+at.techbee.jtx_216000015.apk
+be.digitalia.fosdem_2300230.apk
+br.com.colman.petals_3040000.apk
+cc.sovellus.vrcaa_300007.apk
+ch.digitale_gesellschaft.winterkongress.schedule_118.apk
+ch.famoser.mensa_71.apk

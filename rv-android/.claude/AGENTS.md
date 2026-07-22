@@ -1,0 +1,1195 @@
+# Claude Code Configuration - RV-Android
+
+Complete documentation for skills, workflows, and MCP integrations.
+
+---
+
+## Table of Contents
+
+1. [Development Principles](#development-principles)
+2. [Architecture Overview](#architecture-overview)
+3. [Frontmatter Reference](#frontmatter-reference)
+4. [Quality Gate Skill](#quality-gate-skill)
+5. [Orchestrator Skills](#orchestrator-skills)
+6. [Component Skills](#component-skills)
+7. [MCP Servers](#mcp-servers)
+8. [Plugins](#plugins)
+9. [Skill Chains](#skill-chains)
+10. [Usage Guide](#usage-guide)
+11. [Decision Framework](#decision-framework)
+12. [Examples](#examples)
+
+---
+
+## Development Principles
+
+### Core Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **YAGNI** | You Aren't Gonna Need It - Don't implement until necessary |
+| **KISS** | Keep It Simple, Stupid - Prefer simple solutions |
+| **Single Responsibility** | One thing, done well |
+| **Fail Fast** | Surface errors early, don't hide them |
+
+### RV-Android Specific
+
+| Principle | Description |
+|-----------|-------------|
+| **MOP Terminology** | "Monitored operations", NOT "security" - MOP is generic |
+| **Code Evolution** | Remove legacy code, don't wrap it with adapters |
+| **Backup Before Replace** | Move old files to `backup/` before replacement |
+| **Specification Sets** | JCA (crypto) and Generic - used separately in experiments |
+
+### Code Quality Standards
+
+- **Comments**: English only, reflect current state, no promotional language
+- **Error Handling**: Use ErrorHandler decorators, meaningful messages
+- **Configuration**: Unified objects, validate at boundaries
+- **Testing**: Unit → Integration → Smoke → System hierarchy
+
+---
+
+## Architecture Overview
+
+### Design Philosophy
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         USER REQUEST                                │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    ORCHESTRATOR SKILLS                              │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │
+│  │/rv-refactor │ │/rv-feature  │ │  /rv-tdd    │ │/rv-cleanup  │   │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘   │
+│         │               │               │               │           │
+│         └───────────────┴───────┬───────┴───────────────┘           │
+│                                 │                                   │
+│                    Supporting files (templates, checklists)         │
+│                    Multi-phase workflows                            │
+│                    User checkpoints                                 │
+└─────────────────────────────────┬───────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     COMPONENT SKILLS                                │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│  │ rv-analyze-*     │  │ rv-refactor-*    │  │ rv-test-*        │  │
+│  │ (7 skills)       │  │ (4 skills)       │  │ (2 skills)       │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│  │ rv-qa-*, verify  │  │ rv-doc-*, sync   │  │ rv-debug-*       │  │
+│  │ (3 skills)       │  │ (6 skills)       │  │ (1 skill)        │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ rv-code-reviewer (Quality Gate) — context: fork              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        MCP SERVERS                                  │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│  │ sequential-      │  │ memory           │  │ context7         │  │
+│  │ thinking         │  │                  │  │                  │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Component Types
+
+| Type | Location | Invocation | Context | Best For |
+|------|----------|------------|---------|----------|
+| **Skills** | `.claude/skills/` | `/skill-name` or auto-trigger | Main or forked | Workflows with supporting files |
+| **MCP Servers** | `claude mcp list` | Tool calls | Persistent | External capabilities |
+| **Plugins** | External | Various | Various | Shared configurations |
+
+**Key Distinction**:
+- **Skills**: `SKILL.md` file + optional supporting files (templates, checklists, scripts)
+- All rv-* skills use `context: fork` for isolated execution context
+
+---
+
+## Frontmatter Reference
+
+Official Claude Code frontmatter fields. Reference: https://code.claude.com/docs/en/skills and https://code.claude.com/docs/en/sub-agents
+
+### Skills Frontmatter (SKILL.md)
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `name` | No | string | Display name, becomes `/slash-command`. Max 64 chars, lowercase, hyphens |
+| `description` | Recommended | string | When to use. Claude uses this for auto-triggering. Include WHEN + WHEN NOT |
+| `argument-hint` | No | string | Hint for expected arguments. E.g., `[module-name]`, `[file-path]` |
+| `context` | No | `fork` | Execution context. `fork` = isolated subagent context |
+| `agent` | No | string | Subagent type when `context: fork`. Values: `Explore`, `Plan`, `general-purpose`, custom |
+| `allowed-tools` | No | string | Comma-separated tools. E.g., `Read, Grep, Glob, Bash`. **Include `Skill` if invoking other skills** |
+| `model` | No | string | Model to use. E.g., `claude-opus-4-1` |
+| `disable-model-invocation` | No | boolean | If `true`, Claude won't auto-trigger. Manual `/name` only |
+| `user-invocable` | No | boolean | If `false`, hidden from `/` menu. Only Claude can invoke |
+| `hooks` | No | object | Hooks scoped to skill lifecycle |
+
+**Example:**
+```yaml
+---
+name: rv-refactor
+description: >-
+  Senior refactoring architect. Use when restructuring modules or reducing complexity.
+  Do NOT use for: simple bug fixes, adding new features.
+argument-hint: [module-name or file-path]
+context: fork
+agent: general-purpose
+allowed-tools: Read, Grep, Glob, Edit, Write, Bash, AskUserQuestion, Skill
+---
+```
+
+**Note**: `Skill` is included because this orchestrator invokes other skills like `/rv-analyze-complexity`.
+
+### Quality Gate Skill Frontmatter Example
+
+The quality gate skill (`rv-code-reviewer`) uses `context: fork` for isolated review context:
+
+```yaml
+---
+name: rv-code-reviewer
+description: Review code quality, patterns, and issues in rv-android changes.
+context: fork
+agent: general-purpose
+allowed-tools: Read, Grep, Glob, Bash, Skill
+---
+```
+
+**Note**: `context: fork` ensures the reviewer runs in a fresh, isolated context. `Skill` is included in `allowed-tools` so the reviewer can invoke analysis skills like `/rv-analyze-file-complexity` or `/rv-analyze-complexity`.
+
+### Description Best Practices
+
+From official docs: **"Generic descriptions fail. Use WHEN + WHEN NOT pattern."**
+
+| Pattern | Example |
+|---------|---------|
+| **WHEN** | "Use when restructuring modules, reducing complexity..." |
+| **WHEN NOT** | "Do NOT use for: simple bug fixes, adding features..." |
+| **ALTERNATIVES** | "Use /rv-feature for new functionality, /rv-tdd for test-driven fixes" |
+
+### Skill Invocation Pattern
+
+When a skill needs to invoke another skill, use the explicit **Skill tool** syntax:
+
+```markdown
+Use the **Skill tool** to invoke [skill-name]:
+```
+Skill tool: skill="rv-analyze-module", args="$ARGUMENTS"
+```
+```
+
+**Important Notes**:
+- Skills that invoke other skills MUST have `Skill` in their `allowed-tools`
+- The syntax `Invoke /rv-skill-name` is ambiguous - always use explicit Skill tool syntax
+- Wait for results before proceeding to the next step
+
+**Example from rv-analyze-module**:
+```markdown
+### Step 3: Invoke Specialized Analysis Skills
+
+**IMPORTANT**: You MUST use the Skill tool to invoke each analysis skill below.
+
+1. **Dependency Analysis** - Use the **Skill tool**:
+   ```
+   Skill tool: skill="rv-analyze-dependencies", args="$ARGUMENTS"
+   ```
+
+2. **Complexity Analysis** - Use the **Skill tool**:
+   ```
+   Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
+   ```
+```
+
+---
+
+## Quality Gate Skill
+
+Located in `.claude/skills/rv-code-reviewer/`. Invocable as `/rv-code-reviewer`. Uses `context: fork` for isolated review context.
+
+### /rv-code-reviewer
+
+**Purpose**: Expert code review, final quality gate in orchestrator workflows.
+
+**When to Use**:
+- After any code changes
+- As chain endpoint from orchestrators (via Skill tool)
+- Directly via `/rv-code-reviewer`
+
+**Invoked Analysis Skills** (via Skill tool at runtime):
+- `rv-analyze-file-complexity` - File-level complexity (radon)
+- `rv-analyze-complexity` - Module-level complexity (radon)
+- `rv-analyze-dependencies` - Dependency issues
+- `rv-analyze-file-dead-code` - File-level dead code (pyflakes/vulture)
+- `rv-analyze-dead-code` - Module-level dead code (pyflakes/vulture)
+
+**Chain Integration**:
+- Called by: `rv-refactor`, `rv-feature`, `rv-tdd`, `rv-cleanup` (via Skill tool)
+- Position: Final gate before user approval
+
+**Review Checklist**:
+- Code quality (readability, naming, duplication)
+- Architecture (boundaries, patterns, separation)
+- Security (secrets, validation, data handling)
+- Testing (coverage, edge cases, mocks)
+- rv-android specific (MOP terminology, evolution guidelines)
+
+**Feedback Format**:
+- 🔴 Critical (must fix)
+- 🟡 Warnings (should fix)
+- 🟢 Suggestions (consider)
+
+---
+
+## Orchestrator Skills
+
+Located in `.claude/skills/`. Invoke with `/skill-name`. These are complex multi-phase workflows with supporting files (templates, checklists).
+
+### /rv-refactor
+
+**Purpose**: Complete refactoring workflow with analysis, planning, execution, and review.
+
+**When to Use**:
+- Restructuring modules or large files
+- Reducing code complexity
+- Breaking circular dependencies
+- Improving code architecture
+
+**Workflow**:
+```
+ANALYSIS → PLANNING → [CHECKPOINT #1] → EXECUTION → VERIFICATION → CODE REVIEW → [CHECKPOINT #2] → AUDIT
+```
+
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
+
+**Supporting Files**: `.claude/skills/rv-refactor/`
+- Templates: `analysis-report.md`, `refactoring-plan.md`, `final-report.md`
+- Checklists: `pre-refactor.md`, `verification.md`
+
+---
+
+### /rv-feature
+
+**Purpose**: Complete feature implementation with discovery, design options, and TDD.
+
+**When to Use**:
+- Implementing new features
+- Adding new capabilities
+- Creating new modules or components
+
+**Workflow**:
+```
+DISCOVERY → DESIGN → [CHECKPOINT #1: Choose Approach] → PLANNING → [CHECKPOINT #2] → IMPLEMENTATION (TDD) → CODE REVIEW → [CHECKPOINT #3] → AUDIT
+```
+
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
+
+**Key Feature**: User CHOOSES approach (not just approves) at first checkpoint.
+
+**Dependency Management**: Phase 2.5 handles adding dependencies with `/rv-analyze-dependencies` verification.
+
+**Supporting Files**: `.claude/skills/rv-feature/`
+- Templates: `discovery-report.md`, `design-options.md`, `implementation-plan.md`
+- Checklists: `acceptance-checklist.md`
+
+---
+
+### /rv-tdd
+
+**Purpose**: Strict Test-Driven Development with RED-GREEN-REFACTOR cycles.
+
+**When to Use**:
+- Implementing features with TDD methodology
+- Bug fixes that need regression tests
+- When test coverage is critical
+
+**Workflow**:
+```
+ANALYSIS → TEST PLANNING → [CHECKPOINT #1] → RED (failing tests) → GREEN (minimal impl) → REFACTOR → CODE REVIEW → [CHECKPOINT #2] → AUDIT
+```
+
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
+
+**Key Rules**:
+- NEVER write implementation before tests
+- Tests MUST fail first (RED phase)
+- Implement MINIMAL code to pass (GREEN phase)
+- Refactor only when GREEN
+
+**Supporting Files**: `.claude/skills/rv-tdd/`
+- Templates:
+  - `unit/test_component.py` - Standard unit tests
+  - `integration/test_component_integration.py` - Component tests
+  - `smoke/test_smoke.py` - Quick sanity checks
+  - `property/test_component_pbt.py` - Property-based tests (Hypothesis)
+  - `regression/test_component_regression.py` - Bug prevention tests
+  - `snapshot/test_component_snapshot.py` - Baseline comparison tests
+  - `conftest/conftest.py` - Shared fixtures
+- Checklists: `tdd-rules.md`
+
+**Dependency Management**: Phase 1.5 handles adding test dependencies (e.g., `hypothesis`, `pytest-snapshot`) with `/rv-analyze-dependencies` verification.
+
+---
+
+### /rv-cleanup
+
+**Purpose**: Safe codebase cleanup with dead code removal and verification.
+
+**When to Use**:
+- Removing technical debt
+- Cleaning unused code
+- Preparing for major refactoring
+- Reducing codebase size
+
+**Workflow**:
+```
+ANALYSIS → PLANNING → [CHECKPOINT #1] → EXECUTION (per group with rollback) → CODE REVIEW → [CHECKPOINT #2] → AUDIT
+```
+
+**Chains To**: `/rv-code-reviewer` (via Skill tool)
+
+**Safety Features**:
+- Backup before any removal
+- Rollback on test failure
+- Confidence levels (HIGH/MEDIUM/LOW)
+- User approval required
+
+**Supporting Files**: `.claude/skills/rv-cleanup/`
+- Templates: `analysis-report.md`, `cleanup-plan.md`
+- Checklists: `safety-checklist.md`
+
+---
+
+## OpenSpec Skills (Process Layer)
+
+Located in `.claude/skills/openspec-*/`. Invoke with `/opsx:name`. These manage the SDD change lifecycle — they invoke rv-* skills (execution layer) but are never invoked by them.
+
+| Skill | Command | Purpose | Workflow Phase |
+|-------|---------|---------|----------------|
+| `openspec-explore` | `/opsx:explore` | Think through approach, explore problem space | Full SDD Phase 1, FF SDD Phase 1 |
+| `openspec-new-change` | `/opsx:new` | Create new change with proposal | Full SDD Phase 2 |
+| `openspec-ff-change` | `/opsx:ff` | Fast-forward: generate all artifacts at once | FF SDD Phase 2 |
+| `openspec-continue-change` | `/opsx:continue` | Advance to next artifact (specs, design, tasks) | Full SDD Phases 2-3 |
+| `openspec-apply-change` | `/opsx:apply` | Execute tasks from tasks.md | Full SDD Phase 4, FF SDD Phase 3 |
+| `openspec-verify-change` | `/opsx:verify` | Validate implementation against specs | Full SDD Phase 5, FF SDD Phase 4 |
+| `openspec-sync-specs` | `/opsx:sync` | Sync delta specs to main specs | Full SDD Phase 6 |
+| `openspec-archive-change` | `/opsx:archive` | Archive completed change | Full SDD Phase 6, FF SDD Phase 4 |
+| `openspec-bulk-archive-change` | `/opsx:bulk-archive` | Archive multiple completed changes | Maintenance |
+| `openspec-onboard` | `/opsx:onboard` | Guided onboarding for the SDD workflow | First-time setup |
+
+**Relationship to rv-* skills**: OpenSpec skills manage *what* and *why* (change lifecycle). rv-* skills handle *how* (technical execution). During `/opsx:apply`, OpenSpec delegates to rv-* component skills as annotated in tasks.md. In Full/FF SDD, use component skills directly (not orchestrators) because OpenSpec artifacts already cover analysis and planning. In Quick Path, orchestrators are appropriate when their structured workflow adds value over `plan.md`. See `docs/WORKFLOW.md` Section 9 for the full convention.
+
+---
+
+## Component Skills
+
+Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigger.
+
+### Analysis Skills
+
+| Skill | Command | Purpose | Scope | Tools |
+|-------|---------|---------|-------|-------|
+| `rv-analyze-file` | `/rv-analyze-file [path]` | Single file qualitative analysis (8 dimensions, code smells) | File | memory (git hash cache) |
+| `rv-analyze-file-complexity` | `/rv-analyze-file-complexity [path]` | Single file complexity metrics (radon cc/mi/raw) | File | radon, memory (git hash cache) |
+| `rv-analyze-file-dead-code` | `/rv-analyze-file-dead-code [path]` | Single file dead code detection (pyflakes/vulture) | File | pyflakes, vulture, memory (git hash cache) |
+| `rv-analyze-complexity` | `/rv-analyze-complexity [module]` | Module-wide complexity metrics (radon cc/mi/raw) | Module | radon, memory (git hash cache) |
+| `rv-analyze-dependencies` | `/rv-analyze-dependencies [module]` | Module dependency mapping, violation/cycle detection | Module | memory (git hash cache) |
+| `rv-analyze-dead-code` | `/rv-analyze-dead-code [module]` | Module-wide dead code detection (pyflakes/vulture) | Module | pyflakes, vulture, memory (git hash cache) |
+| `rv-analyze-module` | `/rv-analyze-module [module]` | Module architecture (chains to 3 sub-skills + 4 perspectives) | Module (L1) | memory (git hash cache) |
+
+**Complexity Thresholds**:
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| Lines per file | > 500 | Split into components |
+| Function length | > 50 lines | Extract helpers |
+| Classes per file | > 3 | Separate modules |
+| Imports | > 20 | Check dependencies |
+| Nesting depth | > 4 levels | Refactor conditionals |
+
+---
+
+### Refactoring Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-refactor-simplify` | `/rv-refactor-simplify [path]` | Simplify complex code |
+| `rv-refactor-extract` | `/rv-refactor-extract [path] [target]` | Extract function/class/module |
+| `rv-refactor-cleanup` | `/rv-refactor-cleanup [module]` | Quick automated cleanup (imports, formatting) |
+| `rv-refactor-constants` | `/rv-refactor-constants [path]` | Extract magic values |
+
+**Note**: `/rv-refactor-cleanup` is for quick fixes. Use `/rv-cleanup` orchestrator for comprehensive dead code removal with safety controls. For full restructuring workflows with analysis, planning, and code review, use the `/rv-refactor` orchestrator (see [Orchestrator Skills](#orchestrator-skills)).
+
+---
+
+### Testing Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-test-add` | `/rv-test-add [path] [function]` | Add single test file for existing code |
+| `rv-test-run` | `/rv-test-run [module]` | Run tests |
+
+**Note**: `/rv-test-add` includes a decision tree for test type selection. Use `/rv-tdd` orchestrator for full RED-GREEN-REFACTOR workflow.
+
+**Test Categories**:
+| Category | Path | Purpose | Marker |
+|----------|------|---------|--------|
+| unit | tests/unit/ | Isolated tests | - |
+| integration | tests/integration/ | Component tests | - |
+| smoke | tests/smoke/ | Sanity checks | smoke |
+| online | tests/online/ | Device/LLM required | online |
+| performance | tests/performance/ | Latency tests | performance |
+| regression | tests/regression/ | Bug prevention | regression |
+| property | tests/property/ | Hypothesis PBT | hypothesis |
+| snapshot | tests/snapshot/ | Baseline comparison | snapshot |
+
+**Test Commands**:
+```bash
+# Run module tests
+cd modules/$MODULE
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+
+# Run with coverage
+uv run pytest --cov=src --cov-report=html
+
+# Run single test
+uv run pytest tests/unit/test_file.py::TestClass::test_name -v
+```
+
+---
+
+### QA Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-qa-lint` | `/rv-qa-lint [module]` | Run linters + security analysis |
+| `rv-qa-lint-fix` | `/rv-qa-lint-fix [module]` | Auto-fix lint issues + verify |
+
+**Checks Performed by rv-qa-lint**:
+| Tool | Purpose |
+|------|---------|
+| flake8 | Style + errors |
+| mypy | Type checking |
+| black | Formatting |
+| isort | Import ordering |
+| bandit | Security vulnerabilities |
+
+**Lint Commands**:
+```bash
+# Format
+uv run black src/ && uv run isort src/
+
+# Check
+uv run flake8 src/
+uv run mypy src/
+
+# Security
+uv run bandit -r src/ --severity-level medium
+```
+
+---
+
+### Documentation Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-doc-code` | `/rv-doc-code [module or file] [--audit]` | Generate/audit code documentation (docstrings + inline comments) |
+| `rv-doc-readme` | `/rv-doc-readme [module]` | Generate README.md for GitHub/GitLab |
+| `rv-doc-generate-claude-md` | `/rv-doc-generate-claude-md [module]` | Generate CLAUDE.md (with auto-analysis) |
+| `rv-doc-architecture` | `/rv-doc-architecture [module]` | Generate architecture.md (Mermaid diagrams) |
+| `rv-doc-adr` | `/rv-doc-adr [decision-title]` | Create Architecture Decision Record |
+| `rv-docs-sync` | `/rv-docs-sync [module or 'all']` | Sync docs with code changes |
+
+**Documentation Guidelines**:
+- Language: English only (code, comments, documentation)
+- Tone: Professional, objective, no promotional language
+- No bias terms: Avoid "modern", "sophisticated", "elegant", "cutting-edge"
+- Current state only: Do not reference migration, legacy, or what was changed
+
+**Documentation Locations**:
+- `modules/<module>/README.md` - User-facing documentation (GitHub/GitLab)
+- `modules/<module>/CLAUDE.md` - Quick reference for Claude Code
+- `modules/<module>/docs/architecture.md` - Detailed architecture (Mermaid diagrams)
+- `modules/<module>/docs/adr/ADR-XXX-*.md` - Architecture Decision Records
+
+---
+
+### Verification Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-verify` | `/rv-verify [module]` | Run all checks (tests, lint, type, security) |
+
+**Checks Performed by rv-verify**:
+1. Unit tests
+2. Integration tests (if exist)
+3. Dependency security (`safety check`)
+4. Formatting (black, isort)
+5. Linting (flake8)
+6. Type checking (mypy)
+
+---
+
+### Planning, Impact & Debugging Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-planning` | `/rv-planning [task-description]` | Create implementation plans with task breakdown and risk assessment |
+| `rv-impact-analyzer` | `/rv-impact-analyzer [file or module]` | Analyze change impact before refactoring |
+| `rv-debug-regression` | `/rv-debug-regression [test-name]` | Investigate regression bugs via git history |
+
+---
+
+### Risk & Process Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-risk` | `/rv-risk [target]` | Technical risk assessment with RMMM plan |
+| `rv-retrospective` | `/rv-retrospective [scope]` | Post-change process retrospective |
+
+**rv-risk** — Proactive risk identification and mitigation planning. Produces a risk register with probability/impact scoring and RMMM (Risk Mitigation, Monitoring, Management) plan.
+
+**Supporting Files**: `.claude/skills/rv-risk/`
+- Checklists: `risk-categories.md`, `risk-indicators.md`, `mitigation-strategies.md`
+- Templates: `risk-register.md`
+
+**Workflow Integration**: Optional in Full SDD Phase 3 (Design) — assess implementation risks when the design involves new dependencies, external APIs, or multi-module coordination.
+
+**rv-retrospective** — Post-change process analysis using GQM (Goal-Question-Metric) framework. Identifies what went well, what could improve, and produces actionable improvement items.
+
+**Supporting Files**: `.claude/skills/rv-retrospective/`
+- Checklists: `process-analysis.md`, `improvement-cycle.md`, `gqm-framework.md`
+- Templates: `retrospective-report.md`
+
+**Workflow Integration**: Optional post-Archive step in all three tracks (Full SDD, FF SDD, Quick Path) — captures process learnings after each change cycle.
+
+---
+
+### Security & Release Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `rv-security` | `/rv-security [target]` | Security vulnerability review and threat analysis |
+| `rv-release` | `/rv-release [major\|minor\|patch] [module]` | uv workspace release management and PyPI publishing |
+
+**rv-security** — Reviews code for security vulnerabilities (OWASP Top 10, injection, secrets exposure), plans security architecture, and conducts threat analysis.
+
+**Supporting Files**: `.claude/skills/rv-security/`
+- Checklists: security analysis checklists
+
+**rv-release** — Coordinates multi-module releases in the uv workspace: version bumping, changelog generation, dependency synchronization, and PyPI publishing.
+
+**Supporting Files**: `.claude/skills/rv-release/`
+- Checklists: release process checklists
+
+---
+
+## Dependency Management
+
+When adding new dependencies to a module, follow this workflow:
+
+### Process
+
+```
+1. Identify needed dependency
+       │
+       ▼
+2. uv add [--group dev] [package]
+       │
+       ▼
+3. Invoke /rv-analyze-dependencies [module]
+       │  Checks for:
+       │  - Circular dependencies
+       │  - Version conflicts
+       │  - Security vulnerabilities
+       │
+       ▼
+4. uv lock
+       │
+       ▼
+5. Continue implementation
+```
+
+### Commands
+
+```bash
+cd modules/$MODULE
+
+# Production dependency
+uv add [package-name]
+
+# Development-only dependency (tests, linting)
+uv add --group dev [package-name]
+
+# Lock dependencies
+uv lock
+
+# Verify
+uv run safety check
+```
+
+### Common Dependencies by Purpose
+
+| Purpose | Package | Group |
+|---------|---------|-------|
+| Property testing | `hypothesis` | dev |
+| Snapshot testing | `pytest-snapshot` or `syrupy` | dev |
+| Coverage | `pytest-cov` | dev |
+| Parallel tests | `pytest-xdist` | dev |
+| HTTP client | `httpx` | prod |
+| Data validation | `pydantic` | prod |
+| Security scan | `bandit`, `safety` | dev |
+
+### Integration with Skills
+
+- `/rv-feature` - Phase 2.5 handles dependency addition
+- `/rv-tdd` - Phase 1.5 handles test dependency addition
+- `/rv-analyze-dependencies` - Verifies dependency health
+
+---
+
+## MCP Servers
+
+Configured via `claude mcp add --scope user`. Check with `claude mcp list`.
+
+### sequential-thinking
+
+**Purpose**: Structured, step-by-step reasoning for complex analysis.
+
+**When to Use**:
+- Complex code analysis requiring multiple steps
+- Debugging with hypothesis testing
+- Architectural decision-making
+
+**Tool**: `mcp__sequential-thinking__sequentialthinking`
+
+**Example Usage**:
+```
+Analyzing complexity of rv-agent module:
+
+Thought 1: First, gather metrics for all Python files...
+Thought 2: Files over threshold: rvagent_strategy.py (847 lines)...
+Thought 3: Root cause analysis...
+```
+
+**Fallback**: If unavailable, use numbered reasoning steps in response.
+
+---
+
+### memory
+
+**Purpose**: Persistent knowledge graph across sessions for caching and audit trails.
+
+**When to Use**:
+- Caching analysis results to avoid redundant work
+- Tracking operation history (audits)
+- Building knowledge about codebase
+
+**Tools**:
+- `mcp__memory__search_nodes` - **Check FIRST** before expensive analysis
+- `mcp__memory__create_entities` - Store findings after analysis
+- `mcp__memory__read_graph` - Read all entities
+
+**Cache Pattern** (used by analysis skills):
+```
+1. Search memory for cached entity: "analysis:complexity:rv-agent"
+2. If found → compare git_hash observation with: git log -1 --format=%h -- modules/rv-agent/
+3. If hashes match → return cached (cache hit = 2 tool calls)
+4. If hashes differ or not found → do full analysis
+5. Save results to memory with git_hash observation
+```
+
+**Entity naming**: `analysis:{type}:{scope}` — e.g., `analysis:complexity:rv-agent`, `analysis:file:src/rv_agent/config.py`. Invalidation uses scope-specific git hash comparison: file-scoped entities use `git log -1 --format=%h -- <file-path>`, module-scoped entities use `git log -1 --format=%h -- modules/<module>/`.
+
+**Entity Types Used**:
+| Entity Pattern | Type | When Created | Invalidation |
+|----------------|------|--------------|--------------|
+| `analysis:file-complexity:<path>` | file-complexity-analysis | After rv-analyze-file-complexity | git hash of file |
+| `analysis:file-dead-code:<path>` | file-dead-code-analysis | After rv-analyze-file-dead-code | git hash of file |
+| `analysis:file:<path>` | file-analysis | After rv-analyze-file | git hash of file |
+| `analysis:complexity:<module>` | complexity-analysis | After rv-analyze-complexity | git hash of module dir |
+| `analysis:dependencies:<module>` | dependency-analysis | After rv-analyze-dependencies | git hash of module dir |
+| `analysis:dead-code:<module>` | dead-code-analysis | After rv-analyze-dead-code | git hash of module dir |
+| `analysis:module:<module>` | module-analysis | After rv-analyze-module | git hash of module dir |
+| `refactor-[date]-[target]` | refactoring-operation | After rv-refactor | permanent |
+| `feature-[date]-[name]` | feature-implementation | After rv-feature | permanent |
+| `tdd-[date]-[feature]` | tdd-implementation | After rv-tdd | permanent |
+| `cleanup-[date]-[module]` | cleanup-operation | After rv-cleanup | permanent |
+| `review-[date]-[module]` | code-review | After /rv-code-reviewer | permanent |
+
+**Fallback**: If unavailable, output audit summary directly to user.
+
+---
+
+### context7
+
+**Purpose**: Up-to-date documentation for libraries.
+
+**When to Use**:
+- Looking up library APIs (LangGraph, pytest, pydantic)
+- Checking framework patterns
+- Verifying best practices
+
+**Tools**:
+- `mcp__context7__resolve-library-id` - Find library ID
+- `mcp__context7__query-docs` - Query documentation
+
+**Example**:
+```
+# First resolve library ID
+resolve-library-id: "pytest fixtures"
+
+# Then query docs
+query-docs: libraryId="/pytest-dev/pytest", query="fixture scope and parametrize"
+```
+
+---
+
+## Plugins
+
+### superpowers
+
+Provides additional skills and patterns:
+
+| Skill | Purpose |
+|-------|---------|
+| `brainstorming` | Creative exploration before implementation |
+| `systematic-debugging` | 4-phase debugging process |
+| `test-driven-development` | TDD workflow guidance |
+| `writing-plans` | Implementation planning |
+| `verification-before-completion` | Pre-commit verification |
+| `code-reviewer` | Code review patterns |
+
+### claude-md-management
+
+| Skill | Purpose |
+|-------|---------|
+| `revise-claude-md` | Update CLAUDE.md with learnings |
+| `claude-md-improver` | Audit and improve CLAUDE.md files |
+
+---
+
+## Skill Chains
+
+### Standard Chain Flow
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        ORCHESTRATOR                              │
+│  (rv-refactor / rv-feature / rv-tdd / rv-cleanup)               │
+│                                                                  │
+│  1. Analysis phase (uses component skills via Skill tool)       │
+│  2. Planning phase                                               │
+│  3. User checkpoint (AskUserQuestion)                           │
+│  4. Execution phase                                              │
+│  5. Verification phase                                           │
+└──────────────────────────────────┬───────────────────────────────┘
+                                   │
+                                   │ Skill tool with
+                                   │ skill="rv-code-reviewer"
+                                   ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                   /rv-code-reviewer                               │
+│                   (forked skill — isolated review context)        │
+│                                                                  │
+│  - Reviews all changes                                           │
+│  - Can invoke analysis skills for deep dive (via Skill tool)    │
+│  - Returns findings to orchestrator                              │
+└──────────────────────────────────┬───────────────────────────────┘
+                                   │
+                                   │ Findings incorporated
+                                   ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                        ORCHESTRATOR                              │
+│                                                                  │
+│  6. Final user checkpoint (with review findings)                │
+│  7. Audit phase (persist to memory)                             │
+│  8. Complete                                                     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Chain Configuration
+
+Orchestrators invoke code review via Skill tool:
+```
+Skill tool:
+  skill: rv-code-reviewer
+  args: "Review the [operation] changes for [target]. Focus on: [specific areas]"
+```
+
+---
+
+## Usage Guide
+
+### When to Use Each Component
+
+| Task | Use | Why |
+|------|-----|-----|
+| "Refactor this module" | `/rv-refactor` orchestrator skill | Full workflow with checkpoints |
+| "Implement login feature" | `/rv-feature` orchestrator skill | Discovery + design + TDD |
+| "Add tests for X" | `/rv-tdd` orchestrator skill | Strict RED-GREEN-REFACTOR |
+| "Clean up dead code" | `/rv-cleanup` orchestrator skill | Safe removal with rollback |
+| "Review my changes" | `/rv-code-reviewer` skill | Expert code review |
+| "Check complexity of file" | `/rv-analyze-complexity` skill | Quick analysis |
+| "Run the tests" | `/rv-test-run` skill | Simple test execution |
+| "Fix lint issues" | `/rv-qa-lint-fix` skill | Auto-fix formatting |
+
+### Explicit Invocation
+
+**Orchestrator Skills** - Use slash command:
+```
+/rv-refactor rv-agent
+/rv-feature add caching to LLM client
+/rv-tdd new_function_name
+/rv-cleanup rv-platform
+```
+
+**Component Skills** - Use slash command:
+```
+/rv-analyze-complexity rv-agent
+/rv-test-run rv-platform
+/rv-qa-lint-fix rv-android-core
+```
+
+**Quality Gate** - Use slash command:
+```
+/rv-code-reviewer
+```
+
+### Automatic Invocation
+
+Claude automatically:
+- **Invokes orchestrator skills** based on task description and complexity
+- **Triggers component skills** based on context and description
+- **Chains to `/rv-code-reviewer`** after orchestrator skill completes (via Skill tool)
+
+---
+
+## Decision Framework
+
+### Orchestrator Skill vs Component Skill?
+
+```
+Is it a complex, multi-phase workflow with checkpoints?
+    │
+    ├── YES → Use ORCHESTRATOR SKILL
+    │         • /rv-refactor, /rv-feature, /rv-tdd, /rv-cleanup
+    │
+    └── NO → Is it a focused, single-purpose task?
+              │
+              ├── YES → Use COMPONENT SKILL
+              │         • /rv-analyze-*, /rv-test-*, /rv-qa-*
+              │
+              └── NO → Let Claude decide based on context
+```
+
+### Which Orchestrator Skill?
+
+```
+What are you trying to do?
+    │
+    ├── Improve existing code structure → /rv-refactor
+    │
+    ├── Add new functionality → /rv-feature
+    │
+    ├── Fix bug with tests → /rv-tdd
+    │
+    ├── Remove technical debt → /rv-cleanup
+    │
+    └── Review changes → /rv-code-reviewer (quality gate skill)
+```
+
+### MCP Usage
+
+```
+Do you need...
+    │
+    ├── Step-by-step reasoning? → sequential-thinking
+    │
+    ├── Persistent knowledge? → memory
+    │
+    └── Library documentation? → context7
+```
+
+---
+
+## Examples
+
+### Example 1: Refactoring a Module
+
+**User**: "The rv-agent strategy module is too complex, refactor it" or `/rv-refactor rv-agent`
+
+**Claude**: Invokes `/rv-refactor` skill
+
+**Flow**:
+1. Analysis using `rv-analyze-complexity` patterns
+2. Creates refactoring plan
+3. **Checkpoint #1**: User approves plan
+4. Executes with backup
+5. Runs tests via `/rv-verify`
+6. Chains to `/rv-code-reviewer` (via Skill tool)
+7. **Checkpoint #2**: User approves result
+8. Persists audit to memory
+
+---
+
+### Example 2: Implementing a Feature
+
+**User**: "Add caching to the LLM client" or `/rv-feature caching for LLM client`
+
+**Claude**: Invokes `/rv-feature` skill
+
+**Flow**:
+1. Discovery: requirements, location, patterns
+2. Design: 2-3 approaches with pros/cons
+3. **Checkpoint #1**: User CHOOSES approach
+4. Planning: detailed steps
+5. **Checkpoint #2**: User approves plan
+6. Implementation with TDD
+7. Chains to `/rv-code-reviewer` (via Skill tool)
+8. **Checkpoint #3**: User approves feature
+9. Persists audit to memory
+
+---
+
+### Example 3: Quick Analysis
+
+**User**: "Check if there's dead code in rv-platform"
+
+**Claude**: Uses `/rv-analyze-dead-code` skill directly (no orchestrator needed)
+
+**Output**: Analysis report with unused imports, functions, variables
+
+---
+
+### Example 4: Running Tests
+
+**User**: "Run the rv-agent tests"
+
+**Claude**: Uses `/rv-test-run` skill directly
+
+**Commands**:
+```bash
+cd modules/rv-agent
+PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+```
+
+---
+
+## File Structure
+
+```
+.claude/
+├── AGENTS.md                          # This file - full documentation
+├── project-info.md                    # Quick reference (paths, env vars, commands)
+│
+└── skills/                            # Invocable skills (via /skill-name)
+    │
+    │   # Orchestrator Skills (with supporting files)
+    ├── rv-refactor/
+    │   ├── SKILL.md
+    │   ├── templates/
+    │   └── checklists/
+    ├── rv-feature/
+    │   ├── SKILL.md
+    │   ├── templates/
+    │   └── checklists/
+    ├── rv-tdd/
+    │   ├── SKILL.md
+    │   ├── templates/
+    │   │   ├── unit/test_component.py
+    │   │   ├── integration/test_component_integration.py
+    │   │   ├── smoke/test_smoke.py
+    │   │   ├── property/test_component_pbt.py      # Hypothesis PBT
+    │   │   ├── regression/test_component_regression.py
+    │   │   ├── snapshot/test_component_snapshot.py
+    │   │   └── conftest/conftest.py
+    │   └── checklists/
+    ├── rv-cleanup/
+    │   ├── SKILL.md
+    │   ├── templates/
+    │   └── checklists/
+    │
+    │   # Quality Gate Skill
+    ├── rv-code-reviewer/
+    │   └── SKILL.md                   # Forked skill — code review quality gate
+    │
+    │   # Analysis Skills (file-scoped)
+    ├── rv-analyze-file/
+    │   ├── SKILL.md
+    │   └── reference.md              # 8 dimensions + code smell catalog
+    ├── rv-analyze-file-complexity/
+    │   └── SKILL.md                  # radon cc/mi/raw (thresholds inlined)
+    ├── rv-analyze-file-dead-code/
+    │   └── SKILL.md                  # pyflakes/vulture (FP patterns inlined)
+    │
+    │   # Analysis Skills (module-scoped)
+    ├── rv-analyze-complexity/
+    │   ├── SKILL.md
+    │   └── reference.md              # Complexity thresholds + refactoring indicators
+    ├── rv-analyze-dependencies/
+    │   ├── SKILL.md
+    │   └── reference.md              # Dependency health + circular detection
+    ├── rv-analyze-dead-code/
+    │   ├── SKILL.md
+    │   └── reference.md              # Dead code categories + FP patterns
+    ├── rv-analyze-module/             # L1 orchestrator (chains to 3 sub-skills)
+    │   ├── SKILL.md
+    │   └── reference.md              # 4 modeling perspectives + module directory
+    ├── rv-impact-analyzer/
+    │   ├── SKILL.md
+    │   └── templates/
+    │
+    │   # Refactoring Skills
+    ├── rv-refactor-simplify/
+    │   ├── SKILL.md
+    │   └── checklists/
+    ├── rv-refactor-extract/
+    │   ├── SKILL.md
+    │   └── checklists/
+    ├── rv-refactor-cleanup/SKILL.md
+    ├── rv-refactor-constants/SKILL.md
+    │
+    │   # Testing & Debugging Skills
+    ├── rv-test-add/
+    │   ├── SKILL.md
+    │   └── checklists/
+    ├── rv-test-run/SKILL.md
+    ├── rv-debug-regression/
+    │   ├── SKILL.md
+    │   └── templates/
+    │
+    │   # QA & Verification Skills
+    ├── rv-qa-lint/
+    │   ├── SKILL.md
+    │   └── templates/lint-report.md
+    ├── rv-qa-lint-fix/SKILL.md
+    ├── rv-verify/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    │
+    │   # Documentation Skills
+    ├── rv-doc-readme/
+    │   ├── SKILL.md
+    │   └── templates/readme.md
+    ├── rv-doc-generate-claude-md/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    ├── rv-doc-architecture/
+    │   ├── SKILL.md
+    │   └── checklists/
+    ├── rv-doc-adr/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    ├── rv-doc-code/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   │   ├── depth-assessment.md
+    │   │   └── quality-criteria.md
+    │   └── templates/
+    │       ├── module-docstring.md
+    │       ├── class-docstring.md
+    │       ├── function-docstring.md
+    │       ├── inline-comments.md
+    │       └── audit-report.md
+    ├── rv-docs-sync/
+    │   ├── SKILL.md
+    │   └── templates/
+    │
+    │   # Planning, Risk & Process Skills
+    ├── rv-planning/
+    │   ├── SKILL.md
+    │   └── checklists/
+    ├── rv-risk/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    ├── rv-retrospective/
+    │   ├── SKILL.md
+    │   ├── checklists/
+    │   └── templates/
+    │
+    │   # Security & Release Skills
+    ├── rv-security/
+    │   ├── SKILL.md
+    │   └── checklists/
+    └── rv-release/
+        ├── SKILL.md
+        └── checklists/
+```
+
+---
+
+## Quick Reference
+
+### Quality Gate Skill
+- `/rv-code-reviewer` - Quality gate (invoked by orchestrators via Skill tool, or directly)
+
+### Orchestrator Skills (invoke via /skill-name)
+- `/rv-refactor` - Restructure code
+- `/rv-feature` - New features
+- `/rv-tdd` - Test-driven development
+- `/rv-cleanup` - Remove dead code
+
+### Skills (Slash commands)
+
+**Analysis (file-scoped)**:
+- `/rv-analyze-file [path]` — qualitative (8 dimensions, code smells)
+- `/rv-analyze-file-complexity [path]` — radon cc/mi/raw
+- `/rv-analyze-file-dead-code [path]` — pyflakes/vulture
+
+**Analysis (module-scoped)**:
+- `/rv-analyze-complexity [module]` — radon cc/mi/raw across module
+- `/rv-analyze-dependencies [module]` — dependency mapping, violations, cycles
+- `/rv-analyze-dead-code [module]` — pyflakes/vulture across module
+- `/rv-analyze-module [module]` — full architecture (chains to 3 sub-skills)
+
+**Refactoring**:
+- `/rv-refactor-simplify [path]`
+- `/rv-refactor-extract [path] [target]`
+- `/rv-refactor-cleanup [module]`
+- `/rv-refactor-constants [path]`
+
+**Planning & Debugging**:
+- `/rv-planning [task-description]`
+- `/rv-impact-analyzer [file or module]`
+- `/rv-debug-regression [test-name]`
+
+**Testing**:
+- `/rv-test-add [path] [function]`
+- `/rv-test-run [module]`
+
+**Quality & Verification**:
+- `/rv-qa-lint [module]`
+- `/rv-qa-lint-fix [module]`
+- `/rv-verify [module]`
+
+**Documentation**:
+- `/rv-doc-code [module or file] [--audit]`
+- `/rv-doc-readme [module]`
+- `/rv-doc-generate-claude-md [module]`
+- `/rv-doc-architecture [module]`
+- `/rv-doc-adr [decision-title]`
+- `/rv-docs-sync [module or 'all']`
+
+**Risk & Process**:
+- `/rv-risk [target]`
+- `/rv-retrospective [scope]`
+
+**Security & Release**:
+- `/rv-security [target]`
+- `/rv-release [major|minor|patch] [module]`
+
+### MCP Tools
+- `mcp__sequential-thinking__sequentialthinking`
+- `mcp__memory__create_entities`
+- `mcp__memory__search_nodes`
+- `mcp__context7__query-docs`

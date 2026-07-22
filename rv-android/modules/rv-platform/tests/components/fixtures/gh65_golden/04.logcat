@@ -1,0 +1,11 @@
+06-06 21:41:27.334  3462  3462 I RVSEC-COV: <me.timeto.app.App: void <init>()>
+06-06 21:41:27.563  3462  3462 I RVSEC-COV: <me.timeto.app.App: void onCreate()>
+06-06 21:41:27.614  3462  3462 I RVSEC-COV: <me.timeto.app.MainActivity: void <init>()>
+06-06 21:41:27.704  3462  3462 I RVSEC-COV: <me.timeto.app.MainActivity: void onCreate(android.os.Bundle)>
+06-06 21:41:27.869  3462  3462 I RVSEC-COV: <me.timeto.app.MainActivity: void onResume()>
+06-06 21:41:50.514  3462  3599 V RVSEC   : TrustManagerFactorySpec,W5.n,n,m,r8-map-id-addaf2f7f647e76ce844d8ffdf572b8f0f7785d093c1234ea19dd77137081c56:9,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+06-06 21:41:50.514  3462  3599 V RVSEC   : TrustManagerFactorySpec,W5.n,n,m,r8-map-id-addaf2f7f647e76ce844d8ffdf572b8f0f7785d093c1234ea19dd77137081c56:9,InvalidSequenceOfMethodCalls,unknown
+06-06 21:41:50.515  3462  3599 V RVSEC   : SSLContextSpec,W5.n,n,k,r8-map-id-addaf2f7f647e76ce844d8ffdf572b8f0f7785d093c1234ea19dd77137081c56:3,InvalidSequenceOfMethodCalls,unknown
+06-06 21:41:50.517  3462  3599 V RVSEC   : SSLContextSpec,W5.n,n,l,r8-map-id-addaf2f7f647e76ce844d8ffdf572b8f0f7785d093c1234ea19dd77137081c56:12,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+06-06 21:41:50.517  3462  3599 V RVSEC   : SSLContextSpec,W5.n,n,l,r8-map-id-addaf2f7f647e76ce844d8ffdf572b8f0f7785d093c1234ea19dd77137081c56:12,InvalidSequenceOfMethodCalls,unknown
+06-06 21:42:55.183  3462  3462 V RVSEC   : SecureRandomSpec,x5.c,c,<init>,r8-map-id-addaf2f7f647e76ce844d8ffdf572b8f0f7785d093c1234ea19dd77137081c56:26,InvalidSequenceOfMethodCalls,unknown

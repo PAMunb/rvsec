@@ -1,0 +1,204 @@
+{
+  "session": {
+    "package_name": "br.unb.cic.cryptoapp",
+    "objective": "explore_application",
+    "duration": 49.53960466384888,
+    "iterations": 4,
+    "success_count": 5,
+    "error_count": 0,
+    "success_rate": 1.25
+  },
+  "react_engine": {
+    "iteration_count": 4,
+    "current_objective": "explore_application",
+    "short_term_memory": {
+      "iteration_count": 2,
+      "current_activity": ".MainActivity",
+      "total_actions_generated": 3,
+      "total_execution_results": 3,
+      "average_success_rate": 1.0,
+      "memory_utilization": "2/10",
+      "latest_iteration": {
+        "timestamp": "2025-09-15T17:45:13.000429",
+        "action_count": 2,
+        "success_rate": 1.0
+      }
+    },
+    "long_term_memory": {
+      "total_states": 4,
+      "total_activities": 2,
+      "total_action_types": 0,
+      "total_actions_executed": 0,
+      "total_successful_actions": 0,
+      "overall_success_rate": 0.0,
+      "total_transitions": 0,
+      "most_visited_states": [
+        {
+          "state_hash": "0f774aed35c2",
+          "activity": ".MainActivity",
+          "visit_count": 1,
+          "elements_count": 8
+        },
+        {
+          "state_hash": "1d633f5ee7ba",
+          "activity": ".NexusLauncherActivity",
+          "visit_count": 1,
+          "elements_count": 11
+        },
+        {
+          "state_hash": "174874337077",
+          "activity": ".MainActivity",
+          "visit_count": 1,
+          "elements_count": 8
+        },
+        {
+          "state_hash": "bf27bfb91c13",
+          "activity": ".MainActivity",
+          "visit_count": 1,
+          "elements_count": 8
+        }
+      ]
+    },
+    "ui_coverage": {
+      "total_unique_elements": 4,
+      "total_interactions": 5,
+      "average_interactions_per_element": 1.25,
+      "action_distribution": {
+        "click": 4,
+        "back": 1
+      },
+      "recent_discoveries": 4,
+      "total_screens": 0,
+      "most_tested_elements": [
+        [
+          "Overview button",
+          2
+        ],
+        [
+          "Back button",
+          1
+        ],
+        [
+          "",
+          1
+        ]
+      ],
+      "least_tested_elements": [
+        [
+          "Back button",
+          1
+        ],
+        [
+          "",
+          1
+        ],
+        [
+          "Home button",
+          1
+        ]
+      ],
+      "discovery_timeline_length": 4
+    }
+  },
+  "short_term_memory": {
+    "iteration_count": 2,
+    "current_activity": ".MainActivity",
+    "total_actions_generated": 3,
+    "total_execution_results": 3,
+    "average_success_rate": 1.0,
+    "memory_utilization": "2/10",
+    "latest_iteration": {
+      "timestamp": "2025-09-15T17:45:13.000429",
+      "action_count": 2,
+      "success_rate": 1.0
+    }
+  },
+  "long_term_memory": {
+    "total_states": 4,
+    "total_activities": 2,
+    "total_action_types": 0,
+    "total_actions_executed": 0,
+    "total_successful_actions": 0,
+    "overall_success_rate": 0.0,
+    "total_transitions": 0,
+    "most_visited_states": [
+      {
+        "state_hash": "0f774aed35c2",
+        "activity": ".MainActivity",
+        "visit_count": 1,
+        "elements_count": 8
+      },
+      {
+        "state_hash": "1d633f5ee7ba",
+        "activity": ".NexusLauncherActivity",
+        "visit_count": 1,
+        "elements_count": 11
+      },
+      {
+        "state_hash": "174874337077",
+        "activity": ".MainActivity",
+        "visit_count": 1,
+        "elements_count": 8
+      },
+      {
+        "state_hash": "bf27bfb91c13",
+        "activity": ".MainActivity",
+        "visit_count": 1,
+        "elements_count": 8
+      }
+    ]
+  },
+  "ui_coverage": {
+    "total_unique_elements": 4,
+    "total_interactions": 5,
+    "average_interactions_per_element": 1.25,
+    "action_distribution": {
+      "click": 4,
+      "back": 1
+    },
+    "recent_discoveries": 4,
+    "total_screens": 0,
+    "most_tested_elements": [
+      [
+        "Overview button",
+        2
+      ],
+      [
+        "Back button",
+        1
+      ],
+      [
+        "",
+        1
+      ]
+    ],
+    "least_tested_elements": [
+      [
+        "Back button",
+        1
+      ],
+      [
+        "",
+        1
+      ],
+      [
+        "Home button",
+        1
+      ]
+    ],
+    "discovery_timeline_length": 4
+  },
+  "total_unique_elements_tested": 4,
+  "total_interactions": 5,
+  "coverage_efficiency": 1.0,
+  "cli_metadata": {
+    "package": "br.unb.cic.cryptoapp",
+    "device": "emulator-5554",
+    "timeout": 30,
+    "model": "PetrosStav/gemma3-tools:4b",
+    "objective": "explore_application",
+    "execution_time": 46.511205196380615,
+    "timestamp": 1757969115,
+    "success": true
+  }
+}

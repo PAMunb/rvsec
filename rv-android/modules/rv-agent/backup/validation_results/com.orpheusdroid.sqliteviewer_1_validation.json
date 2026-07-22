@@ -1,0 +1,128 @@
+{
+  "app_name": "com.orpheusdroid.sqliteviewer_1.apk",
+  "execution_time_s": 21.81346845626831,
+  "total_iterations": 8,
+  "actions": {
+    "by_type": {
+      "CLICK": 8
+    },
+    "valid": 5,
+    "invalid": 3,
+    "valid_rate": 0.625
+  },
+  "element_coverage": {
+    "types_seen": [
+      "unknown",
+      "ViewGroup",
+      "ScrollView",
+      "Button",
+      "ImageButton",
+      "View",
+      "ImageView",
+      "ListView",
+      "LinearLayout",
+      "FrameLayout",
+      "RelativeLayout",
+      "RecyclerView",
+      "Switch",
+      "LinearLayoutCompat",
+      "TextView"
+    ],
+    "type_counts": {
+      "unknown": 8,
+      "FrameLayout": 29,
+      "LinearLayout": 70,
+      "TextView": 66,
+      "View": 17,
+      "ScrollView": 5,
+      "Button": 7,
+      "ImageView": 16,
+      "ViewGroup": 10,
+      "LinearLayoutCompat": 2,
+      "RecyclerView": 1,
+      "RelativeLayout": 26,
+      "ListView": 3,
+      "ImageButton": 2,
+      "Switch": 6
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 6,
+    "screen_visits": {
+      "73a45af425e6": 1,
+      "06d9683943dd": 1,
+      "c0ced0784ba1": 3,
+      "fa9bf26ec60e": 1,
+      "6d36369cde45": 1,
+      "1899d95b96d6": 1
+    },
+    "activities": [
+      "com.orpheusdroid.sqliteviewer/.ui.FileManagerActivity",
+      "com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity",
+      "com.orpheusdroid.sqliteviewer/.ui.SettingsActivity"
+    ],
+    "revisit_rate": 0.25
+  },
+  "memory_graph": {
+    "graph_states": 5,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 2
+  },
+  "llm": {
+    "total_tokens": 49690,
+    "input_tokens": 49266,
+    "output_tokens": 424,
+    "avg_tokens_per_iteration": 6211.25,
+    "max_message_count": 1,
+    "total_time_ms": 20810.349702835083,
+    "avg_time_per_iteration_ms": 2601.2937128543854
+  },
+  "device_actions": {
+    "total_actions": 5,
+    "valid_actions": 3,
+    "invalid_actions": 2,
+    "valid_rate": 0.6,
+    "action_types": {
+      "CLICK": 5
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[ENABLE ANALYTICS] @ ((579, 907), (978, 1033))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[OK] @ ((102, 998), (270, 1124))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": true,
+        "reason": "Valid click action",
+        "element": "android.widget.Button[Allow] @ ((70, 981), (1010, 1128))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((136, 416), (1080, 552))",
+        "element": "android.widget.RelativeLayout[] @ ((136, 416), (1080, 552))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))",
+        "element": "android.widget.RelativeLayout[] @ ((597, 107), (1028, 164))"
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="single_compact" version="1.0" extends="system_base">
+  <metadata>
+    <description>Compact single strategy template - Pillar 1 only (~800 tokens)</description>
+    <created>2025-08-28</created>
+    <author>RV-Android Team</author>
+  </metadata>
+  <variables>
+    <required>ui_elements</required>
+    <optional>activity</optional>
+  </variables>
+  <roles>
+    <system><![CDATA[
+{% block strategy_specific_instructions %}
+Android testing AI. Generate single strategic action.
+
+PRIORITY: [DM] → [M] → Coverage → Systematic exploration
+{% endblock %}
+
+{% block response_format_instructions %}
+OUTPUT: {"action_id": "N", "params": {}, "explanation": "reason"}
+{% endblock %}]]>
+    </system>
+    <user><![CDATA[
+Activity: {{ activity }}
+
+UI Elements:
+{{ ui_elements }}
+
+Generate single strategic action:]]>
+    </user>
+  </roles>
+</template>

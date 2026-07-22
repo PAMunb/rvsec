@@ -1,0 +1,173 @@
+{
+  "app_name": "ca.farrelltonsolar.classic_314.apk",
+  "execution_time_s": 27.81241512298584,
+  "total_iterations": 10,
+  "actions": {
+    "by_type": {
+      "CLICK": 10
+    },
+    "valid": 0,
+    "invalid": 10,
+    "valid_rate": 0.0
+  },
+  "element_coverage": {
+    "types_seen": [
+      "ImageView",
+      "Spinner",
+      "TextView",
+      "g0",
+      "DrawerLayout",
+      "ImageButton",
+      "ListView",
+      "ViewGroup",
+      "FrameLayout",
+      "ProgressBar",
+      "TableLayout",
+      "LinearLayout",
+      "GridView",
+      "View",
+      "ViewPager",
+      "TableRow",
+      "RelativeLayout",
+      "HorizontalScrollView",
+      "unknown"
+    ],
+    "type_counts": {
+      "unknown": 10,
+      "FrameLayout": 45,
+      "LinearLayout": 160,
+      "ViewGroup": 21,
+      "ImageButton": 10,
+      "TextView": 325,
+      "g0": 10,
+      "DrawerLayout": 10,
+      "HorizontalScrollView": 10,
+      "ViewPager": 11,
+      "View": 37,
+      "TableLayout": 2,
+      "TableRow": 1,
+      "RelativeLayout": 3,
+      "Spinner": 2,
+      "ImageView": 2,
+      "GridView": 1,
+      "ProgressBar": 1,
+      "ListView": 1
+    },
+    "interactive_elements": 0
+  },
+  "exploration": {
+    "unique_screens": 10,
+    "screen_visits": {
+      "1ecdce70435a": 1,
+      "b14a7ed099c7": 1,
+      "182eb5822f70": 1,
+      "fc145de28bad": 1,
+      "ceae4f4c59d0": 1,
+      "6c729adbeb6b": 1,
+      "0c5aba563dd8": 1,
+      "6dd54b4931a2": 1,
+      "170615b66401": 1,
+      "00c1a28137c3": 1
+    },
+    "activities": [
+      "ca.farrelltonsolar.classic/.MonitorActivity"
+    ],
+    "revisit_rate": 0.0
+  },
+  "memory_graph": {
+    "graph_states": 10,
+    "graph_transitions": 0,
+    "long_term_patterns": 0,
+    "short_term_iterations": 10
+  },
+  "llm": {
+    "total_tokens": 48112,
+    "input_tokens": 47740,
+    "output_tokens": 372,
+    "avg_tokens_per_iteration": 4811.2,
+    "max_message_count": 1,
+    "total_time_ms": 26600.597381591797,
+    "avg_time_per_iteration_ms": 2660.0597381591797
+  },
+  "device_actions": {
+    "total_actions": 10,
+    "valid_actions": 0,
+    "invalid_actions": 10,
+    "valid_rate": 0.0,
+    "action_types": {
+      "CLICK": 10
+    },
+    "actions": [
+      {
+        "step": 1,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))",
+        "element": "android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))"
+      },
+      {
+        "step": 2,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))",
+        "element": "android.view.View[ca.farrelltonsolar.classic:id/PVVoltage] @ ((13, 376), (540, 720))"
+      },
+      {
+        "step": 3,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/EnergyToday] @ ((39, 376), (1041, 1361))",
+        "element": "android.view.View[ca.farrelltonsolar.classic:id/EnergyToday] @ ((39, 376), (1041, 1361))"
+      },
+      {
+        "step": 4,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/SOC] @ ((66, 403), (1014, 668))",
+        "element": "android.view.View[ca.farrelltonsolar.classic:id/SOC] @ ((66, 403), (1014, 668))"
+      },
+      {
+        "step": 5,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))",
+        "element": "android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))"
+      },
+      {
+        "step": 6,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.view.View[ca.farrelltonsolar.classic:id/BatTemperature] @ ((13, 376), (1067, 827))",
+        "element": "android.view.View[ca.farrelltonsolar.classic:id/BatTemperature] @ ((13, 376), (1067, 827))"
+      },
+      {
+        "step": 7,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))",
+        "element": "android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))"
+      },
+      {
+        "step": 8,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))",
+        "element": "android.widget.RelativeLayout[ca.farrelltonsolar.classic:id/chart_view] @ ((21, 358), (1059, 1773))"
+      },
+      {
+        "step": 9,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.widget.TextView[April 2025] @ ((0, 342), (540, 419))",
+        "element": "android.widget.TextView[April 2025] @ ((0, 342), (540, 419))"
+      },
+      {
+        "step": 10,
+        "action_type": "CLICK",
+        "valid": false,
+        "reason": "Element is not clickable: android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))",
+        "element": "android.support.v4.view.ViewPager[ca.farrelltonsolar.classic:id/pager] @ ((0, 337), (1080, 1794))"
+      }
+    ]
+  }
+}
