@@ -117,6 +117,9 @@ def test_subprocess_error_demoted_per_apk_not_propagated(tmp_workspace):
         # good.apk: simulate CLI writing the output APK
         (results_dir / "good.apk").write_bytes(b"signed")
 
+    # Contract: apk_paths items are complete paths (not basenames).
+    good_path = str(apks_dir / "good.apk")
+    bad_path = str(apks_dir / "bad.apk")
     with (
         patch.object(DexlibInstrumentation, "prepare_instrumentation"),
         patch.object(DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli),
@@ -124,11 +127,11 @@ def test_subprocess_error_demoted_per_apk_not_propagated(tmp_workspace):
         res = inst.instrument_apks(
             apks_dir=apks_dir,
             results_dir=results_dir,
-            apk_paths=["good.apk", "bad.apk"],
+            apk_paths=[good_path, bad_path],
         )
 
     assert res.success_count == 1, "good.apk should still succeed"
-    assert "bad.apk" in res.errors, "bad.apk should be demoted to error"
+    assert bad_path in res.errors, "bad.apk should be demoted to error"
     assert res.total_count == 2
 
 
@@ -161,7 +164,8 @@ def test_persist_errors_json_writes_file(tmp_workspace):
         inst.instrument_apks(
             apks_dir=apks_dir,
             results_dir=results_dir,
-            apk_paths=["ok.apk"],
+            # Contract: apk_paths items are complete paths (not basenames).
+            apk_paths=[str(apks_dir / "ok.apk")],
         )
 
     errors_file = results_dir / "instrument_errors.json"
@@ -391,6 +395,8 @@ def test_wrapper_guard_apk_paths_demotes_when_apk_missing(tmp_workspace):
     )
     inst = DexlibInstrumentation(cfg)
 
+    # Contract: apk_paths items are complete paths (not basenames).
+    apk_path = str(apks_dir / "cryptoapp.apk")
     with (
         patch.object(DexlibInstrumentation, "prepare_instrumentation"),
         patch.object(DexlibInstrumentation, "_run_cli", return_value=None),
@@ -398,11 +404,11 @@ def test_wrapper_guard_apk_paths_demotes_when_apk_missing(tmp_workspace):
         res = inst.instrument_apks(
             apks_dir=apks_dir,
             results_dir=results_dir,
-            apk_paths=["cryptoapp.apk"],
+            apk_paths=[apk_path],
         )
     assert res.success_count == 0
-    assert "cryptoapp.apk" in res.errors
-    assert "not created" in res.errors["cryptoapp.apk"].message
+    assert apk_path in res.errors
+    assert "not created" in res.errors[apk_path].message
 
 
 def test_wrapper_guard_apk_paths_succeeds_when_apk_present(tmp_workspace):
@@ -430,7 +436,8 @@ def test_wrapper_guard_apk_paths_succeeds_when_apk_present(tmp_workspace):
         res = inst.instrument_apks(
             apks_dir=apks_dir,
             results_dir=results_dir,
-            apk_paths=["cryptoapp.apk"],
+            # Contract: apk_paths items are complete paths (not basenames).
+            apk_paths=[str(apks_dir / "cryptoapp.apk")],
         )
     assert res.success_count == 1
     assert res.errors == {}
@@ -483,6 +490,76 @@ def test_wrapper_guard_batch_path_demotes_when_results_json_lies(tmp_workspace):
     assert res.success_count == 0
     assert "ghost.apk" in res.errors
     assert "not created" in res.errors["ghost.apk"].message
+
+
+# --- gh86 apk_paths complete-path contract ---------------------------------
+# apk_paths items are complete paths. The wrapper resolves them as-is and must
+# NOT re-join with apks_dir (which duplicated the directory prefix, e.g.
+# apks_examples/apks_examples/cryptoapp.apk). The success cross-check computes
+# the output as results_dir/<basename>, so an absolute or relative input path
+# can no longer discard results_dir and defeat the silent-failure guard.
+
+
+@pytest.mark.parametrize("absolute", [False, True])
+def test_apk_paths_complete_path_no_duplicate_prefix(
+    tmp_workspace, monkeypatch, absolute
+):
+    """Regression (gh86): a complete apk_paths item resolves as-is (no
+    duplicated apks_dir segment) and the output cross-check lands at
+    results_dir/<basename>. Covers a relative-prefixed path (resolved against
+    a controlled cwd) and an absolute path."""
+    _seed_descriptor(tmp_workspace)
+    root = tmp_workspace["root"]
+    # A named input dir so a duplicated re-join would be visible in the path.
+    apks_dir = root / "apks_examples"
+    apks_dir.mkdir()
+    (apks_dir / "cryptoapp.apk").write_bytes(b"PK\x03\x04stub")
+    results_dir = root / "results"
+    results_dir.mkdir()
+
+    if absolute:
+        apk_arg = str(apks_dir / "cryptoapp.apk")
+    else:
+        # Relative-prefixed path resolves against cwd; pin cwd to root so the
+        # bare "apks_examples/cryptoapp.apk" points at the seeded file.
+        monkeypatch.chdir(root)
+        apk_arg = "apks_examples/cryptoapp.apk"
+
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+
+    captured = {}
+
+    def fake_run_cli(args):
+        # The wrapper passes the resolved input path as argv[1] to instr-cli.
+        captured["apk_arg"] = args[1]
+        # Simulate the CLI writing the output APK by basename.
+        (results_dir / "cryptoapp.apk").write_bytes(b"signed")
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch.object(DexlibInstrumentation, "_run_cli", side_effect=fake_run_cli),
+    ):
+        res = inst.instrument_apks(
+            apks_dir=apks_dir,
+            results_dir=results_dir,
+            apk_paths=[apk_arg],
+        )
+
+    # Input resolved as-is — no duplicated apks_examples/ segment.
+    assert captured["apk_arg"] == apk_arg
+    assert "apks_examples/apks_examples" not in captured["apk_arg"]
+    # Success is credited only if the output cross-check found the APK at
+    # results_dir/<basename>; the buggy results_dir/<name> would look under
+    # results_dir/apks_examples/ (relative) and demote to error.
+    assert res.success_count == 1
+    assert res.errors == {}
+    assert (results_dir / "cryptoapp.apk").is_file()
 
 
 # --- 9.22f3 prepare_instrumentation Template Method integration -----------

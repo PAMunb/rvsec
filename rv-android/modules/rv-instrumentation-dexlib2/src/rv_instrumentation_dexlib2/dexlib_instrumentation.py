@@ -171,10 +171,13 @@ class DexlibInstrumentation(Instrumenter):
                 idempotency is the caller's responsibility (rv-experiment
                 deletes the results dir on resume rather than relying on
                 this flag).
-            apk_paths: Optional subset of basenames to process. When set,
-                each named APK is run through the single-APK ``instrument``
-                subcommand (one JVM per APK). When ``None``, the ``batch``
-                subcommand processes the entire ``apks_dir`` in one JVM.
+            apk_paths: Optional subset of complete paths to process. Each
+                item is a complete path to an APK (resolvable from cwd);
+                ``apks_dir`` is ignored for input lookup when ``apk_paths``
+                is set. When set, each named APK is run through the
+                single-APK ``instrument`` subcommand (one JVM per APK).
+                When ``None``, the ``batch`` subcommand processes the entire
+                ``apks_dir`` in one JVM.
 
         Emits the batch summary to ``results_dir/instrument_results.json``
         per the Java CLI's ``--results-json`` flag, then parses it into an
@@ -211,7 +214,9 @@ class DexlibInstrumentation(Instrumenter):
             success = 0
             errors: dict[str, InstrumentationError] = {}
             for idx, name in enumerate(apk_paths, start=1):
-                apk = apks_dir / name
+                # ``name`` is a complete path (the contract); do not re-join
+                # with ``apks_dir`` — that duplicated the directory prefix.
+                apk = Path(name)
                 self._logger.info(
                     f"Processing APK {idx}/{total}: {name}",
                     extra={
@@ -250,7 +255,11 @@ class DexlibInstrumentation(Instrumenter):
                     # exits 0 — so a clean exit alone is NOT proof of
                     # success. Verify the APK actually landed in
                     # results_dir before crediting the run.
-                    output_apk = results_dir / name
+                    # Output is always ``results_dir`` + basename (the Java
+                    # CLI writes by basename); strip any directory from
+                    # ``name`` so an absolute/relative input path cannot
+                    # discard ``results_dir`` and defeat this guard.
+                    output_apk = results_dir / Path(name).name
                     if not output_apk.is_file():
                         raise RuntimeError(
                             f"instr-cli reported success but {output_apk} "

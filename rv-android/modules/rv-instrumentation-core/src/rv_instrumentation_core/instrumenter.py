@@ -33,7 +33,21 @@ class Instrumenter(ABC):
         force_instrumentation: bool = False,
         apk_paths: Optional[List[str]] = None,
     ) -> InstrumentationResults:
-        """Instrument a batch of APKs, returning aggregate results."""
+        """Instrument a batch of APKs, returning aggregate results.
+
+        Args:
+            apks_dir: Directory containing the APKs. Used as the batch input
+                root only when ``apk_paths`` is ``None``.
+            results_dir: Where the signed instrumented APKs land.
+            force_instrumentation: Reserved flag; idempotency is the caller's
+                responsibility.
+            apk_paths: Optional subset to process. When set, each item is a
+                **complete path** to an APK (resolvable from cwd) — the
+                canonical contract every variant must honor. ``apks_dir`` is
+                ignored for input lookup when ``apk_paths`` is provided; the
+                variant must NOT re-join items with ``apks_dir``. When
+                ``None``, the whole ``apks_dir`` is processed.
+        """
         ...
 
     def _resolve_runtime_libs(
