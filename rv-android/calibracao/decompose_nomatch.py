@@ -105,9 +105,10 @@ def _one(rx: re.Pattern, line: str, group: int = 1):
     return m.group(group) if m else None
 
 
-def parse_traces(glob: str) -> tuple[pd.DataFrame, dict[str, int], int, int]:
+def parse_traces(glob: str):
     """Stream every [APE-LLM-TEL] line; return the no_match calls, the result-tally, the
-    trace count, and the [APE-LLM-ERROR] line count. One row per no_match call.
+    trace count, the [APE-LLM-ERROR] line count, and the response-shape x outcome
+    contingency. One row per no_match call.
 
     Traces are read whole and split on '\\n' only: some traces embed NUL bytes (logcat
     binary noise, e.g. two com.github.gotify_35 shards), which makes a plain `grep` treat
@@ -119,50 +120,68 @@ def parse_traces(glob: str) -> tuple[pd.DataFrame, dict[str, int], int, int]:
 
     tally = {"matched": 0, "llm_tap": 0, "no_match": 0}
     n_error = 0
+    # shape x outcome contingency: which response path (native tool_call vs XML <tool_call>)
+    # produced each TEL outcome. Each TEL is preceded by the RESPONSE that produced it, so we
+    # carry the last-seen shape forward per file.
+    shape_outcome: dict[tuple[str, str], int] = {}
     rows: list[dict] = []
     for path in paths:
         # results/<shard>/<task>/<pkg>.apk/<file>.trace -> shard + apk identify provenance.
         apk = path.parent.name
         shard = path.parent.parent.parent.name
         rep = path.name
+        last_shape = "none"
         for line in path.read_text(encoding="utf-8", errors="replace").split("\n"):
-                if "[APE-LLM-ERROR]" in line:
-                    n_error += 1
-                if _TEL_MARK not in line:
-                    continue
-                result = _one(_RE["result"], line)
-                if result not in tally:
-                    continue  # non-TEL result token or malformed line
-                tally[result] += 1
-                if result != "no_match":
-                    continue
-                qm = _RE["qwen_x"].search(line)
-                pm = _RE["pixel"].search(line)
-                nd = _one(_RE["nearest_dist"], line)
-                rows.append(
-                    {
-                        "shard": shard,
-                        "apk": apk,
-                        "rep": rep,
-                        "step": _one(_RE["step"], line),
-                        "variant": _one(_RE["variant"], line),
-                        "call": _one(_RE["call"], line),
-                        "mode": _one(_RE["mode"], line),
-                        "action": _one(_RE["action"], line),
-                        "qwen_x": int(qm.group(1)) if qm else None,
-                        "qwen_y": int(qm.group(2)) if qm else None,
-                        "pixel_x": int(pm.group(1)) if pm else None,
-                        "pixel_y": int(pm.group(2)) if pm else None,
-                        "reason": _one(_RE["reason"], line),
-                        "repair": _one(_RE["repair"], line),
-                        "matched_class": _one(_RE["matched_class"], line),
-                        "nearest_class": _one(_RE["nearest_class"], line),
-                        "nearest_dist": float(nd) if nd is not None else None,
-                        "widgets": _one(_RE["widgets"], line),
-                        "activity": _one(_RE["activity"], line),
-                    }
-                )
-    return pd.DataFrame(rows), tally, len(paths), n_error
+            if "[APE-LLM-RESPONSE]" in line:
+                if "content= tool_calls=" in line:
+                    last_shape = "native"      # native bind_tools() tool call, empty content
+                elif "content=<tool_call>" in line:
+                    last_shape = "xml"         # XML/JSON fallback parsed from content text
+                else:
+                    last_shape = "other"
+                continue
+            if "[APE-LLM-ERROR]" in line:
+                n_error += 1
+                continue
+            if _TEL_MARK not in line:
+                continue
+            result = _one(_RE["result"], line)
+            if result not in tally:
+                continue  # non-TEL result token or malformed line
+            tally[result] += 1
+            reason = _one(_RE["reason"], line)
+            outcome = result if result != "no_match" else f"no_match/{reason}"
+            shape_outcome[(last_shape, outcome)] = shape_outcome.get((last_shape, outcome), 0) + 1
+            if result != "no_match":
+                continue
+            qm = _RE["qwen_x"].search(line)
+            pm = _RE["pixel"].search(line)
+            nd = _one(_RE["nearest_dist"], line)
+            rows.append(
+                {
+                    "shard": shard,
+                    "apk": apk,
+                    "rep": rep,
+                    "step": _one(_RE["step"], line),
+                    "variant": _one(_RE["variant"], line),
+                    "call": _one(_RE["call"], line),
+                    "mode": _one(_RE["mode"], line),
+                    "action": _one(_RE["action"], line),
+                    "resp_shape": last_shape,
+                    "qwen_x": int(qm.group(1)) if qm else None,
+                    "qwen_y": int(qm.group(2)) if qm else None,
+                    "pixel_x": int(pm.group(1)) if pm else None,
+                    "pixel_y": int(pm.group(2)) if pm else None,
+                    "reason": reason,
+                    "repair": _one(_RE["repair"], line),
+                    "matched_class": _one(_RE["matched_class"], line),
+                    "nearest_class": _one(_RE["nearest_class"], line),
+                    "nearest_dist": float(nd) if nd is not None else None,
+                    "widgets": _one(_RE["widgets"], line),
+                    "activity": _one(_RE["activity"], line),
+                }
+            )
+    return pd.DataFrame(rows), tally, len(paths), n_error, shape_outcome
 
 
 # --- classification --------------------------------------------------------------------
@@ -189,7 +208,8 @@ def pct(n: int, d: int) -> float:
 
 
 # --- memo ------------------------------------------------------------------------------
-def build_memo(df: pd.DataFrame, tally: dict[str, int], n_traces: int, n_error: int) -> tuple[str, bool]:
+def build_memo(df: pd.DataFrame, tally: dict[str, int], n_traces: int, n_error: int,
+               shape_outcome: dict[tuple[str, str], int]) -> tuple[str, bool]:
     total_tel = sum(tally.values())
     n_nm = len(df)
 
@@ -279,6 +299,20 @@ def build_memo(df: pd.DataFrame, tally: dict[str, int], n_traces: int, n_error: 
     # Snapping is discarded when the tolerance lever recovers a negligible share of no_match.
     snapping_discarded = snappable_share < 5.0
 
+    # Response-path contingency: which path (native tool_call vs XML <tool_call>) produced each
+    # outcome. The parse (degenerate) mass concentrates on the native path, which -- unlike the
+    # XML path -- has no coordinate repair. This localises the J1 fix to the native parser.
+    shapes = ["native", "xml", "other", "none"]
+    outcomes = ["matched", "llm_tap", "no_match/boundary", "no_match/degenerate"]
+    so = shape_outcome
+    shape_tot = {s: sum(so.get((s, o), 0) for o in outcomes) for s in shapes}
+    native_tot = shape_tot["native"]
+    native_degen = so.get(("native", "no_match/degenerate"), 0)
+    xml_degen = so.get(("xml", "no_match/degenerate"), 0)
+    total_degen = sum(so.get((s, "no_match/degenerate"), 0) for s in shapes)
+    native_degen_rate = pct(native_degen, native_tot)
+    native_share_of_degen = pct(native_degen, total_degen)
+
     # persist the classified calls for provenance
     df.to_csv(CALLS_CSV, index=False)
 
@@ -357,11 +391,45 @@ def build_memo(df: pd.DataFrame, tally: dict[str, int], n_traces: int, n_error: 
     L.append(row_line(["(none)", int(bnd["repair"].isna().sum())]))
     L.append("")
     L.append(
-        "**Interpretation.** parse (`degenerate`) is the LLM emitting no usable coordinate — the "
-        "router collapses to the origin. It is ~4x the boundary mass. denormalization is a coordinate "
-        "the parser had to reconstruct from a malformed response (missing y, array/quoted/int forms); "
-        "grounding is a clean coordinate that still hit no widget. Only the boundary mass carries a "
-        "real coordinate, so only it is even a candidate for the snapping lever."
+        "**Interpretation.** parse (`degenerate`) collapses to the origin because the router "
+        "extracted no coordinate — but §2.1 shows this is a **parser-path bug**, not the model "
+        "emitting garbage. It is ~4x the boundary mass. denormalization is a coordinate the parser "
+        "had to reconstruct from a malformed response (missing y, array/quoted/int forms); grounding "
+        "is a clean coordinate that still hit no widget. Only the boundary mass carries a real "
+        "coordinate, so only it is even a candidate for the snapping lever."
+    )
+    L.append("")
+
+    L.append("### 2.1 Where the parse mass comes from — the native tool-call path")
+    L.append("")
+    L.append(
+        "APE uses hybrid tool-calling (native `bind_tools()` first, XML `<tool_call>` fallback). "
+        "Pairing each `[APE-LLM-TEL]` with the `[APE-LLM-RESPONSE]` that produced it splits the "
+        "outcomes by response path:"
+    )
+    L.append("")
+    L.append(row_line(["response path", "matched", "llm_tap", "boundary", "**degenerate**", "total"]))
+    L.append(row_line(["---", "---", "---", "---", "---", "---"]))
+    for s, label in [("native", "native (`content= tool_calls=1`)"), ("xml", "XML (`content=<tool_call>`)")]:
+        L.append(row_line([
+            label,
+            so.get((s, "matched"), 0),
+            so.get((s, "llm_tap"), 0),
+            so.get((s, "no_match/boundary"), 0),
+            f"**{so.get((s, 'no_match/degenerate'), 0)}**",
+            shape_tot[s],
+        ]))
+    L.append("")
+    L.append(
+        f"**The native path is the bug.** {native_degen:,} of {total_degen:,} degenerate calls "
+        f"({native_share_of_degen:.2f}%) come from the native tool-call path, where the router "
+        f"collapses to `(0,0)` **{native_degen_rate:.1f}%** of the time ({native_degen:,} / "
+        f"{native_tot:,}). The XML path degenerates only {xml_degen} times in "
+        f"{shape_tot['xml']:,} calls (~0%) because it runs coordinate **repair** "
+        "(missing_y/array_xy/quoted_xy/int_scan) — repair that the native path never invokes. So "
+        "`degenerate` is not the base model failing; it is the ape's native `tool_calls` argument "
+        "extractor lacking the repair the XML path already has. This is the concrete J1 target "
+        "(§7) — see `calibracao/j1_handoff.md`."
     )
     L.append("")
 
@@ -466,19 +534,22 @@ def build_memo(df: pd.DataFrame, tally: dict[str, int], n_traces: int, n_error: 
         f"{d_int['p50']:.0f} px away. Per plano §3-H4, the snapping candidate is dropped from J1."
     )
     L.append(
-        f"- **Output-format hardening: the only lever with mass.** parse "
-        f"({parse_share:.1f}%) + denormalization "
-        f"({pct(counts['denormalization'], n_nm):.1f}%) = "
-        f"{pct(counts['parse'] + counts['denormalization'], n_nm):.1f}% of no_match are the model "
-        "emitting no coordinate or a malformed one. J1 should tighten the output schema / prompt so "
-        "the model returns a single well-formed coordinate (eliminating the (0,0) collapse and the "
-        "repair path), NOT touch the snapping tolerance."
+        f"- **Fix the native tool-call parser: the one lever with mass.** §2.1 localises "
+        f"{native_share_of_degen:.2f}% of all degenerate no_match to the native `tool_calls` path, "
+        f"which collapses to (0,0) {native_degen_rate:.0f}% of the time because it never runs the "
+        "coordinate repair the XML path already has. J1 should route native tool-call arguments "
+        "through that same repair pipeline (or force the XML path) — NOT re-prompt the model, and "
+        "NOT touch the snapping tolerance. This turns a masked parser bug into recoverable LLM "
+        "decisions and removes a confound from the calibration. Full spec: "
+        "`calibracao/j1_handoff.md`."
     )
     L.append(
-        "- **But gated by anti-starvation (§2.4b).** §3 shows recovering no_match returns fewer new "
-        "states than the algorithmic fallback it displaces. Format hardening must therefore be "
+        "- **But gated by anti-starvation (§2.4b).** §4 shows recovering no_match returns fewer new "
+        "states than the algorithmic fallback it displaces. The parser fix must therefore be "
         "evaluated for its *net* coverage effect in Fase B (B1), preserving `llm_tap` and the "
-        "algorithmic turn — never promoted on no_match↓ alone (the v2 error)."
+        "algorithmic turn — never promoted on no_match↓ alone (the v2 error). Even if net coverage "
+        "is flat, the fix is worth landing: it removes the parser-bug confound so Fase B measures "
+        "the base model's real decision quality."
     )
     L.append(
         "- **Candidate snapping-tolerance value for J1: none** (lever discarded). If a future run "
@@ -498,8 +569,8 @@ def main() -> int:
     ap.add_argument("--glob", default=BASE_RUN_GLOB, help="trace glob (relative to repo root)")
     args = ap.parse_args()
 
-    df, tally, n_traces, n_error = parse_traces(args.glob)
-    memo, gate_pass = build_memo(df, tally, n_traces, n_error)
+    df, tally, n_traces, n_error, shape_outcome = parse_traces(args.glob)
+    memo, gate_pass = build_memo(df, tally, n_traces, n_error, shape_outcome)
     MEMO_MD.write_text(memo, encoding="utf-8")
 
     print(f"traces parsed      : {n_traces}")
