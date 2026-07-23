@@ -63,6 +63,7 @@ Directory split: `experimento-cal/` is the self-contained experiment folder (scr
 | `experimento-cal/scripts/analyze_iteration.py` | ANALYZE: pre-declared gate order, ranking, prediction-vs-observed | `per_apk_paired.csv`, `tel_proxies.csv`, manifest | `iterN/analysis.md` |
 | `experimento-cal/scripts/multiarm_stats.py` | Trimmed-mean + paired bootstrap CIs, Friedman+Holm (N arms) | paired CSV | stats tables (imported by analyze) |
 | `experimento-cal/scripts/journal.py` | Append one provenance record per state transition | state, iter, artifact path | `calibracao/journal.jsonl` line |
+| `experimento-cal/scripts/status.py` | Derive campaign position (done/current/pending per iteration, pending gate, next action) — read-only, never a hand-maintained file (INV-CAL-14) | `journal.jsonl` + `iterN/` + phase configs | status report |
 | `experimento-cal/templates/decision.md` | DECIDE template encoding the declarative per-phase rules | — | copied into `iterN/` |
 
 ## Mapping: Spec → Implementation → Test

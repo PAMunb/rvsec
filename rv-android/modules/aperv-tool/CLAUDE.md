@@ -24,7 +24,7 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 
 ## Variants
 
-`get_variants()` returns 17 variants: 11 arm-defining named arms + 6 frozen gh43 prompt-ablation arms. All use `throttle_ms: 200`. The `dfs` strategy is accepted by `configure()` but has no named variant (reach it via override, e.g. `aperv:default@strategy=dfs`).
+`get_variants()` returns 26 variants: 11 arm-defining named arms + 6 frozen gh43 prompt-ablation arms + 9 `cal_*` calibration arms (gh88). All use `throttle_ms: 200`. The `dfs` strategy is accepted by `configure()` but has no named variant (reach it via override, e.g. `aperv:default@strategy=dfs`).
 
 | Variant | Strategy | MOP | LLM | Notes |
 |---------|----------|-----|-----|-------|
@@ -38,6 +38,9 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 | `sata_llm` | sata | no | yes | LLM guidance via SGLang |
 | `sata_mop_llm` | sata | yes | yes | MOP + LLM combined |
 | `sata_mop_llm_*` | sata | yes | yes | 6 frozen prompt arms (ape_current, ape_reasoning, compact_v1, v13, v17, visual_only) at `llm_percentage 0.7` |
+| `cal_a1`…`cal_a9` | sata | yes | yes | 9 gh88 LLM calibration arms on the `sata_mop_act_frontier` substrate; every LLM key explicit (`LLM_ARM_KEYS` guard, INV-APV-26); Phase-A arm table (plan §6) |
+
+**`LLM_ARM_KEYS` guard (INV-APV-26)**: a second explicitness guard, scoped to `cal_*`-prefixed variants only, requiring every variant to declare all 11 Phase-A LLM keys explicitly (closes the `_LLM_FLAGS` gap that omits `llm_percentage`/`llm_prompt_variant`). `llm_max_tokens`/`llm_snap_tolerance_px` are mapped in `APERV_PROPERTY_MAPPING` (INV-APV-27) but stay OUT of `LLM_ARM_KEYS` and are set by no `cal_*` arm — inert until the Phase-B jar exposes the properties.
 
 ## Configuration Flow
 

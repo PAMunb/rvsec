@@ -1,0 +1,35 @@
+{
+  "phase": "cala",
+  "description": "Phase A (screening) — 11-arm interleaved multi-arm run: ANC1 (ape builtin) + ANC2 (aperv:sata_mop_act_frontier) + A1..A9 (aperv:cal_a1..cal_a9). Plan docs/20260721_plano_calibracao_llm.md rev. 3.2 §6.",
+  "image": {
+    "tag": "phtcosta/rvandroid:0.9.3",
+    "id": "87744cd58be9"
+  },
+  "expected_server_model": "Qwen/Qwen3-VL-4B-Instruct",
+  "apks_dir": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181",
+  "subset_file": "calibracao/subset40.txt",
+  "reps": 2,
+  "timeout": 300,
+  "containers": 8,
+  "spec_set": "jca",
+  "bootstrap_seed": 42,
+  "arms": [
+    {"role": "ANC1", "tool": "ape", "variant": "default"},
+    {"role": "ANC2", "tool": "aperv", "variant": "sata_mop_act_frontier"},
+    {"role": "A1", "tool": "aperv", "variant": "cal_a1"},
+    {"role": "A2", "tool": "aperv", "variant": "cal_a2"},
+    {"role": "A3", "tool": "aperv", "variant": "cal_a3"},
+    {"role": "A4", "tool": "aperv", "variant": "cal_a4"},
+    {"role": "A5", "tool": "aperv", "variant": "cal_a5"},
+    {"role": "A6", "tool": "aperv", "variant": "cal_a6"},
+    {"role": "A7", "tool": "aperv", "variant": "cal_a7"},
+    {"role": "A8", "tool": "aperv", "variant": "cal_a8"},
+    {"role": "A9", "tool": "aperv", "variant": "cal_a9"}
+  ],
+  "smoke": {
+    "arm_roles": ["A1", "A3", "A8"],
+    "apk_count": 4,
+    "timeout": 90,
+    "reps": 1
+  }
+}

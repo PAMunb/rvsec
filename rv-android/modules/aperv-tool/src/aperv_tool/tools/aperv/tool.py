@@ -149,6 +149,16 @@ APERV_PROPERTY_MAPPING = {
     # mop-reach-strategies F′ seam — arm-defining (LLM boost when substrate is widgetless).
     "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
     "llm_prompt_variant": "ape.llmPromptVariant",
+    # Phase-B LLM knobs (INV-APV-27) — mapped so a Phase-B arm can set them the moment the
+    # Phase-B jar exposes the properties, with no further aperv-tool change. Inert for
+    # Phase-A: no cal_a* arm sets either key (the Phase-A jar hardcodes max_tokens=1024 and
+    # the snap tolerance), and INV-APV-08 writes only keys present in both _tool_config and
+    # the mapping, so ape.properties for a cal_a* arm never emits these. The Java property
+    # names follow plan §7 and are corrected in a Phase-B iteration if the ape-side J1
+    # change decides differently. NOT members of LLM_ARM_KEYS (a dead knob would fake
+    # explicitness — see INV-APV-26).
+    "llm_max_tokens": "ape.llmMaxTokens",
+    "llm_snap_tolerance_px": "ape.llmSnapTolerancePx",
 }
 
 
@@ -193,6 +203,33 @@ _ARM_DEFINING_EXEMPT = frozenset(
         "sata_mop_llm_v13",
         "sata_mop_llm_v17",
         "sata_mop_llm_visual_only",
+    }
+)
+
+# The LLM configuration keys every calibration arm (cal_*) MUST declare explicitly
+# (INV-APV-26). A second guard, scoped to cal_*-prefixed variants only, that closes the
+# INV-APV-14 gap: ARM_DEFINING_KEYS enforces explicitness over the arm-defining flags but
+# _LLM_FLAGS omits llm_percentage and llm_prompt_variant, so two LLM arms could differ
+# only through a key no guard covers. Calibration arms differ *precisely* in LLM keys, so
+# for them every LLM key the Phase-A jar consumes is part of the audited surface.
+#
+# llm_max_tokens and llm_snap_tolerance_px are deliberately NOT here: the Phase-A jar
+# hardcodes max_tokens=1024 and the snap tolerance, so requiring them would fake
+# explicitness over a knob the deployed binary ignores. They join the guard only when the
+# Phase-B jar exposes the corresponding Java properties (INV-APV-27).
+LLM_ARM_KEYS = frozenset(
+    {
+        "llm_url",
+        "llm_on_new_state",
+        "llm_on_stagnation",
+        "llm_model",
+        "llm_temperature",
+        "llm_top_p",
+        "llm_top_k",
+        "llm_timeout_ms",
+        "llm_percentage",
+        "llm_percentage_no_substrate",
+        "llm_prompt_variant",
     }
 )
 
@@ -269,6 +306,35 @@ _LLM_FLAGS = {
     "llm_timeout_ms": 15000,
 }
 
+# The frontier reach substrate: the arm-defining configuration of sata_mop_act_frontier
+# (MOP on + reach package A′+B+E-min) that won the cmpma multi-arm comparison
+# (cov_mop 37.75% vs ≤35%, Friedman+Holm). Spread into every cal_* calibration arm so that
+# whenever the LLM router does not delegate a step — and on every no_match fallback — the
+# arm explores in frontier mode. `sata_mop_act_frontier` without the LLM block is exactly
+# the ANC2 anchor, so `cal_* − ANC2` isolates the LLM contribution on the same algorithmic
+# base (design decision 3). Enumerates every ARM_DEFINING_KEY (via _BASELINE_ARM_FLAGS with
+# the four frontier overrides) + the MOP substrate, so any cal_* arm spreading it satisfies
+# the INV-APV-14 guard.
+_FRONTIER_SUBSTRATE = {
+    **_BASELINE_ARM_FLAGS,
+    **_MOP_SUBSTRATE,
+    "mop_activity_source_components": True,
+    "frontier_boost_weight": 200,
+    "mop_frontier_weight": 200,
+    "activity_trigger_enabled": True,
+}
+
+# LLM keys shared verbatim by all nine calibration arms. The varying keys — prompt variant,
+# percentage, sampling (temperature/top_p/top_k), and routing (on_new_state/on_stagnation) —
+# are written explicitly per arm (design decision 3: the diff-vs-cal_a1 is exactly what the
+# experiment varies). llm_percentage_no_substrate=-1 comes from the frontier substrate.
+# 10.0.2.2 is the emulator host-loopback alias; APERV_LLM_BASE_URL overrides at configure().
+_CAL_LLM_COMMON = {
+    "llm_url": "http://10.0.2.2:30000/v1",
+    "llm_model": "default",
+    "llm_timeout_ms": 15000,
+}
+
 
 class ApeRVTool(AbstractTool):
     """
@@ -297,6 +363,7 @@ class ApeRVTool(AbstractTool):
     - Named variants: eleven arm-defining-explicit arms (default, sata, bfs, random,
       ape_pure, sata_mop_widget, sata_mop [alias], sata_mop_activity,
       sata_mop_act_frontier, sata_llm, sata_mop_llm) + six frozen gh43 prompt arms
+      + nine cal_a1…cal_a9 calibration arms (frontier substrate + explicit LLM keys)
     - Eager strategy validation in configure() catches typos before device access
     - ape.properties injection configures GUI throttle without modifying the JAR
     - Timeout is treated as expected exit (exploration tools run until time limit)
@@ -361,12 +428,15 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants.
 
-        Eleven non-exempt arms + six exempt gh43 prompt-experiment arms. Every non-exempt
-        arm sets every key in ARM_DEFINING_KEYS explicitly (INV-APV-14), spreading the shared
-        _BASELINE_ARM_FLAGS (RV exploration ON, MOP/reach off) and — for MOP arms —
-        _MOP_SUBSTRATE, so an arm's identity is its variant dict and never a jar Config
-        default. "default" aliases sata (INV-TOOL-02); "sata_mop" aliases sata_mop_widget by
-        shared object (INV-APV-16). The six gh43 arms are frozen and EXEMPT (INV-APV-17).
+        Eleven base non-exempt arms + nine cal_* calibration arms + six exempt gh43
+        prompt-experiment arms. Every non-exempt arm sets every key in ARM_DEFINING_KEYS
+        explicitly (INV-APV-14), spreading the shared _BASELINE_ARM_FLAGS (RV exploration ON,
+        MOP/reach off) and — for MOP arms — _MOP_SUBSTRATE, so an arm's identity is its
+        variant dict and never a jar Config default. "default" aliases sata (INV-TOOL-02);
+        "sata_mop" aliases sata_mop_widget by shared object (INV-APV-16). The six gh43 arms
+        are frozen and EXEMPT (INV-APV-17). The nine cal_a1…cal_a9 arms sit on the
+        _FRONTIER_SUBSTRATE and additionally declare every LLM_ARM_KEYS key explicitly
+        (INV-APV-26); they implement the Phase-A calibration arm table (plan §6, rev. 3.2).
 
         Returns:
             Dictionary mapping variant names to configuration parameters
@@ -440,6 +510,151 @@ class ApeRVTool(AbstractTool):
                     "v17",
                     "visual_only",
                 ]
+            },
+            # --- Calibration arm variants (cal_*) — Phase-A arm table (plan §6, rev. 3.2) ---
+            # All nine arms sit on the _FRONTIER_SUBSTRATE (sata_mop_act_frontier: MOP on,
+            # reach package A′+B+E-min) so every non-LLM step and every no_match fallback
+            # explores in frontier mode. Each declares every LLM_ARM_KEYS key explicitly
+            # (INV-APV-26) plus the full ARM_DEFINING_KEYS set (via the substrate). Written
+            # as explicit dict literals — the diff-vs-cal_a1 is exactly what the experiment
+            # varies (design decision 3). llm_on_new_state/llm_on_stagnation are Python bools
+            # (serialized to true/false by _push_properties); llm_temperature 0 disables
+            # sampling stochasticity.
+            #
+            # cal_a1 = control: the cmp_llm_20260721 LLM-key config (v13, 70%, temperature 0)
+            # carried onto the frontier substrate. cmp_llm itself ran on the widget substrate,
+            # so cal_a1 is NOT the identical cmp_llm arm — the cross-substrate anchors are
+            # re-measured in-experiment by the Phase-A design (ANC1/ANC2/cal_a1).
+            "cal_a1": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0.7,
+                "llm_temperature": 0,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
+            # cal_a2 (H1): lower the LLM budget to 30% at the same routing/sampling as cal_a1.
+            "cal_a2": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0.3,
+                "llm_temperature": 0,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
+            # cal_a3 (H1, stagnation-only): route to the LLM only when stagnating
+            # (llm_on_new_state off), percentage 0 — the LLM fires purely on the stagnation
+            # trigger, never on new-state entry.
+            "cal_a3": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0,
+                "llm_temperature": 0,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": False,
+                "llm_on_stagnation": True,
+            },
+            # cal_a4 (H1, new-state+stagnation): both triggers on, percentage 0 — routing is
+            # trigger-driven rather than budget-driven.
+            "cal_a4": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0,
+                "llm_temperature": 0,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
+            # cal_a5 (H3, vendor bundle): the vendor-recommended sampling bundle
+            # (temperature 0.7, top_p 0.8, top_k 20) at 30% budget.
+            "cal_a5": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0.3,
+                "llm_temperature": 0.7,
+                "llm_top_p": 0.8,
+                "llm_top_k": 20,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
+            # cal_a6 (H3, temperature isolated): same as cal_a5 but top_p/top_k held at the
+            # cal_a1 values (0.6 / 50) — isolates temperature from the nucleus/top-k bundle
+            # (cal_a6 vs cal_a5 differ only in llm_top_p and llm_top_k).
+            "cal_a6": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0.3,
+                "llm_temperature": 0.7,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
+            # cal_a7 (H3, AutoDroid point): the AutoDroid temperature setting (0.25).
+            "cal_a7": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0.3,
+                "llm_temperature": 0.25,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
+            # cal_a8 (H2, short extreme): the shortest prompt (visual_only) at 30% budget.
+            "cal_a8": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "visual_only",
+                "llm_percentage": 0.3,
+                "llm_temperature": 0,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
+            # cal_a9 (H2, long extreme): the longest prompt (v17) at 30% budget.
+            "cal_a9": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v17",
+                "llm_percentage": 0.3,
+                "llm_temperature": 0,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
             },
         }
 

@@ -1,0 +1,6 @@
+# Generated per-iteration trees (manifest + snapshots + composes + raw results). These are
+# provenance kept on disk (INV-CAL-12, append-only) but are heavy and machine-specific —
+# never committed. The scaffold (scripts/, phases/, templates/, tests/, README) IS tracked.
+iter*/
+__pycache__/
+*.pyc

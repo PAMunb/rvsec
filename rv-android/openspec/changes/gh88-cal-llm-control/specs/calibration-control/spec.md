@@ -50,6 +50,7 @@ Directory layout: `experimento-cal/` holds the scripts, phase configs (`phases/<
 - **INV-CAL-11**: `calibracao/journal.jsonl` is append-only: one JSON record per state transition with `{ts, iter, state, artifact, sha256}`. Existing lines SHALL never be rewritten.
 - **INV-CAL-12**: Iterations are append-only: `gen_iteration.py` SHALL refuse to overwrite an existing `iterN/`; a discarded iteration keeps its directory as provenance.
 - **INV-CAL-13**: The scaffold SHALL NOT manage emulators (rv-platform owns the lifecycle), SHALL NOT modify the `ape` repository, and SHALL NOT touch `backup/`.
+- **INV-CAL-14**: Campaign status SHALL be DERIVED from `calibracao/journal.jsonl` (the transition log) + the `iterN/` artifacts + the phase configs — never from a hand-maintained checklist file. A hand-maintained status can silently drift from the artifacts it claims to describe; the journal plus the filesystem are the single source of truth (same principle as INV-CAL-01/08). `status.py` SHALL be read-only (no writes, no container/emulator interaction).
 
 ## ADDED Requirements
 
@@ -149,3 +150,24 @@ The scaffold SHALL provide `templates/decision.md` encoding the declarative per-
 - **THEN** one line SHALL be appended to `calibracao/journal.jsonl` containing keys `ts`, `iter`, `state`, `artifact`, `sha256`
 - **AND** `sha256` SHALL be the hash of the artifact file at append time
 - **AND** no existing line SHALL be modified
+
+### Requirement: Campaign Status Reporting (NFR06)
+
+Because state transitions are agent-driven with no daemon, an agent (or a human) needs to
+answer "where is the campaign now, and what runs next?" without reconstructing it by hand.
+`status.py` SHALL derive and report the campaign position from the transition journal, the
+generated `iterN/` trees, and the phase configs — never from a hand-maintained checklist
+(INV-CAL-14). For each iteration it SHALL render the eight-state loop (CONFIG-GEN → …→
+DECIDE) with each state marked done / current / pending, where *done* means a journal
+transition record for that state corroborated by the state's expected artifact where one
+exists (`manifest.json` for CONFIG-GEN, `per_apk_paired.csv` for CONSOLIDATE,
+`verification_report.md` for VERIFY, `analysis.md` for ANALYZE, `decision.md` for DECIDE);
+a journal record without its expected artifact (or the reverse) SHALL be flagged as an
+inconsistency. It SHALL report the pending human gate (G1–G4) if any and the next action
+(the script to run), plus a cross-iteration summary (phase, DECIDE verdict, promoted arms).
+`status.py` SHALL be read-only.
+
+#### Scenario: Status derives current state and next action
+- **WHEN** `status.py` runs after CONFIG-GEN and PRE-FLIGHT of `iter1` are journaled and `iter1/manifest.json` exists but no `iter1/results/` yet
+- **THEN** the report SHALL mark CONFIG-GEN and PRE-FLIGHT as done, SMOKE as the current/next state, the pending gate as G3 (launch), and the next action as running the smoke gate
+- **AND** an iteration whose journal records VERIFY but whose `iterN/verification_report.md` is absent SHALL be flagged as an inconsistency

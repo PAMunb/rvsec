@@ -19,6 +19,7 @@ from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
     APERV_PROPERTY_MAPPING,
+    LLM_ARM_KEYS,
     ApeRVTool,
 )
 
@@ -500,6 +501,31 @@ _EXPECTED_EXEMPT_VARIANTS = {
     "sata_mop_llm_visual_only",
 }
 
+# The Phase-A calibration arm table verbatim from the delta spec (specs/aperv/spec.md,
+# plan §6 rev. 3.2) — the seven per-arm varying LLM keys. Pins every cal_* value so a typo
+# in the variant dict fails here. (prompt, percentage, temperature, top_p, top_k,
+# on_new_state, on_stagnation.)
+_EXPECTED_CAL_ARM_TABLE = {
+    "cal_a1": ("v13", 0.7, 0, 0.6, 50, True, True),
+    "cal_a2": ("v13", 0.3, 0, 0.6, 50, True, True),
+    "cal_a3": ("v13", 0, 0, 0.6, 50, False, True),
+    "cal_a4": ("v13", 0, 0, 0.6, 50, True, True),
+    "cal_a5": ("v13", 0.3, 0.7, 0.8, 20, True, True),
+    "cal_a6": ("v13", 0.3, 0.7, 0.6, 50, True, True),
+    "cal_a7": ("v13", 0.3, 0.25, 0.6, 50, True, True),
+    "cal_a8": ("visual_only", 0.3, 0, 0.6, 50, True, True),
+    "cal_a9": ("v17", 0.3, 0, 0.6, 50, True, True),
+}
+
+# The sata_mop_act_frontier arm-defining substrate every cal_* arm must carry.
+_EXPECTED_FRONTIER_SUBSTRATE = {
+    "mop_data": "static_analysis",
+    "mop_activity_source_components": True,
+    "frontier_boost_weight": 200,
+    "mop_frontier_weight": 200,
+    "activity_trigger_enabled": True,
+}
+
 
 class TestArmDefiningConstants:
     """Group 1 guard: ARM_DEFINING_KEYS + _ARM_DEFINING_EXEMPT + mapping (INV-APV-13/15/17)."""
@@ -645,6 +671,114 @@ class TestArmVariants:
         # trigger_mop_first no longer exists (task group 7 — jar deleted the property).
         assert "trigger_mop_first" not in cfg
 
+    def test_cal_variants_declare_all_llm_keys(self):
+        # INV-APV-26 guard (task 1.4): every cal_* arm ⊇ LLM_ARM_KEYS. Failure names the
+        # variant and the missing keys.
+        variants = ApeRVTool.get_variants()
+        cal_arms = {n: c for n, c in variants.items() if n.startswith("cal_")}
+        assert cal_arms, "no cal_* arms found in get_variants()"
+        for name, cfg in cal_arms.items():
+            missing = LLM_ARM_KEYS - set(cfg)
+            assert not missing, f"cal arm {name!r} missing LLM keys: {sorted(missing)}"
+
+    def test_cal_arms_match_plan_table(self):
+        # Task 1.5: concrete value assertions for all nine arms — the seven varying LLM
+        # keys per the plan §6 table, the frontier substrate in every arm, plus the
+        # constant LLM keys shared by all arms.
+        variants = ApeRVTool.get_variants()
+        assert set(_EXPECTED_CAL_ARM_TABLE) == {
+            n for n in variants if n.startswith("cal_")
+        }, "cal_* arm set diverged from the expected Phase-A table"
+        for name, (
+            prompt,
+            pct,
+            temp,
+            top_p,
+            top_k,
+            on_new,
+            on_stag,
+        ) in _EXPECTED_CAL_ARM_TABLE.items():
+            cfg = variants[name]
+            assert cfg["llm_prompt_variant"] == prompt, name
+            assert cfg["llm_percentage"] == pct, name
+            assert cfg["llm_temperature"] == temp, name
+            assert cfg["llm_top_p"] == top_p, name
+            assert cfg["llm_top_k"] == top_k, name
+            # Routing flags are Python bools (serialized to true/false by _push_properties).
+            assert cfg["llm_on_new_state"] is on_new, name
+            assert cfg["llm_on_stagnation"] is on_stag, name
+            # Constant LLM keys shared by all nine arms.
+            assert cfg["llm_url"] == "http://10.0.2.2:30000/v1", name
+            assert cfg["llm_model"] == "default", name
+            assert cfg["llm_timeout_ms"] == 15000, name
+            assert cfg["llm_percentage_no_substrate"] == -1, name
+            assert cfg["strategy"] == "sata", name
+            assert cfg["throttle_ms"] == 200, name
+            # Frontier substrate present in every cal_* arm (no widget-substrate arm).
+            for key, expected in _EXPECTED_FRONTIER_SUBSTRATE.items():
+                assert cfg[key] == expected, f"{name}: {key} not frontier substrate"
+
+    def test_cal_arms_carry_frontier_not_widget_substrate(self):
+        # Spec scenario "Every cal_* arm falls back to frontier mode": the substrate MUST
+        # equal sata_mop_act_frontier (ANC2) and never the widget substrate. Compared
+        # against the live ANC2 arm so the two cannot drift apart.
+        variants = ApeRVTool.get_variants()
+        anc2 = variants["sata_mop_act_frontier"]
+        substrate_keys = [
+            "mop_activity_source_components",
+            "frontier_boost_weight",
+            "mop_frontier_weight",
+            "activity_trigger_enabled",
+            "mop_data",
+        ]
+        for name, cfg in variants.items():
+            if not name.startswith("cal_"):
+                continue
+            assert (
+                cfg["frontier_boost_weight"] == 200
+            ), f"{name} not on frontier substrate"
+            for key in substrate_keys:
+                assert cfg[key] == anc2[key], f"{name}: {key} diverged from ANC2"
+
+    def test_cal_a3_is_stagnation_only(self):
+        # Spec scenario: cal_a3 routes only on stagnation; all other LLM keys == cal_a1.
+        variants = ApeRVTool.get_variants()
+        a1, a3 = variants["cal_a1"], variants["cal_a3"]
+        assert a3["llm_on_new_state"] is False
+        assert a3["llm_on_stagnation"] is True
+        assert a3["llm_percentage"] == 0
+        for key in LLM_ARM_KEYS:
+            if key in ("llm_on_new_state", "llm_percentage"):
+                continue
+            assert a3[key] == a1[key], f"cal_a3 {key} diverged from cal_a1"
+
+    def test_cal_a6_vs_cal_a5_isolates_top_p_top_k(self):
+        # Spec scenario: cal_a6 vs cal_a5 differ only in top_p (0.6 vs 0.8) and top_k
+        # (50 vs 20); both have temperature 0.7 and percentage 0.3.
+        variants = ApeRVTool.get_variants()
+        a5, a6 = variants["cal_a5"], variants["cal_a6"]
+        assert a5["llm_top_p"] == 0.8 and a6["llm_top_p"] == 0.6
+        assert a5["llm_top_k"] == 20 and a6["llm_top_k"] == 50
+        assert a5["llm_temperature"] == 0.7 and a6["llm_temperature"] == 0.7
+        assert a5["llm_percentage"] == 0.3 and a6["llm_percentage"] == 0.3
+        differing = {k for k in LLM_ARM_KEYS if a5[k] != a6[k]}
+        assert differing == {"llm_top_p", "llm_top_k"}, differing
+
+    def test_property_mapping_covers_llm_max_tokens_and_snap(self):
+        # Task 1.5 / INV-APV-27: the two Phase-B mappings are present, and no cal_a* arm
+        # sets either key (the Phase-A jar hardcodes them — a set value would fake config).
+        assert APERV_PROPERTY_MAPPING["llm_max_tokens"] == "ape.llmMaxTokens"
+        assert (
+            APERV_PROPERTY_MAPPING["llm_snap_tolerance_px"] == "ape.llmSnapTolerancePx"
+        )
+        assert "llm_max_tokens" not in LLM_ARM_KEYS
+        assert "llm_snap_tolerance_px" not in LLM_ARM_KEYS
+        for name, cfg in ApeRVTool.get_variants().items():
+            if not name.startswith("cal_"):
+                continue
+            assert "llm_max_tokens" not in cfg, name
+            assert "llm_snap_tolerance_px" not in cfg, name
+
 
 class TestSeedPropagation:
     """Group 3: seed reaches the jar as -s <seed>, never ape.properties (INV-APV-18)."""
@@ -743,7 +877,13 @@ SOURCE_DOCUMENT = {
     "components": {"activities": ["MainActivity", "SecondActivity"]},
     "reachability": {"br.unb.cic.cryptoapp.MainActivity": ["onCreate", "doCrypto"]},
     "windows": [{"id": "w1", "title": "main"}],
-    "transitions": [TRANSITION_A, TRANSITION_B, TRANSITION_A, TRANSITION_C, TRANSITION_B],
+    "transitions": [
+        TRANSITION_A,
+        TRANSITION_B,
+        TRANSITION_A,
+        TRANSITION_C,
+        TRANSITION_B,
+    ],
     "complete": True,
 }
 
@@ -802,7 +942,10 @@ class TestCompactStaticAnalysisJson:
         assert "\n" not in raw
         assert ", " not in raw
         assert ": " not in raw
-        expected = {**SOURCE_DOCUMENT, "transitions": [TRANSITION_A, TRANSITION_B, TRANSITION_C]}
+        expected = {
+            **SOURCE_DOCUMENT,
+            "transitions": [TRANSITION_A, TRANSITION_B, TRANSITION_C],
+        }
         assert json.loads(raw) == expected
         os.unlink(compacted)
 
@@ -917,7 +1060,9 @@ class TestExecuteCompactionFlow:
 
         def fake_push(local_path, device_path, device_serial, trace_file_path):
             # Snapshot content at push time: the temp is unlinked right after.
-            content = open(local_path, "rb").read() if os.path.isfile(local_path) else None
+            content = (
+                open(local_path, "rb").read() if os.path.isfile(local_path) else None
+            )
             self.pushed.append((local_path, device_path, content))
 
         self.tool._resolve_jar_path = lambda: str(tmp_path / "ape-rv.jar")
@@ -934,7 +1079,9 @@ class TestExecuteCompactionFlow:
         return task
 
     def _static_pushes(self):
-        return [p for p in self.pushed if p[1] == "/data/local/tmp/static_analysis.json"]
+        return [
+            p for p in self.pushed if p[1] == "/data/local/tmp/static_analysis.json"
+        ]
 
     def test_pushes_compacted_temp_not_source(self, tmp_path):
         # Spec scenario: the compacted temp reaches the device, not the source.
@@ -961,7 +1108,9 @@ class TestExecuteCompactionFlow:
 
         def spy_push_properties(device_serial, trace_file_path, mop_json_pushed=False):
             captured["mop_json_pushed"] = mop_json_pushed
-            return original_push_properties(device_serial, trace_file_path, mop_json_pushed)
+            return original_push_properties(
+                device_serial, trace_file_path, mop_json_pushed
+            )
 
         self.tool._push_properties = spy_push_properties
 
@@ -972,9 +1121,9 @@ class TestExecuteCompactionFlow:
         assert pushes[0][0] == source
         # INV-APV-24: the fallback is invisible to ape.properties.
         assert captured["mop_json_pushed"] is True
-        props = next(
-            p for p in self.pushed if p[1] == APERV_DEVICE_PROPERTIES_PATH
-        )[2].decode()
+        props = next(p for p in self.pushed if p[1] == APERV_DEVICE_PROPERTIES_PATH)[
+            2
+        ].decode()
         assert "ape.mopDataPath=/data/local/tmp/static_analysis.json" in props
 
     def test_no_compaction_when_mop_data_unset(self, tmp_path):
