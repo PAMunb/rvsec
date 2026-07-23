@@ -78,7 +78,10 @@ _CONFIG_ACK_FIELDS = {
 
 # The SGLang service block (shared by run and smoke composes), derived verbatim from the
 # experimento-20260721 template — one GPU-backed server the containers reach via host
-# loopback. Deep-copied per compose so edits never alias.
+# loopback. The `command` (with `--model-path`) is set per compose by `_sglang_service()`
+# from the manifest's `expected_server_model`, the single source that also drives the smoke
+# gate's expected model — so the weights loaded on the GPU and the model the gate checks
+# cannot drift. Deep-copied per compose so edits never alias.
 _SGLANG_SERVICE = {
     "image": "lmsysorg/sglang:v0.5.6.post2",
     "container_name": "sglang-server",
@@ -94,12 +97,6 @@ _SGLANG_SERVICE = {
             }
         }
     },
-    "command": (
-        "python3 -m sglang.launch_server "
-        "--model-path Qwen/Qwen3-VL-4B-Instruct --host 0.0.0.0 --port 30000 "
-        "--trust-remote-code --attention-backend flashinfer --tool-call-parser qwen "
-        "--enable-multimodal --context-length 8192"
-    ),
     "healthcheck": {
         "test": ["CMD", "curl", "-f", "http://localhost:30000/health"],
         "interval": "30s",
@@ -108,6 +105,28 @@ _SGLANG_SERVICE = {
         "start_period": "120s",
     },
 }
+
+
+def _sglang_command(model_path: str) -> str:
+    """The sglang launch command for a given served model. `model_path` is the single source
+    of the served model (the manifest `expected_server_model`); every other flag is fixed.
+    The flag order/spacing is stable so the rendered compose is byte-identical across
+    regenerations for a fixed model (no needless container recreate on `docker compose up`)."""
+    return (
+        "python3 -m sglang.launch_server "
+        f"--model-path {model_path} --host 0.0.0.0 --port 30000 "
+        "--trust-remote-code --attention-backend flashinfer --tool-call-parser qwen "
+        "--enable-multimodal --context-length 8192"
+    )
+
+
+def _sglang_service(model_path: str) -> Dict[str, Any]:
+    """Deep-copy the shared sglang template and set its `--model-path` from `model_path`
+    (the served model). One source (`expected_server_model`) feeds both the model loaded on
+    the GPU and the smoke gate's expected model, so they cannot drift."""
+    service = copy.deepcopy(_SGLANG_SERVICE)
+    service["command"] = _sglang_command(model_path)
+    return service
 
 
 # --- arm resolution (single source of truth) -------------------------------------------
@@ -290,7 +309,6 @@ def _rvandroid_service(
     timeout: int,
     spec_set: str,
     apks_dir: str,
-    phase: str,
     filters_subdir: str,
     delay: int,
     logcat_diagnostics: bool,
@@ -322,7 +340,10 @@ def _rvandroid_service(
         "depends_on": {"sglang": {"condition": "service_healthy"}},
         "volumes": [
             f"{apks_dir}:/opt/rvsec/rv-android/apks:ro",
-            f"./filters/{phase}:/opt/rvsec/rv-android/filters:ro",
+            # Flat filters dir: every container mounts the whole iterN/filters/ tree and
+            # reads only its own file via RV_APKS_FILTER. iterN/ is already per-phase, so
+            # no per-phase subdir is needed (unlike a flat multi-phase experiment dir).
+            "./filters:/opt/rvsec/rv-android/filters:ro",
             f"./results/{name}:/opt/rvsec/rv-android/results",
             # tool.py snapshot bind-mount (INV-CAL-02): sourced from iterN/artifacts/.
             f"./artifacts/tool.py:{TOOL_PY_MOUNT_TARGET}:ro",
@@ -335,7 +356,9 @@ def build_run_compose(manifest: Dict[str, Any], apks_dir: str) -> Dict[str, Any]
     rotated per container."""
     phase = manifest["phase"]
     n = manifest["containers"]
-    services: Dict[str, Any] = {"sglang": copy.deepcopy(_SGLANG_SERVICE)}
+    services: Dict[str, Any] = {
+        "sglang": _sglang_service(manifest["expected_server_model"])
+    }
     for i in range(n):
         name = f"{phase}_{i:02d}"
         services[name] = _rvandroid_service(
@@ -345,7 +368,6 @@ def build_run_compose(manifest: Dict[str, Any], apks_dir: str) -> Dict[str, Any]
             timeout=manifest["timeout"],
             spec_set=manifest["spec_set"],
             apks_dir=apks_dir,
-            phase=phase,
             filters_subdir=f"batch_{i:02d}.txt",
             delay=i * 10,
             logcat_diagnostics=False,
@@ -362,7 +384,9 @@ def build_smoke_compose(manifest: Dict[str, Any], apks_dir: str) -> Dict[str, An
     smoke = manifest["smoke"]
     n = min(manifest["containers"], smoke["apk_count"])
     smoke_tokens = smoke["tokens"]
-    services: Dict[str, Any] = {"sglang": copy.deepcopy(_SGLANG_SERVICE)}
+    services: Dict[str, Any] = {
+        "sglang": _sglang_service(manifest["expected_server_model"])
+    }
     for i in range(n):
         name = f"{phase}_smoke_{i:02d}"
         services[name] = _rvandroid_service(
@@ -372,7 +396,6 @@ def build_smoke_compose(manifest: Dict[str, Any], apks_dir: str) -> Dict[str, An
             timeout=smoke["timeout"],
             spec_set=manifest["spec_set"],
             apks_dir=apks_dir,
-            phase=phase,
             filters_subdir=f"smoke_{i:02d}.txt",
             delay=i * 10,
             # Smoke turns logcat diagnostics ON to surface VerifyError / crashes early.

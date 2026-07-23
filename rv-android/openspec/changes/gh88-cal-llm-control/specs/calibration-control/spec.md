@@ -56,7 +56,7 @@ Directory layout: `experimento-cal/` holds the scripts, phase configs (`phases/<
 
 ### Requirement: Iteration Generation (CONFIG-GEN) (FR08, FR16, NFR08)
 
-`gen_iteration.py` SHALL generate a complete, self-contained iteration tree from a phase config and `get_variants()`. For each arm it SHALL resolve the full key dict from the named variant (arms are never declared in the generator), compute the expected `[APE-LLM-CONFIG]` field set from the resolved keys and `APERV_PROPERTY_MAPPING`, and record the predicted identity count (`arms × |subset| × reps`). It SHALL snapshot the deployment artifacts (`tool.py`; plus `ape-rv.jar` when `--jar` is given) into `iterN/artifacts/` and record their sha256 in the manifest together with `git describe --dirty` of the source worktrees. It SHALL emit the run compose (one shared `sglang` service + N `rvandroid` containers whose `RV_TOOLS` lists all arms with the arm order rotated per container), the smoke compose (smoke arm subset, 90s timeout, 1 rep), and per-container APK filters from the subset file.
+`gen_iteration.py` SHALL generate a complete, self-contained iteration tree from a phase config and `get_variants()`. For each arm it SHALL resolve the full key dict from the named variant (arms are never declared in the generator), compute the expected `[APE-LLM-CONFIG]` field set from the resolved keys and `APERV_PROPERTY_MAPPING`, and record the predicted identity count (`arms × |subset| × reps`). It SHALL snapshot the deployment artifacts (`tool.py`; plus `ape-rv.jar` when `--jar` is given) into `iterN/artifacts/` and record their sha256 in the manifest together with `git describe --dirty` of the source worktrees. It SHALL emit the run compose (one shared `sglang` service + N `rvandroid` containers whose `RV_TOOLS` lists all arms with the arm order rotated per container), the smoke compose (smoke arm subset, 90s timeout, 1 rep), and per-container APK filters from the subset file. The `sglang` service's `--model-path` SHALL derive from the phase config's `expected_server_model` — the single source that also populates the manifest's `expected_server_model` — so the model loaded on the GPU and the model the smoke gate expects cannot drift (changing the model is one edit in the phase config).
 
 #### Scenario: Manifest resolves arms from get_variants
 - **WHEN** `gen_iteration.py --phase phases/cala.json --iter 1` runs with a phase config listing `ape:default` and the 10 `aperv` arms (`sata_mop_act_frontier`, `cal_a1`…`cal_a9`)
@@ -94,12 +94,17 @@ Directory layout: `experimento-cal/` holds the scripts, phase configs (`phases/<
 
 ### Requirement: Smoke Gate (NFR06)
 
-`smoke_check.py` SHALL evaluate a completed smoke run (4 APKs × extreme arms, 90s, 1 rep) against the manifest. Per smoke task it SHALL check: the `[APE-LLM-CONFIG]` trace line equals the manifest's expected fields field-by-field for that arm; `[APE-LLM-CONFIG-ACK] server_model` equals the expected served model; the task identity is COMPLETED with coverage > 0; and the logcat contains 0 `VerifyError`. Any mismatch SHALL abort the iteration with a report — the scaffold NEVER self-adjusts configuration (the fix is a human decision).
+`smoke_check.py` SHALL evaluate a completed smoke run (4 APKs × extreme arms, 90s, 1 rep) against the manifest. Per smoke task it SHALL check: the `[APE-LLM-CONFIG]` trace line equals the manifest's expected fields field-by-field for that arm; the task identity is COMPLETED with coverage > 0; and the logcat contains 0 `VerifyError`. It SHALL additionally prove that the served model matches the manifest's `expected_server_model` by querying the SGLang server's `/v1/models` endpoint (the authoritative source — what the compose `--model-path` actually loaded on the GPU). The `[APE-LLM-CONFIG-ACK] server_model` line SHALL be recorded in the report but SHALL NOT be the model proof: it echoes the client-side request `model` parameter (the `llm_model` sentinel, e.g. `default`), which a single-model SGLang server accepts and routes to the one loaded model, so it reflects the configured request field, not the served model. Any mismatch SHALL abort the iteration with a report — the scaffold NEVER self-adjusts configuration (the fix is a human decision).
 
 #### Scenario: Config-ack field mismatch fails the gate
 - **WHEN** arm `cal_a3`'s trace reports `llmOnNewState=true` but the manifest expects `llmOnNewState=false`
 - **THEN** `smoke_check.py` SHALL report the arm, field, expected and observed values
 - **AND** exit 1
+
+#### Scenario: Served model is proven against the model endpoint, not the ACK echo
+- **WHEN** SGLang serves the manifest's `expected_server_model` (e.g. `Qwen/Qwen3-VL-4B-Instruct`) but every arm's `[APE-LLM-CONFIG-ACK] server_model` echoes the `llm_model` sentinel `default` (and arms that never call the LLM emit no ACK at all)
+- **THEN** `smoke_check.py` SHALL query SGLang `/v1/models`, confirm the served id equals `expected_server_model`, and PASS the model check
+- **AND** the `server_model=default` echo SHALL appear in the report as informational only, never as a mismatch or abort cause
 
 ### Requirement: Run Monitoring and Resume Policy (NFR04)
 

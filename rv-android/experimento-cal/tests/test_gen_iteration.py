@@ -117,6 +117,49 @@ def test_compose_rotation_and_filters(phase_config, tmp_path):
     assert manifest["smoke"]["predicted_identities"] == 1 * 2 * 1
 
 
+def test_sglang_model_path_derives_from_expected_server_model(phase_config, tmp_path):
+    # Regression (task 2.7): the sglang `--model-path` in BOTH composes is derived from the
+    # manifest's `expected_server_model` (one source) rather than a hardcoded literal, so the
+    # model loaded on the GPU and the smoke gate's expected model cannot drift.
+    iter_dir = _write(phase_config, tmp_path)
+    manifest = json.loads((iter_dir / "manifest.json").read_text())
+    expected = manifest["expected_server_model"]
+    for compose_name in ("docker-compose.calfix.yml", "docker-compose.smoke.yml"):
+        compose = yaml.safe_load((iter_dir / compose_name).read_text())
+        cmd = compose["services"]["sglang"]["command"]
+        assert f"--model-path {expected} " in cmd, (compose_name, cmd)
+
+    # The BASE model renders the exact command string it always had — byte-stable, so
+    # `docker compose up` does not recreate an already-running sglang container.
+    assert gen._sglang_command("Qwen/Qwen3-VL-4B-Instruct") == (
+        "python3 -m sglang.launch_server "
+        "--model-path Qwen/Qwen3-VL-4B-Instruct --host 0.0.0.0 --port 30000 "
+        "--trust-remote-code --attention-backend flashinfer --tool-call-parser qwen "
+        "--enable-multimodal --context-length 8192"
+    )
+
+
+def test_filter_mount_resolves_to_written_files(phase_config, tmp_path):
+    # Regression: the filters bind-mount source on the host must actually contain the file
+    # each container names in RV_APKS_FILTER. A prior bug mounted a per-phase subdir
+    # (./filters/<phase>) while the filters were written flat (./filters/), so the file was
+    # absent inside the container. This closes the gap the rotation test never checked:
+    # it cross-references the mount source against the RV_APKS_FILTER path.
+    iter_dir = _write(phase_config, tmp_path)
+    for compose_name in ("docker-compose.calfix.yml", "docker-compose.smoke.yml"):
+        compose = yaml.safe_load((iter_dir / compose_name).read_text())
+        for name, svc in compose["services"].items():
+            if name == "sglang":
+                continue
+            filter_target = svc["environment"]["RV_APKS_FILTER"]
+            mount = next(v for v in svc["volumes"] if v.endswith("/filters:ro"))
+            src, target, _ro = mount.split(":")
+            # Resolve the in-container filter path back to its host location via the mount.
+            rel = filter_target[len(target) :].lstrip("/")
+            host_file = iter_dir / src.lstrip("./") / rel
+            assert host_file.exists(), f"{name}: {host_file} missing (mount {src} ↔ {filter_target})"
+
+
 def test_refuses_existing_iter(phase_config, tmp_path):
     _write(phase_config, tmp_path, iteration=1)
     # Second generation of the same N must refuse (append-only, INV-CAL-12).

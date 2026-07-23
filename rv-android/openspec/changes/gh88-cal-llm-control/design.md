@@ -31,7 +31,7 @@ Relevant FRs/NFRs: FR08 (task generation/identity), FR11 (logcat capture/parsing
                           ▼
                      preflight.py  (independent re-derivation: manifest × composes × get_variants() × mounts)
                           ▼
-                     compose up (smoke) ──► smoke_check.py  (config-ack field-by-field, server_model, cov>0, VerifyError)
+                     compose up (smoke) ──► smoke_check.py  (config-ack field-by-field, served model via /v1/models, cov>0, VerifyError)
                           ▼
                      compose up (run) ──► monitor.sh  (identity-distinct progress; restart only exit-137;
                           │                            resume pass; completion = non-empty logcats per identity)
@@ -128,8 +128,9 @@ preflight.py      --iter-dir DIR
           sglang service present) with PASS/FAIL each; exit 1 if any FAIL
 
 smoke_check.py    --iter-dir DIR
-    post: per smoke arm: [APE-LLM-CONFIG] == manifest field-by-field, [APE-LLM-CONFIG-ACK] server_model == expected,
-          identity COMPLETED + cov>0, VerifyError count == 0; exit 1 on any mismatch
+    post: per smoke arm: [APE-LLM-CONFIG] == manifest field-by-field, identity COMPLETED + cov>0, VerifyError count == 0;
+          served model proven via SGLang /v1/models == manifest expected_server_model (the [APE-LLM-CONFIG-ACK]
+          server_model echo is logged, not the proof — it reports the client-side llm_model sentinel); exit 1 on any mismatch
 
 monitor.sh        <iter-dir> [--no-resume]     # cadence run by cron/agent; idempotent
 consolidate_cal.py --iter-dir DIR              # writes per_apk_paired.csv (one row per APK, one col-group per arm)

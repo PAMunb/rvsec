@@ -11,11 +11,17 @@ Per smoke task (spec "Smoke Gate", INV-CAL-07):
     field-by-field (numeric fields compared tolerantly: 0 == 0.0 == "0"; booleans
     case-insensitive) — this catches silent config drift, the failure class the whole
     scaffold exists to prevent;
-  * `[APE-LLM-CONFIG-ACK] server_model=` equals the manifest `expected_server_model` —
-    proof of which weights the server actually served;
   * the task identity is COMPLETED with coverage > 0 (from tasks.json) — proof the arm
     explored rather than crashed on startup;
   * the logcat contains 0 `VerifyError` — proof instrumentation did not corrupt the dex.
+
+Once per run (not per task), the model SGLang actually serves — queried from its
+`/v1/models` endpoint, the authoritative source of the weights on the GPU (what the compose
+`--model-path` loaded) — must equal the manifest `expected_server_model`. The ape's
+`[APE-LLM-CONFIG-ACK] server_model=` line is recorded for the report but is NOT the proof:
+it echoes the client-side request `model` parameter (the `llm_model` sentinel, e.g.
+`default`), which a single-model SGLang server accepts and routes to its one loaded model,
+so it reflects the configured request field, not the served weights.
 
 Any mismatch aborts the iteration (exit 1) with a report naming arm / field / expected /
 observed. The scaffold NEVER self-adjusts configuration — a mismatch is a human decision
@@ -30,9 +36,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# The sglang container name (fixed by `_SGLANG_SERVICE.container_name` in gen_iteration.py)
+# and its OpenAI-compatible models endpoint. The endpoint is not published to the host, so
+# the query runs `curl` inside the container (its healthcheck already relies on curl).
+SGLANG_CONTAINER = "sglang-server"
+SGLANG_MODELS_URL = "http://localhost:30000/v1/models"
 
 # Trace grammar (d90c1f4). The negative lookahead keeps `[APE-LLM-CONFIG]` from also
 # matching `[APE-LLM-CONFIG-ACK]`; the KV regex reads every `field=value` token so lookups
@@ -58,12 +71,59 @@ def parse_config_line(trace_text: str) -> Optional[Dict[str, str]]:
 
 
 def parse_server_model(trace_text: str) -> Optional[str]:
-    """Parse `server_model` from the `[APE-LLM-CONFIG-ACK]` line, or None if absent."""
+    """Parse `server_model` from the `[APE-LLM-CONFIG-ACK]` line, or None if absent.
+
+    This is the ape's client-side echo of the request `model` param (the `llm_model`
+    sentinel), NOT the served model — used only for the informational report line
+    (`collect_ack_echoes`), never as the gate's model proof (that is `query_served_model`).
+    """
     for line in trace_text.splitlines():
         if CONFIG_ACK_RE.search(line):
             kv = dict(KV_RE.findall(line))
             return kv.get("server_model")
     return None
+
+
+def query_served_model(container: str = SGLANG_CONTAINER) -> Optional[str]:
+    """Return the model id SGLang actually serves, from its `/v1/models` endpoint — the
+    authoritative proof of the weights on the GPU (what the compose `--model-path` loaded),
+    independent of any client-side request field. Runs `curl` inside the sglang container
+    (the endpoint is not published to the host). Returns None if the query fails (no docker,
+    container down, unreachable endpoint, or unparseable payload) — the caller treats a None
+    served model as a mismatch, since the smoke cannot proceed without proving the model."""
+    try:
+        proc = subprocess.run(
+            ["docker", "exec", container, "curl", "-sf", SGLANG_MODELS_URL],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return json.loads(proc.stdout)["data"][0]["id"]
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+        return None
+
+
+def collect_ack_echoes(iter_dir: Path) -> List[str]:
+    """The distinct `[APE-LLM-CONFIG-ACK] server_model` values across the smoke traces —
+    recorded in the report as informational context (they echo the client request `model`
+    param, e.g. `default`, not the served model), never the gate's model proof."""
+    echoes = set()
+    for tasks_json in find_smoke_task_files(iter_dir):
+        task_dir = tasks_json.parent
+        for task in json.loads(tasks_json.read_text()).get("tasks", []):
+            config = task["config"]
+            ident = identity_base(config)
+            trace = task_dir / config["apk_name"] / f"{ident}.trace"
+            if trace.exists():
+                echo = parse_server_model(trace.read_text(errors="replace"))
+                if echo is not None:
+                    echoes.add(echo)
+    return sorted(echoes)
 
 
 def tolerant_equal(expected: Any, observed: str) -> bool:
@@ -183,24 +243,34 @@ def check_task(
                     f"{where}: [APE-LLM-CONFIG] field {field!r} "
                     f"expected={expected!r} observed={observed!r}"
                 )
-
-    observed_model = parse_server_model(trace_text)
-    expected_model = manifest["expected_server_model"]
-    if observed_model != expected_model:
-        failures.append(
-            f"{where}: [APE-LLM-CONFIG-ACK] server_model "
-            f"expected={expected_model!r} observed={observed_model!r}"
-        )
+    # The served-model proof is a once-per-run server check in run_smoke_check (via
+    # /v1/models), not a per-task assertion — the ape's [APE-LLM-CONFIG-ACK] server_model
+    # echo is informational only (collect_ack_echoes), never a per-task failure.
 
 
-def run_smoke_check(iter_dir: Path) -> List[str]:
-    """Evaluate every smoke task and return the list of mismatch lines (empty == pass)."""
+def run_smoke_check(iter_dir: Path, served_model: Optional[str]) -> List[str]:
+    """Evaluate every smoke task and return the list of mismatch lines (empty == pass).
+
+    `served_model` is the model SGLang actually serves (from `query_served_model`, queried
+    once by the caller); it is compared once against the manifest `expected_server_model`.
+    A None served model (query failed) is a mismatch — the smoke cannot proceed without
+    proving the model.
+    """
     manifest = json.loads((iter_dir / "manifest.json").read_text())
     failures: List[str] = []
     task_files = find_smoke_task_files(iter_dir)
     if not task_files:
         failures.append(f"no smoke tasks.json found under {iter_dir / 'results'}")
         return failures
+    # Server-level model proof (once, not per task): the weights SGLang serves must equal
+    # the manifest's expected_server_model. This is the authoritative check — unlike the
+    # ape's [APE-LLM-CONFIG-ACK] server_model echo (the client request `model` param).
+    expected_model = manifest["expected_server_model"]
+    if served_model != expected_model:
+        failures.append(
+            f"served model mismatch: SGLang /v1/models served={served_model!r} != "
+            f"manifest expected_server_model={expected_model!r}"
+        )
     for tasks_json in task_files:
         task_dir = tasks_json.parent
         data = json.loads(tasks_json.read_text())
@@ -217,11 +287,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     iter_dir = Path(args.iter_dir)
-    if not (iter_dir / "manifest.json").exists():
+    manifest_path = iter_dir / "manifest.json"
+    if not manifest_path.exists():
         sys.stderr.write(f"no manifest.json under iter-dir: {iter_dir}\n")
         return 2
 
-    failures = run_smoke_check(iter_dir)
+    expected_model = json.loads(manifest_path.read_text())["expected_server_model"]
+    served_model = query_served_model()
+    failures = run_smoke_check(iter_dir, served_model)
+
+    # Informational: the authoritative served model (the proof) and the ape's client-side
+    # ACK echoes (NOT the proof — the request `model` param, e.g. `default`).
+    print(
+        f"[info] SGLang served model (/v1/models): {served_model!r} "
+        f"(manifest expected_server_model: {expected_model!r})"
+    )
+    echoes = collect_ack_echoes(iter_dir)
+    if echoes:
+        print(
+            f"[info] ape [APE-LLM-CONFIG-ACK] server_model echoes: {echoes} "
+            f"— informational (client request `model` param), not the model proof"
+        )
+
     if failures:
         print("[FAIL] SMOKE gate — configuration mismatch (NOT auto-corrected):")
         for f in failures:
