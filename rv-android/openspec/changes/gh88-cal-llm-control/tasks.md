@@ -86,8 +86,8 @@
 
 - [x] 10.1 P1 (Fase 0.3) — spec harmonization + selftest (done; methodology §P1, GATE selftest 100%)
 - [x] 10.2 P2 (Fase 0.4) — power analysis: MDEs per metric/n, Fase C n=80–100, SESOI 2.0pp pre-registered in plan §5-0.4 (done 2026-07-21; pre-registration GATE met)
-- [ ] 10.3 P3 (Fase 0.1) — produce `calibracao/subset40.txt` (+ `calibracao/subset90.txt` for Fase C), generated `filters/`, representativeness memo (means, KS, strata); stratify on `ape__cov_mop` quantiles + mop_unique>0 fraction (~70%) + LLM proxy, greedy optimization, leave-10-out stability check. GATE: |Δmean| ≤ 1.0pp on target metrics, KS n.s., `.apk`+`.apk.json` present for all. **Unblocks `gen_iteration.py` (hard-fails until `subset40.txt` lands).**
-- [ ] 10.4 P4 (Fase 0.2) — produce `calibracao/nomatch_decomposition.md` (no-match causal decomposition; sizes H4, fixes the snapping-tolerance candidate for the `ape`-side J1). GATE: ≥90% of calls classified unambiguously. Feeds J1 (`ape` repo, gate G2 — external to gh88).
+- [x] 10.3 P3 (Fase 0.1) — produce `calibracao/subset40.txt` (+ `calibracao/subset90.txt` for Fase C), generated `filters/`, representativeness memo (means, KS, strata); stratify on `ape__cov_mop` quantiles + mop_unique>0 fraction (~70%) + LLM proxy, greedy optimization, leave-10-out stability check. GATE: |Δmean| ≤ 1.0pp on target metrics, KS n.s., `.apk`+`.apk.json` present for all. **Unblocks `gen_iteration.py` (hard-fails until `subset40.txt` lands).**
+- [x] 10.4 P4 (Fase 0.2) — produce `calibracao/nomatch_decomposition.md` (no-match causal decomposition; sizes H4, fixes the snapping-tolerance candidate for the `ape`-side J1). GATE: ≥90% of calls classified unambiguously. Feeds J1 (`ape` repo, gate G2 — external to gh88).
 
 ## 11. Phase A campaign — `cala` (methodology P7)
 
