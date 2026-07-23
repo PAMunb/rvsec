@@ -75,3 +75,42 @@
 - [x] 9.1 Implement `experimento-cal/scripts/status.py`: DERIVE the campaign position from `calibracao/journal.jsonl` + `iterN/` artifacts + `phases/*.json` (never a hand-maintained file, INV-CAL-14); per-iteration 8-state loop marked done/current/pending (done = journal transition corroborated by the state's expected artifact; journal↔artifact inconsistency flagged), pending human gate G1–G4, next action (script to run), cross-iteration summary (phase, DECIDE verdict, promoted arms); read-only
 - [x] 9.2 Add `experimento-cal/tests/test_status.py`: fixture journal + `iter*/` dirs asserting current-state/next-action/gate derivation and the journal↔artifact inconsistency flag
 - [x] 9.3 Update `experimento-cal/README.md` "The loop" with the `status.py` acompanhamento step (how a session answers "where are we / what's next" without reconstructing by hand)
+
+<!-- Groups 1-9 above = scaffold + arms (the deterministic tooling; all committed in 92592419).
+     Groups 10-13 below = the calibration campaign itself, tracked as milestone tasks. gh88 closes
+     (closes #88 + archive) only when Group 13 completes. Per-iteration loop state (CONFIG-GEN...DECIDE)
+     is DERIVED by status.py from calibracao/journal.jsonl (INV-CAL-14) — these tasks track phase
+     milestones and the human gates G1-G4, never the loop states (a hand-maintained loop status drifts). -->
+
+## 10. Fase 0 — offline campaign inputs (methodology P1–P4)
+
+- [x] 10.1 P1 (Fase 0.3) — spec harmonization + selftest (done; methodology §P1, GATE selftest 100%)
+- [x] 10.2 P2 (Fase 0.4) — power analysis: MDEs per metric/n, Fase C n=80–100, SESOI 2.0pp pre-registered in plan §5-0.4 (done 2026-07-21; pre-registration GATE met)
+- [ ] 10.3 P3 (Fase 0.1) — produce `calibracao/subset40.txt` (+ `calibracao/subset90.txt` for Fase C), generated `filters/`, representativeness memo (means, KS, strata); stratify on `ape__cov_mop` quantiles + mop_unique>0 fraction (~70%) + LLM proxy, greedy optimization, leave-10-out stability check. GATE: |Δmean| ≤ 1.0pp on target metrics, KS n.s., `.apk`+`.apk.json` present for all. **Unblocks `gen_iteration.py` (hard-fails until `subset40.txt` lands).**
+- [ ] 10.4 P4 (Fase 0.2) — produce `calibracao/nomatch_decomposition.md` (no-match causal decomposition; sizes H4, fixes the snapping-tolerance candidate for the `ape`-side J1). GATE: ≥90% of calls classified unambiguously. Feeds J1 (`ape` repo, gate G2 — external to gh88).
+
+## 11. Phase A campaign — `cala` (methodology P7)
+
+<!-- Loop CONFIG-GEN→PRE-FLIGHT→SMOKE→RUN+MONITOR→CONSOLIDATE→VERIFY→ANALYZE→DECIDE runs via the
+     scaffold scripts; status.py derives per-iteration progress. These tasks = the phase milestone + G3. -->
+
+- [ ] 11.1 G3 — human launch approval for the Phase-A run (agent prepares `gen_iteration` → `preflight` PASS → smoke PASS and requests go; GPU + emulator only after explicit go-ahead)
+- [ ] 11.2 Execute Phase A through DECIDE → `calibracao/cala_decision.md`: bootstrap-CI ranking vs ANC1/ANC2, gates applied (proxy → ranking → prediction-vs-observed → determinism), 2–3 survivors promoted, Phase-B hypotheses/predictions **pre-registered** (screening SELECTS, never concludes by p-value)
+- [ ] 11.3 VERIFY verdict `admissible` + journal complete for the Phase-A iteration(s) (independent re-derivation gates pass; provenance recorded in `calibracao/journal.jsonl`)
+
+## 12. Phase B campaign — `calb` (methodology P9)
+
+<!-- Depends on the ape-side J1–J4 jar (P8, gate G2 — tracked in the `ape` repo, external to gh88).
+     Phase B bind-mounts the audited ape-rv.jar from iterN/artifacts/ onto the same 0.9.3 image. -->
+
+- [ ] 12.1 Define `cal_b*` arms in `get_variants()` from the Phase-A survivors (same `LLM_ARM_KEYS` guard, same `sata_mop_act_frontier` substrate); extend the aperv delta-spec calibration tier + guard tests in the same commit
+- [ ] 12.2 G3 — human launch approval for the Phase-B run (jar sha256 recorded in the iteration manifest; diff bytecode-audited per the cmp_llm standard)
+- [ ] 12.3 Execute Phase B through DECIDE → `calibracao/calb_decision.md`: final candidate config + Phase-C **pre-registration**
+- [ ] 12.4 (optional) P10 micro-Optuna (R3) — only if P10 is approved; a separate change `gh<N>-cal-optuna-micro`, external to gh88
+
+## 13. Phase C campaign — `calc` confirmation (methodology P11) + close-out
+
+- [ ] 13.1 G3 — human launch approval for the Phase-C confirmation run (n=80–100, `subset90.txt`, pre-registered one-sided tests, SESOI 2.0pp)
+- [ ] 13.2 Execute Phase C through DECIDE → `calibracao/calc_decision.md`: GO / NO-GO / INCONCLUSIVE verdict (confirmation APPLIES the pre-registered criteria and STOPS)
+- [ ] 13.3 G4 — human ratification of the final verdict and the final-experiment (181-APK) config
+- [ ] 13.4 Close-out: final commit `closes #88`; archive the change via `/opsx:archive`

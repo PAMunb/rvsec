@@ -24,7 +24,9 @@ This change merges the methodology's R1 (`cal-llm-arms`) and R2 (`cal-experiment
   - **decide + journal**: `iterN/decision.md` template encoding the declarative per-phase rules (screening promotes top-k, never concludes by p-value); append-only `calibracao/journal.jsonl` with one record per state transition (timestamp, iteration, state, artifact, hash).
   - **status (acompanhamento)**: `status.py` derives the current campaign position from the journal + `iterN/` artifacts + phase configs (never a hand-maintained file) — per-iteration done/current/pending across the eight states, the pending human gate, the next action, and a cross-iteration decision summary. This is what makes the agent-driven loop trackable: any session answers "where are we / what's next" without reconstructing state by hand.
 
-Out of scope: R3 (micro-Optuna driver), J1–J4 (`ape` repo changes, human gate G2), Phase 0 offline analyses (P1–P4 produce docs, not code), and running any experiment.
+This change is also the calibration campaign's **tracking vehicle**: every phase — Fase 0 (subset + no-match inputs), Phase A (`cala`), Phase B (`calb`), Phase C (`calc`) — is registered as a task in `tasks.md`, which serves as the campaign management checklist, and the change closes only when the calibration concludes (final-experiment config ratified at gate G4). The per-iteration loop state (CONFIG-GEN→DECIDE) stays DERIVED by `status.py` from the journal (INV-CAL-14); the tasks track phase milestones and the human gates G1–G4, never the loop states (a hand-maintained loop status would drift from the artifacts).
+
+Out of scope: R3 (micro-Optuna driver — optional, its own change if P10 is approved) and J1–J4 (`ape` repo code changes, human gate G2 — tracked in the `ape` repo; Phase B consumes their locally built, bytecode-audited jar as an external dependency, not as gh88 code).
 
 ## Capabilities
 

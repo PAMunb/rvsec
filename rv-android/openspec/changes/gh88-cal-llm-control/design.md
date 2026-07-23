@@ -90,11 +90,12 @@ Directory split: `experimento-cal/` is the self-contained experiment folder (scr
 - Make Phase A launchable end-to-end up to gate G3 (launch approval) with zero hand-assembled configuration.
 - Every number that feeds a decision is re-derivable: manifest ↔ composes ↔ variants audited before launch; consolidated CSVs re-derived by an independent code path after run.
 - Provenance: any figure cited later traces to a raw logcat via `journal.jsonl` + `iterN/` snapshots.
+- Serve as the calibration campaign's tracking vehicle: `tasks.md` registers every phase (Fase 0, A, B, C) as a milestone with its human gate, and the change closes only when the calibration concludes (final-181 config ratified at G4). Per-iteration loop state stays DERIVED by `status.py` (INV-CAL-14); the tasks track milestones and gates, not loop states.
 
 **Non-Goals:**
 - No state-machine daemon; transitions are agent-driven (methodology §3, gates G1–G4).
 - No changes to `rv-platform`/`rv-experiment`/`rv-tools`; the scaffold consumes their CLIs. No platform→tool feedback channel.
-- No `ape` repo changes (J1–J4, gate G2); no micro-Optuna driver (R3); no Fase 0 analyses; no experiment execution in this change.
+- No `ape` repo code changes (J1–J4, gate G2 — tracked in the `ape` repo); no micro-Optuna driver (R3). The scaffold *scripts* never launch experiments (launch is the agent's gated action at G3); campaign *execution* is tracked as milestone tasks (groups 10–13), never automated.
 - Phase-B arm variants (`cal_b*`) are NOT pre-defined — they depend on Phase-A survivors. They will be added to `get_variants()` under the same `LLM_ARM_KEYS` guard and deployed via the existing snapshot+bind-mount mechanism.
 
 ## Decisions
@@ -192,7 +193,7 @@ journal.py append --state STATE --iter N --artifact PATH
 | Unit (aperv-tool) | `cal_*` dicts vs plan §6 table; `LLM_ARM_KEYS` guard; new mappings | extend `modules/aperv-tool/tests/test_aperv_tool.py`; CI flags `--import-mode=importlib -o "addopts="` |
 | Unit (scaffold) | generator/preflight/smoke/consolidate/verify/stats/journal on synthetic fixtures (mini results tree with 2 arms × 2 APKs, crafted logcats/traces/tasks.json incl. a deliberate mismatch case) | `experimento-cal/tests/` via pytest with the same CI flags (run manually; not wired into module CI) |
 | Integration (dry) | `gen_iteration.py` on the real `phases/cala.json` + real `get_variants()` → `preflight.py` PASS with 11 identities × subset × reps | executed as part of change verification (no containers, no emulator, no experiment) |
-| Live | smoke/run/monitor | OUT of this change — Phase A execution, gated by G3 |
+| Live | smoke/run/monitor | Phase A/B/C execution — tracked as campaign milestone tasks (groups 11–13), each gated by G3; not part of scaffold unit/integration testing |
 
 ## Open Questions
 
