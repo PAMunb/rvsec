@@ -100,6 +100,9 @@ None.
 - `core`: the `RvErrorLog` written schema gains `source`, and the relationship between
   `unique_msg` (5-part, event granularity) and the 4-part analysis key is stated explicitly
   (touches INV-CORE-25 and the `RvErrorLog` data contract).
+- `platform`: the `errors.csv` column set gains `source` after `method` (touches the
+  "Result Generation (FR14)" requirement's "Errors CSV Format" scenario and INV-PLT-19, whose
+  byte-identical-header clause must be narrowed to the diagnostic feature it was written for).
 
 ## Impact
 

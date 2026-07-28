@@ -245,6 +245,61 @@ class TestErrorsCSV:
             reader = list(csv.reader(f))
         assert len(reader) == 2  # header + 1 reconstructed error
 
+    def test_errors_csv_header_carries_source_after_method(self, tmp_path):
+        """gh89: the column set is a contract shared with rvsec-dataset and the
+        ase-journal analysis scripts, so it is asserted exactly rather than loosely.
+        `source` sits after `method` — identity fields first, then evidence."""
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([], results_dir)
+        processor._generate_errors_csv([])
+
+        with open(os.path.join(results_dir, "errors.csv")) as f:
+            header = next(csv.reader(f))
+
+        assert header == [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg",
+        ]
+
+    def test_errors_csv_row_carries_source(self, tmp_path):
+        """Two violations of one misuse at different lines: same unique_msg, and the
+        line each occurred at is recoverable from its own column."""
+        errors = [
+            {
+                "class_full_name": "okio.ByteString",
+                "method": "digest$okio",
+                "source": f"ByteString.kt:{line}",
+                "spec": "MessageDigestSpec",
+                "error_type": "MessageDigest",
+                "message": "found MD5",
+                "unique_msg": "okio.ByteString:::digest$okio:::MessageDigestSpec:::MessageDigest:::found MD5",
+                "time_since_task_start": 5,
+            }
+            for line in (83, 84)
+        ]
+        task = _make_completed_task(repository=_make_mock_repository(errors=errors))
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_errors_csv([task])
+
+        with open(os.path.join(results_dir, "errors.csv")) as f:
+            rows = list(csv.DictReader(f))
+
+        assert [r["source"] for r in rows] == ["ByteString.kt:83", "ByteString.kt:84"]
+        assert len({r["unique_msg"] for r in rows}) == 1
+        assert {r["class"] for r in rows} == {"okio.ByteString"}
+        assert {r["method"] for r in rows} == {"digest$okio"}
+
     def test_errors_csv_empty_when_no_repository_no_logcat(self, tmp_path):
         """No repository and no logcat → header-only errors.csv."""
         task = _make_completed_task()
@@ -368,7 +423,12 @@ class TestAppEventsCSV:
 
     def test_existing_csv_headers_unchanged(self, tmp_path):
         """INV-PLT-19: generating diagnostics does not alter the coverage/errors/
-        summary headers (byte-identical to baseline)."""
+        summary headers.
+
+        The `source` column asserted below is gh89's, not the diagnostic feature's — the
+        invariant is that *diagnostics* add no column to these three files, and it still
+        holds. Every diagnostic field lives in `app_events.csv` alone.
+        """
         repo = _make_mock_repository(
             method_calls=[],
             errors=[],
@@ -397,6 +457,7 @@ class TestAppEventsCSV:
             "spec",
             "class",
             "method",
+            "source",
             "message",
             "unique_msg",
         ]

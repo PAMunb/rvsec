@@ -1,5 +1,7 @@
 # rv_android_core/util/logging/constants.py
-import logging
+# NOTE: `logging` is re-exported through this module's namespace — manager.py
+# accesses stdlib logging as `constants.logging.*`. Do not remove this import.
+import logging  # noqa: F401
 
 ERROR = 40  # Same as logging.ERROR
 

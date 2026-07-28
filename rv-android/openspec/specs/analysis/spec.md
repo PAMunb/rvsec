@@ -370,10 +370,13 @@ rv-screen-parser:
 - **INV-ANA-36**: `MatchPolicy` is an attribute of the source / target, never a CLI-level override. No `--match-mode` or equivalent flag exists.
 - **INV-ANA-37**: After C1f rename, the monorepo MUST NOT contain references to the legacy field names `reachesMop`, `directlyReachesMop`, `mopMethods`, `handlerReachesMop`, `handlerDirectlyReachesMop`, `reaches_mop`, `directly_reaches_mop`, `handler_reaches_mop`, `handler_directly_reaches_mop`, `target_reaches_mop`, `cov_reaches_mop`, `mop_methods` (Pydantic field), or the class name `MopMethod` outside of these documented exclusions: `MopSpecsTargetSource.java`, CLI flag `--mop-dir`, config attribute `mop_dir`, published CSVs under `results/` and `experimento-*/`, archived OpenSpec deltas, historical commit messages, and `modules/rv-agent/` (deprecated per CLAUDE.md — excluded by directory). The gate MUST scan `rvsec-gator/`, `modules/` (minus `rv-agent/`), and `scripts/`. Verified by `G_no_legacy_mop` CI gate.
 - **INV-ANA-38**: GATOR Jimple definition-resolution helpers (`definitionRhs`, `resolveInt`, `resolveStr`) MUST live in `presto.android.util.JimpleDefUtils` only. `MenuExtractor`, `SpinnerItemExtractor`, and any future consumer MUST call them via the helper class.
-- **INV-ANA-46**: `parse_logcat_line` MUST retain its signature `Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]` and its existing behavior for RVSEC/RVSEC-COV lines (the RVSEC/COV golden output MUST be byte-identical to baseline).
+- **INV-ANA-46**: `parse_logcat_line` MUST retain its signature `Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]` and its existing behavior for RVSEC/RVSEC-COV lines, with one stated exception: RVSEC lines whose `class`/`method` fields are in frame form now yield normalized values. The golden output MUST be byte-identical to baseline for every line that does not carry a frame-form value; for the lines that do, the golden baseline is re-frozen and the diff MUST be confined to the `class_full_name`, `method` and `source` fields of those lines.
 - **INV-ANA-47**: Tag recognition MUST match the parsed threadtime *tag field*, never a substring of the message; a `RVSEC-COV` line whose message contains `isAndroidRuntime()` MUST NOT produce a diagnostic event.
 - **INV-ANA-48**: A multi-line crash block sharing one `(tag, pid, tid)` MUST yield exactly one `RvDiagnosticEvent`; lines that do not match the threadtime regex (e.g. `--------- beginning of crash`) MUST be skipped without error.
 - **INV-ANA-49**: For every entry registered by `parse_logcat_file` when `tool_execution_start` is non-`None` and the entry has a parseable `time_occurred`, `time_since_task_start` MUST equal `max(0, int((time_occurred − tool_execution_start).total_seconds()))` — identical to the live `CoverageTracker._process_line` arithmetic, including the clamp to zero for entries buffered from before tool start. When `tool_execution_start` is `None`, `time_since_task_start` MUST remain `0` and the degraded state MUST be logged; no component may substitute a fabricated value for it downstream.
+- **INV-ANA-50**: `parse_logcat_line` MUST NOT return an `RvErrorLog` whose `class_full_name` or `method` ends with a `(<file>:<line>)` group. Any such value present in the emitted message MUST be normalized before the record is constructed.
+- **INV-ANA-51**: Normalization MUST be idempotent and MUST be a no-op on well-formed values: for any value `v` that does not end with a `(<file>:<line>)` group, `normalize(v) == v` byte-for-byte, and for any value at all, `normalize(normalize(v)) == normalize(v)`.
+- **INV-ANA-52**: The normalization guard MUST be anchored on the trailing group only. It MUST NOT constrain the prefix, because real method names in the corpus contain spaces and nested parentheses. Verified by the corner-case corpus, which includes `…CryptoMigrationV2CompatibilityTest.V2-header files (3xx format) are still decryptable after reading a V1-header file(CryptoMigrationV2CompatibilityTest.kt:131)`.
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -1370,3 +1373,97 @@ emitted events via `LogcatRepository.register_diagnostic_event`.
 - **WHEN** the input contains `I RVSEC-COV: <com.foo.Utils: boolean isAndroidRuntime()>`
 - **THEN** no diagnostic event is produced (the tag field is `RVSEC-COV`, not `AndroidRuntime`)
 
+
+### Requirement: Frame-Form Normalization of Violation Class and Method (FR11, FR13)
+
+The `LogcatParser` MUST normalize violation records whose `class` or `method` field carries a
+whole stack frame instead of a class name and a method name. A value is in **frame form** when
+it ends with a parenthesised group of the shape `(<file>:<line>)`. When a value is in frame
+form, the parser MUST strip that trailing group and split the remainder at its **last** dot,
+binding the part before the dot to `class_full_name` and the part after it to `method`, and
+MUST bind the stripped group's contents to `source`.
+
+The guard MUST test the trailing group only and MUST place no constraint on what precedes it.
+Method names in the observed corpus contain `$` (Kotlin internal mangling, lambdas, Robolectric
+shadows), `-` (Kotlin inline-class mangling), spaces (Kotlin backtick test names) and nested
+parenthesis pairs; a guard that constrains the prefix silently fails on roughly half of them.
+
+Normalization MUST be idempotent and MUST leave well-formed values byte-identical, so that
+running the parser over output from a corrected monitor produces exactly the same records as
+running it over output from an uncorrected one. The parser MUST apply normalization to the JCA
+comma-separated format (Format 2), which is the only format whose class and method fields
+originate from the Java `ErrorSummary` and can therefore arrive in frame form.
+
+This requirement exists because APKs are instrumented once and replayed across many runs: an
+APK already instrumented with an uncorrected monitor jar keeps emitting frame-form values
+regardless of any upstream fix, and normalizing at parse time is the only protection for data
+produced from those existing artifacts.
+
+#### Scenario: Kotlin `$`-mangled internal method in frame form
+
+- **WHEN** an `RVSEC` line carries the JCA format with `class` and `method` both equal to
+  `okio.ByteString.digest$okio(ByteString.kt:83)`
+- **THEN** `parse_logcat_line()` MUST return an `RvErrorLog` with
+  `class_full_name` = `okio.ByteString`
+- **AND** `method` = `digest$okio`
+- **AND** `source` = `ByteString.kt:83`
+- **AND** neither `class_full_name` nor `method` MUST contain a parenthesis
+
+#### Scenario: Two adjacent source lines collapse to one unique key
+
+- **WHEN** two `RVSEC` lines from the same APK carry
+  `okio.ByteString.digest$okio(ByteString.kt:83)` and
+  `okio.ByteString.digest$okio(ByteString.kt:84)` under spec `MessageDigestSpec`
+- **THEN** both MUST yield `class_full_name` = `okio.ByteString` and `method` = `digest$okio`
+- **AND** the two records MUST agree on the `(class_full_name, method, spec)` triple, so that
+  the `(apk, class, method, spec)` key counts them as one unique misuse
+- **AND** their `source` values MUST differ (`ByteString.kt:83` and `ByteString.kt:84`)
+
+#### Scenario: Kotlin inline-class hyphen mangling
+
+- **WHEN** the frame-form value is `io.ktor.util.DigestImpl.plusAssign-impl(CryptoJvm.kt:51)`
+- **THEN** `class_full_name` MUST be `io.ktor.util.DigestImpl` and `method` MUST be
+  `plusAssign-impl`
+
+#### Scenario: Robolectric shadow with double `$$`
+
+- **WHEN** the frame-form value is
+  `android.os.SystemProperties.$$robo$$android_os_SystemProperties$digestOf(SystemProperties.java:350)`
+- **THEN** `class_full_name` MUST be `android.os.SystemProperties`
+- **AND** `method` MUST be `$$robo$$android_os_SystemProperties$digestOf`
+
+#### Scenario: Lambda with `$` in both class and method
+
+- **WHEN** the frame-form value is
+  `io.matthewnelson.kmp.tor.runtime.FileID$Companion.createFID$lambda$0(FileID.kt:57)`
+- **THEN** `class_full_name` MUST be `io.matthewnelson.kmp.tor.runtime.FileID$Companion`
+- **AND** `method` MUST be `createFID$lambda$0`
+
+#### Scenario: Backtick test name containing spaces and nested parentheses
+
+- **WHEN** the frame-form value is
+  `dev.leonlatsch.photok.CryptoMigrationV2CompatibilityTest.V2-header files (3xx format) are still decryptable after reading a V1-header file(CryptoMigrationV2CompatibilityTest.kt:131)`
+- **THEN** `class_full_name` MUST be `dev.leonlatsch.photok.CryptoMigrationV2CompatibilityTest`
+- **AND** `method` MUST be
+  `V2-header files (3xx format) are still decryptable after reading a V1-header file`
+- **AND** `source` MUST be `CryptoMigrationV2CompatibilityTest.kt:131`
+
+#### Scenario: Constructor and static initializer
+
+- **WHEN** the frame-form value is `com.example.Crypto.<init>(Crypto.java:15)`
+- **THEN** `class_full_name` MUST be `com.example.Crypto` and `method` MUST be `<init>`
+- **AND** the same MUST hold for `<clinit>`
+
+#### Scenario: Well-formed record passes through untouched
+
+- **WHEN** an `RVSEC` line carries `class` = `okhttp3.internal.platform.Platform` and
+  `method` = `newSSLContext`, neither in frame form
+- **THEN** `class_full_name` MUST be `okhttp3.internal.platform.Platform` byte-identical
+- **AND** `method` MUST be `newSSLContext` byte-identical
+- **AND** no normalization log entry MUST be emitted
+
+#### Scenario: Normalization is idempotent
+
+- **WHEN** the normalization is applied twice to
+  `okio.ByteString.digest$okio(ByteString.kt:83)`
+- **THEN** the second application MUST return exactly what the first returned

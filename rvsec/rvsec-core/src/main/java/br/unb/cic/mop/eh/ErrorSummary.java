@@ -2,6 +2,24 @@ package br.unb.cic.mop.eh;
 
 import java.io.Serializable;
 
+/**
+ * One reported specification violation, reduced to the fields that identify it on the device:
+ * specification, error kind, class, method and source position.
+ *
+ * <p>
+ * <b>{@code location} participates in {@link #equals(Object)} and {@link #hashCode()}, and that
+ * is intentional.</b> In-JVM deduplication is therefore line-granular: a method violated at two
+ * different lines emits two records. Two reasons make this the right rule. It bounds logcat
+ * volume for a hot violated method without collapsing anything a reader would want back, and it
+ * is what makes the reported position carry information at all — a per-method record could only
+ * name one arbitrary line out of many.
+ *
+ * <p>
+ * The coarser identity — {@code (apk, class, method, spec)}, one <em>unique misuse</em> — is
+ * deliberately <em>not</em> computed here. It is applied downstream, where the records are
+ * aggregated. Coarsening inside the monitor would discard the line data before anyone could use
+ * it, and would not save the downstream aggregation anyway.
+ */
 public class ErrorSummary implements Serializable {
 	private static final long serialVersionUID = 1L;
 

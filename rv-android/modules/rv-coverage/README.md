@@ -24,6 +24,7 @@ The RV-Coverage module provides coverage tracking capabilities for Android appli
 
 #### Parsing Infrastructure
 - **LogcatParser**: Logcat parsing with real-time processing and structured data extraction (RVSEC and RVSEC-COV tags)
+- **DiagnosticEventParser**: Stateful multi-line assembly of application crashes, class-load `VerifyError`s and ANRs into diagnostic events, stored separately from coverage and violation data
 
 ### Integration Points
 

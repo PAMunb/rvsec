@@ -538,7 +538,15 @@ class ResultProcessorComponent:
         Generate detailed errors CSV file with monitored operations violations.
 
         Requirement "Result Generation (FR14)", Scenario "Errors CSV Format".
-        The 10-column header below is byte-identical to baseline (INV-PLT-19).
+
+        The header carries 11 columns: `source` sits after `method` so the row reads
+        identity first, then evidence — `spec, class, method, source, message`. It
+        records where the violation happened without letting the position into any
+        key, which is the whole point of gh89: a source line inside `class`/`method`
+        makes one misuse count once per line. Every known consumer (`rvsec-dataset`
+        `unittests/report.py` and `unittests/classify.py`, the `ase-journal` analysis
+        scripts) addresses columns by name, so appending a column is compatible; that
+        was verified, not assumed.
 
         Args:
             completed_tasks: List of completed tasks to process
@@ -562,6 +570,7 @@ class ResultProcessorComponent:
                         "spec",
                         "class",
                         "method",
+                        "source",
                         "message",
                         "unique_msg",
                     ]
@@ -610,6 +619,9 @@ class ResultProcessorComponent:
                     # Extract fields from error data
                     class_full_name = error.get("class_full_name", "")
                     method = error.get("method", "")
+                    # Empty only for a record serialized before `source` entered the
+                    # schema; the field itself has always existed on RvErrorLog.
+                    source = error.get("source", "")
                     spec = error.get("spec", "")
                     error_type = error.get("error_type", "")
                     message = error.get("message", "")
@@ -634,6 +646,7 @@ class ResultProcessorComponent:
                             spec,
                             class_full_name,
                             method,
+                            source,
                             message,
                             unique_msg,
                         ]

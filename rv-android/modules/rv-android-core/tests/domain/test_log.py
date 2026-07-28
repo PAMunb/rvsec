@@ -161,24 +161,6 @@ class TestRvCoverageLog:
         assert sample_coverage_log.time_since_task_start == 0
         assert sample_coverage_log.original_msg == ""
 
-    def test_to_dict(self, sample_error_log):
-        """Test to_dict method"""
-        # Mock utils.datetime_to_milliseconds para um comportamento conhecido
-        with patch(
-            "rv_android_core.domain.log.utils.datetime_to_milliseconds",
-            return_value=123456789,
-        ):
-            dic = sample_error_log.to_dict()
-
-            assert dic["spec"] == "SecuritySpec"
-            assert dic["error_type"] == "PERMISSION_VIOLATION"
-            assert dic["class_full_name"] == "com.example.app.MainActivity"
-            assert dic["method"] == "accessCamera"
-            assert dic["message"] == "Attempted to access camera without permission"
-            assert dic["time_occurred"] == 123456789
-            assert dic["time_since_task_start"] == 0
-            assert "unique_msg" in dic
-
     def test_to_dict(self, sample_coverage_log):
         """Test to_dict method"""
         # Mock utils.datetime_to_milliseconds para um comportamento conhecido
@@ -312,3 +294,105 @@ def test_tag_constants():
     """Test tag constants"""
     assert TAG_RVSEC == "RVSEC"
     assert TAG_RVSEC_COV == "RVSEC-COV"
+
+
+class TestSourceIsPreservedButNotIdentifying:
+    """INV-CORE-40 (gh89): `source` reaches the written schema without entering any key.
+
+    The distinction being asserted is between excluding a field from the *identity* of a
+    violation and *discarding* it. Two occurrences of one misuse at different source lines
+    are one misuse — so the position must not identify a violation — but it is still the
+    most direct pointer to where the violation happened, and the evidence needed to audit a
+    frame-form normalization after a campaign has run.
+    """
+
+    @staticmethod
+    def _error(source):
+        return RvErrorLog(
+            spec="MessageDigestSpec",
+            error_type="MessageDigest",
+            class_full_name="okio.ByteString",
+            method="digest$okio",
+            source=source,
+            message="expecting one of {SHA-256} but found MD5.",
+        )
+
+    def test_to_dict_includes_source(self):
+        error = self._error("ByteString.kt:83")
+        assert error.to_dict()["source"] == "ByteString.kt:83"
+
+    def test_to_dict_carries_every_written_field(self):
+        """The dict is the row `errors.csv` is built from; a dropped key silently
+        empties a column."""
+        keys = set(self._error("ByteString.kt:83").to_dict())
+        assert keys == {
+            "spec",
+            "error_type",
+            "class_full_name",
+            "method",
+            "source",
+            "message",
+            "time_occurred",
+            "time_since_task_start",
+            "unique_msg",
+        }
+
+    def test_source_does_not_affect_identity(self):
+        """Adjacent lines 83 and 84 are one misuse, not two."""
+        first, second = self._error("ByteString.kt:83"), self._error("ByteString.kt:84")
+
+        assert first.unique_msg == second.unique_msg
+        assert first == second
+        assert hash(first) == hash(second)
+        assert "ByteString.kt" not in first.unique_msg
+
+    def test_source_does_not_affect_unique_error_count(self):
+        from rv_android_core.domain.coverage import LogcatRepository
+
+        repo = LogcatRepository()
+        repo.register_rv_error(self._error("ByteString.kt:83"))
+        repo.register_rv_error(self._error("ByteString.kt:84"))
+
+        assert len(repo.errors) == 2
+        assert len(repo.unique_errors) == 1
+
+    def test_round_trip_through_dict_preserves_source(self):
+        error = self._error("ByteString.kt:83")
+        assert RvErrorLog.from_dict(error.to_dict()).source == "ByteString.kt:83"
+
+    def test_distinct_offending_parameters_remain_distinct_events(self):
+        """INV-CORE-41: `unique_msg` counts at event granularity, and that is deliberate.
+
+        Two violations of the same method under the same spec whose messages name
+        different offending algorithms are two different misuses of that method, not one
+        counted twice — so `message` belongs in the key. The downstream
+        `(apk, class, method, spec)` analysis key coarsens them back to 1. Both counts are
+        correct at their own granularity, which is exactly why this must not be "fixed"
+        by dropping `message`.
+        """
+        from rv_android_core.domain.coverage import LogcatRepository
+
+        def violation(message):
+            return RvErrorLog(
+                spec="MessageDigestSpec",
+                error_type="MessageDigest",
+                class_full_name="com.apk.axml.APKParser",
+                method="getCertificateFingerprint",
+                source="APKParser.java:120",
+                message=message,
+            )
+
+        sha1 = violation("expecting one of {SHA-256, SHA-384, SHA-512} but found SHA1.")
+        md5 = violation("expecting one of {SHA-256, SHA-384, SHA-512} but found MD5.")
+
+        assert sha1.unique_msg != md5.unique_msg
+        assert sha1 != md5
+
+        repo = LogcatRepository()
+        repo.register_rv_error(sha1)
+        repo.register_rv_error(md5)
+        assert len(repo.unique_errors) == 2
+
+        # The analysis key deliberately drops error_type and message.
+        analysis_keys = {(e.class_full_name, e.method, e.spec) for e in (sha1, md5)}
+        assert len(analysis_keys) == 1

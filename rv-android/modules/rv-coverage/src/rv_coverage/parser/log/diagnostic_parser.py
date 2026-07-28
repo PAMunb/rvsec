@@ -29,7 +29,6 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from rv_android_core.domain.log import RvDiagnosticEvent
-
 from rv_coverage.parser.log.logcat_parser import (
     _convert_to_datetime,
     _parse_logcat_line,

@@ -128,7 +128,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 ### Output
 
 - `coverage.csv` -- Per-method coverage data with progressive metrics; columns: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method`
-- `errors.csv` -- Monitored operations violations; columns: `apk, rep, timeout, tool, time, spec, class, method, message, unique_msg`
+- `errors.csv` -- Monitored operations violations; columns: `apk, rep, timeout, tool, time, spec, class, method, source, message, unique_msg`
 - `summary.csv` -- Aggregate metrics per task; columns: `apk, rep, timeout, tool, cov_act, cov_method, cov_rv_method, errors`
 - `results.json` -- Hierarchical JSON keyed by `apk > repetition > timeout > tool`, containing summary metrics and monitored operations error details
 - `performance.csv` -- Task execution timing; columns vary by mode (basic: `apk, rep, timeout, tool, execution_time_seconds, task_state, monitoring_enabled, timestamp`; detailed: `apk, rep, timeout, tool, metric_name, metric_value, metric_unit, metric_timestamp, task_id, context_info`)
@@ -189,13 +189,15 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 - **INV-PLT-18**: Reconstructing a resumed task MUST produce CSV-equivalent results to the same task processed live. Formally, for any completed task `t`, the metrics computed from `Task.from_dict(t.to_dict())` followed by `_reconstruct_repository_from_logcat` (with the logcat and co-located static-analysis JSON present) MUST equal `t.repository.calculate_metrics().to_dict()` for every coverage and error field, within a rounding tolerance of `0.01`. This is the round-trip equivalence that any future change dropping a runtime field required for reconstruction MUST break. Additionally, when one or more resumed tasks have a non-empty logcat but reconstruct to zero per-method coverage (static data unresolved), `ResultProcessorComponent` MUST emit a single prominent aggregate WARNING reporting `N/M` affected tasks — the corruption MUST NOT be silent.
 
-- **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv`, and `summary.csv` MUST remain byte-identical to baseline; the diagnostic feature MUST NOT add columns to them.
+- **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` MUST NOT be changed by the diagnostic-events feature — every diagnostic field belongs to `app_events.csv` alone. `errors.csv` carries exactly `apk, rep, timeout, tool, time, spec, class, method, source, message, unique_msg`; the `source` column is gh89's and is the only addition since the baseline. `coverage.csv` and `summary.csv` remain byte-identical to baseline.
 - **INV-PLT-20**: Diagnostic events MUST survive the resume reconstruction path — a task whose repository is rebuilt from its `.logcat` MUST still produce its `app_events.csv` rows.
 - **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set (no diagnostic tags passed).
 
 - **INV-PLT-22**: The `rv-platform run --timeouts` argument MUST be declared as a string and parsed into `List[int]` with the same rules as the rv-experiment CLI (comma split, whitespace trim, positive integers only, order preserved, no deduplication). Invalid input MUST abort with a CLI usage error before `PlatformConfig` construction.
 - **INV-PLT-23**: `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data, tool_execution_start=task.result.tool_execution_start)` whenever `task.result.tool_execution_start` is non-`None`, so reconstructed repositories carry the same `time_since_task_start` values the live `CoverageTracker` would have produced (analysis INV-ANA-49). When it is `None`, the component MUST log a warning for that task and proceed; the zeros in the output are then an explicit degraded state, not silent corruption.
 - **INV-PLT-24**: CSV writers MUST NOT fabricate `time` values. The `time` column of `coverage.csv`, `errors.csv`, and `app_events.csv` MUST be exactly the entry's `time_since_task_start` (with `0` representable, meaning first-second occurrence). Substituting row indices, counters, or any other synthesized value for missing or zero timing is prohibited — this extends the INV-PLT-18 live/resume round-trip equivalence to the `time` column: for any completed task with `tool_execution_start` persisted, the `time` column produced from `Task.from_dict(t.to_dict())` + reconstruction MUST equal the one produced from the live repository.
+- **INV-PLT-25**: The `source` column MUST NOT participate in any key, count or aggregate. Adding it MUST NOT change `total_errors`, `unique_errors`, `mop_errors_unique`, or any coverage metric, because `RvErrorLog.unique_msg`, `__eq__` and `__hash__` exclude it (core INV-CORE-40).
+- **INV-PLT-26**: No value written to the `class` or `method` column of `errors.csv` MUST end with a `(<file>:<line>)` group. The source position belongs to the `source` column alone (analysis INV-ANA-50, core INV-CORE-42).
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -603,8 +605,10 @@ The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `t
 #### Scenario: Errors CSV Format
 
 - **WHEN** `errors.csv` is generated for a completed task with monitored operations violations
-- **THEN** the header row MUST be: `apk, rep, timeout, tool, time, spec, class, method, message, unique_msg`
+- **THEN** the header row MUST be: `apk, rep, timeout, tool, time, spec, class, method, source, message, unique_msg`
 - **AND** each violation MUST produce one row
+- **AND** the `source` value MUST be the violation's `RvErrorLog.source` — the source position (`File.ext:NN`) where it occurred — written as-is, empty only when the emitter supplied none
+- **AND** `source` MUST NOT appear in `unique_msg`, so two violations of the same misuse at different source lines share one `unique_msg` and count as one unique error
 - **AND** the `time` value MUST be the violation's `time_since_task_start`, written as-is — a violation at second zero produces `0`, and no row index or counter is ever substituted (INV-PLT-24)
 - **AND** `unique_msg` MUST be constructed as `class:::method:::spec:::error_type:::message` if not already provided
 
