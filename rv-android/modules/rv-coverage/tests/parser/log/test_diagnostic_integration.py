@@ -36,15 +36,37 @@ class TestRvsecCovGolden:
 
         errors = [e for e, _ in baseline if e]
         coverages = [c for _, c in baseline if c]
-        # The fixture has 2 RVSEC violations (jca + generic) and 4 RVSEC-COV calls.
-        assert len(errors) == 2
+        # The fixture has 4 RVSEC violations (jca + generic + two frame-form, gh89) and
+        # 4 RVSEC-COV calls.
+        assert len(errors) == 4
         assert len(coverages) == 4
 
         repo = parse_logcat_file(str(FIXTURES / "rvsec_cov_golden.logcat"))
         # No static data → method calls are not registered, but errors are; the key
         # invariant is that NO diagnostic event is fabricated from RVSEC/COV lines.
         assert repo.get_diagnostic_events() == []
-        assert len(repo.errors) == 2
+        assert len(repo.errors) == 4
+
+    def test_frame_form_lines_are_normalized_and_collapse(self):
+        """INV-ANA-46 (amended, gh89): the golden baseline permits exactly one class of
+        diff — frame-form RVSEC lines now yield a split class/method and a `source`.
+
+        The two okio lines differ only in source position (83 vs 84). Before gh89 each
+        carried the whole frame in both identity fields and counted as its own misuse;
+        now they share one `unique_msg`, so 4 events register as 3 unique errors."""
+        repo = parse_logcat_file(str(FIXTURES / "rvsec_cov_golden.logcat"))
+
+        frame_form = [e for e in repo.errors if e.spec == "MessageDigestSpec"]
+        assert len(frame_form) == 2
+        assert {e.class_full_name for e in frame_form} == {"okio.ByteString"}
+        assert {e.method for e in frame_form} == {"digest$okio"}
+        assert {e.source for e in frame_form} == {
+            "ByteString.kt:83",
+            "ByteString.kt:84",
+        }
+
+        assert len(repo.errors) == 4
+        assert len(repo.unique_errors) == 3
 
     @pytest.mark.skipif(
         not glob.glob(str(_CMP_GLOB), recursive=True),

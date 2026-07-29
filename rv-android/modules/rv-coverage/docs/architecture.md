@@ -21,22 +21,29 @@ This module implements requirements from `openspec/specs/analysis/spec.md`.
 |-----------|-------------|----------------------|
 | INV-ANA-04 | CoverageTracker MUST log coverage metric updates when metrics change, and log MOP errors immediately | `_update_coverage_metrics()` uses change detection (`_data_changed_since_last_update` flag) and `_previous_metrics` comparison. MOP errors are logged in `_process_line()` via `self.logger.warning()` immediately. |
 | INV-ANA-05 | CoverageTracker MUST be thread-safe with RLock protection; background thread MUST be a daemon | `_reader_lock` (RLock) protects file reads. Thread is created with `daemon=True`. `_stop_event` (threading.Event) signals termination. |
-| INV-ANA-07 | LogcatParser MUST support modern (`<class: retType method(params)>`) and legacy (`class:::method:::params`) coverage formats | `_parse_coverage_message()` tries modern regex first, then legacy triple-colon split. Both produce valid `RvCoverageLog`. |
+| INV-ANA-07 | LogcatParser MUST support the Soot-signature (`<class: retType method(params)>`) and triple-colon (`class:::method:::params`) coverage formats | `_parse_coverage_message()` tries the Soot regex first, then the triple-colon split. Both produce valid `RvCoverageLog`. |
 | INV-ANA-08 | LogcatParser MUST support three error formats (JCA CSV, FSM `:::`, generic spec error); malformed messages return None with warning | `_parse_error_message()` tries generic spec error first, then JCA CSV (6+ fields), then FSM triple-colon. Unmatched messages log a warning and return `None`. |
+| INV-ANA-46 | `parse_logcat_line` MUST keep its `Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]` signature and RVSEC/RVSEC-COV behavior | Diagnostics are parsed by a separate stateful component rather than widening the return type (ADR-001). The only sanctioned behavioral exception is frame-form normalization (INV-ANA-50). |
+| INV-ANA-47 | Diagnostic tags MUST be matched on the parsed tag field, not a line substring | `DiagnosticEventParser` classifies using the `tag` field produced by `_parse_logcat_line()`, so a substring such as `isAndroidRuntime()` cannot trigger a false positive. |
+| INV-ANA-50 | `parse_logcat_line` MUST NOT return an `RvErrorLog` whose `class_full_name` or `method` ends with a `(<file>:<line>)` group | `_normalize_frame()` runs inside `_parse_error_message()` before the `RvErrorLog` is constructed, on the JCA CSV branch (the only branch whose fields arrive pre-split from Java). |
+| INV-ANA-51 | Normalization MUST be idempotent and a byte-identical no-op on well-formed values | `_FRAME_SUFFIX` requires the trailing group to end in `:<digits>`, which a well-formed class or method never does. No match returns `None`, and the caller leaves its fields untouched. |
+| INV-ANA-52 | The normalization guard MUST be anchored on the trailing group only, never constraining the prefix | `_FRAME_SUFFIX = r"\(([^()]+:\d+)\)$"` — the prefix is unconstrained because real method names in the corpus (Kotlin backtick test names) contain spaces and their own parenthesis pairs. |
 | INV-ANA-15 | Coverage metrics MUST use reachability data as denominator; without it, only absolute counts are valid | `CoverageTracker` and `CoverageAnalyzer` initialize `LogcatRepository` from `StaticAnalysisData.classes` when available. `CoverageCalculationMode` degrades to `RUNTIME_ONLY`/`FALLBACK_MODE` without static data. |
 
 ### Specification Scenarios
 
 Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture:
 - **Real-time coverage tracking with CoverageTracker**: Validates the daemon thread lifecycle (start, initial drain, seek-to-end, tail loop with adaptive sleep) -- traces through `CoverageTracker.start()` -> `_track_coverage()` -> `parse_logcat_line()` -> `LogcatRepository`
-- **Coverage log parsing (modern format)**: Validates `RVSEC-COV` parsing with Soot signature format -- traces through `LogcatParser._parse_coverage_message()` -> `RvCoverageLog`
-- **Coverage log parsing (legacy format)**: Validates backward-compatible `:::` format -- traces through `LogcatParser._parse_coverage_message()`
+- **Coverage log parsing (Soot signature format)**: Validates `RVSEC-COV` parsing with the angle-bracket signature -- traces through `LogcatParser._parse_coverage_message()` -> `RvCoverageLog`
+- **Coverage log parsing (triple-colon format)**: Validates the `:::` layout emitted by APKs carrying an older Coverage aspect -- traces through `LogcatParser._parse_coverage_message()`
 - **Reachability data used as coverage denominator**: Validates that `method_coverage` and `mop_method_coverage` use static analysis as denominator -- traces through `CoverageTracker._initialize_from_static_data()` -> `LogcatRepository.calculate_metrics()`
 - **Coverage without reachability data (fallback)**: Validates graceful degradation -- traces through `CoverageAnalyzer._determine_calculation_mode()` -> `RUNTIME_ONLY`/`FALLBACK_MODE`
 - **Standard (JCA) error format parsing**: Validates CSV-based error parsing -- traces through `LogcatParser._parse_error_message()`
 - **FSM error format parsing**: Validates triple-colon error parsing
 - **Generic error format parsing**: Validates spec error with source location parsing
 - **Malformed error message handling**: Validates that unparseable messages return `None` with warning log
+- **Frame-form normalization of violation records**: Validates that a whole `StackTraceElement` arriving in the class and method fields is recovered into `(class, method, source)` -- traces through `LogcatParser._parse_error_message()` -> `_normalize_frame()` -> `RvErrorLog`
+- **Multi-line diagnostic event assembly**: Validates that crash, `VerifyError` and ANR lines are grouped by `(tag, pid, tid)` and closed on key change or end of input -- traces through `DiagnosticEventParser.feed_line()` / `flush()` -> `LogcatRepository.diagnostic_events`
 
 ## Key Architectural Decisions
 
@@ -68,15 +75,29 @@ The tail loop uses a shorter sleep interval (0.5s) when data is flowing and a lo
 
 ### ADR-5: Multi-Format Parser with Ordered Fallback
 
-`LogcatParser._parse_error_message()` tries three formats in a specific order: generic spec error, JCA CSV, FSM triple-colon. `_parse_coverage_message()` tries modern angle-bracket format, then legacy triple-colon.
+`LogcatParser._parse_error_message()` tries three formats in a specific order: generic spec error, JCA CSV, FSM triple-colon. `_parse_coverage_message()` tries the Soot angle-bracket format, then triple-colon.
 
-**Why**: Three error formats exist because different RV-Monitor/RVSEC versions emit different message structures. The order matters: the generic spec error format (ending with "went into an error state.") is tried first because the JCA CSV split would match generic messages too, producing garbled fields. The modern Soot-signature format for coverage is tried before legacy because it is more specific (angle-bracket delimiters vs. triple-colon, which could appear in class names). This satisfies INV-ANA-07 (support modern and legacy coverage formats) and INV-ANA-08 (support three error formats; malformed messages return None with warning).
+**Why**: Three error formats exist because different RV-Monitor/RVSEC versions emit different message structures, and an APK is instrumented once but replayed across many runs, so older layouts never fully disappear from the corpus. The order matters: the generic spec error format (ending with "went into an error state.") is tried first because the JCA CSV split would match generic messages too, producing garbled fields. The Soot-signature coverage format is tried before triple-colon because it is more specific (angle-bracket delimiters vs. triple-colon, which could appear in class names). This satisfies INV-ANA-07 (support both coverage formats) and INV-ANA-08 (support three error formats; malformed messages return None with warning).
 
 ### ADR-6: Reachability Data as Coverage Denominator
 
 Coverage percentages are computed as `called_methods / total_reachable_methods`. Without reachability data from static analysis, only absolute counts are valid (INV-ANA-15).
 
 **Why**: Using "all methods in the APK" as the denominator would include unreachable dead code, framework methods, and library code, producing artificially low coverage percentages (often <1%). The reachability analysis in rv-static-analysis identifies which methods are actually reachable from framework entry points, providing a meaningful denominator. When static data is unavailable (analysis timed out with no reachability section), `CoverageCalculationMode` degrades gracefully to `RUNTIME_ONLY` mode, reporting only absolute counts.
+
+### ADR-7: Separate Stateful Parser for Diagnostic Events
+
+Diagnostic events (crashes, `VerifyError`s, ANRs) are assembled by a distinct `DiagnosticEventParser` holding multi-line state, rather than by widening `parse_logcat_line()` into a three-way return.
+
+**Why**: RVSEC/RVSEC-COV parsing is a pure "one line to at most one record" mapping, while a diagnostic event spans many lines that must be grouped by `(tag, pid, tid)` and closed when the key changes. Folding stateful assembly into the stateless function would have changed a re-exported public signature and put churn on the exact code path whose output every experiment baseline depends on. Keeping the two orthogonal makes the non-regression guarantee hold by construction, at the cost of a second per-line pass and the caller's obligation to `flush()` at end of input. The full option analysis is recorded in `docs/adr/ADR-001-separate-stateful-diagnostic-parser.md`.
+
+### ADR-8: Frame-Form Normalization at Parse Time
+
+When the Java `ErrorSummary` cannot split a `StackTraceElement` into class and method, it copies the entire frame into both fields. `_normalize_frame()` recovers the correct triple in the Python parser instead of relying solely on the upstream fix.
+
+**Why**: Two reasons, one about correctness and one about reach. Correctness: the source position rides inside the `(apk, class, method, spec)` key that every downstream analysis treats as a violation's identity, so a single misuse gets counted once per line number it occurs at (issue #89). Reach: an APK is instrumented once and replayed across many runs, so every APK already built with an uncorrected monitor jar keeps emitting the broken form regardless of what the Java does afterwards — a parser-side recovery is what makes existing corpora usable.
+
+The algorithm deliberately avoids describing what a method name looks like, since that is precisely the assumption that failed upstream. It strips the trailing `(<file>:<line>)` group and splits the remainder at its last dot, relying only on two facts that always hold: the class part is a dotted path, and a method name contains no dot. Requiring the trailing group to end in `:<digits>` is what separates a source position from a parenthesis belonging to the name, so a well-formed value can never be truncated by accident (INV-ANA-51). A frame-shaped value with no dot at all cannot come from a real `StackTraceElement`; it is left untouched with a warning rather than mangled on a guess.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -86,6 +107,8 @@ Coverage percentages are computed as `called_methods / total_reachable_methods`.
 | Control Strategy | File-tailing with adaptive sleep | The tracker tails the logcat file using file position tracking (`seek`/`readlines`), with 0.5s sleep when data flows and 1.0s when idle. Balances latency and CPU usage. |
 | Metric Delegation | Delegate to `LogcatRepository.calculate_metrics()` | Metric calculation logic lives in rv-android-core's `LogcatRepository`, keeping rv-coverage focused on data acquisition and tracking lifecycle. |
 | Error Format Support | Multi-format parser with ordered fallback | Three error formats and two coverage formats exist due to different RV-Monitor/RVSEC versions. The parser tries the most specific format first to avoid ambiguous matches. |
+| Diagnostic Events | Separate stateful parser, isolated repository collection | Multi-line assembly does not fit the stateless per-line contract, and diagnostics must never perturb coverage/MOP metrics. |
+| Emitter Defects | Normalized in the parser, not only at the source | Instrumented APKs are replayed long after the emitter is fixed, so the parser is the only place that can repair historical corpora. |
 
 ## Data Flow
 
@@ -149,11 +172,13 @@ flowchart TB
 
 2. **Logcat line parsing**: The background thread reads new lines from the logcat file. Each line is passed to `parse_logcat_line()`, which:
    - Extracts date, time, PID, TID, level, tag, and message via regex matching against the Android logcat "threadtime" format
-   - If the tag is `RVSEC-COV`: tries the modern angle-bracket format (`<class: retType method(params)>`) first, then legacy triple-colon (`class:::method:::params`), producing an `RvCoverageLog`
-   - If the tag is `RVSEC`: tries generic spec error, JCA CSV, then FSM triple-colon, producing an `RvErrorLog`
+   - If the tag is `RVSEC-COV`: tries the Soot angle-bracket format (`<class: retType method(params)>`) first, then triple-colon (`class:::method:::params`), producing an `RvCoverageLog`
+   - If the tag is `RVSEC`: tries generic spec error, JCA CSV, then FSM triple-colon, producing an `RvErrorLog`. On the JCA CSV branch, `_normalize_frame()` repairs class/method fields that arrived as a whole stack frame before the record is built
    - Both domain objects carry `time_occurred` (parsed from the logcat timestamp with year inference) and `original_msg` (raw line)
 
-3. **Repository registration**: Coverage entries are registered via `register_method_call()`, which marks the method as "called" in the repository. Error entries are registered via `register_rv_error()`, which adds the violation to the error list. Both operations set `_data_changed_since_last_update` to trigger metric recalculation.
+   In parallel, every line -- whatever its tag -- is fed to a `DiagnosticEventParser` instance, which buffers crash/`VerifyError`/ANR content until the `(tag, pid, tid)` key changes and then emits a completed `RvDiagnosticEvent`.
+
+3. **Repository registration**: Coverage entries are registered via `register_method_call()`, which marks the method as "called" in the repository. Error entries are registered via `register_rv_error()`, which adds the violation to the error list. Both operations set `_data_changed_since_last_update` to trigger metric recalculation. Diagnostic events go to `register_diagnostic_event()`, which stores them in an isolated collection excluded from all metrics.
 
 4. **Metric calculation**: `LogcatRepository.calculate_metrics()` computes:
    - `method_coverage`: called reachable methods / total reachable methods
@@ -164,18 +189,24 @@ flowchart TB
 
 ### Logcat Line Format and Tag Routing
 
+Every line is routed by its parsed tag. The two branches below are mutually exclusive; the
+diagnostic pass on the right runs over the same line regardless of which branch matched.
+
 ```
 MM-DD HH:MM:SS.mmm  PID  TID  LEVEL  TAG: message
                                         |
-                          +-------------+-------------+
-                          |                           |
-                    TAG == RVSEC              TAG == RVSEC-COV
-                          |                           |
-              _parse_error_message()      _parse_coverage_message()
-                    |     |     |                |           |
-                generic  JCA   FSM           modern       legacy
-                spec    CSV   :::            <sig>        :::
-                error   6+f  split          regex        split
+                +-----------------------+-----------------------+
+                |                       |                       |
+          TAG == RVSEC          TAG == RVSEC-COV        TAG in {AndroidRuntime,
+                |                       |                art/dalvikvm, ActivityManager}
+    _parse_error_message()   _parse_coverage_message()          |
+          |     |     |            |          |          DiagnosticEventParser
+      generic  JCA   FSM         Soot     triple-colon      .feed_line()
+      spec     CSV   :::         <sig>        :::          (buffer until
+      error    6+f  split        regex       split       (tag,pid,tid) changes)
+                |
+        _normalize_frame()
+     (repair frame-form fields)
 ```
 
 ## Architectural Patterns
@@ -233,9 +264,11 @@ Shows key domain entities and their relationships.
 | `CoverageTracker` | Real-time logcat monitoring via background thread; primary consumer interface for rv-platform |
 | `CoverageAnalyzer` | Batch logcat analysis with fallback modes; extends `BaseAnalyzer` |
 | `LogcatParser` (module-level functions) | Stateless parsing of individual logcat lines and complete files |
-| `LogcatRepository` (from rv-android-core) | Storage and metric calculation for coverage and error data |
+| `DiagnosticEventParser` | Stateful multi-line assembly of crash / `VerifyError` / ANR events, grouped by `(tag, pid, tid)` |
+| `LogcatRepository` (from rv-android-core) | Storage and metric calculation for coverage and error data; holds the isolated `diagnostic_events` collection |
 | `RvCoverageLog` (from rv-android-core) | Domain object representing a single method call event |
 | `RvErrorLog` (from rv-android-core) | Domain object representing a single specification violation |
+| `RvDiagnosticEvent` (from rv-android-core) | Domain object representing one assembled diagnostic event, with its category |
 | `CoverageCalculationMode` | Enum governing metric calculation strategy in `CoverageAnalyzer` |
 
 ### Component Architecture
@@ -248,6 +281,7 @@ flowchart TB
         subgraph ParserLayer["Parser Layer"]
             direction LR
             LP["logcat_parser.py<br/>parse_logcat_line()<br/>parse_logcat_file()"]
+            DP["diagnostic_parser.py<br/>DiagnosticEventParser<br/>feed_line() / flush()"]
         end
         subgraph AnalysisLayer["Analysis Layer"]
             direction LR
@@ -261,6 +295,7 @@ flowchart TB
         LR["LogcatRepository"]
         RCL["RvCoverageLog"]
         REL["RvErrorLog"]
+        RDE["RvDiagnosticEvent"]
         SAD["StaticAnalysisData"]
         RI["repository_initializer"]
     end
@@ -270,9 +305,12 @@ flowchart TB
     end
 
     CT --> LP
+    CT --> DP
     CA --> LP
+    LP --> DP
     LP --> RCL
     LP --> REL
+    DP --> RDE
     CT --> LR
     CA --> LR
     CT --> SAD
@@ -299,21 +337,40 @@ rv-coverage/
 │       │                                  #   parse_logcat_file, parse_logcat_line
 │       ├── parser/
 │       │   └── log/
-│       │       └── logcat_parser.py       # Line/file parsing (143 SLOC)
+│       │       ├── logcat_parser.py       # Line/file parsing, frame-form normalization (387 SLOC)
+│       │       └── diagnostic_parser.py   # Stateful multi-line diagnostics (242 SLOC)
 │       └── analysis/
 │           └── coverage/
-│               ├── analyzer.py            # Batch analysis with fallback (202 SLOC)
-│               └── tracker.py             # Real-time background tracking (224 SLOC)
+│               ├── analyzer.py            # Batch analysis with fallback (364 SLOC)
+│               └── tracker.py             # Real-time background tracking (445 SLOC)
 ├── tests/
 │   ├── parser/
 │   │   └── log/
-│   │       └── test_logcat_parser.py
+│   │       ├── test_logcat_parser.py
+│   │       ├── test_diagnostic_parser.py
+│   │       ├── test_diagnostic_integration.py
+│   │       ├── test_frame_form_normalization.py
+│   │       └── fixtures/                  # Golden logcat + frame-form corner-case corpus
 │   └── analysis/
 │       └── coverage/
-│           └── test_tracker.py
+│           ├── test_tracker.py
+│           ├── test_tracker_branches.py
+│           ├── test_tracker_lifecycle.py
+│           ├── test_analyzer.py
+│           ├── test_analyzer_branches.py
+│           └── test_analyzer_fallback.py
+├── docs/
+│   ├── architecture.md
+│   └── adr/ADR-001-separate-stateful-diagnostic-parser.md
 ├── pyproject.toml
+├── README.md
 └── CLAUDE.md
 ```
+
+`diagnostic_parser.py` imports `_parse_logcat_line` and `_convert_to_datetime` from
+`logcat_parser.py` so both parsers agree on what a well-formed logcat line is.
+`parse_logcat_file` imports `DiagnosticEventParser` locally inside the function body,
+which is what keeps that shared-helper reuse from becoming a module-load cycle.
 
 ### Package Dependencies
 
@@ -326,6 +383,7 @@ flowchart TB
     end
     subgraph ParserPkg["parser.log"]
         LogcatParser["logcat_parser.py"]
+        DiagParser["diagnostic_parser.py"]
     end
     subgraph CoreDeps["rv-android-core"]
         Repository["LogcatRepository"]
@@ -338,6 +396,9 @@ flowchart TB
     end
 
     Tracker --> LogcatParser
+    Tracker --> DiagParser
+    DiagParser --> LogcatParser
+    LogcatParser -.->|"local import<br/>(cycle break)"| DiagParser
     Tracker --> Repository
     Tracker --> StaticData
     Tracker --> LogManager
@@ -433,12 +494,29 @@ The background thread is created as a daemon thread (`daemon=True`), ensuring it
 - `parse_logcat_line(line) -> Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]`: Parse a single line. Returns a mutually exclusive tuple (at most one non-None).
 - `parse_logcat_file(log_file, static_data) -> LogcatRepository`: Parse an entire file into a populated repository.
 - `_parse_error_message(message) -> Optional[RvErrorLog]`: Try three error formats in specificity order.
-- `_parse_coverage_message(message) -> Optional[RvCoverageLog]`: Try modern then legacy coverage format.
+- `_parse_coverage_message(message) -> Optional[RvCoverageLog]`: Try the Soot signature format, then triple-colon.
+- `_normalize_frame(value) -> Optional[Tuple[str, str, str]]`: Recover `(class, method, source)` from a whole stack frame. Returns `None` when the value is not in frame form -- the signal to leave the caller's fields untouched.
 - `_convert_to_datetime(date, time) -> datetime`: Infer year from current date (handles December-January transitions).
 
 **Dependencies**:
-- Internal: none
+- Internal: `diagnostic_parser.DiagnosticEventParser` (imported locally inside `parse_logcat_file` to avoid a load cycle)
 - External: `rv_android_core.domain.log` (RvErrorLog, RvCoverageLog, TAG_RVSEC, TAG_RVSEC_COV), `rv_android_core.domain.coverage` (LogcatRepository), `rv_android_core.util.android.repository_initializer`
+
+### DiagnosticEventParser (`parser/log/diagnostic_parser.py`)
+
+**Purpose**: Assemble multi-line execution-level diagnostics -- application crashes (`AndroidRuntime`), class-load `VerifyError`s (`art`/`dalvikvm`), and ANRs (`ActivityManager`) -- into `RvDiagnosticEvent` records. These make an otherwise invisible confounder visible: an instrumented APK that crashes early is indistinguishable from a weak tool result when only coverage is recorded.
+
+**Location**: `src/rv_coverage/parser/log/diagnostic_parser.py`
+
+**Key Methods**:
+- `feed_line(line) -> Optional[RvDiagnosticEvent]`: Accumulate content, returning a completed event when the `(tag, pid, tid)` key changes or a non-continuation line arrives. Non-diagnostic lines are skipped.
+- `flush() -> Optional[RvDiagnosticEvent]`: Emit whatever is still buffered. Required at end of input, otherwise a final crash is truncated.
+
+**Dependencies**:
+- Internal: `_parse_logcat_line`, `_convert_to_datetime` from `logcat_parser.py`
+- External: `rv_android_core.domain.log` (RvDiagnosticEvent)
+
+**Note**: Tag matching uses the parsed tag field rather than a substring search, so text such as `isAndroidRuntime()` inside a message cannot open a spurious event (INV-ANA-47).
 
 ### CoverageTracker (`analysis/coverage/tracker.py`)
 
@@ -452,11 +530,12 @@ The background thread is created as a daemon thread (`daemon=True`), ensuring it
 - `get_coverage_metrics() -> Dict[str, float]`: Thread-safe metric query
 - `track_coverage()`: Context manager wrapping start/stop
 - `_track_coverage()`: Main tail loop (drain existing lines, seek to EOF, read new lines in loop)
-- `_process_line(line)`: Parse one line, compute relative timestamp, register in repository
+- `_process_line(line)`: Parse one line, compute relative timestamp, register in repository; also feeds the line to the diagnostic parser
 - `_update_coverage_metrics()`: Calculate metrics only when data has changed
+- `flush_diagnostics()`: Emit the still-buffered diagnostic event, called when the tail loop ends so a crash at EOF is not lost
 
 **Dependencies**:
-- Internal: `parse_logcat_line` from `rv_coverage.parser.log.logcat_parser`
+- Internal: `parse_logcat_line` from `rv_coverage.parser.log.logcat_parser`, `DiagnosticEventParser` from `rv_coverage.parser.log.diagnostic_parser`
 - External: `LogcatRepository`, `StaticAnalysisData`, `LoggingManager`, `initialize_repository_from_static_data` from rv-android-core
 
 ### CoverageAnalyzer (`analysis/coverage/analyzer.py`)
@@ -490,7 +569,7 @@ How the architecture supports non-functional requirements from the PRD.
 | Extensibility | NFR02 | P0 | `CoverageAnalyzer` extends `BaseAnalyzer` via Template Method pattern. `CoverageCalculationMode` enum allows adding new degradation modes. New logcat formats can be added to `_parse_error_message()` / `_parse_coverage_message()` cascade. |
 | Testability | NFR03 | P1 | Stateless parser functions are directly unit-testable. `CoverageTracker` accepts file paths, enabling test with fixture files. Tests exist in `tests/parser/` and `tests/analysis/`. |
 | Resilience | NFR04 | P1 | `CoverageTracker` catches all exceptions in the daemon thread (never crashes). `parse_logcat_line` returns `(None, None)` for unparseable lines with warning log. `CoverageAnalyzer` degrades gracefully through four calculation modes. File-not-found creates an empty file. |
-| Observability | NFR06 | P1 | `CoverageTracker` logs metric updates on change, MOP violations immediately, and processing events via `LoggingManager`. Metrics include `method_coverage`, `activity_coverage`, `mop_method_coverage`, `called_methods`, `unique_errors`. |
+| Observability | NFR06 | P1 | `CoverageTracker` logs metric updates on change, MOP violations immediately, and processing events via `LoggingManager`. Metrics include `method_coverage`, `activity_coverage`, `mop_method_coverage`, `called_methods`, `unique_errors`. Diagnostic events surface crashes and ANRs that would otherwise be an invisible confounder. Frame-form normalizations are logged at debug level so a campaign run against APKs carrying an old monitor jar stays auditable after the fact. |
 | Reproducibility | NFR08 | P1 | Logcat files are persistent artifacts in the results directory. `parse_logcat_file` enables deterministic re-analysis of any previous execution. |
 
 ---
@@ -610,6 +689,7 @@ Key use cases that validate the architecture.
 ## Extension Points
 
 - **New logcat formats**: Add a new parsing branch to `_parse_error_message()` or `_parse_coverage_message()` in `logcat_parser.py`. The ordered fallback cascade ensures new formats are tried without breaking existing ones.
+- **New diagnostic categories**: Add the base tag to the recognised set in `diagnostic_parser.py` and extend the classification. Matching is on the parsed tag field, so no catch-all priority filter is introduced.
 - **New coverage calculation modes**: Add a value to `CoverageCalculationMode` and implement the corresponding metric adjustment in `CoverageAnalyzer`.
 - **Alternative tracking backends**: `CoverageTracker` reads from a file path. Replacing the file-tailing loop with a different data source (e.g., ADB logcat stream) would require modifying `_track_coverage()` while preserving the `parse_logcat_line()` -> `LogcatRepository` pipeline.
 
@@ -634,10 +714,15 @@ Key use cases that validate the architecture.
 | Type | Location | Purpose |
 |------|----------|---------|
 | Unit | tests/parser/log/test_logcat_parser.py | Logcat line/file parsing across all error and coverage formats |
-| Unit | tests/analysis/coverage/test_tracker.py | CoverageTracker lifecycle, line processing, metric calculation |
+| Unit | tests/parser/log/test_frame_form_normalization.py | Frame-form corner-case corpus: idempotence, byte-identical pass-through on well-formed values, backtick names with nested parentheses |
+| Unit | tests/parser/log/test_diagnostic_parser.py | Multi-line assembly, `flush()`, categories, tag false-positive guards |
+| Integration | tests/parser/log/test_diagnostic_integration.py | Both parsers driven over the same stream, including the RVSEC/COV golden re-parse guarding the hot path |
+| Unit | tests/analysis/coverage/test_tracker*.py | CoverageTracker lifecycle, line processing, metric calculation, branch coverage |
+| Unit | tests/analysis/coverage/test_analyzer*.py | CoverageAnalyzer batch analysis, calculation modes, fallback behavior |
 
 ## Related Documentation
 
-- [Domain Spec](../../../openspec/specs/analysis/spec.md) - Requirements and invariants for rv-coverage (FR12, FR13, INV-ANA-04 through INV-ANA-08, INV-ANA-15)
+- [ADR-001](adr/ADR-001-separate-stateful-diagnostic-parser.md) - Why diagnostics use a separate stateful parser instead of a widened `parse_logcat_line` return type
+- [Domain Spec](../../../openspec/specs/analysis/spec.md) - Requirements and invariants for rv-coverage (FR12, FR13, INV-ANA-04 through INV-ANA-08, INV-ANA-15, INV-ANA-46 through INV-ANA-52)
 - [PRD](../../../docs/PRD.md) - Product Requirements Document (FR12-FR13, NFR01-08)
 - [CLAUDE.md](../CLAUDE.md) - Module-level quick reference for Claude Code

@@ -11,7 +11,7 @@ Entry point for all logcat data in rv-coverage. Both CoverageTracker
 
 ### Key Features:
 - Three error formats: JCA comma-separated, FSM ``:::``, generic spec error
-- Two coverage formats: modern angle-bracket signatures, legacy ``:::``
+- Two coverage formats: Soot angle-bracket signatures, triple-colon ``:::``
 - Year-aware timestamp conversion handling December/January transitions
 - Memory-efficient line-by-line file processing
 
@@ -37,6 +37,64 @@ from rv_android_core.domain.log import (
 from rv_android_core.util.android.repository_initializer import (
     initialize_repository_from_static_data,
 )
+
+# A stack frame reliably ends with "(<file>:<line>)"; nothing else about it is
+# reliable. The guard therefore tests only that trailing group: no nested
+# parenthesis inside it, and it must end in ":<digits>". Both properties matter.
+# Real method names in the corpus (Kotlin backtick test names) contain their own
+# parenthesis pairs, so the prefix must be left completely unconstrained
+# (INV-ANA-52); and requiring a line number is what distinguishes a source
+# position from a parenthesis that belongs to the name, so a well-formed value
+# can never be truncated by accident (INV-ANA-51).
+_FRAME_SUFFIX = re.compile(r"\(([^()]+:\d+)\)$")
+
+
+def _normalize_frame(value: str) -> Optional[Tuple[str, str, str]]:
+    """Recover ``(class, method, source)`` from a whole stack-frame string.
+
+    The Java monitor is supposed to hand the parser a class and a method already
+    split apart. When its own split fails — which it does for every method name
+    containing ``$``, ``-`` or a space — it falls back to copying the entire
+    ``StackTraceElement`` into *both* fields, source position included. That
+    position then rides inside the ``(apk, class, method, spec)`` key every
+    downstream analysis uses, and one misuse gets counted once per line it
+    occurs at (issue #89).
+
+    Normalizing here rather than only upstream is not redundant: an APK is
+    instrumented once and replayed across many runs, so every APK already
+    instrumented with an uncorrected monitor jar keeps emitting the broken form
+    no matter what the Java does afterwards.
+
+    The algorithm deliberately does not try to describe what a method name looks
+    like — that is the assumption that failed. It strips the trailing
+    ``(<file>:<line>)`` group and splits the remainder at its **last** dot,
+    because the class part is a dotted path and a method name never contains a
+    dot. Nothing about the method name needs to be predicted.
+
+    Args:
+        value: Any string, including one already well-formed or empty.
+
+    Returns:
+        ``(class, method, source)`` when ``value`` is in frame form, else
+        ``None`` — the signal to leave the caller's fields untouched.
+    """
+    match = _FRAME_SUFFIX.search(value)
+    if not match:
+        return None
+
+    remainder = value[: match.start()]
+    last_dot = remainder.rfind(".")
+    if last_dot == -1:
+        # A frame this shape cannot come from a real StackTraceElement (there is
+        # always at least a package-or-class dot before the method). Mangling it
+        # on a guess would be worse than leaving it, so keep the value and say so.
+        logging.getLogger(__name__).warning(
+            "Frame-form value has no class/method separator, "
+            f"left unnormalized: {value}"
+        )
+        return None
+
+    return remainder[:last_dot], remainder[last_dot + 1 :], match.group(1)
 
 
 def _stamp_time(time_occurred: datetime, tool_execution_start: datetime) -> int:
@@ -193,6 +251,12 @@ def parse_logcat_line(
 def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
     """Parse a raw logcat line into its component fields.
 
+    Shared with ``DiagnosticEventParser``, which reuses this split so both
+    parsers agree on what counts as a well-formed logcat line.
+
+    Args:
+        line: Raw logcat line, trailing newline included.
+
     Returns:
         Dict with date, time, pid, tid, level, tag, message, original;
         or None if the line does not match standard logcat format.
@@ -257,12 +321,29 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
     parts = message.split(",")
 
     if len(parts) >= 6:
+        clazz, method, source = parts[1], parts[3], parts[4]
+
+        # Format 2 is the only format whose class and method arrive pre-split by
+        # the Java ErrorSummary, so it is the only one that can inherit that
+        # split's failure mode (a whole stack frame in both fields). Formats 1
+        # and 3 below split structurally and are left alone. When the fallback
+        # fired upstream both fields hold the same frame, so recovering from
+        # either yields the same triple; the method field is tried first because
+        # that is the one the upstream regex is documented to reject.
+        recovered = _normalize_frame(method) or _normalize_frame(clazz)
+        if recovered:
+            clazz, method, source = recovered
+            logging.getLogger(__name__).debug(
+                f"Normalized frame-form violation record {parts[3]!r} to "
+                f"class={clazz!r} method={method!r} source={source!r}"
+            )
+
         return RvErrorLog(
             parts[0],  # spec
             parts[5],  # error_type
-            parts[1],  # class
-            parts[3],  # method
-            parts[4],  # source
+            clazz,
+            method,
+            source,
             (
                 ",".join(parts[6:]) if len(parts) > 6 else "No additional message"
             ),  # message
@@ -294,6 +375,10 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
 def _parse_generic_spec_error(log_line: str) -> Optional[Dict[str, Any]]:
     """Parse ``class.method(file:line) ::: Spec went into an error state.`` format.
 
+    Args:
+        log_line: Message portion of an RVSEC line already known to end with
+            ``went into an error state.``.
+
     Returns:
         Dict with class, method, file_name, line_number, spec, message;
         or None if the pattern does not match.
@@ -318,8 +403,8 @@ def _parse_coverage_message(message: str) -> Optional[RvCoverageLog]:
     """
     Parse an RVSEC-COV message into an RvCoverageLog.
 
-    Try the modern angle-bracket format first (``<class: retType method(params)>``),
-    then the legacy ``:::`` format. Log a warning and return None if neither matches.
+    Try the Soot angle-bracket format first (``<class: retType method(params)>``),
+    then the triple-colon format. Log a warning and return None if neither matches.
 
     Args:
         message: The message portion of an RVSEC-COV-tagged logcat line.
@@ -327,15 +412,16 @@ def _parse_coverage_message(message: str) -> Optional[RvCoverageLog]:
     Returns:
         Parsed RvCoverageLog, or None if the message format is unrecognized.
     """
-    # Modern Soot-signature format: "<class: returnType method(params)>"
+    # Soot-signature format: "<class: returnType method(params)>"
     # This is what the current RVSEC instrumentation emits via RVSEC-COV tag.
     match = re.match(r"<([^:]+):\s+([^ ]+)\s+([^:(]+)\(([^)]*)\)>", message)
     if match:
         class_name, return_type, method_name, parameters = match.groups()
         return RvCoverageLog(class_name, method_name, parameters, message)
 
-    # Legacy triple-colon format: "class:::method:::params"
-    # Kept for backward compatibility with older instrumented APKs.
+    # Triple-colon format: "class:::method:::params"
+    # An APK is instrumented once and replayed across many runs, so APKs carrying
+    # an older Coverage aspect keep emitting this layout and must still parse.
     parts = message.split(":::")
     if len(parts) >= 2:
         class_name = parts[0].strip()

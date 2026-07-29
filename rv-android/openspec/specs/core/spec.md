@@ -242,6 +242,9 @@ RvErrorLog(BaseValidatedModel):
 - **INV-CORE-37**: WHEN `RV_LOGCAT_DIAGNOSTICS` is unset or `false`, the `adb logcat` command emitted by `LogcatManager.start_capture` MUST be byte-identical to the baseline `-v threadtime -s RVSEC:V RVSEC-COV:V` (with the device serial), and the resulting `.logcat` MUST be unchanged.
 - **INV-CORE-38**: The diagnostic tag set MUST be *additive* — when enabled, `RVSEC:V` and `RVSEC-COV:V` MUST remain in the filter; the diagnostic tags MUST NOT replace or reorder them.
 - **INV-CORE-39**: Registering any number of `RvDiagnosticEvent`s into `LogcatRepository.diagnostic_events` MUST NOT change `calculate_metrics()` output, `total_errors`, `unique_errors`, or any coverage value; those computations MUST read only `self.classes`, `self.errors`, and `self.unique_errors`.
+- **INV-CORE-40**: `RvErrorLog.to_dict()` MUST include the `source` field. `source` MUST NOT appear in `unique_msg` and MUST NOT participate in `__eq__` or `__hash__`, so adding it cannot change any deduplicated count.
+- **INV-CORE-41**: `RvErrorLog.unique_msg` counts at event granularity (`class:::method:::spec:::error_type:::message`) and is deliberately finer than the `(apk, class, method, spec)` key used for unique-misuse analysis. Any documentation or export that reports `unique_errors` MUST NOT present it as equivalent to a unique-misuse count.
+- **INV-CORE-42**: No value written to the `class_full_name` or `method` field of an `RvErrorLog` MUST end with a `(<file>:<line>)` group. The source position belongs in `source` alone.
 
 ## Requirements
 ### Requirement: Error Handling with Recovery Strategies (FR34, NFR04)
@@ -756,3 +759,66 @@ coverage/MOP metrics or the `total_errors`/`unique_errors` counts.
 - **THEN** `calculate_metrics()`, `total_errors`, `unique_errors`, and every coverage value are identical
   to the same repository with zero diagnostic events
 - **AND** `get_diagnostic_events()` returns the N events sorted by `time_since_task_start`
+
+### Requirement: RvErrorLog Preserves the Source Location in the Written Schema (FR13, FR14)
+
+`RvErrorLog.to_dict()` MUST include the `source` field, and the per-run `errors.csv` produced by
+`ResultProcessorComponent` MUST carry a corresponding `source` column placed after `method`. The
+field MUST remain outside `unique_msg`, `__eq__` and `__hash__`, so that preserving it cannot
+change `unique_errors`, `total_errors`, or any coverage or MOP metric.
+
+The distinction this requirement encodes is between *excluding a field from the identity of a
+violation* and *discarding it*. The source position must not identify a violation — two
+occurrences of the same misuse at different lines are one misuse — but it is still the most
+direct pointer to where the violation happened, and it is the evidence needed to audit a
+frame-form normalization after a campaign has run.
+
+Because the column set of `errors.csv` is a contract shared with `rvsec-dataset` and the
+article's analysis scripts, the change MUST be verified against those consumers before it lands:
+readers that address columns by name tolerate an added column, readers that address them
+positionally do not.
+
+#### Scenario: source survives serialization
+
+- **WHEN** an `RvErrorLog` is created with `class_full_name` = `okio.ByteString`,
+  `method` = `digest$okio`, `source` = `ByteString.kt:83`
+- **THEN** `to_dict()` MUST contain the key `source` with value `ByteString.kt:83`
+
+#### Scenario: source does not affect identity
+
+- **WHEN** two `RvErrorLog` instances agree on `class_full_name`, `method`, `spec`,
+  `error_type` and `message` but carry `source` = `ByteString.kt:83` and `ByteString.kt:84`
+- **THEN** their `unique_msg` values MUST be identical
+- **AND** `error1 == error2` MUST return True
+- **AND** `hash(error1) == hash(error2)` MUST return True
+- **AND** registering both in a `LogcatRepository` MUST yield `unique_errors` = 1
+
+#### Scenario: errors.csv carries the source column
+
+- **WHEN** `ResultProcessorComponent` generates `errors.csv` for a completed task
+- **THEN** the header MUST be
+  `apk,rep,timeout,tool,time,spec,class,method,source,message,unique_msg`
+- **AND** each row MUST carry the originating record's `source` value in that column
+
+### Requirement: Event Granularity of unique_msg Is Documented, Not Changed (FR13)
+
+`RvErrorLog.unique_msg` MUST remain `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"`
+(INV-CORE-25 is unchanged). The model documentation MUST state that this key counts at event
+granularity and is finer than the `(apk, class, method, spec)` key used to count unique misuses
+in the thesis and the journal article, and MUST give the reason: `error_type` separates a
+sequence violation from a constraint violation in the same method, and `message` names the
+offending parameter, so two messages under one method are two different misuses.
+
+The documentation MUST state the consequence explicitly — that `unique_errors` and the
+`mop_errors_unique` column derived from it are not numerically comparable to a unique-misuse
+count — so that a reader comparing the two figures does not conclude that one is defective.
+
+#### Scenario: distinct offending parameters remain distinct events
+
+- **WHEN** two violations occur in `com.apk.axml.APKParser.getCertificateFingerprint` under
+  `MessageDigestSpec`, one with message `expecting one of {SHA-256, SHA-384, SHA-512} but found SHA1.`
+  and one with `… but found MD5.`
+- **THEN** their `unique_msg` values MUST differ
+- **AND** `unique_errors` MUST count them as 2
+- **AND** the `(apk, class, method, spec)` analysis key MUST count them as 1 unique misuse
+- **AND** both counts MUST be understood as correct at their own granularity
