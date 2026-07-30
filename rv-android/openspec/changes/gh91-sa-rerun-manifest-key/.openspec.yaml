@@ -1,0 +1,7 @@
+schema: rv-sdd
+created: 2026-07-30
+# No capability changes behaviour: no rv-android module is modified. This change produces
+# data and provenance (the 30 re-analysed JSONs, the per-app record, the sha256 manifests).
+# Removing PackageDetector — the part that would have carried delta specs — is deferred to a
+# separate, later change.
+skip_specs: true
