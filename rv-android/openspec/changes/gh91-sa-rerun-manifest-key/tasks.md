@@ -375,7 +375,7 @@ Listed so the instruction sheet is complete and unambiguous. This group is **sta
 the delivery**: only after it do the regenerated CSVs and the `.pkgdet` files exist, and
 only their delivery (5.5) releases upstream 0.2 in full.
 
-- [ ] 5.1 Copy the 30 JSONs from `SA_RERUN_gh91/` into
+- [x] 5.1 Copy the 30 JSONs from `SA_RERUN_gh91/` into
       `RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706/`,
       preserving each predecessor as `<apk>.json.pkgdet`. Verify against 4.4's manifests that
       exactly 30 files changed and the other **189 are untouched** (189 files over 189 apps —
@@ -384,7 +384,26 @@ only their delivery (5.5) releases upstream 0.2 in full.
       is read by the consolidation **path this change prescribes** (`consolidate_offline.sh`
       → `regenerate_container.py:114`, which opens `STATIC_DIR`). The co-located copies are
       only read by `rv-platform run --process-results`, which is precisely the route ruled
-      out — installing into `STATIC_DIR` is therefore what makes the re-run take effect
+      out — installing into `STATIC_DIR` is therefore what makes the re-run take effect.
+      **Done via `scripts/gh91_install_static.py --install`, 2026-07-31.** The corpus was
+      first re-checked against 4.4's pre-installation manifest (`sha256sum -c`, exit 0) to
+      prove it had not drifted between the manifest and the copy. The install refuses the
+      whole batch before touching anything if any source is missing, any predecessor is
+      absent, or any `.pkgdet` already exists — a half-applied install is indistinguishable
+      from a corrupted corpus once the proof runs. Predecessor preserved first, then
+      overwritten, per app.
+      **Proof is three-way and closed against the two manifests**, because P1 and P2 alone
+      would still pass if a predecessor had been lost in the process: P1 the 30 installed
+      JSONs match `manifest_sa_rerun_30.sha256`; P2 the other 189 are byte-identical to
+      `manifest_static_dir_pre_install.sha256`; P3 each `<apk>.json.pkgdet` equals its
+      predecessor's pre-install sha256, i.e. it was preserved intact and not merely
+      displaced. File-set cardinality is asserted separately (219 `.json`, 30 `.pkgdet`, the
+      `.json` set unchanged), so a file that appeared or vanished cannot hide behind a hash
+      comparison over the intersection. **All 10 assertions PASS: exactly 30 files changed,
+      189 byte-identical.** The optional housekeeping — syncing `rvsec-dataset/static_analysis/`
+      and the co-located `RESULTS/m*/.../<apk>/` copies — was deliberately NOT done: neither
+      is read by this consolidation path, and leaving them untouched keeps a second,
+      independent copy of the predecessors beyond the `.pkgdet` files
 - [ ] 5.2 Re-run the consolidation with
       `RESULTS_ROOT=/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS bash
       experimento-20260706/scripts/consolidate_offline.sh`. The override is mandatory: the
