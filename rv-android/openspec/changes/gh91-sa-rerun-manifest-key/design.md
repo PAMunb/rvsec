@@ -332,7 +332,27 @@ do container — o resume zera T=60/T=180 no CSV, gotcha do `result_processor`"*
 that route would silently produce wrong data at the 60 s and 180 s timeouts. It is also not
 recursive: `_process_results_standalone` (`rv-platform/__main__.py:472-497`) takes one
 directory containing `tasks.json` and writes back into it, while the tree has 16 such
-containers.
+containers (`RESULTS/m{1..4}/results/exp_{00..15}`, counted on disk).
+
+**Why the wrong route is seductive — and the failure mode it hides.** Upstream task 0.1 pairs
+"swap the co-located JSON in the experiment RESULTS tree" with "reprocess with
+`rv-platform run --process-results`", and those two halves are **coherent with each other**:
+`--process-results` really does read the co-located file. On the resume path
+`ResultProcessorComponent._resolve_static_data` derives the per-APK directory from
+`os.path.dirname(task.result.logcat_file)` and re-parses `<dir>/<apk>.json` there
+(`result_processor.py:220-270`, INV-PLT-15 / ADR 0003) — `task.results_dir` is not serialised,
+so the logcat's own directory is what locates the JSON. The objection to 0.1 is therefore
+**the choice of path, not the location of the JSON**.
+
+What makes this dangerous is that the two halves are not independently substitutable. The
+route this change prescribes reads a *different* location: `regenerate_container.py:114` opens
+`os.path.join(STATIC_DIR, f"{apk}.json")` on the flat
+`APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706/`. So swapping only the **220** co-located
+copies under `RESULTS/m*/results/exp_*/exp_*/<apk>/` and then running
+`consolidate_offline.sh` leaves the re-run with **no effect at all** on the regenerated CSVs —
+the old JSONs are still the ones read, and the output is identical to today's with nothing
+signalling an error. The 30 must be installed into `STATIC_DIR` (task 5.1); the co-located
+copies are irrelevant *to this path* and syncing them is optional housekeeping.
 
 **The correct entry point already exists**, but needs an override:
 

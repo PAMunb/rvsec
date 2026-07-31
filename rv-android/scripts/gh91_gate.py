@@ -220,9 +220,19 @@ def main() -> int:
 
     # 3.1 — cardinality. Globbed at the top level only: the smoke writes to a sibling
     # directory precisely so this count stays exactly 30 however it is taken.
-    produced = sorted(p.name for p in drv.OUT_DIR.glob("*.json"))
+    # The deliverables are the `<apk>.apk.json` files and nothing else. The campaign also
+    # writes its own bookkeeping state into this directory (design D10), so the assertion
+    # is split in two rather than counting every `*.json`: the deliverable set must equal
+    # the CSV exactly, and any other top-level `.json` must be a known bookkeeping file.
+    # A stray `.apk.json` is still caught by the first half, a stray anything by the second.
+    BOOKKEEPING = {"_campaign_state.json"}
+    produced = sorted(p.name for p in drv.OUT_DIR.glob("*.apk.json"))
     expected = sorted(f"{r['apk'].strip()}.json" for r in rows)
-    cardinality_ok = produced == expected
+    unexpected_files = sorted(
+        p.name for p in drv.OUT_DIR.glob("*.json")
+        if p.name not in produced and p.name not in BOOKKEEPING
+    )
+    cardinality_ok = produced == expected and not unexpected_files
 
     results, failures = check(rows)
 
@@ -231,6 +241,7 @@ def main() -> int:
             "cardinality_ok": cardinality_ok,
             "expected": len(expected),
             "produced": len(produced),
+            "unexpected_files": unexpected_files,
             "failures": failures,
             "apks": results,
         }, indent=2, sort_keys=True))
@@ -244,6 +255,8 @@ def main() -> int:
                 print(f"        missing: {name}")
             for name in sorted(set(produced) - set(expected)):
                 print(f"        unexpected: {name}")
+            for name in unexpected_files:
+                print(f"        unexpected non-deliverable file: {name}")
         labels = {
             "3.2": 'completeness ("complete": true)',
             "3.3a": "key applied (classes)",

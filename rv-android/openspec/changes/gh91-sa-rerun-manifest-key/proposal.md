@@ -125,7 +125,9 @@ scope:
    consolidation reads** — `experimento-20260706/scripts/consolidate_offline.sh` fixes it as
    `STATIC_DIR`, and `scripts/regenerate_results/regenerate_container.py:114` opens it. The
    copies under `rvsec-dataset/static_analysis/` (345 JSONs) and inside
-   `RESULTS/m*/results/exp_*/exp_*/<apk>/` (220 JSONs) are not read by the consolidation;
-   whether to keep them in sync is the owner's call.
+   `RESULTS/m*/results/exp_*/exp_*/<apk>/` (220 JSONs) are not read by **this** consolidation
+   path; whether to keep them in sync is the owner's call. The qualifier matters:
+   `rv-platform run --process-results` *does* read the co-located copies, which is why
+   upstream 0.1 reads as plausible — see `design.md` §Consolidation.
 2. Re-run the consolidation and promote. `design.md` §Consolidation records the exact
    command and the two gotchas that make the obvious alternative wrong.
