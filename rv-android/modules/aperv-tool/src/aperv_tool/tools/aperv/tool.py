@@ -37,9 +37,11 @@ model. Within rv-platform, it sits alongside other AbstractTool implementations
 - Downstream: rv-android logcat reads Coverage.aj output during execution
 """
 
+import hashlib
 import json
 import os
 import tempfile
+import urllib.request
 from typing import Any, Dict
 
 from rv_android_core.commands.command import Command
@@ -324,6 +326,37 @@ _FRONTIER_SUBSTRATE = {
     "activity_trigger_enabled": True,
 }
 
+# What "MOP guidance off" means, as a delta over the frontier substrate. Spread
+# into the decisive run's control arm so the arm reads as "the reference arm plus
+# this", making the single-factor property visible at the definition site rather
+# than only in a test.
+#
+# The shape is forced, not chosen (INV-APV-29). Three things could plausibly mean
+# MOP-off, and two of them silently destroy the experiment:
+#
+#   1. Point ape.mopDataPath at a missing file → requireMopArm raises
+#      StopTestingException and the whole run ABORTS (StatefulAgent.java:216-223).
+#   2. Omit mop_data so the path is never set → loads as null without aborting,
+#      but WtgPass:29 and FrontierPass:35 both require mopData != null, so the
+#      generic WTG and frontier navigation die as collateral. The contrast would
+#      then be "full substrate versus almost no substrate", not "MOP guidance on
+#      versus off".
+#   3. Keep the document, zero the weights, turn the trigger off → the MOP
+#      short-circuits become no-ops (pickBestMopTarget requires mopBoost > 0)
+#      while the frontier and WTG passes keep running on generic signal.
+#
+# Only the third isolates MOP guidance, so mop_data stays present here and
+# frontier_boost_weight is deliberately NOT zeroed: the control removes MOP
+# guidance, not navigation (INV-APV-30).
+_MOP_OFF_OVERRIDES = {
+    "mop_weight_direct": 0,
+    "mop_weight_transitive": 0,
+    "mop_weight_open_menu": 0,
+    "mop_weight_wtg": 0,
+    "mop_frontier_weight": 0,
+    "activity_trigger_enabled": False,
+}
+
 # LLM keys shared verbatim by all nine calibration arms. The varying keys — prompt variant,
 # percentage, sampling (temperature/top_p/top_k), and routing (on_new_state/on_stagnation) —
 # are written explicitly per arm (design decision 3: the diff-vs-cal_a1 is exactly what the
@@ -428,8 +461,9 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants.
 
-        Eleven base non-exempt arms + nine cal_* calibration arms + six exempt gh43
-        prompt-experiment arms. Every non-exempt arm sets every key in ARM_DEFINING_KEYS
+        Eleven base non-exempt arms + nine cal_* calibration arms + three E3
+        decisive-run arms + six exempt gh43 prompt-experiment arms, 29 in total.
+        Every non-exempt arm sets every key in ARM_DEFINING_KEYS
         explicitly (INV-APV-14), spreading the shared _BASELINE_ARM_FLAGS (RV exploration ON,
         MOP/reach off) and — for MOP arms — _MOP_SUBSTRATE, so an arm's identity is its
         variant dict and never a jar Config default. "default" aliases sata (INV-TOOL-02);
@@ -437,6 +471,9 @@ class ApeRVTool(AbstractTool):
         are frozen and EXEMPT (INV-APV-17). The nine cal_a1…cal_a9 arms sit on the
         _FRONTIER_SUBSTRATE and additionally declare every LLM_ARM_KEYS key explicitly
         (INV-APV-26); they implement the Phase-A calibration arm table (plan §6, rev. 3.2).
+        The three gh90 arms — mop_on_llm_off, mop_off_llm_off, mop_on_llm_70 — are the
+        E3 decisive run's arm set: a shared reference plus one single-factor contrast
+        each for MOP guidance (RQ-C1) and for the LLM (RQ-C3).
 
         Returns:
             Dictionary mapping variant names to configuration parameters
@@ -656,6 +693,55 @@ class ApeRVTool(AbstractTool):
                 "llm_on_new_state": True,
                 "llm_on_stagnation": True,
             },
+            # --- E3 decisive-run arms (gh90) -------------------------------------
+            # The three arms of the run that decides whether the LLM stays in the
+            # design. All three sit on the frontier substrate (INV-APV-30) — the
+            # standing rule is *sempre modo frontier* — and each contrast is
+            # single-factor: arm 2 differs from arm 1 only in the MOP keys, arm 3
+            # only in the LLM keys, which the guard tests assert by diffing the
+            # dictionaries rather than by trusting review.
+            #
+            # The names are normative, not cosmetic: the variant string is the
+            # resume identity key (platform.py:308-318) and the consolidation
+            # column key ({arm}__{metric}), so a rename silently splits a
+            # campaign's results. They spell out both factors so each contrast is
+            # legible straight off the results CSV header.
+            #
+            # Arm 1 is configurationally sata_mop_act_frontier, the ANC2 anchor
+            # that won the previous multi-arm comparison — the reference is not a
+            # newly invented baseline.
+            "mop_on_llm_off": {
+                **_FRONTIER_SUBSTRATE,
+                "strategy": "sata",
+                "throttle_ms": 200,
+            },
+            # Arm 2 — the experiment's first control arm. Every APE-RV run ever
+            # executed had MOP guidance on, so no measured difference has ever
+            # been attributable to MOP guidance rather than to APE's baseline
+            # exploration. arm 1 vs arm 2 is RQ-C1.
+            "mop_off_llm_off": {
+                **_FRONTIER_SUBSTRATE,
+                **_MOP_OFF_OVERRIDES,
+                "strategy": "sata",
+                "throttle_ms": 200,
+            },
+            # Arm 3 — the LLM at the cal_a1 dose, carried over verbatim. 0.7 is
+            # the only dose with a measured 300 s counterpart on this substrate
+            # and subset, which is what lets the 1800 s result be read as a
+            # dose × budget interaction (design D8). arm 1 vs arm 3 is RQ-C3.
+            "mop_on_llm_70": {
+                **_FRONTIER_SUBSTRATE,
+                **_CAL_LLM_COMMON,
+                "strategy": "sata",
+                "throttle_ms": 200,
+                "llm_prompt_variant": "v13",
+                "llm_percentage": 0.7,
+                "llm_temperature": 0,
+                "llm_top_p": 0.6,
+                "llm_top_k": 50,
+                "llm_on_new_state": True,
+                "llm_on_stagnation": True,
+            },
         }
 
     def configure(self, config: Dict[str, Any]) -> None:
@@ -802,9 +888,12 @@ class ApeRVTool(AbstractTool):
         """
         Compact the static analysis JSON into a temporary file for device push.
 
-        Compaction is two lossless operations: deduplicating exact-duplicate
-        entries in `transitions` (preserving first-occurrence order) and
-        serializing without pretty-print whitespace. No field is projected away.
+        Compaction is three operations: deduplicating exact-duplicate entries in
+        `transitions` (preserving first-occurrence order), enriching every
+        `listeners[]` object with the two handler-reach booleans, and serializing
+        without pretty-print whitespace. The first and third are lossless; the
+        second is purely additive (INV-APV-21, INV-APV-31). No field is projected
+        away.
 
         This exists because the Java side applies a pre-read footprint guard
         (MopData.java:202) that rejects any file above roughly maxMemory()/6 —
@@ -848,6 +937,22 @@ class ApeRVTool(AbstractTool):
                         unique.append(entry)
                 document["transitions"] = unique
 
+            # N6: populate the two handler-reach booleans from the document's own
+            # reachability section. Wrapped because INV-APV-31 requires *any*
+            # enrichment failure to degrade to an un-enriched push rather than
+            # propagate: the method is defensive and does not raise, but an
+            # unforeseen producer schema change must not become a task failure in
+            # the MOP arms only — the same between-arm asymmetry INV-APV-24 exists
+            # to remove. Degrading here keeps the dedup+minify result (INV-APV-31),
+            # which is NOT the same as the outer fallback's source-file push.
+            try:
+                self._enrich_listener_reach(document, source_path)
+            except Exception as e:  # noqa: BLE001 - see INV-APV-31 above
+                self.logger.warning(
+                    f"Listener reach enrichment failed for {source_path}: {e}. "
+                    f"Pushing the document deduplicated and minified but un-enriched."
+                )
+
             # delete=False so the file survives until the caller unlinks it after
             # the push, mirroring the _push_properties() temp-file idiom.
             with tempfile.NamedTemporaryFile(
@@ -873,6 +978,130 @@ class ApeRVTool(AbstractTool):
                 except OSError:
                     pass
             return None
+
+    def _index_reaches_target(self, reachability: list) -> tuple[dict[str, bool], bool]:
+        """
+        Index the document's `reachability` section by method signature.
+
+        Every access is defensive because the section is producer output with no
+        schema guarantee, and a single odd entry must not cost the whole
+        enrichment.
+
+        Args:
+            reachability: The document's `reachability` list.
+
+        Returns:
+            `(reaches_by_signature, saw_methods)`. The flag distinguishes a
+            genuinely empty section — an app that reaches nothing, for which
+            false on every listener is correct — from a malformed one, for which
+            no answer may be fabricated.
+        """
+        reaches_by_signature: dict[str, bool] = {}
+        saw_methods = False
+        for entry in reachability:
+            if not isinstance(entry, dict):
+                continue
+            methods = entry.get("methods")
+            if not isinstance(methods, list):
+                continue
+            saw_methods = True
+            for method in methods:
+                if not isinstance(method, dict):
+                    continue
+                signature = method.get("signature")
+                if isinstance(signature, str):
+                    reaches_by_signature[signature] = bool(method.get("reachesTarget"))
+        return reaches_by_signature, saw_methods
+
+    def _enrich_listener_reach(self, document: dict, source_path: str) -> int:
+        """
+        Populate the two handler-reach booleans on every listener, in place.
+
+        The scoring pipeline has a direct/transitive axis it has never been able
+        to use: the producer's method-level `directlyReachesTarget` means 0-hop —
+        true only when the method's own body invokes a JCA target — and UI
+        handlers delegate, so it is false for every handler in the corpus. That
+        is why `[DM]` is 0 across all 181 apps and `mop_weight_direct=500` has
+        never fired. The redefined semantics (INV-APV-32) is *the handler of THIS
+        widget reaches a JCA target at any call depth*, which is the property the
+        weight was always meant to reward, and it is computed from the same
+        `reachesTarget` bit — never copied from the producer's 0-hop field.
+
+        Both booleans therefore carry the same value by construction. They stay
+        two fields because the consumer reads them as two: it takes this widget's
+        own handler as the direct axis and derives the transitive axis from its
+        own containment logic (`MopData.java:516-517,531-533`), with precedence
+        over its local join. So the enrichment reaches the scoring pipeline with
+        no jar change.
+
+        Lookup is exact string match on the Soot signature: both sides come from
+        the same document, and the producer emits `listeners[].handler` in the
+        same form it uses for `methods[].signature`. A miss yields false on both
+        fields and no warning — misses are expected in apps whose handler set and
+        reachability set were computed over different class subsets.
+
+        Expect sparsity, not saturation: over the 40-APK subset this flags 160 of
+        45,200 listeners (0.4%), with only 7 apps carrying any flaggable listener.
+
+        Args:
+            document: Parsed static analysis JSON, modified in place. No
+                structural guarantee is assumed — every section access is
+                defensive.
+            source_path: Source file path, named in the warning when the
+                reachability section is unusable.
+
+        Returns:
+            Number of listeners enriched. Zero when the `reachability` section is
+            missing or malformed, in which case no field is written at all and
+            the caller pushes the document deduplicated and minified but
+            un-enriched (INV-APV-31).
+        """
+        # A missing or non-list reachability section cannot be defaulted: writing
+        # false everywhere would fabricate an answer indistinguishable from a
+        # measured one. Return 0 instead, leaving the document un-enriched.
+        reachability = document.get("reachability")
+        if not isinstance(reachability, list):
+            self.logger.warning(
+                f"Static analysis document {source_path} has no usable "
+                f"reachability section; pushing it un-enriched."
+            )
+            return 0
+
+        reaches_by_signature, saw_methods = self._index_reaches_target(reachability)
+
+        # A non-empty reachability section that yielded no methods[] anywhere is
+        # the malformed shape, distinct from a genuinely empty one: an app with
+        # `reachability: []` reaches nothing, and false on every listener is the
+        # correct answer for it.
+        if reachability and not saw_methods:
+            self.logger.warning(
+                f"Static analysis document {source_path} has a malformed "
+                f"reachability section (no methods[] entries); pushing it un-enriched."
+            )
+            return 0
+
+        enriched = 0
+        windows = document.get("windows")
+        for window in windows if isinstance(windows, list) else []:
+            if not isinstance(window, dict):
+                continue
+            widgets = window.get("widgets")
+            for widget in widgets if isinstance(widgets, list) else []:
+                if not isinstance(widget, dict):
+                    continue
+                listeners = widget.get("listeners")
+                for listener in listeners if isinstance(listeners, list) else []:
+                    if not isinstance(listener, dict):
+                        continue
+                    handler = listener.get("handler")
+                    reaches = isinstance(handler, str) and reaches_by_signature.get(
+                        handler, False
+                    )
+                    listener["handlerReachesTarget"] = reaches
+                    listener["handlerDirectlyReachesTarget"] = reaches
+                    enriched += 1
+
+        return enriched
 
     def _push_properties(
         self, device_serial: str, trace_file_path: str, mop_json_pushed: bool = False
@@ -925,6 +1154,120 @@ class ApeRVTool(AbstractTool):
         finally:
             os.unlink(tmp_path)
 
+    def _models_endpoint(self, llm_url: str) -> str:
+        """
+        Build the `/v1/models` URL from the configured base URL.
+
+        `llm_url` is an OpenAI-compatible base that already carries the `/v1`
+        segment in every arm that sets it, so appending `/v1/models` blindly
+        would produce `/v1/v1/models`.
+        """
+        base = llm_url.rstrip("/")
+        return f"{base}/models" if base.endswith("/v1") else f"{base}/v1/models"
+
+    def _capture_llm_provenance(self, llm_url: str, jar_path: str) -> Dict[str, Any]:
+        """
+        Record which backend actually served this run, by asking it.
+
+        Reading the configured model name would record the intent, not the fact,
+        and intent-versus-fact divergence is precisely the failure this exists to
+        catch: an SGLang server restarted with a different checkpoint,
+        quantization or sampling default serves a different experiment under an
+        unchanged configuration, and nothing downstream could tell. So the model
+        comes from a live `GET {llm_url}/v1/models` (INV-APV-33).
+
+        When the query fails the run proceeds — aborting would trade a small
+        evidential gap for a lost run — but the fields record the failure instead
+        of being back-filled from configuration, so downstream analysis can
+        distinguish "we know it was model X" from "we do not know". For the same
+        reason `llm_sampling` is only populated on success: the sampling in
+        effect is what the server honoured, and an unreachable server cannot
+        attest to it.
+
+        Note the address this queries is the one the *device* uses. In an
+        emulator setup `llm_url` is the `10.0.2.2` host-loopback alias, which the
+        harness itself cannot resolve, and the capture then records
+        `unreachable` — an honest "unknown" rather than a fabricated value. A
+        campaign that wants the record sets `APERV_LLM_BASE_URL` to a
+        host-reachable address, which is what the Docker setup already does.
+
+        Args:
+            llm_url: OpenAI-compatible base URL configured for this arm.
+            jar_path: Local path to the `ape-rv.jar` being pushed.
+
+        Returns:
+            `llm_backend`, `llm_model`, `llm_sampling`, `jar_sha256` and
+            `capture_status`. `jar_sha256` identifies the binary for post-hoc
+            correlation and is NOT the B3 gate — that gate's runtime half is the
+            `git_sha` of the `[APE-BUILD]` banner, because the build stamp is a
+            dexed Java constant and not a readable jar entry (INV-BUILD-09).
+        """
+        provenance: Dict[str, Any] = {
+            "llm_backend": llm_url,
+            "llm_model": None,
+            "llm_sampling": None,
+            "jar_sha256": None,
+            "capture_status": "ok",
+        }
+
+        try:
+            digest = hashlib.sha256()
+            with open(jar_path, "rb") as jar_file:
+                for chunk in iter(lambda: jar_file.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            provenance["jar_sha256"] = digest.hexdigest()
+        except OSError as e:
+            provenance["capture_status"] = "jar_digest_failed"
+            self.logger.warning(f"Could not digest {jar_path} for provenance: {e}")
+
+        endpoint = self._models_endpoint(llm_url)
+        # llm_url comes from configuration, and urlopen honours file: and other
+        # local schemes — a mistyped value would make the tool read a local path
+        # and record it as a served model. Only the two schemes an
+        # OpenAI-compatible backend speaks are accepted.
+        if not endpoint.startswith(("http://", "https://")):
+            provenance["capture_status"] = "unsupported_llm_url_scheme"
+            self.logger.warning(
+                f"LLM provenance skipped: {llm_url!r} is not an http(s) URL."
+            )
+            return provenance
+
+        try:
+            with urllib.request.urlopen(endpoint, timeout=5) as response:  # noqa: S310
+                served = json.load(response)
+            models = [
+                entry["id"]
+                for entry in served.get("data", [])
+                if isinstance(entry, dict) and "id" in entry
+            ]
+            if not models:
+                provenance["capture_status"] = "no_models_served"
+                return provenance
+            # Comma-joined when the server offers several, so the record names
+            # everything that could have answered rather than picking one.
+            provenance["llm_model"] = ",".join(models)
+            provenance["llm_sampling"] = {
+                key: self._tool_config[key]
+                for key in (
+                    "llm_temperature",
+                    "llm_top_p",
+                    "llm_top_k",
+                    "llm_percentage",
+                    "llm_prompt_variant",
+                )
+                if key in self._tool_config
+            }
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            # OSError covers URLError and socket timeouts; ValueError covers a
+            # response body that is not JSON. The run is never aborted for this.
+            provenance["capture_status"] = "query_failed"
+            self.logger.warning(
+                f"LLM provenance query to {llm_url} failed: {e}. "
+                f"Recording the failure rather than inferring from configuration."
+            )
+
+        return provenance
+
     def _build_main_command(
         self, app: App, device_serial: str, timeout_seconds: int
     ) -> Command:
@@ -945,7 +1288,7 @@ class ApeRVTool(AbstractTool):
             timeout_seconds: Execution timeout in seconds
 
         Returns:
-            Command with timeout = timeout_seconds + 15
+            Command with timeout = timeout_seconds + 45
         """
         strategy = self._tool_config.get("strategy", "sata")
         # APE-RV accepts minutes, not seconds. Floor division with min 1 ensures
@@ -985,10 +1328,20 @@ class ApeRVTool(AbstractTool):
         if seed is not None:
             cmd_args += ["-s", str(seed)]
 
-        # +15s grace period gives APE-RV time to flush its WTG model and exit
-        # cleanly after --running-minutes expires. Without this buffer, the
-        # Command timeout kills the process before it can write final output.
-        return Command("adb", cmd_args, timeout_seconds + 15)
+        # +45s grace period gives APE-RV time to flush its WTG model, emit the
+        # coverage dump and exit cleanly after --running-minutes expires. Without
+        # this buffer, the Command timeout kills the process before it can write
+        # final output.
+        #
+        # The 45 is a HYPOTHESIS about censored teardown durations, not a
+        # measurement, and the distinction matters: among iter0 runs whose teardown
+        # completed, the overrun beyond the exploration budget reaches 12,991 ms
+        # with 32 runs stacked against the old 15 s ceiling and none beyond it —
+        # the signature of a hard wall rather than a natural distribution. The
+        # teardown duration of the runs that were cut is unobservable, which is
+        # what censoring means, so no recovery rate can be claimed in advance; the
+        # smoke reports what the wider window actually cost (design D9).
+        return Command("adb", cmd_args, timeout_seconds + 45)
 
     def _check_empty_trace(self, trace_file_path: str) -> None:
         """
@@ -1102,6 +1455,38 @@ class ApeRVTool(AbstractTool):
             self._push_properties(
                 device_serial, task.result.trace_file, mop_json_pushed
             )
+
+        # Step 2b: Capture which backend actually serves this run (N4). Only for
+        # arms that declare LLM keys — a non-LLM arm has nothing to attest, and
+        # the absence of the record is not a failure there.
+        #
+        # The record goes to a sidecar next to the trace rather than into
+        # TaskResult: TaskResult has no free-form field for it, and this change
+        # deliberately adds no interface to rv-platform or rv-android-core. The
+        # sidecar sits in the results directory alongside the .trace and .logcat
+        # of the same run, which is where offline consolidation already looks.
+        # It cannot be written into the trace itself: step 3 opens that file in
+        # "wb" and would truncate anything written here.
+        #
+        # The discriminator is `llm_url`, not membership in LLM_ARM_KEYS: that
+        # set contains `llm_percentage_no_substrate`, which every arm carries
+        # through _BASELINE_ARM_FLAGS, so testing the set would query the server
+        # for arms that never call it. `llm_url` is present only in arms that do.
+        llm_url = self._tool_config.get("llm_url")
+        if llm_url:
+            provenance = self._capture_llm_provenance(llm_url, jar_path)
+            provenance_path = (
+                os.path.splitext(task.result.trace_file)[0] + ".provenance.json"
+            )
+            try:
+                with open(provenance_path, "w") as provenance_file:
+                    json.dump(provenance, provenance_file, indent=2)
+            except OSError as e:
+                # Losing the record must not cost the run — the same reasoning
+                # that keeps a failed query non-fatal (INV-APV-33).
+                self.logger.warning(
+                    f"Could not write LLM provenance to {provenance_path}: {e}"
+                )
 
         # Step 3: Build and execute main command
         main_cmd = self._build_main_command(app, device_serial, timeout_seconds)

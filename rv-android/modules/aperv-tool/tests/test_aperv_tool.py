@@ -5,6 +5,8 @@ Tests cover: tool spec, variants, configure, JAR search paths, command building,
 constants, and empty trace detection.
 """
 
+import copy
+import hashlib
 import json
 import logging
 import os
@@ -273,9 +275,12 @@ class TestBuildCommand:
         app_process_idx = cmd.args.index("/system/bin/app_process")
         assert cmd.args[app_process_idx + 1] == "/system/bin"
 
-    def test_command_timeout_is_timeout_plus_15(self):
+    def test_adb_timeout_uses_45s_grace(self):
+        # gh90 task 5.5 / spec scenario "Timeout budget includes the widened grace
+        # window": T + 45, not T + 15 — the old ceiling is where the lost coverage
+        # dumps piled up (32 runs stacked against it, none beyond).
         cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 300)
-        assert cmd.timeout == 315
+        assert cmd.timeout == 345
 
 
 class TestConstants:
@@ -517,6 +522,39 @@ _EXPECTED_CAL_ARM_TABLE = {
     "cal_a9": ("v17", 0.3, 0, 0.6, 50, True, True),
 }
 
+# The INV-APV-26 guard's scope. It began as "cal_*-prefixed variants", which was
+# exactly the set that existed then. gh90's decisive-run LLM arm carries no cal_
+# prefix, so leaving the scope as a prefix match would let the arm the whole run
+# turns on escape the guard, and the guard-verification task would pass
+# vacuously. Named explicitly rather than widened to "any arm with llm_url":
+# sata_llm and sata_mop_llm predate INV-APV-26 and do not declare llm_percentage
+# or llm_prompt_variant, so a blanket widening would fail on arms the invariant
+# was never written for.
+_LLM_GUARD_EXTRA_ARMS = {"mop_on_llm_70"}
+
+
+def _llm_guarded_arms(variants):
+    """The arms INV-APV-26 audits: the cal_* family plus the decisive-run LLM arm."""
+    return {
+        name: cfg
+        for name, cfg in variants.items()
+        if name.startswith("cal_") or name in _LLM_GUARD_EXTRA_ARMS
+    }
+
+
+# The three E3 decisive-run arms (gh90 A1), and the exact key set that separates
+# the control from the reference. The list is pinned here so a silent edit to
+# either dictionary fails a test rather than the experiment.
+_DECISIVE_ARMS = ("mop_on_llm_off", "mop_off_llm_off", "mop_on_llm_70")
+_MOP_CONTRAST_KEYS = {
+    "mop_weight_direct",
+    "mop_weight_transitive",
+    "mop_weight_open_menu",
+    "mop_weight_wtg",
+    "mop_frontier_weight",
+    "activity_trigger_enabled",
+}
+
 # The sata_mop_act_frontier arm-defining substrate every cal_* arm must carry.
 _EXPECTED_FRONTIER_SUBSTRATE = {
     "mop_data": "static_analysis",
@@ -671,15 +709,27 @@ class TestArmVariants:
         # trigger_mop_first no longer exists (task group 7 — jar deleted the property).
         assert "trigger_mop_first" not in cfg
 
-    def test_cal_variants_declare_all_llm_keys(self):
-        # INV-APV-26 guard (task 1.4): every cal_* arm ⊇ LLM_ARM_KEYS. Failure names the
-        # variant and the missing keys.
-        variants = ApeRVTool.get_variants()
-        cal_arms = {n: c for n, c in variants.items() if n.startswith("cal_")}
-        assert cal_arms, "no cal_* arms found in get_variants()"
-        for name, cfg in cal_arms.items():
+    def test_llm_guarded_arms_declare_all_llm_keys(self):
+        # INV-APV-26 guard: every arm in the guard's scope ⊇ LLM_ARM_KEYS. Failure
+        # names the variant and the missing keys.
+        arms = _llm_guarded_arms(ApeRVTool.get_variants())
+        assert arms, "no arms found in the LLM guard scope"
+        for name, cfg in arms.items():
             missing = LLM_ARM_KEYS - set(cfg)
-            assert not missing, f"cal arm {name!r} missing LLM keys: {sorted(missing)}"
+            assert not missing, f"arm {name!r} missing LLM keys: {sorted(missing)}"
+
+    def test_decisive_llm_arm_is_inside_the_llm_key_guard(self):
+        # gh90 task 1.6 / spec scenario "The LLM arm is inside the LLM key guard":
+        # mop_on_llm_70 carries no cal_ prefix, so the guard's original scoping
+        # would have skipped it and task 1.7 would have passed vacuously.
+        arms = _llm_guarded_arms(ApeRVTool.get_variants())
+
+        assert "mop_on_llm_70" in arms
+        assert not "mop_on_llm_70".startswith("cal_")
+        # And the guard would actually bite: dropping one key fails it.
+        crippled = dict(arms["mop_on_llm_70"])
+        del crippled["llm_prompt_variant"]
+        assert LLM_ARM_KEYS - set(crippled) == {"llm_prompt_variant"}
 
     def test_cal_arms_match_plan_table(self):
         # Task 1.5: concrete value assertions for all nine arms — the seven varying LLM
@@ -780,6 +830,129 @@ class TestArmVariants:
             assert "llm_snap_tolerance_px" not in cfg, name
 
 
+class TestDecisiveRunArms:
+    """gh90 group 1: the E3 decisive run's arm set (INV-APV-29/30)."""
+
+    def setup_method(self):
+        self.variants = ApeRVTool.get_variants()
+
+    def test_the_three_arms_exist_under_their_normative_names(self):
+        # The variant string is the resume identity key and the consolidation
+        # column key, so a rename silently splits a campaign's results.
+        for name in _DECISIVE_ARMS:
+            assert name in self.variants, f"missing decisive-run arm {name!r}"
+
+    def test_control_arm_keeps_the_static_analysis_document(self):
+        # INV-APV-29 / spec scenario "Control arm never omits the static analysis
+        # document": omitting it would disable WtgPass and FrontierPass as
+        # collateral, turning "MOP guidance off" into "navigation mostly off".
+        control = self.variants["mop_off_llm_off"]
+
+        assert (
+            control.get("mop_data") == "static_analysis"
+        ), "INV-APV-29: the control arm must keep a present, loadable mop_data"
+
+    def test_control_arm_zeroes_all_five_mop_weights(self):
+        control = self.variants["mop_off_llm_off"]
+
+        for key in (
+            "mop_weight_direct",
+            "mop_weight_transitive",
+            "mop_weight_open_menu",
+            "mop_weight_wtg",
+            "mop_frontier_weight",
+        ):
+            assert control[key] == 0, f"{key} must be 0 in the control arm"
+        assert control["activity_trigger_enabled"] is False
+
+    def test_control_arm_keeps_the_frontier_alive(self):
+        # INV-APV-30: the control removes MOP guidance, not navigation. Zeroing
+        # frontier_boost_weight too would confound the contrast.
+        reference = self.variants["mop_on_llm_off"]
+        control = self.variants["mop_off_llm_off"]
+
+        assert control["frontier_boost_weight"] == reference["frontier_boost_weight"]
+        assert control["frontier_boost_weight"] == 200
+
+    def test_all_three_arms_carry_the_frontier_substrate(self):
+        # INV-APV-30 — *sempre modo frontier*, including the control.
+        for name in _DECISIVE_ARMS:
+            cfg = self.variants[name]
+            assert cfg["mop_data"] == "static_analysis", name
+            assert cfg["frontier_boost_weight"] == 200, name
+            assert cfg["strategy"] == "sata", name
+            assert cfg["throttle_ms"] == 200, name
+
+    def test_source_components_flag_is_explicit_in_all_three(self):
+        # B2 / spec scenario: never inherited from the jar's false default
+        # (Config.java:159), whose suppression of the MOP-activity signal is
+        # measured at 20.0% → 85.0% of activities flagged on the subset40.
+        for name in _DECISIVE_ARMS:
+            cfg = self.variants[name]
+            assert "mop_activity_source_components" in cfg, name
+            assert cfg["mop_activity_source_components"] is True, name
+
+    def test_reference_and_control_differ_exactly_in_the_mop_keys(self):
+        # Spec scenario "Reference and control differ only in MOP keys". Asserted
+        # by diffing the dictionaries rather than by trusting review — this is
+        # what makes RQ-C1 a single-factor contrast.
+        reference = self.variants["mop_on_llm_off"]
+        control = self.variants["mop_off_llm_off"]
+
+        differing = {
+            key
+            for key in set(reference) | set(control)
+            if reference.get(key) != control.get(key)
+        }
+
+        assert differing == _MOP_CONTRAST_KEYS
+
+    def test_reference_and_llm_arm_differ_only_in_llm_keys(self):
+        # Spec scenario "Reference and LLM arm differ only in LLM keys": no MOP
+        # weight, frontier or RV exploration flag may move with the LLM.
+        reference = self.variants["mop_on_llm_off"]
+        llm_arm = self.variants["mop_on_llm_70"]
+
+        differing = {
+            key
+            for key in set(reference) | set(llm_arm)
+            if reference.get(key) != llm_arm.get(key)
+        }
+
+        assert differing, "the LLM arm must differ from the reference somewhere"
+        assert all(key.startswith("llm_") for key in differing), sorted(differing)
+        assert not differing & _MOP_CONTRAST_KEYS
+
+    def test_llm_arm_carries_the_cal_a1_dose_verbatim(self):
+        # design D8: 0.7 is the only dose with a measured 300 s counterpart on
+        # this substrate and subset, which is what makes the 1800 s result
+        # readable as a dose × budget interaction.
+        llm_arm = self.variants["mop_on_llm_70"]
+        cal_a1 = self.variants["cal_a1"]
+
+        for key in LLM_ARM_KEYS:
+            assert llm_arm[key] == cal_a1[key], f"{key} diverged from the cal_a1 dose"
+        assert llm_arm["llm_percentage"] == 0.7
+        assert llm_arm["llm_prompt_variant"] == "v13"
+        assert llm_arm["llm_temperature"] == 0
+
+    def test_reference_arm_is_the_anc2_anchor(self):
+        # Arm 1 is configurationally sata_mop_act_frontier: the reference is the
+        # configuration that already won the multi-arm comparison, not a new one.
+        reference = self.variants["mop_on_llm_off"]
+        anc2 = self.variants["sata_mop_act_frontier"]
+
+        assert reference == anc2
+
+    def test_decisive_arms_satisfy_the_arm_defining_guard(self):
+        # INV-APV-14 under its existing scope: none of the three is exempt, so
+        # every arm-defining key must be explicit in all of them.
+        for name in _DECISIVE_ARMS:
+            assert name not in aperv_mod._ARM_DEFINING_EXEMPT
+            missing = aperv_mod.ARM_DEFINING_KEYS - set(self.variants[name])
+            assert not missing, f"{name} missing arm-defining keys: {sorted(missing)}"
+
+
 class TestSeedPropagation:
     """Group 3: seed reaches the jar as -s <seed>, never ape.properties (INV-APV-18)."""
 
@@ -875,7 +1048,27 @@ SOURCE_DOCUMENT = {
     "package": "br.unb.cic.cryptoapp",
     "mainActivity": "br.unb.cic.cryptoapp.MainActivity",
     "components": {"activities": ["MainActivity", "SecondActivity"]},
-    "reachability": {"br.unb.cic.cryptoapp.MainActivity": ["onCreate", "doCrypto"]},
+    # The producer's shape: a list of classes, each carrying its methods[] with the
+    # reachable / reachesTarget / directlyReachesTarget bits (gh90 N6 reads it).
+    "reachability": [
+        {
+            "className": "br.unb.cic.cryptoapp.MainActivity",
+            "componentType": "ACTIVITY",
+            "isMain": True,
+            "methods": [
+                {
+                    "name": "onCreate",
+                    "signature": (
+                        "<br.unb.cic.cryptoapp.MainActivity: "
+                        "void onCreate(android.os.Bundle)>"
+                    ),
+                    "reachable": True,
+                    "reachesTarget": True,
+                    "directlyReachesTarget": False,
+                }
+            ],
+        }
+    ],
     "windows": [{"id": "w1", "title": "main"}],
     "transitions": [
         TRANSITION_A,
@@ -896,6 +1089,290 @@ def _write_source(tmp_path, document=None, raw=None):
     else:
         path.write_text(json.dumps(document, indent=2))
     return str(path)
+
+
+# --- gh90 N6: listener reach enrichment --------------------------------------
+
+# Handler signatures in the producer's Soot form, as they appear in both
+# listeners[].handler and reachability[].methods[].signature.
+_H_ENCRYPT = "<com.example.MainActivity: void onEncryptClick(android.view.View)>"
+_H_ABOUT = "<com.example.MainActivity: void onAboutClick(android.view.View)>"
+_H_GHOST = "<com.example.MainActivity: void onGhostClick(android.view.View)>"
+
+# A document shaped like a real .apk.json excerpt: onEncryptClick delegates to a
+# repository that calls Cipher.getInstance, so the producer reports reachesTarget
+# true with directlyReachesTarget FALSE (0-hop semantics — the defect N6 exists to
+# route around). onAboutClick reaches nothing. onGhostClick has no reachability
+# entry at all, the expected miss in apps whose handler set and reachability set
+# were computed over different class subsets.
+ENRICH_DOCUMENT = {
+    "package": "com.example",
+    "mainActivity": "com.example.MainActivity",
+    "components": {"activities": ["MainActivity"]},
+    "reachability": [
+        {
+            "className": "com.example.MainActivity",
+            "componentType": "ACTIVITY",
+            "isMain": True,
+            "methods": [
+                {
+                    "name": "onEncryptClick",
+                    "signature": _H_ENCRYPT,
+                    "reachable": True,
+                    "reachesTarget": True,
+                    "directlyReachesTarget": False,
+                },
+                {
+                    "name": "onAboutClick",
+                    "signature": _H_ABOUT,
+                    "reachable": True,
+                    "reachesTarget": False,
+                    "directlyReachesTarget": False,
+                },
+            ],
+        }
+    ],
+    "windows": [
+        {
+            "id": "w1",
+            "name": "com.example.MainActivity",
+            "type": "ACTIVITY",
+            "isMain": True,
+            "widgets": [
+                {
+                    "id": "btn_encrypt",
+                    "idName": "encrypt",
+                    "type": "android.widget.Button",
+                    "text": "Encrypt",
+                    "listeners": [{"eventType": "click", "handler": _H_ENCRYPT}],
+                },
+                {
+                    "id": "btn_about",
+                    "idName": "about",
+                    "type": "android.widget.Button",
+                    "text": "About",
+                    "listeners": [{"eventType": "click", "handler": _H_ABOUT}],
+                },
+                {
+                    "id": "btn_ghost",
+                    "idName": "ghost",
+                    "type": "android.widget.Button",
+                    "text": "Ghost",
+                    "listeners": [{"eventType": "click", "handler": _H_GHOST}],
+                },
+            ],
+        }
+    ],
+    "transitions": [],
+    "complete": True,
+}
+
+
+def _listeners_of(document):
+    """Flatten windows[].widgets[].listeners[] keyed by handler signature."""
+    return {
+        listener["handler"]: listener
+        for window in document["windows"]
+        for widget in window["widgets"]
+        for listener in widget["listeners"]
+    }
+
+
+class TestEnrichListenerReach:
+    """gh90 group 2: _enrich_listener_reach() semantics (INV-APV-31/32)."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def test_transitive_handler_flagged_direct(self):
+        # Spec scenario "Handler that reaches JCA transitively is flagged direct":
+        # any-depth reach of THIS widget's handler is what direct now means.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+
+        enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        assert enriched == 3
+        listener = _listeners_of(document)[_H_ENCRYPT]
+        assert listener["handlerReachesTarget"] is True
+        assert listener["handlerDirectlyReachesTarget"] is True
+
+    def test_direct_is_not_copied_from_producer_field(self):
+        # INV-APV-32: the producer says directlyReachesTarget=false for this very
+        # handler. Copying it would reproduce the [DM]=0 defect across all 181 apps.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+        producer_bit = document["reachability"][0]["methods"][0][
+            "directlyReachesTarget"
+        ]
+        assert producer_bit is False
+
+        self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        assert (
+            _listeners_of(document)[_H_ENCRYPT]["handlerDirectlyReachesTarget"] is True
+        )
+
+    def test_unreachable_handler_false_on_both(self):
+        # Spec scenario "Handler that reaches nothing is flagged false on both axes".
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+
+        self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        listener = _listeners_of(document)[_H_ABOUT]
+        assert listener["handlerReachesTarget"] is False
+        assert listener["handlerDirectlyReachesTarget"] is False
+
+    def test_unknown_signature_false_on_both_without_warning(self, caplog):
+        # Spec scenario "Handler absent from the reachability section": both false,
+        # and NO per-miss warning — a miss is expected, not a failure.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+
+        with caplog.at_level(logging.WARNING):
+            self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        listener = _listeners_of(document)[_H_GHOST]
+        assert listener["handlerReachesTarget"] is False
+        assert listener["handlerDirectlyReachesTarget"] is False
+        assert caplog.text == ""
+
+    def test_enrichment_adds_only_two_keys(self):
+        # INV-APV-31: additive only. Stripping the two keys must restore the source
+        # document exactly — nothing added, removed, reordered or altered elsewhere.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+
+        self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        for listener in _listeners_of(document).values():
+            assert set(listener) == {
+                "eventType",
+                "handler",
+                "handlerReachesTarget",
+                "handlerDirectlyReachesTarget",
+            }
+            del listener["handlerReachesTarget"]
+            del listener["handlerDirectlyReachesTarget"]
+        assert document == ENRICH_DOCUMENT
+
+    def test_app_with_no_widgets_is_a_valid_noop(self):
+        # Spec scenario "App with no widgets is enriched trivially" — the Compose
+        # case: median 0 widgets, so N6 is a no-op there by construction.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+        document["windows"] = [{"id": "w1", "name": "MainActivity", "widgets": []}]
+        before = copy.deepcopy(document)
+
+        enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        assert enriched == 0
+        assert document == before
+
+    def test_empty_reachability_list_flags_everything_false(self):
+        # An app that reaches nothing is not a malformed app: false everywhere is
+        # the correct answer, and the fields ARE written.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+        document["reachability"] = []
+
+        enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        assert enriched == 3
+        for listener in _listeners_of(document).values():
+            assert listener["handlerReachesTarget"] is False
+            assert listener["handlerDirectlyReachesTarget"] is False
+
+    def test_malformed_reachability_writes_nothing_and_warns(self, caplog):
+        # A section that cannot answer the question must not be defaulted to false:
+        # a fabricated answer is indistinguishable from a measured one.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+        document["reachability"] = ["not", "objects", "with", "methods"]
+
+        with caplog.at_level(logging.WARNING):
+            enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        assert enriched == 0
+        assert "app.apk.json" in caplog.text
+        for listener in _listeners_of(document).values():
+            assert "handlerReachesTarget" not in listener
+
+    def test_absent_reachability_writes_nothing_and_warns(self, caplog):
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+        del document["reachability"]
+
+        with caplog.at_level(logging.WARNING):
+            enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
+
+        assert enriched == 0
+        assert "app.apk.json" in caplog.text
+        for listener in _listeners_of(document).values():
+            assert "handlerReachesTarget" not in listener
+
+
+class TestCompactionEnrichment:
+    """gh90 group 2: the enrichment as wired into compaction (INV-APV-21/31)."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def test_compacted_document_carries_the_two_booleans(self, tmp_path):
+        source = _write_source(tmp_path, ENRICH_DOCUMENT)
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        with open(compacted) as f:
+            result = json.load(f)
+        listeners = _listeners_of(result)
+        assert listeners[_H_ENCRYPT]["handlerDirectlyReachesTarget"] is True
+        assert listeners[_H_ABOUT]["handlerDirectlyReachesTarget"] is False
+        os.unlink(compacted)
+
+    def test_source_file_unmodified_by_enrichment(self, tmp_path):
+        # INV-APV-20 continues to hold with the third operation in place: the
+        # archived artifact stays byte-identical to the producer's output.
+        source = _write_source(tmp_path, ENRICH_DOCUMENT)
+        before = open(source, "rb").read()
+
+        compacted = self.tool._compact_static_analysis_json(source)
+
+        assert open(source, "rb").read() == before
+        os.unlink(compacted)
+
+    def test_malformed_reachability_degrades_to_unenriched_push(self, tmp_path, caplog):
+        # Spec scenario "Malformed reachability section degrades to un-enriched
+        # push": still deduplicated, still minified, still pushed — NOT the
+        # source-file fallback of INV-APV-24, which is a different degradation.
+        document = copy.deepcopy(ENRICH_DOCUMENT)
+        document["reachability"] = ["not", "objects"]
+        document["transitions"] = [TRANSITION_A, TRANSITION_B, TRANSITION_A]
+        source = _write_source(tmp_path, document)
+
+        with caplog.at_level(logging.WARNING):
+            compacted = self.tool._compact_static_analysis_json(source)
+
+        assert compacted is not None, "enrichment failure must not trigger INV-APV-24"
+        assert source in caplog.text
+        raw = open(compacted).read()
+        assert "handlerReachesTarget" not in raw
+        assert json.loads(raw)["transitions"] == [TRANSITION_A, TRANSITION_B]
+        assert "\n" not in raw
+        os.unlink(compacted)
+
+    def test_unexpected_enrichment_error_still_pushes_compacted(
+        self, tmp_path, caplog, monkeypatch
+    ):
+        # INV-APV-31 "on any failure": even an unforeseen exception inside the
+        # enrichment degrades to the dedup+minify result rather than failing the
+        # task in the MOP arms only.
+        source = _write_source(tmp_path, ENRICH_DOCUMENT)
+
+        def raise_typeerror(*args, **kwargs):
+            raise TypeError("producer schema drifted")
+
+        monkeypatch.setattr(ApeRVTool, "_enrich_listener_reach", raise_typeerror)
+
+        with caplog.at_level(logging.WARNING):
+            compacted = self.tool._compact_static_analysis_json(source)
+
+        assert compacted is not None
+        assert source in caplog.text
+        assert "handlerReachesTarget" not in open(compacted).read()
+        os.unlink(compacted)
 
 
 class TestCompactStaticAnalysisJson:
@@ -939,14 +1416,15 @@ class TestCompactStaticAnalysisJson:
         compacted = self.tool._compact_static_analysis_json(source)
 
         raw = open(compacted).read()
-        assert "\n" not in raw
-        assert ", " not in raw
-        assert ": " not in raw
         expected = {
             **SOURCE_DOCUMENT,
             "transitions": [TRANSITION_A, TRANSITION_B, TRANSITION_C],
         }
-        assert json.loads(raw) == expected
+        # Compared against the canonical no-whitespace serialization rather than by
+        # scanning for ", " / ": ", because a Soot signature legally contains ": "
+        # inside a string value (<class: void m(args)>).
+        assert raw == json.dumps(expected, separators=(",", ":"))
+        assert "\n" not in raw
         os.unlink(compacted)
 
     def test_source_file_is_byte_identical_after_call(self, tmp_path):
@@ -1033,6 +1511,224 @@ class TestCompactStaticAnalysisJson:
         assert set(os.listdir(tempfile.gettempdir())) == before_temps
 
 
+# --- gh90 B3: snap tolerance gated on the dead-pair ban -----------------------
+
+# The raised radius, and the key an arm uses to declare which jar build it was
+# raised for. The declaration is Python-only — it must never reach
+# ape.properties, because the jar has no property to receive it.
+_SNAP_TOLERANCE_RAISED = 150
+_JAR_SHA_KEY = "expected_jar_git_sha"
+
+
+def _snap_tolerance_offenders(variants):
+    """
+    Arms that break the B3 pairing (INV-APV-34), with the reason.
+
+    Widening the snap radius makes more LLM answers resolve to a widget. Without
+    the dead-pair ban in the jar, the extra resolutions are repeated taps on
+    pairs already known to produce no new state, so the widening amplifies the
+    measured 25.6% dead-call waste instead of rescuing near-misses. The tolerance
+    and the declaration of the jar it belongs to therefore travel together, in
+    both directions: a dangling declaration left behind after a rollback is just
+    as misleading as an ungated tolerance.
+    """
+    offenders = {}
+    for name, cfg in variants.items():
+        sets_tolerance = "llm_snap_tolerance_px" in cfg
+        declares_sha = bool(cfg.get(_JAR_SHA_KEY))
+        if sets_tolerance and not declares_sha:
+            offenders[name] = "raised tolerance without a declared jar sha"
+        elif (
+            declares_sha and cfg.get("llm_snap_tolerance_px") != _SNAP_TOLERANCE_RAISED
+        ):
+            offenders[name] = "declared jar sha without the raised tolerance"
+    return offenders
+
+
+class TestSnapToleranceGate:
+    """gh90 group 3: the B3 coupling, enforced by the suite (INV-APV-34)."""
+
+    def test_shipped_arms_satisfy_the_pairing(self):
+        assert _snap_tolerance_offenders(ApeRVTool.get_variants()) == {}
+
+    def test_tolerance_without_declaration_fails(self):
+        # Spec scenario "Tolerance and jar declaration travel together".
+        offenders = _snap_tolerance_offenders(
+            {"arm": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED}}
+        )
+
+        assert "arm" in offenders
+        assert "without a declared jar sha" in offenders["arm"]
+
+    def test_dangling_jar_sha_declaration_fails(self):
+        # Spec scenario "Declaration without the raised tolerance also fails":
+        # the tolerance was rolled back to the jar default and the declaration
+        # was left behind, which will silently mislead the next reader.
+        offenders = _snap_tolerance_offenders(
+            {"arm": {_JAR_SHA_KEY: "abc1234", "llm_snap_tolerance_px": 50}}
+        )
+
+        assert "arm" in offenders
+        assert "without the raised tolerance" in offenders["arm"]
+
+    def test_declaration_without_any_tolerance_key_also_fails(self):
+        offenders = _snap_tolerance_offenders({"arm": {_JAR_SHA_KEY: "abc1234"}})
+
+        assert "arm" in offenders
+
+    def test_paired_declaration_passes(self):
+        assert (
+            _snap_tolerance_offenders(
+                {
+                    "arm": {
+                        _JAR_SHA_KEY: "abc1234",
+                        "llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED,
+                    }
+                }
+            )
+            == {}
+        )
+
+    def test_declared_sha_never_reaches_ape_properties(self):
+        # The declaration is a guard-and-smoke artifact, not a jar property: the
+        # runtime half of the gate is the [APE-BUILD] banner's git_sha, because
+        # the build stamp is a dexed constant and not a readable jar entry.
+        assert _JAR_SHA_KEY not in APERV_PROPERTY_MAPPING
+
+
+# --- gh90 N4: per-run LLM backend provenance ---------------------------------
+
+
+class _FakeResponse:
+    """Minimal stand-in for the object urlopen returns as a context manager."""
+
+    def __init__(self, body):
+        self._body = body.encode()
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+class TestLlmProvenance:
+    """gh90 group 3: what actually served the run (INV-APV-33)."""
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+        self.tool.configure(ApeRVTool.get_variants()["cal_a1"])
+
+    def _jar(self, tmp_path):
+        jar = tmp_path / "ape-rv.jar"
+        jar.write_bytes(b"jar bytes")
+        return str(jar)
+
+    def _serve(self, monkeypatch, body):
+        monkeypatch.setattr(
+            aperv_mod.urllib.request,
+            "urlopen",
+            lambda url, timeout=None: _FakeResponse(body),
+        )
+
+    def test_provenance_from_live_query(self, tmp_path, monkeypatch):
+        # Spec scenario "Backend recorded from a live query".
+        self._serve(
+            monkeypatch,
+            json.dumps({"data": [{"id": "Qwen/Qwen3-VL-4B-Instruct"}]}),
+        )
+
+        provenance = self.tool._capture_llm_provenance(
+            "http://192.168.0.36:30000/v1", self._jar(tmp_path)
+        )
+
+        assert provenance["capture_status"] == "ok"
+        assert provenance["llm_model"] == "Qwen/Qwen3-VL-4B-Instruct"
+        assert provenance["llm_backend"] == "http://192.168.0.36:30000/v1"
+        assert provenance["llm_sampling"]["llm_temperature"] == 0
+        assert provenance["llm_sampling"]["llm_prompt_variant"] == "v13"
+        assert provenance["jar_sha256"] == hashlib.sha256(b"jar bytes").hexdigest()
+
+    def test_provenance_records_failure_not_config(self, tmp_path, monkeypatch, caplog):
+        # Spec scenario "Query failure is recorded, not inferred": the arm
+        # configures llm_model="default", and that value must NOT appear.
+        def unreachable(url, timeout=None):
+            raise OSError("Connection refused")
+
+        monkeypatch.setattr(aperv_mod.urllib.request, "urlopen", unreachable)
+
+        with caplog.at_level(logging.WARNING):
+            provenance = self.tool._capture_llm_provenance(
+                "http://10.0.2.2:30000/v1", self._jar(tmp_path)
+            )
+
+        assert provenance["capture_status"] == "query_failed"
+        assert provenance["llm_model"] is None
+        assert provenance["llm_sampling"] is None
+        assert self.tool._tool_config["llm_model"] == "default"
+        # The jar digest is independent of the server and still recorded.
+        assert provenance["jar_sha256"] is not None
+
+    def test_malformed_response_is_a_failure_not_a_value(self, tmp_path, monkeypatch):
+        self._serve(monkeypatch, "<html>gateway error</html>")
+
+        provenance = self.tool._capture_llm_provenance(
+            "http://host:30000/v1", self._jar(tmp_path)
+        )
+
+        assert provenance["capture_status"] == "query_failed"
+        assert provenance["llm_model"] is None
+
+    def test_empty_model_list_is_recorded_as_such(self, tmp_path, monkeypatch):
+        self._serve(monkeypatch, json.dumps({"data": []}))
+
+        provenance = self.tool._capture_llm_provenance(
+            "http://host:30000/v1", self._jar(tmp_path)
+        )
+
+        assert provenance["capture_status"] == "no_models_served"
+        assert provenance["llm_model"] is None
+
+    def test_missing_jar_is_recorded_not_raised(self, tmp_path, monkeypatch):
+        self._serve(monkeypatch, json.dumps({"data": [{"id": "m"}]}))
+
+        provenance = self.tool._capture_llm_provenance(
+            "http://host:30000/v1", str(tmp_path / "absent.jar")
+        )
+
+        assert provenance["jar_sha256"] is None
+        assert provenance["capture_status"] == "jar_digest_failed"
+
+    def test_non_http_url_is_refused_before_opening_anything(self, tmp_path):
+        # urlopen honours file: and other local schemes, so a mistyped llm_url
+        # could make the tool read a local path and record it as a served model.
+        provenance = self.tool._capture_llm_provenance(
+            f"file://{tmp_path}", self._jar(tmp_path)
+        )
+
+        assert provenance["capture_status"] == "unsupported_llm_url_scheme"
+        assert provenance["llm_model"] is None
+
+    def test_endpoint_does_not_double_the_v1_segment(self):
+        # Every arm's llm_url already carries /v1; appending /v1/models blindly
+        # would query /v1/v1/models and always fail.
+        assert (
+            self.tool._models_endpoint("http://host:30000/v1")
+            == "http://host:30000/v1/models"
+        )
+        assert (
+            self.tool._models_endpoint("http://host:30000/v1/")
+            == "http://host:30000/v1/models"
+        )
+        assert (
+            self.tool._models_endpoint("http://host:30000")
+            == "http://host:30000/v1/models"
+        )
+
+
 class TestExecuteCompactionFlow:
     """Group 2: Step 1c wiring — which path is pushed, and temp lifetime."""
 
@@ -1082,6 +1778,60 @@ class TestExecuteCompactionFlow:
         return [
             p for p in self.pushed if p[1] == "/data/local/tmp/static_analysis.json"
         ]
+
+    def _provenance_path(self, tmp_path):
+        return tmp_path / "trace.provenance.json"
+
+    def test_provenance_sidecar_written_for_an_llm_arm(self, tmp_path, monkeypatch):
+        # Spec step 6: one query per run, recorded next to the run's artifacts.
+        # The sidecar cannot live inside the trace — step 7 opens that file in
+        # "wb" and would truncate anything written before it.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        monkeypatch.setattr(
+            aperv_mod.urllib.request,
+            "urlopen",
+            lambda url, timeout=None: _FakeResponse(
+                json.dumps({"data": [{"id": "Qwen/Qwen3-VL-4B-Instruct"}]})
+            ),
+        )
+
+        self._run(tmp_path, "cal_a1")
+
+        recorded = json.loads(self._provenance_path(tmp_path).read_text())
+        assert recorded["llm_model"] == "Qwen/Qwen3-VL-4B-Instruct"
+        assert recorded["capture_status"] == "ok"
+        assert recorded["jar_sha256"] == hashlib.sha256(b"jar").hexdigest()
+
+    def test_no_query_for_a_non_llm_arm(self, tmp_path, monkeypatch):
+        # Spec scenario "Non-LLM arms need no query": no request is issued, and
+        # the absent record is not a failure.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+
+        def forbidden(*args, **kwargs):
+            raise AssertionError("a non-LLM arm must not query /v1/models")
+
+        monkeypatch.setattr(aperv_mod.urllib.request, "urlopen", forbidden)
+
+        self._run(tmp_path, "sata_mop_act_frontier")
+
+        assert not self._provenance_path(tmp_path).exists()
+
+    def test_failed_query_does_not_abort_the_run(self, tmp_path, monkeypatch):
+        # Spec scenario "Provenance query does not delay the run": the flow
+        # proceeds to the exploration command and the failure is on record.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+
+        def unreachable(url, timeout=None):
+            raise OSError("Connection refused")
+
+        monkeypatch.setattr(aperv_mod.urllib.request, "urlopen", unreachable)
+
+        self._run(tmp_path, "cal_a1")
+
+        recorded = json.loads(self._provenance_path(tmp_path).read_text())
+        assert recorded["capture_status"] == "query_failed"
+        assert recorded["llm_model"] is None
+        assert self._static_pushes(), "the run must still have pushed and executed"
 
     def test_pushes_compacted_temp_not_source(self, tmp_path):
         # Spec scenario: the compacted temp reaches the device, not the source.

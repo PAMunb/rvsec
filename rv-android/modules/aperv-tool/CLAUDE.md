@@ -15,6 +15,8 @@ uv run rv-experiment run --tools aperv:sata_mop --specification-set jca   # MOP-
 | File | Purpose |
 |------|---------|
 | `src/aperv_tool/tools/aperv/tool.py` | `ApeRVTool`: JAR resolution, device push, `ape.properties` generation, command building, execution |
+| `src/aperv_tool/analysis/coverage_dump.py` | Offline parser of the jar's `UICOV` / `UICOV-ACT` coverage dump (gh90 O3). Never in the run path |
+| `src/aperv_tool/analysis/clock_logcat_join.py` | Offline join of a run's `[APE-STEP]` clock against its `RVSEC` violation lines (gh90 A9). Never in the run path |
 | `src/aperv_tool/tools/aperv/ape-rv.jar` | APE-RV binary (gitignored); pushed to `/data/local/tmp/ape-rv.jar` |
 | `src/aperv_tool/tools/aperv/system-broadcast.json` | System broadcast intent catalog for component triggering |
 | `tests/test_aperv_tool.py` | Tool spec, variants, configure validation, JAR search paths, command building, empty-trace detection, properties generation |
@@ -24,7 +26,7 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 
 ## Variants
 
-`get_variants()` returns 26 variants: 11 arm-defining named arms + 6 frozen gh43 prompt-ablation arms + 9 `cal_*` calibration arms (gh88). All use `throttle_ms: 200`. The `dfs` strategy is accepted by `configure()` but has no named variant (reach it via override, e.g. `aperv:default@strategy=dfs`).
+`get_variants()` returns 29 variants: 11 arm-defining named arms + 6 frozen gh43 prompt-ablation arms + 9 `cal_*` calibration arms (gh88) + 3 E3 decisive-run arms (gh90). All use `throttle_ms: 200`. The `dfs` strategy is accepted by `configure()` but has no named variant (reach it via override, e.g. `aperv:default@strategy=dfs`).
 
 | Variant | Strategy | MOP | LLM | Notes |
 |---------|----------|-----|-----|-------|
@@ -39,6 +41,9 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 | `sata_mop_llm` | sata | yes | yes | MOP + LLM combined |
 | `sata_mop_llm_*` | sata | yes | yes | 6 frozen prompt arms (ape_current, ape_reasoning, compact_v1, v13, v17, visual_only) at `llm_percentage 0.7` |
 | `cal_a1`…`cal_a9` | sata | yes | yes | 9 gh88 LLM calibration arms on the `sata_mop_act_frontier` substrate; every LLM key explicit (`LLM_ARM_KEYS` guard, INV-APV-26); Phase-A arm table (plan §6) |
+| `mop_on_llm_off` | sata | yes | no | gh90 decisive-run **reference**; configurationally identical to `sata_mop_act_frontier` (ANC2) |
+| `mop_off_llm_off` | sata | **off** | no | gh90 decisive-run **control** — the experiment's first. MOP-off means `mop_data` present + all five MOP weights `0` + `activity_trigger_enabled=false` (`_MOP_OFF_OVERRIDES`), never an omitted document (INV-APV-29). Reference ↔ control = RQ-C1 |
+| `mop_on_llm_70` | sata | yes | yes | gh90 decisive-run **LLM arm** at the `cal_a1` dose verbatim (v13, 70%, temperature 0). Reference ↔ this = RQ-C3. Inside the `LLM_ARM_KEYS` guard despite carrying no `cal_` prefix |
 
 **`LLM_ARM_KEYS` guard (INV-APV-26)**: a second explicitness guard, scoped to `cal_*`-prefixed variants only, requiring every variant to declare all 11 Phase-A LLM keys explicitly (closes the `_LLM_FLAGS` gap that omits `llm_percentage`/`llm_prompt_variant`). `llm_max_tokens`/`llm_snap_tolerance_px` are mapped in `APERV_PROPERTY_MAPPING` (INV-APV-27) but stay OUT of `LLM_ARM_KEYS` and are set by no `cal_*` arm — inert until the Phase-B jar exposes the properties.
 
@@ -64,7 +69,7 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 ## Gotchas
 
 - `ape-rv.jar` is gitignored. The Docker image builds it at image-build time (`docker/rvandroid/Dockerfile` clones `https://github.com/phtcosta/ape.git`, `mvn package`, copies `target/ape-rv.jar` into the module dir = priority-1 path). Standalone runs must build/place it manually, or `_resolve_jar_path()` raises `RVToolExecutionError`.
-- The `+15s` grace on the command timeout lets APE-RV flush its WTG model before the process is killed.
+- The `+45s` grace on the command timeout lets APE-RV flush its WTG model and emit the coverage dump before the process is killed. The value is a hypothesis about censored teardown durations, not a measurement: among iter0 runs whose teardown completed, the overrun reaches 12,991 ms with 32 runs stacked against the previous 15 s ceiling and none beyond it.
 - Empty (0-byte) trace file = silent startup crash; logged as a warning, not an error (coverage may still come from logcat).
 - Static-analysis JSON for MOP variants must exist at `<task.results_dir>/<apk_name>.json`; if missing the tool degrades gracefully (runs without MOP data).
 - The JSON is compacted before the push because the Java side rejects any file above ~32 MB (`MopData.java:202`, `maxMemory()/PARSE_FOOTPRINT_FACTOR`) *before* parsing, and an oversized file makes the MOP arms abort with 0 steps while the non-MOP baselines explore normally — a per-app fairness gap, not a crash. Measured on `org.quantumbadger.redreader_117`: 50.6 MB → 21.0 MB, 24,300 → 7,124 `transitions` (70.7% exact duplicates), ~1.4s.
