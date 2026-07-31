@@ -1,7 +1,8 @@
 <!-- Group order is the deadline-driven priority order: implemented and tested by 2026-07-31 09:00
-     (hard max 2026-08-01 09:00), feeding the decisive run. Groups 1-4 are independent of the
-     sister-repo jar and can be completed and green before it exists; Group 5 is the only one that
-     needs the jar. This change touches ~5 files in one module — no subagent orchestration needed. -->
+     (hard max 2026-08-01 09:00), feeding the decisive run. Groups 1-5 are independent of the
+     sister-repo jar and can be completed and green before it exists; Groups 6 and 7 need the jar.
+     Group 7 (RQ-C1 power probe) gates the decision to launch the decisive run and must be declared
+     in the pre-registration before it executes. This change touches ~5 files in one module — no subagent orchestration needed. -->
 
 ## 1. Decisive-run arms (A1 + B2)
 
@@ -42,20 +43,49 @@
 - [ ] 4.6 Run `/rv-test-run aperv-tool`
 - [ ] 4.7 Report what the join says about the "reaching a MOP screen fires the monitor" premise — this is the evidence base for the deferred N5 decision
 
-## 5. Cross-repository integration (needs the sister jar)
+## 5. Coverage-dump parser and capture grace window (O3 + `+45 s`)
 
-- [ ] 5.1 Record the git sha of the `ape-rv.jar` build containing B1 and put it in the LLM arm's declaration (task 3.3)
-- [ ] 5.2 Real smoke via `rv-platform` against a real SGLang server — infrastructure scope: 3 APKs × 3 arms, short timeout, all tasks COMPLETED, coverage > 0, SGLang answers. The APK set MUST include `freeotpplus` and `aegis` (task 5.5 is unreachable on the other 33). No mock LLM. **Never start, stop, or manage an emulator manually** — rv-platform owns the whole lifecycle
-- [ ] 5.3 Smoke gate: the `[APE-BUILD]` banner's `git_sha` matches the arm's declared sha; a mismatch fails before the decisive run launches (INV-APV-34)
-- [ ] 5.4 Smoke gate: in the control arm, `decision_source=MOP` count == 0 AND the `mop=` field is always 0 across every step. This is the one behavioural gate the smoke carries, because it is the single failure that invalidates the whole run
-- [ ] 5.5 Smoke gate: the pushed `static_analysis.json` carries the two handler-reach booleans, and `[DM]` markers appear for widgets whose handlers reach JCA — verifiable only on the 7 apps with flaggable listeners (design Risks)
-- [ ] 5.6 Smoke gate: provenance fields present in the task output, naming the model actually served
+Added 2026-07-31 after adversarial verification (`docs/20260731_verificacao_analise_percepcao.md`). Independent of the sister jar: the parser reads recorded traces, and the grace window is a harness constant.
 
-## 6. Verification
+- [ ] 5.1 Create `modules/aperv-tool/src/aperv_tool/analysis/coverage_dump.py`: parse `[APE-RV] UICOV` and `[APE-RV] UICOV-ACT` per run. Match the tags as **substrings** — every logcat line is prefixed `[APE] `, and the `Logger.format` lines carry it *without* the `*** INFO *** ` the others have, so no regex may anchor at `^`. Use `discovered`/`interacted` (integers) as the computation source, never `gap` (one decimal, `Locale.ROOT`) (INV-APV-36)
+- [ ] 5.2 Cross-run aggregation at Activity grain only; `UICOV` lines parsed for intra-run use and never joined across runs (INV-APV-36). Document inline WHY: `StateKey.toString()` embeds a JVM identity hash, measured cross-replica Jaccard 0.000
+- [ ] 5.3 Dump status per run — complete / partial / absent — with a truncated final line retained as partial, and no run omitted for lacking a dump (INV-APV-37)
+- [ ] 5.4 Record that `mopReach` exists on `UICOV` and not on `UICOV-ACT`: report its absence at Activity grain rather than inferring it (the jar-side propagation is item O2, not in either change)
+- [ ] 5.5 Widen the capture grace window in `tool.py` from `timeout_seconds + 15` to `timeout_seconds + 45`, with an inline comment stating it is a hypothesis about censored teardown durations, not a measurement
+- [ ] 5.6 Unit tests against recorded iter0 traces as read-only fixtures: a run with a complete dump; a run with no dump (reported, not dropped); a synthetic truncated tail (partial); per-arm dump presence reproduces the recorded 43.8%–65.0% range over the ten `aperv` arms and 462/800 overall; every fixture byte-identical afterwards
+- [ ] 5.7 Run `/rv-doc-code modules/aperv-tool/src/aperv_tool/analysis/coverage_dump.py`
+- [ ] 5.8 Run `/rv-test-run aperv-tool`
 
-- [ ] 6.1 Run `/rv-qa-lint-fix aperv-tool`
-- [ ] 6.2 Run `/rv-verify aperv-tool` — full suite green under the CI contract (`--import-mode=importlib -o "addopts="`)
-- [ ] 6.3 Invoke `/rv-code-reviewer` via the Skill tool on the change set
-- [ ] 6.4 Run `openspec validate "gh90-e3-decisive-run-setup"` — clean, artifacts coherent with the implemented state
-- [ ] 6.5 Run `/rv-docs-sync aperv-tool` — update `modules/aperv-tool/CLAUDE.md` (variant table gains three arms; the compaction gotcha becomes three operations)
-- [ ] 6.6 Check off every satisfied acceptance criterion in issue #90 before closing it
+## 6. Cross-repository integration (needs the sister jar)
+
+- [ ] 6.1 Record the git sha of the `ape-rv.jar` build containing B1 and put it in the LLM arm's declaration (task 3.3)
+- [ ] 6.2 Real smoke via `rv-platform` against a real SGLang server — infrastructure scope: 3 APKs × 3 arms, short timeout, all tasks COMPLETED, coverage > 0, SGLang answers. The APK set MUST include `freeotpplus` and `aegis` (task 6.5 is unreachable on the other 33). No mock LLM. **Never start, stop, or manage an emulator manually** — rv-platform owns the whole lifecycle
+- [ ] 6.3 Smoke gate: the `[APE-BUILD]` banner's `git_sha` matches the arm's declared sha; a mismatch fails before the decisive run launches (INV-APV-34)
+- [ ] 6.4 Smoke gate: in the control arm, `decision_source=MOP` count == 0 AND the `mop=` field is always 0 across every step. This is the one behavioural gate the smoke carries, because it is the single failure that invalidates the whole run
+- [ ] 6.5 Smoke gate: the pushed `static_analysis.json` carries the two handler-reach booleans, and `[DM]` markers appear for widgets whose handlers reach JCA — verifiable only on the 7 apps with flaggable listeners (design Risks)
+- [ ] 6.6 Smoke gate: provenance fields present in the task output, naming the model actually served
+
+## 7. Sonda de poder do RQ-C1, antes de comprometer a corrida decisiva (needs the sister jar)
+
+Adicionada 2026-07-31. **Motivo**: a verificação adversarial mostrou que o McNemar exato exige ≥7 pares discordantes a Holm α=0,025, e os análogos da iter0 preveem 3–4 nos dois contrastes (`docs/20260731_verificacao_analise_percepcao.md` §1.1.2; pré-registro §3, "O poder do primário"). Nenhum braço da iter0 fixa o substrato frontier e desliga o MOP — o `ape:default` difere em 18 chaves, não nas 6 do contraste real —, então **nada do que já foi gravado responde se o contraste primário do RQ-C1 tem pares discordantes**. Esta sonda responde isso por ~1/5 do custo da corrida completa. É diagnóstico de desenho, não desfecho.
+
+- [ ] 7.1 **Declarar a sonda no pré-registro ANTES de rodá-la** (`docs/20260730_preregistro_corrida_decisiva.md`, §7 análises exploratórias): que ela existe, que roda em orçamento distinto do decisivo, que seus resultados **não entram na análise confirmatória** em hipótese alguma, e o que se fará com cada desfecho dela (7.6). Sem essa declaração prévia a sonda é *peeking* sobre o contraste pré-registrado e contamina o congelamento — esta task é bloqueante para todas as demais deste grupo
+- [ ] 7.2 **Orçamento: 300 s, não 1800 s** — decisão de desenho, e o motivo é o isolamento. A 300 s a sonda (a) não produz os runs da corrida decisiva, então não há dado reutilizado nem descartado, e (b) é diretamente comparável ao análogo confundido da iter0 (`ape:default` × `sata_mop_act_frontier`, n_disc=4), isolando exatamente o que muda: um braço MOP-off que **mantém** o substrato frontier. Se o autor preferir 1800 s, a sonda deixa de ser sonda e vira a metade RQ-C1 da corrida decisiva — decisão legítima, mas então a estrutura de multiplicidade do §4 do pré-registro precisa ser refeita antes, porque decidir sobre o RQ-C3 depois de ver o RQ-C1 muda a família de testes
+- [ ] 7.3 Escopo: os **dois braços do RQ-C1** apenas — `mop_on_llm_off` e `mop_off_llm_off`, ambos com LLM desligado. 40 APKs × 1 rep × 2 braços = 80 runs. Sem SGLang: nenhum dos dois braços chama o modelo, o que elimina a dependência de servidor e o modo de falha do disjuntor. Estimativa ≈ 1,5 h em 8 containers
+- [ ] 7.4 Reusar os portões de validade já definidos: `[APE-BUILD]` git_sha bate com o declarado (6.3), e no braço de controle `decision_source=MOP` == 0 **e** `mop=` == 0 em todo passo (6.4). Um portão reprovado invalida a sonda inteira — não se "ajusta a leitura"
+- [ ] 7.5 Computar o desfecho binário `achou = mop_unique > 0` por APK e a tabela 2×2 pareada; reportar **n_discordante**, o McNemar exato, e a decomposição por estrato Compose/View. Reportar também quantos dos 40 são concordantes-em-zero, que é o outro modo de o teste não ter o que medir
+- [ ] 7.6 **Regra de leitura, fixada aqui antes do resultado** — a sonda informa uma decisão de desenho, não a hipótese:
+  - **n_disc ≥ 7** → a corrida decisiva roda como pré-registrada; a sonda confirmou que o contraste tem o que medir
+  - **n_disc entre 4 e 6** → roda, e o relatório declara de antemão que o poder é marginal (a 300 s; 1800 s pode melhorar, e é justamente o que a corrida testa)
+  - **n_disc ≤ 3** → **decisão do autor, não automática**: rodar assim mesmo com a falta de poder registrada, acrescentar o 4º braço opcional (§8 do pré-registro), ou revisar o desfecho primário antes de congelar. A sonda não decide sozinha; ela impede que a decisão seja tomada depois de ver o resultado que interessa
+- [ ] 7.7 Registrar o resultado da sonda no `calibracao/journal.jsonl` com o sha256 do relatório, **separado** do carimbo de congelamento do pré-registro, para que a ordem dos dois eventos fique auditável
+- [ ] 7.8 **Never start, stop, or manage an emulator manually** — a sonda roda por `rv-platform`/`rv-experiment`, que detêm o ciclo de vida inteiro
+
+## 8. Verification
+
+- [ ] 8.1 Run `/rv-qa-lint-fix aperv-tool`
+- [ ] 8.2 Run `/rv-verify aperv-tool` — full suite green under the CI contract (`--import-mode=importlib -o "addopts="`)
+- [ ] 8.3 Invoke `/rv-code-reviewer` via the Skill tool on the change set
+- [ ] 8.4 Run `openspec validate "gh90-e3-decisive-run-setup"` — clean, artifacts coherent with the implemented state
+- [ ] 8.5 Run `/rv-docs-sync aperv-tool` — update `modules/aperv-tool/CLAUDE.md` (variant table gains three arms; the compaction gotcha becomes three operations)
+- [ ] 8.6 Check off every satisfied acceptance criterion in issue #90 before closing it

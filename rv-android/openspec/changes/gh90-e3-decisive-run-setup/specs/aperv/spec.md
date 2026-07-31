@@ -45,6 +45,8 @@ Scope boundaries this delta does not cross: source `.apk.json` files are never m
 - **INV-APV-33**: Backend provenance SHALL be obtained from a live `/v1/models` query performed at the start of each run, never from static configuration. When the query fails, the provenance fields SHALL record the failure explicitly; the run SHALL NOT be aborted and a value SHALL NOT be inferred from configuration.
 - **INV-APV-34**: `llm_snap_tolerance_px=150` SHALL be applied only in an arm that also declares the git sha of the `ape-rv.jar` build containing the dead-pair ban (sister change `telemetry-proof-llm-efficacy`, item B1). The declaration and the value SHALL be present together or absent together — a guard test SHALL fail on either alone. The declared sha SHALL be verified against the `git_sha` field of the run's `[APE-BUILD]` banner (INV-BUILD-11 in the `ape` repository) before the decisive run consumes wall-clock. Against a jar without B1, the wider radius amplifies repeated dead taps instead of rescuing near-misses.
 - **INV-APV-35**: The clock↔logcat join SHALL be an offline, read-only computation over recorded artifacts. It SHALL NOT read logcat from a running device, SHALL NOT require an emulator, and SHALL NOT modify any artifact it reads.
+- **INV-APV-36**: Any coverage figure aggregated across runs, replicas or arms SHALL be derived from `UICOV-ACT` (Activity grain). `UICOV` state keys SHALL NOT be used as a cross-run join key — they embed a JVM identity hash whose measured cross-replica pairing rate is zero (Jaccard 0.000 at mean, median and maximum).
+- **INV-APV-37**: The coverage-dump parser SHALL report every run in its input with an explicit dump status — complete, partial, or absent — and SHALL NOT omit a run for lacking a dump. Any coverage rate it produces SHALL carry the denominator it was computed over, so that a figure computed on the runs that dumped is never mistaken for a figure over all runs.
 
 ## MODIFIED Requirements
 
@@ -275,3 +277,51 @@ The utility SHALL live in the `aperv_tool` package rather than in a per-campaign
 - **WHEN** the utility is invoked against a path that does not exist
 - **THEN** it SHALL exit with status 2
 - **AND** the message SHALL name the missing path
+
+### Requirement: Offline Coverage-Dump Parser at Activity Grain (FR11, NFR03, NFR06)
+
+`aperv_tool` SHALL provide a versioned, offline, read-only parser for the coverage dump emitted by the jar — the `[APE-RV] UICOV` (per state) and `[APE-RV] UICOV-ACT` (per Activity) lines — producing per-run rows consumable by the analysis path.
+
+The parser exists because the dump has **no automated consumer today**: a search for `UICOV` across the whole rv-android tree returns zero hits in Python, and the only historical consumption was manual. The sister change (`ape`, `telemetry-proof-llm-efficacy`, item A10) hoists the dump to the front of the teardown chain, which recovers it in 333 of the 338 runs that lose it today; without a parser that recovery yields data nothing reads.
+
+**Activity grain is mandatory, not a preference.** The per-state `UICOV` key embeds `StateKey.toString()`, whose hash includes the JVM identity hash of a `Naming` object that overrides neither `equals` nor `hashCode`. State keys are therefore not comparable across runs: the measured Jaccard between replicas of the same `(APK, arm)` is **0.000 — mean, median and maximum**, meaning not one state line in the corpus pairs with its counterpart in the other replica. Anything the parser reports across runs, replicas or arms SHALL be derived from `UICOV-ACT`; `UICOV` lines MAY be parsed for intra-run use and SHALL NOT be aggregated across runs.
+
+**Partial dumps are valid input.** Hoisting the emission does not make it atomic — 3 of the 462 runs that dump today are truncated mid-`UICOV-ACT`. The parser SHALL accept a truncated final line as a partial dump, retain every complete line preceding it, and mark the run as partial rather than discarding it.
+
+**Line format.** `gap` carries one decimal place under `Locale.ROOT` and SHALL NOT be used as a computation source; `discovered` and `interacted` are integers and are the authoritative fields. `byType` is `TYPE:interacted/discovered`. Note that `mopReach` appears on the `UICOV` line and **not** on `UICOV-ACT`, so MOP reach is not reconstructible at Activity grain from the current jar; the parser SHALL report its absence rather than infer it.
+
+#### Scenario: Cross-run aggregation uses Activity grain only
+- **WHEN** the parser aggregates coverage across two runs of the same APK and arm
+- **THEN** it SHALL join on `UICOV-ACT` activity names
+- **AND** it SHALL NOT join on `UICOV` state keys, whose cross-run pairing rate is measured at zero
+
+#### Scenario: Truncated dump is retained as partial
+- **WHEN** a run's trace ends mid-way through a `UICOV-ACT` line
+- **THEN** the parser SHALL emit rows for every complete line that precedes it
+- **AND** SHALL flag the run as carrying a partial dump
+
+#### Scenario: Run without a dump is reported, not dropped
+- **WHEN** a run carries no `UICOV` or `UICOV-ACT` line at all
+- **THEN** the parser SHALL report that run with an explicit no-dump marker
+- **AND** SHALL NOT silently omit it, so that any coverage rate computed downstream carries its own denominator
+
+#### Scenario: Artifacts are never modified
+- **WHEN** the parser completes over any run directory
+- **THEN** every artifact it read SHALL be byte-identical to its prior content
+
+### Requirement: Capture Grace Window (FR19)
+
+The `adb` invocation that captures a run's trace SHALL be granted a grace window of **45 seconds** beyond the tool's exploration timeout, replacing the current 15 seconds.
+
+The window exists so the agent's teardown can finish writing before the harness kills the capture. The current 15 s is where the losses concentrate: among runs whose teardown completed, the overrun beyond the exploration budget reaches **12,991 ms** with 32 runs stacked against that ceiling and none beyond it — the signature of a hard wall rather than a natural distribution. Runs that lose the dump end inside the model serialization step, three steps before the dump would have run.
+
+This is recorded as a **hypothesis, not a measurement**. The true teardown duration of the runs that were cut is unobservable — that is what censoring means — so the widened window cannot be credited with a predicted recovery rate in advance. It is complementary to, not redundant with, the jar-side reordering (`ape` design D9): the reordering moves the dump ahead of the expensive write, this gives the chain room to finish. The smoke SHALL report the observed teardown durations under the new window so the assumption is checked rather than carried.
+
+#### Scenario: Timeout budget includes the widened grace window
+- **WHEN** a task is dispatched with an exploration timeout of `T` seconds
+- **THEN** the `adb` command SHALL be given `T + 45` seconds before termination
+
+#### Scenario: Smoke reports what the window actually cost
+- **WHEN** the integration smoke completes
+- **THEN** the observed teardown overrun SHALL be reported per run
+- **AND** a run whose overrun still reaches the new ceiling SHALL be flagged as evidence the hypothesis was insufficient
