@@ -404,7 +404,7 @@ only their delivery (5.5) releases upstream 0.2 in full.
       and the co-located `RESULTS/m*/.../<apk>/` copies — was deliberately NOT done: neither
       is read by this consolidation path, and leaving them untouched keeps a second,
       independent copy of the predecessors beyond the `.pkgdet` files
-- [ ] 5.2 Re-run the consolidation with
+- [x] 5.2 Re-run the consolidation with
       `RESULTS_ROOT=/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS bash
       experimento-20260706/scripts/consolidate_offline.sh`. The override is mandatory: the
       script's default `RESULTS_ROOT` points at `RESULTADOS_experimento-20260706/`, which
@@ -413,16 +413,96 @@ only their delivery (5.5) releases upstream 0.2 in full.
       Do **NOT** use `rv-platform run --process-results`: the consolidation must be rebuilt
       from the preserved `.logcat` files, not from the container CSVs, whose T=60/T=180 rows
       the resume zeroes (`result_processor` gotcha, stated at the top of that script). It is
-      also not recursive — the tree has 16 containers, each with its own `tasks.json`
-- [ ] 5.3 Check the audit (`verify.py --full`, C1-C4) before promoting `_regen.csv` →
+      also not recursive — the tree has 16 containers, each with its own `tasks.json`.
+      **Executed 2026-07-31 10:23:15 → 10:38:03 BRT, ~15 min, exit 0** (the script exits with
+      `verify_rc`, so exit 0 already means the audit passed). Log kept at
+      `SA_RERUN_gh91/record/consolidation/consolidate_offline.log`. Far cheaper than the
+      "hours" budgeted, on 64 cores with 16 containers × 4 workers.
+      Phase 1's VerifyError gate found **0 files in all four VMs** (expected 0), and
+      reported **21 243/21 681 COMPLETED (97.98%)** from `tasks.json` — this is NOT
+      missing data but exactly the resume-zeroing gotcha named in the script's own header,
+      and it is settled by phase 3, which found 21 681 `.logcat` files and regenerated
+      21 681 rows from them. Phase 2 hit every per-VM target exactly (m1 5544, m2 5544,
+      m3 5445, m4 5148) with all 16 containers succeeding — `run_all.sh` aborts on any
+      non-zero container exit and it reached level 2.
+      Output: `summary_regen.csv` 21 681 rows (= `TARGET_TOTAL`), `errors_regen.csv` 165 999
+      rows (identical to the baseline's count), `coverage_regen.csv` 20 884 554 rows
+      (+59 541 vs baseline; attributed in 5.3/5.4, not left as an open number).
+      The pre-run `verification_report.md` was preserved first as
+      `record/baseline/verification_report_baseline_20260712.md`, and the three baseline
+      `*_all.csv` were sha256-pinned into `record/baseline/manifest_results_baseline.sha256`
+      **before** the run — `run_all.sh` does not touch `*_all.csv`, but the promotion in 5.3
+      does, and without those pins 5.4 would have had no baseline left to compare against
+- [x] 5.3 Check the audit (`verify.py --full`, C1-C4) before promoting `_regen.csv` →
       `_all.csv`. The consolidated grid target is `TARGET_TOTAL=21681`
       (5544 + 5544 + 5445 + 5148); in `RESULTS/` that file is `summary_all.csv`. In
       `ase-journal`, 21 681 rows belong to `summary_bck.csv` (219-app executed grid), while
       `summary.csv` holds 17 919 (181-app analysis basis) — `reduce_to_181.py` must be re-run
-      to derive the latter from the regenerated former
-- [ ] 5.4 Confirm the MOP error columns/rows are byte-identical for all 219 apps against the
+      to derive the latter from the regenerated former.
+      **Audit PASS before any promotion**, identical in shape to the baseline's: C1 (errors
+      strict 1:1 vs `.logcat`) 0 failures, C2 (coverage rows ≤ RVSEC-COV) 0, C3 (summary ↔
+      coverage last-row coherence) 0, C4 (sanity) `summary_rows=21681 logcat_files=21681`.
+      **Promoted 2026-07-31 with the baseline preserved**, on the owner's explicit choice:
+      the three `*_all.csv` were renamed to `*_all_pre_gh91.csv` (instant, no copy) and the
+      `*_regen.csv` copied over them, so `_regen` survives for the stage-2 delivery and the
+      pre-gh91 bytes stay on disk rather than only as sha256 pins — the promotion is
+      reversible. `errors_all.csv` legitimately SHRANK 47 886 964 → 45 161 863 bytes: the
+      frame-form values, which duplicated a whole stack frame into two columns, were replaced
+      by the proper class/method split (see 5.4). New pins:
+      `record/consolidation/manifest_results_gh91.sha256`.
+      **Not done from here, by the owner's decision:** re-running `reduce_to_181.py`. It
+      lives in `ase-journal`, feeds the article's macros, and stays with the owner there
+- [x] 5.4 Confirm the MOP error columns/rows are byte-identical for all 219 apps against the
       pre-reprocessing baseline — violations derive from the logcat and are independent of
-      the analysis key, so any diff there is a reprocessing bug, not a scope effect
+      the analysis key, so any diff there is a reprocessing bug, not a scope effect.
+      **The literal phrasing is unsatisfiable, and that is a finding rather than a failure:**
+      two parser fixes landed AFTER the 2026-07-12 baseline — `cf234788` (2026-07-28,
+      closes #89: a source position was leaking into both the `class` and `method` columns
+      and hence into the unique-misuse key) and `79fea6dd` (2026-07-19). The regeneration
+      driver itself (`scripts/regenerate_results/`) did NOT change, so the drift is exactly
+      those two parsers. `errors_*.csv` therefore CANNOT be byte-identical. What 5.4 protects
+      is the claim underneath — violations derive from the logcat and are independent of the
+      analysis key — and that was tested by projecting away the columns the fixes touch.
+      Mechanised in `scripts/gh91_compare_consolidation.py`; logs under
+      `record/consolidation/`.
+      **A naive diff answers the wrong question three times over**, so each confound was
+      isolated before any conclusion: (1) ORDER — 16 containers regenerate concurrently, so
+      concat order is unstable; the first attempt reported 148 apps "changed" in errors, all
+      of them order-only. Every comparison became an order-blind multiset hash. (2) CODE
+      DRIFT, above. (3) TIE ORDER in coverage — events sharing a timestamp swap slots.
+      **PASS, all 219 apps:** `mop_errors_total` identical (0 apps moved); violation identity
+      `(apk,rep,timeout,tool,spec,message)` multiset-identical (0 apps moved); no app changed
+      its error row count; total error rows 165 999 on both sides.
+      **Movements, each attributed and confined:** `mop_errors_unique` fell in 2136 rows
+      across 32 apps and NEVER rose — the #89 dedup fix can only merge; `class`/`method`
+      reshaped in 39 apps; the `time` column shifted in exactly 4 apps, all inside the 30 and
+      all among the 5 whose key WIDENED (`regenerate_container.py` derives t0 as the earliest
+      registered event, so a wider key registers more events, moves t0 earlier and shifts the
+      app's whole timeline — measured at ≤1 s for three of them and a uniformly positive
+      2-10 s across org.wikipedia's 87 tasks); coverage `cov_*` moved only inside the 30
+      (S2), the per-app event identity is unchanged outside the 30 (C1), the per-task event
+      multiset is unchanged outside the 30 (C3) and the FINAL `cov_*` per task moved in 27
+      apps, all inside the 30 (C4). The `+59 541` coverage rows are the 23 in-scope apps
+      whose event multiset grew; no app outside the 30 gained or lost an event.
+      **One assertion of mine was wrong and was corrected, not worked around:** I first
+      asserted the ordered `cov_*` CURVE was invariant outside the 30. It is not, and should
+      not be — when two tied events differ in whether they introduce a new class, the
+      intermediate cumulative value depends on which ran first. The curve was demoted to a
+      reported note; the order-independent facts (event multiset, endpoint) are what is
+      asserted. `record/consolidation/compare_baseline_vs_regen.log` still shows that C2 as
+      `[FAIL]` because it predates the correction; C4 lives in `c4_final_coverage.log`.
+      **E3 — the finding that matters most downstream.** The same defect was fixed twice, at
+      opposite ends of the chain: at source here (`cf234788`) and in place in the article
+      repo by the archived change `fix-rv-key-granularity` (`data-analysis/repair_frame_keys.py`,
+      13 macros re-derived, `\uniqueMisusesMOP` 567 → 541). Two fixes for one defect are only
+      safe if they agree, so THEIR `is_frame`/`split_frame` were imported verbatim, applied
+      to the unrepaired baseline, and compared against our regenerated columns: the
+      regenerated CSV carries **0 frame-form values**, and their repair reproduces our
+      `class`/`method` **exactly, 0 apps differing across all 219**, over the baseline's
+      20 872 frame-form values. Consequences: `repair_frame_keys.py` is a byte-level no-op on
+      the delivered CSVs, and `reduce_to_181.py`'s standing warning ("re-running resurrects
+      the frame-form keys, ALWAYS run repair afterwards") no longer applies to a regenerated
+      `_bck` — updating it is the article repo's call, and nothing there was edited
 - [ ] 5.5 Deliver stage 2 into `ase-journal`: the regenerated `summary`/`coverage`/`errors`
       CSVs with sha256 pins and the 30 preserved `<apk>.json.pkgdet` files (created at 5.1).
       This is what releases upstream 0.2 in full
