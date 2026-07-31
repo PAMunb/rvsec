@@ -38,6 +38,7 @@ Scope boundaries this delta does not cross: source `.apk.json` files are never m
 
 ## Invariants
 
+- **INV-APV-21** (amended by this change): Compaction SHALL be lossless with respect to the producer's content. It SHALL consist of exactly **three** operations: (a) removing exact-duplicate entries from `transitions`, (b) adding the two handler-reach booleans to existing `listeners[]` objects, and (c) serializing without pretty-print whitespace. Operations (a) and (c) are lossless; (b) is purely additive and constrained by INV-APV-31. Every top-level key present in the source document (`package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`) SHALL be present in the compacted document. No field SHALL be projected away, renamed, or rewritten. *This supersedes the "exactly two operations" form of INV-APV-21 in the main `aperv` spec; the amendment is stated here because INV-APV-21 is a capability-level invariant and a MODIFIED requirement cannot displace it implicitly.*
 - **INV-APV-29**: The MOP-off control arm SHALL set `mop_data` to a **present and loadable** document, SHALL set `mop_weight_direct`, `mop_weight_transitive`, `mop_weight_open_menu`, `mop_weight_wtg`, and `mop_frontier_weight` all to `0`, and SHALL set `activity_trigger_enabled=false`. It SHALL NOT achieve MOP-off by omitting `mop_data` or by pointing `ape.mopDataPath` at a missing file — the first disables the generic WTG and frontier passes as collateral, the second aborts the run.
 - **INV-APV-30**: Every arm of the decisive run SHALL use the frontier substrate (`sata_mop_act_frontier` lineage). No arm SHALL abandon the frontier mechanism, including the control arm — the control removes MOP guidance, not navigation.
 - **INV-APV-31**: Enrichment SHALL add only the keys `handlerReachesTarget` and `handlerDirectlyReachesTarget` to existing `listeners[]` objects. It SHALL NOT add, remove, reorder, or alter any other key anywhere in the document, SHALL NOT modify the source file (INV-APV-20 continues to hold), and on any failure SHALL degrade to pushing the document without enrichment rather than propagating an exception.
@@ -89,7 +90,7 @@ Any failure -- malformed JSON, filesystem error writing the temporary file, memo
 - **AND** no warning SHALL be emitted for the individual miss, and the push SHALL proceed
 
 #### Scenario: App with no widgets is enriched trivially
-- **WHEN** the document is one of the 58 Compose apps of the 181-APK corpus whose `windows[].widgets` are all empty
+- **WHEN** the document is one of the 58 apps of the 181-APK corpus whose `windows[].widgets` are all empty (a Compose-bundled app with no View-hierarchy widgets to enrich)
 - **THEN** enrichment SHALL complete without error and add no fields
 - **AND** the pushed document SHALL be identical to the un-enriched compaction result
 
@@ -144,6 +145,58 @@ Any failure -- malformed JSON, filesystem error writing the temporary file, memo
 - **WHEN** compaction fails after the temporary file was created
 - **THEN** the temporary file SHALL NOT exist after `execute_tool_specific_logic()` returns
 - **AND** the source file SHALL have been pushed
+
+### Requirement: ApeRVTool Execution Flow (FR18, FR19)
+
+`ApeRVTool.execute_tool_specific_logic(task, app)` SHALL perform the following steps in order:
+
+1. **Extract execution parameters**: Resolve `device_serial` from `task.config.device_id` (default `"emulator-5554"`) and `timeout_seconds` from `task.config.timeout` (default 300).
+
+2. **Push JAR**: Resolve `ape-rv.jar` via `_resolve_jar_path()` and push to `/data/local/tmp/ape-rv.jar` via `_push_file_to_device()`.
+
+3. **Push broadcast catalog**: If `system-broadcast.json` exists in the module directory (`os.path.dirname(__file__)`), push it to `/data/local/tmp/system-broadcast.json`. This catalog provides typed extras for system broadcast intents used by APE-RV's component triggering. If the file is absent, skip (APE-RV degrades gracefully).
+
+4. **Compact and push static analysis JSON** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. If found, compact it into a temporary file (deduplicate `transitions`, enrich `listeners[]` with the two handler-reach booleans, serialize without pretty-print whitespace -- see "Static Analysis JSON Compaction"), push the compacted file to `/data/local/tmp/static_analysis.json`, unlink the temporary file, and set `mop_json_pushed = True`. If compaction fails, log a warning and push the source file unchanged, still setting `mop_json_pushed = True`. If the JSON is not found, log a warning and continue without MOP data.
+
+5. **Push ape.properties**: Generate `ape.properties` from `_tool_config` using `APERV_PROPERTY_MAPPING` to translate Python keys to Java property names. When `mop_json_pushed` is True, include `ape.mopDataPath=/data/local/tmp/static_analysis.json`. Push to `/data/local/tmp/ape.properties`.
+
+6. **Capture LLM backend provenance** (LLM arms only): query `GET {llm_url}/v1/models` once and record the result in the task output -- see "Per-Run LLM Backend Provenance". A failed query is encoded, never inferred from configuration, and never aborts the run (INV-APV-33).
+
+7. **Build and execute command**: Build the `app_process` command via `_build_main_command()` and execute it, capturing stdout+stderr to `task.result.trace_file` in binary write mode. **Command timeout is `timeout_seconds + 45` seconds** — widened from `+ 15`; see the grace-window rationale below.
+
+8. **Handle timeout**: If `RVCommandTimeoutError` is raised, re-raise as `RVToolTimeoutError` (timeout is the expected exit path for exploration tools). The `RVToolTimeoutError` contract SHALL be stated as `task.config.timeout + 45` seconds wherever it is documented.
+
+9. **Check empty trace**: Call `_check_empty_trace()` and log a warning if the trace file is empty.
+
+**Capture grace window: why 45 s.** The window exists so the agent's teardown can finish writing before the harness kills the capture. The 15 s it replaces is where the losses concentrate: among runs whose teardown completed, the overrun beyond the exploration budget reaches **12,991 ms** with 32 runs stacked against that ceiling and none beyond it — the signature of a hard wall rather than a natural distribution. Runs that lose the dump end inside the model serialization step, before the dump would have run.
+
+This is recorded as a **hypothesis, not a measurement**. The true teardown duration of the runs that were cut is unobservable — that is what censoring means — so the widened window cannot be credited with a predicted recovery rate in advance. It is complementary to, not redundant with, the jar-side reordering (`ape` design D9): the reordering moves the dump ahead of the expensive write, this gives the chain room to finish. The smoke SHALL report the observed teardown durations under the new window so the assumption is checked rather than carried.
+
+The `app_process` invocation SHALL use:
+```
+adb -s <serial> shell CLASSPATH=/data/local/tmp/ape-rv.jar /system/bin/app_process /system/bin
+  com.android.commands.monkey.Monkey -p <package_name>
+  --running-minutes <max(1, timeout_seconds // 60)>
+  --ape <strategy>
+  [-s <seed>]
+```
+
+The trailing `-s <seed>` is appended only when a seed is configured. The seed argument itself is owned by change `gh74-aperv-arm-variants` (INV-APV-18), which is implemented in code but whose delta is not yet synced; it is reproduced here so this spec does not freeze the seedless form as the contract.
+
+#### Scenario: Timeout budget includes the widened grace window
+- **WHEN** a task is dispatched with an exploration timeout of `T` seconds
+- **THEN** the `adb` command SHALL be given `T + 45` seconds before termination
+- **AND** `RVToolTimeoutError` SHALL be raised only after `T + 45` seconds, not `T + 15`
+
+#### Scenario: Smoke reports what the window actually cost
+- **WHEN** the integration smoke completes
+- **THEN** the observed teardown overrun SHALL be reported per run
+- **AND** a run whose overrun still reaches the new ceiling SHALL be flagged as evidence the hypothesis was insufficient
+
+#### Scenario: Provenance query does not delay the run
+- **WHEN** the `/v1/models` query at step 6 fails or times out
+- **THEN** the flow SHALL proceed to step 7
+- **AND** the provenance fields SHALL record the failure (INV-APV-33)
 
 ## ADDED Requirements
 
@@ -309,19 +362,4 @@ The parser exists because the dump has **no automated consumer today**: a search
 - **WHEN** the parser completes over any run directory
 - **THEN** every artifact it read SHALL be byte-identical to its prior content
 
-### Requirement: Capture Grace Window (FR19)
-
-The `adb` invocation that captures a run's trace SHALL be granted a grace window of **45 seconds** beyond the tool's exploration timeout, replacing the current 15 seconds.
-
-The window exists so the agent's teardown can finish writing before the harness kills the capture. The current 15 s is where the losses concentrate: among runs whose teardown completed, the overrun beyond the exploration budget reaches **12,991 ms** with 32 runs stacked against that ceiling and none beyond it — the signature of a hard wall rather than a natural distribution. Runs that lose the dump end inside the model serialization step, three steps before the dump would have run.
-
-This is recorded as a **hypothesis, not a measurement**. The true teardown duration of the runs that were cut is unobservable — that is what censoring means — so the widened window cannot be credited with a predicted recovery rate in advance. It is complementary to, not redundant with, the jar-side reordering (`ape` design D9): the reordering moves the dump ahead of the expensive write, this gives the chain room to finish. The smoke SHALL report the observed teardown durations under the new window so the assumption is checked rather than carried.
-
-#### Scenario: Timeout budget includes the widened grace window
-- **WHEN** a task is dispatched with an exploration timeout of `T` seconds
-- **THEN** the `adb` command SHALL be given `T + 45` seconds before termination
-
-#### Scenario: Smoke reports what the window actually cost
-- **WHEN** the integration smoke completes
-- **THEN** the observed teardown overrun SHALL be reported per run
-- **AND** a run whose overrun still reaches the new ceiling SHALL be flagged as evidence the hypothesis was insufficient
+*(The capture grace window is specified as an amendment of `ApeRVTool Execution Flow` under `## MODIFIED Requirements`, because the `+15 s` value it replaces is stated inside that requirement and in the `RVToolTimeoutError` contract. An ADDED requirement would have left both standing.)*
