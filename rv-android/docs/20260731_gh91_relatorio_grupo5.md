@@ -292,7 +292,7 @@ Conferido por sha256 e tamanho, não por suposição:
 |---|---|---|
 | `errors_bck.csv` | `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/errors_regen.csv` | o `errors_bck.csv` atual é **byte-idêntico** ao nosso baseline (`5dacef02…`) — mapeamento confirmado |
 | `summary_bck.csv` | `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/summary_regen.csv` | **exige rename de cabeçalho**, ver 6.2 |
-| `coverage.csv` | `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/coverage_regen.csv` | 6,0 GB |
+| `coverage.csv` | — | **NÃO entra na entrega: o repositório do artigo não consome esse arquivo** (decisão do dono, 2026-07-31). O `coverage_regen.csv` fica disponível do nosso lado, com pin |
 | 30 × `<apk>.json.pkgdet` | `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706/` | criados na 5.1 |
 
 ### 6.2 ARMADILHA: o cabeçalho do `summary` difere
@@ -313,8 +313,9 @@ lá.** Os cabeçalhos de `errors` são idênticos nos dois repositórios — só
 
 - **Promoção (5.3):** promover `_regen.csv` → `_all.csv` **preservando** o baseline como
   `*_all_pre_gh91.csv` (reversível). — **JÁ EXECUTADA**, ver §7.
-- **Coverage (5.5):** copiar o CSV regenerado, **sem** mexer nas 9 partes `.gz`. Consequência a
-  registrar: as partes `.gz` versionadas ficam **desatualizadas** em relação ao `coverage.csv`.
+- **Coverage (5.5):** decisão **revista e final** — o `coverage.csv` **não entra na entrega**,
+  porque o repositório do artigo não o consome. Nenhuma cópia de 6 GB foi feita e as partes
+  `.gz` continuam coerentes com o `coverage.csv` de lá, que segue sendo o de 2026-07-12.
 - **`reduce_to_181.py`:** **não** rodar daqui. Entrega-se os `_bck` regenerados + pins, e a
   derivação da base 181 e os macros do artigo ficam com o dono, no repositório do artigo.
 
@@ -354,9 +355,14 @@ Nota: `errors_all.csv` **encolheu** de 47 886 964 para 45 161 863 bytes. É leg�
 em forma de frame duplicavam um stack frame inteiro em duas colunas e foram substituídos pelo
 split correto de `class`/`method` (§5).
 
+**Entrega do estágio 2 (5.5) — FEITA, pelo dono, direto na sessão do `ase-journal`.** Esta
+sessão nunca escreveu naquele repositório. Conferido daqui por hash, não por confiança:
+`errors_bck.csv` = `3cf3d47d…` (idêntico ao nosso `errors_regen.csv`) e `summary_bck.csv` com
+as linhas de dados byte-idênticas ao `summary_regen.csv` **e o cabeçalho já renomeado** para
+`cov_reaches_mop`/`cov_directly_reaches_mop` — a armadilha do §6.2, evitada.
+
 **Pendentes:**
 
-- **5.5** — montar a entrega do estágio 2 com pins sha256 e o rename de cabeçalho do 6.2;
 - **4.6 (resto)** — emendar a tarefa 0.1 de
   `ase-journal/openspec/changes/remove-package-detector/tasks.md`: trocar "swap dos JSONs
   co-localizados + `rv-platform run --process-results`" por "instalar os 30 no `STATIC_DIR`

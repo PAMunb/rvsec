@@ -503,6 +503,31 @@ only their delivery (5.5) releases upstream 0.2 in full.
       the delivered CSVs, and `reduce_to_181.py`'s standing warning ("re-running resurrects
       the frame-form keys, ALWAYS run repair afterwards") no longer applies to a regenerated
       `_bck` — updating it is the article repo's call, and nothing there was edited
-- [ ] 5.5 Deliver stage 2 into `ase-journal`: the regenerated `summary`/`coverage`/`errors`
+- [x] 5.5 Deliver stage 2 into `ase-journal`: the regenerated `summary`/`coverage`/`errors`
       CSVs with sha256 pins and the 30 preserved `<apk>.json.pkgdet` files (created at 5.1).
-      This is what releases upstream 0.2 in full
+      This is what releases upstream 0.2 in full.
+      **Delivered by the owner directly in the `ase-journal` session, not from here** — this
+      session never wrote into that repository. Verified from this side by hash rather than
+      taken on trust:
+      - `dataset/results/errors_bck.csv` = `3cf3d47d…`, byte-identical to our
+        `errors_regen.csv`;
+      - `dataset/results/summary_bck.csv` = data rows byte-identical to our
+        `summary_regen.csv`, **with the header rename already applied** to
+        `cov_reaches_mop` / `cov_directly_reaches_mop` — the trap flagged below, avoided.
+      **`coverage.csv` is deliberately NOT part of the delivery: the article repo does not
+      consume it** (owner, 2026-07-31). Its 6 GB copy was therefore never made, and the file
+      there remains the 2026-07-12 one (`94852b81…`, byte-identical to our preserved
+      `coverage_all_pre_gh91.csv`). The regenerated coverage stays available at
+      `RV_ANDROID_NOVO_DATASET/RESULTS/coverage_regen.csv` with its pin in
+      `record/consolidation/manifest_results_gh91.sha256`.
+      The 30 `<apk>.json.pkgdet` remain available in
+      `RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706/` for the
+      owner to take across if the article side wants them; they are not consumed by any
+      script there.
+      **Schema trap recorded so it is not rediscovered:** our `summary` uses
+      `cov_reaches_target`/`cov_directly_reaches_target` while the article repo uses
+      `cov_reaches_mop`/`cov_directly_reaches_mop` (its MOP terminology). Data rows are
+      identical; only that header line differs. The `errors` header is identical in both
+      repos — in particular the `source` column that `cf234788` added belongs to the
+      `rv-platform` result_processor path, NOT to the offline regeneration, whose
+      `ERRORS_HEADER` (`regenerate_container.py:83`) stays at 10 columns
