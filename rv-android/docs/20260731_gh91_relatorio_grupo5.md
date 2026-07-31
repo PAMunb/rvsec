@@ -312,7 +312,7 @@ lá.** Os cabeçalhos de `errors` são idênticos nos dois repositórios — só
 ### 6.3 Decisões do dono já tomadas nesta sessão
 
 - **Promoção (5.3):** promover `_regen.csv` → `_all.csv` **preservando** o baseline como
-  `*_all_pre_gh91.csv` (reversível).
+  `*_all_pre_gh91.csv` (reversível). — **JÁ EXECUTADA**, ver §7.
 - **Coverage (5.5):** copiar o CSV regenerado, **sem** mexer nas 9 partes `.gz`. Consequência a
   registrar: as partes `.gz` versionadas ficam **desatualizadas** em relação ao `coverage.csv`.
 - **`reduce_to_181.py`:** **não** rodar daqui. Entrega-se os `_bck` regenerados + pins, e a
