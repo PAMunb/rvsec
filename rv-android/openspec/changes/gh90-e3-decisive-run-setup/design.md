@@ -165,6 +165,8 @@ Reading the configured model name would record the intent, not the fact. The fai
 
 When the query fails the run proceeds — aborting would trade a small evidential gap for a lost run — but the fields record the failure explicitly and are never back-filled from configuration (INV-APV-33). Downstream analysis can then distinguish "we know it was model X" from "we do not know", which a config-derived value would erase.
 
+**The queried address is deliberately not the configured one, and the reason is that `llm_url` serves two consumers in different address spaces.** The jar reads it from `ape.properties` and runs *inside* the emulator, where `10.0.2.2` is QEMU's user-mode alias for the host loopback; the provenance query runs outside the emulator, where that alias resolves to nothing. Configured verbatim, the query times out while the LLM itself works — the exact failure gate 6.6 caught on 2026-08-01, with `capture_status=query_failed` on all three LLM-arm runs against a server the jar was reaching normally. The query therefore resolves the alias to `127.0.0.1`, which is the correct address in both deployments: on a host-driven run it is the published SGLang port, and in the containerized run it is the `socat` bridge the entrypoint binds there (`docker/rvandroid/docker-entrypoint.sh:38-40`). The resolution applies to the query alone and never to the value written into `ape.properties`, so the jar's path is untouched. `llm_backend` records the address actually queried, not the configured one, because a record of an address that was never contacted would be worse than none.
+
 ### D7 — Recorded measurement rules (no code)
 
 Two rules are decided here and deliberately produce no script, per P1:
