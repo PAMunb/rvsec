@@ -1,0 +1,195 @@
+# Corrida decisiva E3 — gh90-e3-decisive-run-setup.
+#
+# Tres bracos de fator unico sobre o mesmo substrato frontier, 40 APKs, 1
+# repeticao, 1800 s por task = 120 runs em 8 containers, ~8 h. O plano de
+# analise esta pre-registrado em ../docs/20260730_preregistro_corrida_decisiva.md
+# e NAO pode ser alterado depois do congelamento (sha256 no calibracao/journal.jsonl).
+#
+#   mop_on_llm_off   referencia — sata + substrato frontier, guia MOP ligada
+#   mop_off_llm_off  controle   — identico, pesos MOP zerados (RQ-C1)
+#   mop_on_llm_70    LLM        — identico a referencia + dose 0,7 (RQ-C3)
+#
+# Cada container roda os TRES bracos sobre os SEUS 5 APKs. Isso e deliberado: o
+# pareamento estatistico e por APK, entao manter os tres bracos de um APK no
+# mesmo container mantem o par intacto se um container falhar e for retomado.
+#
+# Uso:
+#   docker compose -f docker-compose.yml up -d
+#   # resume: re-rodar o mesmo 'up -d' (recupera tasks FAILED transientes)
+#   # NAO dar 'down' antes de extrair os traces — artefatos sao efemeros no device
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.3
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:mop_on_llm_off:mop_off_llm_off:mop_on_llm_70"
+    RV_TIMEOUTS: "1800"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    # Os APKs montados ja estao instrumentados (jca/dexlib2, campanha
+    # 20260706). Reinstrumentar aqui produziria binarios diferentes dos que a
+    # analise estatica descreve, quebrando o join com os .apk.json.
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    # Liga a ponte socat 127.0.0.1:30000 -> container sglang
+    # (docker/rvandroid/docker-entrypoint.sh:38-40). O jar le llm_url de dentro
+    # do emulador, onde 10.0.2.2 e o alias de host-loopback do QEMU.
+    RVSMART_LLM_MODE: "true"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+  depends_on:
+    sglang:
+      condition: service_healthy
+
+services:
+  sglang:
+    image: lmsysorg/sglang:v0.5.6.post2
+    container_name: sglang-server
+    volumes:
+      - ${HF_CACHE:-/pedro/desenvolvimento/.cache/huggingface}:/root/.cache/huggingface
+    ipc: host
+    shm_size: "16g"
+    # A GPU e pedida como dispositivo CDI, e nao por
+    # deploy.resources.reservations.devices com driver "nvidia". O host roda
+    # Docker 29 com o NVIDIA container toolkit instalado mas com o runtime
+    # nvidia NAO registrado no daemon, entao a reserva por driver falha com
+    # `could not select device driver "nvidia" with capabilities: [[gpu]]`.
+    #
+    # /var/run e tmpfs, entao o spec CDI nao sobrevive a um reboot. Persistir com
+    # `sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`.
+    devices:
+      - nvidia.com/gpu=0
+    # Modelo stock, nao o tunado: o braco 3 carrega o bloco cal_a1 verbatim, e
+    # e o Qwen3-VL-4B-Instruct que tem contrapartida medida a 300 s no iter0.
+    # Trocar o modelo quebraria a leitura entre orcamentos do pre-registro §7.
+    command: >
+      python3 -m sglang.launch_server
+      --model-path Qwen/Qwen3-VL-4B-Instruct
+      --host 0.0.0.0
+      --port 30000
+      --trust-remote-code
+      --attention-backend flashinfer
+      --tool-call-parser qwen
+      --enable-multimodal
+      --context-length 8192
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # RV_DELAY escalona a subida dos emuladores de 10 em 10 s. Oito emuladores
+  # bootando ao mesmo tempo disputam CPU e alguns estouram o timeout de boot.
+  e3_decisiva_00:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_00:/opt/rvsec/rv-android/results
+
+  e3_decisiva_01:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_01:/opt/rvsec/rv-android/results
+
+  e3_decisiva_02:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_02:/opt/rvsec/rv-android/results
+
+  e3_decisiva_03:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_03:/opt/rvsec/rv-android/results
+
+  e3_decisiva_04:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_04:/opt/rvsec/rv-android/results
+
+  e3_decisiva_05:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_05:/opt/rvsec/rv-android/results
+
+  e3_decisiva_06:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_06:/opt/rvsec/rv-android/results
+
+  e3_decisiva_07:
+    <<: *rvandroid-base
+    container_name: e3_decisiva_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e3_decisiva_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/e3_decisiva_07:/opt/rvsec/rv-android/results
