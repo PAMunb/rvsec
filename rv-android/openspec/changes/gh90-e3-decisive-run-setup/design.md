@@ -221,7 +221,30 @@ Two constraints on it are not preferences. **Activity grain is mandatory**: the 
 
 **The grace window is a hypothesis, and is labelled as one.** `tool.py` gives the `adb` invocation `timeout_seconds + 15` before SIGKILL, and among runs whose teardown completed the overrun reaches 12,991 ms with 32 runs stacked against that ceiling and none beyond it — the signature of a hard wall, not a distribution. Widening to +45 s costs one line and touches no jar. It is **not** redundant with the sister change's reordering and does not replace it: the reordering moves the dump ahead of the expensive write, the window gives the whole chain room to finish. What cannot be claimed is a recovery rate — the true teardown duration of the runs that were cut is unobservable, which is what censoring means — so the smoke reports what the new window actually cost rather than confirming a prediction.
 
-### D10 — The RQ-C1 power probe, and why it runs at 300 s (ADDED 2026-07-31)
+### D10 — The RQ-C1 power probe (ADDED 2026-07-31, CANCELLED 2026-08-01 without running)
+
+**Superseding decision, 2026-08-01.** The probe was declared in pre-registration §7 (task 7.1, commit
+`1eed2891`) and then cancelled hours later, before it ran. The reason is that it changes no
+subsequent action: under all three branches of the 7.6 reading rule the decisive run executes
+identically — same three arms, same 40 APKs, same 1800 s, same single repetition. The only thing
+`n_disc` would select is which of two outcomes *already declared in §3* carries the primary label, and
+that is an analysis label rather than an execution parameter. The 80 runs would have been spent and
+then discarded, since task 7.3 barred them from the confirmatory analysis, to choose between two
+labels that already existed.
+
+The risk the probe would measure is already handled without it. §3 fixes, before any result, that an
+`n_disc` below 7 means non-rejection *by arithmetic construction* and that the report will say so
+explicitly rather than present the non-rejection as evidence about the hypothesis. That number is
+computed at the end from the decisive run's own data — on the 1800 s sample that matters, rather than
+on a 300 s one measuring a different regime.
+
+**Consequence for the analysis plan: none.** The binary per-app outcome under exact McNemar stays
+primary and the paired Wilcoxon Δ stays secondary. The `n_disc ≤ 3` swap pre-committed below **lapses
+with the probe** and cannot be invoked after seeing the run's results; doing so would be exactly the
+post-hoc choice the pre-registration exists to prevent.
+
+The rest of this section is preserved as the record of what was planned and why, and does not
+describe anything in force.
 
 The verification established that the exact McNemar cannot reject at Holm α=0.025 with fewer than 7 discordant pairs, and that the iter0 analogues predict 3–4. The gap this probe fills is that **no recorded arm answers the question for the real contrast**: no iter0 arm fixes the frontier substrate while turning MOP off, and the nearest analogue (`ape:default`) differs in 18 keys rather than the 6 that separate arms 1 and 2. So the decisive run could consume 8 h to discover its primary contrast had nothing to measure.
 

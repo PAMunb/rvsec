@@ -67,21 +67,46 @@ Added 2026-07-31 after adversarial verification (`docs/20260731_verificacao_anal
 - [x] 6.6 Smoke gate: provenance fields present in the task output, naming the model actually served
 - [x] 6.7 Fix the provenance query's address, found failing by gate 6.6 on 2026-08-01. `_capture_llm_provenance` runs host-side (or container-side) but queries the arm's `llm_url`, whose value is the emulator-only alias `10.0.2.2` — a QEMU user-mode networking alias that exists only inside the Android guest. The query timed out on all three LLM-arm runs (`capture_status=query_failed`, `llm_model=null`) while the jar, which runs *inside* the emulator, reached the server normally. **The defect is not smoke-specific**: the compose file sets no `APERV_LLM_BASE_URL`, so the decisive run would carry the same default and lose the same field. Resolve the alias to `127.0.0.1` for the query only, never mutating what reaches `ape.properties` — that address is correct in both environments (host: the published SGLang port; container: the `socat` bridge the entrypoint binds to `127.0.0.1:30000`, `docker/rvandroid/docker-entrypoint.sh:38-40`). Then re-run the LLM arm alone (3 runs) to close 6.6
 
-## 7. Sonda de poder do RQ-C1, antes de comprometer a corrida decisiva (needs the sister jar)
+## 7. Sonda de poder do RQ-C1 — DECLARADA E CANCELADA EM 2026-08-01, NÃO EXECUTADA
+
+> **Cancelamento (decisão do autor, 2026-08-01, antes de a sonda rodar e horas depois de a 7.1 tê-la
+> declarado).** As tasks 7.2–7.7 **não serão executadas** e permanecem aqui como registro do que foi
+> planejado e por que foi abandonado. A 7.1 continua feita: a declaração chegou a ser escrita no §7 do
+> pré-registro e commitada (`1eed2891`), e o §7 conserva a subseção emoldurada como histórica.
+>
+> **O motivo é que a sonda não muda nenhuma ação subsequente.** Nos três ramos da regra de leitura da
+> 7.6 a corrida decisiva roda igual — mesmos três braços, mesmos 40 APKs, mesmos 1800 s, mesma
+> repetição única. A única coisa que o `n_discordante` selecionaria é qual de dois desfechos **já
+> declarados no §3 do pré-registro** leva o rótulo de primário, e isso é rótulo de análise, não
+> parâmetro de execução. Os 80 runs seriam gastos e depois descartados — a própria 7.3 os proibia de
+> entrar na análise confirmatória — para escolher entre duas etiquetas que já existiam.
+>
+> **E o risco que ela mediria já tem tratamento declarado sem ela.** O §3, em "O poder do primário",
+> fixa antes de qualquer resultado que um `n_discordante` abaixo de 7 significa não-rejeição *por
+> construção aritmética*, e que o relatório registrará isso explicitamente. Esse número é computado ao
+> fim, sobre os dados da própria corrida decisiva — na amostra de 1800 s que interessa, em vez de numa
+> de 300 s que mede outro regime.
+>
+> **Consequência para o plano de análise: nenhuma.** O primário segue sendo o binário por app sob
+> McNemar exato e o Δ pareado sob Wilcoxon segue secundário. A regra de troca da 7.6 **caduca junto
+> com a sonda** e não pode ser invocada depois de ver os resultados da corrida — fazê-lo seria a
+> escolha post-hoc que o pré-registro existe para impedir.
+
+Contexto original, preservado (needs the sister jar):
 
 Adicionada 2026-07-31; fundamentação em design **D10**, e a sonda está descrita na proposal em *What Changes*. **Motivo**: a verificação adversarial mostrou que o McNemar exato exige ≥7 pares discordantes a Holm α=0,025, e os análogos da iter0 preveem 3–4 nos dois contrastes (`docs/20260731_verificacao_analise_percepcao.md` §1.1.2; pré-registro §3, "O poder do primário"). Nenhum braço da iter0 fixa o substrato frontier e desliga o MOP — o `ape:default` difere em 18 chaves, não nas 6 do contraste real —, então **nada do que já foi gravado responde se o contraste primário do RQ-C1 tem pares discordantes**. Esta sonda responde isso por ~1/5 do custo da corrida completa. É diagnóstico de desenho, não desfecho.
 
 - [x] 7.1 **Declarar a sonda no pré-registro ANTES de rodá-la** (`docs/20260730_preregistro_corrida_decisiva.md`, §7 análises exploratórias): que ela existe, que roda em orçamento distinto do decisivo, que seus resultados **não entram na análise confirmatória** em hipótese alguma, e o que se fará com cada desfecho dela (7.6). Sem essa declaração prévia a sonda é *peeking* sobre o contraste pré-registrado e contamina o congelamento — esta task é bloqueante para todas as demais deste grupo. **Feito em 2026-08-01, antes de a sonda rodar**: subseção "A sonda de poder do RQ-C1, declarada antes de rodar" no §7, com as quatro declarações e a regra dos três ramos; o §8 registra que o 4º braço deixou de ser resposta a um n_disc baixo
-- [ ] 7.2 **Orçamento: 300 s, não 1800 s** — decisão de desenho, e o motivo é o isolamento. A 300 s a sonda (a) não produz os runs da corrida decisiva, então não há dado reutilizado nem descartado, e (b) é diretamente comparável ao análogo confundido da iter0 (`ape:default` × `sata_mop_act_frontier`, n_disc=4), isolando exatamente o que muda: um braço MOP-off que **mantém** o substrato frontier. Se o autor preferir 1800 s, a sonda deixa de ser sonda e vira a metade RQ-C1 da corrida decisiva — decisão legítima, mas então a estrutura de multiplicidade do §4 do pré-registro precisa ser refeita antes, porque decidir sobre o RQ-C3 depois de ver o RQ-C1 muda a família de testes. Nota de rigor: o §4 fixa a família (Holm sobre os dois contrastes dentro de cada desfecho) e **não** diz nada sobre ordenação ou teste sequencial — esta conclusão é inferência a partir dele, não citação dele
-- [ ] 7.3 Escopo: os **dois braços do RQ-C1** apenas — `mop_on_llm_off` e `mop_off_llm_off`, ambos com LLM desligado. 40 APKs × 1 rep × 2 braços = 80 runs. Sem SGLang: nenhum dos dois braços chama o modelo, o que elimina a dependência de servidor e o modo de falha do disjuntor. Estimativa ≈ 1,5 h em 8 containers
-- [ ] 7.4 Reusar os portões de validade já definidos: o `jar_sha256` capturado no início do run bate com o `expected_jar_sha256` declarado no braço (6.3), e no braço de controle `decision_source=MOP` == 0 **e** `mop=` == 0 em todo passo (6.4). Um portão reprovado invalida a sonda inteira — não se "ajusta a leitura"
-- [ ] 7.5 Computar o desfecho binário `achou = mop_unique > 0` por APK e a tabela 2×2 pareada; reportar **n_discordante**, o McNemar exato, e a decomposição por estrato Compose/View. Reportar também quantos dos 40 são concordantes-em-zero, que é o outro modo de o teste não ter o que medir
-- [ ] 7.6 **Regra de leitura, fixada aqui antes do resultado** — a sonda informa uma decisão de desenho, não a hipótese:
+- [x] 7.2 **CANCELADA** — **Orçamento: 300 s, não 1800 s** — decisão de desenho, e o motivo é o isolamento. A 300 s a sonda (a) não produz os runs da corrida decisiva, então não há dado reutilizado nem descartado, e (b) é diretamente comparável ao análogo confundido da iter0 (`ape:default` × `sata_mop_act_frontier`, n_disc=4), isolando exatamente o que muda: um braço MOP-off que **mantém** o substrato frontier. Se o autor preferir 1800 s, a sonda deixa de ser sonda e vira a metade RQ-C1 da corrida decisiva — decisão legítima, mas então a estrutura de multiplicidade do §4 do pré-registro precisa ser refeita antes, porque decidir sobre o RQ-C3 depois de ver o RQ-C1 muda a família de testes. Nota de rigor: o §4 fixa a família (Holm sobre os dois contrastes dentro de cada desfecho) e **não** diz nada sobre ordenação ou teste sequencial — esta conclusão é inferência a partir dele, não citação dele
+- [x] 7.3 **CANCELADA** — Escopo: os **dois braços do RQ-C1** apenas — `mop_on_llm_off` e `mop_off_llm_off`, ambos com LLM desligado. 40 APKs × 1 rep × 2 braços = 80 runs. Sem SGLang: nenhum dos dois braços chama o modelo, o que elimina a dependência de servidor e o modo de falha do disjuntor. Estimativa ≈ 1,5 h em 8 containers
+- [x] 7.4 **CANCELADA** — Reusar os portões de validade já definidos: o `jar_sha256` capturado no início do run bate com o `expected_jar_sha256` declarado no braço (6.3), e no braço de controle `decision_source=MOP` == 0 **e** `mop=` == 0 em todo passo (6.4). Um portão reprovado invalida a sonda inteira — não se "ajusta a leitura"
+- [x] 7.5 **CANCELADA** — Computar o desfecho binário `achou = mop_unique > 0` por APK e a tabela 2×2 pareada; reportar **n_discordante**, o McNemar exato, e a decomposição por estrato Compose/View. Reportar também quantos dos 40 são concordantes-em-zero, que é o outro modo de o teste não ter o que medir
+- [x] 7.6 **CANCELADA** — **Regra de leitura, fixada aqui antes do resultado** — a sonda informa uma decisão de desenho, não a hipótese:
   - **n_disc ≥ 7** → a corrida decisiva roda como pré-registrada; a sonda confirmou que o contraste tem o que medir
   - **n_disc entre 4 e 6** → roda, e o relatório declara de antemão que o poder é marginal (a 300 s; 1800 s pode melhorar, e é justamente o que a corrida testa)
   - **n_disc ≤ 3** → **o desfecho primário é revisado antes do congelamento**, e a revisão está fixada aqui: primário e secundário **trocam de posição** — o Δ pareado de `mop_unique` sob Wilcoxon de postos sinalizados (IC95 por bootstrap pareado, B=10.000, seed 42) passa a primário, e o binário `achou = mop_unique > 0` sob McNemar exato passa a secundário. Nada mais do §4 se move: mesma unidade de pareamento, mesmo Holm sobre os dois contrastes, mesma estratificação Compose/View, mesma declaração de dependência dos oito clones. O motivo é aritmético — a n_disc ≤ 3 o piso do McNemar exato bicaudal é 2·(0,5)ⁿ ≥ 0,125, então ele não alcança Holm α=0,025 diga o que disserem os dados; mais runs não compram poder para esse desfecho, e o 4º braço do §8 (+40 runs, ≈10,5 h) mudaria o contraste em vez de dar poder ao contraste do RQ-C1. A troca não inventa desfecho novo: **os dois já estão declarados no §3 do pré-registro**, escritos antes de qualquer dado — o que a sonda seleciona é qual dos dois decide, não o que se mede (decisão do autor, 2026-08-01, registrada antes de a sonda rodar)
-- [ ] 7.7 Registrar o resultado da sonda no `calibracao/journal.jsonl` com o sha256 do relatório, **separado** do carimbo de congelamento do pré-registro, para que a ordem dos dois eventos fique auditável
-- [ ] 7.8 **Never start, stop, or manage an emulator manually** — a sonda roda por `rv-platform`/`rv-experiment`, que detêm o ciclo de vida inteiro
+- [x] 7.7 **CANCELADA** — Registrar o resultado da sonda no `calibracao/journal.jsonl` com o sha256 do relatório, **separado** do carimbo de congelamento do pré-registro, para que a ordem dos dois eventos fique auditável
+- [x] 7.8 **Never start, stop, or manage an emulator manually** — restrição permanente, não entregável. Valia para a sonda e continua valendo para a corrida decisiva, que sobe por `docker compose` sobre a imagem `phtcosta/rvandroid:0.9.3`, onde `rv-platform`/`rv-experiment` detêm o ciclo de vida inteiro do emulador dentro de cada container
 
 ## 8. Verification
 

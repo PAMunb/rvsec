@@ -272,13 +272,21 @@ elo a elo (C2), alcance de telas-MOP como régua de qualidade (C4), moderação 
 (C5), decomposição por canal de decisão, o join clock↔logcat (A9), e qualquer corte por estrato além
 do toolkit já declarado.
 
-### A sonda de poder do RQ-C1, declarada antes de rodar
+### A sonda de poder do RQ-C1 — declarada em 2026-08-01 e cancelada no mesmo dia
 
-Antes de comprometer as ~8 h da corrida decisiva, roda-se uma **sonda de poder** sobre o contraste
-primário do RQ-C1. Ela está declarada aqui, e não no §3, porque não é desfecho: é diagnóstico de
-desenho. Ao contrário das demais análises desta seção, ela decide **uma** coisa — se a corrida
-decisiva roda como pré-registrada ou se o desfecho primário é revisado antes do congelamento. Sobre a
-hipótese ela não diz nada, nem pode.
+**Esta subseção registra uma análise que foi declarada e depois abandonada, e permanece no documento
+por isso mesmo.** A declaração chegou a ser commitada (`1eed2891`) antes de a sonda rodar; apagá-la
+tornaria invisível uma decisão que faz parte da história do desenho. **A sonda não foi executada. Não
+existem dados dela. Nada nesta subseção está em vigor** — o que se segue descreve o que ela seria e
+por que foi abandonada.
+
+#### O que ela seria
+
+Antes de comprometer as ~8 h da corrida decisiva, rodaria-se uma **sonda de poder** sobre o contraste
+primário do RQ-C1. Estaria declarada aqui, e não no §3, porque não seria desfecho: seria diagnóstico
+de desenho. Ao contrário das demais análises desta seção, decidiria **uma** coisa — se a corrida
+decisiva rodaria como pré-registrada ou se o desfecho primário seria revisado antes do congelamento.
+Sobre a hipótese não diria nada, nem poderia.
 
 **O que é.** Os dois braços do RQ-C1 apenas — `mop_on_llm_off` e `mop_off_llm_off`, ambos com o LLM
 desligado —, 40 APKs × 1 repetição × 2 braços = 80 runs. Computa o mesmo desfecho binário do §3
@@ -322,10 +330,33 @@ Holm α=0,025 diga o que disserem os dados. Mais runs não compram poder para es
 braço do §8 mudaria o contraste em vez de dar poder ao contraste do RQ-C1.
 
 **O resíduo, declarado.** Uma regra adaptativa, ainda que pré-comprometida, aposta parte da
-credibilidade do desenho em a sonda ser diagnóstico limpo. O que se faz a respeito é tornar a ordem
-inspecionável: o resultado da sonda é registrado no `calibracao/journal.jsonl` com o sha256 do seu
+credibilidade do desenho em a sonda ser diagnóstico limpo. O que se faria a respeito é tornar a ordem
+inspecionável: o resultado da sonda seria registrado no `calibracao/journal.jsonl` com o sha256 do seu
 relatório, em **entrada separada** do carimbo de congelamento deste documento, de modo que qualquer
-leitor possa verificar que a regra acima foi escrita antes de o número existir.
+leitor pudesse verificar que a regra acima foi escrita antes de o número existir.
+
+#### Por que foi cancelada, no mesmo dia e antes de rodar
+
+Decisão do autor em 2026-08-01, algumas horas depois da declaração acima: **a sonda não muda nenhuma
+ação subsequente**. Nos três ramos da regra de leitura a corrida decisiva roda igual — mesmos três
+braços, mesmos 40 APKs, mesmos 1800 s, mesma repetição única. A única coisa que o `n_discordante`
+selecionaria é qual de dois desfechos **já declarados no §3** levaria o rótulo de primário. Isso é
+rótulo de análise, não parâmetro de execução, e 80 runs seriam gastos e depois descartados — a própria
+declaração os proibia de entrar na análise confirmatória — para escolher entre duas etiquetas que já
+existiam.
+
+E o risco que ela mediria já tem tratamento declarado sem ela: o §3, em "O poder do primário", fixa
+**antes de qualquer resultado** que um `n_discordante` abaixo de 7 significa que o teste não rejeitou
+*por construção aritmética*, e que o relatório registrará isso explicitamente em vez de apresentar o
+não-rejeitar como evidência sobre a hipótese. Esse `n_discordante` é computado ao fim, sobre os dados
+da própria corrida decisiva — exatamente como seria computado sobre os da sonda, e sobre a amostra que
+de fato interessa, a de 1800 s, em vez de sobre uma de 300 s que mede outro regime.
+
+**Consequência para o plano de análise: nenhuma.** O desfecho primário continua sendo o binário por
+app sob McNemar exato, e o Δ pareado de `mop_unique` sob Wilcoxon continua secundário, como o §3
+sempre disse. A regra de troca descrita acima **caduca junto com a sonda** e não pode ser invocada
+depois de ver os resultados da corrida — trocar o primário à luz do `n_discordante` observado na
+amostra confirmatória seria precisamente a escolha post-hoc que este documento existe para impedir.
 
 ### A leitura entre orçamentos, com compromisso direcional
 
@@ -353,6 +384,6 @@ entre os braços 1 e 3.
 - **D13/C12 — critério de qualidade dos testes.** O D14 (spec como régua, = C4) é a única sugestão
   concreta da banca; falta decidir se é *o* critério ou *um*, e qual denominador.
 - **O 4º braço opcional** ("sem substrato"): +40 runs, ≈ 10,5 h no total. Segue em aberto como decisão
-  de escopo, mas **deixou de ser resposta possível a um n_discordante baixo**: a regra do §7 fixa a
-  troca de desfechos para esse caso, pelo motivo de que acrescentar um braço muda o contraste em vez
-  de dar poder ao contraste do RQ-C1.
+  de escopo. Registre-se que ele **não é remédio para um n_discordante baixo**: acrescentar um braço
+  cria outro contraste, não dá poder ao contraste do RQ-C1, cujo n_discordante depende dos pares em
+  que os braços 1 e 2 divergem.
