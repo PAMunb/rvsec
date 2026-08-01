@@ -1,6 +1,16 @@
 # Pré-registro — corrida decisiva E3
 
-**Data**: 2026-07-30 · **Estado**: a congelar antes do launch · **Escopo**: RQ-C1 e RQ-C3
+**Data**: 2026-07-30 · **Revisto**: 2026-07-31 · **Estado**: a congelar antes do launch ·
+**Escopo**: RQ-C1 e RQ-C3
+
+**Revisão de 2026-07-31, anterior ao congelamento.** Verificação adversarial
+(`docs/20260731_verificacao_analise_percepcao.md`) encontrou três coisas que precisavam entrar antes
+do carimbo: a justificativa de poder do desfecho primário citava a estatística errada (§3); o estrato
+Compose tem expectativa de zero pares discordantes e isso precisa ser previsão, não descoberta (§4);
+e oito dos 40 APKs são a mesma base de código, o que viola a independência que todo teste pareado
+assume (§4). Nenhum desfecho, contraste, braço ou regra de decisão mudou — o que mudou foi o que este
+documento declara saber de antemão. O congelamento (sha256 no `calibracao/journal.jsonl`) ainda não
+ocorreu; verificado no journal, que traz 9 entradas, todas da iter0 e nenhuma deste arquivo.
 
 Este documento fixa o plano de análise **antes de qualquer resultado ser visto**. Depois do congelamento,
 nada aqui pode ser alterado; toda análise não prevista abaixo é exploratória por definição e deve ser
@@ -61,10 +71,52 @@ contraste, e o teste é **McNemar exato** (binomial sobre os pares discordantes)
 qui-quadrado — as contagens discordantes serão pequenas.
 
 Este é o limiar de melhoria declarado *a priori*: **o tratamento funciona quando encontra violação em
-apps onde a referência não encontra nenhuma**. É a formulação da própria arguidora, e é o desfecho com
-melhor poder no regime medido — 8 dos 40 APKs dão zero em todo braço e 25 dão valor idêntico entre os
-onze braços da iter0, de modo que o delta contínuo tem pouco a enxergar enquanto o binário mede
-exatamente a transição que interessa.
+apps onde a referência não encontra nenhuma**. É a formulação da própria arguidora, e é o desfecho que
+mede exatamente a transição que interessa, enquanto o delta contínuo tem pouco a enxergar — 8 dos 40
+APKs dão zero em todo braço.
+
+**Correção da justificativa de poder (2026-07-31, antes do congelamento).** A versão anterior deste
+parágrafo apoiava a escolha do binário em "25 dos 40 dão valor idêntico entre os onze braços da
+iter0". Esse número é a concordância na **identidade do valor contínuo**, que não é o conjunto
+concordante do McNemar. Sob a definição binária que o teste de fato usa (`mop_unique > 0`), a
+concordância na iter0 é maior, não menor:
+
+| definição | Compose | View | total |
+|---|---:|---:|---:|
+| identidade de `mop_unique`, 11 braços (o número antes citado) | 19/22 | 6/18 | 25/40 |
+| **binária `>0`, 11 braços** | 21/22 | 12/18 | **33/40** |
+| **binária `>0`, 10 braços `aperv`** | **22/22** | 13/18 | **35/40** |
+
+O binário continua sendo o desfecho certo pelo argumento da arguidora — mede a transição que
+interessa —, mas **não** porque tenha mais a enxergar que o contínuo neste corpus. Ele tem menos.
+A escolha se sustenta no significado, não no poder, e este pré-registro passa a dizer isso.
+
+### O poder do primário, declarado antes de qualquer resultado
+
+Registrado aqui porque só vale como pré-registro se for escrito antes: **o McNemar exato bicaudal não
+consegue rejeitar a Holm α=0,025 com menos de 7 pares discordantes**, ainda que todos apontem no mesmo
+sentido. O p mínimo é 2·(0,5)ⁿ: 0,0625 em n=5, 0,03125 em n=6, **0,015625 em n=7**. A α=0,05 sem
+ajuste, o piso é n=5.
+
+Os análogos da iter0 preveem **n_discordante ≈ 3–4** nos dois contrastes:
+
+- **RQ-C3, análogo exato** — `sata_mop_act_frontier` × `cal_a1`, mesmo substrato, mesma dose 0,7,
+  mesmo bloco de prompt que esta corrida adota: **n_disc = 3, p = 1,0**, e os três discordantes são
+  todos do estrato View.
+- **RQ-C1, análogo confundido** — `ape:default` × `sata_mop_act_frontier`, que diferem em 18 chaves e
+  não nas 6 do contraste real: **n_disc = 4, p = 0,625**.
+
+**Consequência declarada antes do resultado**: se n_discordante vier abaixo de 7, o teste primário não
+rejeita **por construção aritmética**, e não por ausência de efeito. Nesse caso a regra de empate (§5)
+continua valendo como decisão de engenharia — o ônus da prova é do tratamento e o custo dele é real —
+mas o relatório **registrará explicitamente que o desenho não tinha poder para rejeitar**, em vez de
+apresentar o não-rejeitar como evidência sobre a hipótese. As duas leituras não são a mesma, e
+distingui-las depois de ver o resultado seria escolha post-hoc.
+
+Dois fatores conhecidos apontam para **mais** discordância do que a iter0 sugere, e nenhum é
+quantificável antes de rodar: esta corrida usa **1800 s contra os 300 s da iter0** (6× o orçamento), e
+produz **observação única** onde o `per_apk_paired.csv` traz média de 2 réplicas — uma média 0,5 é
+cara-ou-coroa a n=1. Ficam registrados como esperança declarada, não como resposta.
 
 ### Secundário — Δ pareado de `mop_unique`, Wilcoxon
 
@@ -94,6 +146,45 @@ O GLM do conjunto E2 (RQ-C0) só é computável quando o E2 rodar. Não é parte
   e o braço guiado não tem contraste a exibir ali — um Δ nulo nesse estrato é ausência de contraste no
   instrumento, não evidência contra a hipótese. A estratificação é **descritiva**, não uma família de
   testes adicional.
+
+  **Expectativa declarada para o estrato Compose: aproximadamente zero pares discordantes.** Nos dez
+  braços `aperv` da iter0, **22 dos 22** APKs Compose são concordantes no desfecho binário, contra 13
+  de 18 no View. Ou seja, 55% do corpus não deve contribuir com pares para o teste primário. Isso é
+  previsão, não observação sobre esta corrida, e está escrita antes para que um nulo no estrato
+  Compose não possa ser lido depois como evidência sobre a hipótese. Acrescenta-se a razão mecânica,
+  medida em 2026-07-31: o canal MOP em nível de widget é **identicamente nulo** no estrato — 0 de
+  85.158 passos nos dez braços —, e a causa não é o `resource-id` ausente e sim o substrato estático,
+  que entrega **zero widgets MOP-flagged** para os 22 apps (`flagged=0` em 22/22). O canal em nível de
+  *activity*, esse, continua vivo lá (465 passos de `EVENT_TRIGGER_ACTIVITY` em 15 dos 22 apps), então
+  a previsão de zero vale para o desfecho, não para todo mecanismo.
+
+- **Dependência entre unidades, declarada.** O pareamento trata os 40 APKs como independentes, e
+  **oito não são**: os seis `info.metadude.*.schedule`, `at.linuxtage.Eventfahrplan_1700028` e
+  `ch.digitale_gesellschaft.winterkongress.schedule_118` declaram todos a mesma
+  `mainActivity = nerd.tuxmobil.fahrplan.congress.schedule.MainActivity` — é uma base de código com
+  oito empacotamentos. Na iter0 os oito são Compose, os oito são concordantes e os oito dão
+  `mop_unique = 8` em todos os braços; seis deles compartilham inclusive um `.apk.json` byte-idêntico.
+  O subset permanece com os 40 (decisão do autor, inalterada), mas **todo teste pareado reportado
+  declarará essa dependência**, e qualquer associação entre estrato e desfecho será acompanhada da
+  versão com os clones colapsados. Ordem de grandeza do efeito, medida na iter0: a associação
+  toolkit × concordância vai de p=0,00091 para p=0,0135 (odds ratio 12,67 → 8,0) — direção e
+  significância sobrevivem, a precisão não.
+- **Normalização por passo**, declarada: cada desfecho é reportado também dividido pelo número de
+  passos do braço, ao lado do valor por corrida. Motivo: neste substrato o braço LLM é limitado por
+  latência, não por seleção, e as duas coisas são indistinguíveis no nível da corrida. Medido nas 84
+  corridas `cal_a1` do iter0 contra a referência pareada (`sata_mop_act_frontier`, a configuração do
+  braço 1): o braço LLM executa **0,622×** os passos (mediana 168 contra 264,5) e descobre **0,729×**
+  os estados distintos (mediana 22 contra 27; perde em 67 dos 80 pares APK×rep, Δ mediano −7),
+  gastando **35%** do orçamento de 300 s esperando inferência — enquanto **por passo** os dois braços
+  são quase iguais (≈11,9% contra ≈12,5% de taxa de estado novo). Um nulo por corrida admite duas
+  leituras incompatíveis, "o LLM seleciona pior" e "o LLM seleciona igual mas recebe menos chances", e
+  só a razão por passo as separa. A normalização é **descritiva**, não uma família de testes
+  adicional, e **não** desloca o desfecho por corrida, que segue primário: uma ferramenta que não
+  consegue gastar seu relógio é pior na prática — a razão por passo diz *por quê*, para que a decisão
+  de tirar o LLM do desenho se apoie no motivo certo.
+  Distinta da "vantagem por passo do LLM" registrada em §6: aquela é yield **por fonte de decisão**,
+  condicionada a quando o roteador resolveu chamar, portanto endógena — e por isso fora dos desfechos.
+  Esta é o total do **braço** dividido pelos passos do **braço**, sem condicionar em roteamento.
 - **Sem exclusão de APK depois de ver resultado.** Os 40 entram. APKs com zero violação em todo braço
   permanecem na tabela do McNemar (são pares concordantes) e são reportados.
 
@@ -104,6 +195,14 @@ O GLM do conjunto E2 (RQ-C0) só é computável quando o E2 rodar. Não é parte
 **Empate ⇒ o algoritmo vence.** Operacionalmente: se o teste pré-registrado não rejeita, a conclusão
 registrada é **"o tratamento não acrescenta"**, e não "inconclusivo". Não há reanálise, nem troca de
 desfecho, nem aumento de n em busca de significância.
+
+**A regra vale; o relatório do não-rejeitar não é único.** Se n_discordante ficar abaixo de 7, o teste
+não podia rejeitar (§3, "O poder do primário"), e o relatório dirá isso ao lado da conclusão. A regra
+de empate continua decidindo — ela é uma regra de decisão de engenharia sobre ônus da prova e custo,
+não uma inferência estatística — mas registrar "não rejeitou" sem registrar "não tinha como rejeitar"
+seria omitir o que a própria iter0 já previa. As duas frases convivem: o tratamento sai do desenho, e
+o motivo declarado é que não demonstrou benefício num desenho que, sabidamente, tinha pouco poder para
+detectá-lo.
 
 A assimetria é deliberada. Com n=40 e 1 repetição, um resultado inconclusivo não é evidência de efeito;
 e o custo do tratamento é real, medido e pago continuamente — o braço LLM executa 161,8 passos por run
@@ -145,7 +244,26 @@ Registradas como premissas falsificáveis da corrida, não como fatos estabeleci
 - **Vantagem por passo do LLM, com ressalva.** 6,95 violações por 1000 passos contra 4,32 da
   referência. A ressalva é que yield por fonte é endógeno (condicionado a quando o roteador decidiu
   chamar) — o relatório de calibração falsifica o uso preditivo dessa razão com erro de +39,2% no A1.
-  Por isso ela **não** entra como desfecho, apenas como contexto interpretativo.
+  Por isso ela **não** entra como desfecho, apenas como contexto interpretativo. (A normalização por
+  passo declarada em §4 é outra medida: total do braço sobre passos do braço, sem condicionar em
+  roteamento, e portanto não afetada por esta endogeneidade.)
+- **O contrafactual de 300 s roda outro caminho de LLM.** A leitura entre orçamentos — `cal_a1`@300 s
+  contra o braço 3@1800 s — pressupõe o mesmo tratamento com apenas o orçamento mudando. A change
+  irmã (`telemetry-proof-llm-efficacy`, repo `ape`) põe todo o seu grupo de eficácia no jar da corrida
+  decisiva, e nada disso estava no jar do iter0. São **sete** itens que mudam o comportamento do braço
+  LLM, não um: **B1** (ban de par morto — recusa 27,5% das decisões executáveis a **k=5**, elevando o
+  rendimento por decisão de ≈11,4% para ≈14,7%; o k subiu de 3 para 5 em 2026-07-31, quando se
+  verificou que a varredura original fora feita sobre uma chave diferente da que o ban embarca — a
+  k=3 a recusa real seria 37,6%), **B6(i)** (`click` restrito a `MODEL_CLICK`, hoje
+  acerta 80,9%), **B6(iii)** (schema de tools por requisição), **B6(iv)** (`fixTextEdit`), **N1**
+  (identificadores nas linhas de elemento do prompt — acerto medido 33,1% sem contra 71,4% com),
+  **B4** (snap por borda) e **B7(i)** (gatilho de estagnação passa a disparar). Os itens do grupo A
+  são telemetria neutra por braço e não entram nessa lista. Logo os dois pontos diferem em orçamento
+  **e** em caminho de LLM — não há interação dose × orçamento limpa a ser lida.
+  O confundimento é **direcional**: seis dos sete favorecem o LLM, e só o B7(i) adiciona custo (mais
+  chamadas, mais latência). O tratamento pré-registrado dessa assimetria está em §7.
+  O contraste **primário não é afetado**: os braços 1 e 3 rodam no mesmo jar e são pareados por APK,
+  então os sete itens são constantes na comparação que decide.
 
 ## 7. Análises exploratórias — declaradas como tais
 
@@ -153,6 +271,25 @@ Não confirmatórias. Geram hipótese, não decidem nada, e serão rotuladas ass
 elo a elo (C2), alcance de telas-MOP como régua de qualidade (C4), moderação por Compose e FLAG_SECURE
 (C5), decomposição por canal de decisão, o join clock↔logcat (A9), e qualquer corte por estrato além
 do toolkit já declarado.
+
+### A leitura entre orçamentos, com compromisso direcional
+
+Comparar `cal_a1`@300 s com o braço 3@1800 s — mesma dose de 70%, mesmo subset, orçamentos diferentes
+— serviria para diagnosticar um resultado nulo: separar "a dose está errada" de "o orçamento ainda é
+curto". O confundimento declarado em §6 (sete itens do caminho de LLM mudaram junto com o orçamento)
+tira dela o estatuto de interação limpa. Ela permanece como exploratória, e **a direção em que será
+lida fica fixada aqui, antes de qualquer resultado**:
+
+- **Braço 3 nulo ou negativo a 1800 s** → a comparação **é lida**, e o confundimento a *reforça*: o
+  caminho do LLM foi corrigido em sete pontos e recebeu 6× o orçamento, e ainda assim não supera o
+  algoritmo. A conclusão negativa fica mais forte do que o desenho previa, não mais fraca.
+- **Braço 3 positivo a 1800 s** → a comparação **não é lida**. O ganho não é repartível entre
+  orçamento e consertos, e tentar reparti-lo depois de ver o resultado seria escolha post-hoc.
+
+O compromisso é assimétrico de propósito, e é a assimetria do próprio confundimento que o justifica:
+seis dos sete itens favorecem o LLM, então eles só podem inflar um resultado positivo — jamais
+explicar um negativo. Nada aqui altera o desfecho primário, que roda com os sete itens constantes
+entre os braços 1 e 3.
 
 ## 8. Itens ainda em aberto
 
