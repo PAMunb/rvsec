@@ -741,6 +741,36 @@ class ApeRVTool(AbstractTool):
                 "llm_top_k": 50,
                 "llm_on_new_state": True,
                 "llm_on_stagnation": True,
+                # B3: the raised snap radius, and the jar it is raised for.
+                #
+                # Widening the radius makes more LLM answers resolve to a
+                # widget. Without the dead-pair ban the extra resolutions are
+                # repeated taps on pairs already known to produce no new state,
+                # so the widening amplifies the measured 25.6% dead-call waste
+                # instead of rescuing near-misses. The tolerance is therefore
+                # only ever set alongside a declaration of which jar build it
+                # belongs to, and _snap_tolerance_offenders fails the suite on
+                # any of the three alone (INV-APV-34).
+                #
+                # The two declarations answer different questions. The sha256 is
+                # the gate: it is compared at smoke time against the jar_sha256
+                # captured at run start, and it is what actually proves which
+                # binary ran. The git sha is documentary — it is the only way
+                # back from a digest to the source revision, since ape-rv.jar
+                # carries no build stamp of its own. Both are Python-only and
+                # stay out of APERV_PROPERTY_MAPPING: the jar has no property to
+                # receive them, and that absence is what keeps them inert enough
+                # not to disturb the arm 1 <-> arm 3 single-factor contrast.
+                #
+                # The ape build is not bit-reproducible, so a rebuild of the
+                # same revision changes the digest and this pair has to be
+                # re-recorded. That is the accepted cost of verifying the
+                # artifact rather than a claim it makes about itself.
+                "llm_snap_tolerance_px": 150,
+                "expected_jar_git_sha": "5dcf225976b26ce78d8b31dd88d7f858dad29d43",
+                "expected_jar_sha256": (
+                    "386ce08d1846a4088755a8d755e5b70391af3b42add091d231dbcc52aed24e69"
+                ),
             },
         }
 

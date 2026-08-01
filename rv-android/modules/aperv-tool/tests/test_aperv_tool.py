@@ -910,6 +910,15 @@ class TestDecisiveRunArms:
     def test_reference_and_llm_arm_differ_only_in_llm_keys(self):
         # Spec scenario "Reference and LLM arm differ only in LLM keys": no MOP
         # weight, frontier or RV exploration flag may move with the LLM.
+        #
+        # The B3 jar-provenance declaration is the one exemption, and the second
+        # assertion below is what licenses it: neither key is in
+        # APERV_PROPERTY_MAPPING, so neither is written to ape.properties and
+        # neither can reach the jar. Single-factor is a claim about the keys that
+        # reach the jar, so exempting keys that provably do not reach it keeps
+        # the contrast intact rather than punching a hole in it. The two
+        # assertions must stay together — the exemption is only sound while the
+        # keys remain unmapped.
         reference = self.variants["mop_on_llm_off"]
         llm_arm = self.variants["mop_on_llm_70"]
 
@@ -920,7 +929,12 @@ class TestDecisiveRunArms:
         }
 
         assert differing, "the LLM arm must differ from the reference somewhere"
-        assert all(key.startswith("llm_") for key in differing), sorted(differing)
+        assert _JAR_DECLARATION_KEYS <= differing, sorted(differing)
+        for key in _JAR_DECLARATION_KEYS:
+            assert key not in APERV_PROPERTY_MAPPING, key
+
+        behavioural = differing - _JAR_DECLARATION_KEYS
+        assert all(key.startswith("llm_") for key in behavioural), sorted(behavioural)
         assert not differing & _MOP_CONTRAST_KEYS
 
     def test_llm_arm_carries_the_cal_a1_dose_verbatim(self):
@@ -1513,11 +1527,15 @@ class TestCompactStaticAnalysisJson:
 
 # --- gh90 B3: snap tolerance gated on the dead-pair ban -----------------------
 
-# The raised radius, and the key an arm uses to declare which jar build it was
-# raised for. The declaration is Python-only — it must never reach
-# ape.properties, because the jar has no property to receive it.
+# The raised radius, and the two keys an arm uses to declare which jar build it
+# was raised for. The git sha names the source revision and is documentary; the
+# sha256 names the built artifact and is the half the smoke actually verifies,
+# against the jar_sha256 captured at run start. Both are Python-only — they must
+# never reach ape.properties, because the jar has no property to receive them.
 _SNAP_TOLERANCE_RAISED = 150
 _JAR_SHA_KEY = "expected_jar_git_sha"
+_JAR_DIGEST_KEY = "expected_jar_sha256"
+_JAR_DECLARATION_KEYS = frozenset({_JAR_SHA_KEY, _JAR_DIGEST_KEY})
 
 
 def _snap_tolerance_offenders(variants):
@@ -1531,17 +1549,25 @@ def _snap_tolerance_offenders(variants):
     and the declaration of the jar it belongs to therefore travel together, in
     both directions: a dangling declaration left behind after a rollback is just
     as misleading as an ungated tolerance.
+
+    All three travel together, not two: a digest with no git sha cannot be traced
+    back to source, and a git sha with no digest is unverifiable, since ape-rv.jar
+    carries no build stamp to compare a revision against.
     """
     offenders = {}
     for name, cfg in variants.items():
         sets_tolerance = "llm_snap_tolerance_px" in cfg
-        declares_sha = bool(cfg.get(_JAR_SHA_KEY))
-        if sets_tolerance and not declares_sha:
-            offenders[name] = "raised tolerance without a declared jar sha"
-        elif (
-            declares_sha and cfg.get("llm_snap_tolerance_px") != _SNAP_TOLERANCE_RAISED
-        ):
+        declared = {key for key in _JAR_DECLARATION_KEYS if cfg.get(key)}
+        if sets_tolerance and declared != _JAR_DECLARATION_KEYS:
+            missing = sorted(_JAR_DECLARATION_KEYS - declared)
+            offenders[name] = (
+                f"raised tolerance without a declared jar sha ({', '.join(missing)})"
+            )
+        elif declared and cfg.get("llm_snap_tolerance_px") != _SNAP_TOLERANCE_RAISED:
             offenders[name] = "declared jar sha without the raised tolerance"
+        elif declared and declared != _JAR_DECLARATION_KEYS:
+            missing = sorted(_JAR_DECLARATION_KEYS - declared)
+            offenders[name] = f"incomplete jar declaration ({', '.join(missing)})"
     return offenders
 
 
@@ -1565,16 +1591,42 @@ class TestSnapToleranceGate:
         # the tolerance was rolled back to the jar default and the declaration
         # was left behind, which will silently mislead the next reader.
         offenders = _snap_tolerance_offenders(
-            {"arm": {_JAR_SHA_KEY: "abc1234", "llm_snap_tolerance_px": 50}}
+            {
+                "arm": {
+                    _JAR_SHA_KEY: "abc1234",
+                    _JAR_DIGEST_KEY: "def5678",
+                    "llm_snap_tolerance_px": 50,
+                }
+            }
         )
 
         assert "arm" in offenders
         assert "without the raised tolerance" in offenders["arm"]
 
     def test_declaration_without_any_tolerance_key_also_fails(self):
-        offenders = _snap_tolerance_offenders({"arm": {_JAR_SHA_KEY: "abc1234"}})
+        offenders = _snap_tolerance_offenders(
+            {"arm": {_JAR_SHA_KEY: "abc1234", _JAR_DIGEST_KEY: "def5678"}}
+        )
 
         assert "arm" in offenders
+
+    def test_half_a_declaration_fails(self):
+        # A digest with no git sha cannot be traced back to source, and a git sha
+        # with no digest is unverifiable — ape-rv.jar carries no build stamp to
+        # compare a revision against. Either half alone is a broken declaration.
+        halves = ((_JAR_SHA_KEY, _JAR_DIGEST_KEY), (_JAR_DIGEST_KEY, _JAR_SHA_KEY))
+        for present, missing in halves:
+            offenders = _snap_tolerance_offenders(
+                {
+                    "arm": {
+                        present: "abc1234",
+                        "llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED,
+                    }
+                }
+            )
+
+            assert "arm" in offenders, present
+            assert missing in offenders["arm"]
 
     def test_paired_declaration_passes(self):
         assert (
@@ -1582,6 +1634,7 @@ class TestSnapToleranceGate:
                 {
                     "arm": {
                         _JAR_SHA_KEY: "abc1234",
+                        _JAR_DIGEST_KEY: "def5678",
                         "llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED,
                     }
                 }
@@ -1589,11 +1642,13 @@ class TestSnapToleranceGate:
             == {}
         )
 
-    def test_declared_sha_never_reaches_ape_properties(self):
-        # The declaration is a guard-and-smoke artifact, not a jar property: the
-        # runtime half of the gate is the [APE-BUILD] banner's git_sha, because
-        # the build stamp is a dexed constant and not a readable jar entry.
-        assert _JAR_SHA_KEY not in APERV_PROPERTY_MAPPING
+    def test_declared_shas_never_reach_ape_properties(self):
+        # The declaration is a guard-and-smoke artifact, not a jar property:
+        # ape-rv.jar has no property to receive it, and its absence from the
+        # mapping is also what keeps the two keys inert enough not to disturb
+        # the arm 1 <-> arm 3 single-factor contrast.
+        for key in _JAR_DECLARATION_KEYS:
+            assert key not in APERV_PROPERTY_MAPPING, key
 
 
 # --- gh90 N4: per-run LLM backend provenance ---------------------------------

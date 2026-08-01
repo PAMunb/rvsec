@@ -212,6 +212,8 @@ The variant names are normative, not cosmetic: the variant string is the resume 
 
 The reference arm and the LLM arm differ only in the LLM keys; the reference arm and the control arm differ only in the MOP keys. This is what makes each contrast a single-factor comparison.
 
+The jar-provenance declaration required by INV-APV-34 — `expected_jar_git_sha` and `expected_jar_sha256`, carried by the LLM arm alone — is the one exemption from that diff, and it is safe because the keys are **inert by construction**: neither appears in `APERV_PROPERTY_MAPPING`, so neither is written to `ape.properties` and neither can reach the jar or move the arm's behaviour. Single-factor is a claim about the keys that reach the jar; these do not. The guard test that keeps them out of the mapping is therefore what licenses the exemption, and the two SHALL be asserted together.
+
 All three arms SHALL use the frontier substrate (INV-APV-30). The control arm SHALL follow the shape fixed by INV-APV-29: `mop_data` present and loadable, all four MOP weights and `mop_frontier_weight` zeroed, `activity_trigger_enabled=false`. All three arms SHALL set `mop_activity_source_components=true` rather than inheriting the jar's `false` default (`Config.java:159`), whose suppression of the MOP-activity signal is measured at 20.0% → 85.0% of activities flagged on the subset40 and 17.7% → 86.2% offline across the 181 apps.
 
 The arms SHALL satisfy the existing arm-flag guards: every key in `ARM_DEFINING_KEYS` set explicitly (INV-APV-14), every such key present in `APERV_PROPERTY_MAPPING` (INV-APV-13). The MOP weight keys, though not members of `ARM_DEFINING_KEYS`, SHALL be set explicitly in all three arms for auditability — for the control arm this is not merely auditability but the mechanism itself.
@@ -237,7 +239,8 @@ Arm 3 SHALL declare every key of `LLM_ARM_KEYS` explicitly, at `llm_percentage=0
 
 #### Scenario: Reference and LLM arm differ only in LLM keys
 - **WHEN** the guard test diffs the reference arm's dictionary against the LLM arm's
-- **THEN** every differing key SHALL be an LLM key
+- **THEN** every differing key SHALL be either an LLM key or one of the two inert jar-provenance declaration keys of INV-APV-34
+- **AND** the same test SHALL assert that neither declaration key is present in `APERV_PROPERTY_MAPPING`, since that absence is what makes the exemption safe rather than a hole in the contrast
 - **AND** no MOP weight, frontier, or RV exploration flag SHALL differ
 
 #### Scenario: Source components flag is explicit in all three arms

@@ -28,7 +28,7 @@
 
 - [x] 3.1 Implement `_capture_llm_provenance(llm_url, jar_path) -> dict` — live `GET {llm_url}/v1/models` plus the jar file sha256; returns `llm_backend`, `llm_model`, `llm_sampling`, `jar_sha256`, `capture_status`. Failures are encoded in `capture_status`, never back-filled from config (INV-APV-33)
 - [x] 3.2 Call it once per run in the execute path for arms that declare LLM keys, and write the fields into the task output
-- [ ] 3.3 Add the B3 declaration to the LLM arm: `llm_snap_tolerance_px=150` paired with `expected_jar_git_sha` **and** `expected_jar_sha256`, and extend `_snap_tolerance_offenders` to require all three together. Both declaration keys are Python-only and MUST stay out of `APERV_PROPERTY_MAPPING` — the jar has no property to receive them. Do NOT attempt to read a capability stamp from the jar and do NOT parse an `[APE-BUILD]` banner: neither exists, `gh14-build-provenance-stamp` was archived without implementation, and the verifiable half is the installed jar's sha256 (design D4)
+- [x] 3.3 Add the B3 declaration to the LLM arm: `llm_snap_tolerance_px=150` paired with `expected_jar_git_sha` **and** `expected_jar_sha256`, and extend `_snap_tolerance_offenders` to require all three together. Both declaration keys are Python-only and MUST stay out of `APERV_PROPERTY_MAPPING` — the jar has no property to receive them. Do NOT attempt to read a capability stamp from the jar and do NOT parse an `[APE-BUILD]` banner: neither exists, `gh14-build-provenance-stamp` was archived without implementation, and the verifiable half is the installed jar's sha256 (design D4)
 - [x] 3.4 Add the guard test enforcing the pairing in both directions: tolerance 150 without a declared sha fails; a declared sha without the raised tolerance also fails (INV-APV-34)
 - [x] 3.5 Add unit tests: provenance from a live query; failure encoded not inferred; no query for non-LLM arms
 - [x] 3.6 Run `/rv-test-run aperv-tool`
@@ -58,7 +58,7 @@ Added 2026-07-31 after adversarial verification (`docs/20260731_verificacao_anal
 
 ## 6. Cross-repository integration (needs the sister jar)
 
-- [ ] 6.1 Record both the git sha and the sha256 of the `ape-rv.jar` build containing B1, and put both in the LLM arm's declaration (task 3.3)
+- [x] 6.1 Record both the git sha and the sha256 of the `ape-rv.jar` build containing B1, and put both in the LLM arm's declaration (task 3.3)
 - [ ] 6.2 Real smoke via `rv-platform` against a real SGLang server — infrastructure scope: 3 APKs × 3 arms, short timeout, all tasks COMPLETED, coverage > 0, SGLang answers. The APK set MUST include `freeotpplus` and `aegis` (task 6.5 is unreachable on the other 33). No mock LLM. **Never start, stop, or manage an emulator manually** — rv-platform owns the whole lifecycle
 - [ ] 6.3 Smoke gate: the `jar_sha256` captured at run start matches the arm's declared `expected_jar_sha256`; a mismatch fails before the decisive run launches, naming both digests and the declared git sha (INV-APV-34)
 - [ ] 6.4 Smoke gate: in the control arm, `decision_source=MOP` count == 0 AND the `mop=` field is always 0 across every step. This is the one behavioural gate the smoke carries, because it is the single failure that invalidates the whole run
