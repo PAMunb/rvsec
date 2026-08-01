@@ -272,6 +272,61 @@ elo a elo (C2), alcance de telas-MOP como régua de qualidade (C4), moderação 
 (C5), decomposição por canal de decisão, o join clock↔logcat (A9), e qualquer corte por estrato além
 do toolkit já declarado.
 
+### A sonda de poder do RQ-C1, declarada antes de rodar
+
+Antes de comprometer as ~8 h da corrida decisiva, roda-se uma **sonda de poder** sobre o contraste
+primário do RQ-C1. Ela está declarada aqui, e não no §3, porque não é desfecho: é diagnóstico de
+desenho. Ao contrário das demais análises desta seção, ela decide **uma** coisa — se a corrida
+decisiva roda como pré-registrada ou se o desfecho primário é revisado antes do congelamento. Sobre a
+hipótese ela não diz nada, nem pode.
+
+**O que é.** Os dois braços do RQ-C1 apenas — `mop_on_llm_off` e `mop_off_llm_off`, ambos com o LLM
+desligado —, 40 APKs × 1 repetição × 2 braços = 80 runs. Computa o mesmo desfecho binário do §3
+(`achou = mop_unique > 0`), a mesma tabela 2×2 pareada e o mesmo McNemar exato, e reporta o
+**n_discordante**, a decomposição por estrato Compose/View e quantos dos 40 são concordantes-em-zero
+— que é o outro modo de o teste não ter o que medir.
+
+**Por que.** O §3 declara que o McNemar exato não rejeita a Holm α=0,025 com menos de 7 pares
+discordantes, e que os análogos da iter0 preveem 3–4. Só que **nenhum braço da iter0 responde isso
+para o contraste real**: nenhum fixa o substrato frontier e desliga o MOP, e o análogo mais próximo
+(`ape:default`) difere em 18 chaves, não nas 6 que separam os braços 1 e 2. A sonda responde por
+cerca de 1/5 do custo da corrida completa se o contraste primário tem pares discordantes a ver.
+
+**Orçamento distinto: 300 s, não 1800 s.** A escolha é de isolamento, não de economia. A 300 s a
+sonda não produz nenhum run da corrida decisiva — a identidade de um run é `(apk, tool, variant,
+repetition, timeout)`, e o timeout diferente mantém as duas campanhas disjuntas no resume —, então
+**nenhum dado é reutilizado nem descartado**. E a 300 s ela é diretamente comparável ao análogo
+confundido da iter0, isolando exatamente o que muda: um braço MOP-off que *mantém* o substrato
+frontier.
+
+**Seus resultados não entram na análise confirmatória, em hipótese alguma** — nem como dado, nem como
+n adicional, nem como réplica. A sonda roda a 300 s e a corrida decisiva a 1800 s: o n_discordante que
+ela devolve é diagnóstico sobre o desenho, não estimativa do que a corrida vai encontrar.
+
+**O que se fará com cada desfecho, fixado aqui antes de rodar:**
+
+- **n_disc ≥ 7** → a corrida decisiva roda como pré-registrada; a sonda confirmou que o contraste tem
+  o que medir.
+- **n_disc entre 4 e 6** → roda, e o relatório declara de antemão que o poder é marginal a 300 s (a
+  1800 s pode melhorar, e é justamente o que a corrida testa).
+- **n_disc ≤ 3** → **primário e secundário trocam de posição antes do congelamento**: o Δ pareado de
+  `mop_unique` sob Wilcoxon de postos sinalizados (§3, "Secundário") passa a primário, e o binário sob
+  McNemar exato passa a secundário. Nada mais se move: mesma unidade de pareamento, mesmo Holm sobre
+  os dois contrastes, mesma estratificação Compose/View, mesma declaração de dependência dos oito
+  clones.
+
+A troca não inventa desfecho: **os dois já estão declarados no §3**, escritos antes de qualquer dado.
+O que a sonda seleciona é qual dos dois decide, não o que se mede. E o ramo é forçado pela aritmética,
+não escolhido — a n ≤ 3 o piso do McNemar exato bicaudal é 2·(0,5)ⁿ ≥ 0,125, então ele não alcança
+Holm α=0,025 diga o que disserem os dados. Mais runs não compram poder para esse desfecho, e o 4º
+braço do §8 mudaria o contraste em vez de dar poder ao contraste do RQ-C1.
+
+**O resíduo, declarado.** Uma regra adaptativa, ainda que pré-comprometida, aposta parte da
+credibilidade do desenho em a sonda ser diagnóstico limpo. O que se faz a respeito é tornar a ordem
+inspecionável: o resultado da sonda é registrado no `calibracao/journal.jsonl` com o sha256 do seu
+relatório, em **entrada separada** do carimbo de congelamento deste documento, de modo que qualquer
+leitor possa verificar que a regra acima foi escrita antes de o número existir.
+
 ### A leitura entre orçamentos, com compromisso direcional
 
 Comparar `cal_a1`@300 s com o braço 3@1800 s — mesma dose de 70%, mesmo subset, orçamentos diferentes
@@ -297,4 +352,7 @@ entre os braços 1 e 3.
   `gh90/design.md` §Open Questions.
 - **D13/C12 — critério de qualidade dos testes.** O D14 (spec como régua, = C4) é a única sugestão
   concreta da banca; falta decidir se é *o* critério ou *um*, e qual denominador.
-- **O 4º braço opcional** ("sem substrato"): +40 runs, ≈ 10,5 h no total.
+- **O 4º braço opcional** ("sem substrato"): +40 runs, ≈ 10,5 h no total. Segue em aberto como decisão
+  de escopo, mas **deixou de ser resposta possível a um n_discordante baixo**: a regra do §7 fixa a
+  troca de desfechos para esse caso, pelo motivo de que acrescentar um braço muda o contraste em vez
+  de dar poder ao contraste do RQ-C1.
