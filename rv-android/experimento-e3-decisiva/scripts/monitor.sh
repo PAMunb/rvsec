@@ -6,14 +6,14 @@
 #   bash scripts/monitor.sh
 #   watch -n 120 bash scripts/monitor.sh
 #
-# Expected total is 120 = 40 APKs x 3 arms x 1 repetition. Each container owns
+# Expected total is 360 = 40 APKs x 3 arms x 3 repetitions. Each container owns
 # 5 APKs and runs all three arms over them, so a healthy container converges on
-# 15 tasks. A container short of 15 with the others done is where the resume
+# 45 tasks. A container short of 45 with the others done is where the resume
 # pass has work to do.
 
 RESULTS_DIR="${1:-results}"
 CONTAINERS="e3_decisiva_00 e3_decisiva_01 e3_decisiva_02 e3_decisiva_03 e3_decisiva_04 e3_decisiva_05 e3_decisiva_06 e3_decisiva_07"
-EXPECTED=120
+EXPECTED=360
 
 echo "=== E3 decisive run progress ($(date '+%Y-%m-%d %H:%M:%S')) ==="
 echo ""

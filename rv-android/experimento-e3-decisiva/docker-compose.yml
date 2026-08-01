@@ -1,7 +1,7 @@
 # Corrida decisiva E3 — gh90-e3-decisive-run-setup.
 #
-# Tres bracos de fator unico sobre o mesmo substrato frontier, 40 APKs, 1
-# repeticao, 1800 s por task = 120 runs em 8 containers, ~8 h. O plano de
+# Tres bracos de fator unico sobre o mesmo substrato frontier, 40 APKs, 3
+# repeticoes, 1800 s por task = 360 runs em 8 containers, ~23-24 h. O plano de
 # analise esta pre-registrado em ../docs/20260730_preregistro_corrida_decisiva.md
 # e NAO pode ser alterado depois do congelamento (sha256 no calibracao/journal.jsonl).
 #
@@ -23,7 +23,16 @@ x-rvandroid: &rvandroid-base
   environment: &rvandroid-env
     RV_TOOLS: "aperv:mop_on_llm_off:mop_off_llm_off:mop_on_llm_70"
     RV_TIMEOUTS: "1800"
-    RV_REPETITIONS: "1"
+    # Tres replicas por (APK, braco). Custo medido: overhead de 58 s por task
+    # alem do timeout (media de 9 tasks do smoke de 2026-08-01), entao ~31 min
+    # por run, 45 runs por container, 23-24 h de relogio.
+    #
+    # A replica nao e so mais dado: o desfecho primario e binario por APK, e a
+    # n=1 um APK que fica na fronteira do zero e cara-ou-coroa — o proprio §3 do
+    # pre-registro declarava isso como fator conhecido. Com tres replicas o
+    # `achou` de cada APK passa a exigir reproducao, e o ruido de medida sai do
+    # primario em vez de ser absorvido por ele.
+    RV_REPETITIONS: "3"
     RV_NO_WINDOW: "true"
     RV_SPEC_SET: "jca"
     # Os APKs montados ja estao instrumentados (jca/dexlib2, campanha

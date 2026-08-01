@@ -12,6 +12,22 @@ assume (§4). Nenhum desfecho, contraste, braço ou regra de decisão mudou — 
 documento declara saber de antemão. O congelamento (sha256 no `calibracao/journal.jsonl`) ainda não
 ocorreu; verificado no journal, que traz 9 entradas, todas da iter0 e nenhuma deste arquivo.
 
+**Emenda de 2026-08-01, posterior ao primeiro congelamento e anterior a qualquer dado.** O primeiro
+congelamento foi carimbado às 15:02:33Z (`sha256 4157faa0…`). Depois dele apurou-se que a janela de
+execução disponível é de 22–24 h, e não as ~8 h que o desenho de 1 repetição consumia. As repetições
+sobem de **1 para 3** e o §3 passa a declarar **como as réplicas se combinam** no desfecho binário.
+
+Emendar um pré-registro já carimbado exige justificativa, e a justificativa aqui é que **nenhum dado
+existia**: nenhum run havia sido executado quando esta emenda foi escrita. O que o pré-registro
+protege é a escolha feita *depois de ver resultados*, e não há resultado nenhum a ver. A ordem é
+verificável de fora, e é por isso que o journal é append-only: a entrada `FREEZE-PREREGISTRO` de
+15:02:33Z, a entrada de recongelamento desta emenda, e o timestamp do primeiro run da corrida ficam
+os três registrados em sequência. Se algum run precedesse a emenda, apareceria ali.
+
+**O que não mudou**: braços, corpus, timeout, desfechos primário/secundário/terciário, testes,
+correção de multiplicidade, regra de empate, estratificação por toolkit, declaração de dependência dos
+oito clones, e os portões do §2. A emenda é sobre quantas réplicas e como agregá-las, nada além.
+
 Este documento fixa o plano de análise **antes de qualquer resultado ser visto**. Depois do congelamento,
 nada aqui pode ser alterado; toda análise não prevista abaixo é exploratória por definição e deve ser
 rotulada como tal ao ser reportada.
@@ -32,9 +48,9 @@ autor pode tomar" (D5), `docs/20260730_analise_corrida_decisiva_e3.md` (ameaças
 |---|---|
 | Braços | `mop_on_llm_off` (referência) · `mop_off_llm_off` (controle) · `mop_on_llm_70` (LLM) |
 | Corpus | os 40 APKs do subset (`bitbanana` não entra) |
-| Repetições | 1 |
+| Repetições | 3 (emenda de 2026-08-01; era 1) |
 | Timeout | 1800 s por task |
-| Total | 120 runs, 8 containers, ≈ 8 h |
+| Total | 360 runs, 8 containers, ≈ 23–24 h |
 | Substrato | `_FRONTIER_SUBSTRATE` em todos os braços (INV-APV-30) |
 | Dose LLM | `llm_percentage=0.7` + bloco `cal_a1` (v13, temp 0, top_p 0,6, top_k 50, ambos os gatilhos) |
 
@@ -69,6 +85,24 @@ não se "ajusta a análise" para contornar.
 Para cada APK, `achou = mop_unique > 0`. O desfecho é a tabela pareada 2×2 entre os dois braços do
 contraste, e o teste é **McNemar exato** (binomial sobre os pares discordantes), não a aproximação
 qui-quadrado — as contagens discordantes serão pequenas.
+
+**Combinação das réplicas (emenda de 2026-08-01, antes de qualquer dado).** Com 3 réplicas por
+(APK, braço), o `achou` de um APK é decidido por **maioria: ao menos 2 das 3 réplicas com
+`mop_unique > 0`**. A regra é simétrica entre os braços e exige que a detecção se **reproduza**, que é
+a razão de haver réplicas — a n=1 um APK na fronteira do zero é cara-ou-coroa, e este documento já
+registrava isso como fator conhecido.
+
+As duas alternativas ficam **descartadas aqui, antes do resultado**, e pelo motivo de serem monótonas
+em R e portanto de deslocarem o desfecho conforme o número de réplicas em vez de estabilizá-lo: a
+**união** ("alguma réplica achou", equivalente a limiar >0 sobre a média) empurra APKs para *achou*
+nos dois braços conforme R cresce, aumentando a concordância e tendendo a **reduzir** o
+n_discordante — o oposto do que as réplicas existem para fazer; e a **unanimidade** ("as 3 acharam")
+empurra na direção contrária, descartando detecção genuinamente intermitente, que neste corpus é
+comum. A maioria é o único dos três que não desloca sistematicamente o desfecho com R.
+
+Réplicas cujo run não completou não são substituídas por zero: um APK que não tenha 3 réplicas
+válidas em ambos os braços é reportado como tal, e o portão 4 do §2 é o que decide se a corrida foi
+lida ou re-executada.
 
 Este é o limiar de melhoria declarado *a priori*: **o tratamento funciona quando encontra violação em
 apps onde a referência não encontra nenhuma**. É a formulação da própria arguidora, e é o desfecho que
@@ -115,13 +149,28 @@ distingui-las depois de ver o resultado seria escolha post-hoc.
 
 Dois fatores conhecidos apontam para **mais** discordância do que a iter0 sugere, e nenhum é
 quantificável antes de rodar: esta corrida usa **1800 s contra os 300 s da iter0** (6× o orçamento), e
-produz **observação única** onde o `per_apk_paired.csv` traz média de 2 réplicas — uma média 0,5 é
-cara-ou-coroa a n=1. Ficam registrados como esperança declarada, não como resposta.
+**3 réplicas contra as 2 do `per_apk_paired.csv`**. Ficam registrados como esperança declarada, não
+como resposta.
+
+**Efeito da emenda de 2026-08-01 sobre este parágrafo.** Na versão de 1 repetição, o segundo fator era
+o oposto — a corrida produzia observação única onde a iter0 trazia média de 2 réplicas, e uma média
+0,5 vira cara-ou-coroa a n=1. Com 3 réplicas e a regra de maioria, esse ruído sai do primário em vez
+de entrar nele. **A direção do efeito sobre o n_discordante permanece desconhecida e não é prevista
+aqui**: estabilizar o `achou` de cada APK tanto pode revelar discordância que o ruído escondia quanto
+converter pares discordantes espúrios em concordantes. O que se afirma é que o número resultante mede
+o contraste com menos ruído, não que seja maior.
 
 ### Secundário — Δ pareado de `mop_unique`, Wilcoxon
 
 Diferença pareada por APK, teste de postos sinalizados de Wilcoxon, IC95 por bootstrap pareado
 (B=10.000, seed 42 — mesma configuração da iter0, para comparabilidade).
+
+**Combinação das réplicas (emenda de 2026-08-01)**: o valor de `mop_unique` de um APK num braço é a
+**média das 3 réplicas**. É a convenção do `per_apk_paired.csv` da iter0, mantida justamente para
+preservar a comparabilidade que a escolha da seed e do B já busca. Note que a agregação difere da do
+primário de propósito: o contínuo aproveita a média porque a média é o estimador natural do desfecho
+contínuo, enquanto o binário usa maioria porque limiar-sobre-média equivaleria à união, que é monótona
+em R pelas razões dadas acima.
 
 ### Terciário / suporte — `cov_mop`
 
@@ -204,7 +253,9 @@ seria omitir o que a própria iter0 já previa. As duas frases convivem: o trata
 o motivo declarado é que não demonstrou benefício num desenho que, sabidamente, tinha pouco poder para
 detectá-lo.
 
-A assimetria é deliberada. Com n=40 e 1 repetição, um resultado inconclusivo não é evidência de efeito;
+A assimetria é deliberada. Com n=40 APKs — 3 repetições desde a emenda de 2026-08-01, que reduzem o
+ruído por APK mas **não** aumentam o n do teste pareado, que continua sendo 40 — um resultado
+inconclusivo não é evidência de efeito;
 e o custo do tratamento é real, medido e pago continuamente — o braço LLM executa 161,8 passos por run
 contra 260,2 da referência (−38%), além de GPU e complexidade. Diante de custo certo e benefício não
 demonstrado, o sistema mais simples vence por padrão.

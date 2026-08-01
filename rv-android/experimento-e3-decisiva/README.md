@@ -15,9 +15,9 @@ não prevista lá é exploratória por definição. **Congelar antes de dar `up 
 |---|---|
 | Braços | `mop_on_llm_off` · `mop_off_llm_off` · `mop_on_llm_70` |
 | Corpus | 40 APKs — `../calibracao/subset40.txt` |
-| Repetições | 1 |
+| Repetições | 3 |
 | Timeout | 1800 s por task |
-| Total | 120 runs, 8 containers, ≈ 8 h |
+| Total | 360 runs, 8 containers, ≈ 23–24 h |
 | Imagem | `phtcosta/rvandroid:0.9.3` |
 
 Os três braços são de **fator único** e compartilham a mesma referência, que é o ponto do desenho:
