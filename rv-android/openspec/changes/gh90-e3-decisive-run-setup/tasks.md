@@ -1,5 +1,6 @@
-<!-- Group order is the deadline-driven priority order: implemented and tested by 2026-07-31 09:00
-     (hard max 2026-08-01 09:00), feeding the decisive run. Groups 1-5 are independent of the
+<!-- Group order is dependency order, not schedule order — the 2026-07-31/08-01 window this file
+     was first written against was cancelled by the author, and nothing here is descoped on
+     schedule grounds. Groups 1-5 are independent of the
      sister-repo jar and can be completed and green before it exists; Groups 6 and 7 need the jar.
      Group 7 (RQ-C1 power probe) gates the decision to launch the decisive run and must be declared
      in the pre-registration before it executes. This change touches ~5 files in one module — no subagent orchestration needed. -->
@@ -63,8 +64,8 @@ Added 2026-07-31 after adversarial verification (`docs/20260731_verificacao_anal
 - [x] 6.3 Smoke gate: the `jar_sha256` captured at run start matches the arm's declared `expected_jar_sha256`; a mismatch fails before the decisive run launches, naming both digests and the declared git sha (INV-APV-34)
 - [x] 6.4 Smoke gate: in the control arm, `decision_source=MOP` count == 0 AND the `mop=` field is always 0 across every step. This is the one behavioural gate the smoke carries, because it is the single failure that invalidates the whole run
 - [x] 6.5 Smoke gate: the pushed `static_analysis.json` carries the two handler-reach booleans, and `[DM]` markers appear for widgets whose handlers reach JCA — verifiable only on the 7 apps with flaggable listeners (design Risks)
-- [ ] 6.6 Smoke gate: provenance fields present in the task output, naming the model actually served
-- [ ] 6.7 Fix the provenance query's address, found failing by gate 6.6 on 2026-08-01. `_capture_llm_provenance` runs host-side (or container-side) but queries the arm's `llm_url`, whose value is the emulator-only alias `10.0.2.2` — a QEMU user-mode networking alias that exists only inside the Android guest. The query timed out on all three LLM-arm runs (`capture_status=query_failed`, `llm_model=null`) while the jar, which runs *inside* the emulator, reached the server normally. **The defect is not smoke-specific**: the compose file sets no `APERV_LLM_BASE_URL`, so the decisive run would carry the same default and lose the same field. Resolve the alias to `127.0.0.1` for the query only, never mutating what reaches `ape.properties` — that address is correct in both environments (host: the published SGLang port; container: the `socat` bridge the entrypoint binds to `127.0.0.1:30000`, `docker/rvandroid/docker-entrypoint.sh:38-40`). Then re-run the LLM arm alone (3 runs) to close 6.6
+- [x] 6.6 Smoke gate: provenance fields present in the task output, naming the model actually served
+- [x] 6.7 Fix the provenance query's address, found failing by gate 6.6 on 2026-08-01. `_capture_llm_provenance` runs host-side (or container-side) but queries the arm's `llm_url`, whose value is the emulator-only alias `10.0.2.2` — a QEMU user-mode networking alias that exists only inside the Android guest. The query timed out on all three LLM-arm runs (`capture_status=query_failed`, `llm_model=null`) while the jar, which runs *inside* the emulator, reached the server normally. **The defect is not smoke-specific**: the compose file sets no `APERV_LLM_BASE_URL`, so the decisive run would carry the same default and lose the same field. Resolve the alias to `127.0.0.1` for the query only, never mutating what reaches `ape.properties` — that address is correct in both environments (host: the published SGLang port; container: the `socat` bridge the entrypoint binds to `127.0.0.1:30000`, `docker/rvandroid/docker-entrypoint.sh:38-40`). Then re-run the LLM arm alone (3 runs) to close 6.6
 
 ## 7. Sonda de poder do RQ-C1, antes de comprometer a corrida decisiva (needs the sister jar)
 
