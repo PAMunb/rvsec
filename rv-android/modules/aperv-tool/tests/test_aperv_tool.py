@@ -1707,6 +1707,54 @@ class TestLlmProvenance:
         assert provenance["llm_sampling"]["llm_prompt_variant"] == "v13"
         assert provenance["jar_sha256"] == hashlib.sha256(b"jar bytes").hexdigest()
 
+    def test_emulator_alias_is_resolved_for_the_query(self, tmp_path, monkeypatch):
+        # gh90 task 6.7. The arm's llm_url is written for the jar, which runs
+        # inside the emulator where 10.0.2.2 is QEMU's host-loopback alias. This
+        # query runs outside it, so querying the configured value verbatim times
+        # out against a server the jar reaches normally — the gate 6.6 failure.
+        seen = {}
+
+        def capture(url, timeout=None):
+            seen["url"] = url
+            return _FakeResponse(json.dumps({"data": [{"id": "Qwen/Qwen3-VL-4B-Instruct"}]}))
+
+        monkeypatch.setattr(aperv_mod.urllib.request, "urlopen", capture)
+
+        provenance = self.tool._capture_llm_provenance(
+            "http://10.0.2.2:30000/v1", self._jar(tmp_path)
+        )
+
+        assert seen["url"] == "http://127.0.0.1:30000/v1/models"
+        assert provenance["capture_status"] == "ok"
+        assert provenance["llm_model"] == "Qwen/Qwen3-VL-4B-Instruct"
+        # The record names the address actually contacted, not the configured
+        # one: naming an address that was never reached would be worse than none.
+        assert provenance["llm_backend"] == "http://127.0.0.1:30000/v1"
+
+    def test_resolution_leaves_other_hosts_alone(self):
+        # Only the emulator alias is special. A campaign pointing at a real host
+        # or a compose service name must reach that host, not the loopback.
+        for url in (
+            "http://192.168.0.36:30000/v1",
+            "http://sglang:30000/v1",
+            "http://110.0.2.24:30000/v1",
+        ):
+            assert self.tool._provenance_query_url(url) == url
+
+    def test_resolution_never_reaches_ape_properties(self):
+        # The jar needs the alias it was configured with, and _push_properties
+        # builds the file by reading _tool_config through APERV_PROPERTY_MAPPING.
+        # Asserting both halves is what pins the separation: the config is not
+        # mutated, and llm_url is a mapped key, so the unmutated alias is exactly
+        # what the jar receives.
+        tool = ApeRVTool()
+        tool.configure(ApeRVTool.get_variants()["mop_on_llm_70"])
+
+        tool._provenance_query_url(tool._tool_config["llm_url"])
+
+        assert tool._tool_config["llm_url"] == "http://10.0.2.2:30000/v1"
+        assert APERV_PROPERTY_MAPPING["llm_url"] == "ape.llmUrl"
+
     def test_provenance_records_failure_not_config(self, tmp_path, monkeypatch, caplog):
         # Spec scenario "Query failure is recorded, not inferred": the arm
         # configures llm_model="default", and that value must NOT appear.

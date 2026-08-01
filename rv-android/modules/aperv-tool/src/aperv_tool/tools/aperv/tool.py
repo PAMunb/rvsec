@@ -1184,6 +1184,28 @@ class ApeRVTool(AbstractTool):
         finally:
             os.unlink(tmp_path)
 
+    def _provenance_query_url(self, llm_url: str) -> str:
+        """
+        Resolve the arm's `llm_url` to an address this process can actually reach.
+
+        `llm_url` has two consumers in different address spaces. The jar reads it
+        from `ape.properties` and runs *inside* the emulator, where `10.0.2.2` is
+        QEMU's user-mode alias for the host loopback. This query runs outside the
+        emulator, where that alias resolves to nothing at all — configured
+        verbatim it simply times out while the LLM itself works, which is how the
+        field arrived empty from a server the jar was reaching normally.
+
+        `127.0.0.1` is the right address in both deployments: on a host-driven
+        run it is SGLang's published port, and in the containerized run it is the
+        socat bridge the entrypoint binds there
+        (`docker/rvandroid/docker-entrypoint.sh`). Only the query is resolved —
+        the value written into `ape.properties` is untouched, so the jar keeps
+        the alias it needs.
+        """
+        return llm_url.replace("//10.0.2.2:", "//127.0.0.1:").replace(
+            "//10.0.2.2/", "//127.0.0.1/"
+        )
+
     def _models_endpoint(self, llm_url: str) -> str:
         """
         Build the `/v1/models` URL from the configured base URL.
@@ -1214,12 +1236,12 @@ class ApeRVTool(AbstractTool):
         effect is what the server honoured, and an unreachable server cannot
         attest to it.
 
-        Note the address this queries is the one the *device* uses. In an
-        emulator setup `llm_url` is the `10.0.2.2` host-loopback alias, which the
-        harness itself cannot resolve, and the capture then records
-        `unreachable` — an honest "unknown" rather than a fabricated value. A
-        campaign that wants the record sets `APERV_LLM_BASE_URL` to a
-        host-reachable address, which is what the Docker setup already does.
+        The address queried is deliberately not the configured one:
+        `_provenance_query_url` resolves the emulator-only `10.0.2.2` alias,
+        because this runs outside the emulator while `llm_url` is written for the
+        jar that runs inside it. `llm_backend` records the address actually
+        contacted — a record naming an address that was never reached would be
+        worse than none.
 
         Args:
             llm_url: OpenAI-compatible base URL configured for this arm.
@@ -1228,12 +1250,13 @@ class ApeRVTool(AbstractTool):
         Returns:
             `llm_backend`, `llm_model`, `llm_sampling`, `jar_sha256` and
             `capture_status`. `jar_sha256` identifies the binary for post-hoc
-            correlation and is NOT the B3 gate — that gate's runtime half is the
-            `git_sha` of the `[APE-BUILD]` banner, because the build stamp is a
-            dexed Java constant and not a readable jar entry (INV-BUILD-09).
+            correlation and is the runtime half of the B3 gate, compared at smoke
+            time against the arm's declared `expected_jar_sha256` — `ape-rv.jar`
+            carries no build stamp of its own to read instead.
         """
+        query_url = self._provenance_query_url(llm_url)
         provenance: Dict[str, Any] = {
-            "llm_backend": llm_url,
+            "llm_backend": query_url,
             "llm_model": None,
             "llm_sampling": None,
             "jar_sha256": None,
@@ -1250,7 +1273,7 @@ class ApeRVTool(AbstractTool):
             provenance["capture_status"] = "jar_digest_failed"
             self.logger.warning(f"Could not digest {jar_path} for provenance: {e}")
 
-        endpoint = self._models_endpoint(llm_url)
+        endpoint = self._models_endpoint(query_url)
         # llm_url comes from configuration, and urlopen honours file: and other
         # local schemes — a mistyped value would make the tool read a local path
         # and record it as a served model. Only the two schemes an
@@ -1292,7 +1315,7 @@ class ApeRVTool(AbstractTool):
             # response body that is not JSON. The run is never aborted for this.
             provenance["capture_status"] = "query_failed"
             self.logger.warning(
-                f"LLM provenance query to {llm_url} failed: {e}. "
+                f"LLM provenance query to {query_url} failed: {e}. "
                 f"Recording the failure rather than inferring from configuration."
             )
 
