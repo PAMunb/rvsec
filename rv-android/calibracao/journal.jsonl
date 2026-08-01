@@ -1,0 +1,10 @@
+{"ts": "2026-07-23T19:38:36Z", "iter": 0, "state": "CONFIG-GEN", "artifact": "experimento-cal/iter0/manifest.json", "sha256": "621e3159df476a165014d38841bf1851aa941fd11ac3ae1742774c0f71524021"}
+{"ts": "2026-07-23T19:38:36Z", "iter": 0, "state": "PRE-FLIGHT", "artifact": "experimento-cal/iter0/manifest.json", "sha256": "621e3159df476a165014d38841bf1851aa941fd11ac3ae1742774c0f71524021"}
+{"ts": "2026-07-23T20:25:06Z", "iter": 0, "state": "SMOKE", "artifact": "experimento-cal/iter0/manifest.json", "sha256": "621e3159df476a165014d38841bf1851aa941fd11ac3ae1742774c0f71524021"}
+{"ts": "2026-07-24T12:20:27Z", "iter": 0, "state": "RUN+MONITOR", "artifact": "experimento-cal/iter0/manifest.json", "sha256": "621e3159df476a165014d38841bf1851aa941fd11ac3ae1742774c0f71524021"}
+{"ts": "2026-07-24T12:20:27Z", "iter": 0, "state": "CONSOLIDATE", "artifact": "experimento-cal/iter0/per_apk_paired.csv", "sha256": "4e2da889bd0a5857f3dfa63a9c62446b6bf8329a8b95891d0453a28910edd831"}
+{"ts": "2026-07-24T12:20:27Z", "iter": 0, "state": "VERIFY", "artifact": "experimento-cal/iter0/verification_report.md", "sha256": "8c8144f0228f47f70f8bca953bfdeffee008925fa1e72e21838a56b5a8559d7d"}
+{"ts": "2026-07-24T12:20:27Z", "iter": 0, "state": "ANALYZE", "artifact": "experimento-cal/iter0/analysis.md", "sha256": "785ada0034e0c07ec18a4456d263201b42cb4f98433cd0d622266aaa4c6dec32"}
+{"ts": "2026-07-24T13:35:45Z", "iter": 0, "state": "ANALYZE", "artifact": "docs/20260724_relatorio_calibracao_aperv.md", "sha256": "eb7a0d571033d5de82fa126662d11557274bb0b4c8138738ac5cd8d0ff6900b0"}
+{"ts": "2026-07-24T13:35:45Z", "iter": 0, "state": "ANALYZE", "artifact": "calibracao/parse_cala_traces.py", "sha256": "f2bc91a8692fb68d950a4875327607de93912b17d6e01274ddb9699d67bdb867"}
+{"ts": "2026-08-01T15:02:33Z", "iter": 1, "state": "FREEZE-PREREGISTRO", "artifact": "docs/20260730_preregistro_corrida_decisiva.md", "sha256": "4157faa071fae1b405730de6d3fabf3d6821e54830473e98d2c342bffcadd252"}
