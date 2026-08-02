@@ -203,28 +203,51 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 The platform MUST manage the full lifecycle of Android emulator instances during task execution. This includes starting the emulator with a named AVD, allocating a unique device port, installing the APK under test, and stopping the emulator after task completion. Emulator management is encapsulated in `EmulatorComponent`, which operates within the Phase 3 context manager in `TaskExecutor._run_emulator_session()`.
 
-Dynamic port allocation is necessary because the ICST study runs multiple tool configurations across 188 applications, and future parallel execution requires isolated emulator instances. Each task can specify a unique `device_port` (default 5554) and `device_serial` (default `emulator-5554`) via `tool_config.parameters`, enabling multiple concurrent emulator sessions without port conflicts.
+Dynamic port allocation is necessary because the ICST study runs multiple tool configurations across 188 applications, and parallel execution requires isolated emulator instances. Each task can specify a unique `device_port` (default 5554) and `device_serial` (default `emulator-5554`) via `tool_config.parameters`, enabling multiple concurrent emulator sessions without port conflicts. Both values MUST resolve to the same device within a task: the port used to boot and the serial used to install MUST NOT be derived independently, because a task supplying only one of the two keys would otherwise boot one device and install on another.
 
-The emulator is started using the `EmulatorManager.start_emulator()` context manager, which ensures proper cleanup on both normal and exceptional exits. App installation is verified via `CommandResult.is_failure()` -- if installation fails, `EmulatorError` is raised and the task transitions to `ERROR` state.
+The emulator is started using the `EmulatorManager.start_emulator()` context manager, which ensures proper cleanup on both normal and exceptional exits. **APK installation MUST be attempted only after boot completion has been positively observed** — that is, only after the device reported `sys.boot_completed == "1"`. Installation is then verified via `CommandResult.is_failure()`; if installation fails, `EmulatorError` is raised and the task transitions to `ERROR` state, carrying the reason reported by ADB.
+
+A failure occurring inside the emulator session — installation, logcat, coverage, or tool execution — MUST reach `TaskExecutor.execute()` with its own exception type. It MUST NOT be relabelled as a failure to start the emulator.
 
 #### Scenario: Successful Emulator Startup and APK Installation
 
 - **WHEN** a task is being executed with `apk_name="cryptoapp.apk"` and `no_window=True`
 - **THEN** `EmulatorComponent.start_emulator("RVSec")` MUST start the emulator in headless mode on the default port 5554
+- **AND** the context manager MUST NOT yield until the device reported `sys.boot_completed == "1"`
 - **AND** `EmulatorComponent.install_app()` MUST install the APK on the emulator
 
 #### Scenario: APK Installation Failure
 
-- **WHEN** `EmulatorComponent.install_app()` is called and `EmulatorManager.install_app()` returns `False`
+- **WHEN** `EmulatorComponent.install_app()` is called and `EmulatorManager.install_app()` reports failure
 - **THEN** the component MUST raise `EmulatorError` with message containing the app name
+- **AND** the message MUST carry the reason reported by ADB, such as `INSTALL_FAILED_INSUFFICIENT_STORAGE`
 - **AND** the error MUST be handled by `ErrorHandler` with task context
 - **AND** the method MUST return `False`
+
+#### Scenario: Installation is not attempted against a device that did not boot
+
+- **WHEN** the boot wait exhausts its budget for the device on port 5554
+- **THEN** `TimeoutError` MUST propagate out of `EmulatorManager.start_emulator` as the cause of an `EmulatorError`
+- **AND** `EmulatorComponent.install_app()` MUST NOT be called
+- **AND** the task's `error_message` MUST NOT contain `"Failed to install application"`
+
+#### Scenario: Session failure keeps its own identity
+
+- **WHEN** `_run_emulator_session()` raises `TaskExecutionError("Failed to install application", task_id)` inside the `with` block
+- **THEN** `TaskExecutor.execute()` MUST record an `error_message` of that type
+- **AND** the stored `error_message` MUST NOT read `"Failed to start emulator RVSec caused by TaskExecutionError: ..."`
 
 #### Scenario: Dynamic Port Allocation for Parallel Execution
 
 - **WHEN** a task has `tool_config.parameters = {"device_port": 5558, "device_serial": "emulator-5558"}`
 - **THEN** `EmulatorComponent.start_emulator()` MUST pass port `5558` to `EmulatorManager.start_emulator()`
 - **AND** `EmulatorComponent.install_app()` MUST pass `device_serial="emulator-5558"` to `EmulatorManager.install_app()`
+
+#### Scenario: Partially injected device parameters resolve consistently
+
+- **WHEN** a task has `tool_config.parameters = {"device_port": 5558}` and no `device_serial` key
+- **THEN** the serial used for installation MUST be `"emulator-5558"`, derived from the port actually booted
+- **AND** it MUST NOT fall back independently to `"emulator-5554"`
 
 #### Scenario: Skip Installation When Configured
 
@@ -270,7 +293,9 @@ Tasks follow a lifecycle: `CREATED` (initial) -> `RUNNING` (when executor begins
 
 The platform MUST execute tasks through a component-based architecture where each component handles a specific concern (static analysis, emulator, logcat, coverage, tool execution). Components implement the `ITaskComponent` interface with `initialize(context)`, `execute(context)`, and `cleanup(context)` methods. The `TaskExecutor` coordinates component execution in three phases.
 
-This design exists because task execution involves multiple orthogonal concerns that interact in specific ways. Static analysis data must be loaded before the coverage tracker can classify methods. The coverage tracker must be initialized before the emulator session begins. Inside the emulator session, logcat capture must start before coverage tracking, and coverage tracking must start before tool execution. After tool execution, coverage must stop before logcat capture stops. This strict ordering is enforced by `TaskExecutor._execute_coordinated_components()`.
+This design exists because task execution involves multiple orthogonal concerns that interact in specific ways. Static analysis data must be loaded before the coverage tracker can classify methods. The coverage tracker must be initialized before the emulator session begins. Inside the emulator session, logcat capture must start before coverage tracking, and coverage tracking must start before tool execution. After tool execution the order reverses for a stated reason: `adb logcat` is the producer writing the file and `CoverageTracker` is the consumer reading that same file through an independent handle, so **logcat MUST stop before coverage stops** — freezing the file is what lets the consumer's final drain observe a complete input. Startup ordering is enforced by `TaskExecutor._execute_coordinated_components()`; finalization ordering is enforced at the single firing point required by INV-PLT-29.
+
+Every component that addresses the device MUST obtain its port and serial from the one resolution required by INV-PLT-28. A component MUST NOT carry its own fallback for a missing `device_port` or `device_serial` key.
 
 Components are identified by string matching on their `name` property (`"StaticAnalysis"`, `"Coverage"`, `"Emulator"`, `"Logcat"`, `"ToolExecution"`). The executor iterates registered components and assigns them to the appropriate phase based on name containment.
 
@@ -282,8 +307,15 @@ The executor logs lifecycle transitions: task started, task completed, task fail
 - **THEN** Phase 1 MUST execute `StaticAnalysisComponent.execute()` outside the emulator session
 - **AND** Phase 2 MUST execute `CoverageComponent.execute()` outside the emulator session
 - **AND** Phase 3 MUST start the emulator via `EmulatorComponent.start_emulator("RVSec")`
-- **AND** inside the emulator session, the execution order MUST be: install app -> start logcat -> start coverage -> mark tool execution start -> execute tool -> stop coverage -> process coverage results -> stop logcat
+- **AND** inside the emulator session, the execution order MUST be: install app -> start logcat -> start coverage -> mark tool execution start -> execute tool -> stop logcat -> stop coverage and process coverage results
 - **AND** the task state MUST transition from `RUNNING` to `COMPLETED`
+
+#### Scenario: Logcat captures the device that was booted
+
+- **WHEN** a task has `tool_config.parameters = {"device_port": 5558}` and no `device_serial` key — the form the tool DSL produces for `--tools "monkey@device_port=5558"`
+- **THEN** `LogcatComponent` MUST capture from `"emulator-5558"`
+- **AND** it MUST NOT fall back to `task.config.device_id` or to a literal `"emulator-5554"`
+- **AND** `TaskConfiguration.device_id`, populated by `Platform._generate_tasks`, MUST resolve to that same serial
 
 #### Scenario: Component Execution Failure
 
@@ -770,4 +802,50 @@ The scalar flag `--timeout` MUST NOT exist on `rv-platform run` (hard rename, P3
 
 - **WHEN** the user runs `rv-platform run --tools monkey --timeout 300`
 - **THEN** argparse MUST reject the unknown argument `--timeout` with a usage error
+
+### Requirement: Single-Owner Coverage and Logcat Finalization (FR09, NFR04)
+
+Coverage and logcat finalization MUST happen at exactly one point in the task lifecycle, and that point MUST be inside the emulator session, so it executes while the device is still alive regardless of how the session ends.
+
+The firing point MUST be a `finally` covering the body of the `with` block in `_run_emulator_session()`. The inline sequence currently at `executor.py:440-448` MUST be deleted; retaining it beside the new owner would leave two implementations of the same work (P3).
+
+The owner MUST call `logcat_component.cleanup(context)` and then `coverage_component.cleanup(context)`, in that order. It MUST NOT reimplement their bodies. Both components keep their `cleanup()` methods and both are still invoked by `_cleanup_components()`, so INV-PLT-06 holds and the duck-typed lifecycle contract stays uniform across the five registered components; the repeat invocation is inert because both underlying stops are guarded, and because `process_results()` — which is not guarded — recomputes from a repository that a stopped tracker can no longer change.
+
+The order matters for a stated reason. `adb logcat` is the producer, writing to a file; `CoverageTracker` is the consumer, reading that same file through an independent handle. Stopping the producer first freezes the file, so the consumer's final drain sees a complete input. Stopping the consumer first leaves the producer appending lines that the consumer will never read — lines that are present in the file but absent from the in-memory repository, which is what `process_results()` reads.
+
+Finalization MUST NOT raise. Both `cleanup()` methods already catch their own exceptions and log a warning; that behavior is required here, because an exception escaping a `finally` on the failure path would replace the exception being propagated and destroy the failure's diagnosis.
+
+#### Scenario: Success path finalizes with the emulator alive
+
+- **WHEN** a task completes normally and control reaches the end of the `with` block
+- **THEN** `logcat_component.cleanup(context)` MUST be called, then `coverage_component.cleanup(context)`
+- **AND** both MUST execute before `EmulatorManager` issues `adb emu kill`
+- **AND** `task.result.coverage_metrics` MUST be populated
+
+#### Scenario: Failure path finalizes with the emulator alive
+
+- **WHEN** `tool_component.execute(context)` returns `False` and `TaskExecutionError` is raised inside the `with` block
+- **THEN** the `finally` MUST call both `cleanup()` methods before the exception leaves the `with`
+- **AND** they MUST execute before the context manager's teardown kills the emulator
+- **AND** the `TaskExecutionError` MUST continue to propagate unchanged
+
+#### Scenario: Finalization does not mask the original failure
+
+- **WHEN** an exception is propagating out of the `with` body and `coverage_component.cleanup(context)` encounters an internal error
+- **THEN** that internal error MUST be logged as a warning
+- **AND** the exception reaching `TaskExecutor.execute()` MUST still be the original one
+
+#### Scenario: Repeat invocation from _cleanup_components is inert
+
+- **WHEN** `_cleanup_components(context)` invokes `cleanup()` on both components after the emulator session already finalized them
+- **THEN** `CoverageTracker.stop()` MUST return immediately because `is_running` is `False`
+- **AND** `LogcatManager.stop_capture()` MUST take no action because `logcat_process` is `None`
+- **AND** `CoverageComponent.process_results()` MAY run a second time, since it carries no guard
+- **AND** `task.result.coverage_metrics` MUST hold the same values after the second invocation as after the first
+
+#### Scenario: Only one implementation of finalization exists
+
+- **WHEN** `execution/executor.py` is inspected after this change
+- **THEN** it MUST contain no direct calls to `stop_tracking()`, `process_results()`, or `stop_capture()`
+- **AND** the only path to those methods MUST be through the components' `cleanup()`
 

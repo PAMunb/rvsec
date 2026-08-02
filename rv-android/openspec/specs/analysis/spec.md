@@ -1373,7 +1373,6 @@ emitted events via `LogcatRepository.register_diagnostic_event`.
 - **WHEN** the input contains `I RVSEC-COV: <com.foo.Utils: boolean isAndroidRuntime()>`
 - **THEN** no diagnostic event is produced (the tag field is `RVSEC-COV`, not `AndroidRuntime`)
 
-
 ### Requirement: Frame-Form Normalization of Violation Class and Method (FR11, FR13)
 
 The `LogcatParser` MUST normalize violation records whose `class` or `method` field carries a
@@ -1467,3 +1466,51 @@ produced from those existing artifacts.
 - **WHEN** the normalization is applied twice to
   `okio.ByteString.digest$okio(ByteString.kt:83)`
 - **THEN** the second application MUST return exactly what the first returned
+
+### Requirement: Coverage Tracker Final Drain (FR12, NFR06)
+
+`CoverageTracker.stop()` MUST guarantee that the tracking thread consumes the remainder of the logcat file before terminating. Terminating on the stop signal alone leaves any lines written since the thread's last read permanently absent from the repository, and the repository is the only input `CoverageComponent.process_results()` has.
+
+The drain MUST read forward from the handle's current position to end-of-file and process those lines through the same path the tail loop uses, so parsing, timing arithmetic, and diagnostic-event handling are identical. It MUST run before the existing `flush_diagnostics()` call, so that any diagnostic event completed by the drained lines is emitted rather than discarded.
+
+The drain MUST be resilient. A read error MUST be caught and logged as a warning; `stop()` MUST NOT raise, because the platform now invokes it from a `finally` where a raised exception would replace the exception being propagated.
+
+This requirement is only fully effective when the logcat producer has already been stopped, which the platform guarantees by finalizing logcat before coverage (platform INV-PLT-31). Without that ordering the drain still reads whatever is present at the moment it runs, but the file may continue to grow afterwards.
+
+#### Scenario: Lines written after the last tail iteration are recovered
+
+- **WHEN** the tail loop completes an iteration, three `RVSEC-COV` lines are appended to the file, and `stop()` is then called
+- **THEN** all three lines MUST be present in the repository after `stop()` returns
+- **AND** `repository.calculate_metrics()` MUST count the methods they name
+
+#### Scenario: Live metrics match re-parsing the same file
+
+- **WHEN** the `adb logcat` producer is stopped, then `stop()` is called on the tracker, for a task that ends `COMPLETED`
+- **THEN** `repository.calculate_metrics().to_dict()` MUST equal the metrics obtained by parsing the same logcat file from the beginning with `parse_logcat_file`, for every coverage and error field, within a tolerance of `0.01`
+- **AND** this MUST hold for the round trip required by platform INV-PLT-18
+
+#### Scenario: Drain does not double-count
+
+- **WHEN** a violation line was already processed by the tail loop before `stop()` was called
+- **THEN** the drain MUST NOT register it again
+- **AND** `total_errors` MUST be identical to its value immediately before `stop()` was called, plus only the errors found in genuinely unread lines
+
+#### Scenario: Drain completes before diagnostics are flushed
+
+- **WHEN** the unread tail contains the final line of a diagnostic event whose earlier lines were already buffered
+- **THEN** the drain MUST process that line before `flush_diagnostics()` runs
+- **AND** the completed diagnostic event MUST be emitted
+
+#### Scenario: Read failure during drain does not propagate
+
+- **WHEN** reading the remainder of the file raises `OSError`
+- **THEN** `stop()` MUST NOT raise
+- **AND** the condition MUST be logged as a warning naming the logcat file
+- **AND** the thread MUST still terminate and the handle MUST still be closed
+
+#### Scenario: Stopping an already-stopped tracker remains inert
+
+- **WHEN** `stop()` is called on a tracker whose `is_running` is already `False`
+- **THEN** it MUST return immediately without attempting a drain
+- **AND** the repository MUST be unchanged
+
