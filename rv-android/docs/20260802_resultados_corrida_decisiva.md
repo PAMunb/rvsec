@@ -449,8 +449,13 @@ projetado para agir — e o desfecho de detecção não se move.
 | `MODEL_LLM_TAP` | 0/0 | 0/0 | **140/140 (100%)** |
 
 `MODEL_LLM_TAP` só existe no braço LLM: são os toques em coordenada que o LLM emitiu sem casar com
-nenhum widget do modelo. São **140** em 120 runs — marginais diante das 40.318 decisões LLM, o que
-indica que o mecanismo de *snap* para widget está resolvendo quase tudo.
+nenhum widget do modelo. Na agregação UICOV desta tabela os taps colapsam a 1/1 por estado — os 140
+contam *estados* que receberam pelo menos um tap, não eventos. Como eventos, foram **5.501**
+execuções (13,6% das 40.318 decisões LLM; três contagens independentes concordam: TEL
+`result=llm_tap`, `[APE-STEP]` com `@MODEL_LLM_TAP`, e as linhas `New action` que os criam). O
+*snap* para widget resolve a maioria das tentativas (78,4% casam widget), mas os taps não são
+marginais como eventos; a leitura mecanística item a item está em
+`docs/20260802_avaliacao_itens_ape.md` §6.
 
 ---
 
