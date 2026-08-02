@@ -97,10 +97,14 @@ que o nulo *significa* (§8).
 ## 4. B6(i), B6(iv), N1, B4, B7(i) — os alvos atingidos
 
 **B6(i).** Das 41.112 decisões LLM executadas ([APE-STEP] `decision_source=LLM`): `MODEL_CLICK`
-35.147, `MODEL_LLM_TAP` 5.501, `MODEL_BACK` 436, `MODEL_LONG_CLICK` 28. Excluídos os taps (sem
-widget casado) e os `back` (tool própria), a resposta `click` executou `MODEL_CLICK` em
-**35.147/35.175 = 99,92%** — contra 80,9% pré-fix. Os 28 long-clicks residuais (0,08%) não foram
-investigados; cosmético.
+35.147, `MODEL_LLM_TAP` 5.501, `MODEL_BACK` 436, `MODEL_LONG_CLICK` 28. O join step↔TEL mostra que
+os 28 `MODEL_LONG_CLICK` vêm todos de respostas **`type_text`** (28/28, sempre `matched` em
+EditText), nunca de `click` — logo, para respostas `click`, a restrição é **100%** (35.147/35.147),
+contra 80,9% pré-fix. O vazamento dos 28 é um defeito distinto e pequeno (2,3% das `type_text`): o
+passe de containment restringe ActionType só para `click` (INV-RTR-17, `LlmRouter.java`), e o
+`fixTextEdit` devolve `type_text` inalterado, então uma resposta `type_text` pode agarrar a ação
+`MODEL_LONG_CLICK` do mesmo EditText — executando um long-click onde deveria digitar. Severidade:
+smell, candidato a item de follow-up no ape.
 
 **B6(iv).** `type_text` voltou a existir: 1.233 chamadas (1,8% das TEL), 91,1% matched, `text="…"`
 presente, zero `llm_tap`, zero `dead_pair` — a isenção do ban para alvos input-capable, que existe
