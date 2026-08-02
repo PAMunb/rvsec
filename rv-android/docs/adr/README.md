@@ -42,3 +42,4 @@ our mind.
 | 0003 | [Resume path derives results_dir from logcat path; error aggregates before early return](0003-resume-results-dir-derived-from-logcat.md) | Accepted (gh65) |
 | 0004 | [Generic-spec subtype target matching via FastHierarchy.canStoreType at match-time](0004-generic-subtype-target-matching-canstoretype.md) | Accepted (gh69) |
 | 0005 | [Build ape-rv.jar from source inside the rvandroid image](0005-build-ape-rv-jar-from-source-in-image.md) | Accepted (gh71) |
+| 0006 | [Fixed emulator execution profile: no GPU, no persisted state, cold boot per task; env-parameterized boot budget](0006-emulator-execution-profile-cold-boot-no-gpu.md) | Proposed (gh92) |
