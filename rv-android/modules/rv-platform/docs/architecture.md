@@ -38,7 +38,7 @@ This module implements requirements from `openspec/specs/platform/spec.md`.
 
 Scenarios from `openspec/specs/platform/spec.md` that validate this architecture:
 
-- **Successful Three-Phase Execution**: Traces through `TaskExecutor._execute_coordinated_components()` executing Phase 1 (StaticAnalysisComponent outside emulator), Phase 2 (CoverageComponent outside emulator), and Phase 3 (EmulatorComponent context manager -> install app -> LogcatComponent -> CoverageComponent tracking -> ToolExecutionComponent -> cleanup in reverse). Validates the Logical View component coordination and the Process View phase ordering.
+- **Successful Three-Phase Execution**: Traces through `TaskExecutor._execute_coordinated_components()` executing Phase 1 (StaticAnalysisComponent outside emulator), Phase 2 (CoverageComponent outside emulator), and Phase 3 (EmulatorComponent context manager -> install app -> LogcatComponent -> CoverageComponent tracking -> ToolExecutionComponent -> finalization in a `finally`, logcat first then coverage). Validates the Logical View component coordination and the Process View phase ordering.
 
 - **Resume With Same Configuration**: Traces through `Platform.run()` -> `TaskStorage.load()` (recovers completed tasks from `tasks.json`) -> `_skip_completed_tasks()` (identity-tuple matching) -> only remaining tasks execute -> `_process_results()` uses `TaskStorage.get_completed_tasks()` to include all sessions. Validates the persistent storage architecture and result consolidation across sessions.
 
@@ -56,7 +56,7 @@ Scenarios from `openspec/specs/platform/spec.md` that validate this architecture
 
 **Choice**: Decompose task execution into 5 pluggable components (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution), each implementing the `ITaskComponent` interface with `initialize/execute/cleanup` lifecycle.
 
-**Why**: Task execution involves orthogonal concerns that interact in specific ways -- static analysis data must load before the coverage tracker can classify methods; logcat capture must start before coverage tracking begins; coverage must stop before logcat stops. A monolithic executor would tangle these ordering constraints. Components encapsulate each concern independently, and the `TaskExecutor` enforces the ordering through three explicit phases. Adding a new concern (e.g., screenshots, memory profiling) requires only implementing `ITaskComponent` and registering it, without modifying existing components.
+**Why**: Task execution involves orthogonal concerns that interact in specific ways -- static analysis data must load before the coverage tracker can classify methods; logcat capture must start before coverage tracking begins; logcat must stop before coverage stops, because `adb logcat` writes the file that `CoverageTracker` reads, so stopping the producer first freezes the file and the tracker's final drain sees a complete input. A monolithic executor would tangle these ordering constraints. Components encapsulate each concern independently, and the `TaskExecutor` enforces the ordering through three explicit phases. Adding a new concern (e.g., screenshots, memory profiling) requires only implementing `ITaskComponent` and registering it, without modifying existing components.
 
 **Invariant cross-reference**: INV-PLT-06 guarantees all component `cleanup()` methods are called even if a preceding component fails. This is enforced by `TaskExecutor._cleanup_resources()`, which iterates components in a try/except per component.
 
@@ -323,9 +323,9 @@ sequenceDiagram
         TE->>TC: execute(context)
         Note over TC: Tool runs for timeout duration
         TC-->>TE: True (success or timeout)
-        TE->>CC: stop_tracking()
-        TE->>CC: process_results()
-        TE->>LC: stop_capture()
+        Note over TE: finally (runs on failure too)
+        TE->>LC: cleanup() [stop_capture]
+        TE->>CC: cleanup() [stop_tracking + process_results]
         Note over TE: Emulator context exits
 
         TE->>TE: _cleanup_resources()
@@ -407,9 +407,9 @@ flowchart TB
         LogStart["Logcat start\n(background process)"]
         CovStart["Coverage start\n(background thread)"]
         ToolRun["Tool execution\n(timeout-bounded)"]
-        CovStop["Coverage stop"]
+        LogStop["Logcat stop\n(producer frozen)"]
+        CovStop["Coverage stop\n(final drain)"]
         CovProcess["Coverage results\nprocessed"]
-        LogStop["Logcat stop"]
     end
 
     SA --> SAData
@@ -420,9 +420,9 @@ flowchart TB
     APKInst --> LogStart
     LogStart --> CovStart
     CovStart --> ToolRun
-    ToolRun --> CovStop
+    ToolRun --> LogStop
+    LogStop --> CovStop
     CovStop --> CovProcess
-    CovProcess --> LogStop
 ```
 
 During Phase 3, data flows through three concurrent channels:

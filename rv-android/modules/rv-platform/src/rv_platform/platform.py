@@ -30,6 +30,7 @@ from rv_platform.components.result_processor import ResultProcessorComponent
 from rv_platform.components.static_analysis import StaticAnalysisComponent
 from rv_platform.components.tool_execution import ToolExecutionComponent
 from rv_platform.config.platform_config import PlatformConfig
+from rv_platform.device import resolve_device
 from rv_platform.execution.executor import TaskExecutor
 from rv_platform.storage.task_storage import ExperimentMetadata, TaskStorage
 from rv_tools import ToolFactory
@@ -233,12 +234,14 @@ class Platform:
             for tool_config in self.config.tools:
                 for repetition in range(1, self.config.repetitions + 1):
                     for timeout in self.config.timeouts:
-                        # device_serial is injected by ExecutionController when running
-                        # in parallel containers. Each container gets a unique emulator
-                        # port (5554, 5556, ...) to avoid port conflicts.
-                        device_id = tool_config.parameters.get(
-                            "device_serial", "emulator-5554"
-                        )
+                        # device_serial and device_port are injected by
+                        # ExecutionController when running in parallel containers.
+                        # Each container gets a unique emulator port (5554, 5556,
+                        # ...) to avoid port conflicts. Resolving here through the
+                        # same function the components use keeps device_id naming
+                        # the device that will actually be booted, whichever of
+                        # the two keys the task carries (INV-PLT-28).
+                        _, device_id = resolve_device(tool_config.parameters)
 
                         task_config = TaskConfiguration(
                             apk_name=apk_name,

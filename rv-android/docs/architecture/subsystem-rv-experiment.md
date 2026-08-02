@@ -554,7 +554,7 @@ bumped to image 0.9.1: the fix had to be baked into the entrypoint inside the im
 **Documentation-only component interfaces (ITaskComponent).** The orthodox alternative —
 enforcing inheritance and iterating components polymorphically — buys nothing at 5 fixed,
 phase-ordered components whose sequencing is load-bearing (static analysis before emulator,
-logcat before tool, coverage-stop before logcat-stop). Real polymorphic dispatch would need a
+logcat before tool, logcat-stop before coverage-stop). Real polymorphic dispatch would need a
 phase/ordering metadata protocol to encode what the isinstance chain states plainly. The
 interfaces stay as executable documentation of the lifecycle contract; the executor keeps
 explicit knowledge of every component. The trade-off is honest coupling in one file versus

@@ -239,8 +239,15 @@ adaptive sleep (0.5 s with data, 1.0 s idle) under an `RLock`.
 context manager over `EmulatorManager` (rv-android-core) that starts the AVD on a dynamic port
 (device serial `emulator-<port>`, enabling parallel Docker containers without port conflicts),
 disables the three system animation scales for speed, and guarantees teardown in its `finally`
-block. Inside the session the executor installs the APK (an install failure raises
-`EmulatorError` and fails the task), starts `LogcatComponent` capture BEFORE the tool runs so
+block. Boot completion is a gate, not an observation: `Android.wait_for_boot()` raises
+`TimeoutError` naming the phase that exhausted the shared budget (`RV_EMULATOR_BOOT_TIMEOUT`,
+default 300 s), which `start_emulator()` wraps as `EmulatorError`, so no task ever runs against
+a half-booted device. The `yield` sits outside that `try`, so an exception from the session
+body keeps its own type instead of being relabelled a startup failure. Inside the session the
+executor installs the APK (`install_app()` returns False and records the ADB reason in
+`last_install_error`; the executor raises `TaskExecutionError` carrying that reason, so an
+`INSTALL_FAILED_*` code reaches the stored `error_message`), starts `LogcatComponent` capture
+BEFORE the tool runs so
 no `RVSEC` line is missed, calls `task.mark_tool_execution_start()` to timestamp tool start
 separately from emulator boot (boot time would skew time-relative coverage), starts the
 coverage tracker thread, and finally invokes `ToolExecutionComponent.execute()` →
@@ -323,7 +330,8 @@ context dict built by `get_task_context()` (task_id, apk_name, tool_name, repeti
 timeout), which phase 3 enriches with `'android'` (the live device interface) and
 `'device_id'`. `StaticAnalysisComponent` is non-critical by contract; `CoverageComponent`
 bridges to rv-coverage's tracker; `EmulatorComponent` wraps `EmulatorManager`'s context
-manager and raises `EmulatorError` on install failure; `LogcatComponent` brackets the tool run
+manager and reports install failure by returning False with the ADB reason in
+`last_install_error`; `LogcatComponent` brackets the tool run
 with capture — when diagnostics are enabled it appends `DIAGNOSTIC_TAGS`
 (`["AndroidRuntime:E", "art:E", "dalvikvm:E", "ActivityManager:W"]`, defined in
 `rv_android_core.util.android.logcat_manager`) to `logcat_manager.default_tags`, otherwise it
@@ -600,7 +608,9 @@ INV-PLT-19) lands as a component or writer, not as executor surgery.
 *Resilience (NFR04).* Failure policy is encoded in the exception taxonomy and enforced at
 single choke points: tool timeouts convert to RVToolTimeoutError and count as success
 (INV-PLT-04); static-analysis load failure logs a warning and the task proceeds (INV-PLT-05);
-APK install failure raises EmulatorError which fails only that task; `TaskExecutor.execute()`
+APK install failure becomes a `TaskExecutionError` carrying the ADB reason and fails only that
+task; a boot that exhausts its budget becomes an `EmulatorError` before any tool runs;
+`TaskExecutor.execute()`
 never propagates — every exception routes through ErrorHandler, the task is marked ERROR, and
 cleanup of all components still runs with its own exceptions swallowed (INV-PLT-06). The
 emulator context manager's `finally` block guarantees device teardown even when the session
@@ -1003,7 +1013,7 @@ path that rebuilds a deserialized task's repository from the durable files.
 | TaskExecutor | component (coordinator) | Three-phase dispatch over the shared context dict; hooks; never-propagate error policy |
 | StaticAnalysisComponent | filter (phase 1) | Loads per-APK GATOR JSON into `task.static_data`; non-critical by contract (INV-PLT-05) |
 | CoverageComponent / CoverageTracker | filter (phase 2) + thread | Builds tracker pre-seeded with the denominator; phase 3 starts the tail thread feeding the repository |
-| EmulatorComponent | filter (phase 3) | Emulator session context manager; APK install (EmulatorError on failure); guaranteed teardown |
+| EmulatorComponent | filter (phase 3) | Emulator session context manager gated on boot completion; APK install (False + `last_install_error` on failure); guaranteed teardown |
 | LogcatComponent | filter (phase 3) | Brackets the tool run with adb logcat capture to the per-task file |
 | ToolExecutionComponent | filter (phase 3) | Drives the configured AbstractTool; encodes timeout-is-success (INV-PLT-04) |
 | ResultProcessorComponent + PerformanceProcessorComponent | component (consolidator) | All-session CSV/JSON writers; resume reconstruction from durable files |
@@ -1053,8 +1063,9 @@ single registrar (rv-experiment) — there is no event bus at this scope.
   reconstruction call sites (INV-PLT-15).
 
 - **WHEN** adb install of the APK fails inside the phase-3 emulator session
-  (`CommandResult.is_failure()`) **THEN** EmulatorComponent raises `EmulatorError`,
-  TaskExecutor marks the task ERROR and runs `_cleanup_resources()` **AND** the emulator
+  (`CommandResult.is_failure()`) **THEN** `EmulatorComponent.install_app()` returns False with
+  the ADB reason in `last_install_error`, TaskExecutor raises `TaskExecutionError` carrying that
+  reason, marks the task ERROR and runs `_cleanup_resources()` **AND** the emulator
   context manager's `finally` block still kills the emulator, post-hooks fire with
   `success=False`, and the platform moves on to the next task. *Why:* one broken APK must cost
   one task, not the experiment: cleanup-always (INV-PLT-06) plus the context-manager teardown

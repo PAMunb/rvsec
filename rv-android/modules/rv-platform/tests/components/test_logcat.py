@@ -75,8 +75,21 @@ class TestLogcatComponentInitialization:
             LogcatComponent(mock_task)
             mock_logcat_mgr.assert_called_once_with(device_serial="emulator-5556")
 
-    def test_init_fallback_to_device_id(self, mock_task):
-        """Test fallback to task.config.device_id when no parameters."""
+    def test_init_derives_serial_from_device_port(self, mock_task):
+        """Only device_port injected: capture follows the port that was booted.
+
+        `task.config.device_id` is left at the stale "emulator-5554" on purpose —
+        capturing from it instead of from the resolved serial is the defect this
+        pins (INV-PLT-28), and it fails silently: an empty logcat, not an error.
+        """
+        mock_task.config.tool_config.parameters = {"device_port": 5558}
+
+        with patch("rv_platform.components.logcat.LogcatManager") as mock_logcat_mgr:
+            LogcatComponent(mock_task)
+            mock_logcat_mgr.assert_called_once_with(device_serial="emulator-5558")
+
+    def test_init_without_parameters_uses_the_default_serial(self, mock_task):
+        """Neither key present: single-emulator mode."""
         mock_task.config.tool_config.parameters = {}
 
         with patch("rv_platform.components.logcat.LogcatManager") as mock_logcat_mgr:

@@ -22,9 +22,7 @@ from rv_android_core.util.logging.constants import (
     LOG_START,
 )
 from rv_android_core.util.logging.manager import LoggingManager
-
-# Port of the single emulator used when no device_port is injected.
-DEFAULT_DEVICE_PORT = 5554
+from rv_platform.device import resolve_device
 
 
 class EmulatorComponent:
@@ -108,30 +106,16 @@ class EmulatorComponent:
         """
         Resolve the emulator port and the ADB serial of this task's device.
 
-        Both values come from this single derivation so they always denote the
-        same device (INV-PLT-28): the serial follows from the port unless the
-        task supplies an explicit `device_serial`. A task injecting only one of
-        the two keys therefore cannot boot one device and install on another.
-
-        Dynamic port allocation serves parallel Docker containers: each runs one
-        emulator on a unique port (5554, 5556, 5558, ...), injected into
-        `tool_config.parameters` by ExecutionController when --device-port is
-        given. Without it, port 5554 applies (single-emulator mode).
+        Delegates to `resolve_device()`, the one derivation every device-facing
+        site in the platform shares, so the port booted here and the serial the
+        app is installed on always denote the same device — as does the serial
+        the logcat is captured from (INV-PLT-28).
 
         Returns:
             Tuple of (device_port, device_serial)
         """
-        parameters = {}
-        if (
-            hasattr(self.task.config, "tool_config")
-            and hasattr(self.task.config.tool_config, "parameters")
-            and self.task.config.tool_config.parameters
-        ):
-            parameters = self.task.config.tool_config.parameters
-
-        device_port = parameters.get("device_port", DEFAULT_DEVICE_PORT)
-        device_serial = parameters.get("device_serial", f"emulator-{device_port}")
-        return device_port, device_serial
+        parameters = getattr(self.task.config.tool_config, "parameters", None)
+        return resolve_device(parameters)
 
     def start_emulator(self, avd_name: str = "RVSec"):
         """

@@ -166,11 +166,27 @@ Idempotence, verified rather than assumed: `CoverageTracker.stop()` returns imme
 
 ### D6 — Invert the finalization order, and correct the documents that assert otherwise
 
+**Correction, recorded after the first sweep proved incomplete.** The five places listed below were the ones the initial survey found; a second sweep with wider patterns and paths found six more — additional sites in both architecture documents, four in `modules/rv-platform/docs/architecture.md` (AD-2 rationale, a scenario summary asserting "cleanup in reverse", a sequence diagram, a Phase-3 data-flow diagram), and the main platform spec's "Component-Based Task Execution" requirement, which no MODIFIED block covered. The lesson is in the risk register below: an explicit file list is only as good as the grep that produced it, and the count must not be treated as closed. The remaining text of this decision stands.
+
 Five places in the tree assert the opposite order. `executor.py:435` says *"Stop order matters: coverage first, then logcat"*; `docs/architecture/rv-platform.md:888` says *"stop must precede logcat stop in the executor"*; `:262` restates it narratively. `docs/architecture/subsystem-rv-experiment.md:279` and `:816` go further and supply a reason — teardown *"unwinds coverage first, logcat last, so metrics finalize against a complete log"* — which is exactly inverted: coverage is the reader, logcat the writer, so stopping the reader first is what guarantees an *incomplete* log. No measurement in the repository decides the question.
 
 The topology does decide it. `adb logcat` is the producer, writing to a file. `CoverageTracker` is the consumer, and it opens that same file **by path, with its own handle** (`tracker.py:293`) — not a pipe, not the device. Killing the producer therefore cannot EOF the consumer, break it, or raise inside it; the two are decoupled by the filesystem. That removes the only reason a consumer-first order could be safer, and leaves the standard pipeline-shutdown discipline: stop the producer, drain the consumer, stop the consumer.
 
 Stopping the consumer first is actively wrong here, because the tracker's tail loop exits on `_stop_event` without a final read (`tracker.py:304`, `:330-342`). Lines the producer writes after that are in the file and absent from the repository, which is what `process_results()` reads (`coverage.py:280-283`).
+
+### D10 — One device resolution, shared by all three sites
+
+`EmulatorComponent._resolve_device()` unified boot and install, and that was the whole of §6.3 as first written. It was incomplete: `LogcatComponent` derives its own serial from `task.config.device_id`, and `Platform._generate_tasks` derives *that* from `parameters["device_serial"]` with a literal `"emulator-5554"` fallback. Three sites, three fallbacks.
+
+Three shapes were considered.
+
+*(a) Fix `platform.py` only,* making `device_id` follow from `device_port` when `device_serial` is absent. One line, and it happens to make all three agree today, because `LogcatComponent`'s own fallback is `device_id`. Rejected: it leaves three independent derivations in place and makes their agreement a coincidence of fallback chaining rather than a property. The next component to address the device would add a fourth.
+
+*(b) Have `LogcatComponent` call `EmulatorComponent._resolve_device()`.* Rejected outright — it makes one component depend on another's private method, and `Platform._generate_tasks` runs before any component exists, so it could not use it anyway.
+
+*(c) Chosen: one module-level function in `rv-platform` taking `tool_config.parameters` and returning `(port, serial)`,* called by `EmulatorComponent`, `LogcatComponent` and `Platform._generate_tasks`. It is the only shape that serves all three callers, because the third has a `ToolConfig` and no `Task`. `DEFAULT_DEVICE_PORT` moves there with it, so the literal `5554` exists once in the module. This is not a speculative abstraction under P1: it has three real call sites today and replaces three duplicated fallbacks with one.
+
+The invariant is stated over the *outcome* — every component addresses the same device — rather than over the mechanism, so a future component is caught by review for not using the resolution, not merely for disagreeing with it.
 
 ### D7 — C8 and D6 ship together, or neither is meaningful
 

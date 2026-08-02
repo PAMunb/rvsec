@@ -100,12 +100,18 @@ The container dies with exit 64 on any `RV_*` not declared here, so this group m
       - `docs/architecture/subsystem-rv-experiment.md:816` — same claim, same wording
       The `subsystem-rv-experiment.md` pair states a *reason* that is inverted (coverage is the reader, logcat the writer); replace the reason, do not just flip the order
 - [x] 5.5b Grep `docs/` and `modules/*/CLAUDE.md` for any remaining assertion of the coverage-before-logcat order and record the result, so the sweep is demonstrably complete rather than assumed
-      **Sweep result.** `grep -rn "coverage first|precede logcat|stops coverage first|unwinds
-      coverage first|coverage before logcat|logcat last" docs/ modules/*/CLAUDE.md CLAUDE.md
-      openspec/specs/` returns exactly one remaining hit, in the untracked working document
-      `docs/20260802_investigacao_bug_boot_emulador.md`, where the old `executor.py:435` comment is
-      quoted as evidence of the defect rather than asserted as behaviour. No tracked document still
-      states the old order.
+      **Sweep result — RETRACTED. The recorded result was wrong.** The grep run here
+      (`"coverage first|precede logcat|stops coverage first|unwinds coverage first|coverage before
+      logcat|logcat last"` over `docs/ modules/*/CLAUDE.md CLAUDE.md openspec/specs/`) reported a
+      single hit in an untracked working document, and that was recorded as "no tracked document
+      still states the old order". A later sweep with wider patterns and paths found **six more
+      tracked sites**: a third statement in `docs/architecture/rv-platform.md`, a third in
+      `docs/architecture/subsystem-rv-experiment.md`, four in `modules/rv-platform/docs/architecture.md`
+      (AD-2 rationale, a scenario summary asserting "cleanup in reverse", a sequence diagram and the
+      Phase-3 data-flow diagram), and the main platform spec. Two causes: the pattern list was
+      derived from the five sites already known instead of from the *claim* being searched for, and
+      `modules/*/docs/` was not in the search path at all — only `modules/*/CLAUDE.md` was. The
+      corrections have been applied; the remaining spec-level gap is task 11.5 below.
 
 - [x] 5.6 Add unit tests: both `cleanup()` calls happen in order and before `adb emu kill` on the success path; the same on the failure path, with the original exception still propagating; an error inside `cleanup()` does not mask the original exception; the repeat call from `_cleanup_components` is inert and leaves `coverage_metrics` unchanged
 - [x] 5.7 Add a grep assertion that `executor.py` contains no direct call to `stop_tracking`, `process_results` or `stop_capture`
@@ -343,3 +349,149 @@ These two files encode the old contract. Their failure during Groups 2-6 is expe
       aborted on an app crash), and the E2E itself (run against a previously instrumented APK because
       `ajc` is not installed on this workstation). The three pre-existing checks in the issue's
       *affected domains* section were left untouched.
+
+## 11. Device Resolution — Logcat (§6.3, second pass)
+
+Unifying boot and install left the third derivation in place. `LogcatComponent` resolves its own
+serial from `task.config.device_id`, and `Platform._generate_tasks` populates that from
+`parameters["device_serial"]` with a literal `"emulator-5554"` fallback — so
+`--tools "monkey@device_port=5558"`, which the tool DSL permits, boots and installs on
+`emulator-5558` while capturing logcat from `emulator-5554`. Verified by executing the path, not
+inferred from the code's shape. Unlike a wrong-device install, a wrong-device capture raises
+nothing: empty `.logcat`, zero coverage, and a silently empty resume reconstruction now that §6.4
+makes that file the single reconstruction source.
+
+- [x] 11.1 Add a module-level `resolve_device(parameters) -> (port, serial)` in `rv-platform`
+      (design D10, option c) and move `DEFAULT_DEVICE_PORT` to it, so the literal `5554` exists once.
+      It must take the parameters mapping rather than a `Task`, because `Platform._generate_tasks`
+      is one of its three callers and runs before any `Task` exists
+- [x] 11.2 Route `EmulatorComponent._resolve_device()` through it — behaviour unchanged, one
+      derivation removed
+- [x] 11.3 Route `LogcatComponent.__init__` through it, deleting the `task.config.device_id`
+      fallback chain (INV-PLT-28)
+- [x] 11.4 Route `Platform._generate_tasks`'s `device_id` derivation through it, deleting the literal
+      `"emulator-5554"` fallback at `platform.py:236-241`
+
+      **Convergence verified by executing the path, not by reading it.** The reproduction from
+      the defect report, re-run against the new code with `parameters = {"device_port": 5558}`
+      and no `device_serial`: boot port `5558`, install serial `emulator-5558`, logcat serial
+      `emulator-5558`, `task.config.device_id` `emulator-5558`. Before the change the same
+      snippet printed `5558 / emulator-5558 / emulator-5554`.
+
+- [x] 11.5 Confirm the delta's new MODIFIED block for "Component-Based Task Execution (FR09, NFR02)"
+      is what `openspec archive` syncs, so `openspec/specs/platform/spec.md` stops asserting the old
+      finalization order at its narrative and its "Successful Three-Phase Execution" scenario
+
+      **Confirmed by running the archive, not by reading the delta.** `openspec/` was copied to a
+      scratch tree and `openspec archive gh92-emulator-boot-gating --yes` run there. The resulting
+      `openspec/specs/platform/spec.md` carries the MODIFIED block verbatim (byte-identical to the
+      delta block apart from one trailing blank line): all six pre-existing scenarios plus
+      "Logcat captures the device that was booted", the INV-PLT-28 paragraph, and the corrected
+      order in both the narrative and the "Successful Three-Phase Execution" step list. The old
+      order is gone from the whole file — `stop coverage -> process coverage results -> stop
+      logcat` and "coverage must stop before logcat" both count 0 after the sync.
+
+      **One defect found and it is in the delta, not in the sync.** The block's opening paragraph
+      ("The block below carries the requirement in full ... It is modified here for two reasons the
+      rest of this delta creates") is *inside* the requirement body, so archive copies it into the
+      permanent spec, where it reads as migration history about a change that no longer exists (P4)
+      and refers to a "delta" the reader cannot see (P2). The sibling paragraph for "Android
+      Emulator Management" does not have this problem: it sits under `## MODIFIED Requirements`
+      *above* the first requirement header, and prose there is not synced — verified, it counts 0 in
+      the archived spec. A third probe moved the new paragraph to the same place: `openspec
+      validate` still passes, neither meta paragraph reaches the permanent spec, and everything
+      substantive still syncs (seven scenarios, INV-PLT-28 paragraph, new order narrative, old order
+      absent).
+
+      **Fixed via `/opsx:update` and re-verified by archiving again.** Both meta paragraphs now sit
+      under `## MODIFIED Requirements`, each naming the requirement it describes (two adjacent notes
+      saying "the block below" would not read), preceded by one line stating why they are outside the
+      bodies. `openspec validate` passes; the fresh archive probe syncs neither note, keeps the seven
+      scenarios of "Component-Based Task Execution" and the eight of "Android Emulator Management",
+      and leaves no statement of the old order in the permanent spec.
+- [x] 11.6 Add unit tests: `{"device_port": 5558}` alone yields serial `"emulator-5558"` for boot,
+      install **and** logcat (platform scenario "Logcat captures the device that was booted"); both
+      keys present are honoured as today; neither key yields the 5554 defaults. Assert against
+      `LogcatManager`'s constructor argument, since that is where the serial actually lands
+
+      **Where they live, and which one actually discriminates.** `tests/test_device.py` (new) covers
+      `resolve_device` directly and asserts boot, install, logcat and `TaskConfiguration.device_id`
+      agree; `tests/components/test_logcat.py` covers the component; `tests/test_platform.py` covers
+      `_generate_tasks`. `test_logcat.py::test_init_fallback_to_device_id` was replaced rather than
+      kept — it asserted the fallback chain this group deletes (P3).
+
+      The realistic cross-site test does **not** discriminate, and the reason is worth recording:
+      with `device_id` populated by the fixed `_generate_tasks`, the old logcat fallback chain lands
+      on the right serial anyway — agreement by coincidence, which is exactly design D10's rejected
+      option (a). Verified by reverting `logcat.py` to its previous body and re-running: that test
+      still passed. `test_a_stale_device_id_is_consulted_by_no_site` was added for this, leaving
+      `device_id` at `"emulator-5554"` while the parameters say 5558; it FAILS on the old code
+      (`LogcatManager(device_serial='emulator-5554')`) and passes on the new.
+- [x] 11.7 Grep `modules/rv-platform/src/` for any remaining literal `"emulator-5554"` outside
+      `resolve_device`, and record the result rather than asserting the sweep is complete — task
+      5.5b's retraction above is why
+
+      **Sweep result — searched for the claim (a site with its own device default), not for the
+      string.** Five patterns were run, and their scopes are stated so the gaps are visible rather
+      than implied: (A) literal `"emulator-5554"` in `modules/rv-platform/src/`; (B) any bare `5554`
+      there; (C) `f"emulator-{...}"` serial construction across every `modules/*/src/`; (D) any other
+      read of `device_serial`/`device_port` from a mapping across every `modules/*/src/`; (E) any
+      `device_id` default across every `modules/*/src/`.
+
+      **In `rv-platform/src/` the sweep is clean.** The only remaining `5554` literals are
+      `DEFAULT_DEVICE_PORT` in `device.py` and prose in comments/docstrings (`device.py`,
+      `platform.py:239`, `logcat.py:57`) that illustrates the port sequence. No second derivation
+      survives.
+
+      **Outside `rv-platform/src/`, three families exist. None is fixed here; all are recorded.**
+      1. **`rv-tools` builtin tools carry their own `"emulator-5554"` fallback** — `ape`, `ares`,
+         `droidbot`, `droidmate`, `fastbot`, `humanoid`, `monkey`, `qtesting`. This is the same
+         defect class one layer out, and it is live in the same way: **verified by execution**, not
+         inferred — `ToolFactory().create_tool(ToolConfig(name="monkey", parameters={"device_port":
+         5558}))` yields `device_id = "emulator-5554"`, and the same for `ape`'s `device_serial`. So
+         `--tools "monkey@device_port=5558"` would drive monkey against 5554 while the app is
+         installed on 5558. It is not reachable today for the reason §6.3 already records:
+         `ExecutionController` injects `device_port`, `device_serial` and `device_id` together. Not
+         fixed here because INV-PLT-28 and this change's delta are scoped to rv-platform components,
+         and eight tool plugins are a change of their own.
+      2. **`TaskConfiguration.device_id` defaults to `"emulator-5554"`** at `domain/task.py:187`,
+         `:250` and `:288` (rv-android-core). Not a resolution site: `_generate_tasks` now always
+         passes an explicitly resolved value, and no rv-platform component reads the field any more.
+         `executor.py:394` still copies it to `context["device_id"]`, which **nothing reads** — grep
+         across `modules/` finds no consumer. Left alone; it is a domain default, and deleting the
+         dead context key belongs to the P3 cleanup deferred in task 2.9.
+      3. **`rv-uiautomator`'s `device_id: str = "emulator-5554"`** parameter default, used by the
+         standalone rv-agent path, which does not go through rv-platform's task pipeline at all.
+- [x] 11.8 Run `/rv-test-run rv-platform` and `/rv-verify rv-platform`
+
+      **Tests PASS: 328 passed, 1 skipped** (was 317 before this group; +11 from the new
+      `test_device.py`, the two `_generate_tasks` cases and the split logcat case). black, isort and
+      bandit as recorded in 10.3 — bandit's single LOW finding (B110, `result_processor.py:1140`) is
+      pre-existing and untouched here.
+
+      **`/rv-verify` reports FAIL, and the failure is the standing flake8 condition from 10.3, not
+      this group.** 34 E501 in rv-platform, all long strings and comments that black will not split
+      at 88 columns. Verified per file against `HEAD` rather than trusting the total, which is what
+      10.3's retracted-sweep lesson demands: `platform.py` 6 at HEAD and 6 now, `emulator.py` 1 and
+      1, `logcat.py` 1 and 1, `test_logcat.py` 1 and 1, `test_platform.py` 0 and 0. The two files
+      this group adds, `device.py` and `test_device.py`, are flake8-clean. Zero new findings.
+      `mypy` is still SKIPPED repo-wide (no `[tool.mypy]`, no `mypy.ini`).
+- [x] 11.9 Re-run `/opsx:verify`; the change was verified and committed before this group existed
+
+      **Result: no critical issue; one incoherence found and fixed.** Completeness: every task
+      checked, and each spec delta has located implementation. Correctness: the new scenario is
+      covered by a test that FAILS on the pre-change code, not merely by one that passes on the new;
+      `1617 passed, 1 skipped` across rv-android-core, rv-platform and rv-coverage (1604 before this
+      group). Coherence: D10 is followed literally — one module-level function taking the parameters
+      mapping, `DEFAULT_DEVICE_PORT` moved to it, three real call sites.
+
+      The incoherence: `proposal.md`'s Modules table still listed `rv-platform`'s §6.3 footprint as
+      `components/emulator.py` alone, although §6.3's own prose names all three sites. Corrected via
+      `/opsx:update` to name `device.py` (new), `components/emulator.py`, `components/logcat.py` and
+      `platform.py`. `openspec validate` passes.
+
+      Also synced: `modules/rv-platform/CLAUDE.md` gains `resolve_device` in the component table and
+      an "One device resolution" note under Important Notes. No documented statement anywhere
+      asserted a per-component device fallback, so nothing had to be *corrected* — checked
+      `modules/rv-platform/docs/architecture.md` and `docs/architecture/rv-platform.md`, whose
+      `device_port` passages describe `EmulatorManager` and remain accurate.

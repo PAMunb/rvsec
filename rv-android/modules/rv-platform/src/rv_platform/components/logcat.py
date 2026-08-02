@@ -19,6 +19,7 @@ from rv_android_core.util.logging.constants import (
     LOG_START,
 )
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_platform.device import resolve_device
 
 
 class LogcatComponent:
@@ -53,15 +54,17 @@ class LogcatComponent:
 
         # Resolve which emulator instance to capture logcat from. In parallel
         # execution, each container runs its own emulator on a unique port, so
-        # device_serial is "emulator-5554", "emulator-5556", etc. LogcatManager
+        # the serial is "emulator-5554", "emulator-5556", etc. LogcatManager
         # uses `adb -s <serial> logcat` to target the correct device.
-        device_serial = getattr(task.config, "device_id", "emulator-5554")
-        if hasattr(task.config, "tool_config") and hasattr(
-            task.config.tool_config, "parameters"
-        ):
-            device_serial = task.config.tool_config.parameters.get(
-                "device_serial", device_serial
-            )
+        #
+        # The serial comes from the same resolution the boot and the install
+        # use (INV-PLT-28), never from a fallback of this component's own:
+        # capturing from a device that was not the one booted raises nothing,
+        # and produces an empty logcat — which is also an empty resume
+        # reconstruction, since that file is the single source for it.
+        _, device_serial = resolve_device(
+            getattr(task.config.tool_config, "parameters", None)
+        )
 
         self.logcat_manager = LogcatManager(device_serial=device_serial)
 

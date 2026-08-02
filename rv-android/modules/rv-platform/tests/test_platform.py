@@ -88,6 +88,28 @@ class TestGenerateTasks:
         assert task.config.repetition == 1
         assert task.config.timeout == 120
 
+    def test_device_id_follows_device_port(self, tmp_path):
+        """device_id names the device that will actually be booted (INV-PLT-28).
+
+        `--tools "monkey@device_port=5558"` produces parameters with no
+        device_serial key; the generated config must not fall back to a literal
+        "emulator-5554" that no component will address.
+        """
+        platform = _make_platform(
+            tmp_path,
+            tools=[ToolConfig(name="monkey", parameters={"device_port": 5558})],
+        )
+        with patch.object(App, "model_post_init", lambda self, ctx: None):
+            platform._generate_tasks()
+        assert platform.tasks[0].config.device_id == "emulator-5558"
+
+    def test_device_id_defaults_to_5554_without_parameters(self, tmp_path):
+        """Single-emulator mode keeps the historical default."""
+        platform = _make_platform(tmp_path)
+        with patch.object(App, "model_post_init", lambda self, ctx: None):
+            platform._generate_tasks()
+        assert platform.tasks[0].config.device_id == "emulator-5554"
+
     def test_tasks_have_app_set(self, tmp_path):
         """Each generated task must have an App instance."""
         platform = _make_platform(tmp_path)

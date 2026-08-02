@@ -8,7 +8,9 @@ This delta touches two things in that phase: the precondition under which instal
 
 **The precondition.** `_run_emulator_session` installs the APK immediately after the context manager yields, and this is correct in itself — the contract of `start_emulator` says the device is ready. That contract is currently violated in `rv-android-core` (see the `core` delta), so the platform installs against devices that never completed boot. The platform's own obligation is narrower but real: state the precondition explicitly, so that a future regression in the layer below is a spec violation rather than an unstated assumption. This requirement's existing text already asserts the principle for installation itself — *"App installation is verified via `CommandResult.is_failure()`"* — and this delta extends the same discipline to the gate that precedes it.
 
-There is also an inconsistency inside the platform layer. The emulator is booted on a port read from `tool_config.parameters["device_port"]` (`components/emulator.py:112-120`), while the APK is installed on a serial read from `tool_config.parameters["device_serial"]` (`:181-189`). Each falls back to its own default — `5554` at `:112` and `"emulator-5554"` at `:181` — independently. If only one key is injected, the platform boots a device on one port and installs on another, producing a failure whose message points nowhere useful.
+There is also an inconsistency inside the platform layer, and it runs to three sites rather than two. The emulator is booted on a port read from `tool_config.parameters["device_port"]`, the APK is installed on a serial read from `tool_config.parameters["device_serial"]`, and logcat is captured from a serial `LogcatComponent` derives on its own, falling back to `task.config.device_id` — which `Platform._generate_tasks` in turn populates from `parameters["device_serial"]` with a literal `"emulator-5554"` fallback. Each site carries its own default, so a task that injects only one of the two keys boots one device, installs on another, and captures logcat from a third.
+
+This is reachable from the CLI. The tool-specification DSL accepts arbitrary `@key=value` parameters, so `--tools "monkey@device_port=5558"` yields `{"device_port": 5558}` with no `device_serial`. Boot and install then target `emulator-5558` while logcat targets `emulator-5554`. The install case announces itself with a failure; the logcat case does not — it produces an empty capture, zero coverage, and, since this delta also makes that file the single reconstruction source for resume, a silently empty reconstruction.
 
 **The finalization owner.** Coverage and logcat are finalized by two separate pieces of code today. One is inline at `execution/executor.py:440-448`, inside the `with`, so it runs with the emulator alive; it calls `coverage_component.stop_tracking()`, `coverage_component.process_results()`, then `logcat_component.stop_capture()`. The other is the components' own `cleanup()` methods, reached from `execute()`'s `except` at `:251-263` via `_cleanup_resources()` → `_cleanup_components()` — by which point the context manager's `finally` has already destroyed the emulator. Both do the same work; `CoverageComponent.cleanup()` and `LogcatComponent.cleanup()` contain nothing *but* that work.
 
@@ -22,7 +24,7 @@ The second invocation is inert, by two different mechanisms that must both be ch
 
 Both `cleanup()` methods also swallow their own exceptions, which is required here — a finalization error inside a `finally` on the failure path would otherwise replace the original exception, reintroducing precisely the diagnostic corruption this change exists to remove.
 
-The order is inverted to logcat-then-coverage. Five places in the tree currently assert the opposite, and only one of them offers a reason: the comment at `executor.py:435`, `docs/architecture/rv-platform.md:262` and `:888`, and `docs/architecture/subsystem-rv-experiment.md:279` and `:816`. The last two justify the order as finalizing "metrics against a complete log" — which is precisely backwards, since it is the coverage tracker that reads and the logcat producer that writes. All five are corrected here rather than left to diverge.
+The order is inverted to logcat-then-coverage, and the tree asserts the opposite in more places than the first survey found. Six were identified initially — the comment at `executor.py:435`, `docs/architecture/rv-platform.md:262` and `:888`, `docs/architecture/subsystem-rv-experiment.md:279` and `:816`, and the main platform spec — and a second sweep with wider patterns found further sites in the same two architecture documents plus four in `modules/rv-platform/docs/architecture.md` (the AD-2 rationale, a scenario summary asserting "cleanup in reverse", a sequence diagram and a data-flow diagram). Two of them justify the order as finalizing "metrics against a complete log", which is precisely backwards, since it is the coverage tracker that reads and the logcat producer that writes. Every one of them is corrected with its reason rather than merely reordered or deleted; the count is deliberately not restated as a fixed number here, because the first attempt to fix "the five" missed six.
 
 The two are decoupled by the filesystem: `adb logcat` writes the file, and `CoverageTracker` opens that same file by path with an independent handle (`tracker.py:293`), so stopping the producer cannot EOF or otherwise disturb the consumer. Stopping the producer first freezes the file, which is what makes the tracker's final drain (see the `analysis` delta) deterministic. The two corrections are only meaningful together.
 
@@ -54,7 +56,11 @@ The two are decoupled by the filesystem: `adb logcat` writes the file, and `Cove
 
 - **INV-PLT-27**: `TaskExecutor._run_emulator_session()` MUST NOT attempt APK installation unless the emulator context manager yielded after a boot completion that was positively observed. The platform relies on `EmulatorManager.start_emulator` to enforce this (core INV-CORE-44); the obligation is recorded here so that a device which never completed boot receiving an install attempt is a specification violation, not merely an implementation defect.
 
-- **INV-PLT-28**: Within a single task, the emulator port used to boot and the device serial used to install MUST denote the same device. `EmulatorComponent` MUST derive both from one resolution, such that a task supplying only `device_port` or only `device_serial` cannot boot one device and install on another. Independent per-call defaults are prohibited.
+- **INV-PLT-28**: Within a single task, **every component that addresses the device MUST address the same one**. The emulator port used to boot, the device serial used to install, and the device serial used to capture logcat MUST all come from a single resolution over `tool_config.parameters`, such that a task supplying only `device_port` or only `device_serial` cannot boot one device and install or capture on another. Independent per-call defaults are prohibited, anywhere.
+
+  Three sites derive this today and each has its own fallback: `EmulatorComponent` (`components/emulator.py`), `LogcatComponent` (`components/logcat.py`, falling back to `task.config.device_id`) and `Platform._generate_tasks` (`platform.py`, falling back to a literal `"emulator-5554"` when populating `TaskConfiguration.device_id`). The divergence is reachable from the CLI, not hypothetical: the tool-specification DSL accepts arbitrary `@key=value` parameters, so `--tools "monkey@device_port=5558"` produces `{"device_port": 5558}` with no `device_serial`, and the platform then boots and installs on `emulator-5558` while capturing logcat from `emulator-5554`.
+
+  Logcat is the load-bearing case rather than an afterthought. A wrong-device capture raises nothing: it yields an empty `.logcat`, coverage of zero, and — because INV-PLT-29 makes that file the single reconstruction source for resume (INV-PLT-15/16/18) — a silently empty reconstruction. That is the same class of silent failure this change exists to remove.
 
 - **INV-PLT-29**: Coverage and logcat finalization MUST have exactly one firing point, located in a `finally` covering the body of the emulator `with` block in `_run_emulator_session()`, so that it executes with the emulator still alive on both the success and the failure path. The inline block at `executor.py:440-448` MUST be deleted rather than retained alongside it (P3).
 
@@ -66,7 +72,11 @@ The two are decoupled by the filesystem: `adb logcat` writes the file, and `Cove
 
 ## MODIFIED Requirements
 
-The block below carries the requirement in full, including the five scenarios that already existed, so nothing is lost at archive time. Two edits in it are unrelated to the boot gate and are called out here rather than left to be discovered in a diff: the original read *"**future** parallel execution requires isolated emulator instances"*, which is no longer future — the composes run 8 to 16 containers today; and the "APK Installation Failure" scenario's trigger moves from `EmulatorManager.install_app()` *returning `False`* to it *reporting failure*, because C6 leaves the carrier open (design Open Question 2) and the scenario must not prejudge it.
+These two notes are deliberately outside the requirement bodies: `openspec archive` copies a requirement body verbatim into `openspec/specs/platform/spec.md`, and a note about what this delta changed has no place in a permanent spec (P4). Prose here, above the first requirement header, is not synced.
+
+The **Android Emulator Management** block below carries the requirement in full, including the five scenarios that already existed, so nothing is lost at archive time. Two edits in it are unrelated to the boot gate and are called out here rather than left to be discovered in a diff: the original read *"**future** parallel execution requires isolated emulator instances"*, which is no longer future — the composes run 8 to 16 containers today; and the "APK Installation Failure" scenario's trigger moves from `EmulatorManager.install_app()` *returning `False`* to it *reporting failure*, because C6 leaves the carrier open (design Open Question 2) and the scenario must not prejudge it.
+
+The **Component-Based Task Execution** block below likewise carries its requirement in full, including the six scenarios that already existed. It is modified for two reasons the rest of this delta creates. First, its narrative and its "Successful Three-Phase Execution" scenario both assert the finalization order this change inverts — and because no other MODIFIED block in this delta touches this requirement, archiving without it would leave `openspec/specs/platform/spec.md` asserting *coverage before logcat* while `executor.py` does the opposite, which is exactly the documented-rule-with-no-reason situation INV-PLT-31 exists to end. Second, `LogcatComponent`'s device resolution belongs to this requirement rather than to "Android Emulator Management", so the scenario enforcing INV-PLT-28 across all three sites is added here.
 
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -129,6 +139,66 @@ A failure occurring inside the emulator session — installation, logcat, covera
 - **WHEN** `EmulatorComponent.clean_logcat()` is called
 - **THEN** the component MUST call `EmulatorManager.clear_logcat()` to reset the logcat buffer
 - **AND** if clearing fails, the error MUST be logged as a warning (non-critical)
+
+### Requirement: Component-Based Task Execution (FR09, NFR02)
+
+The platform MUST execute tasks through a component-based architecture where each component handles a specific concern (static analysis, emulator, logcat, coverage, tool execution). Components implement the `ITaskComponent` interface with `initialize(context)`, `execute(context)`, and `cleanup(context)` methods. The `TaskExecutor` coordinates component execution in three phases.
+
+This design exists because task execution involves multiple orthogonal concerns that interact in specific ways. Static analysis data must be loaded before the coverage tracker can classify methods. The coverage tracker must be initialized before the emulator session begins. Inside the emulator session, logcat capture must start before coverage tracking, and coverage tracking must start before tool execution. After tool execution the order reverses for a stated reason: `adb logcat` is the producer writing the file and `CoverageTracker` is the consumer reading that same file through an independent handle, so **logcat MUST stop before coverage stops** — freezing the file is what lets the consumer's final drain observe a complete input. Startup ordering is enforced by `TaskExecutor._execute_coordinated_components()`; finalization ordering is enforced at the single firing point required by INV-PLT-29.
+
+Every component that addresses the device MUST obtain its port and serial from the one resolution required by INV-PLT-28. A component MUST NOT carry its own fallback for a missing `device_port` or `device_serial` key.
+
+Components are identified by string matching on their `name` property (`"StaticAnalysis"`, `"Coverage"`, `"Emulator"`, `"Logcat"`, `"ToolExecution"`). The executor iterates registered components and assigns them to the appropriate phase based on name containment.
+
+The executor logs lifecycle transitions: task started, task completed, task failed, and tool started (for accurate timing coordination).
+
+#### Scenario: Successful Three-Phase Execution
+
+- **WHEN** a task is executed with all five components registered (StaticAnalysis, Emulator, Logcat, Coverage, ToolExecution)
+- **THEN** Phase 1 MUST execute `StaticAnalysisComponent.execute()` outside the emulator session
+- **AND** Phase 2 MUST execute `CoverageComponent.execute()` outside the emulator session
+- **AND** Phase 3 MUST start the emulator via `EmulatorComponent.start_emulator("RVSec")`
+- **AND** inside the emulator session, the execution order MUST be: install app -> start logcat -> start coverage -> mark tool execution start -> execute tool -> stop logcat -> stop coverage and process coverage results
+- **AND** the task state MUST transition from `RUNNING` to `COMPLETED`
+
+#### Scenario: Logcat captures the device that was booted
+
+- **WHEN** a task has `tool_config.parameters = {"device_port": 5558}` and no `device_serial` key — the form the tool DSL produces for `--tools "monkey@device_port=5558"`
+- **THEN** `LogcatComponent` MUST capture from `"emulator-5558"`
+- **AND** it MUST NOT fall back to `task.config.device_id` or to a literal `"emulator-5554"`
+- **AND** `TaskConfiguration.device_id`, populated by `Platform._generate_tasks`, MUST resolve to that same serial
+
+#### Scenario: Component Execution Failure
+
+- **WHEN** `StaticAnalysisComponent.execute()` or `CoverageComponent.execute()` returns `False` and raises `TaskExecutionError`
+- **THEN** the executor MUST catch the exception and update task state to `ERROR`
+- **AND** `_cleanup_resources()` MUST be called to clean up all registered components
+
+#### Scenario: Missing Emulator or Tool Component
+
+- **WHEN** the executor has no `EmulatorComponent` or no `ToolExecutionComponent` registered
+- **THEN** Phase 3 (emulator session) MUST be skipped
+- **AND** a warning MUST be logged: "Missing emulator or tool component - skipping emulator session"
+
+#### Scenario: Task Without App Instance
+
+- **WHEN** `TaskExecutor.execute()` is called and `task.app` is `None`
+- **THEN** the method MUST return `False` immediately without executing any components
+- **AND** the task state MUST be set to `ERROR` with message "Task has no app instance set"
+
+#### Scenario: Cleanup After Exception
+
+- **WHEN** an exception occurs during component execution
+- **THEN** `_cleanup_resources()` MUST call `cleanup(context)` on all registered components
+- **AND** if a component's `cleanup()` raises an exception, the error MUST be logged as a warning but MUST NOT prevent cleanup of remaining components
+- **AND** post-execution hooks MUST still be called with `success=False`
+
+#### Scenario: Pre/Post Execution Hooks
+
+- **WHEN** hooks have been registered via `add_pre_execution_hook()` and `add_post_execution_hook()`
+- **THEN** pre-execution hooks MUST be called before task state transitions to `RUNNING`
+- **AND** post-execution hooks MUST be called after execution completes, with `(task, True)` on success or `(task, False)` on failure
+
 
 ## ADDED Requirements
 

@@ -21,6 +21,7 @@ Coverage runs here as a `TaskExecutor` component (`CoverageComponent` → rv-cov
 | `PerformanceProcessorComponent` | Task-timing CSV |
 | `TaskStorage` | Persistent task storage; atomic file ops with transaction support |
 | `PlatformConfig` | Pydantic-validated configuration schema |
+| `device.resolve_device` | `(port, serial)` from `tool_config.parameters` — the one device derivation |
 
 Platform-unique design points: components execute in **coordinated phases** (static analysis + coverage init outside the emulator session, tool execution inside it); `TaskStorage` persists task state via atomic transactions after each task.
 
@@ -61,6 +62,9 @@ When `tasks.json` exists, the platform loads completed tasks, skips them, execut
 ## Important Notes
 
 - **Timeout handling**: tool timeouts are treated as successful completion (expected behavior).
-- **APK installation**: `EmulatorComponent` raises `EmulatorError` on install failure (`CommandResult.is_failure()`); `TaskExecutor` catches it and marks the task FAILED.
+- **APK installation**: `EmulatorComponent.install_app()` returns False on install failure (`CommandResult.is_failure()`) and holds the ADB reason in `last_install_error`; `TaskExecutor` raises `TaskExecutionError` with that reason, so the `INSTALL_FAILED_*` code reaches the stored `error_message`.
+- **One device resolution**: `device.resolve_device(parameters)` derives `(device_port, device_serial)` from `tool_config.parameters` — the serial follows the port unless `device_serial` is given explicitly. Boot, app install, logcat capture and `Platform._generate_tasks`'s `device_id` all call it, so no component carries its own `"emulator-5554"` fallback (INV-PLT-28). It takes the parameters mapping, not a `Task`, because `_generate_tasks` runs before any `Task` exists. A wrong-device *capture* is what makes this load-bearing: unlike a wrong-device install it raises nothing, yielding an empty logcat and therefore an empty resume reconstruction.
+- **Emulator boot is a gate**: `Android.wait_for_boot()` raises `TimeoutError` when the budget (`RV_EMULATOR_BOOT_TIMEOUT`, default 300 s) is exhausted, wrapped as `EmulatorError` by `start_emulator()`; no task runs against a half-booted device. Per-probe ADB timeout: `RV_ADB_CMD_TIMEOUT` (30 s); install: `RV_APK_INSTALL_TIMEOUT` (600 s).
+- **Coverage/logcat finalization** happens at exactly one point — a `finally` inside the emulator `with` in `TaskExecutor._run_emulator_session()` — calling `logcat_component.cleanup()` then `coverage_component.cleanup()`. Logcat first because `adb logcat` is the producer writing the file and `CoverageTracker` is the consumer reading it: freezing the file first makes the tracker's final drain see a complete input. The repeat call from `_cleanup_components()` is inert.
 - **Static analysis** is non-critical — execution continues without it. It uses `app.code_package` (detected implementation package), not `app.package_name` (manifest), for class filtering (see rv-android-core).
 - **Result processing** can be skipped during execution and run standalone later (`--process-results`).

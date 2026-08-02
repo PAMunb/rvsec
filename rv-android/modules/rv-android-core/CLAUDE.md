@@ -38,7 +38,7 @@ src/rv_android_core/
     └── validation/              # base.py (BaseValidatedModel), config.py, decorators.py (@validated_model)
 ```
 
-Notable files: `util/android/package_detector.py` (code-package vs manifest-package detection; see below), `util/android/signature_normalizer.py` (normalizes inner-class notation `Outer.Inner` → `Outer$Inner` in Soot signatures), `constants.py` (holds file extensions and env var names).
+Notable files: `util/android/package_detector.py` (code-package vs manifest-package detection; see below), `util/android/signature_normalizer.py` (normalizes inner-class notation `Outer.Inner` → `Outer$Inner` in Soot signatures), `constants.py` (holds file extensions and env var names, including the device timeout budgets `RV_EMULATOR_BOOT_TIMEOUT` / `RV_ADB_CMD_TIMEOUT` / `RV_APK_INSTALL_TIMEOUT`, resolved at the point of use in `util/android/android.py` with defaults 300 s / 30 s / 600 s; a value that is set but not an integer raises instead of falling back).
 
 ## `package_name` vs `code_package`
 
