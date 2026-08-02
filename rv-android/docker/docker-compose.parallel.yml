@@ -19,6 +19,13 @@ x-rvandroid: &rvandroid-base
     RV_SKIP_INSTRUMENT: "true"
     RV_SKIP_STATIC_ANALYSIS: "true"
     RV_HUMANOID_URL: humanoid:50405
+    # Emulator boot budget and ADB timeouts, shared by every rvNN container.
+    # Parallel runs are exactly the case where cold boot disperses — N emulators
+    # compete for KVM, CPU and RAM — so raise RV_EMULATOR_BOOT_TIMEOUT here when
+    # the container count grows, rather than weakening the boot gate.
+    RV_EMULATOR_BOOT_TIMEOUT: ${RV_EMULATOR_BOOT_TIMEOUT:-300}
+    RV_ADB_CMD_TIMEOUT: ${RV_ADB_CMD_TIMEOUT:-30}
+    RV_APK_INSTALL_TIMEOUT: ${RV_APK_INSTALL_TIMEOUT:-600}
   volumes: &rvandroid-volumes
     - /var/run/docker.sock:/var/run/docker.sock
   devices:

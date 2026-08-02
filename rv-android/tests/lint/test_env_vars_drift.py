@@ -75,7 +75,13 @@ def test_form_5_environ_copy_matches():
 
 
 def test_l1_infra_family_allowed_via_allowlist():
-    """The 6-name L1 cross-layer infra family is recognized as allow-listed."""
+    """The 9-name L1 cross-layer infra family is recognized as allow-listed.
+
+    The three device timeout budgets belong here for the same reason the
+    Pydantic toggles do: they are read by `rv-android-core` at the point of
+    use, because their correct value follows from the host and its
+    concurrency level rather than from the experiment definition.
+    """
     expected = {
         "RV_PYDANTIC",
         "RV_PYDANTIC_STRICT",
@@ -83,6 +89,9 @@ def test_l1_infra_family_allowed_via_allowlist():
         "RVSEC_HOME",
         "ANDROID_HOME",
         "TOOLS_DIR",
+        "RV_EMULATOR_BOOT_TIMEOUT",
+        "RV_ADB_CMD_TIMEOUT",
+        "RV_APK_INSTALL_TIMEOUT",
     }
     assert lint.L1_INFRA_NAMES == expected
 

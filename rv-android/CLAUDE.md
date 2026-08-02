@@ -52,6 +52,9 @@ Source changes are immediate — no reinstall unless a `pyproject.toml` changes.
 | `ANDROID_HOME` | Android SDK path for emulator management. |
 | `RV_PYDANTIC=true` | Enable dev validation (recommended during development). |
 | `RVAGENT_MODE` | Override rv-agent mode (`pure_algorithm`, `llm_only`, `multimode`). |
+| `RV_EMULATOR_BOOT_TIMEOUT` | Total emulator boot budget in seconds (default 300, provisional). Raise it when boot timeouts appear. |
+| `RV_ADB_CMD_TIMEOUT` | Timeout in seconds for each individual ADB probe during the boot wait (default 30). |
+| `RV_APK_INSTALL_TIMEOUT` | Timeout in seconds for `adb install` (default 600). |
 
 See `.claude/project-info.md` for the full env-var, Docker, and command reference.
 

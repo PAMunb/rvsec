@@ -324,6 +324,36 @@ class CoverageTracker:
                     sleep_time = 0.5 if new_lines else 1.0
                     time.sleep(sleep_time)
 
+                # Step 4: Final drain, while the handle is still open and still
+                # positioned where the tail loop left it. The loop exits on the
+                # stop signal without a last read, so every line appended since
+                # its previous readlines() would otherwise never reach the
+                # repository — and the repository is the only input
+                # CoverageComponent.process_results() has on the live path,
+                # while resume re-parses the whole file. Reading forward from
+                # the current position is what keeps consumed lines from being
+                # registered a second time.
+                #
+                # It runs here, before the flush_diagnostics() below, so a
+                # diagnostic event whose final line sits in the unread tail is
+                # completed and emitted rather than discarded. It reads what is
+                # in the file at this instant; the platform stops the logcat
+                # producer before stopping this consumer, which is what makes
+                # the result deterministic.
+                trailing_lines = []
+                try:
+                    with self._reader_lock:
+                        trailing_lines = f.readlines()
+                        if trailing_lines:
+                            self.process_lines(trailing_lines)
+                    if trailing_lines:
+                        self._update_coverage_metrics()
+                        self.last_update_time = datetime.now()
+                except Exception as e:
+                    self.logger.warning(
+                        f"Could not drain the remainder of {self.logcat_file}: {e}"
+                    )
+
         except Exception as e:
             self.logger.error(f"Error tracking coverage: {e}", exc_info=True)
 

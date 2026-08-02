@@ -31,7 +31,14 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CONSTANTS_FILE = REPO_ROOT / "modules" / "rv-android-core" / "src" / "rv_android_core" / "constants.py"
+CONSTANTS_FILE = (
+    REPO_ROOT
+    / "modules"
+    / "rv-android-core"
+    / "src"
+    / "rv_android_core"
+    / "constants.py"
+)
 README_FILE = REPO_ROOT / "README.md"
 ENV_EXAMPLE_FILE = REPO_ROOT / ".env.example"
 
@@ -43,9 +50,29 @@ LINT_TEST_PATHS = (
 
 # L1 cross-layer infra family — six canonical readers allow-listed at L1.
 L1_ALLOWLIST_FILES = (
-    REPO_ROOT / "modules" / "rv-android-core" / "src" / "rv_android_core" / "util" / "validation" / "config.py",
-    REPO_ROOT / "modules" / "rv-android-core" / "src" / "rv_android_core" / "util" / "jar_resolver.py",
-    REPO_ROOT / "modules" / "rv-android-core" / "src" / "rv_android_core" / "util" / "android" / "android.py",
+    REPO_ROOT
+    / "modules"
+    / "rv-android-core"
+    / "src"
+    / "rv_android_core"
+    / "util"
+    / "validation"
+    / "config.py",
+    REPO_ROOT
+    / "modules"
+    / "rv-android-core"
+    / "src"
+    / "rv_android_core"
+    / "util"
+    / "jar_resolver.py",
+    REPO_ROOT
+    / "modules"
+    / "rv-android-core"
+    / "src"
+    / "rv_android_core"
+    / "util"
+    / "android"
+    / "android.py",
 )
 L1_INFRA_NAMES = frozenset(
     {
@@ -55,6 +82,11 @@ L1_INFRA_NAMES = frozenset(
         "RVSEC_HOME",
         "ANDROID_HOME",
         "TOOLS_DIR",
+        # Device timeout budgets read by util/android/android.py. Their value is a
+        # property of the host and its concurrency level, not of the experiment.
+        "RV_EMULATOR_BOOT_TIMEOUT",
+        "RV_ADB_CMD_TIMEOUT",
+        "RV_APK_INSTALL_TIMEOUT",
     }
 )
 
@@ -67,12 +99,20 @@ L5_DIR = REPO_ROOT / "modules" / "rv-experiment" / "src"
 
 # Five read forms; the regex captures the variable name where applicable.
 RX_ENVIRON_GET = re.compile(r'os\.environ\.get\(\s*["\'](RV_[A-Z0-9_]+)["\']')
-RX_ENVIRON_GET_INFRA = re.compile(r'os\.environ\.get\(\s*["\']((?:RVSEC_HOME|ANDROID_HOME|TOOLS_DIR))["\']')
+RX_ENVIRON_GET_INFRA = re.compile(
+    r'os\.environ\.get\(\s*["\']((?:RVSEC_HOME|ANDROID_HOME|TOOLS_DIR))["\']'
+)
 RX_ENVIRON_SUB = re.compile(r'os\.environ\[\s*["\'](RV_[A-Z0-9_]+)["\']')
-RX_ENVIRON_SUB_INFRA = re.compile(r'os\.environ\[\s*["\']((?:RVSEC_HOME|ANDROID_HOME|TOOLS_DIR))["\']')
+RX_ENVIRON_SUB_INFRA = re.compile(
+    r'os\.environ\[\s*["\']((?:RVSEC_HOME|ANDROID_HOME|TOOLS_DIR))["\']'
+)
 RX_GETENV = re.compile(r'os\.getenv\(\s*["\'](RV_[A-Z0-9_]+)["\']')
-RX_GETENV_INFRA = re.compile(r'os\.getenv\(\s*["\']((?:RVSEC_HOME|ANDROID_HOME|TOOLS_DIR))["\']')
-RX_DICT_ENVIRON = re.compile(r"(?<!\.)\bdict\(\s*os\.environ\b")  # exclude patch.dict(os.environ, ...)
+RX_GETENV_INFRA = re.compile(
+    r'os\.getenv\(\s*["\']((?:RVSEC_HOME|ANDROID_HOME|TOOLS_DIR))["\']'
+)
+RX_DICT_ENVIRON = re.compile(
+    r"(?<!\.)\bdict\(\s*os\.environ\b"
+)  # exclude patch.dict(os.environ, ...)
 RX_ENVIRON_COPY = re.compile(r"\bos\.environ\.copy\(\s*\)")
 
 # Documentation patterns for cross-checks (b) and (c)
@@ -130,7 +170,7 @@ def _check_read_forms(violations: list[str]) -> None:
                 if m:
                     var = m.group(1)
                     violations.append(
-                        f"{rel}:{line_no}: literal {form}(\"{var}\") — use ENV_* constant from rv_android_core.constants"
+                        f'{rel}:{line_no}: literal {form}("{var}") — use ENV_* constant from rv_android_core.constants'
                     )
 
             # L1 infra literals — allowed only inside L1_ALLOWLIST_FILES.
@@ -143,7 +183,7 @@ def _check_read_forms(violations: list[str]) -> None:
                 if m and not is_l1_allowed:
                     var = m.group(1)
                     violations.append(
-                        f"{rel}:{line_no}: literal {form}(\"{var}\") at non-L1 location — use the appropriate L1 utility (JarResolver, ValidationConfig)"
+                        f'{rel}:{line_no}: literal {form}("{var}") at non-L1 location — use the appropriate L1 utility (JarResolver, ValidationConfig)'
                     )
 
             # Wholesale env leak — never allowed outside L5.
@@ -198,7 +238,7 @@ def _check_registry_to_doc(registry: dict[str, str], violations: list[str]) -> N
     for env_name, value in registry.items():
         if value not in docs_text:
             violations.append(
-                f"constants.py: {env_name}=\"{value}\" — value not documented in README.md or .env.example"
+                f'constants.py: {env_name}="{value}" — value not documented in README.md or .env.example'
             )
 
 

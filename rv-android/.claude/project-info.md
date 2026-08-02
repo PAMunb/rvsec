@@ -32,6 +32,11 @@ export ANDROID_HOME="/path/to/android-sdk"  # Emulator management
 # Development
 export RV_PYDANTIC=true                     # Enable validation
 
+# Device timeouts (read at point of use by util/android/android.py)
+export RV_EMULATOR_BOOT_TIMEOUT=300         # Boot budget (s), both phases; provisional
+export RV_ADB_CMD_TIMEOUT=30                # Per-probe ADB timeout (s) during boot
+export RV_APK_INSTALL_TIMEOUT=600           # adb install timeout (s)
+
 # RV-Agent (optional)
 export RVAGENT_MODE="multimode"             # pure_algorithm | llm_only | multimode
 ```

@@ -7,16 +7,50 @@ runtime permission granting for automated testing workflows.
 """
 
 import logging as logging_api
+import os
 import subprocess
 import time
 from contextlib import contextmanager
+from typing import Optional
 
 from rv_android_core.commands.command import Command
+from rv_android_core.constants import (
+    ENV_ADB_CMD_TIMEOUT,
+    ENV_APK_INSTALL_TIMEOUT,
+    ENV_EMULATOR_BOOT_TIMEOUT,
+)
 from rv_android_core.domain.app import App
 from rv_android_core.util import utils
 from rv_android_core.util.error.exceptions import RVCommandTimeoutError
 
 logging = logging_api.getLogger(__name__)
+
+# Total seconds allowed across both boot phases. Provisional: 180 s was
+# exceeded 322 times in the recorded history of the project (p50 182 s,
+# p90 210 s, max 871 s), so 300 s is an improvement of unknown sufficiency.
+# The real distribution is collected by observing production runs; when boot
+# timeouts appear, RV_EMULATOR_BOOT_TIMEOUT is what rises.
+DEFAULT_BOOT_TIMEOUT_SECONDS = 300
+
+# Seconds allowed for a single ADB probe. A probe that exceeds it is killed
+# and retried against the remaining boot budget.
+DEFAULT_ADB_CMD_TIMEOUT_SECONDS = 30
+
+# Seconds allowed for `adb install`. Errs long deliberately: no distribution
+# of install durations exists, and killing a healthy slow install on a
+# contended host is the worse failure mode. It exists to bound a hung
+# install, which would otherwise hold the emulator session open for the
+# whole task.
+DEFAULT_APK_INSTALL_TIMEOUT_SECONDS = 600
+
+# Seconds between two boot probes. Deliberately a module constant and not an
+# environment variable: how often the device is asked is not a property of
+# the host, only how long it is given.
+BOOT_POLL_INTERVAL_SECONDS = 5
+
+# Seconds to wait after a successful `adb emu kill` so the emulator releases
+# its port before the next task binds it.
+EMULATOR_KILL_SETTLE_SECONDS = 10
 
 
 class Android:
@@ -38,13 +72,14 @@ class Android:
 
     - Called by EmulatorComponent in rv-platform for emulator lifecycle management
     - Handles APK installation and permission granting during task execution
-    - Provides boot wait logic with multi-phase verification (boot animation,
-      sys.boot_completed, root, remount)
+    - Provides boot wait logic with two-phase verification (boot animation,
+      then sys.boot_completed)
 
     ### Key Features:
 
     - Parallel emulator support via configurable device ports
-    - Multi-phase boot verification with per-command timeout and retry
+    - Two-phase boot verification against one shared budget, with per-command
+      timeout and retry
     - APK installation with automatic permission granting
     """
 
@@ -129,23 +164,87 @@ class Android:
         kill the ADB server or remove AVD lock files, as those are shared
         resources needed by other emulator instances in parallel execution.
 
+        The settling delay that follows the kill is taken only when the kill
+        succeeded. It exists to let the emulator release its port before the
+        next task binds it, which is meaningless when nothing was killed —
+        and teardown now runs on paths where no emulator process ever came up.
+
         Args:
             avd_name: Name of the AVD (used for logging only).
             device_name: ADB device serial (default: "emulator-5554").
         """
         logging.info(f"Killing emulator {device_name}...")
-        kill_emulator_cmd = Command("adb", ["-s", device_name, "emu", "kill"])
-        kill_emulator_cmd.invoke()
-        time.sleep(10)
+        cmd_timeout = cls._resolve_timeout(
+            ENV_ADB_CMD_TIMEOUT, DEFAULT_ADB_CMD_TIMEOUT_SECONDS
+        )
+        kill_emulator_cmd = Command(
+            "adb", ["-s", device_name, "emu", "kill"], cmd_timeout
+        )
+        kill_result = kill_emulator_cmd.invoke()
+        if kill_result.is_failure():
+            logging.info(
+                f"No emulator answered on {device_name} "
+                f"(exit code {kill_result.code}): "
+                f"{kill_result.get_combined_output()}"
+            )
+            return
+        time.sleep(EMULATOR_KILL_SETTLE_SECONDS)
         logging.info(f"Emulator {device_name} has been killed")
 
     @staticmethod
-    def _wait_for_boot(device_name: str = "emulator-5554", boot_timeout: int = 180):
+    def _resolve_timeout(
+        env_name: str, default: int, override: Optional[int] = None
+    ) -> int:
+        """Resolve a timeout as: explicit argument, then environment, then default.
+
+        A value that is set but is not a valid integer raises `ValueError`
+        rather than reverting to the default. A mistyped budget that quietly
+        becomes the default is indistinguishable from a working configuration
+        until an experiment fails, so it must fail at the point of use.
+
+        Args:
+            env_name: Name of the environment variable to consult.
+            default: Value in force when neither an override nor the variable
+                is supplied.
+            override: Explicit value; wins over both other sources when given.
+
+        Returns:
+            The number of seconds in force.
+
+        Raises:
+            ValueError: If the environment variable is set to a non-integer.
+        """
+        if override is not None:
+            return override
+        env_value = os.environ.get(env_name)
+        if env_value is None:
+            return default
+        return int(env_value)
+
+    @staticmethod
+    def _wait_for_boot(
+        device_name: str = "emulator-5554", boot_timeout: Optional[int] = None
+    ):
         """Wait for an Android emulator to fully boot and become ready.
 
-        Run two sequential verification phases: boot animation stop and
-        sys.boot_completed property. Each phase retries on ADB command
-        timeouts until the overall boot_timeout is exceeded.
+        Run two sequential verification phases against a single shared budget
+        measured from one timestamp: the boot animation must report `stopped`,
+        then `sys.boot_completed` must read `1`. Each phase retries on ADB
+        command timeouts — ADB responds slowly during early boot — until the
+        shared budget is exhausted.
+
+        Both phases poll from Python and inspect the returned `CommandResult`
+        before acting on it. `Command.invoke()` raises only on timeout and on
+        a local `OSError`; a non-zero exit is reported exclusively through the
+        result, so "it did not raise" says nothing about whether the command
+        worked. Iteration in particular must stay in Python: `Command` spawns
+        processes with `shell=False`, so a loop embedded in a device-side
+        shell string reaches the device as one quoted word and fails with
+        "command not found".
+
+        Phase 1 is a coarse gate only. The emulator is launched with
+        `-no-boot-anim`, so the animation service can report `stopped` before
+        the Android framework is usable; phase 2 is the authoritative signal.
 
         Phase 3 (`adb root` + `adb remount`) was intentionally removed
         (commit c0274def, gh50 §17). The emulator is launched with
@@ -159,13 +258,24 @@ class Android:
 
         Args:
             device_name: ADB device serial (default: "emulator-5554").
-            boot_timeout: Maximum total seconds to wait across both phases
-                (default: 180).
+            boot_timeout: Maximum total seconds to wait across both phases.
+                When None, resolved from RV_EMULATOR_BOOT_TIMEOUT and then
+                from the module default. The parameter is retained so tests
+                can inject a budget without patching the environment.
 
         Raises:
-            TimeoutError: If any phase does not complete within boot_timeout.
+            TimeoutError: If either phase exhausts the shared budget. The
+                message names the phase, so the two failure modes stay
+                separable in stored error_message values.
+            ValueError: If a timeout environment variable holds a
+                non-integer value.
         """
-        cmd_timeout = 30  # timeout per individual adb command
+        boot_timeout = Android._resolve_timeout(
+            ENV_EMULATOR_BOOT_TIMEOUT, DEFAULT_BOOT_TIMEOUT_SECONDS, boot_timeout
+        )
+        cmd_timeout = Android._resolve_timeout(
+            ENV_ADB_CMD_TIMEOUT, DEFAULT_ADB_CMD_TIMEOUT_SECONDS
+        )
         start = time.time()
         logging.info(f"Waiting for {device_name} to boot (timeout={boot_timeout}s)")
 
@@ -178,46 +288,77 @@ class Android:
             ["-s", device_name, "shell", "getprop", "init.svc.bootanim"],
             cmd_timeout,
         )
+        # Each distinct probe failure is reported once. The emulator is launched
+        # with `-delay-adb`, so ADB legitimately answers "device not found" and
+        # then "device offline" for most of a healthy boot; warning on every
+        # poll would emit dozens of identical lines per task and bury the case
+        # this diagnostic exists for. Reporting each new reason the moment it
+        # first appears is what makes a genuinely broken ADB visible in seconds
+        # instead of indistinguishable from a slow boot until the whole budget
+        # is consumed.
+        last_reported_failure = None
         while True:
             if time.time() - start > boot_timeout:
                 raise TimeoutError(f"{device_name} did not boot within {boot_timeout}s")
             try:
                 check_result = check_emulator_cmd.invoke()
-                if check_result.stdout.strip().decode("ascii") == "stopped":
+                if check_result.is_failure():
+                    reason = check_result.get_combined_output()
+                    if reason != last_reported_failure:
+                        last_reported_failure = reason
+                        logging.warning(
+                            f"ADB probe failed for {device_name} "
+                            f"(exit code {check_result.code}): {reason}"
+                        )
+                elif not check_result.stdout.strip():
+                    if last_reported_failure != "":
+                        last_reported_failure = ""
+                        logging.warning(
+                            f"ADB probe for {device_name} returned empty output "
+                            f"for init.svc.bootanim; the device answered but the "
+                            f"property is not set"
+                        )
+                elif check_result.stdout.strip() == b"stopped":
                     break
             except RVCommandTimeoutError:
                 logging.warning(
                     f"ADB boot check timed out for {device_name}, retrying..."
                 )
-            time.sleep(5)
+            time.sleep(BOOT_POLL_INTERVAL_SECONDS)
             logging.info(f"Waiting for {device_name} to boot")
 
-        # Phase 2: Wait for sys.boot_completed.
-        # Same retry pattern — the shell command can time out if the emulator is slow.
+        # Phase 2: Wait for sys.boot_completed, the authoritative readiness
+        # signal. The wait ends only on a probe that both succeeded and read
+        # exactly "1"; every other outcome keeps polling until the shared
+        # budget expires.
         wait_emulator_cmd = Command(
             "adb",
-            [
-                "-s",
-                device_name,
-                "wait-for-device",
-                "shell",
-                "'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'",
-            ],
+            ["-s", device_name, "shell", "getprop", "sys.boot_completed"],
             cmd_timeout,
         )
+        last_reported_failure = None
         while True:
             if time.time() - start > boot_timeout:
                 raise TimeoutError(
                     f"{device_name} sys.boot_completed not set within {boot_timeout}s"
                 )
             try:
-                wait_emulator_cmd.invoke()
-                break
+                wait_result = wait_emulator_cmd.invoke()
+                if wait_result.is_failure():
+                    reason = wait_result.get_combined_output()
+                    if reason != last_reported_failure:
+                        last_reported_failure = reason
+                        logging.warning(
+                            f"ADB boot_completed probe failed for {device_name} "
+                            f"(exit code {wait_result.code}): {reason}"
+                        )
+                elif wait_result.stdout.strip() == b"1":
+                    break
             except RVCommandTimeoutError:
                 logging.warning(
                     f"ADB boot_completed check timed out for {device_name}, retrying..."
                 )
-            time.sleep(5)
+            time.sleep(BOOT_POLL_INTERVAL_SECONDS)
 
         logging.info(f"{device_name} booted!")
         elapsed = time.time() - start
@@ -269,24 +410,47 @@ class Android:
         """Install an APK on the target device via ADB.
 
         Resolve the APK path via readlink, then install with -r (replace)
-        and -g (grant all permissions at install time) flags. The device
-        is rooted before installation to ensure write access.
+        and -g (grant all permissions at install time) flags. Installation
+        needs no elevated privileges: the APK is handed to the package
+        manager, which owns the write.
+
+        The `adb root` attempt that precedes it is expected to be rejected,
+        because the emulator runs with `-read-only`; its result is logged and
+        installation proceeds regardless.
 
         Args:
             app: Application containing APK path and name.
             device_name: ADB device serial (default: "emulator-5554").
 
         Raises:
-            RuntimeError: If ADB install reports a non-zero exit code.
+            RuntimeError: If ADB install reports a non-zero exit code. The
+                message carries the exit code and the combined output, so the
+                INSTALL_FAILED_* reason reaches the caller.
+            RVCommandTimeoutError: If the install exceeds
+                RV_APK_INSTALL_TIMEOUT.
         """
         logging.info("Installing APK: {0} on {1}".format(app.name, device_name))
-        root_cmd = Command("adb", ["-s", device_name, "root"])
-        result = root_cmd.invoke()
-        readlink_cmd = Command("readlink", ["-f", app.path])
+        cmd_timeout = cls._resolve_timeout(
+            ENV_ADB_CMD_TIMEOUT, DEFAULT_ADB_CMD_TIMEOUT_SECONDS
+        )
+        install_timeout = cls._resolve_timeout(
+            ENV_APK_INSTALL_TIMEOUT, DEFAULT_APK_INSTALL_TIMEOUT_SECONDS
+        )
+        root_cmd = Command("adb", ["-s", device_name, "root"], cmd_timeout)
+        root_result = root_cmd.invoke()
+        if root_result.is_failure():
+            logging.debug(
+                f"adb root rejected on {device_name} "
+                f"(exit code {root_result.code}): "
+                f"{root_result.get_combined_output()}"
+            )
+        readlink_cmd = Command("readlink", ["-f", app.path], cmd_timeout)
         readlink_result = readlink_cmd.invoke()
         apk_path = readlink_result.stdout.strip().decode("ascii")
         install_cmd = Command(
-            "adb", ["-s", device_name, "install", "-r", "-g", apk_path]
+            "adb",
+            ["-s", device_name, "install", "-r", "-g", apk_path],
+            install_timeout,
         )
         result = install_cmd.invoke()
         if result.is_failure():
@@ -298,7 +462,9 @@ class Android:
                     f"Signature mismatch for {app.name}, uninstalling old version"
                 )
                 uninstall_cmd = Command(
-                    "adb", ["-s", device_name, "uninstall", app.package_name]
+                    "adb",
+                    ["-s", device_name, "uninstall", app.package_name],
+                    cmd_timeout,
                 )
                 uninstall_cmd.invoke()
                 result = install_cmd.invoke()
@@ -318,8 +484,11 @@ class Android:
             device_name: ADB device serial (default: "emulator-5554").
         """
         logging.info("Uninstalling APK: {} from {}".format(app.name, device_name))
+        cmd_timeout = cls._resolve_timeout(
+            ENV_ADB_CMD_TIMEOUT, DEFAULT_ADB_CMD_TIMEOUT_SECONDS
+        )
         uninstall_cmd = Command(
-            "adb", ["-s", device_name, "uninstall", app.package_name]
+            "adb", ["-s", device_name, "uninstall", app.package_name], cmd_timeout
         )
         uninstall_cmd.invoke()
 
@@ -334,6 +503,9 @@ class Android:
             app: Application containing package name and permissions list.
             device_name: ADB device serial (default: "emulator-5554").
         """
+        cmd_timeout = cls._resolve_timeout(
+            ENV_ADB_CMD_TIMEOUT, DEFAULT_ADB_CMD_TIMEOUT_SECONDS
+        )
         for permission in app.permissions:
             logging.info("Granting permission {} on {}".format(permission, device_name))
             grant_cmd = Command(
@@ -347,5 +519,6 @@ class Android:
                     app.package_name,
                     permission,
                 ],
+                cmd_timeout,
             )
             grant_cmd.invoke()

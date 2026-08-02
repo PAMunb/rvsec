@@ -103,6 +103,15 @@ ENV_PYDANTIC_LOG = "RV_PYDANTIC_LOG"
 # Default off: when unset, logcat capture stays byte-identical to the RVSEC/RVSEC-COV baseline.
 ENV_LOGCAT_DIAGNOSTICS = "RV_LOGCAT_DIAGNOSTICS"
 
+# Device timeout budgets, read at the point of use by util/android/android.py.
+# These belong to the L1 cross-layer infra family: the correct value depends on
+# the host and its concurrency level, not on the semantics of the experiment —
+# the same cold boot that finishes quickly on an idle machine disperses far
+# beyond that under 8 to 16 containers competing for KVM, CPU and RAM.
+ENV_EMULATOR_BOOT_TIMEOUT = "RV_EMULATOR_BOOT_TIMEOUT"
+ENV_ADB_CMD_TIMEOUT = "RV_ADB_CMD_TIMEOUT"
+ENV_APK_INSTALL_TIMEOUT = "RV_APK_INSTALL_TIMEOUT"
+
 # Variant system constants
 DEFAULT_VARIANT_NAME = "default"
 VARIANT_SEPARATOR = ":"

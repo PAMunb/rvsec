@@ -26,6 +26,11 @@ services:
       - RV_NO_WINDOW=true
       - RV_SPEC_SET=jca
       - RV_HUMANOID_URL=humanoid:50405
+      # Emulator boot budget and ADB timeouts. Raise RV_EMULATOR_BOOT_TIMEOUT
+      # when many containers compete for KVM: cold boot disperses under load.
+      - RV_EMULATOR_BOOT_TIMEOUT=${RV_EMULATOR_BOOT_TIMEOUT:-300}
+      - RV_ADB_CMD_TIMEOUT=${RV_ADB_CMD_TIMEOUT:-30}
+      - RV_APK_INSTALL_TIMEOUT=${RV_APK_INSTALL_TIMEOUT:-600}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${BASE_DIR:-./data}/apks:/opt/rvsec/rv-android/apks

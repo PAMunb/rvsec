@@ -2,7 +2,12 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 from rv_android_core.domain.app import App
-from rv_android_core.util.android.android import Android
+from rv_android_core.util.android.android import (
+    DEFAULT_APK_INSTALL_TIMEOUT_SECONDS,
+    DEFAULT_BOOT_TIMEOUT_SECONDS,
+    EMULATOR_KILL_SETTLE_SECONDS,
+    Android,
+)
 
 
 # Mock the Command class globally for these tests
@@ -107,17 +112,20 @@ class TestAndroid:
     def test_kill_emulator(self, mock_command_class, mock_logging, mock_time_sleep):
         mock_kill_emu_cmd_instance = MagicMock()
         mock_command_class.side_effect = [mock_kill_emu_cmd_instance]
+        kill_result = MagicMock()
+        kill_result.is_failure.return_value = False
+        mock_kill_emu_cmd_instance.invoke.return_value = kill_result
 
         # Use non-default serial to prove device_name is propagated correctly
         Android.kill_emulator("test_avd", "emulator-5556")
 
         mock_command_class.assert_has_calls(
             [
-                call("adb", ["-s", "emulator-5556", "emu", "kill"]),
+                call("adb", ["-s", "emulator-5556", "emu", "kill"], 30),
             ]
         )
         mock_kill_emu_cmd_instance.invoke.assert_called_once()
-        mock_time_sleep.assert_called_once_with(10)
+        mock_time_sleep.assert_called_once_with(EMULATOR_KILL_SETTLE_SECONDS)
         mock_logging.info.assert_any_call("Killing emulator emulator-5556...")
         mock_logging.info.assert_called_with("Emulator emulator-5556 has been killed")
 
@@ -128,37 +136,43 @@ class TestAndroid:
         # `-read-only` emulators (silent on API 29, hard-fail on API 30+). Only
         # Phase 1 (bootanim) and Phase 2 (sys.boot_completed) remain.
         #
-        # Function-based side_effect: a list of pre-built MagicMock(stdout=…)
-        # raised StopIteration on this codepath even with 21+ items, suggesting
-        # internal MagicMock attribute resolution chains. A factory keeps the
-        # mock fresh per call and avoids the issue.
+        # Each probe result must set is_failure() explicitly: a bare MagicMock
+        # returns a truthy MagicMock from it, which would make every probe read
+        # as a failed one and the wait never terminate.
         invoke_count = {"n": 0}
 
         def _invoke(*args, **kwargs):
             invoke_count["n"] += 1
             m = MagicMock()
-            # Phase 1 iter 1: bootanim still booting; iter 2 onwards: stopped.
-            # Phase 2 iter 1: invoke() return is ignored, only matters not raising.
-            m.stdout = b"booting" if invoke_count["n"] == 1 else b"stopped"
+            m.is_failure.return_value = False
+            # Phase 1 iter 1: bootanim still booting; iter 2: stopped.
+            # Phase 2 then reads sys.boot_completed, which must be exactly b"1".
+            if invoke_count["n"] == 1:
+                m.stdout = b"booting"
+            elif invoke_count["n"] == 2:
+                m.stdout = b"stopped"
+            else:
+                m.stdout = b"1"
             m.stderr = b""
             return m
 
         mock_command_class.return_value.invoke.side_effect = _invoke
 
-        # time.time() generous slack: any call is expected to return < 180s
-        with patch("time.time", side_effect=[i for i in range(20)]):
-            Android._wait_for_boot("emulator-5554")
-            mock_logging.info.assert_has_calls(
-                [
-                    call("Waiting for emulator-5554 to boot (timeout=180s)"),
-                    call("Waiting for emulator-5554 to boot"),
-                    call("emulator-5554 booted!"),
-                    call("emulator-5554 took 0m 0s to boot"),
-                ]
-            )
-            assert (
-                mock_time_sleep.call_count == 1
-            )  # only Phase 1 iter 1 sleeps; Phase 2 succeeds on first try
+        Android._wait_for_boot("emulator-5554")
+
+        mock_logging.info.assert_has_calls(
+            [
+                call(
+                    "Waiting for emulator-5554 to boot "
+                    f"(timeout={DEFAULT_BOOT_TIMEOUT_SECONDS}s)"
+                ),
+                call("Waiting for emulator-5554 to boot"),
+                call("emulator-5554 booted!"),
+                call("emulator-5554 took 0m 0s to boot"),
+            ]
+        )
+        # Only Phase 1 iteration 1 sleeps; Phase 2 accepts on its first probe.
+        assert mock_time_sleep.call_count == 1
 
     def test_simulate_reboot(self, mock_command_class, mock_logging, mock_time_sleep):
         with patch.object(Android, "_wait_for_boot") as mock_wait_for_boot:
@@ -210,6 +224,11 @@ class TestAndroid:
         mock_readlink_cmd_instance.invoke.return_value = MagicMock(
             stdout=b"/real/path/to/app.apk\n"
         )
+        # adb root is expected to be rejected under -read-only; its result is
+        # inspected and logged rather than discarded.
+        mock_root_result = MagicMock()
+        mock_root_result.is_failure.return_value = False
+        mock_root_cmd_instance.invoke.return_value = mock_root_result
         # install_apk checks is_failure() on the result
         mock_install_result = MagicMock()
         mock_install_result.is_failure.return_value = False
@@ -221,8 +240,8 @@ class TestAndroid:
         )
         mock_command_class.assert_has_calls(
             [
-                call("adb", ["-s", "emulator-5554", "root"]),
-                call("readlink", ["-f", "/path/to/app.apk"]),
+                call("adb", ["-s", "emulator-5554", "root"], 30),
+                call("readlink", ["-f", "/path/to/app.apk"], 30),
                 call(
                     "adb",
                     [
@@ -233,6 +252,7 @@ class TestAndroid:
                         "-g",
                         "/real/path/to/app.apk",
                     ],
+                    DEFAULT_APK_INSTALL_TIMEOUT_SECONDS,
                 ),
             ]
         )
@@ -249,7 +269,7 @@ class TestAndroid:
             "Uninstalling APK: test_app from emulator-5554"
         )
         mock_command_class.assert_called_once_with(
-            "adb", ["-s", "emulator-5554", "uninstall", "com.example.test"]
+            "adb", ["-s", "emulator-5554", "uninstall", "com.example.test"], 30
         )
         mock_command_class.return_value.invoke.assert_called_once()
 
@@ -288,6 +308,7 @@ class TestAndroid:
                         "com.example.test",
                         "PERMISSION_A",
                     ],
+                    30,
                 ),
                 call(
                     "adb",
@@ -300,6 +321,7 @@ class TestAndroid:
                         "com.example.test",
                         "PERMISSION_B",
                     ],
+                    30,
                 ),
             ]
         )

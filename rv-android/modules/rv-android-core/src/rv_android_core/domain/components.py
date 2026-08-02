@@ -28,9 +28,7 @@ class IntentFilter(BaseValidatedModel):
     data_schemes: List[str] = Field(
         default_factory=list, description="URI schemes (http, content, custom)"
     )
-    data_hosts: List[str] = Field(
-        default_factory=list, description="URI hosts"
-    )
+    data_hosts: List[str] = Field(default_factory=list, description="URI hosts")
     data_ports: List[int] = Field(
         default_factory=list, description="URI ports (only declared ones, port>=0)"
     )

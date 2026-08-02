@@ -84,6 +84,17 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
+@test "emulator boot budget family is allow-listed" {
+    # The three timeouts that size the boot gate belong to the L1 cross-layer
+    # infra family: they are set per host/concurrency level in the composes,
+    # so the validator must accept them instead of killing the container.
+    export RV_EMULATOR_BOOT_TIMEOUT=300
+    export RV_ADB_CMD_TIMEOUT=30
+    export RV_APK_INSTALL_TIMEOUT=600
+    run "$SCRIPT"
+    [ "$status" -eq 0 ]
+}
+
 @test "missing constants.py file produces a clear error" {
     export RV_ANDROID_CONSTANTS_FILE=/nonexistent/constants.py
     run "$SCRIPT"

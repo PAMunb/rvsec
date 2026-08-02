@@ -1,6 +1,6 @@
 # rvandroid/util/emulator_manager.py
 from contextlib import contextmanager
-from typing import Optional
+from typing import Iterator, Optional
 
 from rv_android_core.commands.command import Command
 from rv_android_core.util.android.android import Android
@@ -59,9 +59,23 @@ class EmulatorManager:
         no_window: bool = False,
         device_port: int = 5554,
         disable_animations: bool = True,
-    ) -> Android:
+    ) -> Iterator[Android]:
         """
         Start an emulator with dynamic port allocation for parallel execution.
+
+        The block structure is load-bearing and is nested, not split into two
+        siblings. An outer `try` whose `finally` tears the device down encloses
+        everything; inside it, an inner `try/except` covers the startup
+        sequence alone and is the only thing that produces `EmulatorError`.
+        The `yield` sits after that inner block, so a failure in the caller's
+        `with` body propagates with its own type instead of being relabelled a
+        startup failure.
+
+        Two sibling blocks — `try/except` for startup, then `try/finally` for
+        the `yield` — read as the same refactor and are not: a startup failure
+        raises out of the first block and never enters the second, so the
+        teardown would not run and the AVD registered before launch would be
+        left holding its port.
 
         Args:
             avd_name: Name of the AVD to launch
@@ -73,7 +87,8 @@ class EmulatorManager:
             Android instance for interacting with the emulator
 
         Raises:
-            EmulatorError: If emulator fails to start
+            EmulatorError: If the emulator fails to start. Failures raised by
+                the body of the `with` block keep their own type.
         """
         device_serial = f"emulator-{device_port}"
         with self.logger.with_context(
@@ -88,31 +103,35 @@ class EmulatorManager:
             self.android = Android()
 
             try:
-                # Start the emulator with dynamic port allocation
-                self.android.start_emulator(avd_name, no_window, device_port)
-                self._active_emulators.add(avd_name)
+                try:
+                    # Register before launching: the teardown below acts only on
+                    # registered AVDs, so a boot that never completes would
+                    # otherwise leave the daemonized emulator alive holding its
+                    # port for the next task to find.
+                    self._active_emulators.add(avd_name)
 
-                # Configure device for optimal testing performance
-                if disable_animations:
-                    self.disable_animations(device_serial)
+                    # Start the emulator with dynamic port allocation
+                    self.android.start_emulator(avd_name, no_window, device_port)
 
-                self.logger.info(
-                    LOG_COMPLETE.format(phase=f"emulator {avd_name} startup")
-                )
+                    # Configure device for optimal testing performance
+                    if disable_animations:
+                        self.disable_animations(device_serial)
+
+                    self.logger.info(
+                        LOG_COMPLETE.format(phase=f"emulator {avd_name} startup")
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        LOG_ERROR.format(
+                            phase=f"starting emulator {avd_name}", error=str(e)
+                        )
+                    )
+                    raise EmulatorError(f"Failed to start emulator {avd_name}", cause=e)
 
                 yield self.android
 
-            except Exception as e:
-                self.logger.error(
-                    LOG_ERROR.format(
-                        phase=f"starting emulator {avd_name}", error=str(e)
-                    )
-                )
-                raise EmulatorError(f"Failed to start emulator {avd_name}", cause=e)
-
             finally:
                 # Always try to clean up with correct device serial
-                device_serial = f"emulator-{device_port}"
                 with self.logger.with_context(
                     phase="shutdown", device_serial=device_serial
                 ):
@@ -212,13 +231,29 @@ class EmulatorManager:
         """
         Install an app on the specific emulator instance.
 
+        An ADB failure is reported by raising, not by returning `False`. The
+        `RuntimeError` that `Android.install_apk` raises already carries the
+        exit code and the `INSTALL_FAILED_*` text; reducing it to a boolean
+        here is what kept that reason out of every one of the 1,174 recorded
+        install failures. Letting it propagate needs no new carrier type and
+        cannot be ignored the way a returned `False` could.
+
+        `False` is still returned for the one condition that produces no ADB
+        output to carry: being asked to install with no emulator attached.
+
         Args:
             app: App to install
             with_permissions: Whether to grant permissions
             device_serial: Target emulator device serial (for parallel execution)
 
         Returns:
-            True if installation succeeded, False otherwise
+            True if installation succeeded; False if there is no active
+            emulator to install onto.
+
+        Raises:
+            RuntimeError: If ADB reported an installation failure; the message
+                carries the exit code and the ADB output.
+            RVCommandTimeoutError: If the install exceeded its timeout.
         """
         with self.logger.with_context(
             app_name=app.name,
@@ -245,4 +280,4 @@ class EmulatorManager:
                 self.logger.error(
                     LOG_ERROR.format(phase=f"installing app {app.name}", error=str(e))
                 )
-                return False
+                raise

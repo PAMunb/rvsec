@@ -247,6 +247,66 @@ class TestInstallApp:
 
 
 # ---------------------------------------------------------------------------
+# Tests: consistent device resolution (INV-PLT-28)
+# ---------------------------------------------------------------------------
+
+
+class TestDeviceResolution:
+    """Test that the booted port and the installed serial denote one device."""
+
+    def test_full_parameters_are_honoured(
+        self, emulator_component, mock_task, mock_app
+    ):
+        """Both keys present: each is used exactly as injected."""
+        mock_task.config.tool_config.parameters = {
+            "device_port": 5558,
+            "device_serial": "emulator-5558",
+        }
+        emulator_component.emulator_manager.install_app.return_value = True
+
+        emulator_component.start_emulator("RVSec")
+        emulator_component.install_app(None, mock_app)
+
+        emulator_component.emulator_manager.start_emulator.assert_called_once_with(
+            "RVSec", False, 5558
+        )
+        install_kwargs = emulator_component.emulator_manager.install_app.call_args[1]
+        assert install_kwargs["device_serial"] == "emulator-5558"
+
+    def test_port_only_derives_matching_serial(
+        self, emulator_component, mock_task, mock_app
+    ):
+        """Only device_port present: the serial follows the port that was booted."""
+        mock_task.config.tool_config.parameters = {"device_port": 5558}
+        emulator_component.emulator_manager.install_app.return_value = True
+
+        emulator_component.start_emulator("RVSec")
+        emulator_component.install_app(None, mock_app)
+
+        emulator_component.emulator_manager.start_emulator.assert_called_once_with(
+            "RVSec", False, 5558
+        )
+        install_kwargs = emulator_component.emulator_manager.install_app.call_args[1]
+        assert install_kwargs["device_serial"] == "emulator-5558"
+
+    def test_no_parameters_uses_5554_defaults(
+        self, emulator_component, mock_task, mock_app
+    ):
+        """Neither key present: single-emulator defaults, port and serial aligned."""
+        mock_task.config.tool_config.parameters = {}
+        emulator_component.emulator_manager.install_app.return_value = True
+
+        emulator_component.start_emulator("RVSec")
+        emulator_component.install_app(None, mock_app)
+
+        emulator_component.emulator_manager.start_emulator.assert_called_once_with(
+            "RVSec", False, 5554
+        )
+        install_kwargs = emulator_component.emulator_manager.install_app.call_args[1]
+        assert install_kwargs["device_serial"] == "emulator-5554"
+
+
+# ---------------------------------------------------------------------------
 # Tests: clean_logcat()
 # ---------------------------------------------------------------------------
 

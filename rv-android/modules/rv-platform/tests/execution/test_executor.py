@@ -1,13 +1,17 @@
 # tests/execution/test_executor.py
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import rv_platform.execution.executor
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskState
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import EmulatorError
 from rv_platform.components.coverage import CoverageComponent
 from rv_platform.components.emulator import EmulatorComponent
+from rv_platform.components.logcat import LogcatComponent
 from rv_platform.components.tool_execution import ToolExecutionComponent
 from rv_platform.execution.executor import TaskExecutor
 
@@ -347,3 +351,198 @@ class TestTaskExecutor:
             f"before start_tracking (index {tracking_idx}). "
             f"Actual order: {call_order}"
         )
+
+
+class TestFinalizationOwnership:
+    """Coverage and logcat are finalized once, in order, with the device alive.
+
+    The finalization used to exist twice: inline at the end of the emulator
+    session, and again in the components' own `cleanup()` reached from the
+    error path after teardown had already killed the device. There is now one
+    firing point, in a `finally` covering the body of the `with`.
+    """
+
+    @pytest.fixture
+    def basic_config(self):
+        from rv_android_core.domain.task import ToolConfig
+
+        tool_config = ToolConfig(name="monkey", variant="default", parameters={})
+        return TaskConfiguration(
+            apk_name="test.apk", repetition=1, timeout=60, tool_config=tool_config
+        )
+
+    @pytest.fixture
+    def task_with_app(self, basic_config):
+        app = MagicMock(spec=App)
+        app.name = "test.apk"
+        app.package_name = "com.test.app"
+        task = Task(basic_config)
+        task.set_app(app)
+        return task
+
+    @pytest.fixture
+    def mock_tool(self):
+        tool = MagicMock(spec=AbstractTool)
+        tool.name = "monkey"
+        tool.execute.return_value = True
+        return tool
+
+    def _wire(self, executor, call_order, install_ok=True, tool_ok=True):
+        """Register the four components, recording the order of every call.
+
+        The emulator context manager appends "emu_kill" on `__exit__`, which
+        stands in for the teardown the real one performs — the assertions
+        below are about what happens before the device dies.
+        """
+        mock_emulator = MagicMock(spec=EmulatorComponent)
+        mock_emulator.name = "EmulatorComponent"
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=MagicMock())
+        mock_context_manager.__exit__ = MagicMock(
+            side_effect=lambda *args: call_order.append("emu_kill") or False
+        )
+        mock_emulator.start_emulator.return_value = mock_context_manager
+        mock_emulator.install_app.return_value = install_ok
+        mock_emulator.last_install_error = None
+        executor.register_component(mock_emulator)
+
+        mock_logcat = MagicMock(spec=LogcatComponent)
+        mock_logcat.name = "LogcatComponent"
+        mock_logcat.execute.return_value = True
+        mock_logcat.cleanup.side_effect = lambda ctx: call_order.append(
+            "logcat_cleanup"
+        )
+        executor.register_component(mock_logcat)
+
+        mock_coverage = MagicMock(spec=CoverageComponent)
+        mock_coverage.name = "CoverageComponent"
+        mock_coverage.execute.return_value = True
+        mock_coverage.cleanup.side_effect = lambda ctx: call_order.append(
+            "coverage_cleanup"
+        )
+        executor.register_component(mock_coverage)
+
+        mock_tool_execution = MagicMock(spec=ToolExecutionComponent)
+        mock_tool_execution.name = "ToolExecutionComponent"
+        mock_tool_execution.execute.return_value = tool_ok
+        executor.register_component(mock_tool_execution)
+
+        return mock_emulator, mock_logcat, mock_coverage
+
+    def test_success_path_finalizes_in_order_before_teardown(
+        self, task_with_app, mock_tool
+    ):
+        executor = TaskExecutor(task_with_app, mock_tool)
+        call_order = []
+        self._wire(executor, call_order)
+
+        executor.execute()
+
+        assert "logcat_cleanup" in call_order
+        assert "coverage_cleanup" in call_order
+        assert call_order.index("logcat_cleanup") < call_order.index(
+            "coverage_cleanup"
+        ), f"producer must stop before consumer, got {call_order}"
+        assert call_order.index("coverage_cleanup") < call_order.index(
+            "emu_kill"
+        ), f"finalization must run with the device alive, got {call_order}"
+
+    def test_failure_path_finalizes_in_order_before_teardown(
+        self, task_with_app, mock_tool
+    ):
+        """A failing tool must not skip finalization, nor reorder it."""
+        executor = TaskExecutor(task_with_app, mock_tool)
+        call_order = []
+        self._wire(executor, call_order, tool_ok=False)
+
+        executor.execute()
+
+        assert task_with_app.result.state == TaskState.ERROR
+        assert call_order.index("logcat_cleanup") < call_order.index("coverage_cleanup")
+        assert call_order.index("coverage_cleanup") < call_order.index("emu_kill")
+
+    def test_a_failing_cleanup_primitive_does_not_mask_the_original_failure(
+        self, task_with_app, mock_tool
+    ):
+        """The `finally` is safe because `cleanup()` swallows its own errors.
+
+        This drives the real components rather than mocks: a mock whose
+        `cleanup` raises would be violating the contract under test, not
+        exercising it. `CoverageTracker.stop()` is made to fail, which is the
+        realistic way an internal error arises during finalization.
+        """
+        coverage_component = CoverageComponent(task_with_app)
+        coverage_component.coverage_tracker = MagicMock()
+        coverage_component.coverage_tracker.stop.side_effect = RuntimeError(
+            "tracker thread wedged"
+        )
+
+        # Must not raise: an exception escaping here would replace the
+        # exception being propagated out of the emulator session.
+        coverage_component.cleanup({})
+
+        logcat_component = LogcatComponent(task_with_app)
+        logcat_component.logcat_manager = MagicMock()
+        logcat_component.logcat_manager.stop_capture.side_effect = RuntimeError(
+            "adb gone"
+        )
+
+        logcat_component.cleanup({})
+
+    def test_repeat_cleanup_leaves_coverage_metrics_unchanged(
+        self, task_with_app, mock_tool
+    ):
+        """`_cleanup_components()` still invokes both components afterwards;
+        that second invocation must be inert."""
+        executor = TaskExecutor(task_with_app, mock_tool)
+        call_order = []
+        _, mock_logcat, mock_coverage = self._wire(executor, call_order)
+
+        executor.execute()
+        metrics_after_execute = dict(task_with_app.result.coverage_metrics or {})
+
+        executor._cleanup_components(executor.get_task_context())
+
+        assert task_with_app.result.coverage_metrics == (metrics_after_execute or {})
+        assert mock_logcat.cleanup.call_count >= 2
+        assert mock_coverage.cleanup.call_count >= 2
+
+    def test_no_install_is_attempted_when_the_boot_wait_times_out(
+        self, task_with_app, mock_tool
+    ):
+        """INV-PLT-27: a device that never booted must not receive an install,
+        and the failure must not be reported as an installation failure."""
+        executor = TaskExecutor(task_with_app, mock_tool)
+        call_order = []
+        mock_emulator, _, _ = self._wire(executor, call_order)
+
+        boot_failure = EmulatorError(
+            "Failed to start emulator RVSec",
+            cause=TimeoutError("emulator-5554 sys.boot_completed not set within 300s"),
+        )
+        mock_emulator.start_emulator.side_effect = boot_failure
+
+        executor.execute()
+
+        mock_emulator.install_app.assert_not_called()
+        assert task_with_app.result.state == TaskState.ERROR
+        assert "Failed to install application" not in task_with_app.result.error_message
+
+    def test_executor_never_calls_the_finalization_primitives_directly(self):
+        """Only one implementation of finalization exists: the components'.
+
+        Comment lines are stripped before the search, so prose describing the
+        behavior does not satisfy or break the assertion.
+        """
+        source_path = Path(rv_platform.execution.executor.__file__).resolve()
+        code_lines = [
+            line.split("#", 1)[0]
+            for line in source_path.read_text(encoding="utf-8").splitlines()
+        ]
+        code = "\n".join(code_lines)
+
+        for primitive in ("stop_tracking(", "process_results(", "stop_capture("):
+            assert primitive not in code, (
+                f"{primitive} is called directly in executor.py; finalization "
+                f"must go through the components' cleanup()"
+            )

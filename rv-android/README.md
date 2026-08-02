@@ -375,6 +375,9 @@ documentation, and source code. Pattern rationale: `docs/adr/0001-env-var-patter
 | `RV_PYDANTIC` | — | `false` | rv-android-core (L1, validation/config) | Full Pydantic validation (development) |
 | `RV_PYDANTIC_STRICT` | — | `false` | rv-android-core (L1, validation/config) | Pydantic strict-mode |
 | `RV_PYDANTIC_LOG` | — | `false` | rv-android-core (L1, validation/config) | Per-validation event logging |
+| `RV_EMULATOR_BOOT_TIMEOUT` | — | `300` (provisional) | rv-android-core (L1, util.android.android) | Total boot budget (s) across both boot phases; raise it if boot timeouts appear |
+| `RV_ADB_CMD_TIMEOUT` | — | `30` | rv-android-core (L1, util.android.android) | Per-probe ADB timeout (s) during the boot wait |
+| `RV_APK_INSTALL_TIMEOUT` | — | `600` | rv-android-core (L1, util.android.android) | `adb install` timeout (s); errs long, since killing a healthy slow install is the worse failure |
 
 **Removed by gh55** (the entry-point allow-list rejects these deprecated names with exit 64): `RV_JCA_SPEC` (use `RV_SPEC_SET=jca` instead), `RV_MEMORY_FILE`, `RV_RVANDROID_URL`, `RV_SKIP_EXPERIMENT`.
 

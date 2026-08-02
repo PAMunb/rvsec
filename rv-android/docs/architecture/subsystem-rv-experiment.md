@@ -276,7 +276,9 @@ Inside the emulator session — a context manager owning boot, APK install, and 
 nesting order is load-bearing: logcat capture starts first, then
 `mark_tool_execution_start()` stamps the moment coverage timing begins (so progressive
 metrics exclude emulator boot), then coverage tracking, then the tool itself; teardown
-unwinds coverage first and logcat last so metrics finalize against a complete log. The tool
+unwinds logcat first and coverage last, because coverage is the reader and logcat the
+writer — stopping the producer first freezes the file, so the tracker's final drain
+finalizes metrics against a complete log. The tool
 component treats `RVToolTimeoutError` as success. After every task — success or failure —
 `TaskStorage.update_task` atomically rewrites `tasks.json`, which is the crash-safety
 contract. Concretely, MonkeyTool builds `adb -s emulator-5554 shell monkey -p
@@ -813,7 +815,9 @@ summary dict. Inside each task, `TaskExecutor` coordinates components in three p
 static-analysis loading and coverage init outside the emulator, then a nested emulator
 session (context manager owning boot/install/teardown) where logcat starts first, the
 tool-execution-start timestamp is stamped, coverage tracking begins, and the tool runs;
-teardown unwinds coverage first, logcat last, so metrics finalize against a complete log.
+teardown unwinds logcat first, coverage last — coverage is the reader and logcat the
+writer, so stopping the producer first freezes the file and the tracker's final drain
+finalizes metrics against a complete log.
 The tricky parts: the component ABCs in `task_interfaces.py` are documentation-only by
 explicit P1 decision (the executor dispatches by isinstance over the 5 concrete types), and
 resumed tasks deserialize with `repository=None`, so coverage is reconstructed from

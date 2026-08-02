@@ -386,66 +386,86 @@ class TaskExecutor:
         # The emulator gets a unique port via device_port in tool_config.parameters,
         # enabling parallel execution across Docker containers without port conflicts.
         with emulator_component.start_emulator("RVSec") as android:
-            # Inject the Android interface into context so downstream components
-            # (especially ToolExecutionComponent) can interact with the device.
-            # Tools receive this via context["android"] in their execute() call.
-            context["android"] = android
-            context["device_id"] = self.task.config.device_id
+            try:
+                # Inject the Android interface into context so downstream components
+                # (especially ToolExecutionComponent) can interact with the device.
+                # Tools receive this via context["android"] in their execute() call.
+                context["android"] = android
+                context["device_id"] = self.task.config.device_id
 
-            # Install app if needed
-            if not self.task.config.skip_installation:
-                self.logger.info("Installing application")
-                if not emulator_component.install_app(android, self.task.app):
+                # Install app if needed. On failure the component holds the
+                # reason ADB gave, which is what makes an INSTALL_FAILED_* code
+                # reach the stored error_message instead of a bare "Failed to
+                # install application" that names no cause (INV-CORE-51).
+                if not self.task.config.skip_installation:
+                    self.logger.info("Installing application")
+                    if not emulator_component.install_app(android, self.task.app):
+                        raise TaskExecutionError(
+                            emulator_component.last_install_error
+                            or "Failed to install application",
+                            self.task.id,
+                        )
+
+                # Start logcat capture BEFORE the tool runs. Logcat captures all
+                # Android system log output to a file, including RVSEC MOP violation
+                # markers emitted by the instrumented APK. This file is persisted in
+                # tasks.json and used for MOP violation reconstruction on resume.
+                if logcat_component:
+                    logcat_component.start_capture()
+
+                # Record the precise tool execution start timestamp BEFORE starting
+                # coverage tracking. CoverageTracker uses this timestamp to calculate
+                # time-relative coverage metrics (e.g., "method first seen at T+30s").
+                # The task start_time includes emulator boot time, which would skew
+                # coverage timing if used instead.
+                self.task.mark_tool_execution_start()
+                self._publish_tool_execution_started_event()
+
+                # Start real-time coverage tracking. The tracker reads the logcat
+                # file in a background thread, parsing RVSEC log entries as they
+                # appear. CoverageTracker uses static_data (loaded in Phase 1) to
+                # distinguish app methods from library code for accurate coverage
+                # calculation.
+                if coverage_component:
+                    coverage_component.start_tracking()
+
+                # Execute the testing tool (Monkey, DroidBot, RVAgent, etc.).
+                # The tool interacts with the emulator for the configured timeout
+                # duration. RVToolTimeoutError is caught inside ToolExecutionComponent
+                # and treated as successful completion (bounded-time experiments).
+                self.logger.info(f"Executing component: {tool_component.name}")
+                if not tool_component.execute(context):
                     raise TaskExecutionError(
-                        "Failed to install application", self.task.id
+                        f"Component {tool_component.name} execution failed",
+                        self.task.id,
                     )
 
-            # Start logcat capture BEFORE the tool runs. Logcat captures all
-            # Android system log output to a file, including RVSEC MOP violation
-            # markers emitted by the instrumented APK. This file is persisted in
-            # tasks.json and used for MOP violation reconstruction on resume.
-            if logcat_component:
-                logcat_component.start_capture()
-
-            # Record the precise tool execution start timestamp BEFORE starting
-            # coverage tracking. CoverageTracker uses this timestamp to calculate
-            # time-relative coverage metrics (e.g., "method first seen at T+30s").
-            # The task start_time includes emulator boot time, which would skew
-            # coverage timing if used instead.
-            self.task.mark_tool_execution_start()
-            self._publish_tool_execution_started_event()
-
-            # Start real-time coverage tracking. The tracker reads the logcat file
-            # in a background thread, parsing RVSEC log entries as they appear.
-            # CoverageTracker uses static_data (loaded in Phase 1) to distinguish
-            # app methods from library code for accurate coverage calculation.
-            if coverage_component:
-                coverage_component.start_tracking()
-
-            # Execute the testing tool (Monkey, DroidBot, RVAgent, etc.).
-            # The tool interacts with the emulator for the configured timeout
-            # duration. RVToolTimeoutError is caught inside ToolExecutionComponent
-            # and treated as successful completion (bounded-time experiments).
-            self.logger.info(f"Executing component: {tool_component.name}")
-            if not tool_component.execute(context):
-                raise TaskExecutionError(
-                    f"Component {tool_component.name} execution failed", self.task.id
-                )
-
-            # Stop order matters: coverage first, then logcat.
-            # process_results() calculates final method/activity/MOP coverage and
-            # stores them in task.result.coverage_metrics, which is serialized to
-            # tasks.json. On resume, these metrics serve as the coverage fallback
-            # because per-method data cannot be reconstructed without static_data.
-            if coverage_component:
-                coverage_component.stop_tracking()
-                coverage_component.process_results()
-
-            # Stop logcat capture last. The logcat file remains on disk and its
-            # path is persisted in tasks.json. On resume, ResultProcessorComponent
-            # re-parses this file to reconstruct MOP violation details for errors.csv.
-            if logcat_component:
-                logcat_component.stop_capture()
+            finally:
+                # The single point at which coverage and logcat are finalized.
+                # It sits inside the `with`, so it runs while the device is
+                # still alive on both the success and the failure path: a
+                # COMPLETED task's .logcat is the reconstruction source for
+                # resume, and finalizing after teardown would damage exactly
+                # that artifact.
+                #
+                # Logcat first, then coverage. `adb logcat` is the producer
+                # writing the file; CoverageTracker is the consumer reading the
+                # same file through its own handle, obtained by path. Stopping
+                # the producer first freezes the file, so the consumer's final
+                # drain sees a complete input. Stopping the consumer first
+                # would leave the producer appending lines that are present in
+                # the file and absent from the in-memory repository, which is
+                # what process_results() reads.
+                #
+                # These call the components' own cleanup(), which both catch
+                # and log their own exceptions — required here, because an
+                # exception escaping this `finally` would replace the exception
+                # being propagated. _cleanup_components() still invokes both
+                # afterwards; that second invocation is inert.
+                if logcat_component:
+                    logcat_component.cleanup(context)
+                if coverage_component:
+                    coverage_component.cleanup(context)
 
     def _cleanup_components(self, context: Dict[str, Any]) -> None:
         """

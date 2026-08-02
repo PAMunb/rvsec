@@ -259,8 +259,11 @@ tails the logcat file, feeds each line to `parse_logcat_line()`, and registers
 expires, Command raises `RVCommandTimeoutError`, which `AbstractTool.execute()` converts to
 `RVToolTimeoutError`; `ToolExecutionComponent` catches exactly that type and returns True —
 timeout is the expected termination of a bounded-time experiment, not a failure (INV-PLT-04).
-Afterwards the executor stops coverage first (`process_results()` freezes metrics into
-`task.result.coverage_metrics`), then stops logcat capture, and
+Afterwards the executor's single finalization point stops logcat capture first, then
+coverage (`process_results()` freezes metrics into `task.result.coverage_metrics`) —
+`adb logcat` is the producer writing the file and `CoverageTracker` is the consumer
+reading it through its own handle, so stopping the producer first freezes the file and
+the consumer's final drain then sees a complete input. Then
 `AbstractTool.kill_related_processes()` pkills device-side survivors matching the tool's
 `process_pattern`. A coverage line looks like
 `RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>`; a JCA
@@ -765,8 +768,11 @@ violated by tool or experiment code.
 - `rv_platform/__init__.py` lazily imports the tool plugins with ImportError guards, but the
   dependency declarations are asymmetric: rvagent-tool is a hard dep in pyproject.toml while
   aperv_tool is imported yet undeclared.
-- Stop order in the emulator session matters: coverage stops before logcat, because
-  `process_results()` may still read the file; logcat's path must be persisted for resume.
+- Stop order in the emulator session matters: logcat stops before coverage, because `adb
+  logcat` is the producer writing the file and `CoverageTracker` is the consumer reading it —
+  stopping the producer first freezes the file, so `process_results()` reads a complete input.
+  Both stops happen in one `finally` inside the emulator `with`, so they run on the failure
+  path too, while the device is still alive; logcat's path must be persisted for resume.
 - The static-analysis JSON is derived from the ORIGINAL APK upstream but placed next to the
   instrumented APK so the platform finds it; the platform itself never runs GATOR — it only
   loads the JSON (out-of-scope module rv-static-analysis parses it).
@@ -885,8 +891,9 @@ platform consumes exactly two entry points.
   (imported locally to break an import cycle) so diagnostic events survive resume
   reconstruction too (INV-PLT-20 / gh58).
 - `CoverageTracker.tracker_process` is a write-only attribute (dead, flagged by analysis);
-  lifecycle is start()/stop() or context manager, and stop must precede logcat stop in the
-  executor.
+  lifecycle is start()/stop() or context manager, and logcat stop must precede it in the
+  executor: the tracker is the consumer of the file `adb logcat` writes, so stopping the
+  producer first freezes the file and the tracker's final drain sees a complete input.
 
 | Element | Responsibility | Relations / interfaces |
 |---------|----------------|------------------------|

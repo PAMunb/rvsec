@@ -45,8 +45,42 @@ FAIL_STATES = {"FAILED", "ERROR"}
 # Estados "ativos" (tarefa em andamento, ainda não finalizada).
 ACTIVE_STATES = {"INITIALIZING", "READY", "RUNNING", "INSTALLING", "EXECUTING"}
 
-# Classificação de erro por regex sobre (error_message + state). Ordem importa.
+# Error classification by regex over (error_message + state). Order matters:
+# the first matching entry wins.
+#
+# Emulator boot failures are matched first, by literal signature, because the
+# generic keyword buckets at the bottom cannot see them. `EmulatorError.__str__`
+# embeds the cause's type, so a phase-1 boot timeout is stored as
+# "EmulatorError: Failed to start emulator RVSec caused by TimeoutError:
+# emulator-5554 did not boot within 180s" — swallowed by the generic "timeout"
+# regex — and the composite install failure reads "... caused by
+# TaskExecutionError: Failed to install application" — swallowed by the generic
+# "install/adb" regex. Reordering the generic buckets does not fix this: a
+# genuine tool timeout whose command line cites "emulator-5554" would then land
+# in "emulator/boot". Matching the boot signatures literally keeps both readings
+# correct.
 ERROR_BUCKETS = [
+    # Specific: emulator boot-sequence failures, by literal message signature.
+    # `sys.boot_completed` is the phase-2 property name and appears in no other
+    # failure message; `root`/`remount` are the phase-3 forms still present in
+    # stored artifacts from before that phase was removed.
+    (
+        "emulator/boot",
+        re.compile(
+            r"did not boot within|sys\.boot_completed|(?:root|remount) failed within",
+            re.I,
+        ),
+    ),
+    # Specific: a start that reported success and then could not install. The
+    # message names the emulator start, so it counts as a startup failure rather
+    # than an APK installation problem.
+    (
+        "emulator/boot",
+        re.compile(
+            r"Failed to start emulator.*Failed to install application", re.I | re.S
+        ),
+    ),
+    # Generic keyword buckets, for everything the signatures above do not name.
     ("timeout", re.compile(r"time?out|timed out", re.I)),
     ("oom/killed", re.compile(r"\boom\b|out of memory|killed|exit ?137|sigkill|memory", re.I)),
     ("install/adb", re.compile(r"install|adb|INSTALL_FAILED|device offline", re.I)),
