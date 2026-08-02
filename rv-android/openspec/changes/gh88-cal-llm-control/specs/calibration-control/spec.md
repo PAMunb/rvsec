@@ -119,13 +119,19 @@ Directory layout: `experimento-cal/` holds the scripts, phase configs (`phases/<
 
 `consolidate_cal.py` SHALL build the iteration's consolidated datasets from raw result files, dedup by identity (INV-CAL-08): `per_apk_paired.csv` with one row per APK and one column group per arm (coverage metrics, MOP counts — averaged over reps), and `tel_proxies.csv` with per arm×APK×rep LLM telemetry aggregates (calls, `time_ms`, tokens, matched/`llm_tap`/`no_match` counts by reason, mode distribution) parsed from `.trace` files. Reuse of the existing d90c1f4 trace grammar is permitted here (the independence constraint binds VERIFY, not CONSOLIDATE).
 
+Consolidation SHALL consume only identities whose `timeout` equals the run timeout recorded in `iterN/manifest.json`, excluding the smoke identities the smoke containers (`cala_smoke_*`) write under the same `iterN/results/` tree (90s, 1 rep, the smoke-arm subset). Smoke and run tasks share `(apk, tool, variant, rep)` and differ only in `timeout`; because `per_apk_paired.csv` averages reps within each `(apk, arm)` cell without keying on `timeout`, an un-filtered smoke identity (shorter budget, systematically lower coverage) would pollute the reps-averaged cell of every smoke arm×APK pair. The manifest run timeout is the single source of the filter.
+
 #### Scenario: Duplicate task identities are deduplicated
 - **WHEN** `tasks.json` contains two records for identity `(apk_x, aperv, cal_a2, 1, 300)` after a resume
 - **THEN** the consolidation SHALL count that identity exactly once, using its logcat-derived metrics
 
+#### Scenario: Smoke identities are excluded by run timeout
+- **WHEN** `iterN/results/` holds both a smoke identity `(apk_x, aperv, cal_a1, 1, 90)` and the run identities `(apk_x, aperv, cal_a1, 1, 300)` and `(apk_x, aperv, cal_a1, 2, 300)` for the same APK and arm, and `manifest.json` records the run `timeout` as `300`
+- **THEN** the `apk_x` × `aperv:cal_a1` cell of `per_apk_paired.csv` SHALL average only the two 300s reps, and the 90s smoke identity SHALL NOT contribute to any consolidated metric nor to the consolidated identity count
+
 ### Requirement: Independent Verification (VERIFY) (NFR06, NFR08)
 
-`verify_iteration.py` SHALL re-derive the consolidated counts by an independent code path (INV-CAL-04): direct extraction of `RVSEC-COV`/`RVSEC` markers from raw logcats and of `[APE-LLM-CONFIG]`/`[APE-LLM-CONFIG-ACK]` lines from traces, aggregated per identity by its own logic. It SHALL apply the numeric gates of INV-CAL-09 over 100% of tasks, plus a seeded hand-count sample report (≥10 tasks, fixed seed) compared cell-by-cell with the consolidated CSV. The verdict SHALL be `admissible` or `quarantine` with a written justification naming the excluded metric or arm.
+`verify_iteration.py` SHALL re-derive the consolidated counts by an independent code path (INV-CAL-04): direct extraction of `RVSEC-COV`/`RVSEC` markers from raw logcats and of `[APE-LLM-CONFIG]`/`[APE-LLM-CONFIG-ACK]` lines from traces, aggregated per identity by its own logic. It SHALL re-derive over the same identity scope as consolidation — only identities whose `timeout` equals the manifest run timeout, excluding smoke (read from the manifest by VERIFY's own code, not imported from `consolidate_cal.py`) — so a divergence signals a genuine consolidation error, not a scope mismatch on the smoke-arm cells. It SHALL apply the numeric gates of INV-CAL-09 over 100% of tasks, plus a seeded hand-count sample report (≥10 tasks, fixed seed) compared cell-by-cell with the consolidated CSV. The verdict SHALL be `admissible` or `quarantine` with a written justification naming the excluded metric or arm.
 
 #### Scenario: Re-derivation divergence fails verification
 - **WHEN** the independent re-derivation counts 4,213 covered methods for identity `(apk_y, aperv, cal_a1, 2, 300)` and `per_apk_paired.csv` encodes 4,215

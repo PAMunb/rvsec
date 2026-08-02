@@ -43,28 +43,39 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - `self._tool_config: Dict[str, Any]` -- resolved variant configuration from `configure()`
 - `ape-rv.jar` -- Dalvik JAR resolved at execution time via priority search
 - `system-broadcast.json` -- optional broadcast catalog file shipped alongside the tool module
+- `<task.results_dir>/<task.config.apk_name>.json` -- static-analysis document produced by `rvsec-analysis-client.jar`. Sections consumed by the handler-reach enrichment: `windows[].widgets[].listeners[].handler` (handler signatures) and `reachability[].methods[]` (`signature`, `reachable`, `reachesTarget`, `directlyReachesTarget`)
+- `llm_url: str` -- OpenAI-compatible base URL already held by the tool configuration; the source of the `/v1/models` provenance query (LLM arms)
+- Recorded run artifacts for the offline join and the coverage-dump parser: per-run trace files carrying the step clock and the `[APE-RV] UICOV`/`UICOV-ACT` dump lines, and the logcat lines matching `RVSEC:`
 
 ### Output
 
 - `task.result.trace_file` -- populated with APE-RV stdout+stderr (binary write mode)
+- Task output provenance fields: `llm_backend`, `llm_model`, `llm_sampling` -- recorded per run (LLM arms)
+- Join report (A9): per-run rows correlating step clock positions with `RVSEC:` violation timestamps
+- Per-run coverage rows at Activity grain from the offline coverage-dump parser, each carrying an explicit dump status (complete, partial, or absent)
 
 ### Side-Effects
 
 - **[Device]**: `ape-rv.jar` pushed to `/data/local/tmp/ape-rv.jar`
 - **[Device]**: `system-broadcast.json` pushed to `/data/local/tmp/system-broadcast.json` (if file exists in module directory)
-- **[Device]**: `/data/local/tmp/static_analysis.json` receives the compacted static analysis document (or the source document, on fallback) -- MOP variants only, when the file is found
+- **[Device]**: `/data/local/tmp/static_analysis.json` receives the compacted static analysis document (or the source document, on fallback) -- MOP variants only, when the file is found; the compacted document additionally carries `listeners[].handlerReachesTarget: bool` and `listeners[].handlerDirectlyReachesTarget: bool`
 - **[Filesystem]**: on the success path, a temporary file holding the compacted document is created and unlinked after the push completes
 - **[Filesystem]**: on the fallback path, any temporary file created before the failure is unlinked by the compaction function before it returns, so no temporary file exists at push time
 - **[Filesystem]**: `<task.results_dir>/<task.config.apk_name>.json` is read and never written
 - **[Device]**: `ape.properties` pushed to `/data/local/tmp/ape.properties` (when `_tool_config` is non-empty)
 - **[Logcat]**: APE-RV writes `RVSEC-COV` log lines during execution (read by rv-android coverage infrastructure)
 - **[Network]**: LLM variants send HTTP requests from the emulator to the SGLang server (via `10.0.2.2` loopback or overridden URL)
+- **[Network]**: one `GET /v1/models` per LLM-arm run at preflight time (backend provenance)
+- **[Filesystem]**: the offline join utility and the coverage-dump parser read recorded artifacts and write their reports; they never write into `results/` trees they did not create
 
 ### Error
 
 - `ConfigurationError` -- raised by `configure()` when `strategy` key is absent or not in `["sata", "random", "bfs", "dfs"]`
 - `RVToolExecutionError` -- raised when `ape-rv.jar` cannot be found in any search path, or when an ADB push fails
-- `RVToolTimeoutError` -- raised when execution exceeds `task.config.timeout + 15` seconds (expected normal exit for exploration tools)
+- `RVToolTimeoutError` -- raised when execution exceeds `task.config.timeout + 45` seconds (expected normal exit for exploration tools)
+- `SystemExit(2)` -- the offline clock-to-violation join utility on usage error (missing or unreadable run directory)
+- Enrichment failures are non-fatal: they degrade to the un-enriched document (see INV-APV-31) and emit a warning
+- Provenance query failures are non-fatal: the run proceeds and the provenance fields record the failure rather than a fabricated value (INV-APV-33)
 
 ## Invariants
 
@@ -145,7 +156,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-20**: Compaction SHALL write to a temporary file. The source file at `<task.results_dir>/<task.config.apk_name>.json` SHALL remain byte-identical after `execute_tool_specific_logic()` returns. This file is an archived experiment artifact: offline consolidation and `ResultProcessorComponent._resolve_static_data` re-parse it on resume. Keeping it byte-identical to the producer's output preserves it as ground truth rather than a derived artifact, and confines this change to the device-push path.
 
-- **INV-APV-21**: Compaction SHALL be lossless. It SHALL consist of exactly two operations: (a) removing exact-duplicate entries from `transitions`, and (b) serializing without pretty-print whitespace. Every top-level key present in the source document (`package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`) SHALL be present in the compacted document. No field SHALL be projected away, renamed, or rewritten.
+- **INV-APV-21**: Compaction SHALL be lossless with respect to the producer's content. It SHALL consist of exactly **three** operations: (a) removing exact-duplicate entries from `transitions`, (b) adding the two handler-reach booleans to existing `listeners[]` objects, and (c) serializing without pretty-print whitespace. Operations (a) and (c) are lossless; (b) is purely additive and constrained by INV-APV-31. Every top-level key present in the source document (`package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`) SHALL be present in the compacted document. No field SHALL be projected away, renamed, or rewritten.
 
 - **INV-APV-22**: Deduplication of `transitions` SHALL preserve the order of first occurrence. `rekeyDialogsToHost` (`MopData.java:884`) resolves the first inbound edge and breaks, making edge order semantically load-bearing even though edge multiplicity is not.
 
@@ -154,6 +165,24 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - **INV-APV-24**: Any failure during compaction SHALL be caught, SHALL log a warning, and SHALL fall back to pushing the source file unchanged. Compaction SHALL NOT raise, and SHALL NOT be a task-failure path. The fallback preserves the pre-change behavior as a floor.
 
 - **INV-APV-25**: No temporary file SHALL survive `execute_tool_specific_logic()`, on either the success or the fallback path.
+
+- **INV-APV-29**: The MOP-off control arm SHALL set `mop_data` to a **present and loadable** document, SHALL set `mop_weight_direct`, `mop_weight_transitive`, `mop_weight_open_menu`, `mop_weight_wtg`, and `mop_frontier_weight` all to `0`, and SHALL set `activity_trigger_enabled=false`. It SHALL NOT achieve MOP-off by omitting `mop_data` or by pointing `ape.mopDataPath` at a missing file — the first disables the generic WTG and frontier passes as collateral, the second aborts the run.
+
+- **INV-APV-30**: Every arm of the decisive run SHALL use the frontier substrate (`sata_mop_act_frontier` lineage). No arm SHALL abandon the frontier mechanism, including the control arm — the control removes MOP guidance, not navigation.
+
+- **INV-APV-31**: Enrichment SHALL add only the keys `handlerReachesTarget` and `handlerDirectlyReachesTarget` to existing `listeners[]` objects. It SHALL NOT add, remove, reorder, or alter any other key anywhere in the document, SHALL NOT modify the source file (INV-APV-20 continues to hold), and on any failure SHALL degrade to pushing the document without enrichment rather than propagating an exception.
+
+- **INV-APV-32**: `handlerDirectlyReachesTarget` SHALL mean *the handler method of this widget reaches a JCA target at any call depth*, computed from the document's own `reachability` section. It SHALL NOT be copied from the producer's method-level `directlyReachesTarget`, whose 0-hop semantics make it `false` for every UI handler in the corpus.
+
+- **INV-APV-33**: Backend provenance SHALL be obtained from a live `/v1/models` query performed at the start of each run, never from static configuration. When the query fails, the provenance fields SHALL record the failure explicitly; the run SHALL NOT be aborted and a value SHALL NOT be inferred from configuration.
+
+- **INV-APV-34**: `llm_snap_tolerance_px=150` SHALL be applied only in an arm that also declares both the git sha and the sha256 of the `ape-rv.jar` build containing the dead-pair ban (sister change `telemetry-proof-llm-efficacy`, item B1). The tolerance and the two declarations SHALL be present together or absent together — a guard test SHALL fail on any one alone. The declared sha256 SHALL be verified against the `jar_sha256` captured at run start, before the decisive run consumes wall-clock. Against a jar without B1, the wider radius amplifies repeated dead taps instead of rescuing near-misses.
+
+- **INV-APV-35**: The clock↔logcat join SHALL be an offline, read-only computation over recorded artifacts. It SHALL NOT read logcat from a running device, SHALL NOT require an emulator, and SHALL NOT modify any artifact it reads.
+
+- **INV-APV-36**: Any coverage figure aggregated across runs, replicas or arms SHALL be derived from `UICOV-ACT` (Activity grain). `UICOV` state keys SHALL NOT be used as a cross-run join key — they embed a JVM identity hash whose measured cross-replica pairing rate is zero (Jaccard 0.000 at mean, median and maximum).
+
+- **INV-APV-37**: The coverage-dump parser SHALL report every run in its input with an explicit dump status — complete, partial, or absent — and SHALL NOT omit a run for lacking a dump. Any coverage rate it produces SHALL carry the denominator it was computed over, so that a figure computed on the runs that dumped is never mistaken for a figure over all runs.
 
 ## Requirements
 
@@ -355,15 +384,21 @@ The first existing path that contains `ape-rv.jar` wins. If no path resolves, `R
 
 3. **Push broadcast catalog**: If `system-broadcast.json` exists in the module directory (`os.path.dirname(__file__)`), push it to `/data/local/tmp/system-broadcast.json`. This catalog provides typed extras for system broadcast intents used by APE-RV's component triggering. If the file is absent, skip (APE-RV degrades gracefully).
 
-4. **Compact and push static analysis JSON** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. If found, compact it into a temporary file (deduplicate `transitions`, serialize without pretty-print whitespace -- see "Static Analysis JSON Compaction"), push the compacted file to `/data/local/tmp/static_analysis.json`, unlink the temporary file, and set `mop_json_pushed = True`. If compaction fails, log a warning and push the source file unchanged, still setting `mop_json_pushed = True`. If the JSON is not found, log a warning and continue without MOP data.
+4. **Compact and push static analysis JSON** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. If found, compact it into a temporary file (deduplicate `transitions`, enrich `listeners[]` with the two handler-reach booleans, serialize without pretty-print whitespace -- see "Static Analysis JSON Compaction"), push the compacted file to `/data/local/tmp/static_analysis.json`, unlink the temporary file, and set `mop_json_pushed = True`. If compaction fails, log a warning and push the source file unchanged, still setting `mop_json_pushed = True`. If the JSON is not found, log a warning and continue without MOP data.
 
 5. **Push ape.properties**: Generate `ape.properties` from `_tool_config` using `APERV_PROPERTY_MAPPING` to translate Python keys to Java property names. When `mop_json_pushed` is True, include `ape.mopDataPath=/data/local/tmp/static_analysis.json`. Push to `/data/local/tmp/ape.properties`.
 
-6. **Build and execute command**: Build the `app_process` command via `_build_main_command()` and execute it, capturing stdout+stderr to `task.result.trace_file` in binary write mode. Command timeout is `timeout_seconds + 15` seconds.
+6. **Capture LLM backend provenance** (LLM arms only): query `GET {llm_url}/v1/models` once and record the result in the task output -- see "Per-Run LLM Backend Provenance". A failed query is encoded, never inferred from configuration, and never aborts the run (INV-APV-33).
 
-7. **Handle timeout**: If `RVCommandTimeoutError` is raised, re-raise as `RVToolTimeoutError` (timeout is the expected exit path for exploration tools).
+7. **Build and execute command**: Build the `app_process` command via `_build_main_command()` and execute it, capturing stdout+stderr to `task.result.trace_file` in binary write mode. **Command timeout is `timeout_seconds + 45` seconds** — widened from `+ 15`; see the grace-window rationale below.
 
-8. **Check empty trace**: Call `_check_empty_trace()` and log a warning if the trace file is empty.
+8. **Handle timeout**: If `RVCommandTimeoutError` is raised, re-raise as `RVToolTimeoutError` (timeout is the expected exit path for exploration tools). The `RVToolTimeoutError` contract SHALL be stated as `task.config.timeout + 45` seconds wherever it is documented.
+
+9. **Check empty trace**: Call `_check_empty_trace()` and log a warning if the trace file is empty.
+
+**Capture grace window: why 45 s.** The window exists so the agent's teardown can finish writing before the harness kills the capture. The 15 s it replaces is where the losses concentrate: among runs whose teardown completed, the overrun beyond the exploration budget reaches **12,991 ms** with 32 runs stacked against that ceiling and none beyond it — the signature of a hard wall rather than a natural distribution. Runs that lose the dump end inside the model serialization step, before the dump would have run.
+
+This is recorded as a **hypothesis, not a measurement**. The true teardown duration of the runs that were cut is unobservable — that is what censoring means — so the widened window cannot be credited with a predicted recovery rate in advance. It is complementary to, not redundant with, the jar-side reordering (`ape` design D9): the reordering moves the dump ahead of the expensive write, this gives the chain room to finish. The smoke SHALL report the observed teardown durations under the new window so the assumption is checked rather than carried.
 
 The `app_process` invocation SHALL use:
 ```
@@ -374,7 +409,7 @@ adb -s <serial> shell CLASSPATH=/data/local/tmp/ape-rv.jar /system/bin/app_proce
   [-s <seed>]
 ```
 
-The trailing `-s <seed>` is appended only when a seed is configured (`tool.py:765-771`). The seed argument itself is owned by change `gh74-aperv-arm-variants` (INV-APV-18), which is implemented in code but whose delta is not yet synced; it is reproduced here so this spec does not freeze the seedless form as the contract.
+The trailing `-s <seed>` is appended only when a seed is configured. The seed argument itself is owned by change `gh74-aperv-arm-variants` (INV-APV-18), which is implemented in code but whose delta is not yet synced; it is reproduced here so this spec does not freeze the seedless form as the contract.
 
 #### Scenario: Successful APE-RV execution with sata variant
 - **WHEN** `execute_tool_specific_logic(task, app)` is called with `strategy="sata"`, timeout=60
@@ -419,7 +454,7 @@ The trailing `-s <seed>` is appended only when a seed is configured (`tool.py:76
 - **AND** execution SHALL continue normally (APE-RV component triggering degrades gracefully)
 
 #### Scenario: Execution timeout
-- **WHEN** APE-RV runs for longer than `timeout_seconds + 15` seconds
+- **WHEN** APE-RV runs for longer than `timeout_seconds + 45` seconds
 - **THEN** `RVToolTimeoutError` SHALL be raised and logged
 - **AND** the timeout SHALL be re-raised to the caller
 
@@ -431,6 +466,21 @@ The trailing `-s <seed>` is appended only when a seed is configured (`tool.py:76
 #### Scenario: Empty trace file
 - **WHEN** APE-RV execution completes but writes nothing to stdout
 - **THEN** a warning log line SHALL contain `"aperv produced empty trace file"`
+
+#### Scenario: Timeout budget includes the widened grace window
+- **WHEN** a task is dispatched with an exploration timeout of `T` seconds
+- **THEN** the `adb` command SHALL be given `T + 45` seconds before termination
+- **AND** `RVToolTimeoutError` SHALL be raised only after `T + 45` seconds, not `T + 15`
+
+#### Scenario: Smoke reports what the window actually cost
+- **WHEN** the integration smoke completes
+- **THEN** the observed teardown overrun SHALL be reported per run
+- **AND** a run whose overrun still reaches the new ceiling SHALL be flagged as evidence the hypothesis was insufficient
+
+#### Scenario: Provenance query does not delay the run
+- **WHEN** the `/v1/models` query at step 6 fails or times out
+- **THEN** the flow SHALL proceed to step 7
+- **AND** the provenance fields SHALL record the failure (INV-APV-33)
 
 ---
 
@@ -552,18 +602,44 @@ The method SHALL return the absolute path if the file exists, or `None` otherwis
 
 `ApeRVTool` SHALL compact the static analysis JSON into a temporary file before pushing it to the device, and SHALL push the compacted file rather than the source file.
 
-Compaction SHALL consist of exactly two lossless operations. First, entries in the `transitions` array SHALL be deduplicated by exact equality of the whole entry, preserving first-occurrence order. Entries carry exactly the keys `sourceId`, `targetId`, and `events`, so whole-entry canonical equality is identical to the `(sourceId, targetId, events)` tuple and cannot silently ignore a field added later. Second, the document SHALL be serialized without pretty-print whitespace.
+Compaction SHALL consist of exactly three operations on the in-memory document. First, entries in the `transitions` array SHALL be deduplicated by exact equality of the whole entry, preserving first-occurrence order. Entries carry exactly the keys `sourceId`, `targetId`, and `events`, so whole-entry canonical equality is identical to the `(sourceId, targetId, events)` tuple and cannot silently ignore a field added later. Second, every `listeners[]` object SHALL be enriched with the two handler-reach booleans described below. Third, the document SHALL be serialized without pretty-print whitespace.
+
+The first and third operations are lossless. The second is purely additive: it SHALL add only the keys `handlerReachesTarget` and `handlerDirectlyReachesTarget` to existing listener objects and SHALL NOT touch anything else in the document (INV-APV-31).
+
+**Enrichment semantics.** For each `windows[].widgets[].listeners[]` entry, the handler signature is looked up in the document's own `reachability` section, whose entries carry `signature`, `reachable`, `reachesTarget`, and `directlyReachesTarget` per method. `handlerReachesTarget` SHALL be the `reachesTarget` value of the matching method. `handlerDirectlyReachesTarget` SHALL be `true` when the handler of *this* widget reaches a JCA target at any call depth — that is, it SHALL be derived from the same `reachesTarget` bit of the handler itself, **not** copied from the producer's method-level `directlyReachesTarget` (INV-APV-32). The producer's field means 0-hop reach, which is `false` for every UI handler in the corpus because handlers delegate; copying it would reproduce the `[DM]=0` defect this change exists to fix. When a handler signature has no match in `reachability`, both fields SHALL be `false`.
+
+The consumer reads both fields with precedence over its own local join (`MopData.java:516-517,531-533`), so the enrichment reaches the scoring pipeline without any jar change.
 
 The source file SHALL NOT be modified (INV-APV-20). Compaction SHALL run unconditionally, not gated on file size (INV-APV-23). No field SHALL be projected away (INV-APV-21).
 
-Any failure -- malformed JSON, filesystem error writing the temporary file, or memory exhaustion loading the document -- SHALL be caught, SHALL emit a warning, and SHALL degrade to pushing the source file unchanged (INV-APV-24). The temporary file SHALL be unlinked after the push on every path (INV-APV-25).
+Any failure -- malformed JSON, filesystem error writing the temporary file, memory exhaustion loading the document, or a malformed `reachability` section -- SHALL be caught, SHALL emit a warning, and SHALL degrade to pushing the source file unchanged (INV-APV-24). An enrichment failure specifically SHALL NOT abort the push: the document SHALL be pushed deduplicated and minified but un-enriched (INV-APV-31). The temporary file SHALL be unlinked after the push on every path (INV-APV-25).
 
 #### Scenario: Oversized JSON compacted below the Java footprint ceiling
 - **WHEN** `execute_tool_specific_logic(task, app)` runs with `mop_data="static_analysis"`
 - **AND** `_find_static_analysis_file(task)` returns a 50.6 MB JSON with 24,300 `transitions` entries of which 7,124 are unique (`org.quantumbadger.redreader_117.apk.json`)
-- **THEN** the file pushed to `/data/local/tmp/static_analysis.json` SHALL be approximately 21.0 MB
-- **AND** it SHALL contain exactly 7,124 `transitions` entries
+- **THEN** the file pushed to `/data/local/tmp/static_analysis.json` SHALL contain exactly 7,124 `transitions` entries
 - **AND** it SHALL be below the ~32 MB guard ceiling of `MopData.java:202`, so the MOP arm SHALL explore with more than 0 steps
+
+#### Scenario: Handler that reaches JCA transitively is flagged direct
+- **WHEN** a widget's listener has handler `<com.example.MainActivity: void onEncryptClick(android.view.View)>`
+- **AND** the `reachability` section contains that signature with `reachesTarget=true` and `directlyReachesTarget=false` (the handler delegates to a repository that calls `Cipher.getInstance`)
+- **THEN** the pushed document SHALL carry `handlerReachesTarget=true` for that listener
+- **AND** it SHALL carry `handlerDirectlyReachesTarget=true`, because the redefined semantics is any-depth reach of this widget's handler (INV-APV-32)
+
+#### Scenario: Handler that reaches nothing is flagged false on both axes
+- **WHEN** a widget's listener has handler `<com.example.MainActivity: void onAboutClick(android.view.View)>`
+- **AND** the `reachability` section contains that signature with `reachesTarget=false`
+- **THEN** both `handlerReachesTarget` and `handlerDirectlyReachesTarget` SHALL be `false` for that listener
+
+#### Scenario: Handler absent from the reachability section
+- **WHEN** a listener's handler signature has no matching entry in `reachability`
+- **THEN** both fields SHALL be `false`
+- **AND** no warning SHALL be emitted for the individual miss, and the push SHALL proceed
+
+#### Scenario: App with no widgets is enriched trivially
+- **WHEN** the document is one of the 58 apps of the 181-APK corpus whose `windows[].widgets` are all empty (a Compose-bundled app with no View-hierarchy widgets to enrich)
+- **THEN** enrichment SHALL complete without error and add no fields
+- **AND** the pushed document SHALL be identical to the un-enriched compaction result
 
 #### Scenario: Source file is never modified
 - **WHEN** compaction runs on `<task.results_dir>/<apk_name>.json`
@@ -578,7 +654,7 @@ Any failure -- malformed JSON, filesystem error writing the temporary file, or m
 #### Scenario: All top-level keys survive compaction
 - **WHEN** the source document has top-level keys `package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`
 - **THEN** the compacted document SHALL contain all seven keys
-- **AND** the value of every key other than `transitions` SHALL be unchanged
+- **AND** the value of every key other than `transitions` and the enriched `listeners[]` objects SHALL be unchanged
 
 #### Scenario: Small JSON is compacted anyway
 - **WHEN** the source JSON is 100 KB, well below the ceiling
@@ -601,6 +677,12 @@ Any failure -- malformed JSON, filesystem error writing the temporary file, or m
 - **AND** the source file SHALL be pushed unchanged to `/data/local/tmp/static_analysis.json`
 - **AND** no exception SHALL propagate out of `execute_tool_specific_logic()`
 - **AND** `ape.properties` SHALL still contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
+
+#### Scenario: Malformed reachability section degrades to un-enriched push
+- **WHEN** the document parses but its `reachability` section is not a list of objects with `methods[]`
+- **THEN** a warning SHALL be logged naming the file
+- **AND** the document SHALL still be deduplicated, minified, and pushed
+- **AND** no `handlerReachesTarget` or `handlerDirectlyReachesTarget` key SHALL be present in the pushed document
 
 #### Scenario: No temporary file leaks on the success path
 - **WHEN** compaction succeeds and the push completes
@@ -693,3 +775,180 @@ is required.
 #### Scenario: Seed is not written to ape.properties
 - **WHEN** `_push_properties()` is called for a variant whose `_tool_config` contains `seed=42`
 - **THEN** the generated properties file SHALL NOT contain a `seed` line (it is a CLI-only, Python-only key)
+
+---
+
+### Requirement: Decisive Run Arm Set (FR20)
+
+`aperv-tool` SHALL define the three arms of the E3 decisive run as named variants, so that each arm's identity comes from its variant dictionary and never from a jar default. The three arms SHALL be:
+
+1. **`mop_on_llm_off`** — reference: MOP guidance on, LLM off. The shared baseline of both contrasts.
+2. **`mop_off_llm_off`** — control: MOP guidance off, LLM off. Isolates the effect of MOP guidance (the study's central hypothesis).
+3. **`mop_on_llm_70`** — LLM arm: MOP guidance on, LLM on at `llm_percentage=0.7`. Isolates the effect of adding the LLM.
+
+The variant names are normative, not cosmetic: the variant string is the resume identity key and the consolidation column key, so a rename silently splits a campaign's results.
+
+The reference arm and the LLM arm differ only in the LLM keys; the reference arm and the control arm differ only in the MOP keys. This is what makes each contrast a single-factor comparison.
+
+The jar-provenance declaration required by INV-APV-34 — `expected_jar_git_sha` and `expected_jar_sha256`, carried by the LLM arm alone — is the one exemption from that diff, and it is safe because the keys are **inert by construction**: neither appears in `APERV_PROPERTY_MAPPING`, so neither is written to `ape.properties` and neither can reach the jar or move the arm's behaviour. Single-factor is a claim about the keys that reach the jar; these do not. The guard test that keeps them out of the mapping is therefore what licenses the exemption, and the two SHALL be asserted together.
+
+All three arms SHALL use the frontier substrate (INV-APV-30). The control arm SHALL follow the shape fixed by INV-APV-29: `mop_data` present and loadable, all four MOP weights and `mop_frontier_weight` zeroed, `activity_trigger_enabled=false`. All three arms SHALL set `mop_activity_source_components=true` rather than inheriting the jar's `false` default (`Config.java:159`), whose suppression of the MOP-activity signal is measured at 20.0% → 85.0% of activities flagged on the subset40 and 17.7% → 86.2% offline across the 181 apps.
+
+The arms SHALL satisfy the existing arm-flag guards: every key in `ARM_DEFINING_KEYS` set explicitly (INV-APV-14), every such key present in `APERV_PROPERTY_MAPPING` (INV-APV-13). The MOP weight keys, though not members of `ARM_DEFINING_KEYS`, SHALL be set explicitly in all three arms for auditability — for the control arm this is not merely auditability but the mechanism itself.
+
+Arm 3 SHALL declare every key of `LLM_ARM_KEYS` explicitly, at `llm_percentage=0.7` with prompt variant `v13`, temperature 0, `top_p` 0.6, `top_k` 50, and both routing triggers on. Because that guard is scoped to `cal_`-prefixed variants, its scope SHALL be extended to cover arm 3 — an unscoped arm would satisfy the guard vacuously (INV-APV-26).
+
+#### Scenario: Control arm keeps the frontier alive while MOP guidance is off
+- **WHEN** the control arm's variant dictionary is resolved
+- **THEN** it SHALL contain `mop_data="static_analysis"`
+- **AND** `mop_weight_direct=0`, `mop_weight_transitive=0`, `mop_weight_open_menu=0`, `mop_weight_wtg=0`, `mop_frontier_weight=0`
+- **AND** `activity_trigger_enabled=false`
+- **AND** `frontier_boost_weight` SHALL remain at its frontier-substrate value, so generic WTG and frontier navigation stay enabled (INV-APV-30)
+
+#### Scenario: Control arm never omits the static analysis document
+- **WHEN** the guard test inspects the control arm's variant dictionary
+- **THEN** `mop_data` SHALL be present
+- **AND** the test SHALL fail with a message naming INV-APV-29 if `mop_data` is absent, because an absent document disables `WtgPass` and `FrontierPass` as collateral damage
+
+#### Scenario: Reference and control differ only in MOP keys
+- **WHEN** the guard test diffs the reference arm's dictionary against the control arm's
+- **THEN** the differing keys SHALL be exactly the five MOP weight keys and `activity_trigger_enabled`
+- **AND** every other key SHALL be identical, so the contrast is single-factor
+
+#### Scenario: Reference and LLM arm differ only in LLM keys
+- **WHEN** the guard test diffs the reference arm's dictionary against the LLM arm's
+- **THEN** every differing key SHALL be either an LLM key or one of the two inert jar-provenance declaration keys of INV-APV-34
+- **AND** the same test SHALL assert that neither declaration key is present in `APERV_PROPERTY_MAPPING`, since that absence is what makes the exemption safe rather than a hole in the contrast
+- **AND** no MOP weight, frontier, or RV exploration flag SHALL differ
+
+#### Scenario: Source components flag is explicit in all three arms
+- **WHEN** the guard test iterates the three decisive-run arms
+- **THEN** each SHALL set `mop_activity_source_components=true` explicitly
+- **AND** none SHALL rely on the jar default
+
+#### Scenario: The LLM arm is inside the LLM key guard
+- **WHEN** the `LLM_ARM_KEYS` guard collects the variants it audits
+- **THEN** `mop_on_llm_70` SHALL be among them despite not carrying the `cal_` prefix
+- **AND** the guard SHALL fail if any key of `LLM_ARM_KEYS` is left implicit in that arm
+
+---
+
+### Requirement: Snap Tolerance Gating on the Dead-Pair Ban (FR19, FR20)
+
+`aperv-tool` SHALL apply `llm_snap_tolerance_px=150` only in an arm that also declares the git sha of the `ape-rv.jar` build containing the dead-pair ban (item B1 of the sister change `telemetry-proof-llm-efficacy`). Widening the snap radius makes more LLM answers resolve to a widget; without the ban, the additional resolutions include repeated taps on pairs already known to produce no new state, so the wider radius amplifies the measured 25.6% dead-call waste instead of rescuing near-misses. With the ban in place the same widening rescues genuine near-misses only.
+
+The gate SHALL be a **declaration in the arm plus a verification against the installed binary**, not a claim the tool can check by itself. The jar carries no build provenance to introspect: `ape-rv.jar` has no stamped constant and emits no `[APE-BUILD]` banner, because the change that would have added them — `gh14-build-provenance-stamp` in the `ape` repository — was archived without implementation on 2026-06-21, superseded by build-time provenance (a pinned `APE_REF` plus an image label). What is verifiable is the jar file itself, whose sha256 the tool already captures as `jar_sha256` at run start.
+
+The gate therefore has two halves. At configuration time, an arm carrying `llm_snap_tolerance_px=150` SHALL also carry `expected_jar_git_sha` (the `ape` revision the jar was built from, documentary) and `expected_jar_sha256` (the digest of that build, verifiable), and a guard test SHALL fail when any of the three is present without the others — this makes the coupling visible in the source and enforced by the suite rather than left to the operator's memory. At verification time, the `jar_sha256` captured at run start SHALL be compared against the declared `expected_jar_sha256`, and a mismatch SHALL fail the smoke gate before the decisive run starts (INV-APV-34). Because the `ape` build is not bit-reproducible, a rebuild of the same revision invalidates the declaration; the failure SHALL therefore name the expected digest, the observed digest and the declared git sha, so that the required action — reinstall the declared jar, or re-record the declaration — is unambiguous.
+
+#### Scenario: Tolerance and jar declaration travel together
+- **WHEN** the guard test inspects an arm containing `llm_snap_tolerance_px=150`
+- **THEN** the arm SHALL also declare both `expected_jar_git_sha` and `expected_jar_sha256`
+- **AND** the test SHALL fail naming INV-APV-34 when the tolerance is present without both declarations
+
+#### Scenario: Declaration without the raised tolerance also fails
+- **WHEN** the guard test inspects an arm declaring an expected jar git sha but leaving `llm_snap_tolerance_px` at 50
+- **THEN** the test SHALL fail, because a dangling declaration is a stale coupling that will silently mislead the next reader
+
+#### Scenario: Observed jar digest contradicts the declaration
+- **WHEN** the `jar_sha256` captured at the start of a smoke run differs from the arm's declared `expected_jar_sha256`
+- **THEN** the smoke gate SHALL fail naming both digests and the declared git sha
+- **AND** the decisive run SHALL NOT be launched with that configuration
+
+#### Scenario: Tolerance stays at the jar default when no arm declares the ban
+- **WHEN** no arm declares an expected jar git sha
+- **THEN** `llm_snap_tolerance_px` SHALL remain at the jar default of 50 (`Config.java:223`)
+- **AND** the run provenance SHALL record that the raise was not applied
+
+---
+
+### Requirement: Per-Run LLM Backend Provenance (FR19, NFR06)
+
+`aperv-tool` SHALL record, at the start of every run that uses an LLM, the backend actually serving that run. The record SHALL be obtained by querying the OpenAI-compatible `/v1/models` endpoint derived from the arm's `llm_url`, and SHALL be written into the task output alongside the run's other results.
+
+The derivation SHALL resolve the emulator-only host alias `10.0.2.2` to `127.0.0.1`, because the query runs outside the emulator while `llm_url` is written for the jar that runs inside it (design D6). The resolution SHALL apply to the query alone and SHALL NOT alter the value written into `ape.properties`. The recorded `llm_backend` SHALL be the address actually queried.
+
+The query is required rather than reading configuration because the failure mode this requirement exists to prevent is precisely the case where configuration and reality disagree: a server restarted with a different model, a different quantization, or different sampling defaults produces results that the configuration cannot distinguish from the intended ones. A live query is the only evidence of what actually served the run (INV-APV-33).
+
+The provenance capture SHALL apply to any experiment — calibration and the real thesis experiment alike — because both consume the same arm definitions and both need the same auditability.
+
+A failed query SHALL NOT abort the run: the provenance fields SHALL record the failure explicitly so downstream analysis can distinguish "not recorded" from "recorded as X", and SHALL NOT be filled in from configuration.
+
+#### Scenario: Backend recorded from a live query
+- **WHEN** a run with an LLM arm starts and `GET {llm_url}/v1/models` returns a model list containing `Qwen/Qwen3-VL-4B-Instruct`
+- **THEN** the task output SHALL record that model identifier
+- **AND** it SHALL record the backend endpoint and the sampling parameters in effect for the run
+
+#### Scenario: Query failure is recorded, not inferred
+- **WHEN** the `/v1/models` query fails with a connection error
+- **THEN** the run SHALL proceed
+- **AND** the provenance fields SHALL record the failure explicitly
+- **AND** they SHALL NOT be populated from the configured model name (INV-APV-33)
+
+#### Scenario: Non-LLM arms need no query
+- **WHEN** a run uses an arm with no LLM keys
+- **THEN** no `/v1/models` query SHALL be issued
+- **AND** the absence of provenance fields SHALL NOT be treated as a failure
+
+---
+
+### Requirement: Offline Clock-to-Violation Join (FR11, FR13, NFR03)
+
+`aperv_tool` SHALL provide a utility that joins a run's step clock against the `RVSEC:` violation lines recorded for that run, producing per-run rows that correlate when the exploration reached a given point with when a monitor fired.
+
+The utility exists to test the premise the whole MOP-frontier mechanism rests on: that *reaching* a MOP screen is sufficient to fire its monitor. That premise is plausible — the monitored operation fires in `onCreate` for 84% of the apps and UI handlers account for 0.4% of direct reach — but it has never been measured, and if it is false the frontier mechanism is steering toward screens that need interaction rather than arrival. The join is also the evidence base for the deferred decision on reading logcat at runtime (item N5): it establishes what signal a runtime reader would have had, and with what latency, before any runtime mechanism is proposed.
+
+The utility SHALL live in the `aperv_tool` package rather than in a per-campaign script directory, because the real thesis experiment consumes it, not only the calibration campaign. It SHALL be offline and read-only over recorded artifacts, and SHALL NOT read logcat from a device or require an emulator (INV-APV-35).
+
+#### Scenario: Join reproduces the recorded corpus totals
+- **WHEN** the utility runs over the recorded iter0 corpus of 880 runs
+- **THEN** it SHALL account for 9,586 `RVSEC:` lines
+- **AND** those lines SHALL be distributed across exactly 605 runs and 32 distinct APKs
+- **AND** a mismatch in any of the three totals SHALL fail the validation gate
+
+#### Scenario: Run with no violations produces an empty but valid result
+- **WHEN** the utility runs over one of the 275 iter0 runs with no `RVSEC:` lines
+- **THEN** it SHALL produce a row set with zero violations for that run
+- **AND** it SHALL NOT raise, and SHALL NOT omit the run from the report
+
+#### Scenario: Artifacts are never modified
+- **WHEN** the utility completes over any run directory
+- **THEN** every artifact it read SHALL be byte-identical to its prior content (INV-APV-35)
+
+#### Scenario: Missing run directory is a usage error
+- **WHEN** the utility is invoked against a path that does not exist
+- **THEN** it SHALL exit with status 2
+- **AND** the message SHALL name the missing path
+
+---
+
+### Requirement: Offline Coverage-Dump Parser at Activity Grain (FR11, NFR03, NFR06)
+
+`aperv_tool` SHALL provide a versioned, offline, read-only parser for the coverage dump emitted by the jar — the `[APE-RV] UICOV` (per state) and `[APE-RV] UICOV-ACT` (per Activity) lines — producing per-run rows consumable by the analysis path.
+
+The parser exists because the dump has **no automated consumer today**: a search for `UICOV` across the whole rv-android tree returns zero hits in Python, and the only historical consumption was manual. The sister change (`ape`, `telemetry-proof-llm-efficacy`, item A10) hoists the dump to the front of the teardown chain, which recovers it in 333 of the 338 runs that lose it today; without a parser that recovery yields data nothing reads.
+
+**Activity grain is mandatory, not a preference.** The per-state `UICOV` key embeds `StateKey.toString()`, whose hash includes the JVM identity hash of a `Naming` object that overrides neither `equals` nor `hashCode`. State keys are therefore not comparable across runs: the measured Jaccard between replicas of the same `(APK, arm)` is **0.000 — mean, median and maximum**, meaning not one state line in the corpus pairs with its counterpart in the other replica. Anything the parser reports across runs, replicas or arms SHALL be derived from `UICOV-ACT`; `UICOV` lines MAY be parsed for intra-run use and SHALL NOT be aggregated across runs.
+
+**Partial dumps are valid input.** Hoisting the emission does not make it atomic — 3 of the 462 runs that dump today are truncated mid-`UICOV-ACT`. The parser SHALL accept a truncated final line as a partial dump, retain every complete line preceding it, and mark the run as partial rather than discarding it.
+
+**Line format.** `gap` carries one decimal place under `Locale.ROOT` and SHALL NOT be used as a computation source; `discovered` and `interacted` are integers and are the authoritative fields. `byType` is `TYPE:interacted/discovered`. Note that `mopReach` appears on the `UICOV` line and **not** on `UICOV-ACT`, so MOP reach is not reconstructible at Activity grain from the current jar; the parser SHALL report its absence rather than infer it.
+
+#### Scenario: Cross-run aggregation uses Activity grain only
+- **WHEN** the parser aggregates coverage across two runs of the same APK and arm
+- **THEN** it SHALL join on `UICOV-ACT` activity names
+- **AND** it SHALL NOT join on `UICOV` state keys, whose cross-run pairing rate is measured at zero
+
+#### Scenario: Truncated dump is retained as partial
+- **WHEN** a run's trace ends mid-way through a `UICOV-ACT` line
+- **THEN** the parser SHALL emit rows for every complete line that precedes it
+- **AND** SHALL flag the run as carrying a partial dump
+
+#### Scenario: Run without a dump is reported, not dropped
+- **WHEN** a run carries no `UICOV` or `UICOV-ACT` line at all
+- **THEN** the parser SHALL report that run with an explicit no-dump marker
+- **AND** SHALL NOT silently omit it, so that any coverage rate computed downstream carries its own denominator
+
+#### Scenario: Artifacts are never modified
+- **WHEN** the parser completes over any run directory
+- **THEN** every artifact it read SHALL be byte-identical to its prior content
