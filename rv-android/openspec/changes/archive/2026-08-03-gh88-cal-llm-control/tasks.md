@@ -93,6 +93,25 @@
 - [x] 10.3 P3 (Fase 0.1) — produce `calibracao/subset40.txt` (+ `calibracao/subset90.txt` for Fase C), generated `filters/`, representativeness memo (means, KS, strata); stratify on `ape__cov_mop` quantiles + mop_unique>0 fraction (~70%) + LLM proxy, greedy optimization, leave-10-out stability check. GATE: |Δmean| ≤ 1.0pp on target metrics, KS n.s., `.apk`+`.apk.json` present for all. **Unblocks `gen_iteration.py` (hard-fails until `subset40.txt` lands).**
 - [x] 10.4 P4 (Fase 0.2) — produce `calibracao/nomatch_decomposition.md` (no-match causal decomposition; sizes H4, fixes the snapping-tolerance candidate for the `ape`-side J1). GATE: ≥90% of calls classified unambiguously. Feeds J1 (`ape` repo, gate G2 — external to gh88).
 
+> **Disposition of groups 11–13 (owner decision, 2026-08-03 — archived here).** The eleven boxes
+> below stay unchecked because the work they name was not done as written.
+>
+> **Group 11 (Phase A) is materially complete**: G3 was granted and the run executed — `iter0`,
+> 880 tasks, 23–24/07, VERIFY `ADMISSIBLE`, `analysis.md` with all four gates. Only the DECIDE
+> record (`templates/decision.md` → `iter0/decision.md`) was never instantiated. It would have
+> promoted nothing: no LLM arm separated from either anchor, and the best of them (`cal_a3`,
+> Δ vs ANC2 +0.85 pp, CI95 [-2.52, 4.35]) is the only one whose mechanism the Gate-3 prediction
+> even explains.
+>
+> **Groups 12–13 (Phases B and C) are superseded by the E3 decisive run** — pre-registration frozen
+> 2026-08-01, executed 2026-08-02, 3 arms × 40 APKs × 30 min. It answers the keep-or-drop question
+> at phase-C scale, so re-running B then C would spend GPU and emulator time to reach a decision
+> already taken on stronger evidence.
+>
+> Task **12.1** is the one with a downstream consequence: it would have added `cal_b*` arms to
+> `get_variants()` in the pre-migration format, and that is why gh88 was recorded as the blocker of
+> the re-architecture's stage 5. Retiring phase B releases it.
+
 ## 11. Phase A campaign — `cala` (methodology P7)
 
 <!-- Loop CONFIG-GEN→PRE-FLIGHT→SMOKE→RUN+MONITOR→CONSOLIDATE→VERIFY→ANALYZE→DECIDE runs via the

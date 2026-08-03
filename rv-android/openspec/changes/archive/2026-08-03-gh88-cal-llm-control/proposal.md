@@ -1,5 +1,34 @@
 # Proposal: gh88-cal-llm-control
 
+> **ARCHIVED 2026-08-03 (owner decision) — delivered in its infrastructure, closed short of
+> phases B and C. 47/58 tasks.**
+>
+> **What shipped and is in production**: the nine `cal_a*` arms and the `LLM_ARM_KEYS` guard in
+> `tool.py`, the two `APERV_PROPERTY_MAPPING` entries, and the whole eight-state scaffold under
+> `experimento-cal/` (`gen_iteration`, `preflight`, `smoke_check`, `consolidate_cal`,
+> `verify_iteration`, `analyze_iteration`, `journal`, `status`). Both delta specs describe
+> this code, so they are **synced** — this is not a skip-specs closure.
+>
+> **Phase A ran**: `experimento-cal/iter0`, 11 arms × 40 APKs (`subset40.txt`) × 2 reps × 300 s,
+> 880 tasks, 23–24/07. VERIFY verdict **ADMISSIBLE**; `analysis.md` complete with all four gates.
+> Its DECIDE record was never written — the analysis is the surviving artifact, and it selects
+> nothing because no LLM arm separated from the anchors (best arm `cal_a3`: Δ`cov_mop` vs ANC2
+> +0.85 pp, CI95 [-2.52, 4.35]).
+>
+> **Phases B and C are superseded by the E3 decisive run**, not abandoned: the pre-registration
+> was frozen 2026-08-01 (`calibracao/journal.jsonl`, `FREEZE-PREREGISTRO` +
+> `docs/20260730_preregistro_corrida_decisiva.md`) and the run executed 2026-08-02 — 3 arms ×
+> 40 APKs × 30 min, which answers the keep-or-drop question the calibration existed to inform,
+> at a scale phase C was going to reach anyway. The 11 open tasks (groups 11–13) are left
+> **unchecked** rather than marked done, because they were not done.
+>
+> **Consequence for the re-architecture**: gh88 was recorded as the only live blocker of stage 5
+> (`ape` repo, `docs/plans/20260802_rearchitecture_roadmap.md`) through task 12.1, which would have
+> added `cal_b*` arms to `get_variants()` in the pre-migration format. With phase B retired, that
+> block is gone. Note the reciprocal: syncing this change's deltas puts the calibration tier and
+> `LLM_ARM_KEYS` into the main `aperv` spec, so `gh95-thin-python-arms` must now explicitly remove
+> them — its group 8 already deletes `LLM_ARM_KEYS` from the code.
+
 **GitHub Issue**: #88
 **Track**: Full SDD
 **Date**: 2026-07-23

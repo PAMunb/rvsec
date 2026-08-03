@@ -183,9 +183,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - **INV-APV-36**: Any coverage figure aggregated across runs, replicas or arms SHALL be derived from `UICOV-ACT` (Activity grain). `UICOV` state keys SHALL NOT be used as a cross-run join key — they embed a JVM identity hash whose measured cross-replica pairing rate is zero (Jaccard 0.000 at mean, median and maximum).
 
 - **INV-APV-37**: The coverage-dump parser SHALL report every run in its input with an explicit dump status — complete, partial, or absent — and SHALL NOT omit a run for lacking a dump. Any coverage rate it produces SHALL carry the denominator it was computed over, so that a figure computed on the runs that dumped is never mistaken for a figure over all runs.
-
 ## Requirements
-
 ### Requirement: ApeRVTool Registration (FR18, FR19)
 
 `ApeRVTool` SHALL be registered as an external tool via rv-platform's `_register_external_tools()` function in `rv_platform/__init__.py`. Registration SHALL be idempotent: the function MUST check `registry.is_tool_registered("aperv")` before calling `registry.register_tool_class(ApeRVTool)`. If `aperv-tool` is not installed, the resulting `ImportError` SHALL be caught and logged as a warning; the platform SHALL continue operating normally. An unexpected exception during registration SHALL be logged as an error and SHALL NOT propagate.
@@ -209,9 +207,10 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 ### Requirement: ApeRVTool Variants (FR20)
 
-`ApeRVTool` SHALL define named variants organized in four tiers: base variants, MOP-arm variants, LLM
-variants, and prompt experiment variants. Every variant SHALL include a `"strategy"` key and a
-`"throttle_ms"` key. The `"default"` variant SHALL use strategy `"sata"` (INV-TOOL-02).
+`ApeRVTool` SHALL define named variants organized in five tiers: base variants, MOP-arm variants, LLM
+variants, prompt experiment variants, and calibration arm variants. Every variant SHALL include a
+`"strategy"` key and a `"throttle_ms"` key. The `"default"` variant SHALL use strategy `"sata"`
+(INV-TOOL-02).
 
 Every variant **except** the exempt prompt-experiment variants (INV-APV-17) SHALL set every key in
 `ARM_DEFINING_KEYS` explicitly (INV-APV-14) so the arm's behavior is defined by the variant dictionary and
@@ -284,6 +283,46 @@ arm-defining explicitness policy (INV-APV-14) to preserve historical reproducibi
 | `sata_mop_llm_v17` | `v17` |
 | `sata_mop_llm_visual_only` | `visual_only` |
 
+#### Calibration Arm Variants (cal_*)
+
+Nine variants implementing the Phase-A arm table of the LLM calibration plan
+(`docs/20260721_plano_calibracao_llm.md` §6, rev. 3.2). All are built on the `sata_mop_act_frontier`
+arm-defining substrate (MOP on, reach package A′+B+E-min ON: `mop_data="static_analysis"`,
+`mop_activity_source_components=true`, `frontier_boost_weight=200`, `mop_frontier_weight=200`,
+`activity_trigger_enabled=true`, the four MOP weights explicit) plus the LLM keys, as explicit dict
+literals — no builder abstraction. The frontier substrate is the algorithmic configuration that won the
+cmpma multi-arm comparison (cov_mop 37.75% vs ≤35%, Friedman+Holm): whenever the router does not
+delegate a step to the LLM — and on every `no_match` fallback — the arm explores in frontier mode.
+`sata_mop_act_frontier` without LLM keys is exactly the ANC2 anchor arm, so the paired difference
+`cal_* − ANC2` isolates the LLM contribution on the same algorithmic base.
+
+Each `cal_*` variant declares every key in `LLM_ARM_KEYS` explicitly (INV-APV-26) in addition to the
+full `ARM_DEFINING_KEYS` set (INV-APV-14). Names are tool-agnostic (`cal_*`, never a tool-name prefix).
+`cal_a1` is the calibration control arm: the cmp_llm_20260721 LLM-key configuration (`v13` prompt,
+`llm_percentage=0.7`, temperature 0) carried onto the frontier substrate (the cmp_llm campaign itself
+ran on the widget substrate — cross-substrate anchors are re-measured in-experiment by the Phase-A
+design). `cal_a2`–`cal_a9` differ from `cal_a1` only in the keys listed below.
+
+Common explicit LLM keys (all nine arms): `llm_url="http://10.0.2.2:30000/v1"`, `llm_model="default"`
+(the served model is proven per task by the `[APE-LLM-CONFIG-ACK] server_model` smoke gate),
+`llm_timeout_ms=15000`, `llm_percentage_no_substrate=-1`.
+
+| Variant | Hypothesis | llm_prompt_variant | llm_percentage | llm_temperature | llm_top_p | llm_top_k | llm_on_new_state | llm_on_stagnation |
+|---------|------------|--------------------|----------------|-----------------|-----------|-----------|------------------|-------------------|
+| `cal_a1` | control | `v13` | `0.7` | `0` | `0.6` | `50` | `true` | `true` |
+| `cal_a2` | H1 | `v13` | `0.3` | `0` | `0.6` | `50` | `true` | `true` |
+| `cal_a3` | H1 (stagnation-only) | `v13` | `0` | `0` | `0.6` | `50` | `false` | `true` |
+| `cal_a4` | H1 (new-state+stagnation) | `v13` | `0` | `0` | `0.6` | `50` | `true` | `true` |
+| `cal_a5` | H3 (vendor bundle) | `v13` | `0.3` | `0.7` | `0.8` | `20` | `true` | `true` |
+| `cal_a6` | H3 (temperature isolated) | `v13` | `0.3` | `0.7` | `0.6` | `50` | `true` | `true` |
+| `cal_a7` | H3 (AutoDroid point) | `v13` | `0.3` | `0.25` | `0.6` | `50` | `true` | `true` |
+| `cal_a8` | H2 (short extreme) | `visual_only` | `0.3` | `0` | `0.6` | `50` | `true` | `true` |
+| `cal_a9` | H2 (long extreme) | `v17` | `0.3` | `0` | `0.6` | `50` | `true` | `true` |
+
+Phase-B arms (`cal_b*`) are not pre-defined: they depend on Phase-A survivors and are added to
+`get_variants()` under the same `LLM_ARM_KEYS` guard when Phase B is designed, deployed via the
+calibration-control snapshot+bind-mount mechanism without an image rebuild.
+
 #### Scenario: Baseline sata arm disables RV steering explicitly
 - **WHEN** `get_variants()["sata"]` is read
 - **THEN** it SHALL contain `frontier_boost_weight == 0` and `activity_trigger_enabled == False` explicitly
@@ -329,7 +368,30 @@ arm-defining explicitness policy (INV-APV-14) to preserve historical reproducibi
 - **AND** `tool._tool_config["mop_data"]` SHALL be `"static_analysis"`
 - **AND** `tool._tool_config["activity_trigger_enabled"]` SHALL be `True`
 
----
+#### Scenario: cal_a1 is the LLM control configuration on the frontier substrate
+- **WHEN** `get_variants()["cal_a1"]` is read
+- **THEN** `llm_prompt_variant == "v13"`, `llm_percentage == 0.7`, `llm_temperature == 0`, `llm_top_p == 0.6`, `llm_top_k == 50`, `llm_on_new_state == True`, `llm_on_stagnation == True`
+- **AND** `mop_data` SHALL equal `"static_analysis"` and the arm-defining substrate SHALL equal the `sata_mop_act_frontier` values (`mop_activity_source_components == True`, `frontier_boost_weight == 200`, `mop_frontier_weight == 200`, `activity_trigger_enabled == True`)
+
+#### Scenario: Every cal_* arm falls back to frontier mode when the LLM does not act
+- **WHEN** `get_variants()` is iterated over every variant whose name starts with `cal_`
+- **THEN** each SHALL contain the `sata_mop_act_frontier` substrate values (`mop_activity_source_components == True`, `frontier_boost_weight == 200`, `mop_frontier_weight == 200`, `activity_trigger_enabled == True`, `mop_data == "static_analysis"`)
+- **AND** no `cal_*` arm SHALL carry the `sata_mop_widget` substrate (`frontier_boost_weight == 0`)
+
+#### Scenario: cal_a3 is the stagnation-only routing regime
+- **WHEN** `get_variants()["cal_a3"]` is read
+- **THEN** `llm_on_new_state == False`, `llm_on_stagnation == True`, `llm_percentage == 0`
+- **AND** all other `LLM_ARM_KEYS` values SHALL equal the `cal_a1` values
+
+#### Scenario: cal_a6 vs cal_a5 isolates top_p/top_k from temperature
+- **WHEN** `get_variants()["cal_a5"]` and `get_variants()["cal_a6"]` are compared
+- **THEN** they SHALL differ only in `llm_top_p` (`0.8` vs `0.6`) and `llm_top_k` (`20` vs `50`)
+- **AND** both SHALL have `llm_temperature == 0.7` and `llm_percentage == 0.3`
+
+#### Scenario: Every cal_* variant declares every LLM key (LLM_ARM_KEYS guard)
+- **WHEN** `get_variants()` is iterated over every variant whose name starts with `cal_`
+- **THEN** each SHALL contain every key in `LLM_ARM_KEYS`
+- **AND** a `cal_*` variant missing any LLM key SHALL fail the guard test with a message naming the variant and the missing keys
 
 ### Requirement: ApeRVTool Configuration (FR19)
 
@@ -952,3 +1014,19 @@ The parser exists because the dump has **no automated consumer today**: a search
 #### Scenario: Artifacts are never modified
 - **WHEN** the parser completes over any run directory
 - **THEN** every artifact it read SHALL be byte-identical to its prior content
+
+### Requirement: Calibration Property Mappings (FR20, NFR05)
+
+`APERV_PROPERTY_MAPPING` SHALL contain the entries `llm_max_tokens` → `ape.llmMaxTokens` and
+`llm_snap_tolerance_px` → `ape.llmSnapTolerancePx` (INV-APV-27). These keys are NOT members of
+`LLM_ARM_KEYS` and NOT set by any `cal_a*` arm: the Phase-A jar hardcodes `max_tokens=1024` and the
+snapping tolerance, so a variant setting them would declare configuration the deployed binary ignores.
+The mapping entries exist so that Phase-B arms can set the keys the moment the Phase-B jar (J1/J4
+changes in the `ape` repo) exposes the properties, with no further `aperv-tool` change.
+
+#### Scenario: New mappings are present but unused by Phase-A arms
+- **WHEN** `APERV_PROPERTY_MAPPING` is read
+- **THEN** it SHALL map `llm_max_tokens` to `"ape.llmMaxTokens"` and `llm_snap_tolerance_px` to `"ape.llmSnapTolerancePx"`
+- **AND** no `cal_a*` variant SHALL contain either key
+- **AND** `ape.properties` generation for a `cal_a*` arm SHALL NOT emit `ape.llmMaxTokens` or `ape.llmSnapTolerancePx` (INV-APV-08: only keys present in both `_tool_config` and the mapping are written)
+
