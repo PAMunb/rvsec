@@ -459,6 +459,70 @@ class TestTimeoutPathCollects:
             assert handle.read() == trace.read_bytes()
 
 
+class TestFrozenCorpusCarveOut:
+    """INV-APV-55: the frozen legacy-corpus readers are not migrated.
+
+    These scripts read the archived corpus behind the 2026-07-24 calibration
+    report and the decisive run — a dataset that will not be regenerated. They
+    are not compatibility shims keeping a superseded implementation alive for
+    new data, so P3 does not reach them: it governs superseded *implementation*,
+    not analysis code over frozen data. The operational test is simple —
+    `clock_logcat_join.py` migrated because it must read *new* traces; these
+    never will.
+    """
+
+    # Repo root: modules/aperv-tool/tests/ -> modules/aperv-tool -> modules -> root
+    REPO_ROOT = Path(__file__).resolve().parents[3]
+
+    FROZEN_FILES = ("scripts/cmpm_stratify.py", "scripts/analyze_cmpv2_llm.py")
+    FROZEN_DIRS = (
+        "experimento-cal/scripts",
+        "experimento-20260721/scripts",
+        "calibracao",
+    )
+
+    def _frozen_sources(self):
+        paths = [self.REPO_ROOT / name for name in self.FROZEN_FILES]
+        for directory in self.FROZEN_DIRS:
+            paths.extend(sorted((self.REPO_ROOT / directory).rglob("*.py")))
+        return [path for path in paths if path.is_file()]
+
+    def test_frozen_corpus_scripts_untouched(self):
+        """None of them was adapted to the new reader.
+
+        The assertion is about content rather than a `git diff`, deliberately.
+        Several of these files carry unrelated working-tree edits that predate
+        this change, so a diff-based check would report noise from elsewhere as
+        a violation of this carve-out and would say nothing about the property
+        the invariant protects. What it protects is that the migration did not
+        reach them: they still parse the legacy `[APE-*]` `key=value` family and
+        none of them imports the NDJSON reader.
+        """
+        sources = self._frozen_sources()
+        assert len(sources) >= len(self.FROZEN_FILES), "frozen script paths not found"
+
+        migrated = [
+            str(path.relative_to(self.REPO_ROOT))
+            for path in sources
+            if "trace_ndjson" in path.read_text(encoding="utf-8", errors="replace")
+        ]
+        assert migrated == [], f"frozen-corpus scripts were migrated: {migrated}"
+
+    def test_frozen_corpus_scripts_still_parse_the_legacy_family(self):
+        """At least one reader per carve-out region still reads `[APE-*]`.
+
+        This is the non-vacuity half: if the legacy parsers had been quietly
+        removed, the assertion above would pass over files that no longer read
+        anything, and the carve-out would be protecting nothing.
+        """
+        legacy_readers = [
+            path
+            for path in self._frozen_sources()
+            if "[APE-" in path.read_text(encoding="utf-8", errors="replace")
+        ]
+        assert legacy_readers, "no frozen script parses the legacy line family"
+
+
 class TestNoExitContract:
     """INV-APV-53: nothing on the collection path reads `RUN_END`."""
 

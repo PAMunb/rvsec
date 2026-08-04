@@ -35,7 +35,7 @@
 - [x] 2.7 Implement malformed handling: skip and count in `TraceDiagnostics.malformed`, never raise; a reference to an undefined `ACT`/`STATE`/`out.target` ID takes the same branch and no placeholder string is emitted (INV-APV-50)
 - [x] 2.8 Add the reader unit tests, asserting the golden fixture field for field against expected rows — one named test per rule: joined row, boost defaults, tri-state `patched`, `llm[]` order, outcome absent vs `resolved:false`, `activity_has_mop` on both sides, malformed count (exactly 2 for the fixture), undefined dictionary ID, missing `RUN_START`
 - [x] 2.9 Add `test_reader_never_imported_by_collection_path`: `trace_ndjson` is not reachable from the import graph of `tools/aperv/tool.py` (INV-APV-48)
-- [ ] 2.10 Run `/rv-doc-code modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`
+- [x] 2.10 Run `/rv-doc-code modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`
 - [x] 2.11 Run `/rv-test-run aperv-tool`
 
 ## 3. gzip at collection
@@ -61,10 +61,10 @@
 
 <!-- 5.1-5.4 are safe at any time. 5.5 onward is BLOCKED on 4.2 (INV-APV-54). -->
 
-- [ ] 5.1 Replace `_read_steps` in `modules/aperv-tool/src/aperv_tool/analysis/clock_logcat_join.py` with a `TraceReader`-backed step map (`dict[int, StepRow]`), deleting the `[APE-STEP]` regex at `:62-63`. The offset reconstruction stays for now — reader rows carry the same epoch clock the regex read, so this step changes the source and nothing else
-- [ ] 5.2 Implement `_read_heartbeats(logcat_path)`: parse `ApeRvHb` lines into `(stamp, step, t_rel_ms)`, using the existing `_TIMESTAMP` pattern
-- [ ] 5.3 Add the heartbeat-side test fixtures: a stage-4 trace paired with a logcat carrying matching heartbeat lines, and a second logcat with `RVSEC` lines but no heartbeat at all
-- [ ] 5.4 Run `/rv-test-run aperv-tool`
+- [x] 5.1 Replace `_read_steps` in `modules/aperv-tool/src/aperv_tool/analysis/clock_logcat_join.py` with a `TraceReader`-backed step map (`dict[int, StepRow]`), deleting the `[APE-STEP]` regex at `:62-63`. The offset reconstruction stays for now — reader rows carry the same epoch clock the regex read, so this step changes the source and nothing else
+- [x] 5.2 Implement `_read_heartbeats(logcat_path)`: parse `ApeRvHb` lines into `(stamp, step, t_rel_ms)`, using the existing `_TIMESTAMP` pattern
+- [x] 5.3 Add the heartbeat-side test fixtures: a stage-4 trace paired with a logcat carrying matching heartbeat lines, and a second logcat with `RVSEC` lines but no heartbeat at all
+- [x] 5.4 Run `/rv-test-run aperv-tool`
 - [ ] 5.5 **Gated on 4.2.** Switch placement to heartbeats: each violation is placed against the last heartbeat at or before its stamp, and the matched step keys into the `StepRow` map for activity and state (design D-4, D-5)
 - [ ] 5.6 **Gated on 4.2.** Delete `_align_clocks()` (`:348-384`), `_naive_epoch_ms`, `_read_capture_start`, the year-candidate search, the quarter-hour rounding, `_QUARTER_HOUR_MS`, and the anchor selection — deleted, not disabled, and backed up to `backup/` first (P3)
 - [ ] 5.7 **Gated on 4.2.** Remove `alignment_residual_ms` **and** `clock_offset_ms` from `RunJoin` and from every consumer and docstring. `clock_offset_ms` holds the reconstructed UTC offset and has no producer once `_align_clocks` is gone; keeping it would be the dead shim P3 forbids (design D-4)
@@ -74,8 +74,8 @@
 
 ## 6. Carve-out, documentation and verification
 
-- [ ] 6.1 Add `test_frozen_corpus_scripts_untouched`: the paths named by INV-APV-55 — `scripts/cmpm_stratify.py`, `scripts/analyze_cmpv2_llm.py`, `experimento-cal/scripts/*`, `experimento-20260721/scripts/*`, `calibracao/*` — are unmodified by this change
-- [ ] 6.2 Record the frozen-corpus carve-out in `modules/aperv-tool/CLAUDE.md`: which scripts, why they keep the legacy parser, why that is not a P3 violation, and the operational test (`clock_logcat_join.py` migrated because it reads new traces; these never will). Add `analysis/trace_ndjson.py` to the module's file table and note that `coverage_dump.py` is unaffected because it reads only the `UICOV` lines
+- [x] 6.1 Add `test_frozen_corpus_scripts_untouched`: the paths named by INV-APV-55 — `scripts/cmpm_stratify.py`, `scripts/analyze_cmpv2_llm.py`, `experimento-cal/scripts/*`, `experimento-20260721/scripts/*`, `calibracao/*` — are unmodified by this change
+- [x] 6.2 Record the frozen-corpus carve-out in `modules/aperv-tool/CLAUDE.md`: which scripts, why they keep the legacy parser, why that is not a P3 violation, and the operational test (`clock_logcat_join.py` migrated because it reads new traces; these never will). Add `analysis/trace_ndjson.py` to the module's file table and note that `coverage_dump.py` is unaffected because it reads only the `UICOV` lines
 - [ ] 6.3 Run `/rv-qa-lint-fix aperv-tool` — do not touch the three pre-existing findings listed at the top of this file
 - [ ] 6.4 Run `/rv-verify aperv-tool` (~4 min; run it in the background), `/rv-verify rv-android-core` and `/rv-verify rv-platform`
 - [ ] 6.5 Invoke `/rv-code-reviewer` via the Skill tool for the whole change

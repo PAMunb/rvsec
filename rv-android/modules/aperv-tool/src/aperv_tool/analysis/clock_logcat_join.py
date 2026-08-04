@@ -10,15 +10,21 @@ toward screens that need interaction rather than arrival, and every conclusion
 about MOP guidance is measuring the wrong thing.
 
 This module produces the evidence. It reads the two artifacts a run already
-leaves behind — the `.trace` with one `[APE-STEP]` line per decision, carrying
-`clock=<epoch ms>`, and the `.logcat` with one `RVSEC` line per violation — and
-places every violation on the exploration timeline: before the first step, next
-to the step that was executing, or after the last one. It is also the evidence
-base for the deferred N5 decision (reading logcat at runtime): it establishes
-what signal a runtime reader would have had, and with what latency, before any
-runtime mechanism is proposed.
+leaves behind — the `.trace`, an NDJSON stream with one record per decision, and
+the `.logcat` with one `RVSEC` line per violation — and places every violation on
+the exploration timeline: before the first step, next to the step that was
+executing, or after the last one. It is also the evidence base for the deferred
+N5 decision (reading logcat at runtime): it establishes what signal a runtime
+reader would have had, and with what latency, before any runtime mechanism is
+proposed.
 
-**The two clocks are the same clock, rendered differently.** `[APE-STEP] clock=`
+**The steps come from the native reader.** `analysis/trace_ndjson.py` is the one
+way this module reads a trace: it yields a row per step with the epoch clock
+already expanded from the run-relative `t` through `RUN_START.t0`. A run whose
+trace carries no `RUN_START` has no absolute clock, and none is invented — its
+violations are reported as `UNALIGNED` rather than placed against a guess.
+
+**The two clocks are the same clock, rendered differently.** The step clock
 is `System.currentTimeMillis()` inside the agent process; logcat stamps the same
 device clock as local wall time, with no year and no zone. So the difference
 between the two series is exactly the device's UTC offset — a multiple of 15
@@ -55,13 +61,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-# `[APE-STEP] step=N clock=<epoch ms> activity=... state=... action=...`, matched
-# as a substring: every line carries the `[APE] ` prefix, and the telemetry lines
-# do not all carry the `*** INFO *** ` infix that most APE output has, so an
-# anchored pattern silently matches nothing.
-_STEP_LINE = re.compile(
-    r"\[APE-STEP\] step=(?P<step>\d+) clock=(?P<clock>\d+) activity=(?P<activity>\S+)"
-)
+from aperv_tool.analysis.trace_ndjson import StepRow, TraceReader
 
 # `MM-DD HH:MM:SS.mmm  PID  TID  LEVEL TAG: message`, with the tag padded to eight
 # characters. `RVSEC` is the violation tag; `RVSEC-COV` is the coverage tag and is
@@ -76,6 +76,14 @@ _VIOLATION_LINE = re.compile(
 # Any stamped logcat line, used only to anchor the two clocks. The file opens
 # with unstamped `--------- beginning of main` separators, which this skips.
 _ANY_STAMPED_LINE = re.compile(rf"^{_TIMESTAMP}\s")
+
+# The per-step heartbeat: `... I ApeRvHb: s=<step> t=<run-relative ms>`. The tag
+# is the contract with the jar (`ape` design D-6) and is declared on this side in
+# rv_android_core's logging constants, which put it in the capture allowlist.
+_HEARTBEAT_LINE = re.compile(
+    rf"^{_TIMESTAMP}\s+\d+\s+\d+\s+[VDIWEF] ApeRvHb\s*:\s*"
+    r"s=(?P<step>\d+)\s+t=(?P<rel>\d+)"
+)
 
 # The logger emits `spec,class,simpleClass,method,location,violationType,message`
 # and the message itself contains commas ("expecting one of {TLSv1.2, TLSv1.3}"),
@@ -148,8 +156,8 @@ class RunJoin:
         repetition: Repetition index from the run filename.
         timeout_seconds: Exploration budget from the run filename.
         arm: Tool and variant from the run filename, e.g. `aperv:sata_mop`.
-        steps: Number of `[APE-STEP]` lines in the trace. Zero for arms that
-            emit no telemetry and for runs that died at startup.
+        steps: Number of step records in the trace. Zero for arms that emit no
+            telemetry and for runs that died at startup.
         violation_lines: Every `RVSEC` line in the file, whether or not it could
             be placed. This is the quantity the validation gate counts.
         violations: One entry per violation line, placed on the timeline.
@@ -234,33 +242,78 @@ def _split_run_identity(
     )
 
 
-def _read_steps(trace_path: Path) -> list[tuple[int, int, str]]:
+def _read_steps(trace_path: Path) -> dict[int, StepRow]:
     """
-    Read `(step, clock_ms, activity)` for every telemetry line in the trace.
+    Read the run's steps, keyed by step number.
+
+    The steps come from the native NDJSON reader rather than from a regex over
+    the trace. That is a change of source and nothing else: a reader row carries
+    the same epoch clock the retired `[APE-STEP] clock=` field carried, expanded
+    from the run-relative `t` through `RUN_START.t0`.
 
     Args:
         trace_path: Recorded `.trace` file. Not written to.
 
     Returns:
-        One tuple per `[APE-STEP]` line, in file order — which is chronological,
-        since the agent writes one line per decision. Empty for an arm that
-        emits no telemetry and for a run that died before its first step.
+        `{step: StepRow}` in file order, which is chronological — the agent
+        writes one record per decision and step numbers increase strictly within
+        a run. Empty for an arm that emits no telemetry and for a run that died
+        before its first step.
     """
-    steps: list[tuple[int, int, str]] = []
-    with open(trace_path, "rb") as trace_file:
-        for raw_line in trace_file:
-            if b"[APE-STEP]" not in raw_line:
-                continue
-            match = _STEP_LINE.search(raw_line.decode("utf-8", errors="replace"))
+    return {row.step: row for row in TraceReader(trace_path)}
+
+
+def _step_timeline(steps: dict[int, StepRow]) -> list[tuple[int, int, str]]:
+    """
+    Reduce the step map to the `(step, clock_ms, activity)` placement timeline.
+
+    Rows whose epoch clock is unavailable are dropped rather than guessed: a
+    trace with no `RUN_START` has a run-relative clock only, and inventing an
+    absolute one is what the reader refuses to do (INV-APV-51). A run left with
+    no timeline reports its violations as `UNALIGNED` and keeps its denominator.
+    """
+    return [
+        (row.step, row.t_epoch_ms, row.activity)
+        for row in steps.values()
+        if row.t_epoch_ms is not None
+    ]
+
+
+def _read_heartbeats(logcat_path: Path) -> list[tuple[dt.datetime, int, int]]:
+    """
+    Read the per-step heartbeat lines the jar writes into logcat.
+
+    From stage 4 the agent emits one `Log.i` line per exploration step under the
+    `ApeRvHb` tag, carrying the step number and its run-relative milliseconds.
+    Its whole purpose is to put the step series and the violation series in the
+    same file, on the same clock, in the same rendering — so a violation can be
+    placed by comparing two stamps that are both unzoned and both yearless, and
+    whose unknowns therefore cancel.
+
+    The tag reaches the file only because it is in the capture allowlist: `adb
+    logcat -s <tags>` filters at the device, so a heartbeat under an unadmitted
+    tag is discarded before capture and this function legitimately returns an
+    empty list. That is reported as `UNALIGNED`, never papered over.
+
+    Args:
+        logcat_path: Recorded `.logcat` file. Not written to.
+
+    Returns:
+        One `(stamp, step, t_rel_ms)` per heartbeat line, in file order.
+    """
+    heartbeats: list[tuple[dt.datetime, int, int]] = []
+    with open(logcat_path, "r", encoding="utf-8", errors="replace") as logcat_file:
+        for line in logcat_file:
+            match = _HEARTBEAT_LINE.match(line)
             if match:
-                steps.append(
+                heartbeats.append(
                     (
+                        _stamp_of(match),
                         int(match.group("step")),
-                        int(match.group("clock")),
-                        match.group("activity"),
+                        int(match.group("rel")),
                     )
                 )
-    return steps
+    return heartbeats
 
 
 def _read_violation_lines(logcat_path: Path) -> list[tuple[dt.datetime, str]]:
@@ -443,7 +496,8 @@ def join_run(trace_path: Path | str) -> RunJoin:
     logcat_path = trace_path.with_suffix(".logcat")
     apk, repetition, timeout_seconds, arm = _split_run_identity(trace_path)
 
-    steps = _read_steps(trace_path)
+    step_map = _read_steps(trace_path)
+    steps = _step_timeline(step_map)
     raw_violations = _read_violation_lines(logcat_path) if logcat_path.is_file() else []
 
     offset_ms: int | None = None
@@ -494,7 +548,7 @@ def join_run(trace_path: Path | str) -> RunJoin:
         repetition=repetition,
         timeout_seconds=timeout_seconds,
         arm=arm,
-        steps=len(steps),
+        steps=len(step_map),
         violation_lines=len(raw_violations),
         violations=tuple(violations),
         clock_offset_ms=offset_ms,

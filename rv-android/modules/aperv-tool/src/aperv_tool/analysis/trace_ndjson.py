@@ -95,7 +95,17 @@ _BOOST_FIELDS = (
 
 @dataclass(frozen=True)
 class RunStart:
-    """The trace's first record: run identity and the epoch base for every step."""
+    """The trace's first record: run identity and the epoch base for every step.
+
+    Attributes:
+        run_id: The run's identifier, carried only by the border records
+            `RUN_START` and `RUN_END` and never repeated on a step (INV-SNK-04).
+        t0_ms: Epoch milliseconds at which the run's clock started. Every step's
+            `t` is an offset from this, and it is the only source of an absolute
+            timestamp the trace offers.
+        params: The run parameters the jar recorded for itself, verbatim. Read
+            as provenance, not as a contract: the sink owns their names.
+    """
 
     run_id: str
     t0_ms: int
@@ -111,6 +121,37 @@ class LlmCall:
     decline carries `result="breaker_open"` with `trips`. Attribution to the
     step is by construction — the entry lives inside its step's record, so there
     is no join key to get wrong.
+
+    Every field is optional because which ones the sink emits depends on how far
+    the call got. The prompt dumps the sink can attach (`sys`, `user`, `resp`,
+    `tool_calls`) are deliberately not surfaced here: they are the bulk of the
+    record and no analysis in this module reads them.
+
+    Attributes:
+        call: Call number within the run, as the router counted it.
+        mode: Routing hook that made the call, e.g. `new_state`, `stagnation`.
+        result: `matched`, `llm_tap` or `no_match` for a completed call;
+            `error` for an abandoned one; `breaker_open` for the decline.
+        tool: Tool the model invoked, e.g. `click`.
+        qwen: Model-space coordinates as `(x, y)` in Qwen3-VL's normalized
+            `[0, 1000)` range — not pixels.
+        px: The same point in device pixels, after denormalization.
+        reason: Why a completed call produced no usable target: `dead_pair`,
+            `degenerate` or `boundary`.
+        repair: Provenance of the repair form, when the response had to be
+            repaired before it would parse.
+        matched_class: Widget class the coordinate landed on (`mcls`).
+        nearest_class: Class of the closest widget when nothing matched
+            (`ncls`), which is what makes a miss diagnosable.
+        nearest_dist: Distance in pixels to that closest widget (`ndist`).
+        widgets: How many widgets the prompt offered the model.
+        tokens: `(input, output)` token counts (`tok`).
+        ms: Call latency in milliseconds.
+        text: Text the model asked to type, when the tool was a text entry.
+        cause: Failure class on `result="error"`, e.g. `timeout`.
+        detail: Message accompanying `cause`.
+        trips: How many times the breaker had tripped, on
+            `result="breaker_open"`.
     """
 
     call: Optional[int] = None
@@ -141,6 +182,21 @@ class StepOutcome:
     step was still in flight. That is a different fact from a record closed with
     no `out` member at all (a restart, a non-model action, a refinement
     discard), which this reader reports as `StepRow.outcome is None`.
+
+    Attributes:
+        resolved: False only on the teardown flush's in-flight record. True on
+            every outcome the graph update actually closed.
+        new_state: Whether the transition landed on a state never seen before.
+        target_state: State key the action led to, resolved from the `STATE`
+            dictionary. None when the record carried no `target`.
+        target_activity: Activity owning `target_state`, reached by the two-hop
+            `target -> STATE.act -> ACT.name`. None under the same condition.
+        target_activity_has_mop: Whether that landing activity is in the run's
+            MOP set. This is the "reached a monitored screen" half of the
+            evidential link whose other half is `StepRow.activity_has_mop`.
+            None when there is no target to look it up from.
+        activity_changed: Whether the transition crossed an Activity boundary,
+            as opposed to moving between states of the same one.
     """
 
     resolved: bool = True
@@ -153,7 +209,17 @@ class StepOutcome:
 
 @dataclass(frozen=True)
 class Counterfactual:
-    """The counterfactual pick, present exactly on the MOP-sensitive channels."""
+    """The counterfactual pick, present exactly on the MOP-sensitive channels.
+
+    It answers, per step, what the agent would have chosen with the MOP boosts
+    removed — the per-decision evidence that the guidance changed anything.
+
+    Attributes:
+        changed: Whether the counterfactual pick diverges from the factual one.
+            False also covers the case where the recomputation failed, so a
+            False is "no divergence recorded", not "provably identical".
+        action: The diverging action string, present only when `changed`.
+    """
 
     changed: bool
     action: Optional[str] = None
@@ -165,6 +231,11 @@ class ComponentDispatch:
 
     A refused intent and an accepted one were the same trace evidence in the
     retired line family; `result` is what distinguishes them.
+
+    Attributes:
+        result: The platform's own result code for the launch, passed through
+            unaltered — `0` is the accepted case.
+        error: The platform's message when it refused. None on acceptance.
     """
 
     result: int
@@ -173,7 +244,71 @@ class ComponentDispatch:
 
 @dataclass(frozen=True)
 class StepRow:
-    """One fully-joined exploration step, dictionary references resolved."""
+    """One fully-joined exploration step, dictionary references resolved.
+
+    This is the module's whole output surface: everything an analysis needs
+    about a step is on the row, so no consumer joins, looks up an ID, or
+    remembers an omitted-default rule. Where a field is `None`, the absence is
+    itself the fact — the reader never substitutes a value it did not read.
+
+    Attributes:
+        step: Exploration step counter (`s`), unique and strictly increasing
+            within a run (INV-SNK-03).
+        t_rel_ms: Milliseconds since the run's clock started.
+        t_epoch_ms: Absolute epoch milliseconds, `RUN_START.t0 + t_rel_ms`.
+            None when the trace carried no `RUN_START`, in which case no base
+            is inferred from anywhere else (INV-APV-51).
+        activity: Activity class name, resolved from the `ACT` dictionary.
+        activity_has_mop: Whether the activity the step started on is in the
+            run's precomputed MOP set. Uniformly False in a MOP-off arm, which
+            reports no MOP data at all.
+        state_key: Abstract state key, resolved from the `STATE` dictionary.
+            Run-local: the key embeds a JVM identity hash and carries no
+            meaning outside the process that produced it (INV-APV-36), so it
+            joins within a run and never across runs.
+        action: The full action string exactly as the agent printed it.
+        decision_source: The pipeline stage that selected the action (`src`).
+        pick_channel: Label of the channel the pick came through (`ch`).
+        priority: Model-action priority. None for non-model actions, which
+            carry neither a priority nor any boost.
+        mop: MOP-widget boost applied to the pick. Zero when not applied.
+        mop_frontier: MOP activity-frontier boost. Zero when not applied.
+        wtg: Window-transition-graph boost. Zero when not applied.
+        coverage: Coverage boost. Zero when not applied.
+        menu: Menu boost. Zero when not applied.
+        form: Form boost. Zero when not applied.
+        wtg_source: Which pass produced the `wtg` boost — `wtg`, `frontier` or
+            `both` — present exactly when `wtg` is non-zero. The boost is a sum
+            of two producers (the WTG pass writes it, the frontier pass
+            read-modify-writes on top), so the value alone cannot be attributed:
+            with both weights at 200 the decisive campaign realises {0,200,400},
+            leaving 10,231 steps at 200 ambiguous and only 91 at 400 proving
+            both fired. This field de-aliases them; the decision still sums the
+            same number into the same field.
+        mop_exposure: `(boosted, total)` — how many of the screen's actions the
+            MOP widget pass boosted, against how many were eligible at all.
+            Present when that pass is constructed. It is the denominator without
+            which "the MOP scorer fired on 0.4% of decisions" cannot be split
+            into "the mechanism had no opportunity" and "it had one and lost the
+            roulette". It rides the step rather than the `STATE` entry because
+            the pair is not constant per abstract state — 14 of 25 campaign
+            traces show a state with more than one realised pair.
+        patched: Tri-state clickability provenance of the action's target node:
+            `1` when the GUI-tree patch wrote that node's clickability, `0`
+            when it was read from the accessibility node, None when the action
+            has no resolved target at all (`MODEL_BACK`, `MODEL_MENU`,
+            `MODEL_LLM_TAP`). The None is never collapsed into `0`
+            (INV-APV-49). Read causally only for `MODEL_CLICK`.
+        counterfactual: The MOP-off counterfactual pick, present exactly on the
+            MOP-sensitive pick channels and None everywhere else.
+        component: Result of a component launch, present only on the steps that
+            dispatched one.
+        llm: LLM routing attempts made during this step's selection, in
+            occurrence order. Empty when the step made none.
+        outcome: What the action produced. None when the record legitimately
+            closed with no outcome — which is a different fact from an outcome
+            that exists but is unresolved (`StepOutcome.resolved is False`).
+    """
 
     step: int
     t_rel_ms: int
@@ -207,6 +342,20 @@ class TraceDiagnostics:
     `malformed` is the count this reader exists to make visible rather than
     swallow: it is how a truncated capture or a schema drift announces itself
     to an analysis that would otherwise quietly compute over fewer steps.
+
+    Attributes:
+        records_read: Sink records seen, i.e. lines beginning with `{`. The
+            jar's free-text `[APE] ` diagnostics are not counted here at all.
+        steps_yielded: Rows actually emitted. Below `records_read` by the
+            dictionary and run-level records plus anything malformed.
+        malformed: Records dropped as unreadable — unparseable JSON, a
+            non-object, a missing required field, or a dictionary reference no
+            earlier record defined. One is expected at the tail of a trace cut
+            by a `SIGKILL`; a larger count means damage or schema drift.
+        run_start_present: Whether a `RUN_START` was consumed. False makes
+            every row's `t_epoch_ms` None.
+        activities: `ACT` dictionary entries absorbed.
+        states: `STATE` dictionary entries absorbed.
     """
 
     records_read: int = 0
@@ -218,7 +367,11 @@ class TraceDiagnostics:
 
 
 def _as_int_pair(value: Any) -> Optional[Tuple[int, int]]:
-    """Coerce a two-element wire array (`qwen`, `px`, `tok`, `mopx`) to a tuple."""
+    """Coerce a two-element wire array (`qwen`, `px`, `tok`, `mopx`) to a tuple.
+
+    Anything that is not a two-element list becomes None rather than a partial
+    pair, so a consumer never reads half a coordinate as a whole one.
+    """
     if isinstance(value, list) and len(value) == 2:
         return (value[0], value[1])
     return None
@@ -275,6 +428,25 @@ class TraceReader:
     """
 
     def __init__(self, trace_path: Path | str) -> None:
+        """Bind the reader to a recorded trace without opening it.
+
+        Construction touches no file, so a reader may be built for a path that
+        is not yet readable; the `OSError` arrives at the first iteration.
+
+        Args:
+            trace_path: Path to a recorded `.trace` file. Opened read-only and
+                never written to (INV-APV-48).
+
+        State:
+            self._run_start: The `RUN_START` payload. None until that record is
+                consumed, and reset to None at the start of every iteration.
+            self._diagnostics: Counters filled as the file is read; complete
+                only once iteration is exhausted. Replaced on each iteration.
+            self._activities: `ACT` ID -> (activity name, has-MOP flag). Filled
+                forward as entries are met, cleared on each iteration.
+            self._states: `STATE` ID -> (state key, owning `ACT` ID). Same
+                lifecycle as `_activities`.
+        """
         self._path = Path(trace_path)
         self._run_start: Optional[RunStart] = None
         self._diagnostics = TraceDiagnostics()
@@ -294,14 +466,32 @@ class TraceReader:
         return self._diagnostics
 
     def __iter__(self) -> Iterator[StepRow]:
+        """Stream the trace once, yielding one row per well-formed step record.
+
+        The dictionaries and the diagnostics are reset first, so iterating a
+        second time re-reads the file from scratch rather than resuming with
+        stale ID tables. Because the counters are filled as the pass proceeds,
+        `diagnostics` is only trustworthy once the iterator is exhausted.
+
+        Yields:
+            One `StepRow` per step record, in file order, with every dictionary
+            reference already resolved.
+
+        Raises:
+            OSError: When the file cannot be opened. Nothing else escapes — a
+                record that cannot be read increments `diagnostics.malformed`
+                and is skipped (INV-APV-50).
+        """
         self._run_start = None
         self._diagnostics = TraceDiagnostics()
         self._activities = {}
         self._states = {}
 
-        # newline="" keeps the file's own line discipline out of the way; the
-        # records are one line each by construction (INV-SNK-01), so a raw
-        # newline can only appear as an escape sequence inside a string value.
+        # Records are one line each by construction (INV-SNK-01), so line
+        # iteration is a safe record boundary: a raw newline can only appear as
+        # an escape sequence inside a string value. `errors="replace"` is what
+        # keeps a byte-level corruption — the tail of a trace cut mid-write —
+        # from aborting the read of every step that precedes it.
         with self._path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 line = line.strip()
@@ -338,7 +528,16 @@ class TraceReader:
                 yield row
 
     def _absorb_typed_record(self, record_type: str, record: Dict[str, Any]) -> None:
-        """Fill the ID tables and the run header; ignore every other record type."""
+        """Fill the ID tables and the run header; ignore every other record type.
+
+        A dictionary or header entry that is itself unreadable counts as
+        malformed, because losing it silently would turn every later reference
+        to it into an unresolved one with no explanation.
+
+        Args:
+            record_type: The record's `type` member, already known non-None.
+            record: The parsed record.
+        """
         if record_type == _TYPE_ACT:
             try:
                 self._activities[record["id"]] = (
@@ -368,12 +567,22 @@ class TraceReader:
         # module's business. Skipped without a malformed count.
 
     def _activity(self, act_id: int) -> Tuple[str, bool]:
+        """Resolve an `ACT` ID to its (name, has-MOP) pair.
+
+        Raises:
+            UnresolvedReference: When no earlier `ACT` record defined the ID.
+        """
         try:
             return self._activities[act_id]
         except KeyError:
             raise UnresolvedReference(f"no ACT record defines id {act_id}")
 
     def _state(self, state_id: int) -> Tuple[str, int]:
+        """Resolve a `STATE` ID to its (state key, owning `ACT` ID) pair.
+
+        Raises:
+            UnresolvedReference: When no earlier `STATE` record defined the ID.
+        """
         try:
             return self._states[state_id]
         except KeyError:
@@ -386,6 +595,17 @@ class TraceReader:
         ACT.mop` — because the jar records it once per activity rather than on
         every record. A target naming an undefined state is an unresolved
         reference like any other, and takes the malformed branch.
+
+        Args:
+            out: The record's `out` member, already known to be an object.
+
+        Returns:
+            The outcome with its three target-derived fields resolved, or left
+            None together when the record carried no `target`.
+
+        Raises:
+            UnresolvedReference: When `target`, or the activity it leads to,
+                was never defined by an earlier record.
         """
         target_state = target_activity = None
         target_has_mop = None
@@ -410,7 +630,27 @@ class TraceReader:
         )
 
     def _build_step_row(self, record: Dict[str, Any]) -> StepRow:
-        """Assemble one `StepRow`, raising on anything that makes it malformed."""
+        """Assemble one `StepRow`, raising on anything that makes it malformed.
+
+        Nothing here is defensive: the envelope, `dec.a`, `dec.src` and `dec.ch`
+        are required by the schema, so their absence is subscripted directly and
+        the `KeyError` becomes the caller's malformed count. Guarding them would
+        only produce a row that is missing the fields an analysis reads.
+
+        Args:
+            record: A parsed step record — a sink record with no `type` member.
+
+        Returns:
+            The step with its dictionary references resolved, its omitted
+            defaults materialized, and its `llm[]` and `out` sections attached.
+
+        Raises:
+            UnresolvedReference: When `act`, `st` or `out.target` names an
+                undefined dictionary ID.
+            KeyError: When a schema-required member is absent.
+            TypeError: When `dec`, `llm` or `out` is present with the wrong
+                shape.
+        """
         step = record["s"]
         t_rel_ms = record["t"]
         activity, activity_has_mop = self._activity(record["act"])
@@ -482,5 +722,19 @@ def read_steps(trace_path: Path | str) -> List[StepRow]:
     Streaming is the default because the trace is large; this convenience exists
     for the consumers that genuinely need random access by step, and it is their
     choice to pay the memory.
+
+    Note that the reader is discarded with the list, so a caller who also needs
+    `diagnostics` or `run_start` must build a `TraceReader` itself.
+
+    Args:
+        trace_path: Path to a recorded `.trace` file. Opened read-only.
+
+    Returns:
+        Every well-formed step, in file order. Malformed records are absent
+        with no trace of their number, which is the cost of dropping the
+        reader.
+
+    Raises:
+        OSError: When the file cannot be opened.
     """
     return list(TraceReader(trace_path))

@@ -16,8 +16,9 @@ uv run rv-experiment run --tools aperv:sata_mop --specification-set jca   # MOP-
 |------|---------|
 | `src/aperv_tool/tools/aperv/tool.py` | `ApeRVTool`: JAR resolution, device push, MOP artifact derivation + digest cache, `ape.properties` generation, command building, execution |
 | `src/aperv_tool/tools/aperv/derive_mop_artifact.py` | **Single authority** for the MOP substrate's parse-time semantics (gh96). `derive(document) -> dict` + `serialize_canonical(artifact) -> bytes`, both pure |
-| `src/aperv_tool/analysis/coverage_dump.py` | Offline parser of the jar's `UICOV` / `UICOV-ACT` coverage dump (gh90 O3). Never in the run path |
-| `src/aperv_tool/analysis/clock_logcat_join.py` | Offline join of a run's `[APE-STEP]` clock against its `RVSEC` violation lines (gh90 A9). Never in the run path |
+| `src/aperv_tool/analysis/trace_ndjson.py` | Native streaming reader of the stage-4 NDJSON trace (gh94). Resolves the `ACT`/`STATE` dictionaries, materializes omitted defaults, re-derives `activity_has_mop` on both sides, expands the run-relative clock through `RUN_START.t0`, and yields one row per step with `dec`/`llm[]`/`out` joined. Read-only; never in the run path |
+| `src/aperv_tool/analysis/coverage_dump.py` | Offline parser of the jar's `UICOV` / `UICOV-ACT` coverage dump (gh90 O3). Never in the run path. **Unaffected by stage 4**: it reads only the `UICOV` lines, which the NDJSON change does not touch |
+| `src/aperv_tool/analysis/clock_logcat_join.py` | Offline join of a run's step clock against its `RVSEC` violation lines (gh90 A9), reading steps through `trace_ndjson.py`. Never in the run path |
 | `src/aperv_tool/tools/aperv/ape-rv.jar` | APE-RV binary (gitignored); pushed to `/data/local/tmp/ape-rv.jar` |
 | `src/aperv_tool/tools/aperv/system-broadcast.json` | System broadcast intent catalog for component triggering |
 | `tests/test_aperv_tool.py` | Tool spec, variants, configure validation, JAR search paths, command building, empty-trace detection, properties generation, artifact derivation/caching, the `.mop.json` audit |
@@ -68,6 +69,50 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 - **Timeout as expected exit**: exploration runs to the time limit; `RVCommandTimeoutError` → `RVToolTimeoutError` (completed run, not failure).
 - **Non-zero exit is normal**: APE-RV exits non-zero when it detects app crashes during exploration.
 - **LLM URL override**: `APERV_LLM_BASE_URL` overrides `llm_url` for Docker/non-emulator setups (emulator uses `10.0.2.2` host loopback).
+
+## Two trace formats are parsed in this repository, on purpose
+
+From stage 4 of the APE-RV re-architecture the `.trace` is NDJSON — one
+`StepRecord` per exploration step — and `analysis/trace_ndjson.py` is the only
+way code in this module reads one. There is deliberately **no converter** in
+either direction: reconstructing the retired `[APE-STEP]` / `[APE-OUTCOME]` /
+`[APE-LLM-TEL]` `key=value` family over the primary artifact would make the file
+everyone opens a derived reconstruction, and would re-import the unescaped
+line-breaking defect the jar's new serializer exists to remove.
+
+So a legacy `[APE-*]` parser still lives in this tree, and that is **not** a P3
+violation. The scripts below read the archived corpus behind the 2026-07-24
+calibration report and the decisive run — a dataset that is finished and will not
+be regenerated. They are not compatibility shims keeping a superseded
+implementation alive for new data; they are the readers of frozen data. P3
+governs superseded *implementation*, not analysis code over a closed dataset.
+
+Carved out by INV-APV-55, not to be migrated, adapted or deleted:
+
+- `scripts/cmpm_stratify.py`
+- `scripts/analyze_cmpv2_llm.py`
+- `experimento-cal/scripts/*`
+- `experimento-20260721/scripts/*`
+- `calibracao/*`
+
+**The operational test, when it is unclear which side a reader belongs on:**
+`clock_logcat_join.py` migrated because it must read *new* traces; these never
+will. Should the archived corpus ever be regenerated against a stage-4 jar, the
+carve-out expires with it and these scripts migrate or die then — not before.
+`TestFrozenCorpusCarveOut` in `tests/test_aperv_tool.py` asserts both halves:
+that none of them imports the new reader, and that they still parse the legacy
+family (so the carve-out is protecting something rather than nothing).
+
+`analysis/coverage_dump.py` is untouched for a different reason: it reads only
+the `[APE-RV] UICOV` / `UICOV-ACT` dump, which stage 4 does not modify, and it
+keeps reading it unchanged from a stage-4 trace.
+
+**A consequence worth stating, because it looks like a bug and is not.** Every
+trace recorded before stage 4 is legacy format, so `clock_logcat_join.py` now
+reports zero steps for those runs and their violations come back `UNALIGNED`.
+The runs stay in the report with their denominators — the violation series comes
+from the logcat, which stage 4 does not change — and no format sniffer or
+fallback branch is to be added.
 
 ## Gotchas
 
