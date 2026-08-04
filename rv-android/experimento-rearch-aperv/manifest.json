@@ -1,0 +1,76 @@
+{
+  "campaign": "rearch_aperv",
+  "leg": "B",
+  "gate": "gh97-rearch-ab-gate",
+  "paired_against": "experimento-e3-decisiva/per_apk_paired.csv",
+  "image": {
+    "tag": "phtcosta/rvandroid:0.9.3-rearch",
+    "id": null
+  },
+  "build": {
+    "branch": "rearch",
+    "expected_sha": null
+  },
+  "corpus": {
+    "subset_file": "calibracao/subset40.txt",
+    "apk_count": 40,
+    "corpus_basis": "subset40:b60903adf4c8fca07e014e3655db158a220184d112f2f995a181fd98dd3d48d4"
+  },
+  "reps": 3,
+  "timeout": 1800,
+  "containers": 8,
+  "spec_set": "jca",
+  "bootstrap_seed": 42,
+  "arms": [
+    {
+      "role": "reference",
+      "tool": "aperv",
+      "variant": "mop_on_llm_off",
+      "rv_tools_token": "aperv:mop_on_llm_off",
+      "preset": "mop",
+      "mop_data": "static_analysis",
+      "expected_params": {
+        "ape.mopActivitySourceComponents": true,
+        "ape.frontierBoostWeight": 200,
+        "ape.mopFrontierWeight": 200,
+        "ape.activityTriggerEnabled": true
+      }
+    },
+    {
+      "role": "control",
+      "tool": "aperv",
+      "variant": "mop_off_llm_off",
+      "rv_tools_token": "aperv:mop_off_llm_off",
+      "preset": "mop",
+      "mop_data": "static_analysis",
+      "expected_params": {
+        "ape.mopActivitySourceComponents": true,
+        "ape.frontierBoostWeight": 200,
+        "ape.mopWeightDirect": 0,
+        "ape.mopWeightTransitive": 0,
+        "ape.mopWeightOpenMenu": 0,
+        "ape.mopWeightWtg": 0
+      }
+    },
+    {
+      "role": "llm",
+      "tool": "aperv",
+      "variant": "mop_on_llm_70",
+      "rv_tools_token": "aperv:mop_on_llm_70",
+      "preset": "llm_mop",
+      "mop_data": "static_analysis",
+      "expected_params": {
+        "ape.mopActivitySourceComponents": true,
+        "ape.frontierBoostWeight": 200,
+        "ape.mopFrontierWeight": 200,
+        "ape.activityTriggerEnabled": true,
+        "ape.llmUrl": "http://10.0.2.2:30000/v1",
+        "ape.llmPromptVariant": "v13",
+        "ape.llmPercentage": 0.7,
+        "ape.llmTemperature": 0,
+        "ape.llmSnapTolerancePx": 150
+      }
+    }
+  ],
+  "predicted_identities": 360
+}

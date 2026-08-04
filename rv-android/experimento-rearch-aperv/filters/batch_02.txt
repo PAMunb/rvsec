@@ -1,0 +1,5 @@
+com.flauschcode.broccoli_1040400.apk
+com.hegocre.nextcloudpasswords_38.apk
+com.kin.easynotes_14.apk
+com.manimarank.spell4wiki_21.apk
+com.ominous.quickweather_112.apk
