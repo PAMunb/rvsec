@@ -82,9 +82,30 @@ APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"
 # directory with its destination so the rename that publishes it is atomic.
 ARTIFACT_TEMP_SUFFIX = ".mop.json.tmp"
 
-# Strategies accepted by configure(). "dfs" is accepted but has no named variant
-# (accessible via parameter override, e.g. aperv:default@strategy=dfs). See D6.
-APERV_AVAILABLE_STRATEGIES = ["sata", "random", "bfs", "dfs"]
+# Strategies accepted by configure(), matching what the jar's ApeAgent.createAgent builds.
+# "bfs" and "dfs" are absent deliberately: they were never agent types, and a run configured
+# with either used to fall through to SataAgent silently. The jar now aborts on an unknown
+# --ape value, so accepting them here would only let a run pass local validation and die on
+# the device — the silent-degradation class this whole re-architecture removes. "replay" is
+# legal in the jar but stays out too: it needs --ape-replay <log>, which this tool never
+# passes. "random" remains reachable as aperv:sata@strategy=random even though the named
+# random arm is retired.
+APERV_AVAILABLE_STRATEGIES = ["sata", "random"]
+
+# The top-level config keys that are Python orchestration rather than jar configuration.
+# Everything else at the top level must be a mapped override key, or configure() raises:
+# these are the only names that legitimately never reach ape.properties.
+APERV_ORCHESTRATION_KEYS = frozenset(
+    {
+        "preset",
+        "overrides",
+        "strategy",
+        "mop_data",
+        "seed",
+        "expected_jar_git_sha",
+        "expected_jar_sha256",
+    }
+)
 
 # Maps Python config key -> Java ape.properties key.
 # Keys in _tool_config that appear here are written to ape.properties.
@@ -264,30 +285,6 @@ _BASELINE_ARM_FLAGS = {
     "least_visited_priority_tiebreak": True,
     "tree_enhancements_enabled": True,
     "activity_budget_enabled": True,
-    "llm_percentage_no_substrate": -1,
-    "frontier_boost_weight": 0,
-    "activity_trigger_enabled": False,
-    "mop_activity_source_components": False,
-    "mop_frontier_weight": 0,
-}
-
-# Every arm-defining flag at its off/zero value. Used by ape_pure: the jar exposes no switch
-# that forces the RV extensions off, so the original-APE baseline IS this enumeration — and
-# being explicit is what makes it auditable from ape.properties (design D1). 17 keys →
-# guard-clean.
-_APE_PURE_ARM_FLAGS = {
-    "back_menu_pick_cap": 0,
-    "foreign_activity_guard": False,
-    "tree_package_guard": False,
-    "dynamic_epsilon": False,
-    "heuristic_input": False,
-    "fuzz_input_typed": False,
-    "form_completion_enabled": False,
-    "step_telemetry_enabled": False,
-    "model_menu_enabled": False,
-    "least_visited_priority_tiebreak": False,
-    "tree_enhancements_enabled": False,
-    "activity_budget_enabled": False,
     "llm_percentage_no_substrate": -1,
     "frontier_boost_weight": 0,
     "activity_trigger_enabled": False,
@@ -490,50 +487,43 @@ class ApeRVTool(AbstractTool):
             Dictionary mapping variant names to configuration parameters
         """
         # "mop_data" and "strategy" are Python-only keys consumed during execution; they are
-        # NOT written to ape.properties (no APERV_PROPERTY_MAPPING entry). Build sata_mop_widget
-        # once and bind sata_mop to the same object so the alias holds by construction (D4).
-        sata_mop_widget = {
-            **_BASELINE_ARM_FLAGS,
-            **_MOP_SUBSTRATE,
-            "strategy": "sata",
-            "throttle_ms": 200,
-        }
+        # NOT written to ape.properties. Build sata once and bind default to the same object
+        # so the alias holds by construction (INV-TOOL-02).
+        sata = {"preset": "aperv", "strategy": "sata", "overrides": {}}
         return {
-            # Baseline arms — RV exploration ON (defaults explicit), MOP/reach OFF.
-            "default": {**_BASELINE_ARM_FLAGS, "strategy": "sata", "throttle_ms": 200},
-            "sata": {**_BASELINE_ARM_FLAGS, "strategy": "sata", "throttle_ms": 200},
-            "bfs": {**_BASELINE_ARM_FLAGS, "strategy": "bfs", "throttle_ms": 200},
-            "random": {**_BASELINE_ARM_FLAGS, "strategy": "random", "throttle_ms": 200},
-            # ape_pure — original APE: every arm-defining RV flag off, stated explicitly.
-            "ape_pure": {**_APE_PURE_ARM_FLAGS, "strategy": "sata", "throttle_ms": 200},
-            # MOP arms — decompose the reach mechanism (widget → +A′ → +B+E-min).
-            "sata_mop_widget": sata_mop_widget,
-            # sata_mop is the back-compat alias of sata_mop_widget (same object, INV-APV-16).
-            "sata_mop": sata_mop_widget,
-            "sata_mop_activity": {
-                **sata_mop_widget,
-                "mop_activity_source_components": True,
+            # The four preset-identity arms. Each is one-to-one with a jar preset and carries
+            # nothing but the deployment-specific server URL where an LLM is involved — the
+            # preset names an arm, the URL names a machine. throttle_ms is absent from all of
+            # them because the aperv preset already states ape.defaultGUIThrottle=200.
+            "default": sata,
+            "sata": sata,
+            # sata_mop is the frozen corpus's identity: 4,096 aperv:sata_mop.trace artifacts
+            # and 1,066 files under results/ carry that exact token, so renaming it would
+            # orphan every one of those runs from resume and every row from consolidation.
+            # A data-identity constraint, not backward compatibility (INV-APV-42).
+            "sata_mop": {
+                "preset": "mop",
+                "strategy": "sata",
+                "mop_data": "static_analysis",
+                "overrides": {},
+            },
+            # 10.0.2.2 is the Android emulator alias for host loopback; APERV_LLM_BASE_URL
+            # redirects it at L5 without touching the variant table.
+            "sata_llm": {
+                "preset": "llm",
+                "strategy": "sata",
+                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
+            },
+            "sata_mop_llm": {
+                "preset": "llm_mop",
+                "strategy": "sata",
+                "mop_data": "static_analysis",
+                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
             },
             # E-min is the activity-trigger launcher (activity_trigger_enabled); trigger_mop_first
             # was removed after the jar deleted Config.triggerMopFirst (mop-census-launcher).
             "sata_mop_act_frontier": {
-                **sata_mop_widget,
-                "mop_activity_source_components": True,
-                "frontier_boost_weight": 200,
-                "mop_frontier_weight": 200,
-                "activity_trigger_enabled": True,
-            },
-            # LLM arms — full arm-defining baseline + LLM sampling block.
-            "sata_llm": {
-                **_BASELINE_ARM_FLAGS,
-                **_LLM_FLAGS,
-                "strategy": "sata",
-                "throttle_ms": 200,
-            },
-            "sata_mop_llm": {
-                **_BASELINE_ARM_FLAGS,
-                **_MOP_SUBSTRATE,
-                **_LLM_FLAGS,
+                **_FRONTIER_SUBSTRATE,
                 "strategy": "sata",
                 "throttle_ms": 200,
             },
@@ -789,16 +779,19 @@ class ApeRVTool(AbstractTool):
         """
         Configure tool with resolved variant parameters.
 
-        Validates that the strategy key is present and is one of the accepted
-        strategies. Raises ConfigurationError immediately so typos in experiment
-        YAML are caught before any device interaction (INV-APV-02).
+        An arm is a preset name plus a dict of override deltas, so configure()
+        validates all three parts of that shape — strategy, preset, overrides — and
+        folds any tool-DSL override into place. Everything is raised before any
+        device interaction, so a typo in experiment YAML costs nothing (INV-APV-02).
 
         Args:
             config: Configuration dictionary with tool-specific parameters
 
         Raises:
-            ConfigurationError: If strategy key is absent or not in
-                APERV_AVAILABLE_STRATEGIES
+            ConfigurationError: If strategy is absent or outside
+                APERV_AVAILABLE_STRATEGIES, if preset is absent or empty, if
+                overrides is not a dict, or if a top-level key is neither a mapped
+                override nor a recognised orchestration key (INV-APV-39)
         """
         # Validate eagerly so experiment YAML typos are caught before any device
         # interaction — a failed push mid-experiment wastes minutes of emulator time.
@@ -813,8 +806,53 @@ class ApeRVTool(AbstractTool):
                 f"aperv: invalid strategy '{strategy}'. "
                 f"Valid strategies: {APERV_AVAILABLE_STRATEGIES}"
             )
+
+        # The preset is what the jar resolves the arm from, so an arm without one has no
+        # configuration at all — the jar would fall back to its own defaults while the
+        # results directory still carried the arm's name.
+        preset = config.get("preset")
+        if not preset:
+            raise ConfigurationError(
+                "aperv: 'preset' key is required and must be non-empty. "
+                "An arm is a preset name plus its override deltas."
+            )
+
+        overrides = config.get("overrides", {})
+        if not isinstance(overrides, dict):
+            raise ConfigurationError(
+                f"aperv: 'overrides' must be a dict, got {type(overrides).__name__}."
+            )
+
         # Defensive copy preserves the caller's dict.
         self._tool_config = config.copy()
+        self._tool_config["overrides"] = dict(overrides)
+
+        # Fold the tool DSL's overrides into `overrides` (INV-APV-39).
+        #
+        # ToolFactory merges DSL parameters at the TOP LEVEL of the config
+        # (`{**variant_config, **tool_config.parameters}`), while _push_properties()
+        # reads only `overrides`. Without this fold, `aperv:sata_mop@mop_frontier_weight=400`
+        # would land somewhere nothing reads: no property line, no error, and a run whose
+        # configuration silently differs from what the operator asked for. That is the exact
+        # failure class this change exists to remove, so it may not be introduced by it.
+        #
+        # The DSL value wins over an arm's own entry for the same key — the DSL is the
+        # operator's last word, which is what makes it usable for smokes and ablations
+        # without declaring a variant.
+        for key in list(self._tool_config):
+            if key in APERV_PROPERTY_MAPPING:
+                self._tool_config["overrides"][key] = self._tool_config.pop(key)
+
+        # Anything still at the top level that is neither orchestration nor a mapped
+        # override cannot be honoured. Failing loudly is the whole point: a silently
+        # dropped key runs the arm unchanged while the operator believes it was overridden.
+        unrecognised = set(self._tool_config) - APERV_ORCHESTRATION_KEYS
+        if unrecognised:
+            raise ConfigurationError(
+                f"aperv: unrecognised configuration key(s) {sorted(unrecognised)}. "
+                "A key must be either an APERV_PROPERTY_MAPPING override or one of "
+                f"{sorted(APERV_ORCHESTRATION_KEYS)}."
+            )
 
         # gh55 D8: LLM URL override flows through `parameters["llm_url"]` (set by
         # L5 from env / CLI). The factory merge `{**variant_defaults, **parameters}`
@@ -1034,27 +1072,45 @@ class ApeRVTool(AbstractTool):
         """
         Generate ape.properties from tool config and push to device.
 
-        Writes ape.defaultGUIThrottle=<throttle_ms> to a temporary file. When
-        mop_json_pushed is True, also appends ape.mopDataPath pointing to the
-        derived MOP artifact pushed in step 1c.
+        The file states the arm as the jar reads it: a preset name, the MOP artifact
+        path when one was pushed, and one line per override delta. What the preset
+        contains is the jar's business — this side never restates it.
+
+            ape.preset=<preset>                                # always first
+            ape.mopDataPath=/data/local/tmp/mop-artifact.json  # only when pushed
+            ape.<mapped-override-key>=<value>                  # deltas, mapping order
+
+        The order is fixed so two runs of the same arm produce byte-identical output.
 
         Args:
             device_serial: Device serial number
             trace_file_path: Trace file for logging
             mop_json_pushed: If True, include ape.mopDataPath in properties
+
+        Raises:
+            ConfigurationError: If an overrides key has no APERV_PROPERTY_MAPPING
+                entry. Under the jar's fail-fast resolution a misspelled key aborts
+                the run on the device anyway, so catching it here saves emulator time
+                (the INV-APV-02 rationale).
         """
-        # Build the properties file content by translating Python config keys to
-        # Java property names. Only keys present in _tool_config AND in
-        # APERV_PROPERTY_MAPPING are written — Python-only keys (strategy, mop_data)
-        # are excluded automatically because they have no mapping entry.
-        lines = []
+        overrides = self._tool_config.get("overrides", {})
+        unmapped = set(overrides) - set(APERV_PROPERTY_MAPPING)
+        if unmapped:
+            raise ConfigurationError(
+                f"aperv: override key(s) {sorted(unmapped)} have no ape.* property "
+                "mapping, so the jar would reject the properties file."
+            )
+
+        lines = [f"ape.preset={self._tool_config['preset']}"]
         if mop_json_pushed:
             # Same constant the push destination uses, so the property and the file
             # cannot drift apart.
             lines.append(f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}")
+        # Walk the mapping rather than the overrides so line order follows the table and
+        # is stable across runs regardless of how the arm dict was written.
         for python_key, java_key in APERV_PROPERTY_MAPPING.items():
-            if python_key in self._tool_config:
-                value = self._tool_config[python_key]
+            if python_key in overrides:
+                value = overrides[python_key]
                 # Serialize Python bools as lowercase true/false so the line matches what
                 # the jar's Config loader expects (arm flags are Python bools in the variant
                 # dicts; LLM keys are already lowercase strings). bool is an int subclass,
@@ -1195,8 +1251,13 @@ class ApeRVTool(AbstractTool):
             # Comma-joined when the server offers several, so the record names
             # everything that could have answered rather than picking one.
             provenance["llm_model"] = ",".join(models)
+            # Read from the arm's overrides: a sampling key the arm does not override is
+            # the preset's, and recording the preset's value here would misreport a
+            # deployment-wide default as this arm's declared setting. What the run
+            # actually resolved is echoed by the jar into the trace.
+            overrides = self._tool_config.get("overrides", {})
             provenance["llm_sampling"] = {
-                key: self._tool_config[key]
+                key: overrides[key]
                 for key in (
                     "llm_temperature",
                     "llm_top_p",
@@ -1204,7 +1265,7 @@ class ApeRVTool(AbstractTool):
                     "llm_percentage",
                     "llm_prompt_variant",
                 )
-                if key in self._tool_config
+                if key in overrides
             }
         except (OSError, ValueError, KeyError, TypeError) as e:
             # OSError covers URLError and socket timeouts; ValueError covers a
@@ -1458,11 +1519,12 @@ class ApeRVTool(AbstractTool):
         # It cannot be written into the trace itself: step 3 opens that file in
         # "wb" and would truncate anything written here.
         #
-        # The discriminator is `llm_url`, not membership in LLM_ARM_KEYS: that
-        # set contains `llm_percentage_no_substrate`, which every arm carries
-        # through _BASELINE_ARM_FLAGS, so testing the set would query the server
-        # for arms that never call it. `llm_url` is present only in arms that do.
-        llm_url = self._tool_config.get("llm_url")
+        # The discriminator is `llm_url` in the arm's overrides, not the preset name.
+        # Both say the same thing today — the llm and llm_mop presets state the routing
+        # gates ON, and INV-APV-38 requires every such arm to supply the URL — but the URL
+        # is what this step actually needs, so testing for it cannot go looking for a
+        # server that was never configured.
+        llm_url = self._tool_config.get("overrides", {}).get("llm_url")
         if llm_url:
             provenance = self._capture_llm_provenance(llm_url, jar_path)
             provenance_path = (

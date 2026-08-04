@@ -32,6 +32,26 @@ from aperv_tool.tools.aperv.tool import (
 )
 
 
+def _written_properties(tool, tmp_path, mop_json_pushed=False):
+    """The ape.properties content a configured tool would push, without a device.
+
+    The push is intercepted rather than mocked away so the file really is written and read
+    back — an assertion about a string the test itself built would prove nothing about the
+    writer.
+    """
+    captured = {}
+
+    def fake_push(local_path, device_path, device_serial, trace_file_path):
+        with open(local_path) as handle:
+            captured["properties"] = handle.read()
+
+    tool._push_file_to_device = fake_push
+    trace = str(tmp_path / "trace.bin")
+    open(trace, "w").close()
+    tool._push_properties("emulator-5554", trace, mop_json_pushed)
+    return captured["properties"]
+
+
 class TestToolSpec:
     """Verify TOOL_SPEC metadata."""
 
@@ -51,72 +71,74 @@ class TestToolSpec:
 class TestVariants:
     """Verify get_variants() structure (INV-APV-05)."""
 
-    def test_base_variants_present(self):
-        variants = ApeRVTool.get_variants()
-        base_variants = {
-            "default",
-            "sata",
-            "sata_mop",
-            "bfs",
-            "random",
-            "sata_llm",
-            "sata_mop_llm",
-        }
-        assert base_variants.issubset(
-            set(variants.keys())
-        ), f"Missing base variants: {base_variants - set(variants.keys())}"
+    PRESET_IDENTITY_ARMS = {
+        "sata": "aperv",
+        "sata_mop": "mop",
+        "sata_llm": "llm",
+        "sata_mop_llm": "llm_mop",
+    }
 
-    def test_default_uses_sata_strategy(self):
+    def test_preset_identity_arms_are_one_to_one_with_the_jar_presets(self):
         variants = ApeRVTool.get_variants()
+        for name, preset in self.PRESET_IDENTITY_ARMS.items():
+            assert variants[name]["preset"] == preset
+
+    def test_default_is_bound_to_the_same_object_as_sata(self):
+        # INV-TOOL-02: an alias by shared object, so the two cannot drift apart.
+        variants = ApeRVTool.get_variants()
+        assert variants["default"] is variants["sata"]
         assert variants["default"]["strategy"] == "sata"
 
-    def test_sata_mop_has_mop_data_static_analysis(self):
+    def test_preset_identity_arms_carry_nothing_but_the_server_url(self):
+        # The preset states the arm; only the URL is deployment-specific. Anything else in
+        # these overrides would be the jar's vocabulary restated on the Python side, which
+        # is the duplication this change deletes.
         variants = ApeRVTool.get_variants()
-        assert "mop_data" in variants["sata_mop"]
+        assert variants["sata"]["overrides"] == {}
+        assert variants["sata_mop"]["overrides"] == {}
+        assert set(variants["sata_llm"]["overrides"]) == {"llm_url"}
+        assert set(variants["sata_mop_llm"]["overrides"]) == {"llm_url"}
+
+    def test_every_llm_preset_arm_declares_the_url(self):
+        # INV-APV-38: the preset states the LLM routing gates ON while deliberately omitting
+        # the server URL, so an arm that inherits it without supplying one activates routing
+        # over an absent mechanism and aborts at resolution. A fail-fast, not a fallback.
+        for name, arm in ApeRVTool.get_variants().items():
+            if arm.get("preset") in ("llm", "llm_mop"):
+                assert "llm_url" in arm["overrides"], f"{name} has no llm_url"
+
+    def test_mop_arms_carry_the_static_analysis_document(self):
+        variants = ApeRVTool.get_variants()
         assert variants["sata_mop"]["mop_data"] == "static_analysis"
+        assert variants["sata_mop_llm"]["mop_data"] == "static_analysis"
 
     def test_non_mop_variants_lack_mop_data(self):
         variants = ApeRVTool.get_variants()
-        for name in ["default", "sata", "bfs", "random", "sata_llm"]:
+        for name in ["default", "sata", "sata_llm"]:
             assert "mop_data" not in variants[name], f"{name} should not have mop_data"
-
-    def test_sata_llm_has_llm_url_no_mop_data(self):
-        variants = ApeRVTool.get_variants()
-        assert "llm_url" in variants["sata_llm"]
-        assert "mop_data" not in variants["sata_llm"]
-
-    def test_sata_mop_llm_has_both_llm_url_and_mop_data(self):
-        variants = ApeRVTool.get_variants()
-        assert "llm_url" in variants["sata_mop_llm"]
-        assert variants["sata_mop_llm"]["mop_data"] == "static_analysis"
-
-    def test_llm_variants_have_all_llm_keys(self):
-        """LLM variants must include all 8 LLM config keys explicitly."""
-        variants = ApeRVTool.get_variants()
-        llm_keys = {
-            "llm_url",
-            "llm_on_new_state",
-            "llm_on_stagnation",
-            "llm_model",
-            "llm_temperature",
-            "llm_top_p",
-            "llm_top_k",
-            "llm_timeout_ms",
-        }
-        for name in ["sata_llm", "sata_mop_llm"]:
-            for key in llm_keys:
-                assert key in variants[name], f"{name} missing {key}"
 
     def test_llm_variants_use_sata_strategy(self):
         variants = ApeRVTool.get_variants()
         assert variants["sata_llm"]["strategy"] == "sata"
         assert variants["sata_mop_llm"]["strategy"] == "sata"
 
-    def test_all_variants_have_throttle_ms(self):
-        variants = ApeRVTool.get_variants()
-        for name, config in variants.items():
-            assert "throttle_ms" in config, f"{name} missing throttle_ms"
-            assert config["throttle_ms"] == 200
+    def test_no_migrated_arm_carries_throttle_ms(self):
+        # The aperv preset already states ape.defaultGUIThrottle=200, which every arm used;
+        # restating it per arm would be a delta that is not a delta.
+        for name, arm in ApeRVTool.get_variants().items():
+            if "preset" in arm:
+                assert (
+                    "throttle_ms" not in arm
+                ), f"{name} restates the preset's throttle"
+
+    def test_every_variant_configures(self):
+        # The arm table and configure() are two halves of one contract: a variant that
+        # cannot be configured is a variant that cannot run, and nothing else in the suite
+        # would notice.
+        for name, arm in ApeRVTool.get_variants().items():
+            if "preset" not in arm:
+                continue
+            ApeRVTool().configure(dict(arm))
 
 
 class TestConfigure:
@@ -125,33 +147,69 @@ class TestConfigure:
     def setup_method(self):
         self.tool = ApeRVTool()
 
-    def test_valid_strategy_stores_config(self):
-        self.tool.configure({"strategy": "sata", "throttle_ms": 200})
+    def test_valid_preset_arm_stores_config(self):
+        self.tool.configure({"strategy": "sata", "preset": "mop", "overrides": {}})
         assert self.tool._tool_config["strategy"] == "sata"
+        assert self.tool._tool_config["preset"] == "mop"
 
     def test_invalid_strategy_raises(self):
         with pytest.raises(ConfigurationError):
-            self.tool.configure({"strategy": "invalid_strategy"})
+            self.tool.configure({"strategy": "invalid_strategy", "preset": "aperv"})
 
     def test_absent_strategy_raises(self):
         with pytest.raises(ConfigurationError):
-            self.tool.configure({"throttle_ms": 200})
+            self.tool.configure({"preset": "aperv"})
 
     def test_empty_config_raises(self):
         # INV-APV-02: absent strategy (empty dict) must raise, not store
         with pytest.raises(ConfigurationError):
             self.tool.configure({})
 
-    def test_dfs_is_accepted(self):
-        # dfs is in APERV_AVAILABLE_STRATEGIES even without a named variant (D6)
-        self.tool.configure({"strategy": "dfs"})
-        assert self.tool._tool_config["strategy"] == "dfs"
+    @pytest.mark.parametrize("strategy", ["bfs", "dfs"])
+    def test_retired_strategy_rejected_before_the_device(self, strategy):
+        # Neither was ever an agent type: ApeAgent.createAgent knows sata, random and
+        # replay only, so before stage 2 they ran SataAgent silently and after it they
+        # abort on the device. Rejecting here is what keeps a run from passing local
+        # validation and dying on an emulator.
+        with pytest.raises(ConfigurationError):
+            self.tool.configure({"strategy": strategy, "preset": "aperv"})
+
+    def test_missing_preset_raises(self):
+        with pytest.raises(ConfigurationError, match="preset"):
+            self.tool.configure({"strategy": "sata"})
+
+    def test_empty_preset_raises(self):
+        with pytest.raises(ConfigurationError, match="preset"):
+            self.tool.configure({"strategy": "sata", "preset": ""})
+
+    def test_non_dict_overrides_raises(self):
+        with pytest.raises(ConfigurationError, match="overrides"):
+            self.tool.configure(
+                {
+                    "strategy": "sata",
+                    "preset": "mop",
+                    "overrides": ["frontier_boost_weight"],
+                }
+            )
 
     def test_configure_makes_copy(self):
-        config = {"strategy": "sata", "throttle_ms": 200}
+        config = {"strategy": "sata", "preset": "aperv", "overrides": {}}
         self.tool.configure(config)
         config["strategy"] = "mutated"
         assert self.tool._tool_config["strategy"] == "sata"
+
+    def test_configure_copies_the_overrides_dict_too(self):
+        # A shallow copy would leave the caller's overrides aliased, so a later DSL fold
+        # would mutate the variant table itself — every subsequent arm of the same run
+        # would inherit the smoke's override.
+        overrides = {"llm_url": "http://10.0.2.2:30000/v1"}
+        self.tool.configure(
+            {"strategy": "sata", "preset": "llm", "overrides": overrides}
+        )
+        overrides["llm_url"] = "http://mutated/v1"
+        assert (
+            self.tool._tool_config["overrides"]["llm_url"] == "http://10.0.2.2:30000/v1"
+        )
 
     def test_env_var_does_not_override_llm_url_at_l2(self, monkeypatch):
         """gh55 INV-TOOL-20: configure() at L2 must not consult os.environ.
@@ -161,19 +219,88 @@ class TestConfigure:
         self.tool.configure(
             {
                 "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_url": "http://10.0.2.2:30000/v1",
+                "preset": "llm",
+                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
             }
         )
         # The env var is ignored at L2; the config value carries through.
-        assert self.tool._tool_config["llm_url"] == "http://10.0.2.2:30000/v1"
+        assert (
+            self.tool._tool_config["overrides"]["llm_url"] == "http://10.0.2.2:30000/v1"
+        )
 
     def test_env_var_does_not_inject_llm_url_at_l2(self, monkeypatch):
         """gh55 INV-TOOL-20: env var with no llm_url in config still produces
         no llm_url at L2. Injection happens at L5 via parameters."""
         monkeypatch.setenv("APERV_LLM_BASE_URL", "http://custom:8080/v1")
-        self.tool.configure({"strategy": "sata", "throttle_ms": 200})
-        assert "llm_url" not in self.tool._tool_config
+        self.tool.configure({"strategy": "sata", "preset": "aperv", "overrides": {}})
+        assert "llm_url" not in self.tool._tool_config["overrides"]
+
+
+class TestDslOverrideFold:
+    """The tool DSL delivers overrides at the top level; configure() folds them (INV-APV-39).
+
+    ToolFactory merges `{**variant_config, **tool_config.parameters}`, so
+    `aperv:sata_mop@frontier_boost_weight=200` arrives beside `preset` rather than inside
+    `overrides` — and `_push_properties()` reads only `overrides`. Without the fold the
+    override would produce no property line and no error, and the run would execute a
+    configuration nobody asked for. These tests are the reason that cannot happen.
+    """
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def test_dsl_override_is_folded_into_overrides(self):
+        self.tool.configure(
+            {"strategy": "sata", "preset": "mop", "frontier_boost_weight": 200}
+        )
+        assert self.tool._tool_config["overrides"]["frontier_boost_weight"] == 200
+        assert "frontier_boost_weight" not in self.tool._tool_config
+
+    def test_dsl_override_reaches_the_properties_file(self, tmp_path):
+        self.tool.configure(
+            {"strategy": "sata", "preset": "mop", "frontier_boost_weight": 200}
+        )
+        assert "ape.frontierBoostWeight=200" in _written_properties(self.tool, tmp_path)
+
+    def test_dsl_value_wins_over_the_arms_own_entry(self, tmp_path):
+        # The DSL is the operator's last word — that is what makes it usable for smokes
+        # and ablations without declaring a variant.
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "preset": "mop",
+                "overrides": {"mop_frontier_weight": 200},
+                "mop_frontier_weight": 400,
+            }
+        )
+        assert self.tool._tool_config["overrides"]["mop_frontier_weight"] == 400
+        lines = _written_properties(self.tool, tmp_path).splitlines()
+        assert lines.count("ape.mopFrontierWeight=400") == 1
+        assert not [ln for ln in lines if ln == "ape.mopFrontierWeight=200"]
+
+    def test_typo_raises_instead_of_vanishing(self):
+        # `frontier_bost_weight` has no mapping entry. Silently dropping it would run the
+        # arm unchanged while the operator believed it had been overridden.
+        with pytest.raises(ConfigurationError, match="frontier_bost_weight"):
+            self.tool.configure(
+                {"strategy": "sata", "preset": "mop", "frontier_bost_weight": 200}
+            )
+
+    def test_orchestration_keys_survive_the_fold(self):
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "preset": "llm_mop",
+                "mop_data": "static_analysis",
+                "seed": 42,
+                "expected_jar_git_sha": "abc",
+                "expected_jar_sha256": "def",
+                "overrides": {},
+            }
+        )
+        for key in ("mop_data", "seed", "expected_jar_git_sha", "expected_jar_sha256"):
+            assert key in self.tool._tool_config
+            assert key not in self.tool._tool_config["overrides"]
 
 
 class TestJarSearchPaths:
@@ -242,7 +369,7 @@ class TestBuildCommand:
 
     def setup_method(self):
         self.tool = ApeRVTool()
-        self.tool.configure({"strategy": "sata", "throttle_ms": 200})
+        self.tool.configure({"strategy": "sata", "preset": "aperv", "overrides": {}})
 
     def _make_app(self, package="br.unb.cic.cryptoapp"):
         app = MagicMock()
@@ -420,7 +547,7 @@ class TestTimeoutPathCollects:
         self.tool = ApeRVTool()
 
     def test_timeout_path_runs_collection_before_reraise(self, tmp_path):
-        self.tool.configure(ApeRVTool.get_variants()["sata"])
+        self.tool.configure({"strategy": "sata", "preset": "aperv", "overrides": {}})
 
         task = MagicMock()
         task.results_dir = str(tmp_path)
@@ -549,59 +676,36 @@ class TestPushPropertiesLlm:
     def setup_method(self):
         self.tool = ApeRVTool()
 
-    def test_llm_properties_present_when_llm_url_set(self, tmp_path):
-        """All 9 ape.llm* keys must appear when using full LLM variant config."""
-        self.tool.configure(ApeRVTool.get_variants()["sata_llm"])
-
-        captured_content = {}
-
-        def fake_push(local_path, device_path, device_serial, trace_file_path):
-            with open(local_path) as f:
-                captured_content["properties"] = f.read()
-
-        self.tool._push_file_to_device = fake_push
-        trace = str(tmp_path / "trace.bin")
-        open(trace, "w").close()
-
-        self.tool._push_properties("emulator-5554", trace)
-
-        props = captured_content["properties"]
-        assert "ape.llmUrl=http://10.0.2.2:30000/v1" in props
-        assert "ape.llmOnNewState=true" in props
-        assert "ape.llmOnStagnation=true" in props
-        assert "ape.llmModel=default" in props
-        assert "ape.llmTemperature=0.3" in props
-        assert "ape.llmTopP=0.6" in props
-        assert "ape.llmTopK=50" in props
-        assert "ape.llmTimeoutMs=15000" in props
-
-    def test_llm_properties_absent_when_no_llm_url(self, tmp_path):
-        """No ape.llm* keys for non-LLM variants."""
+    def test_llm_arm_writes_the_url_and_nothing_else(self, tmp_path):
+        # The sampling block belongs to the `llm` preset; only the server URL is
+        # deployment-specific, so only it crosses as an override (INV-APV-38).
         self.tool.configure(
             {
                 "strategy": "sata",
-                "throttle_ms": 200,
+                "preset": "llm",
+                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
             }
         )
+        props = _written_properties(self.tool, tmp_path)
+        assert "ape.llmUrl=http://10.0.2.2:30000/v1" in props
+        for preset_owned in (
+            "ape.llmOnNewState",
+            "ape.llmOnStagnation",
+            "ape.llmModel",
+            "ape.llmTemperature",
+            "ape.llmTopP",
+            "ape.llmTopK",
+            "ape.llmTimeoutMs",
+        ):
+            assert preset_owned not in props
 
-        captured_content = {}
-
-        def fake_push(local_path, device_path, device_serial, trace_file_path):
-            with open(local_path) as f:
-                captured_content["properties"] = f.read()
-
-        self.tool._push_file_to_device = fake_push
-        trace = str(tmp_path / "trace.bin")
-        open(trace, "w").close()
-
-        self.tool._push_properties("emulator-5554", trace)
-
-        props = captured_content["properties"]
-        assert "ape.llm" not in props
+    def test_llm_properties_absent_for_a_non_llm_arm(self, tmp_path):
+        self.tool.configure({"strategy": "sata", "preset": "aperv", "overrides": {}})
+        assert "ape.llm" not in _written_properties(self.tool, tmp_path)
 
 
-class TestPushPropertiesCalibration:
-    """Verify _push_properties() writes calibration parameters via APERV_PROPERTY_MAPPING."""
+class TestPushProperties:
+    """Verify the D4 output contract: preset first, artifact path, then deltas only."""
 
     def setup_method(self):
         self.tool = ApeRVTool()
@@ -609,91 +713,131 @@ class TestPushPropertiesCalibration:
     def _capture_properties(self, tmp_path, config, mop_json_pushed=False):
         """Helper: configure tool, call _push_properties, return content."""
         self.tool.configure(config)
-        captured = {}
+        return _written_properties(self.tool, tmp_path, mop_json_pushed)
 
-        def fake_push(local_path, device_path, device_serial, trace_file_path):
-            with open(local_path) as f:
-                captured["properties"] = f.read()
-
-        self.tool._push_file_to_device = fake_push
-        trace = str(tmp_path / "trace.bin")
-        open(trace, "w").close()
-        self.tool._push_properties("emulator-5554", trace, mop_json_pushed)
-        return captured["properties"]
-
-    def test_exploration_params_written(self, tmp_path):
+    def test_preset_line_comes_first(self, tmp_path):
         props = self._capture_properties(
             tmp_path,
             {
                 "strategy": "sata",
-                "throttle_ms": 200,
-                "default_epsilon": 0.08,
-                "graph_stable_restart_threshold": 150,
+                "preset": "llm_mop",
+                "mop_data": "static_analysis",
+                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
             },
+            mop_json_pushed=True,
         )
-        assert "ape.defaultEpsilon=0.08" in props
-        assert "ape.graphStableRestartThreshold=150" in props
+        lines = [line for line in props.strip().split("\n") if line]
+        assert lines[0] == "ape.preset=llm_mop"
+        assert lines[1] == f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}"
+        assert lines[2] == "ape.llmUrl=http://10.0.2.2:30000/v1"
+        assert len(lines) == 3
 
-    def test_mop_weight_params_written(self, tmp_path):
+    def test_empty_override_arm_writes_two_lines(self, tmp_path):
+        # The four MOP weights come from the `mop` preset, so the arm restates nothing.
         props = self._capture_properties(
             tmp_path,
             {
                 "strategy": "sata",
-                "throttle_ms": 200,
-                "mop_weight_direct": 400,
-                "mop_weight_transitive": 250,
-                "mop_weight_activity": 80,
+                "preset": "mop",
+                "mop_data": "static_analysis",
+                "overrides": {},
             },
+            mop_json_pushed=True,
         )
-        assert "ape.mopWeightDirect=400" in props
-        assert "ape.mopWeightTransitive=250" in props
-        assert "ape.mopWeightActivity=80" in props
+        lines = [line for line in props.strip().split("\n") if line]
+        assert lines == ["ape.preset=mop", f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}"]
+        assert "ape.mopWeight" not in props
 
-    def test_minimal_config_only_throttle(self, tmp_path):
+    def test_baseline_arm_writes_one_line(self, tmp_path):
+        props = self._capture_properties(
+            tmp_path, {"strategy": "sata", "preset": "aperv", "overrides": {}}
+        )
+        assert [line for line in props.strip().split("\n") if line] == [
+            "ape.preset=aperv"
+        ]
+        for absent in (
+            "ape.mopDataPath",
+            "ape.frontierBoostWeight",
+            "ape.dynamicEpsilon",
+        ):
+            assert absent not in props
+
+    def test_deltas_are_written_in_mapping_order(self, tmp_path):
+        # Order follows APERV_PROPERTY_MAPPING rather than the arm dict, so two runs of the
+        # same arm produce byte-identical files regardless of how the dict was authored.
         props = self._capture_properties(
             tmp_path,
             {
                 "strategy": "sata",
-                "throttle_ms": 200,
+                "preset": "mop",
+                "overrides": {
+                    "activity_trigger_enabled": True,
+                    "default_epsilon": 0.08,
+                },
             },
         )
-        assert "ape.defaultGUIThrottle=200" in props
-        # Only throttle_ms is in the mapping; strategy is not
-        lines = [l for l in props.strip().split("\n") if l]
-        assert len(lines) == 1
+        lines = [line for line in props.strip().split("\n") if line]
+        assert lines.index("ape.defaultEpsilon=0.08") < lines.index(
+            "ape.activityTriggerEnabled=true"
+        )
+
+    def test_bools_are_serialized_lowercase(self, tmp_path):
+        props = self._capture_properties(
+            tmp_path,
+            {
+                "strategy": "sata",
+                "preset": "mop",
+                "overrides": {
+                    "activity_trigger_enabled": True,
+                    "mop_activity_source_components": True,
+                    "do_fuzzing": False,
+                },
+            },
+        )
+        assert "ape.activityTriggerEnabled=true" in props
+        assert "ape.mopActivitySourceComponents=true" in props
+        assert "ape.doFuzzing=false" in props
+        assert "True" not in props and "False" not in props
 
     def test_python_only_keys_not_written(self, tmp_path):
         props = self._capture_properties(
             tmp_path,
             {
                 "strategy": "sata",
-                "throttle_ms": 200,
+                "preset": "llm_mop",
                 "mop_data": "static_analysis",
+                "seed": 42,
+                "expected_jar_git_sha": "5dcf2259",
+                "expected_jar_sha256": "386ce08d",
+                "overrides": {"llm_snap_tolerance_px": 150},
             },
         )
-        assert "strategy" not in props
-        assert "mop_data" not in props
+        for python_only in (
+            "strategy",
+            "mop_data",
+            "seed",
+            "expected_jar_git_sha",
+            "expected_jar_sha256",
+        ):
+            assert python_only not in props
+        # ...while an ordinary override on the same arm travels the normal path.
+        assert "ape.llmSnapTolerancePx=150" in props
 
-    def test_mixed_params_all_written(self, tmp_path):
-        props = self._capture_properties(
-            tmp_path,
+    def test_unmapped_override_key_aborts_before_push(self, tmp_path):
+        # Under the jar's fail-fast resolution this typo would abort the run on the device;
+        # catching it on the host saves the emulator minutes (INV-APV-02 rationale).
+        self.tool.configure(
             {
                 "strategy": "sata",
-                "throttle_ms": 300,
-                "default_epsilon": 0.1,
-                "mop_weight_direct": 500,
-                "llm_url": "http://10.0.2.2:30000/v1",
-                "llm_temperature": 0.5,
-            },
+                "preset": "mop",
+                "overrides": {"frontier_bost_weight": 200},
+            }
         )
-        assert "ape.defaultGUIThrottle=300" in props
-        assert "ape.defaultEpsilon=0.1" in props
-        assert "ape.mopWeightDirect=500" in props
-        assert "ape.llmUrl=http://10.0.2.2:30000/v1" in props
-        assert "ape.llmTemperature=0.5" in props
-        # Python-only keys absent
-        assert "strategy" not in props
-        assert "mop_data" not in props
+        pushed = []
+        self.tool._push_file_to_device = lambda *a, **kw: pushed.append(a)
+        with pytest.raises(ConfigurationError, match="frontier_bost_weight"):
+            self.tool._push_properties("emulator-5554", str(tmp_path / "trace.bin"))
+        assert not pushed
 
 
 # The 17 arm-defining Python keys → frozen ape.* names (spec INV-APV-13, verbatim).
@@ -857,79 +1001,6 @@ class TestArmDefiningConstants:
 
 class TestArmVariants:
     """Group 2: frozen arm variants (INV-APV-14/16, Variants requirement)."""
-
-    def test_non_exempt_variants_set_all_arm_defining_keys(self):
-        # INV-APV-14 (task 4.2): the executable explicitness guard.
-        variants = ApeRVTool.get_variants()
-        for name, cfg in variants.items():
-            if name in aperv_mod._ARM_DEFINING_EXEMPT:
-                continue
-            missing = aperv_mod.ARM_DEFINING_KEYS - set(cfg)
-            assert (
-                not missing
-            ), f"variant {name!r} missing arm-defining keys: {sorted(missing)}"
-
-    def test_sata_mop_is_alias_of_widget(self):
-        # INV-APV-16 (task 4.4): same object, equal dict.
-        variants = ApeRVTool.get_variants()
-        assert variants["sata_mop"] == variants["sata_mop_widget"]
-
-    def test_new_arm_variants_present(self):
-        variants = ApeRVTool.get_variants()
-        for name in [
-            "ape_pure",
-            "sata_mop_widget",
-            "sata_mop_activity",
-            "sata_mop_act_frontier",
-        ]:
-            assert name in variants, f"missing new arm variant {name!r}"
-
-    def test_ape_pure_sets_every_flag_off(self):
-        # Spec scenario: every RV flag off explicitly, no kill-switch key, no mop_data.
-        # These assertions are the whole definition of the arm — there is no jar-side
-        # switch behind them.
-        cfg = ApeRVTool.get_variants()["ape_pure"]
-        assert "ape_pure_mode" not in cfg
-        assert cfg["dynamic_epsilon"] is False
-        assert cfg["form_completion_enabled"] is False
-        assert cfg["model_menu_enabled"] is False
-        assert cfg["tree_enhancements_enabled"] is False
-        assert cfg["frontier_boost_weight"] == 0
-        assert cfg["activity_trigger_enabled"] is False
-        assert "mop_data" not in cfg
-
-    def test_sata_baseline_disables_reach_explicitly(self):
-        # Spec scenario: baseline sata arm disables RV steering explicitly.
-        cfg = ApeRVTool.get_variants()["sata"]
-        assert cfg["frontier_boost_weight"] == 0
-        assert cfg["activity_trigger_enabled"] is False
-        assert cfg["dynamic_epsilon"] is True
-        assert "mop_data" not in cfg
-
-    def test_sata_mop_widget_values(self):
-        # Spec scenario: sata_mop_widget is the MOP control arm.
-        cfg = ApeRVTool.get_variants()["sata_mop_widget"]
-        assert cfg["mop_data"] == "static_analysis"
-        assert cfg["mop_weight_direct"] == 500
-        assert cfg["mop_weight_transitive"] == 300
-        assert cfg["mop_weight_open_menu"] == 250
-        assert cfg["mop_weight_wtg"] == 200
-        assert cfg["mop_activity_source_components"] is False
-        assert cfg["frontier_boost_weight"] == 0
-        assert cfg["mop_frontier_weight"] == 0
-        assert cfg["activity_trigger_enabled"] is False
-
-    def test_sata_mop_activity_differs_only_by_a_prime(self):
-        # Spec scenario: sata_mop_activity isolates strategy A′.
-        variants = ApeRVTool.get_variants()
-        widget = variants["sata_mop_widget"]
-        activity = variants["sata_mop_activity"]
-        assert activity["mop_activity_source_components"] is True
-        # Every other arm-defining key equals the widget arm.
-        for key in aperv_mod.ARM_DEFINING_KEYS:
-            if key == "mop_activity_source_components":
-                continue
-            assert activity[key] == widget[key], f"{key} diverged from widget arm"
 
     def test_sata_mop_act_frontier_reach_package(self):
         # Spec scenario: sata_mop_act_frontier enables the reach package A′+B+E-min.
@@ -1205,7 +1276,7 @@ class TestSeedPropagation:
 
     def setup_method(self):
         self.tool = ApeRVTool()
-        self.tool.configure({"strategy": "sata", "throttle_ms": 200})
+        self.tool.configure({"strategy": "sata", "preset": "aperv", "overrides": {}})
 
     def _make_app(self, package="br.unb.cic.cryptoapp"):
         app = MagicMock()
@@ -1226,73 +1297,6 @@ class TestSeedPropagation:
         cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 60)
         tail = cmd.args[cmd.args.index("--ape") :]
         assert "-s" not in tail
-
-
-class TestArmProperties:
-    """Group 4: arm-defining flags reach ape.properties (lowercased bools); seed excluded."""
-
-    def setup_method(self):
-        self.tool = ApeRVTool()
-
-    def _capture_properties(self, tmp_path, config, mop_json_pushed=False):
-        self.tool.configure(config)
-        captured = {}
-
-        def fake_push(local_path, device_path, device_serial, trace_file_path):
-            with open(local_path) as f:
-                captured["properties"] = f.read()
-
-        self.tool._push_file_to_device = fake_push
-        trace = str(tmp_path / "trace.bin")
-        open(trace, "w").close()
-        self.tool._push_properties("emulator-5554", trace, mop_json_pushed)
-        return captured["properties"]
-
-    def test_sata_arm_writes_reach_offs_lowercase(self, tmp_path):
-        # Spec scenario: arm-defining flags appear in properties for a baseline arm.
-        props = self._capture_properties(tmp_path, ApeRVTool.get_variants()["sata"])
-        assert "ape.frontierBoostWeight=0" in props
-        assert "ape.activityTriggerEnabled=false" in props
-        assert "ape.dynamicEpsilon=true" in props
-        assert "ape.mopDataPath" not in props
-
-    def test_ape_pure_writes_no_kill_switch(self, tmp_path):
-        # Spec scenario: no kill-switch property is written for ape_pure — the arm's
-        # purity is carried entirely by the explicit off values below.
-        props = self._capture_properties(tmp_path, ApeRVTool.get_variants()["ape_pure"])
-        assert "ape.apePureMode" not in props
-        assert "ape.frontierBoostWeight=0" in props
-        assert "ape.activityTriggerEnabled=false" in props
-
-    def test_campaign_arm_writes_no_retired_kill_switch(self, tmp_path):
-        # The stage-2 APE-RV jar aborts at bootstrap on a retired key, before step 1, so a
-        # single ape.apePureMode line in a campaign arm's properties would zero the whole
-        # arm (coverage 0, MOP violations 0). sata_mop_widget stands for the 23 arms that
-        # inherit _BASELINE_ARM_FLAGS (issue #93).
-        props = self._capture_properties(
-            tmp_path, ApeRVTool.get_variants()["sata_mop_widget"], mop_json_pushed=True
-        )
-        assert "ape.apePureMode" not in props
-        assert "ape.mopActivitySourceComponents=false" in props
-
-    def test_act_frontier_writes_reach_package(self, tmp_path):
-        # Spec scenario: reach-package flags appear for sata_mop_act_frontier.
-        props = self._capture_properties(
-            tmp_path,
-            ApeRVTool.get_variants()["sata_mop_act_frontier"],
-            mop_json_pushed=True,
-        )
-        assert "ape.mopActivitySourceComponents=true" in props
-        assert "ape.mopFrontierWeight=200" in props
-        assert f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}" in props
-        # trigger_mop_first dropped (task group 7): never written to properties anymore.
-        assert "ape.triggerMopFirst" not in props
-
-    def test_seed_not_written_to_properties(self, tmp_path):
-        # Spec scenario: seed is a CLI-only, Python-only key — never in ape.properties.
-        cfg = {**ApeRVTool.get_variants()["sata"], "seed": 42}
-        props = self._capture_properties(tmp_path, cfg)
-        assert "seed" not in props
 
 
 # --- gh80: static analysis JSON compaction -----------------------------------
@@ -1606,7 +1610,21 @@ class TestLlmProvenance:
 
     def setup_method(self):
         self.tool = ApeRVTool()
-        self.tool.configure(ApeRVTool.get_variants()["cal_a1"])
+        # An LLM arm carrying an explicit dose: what provenance records is the arm's own
+        # declared sampling, so the fixture has to declare some.
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "preset": "llm_mop",
+                "mop_data": "static_analysis",
+                "overrides": {
+                    "llm_url": "http://10.0.2.2:30000/v1",
+                    "llm_prompt_variant": "v13",
+                    "llm_percentage": 0.7,
+                    "llm_temperature": 0,
+                },
+            }
+        )
 
     def _jar(self, tmp_path):
         jar = tmp_path / "ape-rv.jar"
@@ -1679,11 +1697,17 @@ class TestLlmProvenance:
         # mutated, and llm_url is a mapped key, so the unmutated alias is exactly
         # what the jar receives.
         tool = ApeRVTool()
-        tool.configure(ApeRVTool.get_variants()["mop_on_llm_70"])
+        tool.configure(
+            {
+                "strategy": "sata",
+                "preset": "llm_mop",
+                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
+            }
+        )
 
-        tool._provenance_query_url(tool._tool_config["llm_url"])
+        tool._provenance_query_url(tool._tool_config["overrides"]["llm_url"])
 
-        assert tool._tool_config["llm_url"] == "http://10.0.2.2:30000/v1"
+        assert tool._tool_config["overrides"]["llm_url"] == "http://10.0.2.2:30000/v1"
         assert APERV_PROPERTY_MAPPING["llm_url"] == "ape.llmUrl"
 
     def test_provenance_records_failure_not_config(self, tmp_path, monkeypatch, caplog):
@@ -1702,7 +1726,8 @@ class TestLlmProvenance:
         assert provenance["capture_status"] == "query_failed"
         assert provenance["llm_model"] is None
         assert provenance["llm_sampling"] is None
-        assert self.tool._tool_config["llm_model"] == "default"
+        # A failed query records the failure; it does not edit the arm it failed for.
+        assert self.tool._tool_config["overrides"]["llm_prompt_variant"] == "v13"
         # The jar digest is independent of the server and still recorded.
         assert provenance["jar_sha256"] is not None
 
@@ -1781,9 +1806,26 @@ class TestExecuteMopArtifactFlow:
         task.result.trace_file = str(trace)
         return task
 
-    def _run(self, tmp_path, variant):
+    # Representative arm shapes. The flow under test cares about three things only —
+    # whether a MOP artifact is derived, whether an LLM server is queried, and neither —
+    # so the fixtures state exactly that rather than standing in for a named arm.
+    MOP_ARM = {
+        "strategy": "sata",
+        "preset": "mop",
+        "mop_data": "static_analysis",
+        "overrides": {},
+    }
+    MOP_LLM_ARM = {
+        "strategy": "sata",
+        "preset": "llm_mop",
+        "mop_data": "static_analysis",
+        "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
+    }
+    BASELINE_ARM = {"strategy": "sata", "preset": "aperv", "overrides": {}}
+
+    def _run(self, tmp_path, arm):
         """Execute the flow with the device and the jar stubbed out."""
-        self.tool.configure(ApeRVTool.get_variants()[variant])
+        self.tool.configure(dict(arm))
         task = self._make_task(tmp_path)
         app = MagicMock()
         app.package_name = "br.unb.cic.cryptoapp"
@@ -1827,7 +1869,7 @@ class TestExecuteMopArtifactFlow:
             ),
         )
 
-        self._run(tmp_path, "cal_a1")
+        self._run(tmp_path, self.MOP_LLM_ARM)
 
         recorded = json.loads(self._provenance_path(tmp_path).read_text())
         assert recorded["llm_model"] == "Qwen/Qwen3-VL-4B-Instruct"
@@ -1844,7 +1886,7 @@ class TestExecuteMopArtifactFlow:
 
         monkeypatch.setattr(aperv_mod.urllib.request, "urlopen", forbidden)
 
-        self._run(tmp_path, "sata_mop_act_frontier")
+        self._run(tmp_path, self.MOP_ARM)
 
         assert not self._provenance_path(tmp_path).exists()
 
@@ -1858,7 +1900,7 @@ class TestExecuteMopArtifactFlow:
 
         monkeypatch.setattr(aperv_mod.urllib.request, "urlopen", unreachable)
 
-        self._run(tmp_path, "cal_a1")
+        self._run(tmp_path, self.MOP_LLM_ARM)
 
         recorded = json.loads(self._provenance_path(tmp_path).read_text())
         assert recorded["capture_status"] == "query_failed"
@@ -1870,7 +1912,7 @@ class TestExecuteMopArtifactFlow:
         # under any cache state.
         source = _write_source(tmp_path, SOURCE_DOCUMENT)
 
-        self._run(tmp_path, "sata_mop_act_frontier")
+        self._run(tmp_path, self.MOP_ARM)
 
         pushes = self._artifact_pushes()
         assert len(pushes) == 1
@@ -1885,7 +1927,7 @@ class TestExecuteMopArtifactFlow:
     def test_properties_carry_new_mop_data_path(self, tmp_path):
         _write_source(tmp_path, SOURCE_DOCUMENT)
 
-        self._run(tmp_path, "sata_mop_act_frontier")
+        self._run(tmp_path, self.MOP_ARM)
 
         props = next(p for p in self.pushed if p[1] == APERV_DEVICE_PROPERTIES_PATH)[
             2
@@ -1898,7 +1940,7 @@ class TestExecuteMopArtifactFlow:
         # arm that cannot arm is a failed task. The warn-and-continue it replaces
         # produced runs labelled MOP that explored as pure SATA.
         with pytest.raises(RVToolExecutionError) as raised:
-            self._run(tmp_path, "sata_mop_act_frontier")
+            self._run(tmp_path, self.MOP_ARM)
 
         assert str(tmp_path / "app.apk.json") in str(raised.value)
         assert self._artifact_pushes() == []
@@ -1910,7 +1952,7 @@ class TestExecuteMopArtifactFlow:
         _write_source(tmp_path, {**SOURCE_DOCUMENT, "complete": False})
 
         with pytest.raises(RVToolExecutionError):
-            self._run(tmp_path, "sata_mop_act_frontier")
+            self._run(tmp_path, self.MOP_ARM)
 
         assert self._artifact_pushes() == []
 
@@ -1924,7 +1966,7 @@ class TestExecuteMopArtifactFlow:
 
         monkeypatch.setattr(aperv_mod, "derive", forbidden)
 
-        self._run(tmp_path, "sata")
+        self._run(tmp_path, self.BASELINE_ARM)
 
         assert self._artifact_pushes() == []
         assert not (tmp_path / "app.apk.mop.json").exists()

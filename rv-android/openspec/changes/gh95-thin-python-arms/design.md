@@ -315,7 +315,7 @@ a degraded mode.
 
 ### `ApeRVTool.get_variants() -> Dict[str, Dict[str, Any]]`
 
-Returns exactly 27 entries. Each value has keys drawn only from `preset` (required, one of the four
+Returns exactly 8 entries. Each value has keys drawn only from `preset` (required, one of the four
 jar names), `overrides` (required, dict, possibly empty), `strategy` (required), `mop_data`
 (optional), `seed` (optional), `expected_jar_git_sha` / `expected_jar_sha256` (`mop_on_llm_70` only).
 `variants["sata_mop"] is variants["sata_mop_widget"]` holds. No exception path.
