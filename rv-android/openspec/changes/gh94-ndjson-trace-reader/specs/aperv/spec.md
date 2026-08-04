@@ -57,6 +57,8 @@ Finally, the delta records a carve-out in normative form so that a later cleanup
 
 - **INV-APV-55**: The frozen legacy-corpus readers SHALL NOT be migrated, adapted or deleted by this change: `scripts/cmpm_stratify.py`, `scripts/analyze_cmpv2_llm.py`, `experimento-cal/scripts/*`, `experimento-20260721/scripts/*` and `calibracao/*`. They read an archived dataset that will not be regenerated, and are not compatibility shims.
 
+- **INV-APV-58**: The reader SHALL NOT drop data the trace carries. Every field of an `llm[]` sub-event SHALL reach the caller, prompt and response dumps included, and every run-level record SHALL be reachable — `MOP_DATA`, `PIPELINE` and `LLM_ACK` as reader attributes. `RUN_END` is the sole exception and is governed by INV-APV-53. Because this module is the *sole* mechanism for consuming a stage-4 trace, a field it declines to surface is a field no conformant analysis can read: the omission is not a defer, it is a deletion at the boundary.
+
 ## MODIFIED Requirements
 
 ### Requirement: ApeRVTool Execution Flow (FR18, FR19)
@@ -229,13 +231,18 @@ The reader SHALL stream the file — the trace is the largest artifact a run pro
 - materialized the fields the sink omits at their documented defaults, and left the tri-state fields absent (INV-APV-49);
 - re-derived `activity_has_mop` on the step side from the record's `ACT` entry, and on the outcome side via `out.target` → `STATE.act` → `ACT.mop`, since the jar records that static per-activity fact once on the dictionary entry rather than on every step;
 - expanded the run-relative `t` to epoch milliseconds via `RUN_START.t0` where an absolute clock is wanted, and reported the expansion as unavailable when `RUN_START` is absent (INV-APV-51);
-- attached the step's `llm[]` sub-events, in occurrence order, and its `out` section to the same row — so that the three-way join by `step=` that the legacy format required ceases to exist for every consumer.
+- attached the step's `llm[]` sub-events, in occurrence order, and its `out` section to the same row — so that the three-way join by `step=` that the legacy format required ceases to exist for every consumer;
+- carried each sub-event **whole**, including the `sys` / `user` / `resp` / `tool_calls` prompt and response dumps (INV-APV-58).
+
+The reader SHALL additionally expose the run-level records as attributes beside the `RUN_START` header — `MOP_DATA`, `PIPELINE` and `LLM_ACK` — since a step-row iterator has no natural place for them and this module is the sole way to reach them. `RUN_END` SHALL NOT be exposed, and the asymmetry is deliberate rather than an omission: INV-APV-53 makes it write-only, and an accessor is the first step toward the `if not run_end: ...` that owner decision D5 refuses. The other three are load and assembly census, not a termination signal.
+
+**Both clauses reverse an earlier reading of this requirement, and the reversal is recorded rather than quietly applied.** The first implementation surfaced neither, on the defensible ground that the dumps are the bulk of the record and nothing in this module read them. What that reasoning missed is that the jar writes them by default and the jar's own throughput gate (`event-sink` INV-SNK-13) prices their escaping, so the run pays their full cost either way — and that the analysis which did read them is real rather than hypothetical: `calibracao/decompose_nomatch.py` pairs each response with the call that produced it to decompose `no_match` causes, and that pairing was the gate of a change decision. It stays on the legacy format under INV-APV-55, so its successor over new traces has to get `resp` from here. The same argument applies to the census: `MOP_DATA.wtgEdges` and `PIPELINE.candidates` are the two quantities the jar-side change added — one because `transitions` had been misread as the frontier gate for months, the other because "the arm turned this off" and "this application's data could not support it" were otherwise the same evidence across 25 of 40 applications — and writing them into a trace no reader surfaces would reproduce that defect one layer up. If the dumps are ever judged too expensive, the lever is the jar's `llmPromptDump` flag, not a silent drop here.
 
 The reader SHALL NOT convert between formats in either direction, SHALL NOT write to the trace, and SHALL NOT run on the collection path (INV-APV-48). A malformed record SHALL be skipped and counted rather than aborting the read (INV-APV-50): a trace truncated by a `SIGKILL` ends in a partial line by construction, and losing the whole run's analysis over its last line would be a worse failure than losing the line.
 
 **The `ape` change `rearch-04-step-ndjson-telemetry` is the authority for the wire format.** Its `event-sink` spec defines the `StepRecord` schema, the dictionary encoding, the omitted-default rules and the heartbeat payload; its design carries the legacy-field → new-schema mapping table. The format is defined jointly and cut once, and this reader conforms to it rather than restating it.
 
-The golden fixture that exercises this requirement SHALL be `modules/aperv-tool/tests/fixtures/trace_ndjson_golden.ndjson`, a hand-written stage-4 trace containing, at minimum: a `RUN_START` with `t0`; `ACT` entries with `mop:1` and `mop:0`; two `STATE` entries; a step whose `dec` carries no boost fields at all; a step carrying `patched:0`; a step carrying no `patched` member; a step with two `llm[]` entries in occurrence order; a step whose `out` resolves to a new state; a step closed with no `out` member; a step flushed with `out:{"resolved":false}`; a malformed line; and a truncated final line. Every scenario below names the fixture element that exercises it, so no rule is asserted against an input that cannot reach it.
+The golden fixture that exercises this requirement SHALL be `modules/aperv-tool/tests/fixtures/trace_ndjson_golden.ndjson`, a hand-written stage-4 trace containing, at minimum: a `RUN_START` with `t0`; `ACT` entries with `mop:1` and `mop:0`; two `STATE` entries; a step whose `dec` carries no boost fields at all; a step carrying `patched:0`; a step carrying no `patched` member; a step with two `llm[]` entries in occurrence order; a step whose `out` resolves to a new state; a step closed with no `out` member; a step flushed with `out:{"resolved":false}`; a completed call carrying the `sys` / `user` / `resp` / `tool_calls` dumps beside one that carries none; a `MOP_DATA` record, a `PIPELINE` record whose `candidates` include disabled entries, and an `LLM_ACK`; a malformed line; and a truncated final line. Every scenario below names the fixture element that exercises it, so no rule is asserted against an input that cannot reach it.
 
 #### Scenario: Reader yields a joined step row
 - **WHEN** the reader runs over the golden fixture, whose step 42 carries a `dec` with no boost fields, two `llm[]` sub-events and an `out` closed at step 43
@@ -271,6 +278,17 @@ The golden fixture that exercises this requirement SHALL be `modules/aperv-tool/
 - **THEN** every row SHALL still carry its run-relative `t`
 - **AND** the epoch expansion SHALL be reported as unavailable
 - **AND** no base SHALL be inferred from the file's mtime or from the logcat
+
+#### Scenario: Prompt and response dumps reach the caller
+- **WHEN** the reader runs over the fixture's step-42 completed call, which carries `sys`, `user`, `resp` and `tool_calls`
+- **THEN** the sub-event SHALL carry all four, with the widget list's embedded newlines intact as the jar escaped them
+- **AND** the abandoned attempt beside it, written without dumps, SHALL report them as absent rather than as empty strings — an empty string would claim the model was sent an empty prompt
+
+#### Scenario: The run-level census is reachable and RUN_END is not
+- **WHEN** the reader runs over a trace carrying `MOP_DATA`, `PIPELINE`, `LLM_ACK` and `RUN_END`
+- **THEN** the first three SHALL be readable as reader attributes, so `wtgEdges` and the candidate census need no second parser
+- **AND** the reader SHALL expose no `RUN_END` accessor at all (INV-APV-53)
+- **AND** a trace carrying none of them SHALL report each as absent rather than as an empty record
 
 #### Scenario: Reader stays off the collection path
 - **WHEN** the module's tests assert the import graph of `tools/aperv/tool.py`
