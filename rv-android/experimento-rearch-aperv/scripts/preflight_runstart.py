@@ -3,9 +3,10 @@
 
 Four checks over the first line of one trace per arm. The campaign does not start until
 every arm passes every one of them. This is an operator script over a recorded trace: it
-runs on no execution path, and nothing in `modules/aperv-tool` reads `RUN_START` — the
-property is write-only on both sides (`run-spec` INV-RUN-03, INV-APV-57), and verifying an
-echo is post-hoc analysis by construction.
+runs on no execution path, and no runtime component, Java or Python, reads `RUN_START` —
+the record is write-only on both sides (`run-spec` INV-RUN-03, INV-APV-57), and verifying
+an echo is post-hoc analysis by construction. The one reader in `modules/aperv-tool` is the
+offline `analysis.trace_ndjson`, which is not on an execution path either.
 
 The four checks, and what each one is worth:
 
@@ -221,6 +222,23 @@ def run(
     repo_root: Path,
     pushed_dir: Optional[Path],
 ) -> Tuple[List[Dict[str, Any]], bool]:
+    """Run the four checks over every declared arm, one trace each.
+
+    Args:
+        results_dir: Smoke results tree, searched recursively for `.trace` files.
+        manifest: The campaign manifest as `make_manifest.py` writes it.
+        repo_root: rv-android root. The corpus list is resolved against it and re-hashed
+            here, so the check is against the list file rather than against the digest the
+            manifest transcribed from it.
+        pushed_dir: Directory holding `<arm-token>.properties` as pushed, or None, which
+            makes check 1 abstain rather than invent a verdict.
+
+    Returns:
+        `(report, ok)`. Each report row carries "arm", "check", "status" (PASS/FAIL/SKIP),
+        "detail", and "trace" once a trace was found. `ok` is False if any row FAILed:
+        a missing trace, an unreadable `RUN_START` and a wrong jar are one verdict, because
+        each one leaves an arm unverified and the gate is all-or-nothing.
+    """
     arms = manifest.get("arms") or []
     if not arms:
         return [
@@ -284,6 +302,7 @@ def run(
 
 
 def render(report: List[Dict[str, Any]]) -> str:
+    """The report as text, grouped by arm in the order the manifest declared them."""
     lines = ["# Pre-flight — RUN_START against the declared campaign\n"]
     for arm in dict.fromkeys(row["arm"] for row in report):
         lines.append(f"## {arm}")

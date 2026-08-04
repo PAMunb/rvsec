@@ -252,6 +252,7 @@ def evaluate_g3(
 
 
 def render(report: Dict[str, Any]) -> str:
+    """The report as text: G1's table, G2's contrast, G3's levels, then the verdict."""
     lines = ["# Gate verdict — leg B against leg A\n"]
 
     lines.append("## G1 (blocking) — control arm, leg B - leg A\n")
@@ -328,6 +329,18 @@ def render(report: Dict[str, Any]) -> str:
 
 
 def build_report(leg_a_path: Path, leg_b_path: Path) -> Dict[str, Any]:
+    """Read both legs and evaluate the three groups against the frozen plan.
+
+    Neither CSV is written back: leg A is frozen, and leg B is the campaign's own record.
+
+    Returns:
+        Dictionary with keys:
+        - "leg_a", "leg_b" (str): the two CSVs read, so a report names its own inputs.
+        - "estimand" (str): what every CI below estimates. Carried in the report rather
+          than left to the reader, because the mean of the paired differences is a
+          different number from the difference of trimmed means.
+        - "g1", "g2", "g3" (dict): the groups, as the corresponding `evaluate_*` returns.
+    """
     leg_a = read_paired(leg_a_path)
     leg_b = read_paired(leg_b_path)
     return {

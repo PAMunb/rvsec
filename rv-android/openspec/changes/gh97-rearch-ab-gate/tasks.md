@@ -43,15 +43,15 @@
 - [x] 4.6 Write `scripts/preflight_runstart.py`: reads the first line of one trace per arm with `json.loads`, checks `props_digest`, `preset` + `params` against the arm's declared overrides, `build.sha` against the built `rearch` commit, and `corpus_basis` against the digest from 1.3. The `corpus_basis` check distinguishes two blocking failure modes and names them separately in the report — **absent** means the DSL parameter path dropped the value before it reached `ape.properties`, **mismatched** means it arrived carrying the wrong list. Reports every check PASS/FAIL and exits 1 on any FAIL. It is an operator script and never runs on an execution path (INV-RUN-03, `gh95` D1).
 - [x] 4.7 Write `scripts/compare.py`: G1 paired against leg A on the control arm, G2 as the within-campaign contrast on `cov_act`, G3 descriptive with the 3.4 displacement, all via `stats_utils.paired_bootstrap_ci` (B=10,000, seed 42).
 - [x] 4.8 Add unit tests for `compare.py` over synthetic paired vectors with known answers.
-- [ ] 4.9 Run `/rv-doc-code` on each new script.
-- [ ] 4.10 Run `/rv-test-run aperv-tool`
+- [x] 4.9 Run `/rv-doc-code` on each new script.
+- [x] 4.10 Run `/rv-test-run aperv-tool`
 
 ## 5. Pre-registration and freeze — nothing downstream may change it
 
-- [ ] 5.1 Write the pre-registration document under `docs/`, modelled on `docs/20260730_preregistro_corrida_decisiva.md`: the grid, the arms, the corpus and its digest, the seeds, both image IDs, both jar shas, both git shas, the CSV each outcome is read from, G1/G2/G3 with the margins from 3.2, the declared premises from 3.5/3.6, and the tie rule.
-- [ ] 5.2 State the substrate confound explicitly, with the direction the change is expected to move and the reason no magnitude is predicted, so no later reading can present it as a discovery.
-- [ ] 5.3 Declare what counts as a blocking regression: a CI excluding zero in the harmful direction **and** |Δ| above the derived margin, on G1; and G2's contrast losing its sign or its CI including zero.
-- [ ] 5.4 Freeze the document: record its sha256 in `calibracao/journal.jsonl` with a `FREEZE-PREREGISTRO` state, before the jar is built. Everything after this point that was not planned here is exploratory and is reported as such.
+- [x] 5.1 Write the pre-registration document under `docs/`, modelled on `docs/20260730_preregistro_corrida_decisiva.md`: the grid, the arms, the corpus and its digest, the seeds, both image IDs, both jar shas, both git shas, the CSV each outcome is read from, G1/G2/G3 with the margins from 3.2, the declared premises from 3.5/3.6, and the tie rule.
+- [x] 5.2 State the substrate confound explicitly, with the direction the change is expected to move and the reason no magnitude is predicted, so no later reading can present it as a discovery.
+- [x] 5.3 Declare what counts as a blocking regression: a CI excluding zero in the harmful direction **and** |Δ| above the derived margin, on G1; and G2's contrast losing its sign or its CI including zero.
+- [x] 5.4 Freeze the document: record its sha256 in `calibracao/journal.jsonl` with a `FREEZE-PREREGISTRO` state, before the jar is built. Everything after this point that was not planned here is exploratory and is reported as such.
 
 ## 6. The jar and the image — only after both sides are complete
 

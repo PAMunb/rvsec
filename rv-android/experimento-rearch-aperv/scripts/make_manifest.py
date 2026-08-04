@@ -26,9 +26,12 @@ from typing import Any, Dict
 
 from aperv_tool.tools.aperv.tool import APERV_PROPERTY_MAPPING, ApeRVTool
 
-# The three arms of the E3 grid, in the order the CSV's column groups follow. Their roles
-# are what the decision rule refers to: the control arm is G1's channel because it zeroes
-# the MOP weights, and the reference/LLM pair is what G2 contrasts.
+# The three arms of the E3 grid. This order is not a transcription of a CSV header — it
+# sets one: `consolidate.resolve_arm_order` follows the manifest when one is present, so
+# leg B's column groups come out in this order, while leg A's frozen header is alphabetical.
+# The two never have to agree, because `compare.read_paired` joins by column name.
+# The roles are what the decision rule refers to: the control arm is G1's channel because
+# it zeroes the MOP weights, and the reference/LLM pair is what G2 contrasts.
 ARMS = [
     ("mop_on_llm_off", "reference"),
     ("mop_off_llm_off", "control"),
@@ -69,6 +72,14 @@ def arm_entry(variant: str, role: str) -> Dict[str, Any]:
 
 
 def build_manifest(repo_root: Path) -> Dict[str, Any]:
+    """The frozen execution plan, plus one generated entry per arm.
+
+    The plan's scalars — 3 replicas, a 1800 s budget, 8 containers, the `jca` specification
+    set and the bootstrap seed — are stated here because this file is what the
+    pre-registration freezes. `predicted_identities` is applications x arms x replicas: the
+    size a complete campaign should reach, declared before it runs so a short campaign shows
+    up as a shortfall against a number nobody chose afterwards.
+    """
     subset = repo_root / "calibracao/subset40.txt"
     apks = [line for line in subset.read_text().splitlines() if line.strip()]
     return {

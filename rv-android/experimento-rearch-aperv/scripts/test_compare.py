@@ -28,7 +28,12 @@ REFERENCE = compare.REFERENCE_ARM
 
 
 def write_paired(path: Path, values):
-    """A `per_apk_paired.csv` from `{apk: {column: value}}`, header ordered like the real one."""
+    """A `per_apk_paired.csv` from `{apk: {column: value}}`: `apk`, then one column per key.
+
+    The columns come out sorted rather than in the real file's arm-major order, which
+    changes nothing under test: `compare.read_paired` goes through `csv.DictReader` and
+    reads every cell by name, never by position.
+    """
     columns = sorted({column for cells in values.values() for column in cells})
     lines = ["apk," + ",".join(columns)]
     for apk in sorted(values):
@@ -237,6 +242,7 @@ def run_start(**overrides):
 
 
 def manifest_with(arm_overrides=None, **top):
+    """A one-arm manifest: `arm_overrides` replaces its declared params, `**top` any key."""
     manifest = {
         "corpus": {
             "subset_file": "calibracao/subset40.txt",
@@ -260,6 +266,7 @@ def manifest_with(arm_overrides=None, **top):
 
 
 def smoke_tree(tmp_path, record, token="aperv:mop_off_llm_off"):
+    """A results tree holding one trace for `token`, whose first line is `record`."""
     results = tmp_path / "results" / "c0" / "c0" / "app.apk"
     results.mkdir(parents=True)
     trace = results / f"app.apk__1__1800__{token}.trace"
