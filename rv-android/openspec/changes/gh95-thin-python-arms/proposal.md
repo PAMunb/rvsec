@@ -89,8 +89,10 @@ experimental matrix — which arms exist, their frozen names, and their deltas.
   dicts. The 21 retired names appear through an explicit retirement list carrying each one's kind,
   never as silent absences; for `sata_mop_act_frontier` the check additionally proves that
   `mop_on_llm_off` reproduces its baseline, which is the whole justification for consolidating it.
-  After owner sign-off the test is deleted and the baseline archived — keeping it alive would
-  recreate INV-APV-14 under another name.
+  The test is deleted and the baseline archived once the owner has signed off **and**
+  `gh97-rearch-ab-gate` has run — the sign-off approves the migration, `gh97` is the first time a
+  device honours `ape.preset`, and keeping the evidence past that point would recreate INV-APV-14
+  under another name.
 
 - **This change is entirely offline.** No emulator, no device, no jar execution. The preset vectors
   and the accepted-key vocabulary are read from the `ape` source checkout; the diff is a host-side
@@ -134,6 +136,15 @@ frozen-corpus reader that SHALL NOT be migrated, adapted or deleted (INV-APV-55)
 scaffold here would contradict that carve-out and maintain a consumer of a dataset that will not be
 regenerated.
 
+**Twelve `docker/docker-compose.*.yml` files name retired arms and are left exactly as they are.**
+`cmpma`, `cmpma_smoke`, `cmpft4`, the six `cmpft5*` files, `cmpft5_probe`, `cmpv2w` and `gh80` carry
+`aperv:ape_pure`, `aperv:sata_mop_widget`, `aperv:sata_mop_activity` or `aperv:sata_mop_act_frontier`
+in `RV_TOOLS`, so they can no longer resolve a variant. They are the launch records of campaigns that
+have finished — the same status as the arms they name, and the same treatment `experimento-cal`
+receives above. Editing them to surviving arms would make each file describe a campaign that never
+ran in that configuration, and moving them would take the record out of the place it documents. This
+is a decision on the record (owner, 2026-08-04), not an unnoticed dangling reference.
+
 **Cross-change coordination — three open changes modify the same two requirements.** `gh96` modifies
 both `ApeRVTool Execution Flow (FR18, FR19)` and `ape.properties Generation`; `gh94` modifies
 `ApeRVTool Execution Flow` again, already composed over `gh96`'s text. Neither is synced into
@@ -154,5 +165,7 @@ recorded as a precondition rather than left implicit.
 the consolidation column key). Any intentional divergence in effective configuration requires owner
 approval and a new arm name, never a silent edit.
 
-**Satisfies** task 8.5a of the `ape`-side `rearch-05-thin-python-arms`, which reserves this
-repository's counterpart to its own OpenSpec workflow rather than editing `openspec/specs/` by hand.
+**Satisfies** the counterpart obligation of the `ape`-side `rearch-05-thin-python-arms`, which
+reserves this repository's half to its own OpenSpec workflow rather than editing `openspec/specs/` by
+hand. That change's task 1.3 records that the obligation carries no task number on its side — it is
+discharged by this change existing and taking the whole experimental matrix, not by ticking a box.

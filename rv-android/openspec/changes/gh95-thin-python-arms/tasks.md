@@ -12,7 +12,13 @@
      This change is OFFLINE. No task starts an emulator, runs adb, or executes the jar. The run that
      proves the deployed jar honours ape.preset belongs to gh97-rearch-ab-gate (owner decision,
      2026-08-04). The ape-side counterpart's group 10 (deleting stage 2's transitional test
-     scaffolding) is work in the ape repository and is not part of this change. -->
+     scaffolding) is work in the ape repository and is not part of this change.
+
+     Consequence of that decision for the close: the change stays OPEN until gh97-rearch-ab-gate has
+     executed. Group 7 completes the implementation, but no spec sync and no archive happen before
+     gh97's run, and commits stay "refs #95". If the deployed jar turns out not to resolve a preset
+     the way the tables here say, the fix belongs to the change that caused it rather than to a
+     follow-up on an archived one. -->
 
 ## 1. Preconditions, jar tables and baseline capture (BEFORE any edit)
 
@@ -71,10 +77,14 @@
 
 ## 7. Final verification and owner sign-off
 
-- [ ] 7.1 Final full regeneration diff over all 8 surviving arms; produce the human-readable per-arm report — empty, or the owner-approved declared divergences with their new arm names — plus the documented retirements of `ape_pure` and `bfs`
-- [ ] 7.2 Run `/rv-qa-lint-fix aperv-tool`. Leave the two pre-existing findings untouched: `tests/test_aperv_tool.py:439` E741 and the `black` reformat around `tests/test_aperv_tool.py:1422`; `tool.py`'s 67 pre-existing E501 are comment prose and are not this change's diff
-- [ ] 7.3 Run `/rv-verify aperv-tool`
-- [ ] 7.4 Invoke `/rv-code-reviewer` via the Skill tool over the `modules/aperv-tool` diff
-- [ ] 7.5 Run `/rv-docs-sync aperv-tool`
-- [ ] 7.6 **Owner sign-off**: present the final diff report and the task 1.6 finding. On approval, delete `tests/migration/test_arm_regeneration_diff.py` and archive `arm_effective_baseline.json`, the final diff output and the `ape` source provenance under `modules/aperv-tool/docs/` as the migration record (INV-APV-44 — the check is one-time and MUST NOT become a standing constant-vs-constant guard)
-- [ ] 7.7 Mark task 8.5a of the `ape`-side `rearch-05-thin-python-arms` satisfied — this change is the rv-android counterpart it reserved to this repository's OpenSpec workflow
+- [x] 7.1 Final full regeneration diff over all 8 surviving arms; produce the human-readable per-arm report — empty, or the owner-approved declared divergences with their new arm names — plus the documented retirements of `ape_pure` and `bfs`
+- [x] 7.2 Run `/rv-qa-lint-fix aperv-tool`. Exactly one pre-existing finding survives groups 1-6 and MUST be left untouched: the `black` reformat at `tests/test_aperv_tool.py:1435` (the `_FakeResponse(json.dumps(...))` line in `TestLlmProvenance`). The E741 formerly at `:439` is gone — it lived inside a test retired with the mechanism it covered, so it went with the code — and `flake8 --max-line-length=100` now reports nothing over `src` and `tests`. Check before fixing: `black --diff modules/aperv-tool/tests/test_aperv_tool.py | grep -E "^@@"` may show only `@@ -1435`; any other hunk is this change's and should be fixed
+- [x] 7.3 Run `/rv-verify aperv-tool`
+- [x] 7.4 Invoke `/rv-code-reviewer` via the Skill tool over the `modules/aperv-tool` diff
+- [x] 7.4a Close the defect 7.4 found: `APERV_ORCHESTRATION_KEYS` accepts `device_port`, `device_serial` and `device_id`, which `ExecutionController` injects into every tool's parameters whenever `--device-port` is set. Without them `configure()` rejects every containerized and parallel run — including `gh97`'s A/B gate — inside `Platform._load_tool`. Add the regression test that configures an arm carrying all three and asserts no `ape.*` line names them
+- [x] 7.4b Move the unmapped-`overrides` rejection from `_push_properties()` into `configure()`, so "before any `adb push`" holds for the run and not merely for the properties push; restate the test against `configure()`
+- [x] 7.4c Delete `KNOWN_DEAD` from `tests/migration/test_mapping_sweep.py` — the entry it tolerated is gone, so the assertion was vacuous and would have accepted the dead key's return; assert no mapped key is dead instead
+- [x] 7.4d Delete the orphaned INV-APV-13 comment block above `_DECISIVE_ARMS` in `tests/test_aperv_tool.py` (P3/P4: it describes a deleted constant and carries migration history), and the unreachable not-yet-migrated path in `test_arm_regeneration_diff.py` (`_from_explicit_keys` and its branch), whose "green from day one" narrative describes a state that no longer exists
+- [x] 7.5 Run `/rv-docs-sync aperv-tool`
+- [ ] 7.6 **Owner sign-off**: present the final diff report and the task 1.6 finding. The sign-off approves the *migration*, not the retirement of its evidence: deleting `tests/migration/test_arm_regeneration_diff.py` and archiving `arm_effective_baseline.json`, the final diff output and the `ape` source provenance under `modules/aperv-tool/docs/` as the migration record are gated on `gh97-rearch-ab-gate` having executed. Everything this change does is offline, so `gh97`'s run is the first time a device honours `ape.preset`, and the diff plus the baseline are exactly what a mismatch there would need. When that deletion happens, only `test_arm_regeneration_diff.py` goes — `jar_tables.py`, `retirements.py`, `test_jar_tables.py`, `test_mapping_sweep.py` and `test_decisive_contrasts.py` stay, because INV-APV-41 and the decisive-run contrasts are standing checks (INV-APV-44 — the diff is one-time and MUST NOT become a standing constant-vs-constant guard). Name one residual risk in the sign-off: the whole migration tier skips silently without `$APE_REPO` (47 skips, by design — CI has no `ape` checkout), so a green module run is not evidence the gate ran; the executed result and the `ape` commit it ran against belong in the sign-off record, not merely in the baseline's provenance
+- [x] 7.7 Close the counterpart obligation the `ape`-side `rearch-05-thin-python-arms` reserved to this repository's OpenSpec workflow. There is nothing to tick over there: its task 1.3 records that **no task 8.5a exists and none will be created**, because the obligation — "open a change in rv-android carrying this stage's counterpart delta rather than hand-editing that repo's `openspec/specs/`" — is discharged structurally by `gh95` existing, and a numbered task to receive the pointer would re-import the coupling that rewrite removed. So this closes against that change as a whole, and no file in the `ape` worktree is touched

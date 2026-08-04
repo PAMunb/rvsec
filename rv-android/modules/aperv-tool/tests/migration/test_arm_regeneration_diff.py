@@ -5,20 +5,22 @@ property dictionaries into `preset + overrides`, and the claim that nothing move
 worth as much as the check behind it — so the claim is executed, per arm, against a baseline
 captured before the first edit.
 
-**Green from day one, by construction.** An arm that has not been re-expressed yet carries
-no `preset` key, and for those the regeneration takes the same path the capture took. So the
-test passes at the start of the migration and keeps passing through it; what makes it
-informative is that each arm switches path the moment it is re-expressed, and any drift
-introduced by that switch fails immediately, in the group that caused it.
+Every surviving arm now carries a `preset`, so regeneration resolves the jar's preset vector,
+overlays the arm's `overrides` and compares the typed result against what the arm's explicit
+property dictionary produced before the migration. Any drift between the two shapes fails the
+arm that drifted.
 
 **Retirements are listed, never inferred.** A baseline arm that no longer exists is a pass
 only if `retirements.py` says so, with its kind. A name that vanished without being on that
 list fails — otherwise deleting an arm by mistake and retiring one on purpose would look
 identical from here.
 
-The check is **one-time** (INV-APV-44). After owner sign-off it is deleted and the baseline
-archived: keeping it would recreate the constant-vs-constant guard this change retires, with
-the baseline playing the role of the frozen copy.
+The check is **one-time** (INV-APV-44). It is deleted and the baseline archived once the
+owner has signed off and `gh97-rearch-ab-gate` has executed — the sign-off approves the
+migration, and `gh97` is the first run in which a device honours `ape.preset`, so this
+evidence outlives the sign-off by exactly that one run. Keeping it beyond that would recreate
+the constant-vs-constant guard this change retires, with the baseline playing the role of the
+frozen copy.
 """
 
 from __future__ import annotations
@@ -65,16 +67,13 @@ def regenerate(
     presets: Dict[str, Dict[str, str]],
     key_specs: Dict[str, KeySpec],
 ) -> Dict[str, Any]:
-    """The typed plan an arm resolves to, from whichever shape it currently has.
+    """The typed plan an arm resolves to: the jar's preset vector, overlaid with the arm's
+    `overrides`, overlaid on the jar's declared defaults for whatever neither supplies.
 
-    Re-expressed arm: the jar's preset vector, overlaid with the arm's `overrides`, overlaid
-    on the jar defaults for whatever neither supplies. Not-yet-migrated arm: its own explicit
-    keys over the same defaults. The two shapes are supposed to produce the same map, and
-    that equality is exactly what this module tests.
+    This is the shape the baseline is compared against. The baseline itself was produced by
+    the other shape — the pre-change explicit key dictionaries — and the two producing the
+    same map is exactly what this module tests.
     """
-    if "preset" not in arm:
-        return _from_explicit_keys(arm, key_specs)
-
     vector = presets[arm["preset"]]
     overrides = arm.get("overrides", {})
     config: Dict[str, Any] = {}
@@ -89,16 +88,6 @@ def regenerate(
     if arm.get("mop_data") == "static_analysis":
         config["ape.mopDataPath"] = DEVICE_ARTIFACT_PATH
     return config
-
-
-def _from_explicit_keys(
-    arm: Dict[str, Any], key_specs: Dict[str, KeySpec]
-) -> Dict[str, Any]:
-    from .capture_arm_baseline import effective_config
-
-    return effective_config(
-        arm, key_specs, mop_pushed=arm.get("mop_data") == "static_analysis"
-    )
 
 
 def diff(expected: Dict[str, Any], actual: Dict[str, Any]) -> Dict[str, Any]:

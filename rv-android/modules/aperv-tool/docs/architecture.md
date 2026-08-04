@@ -192,7 +192,8 @@ aperv-tool/
 │               └── system-broadcast.json # Broadcast intent catalog for component triggering
 ├── tests/
 │   ├── __init__.py
-│   └── test_aperv_tool.py              # 9 test classes covering spec, variants, config, commands
+│   ├── test_aperv_tool.py              # spec, variants, configure/DSL fold, commands, properties, arms
+│   └── migration/                      # one-time regeneration diff, retirement list, mapping sweep
 └── pyproject.toml
 ```
 
@@ -347,8 +348,8 @@ How the architecture supports non-functional requirements from the PRD.
 | NFR | PRD ID | Priority | Architectural Support |
 |-----|--------|----------|----------------------|
 | Modularity | NFR01 | P0 | Standalone uv workspace module with clear dependency on rv-android-core and rv-tools only; registered lazily by rv-platform |
-| Extensibility | NFR02 | P0 | New variants added by appending to `get_variants()` dictionary; new properties added by extending `APERV_PROPERTY_MAPPING` |
-| Testability | NFR03 | P1 | 9 test classes with 30+ test methods covering spec, variants, configure validation, JAR paths, command building, constants, empty trace, LLM properties, and calibration parameters |
+| Extensibility | NFR02 | P0 | A new arm is a named entry in `get_variants()` carrying a preset plus override deltas; a new tunable is an entry in `APERV_PROPERTY_MAPPING`. New presets are not added here — the preset vocabulary belongs to the jar's `Presets.java` |
+| Testability | NFR03 | P1 | `tests/test_aperv_tool.py` covers spec metadata, variant shape, `configure()` validation, the DSL override fold, JAR paths, command building, constants, empty-trace detection, properties generation and the decisive-run arms; `tests/migration/` holds the one-time regeneration diff and the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table |
 | Resilience | NFR04 | P1 | Timeout treated as expected exit (re-raised as `RVToolTimeoutError`); non-zero exit codes logged as debug (APE-RV reports app crashes this way); empty trace produces warning, not error |
 | Configurability | NFR05 | P1 | `APERV_LLM_BASE_URL` env var overrides LLM URL; `RVSEC_HOME` and `TOOLS_DIR` env vars extend JAR search paths; `ape.properties` generated from `_tool_config` via mapping |
 | Reproducibility | NFR08 | P1 | Module-local JAR (`ape-rv.jar` shipped alongside `tool.py`) takes priority in resolution, ensuring experiments use the packaged binary |
@@ -407,29 +408,29 @@ classDiagram
 
 ### Scenario 1: SATA Exploration with MOP Guidance
 
-**Description**: An experiment runs APE-RV with the `sata_mop` variant, which uses adaptive random exploration biased toward screens containing monitored operations.
+**Description**: An experiment runs APE-RV with the `sata_mop` variant — adaptive random exploration biased toward screens where monitored operations are reachable. This arm is preset-identity: it names the `mop` preset and overrides nothing, so it is the shortest properties file the tool can produce.
 
 **Flow**:
 1. rv-experiment generates a task with `tool_config = ToolConfig(name="aperv", variant="sata_mop")`
-2. rv-platform's `ToolFactory` instantiates `ApeRVTool`, resolves the `sata_mop` variant config (`strategy=sata`, `mop_data=static_analysis`, `throttle_ms=200`), and calls `configure()`
-3. `configure()` validates `strategy="sata"` against `APERV_AVAILABLE_STRATEGIES` and stores the config
+2. rv-platform's `ToolFactory` instantiates `ApeRVTool`, resolves the `sata_mop` variant config (`preset=mop`, `strategy=sata`, `mop_data=static_analysis`, `overrides={}`), and calls `configure()`
+3. `configure()` validates `strategy="sata"` against `APERV_AVAILABLE_STRATEGIES`, checks the preset name and the shape of `overrides`, and stores the config. WHEN the experiment adds a DSL override (`aperv:sata_mop@default_epsilon=0.1`) THEN `configure()` folds that top-level key into `overrides` AND an unmappable key raises `ConfigurationError` here, before any device interaction
 4. `execute_tool_specific_logic()` resolves `ape-rv.jar` via `JarResolver` and pushes it to the device
 5. The tool finds the static analysis JSON in `task.results_dir`, derives the compact MOP artifact from it (or reuses the cached `<apk_name>.mop.json` when its recorded digest still matches), and pushes **only the artifact** as `/data/local/tmp/mop-artifact.json`
-6. `_push_properties()` generates `ape.properties` with `ape.defaultGUIThrottle=200` and `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
-7. APE-RV runs via `app_process` on the device, using the artifact to bias exploration toward MOP-relevant screens
+6. `_push_properties()` generates a two-line `ape.properties`: `ape.preset=mop` followed by `ape.mopDataPath=/data/local/tmp/mop-artifact.json`. Nothing else is written — the throttle, the epsilon and the MOP weights are all supplied by the `mop` preset inside the jar
+7. APE-RV runs via `app_process` on the device, resolves the preset, and uses the artifact to bias action selection toward MOP-relevant screens
 8. After timeout, `RVCommandTimeoutError` is caught and re-raised as `RVToolTimeoutError` (normal completion)
 9. rv-platform collects coverage from logcat independently
 
-### Scenario 2: LLM-Guided Exploration with Prompt Variant
+### Scenario 2: LLM-Guided Exploration at a Calibrated Dose
 
-**Description**: An experiment runs the `sata_mop_llm_v17` prompt variant, which uses SATA + MOP + LLM at 70% rate with the `v17` prompt variant.
+**Description**: An experiment runs `mop_on_llm_70`, the E3 decisive run's LLM arm: the `llm_mop` preset plus the reach package and the calibrated LLM dose. It is the longest properties file of any surviving arm, which makes it the useful illustration of how overrides stack on a preset.
 
 **Flow**:
-1. rv-experiment specifies `aperv:sata_mop_llm_v17` in the tool configuration
-2. `ToolFactory` resolves the variant, which includes `llm_url=http://10.0.2.2:30000/v1`, `llm_percentage=0.7`, `llm_prompt_variant=v17`
-3. `configure()` validates strategy and checks `APERV_LLM_BASE_URL` env var for URL override
-4. Execution pushes JAR, static analysis JSON, broadcast catalog, and generates `ape.properties` with all 18 mapped properties (exploration + MOP weights + LLM parameters)
-5. APE-RV queries the SGLang server at the configured URL during exploration, using the v17 prompt variant for 70% of decisions
+1. rv-experiment specifies `aperv:mop_on_llm_70` in the tool configuration
+2. `ToolFactory` resolves the variant: `preset=llm_mop`, `mop_data=static_analysis`, and nine overrides — the reach package (`mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True`) plus the LLM dose (`llm_url=http://10.0.2.2:30000/v1`, `llm_prompt_variant=v13`, `llm_percentage=0.7`, `llm_temperature=0`) and `llm_snap_tolerance_px=150`
+3. `configure()` validates the shape and checks `APERV_LLM_BASE_URL` for a URL override, which Docker and physical-device deployments need because `10.0.2.2` is an emulator-only alias for host loopback
+4. Execution pushes the JAR, the derived MOP artifact and the broadcast catalog, then writes `ape.properties`: `ape.preset=llm_mop`, `ape.mopDataPath=...`, and one line per override in `APERV_PROPERTY_MAPPING` order. The arm's `expected_jar_git_sha` and `expected_jar_sha256` stay Python-only — the jar has no property to receive them, and that absence is what keeps them from disturbing the single-factor contrast against `mop_on_llm_off` (INV-APV-34)
+5. APE-RV queries the SGLang server at the configured URL during exploration, using the `v13` prompt for 70% of decisions and snapping answered coordinates to a widget within 150 px
 
 ---
 
@@ -492,21 +493,29 @@ flowchart TB
 
 ### Properties Generation Flow
 
-The `_push_properties()` method translates Python configuration keys to Java property names using `APERV_PROPERTY_MAPPING`. This is a deliberate filtering mechanism: only keys that appear in the mapping are written to the device. Python-only control keys (`strategy`, `mop_data`) are excluded automatically because they have no mapping entry.
+`_push_properties()` writes only what distinguishes the arm. The file leads with `ape.preset=<name>`; when the derived MOP artifact was pushed it adds `ape.mopDataPath=/data/local/tmp/mop-artifact.json`; then it emits one line per `overrides` entry, translated through `APERV_PROPERTY_MAPPING`. What a preset contains is resolved inside the jar, so no line restates a preset value — a `sata_mop` run ships a two-line file. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table and two runs of the same arm produce byte-identical properties.
 
-| Python Key | Java Property | Category |
-|-----------|--------------|----------|
-| `throttle_ms` | `ape.defaultGUIThrottle` | Exploration |
-| `default_epsilon` | `ape.defaultEpsilon` | Exploration |
-| `graph_stable_restart_threshold` | `ape.graphStableRestartThreshold` | Exploration |
-| `mop_weight_direct` | `ape.mopWeightDirect` | MOP scoring |
-| `mop_weight_transitive` | `ape.mopWeightTransitive` | MOP scoring |
-| `mop_weight_activity` | `ape.mopWeightActivity` | MOP scoring |
-| `llm_url` | `ape.llmUrl` | LLM |
-| `llm_percentage` | `ape.llmPercentage` | LLM |
-| `llm_prompt_variant` | `ape.llmPromptVariant` | LLM |
+Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS` and never reach the device: `preset` and `overrides` (the arm's shape itself), `strategy` (the `--ape` flag), `mop_data` (whether the artifact is pushed), `seed`, `expected_jar_git_sha` and `expected_jar_sha256` (jar provenance, verified host-side at smoke time), and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched.
 
-When `mop_json_pushed` is True, the generated properties also include `ape.mopDataPath=/data/local/tmp/mop-artifact.json`, pointing APE-RV to the derived artifact pushed earlier.
+`APERV_PROPERTY_MAPPING` has 50 entries. Most exist so an ablation can be expressed as an override set without a code change; the entries a surviving arm actually sets are:
+
+| Python override key | Java property | Category | Set by |
+|-----------|--------------|----------|--------|
+| `llm_url` | `ape.llmUrl` | LLM | `sata_llm`, `sata_mop_llm`, `mop_on_llm_70` |
+| `mop_activity_source_components` | `ape.mopActivitySourceComponents` | MOP reach | the three E3 arms |
+| `frontier_boost_weight` | `ape.frontierBoostWeight` | Navigation | the three E3 arms |
+| `mop_frontier_weight` | `ape.mopFrontierWeight` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70` |
+| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70` |
+| `mop_weight_direct` | `ape.mopWeightDirect` | MOP scoring | `mop_off_llm_off` (at `0`) |
+| `mop_weight_transitive` | `ape.mopWeightTransitive` | MOP scoring | `mop_off_llm_off` (at `0`) |
+| `mop_weight_open_menu` | `ape.mopWeightOpenMenu` | MOP scoring | `mop_off_llm_off` (at `0`) |
+| `mop_weight_wtg` | `ape.mopWeightWtg` | MOP scoring | `mop_off_llm_off` (at `0`) |
+| `llm_prompt_variant` | `ape.llmPromptVariant` | LLM | `mop_on_llm_70` (`v13`) |
+| `llm_percentage` | `ape.llmPercentage` | LLM | `mop_on_llm_70` (`0.7`) |
+| `llm_temperature` | `ape.llmTemperature` | LLM | `mop_on_llm_70` (`0`) |
+| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | LLM | `mop_on_llm_70` (`150`) |
+
+`throttle_ms` -> `ape.defaultGUIThrottle` is mapped but set by no arm: the `aperv` preset already states `ape.defaultGUIThrottle=200`, and an override restating a preset value would be a delta that is not a delta. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
 
 ### MOP Data Flow (sata_mop variants)
 
@@ -526,8 +535,8 @@ If the static analysis file is not found, or the derivation refuses the document
 For LLM-guided variants, the data flow involves network communication between the emulator and the host:
 
 1. `configure()` checks `APERV_LLM_BASE_URL` environment variable for URL override
-2. `_push_properties()` writes LLM configuration (URL, model, temperature, top_p, top_k, timeout, percentage, prompt variant) to `ape.properties`
-3. APE-RV reads these properties at startup and initializes its LLM client
+2. `_push_properties()` writes `ape.preset=llm` or `ape.preset=llm_mop` plus the arm's LLM overrides. The model, timeout, top_p and top_k come from the preset inside the jar; `llm_url` is always an override because it names a machine rather than an arm, and `mop_on_llm_70` additionally overrides the prompt variant, the percentage, the temperature and the snap tolerance
+3. APE-RV resolves the preset at startup and initializes its LLM client
 4. During exploration, APE-RV sends requests to the SGLang server at the configured URL
 5. Inside the emulator, `10.0.2.2` routes to the host machine's loopback address
 6. The SGLang server returns action suggestions that APE-RV integrates with its WTG model
@@ -538,8 +547,8 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 ## Extension Points
 
-- **Adding a variant**: Add an entry to the dictionary returned by `get_variants()`. If the variant uses new configuration parameters, add corresponding entries to `APERV_PROPERTY_MAPPING`.
-- **Adding a strategy**: Add the strategy name to `APERV_AVAILABLE_STRATEGIES`. The strategy string is passed directly to APE-RV's `--ape` flag.
+- **Adding an arm**: Add an entry to the dictionary returned by `get_variants()` naming one of the jar's four presets and the deltas over it. An ablation is always a named override set, never a fifth preset — the jar owns what a preset means. If a delta uses a tunable not yet listed, add it to `APERV_PROPERTY_MAPPING` first, and only if the deployed jar accepts the key (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps the mapping against the jar's `KeyOwnership.java` vocabulary.
+- **Adding a strategy**: Add the strategy name to `APERV_AVAILABLE_STRATEGIES`. The string is passed directly to APE-RV's `--ape` flag, so it must be an agent type `ApeAgent.createAgent` knows (`sata`, `random`, `replay`) — anything else passes local validation and aborts on the device.
 - **Changing the JAR**: The shipped jar is built from `ape` source at Docker image build (`docker/rvandroid/Dockerfile`: clone → `mvn package` → copy); it is gitignored, never committed. To change what ships, change the `ape` source (or pin the clone ref in the Dockerfile). For local non-Docker runs, place a built `ape-rv.jar` in `src/aperv_tool/tools/aperv/` — the module-local path has highest resolution priority.
 - **LLM URL override**: Set `APERV_LLM_BASE_URL` environment variable to redirect LLM requests to a different endpoint (used in Docker environments).
 
@@ -562,7 +571,8 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | 9 test classes: ToolSpec metadata, variant structure (INV-APV-05), configure validation (INV-APV-02), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty trace detection, LLM properties generation, calibration parameter mapping |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02), the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, properties generation, the decisive-run arms and their contrasts, the snap-tolerance gate (INV-APV-34), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53) |
+| Migration | tests/migration/ | The one-time regeneration diff proving each surviving arm's effective configuration is unchanged under `preset + overrides`, the explicit retirement list, and the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table. Deleted once the owner signs off and `gh97-rearch-ab-gate` has run |
 
 ## Related Documentation
 

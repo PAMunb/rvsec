@@ -10,19 +10,14 @@ It lives in the migration tier because it needs the ape source checkout, which i
 runtime dependency of `aperv-tool`. The assertions that need no checkout — the entry count,
 the absence of the dead key — stay in the module's own suite.
 
-The sweep run while authoring gh95 found exactly one dead entry, `mop_weight_activity`. This
-test is what makes that a checked claim, and what would report a second one if stage 4
-retires a further key.
+The sweep found one dead entry, `mop_weight_activity`, which was deleted from the mapping. No
+entry is dead now, and this test is what makes that a checked claim rather than a statement —
+and what would report a new one if a later stage retires a further key.
 """
 
 from aperv_tool.tools.aperv.tool import APERV_PROPERTY_MAPPING
 
 from .jar_tables import load_key_specs, load_retired_keys
-
-# The one dead entry the sweep found, retired in the jar as "dead since mop-fairtest: the
-# weight it named was deleted from the scorer". Task 5.1 deletes it from the mapping; until
-# then the sweep is expected to report exactly this and nothing else.
-KNOWN_DEAD = {"mop_weight_activity"}
 
 
 def _dead_entries(ape_repo):
@@ -43,11 +38,12 @@ class TestMappingSweep:
         unknown = {k for k, why in _dead_entries(ape_repo).items() if why == "unknown"}
         assert not unknown, f"mapped keys absent from the jar's vocabulary: {unknown}"
 
-    def test_the_only_dead_entry_is_the_one_the_design_found(self, ape_repo):
-        # A newly dead entry must be reported and decided on, not deleted silently — hence
-        # an equality against the known set rather than a subset check.
-        dead = set(_dead_entries(ape_repo))
-        assert dead <= KNOWN_DEAD, f"a further dead entry appeared: {dead - KNOWN_DEAD}"
+    def test_no_mapped_key_is_dead(self, ape_repo):
+        # The mapping carries only keys the jar accepts. mop_weight_activity was the single
+        # dead entry and is gone; a new one appearing is a decision to take on the record,
+        # not something to delete silently, so this fails rather than tolerating a known set.
+        dead = _dead_entries(ape_repo)
+        assert not dead, f"mapped keys the jar would reject: {dead}"
 
     def test_the_sweep_is_not_vacuous(self, ape_repo):
         # Guards the check itself: if the parser returned an empty vocabulary, every mapped

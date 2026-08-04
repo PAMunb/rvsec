@@ -125,7 +125,13 @@ performs any device interaction.
 - **INV-APV-39**: `configure()` MUST fold every top-level config key that has an
   `APERV_PROPERTY_MAPPING` entry into `overrides`, and MUST raise `ConfigurationError` for any
   top-level key that is neither mapped nor one of the recognised orchestration keys (`preset`,
-  `overrides`, `strategy`, `mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256`). The
+  `overrides`, `strategy`, `mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256`,
+  `device_port`, `device_serial`, `device_id`). The three device keys are addressing rather than
+  configuration: rv-experiment's `ExecutionController` injects all three into every tool's
+  parameters whenever `--device-port` is set, which every Docker compose file does, and the tool
+  reads the serial from `task.config.device_id` at execution time rather than from `_tool_config`.
+  Rejecting them would abort every containerized and parallel run inside `Platform._load_tool`,
+  before a device is touched. The
   tool DSL (`aperv:<variant>@key=value`) delivers its overrides at the top level — `ToolFactory`
   merges `{**variant_config, **tool_config.parameters}` — while `_push_properties()` reads only
   `overrides`. Without the fold, a DSL override would be silently discarded: no property line, no
@@ -179,8 +185,11 @@ performs any device interaction.
   retirement of kind *name consolidated* the test MUST additionally assert that the surviving arm's
   effective configuration equals the retired name's baseline entry — that is what makes "the
   configuration is preserved under another name" a checked claim rather than an assertion. The check
-  is **one-time**: after owner sign-off the test is deleted and the record archived. It MUST NOT
-  survive as a standing constant-vs-constant guard.
+  is **one-time**: the test is deleted and the record archived once the owner has signed off **and**
+  `gh97-rearch-ab-gate` has executed. The sign-off approves the migration; `gh97` is the first run in
+  which a device honours `ape.preset`, and this migration is entirely offline, so the diff and the
+  baseline MUST stay alive until that run has happened. Beyond it, the check MUST NOT survive as a
+  standing constant-vs-constant guard.
 
 ## MODIFIED Requirements
 
@@ -324,11 +333,24 @@ over an arm's own entry for the same key — the DSL is the operator's last word
 useful for smokes and ablations without declaring a variant.
 
 Any remaining top-level key that is neither mapped nor one of `preset`, `overrides`, `strategy`,
-`mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256` SHALL raise `ConfigurationError`
-naming it. Without both halves of this rule a DSL override would be discarded in silence: no property
-line, no error, and a run executing a configuration nobody asked for — the exact failure mode this
-change exists to remove, reintroduced on the operator's path. A key that cannot be honoured fails
-loudly.
+`mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256`, `device_port`, `device_serial`,
+`device_id` SHALL raise `ConfigurationError` naming it. Without both halves of this rule a DSL
+override would be discarded in silence: no property line, no error, and a run executing a
+configuration nobody asked for — the exact failure mode this change exists to remove, reintroduced
+on the operator's path. A key that cannot be honoured fails loudly.
+
+The three device keys are the platform's own injection, not an operator's: `ExecutionController`
+adds `device_port`, `device_serial` and `device_id` to every tool's parameters whenever
+`--device-port` is set, so every containerized and parallel run carries them. They address a device
+rather than configure the jar — `execute_tool_specific_logic()` takes the serial from
+`task.config.device_id` — so `configure()` SHALL accept and ignore them, and they SHALL never reach
+`ape.properties`.
+
+**Unmappable `overrides` keys SHALL be rejected in `configure()`**, not at push time. `_push_properties()`
+runs after the jar, the broadcast catalog and the derived MOP artifact have been pushed, so a check
+living there would already have cost three pushes and a derivation. Validating in `configure()` puts
+one rule over both sources of an override key — an arm's own dict and the DSL keys just folded into
+it — and is what makes "before any `adb push`" true as written.
 
 The whitelist SHALL shrink from the pre-change `["sata", "random", "bfs", "dfs"]` — the deletion stage
 2 delegated to this change. `bfs` and `dfs` are not agent types: `ApeAgent.createAgent` recognises
@@ -377,6 +399,16 @@ traffic without modifying variant definitions.
   already carries `mop_frontier_weight=200`
 - **THEN** the folded value SHALL be `400`
 - **AND** exactly one `ape.mopFrontierWeight` line SHALL be written
+
+#### Scenario: The platform's device addressing is accepted and never written
+
+- **WHEN** a containerized run resolves `aperv:sata_mop` with `--device-port 5554`, so
+  `ExecutionController` has injected `device_port=5554`, `device_serial="emulator-5554"` and
+  `device_id="emulator-5554"` at the top level
+- **THEN** `configure()` SHALL accept the configuration without raising
+- **AND** the generated `ape.properties` SHALL contain no line naming any of the three keys and no
+  occurrence of the port value
+- **AND** the arm SHALL still resolve as `ape.preset=mop` plus `ape.mopDataPath`
 
 #### Scenario: Unhonourable top-level key fails loudly
 - **WHEN** `aperv:sata_mop@frontier_bost_weight=200` is resolved (a typo absent from
@@ -535,11 +567,12 @@ ape.<mapped-override-key>=<value>                     # one line per overrides e
 
 Only the entries of `_tool_config["overrides"]` are translated and written. Python-only keys
 (`preset` itself apart from the first line, `strategy`, `mop_data`, `seed`, `expected_jar_git_sha`,
-`expected_jar_sha256`) have no mapping entry and never reach the file. Python bools SHALL be
-serialized lowercase (`True` → `true`). An `overrides` key with no `APERV_PROPERTY_MAPPING` entry
-SHALL raise `ConfigurationError` before any `adb push`: under fail-fast a misspelled key would abort
-the run on the device anyway, and catching it on the host saves emulator time (same rationale as
-INV-APV-02).
+`expected_jar_sha256`, and the three device-addressing keys) have no mapping entry and never reach
+the file. Python bools SHALL be serialized lowercase (`True` → `true`). An `overrides` key with no
+`APERV_PROPERTY_MAPPING` entry SHALL raise `ConfigurationError` **in `configure()`**, which is what
+makes the rejection precede every `adb push` of the run rather than only the properties push: under
+fail-fast a misspelled key would abort on the device anyway, and catching it on the host saves the
+emulator time (same rationale as INV-APV-02).
 
 `APERV_PROPERTY_MAPPING` is a pass-through translation table and nothing more (see "Arm Property
 Overrides Pass-Through"). It SHALL contain only keys the deployed jar accepts (INV-APV-41). The 50

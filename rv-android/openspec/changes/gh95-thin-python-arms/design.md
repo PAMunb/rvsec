@@ -90,7 +90,7 @@ write-only `RUN_START` line (unchanged collection, never read back).
 | INV-APV-41 (mapping contains only accepted keys) | `APERV_PROPERTY_MAPPING` | `test_mapping_against_jar_vocabulary` (migration tier) |
 | INV-APV-42 (frozen names, kinded retirements) | `get_variants()` + the retirement list | `test_variant_names_frozen`, `test_retirement_list_kinds` |
 | INV-APV-43 (no echo read-back) | absence of any `RUN_START` parser | `test_no_run_start_parsing` (grep-style source assertion) |
-| INV-APV-44 (regeneration diff, typed, one-time) | `tests/migration/` | `test_arm_regeneration_diff.py` (deleted after sign-off) |
+| INV-APV-44 (regeneration diff, typed, one-time) | `tests/migration/` | `test_arm_regeneration_diff.py` (deleted after sign-off and `gh97`) |
 | configure() Method (MODIFIED) | `ApeRVTool.configure()` | `TestConfigure`: missing preset, non-dict overrides, `bfs`/`dfs` rejected, DSL fold and its error path |
 | execute flow step 5 (MODIFIED) | `_push_properties()` call site | `TestExecutionFlow` (unchanged elsewhere) |
 | ape.properties Generation (MODIFIED) | `_push_properties()` | `TestPushProperties`: preset first, deltas only, lowercase bools, unmapped key raises |
@@ -213,7 +213,23 @@ That is the failure class this change exists to remove, so it may not be introdu
    an arm's own entry for the same key — the DSL is the operator's last word, which is what makes it
    usable for smokes and ablations without declaring a variant;
 2. raises `ConfigurationError` for any top-level key that is neither mapped nor one of the recognised
-   orchestration keys, so a typo fails loudly instead of evaporating.
+   orchestration keys, so a typo fails loudly instead of evaporating;
+3. raises for any `overrides` key with no mapping entry. This check belongs in `configure()` and not in
+   `_push_properties()`: by the time properties are written the jar, the broadcast catalog and the
+   derived MOP artifact have all been pushed, so a check at that point would already have cost three
+   pushes and a derivation. One rule in `configure()` covers both sources of an override key — an arm's
+   own dict and the DSL keys just folded into it.
+
+**The whitelist has a second population to serve, and it is not the operator's.** rv-experiment's
+`ExecutionController` injects `device_port`, `device_serial` and `device_id` into *every* tool's
+parameters whenever `--device-port` is set, and every Docker compose file sets it through
+`RV_DEVICE_PORT`. `ToolFactory` merges them at the same top level the DSL uses, so a whitelist built
+only from the arm's own vocabulary rejects them and every containerized and parallel run — including
+the A/B gate `gh97` runs — dies in `Platform._load_tool` before a device is touched. They are device
+addressing, not jar configuration (`execute_tool_specific_logic()` reads the serial from
+`task.config.device_id`), so `APERV_ORCHESTRATION_KEYS` carries them and they never reach
+`ape.properties`. The pre-change `configure()` ignored unknown keys entirely, which is why the risk
+arrives with this change and had to be closed inside it.
 
 *Alternative considered*: teach `ToolFactory` to merge into `overrides` when the tool declares a
 preset-shaped variant. Rejected — it puts aperv-specific knowledge into the shared factory, which every
@@ -291,8 +307,11 @@ decision on a real incident, not part of this change.
    than asserted.
 5. **Divergence protocol.** A non-empty diff is either a re-expression bug (fix it) or an intentional
    divergence, which requires owner approval and a **new arm name**. No third option.
-6. **One-time.** After the final diff and sign-off the test is deleted and the baseline plus report
-   archived under `modules/aperv-tool/docs/`. Keeping it would recreate INV-APV-14 under a new number.
+6. **One-time.** The test is deleted and the baseline plus report archived under
+   `modules/aperv-tool/docs/` once the final diff has been signed off **and** `gh97-rearch-ab-gate`
+   has executed. This change never sees a device, so `gh97`'s run is where a preset mismatch would
+   first surface — the moment the evidence is still worth having. Keeping it past that point would
+   recreate INV-APV-14 under a new number.
 
 *Alternative considered*: compare generated `ape.properties` byte-for-byte. Impossible by construction
 — the file's shape is exactly what changes; only the resolved plan is invariant.
@@ -307,7 +326,7 @@ it read, which goes into the migration record.
 *Alternative considered*: vendor a JSON copy of the tables into `aperv-tool`. Rejected — a vendored
 copy is a second source of truth for preset contents, which is the class of duplication this change
 exists to delete. Parsing keeps the tables in one place and confines the coupling to migration tooling
-that is deleted at sign-off. The parser is deliberately shallow (regex over `put(...)` lines) because
+that is deleted once sign-off and `gh97` are both behind it. The parser is deliberately shallow (regex over `put(...)` lines) because
 it has one caller and a lifetime measured in this change (P1); a failure to parse is a hard error, not
 a degraded mode.
 
@@ -377,7 +396,7 @@ the keys it does not, restricted to the keys reachable through `APERV_PROPERTY_M
    `RUN_START`. The Python side reads **nothing** back (D6, INV-APV-43).
 4. Migration only: `jar_tables` parses the `ape` checkout → `capture_arm_baseline` writes the baseline
    from the pre-change dicts → `test_arm_regeneration_diff` recomputes from preset + overrides and
-   diffs. This path never touches a device and is deleted at sign-off.
+   diffs. This path never touches a device and is deleted once sign-off and `gh97` are both behind it.
 
 ## Error Handling
 
@@ -430,7 +449,7 @@ the keys it does not, restricted to the keys reachable through `APERV_PROPERTY_M
 | Unit — configure | missing/empty preset, non-dict overrides, `bfs`/`dfs` rejected, valid arm accepted, DSL fold, DSL precedence, unrecognised top-level key raises | `pytest.raises(ConfigurationError)` + config inspection | ~9 |
 | Unit — properties writer | preset line first, `mopDataPath` second, deltas only, lowercase bools, unmapped key raises, Python-only keys excluded | mock the push, inspect the written file | ~8 |
 | Unit — mapping | 50 entries, `mop_weight_activity` absent, `llm_max_tokens`/`llm_snap_tolerance_px` present | constant inspection | ~3 |
-| Migration (one-time) | per-arm typed empty diff; the 21-name retirement list honoured with kinds; the consolidated name's equality proved | `test_arm_regeneration_diff.py`, re-run after every arm-editing group, deleted at sign-off | 8 + 3 |
+| Migration (one-time) | per-arm typed empty diff; the 21-name retirement list honoured with kinds; the consolidated name's equality proved | `test_arm_regeneration_diff.py`, re-run after every arm-editing group, deleted after sign-off and `gh97` | 8 + 3 |
 | Unchanged | MOP artifact derivation and caching, execution flow, provenance, clock/logcat join, coverage dump | untouched suites | — |
 
 The full `aperv-tool` suite runs in ~14 s at HEAD (217 tests) with the CI contract flags

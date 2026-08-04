@@ -30,7 +30,7 @@ from typing import Any, Dict
 
 from aperv_tool.tools.aperv.tool import APERV_PROPERTY_MAPPING, ApeRVTool
 
-from .jar_tables import KeySpec, resolve_ape_repo, load_key_specs, source_provenance
+from .jar_tables import KeySpec, load_key_specs, resolve_ape_repo, source_provenance
 
 # Where the derived MOP artifact lands on the device. Written as ape.mopDataPath by
 # _push_properties() whenever the arm's mop_data triggered the push, so it is part of the

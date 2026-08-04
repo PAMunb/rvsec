@@ -95,6 +95,12 @@ APERV_AVAILABLE_STRATEGIES = ["sata", "random"]
 # The top-level config keys that are Python orchestration rather than jar configuration.
 # Everything else at the top level must be a mapped override key, or configure() raises:
 # these are the only names that legitimately never reach ape.properties.
+#
+# device_port/device_serial/device_id are device addressing, not configuration: rv-experiment's
+# ExecutionController injects all three into every tool's parameters whenever --device-port is
+# set, which every Docker compose file does. The tool reads the serial from task.config.device_id
+# at execution time and never from _tool_config, so they are accepted and ignored here — rejecting
+# them would abort every containerized and parallel run before a device is touched.
 APERV_ORCHESTRATION_KEYS = frozenset(
     {
         "preset",
@@ -104,6 +110,9 @@ APERV_ORCHESTRATION_KEYS = frozenset(
         "seed",
         "expected_jar_git_sha",
         "expected_jar_sha256",
+        "device_port",
+        "device_serial",
+        "device_id",
     }
 )
 
@@ -529,6 +538,20 @@ class ApeRVTool(AbstractTool):
                 f"{sorted(APERV_ORCHESTRATION_KEYS)}."
             )
 
+        # An override the mapping cannot translate has no ape.* name to be written under,
+        # so the jar would abort on the properties file. Checking it here rather than at
+        # push time is what makes INV-APV-02 true as stated: the jar, the broadcast catalog
+        # and the MOP artifact are all pushed before ape.properties is generated, so a check
+        # living in _push_properties() would already have cost three pushes and the
+        # derivation. One rule covers both sources of the key — an arm's own overrides dict
+        # and the DSL keys just folded into it.
+        unmapped = set(self._tool_config["overrides"]) - set(APERV_PROPERTY_MAPPING)
+        if unmapped:
+            raise ConfigurationError(
+                f"aperv: override key(s) {sorted(unmapped)} have no ape.* property "
+                "mapping, so the jar would reject the properties file."
+            )
+
         # gh55 D8: LLM URL override flows through `parameters["llm_url"]` (set by
         # L5 from env / CLI). The factory merge `{**variant_defaults, **parameters}`
         # ensures the value is present at configure() time. No `os.environ` read
@@ -761,20 +784,10 @@ class ApeRVTool(AbstractTool):
             device_serial: Device serial number
             trace_file_path: Trace file for logging
             mop_json_pushed: If True, include ape.mopDataPath in properties
-
-        Raises:
-            ConfigurationError: If an overrides key has no APERV_PROPERTY_MAPPING
-                entry. Under the jar's fail-fast resolution a misspelled key aborts
-                the run on the device anyway, so catching it here saves emulator time
-                (the INV-APV-02 rationale).
         """
+        # Every key here is mappable: configure() rejected the unmappable ones before the
+        # run reached a device (INV-APV-02).
         overrides = self._tool_config.get("overrides", {})
-        unmapped = set(overrides) - set(APERV_PROPERTY_MAPPING)
-        if unmapped:
-            raise ConfigurationError(
-                f"aperv: override key(s) {sorted(unmapped)} have no ape.* property "
-                "mapping, so the jar would reject the properties file."
-            )
 
         lines = [f"ape.preset={self._tool_config['preset']}"]
         if mop_json_pushed:

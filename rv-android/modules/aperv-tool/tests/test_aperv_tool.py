@@ -822,28 +822,43 @@ class TestPushProperties:
         # ...while an ordinary override on the same arm travels the normal path.
         assert "ape.llmSnapTolerancePx=150" in props
 
-    def test_unmapped_override_key_aborts_before_push(self, tmp_path):
-        # Under the jar's fail-fast resolution this typo would abort the run on the device;
-        # catching it on the host saves the emulator minutes (INV-APV-02 rationale).
-        self.tool.configure(
+    def test_platform_device_addressing_keys_are_accepted(self, tmp_path):
+        # rv-experiment's ExecutionController injects device_port/device_serial/device_id
+        # into every tool's parameters whenever --device-port is set, and every Docker
+        # compose file sets it. ToolFactory merges them at the top level, so rejecting them
+        # would abort every containerized and parallel run — including the A/B gate — inside
+        # Platform._load_tool, before a device is touched. They address a device; they do
+        # not configure the jar, so they are accepted and never reach ape.properties.
+        arm = dict(self.tool.get_variants()["sata_mop"])
+        arm.update(
             {
-                "strategy": "sata",
-                "preset": "mop",
-                "overrides": {"frontier_bost_weight": 200},
+                "device_port": 5554,
+                "device_serial": "emulator-5554",
+                "device_id": "emulator-5554",
             }
         )
-        pushed = []
-        self.tool._push_file_to_device = lambda *a, **kw: pushed.append(a)
+        props = self._capture_properties(tmp_path, arm, mop_json_pushed=True)
+        for injected in ("device_port", "device_serial", "device_id", "5554"):
+            assert injected not in props
+
+    def test_unmapped_override_key_aborts_in_configure(self):
+        # Under the jar's fail-fast resolution this typo would abort the run on the device.
+        # configure() is where it has to be caught: the jar, the broadcast catalog and the
+        # derived MOP artifact are all pushed before ape.properties is generated, so a check
+        # at push time would already have cost three pushes and a derivation (INV-APV-02).
         with pytest.raises(ConfigurationError, match="frontier_bost_weight"):
-            self.tool._push_properties("emulator-5554", str(tmp_path / "trace.bin"))
-        assert not pushed
+            self.tool.configure(
+                {
+                    "strategy": "sata",
+                    "preset": "mop",
+                    "overrides": {"frontier_bost_weight": 200},
+                }
+            )
 
 
-# The 17 arm-defining Python keys → frozen ape.* names (spec INV-APV-13, verbatim).
-# Pinned here so a typo'd java name in the mapping (which would make the property
-# inert on the jar with no error — R1/D5) fails a unit test, not the experiment.
-# trigger_mop_first was removed (task group 7): the APE-RV jar deleted Config.triggerMopFirst
-# in mop-census-launcher, so the property is inert on the jar and is no longer arm-defining.
+# The three arms of the E3 decisive run. Reference ↔ control answers RQ-C1 and
+# reference ↔ LLM arm answers RQ-C3, so what may differ between them is asserted
+# rather than left to reading the table.
 _DECISIVE_ARMS = ("mop_on_llm_off", "mop_off_llm_off", "mop_on_llm_70")
 
 # What "MOP guidance off" is allowed to move, in Python override keys. The effective-plan

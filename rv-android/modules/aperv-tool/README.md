@@ -21,7 +21,7 @@ aperv-tool is used through rv-experiment or rv-platform, not directly:
 
 ```bash
 # Via rv-experiment (recommended)
-uv run rv-experiment run --tools aperv --apks-dir ./apks_examples --timeout 300
+uv run rv-experiment run --tools aperv --apks-dir ./apks_examples --timeouts 300
 
 # With a specific variant
 uv run rv-experiment run --tools aperv:sata_mop --apks-dir ./apks_examples
@@ -32,25 +32,31 @@ uv run rv-platform run --tools aperv:sata --apks-dir ./apks_examples
 
 ## Features
 
-- **Strategy selection**: SATA (adaptive random), BFS, DFS, and random exploration strategies
-- **MOP-guided exploration**: `sata_mop` variant biases exploration toward screens with monitored operations using static analysis data
-- **LLM-guided exploration**: `sata_llm` and `sata_mop_llm` variants integrate with an OpenAI-compatible LLM endpoint for decision guidance
+- **Strategy selection**: SATA (adaptive random) and random exploration — the two agent types the APE-RV binary implements
+- **MOP-guided exploration**: `sata_mop` biases exploration toward screens where monitored operations are reachable, using a compact artifact derived from static analysis
+- **LLM-guided exploration**: `sata_llm`, `sata_mop_llm` and `mop_on_llm_70` integrate with an OpenAI-compatible LLM endpoint for decision guidance
 - **JAR deployment**: Resolves `ape-rv.jar` via priority search paths and pushes to the Android device
-- **Properties injection**: Generates `ape.properties` with throttle, MOP weights, and LLM configuration
+- **Properties injection**: Generates `ape.properties` naming the arm's jar preset plus its override deltas
 - **Timeout-aware execution**: Treats timeout as expected exit behavior for exploration tools
 
 ## Variants
 
-| Variant | Strategy | MOP Data | LLM | Description |
-|---------|----------|----------|-----|-------------|
-| `default` | SATA | No | No | General-purpose adaptive random exploration |
-| `sata` | SATA | No | No | Same as default |
-| `sata_mop` | SATA | Yes | No | MOP-guided scoring via static analysis |
-| `bfs` | BFS | No | No | Breadth-first exploration |
-| `random` | Random | No | No | Random exploration |
-| `sata_llm` | SATA | No | Yes | SATA with LLM guidance |
-| `sata_mop_llm` | SATA | Yes | Yes | SATA with MOP + LLM guidance |
-| `sata_mop_llm_<variant>` | SATA | Yes | Yes | Prompt variant experiments (ape_current, ape_reasoning, compact_v1, v13, v17, visual_only) |
+An arm is a **jar preset name plus a dict of override deltas**. The preset (`aperv`, `mop`, `llm`, `llm_mop`) is resolved inside `ape-rv.jar`, which owns what it contains; this module owns the experimental matrix — which arms exist, their frozen names, and how each differs from its preset. Eight names carry seven configurations (`default` is bound to the same object as `sata`).
+
+| Variant | Preset | MOP artifact | Overrides |
+|---------|--------|--------------|-----------|
+| `default` | `aperv` | No | _(none)_ — alias of `sata` |
+| `sata` | `aperv` | No | _(none)_ — adaptive random baseline |
+| `sata_mop` | `mop` | Yes | _(none)_ — MOP-guided scoring |
+| `sata_llm` | `llm` | No | `llm_url` |
+| `sata_mop_llm` | `llm_mop` | Yes | `llm_url` |
+| `mop_on_llm_off` | `mop` | Yes | Reach package (activity source components, frontier weights, activity trigger) — E3 reference arm |
+| `mop_off_llm_off` | `mop` | Yes | Reach package minus the frontier weight and trigger, plus the four MOP weights at `0` — E3 control arm |
+| `mop_on_llm_70` | `llm_mop` | Yes | Reach package plus the calibrated LLM dose (`v13`, 70%, temperature `0`) and `llm_snap_tolerance_px=150` — E3 LLM arm |
+
+MOP-off means the artifact is still pushed and the scoring weights are zeroed, never an omitted document: omitting it would kill the generic WTG and frontier navigation as collateral, turning the contrast into "full substrate versus almost none" instead of "MOP guidance on versus off".
+
+Arms retired by the preset migration can no longer be launched; results recorded under those names are frozen artifacts and remain readable. The list with each retirement's reason is `tests/migration/retirements.py`.
 
 ## Configuration
 
@@ -70,16 +76,19 @@ uv run rv-platform run --tools aperv:sata --apks-dir ./apks_examples
 
 ### Properties (ape.properties)
 
-Key properties written to the device:
+The generated file states the arm and nothing more. For `sata_mop_llm`, whose only override is the server URL, it is exactly three lines:
 
-| Property | Config Key | Default | Description |
-|----------|-----------|---------|-------------|
-| `ape.defaultGUIThrottle` | `throttle_ms` | `200` | Delay between UI actions (ms) |
-| `ape.defaultEpsilon` | `default_epsilon` | - | SATA exploration parameter |
-| `ape.mopWeightDirect` | `mop_weight_direct` | - | Weight for direct MOP matches |
-| `ape.mopWeightTransitive` | `mop_weight_transitive` | - | Weight for transitive MOP matches |
-| `ape.llmUrl` | `llm_url` | `http://10.0.2.2:30000/v1` | LLM endpoint (emulator host alias) |
-| `ape.llmPercentage` | `llm_percentage` | - | Fraction of decisions guided by LLM |
+```properties
+ape.preset=llm_mop                                  # always first
+ape.mopDataPath=/data/local/tmp/mop-artifact.json   # only when the MOP artifact was pushed
+ape.llmUrl=http://10.0.2.2:30000/v1                 # one line per override delta
+```
+
+Everything a preset supplies — throttle, epsilon, MOP weights, LLM model and timeouts — is resolved inside the jar and is never restated here, so `sata_mop` ships a two-line file. Override keys are translated to `ape.*` names through `APERV_PROPERTY_MAPPING`; the emission walks the mapping rather than the override dict, so two runs of the same arm produce byte-identical properties. Top-level keys in `APERV_ORCHESTRATION_KEYS` (`preset`, `overrides`, `strategy`, `mop_data`, `seed`, the two `expected_jar_*` declarations, and the three device-addressing keys) are Python orchestration and never reach the device; any other unmapped key raises `ConfigurationError` before a device is touched.
+
+The jar must postdate the preset mechanism. An older build treats `ape.preset` as an unknown key and ignores it, and since the file no longer carries what the preset would have supplied, the run silently executes on jar defaults while the results directory still carries the arm's name.
+
+An experiment can add a delta without a new variant using the tool DSL, e.g. `--tools aperv:sata_mop@default_epsilon=0.1`.
 
 ## Dependencies
 
