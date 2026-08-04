@@ -39,7 +39,13 @@ What the reader does for its callers, so that no consumer does it again:
   anything else (INV-APV-51).
 - **Joins the step's own sections.** `dec`, `llm[]` and `out` arrive on one
   record, so the three-way join by `step=` that the retired format forced on
-  every consumer ceases to exist.
+  every consumer ceases to exist. The sub-event keeps every field it was
+  written with, prompt and response dumps included.
+- **Surfaces the run-level census.** `MOP_DATA`, `PIPELINE` and `LLM_ACK` are
+  reader attributes beside `run_start`, because a step-row iterator has no
+  natural place for them and this module is the only sanctioned reader — a
+  record it skipped would be a record no analysis could reach. `RUN_END` is
+  the deliberate exception and has no accessor (D5, INV-APV-53).
 
 Two structural properties are worth stating because they are load-bearing
 rather than incidental:
@@ -66,13 +72,17 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 # Record types carried in the same NDJSON stream that this reader resolves.
-# Every other `type` (MOP_DATA, PIPELINE, LLM_ACK, RUN_END) is well-formed
-# output that this module has no business reading: it is skipped silently and
-# is NOT counted as malformed. RUN_END in particular is write-only by owner
-# decision D5 — no code path here reads, validates or acts on it (INV-APV-53).
+# The record types this module reads. `RUN_END` is deliberately absent and has
+# no constant: it is write-only by owner decision D5, so no code path here
+# reads, validates or acts on it (INV-APV-53), and an accessor would be the
+# first step toward the exit contract that decision refuses. It is skipped
+# without being counted as malformed, as any unknown future type is.
 _TYPE_RUN_START = "RUN_START"
 _TYPE_ACT = "ACT"
 _TYPE_STATE = "STATE"
+_TYPE_MOP_DATA = "MOP_DATA"
+_TYPE_PIPELINE = "PIPELINE"
+_TYPE_LLM_ACK = "LLM_ACK"
 
 # INV-SNK-11: a trace line is a sink record if and only if it begins with `{`.
 # The jar interleaves free-text `[APE] ` diagnostics into the same stdout, so
@@ -123,9 +133,21 @@ class LlmCall:
     is no join key to get wrong.
 
     Every field is optional because which ones the sink emits depends on how far
-    the call got. The prompt dumps the sink can attach (`sys`, `user`, `resp`,
-    `tool_calls`) are deliberately not surfaced here: they are the bulk of the
-    record and no analysis in this module reads them.
+    the call got.
+
+    The prompt and response dumps (`sys`, `user`, `resp`, `tool_calls`) ARE
+    surfaced, reversing an earlier decision here to omit them as bulk no
+    analysis read. They are the bulk of the record, but the jar writes them by
+    default and the stage's throughput gate prices their escaping, so a reader
+    that dropped them left the run paying their whole cost for data no
+    sanctioned consumer could reach — this module being the only sanctioned
+    consumer. The analysis that did read them is real: `decompose_nomatch.py`
+    pairs each response with the call that produced it to decompose `no_match`
+    causes, and that was the gate of a change decision. It reads the frozen
+    corpus and stays on the legacy format; its successor over new traces needs
+    `resp` from here. If the dumps are ever judged too expensive, the lever is
+    the jar's `llmPromptDump` flag — written-and-unreadable is the one state
+    that costs everything and returns nothing.
 
     Attributes:
         call: Call number within the run, as the router counted it.
@@ -152,6 +174,16 @@ class LlmCall:
         detail: Message accompanying `cause`.
         trips: How many times the breaker had tripped, on
             `result="breaker_open"`.
+        system_prompt: The system message sent for this call (`sys`), when the
+            jar's prompt-dump flag was on. Named for the retired
+            `[APE-LLM-PROMPT] system=` field it replaces.
+        user_text: The user message, carrying the rendered widget list
+            (`user`). Its embedded newlines survive the trace as escapes, so
+            what comes back here is the prompt the model actually saw.
+        response: The model's raw response content (`resp`), which is what
+            makes a `no_match` diagnosable after the fact.
+        tool_calls: The response's native tool-call payload (`tool_calls`),
+            when the model returned one.
     """
 
     call: Optional[int] = None
@@ -172,6 +204,10 @@ class LlmCall:
     cause: Optional[str] = None
     detail: Optional[str] = None
     trips: Optional[int] = None
+    system_prompt: Optional[str] = None
+    user_text: Optional[str] = None
+    response: Optional[str] = None
+    tool_calls: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -377,6 +413,16 @@ def _as_int_pair(value: Any) -> Optional[Tuple[int, int]]:
     return None
 
 
+def _without_type(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Copy a run-level record without its discriminator.
+
+    The copy matters: the caller receives a mapping it can hold or mutate
+    without reaching back into the reader's state, which is the same isolation
+    every `StepRow` already has by being frozen.
+    """
+    return {key: value for key, value in record.items() if key != "type"}
+
+
 def _parse_llm_call(entry: Dict[str, Any]) -> LlmCall:
     """Build one `LlmCall` from an `llm[]` entry, keeping absent fields absent."""
     return LlmCall(
@@ -398,6 +444,10 @@ def _parse_llm_call(entry: Dict[str, Any]) -> LlmCall:
         cause=entry.get("cause"),
         detail=entry.get("detail"),
         trips=entry.get("trips"),
+        system_prompt=entry.get("sys"),
+        user_text=entry.get("user"),
+        response=entry.get("resp"),
+        tool_calls=entry.get("tool_calls"),
     )
 
 
@@ -446,12 +496,17 @@ class TraceReader:
                 forward as entries are met, cleared on each iteration.
             self._states: `STATE` ID -> (state key, owning `ACT` ID). Same
                 lifecycle as `_activities`.
+            self._mop_data, self._pipeline, self._llm_ack: The run-level census
+                records, verbatim. Same lifecycle as `_run_start`.
         """
         self._path = Path(trace_path)
         self._run_start: Optional[RunStart] = None
         self._diagnostics = TraceDiagnostics()
         self._activities: Dict[int, Tuple[str, bool]] = {}
         self._states: Dict[int, Tuple[str, int]] = {}
+        self._mop_data: Optional[Dict[str, Any]] = None
+        self._pipeline: Optional[Dict[str, Any]] = None
+        self._llm_ack: Optional[Dict[str, Any]] = None
 
     @property
     def path(self) -> Path:
@@ -464,6 +519,45 @@ class TraceReader:
     @property
     def diagnostics(self) -> TraceDiagnostics:
         return self._diagnostics
+
+    @property
+    def mop_data(self) -> Optional[Dict[str, Any]]:
+        """The `MOP_DATA` load census, verbatim, or None if the trace has none.
+
+        Returned as the record wrote it — minus its `type` — rather than as a
+        dataclass, for the reason `RunStart.params` gives: the sink owns these
+        names, and mirroring the census here would create a second place that
+        has to be kept in step with it.
+
+        `wtgEdges` is the field to read for whether the frontier passes could
+        run at all: it counts the click-only WTG view the three passes gate on,
+        which is NOT the flat `transitions` list the retired `[APE-MOP-DATA]`
+        line reported and which was read as the gate for months.
+        """
+        return self._mop_data
+
+    @property
+    def pipeline(self) -> Optional[Dict[str, Any]]:
+        """The `PIPELINE` assembly provenance, verbatim, or None.
+
+        `passes` lists what was constructed; `candidates` lists every candidate
+        with whether it was. The second is what makes the first readable as a
+        data-dependent outcome rather than a configuration echo — without it,
+        "the arm turned this off" and "this application's data could not
+        support it" are the same evidence, which they were across 25 of the
+        decisive campaign's 40 applications.
+        """
+        return self._pipeline
+
+    @property
+    def llm_ack(self) -> Optional[Dict[str, Any]]:
+        """The `LLM_ACK` record, verbatim, or None when no call ever succeeded.
+
+        `server_model` is what the server actually served, against the model
+        `RUN_START.params` says the run asked for. Its absence is itself
+        diagnostic: a run with zero successful responses emits none.
+        """
+        return self._llm_ack
 
     def __iter__(self) -> Iterator[StepRow]:
         """Stream the trace once, yielding one row per well-formed step record.
@@ -486,6 +580,9 @@ class TraceReader:
         self._diagnostics = TraceDiagnostics()
         self._activities = {}
         self._states = {}
+        self._mop_data = None
+        self._pipeline = None
+        self._llm_ack = None
 
         # Records are one line each by construction (INV-SNK-01), so line
         # iteration is a safe record boundary: a raw newline can only appear as
@@ -528,7 +625,7 @@ class TraceReader:
                 yield row
 
     def _absorb_typed_record(self, record_type: str, record: Dict[str, Any]) -> None:
-        """Fill the ID tables and the run header; ignore every other record type.
+        """Fill the ID tables, the run header and the run-level census.
 
         A dictionary or header entry that is itself unreadable counts as
         malformed, because losing it silently would turn every later reference
@@ -563,8 +660,18 @@ class TraceReader:
                 self._diagnostics.run_start_present = True
             except (KeyError, TypeError):
                 self._diagnostics.malformed += 1
-        # MOP_DATA, PIPELINE, LLM_ACK, RUN_END: well-formed, and none of this
-        # module's business. Skipped without a malformed count.
+        elif record_type == _TYPE_MOP_DATA:
+            self._mop_data = _without_type(record)
+        elif record_type == _TYPE_PIPELINE:
+            self._pipeline = _without_type(record)
+        elif record_type == _TYPE_LLM_ACK:
+            self._llm_ack = _without_type(record)
+        # RUN_END, and any type added later: well-formed and skipped without a
+        # malformed count. RUN_END is skipped by decision rather than by
+        # omission — D5 makes it write-only, and exposing it would invite the
+        # `if not run_end: ...` that is the exit contract that decision refuses
+        # (INV-APV-53). The three census records above are not termination
+        # signals, so surfacing them creates no such gradient.
 
     def _activity(self, act_id: int) -> Tuple[str, bool]:
         """Resolve an `ACT` ID to its (name, has-MOP) pair.

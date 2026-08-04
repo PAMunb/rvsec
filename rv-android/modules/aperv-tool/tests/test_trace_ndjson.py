@@ -155,6 +155,36 @@ class TestLlmSubEvents:
     def test_step_without_llm_has_empty_tuple(self, by_step):
         assert by_step[43].llm == ()
 
+    def test_prompt_and_response_dumps_survive_the_reader(self, by_step):
+        """The dumps reach the caller, newlines and quotes intact.
+
+        They are the bulk of the record and the jar writes them by default, so
+        a reader that dropped them would leave the run paying their whole cost
+        — escaping included, which the stage's throughput gate measures — for
+        data no sanctioned consumer could reach. The successor of
+        `decompose_nomatch.py` needs `resp` to decompose `no_match` causes.
+        """
+        first = by_step[42].llm[0]
+
+        assert first.system_prompt == "You are a GUI testing agent."
+        assert first.user_text.startswith('Screen "MainActivity":')
+        assert "\n[2] Button" in first.user_text, "the widget list keeps its lines"
+        assert first.response == "I will tap Encrypt."
+        assert '"name":"click"' in first.tool_calls
+
+    def test_dumps_are_absent_not_empty_when_the_flag_was_off(self, by_step):
+        """A call written without dumps carries None, never an empty string.
+
+        The difference is real: `""` would claim the model was sent an empty
+        prompt, which is not what a disabled flag means.
+        """
+        second = by_step[42].llm[1]
+
+        assert second.system_prompt is None
+        assert second.user_text is None
+        assert second.response is None
+        assert second.tool_calls is None
+
 
 class TestOutcome:
     def test_outcome_absent_differs_from_unresolved(self, by_step):
@@ -214,18 +244,26 @@ class TestDiagnostics:
         assert "[APE] " in GOLDEN.read_text(encoding="utf-8")
         assert reader.diagnostics.malformed == 2
 
-    def test_unread_record_types_are_not_counted_as_malformed(self):
-        """MOP_DATA and RUN_END are well-formed records this module ignores.
+    def test_run_end_is_read_by_nothing_and_not_counted_as_malformed(self):
+        """RUN_END is well-formed, skipped, and has no accessor at all.
 
-        RUN_END is write-only by owner decision D5: no code path reads,
-        validates or acts on it (INV-APV-53).
+        Write-only by owner decision D5: no code path reads, validates or acts
+        on it (INV-APV-53). The absence of an accessor is the point — an
+        attribute is the first step toward `if not run_end: ...`, which is the
+        exit contract that decision refuses — so it is asserted rather than
+        left to be noticed.
         """
         reader = TraceReader(GOLDEN)
         list(reader)
-        assert reader.diagnostics.records_read == 12
+
+        assert reader.diagnostics.records_read == 14
         assert reader.diagnostics.activities == 2
         assert reader.diagnostics.states == 2
         assert reader.diagnostics.run_start_present is True
+        assert not hasattr(reader, "run_end")
+        assert "RUN_END" not in {
+            name for name in dir(reader) if not name.startswith("_")
+        }
 
     def test_undefined_dictionary_id_is_malformed(self, tmp_path):
         """A reference no earlier record defined is malformed, not a placeholder.
@@ -289,6 +327,87 @@ class TestDiagnostics:
         assert reader.diagnostics.run_start_present is False
         assert rows[0].t_rel_ms == 4321
         assert rows[0].t_epoch_ms is None
+
+
+class TestRunLevelRecords:
+    """The census records reach the caller, because nothing else can reach them.
+
+    This module is the sole mechanism for consuming a post-change trace, so a
+    record it skips is a record no conformant analysis can read.
+    """
+
+    def test_mop_data_census_exposed(self):
+        reader = TraceReader(GOLDEN)
+        list(reader)
+
+        assert reader.mop_data is not None
+        assert reader.mop_data["status"] == "loaded"
+        assert reader.mop_data["windows"] == 5
+        assert reader.mop_data["widgets"] == 340
+        assert reader.mop_data["wtgEdges"] == 7, (
+            "the click-only view the frontier passes gate on, not the flat "
+            "transitions list the retired line reported"
+        )
+        assert "type" not in reader.mop_data
+
+    def test_pipeline_census_says_what_was_not_assembled(self):
+        reader = TraceReader(GOLDEN)
+        list(reader)
+
+        assert reader.pipeline is not None
+        assert reader.pipeline["passes"] == ["MopWidgetPass", "CoveragePass"]
+        disabled = [
+            candidate["name"]
+            for candidate in reader.pipeline["candidates"]
+            if not candidate["enabled"]
+        ]
+        assert disabled == ["WtgPass", "FrontierPass", "MopFrontierPass"], (
+            "without the candidate census, 'the arm turned this off' and 'this "
+            "application's data could not support it' are the same evidence"
+        )
+
+    def test_llm_ack_exposed(self):
+        reader = TraceReader(GOLDEN)
+        list(reader)
+
+        assert reader.llm_ack is not None
+        assert reader.llm_ack["server_model"] == "qwen3-vl-8b"
+
+    def test_run_level_records_reset_between_iterations(self):
+        """A second pass re-reads them rather than keeping the first pass's.
+
+        The ID tables and the header already reset; a census that survived
+        would make a reader used twice report the first trace's assembly for
+        the second one.
+        """
+        reader = TraceReader(GOLDEN)
+        list(reader)
+        first = reader.pipeline
+        list(reader)
+
+        assert reader.pipeline == first
+        assert reader.pipeline is not first, "re-read, not retained"
+
+    def test_absent_run_level_records_are_none(self, tmp_path):
+        """A trace with no census reports None, never an empty dict.
+
+        An empty dict would read as "the load happened and found nothing",
+        which is a different claim from "this trace does not say".
+        """
+        trace = tmp_path / "bare.trace"
+        trace.write_text(
+            '{"type":"ACT","id":0,"name":"com.foo/.Main","mop":0}\n'
+            '{"type":"STATE","id":0,"key":"S1","act":0}\n'
+            '{"s":1,"t":5,"act":0,"st":0,"dec":{"a":"x","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(trace)
+        list(reader)
+
+        assert reader.mop_data is None
+        assert reader.pipeline is None
+        assert reader.llm_ack is None
 
 
 class TestCollectionPathIsolation:
