@@ -37,9 +37,11 @@ model. Within rv-platform, it sits alongside other AbstractTool implementations
 - Downstream: rv-android logcat reads Coverage.aj output during execution
 """
 
+import gzip
 import hashlib
 import json
 import os
+import shutil
 import tempfile
 import urllib.request
 from typing import Any, Dict
@@ -1313,6 +1315,48 @@ class ApeRVTool(AbstractTool):
         except OSError:
             pass
 
+    def _gzip_trace(self, trace_file_path: str) -> None:
+        """Write a compressed copy of the raw capture beside the trace.
+
+        From stage 4 the trace is NDJSON and grows to roughly 3.5 GB per 880
+        tasks, so compression at rest is worth a step; it is the Python side's
+        job because the jar writes to stdout and never touches the file.
+
+        Three properties are deliberate. The step is **write-only**: it reads the
+        trace and writes only the `.gz`, so `task.result.trace_file` stays the
+        raw capture byte for byte — no reformatting, no truncation, and no
+        conversion back to the retired line family anywhere in this tool
+        (INV-APV-52). It **inspects nothing**: the trace's content is never
+        parsed, no record is looked for, no sentinel is checked, no exit code is
+        interpreted and no task status changes (INV-APV-53) — identifying a
+        truncated run stays post-hoc analysis over trace and logcat timestamps.
+        And it is **non-fatal**: a failure here
+        (a full results volume, a permission problem) costs a compressed copy,
+        never a run's data, so it logs a WARNING naming the trace and returns.
+
+        The name is the full trace path with the suffix appended, which yields
+        `<run>.trace.ndjson.gz`. Substituting the suffix instead would break the
+        `.trace` stem that `clock_logcat_join` and `coverage_dump` key on to find
+        a run's sibling files, for a cosmetic gain (design D-3).
+
+        Args:
+            trace_file_path: Path to the trace file written by
+                execute_tool_specific_logic.
+        """
+        gzip_path = str(trace_file_path) + ".ndjson.gz"
+        try:
+            # copyfileobj streams in chunks, so a multi-gigabyte trace is never
+            # held in memory.
+            with open(trace_file_path, "rb") as source:
+                with gzip.open(gzip_path, "wb") as target:
+                    shutil.copyfileobj(source, target)
+            self.logger.debug(f"Compressed trace to {gzip_path}")
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to compress trace {trace_file_path}: {e} — "
+                "the uncompressed trace is untouched and the run is unaffected"
+            )
+
     @ErrorHandler.handle_errors(
         component="ApeRVTool", phase="execute_tool_specific_logic", reraise=True
     )
@@ -1321,8 +1365,9 @@ class ApeRVTool(AbstractTool):
         Execute APE-RV exploration on the device.
 
         Orchestrates JAR resolution, device push, properties push, command
-        execution, and empty trace check. Timeout is expected normal exit for
-        exploration tools.
+        execution, the empty-trace check and trace compression. Timeout is the
+        expected normal exit for exploration tools, and collection runs on that
+        path too — it is where most runs end.
 
         Args:
             task: Task configuration with device, timeout, trace file
@@ -1462,6 +1507,12 @@ class ApeRVTool(AbstractTool):
                 f"APE-RV execution timed out after {timeout_seconds} seconds "
                 "(expected behavior)"
             )
+            # Collection runs on this path too, before the re-raise. Timeout is
+            # how a normal exploration run ends — it is the majority path, not
+            # the exception — so skipping compression here would exempt most
+            # runs from it. The trace captured up to the kill is compressed as
+            # it stands, truncated final line included.
+            self._gzip_trace(task.result.trace_file)
             raise RVToolTimeoutError(
                 f"APE-RV timed out after {timeout_seconds} seconds",
                 tool_name=self.name,
@@ -1472,5 +1523,9 @@ class ApeRVTool(AbstractTool):
         # producing any output. This is a warning, not an error, because coverage
         # may still have been captured via logcat independently.
         self._check_empty_trace(task.result.trace_file)
+
+        # Step 5: Compress the raw capture beside the trace. Write-only and
+        # non-fatal; the trace itself is left byte-identical (INV-APV-52).
+        self._gzip_trace(task.result.trace_file)
 
         self.logger.info("APE-RV execution completed successfully")

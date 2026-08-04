@@ -26,26 +26,26 @@
 
 ## 2. Native NDJSON reader
 
-- [ ] 2.1 Write `modules/aperv-tool/tests/fixtures/trace_ndjson_golden.ndjson` **first**, from the `event-sink` spec of `ape`'s `rearch-04-step-ndjson-telemetry` — it is the contract, not an afterthought. It MUST contain: a `RUN_START` with `t0`; `ACT` entries with `mop:1` and `mop:0`; two `STATE` entries; a step with no boost fields; a step with `dec.patched:0`; a step with no `patched` member; a step with two `llm[]` entries in occurrence order; a step whose `out` resolves to a new state; a step closed with no `out`; a step flushed with `out:{"resolved":false}`; one unparseable line; and a truncated final line. Record its provenance in `tests/fixtures/README.md`
-- [ ] 2.2 Implement the row model in `modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`: `RunStart`, `LlmCall`, `StepOutcome`, `Counterfactual`, `ComponentDispatch`, `StepRow`, `TraceDiagnostics` — frozen dataclasses following `analysis/coverage_dump.py` (design D-2)
-- [ ] 2.3 Implement `TraceReader`: one forward streaming pass (design D-1), `ACT`/`STATE` ID tables resolved as encountered, `RUN_START` captured as the first record, `llm[]` and `out` attached to their step's row
-- [ ] 2.4 Implement default materialization: the six boosts at `0` and the two outcome booleans at `false`; `dec.patched` and `dec.cf` left absent when absent (INV-APV-49) — a defaulted `patched` would erase the tri-state the jar emits explicitly
-- [ ] 2.5 Implement `activity_has_mop` re-derivation: step side from the record's `ACT` entry, outcome side via `out.target` → `STATE.act` → `ACT.mop`
-- [ ] 2.6 Implement epoch expansion via `RUN_START.t0`, and report it unavailable (`t_epoch_ms is None`) when `RUN_START` is absent — no base inferred from mtime, logcat, or anything else (INV-APV-51)
-- [ ] 2.7 Implement malformed handling: skip and count in `TraceDiagnostics.malformed`, never raise; a reference to an undefined `ACT`/`STATE`/`out.target` ID takes the same branch and no placeholder string is emitted (INV-APV-50)
-- [ ] 2.8 Add the reader unit tests, asserting the golden fixture field for field against expected rows — one named test per rule: joined row, boost defaults, tri-state `patched`, `llm[]` order, outcome absent vs `resolved:false`, `activity_has_mop` on both sides, malformed count (exactly 2 for the fixture), undefined dictionary ID, missing `RUN_START`
-- [ ] 2.9 Add `test_reader_never_imported_by_collection_path`: `trace_ndjson` is not reachable from the import graph of `tools/aperv/tool.py` (INV-APV-48)
+- [x] 2.1 Write `modules/aperv-tool/tests/fixtures/trace_ndjson_golden.ndjson` **first**, from the `event-sink` spec of `ape`'s `rearch-04-step-ndjson-telemetry` — it is the contract, not an afterthought. It MUST contain: a `RUN_START` with `t0`; `ACT` entries with `mop:1` and `mop:0`; two `STATE` entries; a step with no boost fields; a step with `dec.patched:0`; a step with no `patched` member; a step with two `llm[]` entries in occurrence order; a step whose `out` resolves to a new state; a step closed with no `out`; a step flushed with `out:{"resolved":false}`; one unparseable line; and a truncated final line. Record its provenance in `tests/fixtures/README.md`
+- [x] 2.2 Implement the row model in `modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`: `RunStart`, `LlmCall`, `StepOutcome`, `Counterfactual`, `ComponentDispatch`, `StepRow`, `TraceDiagnostics` — frozen dataclasses following `analysis/coverage_dump.py` (design D-2)
+- [x] 2.3 Implement `TraceReader`: one forward streaming pass (design D-1), `ACT`/`STATE` ID tables resolved as encountered, `RUN_START` captured as the first record, `llm[]` and `out` attached to their step's row
+- [x] 2.4 Implement default materialization: the six boosts at `0` and the two outcome booleans at `false`; `dec.patched` and `dec.cf` left absent when absent (INV-APV-49) — a defaulted `patched` would erase the tri-state the jar emits explicitly
+- [x] 2.5 Implement `activity_has_mop` re-derivation: step side from the record's `ACT` entry, outcome side via `out.target` → `STATE.act` → `ACT.mop`
+- [x] 2.6 Implement epoch expansion via `RUN_START.t0`, and report it unavailable (`t_epoch_ms is None`) when `RUN_START` is absent — no base inferred from mtime, logcat, or anything else (INV-APV-51)
+- [x] 2.7 Implement malformed handling: skip and count in `TraceDiagnostics.malformed`, never raise; a reference to an undefined `ACT`/`STATE`/`out.target` ID takes the same branch and no placeholder string is emitted (INV-APV-50)
+- [x] 2.8 Add the reader unit tests, asserting the golden fixture field for field against expected rows — one named test per rule: joined row, boost defaults, tri-state `patched`, `llm[]` order, outcome absent vs `resolved:false`, `activity_has_mop` on both sides, malformed count (exactly 2 for the fixture), undefined dictionary ID, missing `RUN_START`
+- [x] 2.9 Add `test_reader_never_imported_by_collection_path`: `trace_ndjson` is not reachable from the import graph of `tools/aperv/tool.py` (INV-APV-48)
 - [ ] 2.10 Run `/rv-doc-code modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`
-- [ ] 2.11 Run `/rv-test-run aperv-tool`
+- [x] 2.11 Run `/rv-test-run aperv-tool`
 
 ## 3. gzip at collection
 
-- [ ] 3.1 Implement `_gzip_trace(trace_path)` in `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py`: stream into `Path(str(trace_path) + ".ndjson.gz")` with `gzip.open` + `shutil.copyfileobj` (design D-3); catch every exception, log WARNING naming the trace path, continue (INV-APV-52)
-- [ ] 3.2 Call it as step 10 of `execute_tool_specific_logic`, after `_check_empty_trace`
-- [ ] 3.3 Call it on the timeout path too — inside the `RVCommandTimeoutError` handler, before re-raising `RVToolTimeoutError` (step 8). Timeout is how a normal exploration run ends, so this is the majority path
-- [ ] 3.4 Add tests: trace byte-identical (hash before/after) with the `.gz` decompressing to the same bytes; gzip failure non-fatal and status-neutral (monkeypatched `gzip.open`); timeout path runs collection before re-raising
-- [ ] 3.5 Add `test_no_collection_path_reads_run_end`: no source file under `tools/aperv/` references `RUN_END` (INV-APV-53)
-- [ ] 3.6 Run `/rv-test-run aperv-tool`
+- [x] 3.1 Implement `_gzip_trace(trace_path)` in `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py`: stream into `Path(str(trace_path) + ".ndjson.gz")` with `gzip.open` + `shutil.copyfileobj` (design D-3); catch every exception, log WARNING naming the trace path, continue (INV-APV-52)
+- [x] 3.2 Call it as step 10 of `execute_tool_specific_logic`, after `_check_empty_trace`
+- [x] 3.3 Call it on the timeout path too — inside the `RVCommandTimeoutError` handler, before re-raising `RVToolTimeoutError` (step 8). Timeout is how a normal exploration run ends, so this is the majority path
+- [x] 3.4 Add tests: trace byte-identical (hash before/after) with the `.gz` decompressing to the same bytes; gzip failure non-fatal and status-neutral (monkeypatched `gzip.open`); timeout path runs collection before re-raising
+- [x] 3.5 Add `test_no_collection_path_reads_run_end`: no source file under `tools/aperv/` references `RUN_END` (INV-APV-53)
+- [x] 3.6 Run `/rv-test-run aperv-tool`
 
 ## 4. Evidence: heartbeat lines are actually in a captured run
 

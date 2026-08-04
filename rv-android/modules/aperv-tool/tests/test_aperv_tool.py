@@ -5,16 +5,20 @@ Tests cover: tool spec, variants, configure, JAR search paths, command building,
 constants, and empty trace detection.
 """
 
+import gzip
 import hashlib
 import json
 import logging
 import os
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from rv_android_core.util.error.exceptions import (
     ConfigurationError,
+    RVCommandTimeoutError,
     RVToolExecutionError,
+    RVToolTimeoutError,
 )
 
 import aperv_tool.tools.aperv.tool as aperv_mod
@@ -318,6 +322,161 @@ class TestCheckEmptyTrace:
     def test_nonexistent_file_no_exception(self):
         # Must not raise even if file doesn't exist
         self.tool._check_empty_trace("/nonexistent/path/trace.bin")
+
+
+class TestGzipAtCollection:
+    """Step 5: compress the raw capture beside the trace (INV-APV-52).
+
+    The step is write-only and non-fatal by design: it may cost a compressed
+    copy, never a run's data, and it must leave the artifact of record exactly
+    as the jar wrote it.
+    """
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    NDJSON = (
+        b'{"type":"RUN_START","run_id":"r","t0":1750000000000,"params":{}}\n'
+        b'{"type":"ACT","id":1,"name":"com.foo/.Main","mop":1}\n'
+        b'{"s":1,"t":10,"act":1,"st":1,"dec":{"a":"CLICK","src":"SATA","ch":"x"}}\n'
+    )
+
+    def test_gzip_at_collection_leaves_trace_byte_identical(self, tmp_path):
+        """The `.gz` decompresses to the trace, and the trace does not move."""
+        trace = tmp_path / "run.trace"
+        trace.write_bytes(self.NDJSON)
+        before = hashlib.sha256(trace.read_bytes()).hexdigest()
+
+        self.tool._gzip_trace(str(trace))
+
+        assert hashlib.sha256(trace.read_bytes()).hexdigest() == before
+        archive = tmp_path / "run.trace.ndjson.gz"
+        assert archive.is_file()
+        with gzip.open(archive, "rb") as handle:
+            assert handle.read() == self.NDJSON
+
+    def test_gzip_keeps_the_trace_stem(self, tmp_path):
+        """The suffix is appended, not substituted (design D-3).
+
+        `clock_logcat_join` and `coverage_dump` find a run's sibling files by
+        the `.trace` stem, so substituting the suffix would break run identity
+        for a cosmetic gain.
+        """
+        trace = tmp_path / "app.apk__1__1800__aperv.trace"
+        trace.write_bytes(self.NDJSON)
+
+        self.tool._gzip_trace(str(trace))
+
+        assert (tmp_path / "app.apk__1__1800__aperv.trace.ndjson.gz").is_file()
+        assert not (tmp_path / "app.apk__1__1800__aperv.ndjson.gz").exists()
+
+    def test_gzip_failure_is_non_fatal(self, tmp_path, caplog, monkeypatch):
+        """A compression failure warns, names the trace, and changes nothing."""
+        trace = tmp_path / "run.trace"
+        trace.write_bytes(self.NDJSON)
+
+        def boom(*args, **kwargs):
+            raise OSError("No space left on device")
+
+        monkeypatch.setattr(aperv_mod.gzip, "open", boom)
+
+        with caplog.at_level(logging.WARNING):
+            self.tool._gzip_trace(str(trace))
+
+        assert "Failed to compress trace" in caplog.text
+        assert str(trace) in caplog.text
+        assert trace.read_bytes() == self.NDJSON
+
+    def test_gzip_of_missing_trace_does_not_raise(self):
+        """Nothing about a missing trace is this step's problem to escalate."""
+        self.tool._gzip_trace("/nonexistent/path/run.trace")
+
+    def test_truncated_trace_is_compressed_as_it_stands(self, tmp_path):
+        """No validation: a trace cut mid-write is compressed, not inspected.
+
+        Step 5 makes no `RUN_START`/`RUN_END` presence check and interprets no
+        exit code (INV-APV-53) — truncated-run identification stays post-hoc.
+        """
+        truncated = self.NDJSON + b'{"s":2,"t":20,"act":1,"st":'
+        trace = tmp_path / "run.trace"
+        trace.write_bytes(truncated)
+
+        self.tool._gzip_trace(str(trace))
+
+        with gzip.open(tmp_path / "run.trace.ndjson.gz", "rb") as handle:
+            assert handle.read() == truncated
+
+
+class TestTimeoutPathCollects:
+    """Step 8: the timeout path runs collection before re-raising.
+
+    Timeout is how a normal exploration run ends — APE-RV explores until it is
+    killed — so this is the majority path. Collecting only on the clean path
+    would exempt most runs from collection while looking correct in a test that
+    never times out.
+    """
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def test_timeout_path_runs_collection_before_reraise(self, tmp_path):
+        self.tool.configure(ApeRVTool.get_variants()["sata"])
+
+        task = MagicMock()
+        task.results_dir = str(tmp_path)
+        task.config.apk_name = "app.apk"
+        task.config.device_id = "emulator-5554"
+        task.config.timeout = 60
+        trace = tmp_path / "run.trace"
+        trace.write_bytes(b'{"s":1,"t":10,"act":1,"st":1}\n')
+        task.result.trace_file = str(trace)
+
+        app = MagicMock()
+        app.package_name = "br.unb.cic.cryptoapp"
+
+        (tmp_path / "ape-rv.jar").write_bytes(b"jar")
+        self.tool._resolve_jar_path = lambda: str(tmp_path / "ape-rv.jar")
+        self.tool._push_file_to_device = lambda *a, **kw: None
+
+        main_cmd = MagicMock()
+        main_cmd.invoke.side_effect = RVCommandTimeoutError("killed after 105 s")
+        self.tool._build_main_command = lambda *a, **kw: main_cmd
+
+        order = []
+        real_gzip = self.tool._gzip_trace
+        self.tool._gzip_trace = lambda path: (
+            order.append("gzip"),
+            real_gzip(path),
+        )
+
+        with pytest.raises(RVToolTimeoutError):
+            self.tool.execute_tool_specific_logic(task, app)
+
+        # Collection ran, and it ran before the re-raise reached the caller.
+        assert order == ["gzip"]
+        assert (tmp_path / "run.trace.ndjson.gz").is_file()
+        with gzip.open(tmp_path / "run.trace.ndjson.gz", "rb") as handle:
+            assert handle.read() == trace.read_bytes()
+
+
+class TestNoExitContract:
+    """INV-APV-53: nothing on the collection path reads `RUN_END`."""
+
+    def test_no_collection_path_reads_run_end(self):
+        """The sentinel is write-only, so no source file here may mention it.
+
+        Owner decision D5: no presence check, no exit-code interpretation, no
+        task-status change and no retry logic keyed on it. A source-level
+        assertion is the right shape because the rule is about what the code is
+        allowed to know, not about a behavior a fixture could exercise.
+        """
+        collection_root = Path(aperv_mod.__file__).parent
+        offenders = [
+            path.name
+            for path in sorted(collection_root.rglob("*.py"))
+            if "RUN_END" in path.read_text(encoding="utf-8")
+        ]
+        assert offenders == []
 
 
 class TestPushPropertiesLlm:

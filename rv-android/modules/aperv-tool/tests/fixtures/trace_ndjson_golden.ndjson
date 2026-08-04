@@ -1,0 +1,13 @@
+{"type":"RUN_START","run_id":"cryptoapp.apk__1__1800__aperv:mop_on_llm_70","t0":1750000000000,"params":{"ape.mopWeightDirect":"500","ape.llmPercentage":"0.7","ape.telemetryHeartbeat":"true"}}
+{"type":"ACT","id":17,"name":"br.unb.cic.cryptoapp/.MainActivity","mop":1}
+{"type":"ACT","id":18,"name":"br.unb.cic.cryptoapp/.AboutActivity","mop":0}
+{"type":"STATE","id":231,"key":"S17a4f","act":17}
+{"type":"STATE","id":232,"key":"S18b7c","act":18}
+{"type":"MOP_DATA","status":"loaded","package":"br.unb.cic.cryptoapp","windows":5,"widgets":340,"flagged":3,"wtgEdges":7}
+[APE] *** INFO *** free-text diagnostic line, not a sink record
+{"s":42,"t":8123,"act":17,"st":231,"dec":{"a":"model=CLICK@[0,0][100,50]","src":"MOP_WIDGET","ch":"roulette_greedy","pri":9,"patched":0,"mopx":[3,23]},"llm":[{"call":3,"mode":"new_state","tool":"click","qwen":[500,861],"px":[512,884],"result":"matched","mcls":"android.widget.Button","ncls":"android.widget.Button","ndist":4.2,"widgets":23,"tok":[1841,25],"ms":973},{"call":4,"mode":"stagnation","result":"error","cause":"timeout","detail":"read timed out after 8000 ms"}],"out":{"new_state":true,"target":232}}
+{"s":43,"t":9004,"act":18,"st":232,"dec":{"a":"model=CLICK@[10,20][90,60] text=\"Salvar\nopção\"","src":"WTG","ch":"roulette_greedy","pri":4,"mop":500,"menu":250,"wtg":400,"wtgsrc":"both","cf":{"changed":1,"a":"model=CLICK@[0,0][10,10]"}}}
+{"s":44,"t":9500,"act":17,"st":231,"dec":{"a":"EVENT_TRIGGER_ACTIVITY br.unb.cic.cryptoapp/.AboutActivity","src":"Component","ch":"launcher","comp":{"r":0}},"out":{"resolved":false}}
+{"s":46,"t":10000,,"act":17,"st":231}
+{"type":"RUN_END","reason":"timeout","steps":4,"t_first_step":8123,"t_last_step":9500,"counters":{"calls":2,"matched":1}}
+{"s":47,"t":10500,"act":17,"st":23
