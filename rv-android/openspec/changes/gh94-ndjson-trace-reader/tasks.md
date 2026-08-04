@@ -76,7 +76,7 @@
 
 - [x] 6.1 Add `test_frozen_corpus_scripts_untouched`: the paths named by INV-APV-55 — `scripts/cmpm_stratify.py`, `scripts/analyze_cmpv2_llm.py`, `experimento-cal/scripts/*`, `experimento-20260721/scripts/*`, `calibracao/*` — are unmodified by this change
 - [x] 6.2 Record the frozen-corpus carve-out in `modules/aperv-tool/CLAUDE.md`: which scripts, why they keep the legacy parser, why that is not a P3 violation, and the operational test (`clock_logcat_join.py` migrated because it reads new traces; these never will). Add `analysis/trace_ndjson.py` to the module's file table and note that `coverage_dump.py` is unaffected because it reads only the `UICOV` lines
-- [ ] 6.3 Run `/rv-qa-lint-fix aperv-tool` — do not touch the three pre-existing findings listed at the top of this file
+- [x] 6.3 Run `/rv-qa-lint-fix aperv-tool` — do not touch the three pre-existing findings listed at the top of this file
 - [ ] 6.4 Run `/rv-verify aperv-tool` (~4 min; run it in the background), `/rv-verify rv-android-core` and `/rv-verify rv-platform`
 - [ ] 6.5 Invoke `/rv-code-reviewer` via the Skill tool for the whole change
 - [ ] 6.6 Run `/rv-docs-sync aperv-tool`

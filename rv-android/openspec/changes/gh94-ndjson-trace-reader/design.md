@@ -72,7 +72,7 @@ The collection path and the analysis path never meet: nothing in `tool.py` impor
 | aperv: ApeRVTool Execution Flow step 8/10 | `tool.execute_tool_specific_logic` | `test_aperv_tool.py::test_timeout_path_runs_collection_before_reraise` |
 | INV-CORE-37 (amended baseline command) | `LogcatManager.default_tags` + command build at `:182-200` | `test_logcat_manager.py::test_baseline_command_byte_identical` |
 | INV-CORE-53 (tag declared once) | `util/logging/constants.py::TAG_APERV_HEARTBEAT` | `test_logcat_manager.py::test_heartbeat_tag_declared_once` |
-| INV-CORE-54 (heartbeat inert to parsing) | no change — `logcat_parser` dispatches on two tags | `test_logcat_parser.py::test_heartbeat_lines_change_no_parsed_value` |
+| INV-CORE-54 (heartbeat inert to parsing) | `logcat_parser` unchanged (dispatches on two tags); `diagnostic_parser.feed_line()` amended so a foreign-tag line is transparent to block assembly instead of closing it | `test_logcat_parser.py::test_heartbeat_lines_change_no_parsed_value`, `::test_fixture_interleaves_a_heartbeat_inside_the_crash_block`, `test_diagnostic_parser.py::test_foreign_tag_line_does_not_close_the_block` |
 | INV-PLT-21 (amended baseline tag set) | `components/logcat.py` (unchanged code, new expectation) | `test_logcat.py::test_flag_off_emits_baseline_command` |
 
 ## Goals / Non-Goals
