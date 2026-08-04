@@ -9,29 +9,29 @@
 
 ## 1. Baseline provenance — capture before anything can destroy it
 
-- [ ] 1.1 Record leg A's image identity: tag `phtcosta/rvandroid:0.9.3`, ID `sha256:b2904fdfc3ddfc81ad455abd5e5685ddc97666c9411c4d994fec9111311aedec`, created `2026-08-01T11:47:43-03:00`, into the change's working notes. `:latest` points at the same ID — record that too, so a later retag cannot be mistaken for a rebuild.
-- [ ] 1.2 Record leg A's jar sha256 (`386ce08d1846a4088755a8d755e5b70391af3b42add091d231dbcc52aed24e69`) and the baseline commit (`5dcf2259…`), and confirm the deployed jar still hashes to that value.
-- [ ] 1.3 Compute and record the SHA-256 of `calibracao/subset40.txt` — this is the `corpus_basis` digest both legs are declared against.
-- [ ] 1.4 Confirm `experimento-e3-decisiva/per_apk_paired.csv` has 40 rows and the three expected arms, and record its sha256 as leg A's frozen input.
+- [x] 1.1 Record leg A's image identity: tag `phtcosta/rvandroid:0.9.3`, ID `sha256:b2904fdfc3ddfc81ad455abd5e5685ddc97666c9411c4d994fec9111311aedec`, created `2026-08-01T11:47:43-03:00`, into the change's working notes. `:latest` points at the same ID — record that too, so a later retag cannot be mistaken for a rebuild.
+- [x] 1.2 Record leg A's jar sha256 (`386ce08d1846a4088755a8d755e5b70391af3b42add091d231dbcc52aed24e69`) and the baseline commit (`5dcf2259…`), and confirm the deployed jar still hashes to that value.
+- [x] 1.3 Compute and record the SHA-256 of `calibracao/subset40.txt` — this is the `corpus_basis` digest both legs are declared against.
+- [x] 1.4 Confirm `experimento-e3-decisiva/per_apk_paired.csv` has 40 rows and the three expected arms, and record its sha256 as leg A's frozen input.
 
 ## 2. Corpus basis — the only code the gate adds
 
-- [ ] 2.1 Add `corpus_basis → ape.corpusBasis` to `APERV_PROPERTY_MAPPING` in `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py`.
-- [ ] 2.2 Validate the value in `configure()` against `^[A-Za-z0-9._-]+:[0-9a-f]{64}$`, raising `ConfigurationError` naming the key and the rejected value, before any device interaction.
-- [ ] 2.3 Emit `ape.corpusBasis=<value>` from `_push_properties()` when configured; omit the key entirely when absent (INV-APV-56) — no placeholder, no warning.
-- [ ] 2.4 Add unit tests: the line is written with the configured value byte-identical; an absent basis emits no key; a malformed basis raises before any push.
-- [ ] 2.5 Add the source-sweep test proving no module under `modules/aperv-tool/src` reads `RUN_START` (INV-APV-57).
-- [ ] 2.6 Pre-check the DSL seam locally — `RV_TOOLS: "aperv:mop_on_llm_off:mop_off_llm_off:mop_on_llm_70@corpus_basis=subset40:<sha256>"` — by inspecting the generated `ape.properties` on a single local run. `_parse_single_tool_spec` emits a plural `variants` shape its own `TODO(FR15)` calls dead against `ToolConfig(variant: str)`. This is the cheap check, not the authoritative one: the seam is verified over the chain the campaign actually uses in task 7.2. If either check fails, fall back to a per-arm `overrides` entry set by the campaign configuration and record the deviation here.
-- [ ] 2.7 Run `/rv-test-run aperv-tool`
+- [x] 2.1 Add `corpus_basis → ape.corpusBasis` to `APERV_PROPERTY_MAPPING` in `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py`.
+- [x] 2.2 Validate the value in `configure()` against `^[A-Za-z0-9._-]+:[0-9a-f]{64}$`, raising `ConfigurationError` naming the key and the rejected value, before any device interaction.
+- [x] 2.3 Emit `ape.corpusBasis=<value>` from `_push_properties()` when configured; omit the key entirely when absent (INV-APV-56) — no placeholder, no warning.
+- [x] 2.4 Add unit tests: the line is written with the configured value byte-identical; an absent basis emits no key; a malformed basis raises before any push.
+- [x] 2.5 Add the source-sweep test proving no module under `modules/aperv-tool/src` reads `RUN_START` (INV-APV-57).
+- [x] 2.6 Pre-check the DSL seam locally — `RV_TOOLS: "aperv:mop_on_llm_off:mop_off_llm_off:mop_on_llm_70@corpus_basis=subset40:<sha256>"` — by inspecting the generated `ape.properties` on a single local run. `_parse_single_tool_spec` emits a plural `variants` shape its own `TODO(FR15)` calls dead against `ToolConfig(variant: str)`. This is the cheap check, not the authoritative one: the seam is verified over the chain the campaign actually uses in task 7.2. If either check fails, fall back to a per-arm `overrides` entry set by the campaign configuration and record the deviation here.
+- [x] 2.7 Run `/rv-test-run aperv-tool`
 
 ## 3. Margins and premises — derived from leg A, before any plan is frozen
 
-- [ ] 3.1 Compute per-outcome replica dispersion from `experimento-e3-decisiva/results/e3_decisiva_*/coverage.csv` at `(apk, rep, tool)` granularity, for `cov_method`, `cov_act`, `cov_mop`, `mop_unique` and `mop_total`.
-- [ ] 3.2 Derive the G1 margin per outcome from 3.1, floored at 1.5 pp for the percentage outcomes (twice the documented −0.743 pp between-campaign drift). Record the derivation, not only the result.
-- [ ] 3.3 Settle whether `mop_total` gates or is descriptive, on the evidence of 3.1 — it counts violation lines rather than distinct violations and is the noisiest of the five. Decide before the freeze; the decision is not revisitable after.
-- [ ] 3.4 Compute the expected substrate displacement for G3: per-application flagged-widget delta over the 40 applications, old parser against `derive_mop_artifact.py`, using the pinned static-analysis corpus.
-- [ ] 3.5 Re-confirm host-side that no application in the corpus would have hit the pre-`gh96` footprint guard, against the guard's actual threshold. Leg A shows no arm with `cov_method < 5`, which is evidence but not the threshold itself. Any affected application is declared before the campaign, never excluded after.
-- [ ] 3.6 Record `cov_act`'s ceiling (median 100.0 in both guided arms) as a declared premise of G2, with G2 stated one-sided.
+- [x] 3.1 Compute per-outcome replica dispersion from `experimento-e3-decisiva/results/e3_decisiva_*/coverage.csv` at `(apk, rep, tool)` granularity, for `cov_method`, `cov_act`, `cov_mop`, `mop_unique` and `mop_total`.
+- [x] 3.2 Derive the G1 margin per outcome from 3.1, floored at 1.5 pp for the percentage outcomes (twice the documented −0.743 pp between-campaign drift). Record the derivation, not only the result.
+- [x] 3.3 Settle whether `mop_total` gates or is descriptive, on the evidence of 3.1 — it counts violation lines rather than distinct violations and is the noisiest of the five. Decide before the freeze; the decision is not revisitable after.
+- [x] 3.4 Compute the expected substrate displacement for G3: per-application flagged-widget delta over the 40 applications, old parser against `derive_mop_artifact.py`, using the pinned static-analysis corpus.
+- [x] 3.5 Re-confirm host-side that no application in the corpus would have hit the pre-`gh96` footprint guard, against the guard's actual threshold. Leg A shows no arm with `cov_method < 5`, which is evidence but not the threshold itself. Any affected application is declared before the campaign, never excluded after.
+- [x] 3.6 Record `cov_act`'s ceiling (median 100.0 in both guided arms) as a declared premise of G2, with G2 stated one-sided.
 
 ## 4. Campaign scaffold and the adapted scripts
 

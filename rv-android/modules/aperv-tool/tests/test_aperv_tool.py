@@ -940,6 +940,171 @@ class TestPropertyMapping:
         )
 
 
+class TestCorpusBasis:
+    """The run states which application list it was drawn from (INV-APV-56).
+
+    The value is provenance the caller supplies, not a digest this module computes:
+    `aperv-tool` does not own the corpus list, does not know where it lives, and
+    must not grow a filesystem dependency on a campaign's layout in order to hash
+    it. What it owns is the contract — the shape of the value, its validation
+    before anything reaches a device, and the guarantee that an unstated corpus
+    produces an absent key rather than a defaulted one.
+    """
+
+    BASIS = "subset40:b60903adf4c8fca07e014e3655db158a220184d112f2f995a181fd98dd3d48d4"
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+
+    def test_the_key_is_mapped_to_the_jars_own_name(self):
+        # `ape.corpusBasis` is what KeyOwnership declares; a mistyped Java name would be
+        # rejected by the jar's resolver and abort the run before step 1.
+        assert APERV_PROPERTY_MAPPING["corpus_basis"] == "ape.corpusBasis"
+
+    def test_the_configured_basis_is_written_byte_identical(self, tmp_path):
+        # Byte-identical is the point: the pre-flight compares this line's value against
+        # a digest recomputed from the list file, so any normalization here — a case
+        # change, a strip, a re-derivation — would turn a match into a false mismatch.
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "preset": "mop",
+                "overrides": {"corpus_basis": self.BASIS},
+            }
+        )
+        props = _written_properties(self.tool, tmp_path)
+        assert f"ape.corpusBasis={self.BASIS}" in props.splitlines()
+
+    def test_the_dsl_seam_carries_it_from_the_top_level(self, tmp_path):
+        # This is the seam the campaign uses: `aperv:<arm>@corpus_basis=subset40:<sha>`
+        # arrives merged at the TOP level of the config, and configure()'s fold is what
+        # moves it into `overrides` where _push_properties() reads. Without the mapping
+        # entry the key would be rejected as unrecognised instead of silently dropped —
+        # which is the behaviour this asserts is not needed.
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "preset": "mop",
+                "overrides": {},
+                "corpus_basis": self.BASIS,
+            }
+        )
+        assert self.tool._tool_config["overrides"]["corpus_basis"] == self.BASIS
+        assert f"ape.corpusBasis={self.BASIS}" in _written_properties(
+            self.tool, tmp_path
+        )
+
+    def test_an_absent_basis_emits_no_key(self, tmp_path):
+        # INV-APV-56. Absence is a legitimate state — every campaign before this one ran
+        # without it, and every standalone invocation still does — so there is no
+        # placeholder, no empty value and no warning.
+        self.tool.configure({"strategy": "sata", "preset": "aperv", "overrides": {}})
+        assert "ape.corpusBasis" not in _written_properties(self.tool, tmp_path)
+
+    @pytest.mark.parametrize(
+        "rejected",
+        [
+            "subset40",  # an identifier with no digest
+            "subset40:" + "b" * 63,  # one hex digit short
+            "subset40:" + "B" * 64,  # uppercase: a different byte string
+            "subset40:" + "z" * 64,  # right length, not hexadecimal
+            ":" + "b" * 64,  # no identifier to read in a report
+            "sub set40:" + "b" * 64,  # a space would break the properties line
+            40,  # not a string at all
+        ],
+    )
+    def test_a_malformed_basis_is_rejected_before_the_device(self, rejected):
+        """The raise comes from `configure()`, so no emulator time is spent on it.
+
+        The push sentinel below is what makes that concrete rather than assumed: if
+        validation ever moved into `_push_properties()`, the jar, the broadcast
+        catalog and the MOP artifact would already have been pushed by the time the
+        error surfaced.
+        """
+
+        def fail_on_push(*args, **kwargs):
+            raise AssertionError("a malformed basis reached the device")
+
+        self.tool._push_file_to_device = fail_on_push
+
+        with pytest.raises(ConfigurationError) as excinfo:
+            self.tool.configure(
+                {
+                    "strategy": "sata",
+                    "preset": "mop",
+                    "overrides": {"corpus_basis": rejected},
+                }
+            )
+        message = str(excinfo.value)
+        assert "corpus_basis" in message
+        assert repr(rejected) in message
+
+    def test_a_well_formed_basis_is_accepted_whatever_it_names(self):
+        # Shape is all this side validates: whether the digest corresponds to any list
+        # is checked where the list lives, by recomputing it. A tool that verified the
+        # digest would need to know the campaign's directory layout to find the file.
+        self.tool.configure(
+            {
+                "strategy": "sata",
+                "preset": "mop",
+                "overrides": {
+                    "corpus_basis": "a_corpus.v2-1:" + "0123456789abcdef" * 4
+                },
+            }
+        )
+
+
+class TestRunStartIsWriteOnly:
+    """INV-APV-57: no execution-path module reads `RUN_START`, corpus basis included.
+
+    The property is pushed and never read back, mirroring `run-spec` INV-RUN-03 —
+    which declares `RUN_START` write-only at level 0 — and `gh95` decision D1. A
+    runtime echo-vs-intent validator here would contradict a level-0 invariant of
+    the other repository and would rebuild the retired guard family under a new name.
+
+    The sweep carves out `analysis/`, and the carve-out is the invariant rather than
+    an exception to it: `RUN_START` is *supposed* to be consumed there, by post-hoc
+    readers over recorded traces. That is where the campaign's pre-flight verifies
+    the echoed basis.
+    """
+
+    SRC_ROOT = Path(aperv_mod.__file__).parents[2]
+    POST_HOC_PACKAGE = "analysis"
+
+    def _execution_path_sources(self):
+        return [
+            path
+            for path in sorted(self.SRC_ROOT.rglob("*.py"))
+            if self.POST_HOC_PACKAGE not in path.relative_to(self.SRC_ROOT).parts
+        ]
+
+    def test_no_execution_path_module_reads_run_start(self):
+        offenders = [
+            str(path.relative_to(self.SRC_ROOT))
+            for path in self._execution_path_sources()
+            if "RUN_START" in path.read_text(encoding="utf-8")
+        ]
+        assert offenders == [], f"execution-path modules mention RUN_START: {offenders}"
+
+    def test_the_sweep_covers_the_module_that_pushes_the_property(self):
+        # Non-vacuity, first half: a sweep whose file list silently emptied — a moved
+        # package, a renamed directory — would pass while checking nothing.
+        swept = {path.name for path in self._execution_path_sources()}
+        assert "tool.py" in swept
+        assert "derive_mop_artifact.py" in swept
+
+    def test_the_same_search_finds_the_post_hoc_readers(self):
+        # Non-vacuity, second half: the search really does match this token where the
+        # token exists. Without this, a typo in the pattern would make the assertion
+        # above green by construction.
+        readers = [
+            path.name
+            for path in sorted((self.SRC_ROOT / self.POST_HOC_PACKAGE).rglob("*.py"))
+            if "RUN_START" in path.read_text(encoding="utf-8")
+        ]
+        assert "trace_ndjson.py" in readers
+
+
 class TestDecisiveRunArms:
     """gh90 group 1: the E3 decisive run's arm set (INV-APV-29/30)."""
 

@@ -41,6 +41,7 @@ import gzip
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import urllib.request
@@ -189,7 +190,19 @@ APERV_PROPERTY_MAPPING = {
     # (INV-APV-34); max_tokens is mapped and set by no arm, so it takes the jar's default.
     "llm_max_tokens": "ape.llmMaxTokens",
     "llm_snap_tolerance_px": "ape.llmSnapTolerancePx",
+    # Deployment provenance, not configuration: the application list this run was
+    # drawn from. The jar recognises the key, echoes it into the trace's opening
+    # record and reads it nowhere, so it changes no behaviour — it makes a recorded
+    # run answer "which corpus?" from its own artifacts, which today is
+    # reconstructed after the fact from a compose file or an operator's memory.
+    "corpus_basis": "ape.corpusBasis",
 }
+
+# `<corpus-id>:<sha256>`, e.g. `subset40:b60903ad…d48d4`. Both halves earn their
+# place: the identifier is what a human reads in a report, and the digest is what
+# makes two runs provably drawn from the same list rather than from two lists that
+# happen to share a name.
+CORPUS_BASIS_PATTERN = re.compile(r"^[A-Za-z0-9._-]+:[0-9a-f]{64}$")
 
 
 class ApeRVTool(AbstractTool):
@@ -474,8 +487,9 @@ class ApeRVTool(AbstractTool):
         Raises:
             ConfigurationError: If strategy is absent or outside
                 APERV_AVAILABLE_STRATEGIES, if preset is absent or empty, if
-                overrides is not a dict, or if a top-level key is neither a mapped
-                override nor a recognised orchestration key (INV-APV-39)
+                overrides is not a dict, if a top-level key is neither a mapped
+                override nor a recognised orchestration key (INV-APV-39), or if
+                `corpus_basis` is present and does not match CORPUS_BASIS_PATTERN
         """
         # Validate eagerly so experiment YAML typos are caught before any device
         # interaction — a failed push mid-experiment wastes minutes of emulator time.
@@ -550,6 +564,25 @@ class ApeRVTool(AbstractTool):
             raise ConfigurationError(
                 f"aperv: override key(s) {sorted(unmapped)} have no ape.* property "
                 "mapping, so the jar would reject the properties file."
+            )
+
+        # A malformed corpus basis is a broken assertion rather than a broken run, and
+        # that is why it is caught here. The jar accepts any string and echoes it, so a
+        # value that is not `<corpus-id>:<sha256>` produces a run whose provenance line
+        # looks populated while nothing can be checked against it — the campaign's
+        # pre-flight would be comparing a recomputed digest against something that never
+        # was one. Shape is the whole of what this side owns: whether the digest matches
+        # the list is verified where the list lives, by recomputing it from the file.
+        # Reading it after the DSL fold covers both sources of the key at once, an arm's
+        # own `overrides` dict and an `@corpus_basis=…` parameter.
+        basis = self._tool_config["overrides"].get("corpus_basis")
+        if basis is not None and (
+            not isinstance(basis, str) or not CORPUS_BASIS_PATTERN.match(basis)
+        ):
+            raise ConfigurationError(
+                f"aperv: 'corpus_basis' value {basis!r} is not of the form "
+                "<corpus-id>:<sha256>, so the provenance it would record cannot be "
+                "verified against any list. Expected /^[A-Za-z0-9._-]+:[0-9a-f]{64}$/."
             )
 
         # gh55 D8: LLM URL override flows through `parameters["llm_url"]` (set by
