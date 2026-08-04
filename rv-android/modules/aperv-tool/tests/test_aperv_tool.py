@@ -471,13 +471,12 @@ class TestPushPropertiesCalibration:
         assert "mop_data" not in props
 
 
-# The 18 arm-defining Python keys → frozen ape.* names (spec INV-APV-13, verbatim).
+# The 17 arm-defining Python keys → frozen ape.* names (spec INV-APV-13, verbatim).
 # Pinned here so a typo'd java name in the mapping (which would make the property
 # inert on the jar with no error — R1/D5) fails a unit test, not the experiment.
 # trigger_mop_first was removed (task group 7): the APE-RV jar deleted Config.triggerMopFirst
 # in mop-census-launcher, so the property is inert on the jar and is no longer arm-defining.
 _EXPECTED_ARM_DEFINING_MAPPING = {
-    "ape_pure_mode": "ape.apePureMode",
     "frontier_boost_weight": "ape.frontierBoostWeight",
     "activity_trigger_enabled": "ape.activityTriggerEnabled",
     "back_menu_pick_cap": "ape.backMenuPickCap",
@@ -573,9 +572,17 @@ class TestArmDefiningConstants:
         missing = aperv_mod.ARM_DEFINING_KEYS - set(APERV_PROPERTY_MAPPING)
         assert not missing, f"arm-defining keys absent from mapping: {sorted(missing)}"
 
-    def test_arm_defining_keys_count_is_18(self):
-        # 18 after trigger_mop_first was dropped (task group 7 — jar deleted the property).
-        assert len(aperv_mod.ARM_DEFINING_KEYS) == 18
+    def test_arm_defining_keys_count_is_17(self):
+        # The APE-RV jar exposes 17 arm-defining properties: it has no triggerMopFirst and
+        # no apePureMode. A key the jar does not read cannot define an arm.
+        assert len(aperv_mod.ARM_DEFINING_KEYS) == 17
+
+    def test_ape_pure_mode_is_not_an_arm_key(self):
+        # ape.apePureMode is a retired key: the jar aborts at bootstrap when a properties
+        # file carries it (issue #93), so no arm may declare or map it. Purity is
+        # structural — the ape_pure arm is its 17 explicit off values, nothing more.
+        assert "ape_pure_mode" not in aperv_mod.ARM_DEFINING_KEYS
+        assert "ape_pure_mode" not in APERV_PROPERTY_MAPPING
 
     def test_arm_defining_keys_excludes_orchestration_and_weights(self):
         # INV-APV-15: mop_data/strategy are Python-only; mop_weight_* are gated by
@@ -593,7 +600,7 @@ class TestArmDefiningConstants:
         assert forbidden.isdisjoint(aperv_mod.ARM_DEFINING_KEYS)
 
     def test_arm_defining_maps_to_frozen_java_names(self):
-        # INV-APV-13 verbatim: pin the 18 python→java names so a typo fails here.
+        # INV-APV-13 verbatim: pin the 17 python→java names so a typo fails here.
         assert set(aperv_mod.ARM_DEFINING_KEYS) == set(_EXPECTED_ARM_DEFINING_MAPPING)
         for py_key, java_key in _EXPECTED_ARM_DEFINING_MAPPING.items():
             assert APERV_PROPERTY_MAPPING[py_key] == java_key
@@ -652,10 +659,12 @@ class TestArmVariants:
         ]:
             assert name in variants, f"missing new arm variant {name!r}"
 
-    def test_ape_pure_kill_switch_and_offs(self):
-        # Task 2.3 / spec scenario: kill-switch true, every RV flag off, no mop_data.
+    def test_ape_pure_sets_every_flag_off(self):
+        # Spec scenario: every RV flag off explicitly, no kill-switch key, no mop_data.
+        # These assertions are the whole definition of the arm — there is no jar-side
+        # switch behind them.
         cfg = ApeRVTool.get_variants()["ape_pure"]
-        assert cfg["ape_pure_mode"] is True
+        assert "ape_pure_mode" not in cfg
         assert cfg["dynamic_epsilon"] is False
         assert cfg["form_completion_enabled"] is False
         assert cfg["model_menu_enabled"] is False
@@ -670,7 +679,6 @@ class TestArmVariants:
         assert cfg["frontier_boost_weight"] == 0
         assert cfg["activity_trigger_enabled"] is False
         assert cfg["dynamic_epsilon"] is True
-        assert cfg["ape_pure_mode"] is False
         assert "mop_data" not in cfg
 
     def test_sata_mop_widget_values(self):
@@ -1023,12 +1031,24 @@ class TestArmProperties:
         assert "ape.dynamicEpsilon=true" in props
         assert "ape.mopDataPath" not in props
 
-    def test_ape_pure_writes_kill_switch_lowercase(self, tmp_path):
-        # Spec scenario: kill-switch flag appears in properties for ape_pure.
+    def test_ape_pure_writes_no_kill_switch(self, tmp_path):
+        # Spec scenario: no kill-switch property is written for ape_pure — the arm's
+        # purity is carried entirely by the explicit off values below.
         props = self._capture_properties(tmp_path, ApeRVTool.get_variants()["ape_pure"])
-        assert "ape.apePureMode=true" in props
+        assert "ape.apePureMode" not in props
         assert "ape.frontierBoostWeight=0" in props
         assert "ape.activityTriggerEnabled=false" in props
+
+    def test_campaign_arm_writes_no_retired_kill_switch(self, tmp_path):
+        # The stage-2 APE-RV jar aborts at bootstrap on a retired key, before step 1, so a
+        # single ape.apePureMode line in a campaign arm's properties would zero the whole
+        # arm (coverage 0, MOP violations 0). sata_mop_widget stands for the 23 arms that
+        # inherit _BASELINE_ARM_FLAGS (issue #93).
+        props = self._capture_properties(
+            tmp_path, ApeRVTool.get_variants()["sata_mop_widget"], mop_json_pushed=True
+        )
+        assert "ape.apePureMode" not in props
+        assert "ape.mopActivitySourceComponents=false" in props
 
     def test_act_frontier_writes_reach_package(self, tmp_path):
         # Spec scenario: reach-package flags appear for sata_mop_act_frontier.

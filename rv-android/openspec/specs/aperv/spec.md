@@ -104,7 +104,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - **INV-APV-12**: Non-zero exit codes from APE-RV SHALL NOT be treated as failures. APE-RV exits with non-zero codes when it detects app crashes during exploration (e.g., exit code 211). Coverage is collected via logcat regardless. Only `RVCommandTimeoutError` is re-raised as `RVToolTimeoutError`.
 
 - **INV-APV-13**: `APERV_PROPERTY_MAPPING` MUST contain an entry for every key in `ARM_DEFINING_KEYS`. The
-  Python→Java names MUST be: `ape_pure_mode`→`ape.apePureMode`, `frontier_boost_weight`→`ape.frontierBoostWeight`,
+  Python→Java names MUST be: `frontier_boost_weight`→`ape.frontierBoostWeight`,
   `activity_trigger_enabled`→`ape.activityTriggerEnabled`,
   `back_menu_pick_cap`→`ape.backMenuPickCap`, `foreign_activity_guard`→`ape.foreignActivityGuard`,
   `tree_package_guard`→`ape.treePackageGuard`, `dynamic_epsilon`→`ape.dynamicEpsilon`,
@@ -113,9 +113,11 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
   `model_menu_enabled`→`ape.modelMenuEnabled`, `least_visited_priority_tiebreak`→`ape.leastVisitedPriorityTiebreak`,
   `tree_enhancements_enabled`→`ape.treeEnhancementsEnabled`, `activity_budget_enabled`→`ape.activityBudgetEnabled`,
   `mop_activity_source_components`→`ape.mopActivitySourceComponents`, `mop_frontier_weight`→`ape.mopFrontierWeight`,
-  `llm_percentage_no_substrate`→`ape.llmPercentageNoSubstrate`. (`trigger_mop_first` was removed — the
-  APE-RV jar deleted `Config.triggerMopFirst` in `mop-census-launcher`, making `ape.triggerMopFirst` inert;
-  it is no longer an arm-defining key.)
+  `llm_percentage_no_substrate`→`ape.llmPercentageNoSubstrate` — 17 keys. The set is bounded by what the jar
+  reads: `ape.triggerMopFirst` and `ape.apePureMode` are absent from it because the jar has no
+  `Config.triggerMopFirst` and no `apePureMode` forcing mechanism. `ape.apePureMode` is further a **retired
+  key**: the jar aborts at bootstrap, before step 1, when a properties file carries it, so it MUST NOT appear
+  in `APERV_PROPERTY_MAPPING` or in any variant dictionary.
 
 - **INV-APV-14**: Every variant returned by `get_variants()` **except** the exempt ones (INV-APV-17) MUST
   set **every** key in `ARM_DEFINING_KEYS` explicitly in its dictionary. A variant MUST NOT rely on a jar
@@ -220,22 +222,23 @@ exploration flags to the current jar defaults made explicit (`back_menu_pick_cap
 `heuristic_input=true`, `fuzz_input_typed=true`, `form_completion_enabled=true`, `step_telemetry_enabled=true`,
 `model_menu_enabled=true`, `least_visited_priority_tiebreak=true`, `tree_enhancements_enabled=true`,
 `activity_budget_enabled=true`, `llm_percentage_no_substrate=-1`) and the MOP/reach/frontier flags
-OFF (`ape_pure_mode=false`, `frontier_boost_weight=0`, `activity_trigger_enabled=false`,
+OFF (`frontier_boost_weight=0`, `activity_trigger_enabled=false`,
 `mop_activity_source_components=false`, `mop_frontier_weight=0`).
 
 #### Base Variants
 
-| Variant | strategy | mop_data | ape_pure_mode | RV exploration flags | frontier_boost_weight | activity_trigger_enabled | Notes |
-|---------|----------|----------|---------------|----------------------|-----------------------|--------------------------|-------|
-| `default` | `"sata"` | -- | `false` | ON (defaults explicit) | `0` | `false` | Alias for sata |
-| `sata` | `"sata"` | -- | `false` | ON (defaults explicit) | `0` | `false` | aperv baseline, RV exploration ON, MOP off |
-| `bfs` | `"bfs"` | -- | `false` | ON (defaults explicit) | `0` | `false` | Breadth-first baseline |
-| `random` | `"random"` | -- | `false` | ON (defaults explicit) | `0` | `false` | Priority-weighted random baseline |
-| `ape_pure` | `"sata"` | -- | `true` | **OFF (all explicit)** | `0` | `false` | Original APE via kill-switch; every RV flag off/0 |
+| Variant | strategy | mop_data | RV exploration flags | frontier_boost_weight | activity_trigger_enabled | Notes |
+|---------|----------|----------|----------------------|-----------------------|--------------------------|-------|
+| `default` | `"sata"` | -- | ON (defaults explicit) | `0` | `false` | Alias for sata |
+| `sata` | `"sata"` | -- | ON (defaults explicit) | `0` | `false` | aperv baseline, RV exploration ON, MOP off |
+| `bfs` | `"bfs"` | -- | ON (defaults explicit) | `0` | `false` | Breadth-first baseline |
+| `random` | `"random"` | -- | ON (defaults explicit) | `0` | `false` | Priority-weighted random baseline |
+| `ape_pure` | `"sata"` | -- | **OFF (all explicit)** | `0` | `false` | Original APE; every RV flag off/0 |
 
-`ape_pure` SHALL set `ape_pure_mode=true` **and** set every other arm-defining flag to its off/zero value
-explicitly (defense-in-depth: the jar kill-switch forces RV off, and the explicit offs keep the guard test
-uniform and the arm auditable without trusting the kill-switch). `ape_pure` SHALL NOT set `mop_data`.
+`ape_pure` SHALL set every arm-defining flag to its off/zero value explicitly. That enumeration IS the arm:
+the jar exposes no switch that forces the RV extensions off, so nothing else distinguishes original APE from
+the baseline, and the explicit offs are what make the arm auditable from `ape.properties` and keep the guard
+test uniform across variants. `ape_pure` SHALL NOT set `mop_data`.
 
 #### MOP-Arm Variants
 
@@ -329,10 +332,10 @@ calibration-control snapshot+bind-mount mechanism without an image rebuild.
 - **AND** it SHALL contain every key in `ARM_DEFINING_KEYS`
 - **AND** it SHALL NOT contain a `mop_data` key
 
-#### Scenario: ape_pure arm sets the kill-switch and every RV flag off
+#### Scenario: ape_pure arm sets every RV flag off
 - **WHEN** `get_variants()["ape_pure"]` is read
-- **THEN** `ape_pure_mode` SHALL be `True`
-- **AND** every other key in `ARM_DEFINING_KEYS` SHALL be present with its off/zero value (e.g. `dynamic_epsilon == False`, `form_completion_enabled == False`, `model_menu_enabled == False`, `tree_enhancements_enabled == False`)
+- **THEN** `ape_pure_mode` SHALL NOT be present
+- **AND** every key in `ARM_DEFINING_KEYS` SHALL be present with its off/zero value (e.g. `dynamic_epsilon == False`, `form_completion_enabled == False`, `model_menu_enabled == False`, `tree_enhancements_enabled == False`)
 - **AND** `mop_data` SHALL NOT be present
 
 #### Scenario: sata_mop_widget is the MOP control arm
@@ -583,7 +586,6 @@ property names:
 | `least_visited_priority_tiebreak` | `ape.leastVisitedPriorityTiebreak` | RV exploration (arm-defining) |
 | `tree_enhancements_enabled` | `ape.treeEnhancementsEnabled` | RV exploration (arm-defining) |
 | `activity_budget_enabled` | `ape.activityBudgetEnabled` | RV exploration (arm-defining) |
-| `ape_pure_mode` | `ape.apePureMode` | Kill-switch (arm-defining) |
 | `mop_weight_direct` | `ape.mopWeightDirect` | MOP |
 | `mop_weight_transitive` | `ape.mopWeightTransitive` | MOP |
 | `mop_weight_activity` | `ape.mopWeightActivity` | MOP (inert; back-compat) |
@@ -620,10 +622,16 @@ name-mismatch is inert, not an error).
 - **AND** it SHALL contain `ape.dynamicEpsilon=true`
 - **AND** it SHALL NOT contain `ape.mopDataPath`
 
-#### Scenario: Kill-switch flag appears in properties for ape_pure
+#### Scenario: No kill-switch property is written for ape_pure
 - **WHEN** `_push_properties()` is called for the `ape_pure` variant
-- **THEN** the generated properties file SHALL contain `ape.apePureMode=true`
+- **THEN** the generated properties file SHALL NOT contain `ape.apePureMode`
 - **AND** it SHALL contain `ape.frontierBoostWeight=0` and `ape.activityTriggerEnabled=false`
+
+#### Scenario: No campaign arm writes the retired kill-switch property
+- **WHEN** `_push_properties()` is called for `sata_mop_widget` with `mop_json_pushed=True`
+- **THEN** the generated properties file SHALL NOT contain `ape.apePureMode`
+- **AND** it SHALL contain `ape.mopActivitySourceComponents=false`
+- **AND** the run SHALL reach step 1 — a retired key would abort the jar at bootstrap, zeroing the arm's coverage and MOP violations
 
 #### Scenario: Reach-package flags appear in properties for sata_mop_act_frontier
 - **WHEN** `_push_properties()` is called for `sata_mop_act_frontier` with `mop_json_pushed=True`

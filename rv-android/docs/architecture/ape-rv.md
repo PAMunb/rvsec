@@ -170,7 +170,7 @@ device interaction (INV-APV-02) — a failed push mid-experiment would waste min
 emulator time. The merged dict is stored as `_tool_config`; an empty dict doubles as the
 "not configured" sentinel. For this run the variant resolves to
 `sata_mop_widget = {**_BASELINE_ARM_FLAGS, **_MOP_SUBSTRATE, 'strategy': 'sata',
-'throttle_ms': 200}` — 18 arm-defining flags all explicit, plus `mop_data='static_analysis'`
+'throttle_ms': 200}` — 17 arm-defining flags all explicit, plus `mop_data='static_analysis'`
 and weights direct=500 / transitive=300 / open_menu=250 / wtg=200 (`tool.py:377-382`).
 
 **3. JAR resolution and push.** `execute_tool_specific_logic` first resolves `ape-rv.jar`
@@ -210,8 +210,8 @@ is an `int` subclass). Because the MOP push succeeded, the line
 to a host temp file (adb push needs a local path), pushed to
 `/data/local/tmp/ape.properties`, and the temp file unlinked in a `finally`. For
 `sata_mop_widget` the file contains `ape.defaultGUIThrottle=200`, `ape.mopWeightDirect=500`,
-`ape.mopWeightTransitive=300`, `ape.mopWeightOpenMenu=250`, `ape.mopWeightWtg=200`, all 18
-arm flags (e.g. `ape.backMenuPickCap=3`, `ape.apePureMode=false`), and `ape.mopDataPath`.
+`ape.mopWeightTransitive=300`, `ape.mopWeightOpenMenu=250`, `ape.mopWeightWtg=200`, all 17
+arm flags (e.g. `ape.backMenuPickCap=3`, `ape.dynamicEpsilon=true`), and `ape.mopDataPath`.
 
 **6. Launch via app_process.** `_build_main_command` assembles:
 `adb -s <serial> shell CLASSPATH=/data/local/tmp/ape-rv.jar /system/bin/app_process
@@ -390,7 +390,7 @@ this decision the whole arm taxonomy and file-push machinery would be unnecessar
 exploration would be an order of magnitude slower, undermining the tool comparison the
 subsystem exists to run.
 
-**Arm-defining explicitness: every non-exempt variant pins all 18 arm-defining flags.**
+**Arm-defining explicitness: every non-exempt variant pins all 17 arm-defining flags.**
 `Config.java` silently ignores unknown properties and silently applies defaults for absent
 ones — so if a variant omitted a flag, the arm's actual behavior would depend on whichever
 jar happened to be built, and a jar-side default change would silently redefine a published
@@ -400,9 +400,9 @@ baseline. Instead, `ARM_DEFINING_KEYS` is a frozenset of the 18 behavior-selecti
 variant spreads one of them, and guard tests verify membership — making the pushed
 `ape.properties` a complete, auditable serialization of the arm. The six frozen gh43 prompt
 arms are exempted by an explicit named set rather than a prefix match, precisely so a future
-`sata_mop_llm_*` arm cannot silently escape the guard. The `ape_pure` arm goes further
-(defense-in-depth, D1): it sets every RV flag off explicitly rather than trusting the
-`apePureMode` kill-switch alone.
+`sata_mop_llm_*` arm cannot silently escape the guard. The `ape_pure` arm is the limit case
+of the same rule (D1): the jar offers no switch that forces the RV extensions off, so the
+arm is exactly its enumeration of explicit off values.
 
 **Unconditional, lossless, never-failing compaction of the static-analysis JSON.** The Java
 side rejects any JSON above `maxMemory()/6` (~32 MB) before parsing, so an oversized file
@@ -620,11 +620,11 @@ flowchart TB
 **aperv-tool** (Python, `modules/aperv-tool`, plugin L5). The entire module is one 931-line
 file, `tool.py`, split roughly half declarative data and half orchestration. The top ~210
 lines are configuration tables: `APERV_PROPERTY_MAPPING` (the ~50-entry Python-key →
-`ape.*` Java-property adapter), `ARM_DEFINING_KEYS` (the frozenset of 18 flags whose values
+`ape.*` Java-property adapter), `ARM_DEFINING_KEYS` (the frozenset of 17 flags whose values
 define what an experiment arm is), and four building-block dicts (`_BASELINE_ARM_FLAGS`
-with RV exploration on and MOP/reach off, `_APE_PURE_ARM_FLAGS` with everything off plus
-the apePureMode kill-switch on, `_MOP_SUBSTRATE` with mop_data plus the four MOP weights,
-`_LLM_FLAGS` with the SGLang sampling block). `get_variants()` composes 17 arms from these
+with RV exploration on and MOP/reach off, `_APE_PURE_ARM_FLAGS` with everything off,
+`_MOP_SUBSTRATE` with mop_data plus the four MOP weights,
+`_LLM_FLAGS` with the SGLang sampling block). `get_variants()` composes 29 arms from these
 by dict-spread; notably `sata_mop` and `sata_mop_widget` are bound to the same dict object
 so the alias holds by construction. `configure()` validates the strategy eagerly and stores
 a defensive copy. `execute_tool_specific_logic()` is a five-step pipeline — extract params

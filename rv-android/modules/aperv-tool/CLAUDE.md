@@ -33,7 +33,7 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 | `default` / `sata` | sata | no | no | Adaptive random baseline (`default` aliases `sata`) |
 | `bfs` | bfs | no | no | Breadth-first |
 | `random` | random | no | no | Pure random |
-| `ape_pure` | sata | no | no | Original APE via `apePureMode` kill-switch (all RV flags off) |
+| `ape_pure` | sata | no | no | Original APE — all 17 arm-defining flags off explicitly |
 | `sata_mop_widget` / `sata_mop` | sata | yes | no | MOP-guided (`sata_mop` aliases `sata_mop_widget`, same object) |
 | `sata_mop_activity` | sata | yes | no | + activity source components |
 | `sata_mop_act_frontier` | sata | yes | no | + frontier/activity-trigger boost |
