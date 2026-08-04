@@ -27,7 +27,6 @@ from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
     APERV_PROPERTY_MAPPING,
-    LLM_ARM_KEYS,
     ApeRVTool,
 )
 
@@ -845,75 +844,11 @@ class TestPushProperties:
 # inert on the jar with no error — R1/D5) fails a unit test, not the experiment.
 # trigger_mop_first was removed (task group 7): the APE-RV jar deleted Config.triggerMopFirst
 # in mop-census-launcher, so the property is inert on the jar and is no longer arm-defining.
-_EXPECTED_ARM_DEFINING_MAPPING = {
-    "frontier_boost_weight": "ape.frontierBoostWeight",
-    "activity_trigger_enabled": "ape.activityTriggerEnabled",
-    "back_menu_pick_cap": "ape.backMenuPickCap",
-    "foreign_activity_guard": "ape.foreignActivityGuard",
-    "tree_package_guard": "ape.treePackageGuard",
-    "dynamic_epsilon": "ape.dynamicEpsilon",
-    "heuristic_input": "ape.heuristicInput",
-    "fuzz_input_typed": "ape.fuzzInputTyped",
-    "form_completion_enabled": "ape.formCompletionEnabled",
-    "step_telemetry_enabled": "ape.stepTelemetryEnabled",
-    "model_menu_enabled": "ape.modelMenuEnabled",
-    "least_visited_priority_tiebreak": "ape.leastVisitedPriorityTiebreak",
-    "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
-    "activity_budget_enabled": "ape.activityBudgetEnabled",
-    "mop_activity_source_components": "ape.mopActivitySourceComponents",
-    "mop_frontier_weight": "ape.mopFrontierWeight",
-    "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
-}
-
-_EXPECTED_EXEMPT_VARIANTS = {
-    "sata_mop_llm_ape_current",
-    "sata_mop_llm_ape_reasoning",
-    "sata_mop_llm_compact_v1",
-    "sata_mop_llm_v13",
-    "sata_mop_llm_v17",
-    "sata_mop_llm_visual_only",
-}
-
-# The Phase-A calibration arm table verbatim from the delta spec (specs/aperv/spec.md,
-# plan §6 rev. 3.2) — the seven per-arm varying LLM keys. Pins every cal_* value so a typo
-# in the variant dict fails here. (prompt, percentage, temperature, top_p, top_k,
-# on_new_state, on_stagnation.)
-_EXPECTED_CAL_ARM_TABLE = {
-    "cal_a1": ("v13", 0.7, 0, 0.6, 50, True, True),
-    "cal_a2": ("v13", 0.3, 0, 0.6, 50, True, True),
-    "cal_a3": ("v13", 0, 0, 0.6, 50, False, True),
-    "cal_a4": ("v13", 0, 0, 0.6, 50, True, True),
-    "cal_a5": ("v13", 0.3, 0.7, 0.8, 20, True, True),
-    "cal_a6": ("v13", 0.3, 0.7, 0.6, 50, True, True),
-    "cal_a7": ("v13", 0.3, 0.25, 0.6, 50, True, True),
-    "cal_a8": ("visual_only", 0.3, 0, 0.6, 50, True, True),
-    "cal_a9": ("v17", 0.3, 0, 0.6, 50, True, True),
-}
-
-# The INV-APV-26 guard's scope. It began as "cal_*-prefixed variants", which was
-# exactly the set that existed then. gh90's decisive-run LLM arm carries no cal_
-# prefix, so leaving the scope as a prefix match would let the arm the whole run
-# turns on escape the guard, and the guard-verification task would pass
-# vacuously. Named explicitly rather than widened to "any arm with llm_url":
-# sata_llm and sata_mop_llm predate INV-APV-26 and do not declare llm_percentage
-# or llm_prompt_variant, so a blanket widening would fail on arms the invariant
-# was never written for.
-_LLM_GUARD_EXTRA_ARMS = {"mop_on_llm_70"}
-
-
-def _llm_guarded_arms(variants):
-    """The arms INV-APV-26 audits: the cal_* family plus the decisive-run LLM arm."""
-    return {
-        name: cfg
-        for name, cfg in variants.items()
-        if name.startswith("cal_") or name in _LLM_GUARD_EXTRA_ARMS
-    }
-
-
-# The three E3 decisive-run arms (gh90 A1), and the exact key set that separates
-# the control from the reference. The list is pinned here so a silent edit to
-# either dictionary fails a test rather than the experiment.
 _DECISIVE_ARMS = ("mop_on_llm_off", "mop_off_llm_off", "mop_on_llm_70")
+
+# What "MOP guidance off" is allowed to move, in Python override keys. The effective-plan
+# version of this contrast lives in the migration tier, where the jar's presets are
+# available; here it only keeps the LLM contrast honest.
 _MOP_CONTRAST_KEYS = {
     "mop_weight_direct",
     "mop_weight_transitive",
@@ -923,215 +858,71 @@ _MOP_CONTRAST_KEYS = {
     "activity_trigger_enabled",
 }
 
-# The sata_mop_act_frontier arm-defining substrate every cal_* arm must carry.
-_EXPECTED_FRONTIER_SUBSTRATE = {
-    "mop_data": "static_analysis",
-    "mop_activity_source_components": True,
-    "frontier_boost_weight": 200,
-    "mop_frontier_weight": 200,
-    "activity_trigger_enabled": True,
-}
 
+class TestRetiredGuards:
+    """The guard machinery is gone, and a revert would be caught rather than merged.
 
-class TestArmDefiningConstants:
-    """Group 1 guard: ARM_DEFINING_KEYS + _ARM_DEFINING_EXEMPT + mapping (INV-APV-13/15/17)."""
+    `ARM_DEFINING_KEYS`, `_ARM_DEFINING_EXEMPT` and `LLM_ARM_KEYS` were explicitness
+    obligations over the per-arm dictionaries. With an arm expressed as a preset plus its
+    deltas there is no expansion left to keep complete, and a missing or misspelled key
+    aborts the run in the jar instead of passing silently — a stronger check than the one
+    being retired, because it is applied to the binary that actually runs.
 
-    def test_all_arm_defining_keys_are_mapped(self):
-        # INV-APV-13 (task 4.1): every arm-defining key reaches ape.properties.
-        missing = aperv_mod.ARM_DEFINING_KEYS - set(APERV_PROPERTY_MAPPING)
-        assert not missing, f"arm-defining keys absent from mapping: {sorted(missing)}"
+    Their substitute is recorded rather than assumed: the jar's fail-fast resolution, the
+    one-time regeneration diff in tests/migration/, and the write-only RUN_START echo that
+    makes "which arm ran this task" answerable from the trace alone. Deliberately no runtime
+    replacement (owner decision D1).
+    """
 
-    def test_arm_defining_keys_count_is_17(self):
-        # The APE-RV jar exposes 17 arm-defining properties: it has no triggerMopFirst and
-        # no apePureMode. A key the jar does not read cannot define an arm.
-        assert len(aperv_mod.ARM_DEFINING_KEYS) == 17
-
-    def test_ape_pure_mode_is_not_an_arm_key(self):
-        # ape.apePureMode is a retired key: the jar aborts at bootstrap when a properties
-        # file carries it (issue #93), so no arm may declare or map it. Purity is
-        # structural — the ape_pure arm is its 17 explicit off values, nothing more.
-        assert "ape_pure_mode" not in aperv_mod.ARM_DEFINING_KEYS
-        assert "ape_pure_mode" not in APERV_PROPERTY_MAPPING
-
-    def test_arm_defining_keys_excludes_orchestration_and_weights(self):
-        # INV-APV-15: mop_data/strategy are Python-only; mop_weight_* are gated by
-        # mop_data (null MopData disables scoring) so they are NOT arm-defining.
-        forbidden = {
-            "mop_data",
-            "strategy",
-            "mop_weight_direct",
-            "mop_weight_transitive",
-            "mop_weight_activity",
-            "mop_weight_open_menu",
-            "mop_weight_wtg",
-            "max_idle_timeout_ms",
-        }
-        assert forbidden.isdisjoint(aperv_mod.ARM_DEFINING_KEYS)
-
-    def test_arm_defining_maps_to_frozen_java_names(self):
-        # INV-APV-13 verbatim: pin the 17 python→java names so a typo fails here.
-        assert set(aperv_mod.ARM_DEFINING_KEYS) == set(_EXPECTED_ARM_DEFINING_MAPPING)
-        for py_key, java_key in _EXPECTED_ARM_DEFINING_MAPPING.items():
-            assert APERV_PROPERTY_MAPPING[py_key] == java_key
-
-    def test_exempt_set_is_exactly_the_six_gh43_variants(self):
-        # INV-APV-17: explicit named set, not a prefix match.
-        assert aperv_mod._ARM_DEFINING_EXEMPT == _EXPECTED_EXEMPT_VARIANTS
-
-    def test_max_idle_timeout_mapped_but_not_arm_defining(self):
-        # Task 1.4 / INV-APV-15: arm-neutral tuning knob — mapped, not arm-defining.
-        assert APERV_PROPERTY_MAPPING["max_idle_timeout_ms"] == "ape.maxIdleTimeoutMs"
-        assert "max_idle_timeout_ms" not in aperv_mod.ARM_DEFINING_KEYS
-
-    def test_activity_trigger_dose_mapped_but_not_arm_defining(self):
-        # activity-trigger-dose: the launcher cadence/cap are arm-neutral tuning knobs —
-        # mapped to ape.properties, shared identically by both arms of a paired run, so
-        # NOT arm-defining (same rationale as max_idle_timeout_ms).
-        assert (
-            APERV_PROPERTY_MAPPING["activity_trigger_stagnation_step"]
-            == "ape.activityTriggerStagnationStep"
+    @pytest.mark.parametrize(
+        "name", ["ARM_DEFINING_KEYS", "_ARM_DEFINING_EXEMPT", "LLM_ARM_KEYS"]
+    )
+    def test_the_guard_constants_are_gone(self, name):
+        assert not hasattr(aperv_mod, name), (
+            f"{name} is back. It validated Python constants against other Python "
+            "constants about arms that no longer carry expansions; the jar's fail-fast "
+            "resolution replaced it."
         )
-        assert (
-            APERV_PROPERTY_MAPPING["activity_trigger_max_per_run"]
-            == "ape.activityTriggerMaxPerRun"
-        )
-        assert "activity_trigger_stagnation_step" not in aperv_mod.ARM_DEFINING_KEYS
-        assert "activity_trigger_max_per_run" not in aperv_mod.ARM_DEFINING_KEYS
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "_BASELINE_ARM_FLAGS",
+            "_APE_PURE_ARM_FLAGS",
+            "_MOP_SUBSTRATE",
+            "_LLM_FLAGS",
+            "_FRONTIER_SUBSTRATE",
+            "_MOP_OFF_OVERRIDES",
+            "_CAL_LLM_COMMON",
+        ],
+    )
+    def test_the_substrate_dicts_are_gone(self, name):
+        # When a producer is deleted its outputs go too: a substrate dict with no arm
+        # spreading it is the dead shim P3 forbids.
+        assert not hasattr(aperv_mod, name), f"{name} is back"
+
+    def test_no_run_start_parsing(self):
+        # INV-APV-43 (owner decision D1): the tool writes the trace and never reads it
+        # back. Drift auditing is post-hoc analysis, not a runtime check — adding one here
+        # would recreate the guard family under a new name.
+        source = Path(aperv_mod.__file__).read_text()
+
+        assert "RUN_START" not in source
+        assert "RUN_END" not in source
 
 
-class TestArmVariants:
-    """Group 2: frozen arm variants (INV-APV-14/16, Variants requirement)."""
+class TestPropertyMapping:
+    """The pass-through table: what it translates, and what it must not carry."""
 
-    def test_sata_mop_act_frontier_reach_package(self):
-        # Spec scenario: sata_mop_act_frontier enables the reach package A′+B+E-min.
-        cfg = ApeRVTool.get_variants()["sata_mop_act_frontier"]
-        assert cfg["mop_activity_source_components"] is True
-        assert cfg["frontier_boost_weight"] == 200
-        assert cfg["mop_frontier_weight"] == 200
-        assert cfg["activity_trigger_enabled"] is True
-        assert cfg["mop_data"] == "static_analysis"
-        # trigger_mop_first no longer exists (task group 7 — jar deleted the property).
-        assert "trigger_mop_first" not in cfg
-
-    def test_llm_guarded_arms_declare_all_llm_keys(self):
-        # INV-APV-26 guard: every arm in the guard's scope ⊇ LLM_ARM_KEYS. Failure
-        # names the variant and the missing keys.
-        arms = _llm_guarded_arms(ApeRVTool.get_variants())
-        assert arms, "no arms found in the LLM guard scope"
-        for name, cfg in arms.items():
-            missing = LLM_ARM_KEYS - set(cfg)
-            assert not missing, f"arm {name!r} missing LLM keys: {sorted(missing)}"
-
-    def test_decisive_llm_arm_is_inside_the_llm_key_guard(self):
-        # gh90 task 1.6 / spec scenario "The LLM arm is inside the LLM key guard":
-        # mop_on_llm_70 carries no cal_ prefix, so the guard's original scoping
-        # would have skipped it and task 1.7 would have passed vacuously.
-        arms = _llm_guarded_arms(ApeRVTool.get_variants())
-
-        assert "mop_on_llm_70" in arms
-        assert not "mop_on_llm_70".startswith("cal_")
-        # And the guard would actually bite: dropping one key fails it.
-        crippled = dict(arms["mop_on_llm_70"])
-        del crippled["llm_prompt_variant"]
-        assert LLM_ARM_KEYS - set(crippled) == {"llm_prompt_variant"}
-
-    def test_cal_arms_match_plan_table(self):
-        # Task 1.5: concrete value assertions for all nine arms — the seven varying LLM
-        # keys per the plan §6 table, the frontier substrate in every arm, plus the
-        # constant LLM keys shared by all arms.
-        variants = ApeRVTool.get_variants()
-        assert set(_EXPECTED_CAL_ARM_TABLE) == {
-            n for n in variants if n.startswith("cal_")
-        }, "cal_* arm set diverged from the expected Phase-A table"
-        for name, (
-            prompt,
-            pct,
-            temp,
-            top_p,
-            top_k,
-            on_new,
-            on_stag,
-        ) in _EXPECTED_CAL_ARM_TABLE.items():
-            cfg = variants[name]
-            assert cfg["llm_prompt_variant"] == prompt, name
-            assert cfg["llm_percentage"] == pct, name
-            assert cfg["llm_temperature"] == temp, name
-            assert cfg["llm_top_p"] == top_p, name
-            assert cfg["llm_top_k"] == top_k, name
-            # Routing flags are Python bools (serialized to true/false by _push_properties).
-            assert cfg["llm_on_new_state"] is on_new, name
-            assert cfg["llm_on_stagnation"] is on_stag, name
-            # Constant LLM keys shared by all nine arms.
-            assert cfg["llm_url"] == "http://10.0.2.2:30000/v1", name
-            assert cfg["llm_model"] == "default", name
-            assert cfg["llm_timeout_ms"] == 15000, name
-            assert cfg["llm_percentage_no_substrate"] == -1, name
-            assert cfg["strategy"] == "sata", name
-            assert cfg["throttle_ms"] == 200, name
-            # Frontier substrate present in every cal_* arm (no widget-substrate arm).
-            for key, expected in _EXPECTED_FRONTIER_SUBSTRATE.items():
-                assert cfg[key] == expected, f"{name}: {key} not frontier substrate"
-
-    def test_cal_arms_carry_frontier_not_widget_substrate(self):
-        # Spec scenario "Every cal_* arm falls back to frontier mode": the substrate MUST
-        # equal sata_mop_act_frontier (ANC2) and never the widget substrate. Compared
-        # against the live ANC2 arm so the two cannot drift apart.
-        variants = ApeRVTool.get_variants()
-        anc2 = variants["sata_mop_act_frontier"]
-        substrate_keys = [
-            "mop_activity_source_components",
-            "frontier_boost_weight",
-            "mop_frontier_weight",
-            "activity_trigger_enabled",
-            "mop_data",
-        ]
-        for name, cfg in variants.items():
-            if not name.startswith("cal_"):
-                continue
-            assert (
-                cfg["frontier_boost_weight"] == 200
-            ), f"{name} not on frontier substrate"
-            for key in substrate_keys:
-                assert cfg[key] == anc2[key], f"{name}: {key} diverged from ANC2"
-
-    def test_cal_a3_is_stagnation_only(self):
-        # Spec scenario: cal_a3 routes only on stagnation; all other LLM keys == cal_a1.
-        variants = ApeRVTool.get_variants()
-        a1, a3 = variants["cal_a1"], variants["cal_a3"]
-        assert a3["llm_on_new_state"] is False
-        assert a3["llm_on_stagnation"] is True
-        assert a3["llm_percentage"] == 0
-        for key in LLM_ARM_KEYS:
-            if key in ("llm_on_new_state", "llm_percentage"):
-                continue
-            assert a3[key] == a1[key], f"cal_a3 {key} diverged from cal_a1"
-
-    def test_cal_a6_vs_cal_a5_isolates_top_p_top_k(self):
-        # Spec scenario: cal_a6 vs cal_a5 differ only in top_p (0.6 vs 0.8) and top_k
-        # (50 vs 20); both have temperature 0.7 and percentage 0.3.
-        variants = ApeRVTool.get_variants()
-        a5, a6 = variants["cal_a5"], variants["cal_a6"]
-        assert a5["llm_top_p"] == 0.8 and a6["llm_top_p"] == 0.6
-        assert a5["llm_top_k"] == 20 and a6["llm_top_k"] == 50
-        assert a5["llm_temperature"] == 0.7 and a6["llm_temperature"] == 0.7
-        assert a5["llm_percentage"] == 0.3 and a6["llm_percentage"] == 0.3
-        differing = {k for k in LLM_ARM_KEYS if a5[k] != a6[k]}
-        assert differing == {"llm_top_p", "llm_top_k"}, differing
-
-    def test_property_mapping_covers_llm_max_tokens_and_snap(self):
-        # Task 1.5 / INV-APV-27: the two Phase-B mappings are present, and no cal_a* arm
-        # sets either key (the Phase-A jar hardcodes them — a set value would fake config).
+    def test_the_two_llm_sub_parameters_stay_mapped(self):
+        # gh88's archive left a requirement framing these as "mapped but outside
+        # LLM_ARM_KEYS and set by no cal_a* arm". The guard and the cal arms are both gone,
+        # so the framing goes with them; the entries stay, because the jar declares both as
+        # live Feature.LLM sub-parameters and mop_on_llm_70 sets the snap tolerance.
         assert APERV_PROPERTY_MAPPING["llm_max_tokens"] == "ape.llmMaxTokens"
         assert (
             APERV_PROPERTY_MAPPING["llm_snap_tolerance_px"] == "ape.llmSnapTolerancePx"
         )
-        assert "llm_max_tokens" not in LLM_ARM_KEYS
-        assert "llm_snap_tolerance_px" not in LLM_ARM_KEYS
-        for name, cfg in ApeRVTool.get_variants().items():
-            if not name.startswith("cal_"):
-                continue
-            assert "llm_max_tokens" not in cfg, name
-            assert "llm_snap_tolerance_px" not in cfg, name
 
 
 class TestDecisiveRunArms:
@@ -1156,75 +947,59 @@ class TestDecisiveRunArms:
             control.get("mop_data") == "static_analysis"
         ), "INV-APV-29: the control arm must keep a present, loadable mop_data"
 
-    def test_control_arm_zeroes_all_five_mop_weights(self):
-        control = self.variants["mop_off_llm_off"]
+    def test_control_arm_zeroes_every_mop_weight_it_must(self):
+        # The four scoring weights are zeroed explicitly; mop_frontier_weight and
+        # activity_trigger_enabled are absent because the `mop` preset already states them
+        # at 0 and false. Restating a preset value as an override would be a delta that is
+        # not a delta — and the effective plan, which is what the run sees, is identical
+        # either way (proved by the migration tier's effective-configuration contrast).
+        overrides = self.variants["mop_off_llm_off"]["overrides"]
 
         for key in (
             "mop_weight_direct",
             "mop_weight_transitive",
             "mop_weight_open_menu",
             "mop_weight_wtg",
-            "mop_frontier_weight",
         ):
-            assert control[key] == 0, f"{key} must be 0 in the control arm"
-        assert control["activity_trigger_enabled"] is False
+            assert overrides[key] == 0, f"{key} must be 0 in the control arm"
+        assert "mop_frontier_weight" not in overrides
+        assert "activity_trigger_enabled" not in overrides
 
     def test_control_arm_keeps_the_frontier_alive(self):
         # INV-APV-30: the control removes MOP guidance, not navigation. Zeroing
         # frontier_boost_weight too would confound the contrast.
-        reference = self.variants["mop_on_llm_off"]
-        control = self.variants["mop_off_llm_off"]
+        reference = self.variants["mop_on_llm_off"]["overrides"]
+        control = self.variants["mop_off_llm_off"]["overrides"]
 
         assert control["frontier_boost_weight"] == reference["frontier_boost_weight"]
         assert control["frontier_boost_weight"] == 200
 
-    def test_all_three_arms_carry_the_frontier_substrate(self):
+    def test_all_three_arms_carry_the_reach_package_substrate(self):
         # INV-APV-30 — *sempre modo frontier*, including the control.
         for name in _DECISIVE_ARMS:
             cfg = self.variants[name]
             assert cfg["mop_data"] == "static_analysis", name
-            assert cfg["frontier_boost_weight"] == 200, name
+            assert cfg["overrides"]["frontier_boost_weight"] == 200, name
             assert cfg["strategy"] == "sata", name
-            assert cfg["throttle_ms"] == 200, name
 
     def test_source_components_flag_is_explicit_in_all_three(self):
-        # B2 / spec scenario: never inherited from the jar's false default
-        # (Config.java:159), whose suppression of the MOP-activity signal is
-        # measured at 20.0% → 85.0% of activities flagged on the subset40.
+        # B2 / spec scenario: never inherited from the `mop` preset's false, whose
+        # suppression of the MOP-activity signal is measured at 20.0% -> 85.0% of
+        # activities flagged on the subset40.
         for name in _DECISIVE_ARMS:
-            cfg = self.variants[name]
-            assert "mop_activity_source_components" in cfg, name
-            assert cfg["mop_activity_source_components"] is True, name
+            overrides = self.variants[name]["overrides"]
+            assert overrides.get("mop_activity_source_components") is True, name
 
-    def test_reference_and_control_differ_exactly_in_the_mop_keys(self):
-        # Spec scenario "Reference and control differ only in MOP keys". Asserted
-        # by diffing the dictionaries rather than by trusting review — this is
-        # what makes RQ-C1 a single-factor contrast.
-        reference = self.variants["mop_on_llm_off"]
-        control = self.variants["mop_off_llm_off"]
-
-        differing = {
-            key
-            for key in set(reference) | set(control)
-            if reference.get(key) != control.get(key)
-        }
-
-        assert differing == _MOP_CONTRAST_KEYS
-
-    def test_reference_and_llm_arm_differ_only_in_llm_keys(self):
-        # Spec scenario "Reference and LLM arm differ only in LLM keys": no MOP
-        # weight, frontier or RV exploration flag may move with the LLM.
+    def test_the_llm_arm_differs_from_the_reference_only_in_llm_keys(self):
+        # Spec scenario "Reference and LLM arm differ only in LLM keys". Both arms carry
+        # the same four reach-package overrides, so what is left is the LLM dose — no MOP
+        # weight, frontier or exploration key may move with the LLM.
         #
-        # The B3 jar-provenance declaration is the one exemption, and the second
-        # assertion below is what licenses it: neither key is in
-        # APERV_PROPERTY_MAPPING, so neither is written to ape.properties and
-        # neither can reach the jar. Single-factor is a claim about the keys that
-        # reach the jar, so exempting keys that provably do not reach it keeps
-        # the contrast intact rather than punching a hole in it. The two
-        # assertions must stay together — the exemption is only sound while the
-        # keys remain unmapped.
-        reference = self.variants["mop_on_llm_off"]
-        llm_arm = self.variants["mop_on_llm_70"]
+        # The presets differ (mop vs llm_mop), and that difference is itself LLM-only: the
+        # llm_mop vector is the mop vector plus the LLM sampling block, which the migration
+        # tier's effective-configuration contrast checks against the jar's own tables.
+        reference = self.variants["mop_on_llm_off"]["overrides"]
+        llm_arm = self.variants["mop_on_llm_70"]["overrides"]
 
         differing = {
             key
@@ -1233,42 +1008,32 @@ class TestDecisiveRunArms:
         }
 
         assert differing, "the LLM arm must differ from the reference somewhere"
-        assert _JAR_DECLARATION_KEYS <= differing, sorted(differing)
-        for key in _JAR_DECLARATION_KEYS:
-            assert key not in APERV_PROPERTY_MAPPING, key
-
-        behavioural = differing - _JAR_DECLARATION_KEYS
-        assert all(key.startswith("llm_") for key in behavioural), sorted(behavioural)
+        assert all(key.startswith("llm_") for key in differing), sorted(differing)
         assert not differing & _MOP_CONTRAST_KEYS
 
-    def test_llm_arm_carries_the_cal_a1_dose_verbatim(self):
-        # design D8: 0.7 is the only dose with a measured 300 s counterpart on
-        # this substrate and subset, which is what makes the 1800 s result
-        # readable as a dose × budget interaction.
+    def test_the_jar_declarations_stay_python_only(self):
+        # The B3 declaration is the one exemption from the single-factor contrast, and this
+        # is what licenses it: neither key is in APERV_PROPERTY_MAPPING, so neither is
+        # written to ape.properties and neither can reach the jar. Single-factor is a claim
+        # about the keys that reach the jar, so exempting keys that provably do not reach it
+        # keeps the contrast intact rather than punching a hole in it.
         llm_arm = self.variants["mop_on_llm_70"]
-        cal_a1 = self.variants["cal_a1"]
 
-        for key in LLM_ARM_KEYS:
-            assert llm_arm[key] == cal_a1[key], f"{key} diverged from the cal_a1 dose"
-        assert llm_arm["llm_percentage"] == 0.7
-        assert llm_arm["llm_prompt_variant"] == "v13"
-        assert llm_arm["llm_temperature"] == 0
+        for key in _JAR_DECLARATION_KEYS:
+            assert key in llm_arm, f"{key} must stay at the top level"
+            assert key not in llm_arm["overrides"]
+            assert key not in APERV_PROPERTY_MAPPING, key
 
-    def test_reference_arm_is_the_anc2_anchor(self):
-        # Arm 1 is configurationally sata_mop_act_frontier: the reference is the
-        # configuration that already won the multi-arm comparison, not a new one.
-        reference = self.variants["mop_on_llm_off"]
-        anc2 = self.variants["sata_mop_act_frontier"]
+    def test_the_llm_arm_carries_the_calibrated_dose(self):
+        # design D8: 0.7 is the only dose with a measured 300 s counterpart on this
+        # substrate and subset, which is what makes the 1800 s result readable as a
+        # dose x budget interaction. The cal_a1 arm it was carried over from is retired;
+        # the dose is now stated here, which is the only place it still has to be right.
+        overrides = self.variants["mop_on_llm_70"]["overrides"]
 
-        assert reference == anc2
-
-    def test_decisive_arms_satisfy_the_arm_defining_guard(self):
-        # INV-APV-14 under its existing scope: none of the three is exempt, so
-        # every arm-defining key must be explicit in all of them.
-        for name in _DECISIVE_ARMS:
-            assert name not in aperv_mod._ARM_DEFINING_EXEMPT
-            missing = aperv_mod.ARM_DEFINING_KEYS - set(self.variants[name])
-            assert not missing, f"{name} missing arm-defining keys: {sorted(missing)}"
+        assert overrides["llm_percentage"] == 0.7
+        assert overrides["llm_prompt_variant"] == "v13"
+        assert overrides["llm_temperature"] == 0
 
 
 class TestSeedPropagation:
@@ -1491,14 +1256,21 @@ def _snap_tolerance_offenders(variants):
     """
     offenders = {}
     for name, cfg in variants.items():
-        sets_tolerance = "llm_snap_tolerance_px" in cfg
+        # The tolerance is an ordinary override, so it lives inside `overrides`; the two
+        # declarations are Python-only and stay at the top level, which is exactly what
+        # keeps them out of ape.properties and out of the single-factor contrast.
+        overrides = cfg.get("overrides", {})
+        sets_tolerance = "llm_snap_tolerance_px" in overrides
         declared = {key for key in _JAR_DECLARATION_KEYS if cfg.get(key)}
         if sets_tolerance and declared != _JAR_DECLARATION_KEYS:
             missing = sorted(_JAR_DECLARATION_KEYS - declared)
             offenders[name] = (
                 f"raised tolerance without a declared jar sha ({', '.join(missing)})"
             )
-        elif declared and cfg.get("llm_snap_tolerance_px") != _SNAP_TOLERANCE_RAISED:
+        elif (
+            declared
+            and overrides.get("llm_snap_tolerance_px") != _SNAP_TOLERANCE_RAISED
+        ):
             offenders[name] = "declared jar sha without the raised tolerance"
         elif declared and declared != _JAR_DECLARATION_KEYS:
             missing = sorted(_JAR_DECLARATION_KEYS - declared)
@@ -1515,7 +1287,7 @@ class TestSnapToleranceGate:
     def test_tolerance_without_declaration_fails(self):
         # Spec scenario "Tolerance and jar declaration travel together".
         offenders = _snap_tolerance_offenders(
-            {"arm": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED}}
+            {"arm": {"overrides": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED}}}
         )
 
         assert "arm" in offenders
@@ -1530,7 +1302,7 @@ class TestSnapToleranceGate:
                 "arm": {
                     _JAR_SHA_KEY: "abc1234",
                     _JAR_DIGEST_KEY: "def5678",
-                    "llm_snap_tolerance_px": 50,
+                    "overrides": {"llm_snap_tolerance_px": 50},
                 }
             }
         )
@@ -1555,7 +1327,7 @@ class TestSnapToleranceGate:
                 {
                     "arm": {
                         present: "abc1234",
-                        "llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED,
+                        "overrides": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED},
                     }
                 }
             )
@@ -1570,7 +1342,7 @@ class TestSnapToleranceGate:
                     "arm": {
                         _JAR_SHA_KEY: "abc1234",
                         _JAR_DIGEST_KEY: "def5678",
-                        "llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED,
+                        "overrides": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED},
                     }
                 }
             )

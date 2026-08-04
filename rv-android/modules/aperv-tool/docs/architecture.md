@@ -2,7 +2,7 @@
 
 ## Overview
 
-The aperv-tool module wraps the APE-RV binary (`ape-rv.jar`) as an `AbstractTool` plugin for rv-platform integration. APE-RV is an enhanced fork of the AOSP Monkey tool that implements model-based UI exploration via the Widget Table Graph (WTG) model with adaptive random testing (SATA), BFS, DFS, and random strategies. The module handles JAR deployment to the Android device, strategy configuration via `ape.properties`, optional MOP-guided scoring using static analysis data, and optional LLM-guided exploration via an OpenAI-compatible endpoint. It runs inside the Android emulator via `app_process`, not as a standard JVM process.
+The aperv-tool module wraps the APE-RV binary (`ape-rv.jar`) as an `AbstractTool` plugin for rv-platform integration. APE-RV is an enhanced fork of the AOSP Monkey tool that implements model-based UI exploration via the Widget Table Graph (WTG) model with adaptive random testing (SATA) and random strategies. The module handles JAR deployment to the Android device, strategy configuration via `ape.properties`, optional MOP-guided scoring using static analysis data, and optional LLM-guided exploration via an OpenAI-compatible endpoint. It runs inside the Android emulator via `app_process`, not as a standard JVM process.
 
 ## Specification Alignment
 
@@ -13,7 +13,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | FR | Description | Architectural Support |
 |----|-------------|----------------------|
 | FR18 | Plugin system with registry and factory patterns | `ApeRVTool` extends `AbstractTool` (rv-android-core) and registers via `ToolRegistry` in rv-platform's `_register_external_tools()` |
-| FR20 | Per-tool variant system | `get_variants()` returns 13 named variants (default, sata, sata_mop, bfs, random, sata_llm, sata_mop_llm, plus 6 prompt experiment variants); `configure()` validates strategy eagerly |
+| FR20 | Per-tool variant system | `get_variants()` returns 8 named variants as `preset` + `overrides`; `configure()` validates strategy, preset and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
 
 ### Key Invariants
 
@@ -30,7 +30,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 ### Specification Scenarios
 
 Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
-- **External tool registration**: rv-platform imports `ApeRVTool` in `_register_external_tools()`, checks `is_tool_registered("aperv")` for idempotency, and registers the tool class with all 13 variants -- traces through `rv_platform/__init__.py` -> `ToolRegistry` -> `ApeRVTool.get_tool_spec()` / `get_variants()`
+- **External tool registration**: rv-platform imports `ApeRVTool` in `_register_external_tools()`, checks `is_tool_registered("aperv")` for idempotency, and registers the tool class with all 8 variants -- traces through `rv_platform/__init__.py` -> `ToolRegistry` -> `ApeRVTool.get_tool_spec()` / `get_variants()`
 - **Tool execution with variant**: rv-platform calls `ToolFactory.create_tool(tool_config)` which instantiates `ApeRVTool`, resolves the variant config, merges parameters, calls `configure()`, then `execute_tool_specific_logic()` -- traces through `ToolFactory` -> `ApeRVTool.configure()` -> `execute_tool_specific_logic()`
 
 ## Key Architectural Decisions
@@ -48,7 +48,7 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 
 ### Why Properties File Injection?
 
-APE-RV is a Java application running inside the Android emulator via `app_process`. It reads configuration from `ape.properties` on the device filesystem at startup. The Python wrapper generates this file dynamically because: (1) different variants need different configurations (throttle, MOP weights, LLM parameters), (2) configuration must be applied per-experiment without rebuilding the JAR, and (3) the `APERV_PROPERTY_MAPPING` dictionary serves as an explicit contract between Python config keys and Java property names, making the translation auditable. Keys not in the mapping (like `strategy` and `mop_data`) are Python-only control parameters consumed during execution, not configuration for the Java binary.
+APE-RV is a Java application running inside the Android emulator via `app_process`. It reads configuration from `ape.properties` on the device filesystem at startup. The Python wrapper generates this file dynamically, and since stage 2 of the re-architecture it writes only what distinguishes the arm: `ape.preset=<name>` first, `ape.mopDataPath` when the derived MOP artifact was pushed, then one line per `overrides` entry. What a preset contains is resolved inside the jar, so the file no longer restates 18-33 keys the two sides had to agree on. Keys not in `APERV_PROPERTY_MAPPING` (`strategy`, `mop_data`, `seed`, the two jar-provenance declarations) are Python-only control parameters and never reach the device.
 
 ### Why Shared Process Pattern with APE?
 
@@ -83,7 +83,7 @@ Exploration tools like APE-RV are designed to run indefinitely, exploring the ap
 
 ### Pattern: Variant Configuration
 
-**Description**: `get_variants()` returns a dictionary of named configurations. Each variant is a frozen dictionary of parameters that `configure()` merges into `_tool_config`. The `APERV_PROPERTY_MAPPING` dictionary translates Python config keys to Java property names for `ape.properties` generation. Python-only keys (e.g., `strategy`, `mop_data`) are excluded from the properties file automatically because they have no mapping entry.
+**Description**: `get_variants()` returns a dictionary of named configurations, each a `preset` name plus an `overrides` dict. `configure()` validates the shape, folds any tool-DSL override into `overrides`, and raises on a top-level key it cannot honour -- without that fold a DSL override would produce no property line and no error, which is the silent-discard failure the preset mechanism exists to remove. `_push_properties()` then translates `overrides` through `APERV_PROPERTY_MAPPING`. Python-only keys are excluded automatically because they have no mapping entry.
 
 **When Used**: When the experiment configuration specifies a variant (e.g., `aperv:sata_mop`), `ToolFactory` resolves the variant config, merges any parameter overrides, and calls `configure()`.
 
@@ -322,19 +322,21 @@ sequenceDiagram
 - `APERV_DEVICE_JAR_PATH = "/data/local/tmp/ape-rv.jar"` -- target path on device
 - `APERV_DEVICE_PROPERTIES_PATH = "/data/local/tmp/ape.properties"` -- properties target
 - `APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"` -- Java entry point
-- `APERV_AVAILABLE_STRATEGIES = ["sata", "random", "bfs", "dfs"]` -- valid strategies
-- `APERV_PROPERTY_MAPPING` -- 18-entry dictionary mapping Python config keys to Java `ape.*` property names (exploration, MOP weight, and LLM parameters)
+- `APERV_AVAILABLE_STRATEGIES = ["sata", "random"]` -- valid strategies. `bfs`/`dfs` were never agent types (`ApeAgent.createAgent` knows `sata`, `random` and `replay`), so accepting them would let a run pass local validation and abort on the device
+- `APERV_ORCHESTRATION_KEYS` -- the top-level keys that are Python orchestration rather than jar configuration; anything else at the top level must be a mapped override or `configure()` raises
+- `APERV_PROPERTY_MAPPING` -- 50-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
 
 ### Variant System
 
-**Purpose**: Define 13 named configurations covering base strategies, MOP-guided scoring, LLM guidance, and prompt experiment variants.
+**Purpose**: Define the experimental matrix as **preset + overrides**: 8 names carrying 7 configurations, each a jar preset name plus a dict of deltas over it.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py` (`get_variants()` classmethod)
 
 **Variants**:
-- **Base** (5): `default` (sata), `sata`, `bfs`, `random`, `sata_mop` (sata + static analysis MOP data)
-- **LLM** (2): `sata_llm` (sata + LLM), `sata_mop_llm` (sata + MOP + LLM)
-- **Prompt experiment** (6): `sata_mop_llm_{variant}` for `ape_current`, `ape_reasoning`, `compact_v1`, `v13`, `v17`, `visual_only` -- all use sata + MOP + LLM at 70% rate, differing only in `llm_prompt_variant`
+- **Preset-identity** (4, plus the `default` alias): `sata` (`aperv`), `sata_mop` (`mop`), `sata_llm` (`llm`), `sata_mop_llm` (`llm_mop`) -- empty overrides but for the deployment-specific `llm_url`, since a preset names an arm while a URL names a machine
+- **E3 decisive run** (3): `mop_on_llm_off` (reference, on the reach package), `mop_off_llm_off` (control, MOP scoring zeroed but navigation alive), `mop_on_llm_70` (LLM arm at the calibrated dose)
+
+The division of authority is the point: the jar owns what a preset *means*, Python owns *which arms exist*. Adding an ablation means adding a named override set, never a fifth preset.
 
 ---
 

@@ -126,11 +126,6 @@ APERV_PROPERTY_MAPPING = {
     # MOP weight parameters
     "mop_weight_direct": "ape.mopWeightDirect",
     "mop_weight_transitive": "ape.mopWeightTransitive",
-    # mop_weight_activity: ape.mopWeightActivity was removed from Config.java on the
-    # mop-fairtest branch (replaced by component triggering + mopWeightOpenMenu); the
-    # key is inert (an unknown ape.property is ignored by Config.java) and kept only
-    # for backward-compat with pre-mop-fairtest configs. calibração v4 does NOT search it.
-    "mop_weight_activity": "ape.mopWeightActivity",
     "mop_weight_open_menu": "ape.mopWeightOpenMenu",
     "mop_weight_wtg": "ape.mopWeightWtg",
     # gh11/gh13: per-step component-trigger probability (default 0.0 = disabled).
@@ -138,8 +133,8 @@ APERV_PROPERTY_MAPPING = {
     # mop-fairtest: cap on deterministic MOP short-circuit picks per (widget,type,activity).
     "mop_target_pick_cap": "ape.mopTargetPickCap",
     "coverage_boost_weight": "ape.coverageBoostWeight",
-    # RV exploration flags — arm-defining (gh43 + rv-scoring-pipeline). Made explicit
-    # per arm so no arm-defining behavior falls back to a jar Config default (INV-APV-13/14).
+    # RV exploration flags. Every preset states all of them, so an arm overrides one only
+    # to deviate from its preset — which no surviving arm does.
     "back_menu_pick_cap": "ape.backMenuPickCap",
     "foreign_activity_guard": "ape.foreignActivityGuard",
     "tree_package_guard": "ape.treePackageGuard",
@@ -152,24 +147,19 @@ APERV_PROPERTY_MAPPING = {
     "least_visited_priority_tiebreak": "ape.leastVisitedPriorityTiebreak",
     "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
     "activity_budget_enabled": "ape.activityBudgetEnabled",
-    # MOP reach strategies — arm-defining (mop-reach-strategies: A′/B). E-min is the
-    # activity-trigger launcher (activity_trigger_enabled below); trigger_mop_first was
-    # removed after the APE-RV jar deleted Config.triggerMopFirst (mop-census-launcher),
-    # making ape.triggerMopFirst inert — see task group 7.
+    # MOP reach strategies (mop-reach-strategies: A′/B). E-min is the activity-trigger
+    # launcher (activity_trigger_enabled below).
     "mop_activity_source_components": "ape.mopActivitySourceComponents",
     "mop_frontier_weight": "ape.mopFrontierWeight",
-    # Frontier boosting + component triggering — arm-defining (gh43).
+    # Frontier boosting + component triggering (gh43).
     "frontier_boost_weight": "ape.frontierBoostWeight",
     "activity_trigger_enabled": "ape.activityTriggerEnabled",
-    # Arm-neutral global tuning knob (idle-timeout-cap): mapped so an experiment can
-    # lower the idle-drain ceiling globally, but NOT arm-defining (applies to every arm).
+    # Global tuning knob (idle-timeout-cap): mapped so an experiment can lower the
+    # idle-drain ceiling. Applies to every arm, so it never distinguishes one.
     "max_idle_timeout_ms": "ape.maxIdleTimeoutMs",
-    # Arm-neutral launcher-dose sub-params (activity-trigger-dose): the launcher cadence
-    # (stagnation step at which it fires) and the per-run launch cap. Mapped so an
-    # experiment can dose the launcher, but NOT arm-defining — a paired comparison sets
-    # the same dose on both arms, so these values are identical across arms and cannot
-    # define an arm (same rationale as max_idle_timeout_ms). They tune the arm-defining
-    # activity_trigger_enabled without themselves selecting a behavior.
+    # Launcher-dose sub-params (activity-trigger-dose): the cadence at which the launcher
+    # fires and the per-run launch cap. A paired comparison sets the same dose on both
+    # arms, so they tune activity_trigger_enabled without themselves selecting a behavior.
     "activity_trigger_stagnation_step": "ape.activityTriggerStagnationStep",
     "activity_trigger_max_per_run": "ape.activityTriggerMaxPerRun",
     # LLM parameters
@@ -182,198 +172,14 @@ APERV_PROPERTY_MAPPING = {
     "llm_top_k": "ape.llmTopK",
     "llm_timeout_ms": "ape.llmTimeoutMs",
     "llm_percentage": "ape.llmPercentage",
-    # mop-reach-strategies F′ seam — arm-defining (LLM boost when substrate is widgetless).
+    # mop-reach-strategies F′ seam: the LLM boost applied when the substrate is widgetless.
     "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
     "llm_prompt_variant": "ape.llmPromptVariant",
-    # Phase-B LLM knobs (INV-APV-27) — mapped so a Phase-B arm can set them the moment the
-    # Phase-B jar exposes the properties, with no further aperv-tool change. Inert for
-    # Phase-A: no cal_a* arm sets either key (the Phase-A jar hardcodes max_tokens=1024 and
-    # the snap tolerance), and INV-APV-08 writes only keys present in both _tool_config and
-    # the mapping, so ape.properties for a cal_a* arm never emits these. The Java property
-    # names follow plan §7 and are corrected in a Phase-B iteration if the ape-side J1
-    # change decides differently. NOT members of LLM_ARM_KEYS (a dead knob would fake
-    # explicitness — see INV-APV-26).
+    # Live Feature.LLM sub-parameters in the jar's ownership table. The snap tolerance is
+    # set by mop_on_llm_70 and is paired with that arm's jar-digest declaration
+    # (INV-APV-34); max_tokens is mapped and set by no arm, so it takes the jar's default.
     "llm_max_tokens": "ape.llmMaxTokens",
     "llm_snap_tolerance_px": "ape.llmSnapTolerancePx",
-}
-
-
-# The Python config keys whose value defines what an experiment arm *is* (INV-APV-15).
-# Single source of truth for the guard tests: every member MUST be in
-# APERV_PROPERTY_MAPPING (INV-APV-13) and set explicitly in every non-exempt variant
-# (INV-APV-14). Excludes mop_data/strategy (Python-only orchestration) and the
-# mop_weight_* keys (gated by mop_data — a null MopData disables scoring regardless of
-# weight, so they cannot contaminate a non-MOP arm) and max_idle_timeout_ms (arm-neutral).
-ARM_DEFINING_KEYS = frozenset(
-    {
-        "frontier_boost_weight",
-        "activity_trigger_enabled",
-        "back_menu_pick_cap",
-        "foreign_activity_guard",
-        "tree_package_guard",
-        "dynamic_epsilon",
-        "heuristic_input",
-        "fuzz_input_typed",
-        "form_completion_enabled",
-        "step_telemetry_enabled",
-        "model_menu_enabled",
-        "least_visited_priority_tiebreak",
-        "tree_enhancements_enabled",
-        "activity_budget_enabled",
-        "mop_activity_source_components",
-        "mop_frontier_weight",
-        "llm_percentage_no_substrate",
-    }
-)
-
-# The six gh43 prompt-experiment variants are frozen for historical reproducibility and
-# EXEMPT from the arm-defining explicitness policy (INV-APV-17). An explicit named set —
-# NOT a `sata_mop_llm_` prefix match — so a future non-exempt sata_mop_llm_* arm cannot be
-# silently absorbed into the exemption and escape the guard.
-_ARM_DEFINING_EXEMPT = frozenset(
-    {
-        "sata_mop_llm_ape_current",
-        "sata_mop_llm_ape_reasoning",
-        "sata_mop_llm_compact_v1",
-        "sata_mop_llm_v13",
-        "sata_mop_llm_v17",
-        "sata_mop_llm_visual_only",
-    }
-)
-
-# The LLM configuration keys every calibration arm (cal_*) MUST declare explicitly
-# (INV-APV-26). A second guard, scoped to cal_*-prefixed variants only, that closes the
-# INV-APV-14 gap: ARM_DEFINING_KEYS enforces explicitness over the arm-defining flags but
-# _LLM_FLAGS omits llm_percentage and llm_prompt_variant, so two LLM arms could differ
-# only through a key no guard covers. Calibration arms differ *precisely* in LLM keys, so
-# for them every LLM key the Phase-A jar consumes is part of the audited surface.
-#
-# llm_max_tokens and llm_snap_tolerance_px are deliberately NOT here: the Phase-A jar
-# hardcodes max_tokens=1024 and the snap tolerance, so requiring them would fake
-# explicitness over a knob the deployed binary ignores. They join the guard only when the
-# Phase-B jar exposes the corresponding Java properties (INV-APV-27).
-LLM_ARM_KEYS = frozenset(
-    {
-        "llm_url",
-        "llm_on_new_state",
-        "llm_on_stagnation",
-        "llm_model",
-        "llm_temperature",
-        "llm_top_p",
-        "llm_top_k",
-        "llm_timeout_ms",
-        "llm_percentage",
-        "llm_percentage_no_substrate",
-        "llm_prompt_variant",
-    }
-)
-
-# RV exploration ON at the current mop-fairtest jar defaults, made explicit; MOP / reach /
-# frontier / component-triggering OFF. Spread into every non-MOP baseline arm so no
-# arm-defining flag falls back to a jar Config default (INV-APV-14). This dict enumerates
-# exactly the 17 ARM_DEFINING_KEYS, so any variant spreading it satisfies the guard.
-_BASELINE_ARM_FLAGS = {
-    "back_menu_pick_cap": 3,
-    "foreign_activity_guard": True,
-    "tree_package_guard": True,
-    "dynamic_epsilon": True,
-    "heuristic_input": True,
-    "fuzz_input_typed": True,
-    "form_completion_enabled": True,
-    "step_telemetry_enabled": True,
-    "model_menu_enabled": True,
-    "least_visited_priority_tiebreak": True,
-    "tree_enhancements_enabled": True,
-    "activity_budget_enabled": True,
-    "llm_percentage_no_substrate": -1,
-    "frontier_boost_weight": 0,
-    "activity_trigger_enabled": False,
-    "mop_activity_source_components": False,
-    "mop_frontier_weight": 0,
-}
-
-# The MOP substrate: static-analysis data path + the four MOP scoring weights. Spread into
-# every MOP arm. Weights are gated by mop_data (a null MopData disables scoring regardless),
-# so they are NOT arm-defining, but are pinned here for auditability (INV-APV-15).
-_MOP_SUBSTRATE = {
-    "mop_data": "static_analysis",
-    "mop_weight_direct": 500,
-    "mop_weight_transitive": 300,
-    "mop_weight_open_menu": 250,
-    "mop_weight_wtg": 200,
-}
-
-# The LLM sampling block shared by the LLM arms (sata_llm / sata_mop_llm). 10.0.2.2 is the
-# Android emulator alias for host loopback; APERV_LLM_BASE_URL overrides at configure().
-_LLM_FLAGS = {
-    "llm_url": "http://10.0.2.2:30000/v1",
-    "llm_on_new_state": "true",
-    "llm_on_stagnation": "true",
-    "llm_model": "default",
-    "llm_temperature": 0.3,
-    "llm_top_p": 0.6,
-    "llm_top_k": 50,
-    "llm_timeout_ms": 15000,
-}
-
-# The frontier reach substrate: the arm-defining configuration of sata_mop_act_frontier
-# (MOP on + reach package A′+B+E-min) that won the cmpma multi-arm comparison
-# (cov_mop 37.75% vs ≤35%, Friedman+Holm). Spread into every cal_* calibration arm so that
-# whenever the LLM router does not delegate a step — and on every no_match fallback — the
-# arm explores in frontier mode. `sata_mop_act_frontier` without the LLM block is exactly
-# the ANC2 anchor, so `cal_* − ANC2` isolates the LLM contribution on the same algorithmic
-# base (design decision 3). Enumerates every ARM_DEFINING_KEY (via _BASELINE_ARM_FLAGS with
-# the four frontier overrides) + the MOP substrate, so any cal_* arm spreading it satisfies
-# the INV-APV-14 guard.
-_FRONTIER_SUBSTRATE = {
-    **_BASELINE_ARM_FLAGS,
-    **_MOP_SUBSTRATE,
-    "mop_activity_source_components": True,
-    "frontier_boost_weight": 200,
-    "mop_frontier_weight": 200,
-    "activity_trigger_enabled": True,
-}
-
-# What "MOP guidance off" means, as a delta over the frontier substrate. Spread
-# into the decisive run's control arm so the arm reads as "the reference arm plus
-# this", making the single-factor property visible at the definition site rather
-# than only in a test.
-#
-# The shape is forced, not chosen (INV-APV-29). Three things could plausibly mean
-# MOP-off, and two of them silently destroy the experiment:
-#
-#   1. Point ape.mopDataPath at a missing file → requireMopArm raises
-#      StopTestingException and the whole run ABORTS (StatefulAgent.java:216-223).
-#   2. Omit mop_data so the path is never set → loads as null without aborting,
-#      but WtgPass:29 and FrontierPass:35 both require mopData != null, so the
-#      generic WTG and frontier navigation die as collateral. The contrast would
-#      then be "full substrate versus almost no substrate", not "MOP guidance on
-#      versus off".
-#   3. Keep the document, zero the weights, turn the trigger off → the MOP
-#      short-circuits become no-ops (pickBestMopTarget requires mopBoost > 0)
-#      while the frontier and WTG passes keep running on generic signal.
-#
-# Only the third isolates MOP guidance, so mop_data stays present here and
-# frontier_boost_weight is deliberately NOT zeroed: the control removes MOP
-# guidance, not navigation (INV-APV-30).
-_MOP_OFF_OVERRIDES = {
-    "mop_weight_direct": 0,
-    "mop_weight_transitive": 0,
-    "mop_weight_open_menu": 0,
-    "mop_weight_wtg": 0,
-    "mop_frontier_weight": 0,
-    "activity_trigger_enabled": False,
-}
-
-# LLM keys shared verbatim by all nine calibration arms. The varying keys — prompt variant,
-# percentage, sampling (temperature/top_p/top_k), and routing (on_new_state/on_stagnation) —
-# are written explicitly per arm (design decision 3: the diff-vs-cal_a1 is exactly what the
-# experiment varies). llm_percentage_no_substrate=-1 comes from the frontier substrate.
-# 10.0.2.2 is the emulator host-loopback alias; APERV_LLM_BASE_URL overrides at configure().
-_CAL_LLM_COMMON = {
-    "llm_url": "http://10.0.2.2:30000/v1",
-    "llm_model": "default",
-    "llm_timeout_ms": 15000,
 }
 
 
@@ -401,12 +207,13 @@ class ApeRVTool(AbstractTool):
       APE-RV output is captured only for diagnostics
 
     ### Key Features:
-    - Named variants: eleven arm-defining-explicit arms (default, sata, bfs, random,
-      ape_pure, sata_mop_widget, sata_mop [alias], sata_mop_activity,
-      sata_mop_act_frontier, sata_llm, sata_mop_llm) + six frozen gh43 prompt arms
-      + nine cal_a1…cal_a9 calibration arms (frontier substrate + explicit LLM keys)
-    - Eager strategy validation in configure() catches typos before device access
-    - ape.properties injection configures GUI throttle without modifying the JAR
+    - Named variants: eight names carrying seven configurations, each a jar preset
+      plus a dict of override deltas (default [alias of sata], sata, sata_mop,
+      sata_llm, sata_mop_llm, and the three E3 decisive-run arms mop_on_llm_off,
+      mop_off_llm_off, mop_on_llm_70)
+    - Eager validation in configure() catches typos before device access, including
+      tool-DSL overrides that no arm could honour
+    - ape.properties injection states the preset and its deltas without modifying the JAR
     - Timeout is treated as expected exit (exploration tools run until time limit)
 
     ### Integration Points:
@@ -469,19 +276,21 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants.
 
-        Eleven base non-exempt arms + nine cal_* calibration arms + three E3
-        decisive-run arms + six exempt gh43 prompt-experiment arms, 29 in total.
-        Every non-exempt arm sets every key in ARM_DEFINING_KEYS
-        explicitly (INV-APV-14), spreading the shared _BASELINE_ARM_FLAGS (RV exploration ON,
-        MOP/reach off) and — for MOP arms — _MOP_SUBSTRATE, so an arm's identity is its
-        variant dict and never a jar Config default. "default" aliases sata (INV-TOOL-02);
-        "sata_mop" aliases sata_mop_widget by shared object (INV-APV-16). The six gh43 arms
-        are frozen and EXEMPT (INV-APV-17). The nine cal_a1…cal_a9 arms sit on the
-        _FRONTIER_SUBSTRATE and additionally declare every LLM_ARM_KEYS key explicitly
-        (INV-APV-26); they implement the Phase-A calibration arm table (plan §6, rev. 3.2).
-        The three gh90 arms — mop_on_llm_off, mop_off_llm_off, mop_on_llm_70 — are the
-        E3 decisive run's arm set: a shared reference plus one single-factor contrast
-        each for MOP guidance (RQ-C1) and for the LLM (RQ-C3).
+        Eight names carrying seven configurations. An arm is a `preset` name plus an
+        `overrides` dict of deltas over it, and nothing else: the jar owns what a preset
+        means, this module owns the experimental matrix — which arms exist, what their
+        names are, and how each differs from its preset.
+
+        Four are one-to-one with the jar's presets and carry nothing but the
+        deployment-specific server URL where an LLM is involved — `sata` (aperv),
+        `sata_mop` (mop), `sata_llm` (llm), `sata_mop_llm` (llm_mop) — with `default`
+        bound to the same object as `sata` (INV-TOOL-02). The other three are the E3
+        decisive run's arms: a reference on the reach package, its MOP-off control, and
+        its LLM arm.
+
+        Python-only orchestration keys stay at the top level and never reach
+        ape.properties: `strategy` (the --ape flag), `mop_data` (whether the derived MOP
+        artifact is pushed), `seed`, and the two jar-provenance declarations.
 
         Returns:
             Dictionary mapping variant names to configuration parameters
@@ -520,239 +329,106 @@ class ApeRVTool(AbstractTool):
                 "mop_data": "static_analysis",
                 "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
             },
-            # E-min is the activity-trigger launcher (activity_trigger_enabled); trigger_mop_first
-            # was removed after the jar deleted Config.triggerMopFirst (mop-census-launcher).
-            "sata_mop_act_frontier": {
-                **_FRONTIER_SUBSTRATE,
-                "strategy": "sata",
-                "throttle_ms": 200,
-            },
-            # --- Prompt variant experiment variants (gh43) — FROZEN / EXEMPT (INV-APV-17) ---
-            # Six controlled prompt-ablation arms, sata + mop + llm at 70% rate, differing
-            # only in llm_prompt_variant. Frozen exactly as authored for reproducibility;
-            # deliberately NOT carrying the arm-defining baseline (exempt from INV-APV-14).
-            **{
-                f"sata_mop_llm_{v}": {
-                    "strategy": "sata",
-                    "throttle_ms": 200,
-                    "mop_data": "static_analysis",
-                    **_LLM_FLAGS,
-                    "llm_percentage": 0.7,
-                    "llm_prompt_variant": v,
-                }
-                for v in [
-                    "ape_current",
-                    "ape_reasoning",
-                    "compact_v1",
-                    "v13",
-                    "v17",
-                    "visual_only",
-                ]
-            },
-            # --- Calibration arm variants (cal_*) — Phase-A arm table (plan §6, rev. 3.2) ---
-            # All nine arms sit on the _FRONTIER_SUBSTRATE (sata_mop_act_frontier: MOP on,
-            # reach package A′+B+E-min) so every non-LLM step and every no_match fallback
-            # explores in frontier mode. Each declares every LLM_ARM_KEYS key explicitly
-            # (INV-APV-26) plus the full ARM_DEFINING_KEYS set (via the substrate). Written
-            # as explicit dict literals — the diff-vs-cal_a1 is exactly what the experiment
-            # varies (design decision 3). llm_on_new_state/llm_on_stagnation are Python bools
-            # (serialized to true/false by _push_properties); llm_temperature 0 disables
-            # sampling stochasticity.
-            #
-            # cal_a1 = control: the cmp_llm_20260721 LLM-key config (v13, 70%, temperature 0)
-            # carried onto the frontier substrate. cmp_llm itself ran on the widget substrate,
-            # so cal_a1 is NOT the identical cmp_llm arm — the cross-substrate anchors are
-            # re-measured in-experiment by the Phase-A design (ANC1/ANC2/cal_a1).
-            "cal_a1": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0.7,
-                "llm_temperature": 0,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
-            # cal_a2 (H1): lower the LLM budget to 30% at the same routing/sampling as cal_a1.
-            "cal_a2": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0.3,
-                "llm_temperature": 0,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
-            # cal_a3 (H1, stagnation-only): route to the LLM only when stagnating
-            # (llm_on_new_state off), percentage 0 — the LLM fires purely on the stagnation
-            # trigger, never on new-state entry.
-            "cal_a3": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0,
-                "llm_temperature": 0,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": False,
-                "llm_on_stagnation": True,
-            },
-            # cal_a4 (H1, new-state+stagnation): both triggers on, percentage 0 — routing is
-            # trigger-driven rather than budget-driven.
-            "cal_a4": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0,
-                "llm_temperature": 0,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
-            # cal_a5 (H3, vendor bundle): the vendor-recommended sampling bundle
-            # (temperature 0.7, top_p 0.8, top_k 20) at 30% budget.
-            "cal_a5": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0.3,
-                "llm_temperature": 0.7,
-                "llm_top_p": 0.8,
-                "llm_top_k": 20,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
-            # cal_a6 (H3, temperature isolated): same as cal_a5 but top_p/top_k held at the
-            # cal_a1 values (0.6 / 50) — isolates temperature from the nucleus/top-k bundle
-            # (cal_a6 vs cal_a5 differ only in llm_top_p and llm_top_k).
-            "cal_a6": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0.3,
-                "llm_temperature": 0.7,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
-            # cal_a7 (H3, AutoDroid point): the AutoDroid temperature setting (0.25).
-            "cal_a7": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0.3,
-                "llm_temperature": 0.25,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
-            # cal_a8 (H2, short extreme): the shortest prompt (visual_only) at 30% budget.
-            "cal_a8": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "visual_only",
-                "llm_percentage": 0.3,
-                "llm_temperature": 0,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
-            # cal_a9 (H2, long extreme): the longest prompt (v17) at 30% budget.
-            "cal_a9": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
-                "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v17",
-                "llm_percentage": 0.3,
-                "llm_temperature": 0,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-            },
             # --- E3 decisive-run arms (gh90) -------------------------------------
             # The three arms of the run that decides whether the LLM stays in the
-            # design. All three sit on the frontier substrate (INV-APV-30) — the
+            # design. All three sit on the reach package (INV-APV-30) — the
             # standing rule is *sempre modo frontier* — and each contrast is
             # single-factor: arm 2 differs from arm 1 only in the MOP keys, arm 3
-            # only in the LLM keys, which the guard tests assert by diffing the
-            # dictionaries rather than by trusting review.
+            # only in the LLM keys, which the override dicts now make readable
+            # directly rather than only through a test.
             #
             # The names are normative, not cosmetic: the variant string is the
             # resume identity key (platform.py:308-318) and the consolidation
             # column key ({arm}__{metric}), so a rename silently splits a
-            # campaign's results. They spell out both factors so each contrast is
-            # legible straight off the results CSV header.
+            # campaign's results.
             #
-            # Arm 1 is configurationally sata_mop_act_frontier, the ANC2 anchor
-            # that won the previous multi-arm comparison — the reference is not a
-            # newly invented baseline.
+            # Arm 1 absorbs the retired sata_mop_act_frontier: the two carried
+            # byte-identical effective configurations — the ANC2 anchor under two
+            # names — so the reference is not a newly invented baseline but the
+            # configuration that won the cmpma multi-arm comparison (cov_mop
+            # 37.75% vs <=35%, Friedman+Holm), under the name the decisive run
+            # recorded. E-min is the activity-trigger launcher.
             "mop_on_llm_off": {
-                **_FRONTIER_SUBSTRATE,
+                "preset": "mop",
                 "strategy": "sata",
-                "throttle_ms": 200,
+                "mop_data": "static_analysis",
+                "overrides": {
+                    "mop_activity_source_components": True,
+                    "frontier_boost_weight": 200,
+                    "mop_frontier_weight": 200,
+                    "activity_trigger_enabled": True,
+                },
             },
             # Arm 2 — the experiment's first control arm. Every APE-RV run ever
             # executed had MOP guidance on, so no measured difference has ever
             # been attributable to MOP guidance rather than to APE's baseline
             # exploration. arm 1 vs arm 2 is RQ-C1.
+            #
+            # The shape is forced, not chosen (INV-APV-29). Three things could
+            # plausibly mean MOP-off, and two of them silently destroy the
+            # experiment:
+            #
+            #   1. Point ape.mopDataPath at a missing file -> requireMopArm raises
+            #      StopTestingException and the whole run ABORTS.
+            #   2. Omit mop_data so the path is never set -> loads as null without
+            #      aborting, but WtgPass and FrontierPass both require
+            #      mopData != null, so the generic WTG and frontier navigation die
+            #      as collateral. The contrast would then be "full substrate versus
+            #      almost no substrate", not "MOP guidance on versus off".
+            #   3. Keep the document, zero the weights, turn the trigger off -> the
+            #      MOP short-circuits become no-ops (pickBestMopTarget requires
+            #      mopBoost > 0) while the frontier and WTG passes keep running on
+            #      generic signal.
+            #
+            # Only the third isolates MOP guidance, so mop_data stays present and
+            # frontier_boost_weight is deliberately NOT zeroed: the control removes
+            # MOP guidance, not navigation (INV-APV-30). mop_frontier_weight and
+            # activity_trigger_enabled are absent because the mop preset already
+            # states them at 0 and false — an override restating a preset value
+            # would be a delta that is not a delta.
             "mop_off_llm_off": {
-                **_FRONTIER_SUBSTRATE,
-                **_MOP_OFF_OVERRIDES,
+                "preset": "mop",
                 "strategy": "sata",
-                "throttle_ms": 200,
+                "mop_data": "static_analysis",
+                "overrides": {
+                    "mop_activity_source_components": True,
+                    "frontier_boost_weight": 200,
+                    "mop_weight_direct": 0,
+                    "mop_weight_transitive": 0,
+                    "mop_weight_open_menu": 0,
+                    "mop_weight_wtg": 0,
+                },
             },
-            # Arm 3 — the LLM at the cal_a1 dose, carried over verbatim. 0.7 is
+            # Arm 3 — the LLM dose the Phase-A calibration settled on (v13 at 70%,
+            # temperature 0), stated here because this is now its only home. 0.7 is
             # the only dose with a measured 300 s counterpart on this substrate
             # and subset, which is what lets the 1800 s result be read as a
-            # dose × budget interaction (design D8). arm 1 vs arm 3 is RQ-C3.
+            # dose x budget interaction (design D8). arm 1 vs arm 3 is RQ-C3.
             "mop_on_llm_70": {
-                **_FRONTIER_SUBSTRATE,
-                **_CAL_LLM_COMMON,
+                "preset": "llm_mop",
                 "strategy": "sata",
-                "throttle_ms": 200,
-                "llm_prompt_variant": "v13",
-                "llm_percentage": 0.7,
-                "llm_temperature": 0,
-                "llm_top_p": 0.6,
-                "llm_top_k": 50,
-                "llm_on_new_state": True,
-                "llm_on_stagnation": True,
-                # B3: the raised snap radius, and the jar it is raised for.
-                #
-                # Widening the radius makes more LLM answers resolve to a
-                # widget. Without the dead-pair ban the extra resolutions are
-                # repeated taps on pairs already known to produce no new state,
-                # so the widening amplifies the measured 25.6% dead-call waste
-                # instead of rescuing near-misses. The tolerance is therefore
-                # only ever set alongside a declaration of which jar build it
-                # belongs to, and _snap_tolerance_offenders fails the suite on
-                # any of the three alone (INV-APV-34).
-                #
+                "mop_data": "static_analysis",
+                "overrides": {
+                    "mop_activity_source_components": True,
+                    "frontier_boost_weight": 200,
+                    "mop_frontier_weight": 200,
+                    "activity_trigger_enabled": True,
+                    "llm_url": "http://10.0.2.2:30000/v1",
+                    "llm_prompt_variant": "v13",
+                    "llm_percentage": 0.7,
+                    "llm_temperature": 0,
+                    # B3: the raised snap radius, and the jar it is raised for.
+                    #
+                    # Widening the radius makes more LLM answers resolve to a
+                    # widget. Without the dead-pair ban the extra resolutions are
+                    # repeated taps on pairs already known to produce no new state,
+                    # so the widening amplifies the measured 25.6% dead-call waste
+                    # instead of rescuing near-misses. The tolerance is therefore
+                    # only ever set alongside a declaration of which jar build it
+                    # belongs to, and _snap_tolerance_offenders fails the suite on
+                    # any of the three alone (INV-APV-34).
+                    "llm_snap_tolerance_px": 150,
+                },
                 # The two declarations answer different questions. The sha256 is
                 # the gate: it is compared at smoke time against the jar_sha256
                 # captured at run start, and it is what actually proves which
@@ -767,7 +443,6 @@ class ApeRVTool(AbstractTool):
                 # same revision changes the digest and this pair has to be
                 # re-recorded. That is the accepted cost of verifying the
                 # artifact rather than a claim it makes about itself.
-                "llm_snap_tolerance_px": 150,
                 "expected_jar_git_sha": "5dcf225976b26ce78d8b31dd88d7f858dad29d43",
                 "expected_jar_sha256": (
                     "386ce08d1846a4088755a8d755e5b70391af3b42add091d231dbcc52aed24e69"

@@ -30,26 +30,25 @@ Dependencies: internal `rv-android-core` (AbstractTool, ToolSpec, Command, JarRe
 
 ## Variants
 
-`get_variants()` returns 29 variants: 11 arm-defining named arms + 6 frozen gh43 prompt-ablation arms + 9 `cal_*` calibration arms (gh88) + 3 E3 decisive-run arms (gh90). All use `throttle_ms: 200`. The `dfs` strategy is accepted by `configure()` but has no named variant (reach it via override, e.g. `aperv:default@strategy=dfs`).
+An arm is a **jar preset name plus a dict of override deltas** — nothing else. `Presets.java` holds the four campaign vectors (`aperv`, `mop`, `llm`, `llm_mop`, selected by `ape.preset`), so the jar owns what a preset means and this module owns the experimental matrix: which arms exist, what their frozen names are, and how each differs from its preset.
 
-| Variant | Strategy | MOP | LLM | Notes |
-|---------|----------|-----|-----|-------|
-| `default` / `sata` | sata | no | no | Adaptive random baseline (`default` aliases `sata`) |
-| `bfs` | bfs | no | no | Breadth-first |
-| `random` | random | no | no | Pure random |
-| `ape_pure` | sata | no | no | Original APE — all 17 arm-defining flags off explicitly |
-| `sata_mop_widget` / `sata_mop` | sata | yes | no | MOP-guided (`sata_mop` aliases `sata_mop_widget`, same object) |
-| `sata_mop_activity` | sata | yes | no | + activity source components |
-| `sata_mop_act_frontier` | sata | yes | no | + frontier/activity-trigger boost |
-| `sata_llm` | sata | no | yes | LLM guidance via SGLang |
-| `sata_mop_llm` | sata | yes | yes | MOP + LLM combined |
-| `sata_mop_llm_*` | sata | yes | yes | 6 frozen prompt arms (ape_current, ape_reasoning, compact_v1, v13, v17, visual_only) at `llm_percentage 0.7` |
-| `cal_a1`…`cal_a9` | sata | yes | yes | 9 gh88 LLM calibration arms on the `sata_mop_act_frontier` substrate; every LLM key explicit (`LLM_ARM_KEYS` guard, INV-APV-26); Phase-A arm table (plan §6) |
-| `mop_on_llm_off` | sata | yes | no | gh90 decisive-run **reference**; configurationally identical to `sata_mop_act_frontier` (ANC2) |
-| `mop_off_llm_off` | sata | **off** | no | gh90 decisive-run **control** — the experiment's first. MOP-off means `mop_data` present + all five MOP weights `0` + `activity_trigger_enabled=false` (`_MOP_OFF_OVERRIDES`), never an omitted document (INV-APV-29). Reference ↔ control = RQ-C1 |
-| `mop_on_llm_70` | sata | yes | yes | gh90 decisive-run **LLM arm** at the `cal_a1` dose verbatim (v13, 70%, temperature 0). Reference ↔ this = RQ-C3. Inside the `LLM_ARM_KEYS` guard despite carrying no `cal_` prefix |
+`get_variants()` returns **8 names carrying 7 configurations**. Four are one-to-one with the presets and carry nothing but the deployment-specific server URL where an LLM is involved; three are the E3 decisive run's arms; `default` is bound to the same object as `sata`. `configure()` accepts `sata` and `random` as strategies — `bfs`/`dfs` were never agent types and are rejected before the device.
 
-**`LLM_ARM_KEYS` guard (INV-APV-26)**: a second explicitness guard, scoped to `cal_*`-prefixed variants only, requiring every variant to declare all 11 Phase-A LLM keys explicitly (closes the `_LLM_FLAGS` gap that omits `llm_percentage`/`llm_prompt_variant`). `llm_max_tokens`/`llm_snap_tolerance_px` are mapped in `APERV_PROPERTY_MAPPING` (INV-APV-27) but stay OUT of `LLM_ARM_KEYS` and are set by no `cal_*` arm — inert until the Phase-B jar exposes the properties.
+| Variant | preset | mop_data | overrides | Notes |
+|---------|--------|----------|-----------|-------|
+| `default` / `sata` | `aperv` | — | _(empty)_ | Adaptive random baseline (`default` aliases `sata`, same object) |
+| `sata_mop` | `mop` | yes | _(empty)_ | MOP-guided. **The frozen-corpus name**: 4,096 `aperv:sata_mop.trace` artifacts and 1,066 files under `results/` carry that token, so it must not move (INV-APV-42) |
+| `sata_llm` | `llm` | — | `llm_url` | LLM guidance via SGLang |
+| `sata_mop_llm` | `llm_mop` | yes | `llm_url` | MOP + LLM combined |
+| `mop_on_llm_off` | `mop` | yes | the four reach-package keys | gh90 decisive-run **reference**; absorbs the retired `sata_mop_act_frontier`, whose effective configuration was byte-identical (the ANC2 anchor) |
+| `mop_off_llm_off` | `mop` | yes | reach package minus the frontier weight/trigger, plus the four MOP weights at `0` | gh90 decisive-run **control**. MOP-off means `mop_data` present + the scoring weights zeroed, never an omitted document (INV-APV-29); `frontier_boost_weight` stays at 200 so navigation survives (INV-APV-30). Reference ↔ control = RQ-C1 |
+| `mop_on_llm_70` | `llm_mop` | yes | the reference's four, plus the LLM dose (v13, 70%, temperature 0) and `llm_snap_tolerance_px=150` | gh90 decisive-run **LLM arm**. Reference ↔ this = RQ-C3. The two `expected_jar_*` declarations stay Python-only (INV-APV-34) |
+
+`throttle_ms` appears in no arm: the `aperv` preset already states `ape.defaultGUIThrottle=200`, which every arm used. Ablations are named override sets, never new presets — the preset vocabulary belongs to the jar.
+
+**Twenty-one names were retired** by gh95, in three kinds: *never distinct* (`ape_pure`, `bfs`, `sata_mop_widget` — no configuration was lost, since `bfs` always carried `sata`'s plan and `sata_mop_widget` was `sata_mop`'s own object), *name consolidated* (`sata_mop_act_frontier`, surviving as `mop_on_llm_off`), and *finished campaign* (the six gh43 prompt arms, `cal_a1`…`cal_a9`, `sata_mop_activity`, `random`). Retirement ends the ability to launch new runs under a name; recorded results are frozen artifacts and are unaffected. The full list with reasons is `tests/migration/retirements.py`.
+
+**There is no arm-explicitness guard any more.** `ARM_DEFINING_KEYS`, `_ARM_DEFINING_EXEMPT` and `LLM_ARM_KEYS` validated Python constants against other Python constants, which was the best available check while the jar had no contract. Stage 2 gave it one: an unknown key, a retired key, or a non-neutral value of an inactive feature aborts the run before step 1. Per owner decision D1 nothing replaces the guards at runtime — `tool.py` never parses `RUN_START` or any other jar output (INV-APV-43), and drift auditing stays post-hoc analysis of the trace.
 
 ## Configuration Flow
 

@@ -45,29 +45,29 @@
 
 ## 4. Arm re-expression — decisive-run arms and the consolidated name
 
-- [ ] 4.1 Re-express `mop_on_llm_off`, `mop_off_llm_off` and `mop_on_llm_70` per the design D2 table, and delete `sata_mop_act_frontier` — its configuration is byte-identical to `mop_on_llm_off` and survives under that name, which task 4.4's diff proves rather than assumes; keep the INV-APV-29/30 rationale comments (MOP-off keeps `mop_data` and frontier navigation) and the normative-name comment at the definition site
-- [ ] 4.2 Keep `llm_snap_tolerance_px=150` as an ordinary `overrides` entry of `mop_on_llm_70`, and `expected_jar_git_sha`/`expected_jar_sha256` Python-only at the top level (INV-APV-34 pairing untouched)
-- [ ] 4.3 Restate the single-factor contrast tests to diff effective configurations: reference vs control differs in exactly the five MOP weight keys plus `ape.activityTriggerEnabled`; reference vs LLM arm differs only in `ape.llm*` keys; neither declaration key is in `APERV_PROPERTY_MAPPING`
-- [ ] 4.4 Delete the six gh43 prompt arms and `cal_a1`…`cal_a9` (finished campaigns), then re-run the regeneration diff — empty for every surviving arm, all 21 retirements listed with their kinds, and `mop_on_llm_off` shown to reproduce `sata_mop_act_frontier`'s baseline
-- [ ] 4.5 Run `/rv-test-run aperv-tool`
+- [x] 4.1 Re-express `mop_on_llm_off`, `mop_off_llm_off` and `mop_on_llm_70` per the design D2 table, and delete `sata_mop_act_frontier` — its configuration is byte-identical to `mop_on_llm_off` and survives under that name, which task 4.4's diff proves rather than assumes; keep the INV-APV-29/30 rationale comments (MOP-off keeps `mop_data` and frontier navigation) and the normative-name comment at the definition site
+- [x] 4.2 Keep `llm_snap_tolerance_px=150` as an ordinary `overrides` entry of `mop_on_llm_70`, and `expected_jar_git_sha`/`expected_jar_sha256` Python-only at the top level (INV-APV-34 pairing untouched)
+- [x] 4.3 Restate the single-factor contrast tests to diff effective configurations: reference vs control differs in exactly the five MOP weight keys plus `ape.activityTriggerEnabled`; reference vs LLM arm differs only in `ape.llm*` keys; neither declaration key is in `APERV_PROPERTY_MAPPING`
+- [x] 4.4 Delete the six gh43 prompt arms and `cal_a1`…`cal_a9` (finished campaigns), then re-run the regeneration diff — empty for every surviving arm, all 21 retirements listed with their kinds, and `mop_on_llm_off` shown to reproduce `sata_mop_act_frontier`'s baseline
+- [x] 4.5 Run `/rv-test-run aperv-tool`
 
 ## 5. Dead key and substrate dict removal
 
-- [ ] 5.1 Delete `mop_weight_activity` from `APERV_PROPERTY_MAPPING`, plus any further dead entry found by the 1.5 sweep; assert the mapping has 50 entries and that `llm_max_tokens` / `llm_snap_tolerance_px` survive
-- [ ] 5.2 Delete the substrate spread dicts `_BASELINE_ARM_FLAGS`, `_MOP_SUBSTRATE`, `_LLM_FLAGS`, `_FRONTIER_SUBSTRATE`, `_MOP_OFF_OVERRIDES`, `_CAL_LLM_COMMON` (`_APE_PURE_ARM_FLAGS` went with task 3.2)
-- [ ] 5.3 Grep `modules/aperv-tool/src` for `mopWeightActivity` and each deleted constant name — zero hits, no commented-out remnant (P3)
-- [ ] 5.4 Re-run the regeneration diff — empty for every surviving arm
-- [ ] 5.5 Run `/rv-test-run aperv-tool`
+- [x] 5.1 Delete `mop_weight_activity` from `APERV_PROPERTY_MAPPING`, plus any further dead entry found by the 1.5 sweep; assert the mapping has 50 entries and that `llm_max_tokens` / `llm_snap_tolerance_px` survive
+- [x] 5.2 Delete the substrate spread dicts `_BASELINE_ARM_FLAGS`, `_MOP_SUBSTRATE`, `_LLM_FLAGS`, `_FRONTIER_SUBSTRATE`, `_MOP_OFF_OVERRIDES`, `_CAL_LLM_COMMON` (`_APE_PURE_ARM_FLAGS` went with task 3.2)
+- [x] 5.3 Grep `modules/aperv-tool/src` for `mopWeightActivity` and each deleted constant name — zero hits, no commented-out remnant (P3)
+- [x] 5.4 Re-run the regeneration diff — empty for every surviving arm
+- [x] 5.5 Run `/rv-test-run aperv-tool`
 
 ## 6. Guard retirement and documentation
 
-- [ ] 6.1 Delete `ARM_DEFINING_KEYS`, `_ARM_DEFINING_EXEMPT` and `LLM_ARM_KEYS` from `tool.py`; rewrite the module docstring and the `get_variants()` docstring to the preset+overrides contract, current-state only (P4 — no "migrated from", no "replaces")
-- [ ] 6.2 Retire the constant-vs-constant guard tests in `tests/test_aperv_tool.py`: `TestArmDefiningGuard`, the INV-APV-14 explicitness and table-pin tests in `TestFrozenArmVariants`, the INV-APV-26/27 tests, the calibration plan-table pins, and the gh90 expansion-diff tests; delete `_EXPECTED_ARM_DEFINING_MAPPING` and companions
-- [ ] 6.3 Add `test_retired_guards_are_gone` asserting the three constants no longer exist, so a future revert is caught rather than merged
-- [ ] 6.4 Verify by grep that `tool.py` contains no `RUN_START` parsing and no echo-vs-intent logic (INV-APV-43, owner decision D1)
-- [ ] 6.5 Update `modules/aperv-tool/CLAUDE.md`: the variant table becomes preset + overrides, the `ape_pure` and `bfs` rows die with the variants, the `LLM_ARM_KEYS` guard paragraph is removed, and the count becomes 8
-- [ ] 6.6 Update `modules/aperv-tool/docs/architecture.md` for the preset+overrides arm surface and the reduced properties-generation path
-- [ ] 6.7 Run `/rv-test-run aperv-tool`
+- [x] 6.1 Delete `ARM_DEFINING_KEYS`, `_ARM_DEFINING_EXEMPT` and `LLM_ARM_KEYS` from `tool.py`; rewrite the module docstring and the `get_variants()` docstring to the preset+overrides contract, current-state only (P4 — no "migrated from", no "replaces")
+- [x] 6.2 Retire the constant-vs-constant guard tests in `tests/test_aperv_tool.py`: `TestArmDefiningGuard`, the INV-APV-14 explicitness and table-pin tests in `TestFrozenArmVariants`, the INV-APV-26/27 tests, the calibration plan-table pins, and the gh90 expansion-diff tests; delete `_EXPECTED_ARM_DEFINING_MAPPING` and companions
+- [x] 6.3 Add `test_retired_guards_are_gone` asserting the three constants no longer exist, so a future revert is caught rather than merged
+- [x] 6.4 Verify by grep that `tool.py` contains no `RUN_START` parsing and no echo-vs-intent logic (INV-APV-43, owner decision D1)
+- [x] 6.5 Update `modules/aperv-tool/CLAUDE.md`: the variant table becomes preset + overrides, the `ape_pure` and `bfs` rows die with the variants, the `LLM_ARM_KEYS` guard paragraph is removed, and the count becomes 8
+- [x] 6.6 Update `modules/aperv-tool/docs/architecture.md` for the preset+overrides arm surface and the reduced properties-generation path
+- [x] 6.7 Run `/rv-test-run aperv-tool`
 
 ## 7. Final verification and owner sign-off
 
