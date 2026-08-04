@@ -144,6 +144,28 @@ class TestEventClosing:
         assert tail.pid == "8080"
         assert parser.flush() is None
 
+    def test_separator_line_still_closes_an_open_block(self):
+        """INV-ANA-48: a non-threadtime line remains a real boundary.
+
+        This is the line the foreign-tag rule does *not* reach. A separator is
+        written by logcat itself to mark a discontinuity, unlike a foreign-tag
+        line, which is just another process that happened to log mid-block.
+        """
+        parser = DiagnosticEventParser()
+        parser.feed_line(
+            "06-23 12:00:01.100  7071  7071 E AndroidRuntime: FATAL EXCEPTION: main\n"
+        )
+        parser.feed_line(
+            "06-23 12:00:01.100  7071  7071 E AndroidRuntime: java.lang.RuntimeException: x\n"
+        )
+
+        closed = parser.feed_line("--------- beginning of crash\n")
+
+        assert closed is not None
+        assert closed.category == "crash"
+        assert "beginning of crash" not in closed.original_msg
+        assert parser.flush() is None
+
     def test_flush_emits_last_buffered_event(self):
         """When input ends mid-crash, flush() emits the buffered event."""
         parser = DiagnosticEventParser()

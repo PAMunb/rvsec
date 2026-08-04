@@ -74,6 +74,8 @@ The collection path and the analysis path never meet: nothing in `tool.py` impor
 | INV-CORE-53 (tag declared once) | `util/logging/constants.py::TAG_APERV_HEARTBEAT` | `test_logcat_manager.py::test_heartbeat_tag_declared_once` |
 | INV-CORE-54 (heartbeat inert to parsing) | `logcat_parser` unchanged (dispatches on two tags); `diagnostic_parser.feed_line()` amended so a foreign-tag line is transparent to block assembly instead of closing it | `test_logcat_parser.py::test_heartbeat_lines_change_no_parsed_value`, `::test_fixture_interleaves_a_heartbeat_inside_the_crash_block`, `test_diagnostic_parser.py::test_foreign_tag_line_does_not_close_the_block` |
 | INV-PLT-21 (amended baseline tag set) | `components/logcat.py` (unchanged code, new expectation) | `test_logcat.py::test_flag_off_emits_baseline_command` |
+| INV-ANA-56 (foreign-tag lines transparent to block assembly) | `parser/log/diagnostic_parser.py::feed_line` | `test_diagnostic_parser.py::test_foreign_tag_line_does_not_close_the_block`, `::test_separator_line_still_closes_an_open_block` |
+| INV-ANA-57 (a manual caller must flush at end of input) | no change — `parse_logcat_file` flushes internally; `CoverageTracker` drains then flushes | `test_diagnostic_parser.py::test_flush_emits_last_buffered_event`, `test_result_processor.py::TestGh83TimeRoundTrip` |
 
 ## Goals / Non-Goals
 
