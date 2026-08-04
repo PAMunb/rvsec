@@ -84,10 +84,16 @@ timeout, cleanup, and error semantics apply unchanged.
   comparison arm in an experiment (e.g. `sata_mop_widget` vs `sata`).
   `ApeRVTool.get_variants()` defines 17 arms; an arm's identity is its variant dict, never a
   default hidden inside the JAR.
-- **Static-analysis JSON / MopData** — The per-APK file produced upstream by
-  `rv-static-analysis` (GATOR/Soot) mapping windows, widgets, and transitions to MOP
-  reachability. Pushed to the device as `/data/local/tmp/static_analysis.json` and parsed by
-  `MopData.java` into the in-memory guidance model.
+- **Static-analysis JSON** — The per-APK file produced upstream by `rv-static-analysis`
+  (GATOR/Soot) mapping windows, widgets, and transitions to MOP reachability. It stays on the
+  host as the archived source every metric reads; it is never pushed.
+- **MOP artifact / MopData** — The compact, explorer-shaped projection
+  (`<results_dir>/<apk_name>.mop.json`, `formatVersion: 1`) that
+  `aperv_tool/tools/aperv/derive_mop_artifact.py` derives from that JSON host-side: widget MOP
+  flags, both MOP-activity sets, the OPTIONSMENU records, the click-only WTG view and the
+  component trigger surface. Pushed as `/data/local/tmp/mop-artifact.json` and read by
+  `MopData.java` into the in-memory guidance model. The call graph the derivation consumes does
+  not travel.
 - **SATA agent** — APE's primary exploration strategy (`SataAgent.java`): epsilon-greedy
   adaptive random testing over an abstract state model. Selected on the command line with
   `--ape sata`.
@@ -108,9 +114,9 @@ The subsystem sits between the RV-Android experiment platform and the Android em
 sole driver is **rv-platform's TaskExecutor**, which creates the tool via `ToolFactory` and
 calls `execute(task, app)` once per (APK, repetition), managing the emulator lifecycle around
 it. Upstream, **rv-static-analysis** (with the rvsec-gator Java engine) produces the per-APK
-`<results_dir>/<apk_name>.json` that the plugin compacts and pushes as the MOP guidance
-substrate. All device interaction goes exclusively through **adb** — pushes before launch, a
-blocking `adb shell` during the run. In LLM arms, the on-device JAR calls the host-side
+`<results_dir>/<apk_name>.json` that the plugin derives the MOP guidance artifact
+from. All device interaction goes exclusively through **adb** — pushes before
+launch, a blocking `adb shell` during the run. In LLM arms, the on-device JAR calls the host-side
 **SGLang server** (Qwen3-VL) directly at `10.0.2.2:30000`; Python only writes the connection
 parameters. Coverage measurement flows through an entirely separate channel: the
 **rv-android logcat infrastructure** captures `RVSEC-COV` lines emitted by the instrumented
@@ -120,8 +126,9 @@ repository** (github.com/phtcosta/ape) is the source of the engine: its Maven in
 
 **Constraints:** the engine reads its configuration files exactly once at startup, so there is
 no mid-run reconfiguration anywhere in the subsystem; the JAR is gitignored and must be built
-from the sibling repository; the device-side JSON parser rejects files above
-`maxMemory()/6` (~32 MB), which constrains what the host may push.
+from the sibling repository; and the derivation semantics are defined jointly with the sibling
+`ape` repository, so the generator here and the reader there are cut over together in one
+coordinated image rebuild.
 
 **System context diagram** (external actors and systems — every view refers back to this):
 
@@ -183,22 +190,32 @@ with `adb -s <serial> push -a -p` to `/data/local/tmp/ape-rv.jar` (deliberately 
 appended to the task's trace file. A missing JAR raises `RVToolExecutionError` immediately:
 this is the one true fail-fast in the flow.
 
-**4. MOP substrate push (compaction).** Because the variant sets `mop_data='static_analysis'`,
-the tool looks for `<task.results_dir>/cryptoapp.apk.json` — the file rv-static-analysis
-wrote during pre-processing. Before pushing, `_compact_static_analysis_json` rewrites it into
-a temp file with exactly two lossless operations: deduplicating exact-duplicate `transitions`
-entries (fingerprinted by canonical `json.dumps(entry, sort_keys=True)`, preserving
-first-occurrence order) and minifying with `separators=(',',':')`. This exists because
-`MopData.java` applies a pre-read footprint guard — any file larger than
-`maxMemory()/PARSE_FOOTPRINT_FACTOR` (6), about 32 MB at the emulator's ~192 MB heap, is
-rejected before parsing (`MopData.java:202`), which would make MOP arms abort with 0 steps
-while non-MOP baselines explore normally: a per-app fairness gap, not a crash. The compacted
-copy is pushed to `/data/local/tmp/static_analysis.json` and the temp file is unlinked in a
-`finally` block; the source on the host stays byte-identical for offline consolidation
-(INV-APV-20/25). Compaction never raises — on any failure it logs a warning and pushes the
-source unchanged (INV-APV-24). A missing JSON degrades gracefully to a run without MOP data.
-Measured on `org.quantumbadger.redreader_117`: 50.6 MB → 21.0 MB, transitions
-24,300 → 7,124 (70.7% exact duplicates), ~1.4 s.
+**4. MOP artifact derivation and push.** Because the variant sets
+`mop_data='static_analysis'`, the tool looks for `<task.results_dir>/cryptoapp.apk.json` — the
+file rv-static-analysis wrote during pre-processing. `_derive_mop_artifact` hashes it, reuses
+`<task.results_dir>/cryptoapp.apk.mop.json` when the digest recorded in its `source.digest`
+still matches, and otherwise calls the pure `derive()` + `serialize_canonical()` pair and
+writes the result through a temp file in the same directory followed by `os.replace`, so a
+crash mid-write cannot leave a truncated artifact a later run would trust. Only that artifact
+is pushed, to `/data/local/tmp/mop-artifact.json`; the source stays byte-identical on the host
+for offline consolidation and resume.
+
+The derivation is where the jar's parse-time semantics now live: the listener × reachability
+cross-reference with D8 synthetic-lambda recovery, the widget-collision ranking, the
+empty-short-id drop that still marks its activity, DIALOG re-keying onto the host activity,
+base-activity WTG keying with deduplication, the A′ activity-set union, the OPTIONSMENU
+flagged-widget test and the per-activity deep-link URI. Because the artifact carries the
+*result* rather than the raw material, the call-graph section that dominated the bytes never
+reaches the device — which is what removes the jar's whole-file DOM parse and the footprint
+reject that used to make call-graph-heavy apps abort with 0 steps in MOP arms while the `sata`
+baseline explored normally: a per-app fairness gap, not a crash. On cryptoapp the artifact is
+4.2 KB against a 70 KB source; the reduction is far larger on the apps the guard used to
+reject.
+
+A MOP arm whose static-analysis JSON is absent, or whose derivation refuses the document
+(`complete` absent or false, no package, a section of the wrong type), now **fails the task**.
+The warn-and-continue it replaces produced runs labelled as MOP arms that explored as pure
+SATA, indistinguishable in the results directory from a real one.
 
 **5. ape.properties generation and push.** `_push_properties` translates `_tool_config`
 through `APERV_PROPERTY_MAPPING` — only keys present in both the config and the mapping are
@@ -206,7 +223,7 @@ written, so Python-only orchestration keys (`strategy`, `mop_data`, `seed`) neve
 the file. Python booleans are serialized as lowercase `true`/`false` to match what
 `Config.java`'s loader expects (the bool check must precede numeric handling because `bool`
 is an `int` subclass). Because the MOP push succeeded, the line
-`ape.mopDataPath=/data/local/tmp/static_analysis.json` is prepended. The content is written
+`ape.mopDataPath=/data/local/tmp/mop-artifact.json` is prepended. The content is written
 to a host temp file (adb push needs a local path), pushed to
 `/data/local/tmp/ape.properties`, and the temp file unlinked in a `finally`. For
 `sata_mop_widget` the file contains `ape.defaultGUIThrottle=200`, `ape.mopWeightDirect=500`,
@@ -231,13 +248,14 @@ minute, `tool.py:735-776`.)
 **7. On-device exploration (Java engine).** Inside the emulator, `Monkey.main` parses
 `--ape` and hands event sourcing to `MonkeySourceApe`, which creates the agent via
 `ApeAgent.createAgent` — `SataAgent` for `--ape sata`. At startup
-`MopData.load('/data/local/tmp/static_analysis.json', package, mainActivity)` runs the
-footprint guard, parses the JSON's Target vocabulary
-(`reachesTarget`/`directlyReachesTarget`/`targetMethods` — the wire format kept the
-producer's generalized naming; aperv's model calls it MOP, and the rename boundary lives in
-the `MopData` javadoc, gh13 D7), and logs a `[APE-MOP-DATA] status=loaded` line (or
-`status=rejected` with a reason: too-large, file-missing, parse-error, incomplete,
-package-mismatch, oom). Each exploration step captures a GUITree from
+`MopData.load('/data/local/tmp/mop-artifact.json', package, mainActivity)` reads the derived
+artifact — already in the MOP vocabulary, since the rename from the producer's neutral
+`reachesTarget`/`directlyReachesTarget`/`targetMethods` happens host-side at the derivation
+boundary — and logs a `[APE-MOP-DATA] status=loaded|rejected` line whose counters come from the
+artifact's own `stats` block rather than from an on-device recount. The reader itself is the
+sibling repository's stage-7 work (`ape` change `rearch-07-compact-static-artifact`); it lands
+with the same image rebuild that deploys this generator, and until then no jar consumes the
+artifact. Each exploration step captures a GUITree from
 `AccessibilityNodeInfo`, abstracts it to a State via `NamingFactory`, and asks `SataAgent`
 for an action. Action selection runs the `ScoringPipeline` — an ordered list of
 `ScoringPass` implementations (`MopWidgetPass`, `MopFrontierPass`, `FrontierPass`,
@@ -248,8 +266,7 @@ the priority comparison. The chosen `ModelAction` becomes an `ApeEvent` injected
 Monkey event queue; the resulting GUITree updates the `Model` graph, and `NamingFactory`
 refines the abstraction if it detects non-determinism.
 (`ScoringPipeline` in `ape/agent/scoring/ScoringPipeline.java`; `SataAgent.java:287-289`
-pulls MopData for the activity-gated tracker; `PARSE_FOOTPRINT_FACTOR = 6`,
-`MopData.java:160`.)
+pulls MopData for the activity-gated tracker.)
 
 **8. Optional LLM guidance.** In LLM arms (`sata_llm`, `sata_mop_llm` — not this run's
 `sata_mop_widget`), `LlmRouter` intercepts action selection in three cases: a new state
@@ -308,7 +325,7 @@ in the subsystem.
 
 **Device configuration files.** This shared-data seam is the subsystem's real interface.
 `ape.properties` carries every tunable (`Config.java` loads it at startup; unknown keys are
-ignored silently); `static_analysis.json` is the MOP guidance substrate (present only in MOP
+ignored silently); `mop-artifact.json` is the MOP guidance substrate (present only in MOP
 arms, and its path is advertised via `ape.mopDataPath` only when the push succeeded);
 `system-broadcast.json` is the optional broadcast-intent catalog for component triggering.
 Because the engine reads these once, the files' pre-launch state fully determines the arm's
@@ -335,7 +352,7 @@ channel is logcat.
 | ApeRVTool plugin | `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py` | Per-run host-side orchestrator: arm config → device files → app_process launch → exit interpretation |
 | ToolRegistry + ToolFactory | `modules/rv-tools/src/rv_tools/registry/{registry.py,factory.py}` | Process-wide singleton mapping tool names to classes/specs/variants; factory turns ToolConfig into a configured instance |
 | APE-RV on-device process | `../../ape/src/main/java` (dexed to `target/ape-rv.jar`) | The exploration run itself: an Android runtime process started by app_process that drives the app until its minute budget expires |
-| Device configuration files | `/data/local/tmp/{ape-rv.jar, ape.properties, static_analysis.json, system-broadcast.json}` | The entire host→engine configuration surface: one JAR + up to three files pushed before launch |
+| Device configuration files | `/data/local/tmp/{ape-rv.jar, ape.properties, mop-artifact.json, system-broadcast.json}` | The entire host→engine configuration surface: one JAR + up to three files pushed before launch |
 | SGLang LLM server | host-side SGLang serving Qwen3-VL | OpenAI-compatible vision-LLM endpoint the JAR consults for action guidance in LLM arms |
 | Logcat coverage channel | `Coverage.aj` in the instrumented APK + rv-android logcat infrastructure | Out-of-band results path: the app logs RVSEC-COV signatures to logcat; the platform collects them independently of APE-RV |
 
@@ -404,18 +421,26 @@ arms are exempted by an explicit named set rather than a prefix match, precisely
 of the same rule (D1): the jar offers no switch that forces the RV extensions off, so the
 arm is exactly its enumeration of explicit off values.
 
-**Unconditional, lossless, never-failing compaction of the static-analysis JSON.** The Java
-side rejects any JSON above `maxMemory()/6` (~32 MB) before parsing, so an oversized file
-makes MOP arms explore 0 steps while baselines run normally — a silent per-app fairness gap
-that corrupts a paired comparison rather than crashing it. Compaction (dedup exact-duplicate
-transitions, which no consumer reads for multiplicity, plus whitespace-free serialization)
-clears the guard losslessly. Two rejected alternatives shaped the invariants: gating
-compaction behind a size threshold would leave the code path exercised on roughly 1 app in
-181 and would duplicate the Java-side `PARSE_FOOTPRINT_FACTOR` as a second cross-repo
-constant to keep in sync (INV-APV-23 forbids it); and letting compaction errors raise would
-fail the task in one arm only, manufacturing the exact asymmetry the function exists to
-remove (INV-APV-24 forbids it). The source file stays byte-identical because offline
-consolidation and resume re-parse it (INV-APV-20).
+**Host-side derivation of the MOP artifact, and a MOP arm that fails rather than degrades.**
+The device used to receive the producer's full JSON and derive the explorer's whole guidance
+model from it at load time, behind a pre-read footprint guard that rejected anything above
+`maxMemory()/6` (~32 MB) — so a call-graph-heavy app made MOP arms explore 0 steps while
+baselines ran normally, a silent per-app fairness gap that corrupts a paired comparison rather
+than crashing it. Deriving host-side removes both the parse and the guard: the device receives
+only what the explorer reads. It also puts the semantics where each rule is a named unit test
+rather than a branch inside an on-device JSON parser, and makes this repository their single
+authority.
+
+Two consequences are deliberate. First, the rules must hold for any app, not only for the 345
+measured: `direct` keeps the producer's 0-hop meaning and `transitive` is the any-depth reach
+it implies, rather than the collapsed axis the deleted listener enrichment produced — which is
+why the D8 synthetic-lambda recovery, masked in production by that enrichment, now runs.
+Runs before and after this cut are therefore not substrate-comparable, and the change records
+the measured magnitude rather than claiming identity. Second, a MOP arm that cannot arm fails
+its task: the warn-and-continue it replaces produced runs labelled MOP that explored as pure
+SATA, which is the failure mode with the worst evidence-to-signal ratio in the pipeline. The
+source JSON stays byte-identical because offline consolidation and resume re-parse it, and no
+analysis path may read the derived artifact (INV-ANA-53).
 
 **Timeout is the success path; non-zero exit is normal.** An exploration tool has no natural
 completion — it is designed to run until killed — so treating the timeout as an error would
@@ -461,7 +486,7 @@ line 506).
 |----------|---------|-----------------|
 | On-device execution via app_process, working dir `/system/bin` | event throughput without per-event adb round-trips; direct AccessibilityNodeInfo access; system-level resource resolution | INV-APV-04 |
 | Arm-defining explicitness (18 flags pinned per variant) | experimental validity of paired comparisons; auditable arms from ape.properties alone; guard-testability | INV-APV-13/14/15/17 (code-enforced; gh74 delta partially synced) |
-| Unconditional, lossless, never-failing JSON compaction | between-arm fairness; single source of truth for the footprint constant; archived artifact integrity | INV-APV-20..25 |
+| Host-side MOP artifact derivation; MOP arm fails rather than degrades | between-arm fairness (no footprint reject); one authority for the parse-time semantics; archived source integrity | INV-APV-45..47, INV-DRV-01..07, INV-ANA-53 |
 | Timeout is the success path; non-zero exit is normal | exploration tools run until their time budget; uniform platform semantics; app crashes are data | INV-TOOL-06, INV-APV-11, INV-APV-12 |
 | Binary hand-off at `mvn install` into the plugin package dir | jar always matches current ape source and JSON schema; no binary in git; zero-config resolution | tools spec "External Tool Support" scenario, `openspec/specs/tools/spec.md:512-531` |
 | LLM connectivity is device-to-host; Python only configures | per-step latency budget; no host-side control loop during a run; layer discipline for env vars (gh55 D8/D10) | INV-APV-09 |
@@ -494,15 +519,15 @@ purely through the registry/factory indirection. Adding a new experiment arm is 
 `get_variants()`; adding a new engine capability is a property-mapping entry plus a
 `Config` flag — neither touches rv-platform or rv-experiment.
 
-*Resilience (NFR04).* Every optional stage degrades instead of failing: a missing
-static-analysis JSON logs a warning and runs the arm without MOP data; compaction failure
-falls back to pushing the source unchanged; a missing `system-broadcast.json` is skipped; a
-0-byte trace (silent startup crash) is a warning because coverage arrives via logcat anyway;
-aperv-tool being absent from the venv degrades to a warning in rv-platform rather than an
-import error; and on the Java side MopData rejection (too-large, parse-error,
-package-mismatch, oom) makes the engine run unguided rather than crash. The only fail-fasts
-are deliberate boundary validations: `configure()`'s strategy check and the JAR-not-found
-error.
+*Resilience (NFR04).* Every *optional* stage degrades instead of failing: a missing
+`system-broadcast.json` is skipped; a 0-byte trace (silent startup crash) is a warning because
+coverage arrives via logcat anyway; aperv-tool being absent from the venv degrades to a
+warning in rv-platform rather than an import error; and a stale or corrupt cached MOP artifact
+is a cache miss, not an error. The MOP substrate is deliberately *not* optional in a MOP arm:
+a missing static-analysis JSON or a refused derivation raises `RVToolExecutionError`, because
+a degraded MOP arm is indistinguishable from a real one in the results directory. The
+fail-fasts are therefore three: `configure()`'s strategy check, the JAR-not-found error, and
+the MOP arm that cannot arm.
 
 *Configurability (NFR05).* The subsystem exposes 17 named variants composed from four
 building-block dicts, a ~50-entry `APERV_PROPERTY_MAPPING` onto the engine's ~119 `Config`
@@ -518,9 +543,10 @@ paired-by-app runs replay the same pseudo-random decisions (INV-APV-18); (2) fro
 the six gh43 prompt-ablation variants are pinned exactly as authored and exempt from later
 policy changes so historical results stay re-runnable; (3) arm auditability — because every
 arm-defining flag is explicit in the variant dict and serialized into `ape.properties`, the
-on-device file reconstructs the arm without trusting jar defaults. The documented caveat:
-the `[APE-MOP-DATA] transitions=N` field changed meaning when compaction landed (unique vs
-raw edge count) and must not be compared across campaigns spanning that change.
+on-device file reconstructs the arm without trusting jar defaults. The documented caveats: the `[APE-MOP-DATA] transitions=N` field
+changed meaning when compaction landed (unique vs raw edge count) and is superseded by the
+artifact's `wtgEdges`; and the widget-flag semantics changed with the host-side derivation, so
+no campaign may mix arms across that cut.
 
 *Observability (NFR06).* The engine self-reports its guidance state through
 machine-parseable `[APE-MOP-DATA] status=loaded|rejected reason=...` logcat lines, which is
@@ -547,8 +573,9 @@ between diagnostics (the trace) and measurement (logcat coverage).
 |----------|----------|-------|
 | Task trace file | `task.result.trace_file` (per-task results dir) | APE-RV stdout/stderr from the main run (push diagnostics deliberately overwritten); primary diagnostic artifact, not the measurement channel |
 | Coverage log (RVSEC-COV) | logcat, captured by rv-platform's logcat component | The measurement channel; independent of APE-RV output |
-| Device-side configuration set | `/data/local/tmp/{ape-rv.jar, ape.properties, static_analysis.json, system-broadcast.json}` | `ape.properties` is a faithful serialization of the experiment arm; `static_analysis.json` is the compacted copy — the host source stays byte-identical |
-| `[APE-MOP-DATA]` status lines | logcat / trace | Machine-parseable load/reject telemetry for the MOP substrate; `transitions=N` reports the deduplicated count post-compaction |
+| Device-side configuration set | `/data/local/tmp/{ape-rv.jar, ape.properties, mop-artifact.json, system-broadcast.json}` | `ape.properties` is a faithful serialization of the experiment arm; `mop-artifact.json` is the derived projection — the host source stays byte-identical and is never pushed |
+| `[APE-MOP-DATA]` status lines | logcat / trace | Machine-parseable load/reject telemetry for the MOP substrate; its counters are echoed from the artifact's `stats` block |
+| Derived MOP artifact | `<results_dir>/<apk_name>.mop.json` | Digest-cached projection pushed to the device; inspectable and diffable next to its source. Device input only — no analysis path may read it (INV-ANA-53) |
 
 ### 9. Directory
 
@@ -628,12 +655,11 @@ with RV exploration on and MOP/reach off, `_APE_PURE_ARM_FLAGS` with everything 
 by dict-spread; notably `sata_mop` and `sata_mop_widget` are bound to the same dict object
 so the alias holds by construction. `configure()` validates the strategy eagerly and stores
 a defensive copy. `execute_tool_specific_logic()` is a five-step pipeline — extract params
-from Task, resolve and push the JAR, optionally push the broadcast catalog and the compacted
-static-analysis JSON, generate and push `ape.properties`, then run the app_process command
-and interpret its exit. The tricky part is the fairness machinery around the MOP JSON:
-compaction runs unconditionally, never raises, and its failure is invisible to
-`ape.properties`, so a per-app data problem can never fail one arm of a paired comparison
-and not the other.
+from Task, resolve and push the JAR, optionally push the broadcast catalog, derive and push
+the MOP artifact in MOP arms, generate and push `ape.properties`, then run the app_process
+command and interpret its exit. The load-bearing part is the derivation
+(`derive_mop_artifact.py`): a pure `derive(document) -> dict` plus a canonical serializer, with
+`tool.py` owning everything impure — reading, hashing, the atomic write and the push.
 
 *Why separate:* the plugin is its own workspace module rather than a builtin inside rv-tools
 because it carries a binary artifact with an independent build lifecycle: `ape-rv.jar` is
@@ -647,9 +673,12 @@ knowledge — stays out of the generic registry code.
 - `ape-rv.jar` is gitignored; the Docker image builds it from
   `https://github.com/phtcosta/ape.git` at image-build time. Standalone runs must build it
   via `mvn install` in the ape repo or `_resolve_jar_path()` raises `RVToolExecutionError`.
-- The `[APE-MOP-DATA] transitions=N` log field reports the deduplicated count after
-  compaction — do not compare it across campaigns spanning the compaction change (NFR08);
-  on the 181-APK cmpma set 27 of 130 JSONs shift.
+- The `[APE-MOP-DATA] transitions=N` log field reported the deduplicated count after
+  compaction — do not compare it across campaigns spanning that change (NFR08); on the 181-APK
+  cmpma set 27 of 130 JSONs shift. It is superseded by the artifact's `stats.wtgEdges`.
+- The widget-flag semantics changed with the host-side derivation: the retired listener
+  enrichment had collapsed `direct` into the any-depth bit and masked the D8 recovery, so
+  substrate-level comparisons must not span that cut.
 - `mop_weight_activity` is an inert mapping entry: `ape.mopWeightActivity` was removed from
   `Config.java` (unknown properties are ignored), kept only for pre-mop-fairtest configs.
 - The `dfs` strategy is accepted by `configure()` but has no named variant — reachable only
@@ -751,9 +780,9 @@ addition — a `ScoringPipeline` of composable `ScoringPass` implementations
 (`MopWidgetPass`, `MopFrontierPass`, `FrontierPass`, `MenuGatewayPass`, `WtgPass`,
 `CoveragePass`, `FormCompletionPass`) each gated by `Config` flags, which is how MOP
 guidance biases action priorities without entangling the base SATA logic.
-`ape/utils/MopData.java` loads the pushed static-analysis JSON behind a pre-read footprint
-guard (reject if fileSize > maxMemory()/6, `MopData.java:202`) and translates the wire
-format's "Target" vocabulary into the MOP model; `ape/utils/Config.java` (484 lines, ~119
+`ape/utils/MopData.java` loads the pushed MOP artifact, whose derivation — including the
+translation of the producer's "Target" vocabulary into the MOP model — happens host-side in
+`aperv_tool/tools/aperv/derive_mop_artifact.py`; `ape/utils/Config.java` (484 lines, ~119
 static flags) loads `ape.properties`. `ape/llm` (9 files) is the self-contained LLM stack:
 `LlmRouter` decides when to consult the LLM (new state / stagnation / random per-step
 probability), `SglangClient` speaks OpenAI-compatible HTTP to the host, `ToolCallParser`
@@ -882,8 +911,8 @@ flowchart LR
 
 **Variability guide**
 
-Which connectors are active depends on the arm: MOP arms add the `static_analysis.json`
-store (and its compaction); LLM arms activate the device→host HTTP connector with sampling
+Which connectors are active depends on the arm: MOP arms add the `mop-artifact.json`
+store (and the host-side derivation that produces it); LLM arms activate the device→host HTTP connector with sampling
 parameters from `_LLM_FLAGS`; `ape_pure` disables all RV additions, leaving only the base
 client-server pair. The LLM endpoint is overridable via the `llm_url` parameter
 (`APERV_LLM_BASE_URL` propagated by the platform). The engine also honors on-device
@@ -892,23 +921,30 @@ property overrides at `/sdcard/ape.properties`.
 **Scenarios**
 
 - **WHEN** a MOP arm targets `org.quantumbadger.redreader_117`, whose static-analysis JSON
-  is 50.6 MB with 24,300 transitions entries (70.7% exact duplicates), **THEN**
-  `_compact_static_analysis_json` dedups and minifies it to 21.0 MB / 7,124 unique
-  transitions in ~1.4 s and pushes the compacted temp file, **AND** `MopData.load` accepts
-  it because 21.0 MB clears the `maxMemory()/6` (~32 MB) footprint guard, so the MOP arm
-  explores with guidance instead of aborting at 0 steps. *Why:* the guard rejects oversized
-  files before parsing to avoid device OOM; without compaction the MOP arm would silently
-  run 0 steps while the paired non-MOP baseline explored normally, biasing the comparison
-  for that app.
+  is 50.6 MB and dominated by call-graph data, **THEN** `_derive_mop_artifact` projects it
+  into `<results_dir>/org.quantumbadger.redreader_117.apk.mop.json` — widget flags, both
+  activity sets, the OPTIONSMENU records, the click-only WTG view and the component surface,
+  with no `reachability` section at all — and pushes only that, **AND** the MOP arm explores
+  with guidance instead of aborting at 0 steps. *Why:* the device used to parse the whole
+  file, and the guard that protected it from OOM rejected exactly the apps whose call graph is
+  largest, so the MOP arm ran 0 steps while the paired baseline explored normally, biasing the
+  comparison for that app. The artifact carries the derivation's result, so its size scales
+  with the UI rather than with the call graph.
 
-- **WHEN** compaction itself fails (e.g. `json.JSONDecodeError` or `MemoryError` while
-  re-serializing), **THEN** the exception is caught, a warning is logged, any partial temp
-  file is unlinked, and the original source file is pushed unchanged, **AND** the
-  `mop_json_pushed` flag is set identically to the success path, so `ape.properties` still
-  gains `ape.mopDataPath` and no arm-visible difference exists. *Why:* a compaction error
-  raised as a task failure in one arm only would manufacture exactly the between-arm
-  asymmetry compaction exists to remove (INV-APV-24); the fallback keeps both arms
-  comparable and at worst re-exposes the footprint guard.
+- **WHEN** the same arm runs a second time and the static-analysis JSON has not changed,
+  **THEN** the recorded `source.digest` matches the SHA-256 of the current file, the cached
+  artifact is reused, and no derivation runs, **AND** the bytes reaching the device are
+  identical to the first run's. *Why:* cache state may not change what the device receives for
+  a given source (INV-APV-47); a digest is the only freshness test that survives a copy, a
+  resume or a container boundary, which mtime does not.
+
+- **WHEN** a MOP arm finds no static-analysis JSON in `task.results_dir`, or the document it
+  finds lacks the `"complete": true` sentinel, **THEN** `RVToolExecutionError` names the
+  expected path or carries the `DerivationError`, no artifact is written or pushed, and the
+  jar is never launched. *Why:* the warn-and-continue this replaces produced a run labelled as
+  a MOP arm that explored as pure SATA — indistinguishable in the results directory from a
+  real MOP arm, and therefore worse than a failed task, which the supervisor retries and the
+  run summary shows.
 
 - **WHEN** the exploration reaches `task.config.timeout` (say 3600 s) and the host
   Command's timeout of 3615 s fires, **THEN** `Command.invoke` raises
@@ -1032,7 +1068,7 @@ flowchart TB
 | rv-platform, rv-tools, aperv-tool (Python) | Host node, single uv `.venv` | Cross-module imports work only because the workspace installs everything into one venv |
 | `ape-rv.jar` (source of truth) | `../../ape/target/`, copied to the plugin package dir at `mvn install` | Gitignored in rv-android; `JarResolver` priority-1 path is the package dir itself |
 | Docker rvandroid image | Image-build host | Rebuilds the JAR from a fresh clone of `github.com/phtcosta/ape.git` at image-build time |
-| Device configuration set | Emulator `/data/local/tmp/` | jar + `ape.properties` + `static_analysis.json` (compacted) + `system-broadcast.json`; pushed fresh per task |
+| Device configuration set | Emulator `/data/local/tmp/` | jar + `ape.properties` + `mop-artifact.json` (derived) + `system-broadcast.json`; pushed fresh per task |
 | APE-RV engine process | Emulator, via `app_process` (working dir `/system/bin`) | Not an installed app; an Android runtime process like AOSP Monkey |
 | Instrumented app under test | Emulator (installed by rv-platform) | Emits RVSEC-COV to logcat; driven by the engine's injected events |
 | adb | Host node | The only host↔emulator connector: push before launch, blocking shell during the run |
@@ -1098,8 +1134,10 @@ The subsystem has a dedicated aperv spec plus the tools domain spec it plugs int
 functional requirements FR18 (tool integration), FR19, and FR20 (variant selection) are
 realized across the registry/factory indirection and the plugin's arm taxonomy. The
 INV-APV-* invariants are enforced in `modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py`
-and its guard tests (arm-defining explicitness, compaction fairness, device-path and launch
-contracts), while the INV-TOOL-* invariants are enforced in `rv-tools`
+and its guard tests (arm-defining explicitness, the fail-fast MOP arm, device-path and launch
+contracts); the INV-DRV-* derivation invariants are enforced in `derive_mop_artifact.py` with
+one named test per rule, and INV-ANA-53 by a repository audit. The INV-TOOL-* invariants are
+enforced in `rv-tools`
 (registry/factory semantics) and `rv-android-core` (`AbstractTool` timeout conversion,
 INV-TOOL-06). Note one documented gap: the gh74 arm-explicitness invariants
 (INV-APV-13/14/15/17) are code-enforced but their delta spec is only partially synced into

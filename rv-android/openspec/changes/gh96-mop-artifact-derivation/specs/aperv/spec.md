@@ -103,9 +103,14 @@ which the sibling `ape` change already references by number.
   NOT influence any emitted set, flag or edge.
 - **INV-DRV-05**: Derivation SHALL be deterministic at the byte level: identical full-JSON input bytes
   SHALL yield an identical artifact byte sequence, on any host and in any process.
-- **INV-DRV-06**: The artifact SHALL contain no `*Target` key and no call-graph data — no
-  `reachability` section, no method signatures, no raw `windows`/`transitions`/`listeners`. The full
-  JSON SHALL remain unmodified on the host.
+- **INV-DRV-06**: The artifact SHALL contain no call-graph data — no `reachability` section, no
+  method signatures, no raw `windows`/`transitions`/`listeners` — and no `*Target` key other than
+  `hasTargetMethods` on receivers and services. That single exception is deliberate: it is the
+  boolean the `targetMethods` signature list compacts to, its name is fixed by the jointly defined
+  wire format, and the jar reads it by that name. Stating the rule without the exception made it
+  unsatisfiable by the very schema this delta specifies, and left it enforceable only against
+  documents that happen to declare no receiver or service — which is why the cryptoapp fixture never
+  caught it. The full JSON SHALL remain unmodified on the host.
 - **INV-DRV-07**: Each emitted activity SHALL carry `deepLinkUri` derived by the rule the jar applies
   today; the intent-filter structure itself SHALL NOT be on the wire.
 
@@ -185,12 +190,17 @@ becomes a generation precondition instead of a device-side check.
 
 #### Scenario: cryptoapp derivation matches the known ground truth
 - **WHEN** `derive()` runs on `cryptoapp.apk.gh60-fresh.json`
-- **THEN** `mopActivities` SHALL equal `{MessageDigestActivity, CipherActivity}` (base names)
+- **THEN** `mopActivities` SHALL equal
+  `{MessageDigestActivity, CipherActivity, CryptographyActivity}` (base names).
+  `CryptographyActivity` enters through the D8 recovery: the exact join drops its
+  `CryptographyActivity$$ExternalSyntheticLambda0:onClick` wrapper handler and the reaching
+  `lambda$setupExecuteButton$0` body restores it. The jar asserts the same three flagged widgets
+  when it parses this fixture raw, which is this change's oracle (design D11)
 - **AND** `optionsMenus` SHALL contain the `MainActivity` record, and `wtg` SHALL carry the click
   edges from `MainActivity` to both MOP sub-activities
 - **AND** `components.activities` SHALL have 4 entries and `components.providers` 1 entry with
   `authorities == "br.unb.cic.cryptoapp.androidx-startup"`, every component `reachesMop == false`
-- **AND** `stats.windows` SHALL be 5
+- **AND** `stats.windows` SHALL be 5, `stats.flagged` 3 and `stats.recovered` 1
 
 #### Scenario: incomplete full JSON refuses to derive
 - **WHEN** `derive()` runs on a document whose `complete` key is absent or `false`
@@ -198,10 +208,12 @@ becomes a generation precondition instead of a device-side check.
 - **AND** no artifact SHALL be produced
 
 #### Scenario: no Target vocabulary and no call graph on the wire
-- **WHEN** any artifact is generated
-- **THEN** it SHALL contain no key matching `*Target*`
+- **WHEN** an artifact is generated from a document declaring receivers and services
+- **THEN** the only key matching `*Target*` anywhere in it SHALL be `hasTargetMethods`
 - **AND** it SHALL contain no `reachability`, `windows`, `transitions` or `listeners` section
   (INV-DRV-06)
+- **AND** the check SHALL be exercised against components, not only against a fixture whose
+  component lists are empty
 
 #### Scenario: unflagged metadata-less widgets are projected away
 - **WHEN** a widget has no MOP-reaching listener and none of `inputType`, `hint`, `prompt`,
@@ -236,8 +248,12 @@ and OR-aggregate them across listeners (INV-DRV-01). For each listener:
 The two axes SHALL NOT be collapsed. `direct` retains the producer's 0-hop meaning — the handler
 invokes a monitored operation in its own body — which is what `ape.mopWeightDirect` was defined to
 reward, and `transitive` is the any-depth reach implied by it. A listener whose `eventType` is null
-contributes to the aggregates but produces no wire key, since a null key is unaddressable by the
-query side; the generator SHALL nonetheless emit an aggregate consistent with it.
+contributes to the aggregates and normally produces no wire key, since a null key is unaddressable
+by the query side. It has one exception, and the exception is what keeps the projection lossless:
+because the jar recomputes a widget's aggregate as the OR over the `mop` map, a widget whose *only*
+flagged listeners are null-keyed would lose the flag entirely. In that case, and only that case, the
+generator SHALL emit the reserved key `""` — the same key `normalizeEventType("")` produces, so it is
+reachable only by a query for the empty event type and shadows no real one.
 
 #### Scenario: producer-supplied flags take precedence
 - **WHEN** a listener carries `handlerReachesTarget: true` and `handlerDirectlyReachesTarget: false`
@@ -263,6 +279,17 @@ query side; the generator SHALL nonetheless emit an aggregate consistent with it
   `reachesTarget` or `directlyReachesTarget` true
 - **THEN** the widget SHALL NOT be flagged
 - **AND** `stats.syntheticLambda` SHALL count the wrapper while `stats.recovered` SHALL NOT
+
+#### Scenario: a null event type folds into the aggregate
+- **WHEN** a widget's only flagged listener carries `eventType: null`
+- **THEN** the wire map SHALL carry `{"": "transitive"}`, so the jar's OR-over-the-map recompute of
+  the aggregate still sees the flag
+- **AND** the widget's base activity SHALL be in `mopActivities`
+
+#### Scenario: a null event type adds no key when another event is flagged
+- **WHEN** the same widget also carries a flagged `click` listener
+- **THEN** the wire map SHALL carry `{"click": "transitive"}` and no `""` key, because the aggregate
+  is already recoverable from the keyed entry
 
 #### Scenario: per-event flags are independent
 - **WHEN** a widget has a `click` listener reaching a monitored operation and a `long_click` listener

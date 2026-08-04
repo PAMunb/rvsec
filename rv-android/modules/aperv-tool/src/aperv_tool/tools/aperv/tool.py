@@ -60,12 +60,25 @@ from rv_android_core.util.jar_resolver import JarResolver
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
 
+from aperv_tool.tools.aperv.derive_mop_artifact import (
+    ARTIFACT_SUFFIX,
+    DEVICE_ARTIFACT_PATH,
+    DerivationError,
+    derive,
+    digest_of,
+    serialize_canonical,
+)
+
 # Tool constants
 APERV_TOOL_NAME = "aperv"
 APERV_JAR_NAME = "ape-rv.jar"
 APERV_DEVICE_JAR_PATH = "/data/local/tmp/ape-rv.jar"
 APERV_DEVICE_PROPERTIES_PATH = "/data/local/tmp/ape.properties"
 APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"
+
+# Suffix of the in-progress artifact write. The temporary file shares the results
+# directory with its destination so the rename that publishes it is atomic.
+ARTIFACT_TEMP_SUFFIX = ".mop.json.tmp"
 
 # Strategies accepted by configure(). "dfs" is accepted but has no named variant
 # (accessible via parameter override, e.g. aperv:default@strategy=dfs). See D6.
@@ -910,224 +923,108 @@ class ApeRVTool(AbstractTool):
             return json_path
         return None
 
-    def _compact_static_analysis_json(self, source_path: str) -> str | None:
+    def _derive_mop_artifact(self, task: Task) -> str:
         """
-        Compact the static analysis JSON into a temporary file for device push.
+        Return the host path of the derived MOP artifact, generating it when needed.
 
-        Compaction is three operations: deduplicating exact-duplicate entries in
-        `transitions` (preserving first-occurrence order), enriching every
-        `listeners[]` object with the two handler-reach booleans, and serializing
-        without pretty-print whitespace. The first and third are lossless; the
-        second is purely additive (INV-APV-21, INV-APV-31). No field is projected
-        away.
+        The artifact is a pure function of the full static-analysis JSON, so
+        freshness is a digest comparison rather than a timestamp one: mtime does not
+        survive a copy, a resume or a container boundary, and a stale artifact would
+        arm a run against a substrate that no longer describes the app. The recorded
+        digest lives inside the artifact, so there is no sidecar to keep consistent.
 
-        This exists because the Java side applies a pre-read footprint guard
-        (MopData.java:202) that rejects any file above roughly maxMemory()/6 —
-        about 32 MB at the emulator's ~192 MB heap. An oversized JSON makes the
-        MOP arms abort with 0 steps while the non-MOP baselines explore normally,
-        which is a per-app fairness gap rather than a crash. Duplicate edges carry
-        no information: no consumer of the edge list in the sibling `ape` repo
-        reads multiplicity (all are set-membership or first-match-fixed-weight),
-        so removing them is safe. Order is preserved because rekeyDialogsToHost
-        (MopData.java:884) resolves the first inbound edge and breaks (INV-APV-22).
+        Writes go through a temporary file in the same directory followed by an
+        atomic rename, so a crash mid-write cannot leave a truncated artifact that a
+        later run would read and trust.
 
-        Runs unconditionally rather than above a size threshold (INV-APV-23): a
-        threshold would leave this path exercised on ~1 app in 181 and would
-        duplicate the Java-side PARSE_FOOTPRINT_FACTOR as a second constant to
-        keep in sync across repositories.
+        The cache sits next to its source in the results directory: inspectable,
+        diffable and archived with the run.
 
         Args:
-            source_path: Path to the source JSON, from _find_static_analysis_file()
+            task: Task whose `results_dir` and `config.apk_name` locate the full JSON.
 
         Returns:
-            Path to the compacted temp file, or None if compaction failed —
-            the caller treats None as "push the source unchanged" (INV-APV-24).
+            Path of the `<apk_name>.mop.json` whose `source.digest` matches the
+            current full JSON.
+
+        Raises:
+            RVToolExecutionError: The full JSON is unreadable, unparseable or too
+                large to hold in memory, the derivation refused it, or the artifact
+                could not be written. `MemoryError` is caught with the rest because
+                the document is parsed whole before deriving, and a bare one would
+                lose the path and tool context the caller needs to act. No partial
+                file survives any of those paths.
         """
-        tmp_path: str | None = None
+        source_path = os.path.join(task.results_dir, f"{task.config.apk_name}.json")
+        artifact_path = os.path.join(
+            task.results_dir, f"{task.config.apk_name}{ARTIFACT_SUFFIX}"
+        )
+
+        tmp_path = None
         try:
-            with open(source_path, "r") as source_file:
-                document = json.load(source_file)
+            with open(source_path, "rb") as source_file:
+                raw = source_file.read()
+            digest = digest_of(raw)
 
-            # Dedup by canonical serialization of the whole entry rather than an
-            # explicit (sourceId, targetId, events) key tuple: identical for the
-            # current schema, but stays correct if the producer adds a field later,
-            # where a fixed tuple would silently collapse distinct entries (D4).
-            transitions = document.get("transitions")
-            if isinstance(transitions, list):
-                seen: set[str] = set()
-                unique = []
-                for entry in transitions:
-                    fingerprint = json.dumps(entry, sort_keys=True)
-                    if fingerprint not in seen:
-                        seen.add(fingerprint)
-                        unique.append(entry)
-                document["transitions"] = unique
+            if self._cached_artifact_digest(artifact_path) == digest:
+                self.logger.debug(f"Reusing cached MOP artifact {artifact_path}")
+                return artifact_path
 
-            # N6: populate the two handler-reach booleans from the document's own
-            # reachability section. Wrapped because INV-APV-31 requires *any*
-            # enrichment failure to degrade to an un-enriched push rather than
-            # propagate: the method is defensive and does not raise, but an
-            # unforeseen producer schema change must not become a task failure in
-            # the MOP arms only — the same between-arm asymmetry INV-APV-24 exists
-            # to remove. Degrading here keeps the dedup+minify result (INV-APV-31),
-            # which is NOT the same as the outer fallback's source-file push.
-            try:
-                self._enrich_listener_reach(document, source_path)
-            except Exception as e:  # noqa: BLE001 - see INV-APV-31 above
-                self.logger.warning(
-                    f"Listener reach enrichment failed for {source_path}: {e}. "
-                    f"Pushing the document deduplicated and minified but un-enriched."
-                )
-
-            # delete=False so the file survives until the caller unlinks it after
-            # the push, mirroring the _push_properties() temp-file idiom.
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as tmp:
-                tmp_path = tmp.name
-                json.dump(document, tmp, separators=(",", ":"))
-
-            return tmp_path
-        except (json.JSONDecodeError, OSError, MemoryError) as e:
-            # Never raise: a compaction problem must not become a task failure in
-            # one arm only, which would manufacture the very between-arm asymmetry
-            # this function exists to remove (INV-APV-24, D3).
-            self.logger.warning(
-                f"Failed to compact static analysis JSON {source_path}: {e}. "
-                f"Falling back to pushing the source file unchanged."
+            artifact = derive(
+                json.loads(raw),
+                source_file=os.path.basename(source_path),
+                source_digest=digest,
             )
-            if tmp_path:
-                # Remove the partial temp file so no temp survives the fallback
-                # path (INV-APV-25). The source is untouched either way.
+            payload = serialize_canonical(artifact)
+
+            handle, tmp_path = tempfile.mkstemp(
+                dir=task.results_dir, suffix=ARTIFACT_TEMP_SUFFIX
+            )
+            with os.fdopen(handle, "wb") as tmp_file:
+                tmp_file.write(payload)
+            os.replace(tmp_path, artifact_path)
+            tmp_path = None
+
+            stats = artifact["stats"]
+            self.logger.info(
+                f"Derived MOP artifact {artifact_path} "
+                f"({len(raw)} -> {len(payload)} bytes, "
+                f"flagged={stats['flagged']}/{stats['widgetsTotal']} widgets, "
+                f"mopActivities={len(artifact['mopActivities'])}, "
+                f"recovered={stats['recovered']})"
+            )
+            return artifact_path
+        except (DerivationError, OSError, json.JSONDecodeError, MemoryError) as e:
+            raise RVToolExecutionError(
+                f"Could not derive the MOP artifact from {source_path}: {e}",
+                tool_name=self.name,
+                cause=e,
+            )
+        finally:
+            # Reached on the error paths and on an os.replace that never ran; a
+            # successful rename has already consumed the temporary file.
+            if tmp_path is not None:
                 try:
                     os.unlink(tmp_path)
                 except OSError:
                     pass
+
+    def _cached_artifact_digest(self, artifact_path: str) -> str | None:
+        """
+        Read the source digest a cached artifact records, or None when there is no
+        usable cache.
+
+        A missing, unreadable or corrupt artifact is not an error: it is a cache
+        miss, and regenerating costs milliseconds. Only the digest is read, because
+        it is the only field freshness depends on.
+        """
+        try:
+            with open(artifact_path, "r") as artifact_file:
+                cached = json.load(artifact_file)
+        except (OSError, json.JSONDecodeError):
             return None
-
-    def _index_reaches_target(self, reachability: list) -> tuple[dict[str, bool], bool]:
-        """
-        Index the document's `reachability` section by method signature.
-
-        Every access is defensive because the section is producer output with no
-        schema guarantee, and a single odd entry must not cost the whole
-        enrichment.
-
-        Args:
-            reachability: The document's `reachability` list.
-
-        Returns:
-            `(reaches_by_signature, saw_methods)`. The flag distinguishes a
-            genuinely empty section — an app that reaches nothing, for which
-            false on every listener is correct — from a malformed one, for which
-            no answer may be fabricated.
-        """
-        reaches_by_signature: dict[str, bool] = {}
-        saw_methods = False
-        for entry in reachability:
-            if not isinstance(entry, dict):
-                continue
-            methods = entry.get("methods")
-            if not isinstance(methods, list):
-                continue
-            saw_methods = True
-            for method in methods:
-                if not isinstance(method, dict):
-                    continue
-                signature = method.get("signature")
-                if isinstance(signature, str):
-                    reaches_by_signature[signature] = bool(method.get("reachesTarget"))
-        return reaches_by_signature, saw_methods
-
-    def _enrich_listener_reach(self, document: dict, source_path: str) -> int:
-        """
-        Populate the two handler-reach booleans on every listener, in place.
-
-        The scoring pipeline has a direct/transitive axis it has never been able
-        to use: the producer's method-level `directlyReachesTarget` means 0-hop —
-        true only when the method's own body invokes a JCA target — and UI
-        handlers delegate, so it is false for every handler in the corpus. That
-        is why `[DM]` is 0 across all 181 apps and `mop_weight_direct=500` has
-        never fired. The redefined semantics (INV-APV-32) is *the handler of THIS
-        widget reaches a JCA target at any call depth*, which is the property the
-        weight was always meant to reward, and it is computed from the same
-        `reachesTarget` bit — never copied from the producer's 0-hop field.
-
-        Both booleans therefore carry the same value by construction. They stay
-        two fields because the consumer reads them as two: it takes this widget's
-        own handler as the direct axis and derives the transitive axis from its
-        own containment logic (`MopData.java:516-517,531-533`), with precedence
-        over its local join. So the enrichment reaches the scoring pipeline with
-        no jar change.
-
-        Lookup is exact string match on the Soot signature: both sides come from
-        the same document, and the producer emits `listeners[].handler` in the
-        same form it uses for `methods[].signature`. A miss yields false on both
-        fields and no warning — misses are expected in apps whose handler set and
-        reachability set were computed over different class subsets.
-
-        Expect sparsity, not saturation: over the 40-APK subset this flags 160 of
-        45,200 listeners (0.4%), with only 7 apps carrying any flaggable listener.
-
-        Args:
-            document: Parsed static analysis JSON, modified in place. No
-                structural guarantee is assumed — every section access is
-                defensive.
-            source_path: Source file path, named in the warning when the
-                reachability section is unusable.
-
-        Returns:
-            Number of listeners enriched. Zero when the `reachability` section is
-            missing or malformed, in which case no field is written at all and
-            the caller pushes the document deduplicated and minified but
-            un-enriched (INV-APV-31).
-        """
-        # A missing or non-list reachability section cannot be defaulted: writing
-        # false everywhere would fabricate an answer indistinguishable from a
-        # measured one. Return 0 instead, leaving the document un-enriched.
-        reachability = document.get("reachability")
-        if not isinstance(reachability, list):
-            self.logger.warning(
-                f"Static analysis document {source_path} has no usable "
-                f"reachability section; pushing it un-enriched."
-            )
-            return 0
-
-        reaches_by_signature, saw_methods = self._index_reaches_target(reachability)
-
-        # A non-empty reachability section that yielded no methods[] anywhere is
-        # the malformed shape, distinct from a genuinely empty one: an app with
-        # `reachability: []` reaches nothing, and false on every listener is the
-        # correct answer for it.
-        if reachability and not saw_methods:
-            self.logger.warning(
-                f"Static analysis document {source_path} has a malformed "
-                f"reachability section (no methods[] entries); pushing it un-enriched."
-            )
-            return 0
-
-        enriched = 0
-        windows = document.get("windows")
-        for window in windows if isinstance(windows, list) else []:
-            if not isinstance(window, dict):
-                continue
-            widgets = window.get("widgets")
-            for widget in widgets if isinstance(widgets, list) else []:
-                if not isinstance(widget, dict):
-                    continue
-                listeners = widget.get("listeners")
-                for listener in listeners if isinstance(listeners, list) else []:
-                    if not isinstance(listener, dict):
-                        continue
-                    handler = listener.get("handler")
-                    reaches = isinstance(handler, str) and reaches_by_signature.get(
-                        handler, False
-                    )
-                    listener["handlerReachesTarget"] = reaches
-                    listener["handlerDirectlyReachesTarget"] = reaches
-                    enriched += 1
-
-        return enriched
+        source = cached.get("source") if isinstance(cached, dict) else None
+        return source.get("digest") if isinstance(source, dict) else None
 
     def _push_properties(
         self, device_serial: str, trace_file_path: str, mop_json_pushed: bool = False
@@ -1137,7 +1034,7 @@ class ApeRVTool(AbstractTool):
 
         Writes ape.defaultGUIThrottle=<throttle_ms> to a temporary file. When
         mop_json_pushed is True, also appends ape.mopDataPath pointing to the
-        previously pushed static analysis JSON.
+        derived MOP artifact pushed in step 1c.
 
         Args:
             device_serial: Device serial number
@@ -1150,8 +1047,9 @@ class ApeRVTool(AbstractTool):
         # are excluded automatically because they have no mapping entry.
         lines = []
         if mop_json_pushed:
-            # Hardcoded device path — must match the push destination in execute_tool_specific_logic()
-            lines.append("ape.mopDataPath=/data/local/tmp/static_analysis.json")
+            # Same constant the push destination uses, so the property and the file
+            # cannot drift apart.
+            lines.append(f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}")
         for python_key, java_key in APERV_PROPERTY_MAPPING.items():
             if python_key in self._tool_config:
                 value = self._tool_config[python_key]
@@ -1464,38 +1362,36 @@ class ApeRVTool(AbstractTool):
                 task.result.trace_file,
             )
 
-        # Step 1c: Optionally push static analysis JSON for MOP-guided variants.
-        # The JSON is compacted into a temp file first so it clears the Java-side
-        # footprint guard (MopData.java:202); the source stays byte-identical as an
-        # archived artifact that offline consolidation and resume re-parse
-        # (INV-APV-20). The flag tracks whether the push succeeded so
-        # _push_properties() knows whether to include ape.mopDataPath — it is set
-        # identically on the compacted and the fallback path, so a compaction
-        # failure is invisible to ape.properties.
+        # Step 1c: Derive and push the MOP artifact for MOP-guided variants.
+        # Only the derived projection travels: the full JSON stays where it is as the
+        # archived source that offline consolidation and resume re-parse.
+        #
+        # A MOP arm without its static-analysis input is a failed task, not a
+        # degraded run. The warn-and-continue this replaces produced runs labelled as
+        # MOP arms that explored as pure SATA, indistinguishable in the results
+        # directory from a real one — the worst evidence-to-signal ratio in the
+        # pipeline. Failing here makes the supervisor retry it and shows it in the
+        # run summary.
         mop_json_pushed = False
         if self._tool_config.get("mop_data") == "static_analysis":
             static_json = self._find_static_analysis_file(task)
-            if static_json:
-                compacted = self._compact_static_analysis_json(static_json)
-                push_path = compacted or static_json
-                try:
-                    self._push_file_to_device(
-                        push_path,
-                        "/data/local/tmp/static_analysis.json",
-                        device_serial,
-                        task.result.trace_file,
-                    )
-                    mop_json_pushed = True
-                finally:
-                    # Unlink in a finally so no temp survives even when the push
-                    # raises RVToolExecutionError (INV-APV-25).
-                    if compacted:
-                        os.unlink(compacted)
-            else:
-                self.logger.warning(
-                    "sata_mop: static analysis file not found in results_dir, "
-                    "running without MOP data"
+            if not static_json:
+                results_dir = getattr(task, "results_dir", None) or "<results_dir>"
+                apk_name = getattr(task_config, "apk_name", None) or "<apk_name>"
+                expected_path = os.path.join(results_dir, f"{apk_name}.json")
+                raise RVToolExecutionError(
+                    f"MOP arm cannot arm: no static analysis JSON at {expected_path}",
+                    tool_name=self.name,
+                    cause=None,
                 )
+            artifact_path = self._derive_mop_artifact(task)
+            self._push_file_to_device(
+                artifact_path,
+                DEVICE_ARTIFACT_PATH,
+                device_serial,
+                task.result.trace_file,
+            )
+            mop_json_pushed = True
 
         # Step 2: Push ape.properties with exploration parameters.
         # Skipped only when _tool_config is empty (tool used without configure()),

@@ -267,9 +267,12 @@ sequenceDiagram
 
     opt mop_data == "static_analysis"
         Tool->>Tool: _find_static_analysis_file(task)
-        opt static analysis JSON found
-            Tool->>ADB: adb push static_analysis.json /data/local/tmp/
+        alt static analysis JSON found
+            Tool->>Tool: _derive_mop_artifact(task) [cache-or-derive]
+            Tool->>ADB: adb push mop-artifact.json /data/local/tmp/
             ADB-->>Tool: OK
+        else absent or underivable
+            Tool-->>Tool: raise RVToolExecutionError (task fails)
         end
     end
 
@@ -409,9 +412,9 @@ classDiagram
 2. rv-platform's `ToolFactory` instantiates `ApeRVTool`, resolves the `sata_mop` variant config (`strategy=sata`, `mop_data=static_analysis`, `throttle_ms=200`), and calls `configure()`
 3. `configure()` validates `strategy="sata"` against `APERV_AVAILABLE_STRATEGIES` and stores the config
 4. `execute_tool_specific_logic()` resolves `ape-rv.jar` via `JarResolver` and pushes it to the device
-5. The tool finds the static analysis JSON in `task.results_dir` and pushes it as `/data/local/tmp/static_analysis.json`
-6. `_push_properties()` generates `ape.properties` with `ape.defaultGUIThrottle=200` and `ape.mopDataPath=/data/local/tmp/static_analysis.json`
-7. APE-RV runs via `app_process` on the device, using the static analysis data to bias exploration toward MOP-relevant screens
+5. The tool finds the static analysis JSON in `task.results_dir`, derives the compact MOP artifact from it (or reuses the cached `<apk_name>.mop.json` when its recorded digest still matches), and pushes **only the artifact** as `/data/local/tmp/mop-artifact.json`
+6. `_push_properties()` generates `ape.properties` with `ape.defaultGUIThrottle=200` and `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
+7. APE-RV runs via `app_process` on the device, using the artifact to bias exploration toward MOP-relevant screens
 8. After timeout, `RVCommandTimeoutError` is caught and re-raised as `RVToolTimeoutError` (normal completion)
 9. rv-platform collects coverage from logcat independently
 
@@ -453,8 +456,9 @@ flowchart TB
         JarResolve["_resolve_jar_path()\nPriority: module > RVSEC_HOME > TOOLS_DIR"]
         PushJar["Push ape-rv.jar\n-> /data/local/tmp/"]
         PushBroadcast["Push system-broadcast.json\n-> /data/local/tmp/\n(optional)"]
-        FindStatic["_find_static_analysis_file()\nLook for <apk>.json"]
-        PushStatic["Push static_analysis.json\n-> /data/local/tmp/\n(MOP variants only)"]
+        FindStatic["_find_static_analysis_file()\nLook for <apk>.json\nabsent => task fails"]
+        DeriveArtifact["_derive_mop_artifact()\nDigest cache -> derive\n-> <apk>.mop.json"]
+        PushStatic["Push mop-artifact.json\n-> /data/local/tmp/\n(MOP variants only)"]
         GenProps["_push_properties()\nGenerate ape.properties\nfrom APERV_PROPERTY_MAPPING"]
         BuildCmd["_build_main_command()\nadb shell CLASSPATH=...\napp_process /system/bin"]
         Execute["Command.invoke()\nWrite stdout to trace_file"]
@@ -472,7 +476,8 @@ flowchart TB
     JarResolve --> PushJar
     PushJar --> PushBroadcast
     PushBroadcast --> FindStatic
-    FindStatic --> PushStatic
+    FindStatic --> DeriveArtifact
+    DeriveArtifact --> PushStatic
     PushStatic --> GenProps
     GenProps --> BuildCmd
     BuildCmd --> Execute
@@ -499,7 +504,7 @@ The `_push_properties()` method translates Python configuration keys to Java pro
 | `llm_percentage` | `ape.llmPercentage` | LLM |
 | `llm_prompt_variant` | `ape.llmPromptVariant` | LLM |
 
-When `mop_json_pushed` is True, the generated properties also include `ape.mopDataPath=/data/local/tmp/static_analysis.json`, pointing APE-RV to the static analysis JSON pushed earlier.
+When `mop_json_pushed` is True, the generated properties also include `ape.mopDataPath=/data/local/tmp/mop-artifact.json`, pointing APE-RV to the derived artifact pushed earlier.
 
 ### MOP Data Flow (sata_mop variants)
 
@@ -507,12 +512,12 @@ For MOP-guided variants, static analysis data flows from rv-platform's pre-proce
 
 1. rv-experiment runs GATOR static analysis during pre-processing, producing `<apk_name>.json` in `task.results_dir`
 2. `_find_static_analysis_file(task)` locates this JSON by constructing the expected path
-3. The JSON is pushed to `/data/local/tmp/static_analysis.json` on the device
-4. `_push_properties()` includes `ape.mopDataPath` pointing to the pushed file
-5. APE-RV reads the JSON at startup, mapping activities to monitored operations
-6. During exploration, APE-RV biases action selection toward screens where monitored operations are reachable
+3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` — widget MOP flags, both MOP-activity sets, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON, otherwise deriving and writing atomically. `derive_mop_artifact.py` is the single authority for those rules; they used to run on the device at load time
+4. Only the artifact is pushed, to `/data/local/tmp/mop-artifact.json`. The full JSON stays byte-identical on the host as the archived source every metric reads, and never travels
+5. `_push_properties()` includes `ape.mopDataPath` pointing to the pushed artifact
+6. APE-RV reads the artifact at startup instead of parsing a call graph, and biases action selection toward screens where monitored operations are reachable
 
-If the static analysis file is not found, the tool logs a warning and runs without MOP data -- APE-RV degrades gracefully to pure strategy-based exploration.
+If the static analysis file is not found, or the derivation refuses the document, the task **fails** with `RVToolExecutionError`. A MOP arm that cannot arm is not degraded to pure strategy-based exploration: such a run is labelled a MOP arm while behaving like the baseline, which is indistinguishable from a real MOP arm in the results directory.
 
 ### LLM Data Flow (LLM variants)
 

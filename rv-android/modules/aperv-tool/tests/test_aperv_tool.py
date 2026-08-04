@@ -5,18 +5,20 @@ Tests cover: tool spec, variants, configure, JAR search paths, command building,
 constants, and empty trace detection.
 """
 
-import copy
 import hashlib
 import json
 import logging
 import os
-import tempfile
 from unittest.mock import MagicMock
 
 import pytest
-from rv_android_core.util.error.exceptions import ConfigurationError
+from rv_android_core.util.error.exceptions import (
+    ConfigurationError,
+    RVToolExecutionError,
+)
 
 import aperv_tool.tools.aperv.tool as aperv_mod
+from aperv_tool.tools.aperv.derive_mop_artifact import DEVICE_ARTIFACT_PATH
 from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
@@ -1059,7 +1061,7 @@ class TestArmProperties:
         )
         assert "ape.mopActivitySourceComponents=true" in props
         assert "ape.mopFrontierWeight=200" in props
-        assert "ape.mopDataPath=/data/local/tmp/static_analysis.json" in props
+        assert f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}" in props
         # trigger_mop_first dropped (task group 7): never written to properties anymore.
         assert "ape.triggerMopFirst" not in props
 
@@ -1125,424 +1127,110 @@ def _write_source(tmp_path, document=None, raw=None):
     return str(path)
 
 
-# --- gh90 N6: listener reach enrichment --------------------------------------
-
-# Handler signatures in the producer's Soot form, as they appear in both
-# listeners[].handler and reachability[].methods[].signature.
-_H_ENCRYPT = "<com.example.MainActivity: void onEncryptClick(android.view.View)>"
-_H_ABOUT = "<com.example.MainActivity: void onAboutClick(android.view.View)>"
-_H_GHOST = "<com.example.MainActivity: void onGhostClick(android.view.View)>"
-
-# A document shaped like a real .apk.json excerpt: onEncryptClick delegates to a
-# repository that calls Cipher.getInstance, so the producer reports reachesTarget
-# true with directlyReachesTarget FALSE (0-hop semantics — the defect N6 exists to
-# route around). onAboutClick reaches nothing. onGhostClick has no reachability
-# entry at all, the expected miss in apps whose handler set and reachability set
-# were computed over different class subsets.
-ENRICH_DOCUMENT = {
-    "package": "com.example",
-    "mainActivity": "com.example.MainActivity",
-    "components": {"activities": ["MainActivity"]},
-    "reachability": [
-        {
-            "className": "com.example.MainActivity",
-            "componentType": "ACTIVITY",
-            "isMain": True,
-            "methods": [
-                {
-                    "name": "onEncryptClick",
-                    "signature": _H_ENCRYPT,
-                    "reachable": True,
-                    "reachesTarget": True,
-                    "directlyReachesTarget": False,
-                },
-                {
-                    "name": "onAboutClick",
-                    "signature": _H_ABOUT,
-                    "reachable": True,
-                    "reachesTarget": False,
-                    "directlyReachesTarget": False,
-                },
-            ],
-        }
-    ],
-    "windows": [
-        {
-            "id": "w1",
-            "name": "com.example.MainActivity",
-            "type": "ACTIVITY",
-            "isMain": True,
-            "widgets": [
-                {
-                    "id": "btn_encrypt",
-                    "idName": "encrypt",
-                    "type": "android.widget.Button",
-                    "text": "Encrypt",
-                    "listeners": [{"eventType": "click", "handler": _H_ENCRYPT}],
-                },
-                {
-                    "id": "btn_about",
-                    "idName": "about",
-                    "type": "android.widget.Button",
-                    "text": "About",
-                    "listeners": [{"eventType": "click", "handler": _H_ABOUT}],
-                },
-                {
-                    "id": "btn_ghost",
-                    "idName": "ghost",
-                    "type": "android.widget.Button",
-                    "text": "Ghost",
-                    "listeners": [{"eventType": "click", "handler": _H_GHOST}],
-                },
-            ],
-        }
-    ],
-    "transitions": [],
-    "complete": True,
-}
+# --- gh96: host-side MOP artifact derivation ---------------------------------
 
 
-def _listeners_of(document):
-    """Flatten windows[].widgets[].listeners[] keyed by handler signature."""
-    return {
-        listener["handler"]: listener
-        for window in document["windows"]
-        for widget in window["widgets"]
-        for listener in widget["listeners"]
-    }
-
-
-class TestEnrichListenerReach:
-    """gh90 group 2: _enrich_listener_reach() semantics (INV-APV-31/32)."""
+class TestDeriveMopArtifact:
+    """`_derive_mop_artifact()`: the digest cache and the atomic write."""
 
     def setup_method(self):
         self.tool = ApeRVTool()
 
-    def test_transitive_handler_flagged_direct(self):
-        # Spec scenario "Handler that reaches JCA transitively is flagged direct":
-        # any-depth reach of THIS widget's handler is what direct now means.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
+    def _task(self, tmp_path):
+        task = MagicMock()
+        task.results_dir = str(tmp_path)
+        task.config.apk_name = "app.apk"
+        return task
 
-        enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
+    def _artifact_path(self, tmp_path):
+        return tmp_path / "app.apk.mop.json"
 
-        assert enriched == 3
-        listener = _listeners_of(document)[_H_ENCRYPT]
-        assert listener["handlerReachesTarget"] is True
-        assert listener["handlerDirectlyReachesTarget"] is True
+    def test_derives_and_writes_the_artifact(self, tmp_path):
+        _write_source(tmp_path, SOURCE_DOCUMENT)
 
-    def test_direct_is_not_copied_from_producer_field(self):
-        # INV-APV-32: the producer says directlyReachesTarget=false for this very
-        # handler. Copying it would reproduce the [DM]=0 defect across all 181 apps.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
-        producer_bit = document["reachability"][0]["methods"][0][
-            "directlyReachesTarget"
-        ]
-        assert producer_bit is False
+        path = self.tool._derive_mop_artifact(self._task(tmp_path))
 
-        self.tool._enrich_listener_reach(document, "app.apk.json")
+        assert path == str(self._artifact_path(tmp_path))
+        artifact = json.loads(self._artifact_path(tmp_path).read_text())
+        assert artifact["formatVersion"] == 1
+        assert artifact["package"] == "br.unb.cic.cryptoapp"
+        assert artifact["source"]["file"] == "app.apk.json"
+
+    def test_cache_hit_skips_derivation(self, tmp_path, monkeypatch):
+        # Spec scenario "cache hit skips derivation": a matching digest is the whole
+        # freshness test, so the second call must not re-derive.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        task = self._task(tmp_path)
+        self.tool._derive_mop_artifact(task)
+        first = self._artifact_path(tmp_path).read_bytes()
+
+        def forbidden(*args, **kwargs):
+            raise AssertionError("a fresh cache must not be re-derived")
+
+        monkeypatch.setattr(aperv_mod, "derive", forbidden)
+
+        assert self.tool._derive_mop_artifact(task) == str(
+            self._artifact_path(tmp_path)
+        )
+        assert self._artifact_path(tmp_path).read_bytes() == first
+
+    def test_stale_cache_regenerates(self, tmp_path):
+        # Spec scenario "stale cache regenerates": the artifact must describe the
+        # JSON that is there now, not the one that was there when it was written.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        task = self._task(tmp_path)
+        self.tool._derive_mop_artifact(task)
+
+        changed = {**SOURCE_DOCUMENT, "package": "com.example.other"}
+        _write_source(tmp_path, changed)
+        self.tool._derive_mop_artifact(task)
+
+        artifact = json.loads(self._artifact_path(tmp_path).read_text())
+        assert artifact["package"] == "com.example.other"
+        raw = (tmp_path / "app.apk.json").read_bytes()
+        assert artifact["source"]["digest"] == aperv_mod.digest_of(raw)
+
+    def test_corrupt_cache_regenerates(self, tmp_path):
+        # An unreadable cache is a miss, not a failure: regenerating costs
+        # milliseconds and refusing would fail a run over a scratch file.
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        self._artifact_path(tmp_path).write_text("{ truncated")
+
+        self.tool._derive_mop_artifact(self._task(tmp_path))
 
         assert (
-            _listeners_of(document)[_H_ENCRYPT]["handlerDirectlyReachesTarget"] is True
+            json.loads(self._artifact_path(tmp_path).read_text())["formatVersion"] == 1
         )
 
-    def test_unreachable_handler_false_on_both(self):
-        # Spec scenario "Handler that reaches nothing is flagged false on both axes".
-        document = copy.deepcopy(ENRICH_DOCUMENT)
+    def test_failed_derivation_leaves_no_file(self, tmp_path):
+        # Spec scenario "failed derivation leaves no artifact behind": a truncated
+        # analysis must not arm a run, and must leave no temp behind either.
+        _write_source(tmp_path, {**SOURCE_DOCUMENT, "complete": False})
+        before = set(os.listdir(tmp_path))
 
-        self.tool._enrich_listener_reach(document, "app.apk.json")
+        with pytest.raises(RVToolExecutionError) as raised:
+            self.tool._derive_mop_artifact(self._task(tmp_path))
 
-        listener = _listeners_of(document)[_H_ABOUT]
-        assert listener["handlerReachesTarget"] is False
-        assert listener["handlerDirectlyReachesTarget"] is False
+        assert "complete" in str(raised.value)
+        assert not self._artifact_path(tmp_path).exists()
+        assert set(os.listdir(tmp_path)) == before
 
-    def test_unknown_signature_false_on_both_without_warning(self, caplog):
-        # Spec scenario "Handler absent from the reachability section": both false,
-        # and NO per-miss warning — a miss is expected, not a failure.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
+    def test_unparseable_source_raises(self, tmp_path):
+        _write_source(tmp_path, raw="{not valid json")
 
-        with caplog.at_level(logging.WARNING):
-            self.tool._enrich_listener_reach(document, "app.apk.json")
+        with pytest.raises(RVToolExecutionError):
+            self.tool._derive_mop_artifact(self._task(tmp_path))
 
-        listener = _listeners_of(document)[_H_GHOST]
-        assert listener["handlerReachesTarget"] is False
-        assert listener["handlerDirectlyReachesTarget"] is False
-        assert caplog.text == ""
+        assert not self._artifact_path(tmp_path).exists()
 
-    def test_enrichment_adds_only_two_keys(self):
-        # INV-APV-31: additive only. Stripping the two keys must restore the source
-        # document exactly — nothing added, removed, reordered or altered elsewhere.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
-
-        self.tool._enrich_listener_reach(document, "app.apk.json")
-
-        for listener in _listeners_of(document).values():
-            assert set(listener) == {
-                "eventType",
-                "handler",
-                "handlerReachesTarget",
-                "handlerDirectlyReachesTarget",
-            }
-            del listener["handlerReachesTarget"]
-            del listener["handlerDirectlyReachesTarget"]
-        assert document == ENRICH_DOCUMENT
-
-    def test_app_with_no_widgets_is_a_valid_noop(self):
-        # Spec scenario "App with no widgets is enriched trivially" — the Compose
-        # case: median 0 widgets, so N6 is a no-op there by construction.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
-        document["windows"] = [{"id": "w1", "name": "MainActivity", "widgets": []}]
-        before = copy.deepcopy(document)
-
-        enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
-
-        assert enriched == 0
-        assert document == before
-
-    def test_empty_reachability_list_flags_everything_false(self):
-        # An app that reaches nothing is not a malformed app: false everywhere is
-        # the correct answer, and the fields ARE written.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
-        document["reachability"] = []
-
-        enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
-
-        assert enriched == 3
-        for listener in _listeners_of(document).values():
-            assert listener["handlerReachesTarget"] is False
-            assert listener["handlerDirectlyReachesTarget"] is False
-
-    def test_malformed_reachability_writes_nothing_and_warns(self, caplog):
-        # A section that cannot answer the question must not be defaulted to false:
-        # a fabricated answer is indistinguishable from a measured one.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
-        document["reachability"] = ["not", "objects", "with", "methods"]
-
-        with caplog.at_level(logging.WARNING):
-            enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
-
-        assert enriched == 0
-        assert "app.apk.json" in caplog.text
-        for listener in _listeners_of(document).values():
-            assert "handlerReachesTarget" not in listener
-
-    def test_absent_reachability_writes_nothing_and_warns(self, caplog):
-        document = copy.deepcopy(ENRICH_DOCUMENT)
-        del document["reachability"]
-
-        with caplog.at_level(logging.WARNING):
-            enriched = self.tool._enrich_listener_reach(document, "app.apk.json")
-
-        assert enriched == 0
-        assert "app.apk.json" in caplog.text
-        for listener in _listeners_of(document).values():
-            assert "handlerReachesTarget" not in listener
-
-
-class TestCompactionEnrichment:
-    """gh90 group 2: the enrichment as wired into compaction (INV-APV-21/31)."""
-
-    def setup_method(self):
-        self.tool = ApeRVTool()
-
-    def test_compacted_document_carries_the_two_booleans(self, tmp_path):
-        source = _write_source(tmp_path, ENRICH_DOCUMENT)
-
-        compacted = self.tool._compact_static_analysis_json(source)
-
-        with open(compacted) as f:
-            result = json.load(f)
-        listeners = _listeners_of(result)
-        assert listeners[_H_ENCRYPT]["handlerDirectlyReachesTarget"] is True
-        assert listeners[_H_ABOUT]["handlerDirectlyReachesTarget"] is False
-        os.unlink(compacted)
-
-    def test_source_file_unmodified_by_enrichment(self, tmp_path):
-        # INV-APV-20 continues to hold with the third operation in place: the
-        # archived artifact stays byte-identical to the producer's output.
-        source = _write_source(tmp_path, ENRICH_DOCUMENT)
-        before = open(source, "rb").read()
-
-        compacted = self.tool._compact_static_analysis_json(source)
-
-        assert open(source, "rb").read() == before
-        os.unlink(compacted)
-
-    def test_malformed_reachability_degrades_to_unenriched_push(self, tmp_path, caplog):
-        # Spec scenario "Malformed reachability section degrades to un-enriched
-        # push": still deduplicated, still minified, still pushed — NOT the
-        # source-file fallback of INV-APV-24, which is a different degradation.
-        document = copy.deepcopy(ENRICH_DOCUMENT)
-        document["reachability"] = ["not", "objects"]
-        document["transitions"] = [TRANSITION_A, TRANSITION_B, TRANSITION_A]
-        source = _write_source(tmp_path, document)
-
-        with caplog.at_level(logging.WARNING):
-            compacted = self.tool._compact_static_analysis_json(source)
-
-        assert compacted is not None, "enrichment failure must not trigger INV-APV-24"
-        assert source in caplog.text
-        raw = open(compacted).read()
-        assert "handlerReachesTarget" not in raw
-        assert json.loads(raw)["transitions"] == [TRANSITION_A, TRANSITION_B]
-        assert "\n" not in raw
-        os.unlink(compacted)
-
-    def test_unexpected_enrichment_error_still_pushes_compacted(
-        self, tmp_path, caplog, monkeypatch
-    ):
-        # INV-APV-31 "on any failure": even an unforeseen exception inside the
-        # enrichment degrades to the dedup+minify result rather than failing the
-        # task in the MOP arms only.
-        source = _write_source(tmp_path, ENRICH_DOCUMENT)
-
-        def raise_typeerror(*args, **kwargs):
-            raise TypeError("producer schema drifted")
-
-        monkeypatch.setattr(ApeRVTool, "_enrich_listener_reach", raise_typeerror)
-
-        with caplog.at_level(logging.WARNING):
-            compacted = self.tool._compact_static_analysis_json(source)
-
-        assert compacted is not None
-        assert source in caplog.text
-        assert "handlerReachesTarget" not in open(compacted).read()
-        os.unlink(compacted)
-
-
-class TestCompactStaticAnalysisJson:
-    """Group 1: _compact_static_analysis_json() semantics (INV-APV-20..25)."""
-
-    def setup_method(self):
-        self.tool = ApeRVTool()
-
-    def test_dedup_preserves_first_occurrence_order(self, tmp_path):
-        # INV-APV-22: [A, B, A, C, B] -> exactly [A, B, C]. Order is load-bearing
-        # because rekeyDialogsToHost takes the first inbound edge and breaks.
-        source = _write_source(tmp_path, SOURCE_DOCUMENT)
-
-        compacted = self.tool._compact_static_analysis_json(source)
-
-        assert compacted is not None
-        with open(compacted) as f:
-            result = json.load(f)
-        assert result["transitions"] == [TRANSITION_A, TRANSITION_B, TRANSITION_C]
-        os.unlink(compacted)
-
-    def test_all_top_level_keys_survive_unchanged(self, tmp_path):
-        # INV-APV-21: no field is projected away; only transitions is touched.
-        source = _write_source(tmp_path, SOURCE_DOCUMENT)
-
-        compacted = self.tool._compact_static_analysis_json(source)
-
-        with open(compacted) as f:
-            result = json.load(f)
-        assert set(result.keys()) == set(SOURCE_DOCUMENT.keys())
-        for key in SOURCE_DOCUMENT:
-            if key != "transitions":
-                assert result[key] == SOURCE_DOCUMENT[key]
-        os.unlink(compacted)
-
-    def test_output_has_no_pretty_print_whitespace(self, tmp_path):
-        # INV-APV-21(b): minified serialization, and it re-parses to the same
-        # document modulo the transitions dedup.
-        source = _write_source(tmp_path, SOURCE_DOCUMENT)
-
-        compacted = self.tool._compact_static_analysis_json(source)
-
-        raw = open(compacted).read()
-        expected = {
-            **SOURCE_DOCUMENT,
-            "transitions": [TRANSITION_A, TRANSITION_B, TRANSITION_C],
-        }
-        # Compared against the canonical no-whitespace serialization rather than by
-        # scanning for ", " / ": ", because a Soot signature legally contains ": "
-        # inside a string value (<class: void m(args)>).
-        assert raw == json.dumps(expected, separators=(",", ":"))
-        assert "\n" not in raw
-        os.unlink(compacted)
-
-    def test_source_file_is_byte_identical_after_call(self, tmp_path):
-        # INV-APV-20: the source is an archived artifact — never written.
+    def test_full_json_is_byte_identical_after_derivation(self, tmp_path):
+        # INV-ANA-53: the full JSON stays the archived source every metric reads.
         source = _write_source(tmp_path, SOURCE_DOCUMENT)
         before = open(source, "rb").read()
 
-        compacted = self.tool._compact_static_analysis_json(source)
+        self.tool._derive_mop_artifact(self._task(tmp_path))
 
         assert open(source, "rb").read() == before
-        assert compacted != source
-        os.unlink(compacted)
-
-    def test_document_without_transitions_key(self, tmp_path):
-        # Spec scenario: the key is not added when the source lacks it.
-        document = {"package": "com.example", "complete": True}
-        source = _write_source(tmp_path, document)
-
-        compacted = self.tool._compact_static_analysis_json(source)
-
-        with open(compacted) as f:
-            result = json.load(f)
-        assert "transitions" not in result
-        assert result == document
-        os.unlink(compacted)
-
-    def test_document_with_empty_transitions(self, tmp_path):
-        # Spec scenario: sdmse/email ship transitions: [] — it stays [].
-        document = {**SOURCE_DOCUMENT, "transitions": []}
-        source = _write_source(tmp_path, document)
-
-        compacted = self.tool._compact_static_analysis_json(source)
-
-        with open(compacted) as f:
-            result = json.load(f)
-        assert result["transitions"] == []
-        os.unlink(compacted)
-
-    def test_malformed_json_returns_none_and_warns(self, tmp_path, caplog):
-        # INV-APV-24 + INV-APV-25: fall back, warn, raise nothing, leak no temp.
-        source = _write_source(tmp_path, raw="{not valid json")
-        before_temps = set(os.listdir(tempfile.gettempdir()))
-
-        with caplog.at_level(logging.WARNING):
-            compacted = self.tool._compact_static_analysis_json(source)
-
-        assert compacted is None
-        assert source in caplog.text
-        assert set(os.listdir(tempfile.gettempdir())) == before_temps
-
-    def test_oserror_on_temp_write_returns_none(self, tmp_path, caplog, monkeypatch):
-        # INV-APV-24, OSError leg: temp file cannot be created (e.g. disk full).
-        source = _write_source(tmp_path, SOURCE_DOCUMENT)
-        before_temps = set(os.listdir(tempfile.gettempdir()))
-
-        def raise_oserror(*args, **kwargs):
-            raise OSError("No space left on device")
-
-        monkeypatch.setattr(aperv_mod.tempfile, "NamedTemporaryFile", raise_oserror)
-
-        with caplog.at_level(logging.WARNING):
-            compacted = self.tool._compact_static_analysis_json(source)
-
-        assert compacted is None
-        assert source in caplog.text
-        assert set(os.listdir(tempfile.gettempdir())) == before_temps
-
-    def test_memoryerror_on_load_returns_none(self, tmp_path, caplog, monkeypatch):
-        # INV-APV-24, MemoryError leg: host cannot hold the document. Degrades to
-        # the source push; the Java guard then decides (D3).
-        source = _write_source(tmp_path, SOURCE_DOCUMENT)
-        before_temps = set(os.listdir(tempfile.gettempdir()))
-
-        def raise_memoryerror(*args, **kwargs):
-            raise MemoryError("document too large")
-
-        monkeypatch.setattr(aperv_mod.json, "load", raise_memoryerror)
-
-        with caplog.at_level(logging.WARNING):
-            compacted = self.tool._compact_static_analysis_json(source)
-
-        assert compacted is None
-        assert source in caplog.text
-        assert set(os.listdir(tempfile.gettempdir())) == before_temps
 
 
 # --- gh90 B3: snap tolerance gated on the dead-pair ban -----------------------
@@ -1852,8 +1540,8 @@ class TestLlmProvenance:
         )
 
 
-class TestExecuteCompactionFlow:
-    """Group 2: Step 1c wiring — which path is pushed, and temp lifetime."""
+class TestExecuteMopArtifactFlow:
+    """Step 1c wiring: what reaches the device, and what fails the task."""
 
     def setup_method(self):
         self.tool = ApeRVTool()
@@ -1897,10 +1585,8 @@ class TestExecuteCompactionFlow:
         self.tool.execute_tool_specific_logic(task, app)
         return task
 
-    def _static_pushes(self):
-        return [
-            p for p in self.pushed if p[1] == "/data/local/tmp/static_analysis.json"
-        ]
+    def _artifact_pushes(self):
+        return [p for p in self.pushed if p[1] == DEVICE_ARTIFACT_PATH]
 
     def _provenance_path(self, tmp_path):
         return tmp_path / "trace.provenance.json"
@@ -1954,101 +1640,127 @@ class TestExecuteCompactionFlow:
         recorded = json.loads(self._provenance_path(tmp_path).read_text())
         assert recorded["capture_status"] == "query_failed"
         assert recorded["llm_model"] is None
-        assert self._static_pushes(), "the run must still have pushed and executed"
+        assert self._artifact_pushes(), "the run must still have pushed and executed"
 
-    def test_pushes_compacted_temp_not_source(self, tmp_path):
-        # Spec scenario: the compacted temp reaches the device, not the source.
+    def test_full_json_never_pushed(self, tmp_path):
+        # INV-APV-46: the device receives the derived projection and nothing else,
+        # under any cache state.
         source = _write_source(tmp_path, SOURCE_DOCUMENT)
 
         self._run(tmp_path, "sata_mop_act_frontier")
 
-        pushes = self._static_pushes()
+        pushes = self._artifact_pushes()
         assert len(pushes) == 1
         local_path, _, content = pushes[0]
-        assert local_path != source
-        assert json.loads(content)["transitions"] == [
-            TRANSITION_A,
-            TRANSITION_B,
-            TRANSITION_C,
-        ]
+        assert local_path == str(tmp_path / "app.apk.mop.json")
+        assert json.loads(content)["formatVersion"] == 1
+        assert all(push[0] != source for push in self.pushed)
+        assert not any(
+            push[1] == "/data/local/tmp/static_analysis.json" for push in self.pushed
+        )
 
-    def test_falls_back_to_source_when_compaction_fails(self, tmp_path):
-        # Spec scenario: malformed source -> the source itself is pushed, and
-        # ape.mopDataPath is emitted exactly as on the success path.
-        source = _write_source(tmp_path, raw="{not valid json")
-        captured = {}
-        original_push_properties = self.tool._push_properties
-
-        def spy_push_properties(device_serial, trace_file_path, mop_json_pushed=False):
-            captured["mop_json_pushed"] = mop_json_pushed
-            return original_push_properties(
-                device_serial, trace_file_path, mop_json_pushed
-            )
-
-        self.tool._push_properties = spy_push_properties
+    def test_properties_carry_new_mop_data_path(self, tmp_path):
+        _write_source(tmp_path, SOURCE_DOCUMENT)
 
         self._run(tmp_path, "sata_mop_act_frontier")
 
-        pushes = self._static_pushes()
-        assert len(pushes) == 1
-        assert pushes[0][0] == source
-        # INV-APV-24: the fallback is invisible to ape.properties.
-        assert captured["mop_json_pushed"] is True
         props = next(p for p in self.pushed if p[1] == APERV_DEVICE_PROPERTIES_PATH)[
             2
         ].decode()
-        assert "ape.mopDataPath=/data/local/tmp/static_analysis.json" in props
+        assert f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}" in props
+        assert "static_analysis.json" not in props
 
-    def test_no_compaction_when_mop_data_unset(self, tmp_path):
-        # Spec scenario: sata/ape_pure push no static analysis JSON at all.
+    def test_mop_arm_without_json_raises(self, tmp_path):
+        # Spec scenario "sata_mop execution with static analysis JSON absent": a MOP
+        # arm that cannot arm is a failed task. The warn-and-continue it replaces
+        # produced runs labelled MOP that explored as pure SATA.
+        with pytest.raises(RVToolExecutionError) as raised:
+            self._run(tmp_path, "sata_mop_act_frontier")
+
+        assert str(tmp_path / "app.apk.json") in str(raised.value)
+        assert self._artifact_pushes() == []
+        assert not any(push[1] == APERV_DEVICE_PROPERTIES_PATH for push in self.pushed)
+
+    def test_mop_arm_derivation_error_raises(self, tmp_path):
+        # Spec scenario "sata_mop execution when derivation fails": nothing is
+        # pushed and the jar is never launched.
+        _write_source(tmp_path, {**SOURCE_DOCUMENT, "complete": False})
+
+        with pytest.raises(RVToolExecutionError):
+            self._run(tmp_path, "sata_mop_act_frontier")
+
+        assert self._artifact_pushes() == []
+
+    def test_non_mop_arm_untouched(self, tmp_path, monkeypatch):
+        # Spec scenario "Successful APE-RV execution with sata variant": no
+        # derivation is attempted and nothing static reaches the device.
         _write_source(tmp_path, SOURCE_DOCUMENT)
-        calls = []
-        self.tool._compact_static_analysis_json = lambda p: calls.append(p)
+
+        def forbidden(*args, **kwargs):
+            raise AssertionError("a non-MOP arm must not derive")
+
+        monkeypatch.setattr(aperv_mod, "derive", forbidden)
 
         self._run(tmp_path, "sata")
 
-        assert self._static_pushes() == []
-        assert calls == []
+        assert self._artifact_pushes() == []
+        assert not (tmp_path / "app.apk.mop.json").exists()
+        props = next(p for p in self.pushed if p[1] == APERV_DEVICE_PROPERTIES_PATH)[
+            2
+        ].decode()
+        assert "ape.mopDataPath" not in props
 
-    def test_no_temp_leak_on_success_and_fallback(self, tmp_path):
-        # INV-APV-25: no temp survives execute_tool_specific_logic() on either path.
-        _write_source(tmp_path, SOURCE_DOCUMENT)
-        before = set(os.listdir(tempfile.gettempdir()))
-        self._run(tmp_path, "sata_mop_act_frontier")
-        assert set(os.listdir(tempfile.gettempdir())) == before
 
-        self.tool = ApeRVTool()
-        self.pushed = []
-        _write_source(tmp_path, raw="{not valid json")
-        before = set(os.listdir(tempfile.gettempdir()))
-        self._run(tmp_path, "sata_mop_act_frontier")
-        assert set(os.listdir(tempfile.gettempdir())) == before
+# --- gh96: the artifact is device input, never an analysis input -------------
 
-    def test_small_json_is_compacted_anyway(self, tmp_path):
-        # INV-APV-23: no size gate — a ~100 KB source is compacted like any other.
-        document = {
-            **SOURCE_DOCUMENT,
-            "windows": [{"id": f"w{i}", "title": "x" * 100} for i in range(800)],
-        }
-        source = _write_source(tmp_path, document)
-        assert os.path.getsize(source) > 100_000
+ARTIFACT_SUFFIX_PATTERN = ".mop" + ".json"
 
-        self._run(tmp_path, "sata_mop_act_frontier")
 
-        local_path, _, content = self._static_pushes()[0]
-        assert local_path != source
-        assert b"\n" not in content
+def _modules_root():
+    """The workspace `modules/` directory, from this test file's location."""
+    return os.path.abspath(
+        os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
+    )
 
-    def test_no_compaction_when_json_not_found(self, tmp_path, caplog):
-        # Spec scenario (retained): mop_data set but no JSON in results_dir —
-        # the not-found branch must not attempt compaction. Distinct from the
-        # mop_data-unset case, which never reaches this branch at all.
-        calls = []
-        self.tool._compact_static_analysis_json = lambda p: calls.append(p)
 
-        with caplog.at_level(logging.WARNING):
-            self._run(tmp_path, "sata_mop_act_frontier")
+class TestMopArtifactAudit:
+    """INV-ANA-53: the derived artifact must not leak into an analysis path."""
 
-        assert calls == []
-        assert self._static_pushes() == []
-        assert "static analysis file not found in results_dir" in caplog.text
+    def test_no_module_outside_aperv_tool_reads_mop_json(self):
+        """
+        The artifact is a lossy projection built for an explorer: no call graph, no
+        method signatures, `reachesTarget` renamed, dialog widgets merged into their
+        hosts. A metric computed over it would answer a different question under the
+        same name, so the full JSON stays the sole analysis input and this is checked
+        rather than left to convention.
+
+        The suffix is assembled from two pieces so the assertion's own source line is
+        not itself a match — the audit must not be the thing it reports.
+
+        Scope is `modules/` — the workspace's importable code, which is what a metric
+        or analysis path is written in. `scripts/` is deliberately outside it: the
+        one-shot corpus driver of gh96 writes `.mop.json` files by design and is
+        deleted once the equivalence gate is green.
+        """
+        offenders = []
+        for module_dir in sorted(os.listdir(_modules_root())):
+            if module_dir == "aperv-tool":
+                continue
+            module_path = os.path.join(_modules_root(), module_dir)
+            if not os.path.isdir(module_path):
+                continue
+            for root, dirs, files in os.walk(module_path):
+                dirs[:] = [d for d in dirs if d not in {"__pycache__", ".venv"}]
+                for file_name in files:
+                    if not file_name.endswith(".py"):
+                        continue
+                    path = os.path.join(root, file_name)
+                    with open(path, "r", errors="replace") as handle:
+                        for number, line in enumerate(handle, start=1):
+                            if ARTIFACT_SUFFIX_PATTERN in line:
+                                offenders.append(f"{path}:{number}: {line.strip()}")
+
+        assert offenders == [], (
+            "the derived MOP artifact is device input only; these references are "
+            "outside aperv-tool:\n" + "\n".join(offenders)
+        )
