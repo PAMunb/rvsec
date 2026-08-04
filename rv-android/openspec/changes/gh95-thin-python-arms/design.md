@@ -71,8 +71,8 @@ write-only `RUN_START` line (unchanged collection, never read back).
 
 | Component | Responsibility | Input | Output |
 |---|---|---|---|
-| `ApeRVTool.get_variants()` | The 27 arms as `preset + overrides` | — | `Dict[str, Dict[str, Any]]` (names frozen) |
-| `ApeRVTool.configure()` | Validate `strategy`, `preset`, `overrides` before device access | `Dict[str, Any]` | `None`; raises `ConfigurationError` |
+| `ApeRVTool.get_variants()` | The eight arms as `preset + overrides` | — | `Dict[str, Dict[str, Any]]` (names frozen) |
+| `ApeRVTool.configure()` | Validate `strategy`/`preset`/`overrides` and fold DSL keys, before device access | `Dict[str, Any]` | `None`; raises `ConfigurationError` |
 | `ApeRVTool._push_properties()` | Write `ape.preset` + `ape.mopDataPath` + override lines | `self._tool_config` | `ape.properties` on device |
 | `APERV_PROPERTY_MAPPING` | Override key → `ape.*` name; pass-through only | override keys | `ape.*` names (50 entries) |
 | `tests/migration/capture_arm_baseline.py` | One-time capture of the 29 pre-change effective configs | live `tool.py` + jar defaults | `arm_effective_baseline.json` |
@@ -83,15 +83,15 @@ write-only `RUN_START` line (unchanged collection, never read back).
 
 | Requirement / Invariant | Implementation | Test |
 |---|---|---|
-| Tool Variants (MODIFIED) | `ApeRVTool.get_variants()` | `TestVariants`: 27 names, `sata_mop is sata_mop_widget`, per-arm override dicts |
+| Tool Variants (MODIFIED) | `ApeRVTool.get_variants()` | `TestVariants`: eight names, `default is sata`, per-arm override dicts, 21 retirements absent |
 | INV-APV-38 (LLM arms carry `llm_url`) | `get_variants()` | `test_llm_preset_arms_declare_url` |
-| INV-APV-39 (inherited defaults restated) | the six gh43 arms' overrides | `test_frozen_prompt_arms_restore_inherited_defaults` |
+| INV-APV-39 (DSL overrides folded, unhonourable keys raise) | `ApeRVTool.configure()` | `test_dsl_override_reaches_properties`, `test_unmapped_top_level_key_raises` |
 | INV-APV-40 (arm shape) | `get_variants()` | `test_every_variant_is_preset_plus_overrides` |
 | INV-APV-41 (mapping contains only accepted keys) | `APERV_PROPERTY_MAPPING` | `test_mapping_against_jar_vocabulary` (migration tier) |
-| INV-APV-42 (frozen names) | `get_variants()` | `test_variant_names_frozen` |
+| INV-APV-42 (frozen names, kinded retirements) | `get_variants()` + the retirement list | `test_variant_names_frozen`, `test_retirement_list_kinds` |
 | INV-APV-43 (no echo read-back) | absence of any `RUN_START` parser | `test_no_run_start_parsing` (grep-style source assertion) |
 | INV-APV-44 (regeneration diff, typed, one-time) | `tests/migration/` | `test_arm_regeneration_diff.py` (deleted after sign-off) |
-| configure() Method (MODIFIED) | `ApeRVTool.configure()` | `TestConfigure`: missing preset, non-dict overrides, `bfs`/`dfs` rejected |
+| configure() Method (MODIFIED) | `ApeRVTool.configure()` | `TestConfigure`: missing preset, non-dict overrides, `bfs`/`dfs` rejected, DSL fold and its error path |
 | execute flow step 5 (MODIFIED) | `_push_properties()` call site | `TestExecutionFlow` (unchanged elsewhere) |
 | ape.properties Generation (MODIFIED) | `_push_properties()` | `TestPushProperties`: preset first, deltas only, lowercase bools, unmapped key raises |
 | Arm Property Overrides Pass-Through (ADDED) | `APERV_PROPERTY_MAPPING` | `test_mapping_has_50_entries`, `test_mop_weight_activity_absent` |
@@ -104,15 +104,18 @@ write-only `RUN_START` line (unchanged collection, never read back).
 
 **Goals**
 
-- Re-express all 27 surviving arms as `preset + explicit override deltas`, preserving every arm's
-  **name** and every arm's **effective configuration**.
-- Retire `ape_pure` and `bfs` as documented removals.
+- Re-express the eight surviving names as `preset + explicit override deltas`, preserving every
+  surviving arm's **name** and **effective configuration**.
+- Retire 21 names as documented removals, each carrying its kind, and prove that the one *name
+  consolidated* retirement really is preserved under its survivor.
+- Keep the tool DSL's override path working, so the change does not create a silent-discard defect
+  while removing one.
 - Shrink `APERV_PROPERTY_MAPPING` to the keys the deployed jar accepts (51 → 50) and prove the
   remainder against the jar's own vocabulary.
 - Delete the guard machinery (`ARM_DEFINING_KEYS`, `_ARM_DEFINING_EXEMPT`, `LLM_ARM_KEYS`, the
   substrate spread dicts, and the constant-vs-constant tests) with the substitutes recorded.
-- Pay the gh88 debt: remove the calibration tier framing and the `LLM_ARM_KEYS` guard from the main
-  `aperv` spec, while keeping the nine `cal_*` arms.
+- Pay the gh88 debt: remove the calibration tier and the `LLM_ARM_KEYS` guard from the main `aperv`
+  spec, alongside retiring the `cal_*` arms themselves.
 
 **Non-Goals**
 
@@ -155,54 +158,70 @@ is Python orchestration. *Alternative considered*: a flat dict with `preset` inl
 today's shape). Rejected — the Python-only/pass-through split would again live in a constant, which is
 the pattern this change retires.
 
-### D2: The override sets are derived from the jar's vectors, not authored by hand
+### D2: The surviving set, and the override sets derived from the jar's vectors
 
-The exact contents were computed by expanding each arm through `APERV_PROPERTY_MAPPING` and
-subtracting the preset vector parsed from `Presets.java`. The result, which is the implementation
-target:
+The 29-variant surface reduces to eight names carrying seven configurations. The override contents
+were not authored by hand: they were computed by expanding each arm through `APERV_PROPERTY_MAPPING`
+and subtracting the preset vector parsed from `Presets.java`.
 
-| Arm | preset | # overrides |
+| Arm | preset | overrides |
 |---|---|---|
-| `default`, `sata`, `random` | `aperv` | 0 |
-| `sata_mop`, `sata_mop_widget` | `mop` | 0 |
-| `sata_mop_activity` | `mop` | 1 |
-| `sata_llm` | `llm` | 1 (`llm_url`) |
-| `sata_mop_llm` | `llm_mop` | 1 (`llm_url`) |
-| `sata_mop_act_frontier`, `mop_on_llm_off` | `mop` | 4 |
-| `mop_off_llm_off` | `mop` | 6 |
-| the six gh43 prompt arms | `llm_mop` | 5 (3 + the two INV-APV-39 restorations) |
-| `cal_a1`, `cal_a2`, `cal_a4`, `cal_a6`…`cal_a9` | `llm_mop` | 8 |
-| `cal_a3` | `llm_mop` | 9 |
-| `mop_on_llm_70` | `llm_mop` | 9 |
-| `cal_a5` | `llm_mop` | 10 |
+| `default` | `aperv` | _(empty)_ — bound to the same object as `sata` |
+| `sata` | `aperv` | _(empty)_ |
+| `sata_mop` | `mop` | _(empty)_ |
+| `sata_llm` | `llm` | `llm_url` |
+| `sata_mop_llm` | `llm_mop` | `llm_url` |
+| `mop_on_llm_off` | `mop` | `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True` |
+| `mop_off_llm_off` | `mop` | the above minus `mop_frontier_weight`/`activity_trigger_enabled` (both at the preset's zero/false), plus the four MOP weights at `0` |
+| `mop_on_llm_70` | `llm_mop` | `mop_on_llm_off`'s four, plus `llm_url`, `llm_prompt_variant="v13"`, `llm_percentage=0.7`, `llm_temperature=0`, `llm_snap_tolerance_px=150` |
 
-`throttle_ms=200` disappears from all 27 — the `aperv` preset already states
-`ape.defaultGUIThrottle=200`, and every arm used that value. A delta that looks redundant is dropped
-only when the regeneration diff stays empty without it.
+`throttle_ms=200` disappears from all of them — the `aperv` preset already states
+`ape.defaultGUIThrottle=200`. A delta that looks redundant is dropped only when the regeneration diff
+stays empty without it.
 
-### D3: The six frozen gh43 arms need explicit restorations, and this is the one real hazard
+**The 21 retirements**, in the three kinds the migration record keeps apart:
 
-The six prompt arms never set the arm-defining flags; they ran on jar `Config` defaults. Two of those
-defaults **disagree with the `llm_mop` preset**:
+| Kind | Names | Note |
+|---|---|---|
+| never distinct | `ape_pure`, `bfs`, `sata_mop_widget` | no configuration is lost: `bfs` ran `sata`'s plan, `sata_mop_widget` was `sata_mop`'s object, `ape_pure`'s enumeration is what stage 2 made structural |
+| name consolidated | `sata_mop_act_frontier` | byte-identical to `mop_on_llm_off`; the migration check proves the survivor reproduces its baseline |
+| finished campaign | the six gh43 prompt arms, `cal_a1`…`cal_a9`, `sata_mop_activity`, `random` | recorded results unaffected; what ends is launching new runs under those names |
 
-| Key | Jar default (what they ran) | `llm_mop` preset states | Consequence under `Feature` |
-|---|---|---|---|
-| `ape.frontierBoostWeight` | `200` | `0` | `FRONTIER` deactivated (`Rule.POSITIVE`, neutral `0`) |
-| `ape.activityTriggerEnabled` | `true` | `false` | `ACTIVITY_TRIGGER` deactivated (`Rule.TRUE`) |
+Two consequences worth stating rather than discovering. First, `random` leaves as an *arm* while
+`"random"` stays in the `configure()` whitelist: the jar accepts `--ape random` and the strategy is
+still reachable as `aperv:sata@strategy=random`, so the whitelist is not narrowed to a single value.
+Second, retiring the six gh43 arms **dissolves the inherited-default hazard entirely**. Those were the
+only arms that relied on a jar `Config` default the preset contradicts — every survivor sets its
+arm-defining keys explicitly today, because they were all non-exempt under the guard being retired.
+The archaeology that would otherwise have been needed (which default did the gh43-era jar carry?) has
+no subject left, and the invariant reserving `INV-APV-39` for it is freed for D3a below.
 
-Re-expressing them as `preset="llm_mop"` + prompt/dose deltas would therefore change their behaviour
-silently. The fix is `frontier_boost_weight=200` and `activity_trigger_enabled=True` as explicit
-overrides (INV-APV-39), which restores the effective configuration and keeps the diff empty.
+### D3: The tool DSL's override path must be folded, not left to rot
 
-**This rests on an assumption the implementation must verify, not assume**: that the jar the gh43
-campaign actually ran carried those same defaults. `KeyOwnership`'s defaults are asserted against the
-*current* `Config` by reflection on the jar side; whether they held at gh43 time is a separate
-question, answered by reading `Config.java` at the revision that campaign used. If they differ, this
-is a declared divergence for the owner under INV-APV-42, not a value to pick. Task 1.6 carries it.
+`ToolFactory` merges DSL parameters at the **top level** of the config
+(`modules/rv-tools/src/rv_tools/registry/factory.py:127`, `{**variant_config, **tool_config.parameters}`),
+and that is how `aperv:sata_mop@mop_frontier_weight=400` works today: `_push_properties()` walks
+`APERV_PROPERTY_MAPPING` against the top level, finds the key, writes the line. After this change
+`_push_properties()` reads only `overrides`, so the same invocation would put the key somewhere nothing
+reads — producing no property line, no error, and a run whose configuration silently differs from what
+the operator asked for.
 
-*Alternative considered*: introduce a fifth preset matching the frozen arms' inheritance. Rejected —
-the preset vocabulary belongs to the jar, and an ablation is a named override set (proposal, and the
-`ape`-side design D2).
+That is the failure class this change exists to remove, so it may not be introduced by it.
+`configure()` therefore does two things (INV-APV-39):
+
+1. moves every top-level key that has a mapping entry into `overrides`, with the DSL value winning over
+   an arm's own entry for the same key — the DSL is the operator's last word, which is what makes it
+   usable for smokes and ablations without declaring a variant;
+2. raises `ConfigurationError` for any top-level key that is neither mapped nor one of the recognised
+   orchestration keys, so a typo fails loudly instead of evaporating.
+
+*Alternative considered*: teach `ToolFactory` to merge into `overrides` when the tool declares a
+preset-shaped variant. Rejected — it puts aperv-specific knowledge into the shared factory, which every
+other tool would then carry, and the fold is three lines in the one `configure()` that needs it (P1).
+
+*Alternative considered*: accept top-level mapped keys in `_push_properties()` as well as `overrides`.
+Rejected — two entry points for the same data is exactly the duplication being deleted; the fold gives
+one place where the effective override set is assembled.
 
 ### D4: `_push_properties` — preset line first, then pass-through
 
@@ -227,7 +246,7 @@ loop and the seven substrate spread dicts are deleted.
 | `_BASELINE_ARM_FLAGS`, `_APE_PURE_ARM_FLAGS`, `_MOP_SUBSTRATE`, `_LLM_FLAGS`, `_FRONTIER_SUBSTRATE`, `_MOP_OFF_OVERRIDES`, `_CAL_LLM_COMMON` | `tool.py:252-378` | jar presets + per-arm override deltas |
 | `ARM_DEFINING_KEYS` (17), `_ARM_DEFINING_EXEMPT` (6), `LLM_ARM_KEYS` (11) | `tool.py:184-246` | the guards they fed are retired (D6) |
 | the INV-APV-13/14/15/17/19/26/27 guard tests, `_EXPECTED_ARM_DEFINING_MAPPING`, the cal-table and decisive-run expansion-diff pins | `tests/test_aperv_tool.py` | one-time regeneration diff (D7) + jar fail-fast + level-0 echo |
-| `ape_pure`, `bfs` variants | `tool.py:503,506` | documented retirements in the migration report |
+| 21 variants (`ape_pure`, `bfs`, `random`, `sata_mop_widget`, `sata_mop_activity`, `sata_mop_act_frontier`, the six gh43 prompt arms, `cal_a1`…`cal_a9`) | `tool.py:499-784` | documented retirements in the migration report, each carrying its kind; `sata_mop_act_frontier`'s configuration survives under `mop_on_llm_off` |
 | `"bfs"`, `"dfs"` from `APERV_AVAILABLE_STRATEGIES` | `tool.py:85` | jar aborts on an unknown `--ape`; `configure()` rejects earlier |
 
 `ape_pure_mode` is **not** in this ledger: `gh93` already removed it. Stating that explicitly is
@@ -264,9 +283,12 @@ decision on a real incident, not part of this change.
 3. **Type-aware comparison.** Values are compared after parsing with the key's declared `ValueType`
    from `KeyOwnership`. A textual comparison would flag `ape.llmPercentageNoSubstrate` on every arm —
    the preset writes `-1`, the declared default is `-1.0` — and bury the real signal.
-4. **Retirements are listed, not diffed.** `ape_pure` and `bfs` live in an explicit retirement list
-   the test reads. An arm that vanished without being on that list fails the check, so a silent
-   deletion cannot pass as a retirement.
+4. **Retirements are listed, not diffed.** All 21 retired names live in an explicit retirement list
+   the test reads, each with its kind. An arm that vanished without being on that list fails the
+   check, so a silent deletion cannot pass as a retirement. For the one *name consolidated* entry the
+   test also asserts that `mop_on_llm_off` regenerates `sata_mop_act_frontier`'s baseline — the
+   retirement's justification is that the two configurations are identical, so it is checked rather
+   than asserted.
 5. **Divergence protocol.** A non-empty diff is either a re-expression bug (fix it) or an intentional
    divergence, which requires owner approval and a **new arm name**. No third option.
 6. **One-time.** After the final diff and sign-off the test is deleted and the baseline plus report
@@ -302,10 +324,13 @@ jar names), `overrides` (required, dict, possibly empty), `strategy` (required),
 
 *Preconditions*: `config["strategy"] in ("sata", "random")`; `config["preset"]` present and non-empty;
 `config.get("overrides", {})` is a `dict`.
-*Postcondition*: `self._tool_config` holds a defensive copy of `config`.
-*Errors*: `ConfigurationError` on any precondition violation, raised before any device interaction and
-naming the offending key. Order of checks: `strategy` presence → `strategy` membership → `preset`
-presence → `overrides` type.
+*Postcondition*: `self._tool_config` holds a defensive copy of `config` in which every top-level key
+carrying an `APERV_PROPERTY_MAPPING` entry has been folded into `overrides` (DSL value winning), and
+only the recognised orchestration keys remain at the top level.
+*Errors*: `ConfigurationError` on any precondition violation, and on any top-level key that is neither
+mapped nor recognised — raised before any device interaction and naming the offending key. Order of
+checks: `strategy` presence → `strategy` membership → `preset` presence → `overrides` type → fold →
+unrecognised top-level keys.
 
 ### `ApeRVTool._push_properties(device_serial: str, trace_file_path: str, mop_json_pushed: bool = False) -> None`
 
@@ -362,6 +387,7 @@ the keys it does not, restricted to the keys reachable through `APERV_PROPERTY_M
 | `ConfigurationError` — `overrides` not a dict | `configure()` | raise before device interaction | fix the arm or the DSL override |
 | `ConfigurationError` — strategy outside `["sata","random"]` | `configure()` | raise before device interaction | use a supported strategy; `bfs`/`dfs` are retired |
 | `ConfigurationError` — override key not in the mapping | `_push_properties()` | raise before `adb push` | fix the key, or add the mapping entry if the jar accepts it |
+| `ConfigurationError` — unrecognised top-level key (typo in a DSL override) | `configure()` fold | raise before device interaction | fix the DSL key; it is never silently discarded (INV-APV-39) |
 | Unknown / retired `ape.*` key reaches the jar | jar, stage-2 resolution | run aborts before step 1, abort visible in the trace | fix the arm; nothing silent survives |
 | `ape.preset=llm*` without `ape.llmUrl` | jar resolution | abort: routing gates ON over an absent mechanism | add `llm_url` to the arm's overrides (INV-APV-38) |
 | Regeneration diff non-empty | migration test | the task group is blocked | fix the re-expression, or take an owner-approved divergence under a new arm name |
@@ -371,10 +397,14 @@ the keys it does not, restricted to the keys reachable through `APERV_PROPERTY_M
 
 - [Silent grid drift during re-expression] → the per-group regeneration diff, the final full diff with
   owner sign-off, and frozen arm names throughout.
-- [The six frozen gh43 arms change behaviour through an inherited default the preset contradicts (D3)]
-  → INV-APV-39 restorations, plus task 1.6 verifying the defaults against the jar revision that
-  campaign ran. This is the one place where "preserve the effective configuration" required reading
-  history rather than the current tree.
+- [A DSL override silently vanishing because `_push_properties()` stopped reading the top level]
+  → the D3 fold, with an explicit error for any top-level key that cannot be honoured. This risk was
+  created by the change itself and is closed inside it.
+- [Retiring 21 names removes the ability to re-run those configurations]
+  → accepted deliberately: the campaigns they served have concluded, their recorded results are frozen
+  artifacts unaffected by the retirement, and the one configuration still wanted
+  (`sata_mop_act_frontier`) survives under `mop_on_llm_off` with the equality proved by the migration
+  check rather than asserted.
 - [Preset tables parsed from `ape` source drift from the deployed jar] → the migration record captures
   the `ape` commit and the source digests it read against; the check is one-time and archived. The
   standing guarantee for a *running* campaign is the jar's own fail-fast, not this tooling.
@@ -396,11 +426,11 @@ the keys it does not, restricted to the keys reachable through `APERV_PROPERTY_M
 
 | Layer | What to test | How | Count |
 |---|---|---|---|
-| Unit — variants | 27 names frozen, `ape_pure`/`bfs` absent, arm shape, `sata_mop is sata_mop_widget`, per-arm override dicts, INV-APV-38/39 | direct assertions on `get_variants()` | ~12 |
-| Unit — configure | missing/empty preset, non-dict overrides, `bfs`/`dfs` rejected, valid arm accepted | `pytest.raises(ConfigurationError)` | ~6 |
+| Unit — variants | eight names frozen, all 21 retirements absent, arm shape, `default is sata`, per-arm override dicts, INV-APV-38 | direct assertions on `get_variants()` | ~10 |
+| Unit — configure | missing/empty preset, non-dict overrides, `bfs`/`dfs` rejected, valid arm accepted, DSL fold, DSL precedence, unrecognised top-level key raises | `pytest.raises(ConfigurationError)` + config inspection | ~9 |
 | Unit — properties writer | preset line first, `mopDataPath` second, deltas only, lowercase bools, unmapped key raises, Python-only keys excluded | mock the push, inspect the written file | ~8 |
 | Unit — mapping | 50 entries, `mop_weight_activity` absent, `llm_max_tokens`/`llm_snap_tolerance_px` present | constant inspection | ~3 |
-| Migration (one-time) | per-arm typed empty diff; retirement list honoured; frozen-arm restoration load-bearing | `test_arm_regeneration_diff.py`, re-run after every arm-editing group, deleted at sign-off | 27 + 3 |
+| Migration (one-time) | per-arm typed empty diff; the 21-name retirement list honoured with kinds; the consolidated name's equality proved | `test_arm_regeneration_diff.py`, re-run after every arm-editing group, deleted at sign-off | 8 + 3 |
 | Unchanged | MOP artifact derivation and caching, execution flow, provenance, clock/logcat join, coverage dump | untouched suites | — |
 
 The full `aperv-tool` suite runs in ~14 s at HEAD (217 tests) with the CI contract flags
@@ -408,12 +438,15 @@ The full `aperv-tool` suite runs in ~14 s at HEAD (217 tests) with the CI contra
 
 ## Open Questions
 
-1. **Did the gh43-era jar carry `frontierBoostWeight=200` and `activityTriggerEnabled=true` as
-   defaults?** (D3). Resolvable by reading `Config.java` at the revision that campaign ran. If it did,
-   the INV-APV-39 overrides are a preservation and the diff closes empty. If it did not, the six arms
-   have a declared divergence for the owner. Task 1.6; blocks group 5, nothing earlier.
-2. **Does any mapped key beyond `mop_weight_activity` become dead after stage 4?** The sweep performed
+1. **Does any mapped key beyond `mop_weight_activity` become dead after stage 4?** The sweep performed
    for this design found none against the stage-2 vocabulary, but stage 4 may retire
    `ape.stepTelemetryEnabled` when telemetry becomes universal. Task 1.5 re-runs the sweep at
    implementation time against whatever the checkout then holds, which absorbs the ordering either
    way.
+
+2. **Nothing pushes `ape.corpusBasis`.** The jar declares it as a third resolver-owned key, supplied
+   by the harness and echoed unread, and the stage-2 spec carries a scenario written for the harness
+   pushing it. No rv-android change claims it. It is out of this change's scope — it is a per-run
+   deployment key needing a new capability (computing the corpus hash), not an arm re-expression — and
+   is recorded here so it is not lost. `ape.runId` needs nothing: the jar self-generates it and the
+   stage-2 spec states no deployment pushes it.

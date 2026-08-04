@@ -26,22 +26,26 @@ experimental matrix — which arms exist, their frozen names, and their deltas.
 
 ## What Changes
 
-- **BREAKING**: 27 of the 29 variants in `ApeRVTool.get_variants()` are re-expressed as
-  `preset + overrides`. The per-arm flag vectors and the substrate spread dicts
-  (`_BASELINE_ARM_FLAGS`, `_APE_PURE_ARM_FLAGS`, `_MOP_SUBSTRATE`, `_LLM_FLAGS`,
-  `_FRONTIER_SUBSTRATE`, `_MOP_OFF_OVERRIDES`, `_CAL_LLM_COMMON`) are **deleted, not deprecated**
-  (P3). Measured against the jar's preset vectors, the resulting override sets are small: `default`,
-  `sata`, `random`, `sata_mop` and `sata_mop_widget` carry **zero** overrides; `sata_mop_activity`,
-  `sata_llm` and `sata_mop_llm` carry one; the largest arm (`cal_a5`) carries ten. `throttle_ms=200`
-  disappears from all 27 — the `aperv` preset already states `ape.defaultGUIThrottle=200`.
+- **BREAKING**: the 29-variant surface is reduced to **eight names carrying seven distinct
+  configurations**, all re-expressed as `preset + overrides`. The per-arm flag vectors and the
+  substrate spread dicts (`_BASELINE_ARM_FLAGS`, `_APE_PURE_ARM_FLAGS`, `_MOP_SUBSTRATE`,
+  `_LLM_FLAGS`, `_FRONTIER_SUBSTRATE`, `_MOP_OFF_OVERRIDES`, `_CAL_LLM_COMMON`) are **deleted, not
+  deprecated** (P3). Four survivors are one-to-one with the jar's presets and carry nothing but the
+  server URL where an LLM is involved — `sata` (`aperv`), `sata_mop` (`mop`), `sata_llm` (`llm`),
+  `sata_mop_llm` (`llm_mop`) — `default` is bound to `sata`, and the three E3 decisive-run arms carry
+  the reach package and its single-factor contrasts. `throttle_ms=200` disappears from all of them:
+  the `aperv` preset already states `ape.defaultGUIThrottle=200`.
 
-- **BREAKING**: `ape_pure` and `bfs` are **retired and deleted**. There is no structural-purity
-  preset: `ape.apePureMode` is a retired key whose abort message reads *"purity is structural: a
-  feature absent from the plan does not exist"*, and owner decision D3 descopes the stock-APE mode —
-  the comparison with original APE stays anchored on the frozen phase-2 data, not on a live arm.
-  `bfs` was never an agent type: `ApeAgent.createAgent` accepts only `sata`, `random` and `replay`,
-  and every other value fell through silently to `SataAgent`, so the `bfs` arm always carried the
-  same effective configuration as `sata`. Retiring it removes a duplicate, not an experimental arm.
+- **BREAKING**: 21 names are retired, in three kinds the migration record keeps apart. *Never
+  distinct*: `ape_pure` (no structural-purity preset exists — `ape.apePureMode` is a retired key
+  whose abort message reads *"purity is structural: a feature absent from the plan does not exist"*,
+  and owner decision D3 descopes the stock-APE mode), `bfs` (never an agent type —
+  `ApeAgent.createAgent` accepts only `sata`, `random` and `replay`, so it always carried `sata`'s
+  configuration), and `sata_mop_widget` (one object under two names). *Name consolidated*:
+  `sata_mop_act_frontier`, whose effective configuration is byte-identical to `mop_on_llm_off` and
+  survives under that name. *Finished campaign*: the six gh43 prompt arms, the nine `cal_a1`…`cal_a9`
+  calibration arms, `sata_mop_activity` and `random`. Retirement ends the ability to launch new runs
+  under a name; it does not touch recorded results, which are frozen artifacts.
 
 - `_push_properties()` writes `ape.preset=<name>` first, then `ape.mopDataPath` when the derived MOP
   artifact was pushed, then one line per `overrides` entry. The full 51-pair expansion loop is
@@ -68,17 +72,25 @@ experimental matrix — which arms exist, their frozen names, and their deltas.
   auditing stays post-hoc analysis of the trace.
 
 - **Debt inherited from gh88's archive is paid here.** Syncing `gh88-cal-llm-control` (archived
-  2026-08-03 at 47/58) pushed the `cal_*` arm tier and the `LLM_ARM_KEYS` explicitness guard into
-  the main `aperv` spec. Both die with the per-arm dicts, so this change removes them from the spec
-  as well as from `tool.py`. The nine `cal_a1`…`cal_a9` arms themselves **survive** among the 27:
-  their names are consolidation column keys and resume identity keys, and only the guard machinery
-  around them is retired.
+  2026-08-03 at 47/58) pushed the `cal_*` arm tier and the `LLM_ARM_KEYS` explicitness guard into the
+  main `aperv` spec. The guard dies with the per-arm dicts and the tier dies with the arms, so this
+  change removes both from the spec as well as from `tool.py`.
 
-- **The gate is the regeneration diff**, and it is one-time by construction. For each of the 27
-  surviving arms, the effective configuration produced by `preset + overrides` must equal the one
-  produced by today's dicts. `ape_pure` and `bfs` appear in it through an explicit retirement list,
-  never as silent absences. After owner sign-off the test is deleted and the baseline archived —
-  keeping it alive would recreate INV-APV-14 under another name.
+- **A defect on the operator's path is closed in the same change that would create it.** The tool DSL
+  (`aperv:<variant>@key=value`) delivers overrides at the top level of the config —
+  `ToolFactory` merges `{**variant_config, **tool_config.parameters}` — while the new
+  `_push_properties()` reads only `overrides`. Left alone, a DSL override would be discarded in
+  silence: no property line, no error, and a run executing a configuration nobody asked for.
+  `configure()` therefore folds mapped top-level keys into `overrides` and raises on any top-level key
+  it cannot honour.
+
+- **The gate is the regeneration diff**, and it is one-time by construction. For each surviving arm,
+  the effective configuration produced by `preset + overrides` must equal the one produced by today's
+  dicts. The 21 retired names appear through an explicit retirement list carrying each one's kind,
+  never as silent absences; for `sata_mop_act_frontier` the check additionally proves that
+  `mop_on_llm_off` reproduces its baseline, which is the whole justification for consolidating it.
+  After owner sign-off the test is deleted and the baseline archived — keeping it alive would
+  recreate INV-APV-14 under another name.
 
 - **This change is entirely offline.** No emulator, no device, no jar execution. The preset vectors
   and the accepted-key vocabulary are read from the `ape` source checkout; the diff is a host-side
@@ -93,10 +105,12 @@ _None._
 
 ### Modified Capabilities
 
-- `aperv`: arm definitions restated as preset + overrides with the two retirements; `configure()`
-  validation extended and its whitelist shrunk; the properties-generation contract replaced by
-  preset + pass-through; the arm-explicitness requirement and the calibration-mapping requirement
-  removed with their substitutes recorded; the regeneration migration check added.
+- `aperv`: arm definitions restated as preset + overrides over eight names, with 21 retirements;
+  `configure()` validation extended with the DSL fold and its whitelist shrunk; the
+  properties-generation contract replaced by preset + pass-through; the arm-explicitness requirement
+  and the calibration-mapping requirement removed with their substitutes recorded; the regeneration
+  migration check added. Invariants INV-APV-05 and INV-APV-42 are amended; INV-APV-16 and INV-APV-17
+  are retired with the arms they governed.
 
 ## Impact
 
@@ -111,9 +125,9 @@ change"*. They do not: no arm name is added or renamed, and neither `modules/rv-
 `modules/rv-platform` references any variant name — the tool DSL resolves them through
 `get_variants()`. Creating an empty delta to satisfy the label would document nothing.
 
-**No `calibration-control` delta.** `experimento-cal/scripts/*` reads `get_variants()` and derives
-the expected `[APE-LLM-CONFIG]` field set from the flat key dicts, so after this change that
-derivation yields almost nothing. This is recorded rather than repaired: the calibration campaign is
+**No `calibration-control` delta.** `experimento-cal/scripts/*` resolves arms through
+`get_variants()`, so with `cal_a1`…`cal_a9` retired it can no longer resolve them at all. This is
+recorded rather than repaired: the calibration campaign is
 finished (its journal's last calibration entry is 2026-07-24, followed only by the decisive run's
 `FREEZE-PREREGISTRO` of 2026-08-01), and `gh94` already declares `experimento-cal/scripts/*` a
 frozen-corpus reader that SHALL NOT be migrated, adapted or deleted (INV-APV-55). Adapting the

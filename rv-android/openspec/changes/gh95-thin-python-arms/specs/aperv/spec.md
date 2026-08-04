@@ -22,21 +22,37 @@ enforced more strongly, because an abort is louder than a passing test about a c
 What this delta does, therefore, is stop duplicating the presets. **An arm becomes a preset name plus
 an explicit dict of override deltas**, and the two authorities separate cleanly: the jar owns what a
 preset means, Python owns the experimental matrix — which arms exist, what their frozen names are,
-and how each differs from its preset. The shrink is not cosmetic. Measured against the jar's actual
-vectors, `default`, `sata`, `random`, `sata_mop` and `sata_mop_widget` carry **no** overrides at all;
-`sata_mop_activity`, `sata_llm` and `sata_mop_llm` carry exactly one; the widest arm carries ten. The
-single-factor contrasts of the decisive run become readable at the definition site instead of being
-recomputed by a test that expands both dictionaries.
+and how each differs from its preset.
 
-Two arms do not survive the move, and both retirements are removals of things that were never
-distinct rather than deletions of experimental conditions. `ape_pure` existed to enumerate every RV
-flag at its off value, because the jar exposed no switch that forced the extensions off; after stage
-2 purity is structural — a plan without a feature has no feature — and `ape.apePureMode` is a retired
-key whose abort message says exactly that. `bfs` was never an agent type: `ApeAgent.createAgent`
-accepts `sata`, `random` and `replay`, and every other value fell through silently to `SataAgent`, so
-the `bfs` arm always carried the same effective configuration as `sata` and differed only in a string
-the jar ignored. Both appear in the migration record as documented retirements, never as
-regeneration differences.
+Re-expressing the arms this way made visible how much of the 29-variant surface was duplication or
+the residue of finished campaigns, and the surface is reduced accordingly to **eight names carrying
+seven distinct configurations**. Four of them are one-to-one with the jar's presets — `sata`
+(`aperv`), `sata_mop` (`mop`), `sata_llm` (`llm`), `sata_mop_llm` (`llm_mop`) — carrying no override
+at all beyond the deployment-specific server URL; `default` is bound to `sata`; and the three arms of
+the E3 decisive run carry the reach package and the single-factor contrasts built on it. Twenty-one
+names are retired.
+
+The retirements fall into three kinds, and the migration record keeps them apart because conflating
+them would misreport what happened:
+
+- **Never distinct.** `bfs` was never an agent type — `ApeAgent.createAgent` accepts `sata`, `random`
+  and `replay`, and every other value fell through silently to `SataAgent` — so it always carried
+  `sata`'s effective configuration. `sata_mop_widget` was one object under two names. `ape_pure`
+  enumerated every RV flag at its off value because the jar exposed no kill switch; after stage 2
+  purity is structural and `ape.apePureMode` is a retired key that aborts resolution.
+- **Name consolidated, configuration preserved.** `sata_mop_act_frontier` and `mop_on_llm_off` had
+  byte-identical effective configurations — the ANC2 anchor under two names. The configuration
+  survives under `mop_on_llm_off`; only the second name goes.
+- **Finished campaign.** The six gh43 prompt-ablation arms and the nine `cal_a1`…`cal_a9` calibration
+  arms belonged to campaigns that have concluded. Their recorded results are frozen artifacts and are
+  unaffected; what ends is the ability to launch new runs under those names. `sata_mop_activity`, an
+  intermediate step of the reach decomposition, goes with them, and `random` goes as a baseline whose
+  strategy remains reachable through the tool DSL.
+
+A retirement is a decision about the experimental matrix, which is Python's authority; none of it
+touches a jar mechanism. The frontier package is still four ordinary keys of features the jar
+implements, and it is still carried by `mop_on_llm_off` — the configuration that won the cmpma
+multi-arm comparison (cov_mop 37.75% vs ≤35%, Friedman+Holm).
 
 The guard machinery retires with the dicts it audited, and this delta records what replaces it rather
 than leaving the question open. `ARM_DEFINING_KEYS`, `_ARM_DEFINING_EXEMPT` and `LLM_ARM_KEYS` are
@@ -64,6 +80,9 @@ performs any device interaction.
   orchestration keys `strategy`, `mop_data`, and — for `mop_on_llm_70` — `expected_jar_git_sha` /
   `expected_jar_sha256` (source: `ApeRVTool.get_variants()`, merged with experiment parameters by
   `ToolFactory`)
+- `tool_config.parameters: Dict[str, Any]` — tool-DSL overrides (`aperv:<variant>@key=value`), merged
+  **at the top level** over the variant dict by `ToolFactory` (`registry/factory.py:127`) and folded
+  into `overrides` by `configure()` (INV-APV-39)
 - `APERV_PROPERTY_MAPPING: Dict[str, str]` — override key → `ape.*` property name; reduced to the
   keys the deployed jar accepts (source: `tool.py` module constant)
 - `tests/migration/arm_effective_baseline.json` — the pre-change effective configuration of all 29
@@ -89,7 +108,8 @@ performs any device interaction.
 ### Error
 
 - `ConfigurationError` — raised by `configure()` when `strategy` is absent or outside
-  `["sata", "random"]`, when `preset` is absent or empty, or when `overrides` is not a dict; raised by
+  `["sata", "random"]`, when `preset` is absent or empty, when `overrides` is not a dict, or when a
+  top-level key is neither mapped nor a recognised orchestration key (INV-APV-39); raised by
   `_push_properties()` when an `overrides` key has no `APERV_PROPERTY_MAPPING` entry. All are raised
   before any device interaction.
 - Jar-side abort — any key or combination the jar rejects; visible in the trace, never silent
@@ -102,14 +122,15 @@ performs any device interaction.
   supplying the URL activates routing over an absent mechanism and aborts at resolution. This is a
   fail-fast, not a fallback.
 
-- **INV-APV-39**: An arm that inherited a jar `Config` default which its preset restates at a
-  different value MUST carry that inherited value as an explicit override. Re-expression preserves
-  effective configurations (INV-APV-44); an arm silently adopting a preset value in place of the
-  default it actually ran with is a behavioural change disguised as a refactor. The six frozen gh43
-  prompt arms are the known instance: they never set `frontier_boost_weight` or
-  `activity_trigger_enabled` and therefore ran at the jar defaults `200` and `true`, whereas the
-  `llm_mop` preset states `0` and `false`, which under the stage-2 `Feature` model deactivates
-  `FRONTIER` and `ACTIVITY_TRIGGER` outright.
+- **INV-APV-39**: `configure()` MUST fold every top-level config key that has an
+  `APERV_PROPERTY_MAPPING` entry into `overrides`, and MUST raise `ConfigurationError` for any
+  top-level key that is neither mapped nor one of the recognised orchestration keys (`preset`,
+  `overrides`, `strategy`, `mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256`). The
+  tool DSL (`aperv:<variant>@key=value`) delivers its overrides at the top level — `ToolFactory`
+  merges `{**variant_config, **tool_config.parameters}` — while `_push_properties()` reads only
+  `overrides`. Without the fold, a DSL override would be silently discarded: no property line, no
+  error, and a run executing a configuration nobody asked for. A key that cannot be honoured MUST
+  fail loudly rather than vanish.
 
 - **INV-APV-40**: Every variant returned by `get_variants()` MUST consist of a `preset` name, an
   `overrides` dict (possibly empty), and Python-only orchestration keys. No variant may carry a full
@@ -119,12 +140,31 @@ performs any device interaction.
   are removed, not commented out. `llm_snap_tolerance_px` and `llm_max_tokens` are live jar keys
   (`Feature.LLM` sub-parameters) and MUST remain mapped.
 
-- **INV-APV-42**: The 27 surviving variant names are frozen. The variant string is the resume-identity
-  key and the consolidation column key; re-expression MUST NOT rename any arm. An owner-approved
-  intentional divergence in effective configuration MUST be introduced as a new declared arm name,
-  never as a silent edit. The two retired names (`ape_pure`, `bfs`) are the only removals and MUST be
-  recorded as documented retirements in the migration arm report rather than appearing as
-  regeneration diffs.
+- **INV-APV-42**: The eight surviving variant names are frozen. The variant string is the
+  resume-identity key and the consolidation column key; re-expression MUST NOT rename a surviving
+  arm, and an owner-approved intentional divergence in effective configuration MUST be introduced as
+  a new declared arm name, never as a silent edit. The 21 retired names MUST be recorded in the
+  migration arm report as documented retirements — never as regeneration diffs and never as silent
+  absences — and each MUST carry its kind: *never distinct*, *name consolidated* (naming the arm the
+  configuration survives under), or *finished campaign*. A retirement whose configuration survives
+  elsewhere and one whose configuration ends are different facts, and a report that merges them
+  misstates what the migration did.
+
+- **INV-APV-05 (amended)**: `get_variants()` SHALL return a dict whose keys are exactly `default`,
+  `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off` and
+  `mop_on_llm_70`, with `default` bound to the same object as `sata` (INV-TOOL-02). The pre-change
+  minimum set named `bfs`, `random` and the six `sata_mop_llm_<prompt>` variants, all of which this
+  change retires; the invariant is restated rather than exempted, because a minimum-set rule that
+  lists retired names is false, not merely outdated.
+
+- **INV-APV-16 (retired)**: the `sata_mop` / `sata_mop_widget` lockstep binding ends with
+  `sata_mop_widget`. `sata_mop` becomes the sole name for the `mop` preset arm and keeps carrying the
+  frozen corpus's identity — 4,096 `aperv:sata_mop.trace` artifacts and 1,066 files under `results/`
+  — so it is the name that must not move. There is no alias left to keep in lockstep.
+
+- **INV-APV-17 (retired)**: the six gh43 prompt-experiment variants are retired as arms, so there is
+  no exemption set to maintain and no frozen source shape to protect. Their recorded results remain
+  valid frozen artifacts; what ends is the ability to launch new runs under those names.
 
 - **INV-APV-43**: `tool.py` MUST NOT parse, validate or branch on `RUN_START` or any other jar echo
   output (owner decision D1). Provenance is write-only in the trace; drift auditing is post-hoc
@@ -134,26 +174,38 @@ performs any device interaction.
   MUST diff empty against `arm_effective_baseline.json`. The comparison MUST be made on typed values
   using each key's declared `ValueType`, not on property text — the `aperv` preset writes
   `ape.llmPercentageNoSubstrate=-1` where the declared default is `-1.0`, and a textual comparison
-  would fail every arm on formatting alone. The baseline covers all 29 pre-change arms; the two
-  retired names are excluded by an explicit retirement list the test reads, never by silent absence.
-  The check is **one-time**: after owner sign-off the test is deleted and the record archived. It MUST
-  NOT survive as a standing constant-vs-constant guard.
+  would fail every arm on formatting alone. The baseline covers all 29 pre-change arms; the 21 retired
+  names are excluded by an explicit retirement list the test reads, never by silent absence. For a
+  retirement of kind *name consolidated* the test MUST additionally assert that the surviving arm's
+  effective configuration equals the retired name's baseline entry — that is what makes "the
+  configuration is preserved under another name" a checked claim rather than an assertion. The check
+  is **one-time**: after owner sign-off the test is deleted and the record archived. It MUST NOT
+  survive as a standing constant-vs-constant guard.
 
 ## MODIFIED Requirements
 
 ### Requirement: ApeRVTool Variants (FR20)
 
-`ApeRVTool` SHALL define named variants organized in four tiers: base variants, MOP-arm variants, LLM
-variants (including the frozen prompt-experiment arms), and calibration arm variants. Every variant
-SHALL consist of a `preset` name, an `overrides` dict, and Python-only orchestration keys
-(INV-APV-40). The `"default"` variant SHALL use strategy `"sata"` (INV-TOOL-02).
+`ApeRVTool` SHALL define named variants as `preset + overrides`. Every variant SHALL consist of a
+`preset` name, an `overrides` dict, and Python-only orchestration keys (INV-APV-40).
 
-`get_variants()` SHALL return exactly these **27** frozen names: `default`, `sata`, `random`,
-`sata_mop_widget`, `sata_mop`, `sata_mop_activity`, `sata_mop_act_frontier`, `sata_llm`,
-`sata_mop_llm`, the six gh43 prompt arms (`sata_mop_llm_ape_current`, `sata_mop_llm_ape_reasoning`,
-`sata_mop_llm_compact_v1`, `sata_mop_llm_v13`, `sata_mop_llm_v17`, `sata_mop_llm_visual_only`), the
-nine calibration arms (`cal_a1`…`cal_a9`), and the three decisive-run arms (`mop_on_llm_off`,
-`mop_off_llm_off`, `mop_on_llm_70`).
+`get_variants()` SHALL return exactly these **eight** frozen names, carrying **seven** distinct
+configurations:
+
+| Variant | preset | mop_data | overrides |
+|---|---|---|---|
+| `default` | `aperv` | — | _(empty)_ — bound to the same object as `sata` (INV-TOOL-02) |
+| `sata` | `aperv` | — | _(empty)_ |
+| `sata_mop` | `mop` | `"static_analysis"` | _(empty)_ |
+| `sata_llm` | `llm` | — | `llm_url` |
+| `sata_mop_llm` | `llm_mop` | `"static_analysis"` | `llm_url` |
+| `mop_on_llm_off` | `mop` | `"static_analysis"` | the four reach-package keys |
+| `mop_off_llm_off` | `mop` | `"static_analysis"` | the MOP-off set (see "Decisive Run Arm Set") |
+| `mop_on_llm_70` | `llm_mop` | `"static_analysis"` | the reach package plus the LLM dose |
+
+Four of the seven configurations are one-to-one with the jar's presets and carry nothing but the
+deployment-specific server URL where an LLM is involved. The remaining three are the E3 decisive
+run's arms: a reference on the reach package, its MOP-off control, and its LLM arm.
 
 **Arm shape.** An arm's `preset` names one of the four jar-resident vectors; the jar, not Python,
 defines what it contains. `overrides` carries only the deltas that distinguish this arm from its
@@ -161,134 +213,53 @@ preset — an arm identical to its preset carries an empty dict. Python-only key
 and are never written to `ape.properties`: `strategy` (the `--ape` CLI flag), `mop_data`
 (`"static_analysis"` triggers the derived-artifact push, unchanged), `seed`, and the two B3
 jar-provenance declarations. The explicit `overrides` sub-dict rather than a flat dict is what keeps
-the boundary machine-checkable: everything under `overrides` is translated and written, everything
-at the top level is orchestration.
-
-**Preset assignment.** `default`/`sata`/`random` → `aperv`. `sata_mop_widget`/`sata_mop`/
-`sata_mop_activity`/`sata_mop_act_frontier`/`mop_on_llm_off`/`mop_off_llm_off` → `mop`. `sata_llm` →
-`llm`. All remaining LLM arms → `llm_mop`. Ablations SHALL be expressed as named override sets, never
-as new presets: the preset vocabulary belongs to the jar.
+the boundary machine-checkable: everything under `overrides` is translated and written, everything at
+the top level is orchestration.
 
 Every LLM-preset arm SHALL carry `llm_url` in its overrides (INV-APV-38) — the preset omits the
 deployment-specific server URL while stating the routing gates ON, so its absence aborts resolution.
 `throttle_ms` SHALL NOT appear in any arm: the `aperv` preset already states
-`ape.defaultGUIThrottle=200`, which every arm used.
+`ape.defaultGUIThrottle=200`, which every arm used. Ablations SHALL be expressed as named override
+sets, never as new presets: the preset vocabulary belongs to the jar.
 
-#### Base Variants
+`sata_mop` is the frozen-corpus name and SHALL NOT be renamed or folded away: 4,096
+`aperv:sata_mop.trace` artifacts and 1,066 files under `results/` carry that exact token, so a rename
+would orphan every one of those runs from resume and every one of those rows from consolidation. This
+is a data-identity constraint, not backward compatibility (INV-APV-42).
 
-| Variant | preset | strategy | mop_data | overrides |
-|---|---|---|---|---|
-| `default` | `aperv` | `"sata"` | — | _(empty)_ — alias of `sata` |
-| `sata` | `aperv` | `"sata"` | — | _(empty)_ |
-| `random` | `aperv` | `"random"` | — | _(empty)_ |
+#### Retired variants
 
-The `aperv` preset is the RV-exploration baseline made explicit: the twelve exploration gates on, the
-`llm_percentage_no_substrate` sentinel at `-1`, and MOP/reach/frontier off. The three base arms differ
-from each other only in the `--ape` strategy, which is a command-line value and not part of any preset.
+Twenty-one names are retired. Retiring a name is a decision about the experimental matrix — Python's
+authority — and touches no jar mechanism: every key those arms set remains in the mapping, and every
+feature they activated remains implemented.
 
-#### MOP-Arm Variants
-
-All MOP arms set `mop_data="static_analysis"` at the top level, which is what makes the jar's `MOP`
-feature active — the four MOP scoring weights come from the `mop` preset.
-
-| Variant | preset | overrides |
+| Retired | Kind | Disposition |
 |---|---|---|
-| `sata_mop_widget` | `mop` | _(empty)_ — the MOP control arm |
-| `sata_mop` | `mop` | — bound to the same object as `sata_mop_widget` (INV-APV-16) — |
-| `sata_mop_activity` | `mop` | `mop_activity_source_components=True` |
-| `sata_mop_act_frontier` | `mop` | `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True` |
+| `ape_pure` | never distinct | purity is structural in the jar; `ape.apePureMode` is a retired key that aborts resolution. The comparison with original APE stays anchored on the frozen phase-2 data |
+| `bfs` | never distinct | never an agent type; always carried `sata`'s effective configuration |
+| `sata_mop_widget` | never distinct | one object under two names; `sata_mop` is the surviving name |
+| `sata_mop_act_frontier` | name consolidated | byte-identical to `mop_on_llm_off`; the configuration survives under that name |
+| `sata_mop_activity` | finished campaign | an intermediate step of the reach decomposition, superseded by the reach package |
+| `random` | finished campaign | the `random` strategy stays in the `configure()` whitelist and remains reachable as `aperv:sata@strategy=random`; what ends is the named arm |
+| the six `sata_mop_llm_<prompt>` arms | finished campaign | the gh43 prompt ablation concluded; recorded results are unaffected |
+| the nine `cal_a1`…`cal_a9` arms | finished campaign | the Phase-A calibration campaign concluded (VERIFY `ADMISSIBLE`, 2026-07-24) and phases B and C were superseded by the decisive run's pre-registration freeze |
 
-`sata_mop` and `sata_mop_widget` SHALL remain bound to the same object, and `sata_mop` is the
-**primary** of the pair. This is a data-identity constraint, not backward compatibility: 4,096
-`aperv:sata_mop.trace` artifacts and 1,066 files under `results/` carry that exact token, while
-`sata_mop_widget` has produced none, so renaming `sata_mop` would orphan every one of those runs from
-resume and every one of those rows from consolidation. Nothing in the tool adapts to an old shape;
-the pair costs one dict binding.
+Retirement removes the ability to launch new runs under a name. It does not invalidate recorded
+results: those are frozen artifacts, read by frozen-corpus analysis scripts that this change does not
+touch.
 
-#### LLM Variants
+Every surviving arm's effective configuration after re-expression SHALL be identical to its
+pre-change effective configuration (INV-APV-44); any intentional divergence requires owner approval
+and a new arm name (INV-APV-42).
 
-| Variant | preset | mop_data | overrides |
-|---|---|---|---|
-| `sata_llm` | `llm` | — | `llm_url` |
-| `sata_mop_llm` | `llm_mop` | `"static_analysis"` | `llm_url` |
+#### Scenario: Preset-identity arm carries nothing
 
-The LLM sampling block (`llm_on_new_state`, `llm_on_stagnation`, `llm_model`, `llm_temperature`,
-`llm_top_p`, `llm_top_k`, `llm_timeout_ms`) lives in the `llm` and `llm_mop` presets at exactly the
-values these two arms used, so each reduces to the server URL.
-
-#### Prompt Experiment Variants (gh43 — effective configuration frozen)
-
-The six prompt-ablation arms SHALL be re-expressed like every other arm. Freezing protects their
-**effective configuration**, not their source shape, and the `_ARM_DEFINING_EXEMPT` machinery is
-deleted with the guard it exempted from. Each carries `preset="llm_mop"`, `mop_data="static_analysis"`
-and overrides `llm_url`, `llm_percentage=0.7`, `llm_prompt_variant=<variant>`.
-
-These six arms additionally carry `frontier_boost_weight=200` and `activity_trigger_enabled=True` as
-explicit overrides (INV-APV-39). They never set either key and therefore ran at the jar defaults
-`200`/`true`, while the `llm_mop` preset states `0`/`false`; under the stage-2 `Feature` model those
-preset values deactivate `FRONTIER` and `ACTIVITY_TRIGGER` entirely. Restoring them as overrides is
-what keeps the arms' effective configuration unchanged. The inherited values SHALL be verified against
-the jar the gh43 campaign actually ran before the overrides are accepted as a preservation; a
-divergence there is a declared divergence for the owner (INV-APV-42), not a value to assume.
-
-| Variant | llm_prompt_variant |
-|---|---|
-| `sata_mop_llm_ape_current` | `ape_current` |
-| `sata_mop_llm_ape_reasoning` | `ape_reasoning` |
-| `sata_mop_llm_compact_v1` | `compact_v1` |
-| `sata_mop_llm_v13` | `v13` |
-| `sata_mop_llm_v17` | `v17` |
-| `sata_mop_llm_visual_only` | `visual_only` |
-
-#### Calibration Arm Variants (cal_*)
-
-The nine arms of the Phase-A calibration table (`docs/20260721_plano_calibracao_llm.md` §6, rev. 3.2)
-SHALL each carry `preset="llm_mop"`, `mop_data="static_analysis"`, and the frontier reach package as
-overrides (`mop_activity_source_components=True`, `frontier_boost_weight=200`,
-`mop_frontier_weight=200`, `activity_trigger_enabled=True`) plus `llm_url` and their per-arm LLM
-deltas. The frontier substrate is the configuration that won the cmpma multi-arm comparison (cov_mop
-37.75% vs ≤35%, Friedman+Holm): whenever the router does not delegate a step — and on every
-`no_match` fallback — the arm explores in frontier mode. `sata_mop_act_frontier` without LLM keys is
-exactly the ANC2 anchor arm, so the paired difference `cal_* − ANC2` isolates the LLM contribution on
-the same algorithmic base.
-
-Keys absent from an arm's overrides take the preset value, which is what makes the table below the
-whole story: an empty cell is not an omission but a statement that the arm uses the shared value
-(`llm_temperature=0.3`, `llm_top_p=0.6`, `llm_top_k=50`, both routing triggers `true`).
-
-| Variant | Hypothesis | LLM overrides beyond `llm_url` |
-|---|---|---|
-| `cal_a1` | control | `llm_prompt_variant=v13`, `llm_percentage=0.7`, `llm_temperature=0` |
-| `cal_a2` | H1 | `llm_prompt_variant=v13`, `llm_percentage=0.3`, `llm_temperature=0` |
-| `cal_a3` | H1 (stagnation-only) | `llm_prompt_variant=v13`, `llm_percentage=0`, `llm_temperature=0`, `llm_on_new_state=False` |
-| `cal_a4` | H1 (both triggers) | `llm_prompt_variant=v13`, `llm_percentage=0`, `llm_temperature=0` |
-| `cal_a5` | H3 (vendor bundle) | `llm_prompt_variant=v13`, `llm_percentage=0.3`, `llm_temperature=0.7`, `llm_top_p=0.8`, `llm_top_k=20` |
-| `cal_a6` | H3 (temperature isolated) | `llm_prompt_variant=v13`, `llm_percentage=0.3`, `llm_temperature=0.7` |
-| `cal_a7` | H3 (AutoDroid point) | `llm_prompt_variant=v13`, `llm_percentage=0.3`, `llm_temperature=0.25` |
-| `cal_a8` | H2 (short extreme) | `llm_prompt_variant=visual_only`, `llm_percentage=0.3`, `llm_temperature=0` |
-| `cal_a9` | H2 (long extreme) | `llm_prompt_variant=v17`, `llm_percentage=0.3`, `llm_temperature=0` |
-
-Every arm's effective configuration after re-expression SHALL be identical to its pre-change effective
-configuration (INV-APV-44); any intentional divergence requires owner approval and a new arm name
-(INV-APV-42).
-
-#### Scenario: MOP arm as preset plus deltas
-
-- **WHEN** `get_variants()["sata_mop_act_frontier"]` is read
-- **THEN** `preset` SHALL be `"mop"` and `mop_data` SHALL be `"static_analysis"`
-- **AND** `overrides` SHALL contain exactly `mop_activity_source_components=True`,
-  `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True`
-- **AND** no MOP weight key SHALL appear, because the `mop` preset already states
-  `ape.mopWeightDirect=500`, `ape.mopWeightTransitive=300`, `ape.mopWeightOpenMenu=250` and
-  `ape.mopWeightWtg=200`
-
-#### Scenario: Arm identical to its preset
-
-- **WHEN** `get_variants()["sata_mop_widget"]` is read
+- **WHEN** `get_variants()["sata_mop"]` is read
 - **THEN** `preset` SHALL be `"mop"` and `overrides` SHALL be empty
-- **AND** the same SHALL hold for `default`, `sata` and `random` against the `aperv` preset
+- **AND** `mop_data` SHALL be `"static_analysis"` at the top level
+- **AND** the same emptiness SHALL hold for `sata` and `default` against the `aperv` preset
 
-#### Scenario: LLM arm carries the server URL
+#### Scenario: LLM arm carries the server URL and nothing else
 
 - **WHEN** `get_variants()["sata_mop_llm"]` is read
 - **THEN** `preset` SHALL be `"llm_mop"` and `overrides` SHALL be exactly
@@ -296,36 +267,35 @@ configuration (INV-APV-44); any intentional divergence requires owner approval a
 - **AND** every variant whose preset is `llm` or `llm_mop` SHALL likewise carry `llm_url`
   (INV-APV-38)
 
-#### Scenario: Frozen prompt arm keeps the defaults it inherited
+#### Scenario: The reach package survives under the reference arm
 
-- **WHEN** `get_variants()["sata_mop_llm_v13"]` is read
-- **THEN** `overrides` SHALL contain `frontier_boost_weight=200` and `activity_trigger_enabled=True`
-- **AND** it SHALL contain `llm_percentage=0.7`, `llm_prompt_variant="v13"` and `llm_url`
-- **AND** the module SHALL contain no `_ARM_DEFINING_EXEMPT` constant
+- **WHEN** `get_variants()["mop_on_llm_off"]` is read
+- **THEN** `preset` SHALL be `"mop"` and `overrides` SHALL contain exactly
+  `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`,
+  `activity_trigger_enabled=True`
+- **AND** no MOP weight key SHALL appear, because the `mop` preset already states
+  `ape.mopWeightDirect=500`, `ape.mopWeightTransitive=300`, `ape.mopWeightOpenMenu=250` and
+  `ape.mopWeightWtg=200`
+- **AND** its effective configuration SHALL equal the baseline entry captured for the retired
+  `sata_mop_act_frontier`
 
-#### Scenario: Calibration arm states only what it varies
-
-- **WHEN** `get_variants()["cal_a6"]` and `get_variants()["cal_a5"]` are compared
-- **THEN** both SHALL carry `preset="llm_mop"` and the same four frontier overrides
-- **AND** the difference SHALL be exactly `llm_top_p` and `llm_top_k`: present in `cal_a5` at `0.8`
-  and `20`, absent from `cal_a6` because it uses the preset's `0.6` and `50`
-- **AND** both SHALL carry `llm_temperature=0.7` and `llm_percentage=0.3`
-
-#### Scenario: The frozen arm name keeps resolving
+#### Scenario: The frozen corpus name keeps resolving
 
 - **WHEN** `get_variants()` is read
-- **THEN** `variants["sata_mop"]` SHALL be present and SHALL be the same object as
-  `variants["sata_mop_widget"]`
+- **THEN** `"sata_mop"` SHALL be present
 - **AND** a resume over an existing `aperv:sata_mop` result directory SHALL still match its arm
+- **AND** `"sata_mop_widget"` SHALL NOT be a key, so there is no alias left to keep in lockstep
 
 #### Scenario: Retired variants are absent
 
 - **WHEN** `get_variants()` is read after this change
-- **THEN** the mapping SHALL have exactly 27 keys
-- **AND** `"ape_pure"` and `"bfs"` SHALL NOT be among them
-- **AND** the module SHALL contain no `_APE_PURE_ARM_FLAGS` constant — purity is structural in the
-  jar, and `ape.apePureMode` is a retired key that aborts resolution
-- **AND** both names SHALL appear in the migration arm report as documented removals, not as diffs
+- **THEN** the mapping SHALL have exactly eight keys
+- **AND** none of `ape_pure`, `bfs`, `random`, `sata_mop_widget`, `sata_mop_activity`,
+  `sata_mop_act_frontier`, the six `sata_mop_llm_<prompt>` names or `cal_a1`…`cal_a9` SHALL be among
+  them
+- **AND** the module SHALL contain no `_APE_PURE_ARM_FLAGS` constant
+- **AND** all 21 SHALL appear in the migration arm report as documented retirements carrying their
+  kind, not as diffs
 
 #### Scenario: No arm carries a property expansion
 
@@ -344,6 +314,21 @@ configuration (INV-APV-44); any intentional divergence requires owner approval a
 after validation. It SHALL validate that `config["strategy"]` is one of `["sata", "random"]`, that
 `config["preset"]` is present and non-empty, and that `config.get("overrides", {})` is a dict. If any
 check fails, it SHALL raise `ConfigurationError` before any device interaction.
+
+**Tool-DSL overrides SHALL be folded into `overrides`** (INV-APV-39). `ToolFactory` merges
+`{**variant_config, **tool_config.parameters}` (`modules/rv-tools/src/rv_tools/registry/factory.py:127`),
+so a DSL override written as `aperv:sata_mop@frontier_boost_weight=200` arrives as a **top-level** key,
+while `_push_properties()` reads only `overrides`. `configure()` SHALL therefore move every top-level
+key that has an `APERV_PROPERTY_MAPPING` entry into `overrides`, where a DSL value takes precedence
+over an arm's own entry for the same key — the DSL is the operator's last word, which is what makes it
+useful for smokes and ablations without declaring a variant.
+
+Any remaining top-level key that is neither mapped nor one of `preset`, `overrides`, `strategy`,
+`mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256` SHALL raise `ConfigurationError`
+naming it. Without both halves of this rule a DSL override would be discarded in silence: no property
+line, no error, and a run executing a configuration nobody asked for — the exact failure mode this
+change exists to remove, reintroduced on the operator's path. A key that cannot be honoured fails
+loudly.
 
 The whitelist SHALL shrink from the pre-change `["sata", "random", "bfs", "dfs"]` — the deletion stage
 2 delegated to this change. `bfs` and `dfs` are not agent types: `ApeAgent.createAgent` recognises
@@ -380,6 +365,25 @@ traffic without modifying variant definitions.
 - **WHEN** `configure({"strategy": "sata", "preset": "mop", "overrides": ["frontier_boost_weight"]})`
   is called
 - **THEN** `ConfigurationError` SHALL be raised naming the `overrides` key
+
+#### Scenario: DSL override reaches the properties file
+- **WHEN** `aperv:sata_mop@frontier_boost_weight=200` is resolved and `configure()` runs
+- **THEN** `self._tool_config["overrides"]["frontier_boost_weight"]` SHALL equal `200`
+- **AND** `_push_properties()` SHALL write `ape.frontierBoostWeight=200`
+- **AND** no top-level `frontier_boost_weight` key SHALL remain in `_tool_config`
+
+#### Scenario: DSL override wins over the arm's own value
+- **WHEN** `aperv:mop_on_llm_off@mop_frontier_weight=400` is resolved, and the arm's `overrides`
+  already carries `mop_frontier_weight=200`
+- **THEN** the folded value SHALL be `400`
+- **AND** exactly one `ape.mopFrontierWeight` line SHALL be written
+
+#### Scenario: Unhonourable top-level key fails loudly
+- **WHEN** `aperv:sata_mop@frontier_bost_weight=200` is resolved (a typo absent from
+  `APERV_PROPERTY_MAPPING`)
+- **THEN** `ConfigurationError` SHALL be raised naming the key
+- **AND** the key SHALL NOT be silently dropped, which would run the arm unchanged under an operator's
+  belief that it had been overridden
 
 #### Scenario: LLM URL override via environment variable
 - **WHEN** `configure({"strategy": "sata", "preset": "llm", "overrides": {"llm_url": "http://10.0.2.2:30000/v1"}})` is called
@@ -441,7 +445,7 @@ The trailing `-s <seed>` is appended only when a seed is configured (INV-APV-18)
 - **AND** no MOP artifact SHALL be pushed to the device
 
 #### Scenario: Properties file carries preset plus deltas only
-- **WHEN** step 5 runs for `sata_mop_act_frontier` with the MOP artifact pushed
+- **WHEN** step 5 runs for `mop_on_llm_off` with the MOP artifact pushed
 - **THEN** the generated file SHALL begin with `ape.preset=mop`
 - **AND** SHALL contain `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
 - **AND** SHALL contain exactly the four override lines `ape.mopActivitySourceComponents=true`,
@@ -610,7 +614,7 @@ the mapping's contents a correctness property rather than a tidiness one.
 - **AND** the only remaining line SHALL be `ape.llmUrl=http://10.0.2.2:30000/v1`
 
 #### Scenario: Empty-override arm writes two lines
-- **WHEN** `_push_properties()` is called for `sata_mop_widget` with the MOP artifact pushed
+- **WHEN** `_push_properties()` is called for `sata_mop` with the MOP artifact pushed
 - **THEN** the file SHALL contain exactly `ape.preset=mop` and the `ape.mopDataPath` line
 - **AND** no `ape.mopWeight*` line SHALL appear, because those values come from the preset
 
@@ -620,7 +624,7 @@ the mapping's contents a correctness property rather than a tidiness one.
 - **AND** it SHALL NOT contain `ape.mopDataPath`, `ape.frontierBoostWeight` or `ape.dynamicEpsilon`
 
 #### Scenario: Bools are serialized lowercase
-- **WHEN** `_push_properties()` is called for `sata_mop_act_frontier`
+- **WHEN** `_push_properties()` is called for `mop_on_llm_off`
 - **THEN** the file SHALL contain `ape.activityTriggerEnabled=true`, not `True`
 - **AND** it SHALL contain `ape.mopActivitySourceComponents=true`
 
@@ -659,6 +663,12 @@ arms SHALL be:
 
 The variant names are normative, not cosmetic: the variant string is the resume identity key and the
 consolidation column key, so a rename silently splits a campaign's results.
+
+`mop_on_llm_off` absorbs the retired `sata_mop_act_frontier`: the two carried byte-identical effective
+configurations — the ANC2 anchor under two names — so the reference arm is not a newly invented
+baseline but the configuration that won the cmpma multi-arm comparison, under the name the decisive
+run recorded. With `sata_mop_act_frontier` retired, these three are the only arms in the module that
+carry a non-trivial override set; the other four are one-to-one with the jar's presets.
 
 All three SHALL carry `mop_data="static_analysis"` and the frontier substrate (INV-APV-30) — the
 control removes MOP guidance, not navigation. Expressed as preset + overrides:
@@ -790,9 +800,13 @@ A textual comparison would report `ape.llmPercentageNoSubstrate` as changed on e
 writes `-1` where the declared default is `-1.0` — and would drown the real signal in formatting
 noise.
 
-The two retired names (`ape_pure`, `bfs`) SHALL be carried in an explicit retirement list that the
-test reads. They are reported as documented retirements and excluded from the diff, so a retirement
-can never be mistaken for a regeneration failure, nor a silent deletion for a retirement. Preset
+The 21 retired names SHALL be carried in an explicit retirement list that the test reads, each entry
+naming its kind — *never distinct*, *name consolidated* (with the surviving arm), or *finished
+campaign*. They are reported as documented retirements and excluded from the diff, so a retirement can
+never be mistaken for a regeneration failure, nor a silent deletion for a retirement. For a *name
+consolidated* entry the test SHALL additionally assert that the surviving arm's regenerated effective
+configuration equals the retired name's baseline entry, which is what turns "the configuration is
+preserved elsewhere" into a checked claim. Preset
 vectors, the accepted-key table and the defaults are parsed from the `ape` source checkout **for this
 purpose only**: the migration tooling is not a runtime dependency of `aperv-tool` and creates no
 shared manifest between the repositories.
@@ -808,8 +822,8 @@ of itself — under a new number.
 
 #### Scenario: Baseline captured before edits
 - **WHEN** the migration starts
-- **THEN** `arm_effective_baseline.json` SHALL exist and cover all 29 pre-change arm names, including
-  `ape_pure` and `bfs`, before any variant dict is modified
+- **THEN** `arm_effective_baseline.json` SHALL exist and cover all 29 pre-change arm names — the eight
+  survivors and all 21 retirements — before any variant dict is modified
 
 #### Scenario: Re-expression gated per group
 - **WHEN** a group of arms has been re-expressed as preset + overrides
@@ -818,9 +832,9 @@ of itself — under a new number.
 
 #### Scenario: Retirements are listed, not diffed
 - **WHEN** the diff report is produced
-- **THEN** `ape_pure` and `bfs` SHALL appear in a "documented retirements" section naming why each was
-  retired
-- **AND** neither SHALL appear as a regeneration difference
+- **THEN** all 21 retired names SHALL appear in a "documented retirements" section, each naming its
+  kind and its reason
+- **AND** none SHALL appear as a regeneration difference
 - **AND** an arm that disappeared without being on the retirement list SHALL fail the check
 
 #### Scenario: Typed comparison tolerates property-text formatting
@@ -829,12 +843,13 @@ of itself — under a new number.
 - **THEN** the diff SHALL be empty for that key, because both parse to the same `DOUBLE`
 - **AND** a genuine change from `-1` to `0` SHALL be reported as a difference
 
-#### Scenario: Frozen prompt arm regenerates identically
-- **WHEN** `sata_mop_llm_v13` is regenerated with its `frontier_boost_weight=200` and
-  `activity_trigger_enabled=True` overrides
-- **THEN** its effective configuration SHALL equal the baseline entry captured from the pre-change
-  dict, which inherited both from the jar defaults
-- **AND** removing either override SHALL make the diff non-empty, naming the two keys
+#### Scenario: A consolidated name's configuration is proved to survive
+- **WHEN** `sata_mop_act_frontier` is processed as a *name consolidated* retirement naming
+  `mop_on_llm_off`
+- **THEN** the regenerated effective configuration of `mop_on_llm_off` SHALL equal the baseline entry
+  captured for `sata_mop_act_frontier`
+- **AND** a divergence between them SHALL fail the check, because the retirement's justification is
+  precisely that the two configurations are the same
 
 #### Scenario: Check retired after sign-off
 - **WHEN** the owner signs off the final full diff
@@ -877,8 +892,9 @@ direct assertions on the override dicts in the "Decisive Run Arm Set" requiremen
 
 **Reason**: The requirement exists to state that `llm_max_tokens` and `llm_snap_tolerance_px` are
 mapped but deliberately outside `LLM_ARM_KEYS` and set by no `cal_a*` arm — a statement about the
-membership of a guard set that this change deletes. With `LLM_ARM_KEYS` gone there is no set to be
-outside of, and the two keys become ordinary entries of the pass-through table, governed by
+membership of a guard set that this change deletes, concerning arms this change also retires. With
+`LLM_ARM_KEYS` gone there is no set to be outside of, and with `cal_a1`…`cal_a9` gone there is no arm
+for the claim to be about; the two keys become ordinary entries of the pass-through table, governed by
 "Arm Property Overrides Pass-Through" and by the jar's own feature-dependency validation.
 
 The mapping entries themselves are **not** removed: both are live `Feature.LLM` sub-parameters in the
