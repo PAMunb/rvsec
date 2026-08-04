@@ -1483,6 +1483,13 @@ def _make_gh83_live_task(tmp_path):
     )
     with open(task.result.logcat_file) as f:
         tracker.process_lines(f.readlines())
+    # Same order the live tail loop uses (tracker.py: drain, then flush): a
+    # diagnostic block still buffered at end of input is emitted by flush, not
+    # by whatever line happens to follow it. The reconstruction path flushes
+    # inside parse_logcat_file, so without this the two paths would differ by
+    # the fixture's trailing crash and the comparison below would be testing
+    # the driver rather than the round trip.
+    tracker.flush_diagnostics()
     task.repository = tracker.repository
     return task
 

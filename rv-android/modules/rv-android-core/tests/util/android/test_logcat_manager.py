@@ -18,10 +18,17 @@ managing logcat operations for Android devices, including capturing output and c
 - Verifies correct interaction with the Android Debug Bridge (ADB)
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import rv_android_core
 from rv_android_core.util.android.logcat_manager import DIAGNOSTIC_TAGS, LogcatManager
+from rv_android_core.util.logging.constants import (
+    TAG_APERV_HEARTBEAT,
+    TAG_RVSEC,
+    TAG_RVSEC_COV,
+)
 
 
 class TestLogcatManager:
@@ -83,6 +90,7 @@ class TestLogcatManager:
                 "-s",
                 "RVSEC:V",
                 "RVSEC-COV:V",
+                "ApeRvHb:V",
             ],
         )
 
@@ -173,6 +181,7 @@ class TestLogcatManager:
                 "-s",
                 "RVSEC:V",
                 "RVSEC-COV:V",
+                "ApeRvHb:V",
             ],
         )
         mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
@@ -293,7 +302,11 @@ class TestLogcatManager:
         self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
     ):
         """INV-CORE-37: with no diagnostic tags the emitted command is the baseline,
-        byte-for-byte (`-v threadtime -s RVSEC:V RVSEC-COV:V`)."""
+        byte-for-byte (`-v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`).
+
+        The heartbeat tag is part of the baseline because logcat is captured as a live
+        stream under a strict device-side allowlist: a heartbeat under an unadmitted
+        tag is discarded before it reaches the file the offline join reads."""
         mock_open_file.return_value = MagicMock()
         mock_clear_command = MagicMock()
         mock_logcat_command = MagicMock()
@@ -312,6 +325,7 @@ class TestLogcatManager:
                 "-s",
                 "RVSEC:V",
                 "RVSEC-COV:V",
+                "ApeRvHb:V",
             ],
         )
         assert result is True
@@ -322,9 +336,9 @@ class TestLogcatManager:
     def test_diagnostics_tags_additive(
         self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
     ):
-        """INV-CORE-38: diagnostic tags are appended after RVSEC/RVSEC-COV (which are
-        preserved unchanged), and priority-bearing tags keep their `:E`/`:W` suffix
-        verbatim (no spurious `:V`)."""
+        """INV-CORE-38: diagnostic tags are appended after the three baseline tags
+        (which are preserved unchanged and in order), and priority-bearing tags keep
+        their `:E`/`:W` suffix verbatim (no spurious `:V`)."""
         mock_open_file.return_value = MagicMock()
         mock_clear_command = MagicMock()
         mock_logcat_command = MagicMock()
@@ -346,6 +360,7 @@ class TestLogcatManager:
                 "-s",
                 "RVSEC:V",
                 "RVSEC-COV:V",
+                "ApeRvHb:V",
                 "AndroidRuntime:E",
                 "art:E",
                 "dalvikvm:E",
@@ -353,3 +368,31 @@ class TestLogcatManager:
             ],
         )
         assert result is True
+
+    def test_heartbeat_tag_declared_once(self, logcat_manager):
+        """INV-CORE-53: the heartbeat tag has exactly one declaration site.
+
+        The tag string is a contract with the APE-RV jar, and a mismatch between the
+        two repositories fails as an empty capture rather than as an error — nothing
+        raises, the file simply has no heartbeat in it. A second literal in this
+        source tree is where that equality would drift unnoticed, so the literal is
+        allowed to appear exactly once, as the value of the constant.
+        """
+        source_root = Path(rv_android_core.__file__).parent
+        occurrences = [
+            path
+            for path in source_root.rglob("*.py")
+            if "ApeRvHb" in path.read_text(encoding="utf-8")
+        ]
+
+        assert occurrences == [source_root / "util" / "logging" / "constants.py"]
+        assert (
+            occurrences[0].read_text(encoding="utf-8").count("ApeRvHb") == 1
+        ), "the literal appears more than once inside its own declaration file"
+        assert TAG_APERV_HEARTBEAT == "ApeRvHb"
+        assert logcat_manager.default_tags == [
+            TAG_RVSEC,
+            TAG_RVSEC_COV,
+            TAG_APERV_HEARTBEAT,
+        ]
+        assert len(TAG_APERV_HEARTBEAT) <= 23, "Android bounds logcat tags at 23 chars"

@@ -32,8 +32,13 @@ from rv_coverage.analysis.coverage.tracker import CoverageTracker
 # A verify_error diagnostic start line (art tag, "Rejecting class"), timestamped
 # at 19:37:10 so that with a tool start of 19:37:00 the relative offset is 10s.
 VERIFY_LINE = "03-24 19:37:10.000  4110  4110 E art     : Rejecting class br.unb.cic.Foo"
-# A non-diagnostic line whose different tag closes the buffered diagnostic block.
-CLOSING_LINE = "01-01 00:00:00.000  1234  1234 I SomeTag: not diagnostic"
+# A second diagnostic block under a different (tag, pid, tid) key: this is what
+# closes the buffered one. A line under a non-diagnostic tag does NOT close it —
+# logcat merges all processes into one stream, so foreign lines land inside a
+# block that is contiguous only in its own process's output.
+CLOSING_LINE = (
+    "03-24 19:37:20.000  4111  4111 E art     : Rejecting class br.unb.cic.Bar"
+)
 # A modern-format coverage line.
 COVERAGE_LINE = (
     "03-24 19:37:05.000  4110  4110 V RVSEC-COV: "
@@ -293,8 +298,9 @@ class TestDiagnosticEvents:
         captured = []
         tracker.repository.register_diagnostic_event = lambda ev: captured.append(ev)
 
-        # First line buffers the event; the second (different tag) closes it,
-        # so feed_line returns the event and _register_diagnostic_event runs.
+        # First line buffers the event; the second, under a different diagnostic
+        # (tag, pid, tid) key, closes it — so feed_line returns the event and
+        # _register_diagnostic_event runs.
         tracker.process_lines([VERIFY_LINE, CLOSING_LINE])
 
         assert len(captured) == 1

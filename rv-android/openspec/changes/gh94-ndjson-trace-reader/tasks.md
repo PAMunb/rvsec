@@ -16,13 +16,13 @@
 
 ## 1. Capture allowlist: the heartbeat tag reaches the file
 
-- [ ] 1.1 Add `TAG_APERV_HEARTBEAT = "ApeRvHb"` to `modules/rv-android-core/src/rv_android_core/util/logging/constants.py`, beside `TAG_RVSEC` and `TAG_RVSEC_COV`, with a comment stating it is a cross-repository contract with the APE-RV jar (`ape` design D-6) and that a mismatch fails as an empty capture rather than an error (INV-CORE-53)
-- [ ] 1.2 Change `LogcatManager.default_tags` in `modules/rv-android-core/src/rv_android_core/util/android/logcat_manager.py` to `[TAG_RVSEC, TAG_RVSEC_COV, TAG_APERV_HEARTBEAT]`, built from the constants rather than string literals; the two existing tags keep their position and order
-- [ ] 1.3 Update the `LogcatManager` command tests so the flag-off baseline is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V` (amended INV-CORE-37), and the flag-on case asserts the three baseline tags first, in order, followed by the four diagnostic tags (INV-CORE-38 unchanged)
-- [ ] 1.4 Add `test_heartbeat_tag_declared_once`: the literal `"ApeRvHb"` appears exactly once in `modules/rv-android-core/src/`, as the value of `TAG_APERV_HEARTBEAT` (INV-CORE-53)
-- [ ] 1.5 Add `test_heartbeat_lines_change_no_parsed_value` to the rv-coverage parser tests: `parse_logcat_file` over a captured logcat with heartbeat lines and over the same file with them removed yields identical `calculate_metrics()`, `total_errors`, `unique_errors`, every coverage value, and an identical diagnostic-event collection (INV-CORE-54)
-- [ ] 1.6 Update `modules/rv-platform/.../tests` guards for INV-PLT-21: the flag-off command is the three-tag form, and `LogcatComponent` passes `default_tags` through without filtering, reordering or subsetting. No production code change is expected in `components/logcat.py` — if one turns out to be needed, that is a finding, not a fix to slip in silently
-- [ ] 1.7 Run `/rv-test-run rv-android-core` and `/rv-test-run rv-platform`
+- [x] 1.1 Add `TAG_APERV_HEARTBEAT = "ApeRvHb"` to `modules/rv-android-core/src/rv_android_core/util/logging/constants.py`, beside `TAG_RVSEC` and `TAG_RVSEC_COV`, with a comment stating it is a cross-repository contract with the APE-RV jar (`ape` design D-6) and that a mismatch fails as an empty capture rather than an error (INV-CORE-53)
+- [x] 1.2 Change `LogcatManager.default_tags` in `modules/rv-android-core/src/rv_android_core/util/android/logcat_manager.py` to `[TAG_RVSEC, TAG_RVSEC_COV, TAG_APERV_HEARTBEAT]`, built from the constants rather than string literals; the two existing tags keep their position and order
+- [x] 1.3 Update the `LogcatManager` command tests so the flag-off baseline is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V` (amended INV-CORE-37), and the flag-on case asserts the three baseline tags first, in order, followed by the four diagnostic tags (INV-CORE-38 unchanged)
+- [x] 1.4 Add `test_heartbeat_tag_declared_once`: the literal `"ApeRvHb"` appears exactly once in `modules/rv-android-core/src/`, as the value of `TAG_APERV_HEARTBEAT` (INV-CORE-53)
+- [x] 1.5 Add `test_heartbeat_lines_change_no_parsed_value` to the rv-coverage parser tests: `parse_logcat_file` over a captured logcat with heartbeat lines and over the same file with them removed yields identical `calculate_metrics()`, `total_errors`, `unique_errors`, every coverage value, and an identical diagnostic-event collection (INV-CORE-54)
+- [x] 1.6 Update `modules/rv-platform/.../tests` guards for INV-PLT-21: the flag-off command is the three-tag form, and `LogcatComponent` passes `default_tags` through without filtering, reordering or subsetting. No production code change is expected in `components/logcat.py` — if one turns out to be needed, that is a finding, not a fix to slip in silently
+- [x] 1.7 Run `/rv-test-run rv-android-core` and `/rv-test-run rv-platform`
 
 ## 2. Native NDJSON reader
 

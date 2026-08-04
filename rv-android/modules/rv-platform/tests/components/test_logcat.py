@@ -220,19 +220,71 @@ class TestDiagnosticsFlagThreading:
             assert kwargs["tags"] is None
 
     def test_flag_on_appends_diagnostic_tags(self, mock_task):
-        """Flag on: start_capture receives default_tags + DIAGNOSTIC_TAGS."""
-        from rv_android_core.util.android.logcat_manager import DIAGNOSTIC_TAGS
+        """Flag on: start_capture receives default_tags + DIAGNOSTIC_TAGS.
+
+        The expectation is built from the real `default_tags` rather than from a
+        copy of the list, so this asserts the pass-through property INV-PLT-21
+        requires: the component may not filter, reorder or subset the baseline.
+        A local copy would keep passing after the baseline changed, which is the
+        drift the invariant exists to catch.
+        """
+        from rv_android_core.util.android.logcat_manager import (
+            DIAGNOSTIC_TAGS,
+            LogcatManager,
+        )
+
+        baseline = LogcatManager().default_tags
 
         with patch("rv_platform.components.logcat.LogcatManager") as mock_mgr_cls:
             mock_mgr = mock_mgr_cls.return_value
-            mock_mgr.default_tags = ["RVSEC", "RVSEC-COV"]
+            mock_mgr.default_tags = baseline
             mock_mgr.start_capture.return_value = True
 
             component = LogcatComponent(mock_task, logcat_diagnostics=True)
             component.start_capture()
 
             _, kwargs = mock_mgr.start_capture.call_args
-            assert kwargs["tags"] == ["RVSEC", "RVSEC-COV"] + DIAGNOSTIC_TAGS
+            assert kwargs["tags"] == baseline + DIAGNOSTIC_TAGS
+            # The three baseline tags come first, in order, and none is dropped.
+            assert kwargs["tags"][: len(baseline)] == baseline
+            assert baseline == ["RVSEC", "RVSEC-COV", "ApeRvHb"]
+
+    def test_flag_off_emits_baseline_command(self, mock_task):
+        """INV-PLT-21: with the flag off the emitted command is the three-tag form.
+
+        This drives a real `LogcatManager` rather than a mock, because the thing
+        being pinned is the argument vector that reaches `adb` — the device-side
+        allowlist. A heartbeat tag missing from it is discarded at the device,
+        and nothing downstream reports the loss.
+        """
+        from rv_android_core.util.android.logcat_manager import LogcatManager
+
+        mock_task.config.clean_logcat = False
+        mock_task.config.tool_config.parameters = {"device_serial": "emulator-5554"}
+
+        with patch("rv_android_core.util.android.logcat_manager.Command") as mock_cmd:
+            with patch("builtins.open", MagicMock()):
+                with patch("os.makedirs"):
+                    component = LogcatComponent(mock_task)
+                    component.logcat_manager = LogcatManager(
+                        device_serial="emulator-5554"
+                    )
+                    component.start_capture()
+
+        mock_cmd.assert_any_call(
+            "adb",
+            [
+                "-s",
+                "emulator-5554",
+                "logcat",
+                "-v",
+                "threadtime",
+                "-s",
+                "RVSEC:V",
+                "RVSEC-COV:V",
+                "ApeRvHb:V",
+            ],
+        )
 
 
 # ---------------------------------------------------------------------------

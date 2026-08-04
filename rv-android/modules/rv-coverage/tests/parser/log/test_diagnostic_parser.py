@@ -73,9 +73,53 @@ class TestCrashAssembly:
 
 
 class TestEventClosing:
-    def test_event_closes_on_tag_change_then_flush(self):
-        """A crash followed by an RVSEC-COV line closes on the key change; flush
-        at EOF emits nothing more (the crash was already closed)."""
+    def test_foreign_tag_line_does_not_close_the_block(self):
+        """A line under a non-diagnostic tag is transparent to block assembly.
+
+        Logcat is one stream merging every process by timestamp, so a crash that
+        is contiguous in the crashing process's own output still has arbitrary
+        foreign lines between its frames. Treating such a line as the end of the
+        block truncated the event there and silently discarded the frames that
+        followed. The block is closed by a diagnostic boundary or by flush().
+        """
+        parser = DiagnosticEventParser()
+        crash_lines = [
+            "06-23 12:00:01.100  7071  7071 E AndroidRuntime: FATAL EXCEPTION: main\n",
+            "06-23 12:00:01.100  7071  7071 E AndroidRuntime: Process: com.x, PID: 7071\n",
+            "06-23 12:00:01.100  7071  7071 E AndroidRuntime: java.lang.IllegalStateException: bad\n",
+        ]
+        assert all(parser.feed_line(line) is None for line in crash_lines)
+
+        # An RVSEC-COV line from another process lands mid-block: no event, and
+        # the block stays open.
+        assert (
+            parser.feed_line(
+                "06-23 12:00:02.000  9000  9000 I RVSEC-COV: <com.x.A: void m()>\n"
+            )
+            is None
+        )
+
+        # The frames arriving after it still belong to the same crash.
+        assert (
+            parser.feed_line(
+                "06-23 12:00:02.100  7071  7071 E AndroidRuntime: \tat com.x.A.m(A.java:1)\n"
+            )
+            is None
+        )
+
+        crash = parser.flush()
+        assert crash is not None
+        assert crash.category == "crash"
+        assert crash.class_full_name == "java.lang.IllegalStateException"
+        # The frame that followed the interleaved line survives — this is what
+        # the old close-on-foreign-tag rule dropped.
+        assert crash.n_frames == 1
+        assert crash.stack_head == "com.x.A.m(A.java:1)"
+        assert "RVSEC-COV" not in crash.original_msg
+
+    def test_event_closes_on_diagnostic_key_change_then_flush(self):
+        """A crash followed by a second diagnostic block under a different key
+        closes on that key change; flush at EOF emits the second one."""
         parser = DiagnosticEventParser()
         crash_lines = [
             "06-23 12:00:01.100  7071  7071 E AndroidRuntime: FATAL EXCEPTION: main\n",
@@ -86,15 +130,18 @@ class TestEventClosing:
         emitted = [parser.feed_line(line) for line in crash_lines]
         assert all(e is None for e in emitted)
 
-        # An RVSEC-COV line (different tag) closes the buffered crash.
+        # A crash in another process closes the buffered one.
         closing = parser.feed_line(
-            "06-23 12:00:02.000  7071  7071 I RVSEC-COV: <com.x.A: void m()>\n"
+            "06-23 12:00:02.000  8080  8080 E AndroidRuntime: FATAL EXCEPTION: main\n"
         )
         assert closing is not None
         assert closing.category == "crash"
         assert closing.class_full_name == "java.lang.IllegalStateException"
 
-        # Nothing left buffered.
+        # The second block is the one still buffered.
+        tail = parser.flush()
+        assert tail is not None
+        assert tail.pid == "8080"
         assert parser.flush() is None
 
     def test_flush_emits_last_buffered_event(self):

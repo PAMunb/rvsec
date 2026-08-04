@@ -23,6 +23,15 @@ CONTEXT_PHASE = "phase"
 TAG_RVSEC = "RVSEC"
 TAG_RVSEC_COV = "RVSEC-COV"
 
+# The APE-RV step heartbeat tag. This value is a cross-repository contract with the
+# APE-RV jar, which writes one `Log.i` line per exploration step under exactly this
+# tag (`ape` design D-6). It is declared once, here, because the failure mode of a
+# mismatch between the two sides is an empty capture rather than an error: logcat is
+# captured as a live stream under `adb logcat -s <tags>`, a strict device-side
+# allowlist, so a heartbeat written under any other tag is discarded at the device
+# and no consumer ever learns it was expected (INV-CORE-53).
+TAG_APERV_HEARTBEAT = "ApeRvHb"
+
 # Common log messages patterns
 LOG_START = "Starting {phase}"
 LOG_COMPLETE = "Completed {phase}"

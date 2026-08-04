@@ -16,8 +16,15 @@ isolated `LogcatRepository.diagnostic_events` collection.
 
 ### Contract:
 - `feed_line(line)` returns a completed event when the current line closes the
-  buffered block (its `(tag, pid, tid)` key changes, or a non-continuation line
-  arrives), else None. Lines that are not diagnostic content are skipped.
+  buffered block — a diagnostic line whose `(tag, pid, tid)` key differs, or one
+  that starts a new event — else None.
+- A line under any non-diagnostic tag (`RVSEC`, `RVSEC-COV`, `ApeRvHb`, …) is
+  transparent: it yields no event and does not close the open block. Logcat
+  merges every process into one stream ordered by timestamp, so foreign lines
+  land between the frames of a crash that is contiguous only in its own
+  process's output. Grouping by `(tag, pid, tid)` is what lets them be ignored.
+- A line that does not match the threadtime regex (`--------- beginning of
+  crash`) does close the block: it is a real boundary marker (INV-ANA-48).
 - `flush()` emits any still-buffered event at end of input; idempotent thereafter.
 
 App attribution comes from the block itself (`Process: <pkg>` for crashes,
@@ -87,9 +94,24 @@ class DiagnosticEventParser:
 
         tag = parsed["tag"]
         if tag not in _DIAGNOSTIC_BASE_TAGS:
-            # RVSEC / RVSEC-COV / any other tag — closes the current event; the
-            # RVSEC/COV hot path is handled separately by parse_logcat_line.
-            return self._close()
+            # RVSEC / RVSEC-COV / ApeRvHb / any other tag: transparent to block
+            # assembly. The line itself yields no diagnostic event (the RVSEC/COV
+            # hot path is handled separately by parse_logcat_line), and it does
+            # NOT close the open block.
+            #
+            # Closing here would be wrong because logcat is a single stream that
+            # merges every process by timestamp: a crash block is contiguous in
+            # the *crashing process's* output, but arbitrary lines from other
+            # processes land between its frames. Treating such a line as the end
+            # of the block truncated the event at the interleaving point and
+            # silently dropped its remaining lines — the frames arriving
+            # afterwards find an empty buffer and are not a start, so they are
+            # discarded. What was lost is exactly what the event is read for:
+            # the exception class, the app stack frame and the frame count.
+            #
+            # Grouping is by (tag, pid, tid) precisely so that foreign lines can
+            # be ignored rather than interpreted as boundaries.
+            return None
 
         key = (tag, parsed["pid"], parsed["tid"])
         is_start, is_cont = self._classify(tag, parsed["message"])

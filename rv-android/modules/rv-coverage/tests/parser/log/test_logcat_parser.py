@@ -17,6 +17,7 @@ Android app testing.
 import os
 import tempfile
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
@@ -690,3 +691,72 @@ class TestReconstructionTimeStamping:
             assert len(timing_warnings) == 0
         finally:
             os.unlink(path)
+
+
+class TestHeartbeatInertness:
+    """INV-CORE-54: the APE-RV step heartbeat changes nothing the parser produces.
+
+    The heartbeat is a write-only logcat line the stage-4 jar emits once per
+    exploration step, admitted into the capture allowlist so that steps and
+    violations share one file and one clock. It must be inert to every value
+    this parser produces, and the interesting case is not the easy one: because
+    logcat merges all processes into a single timestamp-ordered stream, a
+    heartbeat can land *between two lines of a crash block*. The fixture places
+    two of them there deliberately.
+    """
+
+    FIXTURE = Path(__file__).parent / "fixtures" / "heartbeat_inert.logcat"
+
+    def _parse(self, content: str, tmp_path, name: str):
+        path = tmp_path / name
+        path.write_text(content)
+        repo = parse_logcat_file(str(path))
+        return {
+            "metrics": repo.calculate_metrics().to_dict(),
+            "total_errors": len(repo.errors),
+            "unique_errors": len(repo.unique_errors),
+            "coverage": repo.get_method_calls(),
+            "diagnostic_events": [e.to_dict() for e in repo.diagnostic_events],
+        }
+
+    def test_heartbeat_lines_change_no_parsed_value(self, tmp_path):
+        """Same capture with and without the heartbeat lines parses identically."""
+        with_hb = self.FIXTURE.read_text()
+        without_hb = "".join(
+            line for line in with_hb.splitlines(keepends=True) if "ApeRvHb" not in line
+        )
+        assert with_hb != without_hb, "fixture carries no heartbeat lines to remove"
+
+        parsed_with = self._parse(with_hb, tmp_path, "with.logcat")
+        parsed_without = self._parse(without_hb, tmp_path, "without.logcat")
+
+        assert parsed_with == parsed_without
+
+    def test_fixture_interleaves_a_heartbeat_inside_the_crash_block(self, tmp_path):
+        """The identity above is evidence only if the hard case is exercised.
+
+        Asserts both that the fixture really does put a heartbeat between two
+        lines of the crash block, and that the crash still parses whole — the
+        exception class and both frames survive the interleaving. Without this,
+        a run where the block was truncated identically on both sides would
+        satisfy the equality above while proving nothing.
+        """
+        lines = self.FIXTURE.read_text().splitlines()
+        fatal = next(i for i, ln in enumerate(lines) if "FATAL EXCEPTION" in ln)
+        last_frame = max(i for i, ln in enumerate(lines) if "\tat " in ln)
+        interleaved = [
+            i
+            for i, ln in enumerate(lines)
+            if "ApeRvHb" in ln and fatal < i < last_frame
+        ]
+        assert len(interleaved) == 2, "fixture must interleave the crash block"
+
+        parsed = self._parse(self.FIXTURE.read_text(), tmp_path, "hb.logcat")
+        crashes = [e for e in parsed["diagnostic_events"] if e["category"] == "crash"]
+        assert len(crashes) == 1
+        assert crashes[0]["class_full_name"] == "java.lang.NullPointerException"
+        assert crashes[0]["n_frames"] == 2
+        assert (
+            crashes[0]["stack_head"]
+            == "br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)"
+        )
