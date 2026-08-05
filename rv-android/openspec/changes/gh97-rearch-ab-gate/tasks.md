@@ -154,7 +154,10 @@
 
 ## 8. The campaign
 
-- [ ] 8.1 Launch: `docker compose up -d` from the campaign directory. `rv-platform` owns the emulator lifecycle throughout — no manual emulator management, in any context, without exception.
+- [x] 8.1 Launch: `docker compose up -d` from the campaign directory. `rv-platform` owns the emulator lifecycle throughout — no manual emulator management, in any context, without exception.
+      **Launched 2026-08-05 16:20** on the owner's explicit go-ahead, which is a decision separate from the 7.4 gate and was given only after the pre-launch state was re-derived. All ten containers `running` on `phtcosta/rvandroid:0.9.3-rearch` = `sha256:2cc5c3aa…`, RV_DELAY laddered 0→90 s so ten emulators do not contend for CPU at boot.
+      Three identities were verified **against the running containers**, not against the host tree, because that is where gh71's failure hid: the bind-mounted jar reads `a7eddf5a…` **inside** `rearch_aperv_00` — the stage-4 jar stamped `9e948102`, not the image's own master-built one; the image ID is identical on all ten; and the LLM backend serves `Qwen/Qwen3-VL-4B-Instruct`, the stock upstream weights with no fine-tune.
+      **The sglang process serving leg B is the same process that served leg A.** It started `2026-08-01T15:41:36Z`, two minutes before the E3 decisive run began (15:43Z), and has not restarted since — `Up 4 days (healthy)`. So the LLM backend is not merely an equivalent configuration across the two legs, it is numerically the same server with the same loaded weights, which removes it as a candidate explanation for any difference the gate measures.
 - [ ] 8.2 Monitor with the campaign's monitor script, counting identity-distinct completed work per container, never by grepping `tasks.json` for COMPLETED (which double-counts through `state_transitions`).
 - [ ] 8.3 Run one final resume pass to recover transient `adb install` failures, and confirm identity-distinct completions equal 360.
 - [ ] 8.4 Extract the traces before any `docker compose down` — device artifacts are ephemeral.
