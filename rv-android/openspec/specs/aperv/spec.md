@@ -58,9 +58,8 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **[Device]**: `ape-rv.jar` pushed to `/data/local/tmp/ape-rv.jar`
 - **[Device]**: `system-broadcast.json` pushed to `/data/local/tmp/system-broadcast.json` (if file exists in module directory)
-- **[Device]**: `/data/local/tmp/static_analysis.json` receives the compacted static analysis document (or the source document, on fallback) -- MOP variants only, when the file is found; the compacted document additionally carries `listeners[].handlerReachesTarget: bool` and `listeners[].handlerDirectlyReachesTarget: bool`
-- **[Filesystem]**: on the success path, a temporary file holding the compacted document is created and unlinked after the push completes
-- **[Filesystem]**: on the fallback path, any temporary file created before the failure is unlinked by the compaction function before it returns, so no temporary file exists at push time
+- **[Device]**: `/data/local/tmp/mop-artifact.json` receives the derived compact MOP artifact -- MOP variants only. One pushed file per MOP-arm run, and never the full static-analysis JSON (INV-APV-46)
+- **[Host filesystem]**: one cached `<task.results_dir>/<task.config.apk_name>.mop.json` per (apk, full-JSON digest), written atomically in canonical bytes and regenerated transparently when missing or stale
 - **[Filesystem]**: `<task.results_dir>/<task.config.apk_name>.json` is read and never written
 - **[Device]**: `ape.properties` pushed to `/data/local/tmp/ape.properties` (when `_tool_config` is non-empty)
 - **[Logcat]**: APE-RV writes `RVSEC-COV` log lines during execution (read by rv-android coverage infrastructure)
@@ -71,10 +70,10 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 ### Error
 
 - `ConfigurationError` -- raised by `configure()` when `strategy` key is absent or not in `["sata", "random", "bfs", "dfs"]`
-- `RVToolExecutionError` -- raised when `ape-rv.jar` cannot be found in any search path, or when an ADB push fails
+- `RVToolExecutionError` -- raised when `ape-rv.jar` cannot be found in any search path, when an ADB push fails, or when a MOP arm has no full JSON or its derivation fails. Non-MOP arms are unaffected
+- `DerivationError` -- raised by `derive()` when the document is structurally unusable (`complete` absent or false, missing `package`, a section of the wrong type). No partial artifact is produced; the caller re-raises it as `RVToolExecutionError`
 - `RVToolTimeoutError` -- raised when execution exceeds `task.config.timeout + 45` seconds (expected normal exit for exploration tools)
 - `SystemExit(2)` -- the offline clock-to-violation join utility on usage error (missing or unreadable run directory)
-- Enrichment failures are non-fatal: they degrade to the un-enriched document (see INV-APV-31) and emit a warning
 - Provenance query failures are non-fatal: the run proceeds and the provenance fields record the failure rather than a fabricated value (INV-APV-33)
 
 ## Invariants
@@ -89,7 +88,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-05**: `get_variants()` SHALL return a dict containing at minimum the keys `["default", "sata", "sata_mop", "bfs", "random", "sata_llm", "sata_mop_llm"]` plus the prompt variant experiment variants (`sata_mop_llm_<prompt>`). The `"default"` key SHALL map to the `sata` strategy (INV-TOOL-02 compliance).
 
-- **INV-APV-06**: The `sata_mop` variant SHALL set `mop_data` to `"static_analysis"`. When `mop_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the static analysis JSON, compact it (INV-APV-21), and push the compacted document to the device; when compaction fails, the source document SHALL be pushed instead (INV-APV-24). If the JSON is not found, execution SHALL continue without MOP data (graceful degradation).
+- **INV-APV-06**: The `sata_mop` variant SHALL set `mop_data` to `"static_analysis"`. When `mop_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the full static-analysis JSON, obtain the derived compact artifact from it (cache-or-generate), and push **only that artifact** to the device. If the JSON is not found, or its derivation fails, the task SHALL fail before the jar is launched (INV-APV-45): there is no graceful-degradation path, because a MOP arm that runs without MOP data is a mislabelled run rather than a degraded one.
 
 - **INV-APV-07**: `ApeRVTool.TOOL_SPEC.process_pattern` SHALL be `"com.android.commands.monkey"`. This is the same value used by the builtin `ape` tool. `AbstractTool.kill_related_processes()` uses this pattern to terminate device-side processes after execution. As a consequence, `ape` and `aperv` MUST NOT run concurrently on the same device -- each cleanup would terminate the other's process. Experiments using `aperv` SHALL NOT include the builtin `ape` tool in the same run.
 
@@ -156,25 +155,9 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
   explicitly in every non-exempt variant. INV-APV-13 and INV-APV-14 are the executable enforcement of this
   policy.
 
-- **INV-APV-20**: Compaction SHALL write to a temporary file. The source file at `<task.results_dir>/<task.config.apk_name>.json` SHALL remain byte-identical after `execute_tool_specific_logic()` returns. This file is an archived experiment artifact: offline consolidation and `ResultProcessorComponent._resolve_static_data` re-parse it on resume. Keeping it byte-identical to the producer's output preserves it as ground truth rather than a derived artifact, and confines this change to the device-push path.
-
-- **INV-APV-21**: Compaction SHALL be lossless with respect to the producer's content. It SHALL consist of exactly **three** operations: (a) removing exact-duplicate entries from `transitions`, (b) adding the two handler-reach booleans to existing `listeners[]` objects, and (c) serializing without pretty-print whitespace. Operations (a) and (c) are lossless; (b) is purely additive and constrained by INV-APV-31. Every top-level key present in the source document (`package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`) SHALL be present in the compacted document. No field SHALL be projected away, renamed, or rewritten.
-
-- **INV-APV-22**: Deduplication of `transitions` SHALL preserve the order of first occurrence. `rekeyDialogsToHost` (`MopData.java:884`) resolves the first inbound edge and breaks, making edge order semantically load-bearing even though edge multiplicity is not.
-
-- **INV-APV-23**: Compaction SHALL run unconditionally on every MOP-arm push, with no size threshold gating it.
-
-- **INV-APV-24**: Any failure during compaction SHALL be caught, SHALL log a warning, and SHALL fall back to pushing the source file unchanged. Compaction SHALL NOT raise, and SHALL NOT be a task-failure path. The fallback preserves the pre-change behavior as a floor.
-
-- **INV-APV-25**: No temporary file SHALL survive `execute_tool_specific_logic()`, on either the success or the fallback path.
-
 - **INV-APV-29**: The MOP-off control arm SHALL set `mop_data` to a **present and loadable** document, SHALL set `mop_weight_direct`, `mop_weight_transitive`, `mop_weight_open_menu`, `mop_weight_wtg`, and `mop_frontier_weight` all to `0`, and SHALL set `activity_trigger_enabled=false`. It SHALL NOT achieve MOP-off by omitting `mop_data` or by pointing `ape.mopDataPath` at a missing file — the first disables the generic WTG and frontier passes as collateral, the second aborts the run.
 
 - **INV-APV-30**: Every arm of the decisive run SHALL use the frontier substrate (`sata_mop_act_frontier` lineage). No arm SHALL abandon the frontier mechanism, including the control arm — the control removes MOP guidance, not navigation.
-
-- **INV-APV-31**: Enrichment SHALL add only the keys `handlerReachesTarget` and `handlerDirectlyReachesTarget` to existing `listeners[]` objects. It SHALL NOT add, remove, reorder, or alter any other key anywhere in the document, SHALL NOT modify the source file (INV-APV-20 continues to hold), and on any failure SHALL degrade to pushing the document without enrichment rather than propagating an exception.
-
-- **INV-APV-32**: `handlerDirectlyReachesTarget` SHALL mean *the handler method of this widget reaches a JCA target at any call depth*, computed from the document's own `reachability` section. It SHALL NOT be copied from the producer's method-level `directlyReachesTarget`, whose 0-hop semantics make it `false` for every UI handler in the corpus.
 
 - **INV-APV-33**: Backend provenance SHALL be obtained from a live `/v1/models` query performed at the start of each run, never from static configuration. When the query fails, the provenance fields SHALL record the failure explicitly; the run SHALL NOT be aborted and a value SHALL NOT be inferred from configuration.
 
@@ -185,6 +168,54 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - **INV-APV-36**: Any coverage figure aggregated across runs, replicas or arms SHALL be derived from `UICOV-ACT` (Activity grain). `UICOV` state keys SHALL NOT be used as a cross-run join key — they embed a JVM identity hash whose measured cross-replica pairing rate is zero (Jaccard 0.000 at mean, median and maximum).
 
 - **INV-APV-37**: The coverage-dump parser SHALL report every run in its input with an explicit dump status — complete, partial, or absent — and SHALL NOT omit a run for lacking a dump. Any coverage rate it produces SHALL carry the denominator it was computed over, so that a figure computed on the runs that dumped is never mistaken for a figure over all runs.
+
+Numbering note: `INV-APV-38` through `INV-APV-44` are deliberately left free for `gh95-thin-python-arms`,
+which the sibling `ape` change already references by number.
+
+- **INV-APV-45**: An arm configured with `mop_data == "static_analysis"` SHALL either push a
+  freshly-validated derived artifact and write `ape.mopDataPath`, or fail the task before the jar is
+  launched. There SHALL be no execution path in which such an arm launches the jar without
+  `ape.mopDataPath` set.
+- **INV-APV-46**: The device SHALL only ever receive the derived compact artifact. No code path SHALL
+  push the full static-analysis JSON, under any cache state or failure mode.
+- **INV-APV-47**: Cache freshness SHALL be digest-based: a cached `<apk_name>.mop.json` is reused only
+  when its recorded `source.digest` equals the SHA-256 of the current full JSON. Cache state SHALL
+  NOT change what the device receives for a given full JSON.
+- **INV-DRV-01**: Widget MOP flags SHALL be derived per listener and per normalized `eventType` and
+  OR-aggregated across a widget's listeners. The two axes SHALL remain independent and SHALL NOT be
+  collapsed into each other: `direct` is the handler's own `directlyReachesTarget` (a monitored
+  operation invoked in the handler's own body) and `transitive` is its `reachesTarget` OR `direct`,
+  so `direct` implies `transitive` and the converse does not hold. A producer-supplied
+  `handlerReachesTarget`/`handlerDirectlyReachesTarget` pair takes precedence over the local
+  cross-reference when either is non-null. A handler with no exact `reachability[].methods[].signature`
+  match that is a D8 synthetic-lambda wrapper (`X$$ExternalSyntheticLambdaN`) SHALL be recovered from
+  `X`'s reaching `lambda$…` methods, and SHALL NOT be flagged when `X` has no reaching lambda method.
+- **INV-DRV-02**: On a `shortId` collision within a base activity the emitted widget SHALL carry the
+  strongest MOP flag (direct > transitive > unflagged), ties keeping the first occurrence, so the
+  outcome is independent of iteration order. Widgets with an empty short id SHALL NOT be emitted and
+  the count of MOP-flagged widgets so dropped SHALL be recorded in `stats.droppedFlaggedNoId`. **A
+  MOP-flagged widget SHALL add its base activity to the widget-derived MOP-activity set before the
+  empty-short-id drop is applied**: the widget is unscorable, the activity is not.
+- **INV-DRV-03**: DIALOG windows SHALL be merged into their host activity — first incoming transition
+  wins, `mopRank` collision policy, the dialog's widget-map key is moved and not copied, a flagged
+  merge adds the host to the widget-derived activity set, and the dialog class's own activity-set
+  entry is retained. WTG edges SHALL be keyed by base source activity with base target activities,
+  click events only, exact duplicates removed. Orphan dialogs SHALL be counted in
+  `stats.orphanDialogs`.
+- **INV-DRV-04**: All `stats` fields SHALL be pure counters over the derivation. Their values SHALL
+  NOT influence any emitted set, flag or edge.
+- **INV-DRV-05**: Derivation SHALL be deterministic at the byte level: identical full-JSON input bytes
+  SHALL yield an identical artifact byte sequence, on any host and in any process.
+- **INV-DRV-06**: The artifact SHALL contain no call-graph data — no `reachability` section, no
+  method signatures, no raw `windows`/`transitions`/`listeners` — and no `*Target` key other than
+  `hasTargetMethods` on receivers and services. That single exception is deliberate: it is the
+  boolean the `targetMethods` signature list compacts to, its name is fixed by the jointly defined
+  wire format, and the jar reads it by that name. Stating the rule without the exception made it
+  unsatisfiable by the very schema this delta specifies, and left it enforceable only against
+  documents that happen to declare no receiver or service — which is why the cryptoapp fixture never
+  caught it. The full JSON SHALL remain unmodified on the host.
+- **INV-DRV-07**: Each emitted activity SHALL carry `deepLinkUri` derived by the rule the jar applies
+  today; the intent-filter structure itself SHALL NOT be on the wire.
 
 - **INV-APV-48**: `trace_ndjson.py` SHALL be read-only and analysis-time only. It SHALL NOT write to the trace, SHALL NOT emit legacy `[APE-*]` lines, SHALL NOT be imported or invoked from `execute_tool_specific_logic()` or any other collection-path code, and SHALL NOT require a device, an emulator or `adb`.
 
@@ -468,9 +499,9 @@ The first existing path that contains `ape-rv.jar` wins. If no path resolves, `R
 
 3. **Push broadcast catalog**: If `system-broadcast.json` exists in the module directory (`os.path.dirname(__file__)`), push it to `/data/local/tmp/system-broadcast.json`. This catalog provides typed extras for system broadcast intents used by APE-RV's component triggering. If the file is absent, skip (APE-RV degrades gracefully).
 
-4. **Compact and push static analysis JSON** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. If found, compact it into a temporary file (deduplicate `transitions`, enrich `listeners[]` with the two handler-reach booleans, serialize without pretty-print whitespace -- see "Static Analysis JSON Compaction"), push the compacted file to `/data/local/tmp/static_analysis.json`, unlink the temporary file, and set `mop_json_pushed = True`. If compaction fails, log a warning and push the source file unchanged, still setting `mop_json_pushed = True`. If the JSON is not found, log a warning and continue without MOP data.
+4. **Derive and push the MOP artifact** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. **If it is not found, raise `RVToolExecutionError` naming the expected path** — a MOP arm without its static-analysis input is a failed task, never a silently degraded run. If found, obtain the derived artifact via `_derive_mop_artifact(task)` (cache-or-generate; a `DerivationError` is re-raised as `RVToolExecutionError`), push it to `/data/local/tmp/mop-artifact.json`, and set `mop_json_pushed = True`. The full JSON SHALL NOT be pushed under any condition (INV-APV-46).
 
-5. **Push ape.properties**: Generate `ape.properties` from `_tool_config` using `APERV_PROPERTY_MAPPING` to translate Python keys to Java property names. When `mop_json_pushed` is True, include `ape.mopDataPath=/data/local/tmp/static_analysis.json`. Push to `/data/local/tmp/ape.properties`.
+5. **Push ape.properties**: Generate `ape.properties` from `_tool_config` using `APERV_PROPERTY_MAPPING` to translate Python keys to Java property names. When `mop_json_pushed` is True, include `ape.mopDataPath=/data/local/tmp/mop-artifact.json`. Push to `/data/local/tmp/ape.properties`.
 
 6. **Capture LLM backend provenance** (LLM arms only): query `GET {llm_url}/v1/models` once and record the result in the task output -- see "Per-Run LLM Backend Provenance". A failed query is encoded, never inferred from configuration, and never aborts the run (INV-APV-33).
 
@@ -529,32 +560,28 @@ The trailing `-s <seed>` is appended only when a seed is configured (INV-APV-18)
 - **THEN** `ape-rv.jar` SHALL be pushed to `/data/local/tmp/ape-rv.jar`
 - **AND** the adb command SHALL include `--running-minutes 1` and `--ape sata`
 - **AND** stdout+stderr SHALL be written to `task.result.trace_file`
-- **AND** no static analysis JSON SHALL be pushed to the device
-- **AND** no compaction SHALL be attempted
+- **AND** no static analysis file SHALL be pushed to the device
+- **AND** no derivation SHALL be attempted
 
 #### Scenario: sata_mop execution with static analysis JSON present
 - **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
 - **AND** `_find_static_analysis_file(task)` returns a valid path
-- **THEN** the JSON SHALL be compacted into a temporary file
-- **AND** the compacted file SHALL be pushed to `/data/local/tmp/static_analysis.json`
-- **AND** the source file SHALL remain byte-identical
-- **AND** `ape.properties` SHALL contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
-
-#### Scenario: sata_mop execution when compaction fails
-- **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
-- **AND** `_find_static_analysis_file(task)` returns a path whose content is not parseable as JSON
-- **THEN** a WARNING SHALL be logged
-- **AND** the source file SHALL be pushed unchanged to `/data/local/tmp/static_analysis.json`
-- **AND** `ape.properties` SHALL contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
-- **AND** execution SHALL continue normally
+- **THEN** `_derive_mop_artifact(task)` SHALL return the cached-or-generated `<apk_name>.mop.json`
+- **AND** that file SHALL be pushed to `/data/local/tmp/mop-artifact.json`
+- **AND** the full JSON SHALL remain byte-identical and SHALL NOT be pushed
+- **AND** `ape.properties` SHALL contain `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
 
 #### Scenario: sata_mop execution with static analysis JSON absent
 - **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
 - **AND** no static analysis JSON file is found in `task.results_dir`
-- **THEN** a WARNING SHALL be logged: `"sata_mop: static analysis file not found in results_dir, running without MOP data"`
-- **AND** no compaction SHALL be attempted
-- **AND** `ape.properties` SHALL NOT contain `ape.mopDataPath`
-- **AND** execution SHALL continue (APE-RV runs as plain `sata`)
+- **THEN** `RVToolExecutionError` SHALL be raised naming the expected path
+- **AND** the jar SHALL NOT be launched
+- **AND** no warn-and-continue path SHALL exist
+
+#### Scenario: sata_mop execution when derivation fails
+- **WHEN** the full JSON exists but `derive()` raises `DerivationError`
+- **THEN** `RVToolExecutionError` SHALL be raised carrying the derivation error
+- **AND** no artifact SHALL be pushed and the jar SHALL NOT be launched
 
 #### Scenario: Broadcast catalog pushed when present
 - **WHEN** `system-broadcast.json` exists in the module directory
@@ -659,7 +686,7 @@ property names:
 | `llm_prompt_variant` | `ape.llmPromptVariant` | LLM |
 
 When `mop_json_pushed` is True, the properties file SHALL also include
-`ape.mopDataPath=/data/local/tmp/static_analysis.json` (hardcoded device path matching the push
+`ape.mopDataPath=/data/local/tmp/mop-artifact.json` (hardcoded device path matching the push
 destination). An `ape.*` key the jar does not recognize is ignored by the jar's `Config` loader (a
 name-mismatch is inert, not an error).
 
@@ -685,7 +712,7 @@ name-mismatch is inert, not an error).
 - **WHEN** `_push_properties()` is called for `sata_mop_act_frontier` with `mop_json_pushed=True`
 - **THEN** the properties file SHALL contain `ape.mopActivitySourceComponents=true`
 - **AND** it SHALL contain `ape.mopFrontierWeight=200` and `ape.activityTriggerEnabled=true`
-- **AND** it SHALL contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
+- **AND** it SHALL contain `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
 - **AND** it SHALL NOT contain `ape.triggerMopFirst` (property removed)
 
 #### Scenario: Python-only keys are still excluded
@@ -713,103 +740,6 @@ The method SHALL return the absolute path if the file exists, or `None` otherwis
 #### Scenario: Standalone execution without results_dir
 - **WHEN** `task.results_dir` is None or absent
 - **THEN** `None` SHALL be returned without error
-
----
-
-### Requirement: Static Analysis JSON Compaction (FR19, FR04, NFR04)
-
-`ApeRVTool` SHALL compact the static analysis JSON into a temporary file before pushing it to the device, and SHALL push the compacted file rather than the source file.
-
-Compaction SHALL consist of exactly three operations on the in-memory document. First, entries in the `transitions` array SHALL be deduplicated by exact equality of the whole entry, preserving first-occurrence order. Entries carry exactly the keys `sourceId`, `targetId`, and `events`, so whole-entry canonical equality is identical to the `(sourceId, targetId, events)` tuple and cannot silently ignore a field added later. Second, every `listeners[]` object SHALL be enriched with the two handler-reach booleans described below. Third, the document SHALL be serialized without pretty-print whitespace.
-
-The first and third operations are lossless. The second is purely additive: it SHALL add only the keys `handlerReachesTarget` and `handlerDirectlyReachesTarget` to existing listener objects and SHALL NOT touch anything else in the document (INV-APV-31).
-
-**Enrichment semantics.** For each `windows[].widgets[].listeners[]` entry, the handler signature is looked up in the document's own `reachability` section, whose entries carry `signature`, `reachable`, `reachesTarget`, and `directlyReachesTarget` per method. `handlerReachesTarget` SHALL be the `reachesTarget` value of the matching method. `handlerDirectlyReachesTarget` SHALL be `true` when the handler of *this* widget reaches a JCA target at any call depth — that is, it SHALL be derived from the same `reachesTarget` bit of the handler itself, **not** copied from the producer's method-level `directlyReachesTarget` (INV-APV-32). The producer's field means 0-hop reach, which is `false` for every UI handler in the corpus because handlers delegate; copying it would reproduce the `[DM]=0` defect this change exists to fix. When a handler signature has no match in `reachability`, both fields SHALL be `false`.
-
-The consumer reads both fields with precedence over its own local join (`MopData.java:516-517,531-533`), so the enrichment reaches the scoring pipeline without any jar change.
-
-The source file SHALL NOT be modified (INV-APV-20). Compaction SHALL run unconditionally, not gated on file size (INV-APV-23). No field SHALL be projected away (INV-APV-21).
-
-Any failure -- malformed JSON, filesystem error writing the temporary file, memory exhaustion loading the document, or a malformed `reachability` section -- SHALL be caught, SHALL emit a warning, and SHALL degrade to pushing the source file unchanged (INV-APV-24). An enrichment failure specifically SHALL NOT abort the push: the document SHALL be pushed deduplicated and minified but un-enriched (INV-APV-31). The temporary file SHALL be unlinked after the push on every path (INV-APV-25).
-
-#### Scenario: Oversized JSON compacted below the Java footprint ceiling
-- **WHEN** `execute_tool_specific_logic(task, app)` runs with `mop_data="static_analysis"`
-- **AND** `_find_static_analysis_file(task)` returns a 50.6 MB JSON with 24,300 `transitions` entries of which 7,124 are unique (`org.quantumbadger.redreader_117.apk.json`)
-- **THEN** the file pushed to `/data/local/tmp/static_analysis.json` SHALL contain exactly 7,124 `transitions` entries
-- **AND** it SHALL be below the ~32 MB guard ceiling of `MopData.java:202`, so the MOP arm SHALL explore with more than 0 steps
-
-#### Scenario: Handler that reaches JCA transitively is flagged direct
-- **WHEN** a widget's listener has handler `<com.example.MainActivity: void onEncryptClick(android.view.View)>`
-- **AND** the `reachability` section contains that signature with `reachesTarget=true` and `directlyReachesTarget=false` (the handler delegates to a repository that calls `Cipher.getInstance`)
-- **THEN** the pushed document SHALL carry `handlerReachesTarget=true` for that listener
-- **AND** it SHALL carry `handlerDirectlyReachesTarget=true`, because the redefined semantics is any-depth reach of this widget's handler (INV-APV-32)
-
-#### Scenario: Handler that reaches nothing is flagged false on both axes
-- **WHEN** a widget's listener has handler `<com.example.MainActivity: void onAboutClick(android.view.View)>`
-- **AND** the `reachability` section contains that signature with `reachesTarget=false`
-- **THEN** both `handlerReachesTarget` and `handlerDirectlyReachesTarget` SHALL be `false` for that listener
-
-#### Scenario: Handler absent from the reachability section
-- **WHEN** a listener's handler signature has no matching entry in `reachability`
-- **THEN** both fields SHALL be `false`
-- **AND** no warning SHALL be emitted for the individual miss, and the push SHALL proceed
-
-#### Scenario: App with no widgets is enriched trivially
-- **WHEN** the document is one of the 58 apps of the 181-APK corpus whose `windows[].widgets` are all empty (a Compose-bundled app with no View-hierarchy widgets to enrich)
-- **THEN** enrichment SHALL complete without error and add no fields
-- **AND** the pushed document SHALL be identical to the un-enriched compaction result
-
-#### Scenario: Source file is never modified
-- **WHEN** compaction runs on `<task.results_dir>/<apk_name>.json`
-- **THEN** the source file SHALL be byte-identical to its content before the call
-- **AND** it SHALL remain byte-identical to the producer's output, so offline consolidation and `ResultProcessorComponent._resolve_static_data` on resume re-parse the archived artifact rather than a derived one
-
-#### Scenario: Deduplication preserves first-occurrence order
-- **WHEN** `transitions` is `[A, B, A, C, B]` where A, B, C are distinct entries
-- **THEN** the compacted `transitions` SHALL be exactly `[A, B, C]`
-- **AND** the relative order SHALL match first occurrence in the source
-
-#### Scenario: All top-level keys survive compaction
-- **WHEN** the source document has top-level keys `package`, `mainActivity`, `components`, `reachability`, `windows`, `transitions`, `complete`
-- **THEN** the compacted document SHALL contain all seven keys
-- **AND** the value of every key other than `transitions` and the enriched `listeners[]` objects SHALL be unchanged
-
-#### Scenario: Small JSON is compacted anyway
-- **WHEN** the source JSON is 100 KB, well below the ceiling
-- **THEN** compaction SHALL still run (INV-APV-23)
-- **AND** the compacted file SHALL be pushed
-
-#### Scenario: JSON with no transitions key
-- **WHEN** the source document has no `transitions` key
-- **THEN** compaction SHALL succeed and minify the document
-- **AND** no `transitions` key SHALL be added
-
-#### Scenario: JSON with empty transitions array
-- **WHEN** the source document has `transitions: []` (as in `sdmse` at 23.7 MB and `email` at 20.8 MB, the two next-largest JSONs in the `cmpma` set)
-- **THEN** compaction SHALL succeed
-- **AND** `transitions` SHALL remain `[]`
-
-#### Scenario: Malformed JSON falls back to pushing the original
-- **WHEN** the source file is not parseable as JSON
-- **THEN** a warning SHALL be logged naming the file and the failure
-- **AND** the source file SHALL be pushed unchanged to `/data/local/tmp/static_analysis.json`
-- **AND** no exception SHALL propagate out of `execute_tool_specific_logic()`
-- **AND** `ape.properties` SHALL still contain `ape.mopDataPath=/data/local/tmp/static_analysis.json`
-
-#### Scenario: Malformed reachability section degrades to un-enriched push
-- **WHEN** the document parses but its `reachability` section is not a list of objects with `methods[]`
-- **THEN** a warning SHALL be logged naming the file
-- **AND** the document SHALL still be deduplicated, minified, and pushed
-- **AND** no `handlerReachesTarget` or `handlerDirectlyReachesTarget` key SHALL be present in the pushed document
-
-#### Scenario: No temporary file leaks on the success path
-- **WHEN** compaction succeeds and the push completes
-- **THEN** the temporary file SHALL NOT exist after `execute_tool_specific_logic()` returns
-
-#### Scenario: No temporary file leaks on the fallback path
-- **WHEN** compaction fails after the temporary file was created
-- **THEN** the temporary file SHALL NOT exist after `execute_tool_specific_logic()` returns
-- **AND** the source file SHALL have been pushed
 
 ---
 
@@ -1197,3 +1127,401 @@ The carve-out SHALL also be recorded in `modules/aperv-tool/CLAUDE.md`, so that 
 - **WHEN** a developer reads `modules/aperv-tool/CLAUDE.md` looking for why two trace formats are parsed in the same repository
 - **THEN** the document SHALL name the frozen-corpus scripts and state that they are deliberately not migrated
 - **AND** SHALL state that `clock_logcat_join.py` migrated because it reads new traces
+
+---
+
+### Requirement: Derived MOP Artifact Generation and Caching (FR19, NFR04)
+
+`ApeRVTool._derive_mop_artifact(task)` SHALL return the host path of the compact MOP artifact for the
+task's APK, generating it when needed:
+
+1. Compute the SHA-256 of the current full JSON at `<results_dir>/<apk_name>.json`.
+2. When `<results_dir>/<apk_name>.mop.json` exists and its `source.digest` equals `"sha256:" + <hex>`,
+   reuse it without regenerating.
+3. Otherwise call `derive()` + `serialize_canonical()` and write the artifact atomically
+   (write-temp-then-rename in the same directory). A failed derivation SHALL write nothing.
+
+The artifact is cached next to its source so it is inspectable and diffable, and it is a pure function
+of the full JSON (INV-APV-47, INV-DRV-05). This method replaces `_compact_static_analysis_json`,
+which is deleted together with its fallback-to-source push: there is no longer any condition under
+which the full JSON reaches the device (INV-APV-46).
+
+#### Scenario: cache hit skips derivation
+- **WHEN** `<results_dir>/com.example_1.apk.mop.json` exists carrying
+  `source.digest == "sha256:ab12…"` and the SHA-256 of `com.example_1.apk.json` is `ab12…`
+- **THEN** `_derive_mop_artifact(task)` SHALL return that path
+- **AND** `derive()` SHALL NOT be called
+
+#### Scenario: stale cache regenerates
+- **WHEN** the cached artifact records `source.digest == "sha256:ab12…"` but the current full JSON
+  hashes to `cd34…`
+- **THEN** the artifact SHALL be regenerated and overwritten
+- **AND** the pushed bytes SHALL equal a fresh derivation of the current full JSON
+
+#### Scenario: failed derivation leaves no artifact behind
+- **WHEN** `derive()` raises `DerivationError` because the document carries `complete: false`
+- **THEN** no `<apk_name>.mop.json` SHALL exist afterwards, and any partially written temporary file
+  SHALL be removed
+- **AND** `RVToolExecutionError` SHALL be raised carrying the derivation error
+
+---
+
+### Requirement: MOP Artifact Projection Contents (FR04, FR05, FR06, FR19)
+
+`derive_mop_artifact.derive(document)` SHALL produce a `formatVersion: 1` artifact containing exactly
+the projection the explorer consumes:
+
+1. **Scalars**: `package` and `mainActivity` copied verbatim from the full JSON.
+2. **Provenance**: `source.digest` (`"sha256:" + hex` of the full-JSON bytes), `source.file`
+   (basename) and `source.generator` (generator identifier and version).
+3. **Widgets** (`widgets.<baseActivity>.<shortId>`): a per-normalized-eventType `mop` map with values
+   `none|direct|transitive|both`, plus the consumed metadata fields `inputType`, `hint`, `prompt`,
+   `spinnerMode`, `contentDescription`, `tooltipText` and `entries`, each emitted only when non-empty.
+   A widget SHALL be emitted only when it is MOP-flagged OR carries at least one metadata field. The
+   keys `id`, `type`, `text` and the raw `listeners` array SHALL NOT be emitted. Map keys SHALL be
+   pre-normalized (lowercased, `_` and `-` removed), matching the query-side normalization.
+4. **Activity sets**: `mopActivities` (widget-derived, per INV-DRV-02 and the dialog promotion of
+   INV-DRV-03) and `mopActivitiesAugmented` (the A′ union), both always emitted so the on-device
+   `mopActivitySourceComponents` flag keeps selecting between them at run time.
+5. **OPTIONSMENU records**: `optionsMenus: [{activity, hasFlaggedWidget}]`, where `hasFlaggedWidget`
+   is true when any widget of that menu window is MOP-flagged — tested over the window's parsed
+   widgets, before the empty-id drop, for the same reason INV-DRV-02 states.
+6. **WTG**: `wtg.<sourceBaseActivity> = [{widget, target}]` per INV-DRV-03. `widgetClass` SHALL NOT be
+   emitted.
+7. **Components**: `activities[]` (`className`, `isMain`, `permission`, `reachesMop`,
+   `deepLinkUri`), `receivers[]`/`services[]` (adding `intentFilters` with `actions` and `categories`
+   only, plus the boolean `hasTargetMethods`), `providers[]` (adding `authorities`). `reachesMop` is
+   the wire rename of `reachesTarget`. The intent-filter `data` block, `readPermission`,
+   `writePermission`, the `targetMethods` signature list and `exported` SHALL NOT be emitted.
+   `exported` is on that list because no consumer reads it and none may: the jar's activity launcher
+   is required to ignore export status (the dispatch runs from uid 2000 and opens non-exported
+   activities), so keeping the field on the wire would ship a value whose only possible use is
+   forbidden.
+8. **Stats**: `windows`, `widgetsTotal`, `flagged`, `droppedFlaggedNoId`, `orphanDialogs`,
+   `handlersUnmatched`, `syntheticLambda`, `recovered`, `wtgEdges`, `dedupedTransitions`.
+   `widgetsTotal` and `flagged` SHALL count the widget map after the dialog merge and before the
+   emission filter of item 3, so they remain the numbers the jar's load record reported.
+
+Derivation preconditions: `document["complete"] is True` and a non-null `package`; otherwise
+`DerivationError`. A truncated analysis SHALL never yield an artifact — the completeness sentinel
+becomes a generation precondition instead of a device-side check.
+
+#### Scenario: cryptoapp derivation matches the known ground truth
+- **WHEN** `derive()` runs on `cryptoapp.apk.gh60-fresh.json`
+- **THEN** `mopActivities` SHALL equal
+  `{MessageDigestActivity, CipherActivity, CryptographyActivity}` (base names).
+  `CryptographyActivity` enters through the D8 recovery: the exact join drops its
+  `CryptographyActivity$$ExternalSyntheticLambda0:onClick` wrapper handler and the reaching
+  `lambda$setupExecuteButton$0` body restores it. The jar asserts the same three flagged widgets
+  when it parses this fixture raw, which is this change's oracle (design D11)
+- **AND** `optionsMenus` SHALL contain the `MainActivity` record, and `wtg` SHALL carry the click
+  edges from `MainActivity` to both MOP sub-activities
+- **AND** `components.activities` SHALL have 4 entries and `components.providers` 1 entry with
+  `authorities == "br.unb.cic.cryptoapp.androidx-startup"`, every component `reachesMop == false`
+- **AND** `stats.windows` SHALL be 5, `stats.flagged` 3 and `stats.recovered` 1
+
+#### Scenario: incomplete full JSON refuses to derive
+- **WHEN** `derive()` runs on a document whose `complete` key is absent or `false`
+- **THEN** `DerivationError` SHALL be raised
+- **AND** no artifact SHALL be produced
+
+#### Scenario: no Target vocabulary and no call graph on the wire
+- **WHEN** an artifact is generated from a document declaring receivers and services
+- **THEN** the only key matching `*Target*` anywhere in it SHALL be `hasTargetMethods`
+- **AND** it SHALL contain no `reachability`, `windows`, `transitions` or `listeners` section
+  (INV-DRV-06)
+- **AND** the check SHALL be exercised against components, not only against a fixture whose
+  component lists are empty
+
+#### Scenario: unflagged metadata-less widgets are projected away
+- **WHEN** a widget has no MOP-reaching listener and none of `inputType`, `hint`, `prompt`,
+  `spinnerMode`, `contentDescription`, `tooltipText`, `entries`
+- **THEN** the artifact SHALL NOT contain that widget
+- **AND** an unflagged widget carrying a non-empty `hint` SHALL be emitted, because typed input reads it
+
+#### Scenario: stats count the map, not the wire
+- **WHEN** a base activity holds 40 widgets after the dialog merge, of which 2 are flagged and 35 are
+  unflagged and metadata-less
+- **THEN** `stats.widgetsTotal` SHALL be 40 and `stats.flagged` SHALL be 2
+- **AND** the emitted `widgets` map for that activity SHALL contain 5 entries
+
+---
+
+### Requirement: Widget MOP Flag Derivation (FR04, FR06)
+
+The generator SHALL derive each widget's MOP flags from its listeners, per normalized `eventType`,
+and OR-aggregate them across listeners (INV-DRV-01). For each listener:
+
+1. When `handlerDirectlyReachesTarget` or `handlerReachesTarget` is non-null, the producer's values
+   win: `direct` is `handlerDirectlyReachesTarget is True`, `transitive` is
+   `handlerReachesTarget is True or direct`.
+2. Otherwise the handler signature is looked up in the index built from `reachability[].methods[]`,
+   which SHALL carry, per signature, the pair (`directlyReachesTarget`, `reachesTarget or
+   directlyReachesTarget`). Duplicate signatures SHALL be merged by OR rather than by last-write, so
+   the index does not depend on producer ordering.
+3. When the exact lookup misses and the handler matches `^<(.+?)\$\$ExternalSyntheticLambda\d+:`, the
+   flags SHALL be recovered from the enclosing class's reaching `lambda$…` methods, OR-aggregated;
+   when that class has no reaching lambda method the widget SHALL NOT be flagged.
+
+The two axes SHALL NOT be collapsed. `direct` retains the producer's 0-hop meaning — the handler
+invokes a monitored operation in its own body — which is what `ape.mopWeightDirect` was defined to
+reward, and `transitive` is the any-depth reach implied by it. A listener whose `eventType` is null
+contributes to the aggregates and normally produces no wire key, since a null key is unaddressable
+by the query side. It has one exception, and the exception is what keeps the projection lossless:
+because the jar recomputes a widget's aggregate as the OR over the `mop` map, a widget whose *only*
+flagged listeners are null-keyed would lose the flag entirely. In that case, and only that case, the
+generator SHALL emit the reserved key `""` — the same key `normalizeEventType("")` produces, so it is
+reachable only by a query for the empty event type and shadows no real one.
+
+#### Scenario: producer-supplied flags take precedence
+- **WHEN** a listener carries `handlerReachesTarget: true` and `handlerDirectlyReachesTarget: false`
+- **AND** the handler's signature is absent from `reachability`
+- **THEN** the widget's `click` entry SHALL be `transitive`, not `none`
+
+#### Scenario: direct implies transitive
+- **WHEN** the handler's method carries `directlyReachesTarget: true` and `reachesTarget: false` — the
+  shape 33 methods across 16 corpus apps actually have
+- **THEN** the derived flags SHALL be `direct == true` and `transitive == true`, emitted as `both`
+- **AND** no widget SHALL ever be emitted with `direct` set and `transitive` unset
+
+#### Scenario: D8 synthetic-lambda handler is recovered
+- **WHEN** a widget's click listener has handler
+  `<com.example.MainActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>` with no
+  matching signature in `reachability`
+- **AND** `com.example.MainActivity` has a method `lambda$onCreate$0` with `reachesTarget: true`
+- **THEN** the widget's `click` entry SHALL be `transitive`
+- **AND** `stats.recovered` SHALL count it
+
+#### Scenario: synthetic-lambda wrapper with no reaching lambda stays unflagged
+- **WHEN** the same wrapper shape occurs but `com.example.MainActivity` has no `lambda$…` method with
+  `reachesTarget` or `directlyReachesTarget` true
+- **THEN** the widget SHALL NOT be flagged
+- **AND** `stats.syntheticLambda` SHALL count the wrapper while `stats.recovered` SHALL NOT
+
+#### Scenario: a null event type folds into the aggregate
+- **WHEN** a widget's only flagged listener carries `eventType: null`
+- **THEN** the wire map SHALL carry `{"": "transitive"}`, so the jar's OR-over-the-map recompute of
+  the aggregate still sees the flag
+- **AND** the widget's base activity SHALL be in `mopActivities`
+
+#### Scenario: a null event type adds no key when another event is flagged
+- **WHEN** the same widget also carries a flagged `click` listener
+- **THEN** the wire map SHALL carry `{"click": "transitive"}` and no `""` key, because the aggregate
+  is already recoverable from the keyed entry
+
+#### Scenario: per-event flags are independent
+- **WHEN** a widget has a `click` listener reaching a monitored operation and a `long_click` listener
+  reaching nothing
+- **THEN** the wire map SHALL carry `{"click": "transitive", "longclick": "none"}`
+- **AND** the `none` entry SHALL be emitted explicitly, because key presence is what suppresses the
+  aggregate fallback on the query side
+
+---
+
+### Requirement: Widget Map Keying, Collisions and Activity Marking (FR06)
+
+Widgets SHALL be keyed `baseActivity → shortId`, where the base activity is the window name truncated
+at the first `#`. Windows sharing a base activity (an activity and its `#OptionsMenu`, for instance)
+SHALL accumulate into the same map under the collision policy of INV-DRV-02.
+
+A MOP-flagged widget SHALL add its base activity to the widget-derived MOP-activity set **before** the
+empty-short-id drop is evaluated. Deriving the set from the emitted map instead would silently shrink
+it, and the loss cascades into `scoreWtg`, the frontier passes, the `stateMopDensity` floor, the
+OPTIONSMENU gateway's second condition and the launcher census — with a normal `status=loaded` in the
+trace. The pinned corpus exercises this: 19 apps carry at least one flagged widget with an empty
+`idName`, 1,263 such widgets in total.
+
+#### Scenario: a flagged widget with an empty short id still marks its activity
+- **WHEN** the only MOP-flagged widget of base activity `com.example.CryptoActivity` carries
+  `idName == ""`
+- **THEN** the artifact SHALL NOT contain a widget entry for it
+- **AND** `stats.droppedFlaggedNoId` SHALL count it
+- **AND** `mopActivities` SHALL nevertheless contain `com.example.CryptoActivity` (INV-DRV-02)
+
+#### Scenario: collision keeps the strongest flag regardless of order
+- **WHEN** two widgets in the same base activity share `shortId == "btn_ok"`, one unflagged with a
+  `hint` and one flagged `direct`
+- **THEN** the emitted entry SHALL be the flagged one, whichever appears first in `windows[]`
+
+#### Scenario: equal-rank collision keeps the first occurrence
+- **WHEN** two unflagged widgets share `shortId == "btn_ok"`, the first carrying `hint == "user"` and
+  the second `hint == "password"`
+- **THEN** the emitted entry SHALL carry `hint == "user"`
+
+---
+
+### Requirement: DIALOG Re-Keying and WTG Click View (FR05)
+
+DIALOG windows SHALL be re-keyed to their host activity before the activity sets are finalized, and
+the WTG view SHALL be a deduplicated, click-only projection keyed by base source activity
+(INV-DRV-03). The five coupled dialog sub-rules are: the host is the source of the **first** incoming
+transition whose source window has a name; merging uses the same `mopRank` collision policy as widget
+keying; the dialog's widget-map key is **moved**, not copied, so counts do not inflate; a merge that
+carried at least one flagged widget promotes the host into the widget-derived activity set; and the
+dialog class's own entry in that set is **retained**, because WTG edges into the dialog are keyed by
+it and the OPTIONSMENU gateway tests membership of the edge target.
+
+A dialog with no incoming transition is an orphan: it keeps its own key and is counted in
+`stats.orphanDialogs`. WTG edges SHALL record `widget` (the transition event's `widgetName`, empty
+string when absent) and `target` (the base target activity); exact duplicate edges within a source
+SHALL be removed and counted in `stats.dedupedTransitions`.
+
+#### Scenario: flagged dialog promotes its host and moves its widgets
+- **WHEN** window `android.app.AlertDialog` has one flagged widget `btn_confirm` and the first
+  incoming transition comes from `com.example.MainActivity`
+- **THEN** `widgets["com.example.MainActivity"]["btn_confirm"]` SHALL exist
+- **AND** `widgets` SHALL have no `android.app.AlertDialog` key
+- **AND** `mopActivities` SHALL contain both `com.example.MainActivity` and `android.app.AlertDialog`
+
+#### Scenario: first incoming edge wins
+- **WHEN** a DIALOG window has incoming transitions from `ActivityA` and then `ActivityB`
+- **THEN** its widgets SHALL merge into `ActivityA`
+
+#### Scenario: orphan dialog keeps its key
+- **WHEN** a DIALOG window has no incoming transition
+- **THEN** its widget-map key SHALL remain the dialog class
+- **AND** `stats.orphanDialogs` SHALL count it
+
+#### Scenario: WTG keeps click edges only, deduplicated, by base activity
+- **WHEN** `transitions[]` carries two identical click events from window `MainActivity#OptionsMenu`
+  to `CipherActivity` and one `long_click` event between the same pair
+- **THEN** `wtg["MainActivity"]` SHALL contain exactly one entry targeting `CipherActivity`
+- **AND** `stats.dedupedTransitions` SHALL count the removed duplicate
+
+---
+
+### Requirement: MOP-Activity Sets and OPTIONSMENU Records (FR04)
+
+The generator SHALL emit both activity sets. `mopActivities` is the widget-derived set of INV-DRV-02
+and INV-DRV-03. `mopActivitiesAugmented` is the A′ union of three sources: the widget-derived set,
+every `components.activities[]` entry with `reachesTarget == true`, and every `reachability[]` class
+with `componentType == "activity"` carrying at least one method with `reachesTarget` or
+`directlyReachesTarget` true. Both sources contribute base activity names. Both sets SHALL be emitted
+in sorted order, and the augmented set SHALL be a superset of the widget-derived one.
+
+`optionsMenus` SHALL carry one record per distinct base activity owning an `OPTIONSMENU` window, with
+`hasFlaggedWidget` the OR across that activity's menu windows. The gateway *set* is not shipped: it
+depends on which activity set the run selects, so the jar recomputes it from these records, the WTG
+view and the selected set.
+
+#### Scenario: A′ union draws from three distinct sources
+- **WHEN** the widget-derived set is `{A}`, `components.activities[]` flags `B` with
+  `reachesTarget == true`, and `reachability[]` carries class `C` with `componentType == "activity"`
+  and one method with `reachesTarget == true`
+- **THEN** `mopActivities` SHALL equal `["A"]`
+- **AND** `mopActivitiesAugmented` SHALL equal `["A", "B", "C"]`
+
+#### Scenario: augmented set never loses a widget-derived member
+- **WHEN** an activity is in the widget-derived set and flagged by no component or reachability source
+- **THEN** it SHALL still appear in `mopActivitiesAugmented`
+
+#### Scenario: OPTIONSMENU record reflects the parsed menu widgets
+- **WHEN** `MainActivity#OptionsMenu` holds one flagged widget whose `idName` is empty
+- **THEN** `optionsMenus` SHALL contain `{"activity": "MainActivity", "hasFlaggedWidget": true}`
+- **AND** the emitted `widgets` map SHALL contain no entry for that widget
+
+---
+
+### Requirement: Per-Activity Deep-Link URI (FR19)
+
+Each emitted activity SHALL carry `deepLinkUri`, assembled host-side by the rule the jar applies
+today: the first intent-filter that declares `android.intent.action.VIEW` **and** a non-empty scheme
+list yields `scheme + "://" + host + path`, where host and path are the filter's first entries or the
+empty string when absent. When no filter qualifies the field SHALL be absent, which the dispatcher
+reads as "use the explicit-component intent" (INV-DRV-07). The filter structure SHALL NOT be on the
+wire.
+
+This field is not optional decoration: the MOP stagnation launcher dispatches `ACTION_VIEW` on it, so
+dropping it would make activities reachable only by deep link unopenable while the trace still
+reported a normal load.
+
+#### Scenario: deep link derived from the first ACTION_VIEW filter
+- **WHEN** an activity declares an intent-filter with `android.intent.action.VIEW` and
+  `data.schemes == ["myapp"]`, `data.hosts == ["detail"]`, `data.paths == ["/x"]`
+- **THEN** its `deepLinkUri` SHALL be `"myapp://detail/x"`
+
+#### Scenario: ACTION_VIEW without schemes yields no URI
+- **WHEN** the only `ACTION_VIEW` filter has an empty scheme list
+- **THEN** `deepLinkUri` SHALL be absent
+
+#### Scenario: schemes without ACTION_VIEW yield no URI
+- **WHEN** a filter declares `data.schemes == ["myapp"]` but its actions do not include
+  `android.intent.action.VIEW`
+- **THEN** `deepLinkUri` SHALL be absent
+
+#### Scenario: activity without intent filters yields no URI
+- **WHEN** an activity declares no intent-filter at all
+- **THEN** `deepLinkUri` SHALL be absent
+- **AND** the artifact SHALL carry no `data` block, scheme list, host list or path list
+
+#### Scenario: missing host and path default to empty
+- **WHEN** the qualifying filter carries `data.schemes == ["myapp"]` with empty host and path lists
+- **THEN** `deepLinkUri` SHALL be `"myapp://"`
+
+---
+
+### Requirement: Canonical Serialization and Provenance (NFR04)
+
+`derive_mop_artifact.serialize_canonical(artifact)` SHALL emit canonical bytes: UTF-8, object keys
+sorted lexicographically at every level, separators `,` and `:` with no whitespace, non-ASCII
+characters preserved rather than escaped, and deterministic array order — source first-occurrence for
+WTG edges and component lists, sorted for the activity sets and the OPTIONSMENU records. Running the
+generator twice on the same full-JSON bytes SHALL produce byte-identical output, so the artifact's own
+digest is stable and the `source.digest` chain identifies the exact static-analysis input of every run
+(INV-DRV-05).
+
+#### Scenario: byte-identical regeneration
+- **WHEN** `derive()` + `serialize_canonical()` run twice on the same full JSON in separate processes
+- **THEN** the two byte sequences SHALL be identical
+
+#### Scenario: provenance digest matches the input
+- **WHEN** an artifact is generated from a full JSON whose SHA-256 is `d`
+- **THEN** `source.digest` SHALL equal `"sha256:" + d`
+- **AND** `source.file` SHALL be the basename of that JSON
+
+---
+
+### Requirement: Equivalence Gate for the Parser Cutover
+
+Before the jar's full-JSON parser is deleted, a one-shot equivalence gate SHALL demonstrate over a
+designed input set — the cryptoapp fixture pair plus one synthetic full-JSON fragment per relocated
+rule — that the projections served by the old parser on the full JSON and by the new parser on the
+derived artifact are identical: widget flag maps including per-event entries and aggregates, widget
+metadata, both activity sets, OPTIONSMENU gateway sets under both flag states, WTG views, component
+and provider trigger tuples, per-activity deep-link URIs including their absent cases, and
+`package`/`mainActivity`. The gate lives on the `ape` side, where both parsers are; this requirement
+governs what this module owes it — the generator that produces the artifact half of every comparison,
+and the synthetics being derived through that generator rather than hand-written.
+
+The gate's oracle SHALL be the old parser reading the **raw** full JSON, not the enriched copy the
+deleted compaction step used to push. The enrichment is a behaviour this change retires (see the
+REMOVED requirement below), so comparing against it would prove the distortion rather than the
+relocation. No synthetic authored for the gate may carry the enrichment for the same reason.
+
+Each relocated rule SHALL have at least one input-set member that **fires** it, and the gate SHALL
+fail when one does not.
+
+**Scope decision, 2026-08-05 (owner).** This gate was specified over the pinned 345-application corpus
+and that run does not occur: the APE-RV side executes once, in `gh97-rearch-ab-gate`, which gates the
+merge rather than the cutover. What the corpus already established stands, because it was executed:
+the batch derivation of tasks 7.1/7.2 ran over all 345 documents with no crash and no refusal, and its
+per-rule exercise counts are the measured record — **19** apps carry flagged widgets dropped for an
+empty short id, **10** carry recoverable D8 synthetic-lambda handlers, **165** carry DIALOG windows,
+and the A′ union differs from the widget-derived set wherever component or reachability sources add an
+activity. Those counts are why each of these rules is worth a synthetic and are retained as evidence
+that the shapes are common in real applications; they are **not** evidence of jar-side equivalence over
+those applications, which is the thing that now goes unmeasured. The gate is deleted with the old
+parser once green; what survives is the per-rule unit suite of this module.
+
+#### Scenario: equivalence over the designed input set
+- **WHEN** the gate runs over the cryptoapp pair and the per-rule synthetics
+- **THEN** every member SHALL compare equal on every projection listed above
+- **AND** any inequality SHALL fail the gate naming the member and the first differing projection
+
+#### Scenario: a rule fired by no member fails the gate
+- **WHEN** no member of the input set fires D8 synthetic-lambda recovery
+- **THEN** the gate SHALL fail
+- **AND** the omission SHALL be repaired by a synthetic that fires the rule, never by lowering the
+  requirement — a rule with no firing member is uncovered, whatever the rest of the set proves
+
+---

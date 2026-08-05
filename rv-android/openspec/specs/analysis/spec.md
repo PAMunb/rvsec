@@ -374,6 +374,13 @@ rv-screen-parser:
 - **INV-ANA-47**: Tag recognition MUST match the parsed threadtime *tag field*, never a substring of the message; a `RVSEC-COV` line whose message contains `isAndroidRuntime()` MUST NOT produce a diagnostic event.
 - **INV-ANA-48**: A multi-line crash block sharing one `(tag, pid, tid)` MUST yield exactly one `RvDiagnosticEvent`; lines that do not match the threadtime regex (e.g. `--------- beginning of crash`) MUST be skipped without error. Such a line remains a real boundary and still closes an open block: unlike a foreign-tag line, it is written by logcat itself to mark a discontinuity, not by another process that merely happened to log.
 
+- **INV-ANA-53**: The full static-analysis JSON SHALL remain byte-identical after any derivation, and
+  SHALL remain the sole static-analysis input of every metric computation, gate and offline
+  consolidation path. No metric or analysis code SHALL read a `*.mop.json` artifact.
+- **INV-ANA-54**: The derived artifact SHALL be a strict downstream projection: the producer, its
+  schema and its `"complete": true` sentinel SHALL be unaffected by its existence, and no producer
+  behaviour SHALL be conditioned on whether an artifact was derived.
+
 - **INV-ANA-56**: A logcat line whose parsed tag field is not a diagnostic tag MUST be transparent to diagnostic block assembly. It MUST yield no event and MUST NOT close an open block. Logcat merges every process into one timestamp-ordered stream, so a line under a foreign tag arriving between two lines of a block is the expected case and carries no information about whether that block has ended. Closing on it truncates the event at the interleaving point and discards its remaining lines, and both losses are silent.
 
 - **INV-ANA-57**: A caller driving the parser directly MUST call `flush()` at end of input. With foreign-tag lines transparent, a block is closed by a diagnostic key change, a new block start, a non-threadtime line, or `flush()` — so a block at the end of the input is emitted only by the flush. `parse_logcat_file` flushes internally; `CoverageTracker` flushes after its final drain, in that order, so a block completed by the drained lines is emitted rather than discarded.
@@ -1554,3 +1561,65 @@ This requirement is only fully effective when the logcat producer has already be
 - **THEN** it MUST return immediately without attempting a drain
 - **AND** the repository MUST be unchanged
 
+---
+
+### Requirement: Derived MOP Artifact as a Device-Only Consumer (FR04, FR05, FR06)
+
+The static-analysis chain SHALL gain exactly one new downstream consumer: the host-side derivation in
+`aperv-tool` that projects the full JSON into `<results_dir>/<apk_name>.mop.json`. The derivation
+SHALL read the full JSON and SHALL NOT modify it. The artifact SHALL be device input only — pushed by
+`aperv-tool`, parsed by the jar, and read by nothing else.
+
+The `"complete": true` sentinel SHALL be a precondition of derivation: a document whose
+`StaticAnalysisData.complete` is `False` SHALL NOT yield an artifact. This preserves the sentinel's
+meaning (the producer reached the end of write) while moving the consequence of its absence from the
+device to the host, where it fails loudly instead of degrading a run.
+
+#### Scenario: derivation leaves the producer output untouched
+- **WHEN** `aperv-tool` derives an artifact for `com.example_1.apk`
+- **THEN** `<results_dir>/com.example_1.apk.json` SHALL be byte-identical to its content before the
+  derivation
+- **AND** `<results_dir>/com.example_1.apk.mop.json` SHALL exist alongside it
+
+#### Scenario: truncated analysis yields no artifact
+- **WHEN** the full JSON lacks the `"complete": true` sentinel because GATOR was killed mid-write
+- **THEN** no `*.mop.json` SHALL be produced for that app
+- **AND** the MOP arm for that app SHALL fail loudly rather than run without MOP guidance
+
+#### Scenario: producer is unaware of the derivation
+- **WHEN** static analysis runs for an app
+- **THEN** its output SHALL be identical whether or not an artifact is later derived from it
+- **AND** no producer code path SHALL read, write or test for a `*.mop.json` (INV-ANA-54)
+
+---
+
+### Requirement: Full JSON Remains the Sole Metric Input (R9, NFR02)
+
+Every metric computation, gate and offline consolidation path SHALL read the full static-analysis JSON
+and logcat exclusively. The frozen definitions — *MOP coverage* over `directly_reaches_mop`, *unique
+misuse* keyed `(app, class, method, specification)`, and the app-versus-library split by the `Mneut`
+prefix test — SHALL be unaffected by this change, because their input is unchanged.
+
+No metric or analysis code SHALL read a `*.mop.json` artifact (INV-ANA-53). The artifact is a lossy
+projection: it carries no `reachability` section, no method signatures, `reachesTarget` renamed to
+`reachesMop`, `targetMethods` compacted to a boolean, and dialog widgets merged into host activities.
+A metric computed over it would answer a different question under the same name. This SHALL be
+enforced by an audit over the repository — a test asserting that no module outside `aperv-tool`
+references the `.mop.json` suffix — rather than by convention. The audit test is itself the only
+permitted match outside `aperv-tool`.
+
+#### Scenario: metrics unchanged by the presence of an artifact
+- **WHEN** the derivation runs for an app and the analysis pipeline then computes its
+  `directly_reaches_mop` set
+- **THEN** the set SHALL be computed from the full JSON
+- **AND** it SHALL be identical to the value computed before this change
+
+#### Scenario: audit catches an analysis path reading the artifact
+- **WHEN** any module other than `aperv-tool` references a `.mop.json` path
+- **THEN** the audit test SHALL fail naming the file and the reference
+- **AND** the audit SHALL treat its own assertion text as the single permitted occurrence
+
+#### Scenario: resume and offline consolidation re-parse the full JSON
+- **WHEN** an experiment is resumed and `ResultProcessorComponent` re-resolves static data for an app
+- **THEN** it SHALL re-parse `<results_dir>/<apk_name>.json`
+- **AND** the presence, absence or staleness of a `*.mop.json` SHALL have no effect on the result
