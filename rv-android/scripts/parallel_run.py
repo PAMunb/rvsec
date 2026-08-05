@@ -10,7 +10,7 @@ Usage:
         --tools ape,fastbot,rvagent:pure_algorithm \
         --apks-dir ./data/calibration_dataset_v2 \
         --n-emulators 6 \
-        --timeout 300 \
+        --timeouts 300 \
         --output-base ./results/baseline_v2 \
         --skip-preprocessing
 
@@ -19,7 +19,7 @@ Resume interrupted run:
         --tools ape,fastbot,rvagent:pure_algorithm \
         --apks-dir ./data/calibration_dataset_v2 \
         --n-emulators 6 \
-        --timeout 300 \
+        --timeouts 300 \
         --output-base ./results/baseline_v2 \
         --skip-preprocessing \
         --resume --dry-run
@@ -102,8 +102,8 @@ def run_worker(worker_id: int, args: argparse.Namespace, filter_file: str) -> in
         str(port),
         "--name",
         f"{Path(args.output_base).name}_worker_{worker_id}",
-        "--timeout",
-        str(args.timeout),
+        "--timeouts",
+        args.timeouts,
         "--output-dir",
         output_dir,
         "--no-window",
@@ -140,10 +140,11 @@ def main():
         help="Number of parallel emulators (default: 6)",
     )
     parser.add_argument(
-        "--timeout",
-        type=int,
-        default=300,
-        help="Timeout per APK in seconds (default: 300)",
+        "--timeouts",
+        type=str,
+        default="300",
+        help="Timeouts per APK in seconds, comma-separated; forwarded verbatim "
+        "to rv-experiment --timeouts (e.g. 300 or 60,300; default: 300)",
     )
     parser.add_argument(
         "--output-base",
