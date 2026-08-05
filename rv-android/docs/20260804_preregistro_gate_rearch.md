@@ -486,10 +486,28 @@ edição.**
 
 | Campo | Valor | Task | Estado |
 |---|---|---|---|
-| Jar da perna B — sha256 | _(a medir)_ | 6.2 | pendente |
-| Jar da perna B — commit `rearch` | _(a medir)_ | 6.2 | pendente |
-| Imagem `0.9.3-rearch` — ID | _(a medir)_ | 6.5 | pendente |
-| Harness na imagem da perna B — commit | _(a medir)_ | 6.5 | pendente |
+| Jar da perna B — sha256 | `a7eddf5a776ce20f7299911d7d9acb3a0f1342cdc1512b3e28aa00488e582a94` | 6.2 | medido 2026-08-05 |
+| Jar da perna B — commit `rearch` | `9e948102875519ada533e02681fa012e1e4db937` | 6.2 | medido 2026-08-05 |
+| Imagem `0.9.3-rearch` — ID | `sha256:2cc5c3aada3dd741434d78bfb38da4dd87cded80d05ab7967bbbe725e61472d7` | 6.5 | medido 2026-08-05 |
+| Harness na imagem da perna B — commit | `19ae3da10d79ce40a7c3949fa40abdf60d8c5d15` | 6.5 | medido 2026-08-05 |
+
+Notas de medição, todas de 2026-08-05, e nenhuma delas altera plano, desfecho, margem ou braço.
+
+- O jar foi construído no worktree `ape-rearch` com o carimbo fornecido pela linha de comando e o
+  `git-commit-id-maven-plugin` desligado (design D10): dentro de uma worktree o plugin carimba o HEAD
+  do `master`. Conferido **antes** do deploy — `BuildInfo.GIT_SHA` lê `9e948102`, e não `c638142`.
+- A imagem foi construída com `--build-arg RVSEC_BRANCH=rearch-counterparts`; o default do
+  `Dockerfile` é `modules` e teria produzido uma imagem sem nenhuma das contrapartes. A imagem **não**
+  foi empurrada para o registry (decisão do dono, 2026-08-05): a campanha roda neste host e o compose
+  não declara `pull_policy`.
+- O commit do harness foi lido de dentro da imagem, não do repositório local, e é o mesmo `19ae3da1`
+  que a task 6.3 empurrou para `rearch-counterparts`.
+- As tags da perna A foram relidas depois do build e continuam imóveis: `0.9.3` e `:latest` ambas em
+  `sha256:b2904fdf…aedec`.
+- O jar **próprio** da imagem — o que a camada clona do `master` do `ape` — hasheia
+  `386ce08d…`, byte-idêntico ao jar da perna A. É a favor da checagem 3 do pre-flight: se o
+  bind-mount não vencer, o container roda o jar legado, que não emite `RUN_START`, e o pre-flight
+  falha na primeira leitura em vez de comparar campos.
 
 ---
 
