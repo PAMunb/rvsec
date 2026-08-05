@@ -1140,15 +1140,20 @@ def _project_component(
         authorities: Attach `authorities` verbatim. Providers only.
 
     Returns:
-        The common projection — `className`, `isMain`, `exported`, `permission`,
+        The common projection — `className`, `isMain`, `permission`,
         `reachesMop` — plus whichever additions the flags selected. The booleans
         are `is True` tests, so a missing or non-boolean producer field reads as
         false rather than propagating onto the wire.
+
+        `exported` is deliberately not among them. The jar's activity launcher is
+        required to ignore export status — its dispatch runs from uid 2000 and
+        opens non-exported activities, so gating on the field would drop
+        candidates the platform launches fine — and no other consumer reads it.
+        Emitting it would ship a value whose only conceivable use is forbidden.
     """
     projected = {
         "className": entry.get("className"),
         "isMain": entry.get("isMain") is True,
-        "exported": entry.get("exported") is True,
         "permission": entry.get("permission"),
         "reachesMop": entry.get("reachesTarget") is True,
     }

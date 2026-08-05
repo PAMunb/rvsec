@@ -1148,6 +1148,13 @@ def test_components_rename_reaches_target_and_compact_target_methods():
     assert provider["authorities"] == "com.example.provider"
     assert "readPermission" not in provider
     assert "writePermission" not in provider
+    # `exported` is fed in by every component of this document and must reach none
+    # of them. The jar's launcher is forbidden to consult export status, so the
+    # field's only possible use is one the spec rules out; asserting its absence
+    # here means a reinstatement fails loudly instead of quietly widening the wire.
+    assert "exported" not in artifact["components"]["activities"][0]
+    assert "exported" not in receiver
+    assert "exported" not in provider
 
 
 # ---------------------------------------------------------------------------

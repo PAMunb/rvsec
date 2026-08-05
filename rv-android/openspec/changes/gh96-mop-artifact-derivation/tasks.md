@@ -93,9 +93,14 @@ positional constructor arguments. The `component-triggering` requirement indepen
 launcher from consulting it. The owner decided to drop it from the wire, which makes that prohibition
 structural rather than merely stated. This group carries the generator's half.
 
-- [ ] 9.1 Stop `_project_component()` emitting `exported`; update its docstring, which names the field
+- [x] 9.1 Stop `_project_component()` emitting `exported`; update its docstring, which names the field
       as part of the common projection
-- [ ] 9.2 Update the tests that assert `exported` on the wire, rewriting rather than deleting where the
+- [x] 9.2 Update the tests that assert `exported` on the wire, rewriting rather than deleting where the
       assertion still has a subject — the component-projection tests should now assert its **absence**,
       so a reinstatement fails instead of passing silently
-- [ ] 9.3 Run the module suite with the CI flags (`--import-mode=importlib -o "addopts="`)
+  - The five `exported` occurrences were all *input* documents; nothing asserted it on the wire, so
+    nothing pinned its absence either. `test_components_rename_reaches_target_and_compact_target_methods`
+    now asserts it reaches none of the three component kinds, alongside the existing
+    `readPermission`/`writePermission` absence checks. **Mutation-checked**: reinstating the field in
+    `_project_component` fails that test and only that test; restoring it passes 67/67
+- [x] 9.3 Run the module suite with the CI flags (`--import-mode=importlib -o "addopts="`)
