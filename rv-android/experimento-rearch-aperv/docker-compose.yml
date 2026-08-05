@@ -2,15 +2,15 @@
 #
 # Perna B da comparacao A/B. A perna A e a corrida decisiva E3, ja executada e
 # congelada em ../experimento-e3-decisiva/per_apk_paired.csv. O plano de analise
-# esta pre-registrado em ../docs/20260804_preregistro_gate_rearch.md e NAO pode
-# ser alterado depois do congelamento (sha256 no ../calibracao/journal.jsonl).
+# esta pre-registrado em ../docs/20260804_preregistro_gate_rearch.md. Depois do
+# congelamento ele so admite emenda registrada (sha256 novo ao lado do original,
+# em ../calibracao/journal.jsonl), nunca edicao silenciosa.
 #
-# O desenho e IDENTICO ao da perna A por exigencia, nao por preferencia: mesmos
-# tres bracos, mesmos 40 APKs, mesma particao em 8 containers, 3 repeticoes,
-# 1800 s. O valor por aplicacao da perna A e media de tres replicas, entao uma
-# perna B com menos replicas tornaria a diferenca pareada assimetricamente mais
-# ruidosa — que e o modo de falha do 2026-06-19 que este portao existe para
-# evitar.
+# A GRADE e IDENTICA a da perna A por exigencia, nao por preferencia: mesmos tres
+# bracos, mesmos 40 APKs, 3 repeticoes, 1800 s, 360 runs. O valor por aplicacao da
+# perna A e media de tres replicas, entao uma perna B com menos replicas tornaria
+# a diferenca pareada assimetricamente mais ruidosa — que e o modo de falha do
+# 2026-06-19 que este portao existe para evitar. Nada disso foi tocado.
 #
 #   mop_on_llm_off   referencia — sata + substrato frontier, guia MOP ligada
 #   mop_off_llm_off  controle   — identico, pesos MOP zerados. E o canal que
@@ -19,7 +19,8 @@
 #                                 substrato do gh96 nao alcanca o comportamento
 #   mop_on_llm_70    LLM        — identico a referencia + dose 0,7
 #
-# DUAS COISAS QUE DIFEREM DA PERNA A, e ambas sao o ponto:
+# TRES COISAS DIFEREM DA PERNA A. As duas primeiras sao o ponto do portao; a
+# terceira e um custo assumido e registrado.
 #
 #   1. A imagem e uma tag NOVA, 0.9.3-rearch. Reconstruir 0.9.3 no lugar tornaria
 #      as duas pernas indistinguiveis por tag e reproduziria a forma do gh71 na
@@ -29,6 +30,14 @@
 #      esta em merge, entao existem DOIS jars no container e RUN_START.build e o
 #      unico discriminador. O pre-flight (scripts/preflight_runstart.py) checa
 #      exatamente isso antes de a campanha comecar.
+#   3. A PARTICAO (emenda 01, 2026-08-05): 10 x 4 em filters10/, contra 8 x 5 na
+#      perna A, pela mesma regra alfabetica deterministica. Motivo: orcamento de
+#      relogio — ~18,6 h contra ~23,2 h, com o ciclo por run medido no smoke em
+#      ~1857 s. Custo, dito sem atenuacao: os filtros deixam de ser byte-identicos
+#      aos da perna A, entao uma aplicacao nao roda mais no mesmo container-indice
+#      das duas vezes e efeito-de-container para de cancelar na diferenca pareada.
+#      O pareamento POR APLICACAO, que e o que sustenta G1/G2/G3, fica intacto.
+#      Os oito arquivos da perna A seguem em filters/, como evidencia dela.
 #
 # O corpus viaja como parametro do DSL de ferramentas: @corpus_basis=<id>:<sha256>
 # do ../calibracao/subset40.txt. O valor e ecoado em RUN_START e lido por nada;
