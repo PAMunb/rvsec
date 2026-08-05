@@ -13,4 +13,4 @@ echo "[+] Starting emulator"
 # -noaudio            no PulseAudio dependency on headless hosts
 # -no-snapshot-save   discard the cold-boot snapshot to keep image immutable
 # -delay-adb          wait for adb to bind before exposing the device
-emulator @${EMULATOR_NAME} -writable-system -wipe-data -no-boot-anim -noaudio -no-snapshot-save -delay-adb
+emulator @${EMULATOR_NAME} -writable-system -wipe-data -no-boot-anim -noaudio -no-snapshot-save -delay-adb -no-window

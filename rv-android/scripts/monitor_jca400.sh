@@ -7,7 +7,7 @@
 #   watch -n 60 bash scripts/monitor_jca400.sh
 
 RESULTS_DIR="${1:-data/results}"
-CONTAINERS="jca400_00 jca400_01 jca400_02 jca400_03 jca400_04 jca400_05"
+CONTAINERS="jca400_00 jca400_01 jca400_02 jca400_03 jca400_04 jca400_05 jca400_06 jca400_07"
 EXPECTED=400
 
 echo "=== JCA-400 aperv:sata_mop progress ($(date '+%Y-%m-%d %H:%M:%S')) ==="
