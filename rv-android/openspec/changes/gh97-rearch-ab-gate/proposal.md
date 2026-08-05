@@ -80,6 +80,21 @@ fact, and it is frozen by sha256 before any post-rewrite run starts.
   This also discharges the one execution `gh95` deferred here — the proof that the deployed jar
   honours `ape.preset`.
 
+- **The smoke is the `ape` side's only device execution, so it carries that side's device
+  obligations explicitly.** `rearch-07`'s deployed verification is checked here (MOP artifact loaded
+  with `formatVersion=1` and a non-empty `sourceDigest`, a boost firing, and nothing of the sort on
+  the control arm) and it gates; `rearch-04`'s heartbeat evidence and sample trace are harvested here
+  and do **not** gate, because this campaign's readers never look at them. Which obligation is folded,
+  which stays a separate owner task and which is out of scope is tabulated in design D11 — including
+  the two the smoke cannot honestly cover: the throughput gate needs the pre-change jar, and the heap
+  series belongs to a different harness.
+
+- **The build supplies its own revision stamp.** `git-commit-id-maven-plugin` cannot read a git
+  worktree's `HEAD` and stamps the main checkout's master instead, which would leave the pre-flight's
+  load-bearing check comparing a master-stamped jar against an image whose own jar is built from that
+  same master — green, and blind to the failure it exists to catch. The jar is built with the stamp
+  passed in and the plugin skipped (design D10).
+
 - **New**: the harness pushes `ape.corpusBasis=<corpus-id>:<sha256>` when a corpus manifest is
   configured, echoed unread in `RUN_START`. The `ape` `run-spec` capability already recognises the
   key and carries the scenario written for the harness pushing it; nothing on this side writes it

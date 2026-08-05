@@ -255,6 +255,89 @@ Both IDs live in the pre-registration document; the journal freezes that documen
 journal freezes documents, not facts — that is the E3 mechanism and this change does not invent a
 second one.
 
+### D10 — The build stamp is supplied by the build, not resolved from `.git`
+
+D7's check 3 is the load-bearing one, and as written it could not do its job. Measured on 2026-08-05:
+a jar built from the `ape-rearch` worktree at HEAD `0675f67a` stamps `BuildInfo.GIT_SHA = c638142`,
+which is `../ape`'s **master** HEAD. The worktree's `.git` is a file (`gitdir: …/ape/.git/worktrees/
+ape-rearch`), and `git-commit-id-maven-plugin` resolves through it to the common directory and reads
+the main checkout's `HEAD` instead of the worktree's. Four configurations were tried and none
+stamps the worktree: JGit with the default `dotGitDirectory`; JGit with `dotGitDirectory` pointed at
+the worktree gitdir (a hard build failure — *"Could not get HEAD Ref"*); native git with the default;
+and native git with the worktree gitdir. A `-D` on the command line does not help either while the
+plugin runs, because the plugin overwrites the project property after Maven has resolved it.
+
+The consequence is worse than a check that fails. The image's Dockerfile clones `phtcosta/ape`
+unpinned — that is to say, **master** — so a rearch jar stamped with master's revision is not
+distinguishable from the image's own jar by the one field that exists to distinguish them. Check 3
+would go green while blind to exactly the gh71 failure mode it was written for.
+
+So the build supplies the stamp and the plugin stands aside:
+
+```
+mvn -o package -Dmaven.gitcommitid.skip=true \
+    -Dgit.commit.id.abbrev=$(git rev-parse --short HEAD) \
+    -Dgit.build.time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+```
+
+With the plugin skipped, the sentinels declared in the pom's `<properties>` are what the template is
+filtered with, and a `-D` overrides them — verified by building with deliberate sentinel values and
+reading them back out of the generated `BuildInfo.java`. Both properties must be supplied together;
+omitting `git.build.time` leaves `JAR_BUILT` reading `unknown`.
+
+The manifest's `build.expected_sha` comes from `git rev-parse --short HEAD` **in the worktree**, and
+never from reading the stamp back off the built jar. That distinction is the whole check: comparing
+the jar against its own stamp is a tautology that always passes. And it is what makes the recipe safe
+to leave as a documented command rather than pom machinery — a build that forgets the flags stamps
+master's revision, which does not equal the declared `rearch` commit, so check 3 **fails loudly at
+the pre-flight**, before the campaign spends anything. The failure direction is the safe one.
+
+*Alternatives considered.* A pom profile activated by the absence of `${basedir}/.git/HEAD` (which
+distinguishes a worktree, whose `.git` is a file, from an ordinary checkout) skipping the plugin and
+resolving the revision through `exec-maven-plugin`: rejected under P1 — a new plugin and a profile in
+the `ape` pom, plus its own artifact on that side, to remove a flag whose omission already fails at
+the gate built to catch it. Redefining check 3 to compare `build.sha` against the stamp recorded at
+build time: rejected — it restores the green light and removes the discrimination, which is the one
+property the check has.
+
+Note for whoever implements this: the revision is recorded in the campaign manifest and in the
+pre-registration's provenance appendix. It does **not** go back into module source as a literal —
+`gh95`'s INV-APV-59 and `TestNoExternalArtifactIdentityInSource` forbid it, and that guard is recent.
+
+### D11 — One device execution, and what it is allowed to discharge
+
+The `ape` side executes exactly once, in this change's smoke (owner decision, 2026-08-05). Several
+stages made that smoke their acceptance vehicle, so the disposition of each obligation is recorded
+here rather than left to be inferred — a silent drop is the failure this table exists to prevent.
+
+| Source | Obligation | Disposition |
+|---|---|---|
+| `rearch-03` 8.4 | On-device smoke "at the next scheduled rebuild" | **Folded** — tasks 7.1 and 7.3 are that rebuild's smoke |
+| `rearch-04` 9.1 | Sample new-format trace: MOP boosts, LLM calls, flushed final step, `RUN_END` | **Folded**, task 7.2b — with one honest limit, below |
+| `rearch-04` 9.1a | Throughput gate (INV-SNK-13): pre-change jar twice, post-change once | **Separate owner task** — the smoke runs the new jar only. Task 6.2a preserves the pre-change jar the run needs |
+| `rearch-04` 9.1b | Heartbeat lines present in the captured logcat (INV-SNK-14) | **Folded**, task 7.2b |
+| `rearch-04` 9.2 | Regenerate the 2026-07-24 calibration tables from the sample trace | **Offline, sequenced after 7.x** — its input is the smoke's trace |
+| `rearch-06` 5.1–5.3 | Heap series, `dumpsys meminfo` over a 600 s standalone SATA run | **Out of scope** — a different harness (`scripts/run_emulator.sh`), a different granularity, and explicitly not a gate. The smoke does not cover it and must not be recorded as if it did |
+| `rearch-07` 8.1 | MOP artifact loads and a boost fires, on the device | **Folded**, task 7.2a |
+| `rearch-07` 8.2 | Artifact size delta (measured host-side); load-time delta | **No action** — the size half needs no device, and the load-time half has no leg-A comparator to difference against |
+| `gh94` 4.1–4.3 | Heartbeat evidence, counted against the trace's `StepRecord` count | **Folded**, task 7.2b; the recording stays in `gh94`'s `heartbeat-evidence.md` |
+
+Two limits are stated rather than glossed. First, `rearch-04` 9.1 also asks the sample trace to carry
+an LLM **error** and a `no_match reason=dead_pair`. No arm can be made to guarantee either inside a
+reduced-timeout smoke, so they are recorded if present and are not gated; the schema-level assertion
+for both already lives in `gh94`'s golden-fixture tests, which is where a format claim belongs.
+Second, the named-widget assertions `rearch-07` 8.1 once had (`btn_cipher_encrypt` and the rest) have
+no subject in the `subset40` smoke and keep theirs on the loader fixture, in that change's task 3.5.
+
+**7.2a gates; 7.2b does not.** The distinction is deliberate. 7.2a is deployment correctness: a MOP
+arm whose artifact did not load is running something other than the arm it is named for, and every
+outcome downstream is then attributed to the wrong condition. 7.2b is evidence harvested for the
+other repository's benefit. The campaign's own readers — `scripts/consolidate.py` and `scripts/verify.py`
+— go through `aperv_tool.analysis.trace_ndjson` and never touch heartbeats or `clock_logcat_join`, so
+an absent heartbeat invalidates nothing this change measures. It is a finding for `gh94`, whose
+5.5–5.10 deletions stay blocked until it is answered. Letting a telemetry-only observation block 24
+hours of campaign time would give it authority over an experiment that does not read it.
+
 ## API Design
 
 ### `ApeRVTool.configure(config: dict) -> None`
