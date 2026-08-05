@@ -9,7 +9,7 @@
   },
   "build": {
     "branch": "rearch",
-    "expected_sha": null
+    "expected_sha": "9e948102"
   },
   "corpus": {
     "subset_file": "calibracao/subset40.txt",
