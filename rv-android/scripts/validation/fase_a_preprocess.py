@@ -172,6 +172,7 @@ def instrument_apk_worker(args: tuple) -> dict:
         )
 
         instr = AjcInstrumentation(config)
+        # Instrumentation reads app.path, not code_package: the default applies.
         app = App(apk_path)
         config.validate_apk_input(app.path)
         instr.instrument(app, shared["instrumented_dir"])

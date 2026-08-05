@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 from datetime import datetime
-from typing import List, Union
+from typing import List, Optional, Union
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from rv_android_core.commands.command import Command
@@ -290,12 +290,18 @@ def check_folder_exists(folders: list):
             raise Exception(f"Folder does not exist: {folder}")
 
 
-def get_apks(apks_dir: str) -> list[App]:
+def get_apks(apks_dir: str, package_detector: bool = False) -> list[App]:
     """
     Get all APK files from a directory as App objects.
 
+    The package policy is a parameter rather than a module-level default: a
+    global would be a second, invisible source of a decision the caller is
+    supposed to be making. Every returned App carries the value given here.
+
     Args:
         apks_dir: Directory containing APK files
+        package_detector: Elect the implementation package heuristically instead
+            of reporting the declared applicationId (resolved at the entry point)
 
     Returns:
         List of App objects
@@ -306,7 +312,7 @@ def get_apks(apks_dir: str) -> list[App]:
             if file.casefold().endswith(EXTENSION_APK):
                 try:
                     apk_path = os.path.join(apks_dir, file)
-                    apks.append(App(apk_path))
+                    apks.append(App(apk_path, package_detector=package_detector))
                     logger.debug(f"Found APK: {file}")
                 except Exception as e:
                     logger.error(f"Error processing APK {file}: {e}")
@@ -471,6 +477,91 @@ def get_env_or_exception(env_var: str):
     if value is None:
         raise RVAndroidError(f"Environment variable {env_var} is not set")
     return value
+
+
+TRUTHY_VALUES = frozenset({"true", "1", "yes", "on"})
+FALSY_VALUES = frozenset({"false", "0", "no", "off"})
+
+
+def parse_bool_value(value: str) -> bool:
+    """
+    Parse a configuration string as a boolean under the project's convention.
+
+    Truthy: ``true``, ``1``, ``yes``, ``on``. Falsy: ``false``, ``0``, ``no``,
+    ``off``. Both sets are case-insensitive and surrounding whitespace is
+    ignored (INV-CORE-12).
+
+    The function takes the *value*, never a variable name, so that the entry
+    points which read the environment keep sole ownership of that read and this
+    module performs none of its own (INV-EXP-34). It is the single definition of
+    the vocabulary; `resolve_bool_setting` wraps it with the CLI > env > default
+    precedence, and every entry point goes through that, so no two commands can
+    diverge on what a given string means.
+
+    Anything outside the two sets raises rather than resolving to a mode: a
+    caller who wrote ``maybe`` stated an intention the tool cannot honour, and
+    guessing which half they meant is worse than stopping.
+
+    Args:
+        value: The string to interpret
+
+    Returns:
+        The boolean it denotes
+
+    Raises:
+        ValueError: The string is in neither the truthy nor the falsy set
+    """
+    normalized = value.strip().casefold()
+    if normalized in TRUTHY_VALUES:
+        return True
+    if normalized in FALSY_VALUES:
+        return False
+    raise ValueError(
+        f"expected one of {sorted(TRUTHY_VALUES | FALSY_VALUES)}, got {value!r}"
+    )
+
+
+def resolve_bool_setting(
+    cli_value: Optional[bool], env_value: Optional[str], env_var: str
+) -> bool:
+    """
+    Resolve a boolean setting under CLI > env > default (INV-EXP-32).
+
+    Like `parse_bool_value`, this takes the environment *value* rather than a
+    variable name, so the entry point that owns the read keeps it and this
+    module performs none of its own (INV-EXP-34). What lives here is the part
+    the entry points must agree on: that a flag given explicitly wins outright,
+    that a variable exported without a value states no preference, and that an
+    uninterpretable value is reported with the variable named rather than
+    resolved to a mode.
+
+    `cli_value` is `None` when the user gave neither half of a negatable flag
+    pair; only then does the environment get a say. That is why such flags are
+    declared with `default=None` — a plain `default=False` cannot distinguish
+    "not given" from "given as false", and the second must beat a truthy
+    variable.
+
+    Args:
+        cli_value: The flag as the CLI framework resolved it (`None` when absent)
+        env_value: The raw environment value, or `None` when the variable is unset
+        env_var: The variable's name, used only to name it in the error
+
+    Returns:
+        The resolved setting
+
+    Raises:
+        ValueError: `env_value` is set to something the convention cannot parse
+    """
+    if cli_value is not None:
+        return cli_value
+
+    if env_value is None or not env_value.strip():
+        return False
+
+    try:
+        return parse_bool_value(env_value)
+    except ValueError as e:
+        raise ValueError(f"{env_var}: {e}") from e
 
 
 def read_json(file_path: str):

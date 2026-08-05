@@ -45,7 +45,7 @@ Scenarios from `openspec/specs/core/spec.md` that validate this architecture:
 - **Decorator with reraise=False suppresses handled exception**: An `RVToolTimeoutError` raised inside a decorated method is caught by ErrorHandler, logged, and suppressed -- the method returns None. Traces through ErrorHandler -> handler registry -> `_handle_tool_timeout_error`.
 - **Command timeout with process tree kill**: A long-running subprocess exceeds timeout, triggering `kill_process_tree()` via psutil and raising `RVCommandTimeoutError`. Traces through Command -> Popen -> psutil -> exception hierarchy.
 - **Circuit breaker opens after threshold failures**: Three consecutive failures for the same command transition the circuit from CLOSED to OPEN, blocking subsequent executions. Traces through CommandCircuitBreaker state machine.
-- **App package mismatch detection**: App creation detects when the manifest package differs from the implementation package (observed in ~27.5% of APKs), logging the mismatch. Traces through App -> PackageDetector -> logging.
+- **App package mismatch detection**: With `package_detector=True`, reading `code_package` elects the implementation package and logs the mismatch when it differs from the manifest one (observed in ~27.5% of APKs). Traces through App -> PackageDetector -> logging. On the default path the property returns the declared package and the detector never runs.
 - **Task state lifecycle**: A Task transitions through CREATED -> RUNNING -> COMPLETED, with each transition recorded in `state_transitions`. Traces through Task -> TaskState -> TaskResult.
 
 ## Key Architectural Decisions
@@ -98,11 +98,11 @@ Scenarios from `openspec/specs/core/spec.md` that validate this architecture:
 
 ### AD-7: Dual Package Identity for Android APKs
 
-**Choice**: `App` exposes both `package_name` (from AndroidManifest.xml) and `code_package` (detected via `PackageDetector`).
+**Choice**: `App` exposes both `package_name` (from AndroidManifest.xml, verbatim) and `code_package` (the package that scopes app-owned classes), plus `code_package_source` naming which mechanism produced the second. `code_package` defaults to `package_name`; `PackageDetector` elects it only when the caller passes `package_detector=True`.
 
-**Why**: In ~27.5% of APKs (empirically measured across 188 APKs in the ICST study), the manifest package name differs from the actual implementation package. For example, Godot engine games declare `ir.hsn6.trans` in the manifest but implement all code under `org.godotengine.godot`. Device operations (install, launch, force-stop) require the manifest package name; static analysis class filtering requires the implementation package. Using a single package name would cause either ADB operations to fail or coverage tracking to miss all methods.
+**Why**: the two answer different questions. Device operations (install, launch, force-stop) need the identifier the device knows. Static analysis needs the prefix that separates the app's classes from the libraries it bundles — and *that* has no answer derivable from the APK, because it is a property of the study. In ~27.5% of APKs (empirically measured across 188 APKs in the ICST study) the two differ: Godot games declare `ir.hsn6.trans` and implement everything under `org.godotengine.godot`, which is what the detector is for; a corpus built with `applicationIdSuffix` wants the declared value untouched, which is what the default is for. Electing implicitly would make one corpus work and silently mis-scope the other, so the choice is user input, resolved at the entry point and passed in by value — `domain/app.py` reads no environment variable (INV-CORE-55).
 
-**Invariant cross-reference**: INV-CORE-17 validates APK existence, INV-CORE-18 documents the mismatch detection.
+**Invariant cross-reference**: INV-CORE-17 validates APK existence, INV-CORE-18 governs both branches and the provenance field, INV-CORE-55 keeps the domain layer free of environment reads.
 
 ### AD-8: Circuit Breaker for Command Resilience
 
@@ -283,8 +283,10 @@ classDiagram
 
     class AppEntity {
         +app_path: str
+        +package_detector: bool
         +package_name: str
         +code_package: str
+        +code_package_source: str
         +sdk_target: int
     }
 
@@ -725,7 +727,7 @@ flowchart LR
 - `TaskConfiguration(BaseValidatedModel)`: Immutable task parameters (APK name, timeout, tool config, repetition)
 - `TaskResult(BaseValidatedModel)`: Mutable execution results with state transitions
 - `ToolConfig(BaseValidatedModel)`: Single source of truth for (tool, variant, parameters) -- imported by all modules
-- `App(BaseValidatedModel)`: APK metadata via Androguard; exposes both `package_name` (manifest) and `code_package` (implementation, lazy-computed via PackageDetector)
+- `App(BaseValidatedModel)`: APK metadata via Androguard; exposes `package_name` (manifest, verbatim), `code_package` (the declared package by default, the PackageDetector election under `package_detector=True`, lazy either way) and `code_package_source`
 - `LogcatRepository`: Coverage and error log storage with metrics calculation
 - `CoverageMetrics`: Calculated percentages (overall and MOP method coverage)
 - `RvCoverageLog` / `RvErrorLog`: Parsed logcat events
@@ -959,11 +961,11 @@ Key use cases that validate the architecture.
 **Description**: An Android APK has a manifest package name that differs from its implementation package (occurs in ~27.5% of APKs).
 
 **Flow**:
-1. rv-platform creates an `App(app_path="/path/to/app.apk")` (INV-CORE-17 validates APK exists)
+1. The entry point resolves the run's package policy (CLI flag > `RV_PACKAGE_DETECTOR` > default `False`) and rv-platform creates an `App(app_path="/path/to/app.apk", package_detector=<resolved>)` (INV-CORE-17 validates APK exists)
 2. App's `model_post_init()` loads the APK via Androguard, extracting `package_name` from the manifest
-3. On first access of `code_package`, `PackageDetector.detect_package()` analyzes the DEX bytecode using 6 strategies
-4. If `package_name != code_package`, a log message reports the mismatch (INV-CORE-18)
-5. Downstream modules use `package_name` for device operations and `code_package` for static analysis path matching
+3. On first access of `code_package`: with the policy off, the declared package is returned and no detector runs; with it on, `PackageDetector.detect_package()` analyzes the DEX bytecode using its strategy chain
+4. On the detector path, if `package_name != code_package`, a log message reports the mismatch (INV-CORE-18)
+5. Downstream modules use `package_name` for device operations and `code_package` for static analysis path matching, and record `code_package_source` with the run
 
 ### Scenario 3: Circuit Breaker Prevents Cascading Failures
 

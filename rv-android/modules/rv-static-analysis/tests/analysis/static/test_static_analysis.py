@@ -4,6 +4,7 @@ Unit tests for the static analysis module.
 Tests for StaticAnalyzer which runs the unified GATOR-based analysis client.
 """
 
+import json
 import os
 import sys
 from unittest.mock import MagicMock, patch
@@ -26,6 +27,7 @@ def mock_app():
     app.name = "test_app"
     app.package_name = "com.example.test"
     app.code_package = "com.example.test"
+    app.code_package_source = "manifest"
     app.path = "/path/to/test_app.apk"
     return app
 
@@ -213,6 +215,102 @@ class TestStaticAnalyzer:
         assert result.success is False
         assert len(result.errors) == 1
         assert "Analysis failed" in result.errors[0]
+
+    @patch.object(StaticAnalyzer, "_run_analysis")
+    def test_analysis_records_key_and_origin(self, mock_run, analyzer):
+        """The run states the key it filtered on and where it came from.
+
+        The artefact cannot carry it — GATOR writes the manifest package into
+        the JSON's `package` member whatever key it ran under — so the record
+        is made here, at the moment the analysis runs (INV-ANA-58).
+        """
+        analyzer.app.code_package = "org.fossify.calendar.debug"
+        analyzer.app.code_package_source = "manifest"
+
+        result = analyzer.analyze()
+
+        assert result.code_package == "org.fossify.calendar.debug"
+        assert result.code_package_source == "manifest"
+
+    @patch.object(StaticAnalyzer, "_run_analysis")
+    def test_key_is_recorded_even_when_the_analysis_fails(self, mock_run, analyzer):
+        """A failed run still says which key it tried."""
+        mock_run.side_effect = StaticAnalysisException("Analysis failed")
+        analyzer.app.code_package = "org.godotengine.godot"
+        analyzer.app.code_package_source = "detector"
+
+        result = analyzer.analyze()
+
+        assert result.success is False
+        assert result.code_package == "org.godotengine.godot"
+        assert result.code_package_source == "detector"
+
+    @patch("rv_static_analysis.analysis.static.static_analysis.Command")
+    def test_recorded_key_is_the_one_gator_and_the_parser_receive(
+        self, mock_command, analyzer
+    ):
+        """One key reaches all three places: the record, the argv and the parser."""
+        analyzer.app.code_package = "org.fossify.calendar.debug"
+        analyzer.app.code_package_source = "manifest"
+
+        mock_command_instance = MagicMock()
+        mock_command_instance.invoke.return_value = CommandResult(0, "Success", "")
+        mock_command.return_value = mock_command_instance
+
+        with patch("os.path.isfile", side_effect=[False, True]):
+            result = analyzer.analyze()
+
+        assert (
+            analyzer.config.get_tool_command.call_args.kwargs["code_package"]
+            == result.code_package
+        )
+
+        parser_mock = MagicMock()
+        with patch(
+            "rv_static_analysis.analysis.static.static_analysis.StaticAnalysisParser",
+            return_value=parser_mock,
+        ):
+            analyzer.get_static_data()
+
+        assert parser_mock.parse_file.call_args.args[1] == result.code_package
+
+    def test_a_disagreeing_json_package_member_never_changes_the_filter(
+        self, analyzer, tmp_path
+    ):
+        """A stored artefact does not supply, repair or override the key.
+
+        The real parser runs here, because the point is observable only in what
+        it keeps. The JSON's `package` member says `org.fossify.calendar.debug`
+        while the run resolved `org.fossify.calendar`; the class below survives
+        the substring filter under the run's key and would be discarded under
+        the artefact's, so a passing assertion proves which one was used.
+        """
+        analysis_file = tmp_path / "app.json"
+        analysis_file.write_text(
+            json.dumps(
+                {
+                    "package": "org.fossify.calendar.debug",
+                    "reachability": [
+                        {
+                            "className": "org.fossify.calendar.MainActivity",
+                            "componentType": "ACTIVITY",
+                            "isMain": True,
+                            "methods": [],
+                        }
+                    ],
+                    "windows": [],
+                    "transitions": [],
+                    "complete": True,
+                }
+            )
+        )
+        analyzer.analysis_file = str(analysis_file)
+        analyzer.app.code_package = "org.fossify.calendar"
+        analyzer.result.success = True
+
+        static_data = analyzer.get_static_data()
+
+        assert "org.fossify.calendar.MainActivity" in static_data.classes.classes
 
     def test_get_metrics(self, analyzer):
         """Test retrieving metrics from the analyzer."""

@@ -103,6 +103,14 @@ ENV_PYDANTIC_LOG = "RV_PYDANTIC_LOG"
 # Default off: when unset, logcat capture stays byte-identical to the RVSEC/RVSEC-COV baseline.
 ENV_LOGCAT_DIAGNOSTICS = "RV_LOGCAT_DIAGNOSTICS"
 
+# Elect the implementation package heuristically (PackageDetector) instead of
+# reporting the applicationId declared in the manifest. Default off: which
+# package scopes app-owned classes is a property of the corpus under study, so
+# the tool reports what the APK declares unless the user asks for the election.
+# Read only at an entry point — rv-experiment and the rv-static-analysis
+# command — and passed down already resolved (INV-EXP-34, INV-CORE-55).
+ENV_PACKAGE_DETECTOR = "RV_PACKAGE_DETECTOR"
+
 # Device timeout budgets, read at the point of use by util/android/android.py.
 # These belong to the L1 cross-layer infra family: the correct value depends on
 # the host and its concurrency level, not on the semantics of the experiment —

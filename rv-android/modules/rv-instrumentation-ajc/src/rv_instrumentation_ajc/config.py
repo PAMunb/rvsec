@@ -236,6 +236,17 @@ class AjcInstrumentationConfig(BaseValidatedModel):
             "for empirical comparison runs measuring quarantine impact."
         ),
     )
+    # Carried by value from whichever entry point resolved it: this module reads
+    # no environment variable (INV-EXP-34). It reaches the App objects the
+    # pipeline builds, and through them the quarantine safety guard, which
+    # refuses to quarantine anything under the app's own package.
+    package_detector: bool = Field(
+        default=False,
+        description=(
+            "Elect the implementation package heuristically instead of reporting "
+            "the declared applicationId"
+        ),
+    )
 
     def __init__(self, **data: Any):
         """

@@ -189,10 +189,15 @@ class AjcInstrumentation(Instrumenter):
         # Discover and validate APKs for instrumentation
         try:
             if apk_paths is not None:
-                apks = [App(p) for p in apk_paths]
+                apks = [
+                    App(p, package_detector=self.config.package_detector)
+                    for p in apk_paths
+                ]
                 self._logger.info(f"Using {len(apks)} APKs from provided list")
             else:
-                apks = utils.get_apks(apks_dir)
+                apks = utils.get_apks(
+                    apks_dir, package_detector=self.config.package_detector
+                )
         except Exception as e:
             self._logger.error(
                 "Failed to retrieve APKs from directory",
@@ -848,6 +853,32 @@ class AjcInstrumentation(Instrumenter):
 
         code_pkg = getattr(app, "code_package", None) or ""
         code_pkg_path = code_pkg.replace(".", "/") if code_pkg else ""
+
+        # A guard that matches nothing protects nothing, and it fails silently:
+        # the loop below simply never takes its skip branch. The condition is
+        # ordinary for a key more specific than the compiled tree — an app
+        # declaring `org.fossify.calendar.debug` compiles its classes under
+        # `org/fossify/calendar/`, so the prefix `org/fossify/calendar/debug/`
+        # matches no file — and it means any pattern hitting app code will
+        # quarantine it. Surface the condition; do not repair it by choosing a
+        # different key here, which would put a second, invisible package policy
+        # in the pipeline.
+        guard_covers_a_file = any(
+            entry.is_file() for entry in (tmp_dir / code_pkg_path).rglob("*")
+        )
+        if code_pkg_path and not guard_covers_a_file:
+            self._logger.warning(
+                f"App-code quarantine guard is inert: no class under "
+                f"'{code_pkg_path}/' in {tmp_dir}, so the guard cannot protect "
+                f"anything a pattern matches",
+                extra={
+                    "app_name": app.name,
+                    "pipeline_stage": "quarantine",
+                    "code_package": code_pkg,
+                    "code_package_path": code_pkg_path,
+                    "pattern_count": len(patterns),
+                },
+            )
 
         quarantined = 0
         skipped_app_code = 0

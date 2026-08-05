@@ -26,7 +26,8 @@ All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisC
 | INV-ANA-03 | Parser receives `code_package` (not `package_name`) for class filtering | `parse_file()` requires `code_package` parameter; filters classes and windows by checking `code_package in class_name` |
 | INV-ANA-06 | Parser does not propagate exceptions; returns empty domain objects per-section | Each `_parse_*()` method is wrapped in try/except; failures produce `Classes()`, `Windows()`, `WindowTransitionGraph()`, or `Components()` |
 | INV-ANA-11 | Intelligent caching -- skip execution if output JSON exists | `StaticAnalyzer._execute_command()` checks file existence before invoking GATOR; returns `CommandResult(0, b"", b"")` on cache hit |
-| INV-ANA-14 | PackageDetector applies heuristics in priority order | `PackageDetector` (in rv-android-core) resolves `code_package` via 7-strategy priority chain before passing to parser |
+| INV-ANA-14 | PackageDetector applies heuristics in priority order, and only when the run enabled it | `PackageDetector` (in rv-android-core) resolves `code_package` via its 7-strategy priority chain under `--package-detector` / `RV_PACKAGE_DETECTOR`; by default `App` reports the declared applicationId and no strategy runs |
+| INV-ANA-58 | The filtering key is recorded by the run, never inferred from an artefact | `StaticAnalysisResult.code_package` / `.code_package_source` are set in `analyze()`; nothing reads the JSON's `package` member as a key (it holds the manifest package whatever key filtered the file) |
 
 ### Specification Scenarios
 

@@ -32,6 +32,7 @@ def mock_config():
     config.apks_dir = "/tmp/test_apks"
     config.apks_filter = None
     config.logcat_diagnostics = False
+    config.package_detector = False
     config.device_port = None
     config.repetitions = 1
     config.timeouts = [300]
@@ -211,3 +212,29 @@ class TestCreatePlatformConfig:
                 results_dir="/tmp/results",
             )
             assert config is not None
+
+    @pytest.mark.parametrize("policy", [True, False])
+    def test_platform_config_carries_package_detector(
+        self, controller, mock_apks, mock_tools, policy
+    ):
+        """The run's package policy reaches task generation by value (INV-EXP-34).
+
+        rv-platform obtains it from PlatformConfig, never from the environment:
+        the variable is read once, at the entry point, and copied here alongside
+        the configuration ExecutionController already builds.
+        """
+        controller.config.package_detector = policy
+
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("os.listdir", return_value=["test.apk"]),
+        ):
+            config = controller._create_platform_config(
+                apks=mock_apks,
+                repetitions=1,
+                timeouts=[300],
+                tools=mock_tools,
+                results_dir="/tmp/results",
+            )
+
+        assert config.package_detector is policy

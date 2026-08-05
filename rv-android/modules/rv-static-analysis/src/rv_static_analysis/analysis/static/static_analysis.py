@@ -75,6 +75,18 @@ class StaticAnalysisResult(BaseValidatedModel):
     execution_times: Dict[str, float] = Field(
         default_factory=dict, description="Execution times per phase in seconds"
     )
+    # The key this run filtered on, and where the key came from. Recorded here
+    # because the artefact cannot carry it: GATOR writes the manifest package
+    # into the JSON's `package` member irrespective of the `codePackage` client
+    # parameter it ran under, so two analyses of one APK under two keys are
+    # indistinguishable from the files alone (INV-ANA-58). The run states what
+    # it did; nothing reads back.
+    code_package: str = Field(
+        default="", description="Package key used to scope app-owned classes"
+    )
+    code_package_source: str = Field(
+        default="", description="Origin of the key: 'manifest' or 'detector'"
+    )
 
 
 @validated_model(["app", "config", "output_dir"])
@@ -214,11 +226,20 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             StaticAnalysisResult with analysis file path, success status,
             timeout flag, error messages, and per-phase execution times.
         """
+        # Record the key and its origin at the moment the analysis runs, on the
+        # result and in the log. Both the GATOR argv and the parser receive this
+        # same value below; nothing recovers it from a stored artefact
+        # afterwards (INV-ANA-58).
+        self.result.code_package = self.app.code_package
+        self.result.code_package_source = self.app.code_package_source
+
         self.logger.info(
             "Starting static analysis",
             extra={
                 "app_name": self.app.name,
                 "app_package": self.app.package_name,
+                "code_package": self.result.code_package,
+                "code_package_source": self.result.code_package_source,
             },
         )
 
@@ -420,6 +441,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
                 "Static analysis data parsed",
                 extra={
                     "package": self.app.code_package,
+                    "code_package_source": self.app.code_package_source,
                 },
             )
             return static_data

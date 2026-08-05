@@ -23,8 +23,10 @@ from rv_android_core.util.utils import (
     get_env_or_default,
     get_env_or_exception,
     move_files_by_extension,
+    parse_bool_value,
     read_json,
     reset_folder,
+    resolve_bool_setting,
     to_readable_time,
     unzip,
     zip_dir_content,
@@ -398,6 +400,35 @@ class TestUtils:
             "Found 0 APK files in /non_existent"
         )
 
+    def test_get_apks_defaults_to_the_manifest_policy(
+        self, mock_os_shutil, mock_app_class, mock_logging_manager
+    ):
+        """A caller who states nothing gets Apps reporting the declared package."""
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["isdir"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["app1.apk"]
+
+        get_apks("/apks")
+
+        mock_app_class.assert_called_once_with(
+            os.path.join("/apks", "app1.apk"), package_detector=False
+        )
+
+    def test_get_apks_forwards_the_policy_to_every_app(
+        self, mock_os_shutil, mock_app_class, mock_logging_manager
+    ):
+        """The parameter reaches each App: no module-level default decides it."""
+        mock_os_shutil["exists"].return_value = True
+        mock_os_shutil["isdir"].return_value = True
+        mock_os_shutil["listdir"].return_value = ["app1.apk", "app2.apk"]
+
+        get_apks("/apks", package_detector=True)
+
+        assert mock_app_class.call_args_list == [
+            call(os.path.join("/apks", "app1.apk"), package_detector=True),
+            call(os.path.join("/apks", "app2.apk"), package_detector=True),
+        ]
+
     # Tests for unzip
     def test_unzip_success(self, mock_logging_manager):
         mock_zip_file_instance = MagicMock()
@@ -502,6 +533,65 @@ class TestUtils:
         result = get_env_or_default("TEST_VAR", 0, value_type=int)
         assert result == 0
         mock_logging_manager.get_logger.return_value.error.assert_called_once()
+
+    # Tests for parse_bool_value
+    @pytest.mark.parametrize(
+        "value", ["true", "TRUE", "True", "1", "yes", "YES", "on", "  On  "]
+    )
+    def test_parse_bool_value_truthy(self, value):
+        """INV-CORE-12's vocabulary, case- and whitespace-insensitive."""
+        assert parse_bool_value(value) is True
+
+    @pytest.mark.parametrize("value", ["false", "FALSE", "0", "no", "off", " Off "])
+    def test_parse_bool_value_falsy(self, value):
+        assert parse_bool_value(value) is False
+
+    @pytest.mark.parametrize("value", ["maybe", "", "  ", "2", "y", "t", "enabled"])
+    def test_parse_bool_value_rejects_everything_else(self, value):
+        """Unparseable input raises: guessing which half was meant is worse.
+
+        Note `y` and `t` are rejected deliberately — Click's own boolean
+        converter accepts them, and silently inheriting that wider vocabulary at
+        one entry point is exactly the drift this helper exists to prevent.
+        """
+        with pytest.raises(ValueError):
+            parse_bool_value(value)
+
+    # Tests for resolve_bool_setting
+    @pytest.mark.parametrize(
+        ("cli_value", "env_value", "expected"),
+        [
+            (None, None, False),  # neither given
+            (None, "true", True),  # env decides
+            (None, "false", False),
+            (True, None, True),  # flag decides
+            (False, None, False),
+            (True, "false", True),  # flag beats env
+            (False, "true", False),  # the case default=False cannot express
+            (None, "", False),  # exported empty states no preference
+            (None, "   ", False),
+        ],
+    )
+    def test_resolve_bool_setting_precedence(self, cli_value, env_value, expected):
+        """CLI > env > default, identically for every entry point (INV-EXP-32)."""
+        assert resolve_bool_setting(cli_value, env_value, "RV_EXAMPLE") is expected
+
+    def test_resolve_bool_setting_names_the_variable_on_bad_input(self):
+        """The operator must learn which variable they mis-set."""
+        with pytest.raises(ValueError, match="RV_EXAMPLE"):
+            resolve_bool_setting(None, "maybe", "RV_EXAMPLE")
+
+    def test_resolve_bool_setting_ignores_a_bad_value_the_flag_overrides(self):
+        """An unparseable variable is irrelevant once the flag decided."""
+        assert resolve_bool_setting(False, "maybe", "RV_EXAMPLE") is False
+
+    def test_resolve_bool_setting_reads_no_environment(self, mock_os_shutil):
+        """It takes values, so the entry points keep sole ownership of the read."""
+        mock_os_shutil["getenv"].return_value = "true"
+
+        assert resolve_bool_setting(None, None, "RV_EXAMPLE") is False
+
+        mock_os_shutil["getenv"].assert_not_called()
 
     # Tests for get_env_or_exception
     def test_get_env_or_exception_exists(self, mock_os_shutil):

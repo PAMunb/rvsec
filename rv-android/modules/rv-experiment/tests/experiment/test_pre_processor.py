@@ -94,7 +94,7 @@ class TestGetInstrumentedApks:
         (inst_dir / "bad.apk").write_bytes(b"apk")
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path: MagicMock(
+            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
                 name=os.path.basename(app_path), path=app_path
             )
             result = pp.get_instrumented_apks()
@@ -113,7 +113,7 @@ class TestGetInstrumentedApks:
         (inst_dir / "b.apk.json").write_text("{}")
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path: MagicMock(
+            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
                 name=os.path.basename(app_path), path=app_path
             )
             result = pp.get_instrumented_apks()
@@ -130,7 +130,7 @@ class TestGetInstrumentedApks:
         config.get_apk_list.return_value = ["/originals/fallback.apk"]
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path: MagicMock(
+            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
                 name=os.path.basename(app_path), path=app_path
             )
             result = pp.get_instrumented_apks()
@@ -145,13 +145,51 @@ class TestGetInstrumentedApks:
         config.get_apk_list.return_value = ["/originals/app.apk"]
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path: MagicMock(
+            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
                 name=os.path.basename(app_path), path=app_path
             )
             result = pp.get_instrumented_apks()
 
         assert len(result) == 1
         assert result[0].path == "/originals/app.apk"
+
+
+class TestPackageDetectorPropagation:
+    """Every App the workflow builds carries the run's package policy (INV-EXP-34)."""
+
+    def test_get_instrumented_apks_forwards_the_policy(self, tmp_path):
+        pp, config = _make_pre_processor(tmp_path)
+        config.package_detector = True
+        config.get_apk_list.return_value = ["/originals/app.apk"]
+
+        with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
+            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
+                path=app_path, package_detector=package_detector
+            )
+            result = pp.get_instrumented_apks()
+
+        assert [app.package_detector for app in result] == [True]
+
+    def test_default_policy_reaches_every_app(self, tmp_path):
+        """Asserted on the call, not the result: `False` is also the stub's default,
+        so only the kwarg proves the value was actually passed."""
+        pp, config = _make_pre_processor(tmp_path)
+        config.package_detector = False
+
+        inst_dir = tmp_path / "out" / "instrumented_apks"
+        inst_dir.mkdir(parents=True)
+        (inst_dir / "a.apk").write_bytes(b"apk")
+        (inst_dir / "a.apk.json").write_text("{}")
+
+        with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
+            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
+                path=app_path, package_detector=package_detector
+            )
+            pp.get_instrumented_apks()
+
+        MockApp.assert_called_once_with(
+            app_path=str(inst_dir / "a.apk"), package_detector=False
+        )
 
 
 class TestProcess:

@@ -410,7 +410,9 @@ def handle_batch_command(args) -> int:
             # Count APKs in directory
             from rv_android_core.util import utils
 
-            apks = utils.get_apks(args.apks_dir)
+            apks = utils.get_apks(
+                args.apks_dir, package_detector=config.package_detector
+            )
             print(f"  APKs Found: {len(apks)}")
             return 0
 
@@ -435,7 +437,9 @@ def handle_batch_command(args) -> int:
         from rv_android_core.util import utils
 
         try:
-            apks = utils.get_apks(args.apks_dir)
+            apks = utils.get_apks(
+                args.apks_dir, package_detector=config.package_detector
+            )
             total_apks = len(apks)
         except Exception:
             total_apks = len(errors) if errors else 1

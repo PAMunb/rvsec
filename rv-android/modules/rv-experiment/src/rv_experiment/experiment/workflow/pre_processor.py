@@ -338,8 +338,13 @@ class PreProcessor:
                             )
                             os.makedirs(apk_output_dir, exist_ok=True)
 
-                            # Create App instance and analyzer
-                            app = App(app_path=apk_path)
+                            # Create App instance and analyzer under the run's
+                            # package policy (INV-EXP-34): the key this analysis
+                            # filters on is the run's decision, not a lookup.
+                            app = App(
+                                app_path=apk_path,
+                                package_detector=self.config.package_detector,
+                            )
 
                             analyzer = StaticAnalyzer(
                                 app=app, config=static_config, output_dir=apk_output_dir
@@ -458,7 +463,10 @@ class PreProcessor:
                             )
                             continue
                         try:
-                            app = App(app_path=app_path)
+                            app = App(
+                                app_path=app_path,
+                                package_detector=self.config.package_detector,
+                            )
                             apks.append(app)
                             self.logger.debug(f"Found instrumented APK with SA: {file}")
                         except Exception as e:
@@ -474,7 +482,10 @@ class PreProcessor:
             if not apks:
                 self.logger.warning("No instrumented APKs found, using original APKs")
                 for apk_path in self.config.get_apk_list():
-                    app = App(app_path=apk_path)
+                    app = App(
+                        app_path=apk_path,
+                        package_detector=self.config.package_detector,
+                    )
                     apks.append(app)
 
             return apks

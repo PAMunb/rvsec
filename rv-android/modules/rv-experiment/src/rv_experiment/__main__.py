@@ -55,7 +55,7 @@ from rv_android_core.util.logging.constants import (
     LOG_START,
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_experiment.config import ExperimentConfig
+from rv_experiment.config import ExperimentConfig, resolve_package_detector
 from rv_experiment.constants import (
     DEFAULT_APKS_DIR,
     DEFAULT_REPETITIONS,
@@ -277,6 +277,24 @@ def _parse_timeouts(raw: str) -> List[int]:
     if not values or any(v <= 0 for v in values):
         raise click.BadParameter(f"timeouts must be positive integers: {raw!r}")
     return values
+
+
+def _package_detector_callback(ctx, param, value: Optional[bool]) -> bool:
+    """Click callback resolving ``--package-detector`` against RV_PACKAGE_DETECTOR.
+
+    Runs during parameter processing, before ``run()`` and outside its
+    ``@handle_errors`` wrapper — the same reason ``_timeouts_callback`` lives
+    here. An unparseable environment value must abort the command with a usage
+    error rather than reach experiment setup, because it would otherwise decide
+    which package scopes every class the analysis catalogues.
+
+    ``value`` is ``None`` when neither half of the flag pair was given, which is
+    what lets the environment variable have its say (INV-EXP-32).
+    """
+    try:
+        return resolve_package_detector(value)
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
 
 
 def _timeouts_callback(ctx, param, value: str) -> List[int]:
@@ -553,6 +571,26 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     envvar=ENV_JVM_MEMORY,
     help="JVM memory for static analysis (e.g. '4g'). Overrides RV_JVM_MEMORY (gh55 INV-EXP-32: CLI > env > default).",
 )
+# gh98: no `envvar=` here, deliberately. Click would parse RV_PACKAGE_DETECTOR
+# with its own boolean vocabulary, which is wider than the project's
+# (INV-CORE-12) and would let this command and `rv-static-analysis` disagree on
+# what a given string means. The callback resolves the variable through the one
+# shared helper instead, and `default=None` keeps "flag absent" distinguishable
+# from "--no-package-detector given" — the distinction the precedence needs.
+@click.option(
+    "--package-detector/--no-package-detector",
+    default=None,
+    callback=_package_detector_callback,
+    help=(
+        "Elect the implementation package heuristically instead of reporting the "
+        "applicationId declared in the manifest (default: manifest). Overrides "
+        "RV_PACKAGE_DETECTOR (CLI > env > default). Which package scopes app-owned "
+        "classes is a property of the corpus under study, so it is stated rather "
+        "than inferred; neither mode rewrites the identifier. Ignored under "
+        "--config, where the JSON file is the authority for every setting: put "
+        "package_detector in the file instead."
+    ),
+)
 @pass_context
 @ErrorHandler.handle_errors(component="CLIContext", phase="run_experiment")
 def run(
@@ -580,6 +618,7 @@ def run(
     resume_dir: Optional[str],
     analysis_timeout: Optional[int],
     jvm_memory: Optional[str],
+    package_detector: bool,
 ):
     """
     Execute an experiment from CLI arguments or a JSON configuration file.
@@ -678,6 +717,7 @@ def run(
                     analysis_timeout=analysis_timeout,
                     jvm_memory=jvm_memory,
                     logcat_diagnostics=logcat_diagnostics,
+                    package_detector=package_detector,
                 )
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
@@ -1123,6 +1163,10 @@ def _create_experiment_config_from_cli(
     # gh72 opt-in diagnostics flag — kwarg with default to keep callers (and
     # tests) written before gh72 source-compatible. CLI plumbing always passes it.
     logcat_diagnostics: bool = False,
+    # gh98 package policy — already resolved (CLI > env > default) by
+    # _package_detector_callback. False is the manifest package, the default a
+    # run gets when nobody stated a preference.
+    package_detector: bool = False,
 ) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments.
@@ -1265,6 +1309,7 @@ def _create_experiment_config_from_cli(
             run_execution=run_execution,
             enable_quarantine=enable_quarantine,
             logcat_diagnostics=logcat_diagnostics,
+            package_detector=package_detector,
             specification_set=specification_set,
             custom_specs_dir=custom_specs_dir,
             custom_aspects_dir=custom_aspects_dir,

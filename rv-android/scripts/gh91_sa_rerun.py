@@ -6,9 +6,11 @@ verbatim as `-clientParam codePackage=`. Writes into a dedicated output director
 corpus is never touched.
 
 WHY GATOR IS INVOKED DIRECTLY (change design D1)
-    `rv-static-analysis analyze` has no `--code-package` option: its only source for the
-    filter key is `App(apk).code_package`, backed by `PackageDetector`. Routing `Mneut`
-    through the CLI would require editing `rv-android-core`, which this change excludes.
+    `rv-static-analysis analyze` has no `--code-package` option: its filter key is
+    `App(apk).code_package`, which is the declared applicationId or, under
+    `--package-detector`, the `PackageDetector` election — never an arbitrary value such
+    as `Mneut`. Routing `Mneut` through the CLI would require editing `rv-android-core`,
+    which this change excludes.
     The argv built below mirrors `RVStaticAnalysisConfig.get_tool_command`
     (`modules/rv-static-analysis/src/rv_static_analysis/config.py`) verbatim, so the
     invocation is identical to a production one apart from `codePackage` and `skipWtg`.

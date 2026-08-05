@@ -29,6 +29,9 @@ def _make_config_mock(temp_path):
     config.keystore_file = str(temp_path / "keystore.jks")
     config.keystore_password = "password"
     config.dex2jar_home = str(temp_path / "dex2jar")
+    # The package policy arrives resolved on the config; False is what an
+    # unconfigured run carries — the package declared in the manifest.
+    config.package_detector = False
 
     dex2jar_tools = MagicMock()
     dex2jar_tools.dex2jar = str(temp_path / "dex2jar" / "d2j-dex2jar.sh")
@@ -1041,6 +1044,56 @@ class TestQuarantineProblematicClasses:
         warnings = [str(c) for c in rv._logger.warning.call_args_list]
         assert any("matched app code" in w for w in warnings)
 
+    def test_warns_when_the_app_code_guard_is_inert(self, tmp_path):
+        """A guard prefix matching no compiled class protects nothing.
+
+        `org.fossify.calendar_20.apk` declares `org.fossify.calendar.debug`
+        while its classes compile under `org/fossify/calendar/`, so the guard
+        prefix `org/fossify/calendar/debug/` matches nothing. The pipeline says
+        so rather than letting the skip branch quietly never fire.
+        """
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        app_dir = Path(config.tmp_dir) / "org" / "fossify" / "calendar"
+        app_dir.mkdir(parents=True)
+        (app_dir / "MainActivity.class").write_bytes(b"app")
+
+        rv = _create_rv_instrumentation(config)
+        rv._logger = MagicMock()
+        app = MagicMock()
+        app.name = "org.fossify.calendar_20.apk"
+        app.code_package = "org.fossify.calendar.debug"
+
+        with patch.object(
+            rv, "_load_quarantine_patterns", return_value=["okio/**/*.class"]
+        ):
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
+
+        warnings = [str(c) for c in rv._logger.warning.call_args_list]
+        assert any("guard is inert" in w for w in warnings)
+
+    def test_no_inert_warning_when_the_guard_covers_app_classes(self, tmp_path):
+        """A guard that matches the compiled tree is silent."""
+        config = _make_config_mock(tmp_path)
+        os.makedirs(config.tmp_dir)
+        app_dir = Path(config.tmp_dir) / "com" / "app"
+        app_dir.mkdir(parents=True)
+        (app_dir / "Foo.class").write_bytes(b"app")
+
+        rv = _create_rv_instrumentation(config)
+        rv._logger = MagicMock()
+        app = MagicMock()
+        app.name = "test.apk"
+        app.code_package = "com.app"
+
+        with patch.object(
+            rv, "_load_quarantine_patterns", return_value=["okio/**/*.class"]
+        ):
+            rv._AjcInstrumentation__quarantine_problematic_classes(app)
+
+        warnings = [str(c) for c in rv._logger.warning.call_args_list]
+        assert not any("guard is inert" in w for w in warnings)
+
     def test_spongycastle_moved(self, tmp_path):
         # gh50 19.4.2 — wave-2 canary. Seed tmp_dir with the canonical
         # JCA-557 crasher (Camellia$AlgParamGen, BCException at ajc weaving),
@@ -1457,9 +1510,13 @@ class TestInstrumentApksApkPaths:
                 str(tmp_path), str(out_dir), apk_paths=["/provided/provided1.apk"]
             )
 
-            # get_apks must NOT be consulted when apk_paths is provided.
+            # get_apks must NOT be consulted when apk_paths is provided, and
+            # the App must carry the run's package policy (INV-EXP-34).
             mock_utils.get_apks.assert_not_called()
-            mock_app.assert_called_once_with("/provided/provided1.apk")
+            mock_app.assert_called_once_with(
+                "/provided/provided1.apk",
+                package_detector=config.package_detector,
+            )
 
         assert results.total_count == 1
         assert results.success_count == 1

@@ -73,6 +73,20 @@ class PlatformConfig(BaseValidatedModel):
         default=False,
         description="Capture crash/VerifyError/ANR diagnostic events (opt-in)",
     )
+    # Which package scopes the classes the run treats as the app's own, resolved
+    # by the entry point and carried here by value: rv-platform reads no
+    # environment variable to obtain it (INV-EXP-34). It belongs to the run
+    # rather than to a task — every task in an experiment shares it — so it sits
+    # here and not on TaskConfiguration, whose identity the resume mechanism
+    # hashes. Default False, so a PlatformConfig built directly in a test or a
+    # script behaves like an unconfigured run.
+    package_detector: bool = Field(
+        default=False,
+        description=(
+            "Elect the implementation package heuristically instead of reporting "
+            "the declared applicationId"
+        ),
+    )
     results_dir: str = Field(
         default="results", description="Output directory for results"
     )

@@ -316,6 +316,7 @@ class ExecutionController:
             log_level="INFO",
             apks_filter_file=self.config.apks_filter,
             logcat_diagnostics=self.config.logcat_diagnostics,
+            package_detector=self.config.package_detector,
         )
 
         self.logger.info(

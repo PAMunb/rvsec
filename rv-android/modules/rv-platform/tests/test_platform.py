@@ -3,6 +3,7 @@ Tests for Platform — task generation, APK discovery, resume (skip completed),
 error message extraction, and summary generation.
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,7 +30,14 @@ def _create_apks(tmp_path, names=("app1.apk", "app2.apk")):
     return str(apks_dir)
 
 
-def _make_platform(tmp_path, tools=None, repetitions=1, timeouts=None, apk_names=None):
+def _make_platform(
+    tmp_path,
+    tools=None,
+    repetitions=1,
+    timeouts=None,
+    apk_names=None,
+    package_detector=False,
+):
     """Create a Platform with test config, patching App to skip APK validation."""
     apk_names = apk_names or ("app.apk",)
     apks_dir = _create_apks(tmp_path, apk_names)
@@ -43,6 +51,7 @@ def _make_platform(tmp_path, tools=None, repetitions=1, timeouts=None, apk_names
         results_dir=results_dir,
         no_window=True,
         log_level="WARNING",
+        package_detector=package_detector,
     )
     # Patch App to skip APK validation (fake files are not real APKs)
     with patch.object(App, "model_post_init", lambda self, ctx: None):
@@ -117,6 +126,37 @@ class TestGenerateTasks:
             platform._generate_tasks()
         for task in platform.tasks:
             assert task.app is not None
+
+    @pytest.mark.parametrize("policy", [True, False])
+    def test_generated_apps_carry_the_run_package_policy(self, tmp_path, policy):
+        """Task generation builds every App under PlatformConfig's policy.
+
+        The value arrives by value from the entry point that resolved it;
+        rv-platform reads no environment variable to obtain it (INV-EXP-34).
+        """
+        platform = _make_platform(tmp_path, package_detector=policy)
+        with patch.object(App, "model_post_init", lambda self, ctx: None):
+            platform._generate_tasks()
+
+        assert platform.tasks
+        for task in platform.tasks:
+            assert task.app.package_detector is policy
+            assert task.app.code_package_source == (
+                "detector" if policy else "manifest"
+            )
+
+    def test_platform_reads_no_environment_for_the_policy(self):
+        """The variable name appears nowhere in rv-platform's source."""
+        import rv_platform
+
+        sources = Path(rv_platform.__file__).parent.rglob("*.py")
+        offenders = [
+            path
+            for path in sources
+            if "RV_PACKAGE_DETECTOR" in path.read_text(encoding="utf-8")
+        ]
+
+        assert offenders == []
 
 
 # ===========================================================================

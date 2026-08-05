@@ -117,6 +117,7 @@ def analyze_container(
 
         # 3. Android platform check (pre-validate before GATOR)
         try:
+            # Only sdk_target is read here, so the package policy is immaterial.
             app = App(original_apk)
             target_sdk = getattr(app, "sdk_target", None)
             if target_sdk:

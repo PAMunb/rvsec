@@ -21,16 +21,19 @@ Key fields: `rvsec_root`, `lib_dir`, `gator_dir`, `analysis_client_jar`, `androi
 ## Parser semantics
 Parses four sections — `reachability`, `windows`, `transitions`, `components` — each independently via order-independent key lookup, plus a trailing `complete` flag (incomplete/truncated samples set it `False`). A missing/corrupt section (e.g. timeout killed GATOR mid-write) yields empty domain objects rather than a failure. The authoritative on-disk write order lives with the producer (`rvsec/rvsec-android/rvsec-gator/CLAUDE.md`).
 
-- **`code_package` prefix filter:** only classes whose name starts with `code_package` are kept. Handles APKs where the manifest package differs from the implementation package (Godot: manifest `ir.hsn6.trans`, code `org.godotengine.godot`). rv-platform passes `app.code_package` (not `package_name`) for this reason.
+- **`code_package` prefix filter:** only classes whose name contains `code_package` are kept. The key is the applicationId the APK declares unless the run enabled `PackageDetector` (`--package-detector` / `RV_PACKAGE_DETECTOR`), which elects the implementation package instead — what a corpus of Godot games needs (manifest `ir.hsn6.trans`, classes under `org.godotengine.godot`). rv-platform passes `app.code_package` (not `package_name`) so the same key scopes the catalogue and the coverage denominator. The key is never recovered from a stored JSON: GATOR writes the manifest package into the artefact's `package` member whatever key filtered it (INV-ANA-58), so the run records `code_package` and `code_package_source` on its own result.
 - **SignatureNormalizer** normalizes inner-class notation (`.` → `$`). GATOR already writes `$` via `SootClass.getName()`, so this is a safety-net no-op on well-formed output.
 
 ## CLI flags
 - `--cg-algorithm` (default `spark`) — call-graph algorithm.
 - `--analysis-timeout <s>` (gh55) — per-APK GATOR timeout; **required for standalone runs** (see caveat).
 - `--skip-wtg` (gh57) — appends `-clientParam skipWtg=true`; GATOR emits reachability + `windows[]` and returns without building the WTG (`transitions[]` empty). For known-slow APKs where WTG construction is guaranteed to time out.
+- `--package-detector` / `--no-package-detector` (gh98) — which package scopes app-owned classes. Default: the declared applicationId, passed to GATOR as `-clientParam codePackage=` verbatim. Honors `RV_PACKAGE_DETECTOR` under flag > env > default; an unparseable value exits nonzero before any APK is opened.
 
 ### Standalone env-var caveat (gh55)
 `__main__` is argparse-based, not Click, so it does **not** honor `RV_SA_TIMEOUT` / `RV_JVM_MEMORY` when run directly (`uv run rv-static-analysis ...`). Those env vars only bridge through rv-experiment (gh55 §9 Click `envvar=`). For standalone runs use `--analysis-timeout` (added precisely to close this gap). Architectural fix tracked in `openspec/changes/gh-tbd-env-vars-architecture/`.
+
+`RV_PACKAGE_DETECTOR` is the exception, and deliberately so (gh98 D4): this command resolves it itself, because a standalone invocation is a run rather than a step inside one, and an operator who exported the variable in a shell or a container should get the same behaviour whichever command they invoke. It is read through the `ENV_PACKAGE_DETECTOR` constant and parsed by the same helper `rv-experiment` uses, so the two CLIs cannot drift on what a given string means.
 
 ## Integration seams
 - **rv-android-core:** `App`, `StaticAnalysisData`/`Classes`/`Windows`/`WindowTransitionGraph`/`Components`, `SignatureNormalizer`, `EXTENSION_STATIC_ANALYSIS`, base analyzer/error/logging infra.

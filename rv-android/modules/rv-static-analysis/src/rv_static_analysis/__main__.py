@@ -26,12 +26,15 @@ single JSON output per APK with reachability, windows, and transitions sections.
 """
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
 
+from rv_android_core.constants import ENV_PACKAGE_DETECTOR
 from rv_android_core.domain.app import App
 from rv_android_core.util.error.exceptions import ConfigurationError
+from rv_android_core.util.utils import resolve_bool_setting
 from rv_static_analysis import (
     RVStaticAnalysisConfig,
     StaticAnalysisException,
@@ -159,6 +162,24 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
             "Default (when omitted): 'spark' per gh51 D5 — full points-to gives "
             "accurate reachesTarget. cha/rta/vta are faster but less precise; useful "
             "for triage runs where reachability precision is not critical."
+        ),
+    )
+
+    # Default None, not False: the environment variable only gets a say when
+    # neither half of the pair was given, so `--no-package-detector` can beat a
+    # truthy RV_PACKAGE_DETECTOR. Resolved once in main(), before any App exists.
+    config_group.add_argument(
+        "--package-detector",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Elect the implementation package heuristically instead of reporting "
+            "the applicationId declared in the manifest (default: manifest). "
+            "Overrides RV_PACKAGE_DETECTOR (CLI > env > default). This is the key "
+            "passed to GATOR as -clientParam codePackage= and used to filter the "
+            "parsed catalogue; which package scopes app-owned classes is a "
+            "property of the corpus under study, so it is stated rather than "
+            "inferred, and neither mode rewrites the identifier."
         ),
     )
 
@@ -323,7 +344,7 @@ def handle_analyze_command(args: argparse.Namespace) -> int:
         )
         return 0
 
-    app = App(args.apk)
+    app = App(args.apk, package_detector=args.package_detector)
     analyzer = StaticAnalyzer(app, config, args.output)
 
     try:
@@ -401,7 +422,7 @@ def handle_batch_command(args: argparse.Namespace) -> int:
             print(f"\nProcessing [{i}/{len(apk_files)}]: {apk_file.name}")
 
         try:
-            app = App(str(apk_file))
+            app = App(str(apk_file), package_detector=args.package_detector)
             apk_output_dir = Path(args.output) / app.package_name
             analyzer = StaticAnalyzer(app, config, str(apk_output_dir))
             result = analyzer.analyze()
@@ -480,6 +501,36 @@ def display_analysis_summary(result, analysis_time: float) -> None:
             print(f"    {tool}: {time_taken:.2f} seconds")
 
 
+def resolve_package_detector(cli_value: bool | None) -> bool:
+    """Resolve the package policy under flag > env > default (INV-EXP-32).
+
+    A standalone `rv-static-analysis` invocation is a run, not a step inside
+    one, so this command is an entry point and resolves RV_PACKAGE_DETECTOR
+    itself rather than receiving a value (design D4). An operator who exported
+    the variable in a shell or a container gets the same behaviour here as from
+    `rv-experiment`, without having to remember which command honours it.
+
+    The read goes through the `ENV_PACKAGE_DETECTOR` constant, never a literal,
+    and the precedence is applied by `resolve_bool_setting`, which the
+    `rv-experiment` entry point also calls — so the two CLIs cannot drift on
+    what a flag, an empty variable or `"on"` means (INV-EXP-34). Only the read
+    itself is local, because only entry points may perform it. Everything the
+    resolved boolean reaches — `App` above all — reads nothing.
+
+    Args:
+        cli_value: The flag as argparse resolved it (`None` when absent)
+
+    Returns:
+        Whether PackageDetector elects the package for this run
+
+    Raises:
+        ValueError: RV_PACKAGE_DETECTOR holds a value the convention cannot parse
+    """
+    return resolve_bool_setting(
+        cli_value, os.environ.get(ENV_PACKAGE_DETECTOR), ENV_PACKAGE_DETECTOR
+    )
+
+
 def main() -> int:
     """Parse arguments and dispatch to the appropriate subcommand handler.
 
@@ -491,6 +542,16 @@ def main() -> int:
 
     if not args.command:
         parser.print_help()
+        return 1
+
+    # Resolve the package policy before either handler builds an App. argparse
+    # has no click.BadParameter, so an unparseable variable is reported here and
+    # exits nonzero: picking a mode would silently decide the scope of the
+    # entire analysis.
+    try:
+        args.package_detector = resolve_package_detector(args.package_detector)
+    except ValueError as e:
+        print(f"Configuration Error: {e}", file=sys.stderr)
         return 1
 
     if args.command == "analyze":

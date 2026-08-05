@@ -228,8 +228,9 @@ class Platform:
         for apk_path in apks:
             apk_name = apk_path.name
 
-            # Create app instance
-            app = App(str(apk_path))
+            # Create app instance under the run's package policy, which arrived
+            # already resolved on PlatformConfig (INV-EXP-34).
+            app = App(str(apk_path), package_detector=self.config.package_detector)
 
             for tool_config in self.config.tools:
                 for repetition in range(1, self.config.repetitions + 1):

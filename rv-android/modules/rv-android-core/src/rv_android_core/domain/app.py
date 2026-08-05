@@ -36,6 +36,12 @@ class App(BaseValidatedModel):
     - Provides comprehensive validation of APK file accessibility and structure
     - Maintains structured representation for consistent data access patterns
     - Supports automated decision-making for instrumentation and testing workflows
+    - Separates the two package questions: `package_name` answers what the APK
+      calls itself to the device, `code_package` answers which package scopes the
+      classes a study treats as the app's own. The second is a property of the
+      corpus rather than of the APK, so it is an input — `package_detector`,
+      resolved at the entry point the user invoked — and never an inference made
+      here. This model reads no environment variable (INV-CORE-55)
 
     ### Role in the System:
     - Serves as the primary interface for Android application representation
@@ -52,6 +58,13 @@ class App(BaseValidatedModel):
 
     app_path: str = Field(
         description="Absolute path to the APK file for analysis and instrumentation"
+    )
+    package_detector: bool = Field(
+        default=False,
+        description="Elect the implementation package heuristically instead of "
+        "reporting the one declared in the manifest. User input, resolved at the "
+        "entry point the user invoked and passed in already decided — this model "
+        "reads no environment variable (INV-CORE-55)",
     )
     validate_on_init: bool = Field(
         default=True,
@@ -117,12 +130,36 @@ class App(BaseValidatedModel):
     @computed_field
     @property
     def code_package(self) -> str:
-        """Implementation package detected via component analysis.
-        Use for static analysis parsing and class filtering.
-        For device operations (install, launch): use package_name."""
+        """Package that scopes the classes this study treats as the app's own.
+
+        Use for static analysis parsing and class filtering. For device
+        operations (install, launch): use package_name.
+
+        The declared applicationId is the answer unless `package_detector` asks
+        for the heuristic election, because which package scopes app-owned
+        classes depends on the corpus under study and not on the APK. The
+        declared value is returned verbatim: build-type suffix stripping and
+        prefix repair are properties of a particular corpus and belong to
+        whoever curates it. The election is lazy and runs only when enabled, so
+        the default path never enumerates components (INV-CORE-18).
+        """
+        if not self.package_detector:
+            return self.package_name
         if self._code_package_result is None:
             self._detect_code_package()
         return self._code_package_result.code_package
+
+    @computed_field
+    @property
+    def code_package_source(self) -> str:
+        """Which mechanism produced `code_package`: "manifest" or "detector".
+
+        The choice does not survive in the data it shapes — the GATOR analysis
+        JSON records the manifest package regardless of the key that filtered
+        its contents — so whoever records a run needs the origin stated rather
+        than re-derived (INV-ANA-58).
+        """
+        return "detector" if self.package_detector else "manifest"
 
     def _detect_code_package(self) -> None:
         """Run PackageDetector on the loaded APK instance."""

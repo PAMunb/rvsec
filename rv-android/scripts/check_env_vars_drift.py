@@ -90,7 +90,10 @@ L1_INFRA_NAMES = frozenset(
     }
 )
 
-# rv-experiment is the only Python module allowed to read user-facing RV_* env vars.
+# Entry points may read user-facing RV_* env vars through ENV_* constants; the
+# layers between an entry point and the domain model may not. Only rv-experiment
+# may take the whole environment at once, which is what this path gates — the
+# wholesale forms below leak every variable past the Layer Purity boundary.
 L5_DIR = REPO_ROOT / "modules" / "rv-experiment" / "src"
 
 # ---------------------------------------------------------------------------

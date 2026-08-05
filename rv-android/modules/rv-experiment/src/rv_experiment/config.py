@@ -23,6 +23,7 @@ import rv_experiment.constants as constants
 from pydantic import ConfigDict, Field
 from rv_android_core.constants import (
     ENV_JVM_MEMORY,
+    ENV_PACKAGE_DETECTOR,
     ENV_RVSEC_HOME,
     ENV_SA_TIMEOUT,
     EXTENSION_MOP,
@@ -32,6 +33,7 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.manager import LoggingManager
+from rv_android_core.util.utils import resolve_bool_setting
 from rv_android_core.util.validation import BaseValidatedModel
 from rv_experiment.constants import (
     DEFAULT_APKS_DIR,
@@ -54,6 +56,34 @@ from rv_static_analysis.config import RVStaticAnalysisConfig
 # Just-in-time imports - only import when needed
 if TYPE_CHECKING:
     pass
+
+
+def resolve_package_detector(cli_value: Optional[bool]) -> bool:
+    """Resolve the package policy under CLI > env > default (INV-EXP-32).
+
+    This is the single site in `rv-experiment` that reads RV_PACKAGE_DETECTOR,
+    and it reads it through the `ENV_PACKAGE_DETECTOR` constant rather than a
+    literal (INV-EXP-34). Everything below this layer — `rv-platform`, the
+    instrumentation modules, `rv-android-core` — receives the resolved boolean
+    by value and looks nothing up.
+
+    The precedence itself lives in `resolve_bool_setting`, which both entry
+    points call, so they cannot drift on what a flag, an empty variable or an
+    uninterpretable value means. What stays here is the one thing that must not
+    move: the read.
+
+    Args:
+        cli_value: The flag as Click resolved it (`None` when absent)
+
+    Returns:
+        Whether PackageDetector elects the package for this run
+
+    Raises:
+        ValueError: RV_PACKAGE_DETECTOR holds a value the convention cannot parse
+    """
+    return resolve_bool_setting(
+        cli_value, os.environ.get(ENV_PACKAGE_DETECTOR), ENV_PACKAGE_DETECTOR
+    )
 
 
 class ExperimentConfig(BaseValidatedModel):
@@ -191,6 +221,21 @@ class ExperimentConfig(BaseValidatedModel):
     logcat_diagnostics: bool = Field(
         default=False,
         description="Capture crash/VerifyError/ANR diagnostic events (opt-in, gh72)",
+    )
+    # gh98: which package scopes the classes the run treats as the app's own.
+    # False (the default) reports the applicationId declared in the manifest,
+    # verbatim; True elects the implementation package with PackageDetector.
+    # The answer depends on the corpus under study rather than on the APK, so
+    # the run states it and no layer below infers it: this resolved value is
+    # forwarded to every App the workflow constructs and copied into
+    # PlatformConfig for task generation (INV-EXP-34).
+    package_detector: bool = Field(
+        default=False,
+        description=(
+            "Elect the implementation package heuristically instead of reporting "
+            "the declared applicationId. CLI flag --package-detector overrides "
+            "RV_PACKAGE_DETECTOR."
+        ),
     )
 
     # --- 5. Specification set ---
@@ -730,6 +775,9 @@ class ExperimentConfig(BaseValidatedModel):
                 # `--no-quarantine` at the rv-experiment CLI reaches the ajc
                 # pipeline through the same field already validated by gh50 §21.
                 enable_quarantine=self.enable_quarantine,
+                # gh98: the App objects the ajc pipeline builds must use the
+                # run's package policy, same as every other App in the run.
+                package_detector=self.package_detector,
             )
         except InstrumentationConfigError as e:
             raise ConfigurationError(

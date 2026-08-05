@@ -42,11 +42,13 @@ Notable files: `util/android/package_detector.py` (code-package vs manifest-pack
 
 ## `package_name` vs `code_package`
 
-The `App` model exposes two package properties:
-- **`package_name`** — from AndroidManifest.xml. Use for device operations (install, launch, force-stop, monkey `-p`).
-- **`code_package`** — detected via `PackageDetector` from APK components. Use for static-analysis parsing and class filtering.
+The `App` model exposes two package properties, answering two different questions:
+- **`package_name`** — what the APK calls itself to the device: the applicationId from AndroidManifest.xml, verbatim. Use for device operations (install, launch, force-stop, monkey `-p`).
+- **`code_package`** — which package scopes the classes a study treats as the app's own. Use for static-analysis parsing and class filtering.
 
-In ~27.5% of APKs these differ (e.g. Godot games: manifest `ir.hsn6.trans`, code `org.godotengine.godot`). `code_package` is lazy-computed and logs a warning on mismatch.
+The second question is about the corpus, not about the APK, so it is an input rather than an inference. By default `code_package` **is** `package_name`, returned verbatim — no suffix stripping, no prefix repair; such rules belong to whoever curates a corpus. Passing `package_detector=True` runs `PackageDetector` over the APK's components instead, which is what a corpus of Godot games wants (manifest `ir.hsn6.trans`, classes under `org.godotengine.godot`); the mismatch is logged at INFO on that path only. `code_package_source` reports which mechanism produced the value (`"manifest"` or `"detector"`), because the analysis artefacts downstream carry no trace of it.
+
+The value arrives as a constructor argument. `domain/app.py` reads no environment variable (INV-CORE-55): `RV_PACKAGE_DETECTOR` and the `--package-detector` / `--no-package-detector` flag are resolved at the entry point the user invoked — `rv-experiment` or the `rv-static-analysis` command — and passed down already decided. The election is lazy and does not run at all on the default path, so an unconfigured run never pays for component enumeration.
 
 ## Dependencies
 

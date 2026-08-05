@@ -116,3 +116,80 @@ def test_l1_infra_literal_at_non_l1_is_flagged():
     """L1 infra literals (e.g., `RVSEC_HOME`) outside the allow-list are flagged."""
     code = 'value = os.environ.get("RVSEC_HOME")'
     assert lint.RX_ENVIRON_GET_INFRA.search(code) is not None
+
+
+# ---------------------------------------------------------------------------
+# INV-EXP-34 — RV_PACKAGE_DETECTOR is read at the entry points and nowhere else
+# ---------------------------------------------------------------------------
+
+_MODULES_DIR = Path(__file__).resolve().parents[2] / "modules"
+
+# The two entry points allowed to resolve the variable: rv-experiment, which owns
+# the CLI surface of an experiment, and the rv-static-analysis command, which is
+# a run in its own right when invoked standalone (design D4).
+_ENTRY_POINT_READERS = {
+    _MODULES_DIR / "rv-experiment" / "src" / "rv_experiment" / "config.py",
+    _MODULES_DIR / "rv-static-analysis" / "src" / "rv_static_analysis" / "__main__.py",
+}
+
+
+def _production_sources() -> list[Path]:
+    return [
+        path
+        for path in _MODULES_DIR.rglob("*.py")
+        if "__pycache__" not in path.parts and "tests" not in path.parts
+    ]
+
+
+def test_package_detector_env_read_only_at_entry_points():
+    """No layer between an entry point and `App` looks the variable up.
+
+    `rv-platform`, `rv-instrumentation-*` and `rv-android-core` receive the
+    resolved boolean by value; `domain/app.py` reads nothing at all
+    (INV-CORE-55). A read appearing anywhere else means the decision acquired a
+    second, invisible source.
+    """
+    readers = []
+    for path in _production_sources():
+        text = path.read_text(encoding="utf-8")
+        if "ENV_PACKAGE_DETECTOR" not in text:
+            continue
+        # Both idioms count: `os.getenv(ENV_*)` is as much a read as
+        # `os.environ.get(ENV_*)`, and both slip past check_env_vars_drift.py,
+        # which only matches string literals.
+        if any(form in text for form in ("os.environ", "os.getenv")):
+            readers.append(path)
+
+    assert set(readers) == _ENTRY_POINT_READERS, (
+        "RV_PACKAGE_DETECTOR must be resolved at the two entry points only "
+        f"(INV-EXP-34). Found readers: {sorted(str(p) for p in readers)}"
+    )
+
+
+def test_package_detector_never_appears_as_a_literal_at_a_read_site():
+    """Every read goes through the registry constant, never the raw string."""
+    registry_file = (
+        _MODULES_DIR / "rv-android-core" / "src" / "rv_android_core" / "constants.py"
+    )
+
+    offenders = [
+        path
+        for path in _production_sources()
+        if path != registry_file
+        and any(
+            quoted in path.read_text(encoding="utf-8")
+            for quoted in ('"RV_PACKAGE_DETECTOR"', "'RV_PACKAGE_DETECTOR'")
+        )
+    ]
+
+    assert offenders == [], (
+        "The literal belongs only in constants.py; every other site must import "
+        f"ENV_PACKAGE_DETECTOR. Found: {sorted(str(p) for p in offenders)}"
+    )
+
+
+def test_l1_allowlist_did_not_grow_for_the_package_policy():
+    """`domain/app.py` is not an environment reader and must not become one."""
+    assert len(lint.L1_ALLOWLIST_FILES) == 3
+    assert not any("domain" in str(path) for path in lint.L1_ALLOWLIST_FILES)
+    assert "RV_PACKAGE_DETECTOR" not in lint.L1_INFRA_NAMES

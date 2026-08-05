@@ -426,6 +426,8 @@ def worker(apk_path_str: str, output_dir_str: str, config_kwargs: Dict[str, Any]
         config_kwargs = dict(config_kwargs)
         config_kwargs["analysis_timeout"] = timeout_s
         config = RVStaticAnalysisConfig(**config_kwargs)
+        # The sweep filters on the manifest package (the App default). A corpus
+        # needing the heuristic election passes package_detector=True here.
         app = App(str(apk_path))
         package_name = app.package_name
         code_package = app.code_package

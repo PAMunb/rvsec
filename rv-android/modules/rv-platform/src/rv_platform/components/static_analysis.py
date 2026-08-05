@@ -124,12 +124,12 @@ class StaticAnalysisComponent:
             try:
                 self.logger.info(LOG_START.format(phase="loading static analysis data"))
 
-                # Load GATOR/GESDA/REACH unified analysis data. Uses code_package
-                # (the detected implementation package, e.g., "com.example.app")
-                # instead of package_name (manifest package). This matters because
-                # some APKs have a different manifest package than their actual code
-                # package — using the wrong one would misclassify app methods as
-                # library code and report 0% coverage.
+                # Load GATOR/GESDA/REACH unified analysis data, scoped by
+                # code_package — the key this run resolved, carried on the App.
+                # The stored JSON cannot supply it: GATOR writes the manifest
+                # package into its `package` member whatever key filtered the
+                # contents, so reading it back would silently re-scope the
+                # coverage denominator (INV-ANA-58).
                 static_data = static_analysis_parser.read_static_analysis_files(
                     self.task.results_dir,
                     self.task.config.apk_name,
