@@ -70,9 +70,6 @@ x-rvandroid: &rvandroid-base
       limits:
         cpus: "4"
         memory: "10g"
-  depends_on:
-    sglang:
-      condition: service_healthy
 
 # Os volumes sao repetidos por servico e nao ancorados: o compose funde
 # mapeamentos, nunca listas, entao um alias de lista viraria lista aninhada e o
@@ -80,42 +77,20 @@ x-rvandroid: &rvandroid-base
 # quarto e o jar sob teste, montado :ro por cima do jar que a propria imagem
 # construiu (precedente: docker/docker-compose.cmpft2.yml:46).
 
+# ESTE ARQUIVO NAO SOBE UM SGLANG. Ele se liga ao que ja esta de pe, pelo mesmo
+# motivo medido no smoke: a GPU tem 15,47 GiB e o servidor da PERNA A ocupa 12,6
+# GiB, entao uma segunda instancia morre em CUDA out of memory antes de servir.
+# Reusar tambem REMOVE uma diferenca entre as pernas — o braco LLM da perna B
+# passa a ser servido pelo mesmo backend que serviu a perna A.
+# A rede `experimento-e3-decisiva_default` ja carrega o alias `sglang`, que e o
+# hostname para onde a ponte socat do entrypoint aponta.
+
+networks:
+  sglang_net:
+    external: true
+    name: experimento-e3-decisiva_default
+
 services:
-  sglang:
-    image: lmsysorg/sglang:v0.5.6.post2
-    container_name: sglang-server
-    volumes:
-      - ${HF_CACHE:-/pedro/desenvolvimento/.cache/huggingface}:/root/.cache/huggingface
-    ipc: host
-    shm_size: "16g"
-    # A GPU e pedida como dispositivo CDI, e nao por
-    # deploy.resources.reservations.devices com driver "nvidia": o host roda
-    # Docker 29 com o toolkit instalado mas com o runtime nvidia NAO registrado
-    # no daemon, entao a reserva por driver falha com
-    # `could not select device driver "nvidia" with capabilities: [[gpu]]`.
-    #
-    # /var/run e tmpfs, entao o spec CDI nao sobrevive a um reboot. Persistir com
-    # `sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`.
-    devices:
-      - nvidia.com/gpu=0
-    # Modelo stock, o mesmo da perna A. Troca-lo colocaria uma segunda diferenca
-    # entre as pernas alem da que o portao mede.
-    command: >
-      python3 -m sglang.launch_server
-      --model-path Qwen/Qwen3-VL-4B-Instruct
-      --host 0.0.0.0
-      --port 30000
-      --trust-remote-code
-      --attention-backend flashinfer
-      --tool-call-parser qwen
-      --enable-multimodal
-      --context-length 8192
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
 
   # Cada container roda os TRES bracos sobre os SEUS 5 APKs, e a particao e
   # byte-identica a da perna A: batch_NN.txt aqui e o mesmo arquivo que la. O
@@ -133,9 +108,11 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_00
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
       RV_DELAY: "0"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_00:/opt/rvsec/rv-android/results
 
@@ -147,9 +124,11 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_01
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
       RV_DELAY: "10"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_01:/opt/rvsec/rv-android/results
 
@@ -161,9 +140,11 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_02
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
       RV_DELAY: "20"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_02:/opt/rvsec/rv-android/results
 
@@ -175,9 +156,11 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_03
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
       RV_DELAY: "30"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_03:/opt/rvsec/rv-android/results
 
@@ -189,9 +172,11 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_04
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
       RV_DELAY: "40"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_04:/opt/rvsec/rv-android/results
 
@@ -203,9 +188,11 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_05
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
       RV_DELAY: "50"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_05:/opt/rvsec/rv-android/results
 
@@ -217,9 +204,11 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_06
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
       RV_DELAY: "60"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_06:/opt/rvsec/rv-android/results
 
@@ -231,8 +220,42 @@ services:
       RV_EXPERIMENT_NAME: rearch_aperv_07
       RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
       RV_DELAY: "70"
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
-      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
       - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
       - ./results/rearch_aperv_07:/opt/rvsec/rv-android/results
+
+  rearch_aperv_08:
+    <<: *rvandroid-base
+    container_name: rearch_aperv_08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: rearch_aperv_08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_08.txt"
+      RV_DELAY: "80"
+    networks:
+      - sglang_net
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/rearch_aperv_08:/opt/rvsec/rv-android/results
+
+  rearch_aperv_09:
+    <<: *rvandroid-base
+    container_name: rearch_aperv_09
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: rearch_aperv_09
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_09.txt"
+      RV_DELAY: "90"
+    networks:
+      - sglang_net
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
+      - ./filters10:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/rearch_aperv_09:/opt/rvsec/rv-android/results

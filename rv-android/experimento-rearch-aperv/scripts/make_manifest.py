@@ -74,7 +74,7 @@ def arm_entry(variant: str, role: str) -> Dict[str, Any]:
 def build_manifest(repo_root: Path) -> Dict[str, Any]:
     """The frozen execution plan, plus one generated entry per arm.
 
-    The plan's scalars — 3 replicas, a 1800 s budget, 8 containers, the `jca` specification
+    The plan's scalars — 3 replicas, a 1800 s budget, 10 containers, the `jca` specification
     set and the bootstrap seed — are stated here because this file is what the
     pre-registration freezes. `predicted_identities` is applications x arms x replicas: the
     size a complete campaign should reach, declared before it runs so a short campaign shows
@@ -96,7 +96,7 @@ def build_manifest(repo_root: Path) -> Dict[str, Any]:
         },
         "reps": 3,
         "timeout": 1800,
-        "containers": 8,
+        "containers": 10,
         "spec_set": "jca",
         "bootstrap_seed": 42,
         "arms": [arm_entry(variant, role) for variant, role in ARMS],

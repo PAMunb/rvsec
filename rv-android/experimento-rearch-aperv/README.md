@@ -24,7 +24,7 @@ exploratória por definição. **Congelar antes de construir o jar.**
 | Corpus | 40 APKs — `../calibracao/subset40.txt`, sha256 `b60903ad…d48d4` |
 | Repetições | 3 |
 | Timeout | 1800 s por task |
-| Total | 360 runs, 8 containers, ≈ 24 h |
+| Total | 360 runs, **10 containers** (emenda 01), ≈ 18,6 h |
 | Imagem | `phtcosta/rvandroid:0.9.3-rearch` (tag nova) |
 | Jar | build do worktree `ape-rearch`, branch `rearch`, por bind-mount |
 
@@ -103,14 +103,20 @@ transientes são recuperadas.
 
 ## Particionamento
 
-`filters/batch_00.txt` … `batch_07.txt`, 5 aplicações cada, split determinístico em ordem alfabética
+`filters10/batch_00.txt` … `batch_09.txt`, 4 aplicações cada, split determinístico em ordem alfabética
 do `subset40.txt`. União == subset, sem duplicata e sem perda, verificado na geração.
 
-Os oito arquivos são **byte-idênticos aos da perna A**. Não é coincidência nem economia: significa que
-cada aplicação roda no mesmo container-índice das duas vezes, então efeitos de container ficam
-pareados junto com o resto.
+**Emenda 01 (2026-08-05)**: a partição passou de 8 × 5 para 10 × 4, pela mesma regra alfabética
+determinística, para caber no orçamento de relógio — ~18,6 h contra ~23,2 h. Os oito arquivos da perna
+A ficam intactos em `filters/`, porque são a partição dela e portanto evidência.
 
-Cada container roda os **três braços sobre as suas 5 aplicações**. O pareamento estatístico é por
+O que isso custa, dito sem atenuação: os arquivos **deixam de ser byte-idênticos aos da perna A**,
+então uma aplicação já não roda no mesmo container-índice das duas vezes e efeitos de container param
+de cancelar na diferença pareada. O pareamento **por aplicação**, que é o que sustenta G1/G2/G3,
+continua intacto, e é sobre ele que os intervalos de confiança são construídos. Nenhum elemento da
+grade estatística foi tocado: 3 braços, 40 aplicações, 3 réplicas, 1800 s, 360 runs.
+
+Cada container roda os **três braços sobre as suas 4 aplicações**. O pareamento estatístico é por
 aplicação, então manter os três braços de uma aplicação no mesmo container faz uma falha de container
 derrubar o par inteiro em vez de meio par — o que o resume recupera limpo, enquanto meio par exigiria
 descarte.

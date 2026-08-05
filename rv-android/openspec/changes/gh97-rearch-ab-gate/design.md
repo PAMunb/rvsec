@@ -40,7 +40,7 @@ modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar
         │  bind-mount :ro over the image's own jar
         ▼
 ┌───────────────────────────────────────────────────────────────────────┐
-│ phtcosta/rvandroid:0.9.3-rearch   ×8 containers                       │
+│ phtcosta/rvandroid:0.9.3-rearch   ×10 containers  (emenda 01)         │
 │   rv-experiment → rv-platform → TaskExecutor → aperv-tool             │
 │     RV_TOOLS = aperv:<3 arms>@corpus_basis=subset40:<sha256>          │
 │     RV_APKS_FILTER = filters/batch_NN.txt  (5 APKs each)              │
@@ -172,7 +172,20 @@ Leg A's per-application value is the **mean of three replicas** (`consolidate_ca
 one replica in leg B would make the paired difference asymmetrically noisier — more variance on one
 side of a difference that is then tested for being non-zero. That is the mechanism behind the
 2026-06-19 false catastrophe, reproduced by design. Three arms × 40 applications × 3 replicas ×
-1800 s × 8 containers, ≈24 h, is not a cost preference; it is what makes the comparison legible.
+1800 s, ≈24 h, is not a cost preference; it is what makes the comparison legible.
+
+**Amendment 01 (2026-08-05) moved the container count from 8 to 10, and nothing else.** The wall-clock
+budget for the run was ~18.7 h against a measured need of ~23.2 h — the smoke put the per-run cycle at
+~1857 s (1800 s plus ~12 s of flush and ~45 s of install and teardown), so 45 runs per container at 8
+containers, 36 at 10. Every lever that would have compressed the grid instead of the parallelism was
+refused: fewer replicas is the failure mode this section exists to prevent, and a shorter timeout would
+have broken comparability with leg A outright, since leg A's outcomes were measured at 1800 s and the
+outcomes are budget-dependent. What the amendment costs is the container-effect pairing — with 10
+partitions an application no longer runs at the same container index in both legs — and that cost is
+stated in the pre-registration rather than absorbed silently. The pairing that G1/G2/G3 actually rest
+on is **by application** and is untouched; the container-index pairing was a second-order refinement
+over it. The amendment is recorded in `calibracao/journal.jsonl` before the campaign ran and before
+any outcome existed, beside the original freeze digest.
 
 ### D6 — Scripts are copied and adapted, never reused in place
 
@@ -411,7 +424,7 @@ JSON object line from stage 2 onward, so the pre-flight does **not** depend on `
    `modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar`; the image `0.9.3-rearch` is built and
    pushed; its ID is recorded.
 3. The smoke runs. `preflight_runstart.py` reads one trace per arm and gates on the four checks.
-4. The campaign runs: 8 containers, each executing all three arms over its own 5 applications, so a
+4. The campaign runs: 10 containers (amendment 01), each executing all three arms over its own 4 applications, so a
    container failure drops whole pairs rather than half-pairs and resume recovers them cleanly.
 5. `verify.py` recounts identities independently; `consolidate.py` produces `per_apk_paired.csv` and
    `tel_proxies.csv`.

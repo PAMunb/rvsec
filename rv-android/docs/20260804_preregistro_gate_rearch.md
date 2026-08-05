@@ -39,8 +39,8 @@ este não.
 | `corpus_basis` | `subset40:b60903adf4c8fca07e014e3655db158a220184d112f2f995a181fd98dd3d48d4` |
 | Repetições | 3 |
 | Timeout | 1800 s por task |
-| Total | 360 runs (3 braços × 40 aplicações × 3 réplicas), 8 containers, ≈ 24 h |
-| Particionamento | `filters/batch_00.txt` … `batch_07.txt`, 5 aplicações cada, **byte-idênticos aos da perna A** |
+| Total | 360 runs (3 braços × 40 aplicações × 3 réplicas), **10 containers** (emenda 01), ≈ 18,6 h |
+| Particionamento | `filters10/batch_00.txt` … `batch_09.txt`, **4 aplicações cada** (emenda 01), mesma regra alfabética determinística; **não** byte-idênticos aos da perna A |
 | Conjunto de especificações | `jca` |
 | Binários | os **mesmos** APKs instrumentados da perna A (jca/dexlib2, campanha 20260706); `RV_SKIP_MONITORS`, `RV_SKIP_INSTRUMENT` e `RV_SKIP_STATIC_ANALYSIS` ligados |
 | Dose LLM | `llm_percentage=0.7`, prompt `v13`, temperatura 0, `llmSnapTolerancePx=150` |
@@ -58,6 +58,41 @@ O particionamento byte-idêntico não é economia: significa que cada aplicaçã
 mesmo container-índice das duas vezes, então efeitos de container ficam pareados junto com o resto.
 E os binários são os mesmos: reinstrumentar produziria APKs diferentes dos que a análise estática
 descreve, quebrando tanto o join com os `.apk.json` quanto o pareamento com a perna A.
+
+### Emenda 01 (2026-08-05, **antes** de a campanha começar) — 8 → 10 containers
+
+**O que muda**: o particionamento passa de 8 × 5 para **10 × 4** aplicações, em `filters10/`. A regra
+é a mesma — split alfabético determinístico do `subset40.txt` —, só o tamanho do bloco muda. União ==
+subset, sem duplicata e sem perda, verificado na geração. Os 8 arquivos da perna A ficam intactos em
+`filters/`, porque são a partição dela e portanto evidência.
+
+**O que NÃO muda, e é o essencial**: os três braços, as 40 aplicações, as **3 réplicas**, o timeout de
+**1800 s**, os 360 runs, os binários instrumentados, a dose de LLM, o modelo, a semente do bootstrap,
+os desfechos, as margens e as três regras de decisão. **Nenhum elemento da grade estatística é
+tocado.** O argumento do D5 — a perna A é média de três réplicas, e reduzir réplicas tornaria a
+diferença pareada assimetricamente mais ruidosa — permanece integralmente satisfeito, que é a razão de
+a emenda mexer em paralelismo e não em escopo.
+
+**O que se sacrifica, dito sem atenuação**: o pareamento de efeito-de-container declarado no parágrafo
+acima. Com 10 partições, uma aplicação já não roda no mesmo container-índice das duas vezes, então
+variação entre containers deixa de cancelar na diferença pareada e passa a entrar como ruído não
+controlado. O pareamento **por aplicação** — que é o que sustenta G1, G2 e G3 — continua intacto, e é
+sobre ele que os intervalos de confiança são construídos; o efeito-de-container era um refinamento de
+segunda ordem sobre ele, não o seu fundamento. A margem derivada com piso de 1,5 pp (§ das margens)
+existe justamente para absorver variabilidade não controlada entre campanhas, e passa a absorver
+também esta.
+
+**Por quê**: o orçamento de relógio. Medido no smoke desta mesma campanha, o ciclo por run é de
+~1857 s a 1800 s de timeout (1800 + ~12 s de flush + ~45 s de instalação/teardown). Com 8 containers
+são 45 runs cada, ≈ 23,2 h; com 10 são 36 cada, ≈ 18,6 h. O host comporta: uso real medido de
+**4,04 GiB** por container (o limite de 10 GiB é teto, não reserva) e ~1 núcleo ativo, contra 104 GB
+livres e 64 CPUs.
+
+**Sobre a honestidade desta emenda**: ela é registrada **antes** de a campanha rodar e antes de
+qualquer desfecho existir, com entrada própria no `calibracao/journal.jsonl` e sha256 novo, ao lado do
+sha256 do congelamento original — que é o mecanismo pelo qual um leitor verifica que ela não é ajuste
+pós-hoc. Ela também não é corte de escopo: os 360 runs são preservados, o que é o que a decisão
+registrada sobre não reduzir a corrida decisiva por prazo protege.
 
 **Os braços**, e o que exatamente os separa:
 

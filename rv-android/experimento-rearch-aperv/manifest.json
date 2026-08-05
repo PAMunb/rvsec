@@ -5,7 +5,7 @@
   "paired_against": "experimento-e3-decisiva/per_apk_paired.csv",
   "image": {
     "tag": "phtcosta/rvandroid:0.9.3-rearch",
-    "id": null
+    "id": "sha256:2cc5c3aada3dd741434d78bfb38da4dd87cded80d05ab7967bbbe725e61472d7"
   },
   "build": {
     "branch": "rearch",
@@ -18,7 +18,7 @@
   },
   "reps": 3,
   "timeout": 1800,
-  "containers": 8,
+  "containers": 10,
   "spec_set": "jca",
   "bootstrap_seed": 42,
   "arms": [

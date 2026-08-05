@@ -56,10 +56,12 @@ a control it does not have, and would misjudge how much of the difference the co
 
 - **A campaign directory**, `experimento-rearch-aperv/`, modelled on `experimento-e3-decisiva/` —
   `README.md`, `docker-compose.yml`,
-  `filters/batch_00..07.txt` (the same deterministic alphabetical split of `calibracao/subset40.txt`),
+  `filters10/batch_00..09.txt` (the same deterministic alphabetical split of `calibracao/subset40.txt`,
+  in blocks of 4 after amendment 01; leg A's own 8×5 split is preserved untouched in `filters/`),
   a monitor script and its consolidated outputs. The grid is **identical to E3 by requirement, not by
   preference**: the same three arms (`mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`), the same
-  40 applications, 3 repetitions, 1800 s, 8 containers. The baseline's per-application value is a
+  40 applications, 3 repetitions, 1800 s — 10 containers after amendment 01, which changed the
+  partition and no element of the grid. The baseline's per-application value is a
   three-replica mean, so a reduced-replica second leg would make the paired difference
   asymmetrically noisier — which is the 2026-06-19 failure mode the gate exists to prevent.
 
