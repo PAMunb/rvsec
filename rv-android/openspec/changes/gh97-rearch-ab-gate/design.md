@@ -255,6 +255,32 @@ Both IDs live in the pre-registration document; the journal freezes that documen
 journal freezes documents, not facts — that is the E3 mechanism and this change does not invent a
 second one.
 
+**The image is built with the branch passed in, and it is not pushed** (owner decision, 2026-08-05).
+Two mechanics make this more than a preference, and both were found by inspecting the build rather
+than by reading the task.
+
+`docker/rvandroid/Dockerfile` declares `ARG RVSEC_BRANCH=modules` and clones
+`https://github.com/PAMunb/rvsec.git` at that branch. The default is the canonical branch, so a
+plain `docker build` produces an image containing **none** of `gh94`, `gh95`, `gh96` or `gh97` — the
+work under test would simply be absent, and every arm would run the canonical harness while the
+campaign recorded it as the re-architected one. That is gh71's shape moved up a layer: not a wrong
+jar, a wrong *harness*. The build therefore passes `--build-arg RVSEC_BRANCH=rearch-counterparts`,
+which is also what makes task 6.3's push load-bearing rather than ceremonial — the clone reads the
+remote, so the branch must exist there, and pushing the branch and naming it in the build are two
+halves of one requirement.
+
+`docker/rvandroid/build.sh` must **not** be used. It runs
+`docker build --no-cache -t $IMAGE:0.9.3 -t $IMAGE:latest`, which moves both of the tags D9 exists to
+protect: `0.9.3` is leg A's image identity and `latest` currently points at the same ID. Running it
+would destroy the comparison's provenance in the act of building the thing meant to be compared, and
+it passes no `RVSEC_BRANCH`. The build is an explicit `docker build` with a single tag.
+
+No `docker push`. The campaign runs on this host and `experimento-rearch-aperv/docker-compose.yml`
+declares no `pull_policy`, so Compose's default resolves a locally present image without contacting
+the registry. Publishing would buy nothing the campaign uses and would put an unreviewed image under
+a shared name. Task 6.5 still records the image ID: a local image has one, and the ID — not the tag —
+is what the pre-registration pins.
+
 ### D10 — The build stamp is supplied by the build, not resolved from `.git`
 
 D7's check 3 is the load-bearing one, and this change is the moment it stops being safe by accident.

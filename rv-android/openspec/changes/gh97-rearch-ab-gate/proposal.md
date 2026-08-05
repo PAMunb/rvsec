@@ -37,6 +37,17 @@ between the two campaigns therefore measures the rewrite and an intentional subs
 together. The decision rule below resolves this by construction rather than by adjustment after the
 fact, and it is frozen by sha256 before any post-rewrite run starts.
 
+**This is a before/after comparison, not an A/B test.** Leg A is the E3 decisive run of
+2026-08-01/02, frozen and not re-runnable; leg B executes days later, on a different image and a
+different jar. There is no concurrent or randomised assignment of applications to legs — the pairing
+is by application across two campaigns separated in time, and the one confound that matters is
+declared in advance and routed around by the choice of arm (D1), not balanced away by design. The
+change's name reads "ab" for *leg A / leg B*, the vocabulary used throughout these artifacts; it does
+not denote an A/B test, and no claim made here rests on one. The distinction is recorded because the
+name is the only place the abbreviation appears — nothing in this proposal, the design, the specs,
+the pre-registration or the campaign README uses the term — and a reader who inferred randomisation
+from the directory name would credit this gate with a control it does not have.
+
 ## What Changes
 
 - **A campaign directory**, `experimento-rearch-aperv/`, modelled on `experimento-e3-decisiva/` —
