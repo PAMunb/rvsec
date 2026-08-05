@@ -8,6 +8,25 @@
 /apks_mini/
 /results/
 
+# data/: the corpora and everything the campaigns wrote over them — 279 GB, of
+# which data/results/ alone is 275 GB. None of it is versioned, and none of it
+# was ignored either, so `git status` carried ~500 untracked entries and a
+# careless `git add .` would have tried to commit the lot.
+#
+# The heavy paths are named one by one rather than ignoring /data/ wholesale,
+# because the directory is NOT all artifacts: the ~45 *_filters/ directories are
+# small APK selection lists, 29 of them already tracked, and data/apks/ mixes
+# 113 versioned .txt lists in with 169 .apk binaries and their .json siblings.
+# Ignoring the parent would keep the tracked files working (gitignore does not
+# untrack) but would silently swallow the next list someone adds beside them.
+/data/results/
+/data/validacao_full/
+/data/validacao_ajc/
+/data/validacao_ajc_v2/
+/data/compat_dataset/
+/data/apks/*.apk
+/data/apks/*.apk.json
+
 # experimento-gov: heavy run artifacts (raw logcats/tasks.json, instrumented
 # APKs, snapshots). Root /results/ and /out/ rules are anchored to rv-android
 # root and do NOT cover these nested paths, so ignore them explicitly.
