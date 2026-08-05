@@ -257,22 +257,29 @@ second one.
 
 ### D10 — The build stamp is supplied by the build, not resolved from `.git`
 
-D7's check 3 is the load-bearing one, and as written it could not do its job. Measured on 2026-08-05:
-a jar built from the `ape-rearch` worktree at HEAD `0675f67a` stamps `BuildInfo.GIT_SHA = c638142`,
-which is `../ape`'s **master** HEAD. The worktree's `.git` is a file (`gitdir: …/ape/.git/worktrees/
-ape-rearch`), and `git-commit-id-maven-plugin` resolves through it to the common directory and reads
-the main checkout's `HEAD` instead of the worktree's. Four configurations were tried and none
-stamps the worktree: JGit with the default `dotGitDirectory`; JGit with `dotGitDirectory` pointed at
-the worktree gitdir (a hard build failure — *"Could not get HEAD Ref"*); native git with the default;
-and native git with the worktree gitdir. A `-D` on the command line does not help either while the
-plugin runs, because the plugin overwrites the project property after Maven has resolved it.
+D7's check 3 is the load-bearing one, and this change is the moment it stops being safe by accident.
 
-The consequence is worse than a check that fails. The image's Dockerfile clones `phtcosta/ape`
+The defect itself is not new and is not ours to discover: `ape`'s
+`docs/20260803_procedimento_worktree_rearch.md` §2 records it under the heading *"O carimbo de
+proveniência mente dentro da worktree"* — in a linked worktree `.git` is a *file*, and
+`git-commit-id-maven-plugin` normalises that pointer to the main repository's common directory and
+stamps **master**'s HEAD. That investigation checked plugin versions 9.0.1 and 10.0.0 and
+`useNativeGit`, confirmed a control build in an ordinary clone stamps correctly, and concluded
+deliberately that **no pom workaround should be added**. Reproduced here independently on 2026-08-05:
+worktree HEAD `0675f67a` → `BuildInfo.GIT_SHA = c638142`, with `dotGitDirectory` aimed at the worktree
+gitdir failing outright (*"Could not get HEAD Ref"*).
+
+What is new is that the containment argument expires here. The procedure doc could close with *"as
+no worktree jar is deployed, no delivered jar carries the wrong stamp"* — and that held, because
+`mvn install` was never run from the worktree. **Task 6.2 is the first deployment of a
+worktree-built jar**, so from this change onward the premise is false and the stamp reaches a device.
+The consequence is worse than a check that fails: the image's Dockerfile clones `phtcosta/ape`
 unpinned — that is to say, **master** — so a rearch jar stamped with master's revision is not
 distinguishable from the image's own jar by the one field that exists to distinguish them. Check 3
 would go green while blind to exactly the gh71 failure mode it was written for.
 
-So the build supplies the stamp and the plugin stands aside:
+So the build supplies the stamp and the plugin stands aside — at the command line, leaving the pom's
+deliberate silence intact:
 
 ```
 mvn -o package -Dmaven.gitcommitid.skip=true \
@@ -294,11 +301,15 @@ the pre-flight**, before the campaign spends anything. The failure direction is 
 
 *Alternatives considered.* A pom profile activated by the absence of `${basedir}/.git/HEAD` (which
 distinguishes a worktree, whose `.git` is a file, from an ordinary checkout) skipping the plugin and
-resolving the revision through `exec-maven-plugin`: rejected under P1 — a new plugin and a profile in
-the `ape` pom, plus its own artifact on that side, to remove a flag whose omission already fails at
-the gate built to catch it. Redefining check 3 to compare `build.sha` against the stamp recorded at
-build time: rejected — it restores the green light and removes the discrimination, which is the one
-property the check has.
+resolving the revision through `exec-maven-plugin`: rejected under P1, and it would also reverse the
+2026-08-03 decision to keep the workaround out of the pom — a new plugin and a profile on the `ape`
+side, plus its own artifact there, to remove a flag whose omission already fails at the gate built to
+catch it. Redefining check 3 to compare `build.sha` against the stamp recorded at build time:
+rejected — it restores the green light and removes the discrimination, which is the one property the
+check has.
+
+The procedure doc's §2 needs its closing sentence amended when 6.2 runs, since that is the task which
+falsifies it. That is an `ape`-side documentation edit, sequenced with the build.
 
 Note for whoever implements this: the revision is recorded in the campaign manifest and in the
 pre-registration's provenance appendix. It does **not** go back into module source as a literal —
