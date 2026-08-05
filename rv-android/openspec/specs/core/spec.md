@@ -239,7 +239,15 @@ RvErrorLog(BaseValidatedModel):
 
 - **INV-CORE-33**: After commit C1f, no Pydantic model in `rv_android_core.domain` MUST contain a field whose name ends with `_mop`, `_directly_mop`, or equals `mop_methods`. Verified by AST inspection in `tests/domain/test_no_legacy_mop_fields.py` (part of the `G_no_legacy_mop` CI gate scope).
 - **INV-CORE-34**: The `target_reaches_target` member on `WindowTransition` MUST be implemented via the `@property` decorator, not as a stored Pydantic field. Verified by `tests/domain/test_wtg.py` asserting `isinstance(WindowTransition.__dict__['target_reaches_target'], property)`. Storing it as a field would duplicate derivable data (P1 violation).
-- **INV-CORE-37**: WHEN `RV_LOGCAT_DIAGNOSTICS` is unset or `false`, the `adb logcat` command emitted by `LogcatManager.start_capture` MUST be byte-identical to the baseline `-v threadtime -s RVSEC:V RVSEC-COV:V` (with the device serial), and the resulting `.logcat` MUST be unchanged.
+- **INV-CORE-37**: WHEN `RV_LOGCAT_DIAGNOSTICS` is unset or `false`, the `adb logcat` command emitted by `LogcatManager.start_capture` MUST be byte-identical to the baseline `-v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V` (with the device serial). The previous two-tag form is superseded, not retained as an alternative: a capture that omits the heartbeat tag produces a logcat the offline join cannot use.
+
+- **INV-CORE-53**: The heartbeat tag MUST be declared once, as the named constant `TAG_APERV_HEARTBEAT` in `rv_android_core/util/logging/constants.py`, beside `TAG_RVSEC` and `TAG_RVSEC_COV`, and `LogcatManager.default_tags` MUST be built from those three constants rather than from repeated string literals. The value MUST equal the tag the APE-RV jar writes under; a literal duplicated across the two repositories is where that equality would silently drift, and the failure mode of a mismatch is an empty capture rather than an error.
+
+- **INV-CORE-54**: The presence of heartbeat lines in a captured logcat MUST NOT change any value produced by `parse_logcat_file` — not `calculate_metrics()`, not `total_errors`, not `unique_errors`, not any coverage value, and not the diagnostic-event collection.
+
+  This holds for two different reasons, and only one of them was true before this change. On the violation and coverage path it holds by construction: `parse_logcat_line` dispatches on the exact tag field, so a heartbeat line yields neither an error nor a coverage record. On the **diagnostic-event** path it did not hold, and had to be made to: `DiagnosticEventParser` is stateful and assembles a multi-line block, and it closed that block on any line whose tag was not diagnostic — after which the block's remaining lines found an empty buffer and were discarded, losing the exception class, the app stack frame and the frame count. Logcat merges every process into one timestamp-ordered stream, so a crash block is contiguous only in the crashing process's own output and an interleaved line lands inside it. Block assembly therefore MUST treat a line under any non-diagnostic tag as transparent — yielding no event and **not** closing the open block — and MUST close on a diagnostic key change, a new block start, a non-threadtime line (`analysis` INV-ANA-48) or `flush()`.
+
+  The invariant is verified rather than assumed, and the verification MUST exercise the hard case: a fixture in which a heartbeat lands **between two lines of a crash block**, not merely between blocks. An equality asserted over interleavings that cannot reach the stateful path would be green by construction. The defect this uncovered is pre-existing and tag-agnostic — an `RVSEC-COV` line in the same position does identical damage, and that tag has always been in the allowlist — so the heartbeat is not its cause, and the correction protects every consumer of the diagnostic collection rather than only APE-RV runs.
 - **INV-CORE-38**: The diagnostic tag set MUST be *additive* — when enabled, `RVSEC:V` and `RVSEC-COV:V` MUST remain in the filter; the diagnostic tags MUST NOT replace or reorder them.
 - **INV-CORE-39**: Registering any number of `RvDiagnosticEvent`s into `LogcatRepository.diagnostic_events` MUST NOT change `calculate_metrics()` output, `total_errors`, `unique_errors`, or any coverage value; those computations MUST read only `self.classes`, `self.errors`, and `self.unique_errors`.
 - **INV-CORE-40**: `RvErrorLog.to_dict()` MUST include the `source` field. `source` MUST NOT appear in `unique_msg` and MUST NOT participate in `__eq__` or `__hash__`, so adding it cannot change any deduplicated count.
@@ -714,20 +722,70 @@ The Pydantic `field description` strings for renamed fields MUST use the term "t
 
 `LogcatManager` SHALL support an opt-in capture mode that, when enabled via the
 `RV_LOGCAT_DIAGNOSTICS` flag, augments the logcat tag filter with the diagnostic tags
-`AndroidRuntime:E art:E dalvikvm:E ActivityManager:W` in addition to the existing `RVSEC:V RVSEC-COV:V`.
-When the flag is disabled (the default), capture behavior MUST be identical to the current baseline.
-The flag SHALL be exposed as a named constant `ENV_LOGCAT_DIAGNOSTICS = "RV_LOGCAT_DIAGNOSTICS"` in
-`rv_android_core/constants.py`.
+`AndroidRuntime:E art:E dalvikvm:E ActivityManager:W` in addition to the baseline tags
+`RVSEC:V RVSEC-COV:V ApeRvHb:V`. When the flag is disabled (the default), capture behavior MUST be
+the baseline described by INV-CORE-37. The flag SHALL be exposed as a named constant
+`ENV_LOGCAT_DIAGNOSTICS = "RV_LOGCAT_DIAGNOSTICS"` in `rv_android_core/constants.py`.
 
-#### Scenario: Flag off preserves baseline command byte-for-byte
+The baseline is three tags rather than two because the APE-RV step heartbeat must survive the
+device-side filter; see "APE-RV Step Heartbeat Tag in the Capture Allowlist" below for why the tag
+cannot be added at the point of use instead.
+
+#### Scenario: Flag off emits the baseline command byte-for-byte
 - **WHEN** `RV_LOGCAT_DIAGNOSTICS` is unset and `start_capture` is called for serial `emulator-5554`
-- **THEN** the emitted command is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V`
+- **THEN** the emitted command is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`
 - **AND** no diagnostic tag (`AndroidRuntime`, `art`, `dalvikvm`, `ActivityManager`) appears in the filter
 
 #### Scenario: Flag on appends diagnostic tags additively
 - **WHEN** `RV_LOGCAT_DIAGNOSTICS=true` and `start_capture` is called
-- **THEN** the filter contains `RVSEC:V` and `RVSEC-COV:V` unchanged
+- **THEN** the filter contains `RVSEC:V`, `RVSEC-COV:V` and `ApeRvHb:V` unchanged and in that order
 - **AND** the filter additionally contains `AndroidRuntime:E`, `art:E`, `dalvikvm:E`, and `ActivityManager:W`
+
+### Requirement: APE-RV Step Heartbeat Tag in the Capture Allowlist (FR33, FR34)
+
+`LogcatManager.default_tags` SHALL include the APE-RV step heartbeat tag `ApeRvHb`, declared as the
+constant `TAG_APERV_HEARTBEAT` in `rv_android_core/util/logging/constants.py` beside `TAG_RVSEC` and
+`TAG_RVSEC_COV`, and appended after them so the existing two keep their position and order
+(INV-CORE-53).
+
+**Why the allowlist and not the point of use.** Capture is a live stream, not a post-run dump: the
+buffer is cleared at start and `adb logcat -s <tags>` runs for the run's duration, so a tag that is
+not in the filter when capture begins is discarded at the device and cannot be recovered afterwards
+by any consumer. There is no per-tool tag channel — `LogcatComponent` builds the tag list from
+`default_tags` for every task regardless of which tool runs — so adding the tag anywhere narrower
+would mean inventing that channel for one string. The tag emits nothing for tools that do not write
+under it, so the global default costs those runs nothing.
+
+**Why the tag string is not chosen locally.** The jar writes the heartbeat under a fixed tag defined
+by the `ape` change `rearch-04-step-ndjson-telemetry` (design D-6, `Log.i("ApeRvHb", "s=<N> t=<tRelMs>")`).
+The two sides must name the same string, and a mismatch fails silently: capture succeeds, the file
+contains no heartbeat, and the consumer that needed it reports nothing unusual. The constant is
+therefore the single place the string appears on this side, and the tag SHALL fit the device's
+23-character bound on logcat tags.
+
+Heartbeat lines SHALL be inert to every existing consumer of the captured file (INV-CORE-54).
+`parse_logcat_file` dispatches on `RVSEC` and `RVSEC-COV` alone; the heartbeat is neither, so it
+contributes to no coverage value, no violation, and no diagnostic event.
+
+#### Scenario: Heartbeat lines survive the device-side filter
+- **WHEN** an APE-RV run executes 1,603 steps with the heartbeat flag at its jar-side default and capture runs with `default_tags`
+- **THEN** `task.result.logcat_file` SHALL contain 1,603 heartbeat lines under tag `ApeRvHb`
+- **AND** their `s` values SHALL match the step numbers of the trace's `StepRecord` lines
+
+#### Scenario: The tag is declared once
+- **WHEN** the module's tests search the source tree for the literal `"ApeRvHb"`
+- **THEN** it SHALL appear exactly once, as the value of `TAG_APERV_HEARTBEAT`
+- **AND** `LogcatManager.default_tags` SHALL be `[TAG_RVSEC, TAG_RVSEC_COV, TAG_APERV_HEARTBEAT]`
+
+#### Scenario: Heartbeat lines change no parsed value
+- **WHEN** `parse_logcat_file` runs over a captured logcat containing 1,603 heartbeat lines, and again over the same file with those lines removed
+- **THEN** `calculate_metrics()`, `total_errors`, `unique_errors` and every coverage value SHALL be identical between the two runs
+- **AND** the diagnostic-event collection SHALL be identical between the two runs
+
+#### Scenario: A run by a tool that writes no heartbeat is unaffected
+- **WHEN** a `monkey` task runs with the same `default_tags`
+- **THEN** the emitted command SHALL carry `ApeRvHb:V` like every other capture
+- **AND** the captured file SHALL contain no line under that tag, and every downstream value SHALL be what it was before this change
 
 ### Requirement: Diagnostic Event Domain Model (FR33)
 

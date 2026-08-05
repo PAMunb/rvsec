@@ -372,7 +372,11 @@ rv-screen-parser:
 - **INV-ANA-38**: GATOR Jimple definition-resolution helpers (`definitionRhs`, `resolveInt`, `resolveStr`) MUST live in `presto.android.util.JimpleDefUtils` only. `MenuExtractor`, `SpinnerItemExtractor`, and any future consumer MUST call them via the helper class.
 - **INV-ANA-46**: `parse_logcat_line` MUST retain its signature `Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]` and its existing behavior for RVSEC/RVSEC-COV lines, with one stated exception: RVSEC lines whose `class`/`method` fields are in frame form now yield normalized values. The golden output MUST be byte-identical to baseline for every line that does not carry a frame-form value; for the lines that do, the golden baseline is re-frozen and the diff MUST be confined to the `class_full_name`, `method` and `source` fields of those lines.
 - **INV-ANA-47**: Tag recognition MUST match the parsed threadtime *tag field*, never a substring of the message; a `RVSEC-COV` line whose message contains `isAndroidRuntime()` MUST NOT produce a diagnostic event.
-- **INV-ANA-48**: A multi-line crash block sharing one `(tag, pid, tid)` MUST yield exactly one `RvDiagnosticEvent`; lines that do not match the threadtime regex (e.g. `--------- beginning of crash`) MUST be skipped without error.
+- **INV-ANA-48**: A multi-line crash block sharing one `(tag, pid, tid)` MUST yield exactly one `RvDiagnosticEvent`; lines that do not match the threadtime regex (e.g. `--------- beginning of crash`) MUST be skipped without error. Such a line remains a real boundary and still closes an open block: unlike a foreign-tag line, it is written by logcat itself to mark a discontinuity, not by another process that merely happened to log.
+
+- **INV-ANA-56**: A logcat line whose parsed tag field is not a diagnostic tag MUST be transparent to diagnostic block assembly. It MUST yield no event and MUST NOT close an open block. Logcat merges every process into one timestamp-ordered stream, so a line under a foreign tag arriving between two lines of a block is the expected case and carries no information about whether that block has ended. Closing on it truncates the event at the interleaving point and discards its remaining lines, and both losses are silent.
+
+- **INV-ANA-57**: A caller driving the parser directly MUST call `flush()` at end of input. With foreign-tag lines transparent, a block is closed by a diagnostic key change, a new block start, a non-threadtime line, or `flush()` — so a block at the end of the input is emitted only by the flush. `parse_logcat_file` flushes internally; `CoverageTracker` flushes after its final drain, in that order, so a block completed by the drained lines is emitted rather than discarded.
 - **INV-ANA-49**: For every entry registered by `parse_logcat_file` when `tool_execution_start` is non-`None` and the entry has a parseable `time_occurred`, `time_since_task_start` MUST equal `max(0, int((time_occurred − tool_execution_start).total_seconds()))` — identical to the live `CoverageTracker._process_line` arithmetic, including the clamp to zero for entries buffered from before tool start. When `tool_execution_start` is `None`, `time_since_task_start` MUST remain `0` and the degraded state MUST be logged; no component may substitute a fabricated value for it downstream.
 - **INV-ANA-50**: `parse_logcat_line` MUST NOT return an `RvErrorLog` whose `class_full_name` or `method` ends with a `(<file>:<line>)` group. Any such value present in the emitted message MUST be normalized before the record is constructed.
 - **INV-ANA-51**: Normalization MUST be idempotent and MUST be a no-op on well-formed values: for any value `v` that does not end with a `(<file>:<line>)` group, `normalize(v) == v` byte-for-byte, and for any value at all, `normalize(normalize(v)) == normalize(v)`.
@@ -1335,11 +1339,22 @@ The optimization addresses the dominant pre-WTG cost without changing output, so
 ### Requirement: Stateful Diagnostic Event Parsing (FR12, FR13)
 
 The analysis domain SHALL provide a stateful `DiagnosticEventParser` that assembles diagnostic events
-from logcat lines while leaving `parse_logcat_line` (RVSEC/RVSEC-COV) unchanged. It SHALL group
-consecutive lines of identical `(tag, pid, tid)` into one event, close the event when the key changes or
-a non-continuation line appears, and emit any buffered event on `flush()` at end of input. Both
-`parse_logcat_file` and `CoverageTracker` SHALL feed every line to a `DiagnosticEventParser` and register
-emitted events via `LogcatRepository.register_diagnostic_event`.
+from logcat lines while leaving `parse_logcat_line` (RVSEC/RVSEC-COV) unchanged. It SHALL group lines
+sharing one `(tag, pid, tid)` into one event.
+
+An open block SHALL be closed when, and only when, one of the following occurs: a diagnostic line
+arrives whose `(tag, pid, tid)` key differs from the open block's; a diagnostic line arrives that
+starts a new event; a line arrives that does not match the threadtime format (INV-ANA-48); or
+`flush()` is called at end of input.
+
+A line under any tag outside the diagnostic set — `RVSEC`, `RVSEC-COV`, `ApeRvHb`, or any other —
+SHALL NOT close an open block and SHALL produce no event (INV-ANA-56). Lines between the block's own
+lines come from other processes sharing the stream and say nothing about whether the block has ended.
+
+Both `parse_logcat_file` and `CoverageTracker` SHALL feed every line to a `DiagnosticEventParser` and
+register emitted events via `LogcatRepository.register_diagnostic_event`. Diagnostic events SHALL
+remain isolated in their own repository collection and SHALL enter no coverage, MOP or violation
+metric.
 
 #### Scenario: Multi-line AndroidRuntime FATAL assembled into one crash event
 - **WHEN** the input contains `E AndroidRuntime: FATAL EXCEPTION: main`, then
@@ -1350,10 +1365,35 @@ emitted events via `LogcatRepository.register_diagnostic_event`.
   `exception_class="java.lang.NullPointerException"`, `process="br.unb.cic.cryptoapp"`
 - **AND** `n_frames` equals the number of `\tat` frames and `stack_head` is the first frame
 
-#### Scenario: Event closes on tag/pid change and flush at EOF
-- **WHEN** a crash block is immediately followed by an `RVSEC-COV` line, then input ends
-- **THEN** the crash event is closed when the `(tag,pid,tid)` key changes
-- **AND** `flush()` at EOF emits any still-buffered event so nothing is lost
+#### Scenario: A foreign-tag line inside a crash block does not truncate it
+- **WHEN** a crash block's `FATAL EXCEPTION`, `Process:` and exception lines are followed by an
+  `I RVSEC-COV: <com.x.A: void m()>` line from pid `9000`, and then by the block's own
+  `E AndroidRuntime: \tat com.x.A.m(A.java:1)` frame from pid `7071`
+- **THEN** the `RVSEC-COV` line SHALL produce no diagnostic event and SHALL leave the block open
+- **AND** the frame following it SHALL still belong to that block
+- **AND** the emitted event SHALL carry `class_full_name` set, `n_frames` counting the frame that
+  followed the interleaved line, and `stack_head` naming it
+- **AND** the foreign line's text SHALL NOT appear in the event's `original_msg`
+
+#### Scenario: Event closes on a diagnostic key change and flush at EOF
+- **WHEN** a crash block from pid `7071` is followed by a `FATAL EXCEPTION` line from pid `8080`,
+  then input ends
+- **THEN** the first block SHALL be emitted when the second one starts
+- **AND** `flush()` at EOF SHALL emit the second block, so nothing is lost
+
+#### Scenario: A separator line still closes the block
+- **WHEN** an open crash block is followed by the non-threadtime line
+  `--------- beginning of crash`
+- **THEN** the block SHALL be closed and the separator SHALL be skipped without error (INV-ANA-48)
+- **AND** the separator SHALL NOT appear in the event's `original_msg`
+
+#### Scenario: A trailing block requires the caller's flush
+- **WHEN** a caller feeds a crash block that is still open when the input ends and does not call
+  `flush()`
+- **THEN** no event is emitted for that block (INV-ANA-57)
+- **AND** `parse_logcat_file` SHALL NOT exhibit this, because it flushes internally
+- **AND** `CoverageTracker` SHALL NOT exhibit this, because it drains the unread tail and then
+  flushes, in that order
 
 #### Scenario: VerifyError at class load
 - **WHEN** the input contains `E art: Rejecting class com.foo.Bar ... Verification error`

@@ -191,7 +191,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 - **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` MUST NOT be changed by the diagnostic-events feature — every diagnostic field belongs to `app_events.csv` alone. `errors.csv` carries exactly `apk, rep, timeout, tool, time, spec, class, method, source, message, unique_msg`; the `source` column is gh89's and is the only addition since the baseline. `coverage.csv` and `summary.csv` remain byte-identical to baseline.
 - **INV-PLT-20**: Diagnostic events MUST survive the resume reconstruction path — a task whose repository is rebuilt from its `.logcat` MUST still produce its `app_events.csv` rows.
-- **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set (no diagnostic tags passed).
+- **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set and no diagnostic tags. The baseline tag set is `LogcatManager.default_tags` — `RVSEC`, `RVSEC-COV` and `ApeRvHb` — and the emitted command is `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V` (core INV-CORE-37). The component MUST NOT filter, reorder or subset `default_tags`: the baseline is defined in one place, and a platform-side copy of the list would be a second place for it to drift.
 
 - **INV-PLT-22**: The `rv-platform run --timeouts` argument MUST be declared as a string and parsed into `List[int]` with the same rules as the rv-experiment CLI (comma split, whitespace trim, positive integers only, order preserved, no deduplication). Invalid input MUST abort with a CLI usage error before `PlatformConfig` construction.
 - **INV-PLT-23**: `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data, tool_execution_start=task.result.tool_execution_start)` whenever `task.result.tool_execution_start` is non-`None`, so reconstructed repositories carry the same `time_since_task_start` values the live `CoverageTracker` would have produced (analysis INV-ANA-49). When it is `None`, the component MUST log a warning for that task and proceed; the zeros in the output are then an explicit degraded state, not silent corruption.
@@ -575,7 +575,7 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 
 ### Requirement: Logcat Capture (FR11)
 
-The platform MUST capture Android logcat output during task execution via `LogcatComponent`. Logcat capture runs as a background process that writes raw logcat output to a file on disk. The captured output contains two categories of data relevant to the framework: method coverage events (tagged `RVSEC-COV`) and specification violation events (tagged `RVSEC`). Parsing of this data is handled by `CoverageComponent` via rv-coverage's `CoverageTracker`.
+The platform MUST capture Android logcat output during task execution via `LogcatComponent`. Logcat capture runs as a background process that writes raw logcat output to a file on disk. The captured output contains three categories of data relevant to the framework: method coverage events (tagged `RVSEC-COV`), specification violation events (tagged `RVSEC`), and — for APE-RV tasks from the stage-4 jar onward — one step heartbeat line per exploration step (tagged `ApeRvHb`). Parsing of the first two is handled by `CoverageComponent` via rv-coverage's `CoverageTracker`; the third is consumed offline by `aperv-tool`'s clock-to-violation join and is inert to the coverage path (core INV-CORE-54).
 
 `LogcatComponent` delegates to `LogcatManager` (from rv-android-core) for starting and stopping the capture process. The component supports device-specific capture through `device_serial`, which is extracted from `task.config.tool_config.parameters` to support parallel execution on different emulator instances.
 
@@ -605,6 +605,12 @@ Logcat capture starts after the emulator is running and the APK is installed, an
 - **WHEN** `stop_capture()` is called and `LogcatManager.stop_capture()` raises an exception
 - **THEN** the error MUST be logged as a warning
 - **AND** the exception MUST NOT propagate (cleanup is non-critical)
+
+#### Scenario: Heartbeat lines reach the captured file
+
+- **WHEN** an `aperv` task completes and its jar wrote one heartbeat line per step
+- **THEN** `task.result.logcat_file` MUST contain those lines under tag `ApeRvHb`
+- **AND** every coverage and violation value derived from that file MUST be what it would have been without them
 
 ### Requirement: Result Generation (FR14)
 
@@ -764,15 +770,19 @@ value, and no row index or counter is ever substituted (INV-PLT-24).
 
 The platform SHALL thread the `RV_LOGCAT_DIAGNOSTICS` setting from `PlatformConfig` into
 `LogcatComponent`, which SHALL pass the augmented tag set to `LogcatManager.start_capture` only when
-diagnostics are enabled. When disabled, capture SHALL use the baseline tags.
+diagnostics are enabled. When disabled, capture SHALL use the baseline tags — `default_tags` as
+`LogcatManager` defines them, passed through without filtering, reordering or subsetting
+(INV-PLT-21).
 
 #### Scenario: Enabled flag augments capture
 - **WHEN** `PlatformConfig.logcat_diagnostics` is `true`
 - **THEN** `LogcatComponent` calls `start_capture(tags=default_tags + ["AndroidRuntime:E","art:E","dalvikvm:E","ActivityManager:W"])`
+- **AND** the resulting filter carries `RVSEC:V`, `RVSEC-COV:V` and `ApeRvHb:V` first, in that order
 
 #### Scenario: Disabled flag uses baseline capture
 - **WHEN** `PlatformConfig.logcat_diagnostics` is `false` (default)
-- **THEN** `LogcatComponent` starts capture without passing diagnostic tags (baseline command emitted)
+- **THEN** `LogcatComponent` starts capture without passing diagnostic tags
+- **AND** the emitted command is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`
 
 ### Requirement: Standalone CLI Timeout List (FR08)
 
