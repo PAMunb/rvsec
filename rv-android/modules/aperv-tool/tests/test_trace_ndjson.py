@@ -289,6 +289,44 @@ class TestDiagnostics:
         assert reader.diagnostics.malformed == 1
         assert all(row.state_key for row in rows)
 
+    @pytest.mark.parametrize(
+        "damaged",
+        [
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other","cf":"wrong"}',
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other","cf":[1,2]}',
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"},"llm":["wrong"]',
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"},"llm":[7]',
+        ],
+        ids=["cf_is_str", "cf_is_list", "llm_entry_is_str", "llm_entry_is_int"],
+    )
+    def test_a_wrongly_shaped_section_is_malformed_not_an_abort(
+        self, tmp_path, damaged
+    ):
+        """A `cf` or `llm[]` entry that is not an object joins the malformed count.
+
+        These two are the sections read through `.get()` without the record having said
+        they are objects, so a damaged one would raise `AttributeError` rather than
+        the `TypeError` the envelope catches. The whole read is a generator consumed
+        inside `join_tree`, so an escape here would abort the join of every run in
+        the tree over one damaged record — the opposite of INV-APV-50, and exactly
+        the schema drift the malformed path exists to absorb.
+        """
+        trace = tmp_path / "damaged.ndjson"
+        trace.write_text(
+            '{"type":"ACT","id":17,"name":"com.foo/.Main","mop":1}\n'
+            '{"type":"STATE","id":231,"key":"S1","act":17}\n'
+            '{"s":1,"t":10,"act":17,"st":231,' + damaged + "}\n"
+            '{"s":2,"t":20,"act":17,"st":231,'
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(trace)
+        rows = list(reader)
+
+        assert [row.step for row in rows] == [2]
+        assert reader.diagnostics.malformed == 1
+
     def test_undefined_outcome_target_is_malformed(self, tmp_path):
         """The same rule applies to the outcome-side two-hop lookup."""
         trace = tmp_path / "undefined_target.ndjson"

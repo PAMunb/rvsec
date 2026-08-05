@@ -424,7 +424,14 @@ def _without_type(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _parse_llm_call(entry: Dict[str, Any]) -> LlmCall:
-    """Build one `LlmCall` from an `llm[]` entry, keeping absent fields absent."""
+    """Build one `LlmCall` from an `llm[]` entry, keeping absent fields absent.
+
+    Raises `TypeError` when the entry is not an object, so a damaged record joins
+    the malformed count instead of aborting the read (INV-APV-50). The list itself
+    is checked by the caller; this is the per-entry half of the same rule.
+    """
+    if not isinstance(entry, dict):
+        raise TypeError("llm entry is not an object")
     return LlmCall(
         call=entry.get("call"),
         mode=entry.get("mode"),
@@ -779,6 +786,8 @@ class TraceReader:
         counterfactual = None
         if "cf" in dec:
             cf = dec["cf"]
+            if not isinstance(cf, dict):
+                raise TypeError("cf is not an object")
             counterfactual = Counterfactual(
                 changed=bool(cf.get("changed", 0)), action=cf.get("a")
             )

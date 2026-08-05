@@ -282,6 +282,16 @@ def _read_heartbeats(logcat_path: Path) -> list[Heartbeat]:
     tag is discarded before capture and this function legitimately returns an
     empty list. That is reported as `UNALIGNED`, never papered over.
 
+    **The series is assumed to belong to one run**, which is what makes file order
+    chronological and step numbers monotonic. `LogcatManager` clears the buffer at
+    capture start, so the assumption holds on the standard path. It is not checked
+    here: a file holding a previous run's heartbeats as well would restart the step
+    numbering partway through, and placement would attribute violations to that
+    run's step numbers while resolving activity and state from this run's rows.
+    The equivalent hazard on the violation side is handled by reporting distance
+    rather than a verdict (see the module docstring); the heartbeat side has no
+    such defence, and adding one would change which runs report as `UNALIGNED`.
+
     Args:
         logcat_path: Recorded `.logcat` file. Not written to.
 
@@ -387,10 +397,13 @@ def _place(
         return Phase.POST_EXPLORATION, None, heartbeats[-1]
     # Last heartbeat at or before the violation. Linear from the end: violations
     # cluster early, but runs are a few hundred steps, so this stays trivial.
+    # The loop always returns: the two guards above leave the stamp inside the
+    # window, so the final candidate, `heartbeats[0]`, satisfies the condition by
+    # construction. A fallback return after it would be unreachable, and would
+    # answer PRE_EXPLORATION for a stamp already proven not to be before the run.
     for heartbeat in reversed(heartbeats):
         if heartbeat[0] <= stamp:
             return Phase.EXPLORATION, heartbeat[1], heartbeat
-    return Phase.PRE_EXPLORATION, None, heartbeats[0]
 
 
 def _parse_payload(payload: str) -> tuple[str, str, str]:

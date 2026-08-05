@@ -18,7 +18,7 @@ uv run rv-experiment run --tools aperv:sata_mop --specification-set jca   # MOP-
 | `src/aperv_tool/tools/aperv/derive_mop_artifact.py` | **Single authority** for the MOP substrate's parse-time semantics (gh96). `derive(document) -> dict` + `serialize_canonical(artifact) -> bytes`, both pure |
 | `src/aperv_tool/analysis/trace_ndjson.py` | Native streaming reader of the stage-4 NDJSON trace (gh94). Resolves the `ACT`/`STATE` dictionaries, materializes omitted defaults, re-derives `activity_has_mop` on both sides, expands the run-relative clock through `RUN_START.t0`, and yields one row per step with `dec`/`llm[]`/`out` joined. Read-only; never in the run path |
 | `src/aperv_tool/analysis/coverage_dump.py` | Offline parser of the jar's `UICOV` / `UICOV-ACT` coverage dump (gh90 O3). Never in the run path. **Unaffected by stage 4**: it reads only the `UICOV` lines, which the NDJSON change does not touch |
-| `src/aperv_tool/analysis/clock_logcat_join.py` | Offline join of a run's step clock against its `RVSEC` violation lines (gh90 A9), reading steps through `trace_ndjson.py`. Never in the run path |
+| `src/aperv_tool/analysis/clock_logcat_join.py` | Offline placement of a run's `RVSEC` violation lines on its exploration timeline (gh90 A9). Both series come out of the same logcat: a violation belongs to the step of the last `ApeRvHb` heartbeat at or before it, so the two stamps carry identical unknowns (no year, no zone) that cancel in the difference. `trace_ndjson.py` supplies what the logcat cannot — the matched step's activity and abstract state, and `RUN_START.t0` as the only absolute clock. Holds no clock reconstruction of any kind. Never in the run path |
 | `src/aperv_tool/tools/aperv/ape-rv.jar` | APE-RV binary (gitignored); pushed to `/data/local/tmp/ape-rv.jar` |
 | `src/aperv_tool/tools/aperv/system-broadcast.json` | System broadcast intent catalog for component triggering |
 | `tests/test_aperv_tool.py` | Tool spec, variants, configure validation, JAR search paths, command building, empty-trace detection, properties generation, artifact derivation/caching, the `.mop.json` audit |
@@ -118,17 +118,21 @@ family (so the carve-out is protecting something rather than nothing).
 the `[APE-RV] UICOV` / `UICOV-ACT` dump, which stage 4 does not modify, and it
 keeps reading it unchanged from a stage-4 trace.
 
-**A consequence worth stating, because it looks like a bug and is not.** Every
-trace recorded before stage 4 is legacy format, so `clock_logcat_join.py` now
-reports zero steps for those runs and their violations come back `UNALIGNED`.
-The runs stay in the report with their denominators — the violation series comes
-from the logcat, which stage 4 does not change — and no format sniffer or
-fallback branch is to be added.
+**Two routes to `UNALIGNED`, both of which look like a bug and are not.**
+`clock_logcat_join.py` places a violation against the heartbeat series in the
+run's logcat, so a run whose logcat carries no `ApeRvHb` line has nothing to
+place against and every violation in it comes back `UNALIGNED`. That is the
+case for a run recorded before stage 4 — its jar emitted no heartbeat, and its
+legacy-format trace additionally reports zero steps through the NDJSON reader —
+and equally for a stage-4 run whose capture allowlist omitted the tag or that
+died before its first step. Either way the run stays in the report with its
+denominator, since the violation series comes from the logcat and is unaffected,
+and no format sniffer or fallback branch is to be added.
 
 ## Gotchas
 
 - `ape-rv.jar` is gitignored. The Docker image builds it at image-build time (`docker/rvandroid/Dockerfile` clones `https://github.com/phtcosta/ape.git`, `mvn package`, copies `target/ape-rv.jar` into the module dir = priority-1 path). Standalone runs must build/place it manually, or `_resolve_jar_path()` raises `RVToolExecutionError`.
-- **The jar must postdate stage 2 of the APE-RV re-architecture, or every arm silently collapses to jar defaults.** Arms are `preset + overrides`, so the properties file leads with `ape.preset=<name>` and carries only the deltas. A jar built before `rearch-02-runspec` has no `Presets`/`KeyOwnership` resolution: it treats `ape.preset` as an unknown key and ignores it, and the keys the preset would have supplied are simply absent from the file — so the run executes on `Config` defaults while the results directory still carries the arm's name. The jar installed in this module is dated 2026-07-31 and predates it; rebuild from branch `rearch` before any campaign runs these arms. This is a deployment precondition, not something the tool can detect: nothing is read back from the jar (INV-APV-43).
+- **The jar must postdate stage 2 of the APE-RV re-architecture, or every arm silently collapses to jar defaults.** Arms are `preset + overrides`, so the properties file leads with `ape.preset=<name>` and carries only the deltas. A jar built before `rearch-02-runspec` has no `Presets`/`KeyOwnership` resolution: it treats `ape.preset` as an unknown key and ignores it, and the keys the preset would have supplied are simply absent from the file — so the run executes on `Config` defaults while the results directory still carries the arm's name. The jar installed here satisfies the precondition: a stage-4 build, sha256 `5cebabc54a5202ba216731661bd5a8d2cb291a1632d5ba6844f364af6477b657`. Identify a jar by unzipping it and running `strings -a classes.dex` — a stage-4 build carries `ApeRvHb`, `NdjsonSink` and `RUN_START`, and no `APE-STEP`. **Do not identify it by its `build.sha` stamp**: `git-commit-id-maven-plugin` cannot read a worktree HEAD, so a jar built from a worktree is stamped with `../ape`'s master commit (here `c638142`) instead of the commit it was actually built from. This is a deployment precondition, not something the tool can detect: nothing is read back from the jar (INV-APV-43).
 - The `+45s` grace on the command timeout lets APE-RV flush its WTG model and emit the coverage dump before the process is killed. The value is a hypothesis about censored teardown durations, not a measurement: among iter0 runs whose teardown completed, the overrun reaches 12,991 ms with 32 runs stacked against the previous 15 s ceiling and none beyond it.
 - Empty (0-byte) trace file = silent startup crash; logged as a warning, not an error (coverage may still come from logcat).
 - Static-analysis JSON for MOP variants must exist at `<task.results_dir>/<apk_name>.json`. If it is missing, the task **fails** — a MOP arm that cannot arm used to warn and run as pure SATA under a MOP label, which is indistinguishable from a real MOP arm in the results directory.
