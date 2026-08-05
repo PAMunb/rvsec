@@ -40,6 +40,28 @@ from .retirements import KIND_NAME_CONSOLIDATED, RETIREMENTS
 # check vacuous — an empty baseline diffs empty against everything.
 BASELINE_ARM_COUNT = 29
 
+# Keys the jar retired after the baseline was captured, each with the reason it went.
+#
+# The baseline is a historical document: it records what the pre-change arms resolved to
+# against the vocabulary of that day, and it is deliberately never recaptured, because a
+# baseline regenerated from the migrated code would compare the code against itself. So when
+# the jar deletes a key, the regenerated side legitimately stops carrying it while the
+# baseline still does, and that gap is not migration drift.
+#
+# Listed, never inferred, on the same principle as the arm retirements: excluding a named key
+# with a recorded reason is a decision, whereas ignoring every key that vanished would hide an
+# arm quietly losing a setting it should still have. `TestJarRetiredKeys` below proves each
+# entry is still earning its place.
+KEYS_RETIRED_BY_THE_JAR = {
+    "ape.stepTelemetryEnabled": (
+        "Feature.STEP_TELEMETRY was deleted outright, not merely its activation key: "
+        "membership of that enum is what makes a mechanism expressible by an arm, and the "
+        "event sink is an instrument every arm carries alike (event-sink INV-SNK-07, "
+        "Telemetry Neutrality). The Python side dropped the key first and the jar then "
+        "refused it, the ordering gh93 established for ape.apePureMode"
+    ),
+}
+
 
 @pytest.fixture(scope="session")
 def baseline() -> Dict[str, Any]:
@@ -91,10 +113,16 @@ def regenerate(
 
 
 def diff(expected: Dict[str, Any], actual: Dict[str, Any]) -> Dict[str, Any]:
-    """Per-key `{key: (baseline, regenerated)}` for everything that moved."""
+    """Per-key `{key: (baseline, regenerated)}` for everything that moved.
+
+    Keys the jar has since retired are excluded by name: the baseline records them because it
+    predates their removal, and their absence from the regenerated plan is the jar's decision
+    rather than this migration's drift.
+    """
+    keys = (set(expected) | set(actual)) - set(KEYS_RETIRED_BY_THE_JAR)
     return {
         key: (expected.get(key, "<absent>"), actual.get(key, "<absent>"))
-        for key in set(expected) | set(actual)
+        for key in keys
         if expected.get(key, "<absent>") != actual.get(key, "<absent>")
     }
 
@@ -118,6 +146,29 @@ class TestBaselineIntegrity:
         assert len(RETIREMENTS) == 21
         unknown = set(RETIREMENTS) - set(baseline)
         assert not unknown, f"retired names absent from the baseline: {unknown}"
+
+
+class TestJarRetiredKeys:
+    """An exclusion is only as trustworthy as the check that it is still deserved."""
+
+    @pytest.mark.parametrize("key", sorted(KEYS_RETIRED_BY_THE_JAR))
+    def test_the_jar_really_rejects_it(self, key, key_specs):
+        # If the jar ever accepts the key again, the exclusion stops being a record of a
+        # retirement and becomes a blind spot hiding a real difference.
+        assert key not in key_specs
+
+    @pytest.mark.parametrize("key", sorted(KEYS_RETIRED_BY_THE_JAR))
+    def test_the_mapping_no_longer_carries_it(self, key):
+        # Under stage-2 resolution an unknown key aborts the run before step 1, so a key
+        # excluded here while still mapped would fail every arm on a device while the diff
+        # stayed green — the one combination that must not be reachable.
+        assert key not in set(APERV_PROPERTY_MAPPING.values())
+
+    @pytest.mark.parametrize("key", sorted(KEYS_RETIRED_BY_THE_JAR))
+    def test_the_baseline_actually_carried_it(self, key, baseline):
+        # A key no baseline arm ever had needs no exclusion; the entry would be dead text
+        # that outlives what it documents.
+        assert any(key in entry["config"] for entry in baseline.values())
 
 
 class TestRegenerationDiff:

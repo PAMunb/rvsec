@@ -2,9 +2,17 @@
 
 A fixture would pin the parser to a snapshot of the Java and pass forever after the real
 file moved — which is precisely the failure mode the migration check exists to catch. These
-tests assert the shapes the design derived from the stage-2 tables (four presets sized
-18/22/25/29, 111 accepted keys, `ape.mopWeightActivity` retired), so a drift on the ape side
-surfaces here rather than as a silent empty diff downstream.
+tests assert the shapes read off the jar's tables (four presets sized 17/21/24/28, 112
+accepted keys, `ape.mopWeightActivity` retired), so a drift on the ape side surfaces here
+rather than as a silent empty diff downstream.
+
+The counts are pinned, so moving one is a decision. `ape.stepTelemetryEnabled` is absent from
+the vocabulary and from all four vectors because the jar deleted `Feature.STEP_TELEMETRY`
+outright: the event sink is an instrument every arm carries alike, not an optional mechanism
+an arm can switch off, so there is no such setting to express. Its two sub-parameters,
+`ape.llmPromptDump` and `ape.telemetryHeartbeat`, are accepted as BASE keys — levers over
+what the trace carries, never over what the run decides — which is why the vocabulary grows
+by two while every preset shrinks by one.
 """
 
 import pytest
@@ -17,10 +25,10 @@ from .jar_tables import (
     source_provenance,
 )
 
-# The vector sizes the design read off Presets.java: aperv is the 17 arm-defining flags plus
-# the campaign throttle; mop adds the four scoring weights; llm adds the seven-key sampling
+# The vector sizes read off Presets.java: aperv is the 16 arm-defining flags plus the
+# campaign throttle; mop adds the four scoring weights; llm adds the seven-key sampling
 # block; llm_mop carries both.
-EXPECTED_PRESET_SIZES = {"aperv": 18, "mop": 22, "llm": 25, "llm_mop": 29}
+EXPECTED_PRESET_SIZES = {"aperv": 17, "mop": 21, "llm": 24, "llm_mop": 28}
 
 
 class TestPresets:
@@ -58,7 +66,19 @@ class TestPresets:
 
 class TestKeySpecs:
     def test_accepted_vocabulary_size(self, ape_repo):
-        assert len(load_key_specs(ape_repo)) == 111
+        assert len(load_key_specs(ape_repo)) == 112
+
+    def test_telemetry_is_not_a_setting_an_arm_can_express(self, ape_repo):
+        # The counterpart of the key's removal from APERV_PROPERTY_MAPPING. Telemetry
+        # neutrality is the property that every arm's trace is produced by the same
+        # instrument; it holds because there is no key to state, not because no arm states
+        # one. The two levers over trace *content* survive, and are what makes the pair
+        # reachable at all — a key owned by a deleted feature would be unreachable rather
+        # than removed.
+        specs = load_key_specs(ape_repo)
+        assert "ape.stepTelemetryEnabled" not in specs
+        assert "ape.llmPromptDump" in specs
+        assert "ape.telemetryHeartbeat" in specs
 
     def test_types_and_defaults_are_read_not_guessed(self, ape_repo):
         specs = load_key_specs(ape_repo)

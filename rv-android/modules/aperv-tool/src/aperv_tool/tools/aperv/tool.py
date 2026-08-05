@@ -150,7 +150,6 @@ APERV_PROPERTY_MAPPING = {
     "heuristic_input": "ape.heuristicInput",
     "fuzz_input_typed": "ape.fuzzInputTyped",
     "form_completion_enabled": "ape.formCompletionEnabled",
-    "step_telemetry_enabled": "ape.stepTelemetryEnabled",
     "model_menu_enabled": "ape.modelMenuEnabled",
     "least_visited_priority_tiebreak": "ape.leastVisitedPriorityTiebreak",
     "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
