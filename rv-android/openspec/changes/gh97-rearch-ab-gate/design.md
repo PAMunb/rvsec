@@ -455,6 +455,29 @@ JSON object line from stage 2 onward, so the pre-flight does **not** depend on `
 - **The chain is long and every link is a precondition.** `gh94` applied, `gh95` applied, `ape` stages
   3–7 complete, jar copied, image built and pushed. → Encoded as task ordering, not as prose.
 
+- **G3 cannot show uniform displacement, because the substrate is structurally absent over most of
+  the corpus.** Measured 2026-08-05 by deriving the artifact host-side with
+  `derive_mop_artifact.derive()` over the 40 `.apk.json` of `calibracao/subset40.txt`: `flagged > 0`
+  holds for **8 of 40**, `wtg > 0` for **15 of 40**, and all three of `flagged`/`wtg`/`mopActivities`
+  together for only **4 of 40**. The two applications carrying the most flagged widgets in the whole
+  corpus — `com.beemdevelopment.aegis_81` at 50 and `de.blau.android_3404` at 42 — have an empty WTG.
+  This is a property of the corpus, not of the jar, and it is the same phenomenon already recorded
+  for Compose applications: the jar's static→runtime join is by `resource-id`, which a Compose node
+  does not have. → **This changes nothing about the plan and must not be allowed to.** It was
+  measured *after* the 2026-08-04 freeze, so it cannot enter the pre-registration's declared
+  premises, and the campaign still measures all 40 under the frozen plan. What it governs is
+  *reading*: G3 reports monitored-operation levels beside the expected displacement, and a reader who
+  expected that displacement to appear across the 40 would be expecting what 36 of them cannot
+  produce. Task 10.3 names it as an observation made after the freeze, which is exactly the label
+  that separates it from a planned analysis.
+
+  The operational corollary cost one smoke and is worth stating plainly: **`cov_mop` does not
+  identify an application that exercises the guidance.** It is read from the RVSEC markers in the
+  logcat and does not depend on the guidance artifact at all, so an application can post a high
+  `cov_mop` with an entirely empty MOP artifact — which is what the first smoke selection did, and
+  what the tool reported as `flagged=0/0 widgets, mopActivities=0`. Selecting for the guidance means
+  deriving the artifact and requiring the three quantities to be simultaneously positive.
+
 ## Testing Strategy
 
 | Layer | What to test | How | Count |

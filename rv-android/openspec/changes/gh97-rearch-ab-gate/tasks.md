@@ -134,7 +134,7 @@
 
 - [ ] 10.1 Run `scripts/compare.py` and produce the report: G1, G2 and G3 with point estimates and CIs for every outcome, including the ones that do not gate.
 - [ ] 10.2 Write the result document — whatever it says, including a tie, with its CIs and the declared premises restated. A tie is a valid and useful outcome.
-- [ ] 10.3 List every analysis that was not in the frozen plan and label it exploratory.
+- [ ] 10.3 List every analysis that was not in the frozen plan and label it exploratory. **One entry is already owed and is not an analysis but an observation**, so it is named here rather than discovered at write-up time: the monitored-operation substrate is structurally absent over most of the corpus — `flagged > 0` in 8 of 40 applications, `wtg > 0` in 15 of 40, and all three of `flagged`/`wtg`/`mopActivities` together in only 4 of 40, with the corpus's two most-flagged applications carrying an empty WTG. It was measured on 2026-08-05, **after** the 2026-08-04 freeze, so it is reported under this task rather than folded into the pre-registration's declared premises, and it modifies no margin, arm or decision rule. It belongs here because G3 reports displacement and 36 of the 40 applications cannot produce any, which a reader would otherwise take for a null result of the rewrite rather than an absence in the substrate.
 - [ ] 10.4 Record the merge verdict for the `rearch` line, and a `DECIDE` entry in `calibracao/journal.jsonl`.
 - [ ] 10.5 Run `/rv-qa-lint-fix aperv-tool`
 - [ ] 10.6 Run `/rv-verify aperv-tool`
