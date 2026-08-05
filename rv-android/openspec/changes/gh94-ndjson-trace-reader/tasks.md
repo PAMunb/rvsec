@@ -55,7 +55,7 @@
      The assistant never starts, stops or manages an emulator, in any context. Blocked on Group 1
      landing AND on a stage-4 jar being deployable. -->
 
-- [ ] 4.1 With Group 1 merged and a stage-4 `ape-rv.jar` in place, run one short `aperv` task via `uv run rv-experiment run` and grep the resulting `task.result.logcat_file` for tag `ApeRvHb`
+- [ ] 4.1 With Group 1 merged and a stage-4 `ape-rv.jar` in place, run one short `aperv` task via `uv run rv-experiment run` and grep the resulting `task.result.logcat_file` for tag `ApeRvHb`. **This is not a separate device execution — it is `gh97-rearch-ab-gate`'s smoke (owner decision 2026-08-05: the APE-RV side executes once, there).** The two preconditions are that change's tasks: the stage-4 jar is deployed by its 6.2, and the harvest is its 7.2b, which greps the same `logcat_file` per arm. What is owed here is 4.2's record, not a run of one's own
 - [ ] 4.2 Record the evidence in `openspec/changes/gh94-ndjson-trace-reader/heartbeat-evidence.md`: the run identity, the observed heartbeat line count, and a comparison against the trace's `StepRecord` count with the `s` values agreeing. If the counts disagree, that is the finding — stop and report it rather than proceeding to Group 5.5
 - [ ] 4.3 If no heartbeat line appears, do **not** advance to 5.5. Diagnose whether the tag differs between the two repositories, whether the jar's heartbeat flag is off, or whether capture was launched before Group 1 landed
 
