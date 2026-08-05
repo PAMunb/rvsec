@@ -27,7 +27,7 @@ Finally, the delta records a carve-out in normative form so that a later cleanup
 - one typed step row per `StepRecord`, with dictionary references resolved to strings, omitted defaults materialized, and the record's `dec`, `llm[]` and `out` sections attached (destination: `clock_logcat_join.py` and any future offline analysis)
 - reader diagnostics: counts of malformed records skipped, and whether `RUN_START` was present (destination: the caller, for reporting)
 - `<trace>.ndjson.gz` — the compressed copy written at collection (destination: storage at rest)
-- `RunJoin` / `JoinReport` rows as today, minus `alignment_residual_ms`
+- `RunJoin` / `JoinReport` rows as today, minus `alignment_residual_ms` and `clock_offset_ms` — both outputs of the deleted reconstruction, the second having no producer left once the first goes (design D-4)
 
 ### Side-Effects
 
