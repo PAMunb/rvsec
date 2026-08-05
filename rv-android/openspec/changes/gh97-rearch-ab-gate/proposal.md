@@ -43,10 +43,14 @@ different jar. There is no concurrent or randomised assignment of applications t
 is by application across two campaigns separated in time, and the one confound that matters is
 declared in advance and routed around by the choice of arm (D1), not balanced away by design. The
 change's name reads "ab" for *leg A / leg B*, the vocabulary used throughout these artifacts; it does
-not denote an A/B test, and no claim made here rests on one. The distinction is recorded because the
-name is the only place the abbreviation appears — nothing in this proposal, the design, the specs,
-the pre-registration or the campaign README uses the term — and a reader who inferred randomisation
-from the directory name would credit this gate with a control it does not have.
+not denote an A/B test, and no claim made here rests on one. Leg A is not a concurrent variant but a
+finished experiment — the E3 decisive run of 2026-08-01/02, preserved in `experimento-e3-decisiva/`
+— and it is precisely because it had already run that it serves as a baseline rather than as an arm.
+The abbreviation does appear in the campaign scaffold's descriptive headers, where `README.md`,
+`docker-compose.yml` and `scripts/monitor.sh` each describe leg B of the "A/B gate"; in that sense —
+leg A against leg B — it is accurate and is left standing. What is ruled out is the inferential
+sense: a reader who read randomised concurrent assignment into the name would credit this gate with
+a control it does not have, and would misjudge how much of the difference the confound can explain.
 
 ## What Changes
 
