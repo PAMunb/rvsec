@@ -317,21 +317,26 @@ pre-registration's provenance appendix. It does **not** go back into module sour
 
 ### D11 — One device execution, and what it is allowed to discharge
 
-The `ape` side executes exactly once, in this change's smoke (owner decision, 2026-08-05). Several
-stages made that smoke their acceptance vehicle, so the disposition of each obligation is recorded
-here rather than left to be inferred — a silent drop is the failure this table exists to prevent.
+The `ape` side executes exactly once, in this change's smoke (owner decision, 2026-08-05) — **with one
+exception, decided later the same day: `gh94` 4.1 runs its own short `aperv` task.** The fold had put
+`gh94`'s heartbeat evidence behind 6.1 → `rearch-07`, and that evidence gates the largest deletion
+that change has left (its 5.5–5.10, under INV-APV-54). The fold was a budget decision about device
+executions rather than a technical dependency, so the exception costs one execution and buys back a
+stage's worth of blocked work. Everything else below still executes here, once. Several stages made
+this smoke their acceptance vehicle, so the disposition of each obligation is recorded here rather
+than left to be inferred — a silent drop is the failure this table exists to prevent.
 
 | Source | Obligation | Disposition |
 |---|---|---|
 | `rearch-03` 8.4 | On-device smoke "at the next scheduled rebuild" | **Folded** — tasks 7.1 and 7.3 are that rebuild's smoke |
 | `rearch-04` 9.1 | Sample new-format trace: MOP boosts, LLM calls, flushed final step, `RUN_END` | **Folded**, task 7.2b — with one honest limit, below |
-| `rearch-04` 9.1a | Throughput gate (INV-SNK-13): pre-change jar twice, post-change once | **Separate owner task** — the smoke runs the new jar only. Task 6.2a preserves the pre-change jar the run needs |
-| `rearch-04` 9.1b | Heartbeat lines present in the captured logcat (INV-SNK-14) | **Folded**, task 7.2b |
+| `rearch-04` 9.1a | Throughput gate (INV-SNK-13): pre-change jar twice, post-change once | **Separate owner task** — the smoke runs the new jar only. `gh94` 4.0 preserves the pre-change jar the run needs, because its swap is now the first overwrite of that path; task 6.2a verifies the copy is there |
+| `rearch-04` 9.1b | Heartbeat lines present in the captured logcat (INV-SNK-14) | **Discharged by `gh94` 4.0–4.2's own run**, ahead of this smoke; task 7.2b re-observes it per arm as confirmation, not as the only source |
 | `rearch-04` 9.2 | Regenerate the 2026-07-24 calibration tables from the sample trace | **Offline, sequenced after 7.x** — its input is the smoke's trace |
 | `rearch-06` 5.1–5.3 | Heap series, `dumpsys meminfo` over a 600 s standalone SATA run | **Out of scope** — a different harness (`scripts/run_emulator.sh`), a different granularity, and explicitly not a gate. The smoke does not cover it and must not be recorded as if it did |
 | `rearch-07` 8.1 | MOP artifact loads and a boost fires, on the device | **Folded**, task 7.2a |
 | `rearch-07` 8.2 | Artifact size delta (measured host-side); load-time delta | **No action** — the size half needs no device, and the load-time half has no leg-A comparator to difference against |
-| `gh94` 4.1–4.3 | Heartbeat evidence, counted against the trace's `StepRecord` count | **Folded**, task 7.2b; the recording stays in `gh94`'s `heartbeat-evidence.md` |
+| `gh94` 4.1–4.3 | Heartbeat evidence, counted against the trace's `StepRecord` count | **Not folded — runs standalone in `gh94`** (the exception above); the recording stays in `gh94`'s `heartbeat-evidence.md` |
 
 Two limits are stated rather than glossed. First, `rearch-04` 9.1 also asks the sample trace to carry
 an LLM **error** and a `no_match reason=dead_pair`. No arm can be made to guarantee either inside a
@@ -345,9 +350,10 @@ arm whose artifact did not load is running something other than the arm it is na
 outcome downstream is then attributed to the wrong condition. 7.2b is evidence harvested for the
 other repository's benefit. The campaign's own readers — `scripts/consolidate.py` and `scripts/verify.py`
 — go through `aperv_tool.analysis.trace_ndjson` and never touch heartbeats or `clock_logcat_join`, so
-an absent heartbeat invalidates nothing this change measures. It is a finding for `gh94`, whose
-5.5–5.10 deletions stay blocked until it is answered. Letting a telemetry-only observation block 24
-hours of campaign time would give it authority over an experiment that does not read it.
+an absent heartbeat invalidates nothing this change measures. It is a confirmation for `gh94`, whose
+primary record its own 4.1 captures ahead of this smoke; a disagreement here would still be a finding
+worth reporting, but 5.5–5.10 no longer wait on this run. Letting a telemetry-only observation block
+24 hours of campaign time would give it authority over an experiment that does not read it.
 
 ## API Design
 
