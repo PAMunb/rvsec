@@ -1245,6 +1245,33 @@ def test_deep_link_empty_host_and_path():
     assert artifact["components"]["activities"][0]["deepLinkUri"] == "myapp://"
 
 
+def test_deep_link_scheme_and_host_without_path():
+    """
+    A host with no path: the host reaches the URI and the path defaults to empty
+    on its own.
+
+    The two cases either side of this one — everything present and scheme only —
+    are both satisfied by a rule that treats host and path as a single optional
+    unit, so neither can tell that the two default independently. This one can,
+    which is why it survived the migration out of the jar's `ActivityFrontierTest`
+    when `buildDeepLinkUri` was deleted (`rearch-07` 5.3a): it is the last
+    assertion standing between a generator that drops the host of a path-less
+    filter and an activity frontier that silently loses its deep links.
+    """
+    artifact = derive(
+        _activity_with_filters(
+            [
+                _filter(
+                    ["android.intent.action.VIEW"],
+                    schemes=["https"],
+                    hosts=["x.com"],
+                )
+            ]
+        )
+    )
+    assert artifact["components"]["activities"][0]["deepLinkUri"] == "https://x.com"
+
+
 # ---------------------------------------------------------------------------
 # Projection as a whole, canonical serialization and provenance
 # ---------------------------------------------------------------------------

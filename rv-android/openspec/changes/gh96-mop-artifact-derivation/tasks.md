@@ -137,8 +137,24 @@ the asymmetric case separates them: with a host and no path, `host` must still r
 generator that dropped the host when no path was declared passes the suite, and the jar has no
 assertion left to catch it — 5.3a deleted the one that used to.
 
-- [ ] 10.1 Add `test_deep_link_scheme_and_host_without_path` to `tests/test_derive_mop_artifact.py`,
+- [x] 10.1 Add `test_deep_link_scheme_and_host_without_path` to `tests/test_derive_mop_artifact.py`,
       asserting `https://x.com` from a single `ACTION_VIEW` filter with a scheme and a host and no
       paths; mutation-check it, since a case added to close a coverage gap is decoration until it has
       been shown to fail on the omission it names
-- [ ] 10.2 Run the module suite with the CI flags
+  - Added beside the five it completes, reusing their `_activity_with_filters`/`_filter` helpers so
+    the case differs from its neighbours in exactly one respect — the absent `paths` — rather than in
+    its scaffolding. Its docstring says what it is for, because a reader who finds six deep-link tests
+    where five would look sufficient deserves the reason the sixth exists.
+  - **Mutation-checked, and the result is the gap claim itself.** Mutating `_derive_deep_link_uri` to
+    `host = hosts[0] if (hosts and paths) else ""` — a generator that keeps the host only when a path
+    accompanies it — produces `https://` and fails **exactly one test: this one**. The other 67 pass
+    under the mutation, which is the direct evidence that no pre-existing case covered it and that the
+    two flanking extremes really are both satisfied by the wrong rule. The anchor was asserted to
+    match exactly once before the mutation ran; the file was restored from a byte copy and `git
+    status` confirms it unmodified.
+- [x] 10.2 Run the module suite with the CI flags
+  - `test_derive_mop_artifact.py`: **68 passed** (67 + this one). Full `modules/aperv-tool/tests/`:
+    304 passed, 32 skipped. That total is **not attributable to this group alone** — the working tree
+    carries another session's uncommitted `gh94` edits to `clock_logcat_join.py`/`trace_ndjson.py`,
+    which is where the movement from the 299 measured an hour earlier comes from. Recorded with its
+    caveat rather than as a clean before/after.
