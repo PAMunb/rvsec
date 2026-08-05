@@ -82,8 +82,8 @@ cd experimento-rearch-aperv
 uv run python scripts/make_manifest.py --out manifest.json
 
 # 1. smoke primeiro; o pre-flight é o critério de aceitação dele
-docker compose up -d                       # com subset e timeout reduzidos, ver abaixo
-uv run python scripts/preflight_runstart.py --results results --manifest manifest.json
+docker compose -f docker-compose.smoke.yml up -d          # 2 apps, 1 rep, 300 s, 6 runs
+uv run python scripts/preflight_runstart.py --results results_smoke --manifest manifest.json
 
 # 2. a campanha só começa com 3/3 braços PASS nas quatro checagens
 docker compose up -d
@@ -185,9 +185,18 @@ por esse caminho, um braço em que **nenhuma** chave declarada pôde ser compara
 
 ## Estado
 
-Andaime pronto, **campanha não executada**. O que ainda falta, em ordem:
+Andaime pronto, **campanha não executada**. Estado em 2026-08-05:
 
-1. Congelar o pré-registro (sha256 em `../calibracao/journal.jsonl`) — antes de construir o jar.
-2. Construir o jar do worktree `ape-rearch` e preencher `build.expected_sha` no manifesto.
-3. Construir e empurrar `phtcosta/rvandroid:0.9.3-rearch`; registrar o ID.
-4. Smoke, pre-flight, e só então a campanha.
+1. ✅ Pré-registro congelado — `c0ac9a7f…` em `../calibracao/journal.jsonl` (2026-08-04), com o
+   apêndice de proveniência preenchido depois e registrado em entrada separada (`a0da2273…`).
+2. ✅ Jar construído do worktree `ape-rearch` em `9e948102`, sha256 `a7eddf5a…`, e
+   `build.expected_sha` preenchido no manifesto. O carimbo foi conferido **antes** do deploy:
+   dentro de uma worktree o `git-commit-id-maven-plugin` carimba o HEAD do `master`, então o build
+   fornece a revisão pela linha de comando (design D10).
+3. ✅ Imagem `phtcosta/rvandroid:0.9.3-rearch` construída, ID `sha256:2cc5c3aa…`. **Não empurrada**
+   (decisão do dono, 2026-08-05): a campanha roda neste host e o compose não declara `pull_policy`,
+   então o Compose resolve a imagem local sem falar com o registry.
+   Construída com `--build-arg RVSEC_BRANCH=rearch-counterparts` — o default do `Dockerfile` é
+   `modules` e produziria uma imagem sem nenhuma das contrapartes. **Não usar `docker/rvandroid/
+   build.sh`**: ele marca `0.9.3` e `latest`, que são a identidade da imagem da perna A.
+4. ⏳ Smoke (`docker-compose.smoke.yml`), pre-flight, e só então a campanha.
