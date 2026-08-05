@@ -49,39 +49,33 @@
 #   # a campanha so comeca com 3/3 bracos PASS nas quatro checagens
 #   # NAO dar 'down' antes de extrair os traces — artefatos sao efemeros no device
 
-services:
-  # O nome do SERVICO precisa ser `sglang`: a ponte socat do entrypoint aponta
-  # para o hostname `sglang` (docker/rvandroid/docker-entrypoint.sh:40). O
-  # container_name difere so para nao colidir com o da campanha.
-  sglang:
-    image: lmsysorg/sglang:v0.5.6.post2
-    container_name: sglang-server-smoke
-    volumes:
-      - ${HF_CACHE:-/pedro/desenvolvimento/.cache/huggingface}:/root/.cache/huggingface
-    ipc: host
-    shm_size: "16g"
-    # GPU como dispositivo CDI, e nao por driver: o runtime nvidia nao esta
-    # registrado no daemon deste host. Ver README, secao "Ambiente".
-    devices:
-      - nvidia.com/gpu=0
-    # Modelo stock, o mesmo da perna A e o mesmo da campanha.
-    command: >
-      python3 -m sglang.launch_server
-      --model-path Qwen/Qwen3-VL-4B-Instruct
-      --host 0.0.0.0
-      --port 30000
-      --trust-remote-code
-      --attention-backend flashinfer
-      --tool-call-parser qwen
-      --enable-multimodal
-      --context-length 8192
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:30000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+# ESTE ARQUIVO NAO SOBE UM SGLANG. Ele se liga ao que ja esta de pe.
+#
+# A GPU deste host tem 15,47 GiB e o servidor da PERNA A continua rodando nela,
+# ocupando 12,6 GiB. Uma segunda instancia morre em
+# `torch.OutOfMemoryError: CUDA out of memory` antes de servir qualquer coisa —
+# medido em 2026-08-05, quando esta era a forma deste arquivo.
+#
+# Reusar e melhor do que contornar. O container `sglang-server` da perna A serve
+# `Qwen/Qwen3-VL-4B-Instruct` com flags identicas as que este arquivo declarava,
+# entao o braco LLM da perna B passa a ser servido pelo MESMO backend que serviu
+# a perna A — o que REMOVE uma diferenca entre as pernas em vez de acrescentar
+# uma. O README ja exigia o modelo stock por esse motivo; isto e a versao forte
+# da mesma exigencia.
+#
+# A ligacao e por rede externa: `experimento-e3-decisiva_default` ja carrega o
+# alias `sglang`, que e exatamente o hostname para onde a ponte socat do
+# entrypoint aponta (docker/rvandroid/docker-entrypoint.sh:40). Nao ha
+# `depends_on` porque o servidor nao pertence a este projeto Compose; se ele
+# estiver fora do ar, o braco LLM falha alto no primeiro request, e os dois
+# bracos nao-LLM nao dependem dele.
 
+networks:
+  sglang_net:
+    external: true
+    name: experimento-e3-decisiva_default
+
+services:
   rearch_aperv_smoke:
     image: phtcosta/rvandroid:0.9.3-rearch
     container_name: rearch_aperv_smoke
@@ -113,9 +107,8 @@ services:
         limits:
           cpus: "4"
           memory: "10g"
-    depends_on:
-      sglang:
-        condition: service_healthy
+    networks:
+      - sglang_net
     volumes:
       - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected181:/opt/rvsec/rv-android/apks:ro
       - ./filters:/opt/rvsec/rv-android/filters:ro
