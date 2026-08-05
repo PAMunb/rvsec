@@ -106,3 +106,47 @@ It also discharges `ape` `rearch-04` 9.1b (INV-SNK-14), which was delegated here
 `gh97` 7.2b still re-observes heartbeats across the smoke's three arms, as breadth rather than as the
 primary record: this run exercised one arm, and an arm that produced no heartbeat where another did
 would be a difference between arms worth catching.
+
+---
+
+# Appendix — `gh97` 7.2b: the same observation across three arms
+
+Appended 2026-08-05 by `gh97-rearch-ab-gate` task 7.2b, beside 4.2's record rather than replacing it.
+4.2 above remains the primary record; this appendix adds **breadth**. The run above exercised one arm
+(`aperv:default`, the `sata` baseline). The `gh97` smoke exercises all three campaign arms on two
+applications, so an arm that produced no heartbeat where another did would show up here.
+
+**Source**: the `gh97` smoke of 2026-08-05 — 3 arms × 2 applications × 1 rep × 300 s, jar
+`a7eddf5a…` stamped `9e948102`, image `phtcosta/rvandroid:0.9.3-rearch`. Traces under
+`experimento-rearch-aperv/results_smoke/rearch_aperv_smoke/rearch_aperv_smoke/`.
+
+Counted the same four ways as above, for the same reason — they fail differently:
+
+| Application | Arm | raw `ApeRvHb` | parsed | distinct `s` | `StepRecord`s | distinct step `s` | `s` sets identical | contiguous `1..N` |
+|---|---|---|---|---|---|---|---|---|
+| `com.smartpack.packagemanager_79` | `mop_off_llm_off` | 303 | 303 | 303 | 303 | 303 | yes | yes |
+| `com.smartpack.packagemanager_79` | `mop_on_llm_70` | 234 | 234 | 234 | 234 | 234 | yes | yes |
+| `com.smartpack.packagemanager_79` | `mop_on_llm_off` | 307 | 307 | 307 | 307 | 307 | yes | yes |
+| `org.liberty.android.freeotpplus_26` | `mop_off_llm_off` | 292 | 292 | 292 | 292 | 292 | yes | yes |
+| `org.liberty.android.freeotpplus_26` | `mop_on_llm_70` | 227 | 227 | 227 | 227 | 227 | yes | yes |
+| `org.liberty.android.freeotpplus_26` | `mop_on_llm_off` | 273 | 273 | 273 | 273 | 273 | yes | yes |
+
+**No disagreement in any of the six runs, and no arm without heartbeats.** Every heartbeat `s` set is
+identical to its run's `StepRecord` `s` set, covering `1..N` with no gap and no duplicate — the same
+result 4.2 obtained on one arm, now holding on three, including the MOP-off control and the LLM arm.
+The last heartbeat's `t` also matches `RUN_END.t_last_step`; for `com.smartpack.packagemanager_79`
+`mop_on_llm_off` that is `s=307 t=299892` against `"t_last_step": 299892`, so the final step was
+flushed to both files.
+
+There is nothing to report as a finding. INV-SNK-14 holds across arms, and the mechanism is not
+sensitive to whether the arm loads a MOP artifact, scores by it, or calls the LLM.
+
+**This observation gated nothing.** Design D11 of `gh97` is explicit: `scripts/consolidate.py` and
+`scripts/verify.py` read traces through `aperv_tool.analysis.trace_ndjson` and never touch heartbeats
+or `clock_logcat_join`, so no result here could have invalidated an outcome that change measures, and
+letting it block the campaign would have given a telemetry-only observation authority over an
+experiment that does not read it. By the time it was recorded, 5.5–5.10 had already been decided on
+4.2's evidence above.
+
+Full context, including the gating checks this appendix sits beside:
+`docs/20260805_preflight_gate_rearch.md`.
