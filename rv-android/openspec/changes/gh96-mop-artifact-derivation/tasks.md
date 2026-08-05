@@ -119,3 +119,26 @@ structural rather than merely stated. This group carries the generator's half.
     `readPermission`/`writePermission` absence checks. **Mutation-checked**: reinstating the field in
     `_project_component` fails that test and only that test; restoring it passes 67/67
 - [x] 9.3 Run the module suite with the CI flags (`--import-mode=importlib -o "addopts="`)
+
+## 10. Deep-link assertion migrated from `rearch-07` task 5.3a
+
+Opened 2026-08-05, owner-authorized. `rearch-07` 5.3a deleted `MopLauncherStage.buildDeepLinkUri` from
+the jar and migrated the six `ActivityFrontierTest` "Lever B" assertions to the side that now computes
+the URI — this suite. Five landed on existing tests (`test_deep_link_from_first_action_view`,
+`_absent_without_scheme`, `_absent_without_action_view`, `_absent_without_filters`,
+`_empty_host_and_path`). **The sixth had no counterpart and was recorded as owed rather than counted
+as migrated**: *scheme + host, no path*.
+
+It is not redundant with the two cases that flank it, and that is the whole reason it was tracked. The
+existing pair pins both extremes — everything present (`myapp://detail/x`) and nothing but the scheme
+(`myapp://`) — and a rule that read `host` and `path` as a single optional unit satisfies both. Only
+the asymmetric case separates them: with a host and no path, `host` must still reach the URI and
+`path` must still default to empty independently of it (INV-DRV-07). Until this test exists, a
+generator that dropped the host when no path was declared passes the suite, and the jar has no
+assertion left to catch it — 5.3a deleted the one that used to.
+
+- [ ] 10.1 Add `test_deep_link_scheme_and_host_without_path` to `tests/test_derive_mop_artifact.py`,
+      asserting `https://x.com` from a single `ACTION_VIEW` filter with a scheme and a host and no
+      paths; mutation-check it, since a case added to close a coverage gap is decoration until it has
+      been shown to fail on the omission it names
+- [ ] 10.2 Run the module suite with the CI flags
