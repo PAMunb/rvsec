@@ -132,7 +132,8 @@ write-only `RUN_START` line (unchanged collection, never read back).
   recorded in the proposal, not repaired.
 - Orchestration is otherwise untouched: JAR resolution/push, MOP artifact derivation and caching, seed
   propagation (INV-APV-18), the +45 s grace, timeout-as-normal-exit, empty-trace detection, LLM
-  provenance (INV-APV-33), gzip at collection, and the B3 pairing (INV-APV-34).
+  provenance (INV-APV-33) and gzip at collection. The B3 snap-tolerance/jar-digest pairing
+  (INV-APV-34) is deliberately **not** on this list: it is retired by D9.
 
 ## Decisions
 
@@ -277,9 +278,12 @@ calibration plan-table pins, and the decisive-run tests that recompute contrasts
 
 Explicitly **not** retired: `configure()` validation (INV-APV-02), command building (INV-APV-04/18),
 device-path constants (INV-APV-03), MOP artifact derivation and caching (INV-APV-45..47), LLM
-provenance (INV-APV-33), the snap-tolerance/jar-digest pairing (INV-APV-34), empty-trace detection,
-and the properties-writer serialization tests — restated for the D4 output contract rather than
-deleted.
+provenance (INV-APV-33), empty-trace detection, and the properties-writer serialization tests —
+restated for the D4 output contract rather than deleted.
+
+The snap-tolerance/jar-digest pairing (INV-APV-34) *is* retired, and by D9 rather than by this
+decision's rule: it is not a constant-vs-constant arm guard but a constant-vs-external-artifact one,
+which is the worse of the two.
 
 The load-bearing point: **there is no runtime replacement, by decision.** The substitute is (a) the
 jar's fail-fast resolution, which catches at run time and with an abort the errors the guards
@@ -330,13 +334,48 @@ that is deleted once sign-off and `gh97` are both behind it. The parser is delib
 it has one caller and a lifetime measured in this change (P1); a failure to parse is a hard error, not
 a degraded mode.
 
+### D9: No source file names the identity of an external build artifact
+
+`get_variants()["mop_on_llm_70"]` declared `expected_jar_git_sha` (an `ape` revision) and
+`expected_jar_sha256` (the digest of one build of `ape-rv.jar`). Both are deleted, together with
+INV-APV-34, the `_snap_tolerance_offenders` guard and the smoke-time comparison. The rule replacing
+them is INV-APV-59: **no source file under `modules/` states the revision or digest of an artifact
+built outside this repository.**
+
+The declaration was written to answer a real question — *which binary produced these numbers?* — and
+it answered it in the one place that cannot keep the answer true. `ape-rv.jar` is built from a
+sibling repository whose build is not bit-reproducible, so the digest changes on every rebuild of
+even the same revision. Its own comment admitted the consequence ("this pair has to be re-recorded"),
+which makes the literal a maintenance obligation attached to a Python constant, discharged by memory,
+in the arm the decisive run depends on. The `rearch-04` stage-4 jar is the first bill: correct code
+would have needed no edit to accept it, and this code needs two.
+
+The question keeps its answer. `_capture_llm_provenance()` digests the jar it is about to push and
+writes `jar_sha256` into the run's provenance record (INV-APV-33's mechanism, unchanged), so every
+run still carries the identity of the binary that produced it — measured from the file at push time,
+for every arm, with no literal to go stale. Correlating a digest back to an `ape` revision belongs to
+the campaign record that pairs a run with the deployment it came from, not to `tool.py`.
+
+`llm_snap_tolerance_px=150` survives as an ordinary `overrides` entry of `mop_on_llm_70`. The
+empirical claim behind INV-APV-34 — that the raised radius needs the dead-pair ban to rescue
+near-misses instead of amplifying dead taps — is not withdrawn; what is withdrawn is enforcing it by
+pinning a digest in source. Deployment states which jar is installed; the run's provenance records
+which jar ran.
+
+*Alternative considered*: keep the gate but move both literals into experiment configuration (YAML or
+an env var). Rejected — it relocates the coupling without removing it, and a stale pin in a config
+file fails a campaign exactly as a stale pin in source does, only later and further from the reader.
+The owner's instruction on 2026-08-05 was removal, not relocation; should a pinned gate ever be
+wanted again, it is a new change with a producer that computes the pin rather than an author who
+types it.
+
 ## API Design
 
 ### `ApeRVTool.get_variants() -> Dict[str, Dict[str, Any]]`
 
 Returns exactly 8 entries. Each value has keys drawn only from `preset` (required, one of the four
 jar names), `overrides` (required, dict, possibly empty), `strategy` (required), `mop_data`
-(optional), `seed` (optional), `expected_jar_git_sha` / `expected_jar_sha256` (`mop_on_llm_70` only).
+(optional) and `seed` (optional) — no arm carries any further top-level key (D9).
 `variants["sata_mop"] is variants["sata_mop_widget"]` holds. No exception path.
 
 ### `ApeRVTool.configure(config: Dict[str, Any]) -> None`

@@ -76,10 +76,10 @@ performs any device interaction.
 ### Input
 
 - `variant dict: Dict[str, Any]` — per arm: `preset: str` (one of `aperv`, `mop`, `llm`, `llm_mop`),
-  `overrides: Dict[str, Any]` (deltas over the preset, possibly empty), plus Python-only
-  orchestration keys `strategy`, `mop_data`, and — for `mop_on_llm_70` — `expected_jar_git_sha` /
-  `expected_jar_sha256` (source: `ApeRVTool.get_variants()`, merged with experiment parameters by
-  `ToolFactory`)
+  `overrides: Dict[str, Any]` (deltas over the preset, possibly empty), plus the Python-only
+  orchestration keys `strategy` and `mop_data` (source: `ApeRVTool.get_variants()`, merged with
+  experiment parameters by `ToolFactory`). No arm declares the revision or the digest of an
+  `ape-rv.jar` build (INV-APV-59)
 - `tool_config.parameters: Dict[str, Any]` — tool-DSL overrides (`aperv:<variant>@key=value`), merged
   **at the top level** over the variant dict by `ToolFactory` (`registry/factory.py:127`) and folded
   into `overrides` by `configure()` (INV-APV-39)
@@ -125,8 +125,8 @@ performs any device interaction.
 - **INV-APV-39**: `configure()` MUST fold every top-level config key that has an
   `APERV_PROPERTY_MAPPING` entry into `overrides`, and MUST raise `ConfigurationError` for any
   top-level key that is neither mapped nor one of the recognised orchestration keys (`preset`,
-  `overrides`, `strategy`, `mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256`,
-  `device_port`, `device_serial`, `device_id`). The three device keys are addressing rather than
+  `overrides`, `strategy`, `mop_data`, `seed`, `device_port`, `device_serial`,
+  `device_id`). The three device keys are addressing rather than
   configuration: rv-experiment's `ExecutionController` injects all three into every tool's
   parameters whenever `--device-port` is set, which every Docker compose file does, and the tool
   reads the serial from `task.config.device_id` at execution time rather than from `_tool_config`.
@@ -190,6 +190,18 @@ performs any device interaction.
   which a device honours `ape.preset`, and this migration is entirely offline, so the diff and the
   baseline MUST stay alive until that run has happened. Beyond it, the check MUST NOT survive as a
   standing constant-vs-constant guard.
+
+- **INV-APV-59**: No source file under `modules/` SHALL state the revision, digest or version of a
+  build artifact produced outside this repository, and no guard SHALL require an arm to declare one.
+  The identity of such an artifact SHALL be obtained by measuring the artifact at the moment it is
+  used — as `_capture_llm_provenance()` digests `ape-rv.jar` into `jar_sha256` at push time — and
+  recorded in the run's provenance, never asserted in advance by a literal. A literal identity is
+  unfalsifiable at rest and stale from the first rebuild: `ape-rv.jar` comes from a sibling
+  repository whose build is not bit-reproducible, so the same revision yields a different digest each
+  time it is built, and any pin becomes a maintenance obligation discharged by an author's memory. A
+  gate that compares a measurement against such a pin therefore fails on correct redeployments and
+  passes on stale ones, which is worse than no gate at all. This retires INV-APV-34 (see REMOVED
+  Requirements).
 
 ## MODIFIED Requirements
 
@@ -309,8 +321,9 @@ and a new arm name (INV-APV-42).
 #### Scenario: No arm carries a property expansion
 
 - **WHEN** any variant returned by `get_variants()` is inspected
-- **THEN** its top-level keys SHALL be drawn only from `preset`, `overrides`, `strategy`, `mop_data`,
-  `seed`, `expected_jar_git_sha` and `expected_jar_sha256`
+- **THEN** its top-level keys SHALL be drawn only from `preset`, `overrides`, `strategy`, `mop_data`
+  and `seed`
+- **AND** no variant SHALL carry `expected_jar_git_sha` or `expected_jar_sha256` (INV-APV-59)
 - **AND** the module SHALL contain none of `_BASELINE_ARM_FLAGS`, `_MOP_SUBSTRATE`, `_LLM_FLAGS`,
   `_FRONTIER_SUBSTRATE`, `_MOP_OFF_OVERRIDES` or `_CAL_LLM_COMMON`
 - **AND** no variant SHALL contain a `throttle_ms` key
@@ -333,8 +346,11 @@ over an arm's own entry for the same key — the DSL is the operator's last word
 useful for smokes and ablations without declaring a variant.
 
 Any remaining top-level key that is neither mapped nor one of `preset`, `overrides`, `strategy`,
-`mop_data`, `seed`, `expected_jar_git_sha`, `expected_jar_sha256`, `device_port`, `device_serial`,
-`device_id` SHALL raise `ConfigurationError` naming it. Without both halves of this rule a DSL
+`mop_data`, `seed`, `device_port`, `device_serial`,
+`device_id` SHALL raise `ConfigurationError` naming it. `expected_jar_git_sha` and
+`expected_jar_sha256` are not on that list and SHALL therefore be rejected like any other
+unhonourable key, which is what stops the retired declaration from being reintroduced through
+experiment YAML (INV-APV-59). Without both halves of this rule a DSL
 override would be discarded in silence: no property line, no error, and a run executing a
 configuration nobody asked for — the exact failure mode this change exists to remove, reintroduced
 on the operator's path. A key that cannot be honoured fails loudly.
@@ -566,8 +582,8 @@ ape.<mapped-override-key>=<value>                     # one line per overrides e
 ```
 
 Only the entries of `_tool_config["overrides"]` are translated and written. Python-only keys
-(`preset` itself apart from the first line, `strategy`, `mop_data`, `seed`, `expected_jar_git_sha`,
-`expected_jar_sha256`, and the three device-addressing keys) have no mapping entry and never reach
+(`preset` itself apart from the first line, `strategy`, `mop_data`, `seed`, and the three
+device-addressing keys) have no mapping entry and never reach
 the file. Python bools SHALL be serialized lowercase (`True` → `true`). An `overrides` key with no
 `APERV_PROPERTY_MAPPING` entry SHALL raise `ConfigurationError` **in `configure()`**, which is what
 makes the rejection precede every `adb push` of the run rather than only the properties push: under
@@ -629,7 +645,7 @@ entries are:
 | `llm_percentage_no_substrate` | `ape.llmPercentageNoSubstrate` | `LLM_RANDOM` sub-parameter; the `-1` sentinel is accepted on a plan with no LLM |
 | `llm_prompt_variant` | `ape.llmPromptVariant` | `LLM` sub-parameter |
 | `llm_max_tokens` | `ape.llmMaxTokens` | `LLM` sub-parameter |
-| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | `LLM` sub-parameter; paired with the jar digests (INV-APV-34) |
+| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | `LLM` sub-parameter; set by `mop_on_llm_70` alone |
 
 `mop_weight_activity → ape.mopWeightActivity` is deleted: the jar's `KeyOwnership` table lists
 `ape.mopWeightActivity` as retired ("dead since mop-fairtest: the weight it named was deleted from
@@ -676,8 +692,8 @@ the mapping's contents a correctness property rather than a tidiness one.
 
 #### Scenario: Python-only keys are still excluded
 - **WHEN** `_push_properties()` is called for `mop_on_llm_70`, whose `_tool_config` carries
-  `strategy`, `mop_data`, `seed`, `expected_jar_git_sha` and `expected_jar_sha256`
-- **THEN** the properties file SHALL contain none of those five names
+  `strategy`, `mop_data` and `seed`
+- **THEN** the properties file SHALL contain none of those three names
 - **AND** it SHALL contain `ape.llmSnapTolerancePx=150`, which is an ordinary override
 
 ---
@@ -723,11 +739,10 @@ omitting `mop_data` kills the generic WTG and frontier passes as collateral, tur
 
 Single-factor remains a property of the **effective plan**, and the override dicts now make it
 readable directly. Reference minus control is exactly the five MOP weight keys plus
-`activity_trigger_enabled`; reference minus LLM arm is exactly the LLM keys. The two B3 declarations
-(`expected_jar_git_sha`, `expected_jar_sha256`) are the one exemption from that diff, and they are safe
-because they are **inert by construction**: neither is in `APERV_PROPERTY_MAPPING`, so neither is
-written to `ape.properties` and neither can reach the jar. The test that keeps them out of the mapping
-is what licenses the exemption.
+`activity_trigger_enabled`; reference minus LLM arm is exactly the LLM keys, with no exemption. The
+two B3 jar declarations that used to be that exemption are gone (INV-APV-59), so the diff no longer
+needs an argument about why an extra pair of keys is harmless — the arms differ in the LLM keys and
+in nothing else.
 
 #### Scenario: Control arm keeps the frontier alive while MOP guidance is off
 - **WHEN** `get_variants()["mop_off_llm_off"]` is resolved
@@ -755,9 +770,8 @@ is what licenses the exemption.
 #### Scenario: Reference and LLM arm differ only in LLM keys
 - **WHEN** the effective configurations of `mop_on_llm_off` and `mop_on_llm_70` are diffed
 - **THEN** every differing key SHALL be an `ape.llm*` key
-- **AND** the same test SHALL assert that neither `expected_jar_git_sha` nor `expected_jar_sha256` is
-  present in `APERV_PROPERTY_MAPPING`, since that absence is what makes the exemption safe rather
-  than a hole in the contrast
+- **AND** the two arms' top-level keys SHALL be identical, neither carrying a jar declaration
+  (INV-APV-59)
 - **AND** no MOP weight, frontier or exploration key SHALL differ
 
 #### Scenario: Source components flag is explicit in all three arms
@@ -787,11 +801,9 @@ entry removed. The sweep performed while authoring this change found exactly one
 `mop_weight_activity`. The remaining 50 entries are all accepted keys.
 
 `llm_snap_tolerance_px` SHALL remain mapped and reach the jar only as an explicit override of the arm
-that sets it (`mop_on_llm_70`), subject to the jar's own feature-dependency validation. Its Python-side
-pairing with the declared jar digests (INV-APV-34) is retained unchanged: that gate compares a
-declaration against a digest computed from the installed binary at run start, which is provenance
-verification, not a constant-vs-constant arm guard, and it is therefore not part of what this change
-retires.
+that sets it (`mop_on_llm_70`), subject to the jar's own feature-dependency validation. It SHALL
+carry no Python-side pairing with a declared jar identity: INV-APV-34 is retired by INV-APV-59, and
+the arm's `overrides` entry stands on its own like every other.
 
 #### Scenario: Dead key removed
 - **WHEN** `APERV_PROPERTY_MAPPING` is inspected after this change
@@ -808,8 +820,7 @@ retires.
 - **WHEN** `get_variants()["mop_on_llm_70"]` is read
 - **THEN** `llm_snap_tolerance_px: 150` SHALL be an entry of its `overrides`
 - **AND** `_push_properties()` SHALL write `ape.llmSnapTolerancePx=150` for that arm
-- **AND** `expected_jar_git_sha` and `expected_jar_sha256` SHALL remain Python-only and SHALL NOT
-  reach `ape.properties`
+- **AND** the arm SHALL carry no key declaring the jar it was raised for (INV-APV-59)
 
 #### Scenario: No semantic validation is performed on override values
 - **WHEN** an arm's `overrides` carries a mapped key at a value the jar will reject
@@ -891,6 +902,38 @@ of itself — under a new number.
 - **AND** no standing test SHALL compare arm definitions against a frozen copy of themselves
 
 ## REMOVED Requirements
+
+### Requirement: Snap Tolerance Gating on the Dead-Pair Ban (FR19, FR20)
+
+**Reason**: The requirement made `llm_snap_tolerance_px=150` legal only in an arm that also declared
+`expected_jar_git_sha` and `expected_jar_sha256` — the revision and digest of one `ape-rv.jar` build
+— written as string literals in `get_variants()`, with a guard test enforcing the pairing and a
+smoke-time comparison against the `jar_sha256` measured at run start. Both literals are deleted with
+it, and INV-APV-34 is retired.
+
+The requirement's own text records why it cannot hold: `ape-rv.jar` carries no build stamp, the `ape`
+build is not bit-reproducible, and "a rebuild of the same revision invalidates the declaration". That
+makes the gate fail on a correct redeployment — the stage-4 jar of the `ape`-side
+`rearch-04-step-ndjson-telemetry` is exactly such a redeployment — while a stale-but-unrebuilt pin
+passes. A check whose failures are dominated by legitimate updates trains its reader to re-record the
+constant without reading it, which is worse than not having it. The deeper defect is structural and is
+what INV-APV-59 now forbids: a Python module of this repository named the identity of an artifact
+built in another one, so a build over there became an edit over here.
+
+What the requirement protected is kept by other means. The empirical claim — that the raised snap
+radius rescues near-misses only when the jar bans dead pairs, and otherwise amplifies the measured
+25.6% dead-call waste — is unchanged and stays recorded in the design; it is a fact about which jar
+gets deployed, which is a deployment decision, not an assertion a Python constant can make true.
+Provenance is unaffected and is now the whole answer: `_capture_llm_provenance()` digests the jar at
+push time and records `jar_sha256` in every run's provenance (INV-APV-33's mechanism), so which
+binary produced a result is still recoverable from the result itself — measured rather than declared,
+and for every arm rather than one.
+
+Deleted with the requirement: the `expected_jar_git_sha` / `expected_jar_sha256` entries of
+`mop_on_llm_70`, their two names in `APERV_ORCHESTRATION_KEYS` (so experiment YAML cannot
+reintroduce them), `_snap_tolerance_offenders` and `TestSnapToleranceGate` in
+`tests/test_aperv_tool.py`, and the smoke-gate comparison. `llm_snap_tolerance_px=150` survives as an
+ordinary `overrides` entry.
 
 ### Requirement: Arm-Defining Flag Completeness (FR20)
 

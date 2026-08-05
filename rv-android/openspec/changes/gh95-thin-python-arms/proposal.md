@@ -71,6 +71,20 @@ experimental matrix — which arms exist, their frozen names, and their deltas.
   echo-vs-intent validation is added anywhere**: `tool.py` never parses `RUN_START`, and drift
   auditing stays post-hoc analysis of the trace.
 
+- **The in-source jar-identity declaration is deleted, and the rule that forbids it is written
+  down.** `mop_on_llm_70` carried `expected_jar_git_sha` and `expected_jar_sha256` — a git revision
+  and the sha256 of one particular `ape-rv.jar` build, written as literals in `tool.py` — and
+  INV-APV-34 required them to travel with `llm_snap_tolerance_px=150`. Source code SHALL NOT name
+  the identity of a build artifact produced outside this repository (INV-APV-59). The declaration
+  pinned this module to a single binary of a sibling project: the `ape` build is not
+  bit-reproducible, so every rebuild — the stage-4 jar of `rearch-04` among them — invalidates the
+  literal and turns a routine redeploy into an edit of a Python constant, in the very arm the
+  decisive run uses. Nothing verifiable is lost. `_capture_llm_provenance()` still digests the jar
+  it is about to push and records `jar_sha256` in the run's provenance: the same fact, read from the
+  artifact instead of asserted about it, and available to every arm rather than one. What goes is
+  the assertion, the guard test that enforced the pairing, and the smoke gate that compared a
+  literal against a digest. INV-APV-34 is retired with them.
+
 - **Debt inherited from gh88's archive is paid here.** Syncing `gh88-cal-llm-control` (archived
   2026-08-03 at 47/58) pushed the `cal_*` arm tier and the `LLM_ARM_KEYS` explicitness guard into the
   main `aperv` spec. The guard dies with the per-arm dicts and the tier dies with the arms, so this
