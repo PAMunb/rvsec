@@ -839,6 +839,13 @@ def parse_args() -> argparse.Namespace:
                              "'false', uses the legacy points-to + CHA fallback path. "
                              "Default: GATOR's baked-in (false post-M3; opt-in to "
                              "true for apps without hybrid-framework dispatch).")
+    parser.add_argument("--succ-depth", type=int, default=None,
+                        help="Propagated as -succDepth <int> (GATOR Configs.sDepth, "
+                             "default 4). Bounds successor-enumeration depth in "
+                             "WTGHelper.getSuccNode, the combinatorial core of WTG "
+                             "construction. Lower (e.g. 3) cuts branching^depth cost "
+                             "so timeout-bound APKs can finish, at the price of "
+                             "shorter (fewer multi-hop) transition paths.")
     parser.add_argument("--planilha", type=Path, default=None,
                         help="Path to PLANILHA.csv (Joao Androguard reference). "
                              "Enables dex_count==0 pre-filter and cross-validation columns.")
@@ -868,6 +875,9 @@ def build_config_kwargs(args: argparse.Namespace) -> Dict[str, Any]:
     cg_del = getattr(args, "cg_delegation", None)
     if cg_del is not None:
         kwargs["cg_delegation"] = (cg_del == "true")
+    succ_depth = getattr(args, "succ_depth", None)
+    if succ_depth is not None:
+        kwargs["succ_depth"] = succ_depth
     if args.rvsec_root:
         kwargs["rvsec_root"] = args.rvsec_root
     return kwargs
