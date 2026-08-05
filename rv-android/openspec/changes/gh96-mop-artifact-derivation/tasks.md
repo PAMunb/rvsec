@@ -70,7 +70,22 @@
 
 - [x] 7.1 Write the batch derivation driver over `<workspace>/rvsec-dataset/static_analysis/` (345 apps) emitting one `.mop.json` per app plus a summary of per-rule exercise counts: flagged-and-dropped empty-id widgets, recovered D8 handlers, re-keyed dialogs, and A′ sets differing from the widget-derived set
 - [x] 7.2 Fail the driver when any of the four exercise counts is zero, and record the substitution when a count comes back zero (the rule's coverage moves to a synthetic fixture)
-- [ ] 7.3 Re-verify the `ape` audit claiming no consumer reads WTG edge multiplicity, so the set-based comparison of design D7 is justified rather than assumed
+- [x] 7.3 Re-verify the `ape` audit claiming no consumer reads WTG edge multiplicity, so the set-based comparison of design D7 is justified rather than assumed
+  - Re-verified first-hand against `ape` `src/main` on 2026-08-05, and the audit holds: **no production
+    consumer reads WTG edge multiplicity.** Every one of the five call sites is either first-match or
+    set-accumulating — `MopScorer.scoreWtg:117` returns `weightWtg` on the first matching edge;
+    `StatefulAgent.frontierBoost:1199` returns `weight` on the first; `FrontierPass:58` and
+    `MopFrontierPass:62` fold targets into a `HashSet`; `qualifyingMopTargets:115` and
+    `matchesQualifyingTarget:128` do the same and return on first match. `hasWtgData()` tests
+    non-emptiness. A repeated `(widget, target)` pair therefore cannot change a score, a boost, a
+    frontier set or a routing decision.
+  - This stopped being hypothetical while generating the `ape` fixture: the jar's load record on the
+    raw cryptoapp fixture reports `wtgEdges=17`, the derivation emits `16` with
+    `dedupedTransitions=1`. The one edge is an exact duplicate. Under the audit above the difference
+    is invisible to behaviour, so the group-7 gate MUST compare WTG views **as sets** — a list
+    comparison fails on cryptoapp alone, before any corpus app is reached — and `wtgEdges` is a pure
+    counter under INV-DRV-04 that steers nothing. Recorded here because the number visibly changes in
+    the trace across the cutover: a post-cutover `MOP_DATA` record echoes the generator's count.
 - [ ] 7.4 Run the gate jointly with the `ape` side (old parser on the **raw** full JSON as oracle) and require 345/345 green before either repository cuts over
 - [ ] 7.5 Record the measured byte-size reduction (full JSON vs artifact) over the corpus, replacing the design's order-of-magnitude claim with a measurement
 - [ ] 7.6 Delete the gate driver once green, keeping only its recorded results (P3)
