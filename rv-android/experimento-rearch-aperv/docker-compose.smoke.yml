@@ -17,21 +17,43 @@
 # leitura so vale por causa do criterio de escolha, e por isso ele esta escrito
 # abaixo em vez de ficar implicito.
 #
-# AS DUAS APLICACOES FORAM ESCOLHIDAS PELOS RESULTADOS DA PERNA A, nao pela
-# analise estatica — o que a perna A mediu e a melhor evidencia disponivel de que
-# a guia MOP de fato dispara nelas:
+# A ESCOLHA DAS DUAS APLICACOES E O QUE TORNA A 7.2a VERIFICAVEL, e o criterio
+# obvio esta ERRADO. A primeira versao deste arquivo escolheu pelo `cov_mop` que
+# a perna A mediu — e reprovaria. `cov_mop` sai dos marcadores RVSEC no logcat e
+# nao depende do artefato de guia: uma aplicacao pode ter `cov_mop` alto e um
+# artefato MOP inteiramente vazio. Medido em 2026-08-05, o primeiro smoke rodou
+# `com.cointrend_10304` e o proprio tool registrou
+# `flagged=0/0 widgets, mopActivities=0` — artefato carregado e sem nada dentro,
+# que e exatamente o que a clausula `mopActivities > 0` da 7.2a existe para
+# reprovar.
 #
-#   com.hegocre.nextcloudpasswords_38  cov_mop 17,8 nos bracos guiados contra
-#                                      4,0 no controle. E o maior contraste
-#                                      guiado-vs-controle do corpus, entao e onde
-#                                      "o boost disparou" (task 7.2a) fica mais
-#                                      visivel.
-#   com.cointrend_10304                cov_mop ~68 nos tres bracos, cov_act 100,
-#                                      aplicacao pequena. Redundancia barata.
+# O criterio correto e derivar o artefato host-side e exigir as tres grandezas
+# que a 7.2a le, simultaneamente > 0. Sobre os 40 do subset40:
 #
-# Ambas com 0 crashes na perna A e ambas dentro do subset40, de modo que o
-# `corpus_basis` declarado continua verdadeiro: ele nomeia a lista de onde as
-# aplicacoes saem, nao quantas rodaram.
+#   flagged > 0 (widgets sinalizados)  ..........  8 / 40
+#   wtg     > 0 (arestas da WTG)  ...............  15 / 40
+#   AS TRES ao mesmo tempo  .....................  4 / 40
+#
+# As duas com mais widgets sinalizados do corpus (aegis 50, de.blau 42) tem
+# `wtg` VAZIO e por isso nao servem. Dos 4 que qualificam, estes dois cobrem
+# riscos diferentes:
+#
+#   com.smartpack.packagemanager_79   flagged=10, mopActivities=6, wtg=12. O mais
+#                                     equilibrado — as tres grandezas com folga.
+#   org.liberty.android.freeotpplus_26 flagged=25, mopActivities=2, wtg=3. O maior
+#                                     numero de widgets sinalizados entre os
+#                                     qualificados, logo a maior chance de um
+#                                     boost de fato disparar.
+#
+# Ambas com 0 crashes e cov_act 100,0 na perna A, e ambas dentro do subset40, de
+# modo que o `corpus_basis` declarado continua verdadeiro: ele nomeia a lista de
+# onde as aplicacoes saem, nao quantas rodaram.
+#
+# Consequencia que vale alem do smoke: a guia MOP e inerte na maior parte deste
+# corpus, e isso e propriedade do corpus, nao do jar. A campanha nao muda por
+# causa disso — ela mede os 40 sob o plano congelado —, mas uma leitura de G3
+# que espere deslocamento uniforme nos 40 estaria esperando o que o substrato
+# nao tem como entregar.
 #
 # O TIMEOUT REDUZIDO E O QUE TORNA DUAS CLAUSULAS DA 7.2b OPCIONAIS: um erro de
 # LLM e um `no_match reason=dead_pair` nao podem ser forcados em 600 s, e por
