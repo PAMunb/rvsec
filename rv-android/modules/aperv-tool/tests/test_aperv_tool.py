@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -26,6 +27,7 @@ from aperv_tool.tools.aperv.derive_mop_artifact import DEVICE_ARTIFACT_PATH
 from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
+    APERV_ORCHESTRATION_KEYS,
     APERV_PROPERTY_MAPPING,
     ApeRVTool,
 )
@@ -292,12 +294,10 @@ class TestDslOverrideFold:
                 "preset": "llm_mop",
                 "mop_data": "static_analysis",
                 "seed": 42,
-                "expected_jar_git_sha": "abc",
-                "expected_jar_sha256": "def",
                 "overrides": {},
             }
         )
-        for key in ("mop_data", "seed", "expected_jar_git_sha", "expected_jar_sha256"):
+        for key in ("mop_data", "seed"):
             assert key in self.tool._tool_config
             assert key not in self.tool._tool_config["overrides"]
 
@@ -806,8 +806,6 @@ class TestPushProperties:
                 "preset": "llm_mop",
                 "mop_data": "static_analysis",
                 "seed": 42,
-                "expected_jar_git_sha": "5dcf2259",
-                "expected_jar_sha256": "386ce08d",
                 "overrides": {"llm_snap_tolerance_px": 150},
             },
         )
@@ -815,8 +813,6 @@ class TestPushProperties:
             "strategy",
             "mop_data",
             "seed",
-            "expected_jar_git_sha",
-            "expected_jar_sha256",
         ):
             assert python_only not in props
         # ...while an ordinary override on the same arm travels the normal path.
@@ -1105,6 +1101,61 @@ class TestRunStartIsWriteOnly:
         assert "trace_ndjson.py" in readers
 
 
+class TestNoExternalArtifactIdentityInSource:
+    """INV-APV-59: source never names the revision or digest of an external build.
+
+    `mop_on_llm_70` used to declare `expected_jar_git_sha` and `expected_jar_sha256`
+    — the revision and digest of one `ape-rv.jar` build, as literals — with a guard
+    enforcing the pairing and a smoke gate comparing the digest against the jar
+    actually pushed. `ape-rv.jar` is built in a sibling repository whose build is not
+    bit-reproducible, so the same revision yields a different digest every time it is
+    built: the gate failed on correct redeployments and passed on stale ones, and a
+    routine rebuild became an edit of a Python constant here.
+
+    Identity is still recorded, by measurement rather than declaration:
+    `_capture_llm_provenance()` digests the jar it is about to push into
+    `jar_sha256`. This class exists so the pin cannot return under another name.
+    """
+
+    SRC_ROOT = Path(aperv_mod.__file__).parents[2]
+
+    # A git sha is 40 hex characters and a sha256 is 64. Word boundaries keep the
+    # pattern off longer alphanumeric runs (base64 blobs, device serials).
+    ARTIFACT_DIGEST = re.compile(r"\b[0-9a-fA-F]{40}\b|\b[0-9a-fA-F]{64}\b")
+
+    def test_no_source_file_carries_a_digest_or_revision_literal(self):
+        offenders = {
+            str(path.relative_to(self.SRC_ROOT)): self.ARTIFACT_DIGEST.findall(
+                path.read_text(encoding="utf-8")
+            )
+            for path in sorted(self.SRC_ROOT.rglob("*.py"))
+            if self.ARTIFACT_DIGEST.search(path.read_text(encoding="utf-8"))
+        }
+        assert (
+            offenders == {}
+        ), f"external artifact identity declared in source: {offenders}"
+
+    def test_no_arm_declares_an_expected_artifact(self):
+        # The keys are also absent from APERV_ORCHESTRATION_KEYS, so an experiment YAML
+        # or a tool-DSL override reintroducing either one is rejected by configure()
+        # rather than silently carried — the declaration cannot come back through data.
+        for name, variant in ApeRVTool.get_variants().items():
+            declared = [key for key in variant if key.startswith("expected_")]
+            assert declared == [], f"{name} declares {declared}"
+
+        assert "expected_jar_git_sha" not in APERV_ORCHESTRATION_KEYS
+        assert "expected_jar_sha256" not in APERV_ORCHESTRATION_KEYS
+
+    def test_the_pattern_matches_the_shapes_it_is_meant_to_catch(self):
+        # Non-vacuity: without this, a broken pattern would make the sweep above green by
+        # matching nothing. The samples are synthetic hex of the two lengths — a git sha
+        # and a sha256 — rather than the real literals this change deleted, because a test
+        # that pinned a real digest to prove digests are banned would be the thing it bans.
+        assert self.ARTIFACT_DIGEST.search(f'"{"a" * 40}"')
+        assert self.ARTIFACT_DIGEST.search(f'"{"b" * 64}"')
+        assert not self.ARTIFACT_DIGEST.search(f'"{"c" * 39}"')
+
+
 class TestDecisiveRunArms:
     """gh90 group 1: the E3 decisive run's arm set (INV-APV-29/30)."""
 
@@ -1191,18 +1242,15 @@ class TestDecisiveRunArms:
         assert all(key.startswith("llm_") for key in differing), sorted(differing)
         assert not differing & _MOP_CONTRAST_KEYS
 
-    def test_the_jar_declarations_stay_python_only(self):
-        # The B3 declaration is the one exemption from the single-factor contrast, and this
-        # is what licenses it: neither key is in APERV_PROPERTY_MAPPING, so neither is
-        # written to ape.properties and neither can reach the jar. Single-factor is a claim
-        # about the keys that reach the jar, so exempting keys that provably do not reach it
-        # keeps the contrast intact rather than punching a hole in it.
+    def test_the_two_arms_carry_the_same_top_level_keys(self):
+        # The contrast has no exemption left. The LLM arm used to carry two extra top-level
+        # keys declaring the jar build its snap tolerance was raised for, which had to be
+        # argued harmless every time the diff was read; they are gone (INV-APV-59), so the
+        # arms differ in their overrides and in nothing else.
+        reference = self.variants["mop_on_llm_off"]
         llm_arm = self.variants["mop_on_llm_70"]
 
-        for key in _JAR_DECLARATION_KEYS:
-            assert key in llm_arm, f"{key} must stay at the top level"
-            assert key not in llm_arm["overrides"]
-            assert key not in APERV_PROPERTY_MAPPING, key
+        assert set(reference) == set(llm_arm)
 
     def test_the_llm_arm_carries_the_calibrated_dose(self):
         # design D8: 0.7 is the only dose with a measured 300 s counterpart on this
@@ -1403,139 +1451,6 @@ class TestDeriveMopArtifact:
         self.tool._derive_mop_artifact(self._task(tmp_path))
 
         assert open(source, "rb").read() == before
-
-
-# --- gh90 B3: snap tolerance gated on the dead-pair ban -----------------------
-
-# The raised radius, and the two keys an arm uses to declare which jar build it
-# was raised for. The git sha names the source revision and is documentary; the
-# sha256 names the built artifact and is the half the smoke actually verifies,
-# against the jar_sha256 captured at run start. Both are Python-only — they must
-# never reach ape.properties, because the jar has no property to receive them.
-_SNAP_TOLERANCE_RAISED = 150
-_JAR_SHA_KEY = "expected_jar_git_sha"
-_JAR_DIGEST_KEY = "expected_jar_sha256"
-_JAR_DECLARATION_KEYS = frozenset({_JAR_SHA_KEY, _JAR_DIGEST_KEY})
-
-
-def _snap_tolerance_offenders(variants):
-    """
-    Arms that break the B3 pairing (INV-APV-34), with the reason.
-
-    Widening the snap radius makes more LLM answers resolve to a widget. Without
-    the dead-pair ban in the jar, the extra resolutions are repeated taps on
-    pairs already known to produce no new state, so the widening amplifies the
-    measured 25.6% dead-call waste instead of rescuing near-misses. The tolerance
-    and the declaration of the jar it belongs to therefore travel together, in
-    both directions: a dangling declaration left behind after a rollback is just
-    as misleading as an ungated tolerance.
-
-    All three travel together, not two: a digest with no git sha cannot be traced
-    back to source, and a git sha with no digest is unverifiable, since ape-rv.jar
-    carries no build stamp to compare a revision against.
-    """
-    offenders = {}
-    for name, cfg in variants.items():
-        # The tolerance is an ordinary override, so it lives inside `overrides`; the two
-        # declarations are Python-only and stay at the top level, which is exactly what
-        # keeps them out of ape.properties and out of the single-factor contrast.
-        overrides = cfg.get("overrides", {})
-        sets_tolerance = "llm_snap_tolerance_px" in overrides
-        declared = {key for key in _JAR_DECLARATION_KEYS if cfg.get(key)}
-        if sets_tolerance and declared != _JAR_DECLARATION_KEYS:
-            missing = sorted(_JAR_DECLARATION_KEYS - declared)
-            offenders[name] = (
-                f"raised tolerance without a declared jar sha ({', '.join(missing)})"
-            )
-        elif (
-            declared
-            and overrides.get("llm_snap_tolerance_px") != _SNAP_TOLERANCE_RAISED
-        ):
-            offenders[name] = "declared jar sha without the raised tolerance"
-        elif declared and declared != _JAR_DECLARATION_KEYS:
-            missing = sorted(_JAR_DECLARATION_KEYS - declared)
-            offenders[name] = f"incomplete jar declaration ({', '.join(missing)})"
-    return offenders
-
-
-class TestSnapToleranceGate:
-    """gh90 group 3: the B3 coupling, enforced by the suite (INV-APV-34)."""
-
-    def test_shipped_arms_satisfy_the_pairing(self):
-        assert _snap_tolerance_offenders(ApeRVTool.get_variants()) == {}
-
-    def test_tolerance_without_declaration_fails(self):
-        # Spec scenario "Tolerance and jar declaration travel together".
-        offenders = _snap_tolerance_offenders(
-            {"arm": {"overrides": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED}}}
-        )
-
-        assert "arm" in offenders
-        assert "without a declared jar sha" in offenders["arm"]
-
-    def test_dangling_jar_sha_declaration_fails(self):
-        # Spec scenario "Declaration without the raised tolerance also fails":
-        # the tolerance was rolled back to the jar default and the declaration
-        # was left behind, which will silently mislead the next reader.
-        offenders = _snap_tolerance_offenders(
-            {
-                "arm": {
-                    _JAR_SHA_KEY: "abc1234",
-                    _JAR_DIGEST_KEY: "def5678",
-                    "overrides": {"llm_snap_tolerance_px": 50},
-                }
-            }
-        )
-
-        assert "arm" in offenders
-        assert "without the raised tolerance" in offenders["arm"]
-
-    def test_declaration_without_any_tolerance_key_also_fails(self):
-        offenders = _snap_tolerance_offenders(
-            {"arm": {_JAR_SHA_KEY: "abc1234", _JAR_DIGEST_KEY: "def5678"}}
-        )
-
-        assert "arm" in offenders
-
-    def test_half_a_declaration_fails(self):
-        # A digest with no git sha cannot be traced back to source, and a git sha
-        # with no digest is unverifiable — ape-rv.jar carries no build stamp to
-        # compare a revision against. Either half alone is a broken declaration.
-        halves = ((_JAR_SHA_KEY, _JAR_DIGEST_KEY), (_JAR_DIGEST_KEY, _JAR_SHA_KEY))
-        for present, missing in halves:
-            offenders = _snap_tolerance_offenders(
-                {
-                    "arm": {
-                        present: "abc1234",
-                        "overrides": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED},
-                    }
-                }
-            )
-
-            assert "arm" in offenders, present
-            assert missing in offenders["arm"]
-
-    def test_paired_declaration_passes(self):
-        assert (
-            _snap_tolerance_offenders(
-                {
-                    "arm": {
-                        _JAR_SHA_KEY: "abc1234",
-                        _JAR_DIGEST_KEY: "def5678",
-                        "overrides": {"llm_snap_tolerance_px": _SNAP_TOLERANCE_RAISED},
-                    }
-                }
-            )
-            == {}
-        )
-
-    def test_declared_shas_never_reach_ape_properties(self):
-        # The declaration is a guard-and-smoke artifact, not a jar property:
-        # ape-rv.jar has no property to receive it, and its absence from the
-        # mapping is also what keeps the two keys inert enough not to disturb
-        # the arm 1 <-> arm 3 single-factor contrast.
-        for key in _JAR_DECLARATION_KEYS:
-            assert key not in APERV_PROPERTY_MAPPING, key
 
 
 # --- gh90 N4: per-run LLM backend provenance ---------------------------------

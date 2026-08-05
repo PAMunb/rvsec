@@ -42,11 +42,23 @@ An arm is a **jar preset name plus a dict of override deltas** — nothing else.
 | `sata_mop_llm` | `llm_mop` | yes | `llm_url` | MOP + LLM combined |
 | `mop_on_llm_off` | `mop` | yes | the four reach-package keys | gh90 decisive-run **reference**; absorbs the retired `sata_mop_act_frontier`, whose effective configuration was byte-identical (the ANC2 anchor) |
 | `mop_off_llm_off` | `mop` | yes | reach package minus the frontier weight/trigger, plus the four MOP weights at `0` | gh90 decisive-run **control**. MOP-off means `mop_data` present + the scoring weights zeroed, never an omitted document (INV-APV-29); `frontier_boost_weight` stays at 200 so navigation survives (INV-APV-30). Reference ↔ control = RQ-C1 |
-| `mop_on_llm_70` | `llm_mop` | yes | the reference's four, plus the LLM dose (v13, 70%, temperature 0) and `llm_snap_tolerance_px=150` | gh90 decisive-run **LLM arm**. Reference ↔ this = RQ-C3. The two `expected_jar_*` declarations stay Python-only (INV-APV-34) |
+| `mop_on_llm_70` | `llm_mop` | yes | the reference's four, plus the LLM dose (v13, 70%, temperature 0) and `llm_snap_tolerance_px=150` | gh90 decisive-run **LLM arm**. Reference ↔ this = RQ-C3 |
 
 `throttle_ms` appears in no arm: the `aperv` preset already states `ape.defaultGUIThrottle=200`, which every arm used. Ablations are named override sets, never new presets — the preset vocabulary belongs to the jar.
 
 **Twenty-one names were retired** by gh95, in three kinds: *never distinct* (`ape_pure`, `bfs`, `sata_mop_widget` — no configuration was lost, since `bfs` always carried `sata`'s plan and `sata_mop_widget` was `sata_mop`'s own object), *name consolidated* (`sata_mop_act_frontier`, surviving as `mop_on_llm_off`), and *finished campaign* (the six gh43 prompt arms, `cal_a1`…`cal_a9`, `sata_mop_activity`, `random`). Retirement ends the ability to launch new runs under a name; recorded results are frozen artifacts and are unaffected. The full list with reasons is `tests/migration/retirements.py`.
+
+**No arm names the binary it runs against** (INV-APV-59). `mop_on_llm_70` used to declare
+`expected_jar_git_sha` and `expected_jar_sha256` — the revision and digest of one `ape-rv.jar` build,
+as literals — with a guard pairing them to `llm_snap_tolerance_px=150` and a smoke gate comparing the
+digest against the jar actually pushed. The jar is built in a sibling repository whose build is not
+bit-reproducible, so the same revision produces a different digest on every build: the gate failed on
+correct redeployments (the stage-4 jar among them) and passed on stale ones, and a rebuild there
+became an edit of a Python constant here. Which jar ran is still recorded, by measurement:
+`_capture_llm_provenance()` digests the jar it is about to push into the run's `jar_sha256`. Both
+names are also out of `APERV_ORCHESTRATION_KEYS`, so `configure()` rejects them — the declaration
+cannot return through experiment YAML or the tool DSL. Which build is installed is a deployment
+decision, stated in the deployment, not in `tool.py`.
 
 **There is no arm-explicitness guard any more.** `ARM_DEFINING_KEYS`, `_ARM_DEFINING_EXEMPT` and `LLM_ARM_KEYS` validated Python constants against other Python constants, which was the best available check while the jar had no contract. Stage 2 gave it one: an unknown key, a retired key, or a non-neutral value of an inactive feature aborts the run before step 1. Per owner decision D1 nothing replaces the guards at runtime — `tool.py` never parses `RUN_START` or any other jar output (INV-APV-43), and drift auditing stays post-hoc analysis of the trace.
 

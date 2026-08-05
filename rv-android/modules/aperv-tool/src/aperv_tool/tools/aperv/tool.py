@@ -109,8 +109,6 @@ APERV_ORCHESTRATION_KEYS = frozenset(
         "strategy",
         "mop_data",
         "seed",
-        "expected_jar_git_sha",
-        "expected_jar_sha256",
         "device_port",
         "device_serial",
         "device_id",
@@ -186,8 +184,8 @@ APERV_PROPERTY_MAPPING = {
     "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
     "llm_prompt_variant": "ape.llmPromptVariant",
     # Live Feature.LLM sub-parameters in the jar's ownership table. The snap tolerance is
-    # set by mop_on_llm_70 and is paired with that arm's jar-digest declaration
-    # (INV-APV-34); max_tokens is mapped and set by no arm, so it takes the jar's default.
+    # set by mop_on_llm_70 alone; max_tokens is mapped and set by no arm, so it takes the
+    # jar's default.
     "llm_max_tokens": "ape.llmMaxTokens",
     "llm_snap_tolerance_px": "ape.llmSnapTolerancePx",
     # Deployment provenance, not configuration: the application list this run was
@@ -439,36 +437,17 @@ class ApeRVTool(AbstractTool):
                     "llm_prompt_variant": "v13",
                     "llm_percentage": 0.7,
                     "llm_temperature": 0,
-                    # B3: the raised snap radius, and the jar it is raised for.
-                    #
-                    # Widening the radius makes more LLM answers resolve to a
-                    # widget. Without the dead-pair ban the extra resolutions are
-                    # repeated taps on pairs already known to produce no new state,
-                    # so the widening amplifies the measured 25.6% dead-call waste
-                    # instead of rescuing near-misses. The tolerance is therefore
-                    # only ever set alongside a declaration of which jar build it
-                    # belongs to, and _snap_tolerance_offenders fails the suite on
-                    # any of the three alone (INV-APV-34).
+                    # The raised snap radius. Widening it makes more LLM answers
+                    # resolve to a widget, which pays off only against a jar that
+                    # bans dead pairs: without the ban the extra resolutions are
+                    # repeated taps on pairs already known to produce no new
+                    # state, and the widening amplifies the measured 25.6%
+                    # dead-call waste instead of rescuing near-misses. Which jar
+                    # is installed is a deployment fact, recorded per run by the
+                    # jar_sha256 of the run's provenance (INV-APV-59); this file
+                    # states the arm, not the binary.
                     "llm_snap_tolerance_px": 150,
                 },
-                # The two declarations answer different questions. The sha256 is
-                # the gate: it is compared at smoke time against the jar_sha256
-                # captured at run start, and it is what actually proves which
-                # binary ran. The git sha is documentary — it is the only way
-                # back from a digest to the source revision, since ape-rv.jar
-                # carries no build stamp of its own. Both are Python-only and
-                # stay out of APERV_PROPERTY_MAPPING: the jar has no property to
-                # receive them, and that absence is what keeps them inert enough
-                # not to disturb the arm 1 <-> arm 3 single-factor contrast.
-                #
-                # The ape build is not bit-reproducible, so a rebuild of the
-                # same revision changes the digest and this pair has to be
-                # re-recorded. That is the accepted cost of verifying the
-                # artifact rather than a claim it makes about itself.
-                "expected_jar_git_sha": "5dcf225976b26ce78d8b31dd88d7f858dad29d43",
-                "expected_jar_sha256": (
-                    "386ce08d1846a4088755a8d755e5b70391af3b42add091d231dbcc52aed24e69"
-                ),
             },
         }
 
@@ -922,10 +901,11 @@ class ApeRVTool(AbstractTool):
 
         Returns:
             `llm_backend`, `llm_model`, `llm_sampling`, `jar_sha256` and
-            `capture_status`. `jar_sha256` identifies the binary for post-hoc
-            correlation and is the runtime half of the B3 gate, compared at smoke
-            time against the arm's declared `expected_jar_sha256` — `ape-rv.jar`
-            carries no build stamp of its own to read instead.
+            `capture_status`. `jar_sha256` is the digest of the binary about to
+            be pushed, and it is the only statement this repository makes about
+            which jar ran: `ape-rv.jar` carries no build stamp to read, so the
+            identity is measured from the file at push time rather than declared
+            anywhere in source (INV-APV-59).
         """
         query_url = self._provenance_query_url(llm_url)
         provenance: Dict[str, Any] = {

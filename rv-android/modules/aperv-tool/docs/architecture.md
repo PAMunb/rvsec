@@ -429,7 +429,7 @@ classDiagram
 1. rv-experiment specifies `aperv:mop_on_llm_70` in the tool configuration
 2. `ToolFactory` resolves the variant: `preset=llm_mop`, `mop_data=static_analysis`, and nine overrides — the reach package (`mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True`) plus the LLM dose (`llm_url=http://10.0.2.2:30000/v1`, `llm_prompt_variant=v13`, `llm_percentage=0.7`, `llm_temperature=0`) and `llm_snap_tolerance_px=150`
 3. `configure()` validates the shape and checks `APERV_LLM_BASE_URL` for a URL override, which Docker and physical-device deployments need because `10.0.2.2` is an emulator-only alias for host loopback
-4. Execution pushes the JAR, the derived MOP artifact and the broadcast catalog, then writes `ape.properties`: `ape.preset=llm_mop`, `ape.mopDataPath=...`, and one line per override in `APERV_PROPERTY_MAPPING` order. The arm's `expected_jar_git_sha` and `expected_jar_sha256` stay Python-only — the jar has no property to receive them, and that absence is what keeps them from disturbing the single-factor contrast against `mop_on_llm_off` (INV-APV-34)
+4. Execution pushes the JAR, the derived MOP artifact and the broadcast catalog, then writes `ape.properties`: `ape.preset=llm_mop`, `ape.mopDataPath=...`, and one line per override in `APERV_PROPERTY_MAPPING` order. The identity of the jar being pushed is measured, not declared: `_capture_llm_provenance()` digests it into the run's `jar_sha256`, and no arm names a build (INV-APV-59)
 5. APE-RV queries the SGLang server at the configured URL during exploration, using the `v13` prompt for 70% of decisions and snapping answered coordinates to a widget within 150 px
 
 ---
@@ -495,7 +495,7 @@ flowchart TB
 
 `_push_properties()` writes only what distinguishes the arm. The file leads with `ape.preset=<name>`; when the derived MOP artifact was pushed it adds `ape.mopDataPath=/data/local/tmp/mop-artifact.json`; then it emits one line per `overrides` entry, translated through `APERV_PROPERTY_MAPPING`. What a preset contains is resolved inside the jar, so no line restates a preset value — a `sata_mop` run ships a two-line file. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table and two runs of the same arm produce byte-identical properties.
 
-Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS` and never reach the device: `preset` and `overrides` (the arm's shape itself), `strategy` (the `--ape` flag), `mop_data` (whether the artifact is pushed), `seed`, `expected_jar_git_sha` and `expected_jar_sha256` (jar provenance, verified host-side at smoke time), and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched.
+Python-only control keys are the eight in `APERV_ORCHESTRATION_KEYS` and never reach the device: `preset` and `overrides` (the arm's shape itself), `strategy` (the `--ape` flag), `mop_data` (whether the artifact is pushed), `seed`, and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched.
 
 `APERV_PROPERTY_MAPPING` has 50 entries. Most exist so an ablation can be expressed as an override set without a code change; the entries a surviving arm actually sets are:
 
@@ -571,7 +571,7 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02), the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, properties generation, the decisive-run arms and their contrasts, the snap-tolerance gate (INV-APV-34), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53) |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02), the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53) |
 | Migration | tests/migration/ | The one-time regeneration diff proving each surviving arm's effective configuration is unchanged under `preset + overrides`, the explicit retirement list, and the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table. Deleted once the owner signs off and `gh97-rearch-ab-gate` has run |
 
 ## Related Documentation
