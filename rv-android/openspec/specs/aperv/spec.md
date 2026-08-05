@@ -14,7 +14,7 @@ Coverage metrics (method calls, MOP violations) are collected by the rv-android 
 
 The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configures via `ape.properties`:
 
-1. **MOP-Guided Scoring**: When `ape.mopDataPath` points to a static analysis JSON on the device, APE-RV loads widget-to-MOP mappings and applies priority boosts (+500 direct, +300 transitive, +100 activity-level) to actions whose handlers reach monitored operations. This biases exploration toward code paths under runtime verification.
+1. **MOP-Guided Scoring**: When `ape.mopDataPath` points to the derived compact MOP artifact on the device, APE-RV reads the widget-to-MOP mappings it already carries and applies priority boosts (+500 direct, +300 transitive, +100 activity-level) to actions whose handlers reach monitored operations. This biases exploration toward code paths under runtime verification. The device receives only that artifact and never the full static-analysis JSON (INV-APV-46): the derivation the jar used to perform at load time — per-widget MOP flags, the two MOP-activity sets, the OPTIONSMENU gateway inputs, the click-only WTG view and the component trigger surface — happens host-side, so the call-graph section that dominates the file never crosses to the device and no on-device parse footprint guard can abort a MOP arm at 0 steps while the baseline explores normally.
 
 2. **LLM-Guided Action Selection**: When `ape.llmUrl` points to an SGLang server, APE-RV captures screenshots and consults a vision-language model (Qwen3-VL) at two decision points: (a) first visit to a new state (`llmOnNewState`), and (b) stagnation midpoint (`llmOnStagnation`). A probabilistic mode (`llmPercentage`) routes a configurable fraction of steps through the LLM. A circuit breaker (3 failures, 60s recovery) protects the exploration loop from cascading LLM failures. All LLM failures fall back to SATA transparently.
 
@@ -26,7 +26,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **rv-platform**: Consumes `ApeRVTool` via `ToolFactory.create_tool()` in `ToolExecutionComponent`. Registration via `_register_external_tools()`.
 - **rv-experiment**: Orchestrates experiments using `aperv` tool variants. APK instrumentation and static analysis happen in pre-processing; `aperv-tool` receives the instrumented APK already installed on the emulator.
-- **rv-static-analysis**: Produces the static analysis JSON consumed by MOP variants. The JSON maps activities to widgets with MOP reachability flags and includes component data for triggering.
+- **rv-static-analysis**: Produces the full static-analysis JSON that MOP variants derive from. It maps activities to widgets with MOP reachability flags and includes component data for triggering, and it remains the host-side source of truth: `aperv-tool` reads it, never writes to it, and projects it into the compact artifact the device receives. It also stays the sole input to offline metrics, which read the full document rather than the projection (`analysis` INV-ANA-53, INV-ANA-54).
 - **rv-tools**: Provides `AbstractTool` base class, `ToolSpec`, `ToolRegistry`, and `ToolFactory` infrastructure.
 - **builtin ape tool**: Shares `process_pattern` (`com.android.commands.monkey`). The two tools must not run concurrently on the same device.
 
