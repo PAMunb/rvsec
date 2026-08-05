@@ -7,16 +7,17 @@
 #   watch -n 120 bash scripts/monitor.sh
 #
 # Expected total is 360 = 40 APKs x 3 arms x 3 repetitions, the same grid as leg
-# A by requirement. Each container owns 5 APKs and runs all three arms over them,
-# so a healthy container converges on 45 tasks. A container short of 45 with the
-# others done is where the resume pass has work to do.
+# A by requirement. Amendment 01 spreads that grid over ten containers, so each
+# container owns 4 APKs and runs all three arms over them, and a healthy
+# container converges on 36 tasks. A container short of 36 with the others done
+# is where the resume pass has work to do.
 #
 # The count below is identity-distinct by construction — it reads each task's
 # state, never `grep COMPLETED tasks.json`, which double-counts through
 # state_transitions.
 
 RESULTS_DIR="${1:-results}"
-CONTAINERS="rearch_aperv_00 rearch_aperv_01 rearch_aperv_02 rearch_aperv_03 rearch_aperv_04 rearch_aperv_05 rearch_aperv_06 rearch_aperv_07"
+CONTAINERS="rearch_aperv_00 rearch_aperv_01 rearch_aperv_02 rearch_aperv_03 rearch_aperv_04 rearch_aperv_05 rearch_aperv_06 rearch_aperv_07 rearch_aperv_08 rearch_aperv_09"
 EXPECTED=360
 
 echo "=== rearch A/B gate — leg B progress ($(date '+%Y-%m-%d %H:%M:%S')) ==="

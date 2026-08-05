@@ -101,13 +101,17 @@ networks:
 
 services:
 
-  # Cada container roda os TRES bracos sobre os SEUS 5 APKs, e a particao e
-  # byte-identica a da perna A: batch_NN.txt aqui e o mesmo arquivo que la. O
-  # pareamento e por aplicacao, entao manter os tres bracos de um APK no mesmo
-  # container faz uma falha de container derrubar o par inteiro em vez de meio
-  # par — o que o resume recupera limpo, enquanto meio par exigiria descarte.
+  # Cada container roda os TRÊS braços sobre os SEUS 4 APKs. A emenda 01
+  # reparticionou a campanha de 8 x 5 para 10 x 4, então os filtros aqui
+  # (filters10/) não são mais byte-idênticos aos da perna A e uma aplicação não
+  # roda mais no mesmo índice de container nas duas pernas — custo registrado na
+  # emenda, e o efeito de container deixa de cancelar na diferença pareada. O
+  # pareamento POR APLICAÇÃO, que é o que G1/G2/G3 usam, continua intacto: manter
+  # os três braços de um APK no mesmo container faz uma falha de container
+  # derrubar o par inteiro em vez de meio par — o que o resume recupera limpo,
+  # enquanto meio par exigiria descarte.
   #
-  # RV_DELAY escalona a subida dos emuladores de 10 em 10 s: oito emuladores
+  # RV_DELAY escalona a subida dos emuladores de 10 em 10 s: dez emuladores
   # bootando ao mesmo tempo disputam CPU e alguns estouram o timeout de boot.
   rearch_aperv_00:
     <<: *rvandroid-base
