@@ -21,8 +21,12 @@ uv run rv-experiment run --tools aperv:sata_mop --specification-set jca   # MOP-
 | `src/aperv_tool/analysis/clock_logcat_join.py` | Offline placement of a run's `RVSEC` violation lines on its exploration timeline (gh90 A9). Both series come out of the same logcat: a violation belongs to the step of the last `ApeRvHb` heartbeat at or before it, so the two stamps carry identical unknowns (no year, no zone) that cancel in the difference. `trace_ndjson.py` supplies what the logcat cannot — the matched step's activity and abstract state, and `RUN_START.t0` as the only absolute clock. Holds no clock reconstruction of any kind. Never in the run path |
 | `src/aperv_tool/tools/aperv/ape-rv.jar` | APE-RV binary (gitignored); pushed to `/data/local/tmp/ape-rv.jar` |
 | `src/aperv_tool/tools/aperv/system-broadcast.json` | System broadcast intent catalog for component triggering |
-| `tests/test_aperv_tool.py` | Tool spec, variants, configure validation, JAR search paths, command building, empty-trace detection, properties generation, artifact derivation/caching, the `.mop.json` audit |
+| `tests/test_aperv_tool.py` | Tool spec, variants, configure validation, JAR search paths, command building, empty-trace detection, trace compression, properties generation, artifact derivation/caching, the `.mop.json` audit, the frozen-corpus carve-out |
 | `tests/test_derive_mop_artifact.py` | One named test per relocated derivation rule, plus the cryptoapp ground truth |
+| `tests/test_trace_ndjson.py` | Reader semantics against `tests/fixtures/trace_ndjson_golden.ndjson` |
+| `tests/test_coverage_dump.py` | `UICOV` / `UICOV-ACT` parsing |
+| `tests/test_clock_logcat_join.py` | Heartbeat placement, including both routes to `UNALIGNED` |
+| `tests/migration/` | The one-time regeneration diff against `arm_effective_baseline.json`, the retirement list, the pinned jar tables, the mapping sweep. Deleted once the owner signs off and `gh97-rearch-ab-gate` has run |
 | `tests/fixtures/cryptoapp.apk.json` | Ground-truth static-analysis JSON (provenance in `tests/fixtures/README.md`) |
 | `docs/architecture.md` | Architecture notes |
 
@@ -69,9 +73,14 @@ decision, stated in the deployment, not in `tool.py`.
    - Resolves `ape-rv.jar` by priority: module dir > `$RVSEC_HOME/ape/target/` > `$TOOLS_DIR/aperv/`.
    - Pushes JAR to `/data/local/tmp/ape-rv.jar`; `system-broadcast.json` to `/data/local/tmp/` (optional).
    - MOP variants: derives `<results_dir>/<apk_name>.mop.json` from the full static-analysis JSON (cache hit when the recorded `source.digest` matches, otherwise derive + atomic write) and pushes **only that artifact** to `/data/local/tmp/mop-artifact.json`. The source at `<results_dir>/<apk_name>.json` is never modified and never pushed. A MOP arm with no static-analysis JSON, or whose derivation fails, raises `RVToolExecutionError` — it does not degrade to a MOP-labelled SATA run.
-   - Generates + pushes `ape.properties`, then runs `adb shell CLASSPATH=... app_process`.
+   - Generates + pushes `ape.properties`.
+   - LLM arms only (discriminated by `llm_url` in `overrides`, not by preset name): `_capture_llm_provenance()` writes a `<run>.provenance.json` sidecar recording the backend that serves the run and the sha256 of the jar about to be pushed. Non-fatal — a failed query or write costs the record, never the run (INV-APV-33).
+   - Runs `adb shell CLASSPATH=... app_process`.
+   - `_gzip_trace()` writes `<run>.trace.ndjson.gz` beside the trace. On **both** exit paths, because timeout is the majority path, not the exception. Write-only (the trace stays byte-identical, INV-APV-52), inspects nothing (INV-APV-53), non-fatal.
 
-`APERV_PROPERTY_MAPPING` translates Python config keys → Java `ape.properties` keys. Keys not in the mapping (e.g. `strategy`, `mop_data`) are Python-only and never written to properties.
+`APERV_PROPERTY_MAPPING` translates Python config keys → Java `ape.properties` keys (50 entries). Keys not in the mapping are the eight in `APERV_ORCHESTRATION_KEYS` — `preset`, `overrides`, `strategy`, `mop_data`, `seed`, and the three device-addressing keys rv-experiment injects whenever `--device-port` is set — and are Python-only. Any other top-level key raises `ConfigurationError` before a device is touched.
+
+**`corpus_basis` is provenance, not configuration.** Mapped to `ape.corpusBasis`, set by no arm, supplied per campaign through the DSL (`@corpus_basis=subset40:<sha256>`). It names the application list a run was drawn from; the jar echoes it into the trace's opening record and reads it nowhere, so it changes no behaviour. `configure()` validates only the shape against `CORPUS_BASIS_PATTERN` (`<corpus-id>:<sha256>`) — this module does not own the corpus list and must not grow a filesystem dependency on a campaign's layout to hash it, so whether the digest matches the list is verified where the list lives. The check runs after the DSL fold, covering both an arm's `overrides` and an `@corpus_basis=…` parameter. Unstated ⇒ the key is omitted entirely.
 
 ## Key Design Decisions
 

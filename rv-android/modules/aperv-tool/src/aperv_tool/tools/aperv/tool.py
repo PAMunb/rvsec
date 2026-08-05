@@ -3,8 +3,8 @@ ApeRV Tool for rv-platform integration.
 
 Wraps the enhanced APE-RV binary (ape-rv.jar) as an AbstractTool for execution
 within the rv-platform task execution framework. APE-RV runs on the Android
-device via app_process, performing model-based UI exploration using SATA, BFS,
-random, or DFS strategies to trigger monitored operations.
+device via app_process, performing model-based UI exploration using the SATA or
+random strategy to trigger monitored operations.
 
 ### Role in the System:
 
@@ -16,9 +16,14 @@ model. Within rv-platform, it sits alongside other AbstractTool implementations
 ### Key Features:
 
 - JAR deployment: resolves ape-rv.jar via priority search and pushes to the device
-- Strategy selection: SATA (adaptive random), BFS, DFS, and random exploration
-- Properties injection: generates ape.properties with throttle configuration
+- Strategy selection: SATA (adaptive random) and random, the two agent types the
+  jar's ApeAgent.createAgent builds and this tool can launch
+- Properties injection: generates ape.properties naming the arm's jar preset plus
+  its override deltas
+- MOP artifact derivation: projects static analysis host-side and pushes only the
+  projection, so the device never parses a call graph
 - Timeout-aware execution: treats timeout as expected exit for exploration tools
+- Trace compression: writes a .gz copy beside the raw capture, on every exit path
 
 ### Architectural Decisions:
 

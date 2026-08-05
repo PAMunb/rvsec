@@ -38,7 +38,7 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Application Type | Library (rv-platform plugin) | aperv-tool is a tool plugin, not standalone; rv-platform manages its lifecycle |
-| Structuring | Single-class module | The tool has one responsibility (wrap APE-RV binary); a single `ApeRVTool` class with helper methods is sufficient |
+| Structuring | One execution class plus two read-only satellites | `ApeRVTool` owns the device interaction. `derive_mop_artifact` is a separate pure module because the MOP substrate's parse-time semantics are a single authority that must be testable without a device, and `analysis/` is a separate package because nothing in it may be reachable from the run path |
 | Primary Pattern | Template Method (via AbstractTool) | Inherits the `execute()` -> `execute_tool_specific_logic()` template from AbstractTool, gaining consistent timeout and cleanup handling |
 | Control Strategy | Call-based, sequential | rv-platform calls `configure()` then `execute_tool_specific_logic()` in sequence; no internal concurrency |
 | Configuration | Properties file injection | APE-RV reads `ape.properties` from the device; the tool generates this file from Python config and pushes via ADB |
@@ -48,7 +48,7 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 
 ### Why Properties File Injection?
 
-APE-RV is a Java application running inside the Android emulator via `app_process`. It reads configuration from `ape.properties` on the device filesystem at startup. The Python wrapper generates this file dynamically, and since stage 2 of the re-architecture it writes only what distinguishes the arm: `ape.preset=<name>` first, `ape.mopDataPath` when the derived MOP artifact was pushed, then one line per `overrides` entry. What a preset contains is resolved inside the jar, so the file no longer restates 18-33 keys the two sides had to agree on. Keys not in `APERV_PROPERTY_MAPPING` (`strategy`, `mop_data`, `seed`, the two jar-provenance declarations) are Python-only control parameters and never reach the device.
+APE-RV is a Java application running inside the Android emulator via `app_process`. It reads configuration from `ape.properties` on the device filesystem at startup. The Python wrapper generates this file dynamically, and since stage 2 of the re-architecture it writes only what distinguishes the arm: `ape.preset=<name>` first, `ape.mopDataPath` when the derived MOP artifact was pushed, then one line per `overrides` entry. What a preset contains is resolved inside the jar, so the file no longer restates 18-33 keys the two sides had to agree on. Keys not in `APERV_PROPERTY_MAPPING` — the eight in `APERV_ORCHESTRATION_KEYS` — are Python-only control parameters and never reach the device.
 
 ### Why Shared Process Pattern with APE?
 
@@ -109,6 +109,7 @@ Shows key domain entities and their relationships.
 | JarResolver | Resolves the path to `ape-rv.jar` via priority search across configured directories |
 | Command | Encapsulates an ADB shell command with timeout; used for both file push and main execution |
 | APERV_PROPERTY_MAPPING | Maps Python config keys to Java `ape.properties` keys; controls what is written to the device |
+| MOP artifact (`<apk>.mop.json`) | The lossy projection of static analysis that the device reads; derived host-side, cached by the source digest, and readable by no module outside aperv-tool (INV-ANA-53) |
 
 ### Component Architecture
 
@@ -183,19 +184,32 @@ aperv-tool/
 ├── src/
 │   └── aperv_tool/
 │       ├── __init__.py
-│       └── tools/
+│       ├── tools/                          # the run path — everything that touches a device
+│       │   ├── __init__.py
+│       │   └── aperv/
+│       │       ├── __init__.py
+│       │       ├── tool.py                 # ApeRVTool class, constants, property mapping
+│       │       ├── derive_mop_artifact.py  # pure derivation of the device's MOP artifact
+│       │       ├── ape-rv.jar              # APE-RV binary (gitignored; built from ape source at Docker image build)
+│       │       └── system-broadcast.json   # Broadcast intent catalog for component triggering
+│       └── analysis/                       # read-only over recorded runs; never imported by the run path
 │           ├── __init__.py
-│           └── aperv/
-│               ├── __init__.py
-│               ├── tool.py              # ApeRVTool class, constants, property mapping
-│               ├── ape-rv.jar           # APE-RV binary (gitignored; built from ape source at Docker image build)
-│               └── system-broadcast.json # Broadcast intent catalog for component triggering
+│           ├── trace_ndjson.py             # native reader of the stage-4 NDJSON trace
+│           ├── coverage_dump.py            # parser of the jar's UICOV / UICOV-ACT dump
+│           └── clock_logcat_join.py        # places RVSEC violations on the exploration timeline
 ├── tests/
 │   ├── __init__.py
-│   ├── test_aperv_tool.py              # spec, variants, configure/DSL fold, commands, properties, arms
-│   └── migration/                      # one-time regeneration diff, retirement list, mapping sweep
+│   ├── test_aperv_tool.py                  # spec, variants, configure/DSL fold, commands, properties, arms
+│   ├── test_derive_mop_artifact.py         # one named test per derivation rule + cryptoapp ground truth
+│   ├── test_trace_ndjson.py                # reader semantics against the golden NDJSON
+│   ├── test_coverage_dump.py               # coverage-dump parsing
+│   ├── test_clock_logcat_join.py           # heartbeat placement, including both routes to UNALIGNED
+│   ├── fixtures/                           # cryptoapp.apk.json, trace_ndjson_golden.ndjson (provenance in README.md)
+│   └── migration/                          # one-time regeneration diff, retirement list, jar tables, mapping sweep
 └── pyproject.toml
 ```
+
+The `tools/` ÷ `analysis/` split is load-bearing rather than cosmetic: `analysis/` reads artifacts a run already produced and rv-platform never calls into it, so a change there cannot alter what any arm does on a device.
 
 ### Package Dependencies
 
@@ -204,6 +218,8 @@ aperv-tool/
 flowchart TB
     subgraph ApervModule["aperv-tool"]
         ToolImpl["aperv_tool.tools.aperv.tool"]
+        DeriveImpl["aperv_tool.tools.aperv.derive_mop_artifact"]
+        AnalysisPkg["aperv_tool.analysis.*<br/>(offline; not on the run path)"]
     end
     subgraph CoreDeps["rv-android-core"]
         AbstractToolDep["AbstractTool"]
@@ -228,9 +244,12 @@ flowchart TB
     ToolImpl --> LoggingDep
     ToolImpl --> DomainDep
     ToolImpl --> ExceptionsDep
+    ToolImpl --> DeriveImpl
     ExtRegDep --> ToolImpl
     ExtRegDep --> RegistryDep
 ```
+
+`AnalysisPkg` has no inbound edge on purpose: nothing imports it, which is what keeps offline analysis unable to affect a run.
 
 ---
 
@@ -281,18 +300,27 @@ sequenceDiagram
     Tool->>ADB: adb push ape.properties /data/local/tmp/
     ADB-->>Tool: OK
 
+    opt overrides carry llm_url
+        Tool->>Tool: _capture_llm_provenance(llm_url, jar_path)
+        Tool->>Tool: write <run>.provenance.json sidecar<br/>(failure logs a warning, never fails the run)
+    end
+
     Tool->>ADB: adb shell CLASSPATH=... app_process /system/bin Monkey -p pkg --ape strategy
     ADB->>APE: start exploration
 
     alt Timeout (expected)
         APE-->>Tool: RVCommandTimeoutError
+        Tool->>Tool: _gzip_trace()
         Tool-->>Platform: RVToolTimeoutError (normal completion)
     else Normal exit
         APE-->>Tool: exit code (0 or non-zero)
         Tool->>Tool: _check_empty_trace()
+        Tool->>Tool: _gzip_trace()
         Tool-->>Platform: return
     end
 ```
+
+`_gzip_trace()` runs on both paths because timeout is the majority path, not the exception: compressing only on normal exit would exempt most runs. It is write-only and non-fatal — it produces `<run>.trace.ndjson.gz` beside the trace, leaves `task.result.trace_file` byte-identical (INV-APV-52), parses nothing and changes no task status (INV-APV-53).
 
 ---
 
@@ -305,11 +333,33 @@ sequenceDiagram
 **Location**: `src/aperv_tool/tools/aperv/tool.py`
 
 **Key Classes**:
-- `ApeRVTool`: Main tool class extending `AbstractTool`. Single class with 8 methods covering configuration, JAR resolution, file push, properties generation, command building, execution, and trace checking.
+- `ApeRVTool`: Main tool class extending `AbstractTool`, covering configuration, JAR resolution, file push, MOP artifact derivation and caching, LLM provenance capture, properties generation, command building, execution, empty-trace detection and trace compression.
 
 **Dependencies**:
-- Internal: `rv-android-core` (AbstractTool, Command, JarResolver, ErrorHandler, LoggingManager, domain models, exceptions)
-- External: None (uses only stdlib `os`, `tempfile`)
+- Internal: `rv-android-core` (AbstractTool, Command, JarResolver, ErrorHandler, LoggingManager, domain models, exceptions); `aperv_tool.tools.aperv.derive_mop_artifact`
+- External: None (uses only stdlib `gzip`, `hashlib`, `json`, `os`, `re`, `shutil`, `tempfile`, `urllib.request`)
+
+### derive_mop_artifact
+
+**Purpose**: Single authority for the MOP substrate's parse-time semantics. `derive(document) -> dict` projects the full static-analysis JSON into what the device needs; `serialize_canonical(artifact) -> bytes` renders it deterministically so two derivations of the same source are byte-identical.
+
+**Location**: `src/aperv_tool/tools/aperv/derive_mop_artifact.py`
+
+**Why it is a module rather than methods on the tool**: these rules used to run on the device at load time, where the jar parsed the whole call graph and rejected large ones. Moving them host-side made them testable without a device and removed the per-app fairness gap; keeping them pure — no I/O, no device concepts — is what lets `tests/test_derive_mop_artifact.py` name one test per rule and check the cryptoapp ground truth directly.
+
+### analysis package
+
+**Purpose**: Read-only utilities over the artifacts of a recorded run.
+
+**Location**: `src/aperv_tool/analysis/`
+
+| Module | Reads | Produces |
+|--------|-------|----------|
+| `trace_ndjson.py` | the stage-4 NDJSON trace | one row per exploration step, with the `ACT`/`STATE` dictionaries resolved, omitted defaults materialized, and the run-relative clock expanded through `RUN_START.t0` |
+| `coverage_dump.py` | the `UICOV` / `UICOV-ACT` lines of the trace | parsed coverage records; unaffected by the NDJSON change, which does not touch those lines |
+| `clock_logcat_join.py` | a run's logcat plus `trace_ndjson` rows | each `RVSEC` violation placed at the step of the last `ApeRvHb` heartbeat at or before it |
+
+**Constraint**: nothing here is imported by the run path, and none of it holds a clock reconstruction. `clock_logcat_join` works because both series come out of the same logcat, so their identical unknowns (no year, no zone) cancel in the difference.
 
 ### Constants and Configuration Mapping
 
@@ -517,6 +567,8 @@ Python-only control keys are the eight in `APERV_ORCHESTRATION_KEYS` and never r
 
 `throttle_ms` -> `ape.defaultGUIThrottle` is mapped but set by no arm: the `aperv` preset already states `ape.defaultGUIThrottle=200`, and an override restating a preset value would be a delta that is not a delta. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
 
+`corpus_basis` -> `ape.corpusBasis` is mapped, set by no arm, and supplied per campaign through the tool DSL. It is deployment provenance, not configuration: it names the application list a run was drawn from, as `<corpus-id>:<sha256>` (`CORPUS_BASIS_PATTERN`). The jar recognises the key, echoes it into the trace's opening record and reads it nowhere, so it changes no behaviour. `configure()` validates only the shape — whether the digest matches the list is verified where the list lives, by recomputing it from the file — because a value that is not `<corpus-id>:<sha256>` produces a run whose provenance line looks populated while nothing can be checked against it. The check runs after the DSL fold, so it covers both an arm's own `overrides` dict and an `@corpus_basis=…` parameter. When unstated the key is omitted entirely.
+
 ### MOP Data Flow (sata_mop variants)
 
 For MOP-guided variants, static analysis data flows from rv-platform's pre-processing through to APE-RV's scoring engine:
@@ -571,8 +623,10 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02), the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53) |
-| Migration | tests/migration/ | The one-time regeneration diff proving each surviving arm's effective configuration is unchanged under `preset + overrides`, the explicit retirement list, and the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table. Deleted once the owner signs off and `gh97-rearch-ab-gate` has run |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
+| Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json` |
+| Unit | tests/test_trace_ndjson.py, tests/test_coverage_dump.py, tests/test_clock_logcat_join.py | The offline readers: NDJSON row semantics against `tests/fixtures/trace_ndjson_golden.ndjson`, coverage-dump parsing, and heartbeat placement including both routes to `UNALIGNED` |
+| Migration | tests/migration/ | The one-time regeneration diff proving each surviving arm's effective configuration is unchanged under `preset + overrides`, the explicit retirement list, the pinned jar tables (preset sizes and accepted vocabulary read off the ape source), and the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table. Deleted once the owner signs off and `gh97-rearch-ab-gate` has run |
 
 ## Related Documentation
 
