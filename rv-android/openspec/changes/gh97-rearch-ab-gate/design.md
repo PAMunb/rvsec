@@ -238,6 +238,31 @@ runtime echo-vs-intent validator would contradict a level-0 invariant of the oth
 machinery. The smoke already runs; making its acceptance criterion the pre-flight is one gate instead
 of two (P1).
 
+**Correction, 2026-08-05: check 1 is not verifiable and does not need to be.** The gate is checks 2, 3
+and 4; `props_digest` reports SKIP. Two findings, in the order they were established.
+
+*It cannot pass as written.* `_push_properties()` writes the properties to a temporary file and
+unlinks it after the push, so the bytes sent are not retained anywhere and there is nothing to hash.
+Reconstruction was attempted through the tool's own code path with the push intercepted and did not
+reproduce any of the three digests the smoke echoed, under any plausible variation of the inputs. The
+same reconstruction run inside the campaign image produced bytes identical to the local tree, which
+rules out drift between the harness and the deployed image and leaves the difference unexplained. The
+loose end is recorded, not closed: something in the live path contributes to that file which the arm
+definition alone does not account for.
+
+*It does not need to pass, and that is the stronger point.* The failure this check was written
+for — the harness sending something it did not declare — is already rejected by the jar, and rejected
+harder: from stage 2 onward an unknown key, a retired key, or a non-neutral value of an inactive
+feature **aborts the run before step 1**. A run that produced a trace at all has already passed a
+check stricter than a digest comparison. What the digest would add over checks 2–4 is the detection of
+*undeclared* keys in the file, and that is precisely what the jar's own validation refuses.
+
+*Retaining the file was considered and rejected* (owner decision). It would add one `.properties`
+artifact per task — the device path is fixed, so per-run naming would be required — to `aperv-tool`,
+purely to feed a check made redundant by the jar's own contract. New artifact, redundant check: P1
+settles it. A delta-spec requirement drafted for the retention was withdrawn before implementation,
+which is the order the workflow asks for.
+
 ### D8 — The corpus basis travels through the tool DSL
 
 `RV_TOOLS: "aperv:mop_on_llm_off:mop_off_llm_off:mop_on_llm_70@corpus_basis=subset40:<sha256>"`.
