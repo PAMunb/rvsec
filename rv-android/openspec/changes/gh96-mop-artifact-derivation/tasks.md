@@ -83,3 +83,19 @@
 - [x] 8.4 Invoke `/rv-code-reviewer` via the Skill tool
 - [ ] 8.5 Run `/opsx:verify gh96-mop-artifact-derivation`
 - [ ] 8.6 Run `/rv-docs-sync aperv-tool`
+
+## 9. Schema amendment from `rearch-07` group 1
+
+Opened 2026-08-05. `rearch-07`'s consumption-inventory ratification audited the jar for readers of
+every projected field and found `exported` has none — 25 occurrences in `src/main`, all of them the
+declaration, the four `ComponentInfo` constructors and the parse site; 13 in `src/test`, all
+positional constructor arguments. The `component-triggering` requirement independently forbids the
+launcher from consulting it. The owner decided to drop it from the wire, which makes that prohibition
+structural rather than merely stated. This group carries the generator's half.
+
+- [ ] 9.1 Stop `_project_component()` emitting `exported`; update its docstring, which names the field
+      as part of the common projection
+- [ ] 9.2 Update the tests that assert `exported` on the wire, rewriting rather than deleting where the
+      assertion still has a subject — the component-projection tests should now assert its **absence**,
+      so a reinstatement fails instead of passing silently
+- [ ] 9.3 Run the module suite with the CI flags (`--import-mode=importlib -o "addopts="`)

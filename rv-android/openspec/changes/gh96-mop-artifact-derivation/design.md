@@ -340,16 +340,16 @@ partial file survives any error path.
   "optionsMenus": [{"activity": "…", "hasFlaggedWidget": true}],
   "wtg": {"<sourceBaseActivity>": [{"widget": "…", "target": "…"}]},
   "components": {
-    "activities": [{"className": "…", "isMain": false, "exported": true, "permission": null,
+    "activities": [{"className": "…", "isMain": false, "permission": null,
                     "reachesMop": false, "deepLinkUri": "myapp://host/path"}],
-    "receivers":  [{"className": "…", "isMain": false, "exported": true, "permission": null,
+    "receivers":  [{"className": "…", "isMain": false, "permission": null,
                     "reachesMop": true, "hasTargetMethods": true,
                     "intentFilters": [{"actions": ["…"], "categories": ["…"]}]}],
     "services":   [{"…": "same shape as receivers"}],
-    "providers":  [{"className": "…", "isMain": false, "exported": false, "permission": null,
+    "providers":  [{"className": "…", "isMain": false, "permission": null,
                     "reachesMop": true, "authorities": "…"}]},
-  "stats": {"windows": 5, "widgetsTotal": 51, "flagged": 2, "droppedFlaggedNoId": 0,
-            "orphanDialogs": 0, "handlersUnmatched": 0, "syntheticLambda": 0, "recovered": 0,
+  "stats": {"windows": 5, "widgetsTotal": 51, "flagged": 3, "droppedFlaggedNoId": 0,
+            "orphanDialogs": 0, "handlersUnmatched": 5, "syntheticLambda": 1, "recovered": 1,
             "wtgEdges": 12, "dedupedTransitions": 0}
 }
 ```

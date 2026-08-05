@@ -174,11 +174,15 @@ the projection the explorer consumes:
    widgets, before the empty-id drop, for the same reason INV-DRV-02 states.
 6. **WTG**: `wtg.<sourceBaseActivity> = [{widget, target}]` per INV-DRV-03. `widgetClass` SHALL NOT be
    emitted.
-7. **Components**: `activities[]` (`className`, `isMain`, `exported`, `permission`, `reachesMop`,
+7. **Components**: `activities[]` (`className`, `isMain`, `permission`, `reachesMop`,
    `deepLinkUri`), `receivers[]`/`services[]` (adding `intentFilters` with `actions` and `categories`
    only, plus the boolean `hasTargetMethods`), `providers[]` (adding `authorities`). `reachesMop` is
    the wire rename of `reachesTarget`. The intent-filter `data` block, `readPermission`,
-   `writePermission` and the `targetMethods` signature list SHALL NOT be emitted.
+   `writePermission`, the `targetMethods` signature list and `exported` SHALL NOT be emitted.
+   `exported` is on that list because no consumer reads it and none may: the jar's activity launcher
+   is required to ignore export status (the dispatch runs from uid 2000 and opens non-exported
+   activities), so keeping the field on the wire would ship a value whose only possible use is
+   forbidden.
 8. **Stats**: `windows`, `widgetsTotal`, `flagged`, `droppedFlaggedNoId`, `orphanDialogs`,
    `handlersUnmatched`, `syntheticLambda`, `recovered`, `wtgEdges`, `dedupedTransitions`.
    `widgetsTotal` and `flagged` SHALL count the widget map after the dialog merge and before the
