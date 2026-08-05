@@ -65,8 +65,14 @@
 
 - [ ] 7.1 Run the smoke: a small application subset, 1 repetition, reduced timeout, all three arms.
 - [ ] 7.2 Run `scripts/preflight_runstart.py` over the smoke's traces. The campaign does not start until it reports 3/3 arms PASS on all four checks. A `build.sha` mismatch here means the image's own default-branch jar won the mount — the gh71 failure mode, caught before 24 hours are spent. An **absent** `corpus_basis` here is the authoritative verdict on the DSL parameter seam of task 2.6: it exercises the whole `RV_TOOLS` → `_parse_single_tool_spec` → `configure()` fold → `ape.properties` → `RUN_START` chain over the exact configuration the campaign will run, which the local pre-check cannot do.
+- [ ] 7.2a **The `ape` side's device verification, delegated here (owner decision 2026-08-05).** Stage `rearch-07`'s own end-to-end smoke, its Docker verification and the deployed half of its skew drill were all removed on the rule that the APE-RV side executes exactly once, in this change. A delegation is only real if this smoke checks what those tasks would have, so read from the same traces as 7.2, per MOP arm (`mop_on_llm_off`, `mop_on_llm_70`):
+      - `MOP_DATA` is present with `status=loaded`, `formatVersion=1` and a non-empty `sourceDigest` — the three fields that distinguish a compact-artifact load from every prior format, and the only evidence on the device side that the cutover actually took;
+      - `wtgEdges > 0` and `mopActivities > 0`, so a load that succeeded on an artifact carrying nothing is not read as a pass;
+      - at least one step with a MOP boost — the guidance mechanism firing, which is what `rearch-07` 8.1 called "boost fires" and what a green `status=loaded` alone does not establish;
+      - on the control arm `mop_off_llm_off`, **no** `MOP_DATA` record with `status=loaded` and no boost, which is the skew drill's negative half: a MOP arm's artifact reaching a non-MOP arm would show up exactly here.
+      A `status=rejected` on a MOP arm is the deployed skew failure and blocks the campaign like any other pre-flight FAIL. This is a deployment sanity check, not an analysis: it touches no outcome, no margin and no G1/G2/G3 clause, so it does not reopen the group-5 freeze — record it as a pre-flight check, in the pre-flight report, never in the pre-registration.
 - [ ] 7.3 Confirm the smoke's tasks are COMPLETED with coverage > 0 and no `VerifyError` in the logcats.
-- [ ] 7.4 Record the pre-flight report and a `PREFLIGHT` entry in `calibracao/journal.jsonl`.
+- [ ] 7.4 Record the pre-flight report and a `PREFLIGHT` entry in `calibracao/journal.jsonl`. The report SHALL carry 7.2a's checks alongside 7.2's, and SHALL name them as the `ape` side's delegated device verification — otherwise `rearch-07` archives pointing at a smoke whose record does not show it verified what was delegated.
 
 ## 8. The campaign
 

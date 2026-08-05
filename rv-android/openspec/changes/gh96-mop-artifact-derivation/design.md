@@ -109,7 +109,7 @@ _project_components(components)
 | INV-APV-47 (digest cache) | `_derive_mop_artifact` | `test_cache_hit_skips_derivation`, `test_stale_cache_regenerates`, `test_failed_derivation_leaves_no_file` |
 | Properties line | `_push_properties` | `test_properties_carry_new_mop_data_path` |
 | INV-ANA-53 (no pipeline reads `*.mop.json`) | repository audit | `test_no_module_outside_aperv_tool_reads_mop_json` |
-| Corpus equivalence gate | one-shot script + JVM side | `scripts/` gate run, deleted after green |
+| Equivalence gate | one-shot script + JVM side | `scripts/` batch derivation (executed) + `ape`'s fixture-scoped JVM gate, both deleted after green |
 
 ## Goals / Non-Goals
 
@@ -278,9 +278,11 @@ What the `ape` change does *not* yet record is the consequence: its gate proves 
 semantics production has not been running. Two amendments follow and must land with this change —
 recording the `INV-APV-32` retirement as a behaviour change rather than a subsumed shim, and adding
 the direct⇒transitive clause to `INV-DRV-01` (which also invalidates a jar-side scenario asserting
-that the two wire bits imply nothing about each other). The corpus path and count need no amendment:
-`rearch-07` tasks 1.4/4.1/4.3 and its SHALL scenario already name `rvsec-dataset/static_analysis/`
-with 345 apps.
+that the two wire bits imply nothing about each other). The corpus path and count needed no amendment when this was written;
+they do now, in the other direction: `rearch-07`'s group 4 and its SHALL scenario no longer name
+`rvsec-dataset/static_analysis/` at all, because the JVM gate over those 345 apps was withdrawn by the
+owner on 2026-08-05 (task 7.4). The corpus survives in this change as the input of the *executed*
+batch derivation, not as the gate's subject.
 
 ### D12 — The artifact is plain dicts, not a Pydantic model
 
@@ -383,9 +385,13 @@ one. `mop` map keys are pre-normalized (lowercased, `_`/`-` removed).
 
 ## Risks / Trade-offs
 
-- [The generator diverges from `MopData`'s semantics on a rule the unit tests do not pin] → the corpus
-  gate compares both parsers over 345 real apps pre-cutover, and the permanent suite carries one named
-  test per rule, on synthetic fragments where the corpus is thin.
+- [The generator diverges from `MopData`'s semantics on a rule the unit tests do not pin] → the gate
+  compares both parsers pre-cutover over the cryptoapp pair plus one synthetic per relocated rule, and
+  the permanent suite carries one named test per rule. **Downgraded 2026-08-05**: the comparison was to
+  run over 345 real apps and does not (owner decision, task 7.4), so a divergence on a real-application
+  shape no synthetic anticipates is no longer caught here. The batch derivation over those 345 did run
+  and establishes that the generator survives them; it does not establish that both parsers agree on
+  them.
 - [The flag-semantics change (D4) makes runs before and after this change non-comparable at the
   substrate level] → stated in the proposal, the spec's REMOVED reason and here, with the measured
   magnitude; no campaign may mix arms across the cut.
@@ -408,7 +414,8 @@ one. `mop` map keys are pre-normalized (lowercased, `_`/`-` removed).
 | Unit — projection and format | cryptoapp ground truth, `*Target`/call-graph absence, emission filter, stats granularity, canonical determinism across processes, provenance digest | pytest on the cryptoapp fixture | ~8 |
 | Integration — `tool.py` | derive-cache-push order, device path, properties line, absent-JSON raise, derivation-error raise, non-MOP arms untouched, full JSON never pushed, no partial file after failure | pytest with mocked adb | ~8 |
 | Audit | No module outside `aperv-tool` reads `.mop.json` | repository grep test | 1 |
-| Equivalence (one-shot) | Old parser on the raw full JSON vs new parser on the derived artifact over 345 apps, plus per-rule exercise counts | JVM gate driven jointly with `ape` | 1 × corpus |
+| Equivalence (one-shot) | Old parser on the raw full JSON vs new parser on the derived artifact over the cryptoapp pair + one synthetic per relocated rule | JVM gate driven jointly with `ape` (fixture-scoped since 2026-08-05) | ~6 |
+| Batch derivation (executed, one-shot) | The generator survives 345 real producer documents with no crash or refusal; per-rule exercise counts | `scripts/gh96_derive_corpus.py` | 1 × corpus |
 
 CI contract for every pytest invocation: `--import-mode=importlib -o "addopts="`.
 

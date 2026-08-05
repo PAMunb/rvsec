@@ -467,37 +467,48 @@ digest is stable and the `source.digest` chain identifies the exact static-analy
 
 ---
 
-### Requirement: Corpus Equivalence Gate for the Parser Cutover
+### Requirement: Equivalence Gate for the Parser Cutover
 
-Before the jar's full-JSON parser is deleted, a one-shot equivalence gate SHALL demonstrate over the
-pinned corpus (`<workspace>/rvsec-dataset/static_analysis/`, 345 `.apk.json`) that the projections
-served by the old parser on the full JSON and by the new parser on the derived artifact are identical:
-widget flag maps including per-event entries and aggregates, widget metadata, both activity sets,
-OPTIONSMENU gateway sets under both flag states, WTG views, component and provider trigger tuples,
-per-activity deep-link URIs including their absent cases, and `package`/`mainActivity`.
+Before the jar's full-JSON parser is deleted, a one-shot equivalence gate SHALL demonstrate over a
+designed input set — the cryptoapp fixture pair plus one synthetic full-JSON fragment per relocated
+rule — that the projections served by the old parser on the full JSON and by the new parser on the
+derived artifact are identical: widget flag maps including per-event entries and aggregates, widget
+metadata, both activity sets, OPTIONSMENU gateway sets under both flag states, WTG views, component
+and provider trigger tuples, per-activity deep-link URIs including their absent cases, and
+`package`/`mainActivity`. The gate lives on the `ape` side, where both parsers are; this requirement
+governs what this module owes it — the generator that produces the artifact half of every comparison,
+and the synthetics being derived through that generator rather than hand-written.
 
 The gate's oracle SHALL be the old parser reading the **raw** full JSON, not the enriched copy the
 deleted compaction step used to push. The enrichment is a behaviour this change retires (see the
 REMOVED requirement below), so comparing against it would prove the distortion rather than the
-relocation.
+relocation. No synthetic authored for the gate may carry the enrichment for the same reason.
 
-The gate SHALL additionally report how many corpus apps exercise each relocated rule and SHALL fail
-when any count is zero. The pinned corpus is known to exercise all four: 19 apps carry flagged
-widgets dropped for an empty short id, 10 apps carry recoverable D8 synthetic-lambda handlers, 165
-apps carry DIALOG windows, and the A′ union differs from the widget-derived set wherever component or
-reachability sources add an activity. The gate is deleted with the old parser once green; what
-survives is the per-rule unit suite of this module.
+Each relocated rule SHALL have at least one input-set member that **fires** it, and the gate SHALL
+fail when one does not.
 
-#### Scenario: equivalence over the pinned corpus
-- **WHEN** the gate runs over the 345 `.apk.json` of `rvsec-dataset/static_analysis/`
-- **THEN** every app SHALL compare equal on every projection listed above
-- **AND** any inequality SHALL fail the gate naming the app and the first differing projection
+**Scope decision, 2026-08-05 (owner).** This gate was specified over the pinned 345-application corpus
+and that run does not occur: the APE-RV side executes once, in `gh97-rearch-ab-gate`, which gates the
+merge rather than the cutover. What the corpus already established stands, because it was executed:
+the batch derivation of tasks 7.1/7.2 ran over all 345 documents with no crash and no refusal, and its
+per-rule exercise counts are the measured record — **19** apps carry flagged widgets dropped for an
+empty short id, **10** carry recoverable D8 synthetic-lambda handlers, **165** carry DIALOG windows,
+and the A′ union differs from the widget-derived set wherever component or reachability sources add an
+activity. Those counts are why each of these rules is worth a synthetic and are retained as evidence
+that the shapes are common in real applications; they are **not** evidence of jar-side equivalence over
+those applications, which is the thing that now goes unmeasured. The gate is deleted with the old
+parser once green; what survives is the per-rule unit suite of this module.
 
-#### Scenario: a rule exercised by no app fails the gate
-- **WHEN** the gate reports zero apps exercising D8 synthetic-lambda recovery
+#### Scenario: equivalence over the designed input set
+- **WHEN** the gate runs over the cryptoapp pair and the per-rule synthetics
+- **THEN** every member SHALL compare equal on every projection listed above
+- **AND** any inequality SHALL fail the gate naming the member and the first differing projection
+
+#### Scenario: a rule fired by no member fails the gate
+- **WHEN** no member of the input set fires D8 synthetic-lambda recovery
 - **THEN** the gate SHALL fail
-- **AND** the rule's coverage SHALL move to a synthetic fixture in the permanent Python suite, recorded
-  as a substitution
+- **AND** the omission SHALL be repaired by a synthetic that fires the rule, never by lowering the
+  requirement — a rule with no firing member is uncovered, whatever the rest of the set proves
 
 ---
 
