@@ -88,6 +88,7 @@ decision, stated in the deployment, not in `tool.py`.
 - **Shared `process_pattern`** `com.android.commands.monkey`: shared with the builtin `ape` tool — the two must not run concurrently on the same device.
 - **Timeout as expected exit**: exploration runs to the time limit; `RVCommandTimeoutError` → `RVToolTimeoutError` (completed run, not failure).
 - **Non-zero exit is normal**: APE-RV exits non-zero when it detects app crashes during exploration.
+- **…and therefore the exit code cannot be the authority on whether a run happened** (INV-APV-60). A dead emulator and an application crash are indistinguishable by it: both come back non-zero, and the crash is data the campaign collects. **Elapsed time is the discriminator, and the rule is structural** — the exploration is budget-bound by construction, so a non-timeout return more than `APERV_TEARDOWN_GRACE_S` (45 s) short of the budget did not explore its budget and raises `RVToolExecutionError` instead of reporting success. The timeout path is untouched: a timeout is the normal, successful ending, not the exception. This was found the hard way in gh97 — two leg-B runs stopped at 1284 s and 1012 s of 1800 s and were stored `COMPLETED` with a null `error_message`, and all five validity gates of the time passed on them.
 - **LLM URL override**: `APERV_LLM_BASE_URL` overrides `llm_url` for Docker/non-emulator setups (emulator uses `10.0.2.2` host loopback).
 
 ## Two trace formats are parsed in this repository, on purpose

@@ -228,7 +228,32 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
    `adb install` (~1-3%). Re-rodar `up -d` (ou deixar o `monitor_compare.sh` reiniciar) **uma vez** —
    o resume pula COMPLETED e re-executa FAILED. Conferir que as identidades distintas batem o total.
 2. **NÃO dar `down`** antes de extrair os traces (artefatos efêmeros no device).
-3. **Consolidar + Wilcoxon**:
+3. **Decidir admissibilidade por tarefa, ANTES de qualquer agregação** (lição da gh97). `COMPLETED`
+   registra que a ferramenta retornou sem levantar exceção — **não** que o run fez o que devia. Um run
+   cujo emulador morreu no meio, ou cuja ferramenta parou sozinha, é gravado `COMPLETED` com
+   `error_message` vazio; numa campanha de 360 runs apareceram dois assim, aos 1284 s e 1012 s de um
+   orçamento de 1800 s, e todos os portões de validade da época passaram neles. Os seis critérios,
+   aplicados **cegos ao braço e à direção do efeito**:
+   - **C1** estado `COMPLETED` com `error_message` vazio;
+   - **C2** `execution_time_seconds >= timeout` (menos uma folga de teardown; a exploração é limitada
+     por orçamento **por construção**, então tempo decorrido é o discriminador — o código de saída
+     não serve, porque emulador morto e crash da aplicação são indistinguíveis por ele);
+   - **C3** o traço carrega pelo menos um passo além do cabeçalho do run;
+   - **C4** pelo menos uma assinatura `RVSEC-COV` distinta no logcat;
+   - **C5** `cov_method > 0` e `cov_act > 0`;
+   - **C6** o número de identidades admissíveis é igual ao previsto pelo manifesto da campanha.
+
+   Uma tarefa inadmissível volta para a fila reescrevendo o estado para `ERROR` **depois** de
+   preservar os artefatos — é o que faz o resume, que já recupera falha barulhenta, recuperar também
+   a silenciosa.
+
+   **A regra de contagem é a mesma de sempre e vale aqui em dobro**: conte por identidade
+   `(apk_name, tool_config.name, tool_config.variant, repetition, timeout)`, **nunca por registro**.
+   O resume **acrescenta** em vez de sobrescrever, então uma identidade recuperada guarda dois
+   registros (o `ERROR` e o `COMPLETED`): 360 identidades com 9 recuperações moram em 369 registros.
+   Referência de implementação: `experimento-rearch-aperv/scripts/verify.py` (Gate 6) e
+   `repair_tasks.py`.
+4. **Consolidar + Wilcoxon**:
    ```bash
    python3 .claude/skills/rv-experiment-compare/scripts/consolidate_compare.py <name>
    # se faltar scipy no python do sistema:
