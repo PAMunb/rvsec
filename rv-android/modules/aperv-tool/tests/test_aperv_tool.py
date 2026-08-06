@@ -655,7 +655,9 @@ class TestCompletionIsEstablished:
 
         self.tool.execute_tool_specific_logic(task, app)
 
-    def test_truncated_run_raises_naming_elapsed_and_budget(self, tmp_path, monkeypatch):
+    def test_truncated_run_raises_naming_elapsed_and_budget(
+        self, tmp_path, monkeypatch
+    ):
         # net.pfiers.osmfocus rep 1 as it actually happened: back at 1012 s of 1800,
         # exit 1, emulator alive. Before this check it was stored COMPLETED.
         self._clock(monkeypatch, 1000.0, 1000.0 + 1012)
@@ -687,7 +689,9 @@ class TestCompletionIsEstablished:
 
         assert (tmp_path / "run.trace.ndjson.gz").is_file()
 
-    def test_return_inside_the_teardown_grace_does_not_raise(self, tmp_path, monkeypatch):
+    def test_return_inside_the_teardown_grace_does_not_raise(
+        self, tmp_path, monkeypatch
+    ):
         # The floor is budget minus the grace the command already carries, so a run
         # that ended a few seconds early is a normal ending, not a truncation.
         self._clock(monkeypatch, 1000.0, 1000.0 + (1800 - APERV_TEARDOWN_GRACE_S))
@@ -1653,7 +1657,9 @@ class TestLlmProvenance:
 
         def capture(url, timeout=None):
             seen["url"] = url
-            return _FakeResponse(json.dumps({"data": [{"id": "Qwen/Qwen3-VL-4B-Instruct"}]}))
+            return _FakeResponse(
+                json.dumps({"data": [{"id": "Qwen/Qwen3-VL-4B-Instruct"}]})
+            )
 
         monkeypatch.setattr(aperv_mod.urllib.request, "urlopen", capture)
 

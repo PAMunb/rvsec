@@ -17,6 +17,7 @@ import ast
 from pathlib import Path
 
 import pytest
+
 from aperv_tool.analysis.trace_ndjson import (
     Counterfactual,
     StepRow,
