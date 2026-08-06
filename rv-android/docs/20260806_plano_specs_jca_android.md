@@ -333,6 +333,41 @@ O CBC saiu do upstream em **2024-04-24** (`5d9bc97 Remove CBC mode from all rule
 
 ## 9. Fase 2 — o conjunto `jca_android`
 
+> **Estado em 2026-08-06 — o conjunto foi produzido por derivação, não por tradução.**
+> A F2 foi executada na change `gh99-metacrysl-jca-android` ([#99](https://github.com/PAMunb/rvsec/issues/99)).
+> Em vez de uma segunda tradução à mão — que repetiria a ameaça **W3** — as regras
+> Android saem do **MetaCrySL**, a camada de meta-especificação sobre CrySL: 32 specs
+> base mais uma cadeia ordenada de refinamentos por nível de API compõem, para o alvo
+> **API 30**, 33 regras `.cryptsl` em `$WS/MetaCrySL/generated/api30/`. O conjunto
+> `jca_android` tem **23 `.mop` e nenhum `.aj`** (a ressalva do §9.1 foi respeitada):
+> 10 arquivos adaptados, cada divergência ancorada numa regra gerada, e 13 mantidos
+> verbatim. Seis specs — `SSLContext`, `KeyStore`, `Mac`, `MessageDigest`,
+> `KeyManagerFactory`, `TrustManagerFactory` — batem elemento a elemento com as
+> tabelas da própria plataforma no API 30.
+>
+> Três resultados que corrigem previsões feitas aqui no §9.2:
+>
+> - O `KeyStoreSpec` derivado não é `{AndroidKeyStore, PKCS12}`, e sim os **cinco**
+>   tipos que o Android publica no API 30, incluindo `BKS`, `BouncyCastle` e
+>   `AndroidCAStore`. O `SSLContextSpec` não apenas passa a aceitar `"TLS"`: aceita
+>   os **sete** protocolos disponíveis, e o `SSLv3` cai sozinho porque sua janela
+>   `1025` fecha antes do 26.
+> - **O viés inverte de direção, e não só no `SSLContext`.** O perfil `android`
+>   modela disponibilidade, não recomendação: o `MessageDigest` derivado admite
+>   `MD5` e `SHA-1`, e o `Signature` admite `MD5withRSA`. Onde o `jca` produzia
+>   falsos positivos, o `jca_android` troca parte deles por **falsos negativos**.
+>   Queda no número de violações medidas **não** é evidência de código melhor.
+> - **L1.5 continua aberto.** O `CipherSpec.mop` não carrega allow-list — delega a
+>   `isValid()` em `rvsec-core/.../CipherTransformationUtil.java`, código Java
+>   compartilhado com o conjunto `jca`. Adaptar as transformações do Cipher para
+>   Android exigiria mexer nesse código e invalidar tudo que já foi medido com o
+>   `jca`, ou criar um utilitário paralelo. É a maior lacuna da derivação e o
+>   primeiro alvo de uma change seguinte.
+>
+> Mapa de tiers, tabela de rastreabilidade, ameaças à validade e os seis defeitos
+> das regras derivadas (adotados como estão, por decisão, e documentados):
+> **`docs/20260806_metacrysl_tier_map.md`**.
+
 ### 9.1 Estrutura
 
 Diretório irmão `rvsec/rvsec-mop/src/main/resources/jca_android`, **fork apenas dos `.mop`** — nunca do `.aj` (L3.7: um `cp -r` copiaria um resíduo obsoleto com o defeito L2.7 dentro).

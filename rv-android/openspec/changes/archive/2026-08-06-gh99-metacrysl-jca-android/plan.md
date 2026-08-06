@@ -46,7 +46,9 @@ An API 30 target therefore composes **only** the `XXplus` tiers with XX ≤ 30, 
 four-digit tier. That yields fourteen existing tiers: `01plus`, `10plus`, `11plus`, `14plus`,
 `16plus`, `17plus`, `18plus`, `19plus`, `20plus`, `22plus`, `23plus`, `24plus`, `26plus`,
 `28plus`. Measured against the same rule, `android/Android25plus.config` wrongly omits
-`17plus`, `19plus` and `23plus`, all of which are ≤ 25.
+`17plus`, `19plus` and `23plus`, all of which are ≤ 25. That omission is recorded here as
+evidence that the rule has diagnostic power — it is **not repaired**. This change targets API 30
+only, and the earlier targets do not feed it.
 
 Composition itself is a set union over `define` values, and that union is the intended
 semantics: each tier declares the *delta* introduced at its API level, not a total. This was
@@ -145,7 +147,8 @@ older shell) are moot: A1 would have hit the same `throw`, and 0.19.6 already wo
 
 **This supersedes the "no `.rsc` edits" constraint of §1.5 for these two lines only.** The
 patch is a prerequisite for any generation at all; without it the change cannot proceed. It
-is also a genuine upstream defect and a candidate for a pull request.
+is also a genuine upstream defect, but contributing it is out of scope for this change — see
+Group G below.
 
 Two parser constraints discovered while probing, both of which apply to every config we write:
 
@@ -160,8 +163,10 @@ Two parser constraints discovered while probing, both of which apply to every co
 
 ### 1.5 Explicitly out of scope
 
-Defects in the Rascal generator are recorded as optional debt and **no `.rsc` file is
-edited**:
+Defects in the Rascal generator are recorded as optional debt. **No `.rsc` file is edited
+beyond the two-line fix of §1.4** — that fix was a prerequisite for generating anything at
+all, and it remains the only source change this project makes. Everything below is documented
+and left alone, however tempting a small patch might look:
 
 - Constraints are duplicated in the output, growing with chain length — 0 duplicates in
   target `0108`, 7 in `0116`, 22 in `25plus`. `Cipher.cryptsl` in `25plus` writes 41
@@ -188,7 +193,7 @@ Three trees are touched. Everything outside `rv-android` is given by absolute pa
 | Group | Tree | What it does |
 |-------|------|--------------|
 | **A** | `$WS/MetaCrySL` | Unblock the invocation path (§1.4) and reproduce an existing target as a baseline |
-| **B** | `$WS/MetaCrySL` | Fix config paths and tier omissions; publish the tier map |
+| **B** | `$WS/MetaCrySL` | Publish the tier map that determines which tiers the API 30 target composes |
 | **C** | `$WS/MetaCrySL` | Author `TrustManagerFactory.cryptsl` and the `30plus/` tier |
 | **D** | `$WS/MetaCrySL` | Author `Android30.config`, generate, diff against CrySL 1.5.2 |
 | **E** | `$WS/rvsec/rvsec/rvsec-mop` | Create `jca_android/` from `jca/` and adapt the `.mop` files |
@@ -210,16 +215,17 @@ generated afterwards is trustworthy.
 | `$WS/MetaCrySL/META-INF/RASCAL.MF` | Read only | `Source: src` — this is what puts `src/` on the search path. The generator must be invoked from the project directory |
 | `$WS/MetaCrySL/samples/jca/android/target/research/0108/` | Read only | 32 `.cryptsl` files serving as the reproduction oracle |
 
-### Group B — configs and tier map
+### Group B — tier map
 
 | File | Action | Detail |
 |------|--------|--------|
-| `$WS/MetaCrySL/samples/jca/android/config/Android0108.config` | Edit | Replace `src`/`out` (`/Users/rbonifacio/...`) with absolute paths under `$WS/MetaCrySL/samples/jca`. Needed to run Group A |
-| `$WS/MetaCrySL/samples/jca/android/config/Android0116.config` | Edit | Same path substitution |
-| `$WS/MetaCrySL/samples/jca/android/config/Android25plus.config` | Edit | Same path substitution; add the missing `17plus`, `19plus`, `23plus` loads |
+| `$WS/MetaCrySL/samples/jca/android/config/Android0108.config` | Edit | Replace `src`/`out` (`/Users/rbonifacio/...`) with absolute paths under `$WS/MetaCrySL`. Needed to run Group A |
+| `$WS/MetaCrySL/samples/jca/android/` (19 tiers) | Read only | The source of the tier → specifications → constraint table |
 
-The three `android-cc` and three `android-bsi` configs are left untouched — those profiles
-are not part of this change (§1.3).
+`Android0116.config` and `Android25plus.config` are left untouched. They target earlier API
+levels, nothing in the API 30 composition reads them, and repairing them would be work this
+change does not need. The `android-cc` and `android-bsi` configs are likewise untouched —
+those profiles are not part of this change (§1.3).
 
 ### Group C — authored specifications
 
@@ -275,14 +281,17 @@ hand translation.
 | `$WS/MetaCrySL/README.md` | Edit | Append a section recording the reproducible procedure: the Rascal 0.19.6 + Java 8 pairing, invocation from the project directory, the two-line fix and why it was needed, the no-trailing-newline and restricted-path-alphabet config constraints, and the set-ordering caveat when diffing output |
 | `$WS/MetaCrySL/.gitignore` | Edit | Add `*.jar` so the two shells (195 MB combined) are not committed |
 
-Commits go to the fork's `master`. The two-line fix is also worth proposing upstream (§1.4).
+Commits go to the fork's `master`, and stay there. Nothing is pushed to any remote and no pull
+request is opened against CROSSINGTUD/MetaCrySL: the two-line fix (§1.4) is carried as
+documented upstream debt, not as a contribution. The README appendix records the defect and its
+cause in enough detail that a contribution could be assembled later from the fork alone.
 
 ## 4. Execution Order
 
 ```
 A (fix + baseline reproduction)         ← gate, must pass before anything else
         │
-        ├── B (configs + tier map)
+        ├── B (tier map)
         └── C (authored specs)          ← B and C are independent, may run in parallel
                 │
                 D (Android30 + generation into generated/api30)
@@ -307,17 +316,16 @@ second target.
 
 ## 5. Acceptance Criteria
 
-- [ ] The two-line fix applied to `PreProcessor.rsc`; `Android0108` regenerates `target/research/0108` with 32/32 equivalence after normalising set ordering
-- [ ] Tier → specifications → constraint table published, documenting the window/`plus` semantics
-- [ ] Config paths point at our tree; `Android25plus.config` loads `17plus`, `19plus` and `23plus`
-- [ ] `base/TrustManagerFactory.cryptsl` authored; `generatedTrustManager` is produced by some base spec and no longer orphaned
-- [ ] `android/30plus/` authored and covers `TLSv1.3` (API 29)
-- [ ] `Android30.config` composes the 14 existing tiers plus `30plus` and generates 33 `.cryptsl` into `generated/api30/`
-- [ ] The fork carries a commit with the fix, `generated/api30/`, the README appendix and the `.gitignore` entry; the two shell jars are **not** committed
-- [ ] The README appendix is sufficient for someone else to reproduce the generation from a clean clone
-- [ ] Diff against the CrySL 1.5.2 rules in `rvsec-dataset` documented
-- [ ] `jca_android/` exists under `rvsec-mop/src/main/resources/` containing 23 `.mop` and **no** `.aj`
-- [ ] Every divergence between `jca` and `jca_android` is anchored to a generated rule or declared a hand translation
-- [ ] The `SSLContext` permissiveness is recorded as a threat to validity, stating that the bias inverts from false positives toward false negatives
-- [ ] The set runs end to end via `--specification-set custom --custom-specs-dir <path to jca_android>`
-- [ ] Generator defects recorded as optional debt; `git diff` over `$WS/MetaCrySL/src/` is empty
+- [x] The two-line fix applied to `PreProcessor.rsc`; `Android0108` regenerates `target/research/0108` with 32/32 equivalence after normalising set ordering
+- [x] Tier → specifications → constraint table published, documenting the window/`plus` semantics
+- [x] `base/TrustManagerFactory.cryptsl` authored; `generatedTrustManager` is produced by some base spec and no longer orphaned
+- [x] `android/30plus/` authored and covers `TLSv1.3` (API 29)
+- [x] `Android30.config` composes the 14 existing tiers plus `30plus` and generates 33 `.cryptsl` into `generated/api30/`
+- [x] The fork carries a commit with the fix, `generated/api30/`, the README appendix and the `.gitignore` entry; the two shell jars are **not** committed
+- [x] The README appendix is sufficient for someone else to reproduce the generation from a clean clone
+- [x] Diff against the CrySL 1.5.2 rules in `rvsec-dataset` documented
+- [x] `jca_android/` exists under `rvsec-mop/src/main/resources/` containing 23 `.mop` and **no** `.aj`
+- [x] Every divergence between `jca` and `jca_android` is anchored to a generated rule or declared a hand translation
+- [x] The `SSLContext` permissiveness is recorded as a threat to validity, stating that the bias inverts from false positives toward false negatives
+- [x] The set runs end to end via `--specification-set custom --custom-specs-dir <path to jca_android>`
+- [x] Generator defects recorded as optional debt; the only change `git diff` reports under `$WS/MetaCrySL/src/` is the approved two-line fix in `PreProcessor.rsc`
