@@ -242,6 +242,151 @@ class TestCountingIsPerIdentity:
         assert result["verdict"] == "admissible"
 
 
+class TestGateSevenControlArm:
+    """Gate 7: MOP guidance must not reach `mop_off_llm_off`.
+
+    A leak here means G1 is comparing the reference against something that is not a control,
+    so the test builds the leak rather than trusting that the arm's weights were zeroed.
+    """
+
+    def _control_tree(self, tmp_path, trace):
+        return build_tree(
+            tmp_path, arm=verify.CONTROL_ARM_VARIANT, trace=trace, campaign="control"
+        )
+
+    def test_a_clean_control_arm_passes(self, tmp_path):
+        result = verify.verify(self._control_tree(tmp_path, TRACE_WITH_STEP), 0, 42)
+        assert result["control"]["violations"] == []
+        assert result["control"]["n_control_runs"] == 1
+        assert result["verdict"] == "admissible"
+
+    def test_a_mop_sourced_step_quarantines(self, tmp_path):
+        leaked = TRACE_WITHOUT_STEPS + (
+            '{"s":1,"t":8123,"act":17,"st":231,'
+            '"dec":{"a":"model=CLICK@[0,0][100,50]","src":"MOP_WIDGET","ch":"roulette"}}\n'
+        )
+        result = verify.verify(self._control_tree(tmp_path, leaked), 0, 42)
+
+        assert result["verdict"] == "quarantine"
+        (violation,) = result["control"]["violations"]
+        assert violation["mop_sourced_steps"] == 1
+        assert violation["first_offending_step"] == 1
+
+    def test_a_mop_boosted_step_quarantines(self, tmp_path):
+        # The source is innocent; the boost is not. Both halves of the criterion matter.
+        # `dec.mop` is the MOP-widget boost — distinct from `dec.mopx`, which is MOP
+        # exposure and says nothing about whether a boost was applied.
+        boosted = TRACE_WITHOUT_STEPS + (
+            '{"s":4,"t":8123,"act":17,"st":231,'
+            '"dec":{"a":"model=CLICK@[0,0][100,50]","src":"SATA","ch":"roulette",'
+            '"mop":500}}\n'
+        )
+        result = verify.verify(self._control_tree(tmp_path, boosted), 0, 42)
+
+        assert result["verdict"] == "quarantine"
+        (violation,) = result["control"]["violations"]
+        assert violation["mop_boosted_steps"] == 1
+
+    def test_the_reference_arm_is_not_audited_by_this_gate(self, tmp_path):
+        # Gate 7 is about the control arm only. MOP guidance in the reference is the point
+        # of the reference, not a violation.
+        leaked = TRACE_WITHOUT_STEPS + (
+            '{"s":1,"t":8123,"act":17,"st":231,'
+            '"dec":{"a":"model=CLICK@[0,0][100,50]","src":"MOP_WIDGET","ch":"roulette"}}\n'
+        )
+        result = verify.verify(build_tree(tmp_path, trace=leaked), 0, 42)
+
+        assert result["control"]["n_control_runs"] == 0
+        assert result["control"]["violations"] == []
+
+
+class TestGateOneAbsenceIsCompliance:
+    """Gate 1: a declared key absent from `params` is at the jar's own value, not wrong.
+
+    Both halves are tested together on purpose. Reading absence as compliance is only sound
+    while the gate still asserts that it compared something — otherwise the rule becomes a
+    way to pass without checking anything, which is a worse gate than the one it replaced.
+    """
+
+    def _tree_with_expectations(self, tmp_path, expected_params, params):
+        iter_dir = build_tree(
+            tmp_path,
+            trace=(
+                '{"type":"RUN_START","run_id":"r","t0":1750000000000,"preset":"mop",'
+                f'"params":{json.dumps(params)}}}\n'
+                '{"type":"ACT","id":17,"name":"org.example/.MainActivity","mop":1}\n'
+                '{"type":"STATE","id":231,"key":"S17a4f","act":17}\n'
+                '{"s":1,"t":8123,"act":17,"st":231,'
+                '"dec":{"a":"model=CLICK@[0,0][100,50]","src":"SATA","ch":"roulette"}}\n'
+            ),
+        )
+        manifest = json.loads((iter_dir / "manifest.json").read_text())
+        manifest["arms"][0]["expected_params"] = expected_params
+        (iter_dir / "manifest.json").write_text(json.dumps(manifest))
+        return iter_dir
+
+    def test_a_key_at_the_preset_value_is_not_a_mismatch(self, tmp_path):
+        # The real case: the control arm declares mopWeightWtg=0, which IS the mop preset's
+        # value, so the jar omits it. 120 healthy runs were failed for complying.
+        iter_dir = self._tree_with_expectations(
+            tmp_path,
+            {"ape.mopWeightDirect": 0, "ape.mopWeightWtg": 0},
+            {"ape.mopWeightDirect": 0},
+        )
+        result = verify.verify(iter_dir, 0, 42)
+
+        assert result["config_findings"] == []
+        assert result["config_at_default"] == {"aperv:mop_on_llm_off": ["ape.mopWeightWtg"]}
+        assert result["verdict"] == "admissible"
+
+    def test_a_wrong_value_is_still_a_mismatch(self, tmp_path):
+        iter_dir = self._tree_with_expectations(
+            tmp_path,
+            {"ape.mopWeightDirect": 0},
+            {"ape.mopWeightDirect": 500},
+        )
+        result = verify.verify(iter_dir, 0, 42)
+
+        assert result["verdict"] == "quarantine"
+        (finding,) = result["config_findings"]
+        assert finding["field"] == "ape.mopWeightDirect"
+        assert finding["observed"] == 500
+
+    def test_an_arm_that_compared_nothing_fails(self, tmp_path):
+        # The guard that keeps the rule above from being a free pass: every declared key
+        # absent means the gate checked nothing, which must not read as a pass.
+        iter_dir = self._tree_with_expectations(
+            tmp_path,
+            {"ape.mopWeightDirect": 0, "ape.mopWeightWtg": 0},
+            {},
+        )
+        result = verify.verify(iter_dir, 0, 42)
+
+        assert result["verdict"] == "quarantine"
+        (finding,) = result["config_findings"]
+        assert finding["field"] == "<declared keys>"
+        assert "compared nothing" in finding["observed"]
+
+
+class TestDivergenceWithoutTheCsv:
+    def test_an_absent_csv_is_reported_skipped_not_passed(self, tmp_path):
+        """A gate that never ran must not print PASS.
+
+        The validity gates have to be decidable before consolidation, since no outcome may
+        be read until they pass — so verify runs with no CSV, and Gate 5 has to say that
+        it had nothing to compare against rather than silently reading as clean.
+        """
+        iter_dir = build_tree(tmp_path)
+        assert not (iter_dir / "per_apk_paired.csv").exists()
+
+        result = verify.verify(iter_dir, 0, 42)
+        report = verify.render_report(iter_dir, result)
+
+        assert result["csv_present"] is False
+        assert "SKIPPED" in report
+        assert "it is not a pass" in report
+
+
 class TestBlindToArm:
     """An admissibility rule that could see the arm could prune one side of the comparison
     — the failure this whole change is built to prevent at the jar level."""

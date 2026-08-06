@@ -30,6 +30,9 @@ The fixed numeric gates (INV-CAL-09), applied over 100% of tasks:
                      before any aggregation and blind to which arm it is judging. Any
                      inadmissible identity, or a count that misses the manifest's
                      `predicted_identities`, quarantines.
+  7. CONTROL         no step of the `mop_off_llm_off` arm was selected by a MOP-derived
+                     source, and none carried a MOP-widget boost. A leak here means G1 is
+                     not measuring the rewrite -> quarantine.
 
 Gate 6 exists because `COMPLETED` is a claim the harness makes, not one anything checked.
 Two runs of the gh97 leg B campaign returned early — one at 1284 s of an 1800 s budget when
@@ -75,6 +78,19 @@ _COV_RE = re.compile(r"\bRVSEC-COV\s*:\s*(.+?)\s*$")
 _INTEGER_METRICS = ("mop_total", "mop_unique", "crashes")
 _PERCENT_METRICS = ("cov_method", "cov_act", "cov_mop")
 _PERCENT_TOL = 0.01  # percentage-point tolerance (INV-CAL-09)
+
+# Gate 7's subject: the arm that must show no MOP guidance at all. It is the channel that
+# isolates the rewrite — with the five MOP weights zeroed and the activity trigger off, the
+# gh96 substrate change cannot reach behaviour — so a leak here means G1 measures something
+# other than what it claims, and the campaign is not read.
+CONTROL_ARM_VARIANT = "mop_off_llm_off"
+
+# A decision source is MOP-derived when its name carries MOP, matched case-insensitively
+# rather than against one spelling. The jar names its stages (`SATA`, `Coverage`, `Form`,
+# `Budget`, `Component`, `LLM`) and the MOP stages are the ones this arm must never show —
+# but a clean control arm produces no MOP token to read the exact spelling off, so pinning
+# a literal would silently stop matching if the jar renamed the stage.
+_MOP_SOURCE_RE = re.compile(r"mop", re.IGNORECASE)
 
 # Gate 6's floor on distinct RVSEC-COV signatures (C4). It is 1 and it stays 1: a structural
 # floor asks whether the application executed any instrumented method at all, which is a
@@ -486,11 +502,18 @@ def _gate_config(
     ran it is exactly what this gate exists to catch. An arm absent from the manifest, or a
     run with no manifest at all, has nothing declared and contributes nothing.
 
-    Returns ``{"config_findings": [...], "n_audited_tasks": int}``: one finding per
-    mismatch, naming the identity, arm, field, and the expected vs observed values.
+    A declared key absent from `params` is compliance, not a mismatch: the jar echoes only
+    what departs from the preset. The count of keys actually compared is therefore asserted
+    per task — an arm that compared nothing FAILS — so absence cannot become a way to pass
+    without checking anything. Both halves come from `preflight_runstart.check_plan`.
+
+    Returns ``{"config_findings": [...], "n_audited_tasks": int, "at_default": {arm: [...]}}``:
+    one finding per mismatch, naming the identity, arm, field, and the expected vs observed
+    values, plus the declared keys each arm left at the preset's own value.
     """
     config_findings: List[Dict[str, Any]] = []
     n_audited_tasks = 0
+    at_default: Dict[str, set] = defaultdict(set)
     declared_by_arm: Dict[str, Dict[str, Any]] = {}
     if manifest:
         for arm in manifest.get("arms", []):
@@ -527,18 +550,54 @@ def _gate_config(
                 }
             )
         params = observed.get("params") or {}
-        for key, expected_value in (declared.get("expected_params") or {}).items():
-            if not _num_eq(params.get(key), expected_value):
+        declared_params = declared.get("expected_params") or {}
+        compared = 0
+        for key, expected_value in declared_params.items():
+            # A declared key ABSENT from `params` is not a mismatch, and the reason is
+            # structural: the jar echoes only what departs from the preset, so a key sitting
+            # at the preset's own value is omitted. The control arm declares
+            # `mopWeightWtg=0` and `mopWeightOpenMenu=0`, which ARE the `mop` preset's
+            # values, so all 120 of its runs omit both — reading that as a mismatch fails
+            # every healthy control run for having complied. This is the rule the campaign's
+            # pre-flight already applies (`preflight_runstart.check_plan`), frozen in the
+            # pre-registration's §10 before the campaign ran; the gate here was the less
+            # careful copy.
+            if key not in params:
+                at_default[arm].add(key)
+                continue
+            compared += 1
+            if not _num_eq(params[key], expected_value):
                 config_findings.append(
                     {
                         "identity": ident,
                         "arm": arm,
                         "field": key,
                         "expected": expected_value,
-                        "observed": params.get(key),
+                        "observed": params[key],
                     }
                 )
-    return {"config_findings": config_findings, "n_audited_tasks": n_audited_tasks}
+        # Reading absence as compliance would make the gate vacuous for an arm whose every
+        # declared key sits at the preset's value, so the number actually compared is
+        # asserted rather than assumed: an arm that compared nothing FAILS. Carried over
+        # from the pre-flight together with the rule above — the guard is what keeps the
+        # rule from being a way to pass without checking anything.
+        if declared_params and compared == 0:
+            config_findings.append(
+                {
+                    "identity": ident,
+                    "arm": arm,
+                    "field": "<declared keys>",
+                    "expected": f"at least 1 of {len(declared_params)} present in params",
+                    "observed": "none present, so this task compared nothing",
+                }
+            )
+    return {
+        "config_findings": config_findings,
+        "n_audited_tasks": n_audited_tasks,
+        # Reported so the reader sees what was NOT compared and why, rather than having to
+        # infer it from a silent pass.
+        "at_default": {arm: sorted(keys) for arm, keys in sorted(at_default.items())},
+    }
 
 
 def _gate_collisions(
@@ -757,6 +816,77 @@ def _gate_integrity(
     }
 
 
+def _gate_control(best: Dict[Tuple, Dict[str, Any]]) -> Dict[str, Any]:
+    """Gate 7 (CONTROL): no MOP guidance reached the `mop_off_llm_off` arm.
+
+    Per step of every control-arm run: the decision source must not be MOP-derived, and the
+    MOP-widget boost must be zero. If MOP guidance leaked into the control, G1 is not
+    measuring the rewrite and the campaign is not read — so any violation quarantines.
+
+    Written against the stage-4 NDJSON reader rather than the retired `[APE-STEP]` text.
+    The task's `(?<![a-z_])mop=` anchor existed because a text scan for `mop=` also matched
+    the tail of `activity_has_mop=1`; the reader returns `mop` and `activity_has_mop` as
+    separate named fields, so the ambiguity the anchor guarded against does not arise here.
+
+    `mop_frontier` is reported and NOT gated on. The control arm keeps
+    `frontier_boost_weight` at 200 so navigation survives (INV-APV-30), and gating a boost
+    that shares a producer with the surviving one risks failing on intended behaviour;
+    reporting it keeps a surprise visible without letting it block.
+
+    Returns ``{"violations": [...], "n_control_runs": int, "n_control_steps": int,
+    "mop_frontier_nonzero_steps": int}``.
+    """
+    violations: List[Dict[str, Any]] = []
+    n_control_runs = 0
+    n_control_steps = 0
+    mop_frontier_nonzero = 0
+
+    for ident in sorted(best, key=lambda i: tuple(str(x) for x in i)):
+        rec = best[ident]
+        if rec["variant"] != CONTROL_ARM_VARIANT:
+            continue
+        trace = artifact_path(rec, "trace")
+        if not trace.exists():
+            continue
+        n_control_runs += 1
+        mop_sourced = 0
+        mop_boosted = 0
+        first_offending_step: Optional[int] = None
+        try:
+            for step in trace_ndjson.TraceReader(trace):
+                n_control_steps += 1
+                offending = False
+                if step.decision_source and _MOP_SOURCE_RE.search(step.decision_source):
+                    mop_sourced += 1
+                    offending = True
+                if step.mop:
+                    mop_boosted += 1
+                    offending = True
+                if step.mop_frontier:
+                    mop_frontier_nonzero += 1
+                if offending and first_offending_step is None:
+                    first_offending_step = step.step
+        except OSError:
+            continue
+        if mop_sourced or mop_boosted:
+            violations.append(
+                {
+                    "identity": ident,
+                    "container": rec["base"].parent.name,
+                    "mop_sourced_steps": mop_sourced,
+                    "mop_boosted_steps": mop_boosted,
+                    "first_offending_step": first_offending_step,
+                }
+            )
+
+    return {
+        "violations": violations,
+        "n_control_runs": n_control_runs,
+        "n_control_steps": n_control_steps,
+        "mop_frontier_nonzero_steps": mop_frontier_nonzero,
+    }
+
+
 def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
     """Apply every gate and return a structured result (verdict + per-gate findings).
 
@@ -802,10 +932,12 @@ def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
     # identities are not filtered out of the gates below — an inadmissible one quarantines
     # the whole run, which makes the downstream numbers moot rather than in need of repair.
     integrity_result = _gate_integrity(best, rederived, manifest)
+    control_result = _gate_control(best)
 
     config_result = _gate_config(best, manifest)
     config_findings = config_result["config_findings"]
     n_audited_tasks = config_result["n_audited_tasks"]
+    config_at_default = config_result["at_default"]
 
     pairing_result = _gate_pairing(rederived, manifest)
     all_arms = pairing_result["all_arms"]
@@ -855,6 +987,10 @@ def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
             f"{integrity_result['n_admissible']} admissible identities against "
             f"{integrity_result['predicted_identities']} predicted by the manifest (C6)"
         )
+    if control_result["violations"]:
+        quarantine_reasons.append(
+            f"{len(control_result['violations'])} control-arm run(s) carrying MOP guidance"
+        )
     if config_findings:
         quarantine_reasons.append(
             f"{len(config_findings)} RUN_START mismatch(es) in {n_audited_tasks} audited tasks"
@@ -877,8 +1013,10 @@ def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
         "n_tasks": len(tasks),
         "n_identities": len(best),
         "integrity": integrity_result,
+        "control": control_result,
         "config_findings": config_findings,
         "n_audited_tasks": n_audited_tasks,
+        "config_at_default": config_at_default,
         "collisions": collisions,
         "dup_tokens": dup_tokens,
         "exclusions": exclusions,
@@ -887,6 +1025,10 @@ def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
         "latency_flags": latency_flags,
         "global_median_ms": global_med,
         "divergences": divergences,
+        # Whether Gate 5 had anything to compare against. Without this an absent CSV
+        # produces an empty divergence list, which the report would otherwise render as a
+        # PASS — a gate reporting success for never having run.
+        "csv_present": bool(csv_cells),
         "sample_rows": sample_rows,
         "seed": seed,
     }
@@ -956,9 +1098,38 @@ def render_report(iter_dir: Path, result: Dict[str, Any]) -> str:
         f"at or below the floor of {_COV_SIGNATURE_FLOOR}: {dist['at_floor_or_below']}\n"
     )
 
+    control = result["control"]
+    lines.append(f"## Gate 7 — control arm `{CONTROL_ARM_VARIANT}` carries no MOP guidance\n")
+    lines.append(
+        f"Control runs audited: {control['n_control_runs']} | "
+        f"steps: {control['n_control_steps']}\n"
+    )
+    if not control["violations"]:
+        lines.append(
+            "PASS — no step was selected by a MOP-derived source and no MOP-widget boost "
+            "was applied.\n"
+        )
+    else:
+        lines.append(f"FAIL — {len(control['violations'])} run(s) carrying MOP guidance:")
+        for v in control["violations"]:
+            lines.append(
+                f"- `{v['container']}` identity `{v['identity']}`: "
+                f"{v['mop_sourced_steps']} MOP-sourced step(s), "
+                f"{v['mop_boosted_steps']} MOP-boosted step(s), "
+                f"first at step {v['first_offending_step']}"
+            )
+        lines.append("")
+    # Reported, not gated: the control arm keeps frontier_boost_weight at 200 so navigation
+    # survives (INV-APV-30), and gating a boost that shares a producer with the surviving
+    # one risks failing on intended behaviour.
+    lines.append(
+        f"`mop_frontier` non-zero steps in the control arm: "
+        f"{control['mop_frontier_nonzero_steps']} (reported, not gated)\n"
+    )
+
     lines.append("## Gate 1 — RUN_START == manifest (100% of tasks)\n")
     if not result["config_findings"]:
-        lines.append("PASS — every LLM task's config matched the manifest.\n")
+        lines.append("PASS — every task's config matched the manifest.\n")
     else:
         lines.append(f"FAIL — {len(result['config_findings'])} mismatch(es):")
         for f in result["config_findings"]:
@@ -966,6 +1137,14 @@ def render_report(iter_dir: Path, result: Dict[str, Any]) -> str:
                 f"- arm `{f['arm']}` identity `{f['identity']}` field `{f['field']}`: "
                 f"expected `{f['expected']}`, observed `{f['observed']}`"
             )
+        lines.append("")
+    # What the gate did NOT compare, and why, stated rather than left to be inferred from a
+    # silent pass: the jar echoes only what departs from the preset, so a declared key at
+    # the preset's own value is absent by design.
+    if result["config_at_default"]:
+        lines.append("Declared keys left at the jar's own value (absent from `params`, so not compared):")
+        for arm, keys in result["config_at_default"].items():
+            lines.append(f"- `{arm}`: {', '.join(keys)}")
         lines.append("")
 
     lines.append("## Gate 2 — identity collisions (must be 0)\n")
@@ -1014,7 +1193,13 @@ def render_report(iter_dir: Path, result: Dict[str, Any]) -> str:
         "Integer metrics (mop_total, mop_unique, crashes): exact; "
         "percentage metrics (cov_method, cov_act, cov_mop): <= 0.01pp.\n"
     )
-    if not result["divergences"]:
+    if not result["csv_present"]:
+        lines.append(
+            "SKIPPED — no `per_apk_paired.csv` yet, so there is nothing to compare "
+            "against. This gate closes on the re-run after `consolidate.py`; it is not a "
+            "pass.\n"
+        )
+    elif not result["divergences"]:
         lines.append("PASS — independent re-derivation matches the consolidated CSV.\n")
     else:
         lines.append(f"FAIL — {len(result['divergences'])} divergence(s):")
@@ -1064,11 +1249,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not (iter_dir / "results").is_dir():
         sys.stderr.write(f"no results/ under {iter_dir}\n")
         return 2
+    # The CSV is Gate 5's subject, not a precondition of the run. The validity gates the
+    # pre-registration lists — control, jar and preset, arm attribution, integrity — are
+    # decided from the raw tree and must be able to run BEFORE consolidation, since no
+    # outcome may be read until they pass. Gate 5 compares against what the consolidator
+    # wrote, so it can only be meaningful afterwards: verify runs twice, and the second
+    # run is the one that closes divergence.
     if not (iter_dir / "per_apk_paired.csv").exists():
         sys.stderr.write(
-            f"no per_apk_paired.csv under {iter_dir} — run consolidate_cal.py first\n"
+            f"note: no per_apk_paired.csv under {iter_dir} — Gate 5 (DIVERGENCE) has "
+            "nothing to compare against and is reported as skipped. Run consolidate.py, "
+            "then re-run this to close it.\n"
         )
-        return 2
 
     result = verify(iter_dir, args.sample, args.seed)
     report = render_report(iter_dir, result)
