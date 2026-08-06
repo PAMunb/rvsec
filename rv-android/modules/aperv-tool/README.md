@@ -37,7 +37,7 @@ uv run rv-platform run --tools aperv:sata --apks-dir ./apks_examples
 - **LLM-guided exploration**: `sata_llm`, `sata_mop_llm` and `mop_on_llm_70` integrate with an OpenAI-compatible LLM endpoint for decision guidance
 - **JAR deployment**: Resolves `ape-rv.jar` via priority search paths and pushes to the Android device
 - **Properties injection**: Generates `ape.properties` naming the arm's jar preset plus its override deltas
-- **Timeout-aware execution**: Treats timeout as expected exit behavior for exploration tools
+- **Timeout-aware execution**: Treats timeout as expected exit behavior for exploration tools, and checks the converse — a run that returned early without timing out did not explore its budget, so it fails instead of reporting success. The exit code is not consulted: APE-RV exits non-zero when the application under test crashes, which is data the run exists to collect
 
 ## Variants
 

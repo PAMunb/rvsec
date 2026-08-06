@@ -26,6 +26,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | INV-APV-02 | Invalid strategy must be rejected before device interaction | `configure()` validates strategy against `APERV_AVAILABLE_STRATEGIES` and raises `ConfigurationError` immediately |
 | INV-APV-04 | Working directory must be `/system/bin` | `_build_main_command()` passes `/system/bin` as the working directory argument to `app_process` |
 | INV-APV-07 | APE and APE-RV must not run concurrently | `TOOL_SPEC.process_pattern` is `com.android.commands.monkey`, shared with the builtin APE tool, so rv-platform's `kill_related_processes()` terminates either before launch |
+| INV-APV-60 | A run that did not explore its budget must not be reported as successful | `execute_tool_specific_logic()` measures the exploration against `time.monotonic()` and raises `RVToolExecutionError` when a non-timeout return came back more than `APERV_TEARDOWN_GRACE_S` short of `task.config.timeout` |
 
 ### Specification Scenarios
 
@@ -64,7 +65,15 @@ The JAR resolution priority (INV-APV-01) places the module directory first becau
 
 ### Why Timeout is Expected Exit?
 
-Exploration tools like APE-RV are designed to run indefinitely, exploring the application until killed. The `--running-minutes` flag sets a soft limit, but the tool may exceed it during state serialization. The +45s grace period on the Command timeout gives APE-RV time to flush its WTG model to disk and emit its coverage dump before the process is forcibly killed. `RVCommandTimeoutError` is re-raised as `RVToolTimeoutError`, which rv-platform treats as a completed run (not a failure) and proceeds to collect coverage from logcat.
+Exploration tools like APE-RV are designed to run indefinitely, exploring the application until killed. The `--running-minutes` flag sets a soft limit, but the tool may exceed it during state serialization. The `APERV_TEARDOWN_GRACE_S` (45 s) grace period on the Command timeout gives APE-RV time to flush its WTG model to disk and emit its coverage dump before the process is forcibly killed. `RVCommandTimeoutError` is re-raised as `RVToolTimeoutError`, which rv-platform treats as a completed run (not a failure) and proceeds to collect coverage from logcat.
+
+### Why the Exit Code Cannot Decide Whether a Run Happened
+
+Timeout being the normal ending means a *normal* return is the anomalous one, and the exit code cannot classify it (INV-APV-60). APE-RV exits non-zero when it detects an application crash during exploration — data the campaign exists to collect — so an emulator that vanished (exit 255) and an application that crashed (exit 1) arrive through the same channel carrying the same information.
+
+Elapsed time separates them because the exploration is budget-bound by construction: an APE-RV asked for 1800 s and back at 1012 s did not do the work, whatever ended it. `execute_tool_specific_logic()` therefore stamps `time.monotonic()` before launching and, on the non-timeout return path only, raises `RVToolExecutionError` when the elapsed time is below `task.config.timeout - APERV_TEARDOWN_GRACE_S`. The single constant is read from opposite sides by the two users that must agree: `_build_main_command()` adds it to the command timeout, and the completion check subtracts it to obtain the floor.
+
+Raising is what makes the failure recoverable. rv-platform stores the task as ERROR with a non-empty `error_message`, and its ordinary resume re-executes the identity — the same path that already recovers a failed `adb install`. Before this check such a run was stored COMPLETED with `error_message` null, which no resume could reach.
 
 ## Architectural Patterns
 
@@ -305,6 +314,7 @@ sequenceDiagram
         Tool->>Tool: write <run>.provenance.json sidecar<br/>(failure logs a warning, never fails the run)
     end
 
+    Tool->>Tool: stamp time.monotonic()
     Tool->>ADB: adb shell CLASSPATH=... app_process /system/bin Monkey -p pkg --ape strategy
     ADB->>APE: start exploration
 
@@ -312,15 +322,22 @@ sequenceDiagram
         APE-->>Tool: RVCommandTimeoutError
         Tool->>Tool: _gzip_trace()
         Tool-->>Platform: RVToolTimeoutError (normal completion)
-    else Normal exit
+    else Normal exit, budget explored
         APE-->>Tool: exit code (0 or non-zero)
         Tool->>Tool: _check_empty_trace()
         Tool->>Tool: _gzip_trace()
         Tool-->>Platform: return
+    else Normal exit, truncated (elapsed below the floor)
+        APE-->>Tool: exit code (0 or non-zero)
+        Tool->>Tool: _check_empty_trace()
+        Tool->>Tool: _gzip_trace()
+        Tool-->>Platform: RVToolExecutionError (INV-APV-60)<br/>rv-platform stores ERROR; resume re-executes
     end
 ```
 
-`_gzip_trace()` runs on both paths because timeout is the majority path, not the exception: compressing only on normal exit would exempt most runs. It is write-only and non-fatal — it produces `<run>.trace.ndjson.gz` beside the trace, leaves `task.result.trace_file` byte-identical (INV-APV-52), parses nothing and changes no task status (INV-APV-53).
+`_gzip_trace()` runs on all three paths because timeout is the majority path, not the exception: compressing only on normal exit would exempt most runs. It is write-only and non-fatal — it produces `<run>.trace.ndjson.gz` beside the trace, leaves `task.result.trace_file` byte-identical (INV-APV-52), parses nothing and changes no task status (INV-APV-53).
+
+The two normal-exit branches are one code path that ends differently: compression happens *before* the completion check deliberately, so the artifacts of a truncated run survive as the evidence of what truncated it. The branches are distinguished by the clock, never by the exit code — see "Why the Exit Code Cannot Decide Whether a Run Happened" above.
 
 ---
 
@@ -328,7 +345,7 @@ sequenceDiagram
 
 ### ApeRVTool
 
-**Purpose**: Implements the `AbstractTool` interface for APE-RV, managing the complete device interaction lifecycle: JAR resolution, file deployment, properties generation, command execution, and trace validation.
+**Purpose**: Implements the `AbstractTool` interface for APE-RV, managing the complete device interaction lifecycle: JAR resolution, file deployment, properties generation, command execution, trace validation and the completion check that establishes a run actually explored its budget.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py`
 
@@ -373,6 +390,7 @@ sequenceDiagram
 - `APERV_DEVICE_JAR_PATH = "/data/local/tmp/ape-rv.jar"` -- target path on device
 - `APERV_DEVICE_PROPERTIES_PATH = "/data/local/tmp/ape.properties"` -- properties target
 - `APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"` -- Java entry point
+- `APERV_TEARDOWN_GRACE_S = 45` -- seconds of teardown allowed beyond the exploration budget. Stated once because two users must agree on it: the command timeout is the budget *plus* this value, and the completion floor is the budget *minus* it (INV-APV-60). The value is a hypothesis about censored teardown durations, not a measurement — among iter0 runs whose teardown completed the overrun reaches 12,991 ms, with 32 runs stacked against the previous 15 s ceiling and none beyond it, the signature of a hard wall rather than a natural distribution
 - `APERV_AVAILABLE_STRATEGIES = ["sata", "random"]` -- valid strategies. `bfs`/`dfs` were never agent types (`ApeAgent.createAgent` knows `sata`, `random` and `replay`), so accepting them would let a run pass local validation and abort on the device
 - `APERV_ORCHESTRATION_KEYS` -- the top-level keys that are Python orchestration rather than jar configuration; anything else at the top level must be a mapped override or `configure()` raises
 - `APERV_PROPERTY_MAPPING` -- 50-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
@@ -400,7 +418,7 @@ How the architecture supports non-functional requirements from the PRD.
 | Modularity | NFR01 | P0 | Standalone uv workspace module with clear dependency on rv-android-core and rv-tools only; registered lazily by rv-platform |
 | Extensibility | NFR02 | P0 | A new arm is a named entry in `get_variants()` carrying a preset plus override deltas; a new tunable is an entry in `APERV_PROPERTY_MAPPING`. New presets are not added here — the preset vocabulary belongs to the jar's `Presets.java` |
 | Testability | NFR03 | P1 | `tests/test_aperv_tool.py` covers spec metadata, variant shape, `configure()` validation, the DSL override fold, JAR paths, command building, constants, empty-trace detection, properties generation and the decisive-run arms; `tests/migration/` holds the one-time regeneration diff and the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table |
-| Resilience | NFR04 | P1 | Timeout treated as expected exit (re-raised as `RVToolTimeoutError`); non-zero exit codes logged as debug (APE-RV reports app crashes this way); empty trace produces warning, not error |
+| Resilience | NFR04 | P1 | Timeout treated as expected exit (re-raised as `RVToolTimeoutError`); non-zero exit codes logged as debug (APE-RV reports app crashes this way) and never used to judge a run; a truncated exploration raises `RVToolExecutionError` so rv-platform's resume re-executes the identity (INV-APV-60); empty trace produces warning, not error |
 | Configurability | NFR05 | P1 | `APERV_LLM_BASE_URL` env var overrides LLM URL; `RVSEC_HOME` and `TOOLS_DIR` env vars extend JAR search paths; `ape.properties` generated from `_tool_config` via mapping |
 | Reproducibility | NFR08 | P1 | Module-local JAR (`ape-rv.jar` shipped alongside `tool.py`) takes priority in resolution, ensuring experiments use the packaged binary |
 
@@ -516,6 +534,7 @@ flowchart TB
         BuildCmd["_build_main_command()\nadb shell CLASSPATH=...\napp_process /system/bin"]
         Execute["Command.invoke()\nWrite stdout to trace_file"]
         CheckTrace["_check_empty_trace()\nWarn on 0-byte trace"]
+        CheckDone["Completion check\nelapsed vs timeout - grace\ntruncated => RVToolExecutionError"]
     end
 
     subgraph Device["Android Emulator"]
@@ -535,6 +554,7 @@ flowchart TB
     GenProps --> BuildCmd
     BuildCmd --> Execute
     Execute --> CheckTrace
+    CheckTrace --> CheckDone
     Execute --> ApeRV
     ApeRV --> Coverage
     Task --> Execute
@@ -623,7 +643,7 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
 | Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json` |
 | Unit | tests/test_trace_ndjson.py, tests/test_coverage_dump.py, tests/test_clock_logcat_join.py | The offline readers: NDJSON row semantics against `tests/fixtures/trace_ndjson_golden.ndjson`, coverage-dump parsing, and heartbeat placement including both routes to `UNALIGNED` |
 | Migration | tests/migration/ | The one-time regeneration diff proving each surviving arm's effective configuration is unchanged under `preset + overrides`, the explicit retirement list, the pinned jar tables (preset sizes and accepted vocabulary read off the ape source), and the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table. Deleted once the owner signs off and `gh97-rearch-ab-gate` has run |
