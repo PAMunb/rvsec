@@ -1,13 +1,17 @@
 # Investigação — o grafo de predicados e o suporte a pointcut designators no weaver dexlib2
 
-**Data:** 2026-08-06 (revisão 4)
-**Estado:** investigação concluída, **verificada adversarialmente** (rev. 3, §8) e **re-derivada de forma independente com todos os itens em aberto fechados** (rev. 4, §9). Nada implementado; nenhum `.mop`, nenhuma fonte do weaver, nada sob `$WS/ase-journal/` e nenhum APK ou repositório do dataset foi modificado.
+**Data:** 2026-08-06 (revisão 6)
+**Estado:** investigação concluída, **verificada adversarialmente** (rev. 3, §8), **re-derivada de forma independente** (rev. 4, §9), **confrontada com um grupo de controle que isola o weaver** (rev. 5, §11) e **transportada para o conjunto de specs que será usado a seguir** (rev. 6, §12). Nada implementado; nenhum `.mop`, nenhuma fonte do weaver, nada sob `$WS/ase-journal/` e nenhum APK ou repositório do dataset foi modificado.
 
 > **Revisão 2** — a rev. 1 registrava em §7 que nenhum APK havia sido tecido e que a cadeia da colisão era derivação, não observação. Os APKs instrumentados da campanha estavam disponíveis o tempo todo em `$APKS`, e o código-fonte dos apps em `$REPOS/`. A §3.7 é nova e converte o principal resultado de derivação em observação, com triangulação fonte → bytecode → dado. Duas afirmações minhas da rev. 1 foram **refutadas pela observação** e estão corrigidas na §3.2.
 
 > **Revisão 3 (verificação adversarial)** — sessão independente re-derivou as 30 alegações (B1–B6, G1–G12, A1–A12) dos artefatos primários; tabela de vereditos na §8. O núcleo sobreviveu inteiro — a colisão, a direção do defeito, a difusão e a datação fail-closed foram **confirmadas e generalizadas** (censo em 219/219 APKs; jar da campanha datado por prova binária). Correções aplicadas nesta revisão: **(a)** manchete da §4.4: 92% → **83%** de `ENSURES` presentes — a própria decomposição (33+1+2+2=38) contradizia o 42; ausentes de `REQUIRES` 27 → **28**; **(b)** §4.2: "43 das 49 escritas sem leitor" → **35**; **(c)** §4.5: 38 → **37** arestas, e o balde "inexpressível" **não é vazio** (`randomized[lSeed]`); **(d)** §4.4: `generatedSSLEngine` tem segundo produtor (`SSLContext.crysl:38`) e nenhum consumidor — a consequência estática vale só para `preparedOAEP`; **(e)** §3.6: a explicação dos 208 `X509` por "versões diferentes do okhttp" estava **errada** — o bytecode do sítio é idêntico nos dois apps; o valor vem da difusão de g3 a partir do literal `"X509"` de `de.duenndns.ssl.MemorizingTrustManager`; **(f)** §3.6: os 421 eventos restantes **ganharam mecanismo verificado** (L3.8 confirmada em bytecode, três rotas de criação não cobertas); **(g)** o corpus tem **219** APKs, não 234 (468 arquivos = 219 `.apk` + 219 `.json` + 30 `.pkgdet`); **(h)** `reset()` tem um chamador (teste); **(i)** o "~6,5×" da §4.7 corrigido; **(j)** referências §3.8→§3.7 e §3.4→§2.3 e frase duplicada da §3.2 corrigidas.
 
 > **Revisão 4 (re-derivação independente + fechamento dos itens em aberto)** — sessão nova re-derivou do zero a colisão (fonte do weaver, fonte do **javamop**, DEX de produção, `errors.csv`), com scripts próprios que não reutilizam nada do scratchpad das rev. 2–3. O núcleo foi **reproduzido número a número**. Novidades desta revisão: **(a)** a causa-raiz da colisão foi localizada na **fonte do javamop** (`$JAVAMOP/output/combinedaspect/event/EventManager.java:91` + `$JAVAMOP/parser/ast/mopspec/MOPParameter.java:22-23`) — deixou de ser inferida da saída; **(b)** um **terceiro defeito**, independente da colisão e de direção oposta: o caminho *inline* do weaver trunca advices fundidos em `monitorCalls.get(0)`, descartando **9 eventos — todos emissores de erro** (§4.8). Ele explica sozinho as **zero** ocorrências de `UnsatisfiedConstraint` e quatro dos specs silenciosos; **(c)** o item (iv) da §8 (herança de estado) está **fechado em código**: `initEvent` clona o monitor da fatia vazia (`sourceLeaf.clone()`, `$MONITOR:17931-17952`); **(d)** §7.4 **quantificada**: ~17.175 dos 18.029 eventos do `TrustManagerFactorySpec` (95,3%) são artefato, e a correção é derivável das tabelas de transição; **(e)** §7.5 **fechada** — o jar da campanha foi o `android-36` do Docker (a campanha **não** foi afetada), mas no host a mesma regra escolhe `android-4`; **(f)** §7.7 **fechada e invertida** — `thread(...)` é absorvido pelo javamop e **não pode** chegar ao matcher; **(g)** §7.6 **fechada** para 12 dos 13 specs silenciosos, com censo de alcançabilidade nos 219 APKs; **(h)** F0.3 **fechada** — 51 sítios `addError`, e `UnsatisfiedConstraint` (8 sítios) nunca dispara; **(i)** achado novo: o `SSLContextSpec` (26.312 eventos, **27,1% do dataset**) sofre a mesma má-atribuição de sítio que o `TrustManagerFactorySpec`, o que a rev. 3 não examinou.
+
+> **Revisão 5 (grupo de controle + fechamento de itens em aberto)** — sessão nova, 2026-08-06. A rev. 4 fechou tudo o que a análise estática alcançava e deixou quatro itens que pareciam exigir re-execução da campanha. Três deles não exigiam: **o dataset já contém uma segunda execução das mesmas 23 specs com um weaver diferente**, e ninguém a tinha olhado. Novidades: **(a)** o `errors_unit_tests.csv` é o **baseline de testes unitários**, onde as specs são compiladas dentro do `JavaMOPAgent.jar` e anexadas como `-javaagent` — AspectJ, *"No emulator, no dexlib2"* verbatim na fonte (§11.1). É, portanto, um **grupo de controle que isola exatamente a variável do defeito nº 3**; **(b)** nele o `UnsatisfiedConstraint` — 0 ocorrências no dexlib2, nas duas bases — dispara **43 vezes**, e as três specs cujos emissores de erro o *inline* trunca (§4.8) emitem 26/16/38 eventos contra **exatamente 0** no dexlib2. O terceiro defeito deixa de ser previsão e passa a **contraste medido** (§11.2); **(c)** o item 9 (silêncio do `PBEKeySpecSpec`) está **fechado, e não por não-execução**: o join com o `coverage.csv` (20.825.013 linhas) mostra 7 sítios em 3 apps que **executaram** na campanha e mesmo assim ficaram mudos (§11.3); **(d)** o item 11 está **fechado como indecidível** a partir do dado publicado, com o motivo medido (§11.5); **(e)** o item 12 ganha o primeiro dado fora do TMF/SSLContext: a co-emissão de `InvalidSequenceOfMethodCalls` é **100% nos dois regimes** (454/454 e 134/134) e **54,8% das tuplas do dexlib2 não têm nenhum outro tipo de erro** (§11.6); **(f)** correção de higiene que atravessa o relatório inteiro: **todo número de runtime aqui está na base de análise de 163 apps, e nenhuma revisão anterior disse isso** — declarado e recalculado nas duas bases (§11.7); **(g)** `docs/aspectj_grammar_coverage.md`, apontado como desatualizado na §5, foi **corrigido** (§11.8).
+
+> **Revisão 6 (o instrumentador como ferramenta, e o conjunto `jca_android`)** — sessão nova, 2026-08-06. As revisões 2–5 examinaram o instrumentador **através de uma campanha**. Ele é ferramenta de uso continuado, e a pergunta que ficou sem resposta é outra: o que ele faz errado independentemente do dataset, e o que disso atravessa para o conjunto de specs que será usado a seguir. Novidades: **(a)** o `jca_android` difere do `jca` **apenas em allow-lists** — dez specs, todas só no conteúdo de listas; nenhum pointcut, nenhuma cláusula `returning`, nenhuma declaração de evento mudou —, de modo que **os três defeitos de tecelagem atravessam intactos**, com as mesmas linhas (`$JCA_ANDROID/TrustManagerFactorySpec.mop:44`, `$JCA_ANDROID/SSLContextSpec.mop:46`) (§12.1, §12.2); **(b)** consequência derivada e desconfortável: no `SSLContextSpec` a lista nova **não reduz o volume de relato — troca o rótulo**, convertendo "found TLS" em "found ." e tornando a spec *mais* uniformemente artefato do que era (§12.3); **(c)** precisão sobre o item 4 da §11.9: os contadores do weaver **não morrem por falta de arquivo** — o Java os serializa em `weaveCounts` por APK, e é o lado Python que os descarta na travessia (`_parse_results_json` lê quatro campos e joga o resto fora; `InstrumentationResults` não tem campo para recebê-los). O que sobrou da campanha em `RESULTS/` são três `instrument_errors.json`, todos `{}` (§12.4); **(d)** a §7.5 confirmada no host contra a objeção óbvia: o `ANDROID_HOME` **está correto**, e a regra ainda assim escolhe `android-4` (§12.5).
 
 **Continua:** `docs/20260806_plano_specs_jca_android.md` (commit `31f7b883`), fase F0.
 **Resolve:** a questão G0 do plano (§3, §5), o item F0.4' e, na rev. 4, **F0.3**.
@@ -39,8 +43,23 @@ Caminhos **dentro** do `rv-android` são relativos à raiz do projeto. Tudo **fo
 | `$APKS` | `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706` | os 219 APKs instrumentados que produziram os dados — **somente leitura** |
 | `$REPOS` | `$WS/rvsec-dataset/repos` | código-fonte dos apps do corpus — **somente leitura** |
 | `$CRYSL` | `$WS/rvsec-dataset/src/rvsec_dataset/cognicrypt/CrySL-Rules` | as 49 regras CrySL 1.5.2 |
+| `$JCA_ANDROID` | `$WS/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android` | as 23 specs `.mop` derivadas do MetaCrySL para o API 30 (gh99) |
+| `$API30` | `$WS/MetaCrySL/generated/api30` | as 33 regras `.cryptsl` derivadas para o API 30 |
 
 Duas abreviações a mais, para não repetir a raiz em cada citação de linha: um arquivo `.mop` citado só pelo nome (`CipherSpec.mop:66`) está em `$JCA`; um `.crysl` citado só pelo nome (`SecureRandom.crysl:46`) está em `$CRYSL`.
+
+## Base dos números (rev. 5)
+
+As revisões 1–4 misturaram dois denominadores sem declarar qual estava em uso. Fica declarado aqui, e vale para o documento inteiro:
+
+| o quê | arquivo | base | totais |
+|---|---|---|---|
+| **todo número de runtime** deste relatório | `$RESULTS/errors.csv` | **análise, 163 apps** | 97.018 eventos · 454 tuplas · 113 apks · 10 specs |
+| a mesma medida na base congelada | `$RESULTS/errors_bck.csv` | **executada, 219 apps** | 165.999 eventos · 635 tuplas · 157 apks · 10 specs |
+| **todo censo de DEX** (96 wrappers, 10 assinaturas disputadas, alcançabilidade) | `$APKS` | **executada, 219 apps** | — |
+| o grupo de controle da rev. 5 | `$RESULTS/errors_unit_tests.csv` | 32 apps ⊂ 163 | 298 eventos · 134 tuplas |
+
+O funil do dataset termina `… → 227 → 219 → 164 → 163`; os dois últimos passos são filtros de validade **pós-execução** aplicados por `$WS/ase-journal/dataset/data-analysis/reduce_to_163.py`, com pinos sha256 em `reduce_to_163.sha256`. Nenhuma conclusão estrutural deste relatório é sensível à escolha — a §11.7 recalcula as manchetes nas duas bases e mostra que a única que se move o faz **a favor** da tese.
 
 ---
 
@@ -57,6 +76,8 @@ Quatro resultados mudam decisões do plano.
 **3. O grafo de predicados está pior do que o relatado, e o defeito é assimétrico.** **83%** das cláusulas `ENSURES` do CrySL têm contrapartida escrita (corrigido na rev. 3 de 92% — ver §4.4); apenas **22% dos `REQUIRES` têm leitura**. A tradução produz predicados com fidelidade e quase não os consome.
 
 **4. (rev. 4) Há um terceiro defeito de weaving, independente dos outros dois e de direção oposta.** ✅ O caminho *inline* do weaver — o que trata construtores, advices `before`, `after-throwing` e `staticinitialization` — lê apenas `monitorCalls.get(0)` de cada advice (`EmitContext.java:50-52`, `MonitorInvokeBuilder.java:238-241`, `StaticInitializationEmitter.java:145-148`), enquanto o caminho de wrapper itera a lista inteira (`WrapperEmitter.java:637`). Quando o javamop **funde** dois eventos num advice, o inline emite o primeiro e **descarta o resto, em silêncio e sem contador**. No descritor de produção são **7 advices truncados e 9 eventos descartados — e todos os 9 são eventos que emitem erro** (§4.8). Consequência direta e verificada: as **8 cláusulas `addError(ErrorType.UnsatisfiedConstraint)` do conjunto `jca` nunca disparam** — zero ocorrências em 97.018 eventos. Enquanto a colisão de wrappers mata o registrador do caso **válido** e fabrica falso positivo, a truncagem inline mata o emissor do caso **inválido** e fabrica **falso negativo**.
+
+**5. (rev. 5) O terceiro defeito está medido contra um controle, e o que ele apaga é código de aplicação.** ✅ O dataset contém uma segunda execução das **mesmas 23 specs** tecidas por **AspectJ** em vez do weaver DEX (`-javaagent:JavaMOPAgent.jar`, *"No emulator, no dexlib2"* na fonte). Nela o `UnsatisfiedConstraint` dispara **43 vezes** e as três specs truncadas emitem 26/16/38 eventos, contra **zero** no dexlib2 nas duas bases (§11.2). O join com o `coverage.csv` fecha a ponte: **7 sítios em 3 apps executaram na campanha e mesmo assim ficaram mudos** (§11.3) — o que também fecha o último silêncio inexplicado, o do `PBEKeySpecSpec`. E a classificação de proveniência do próprio dataset diz onde a categoria apagada mora: **30 das 34 tuplas em código de aplicação** (§11.4). O sistema fabrica ruído de biblioteca e apaga uso de API pelo app.
 
 ---
 
@@ -696,6 +717,17 @@ O advice cai no caminho inline sempre que `WrapperEmitter.shouldWrap` é falso (
 
 **Os 9 descartados são, sem exceção, os eventos que emitem erro.** Confronte com a contagem da §4.9: os 8 sítios `UnsatisfiedConstraint` do conjunto `jca` estão em `IvParameterSpec` (2), `SecretKeySpecSpec` (2), `PBEKeySpecSpec` (3) e `SecureRandomSpec` (1) — **todos** dentro de eventos descartados. É a explicação completa do zero observado.
 
+> **Rev. 5 — isto deixou de ser explicação e virou contraste medido.** A rev. 4 sustentava o defeito nº 3 numa leitura de código mais a *ausência* de um dado, que é a forma mais fraca de evidência disponível. O dataset contém um controle que ninguém tinha aberto: no `$RESULTS/errors_unit_tests.csv` as **mesmas 23 specs** rodam sob **AspectJ** em vez do weaver DEX (§11.1). Nele o `UnsatisfiedConstraint` dispara **43 vezes**, e as três specs cujos emissores são truncados emitem onde o dexlib2 emite zero:
+>
+> | spec | eventos sob ajc | eventos sob dexlib2 (163) | (219) |
+> |---|---:|---:|---:|
+> | `IvParameterSpecSpec` | 26 | **0** | **0** |
+> | `PBEKeySpecSpec` | 16 | **0** | **0** |
+> | `SecretKeySpecSpec` | 38 | **0** | **0** |
+> | `UnsatisfiedConstraint` (categoria) | **43** | **0** | **0** |
+>
+> Trocar o weaver — e só ele — faz a categoria inteira reaparecer. Detalhe e ressalvas na §11.2.
+
 ✅ **Confirmado no DEX, e no corpus inteiro.** Em `com.etesync.syncadapter_20700`, `IvParameterSpecSpec_c3Event` e `c4Event` estão **definidos** no monitor (`MultiSpec_1RuntimeMonitor.smali:3286` e `:3383`) e têm **zero** `invoke-static` em todo o APK, enquanto `c1Event` é chamado nos sítios esperados (`org/conscrypt/IvParameters.smali:138`, `org/conscrypt/OpenSSLCipher.smali:383`). Um censo de alcançabilidade nos **219/219** APKs (§9, `reachcensus.py`) confirma: **nenhum dos 9 eventos descartados é referenciado a partir de código de aplicação em nenhum APK do corpus**, enquanto os eventos “mantidos” das mesmas specs aparecem em massa (`SecretKeySpecSpec_c1Event` em 193 APKs, `IvParameterSpecSpec_c1Event` em 85, `PBEParameterSpecSpec_c1Event` em 19).
 
 **Por que o mantido é sempre o do caso válido.** `get(0)` preserva a ordem de declaração no `.mop`, e o idioma da tradução é declarar primeiro o evento do caso válido (`c1`, `c2`) e depois o do caso inválido (`c3`, `c4`, `err*`). Some-se isso ao mecanismo da §3.3 e o sistema tem **dois vieses opostos**:
@@ -740,9 +772,11 @@ As duas specs sem `addError` são `SecretKeySpec.mop` e `RandomStringPassword.mo
 | `CipherInputStreamSpec` | **(D)** exposição estática mínima | monitor **não paramétrico** (`CipherInputStreamSpec()`, sem parâmetro) e `fail` bem alcançável (`{3,4,4,4,4}`), mas os wrappers de `read`/`close` têm call site em apenas **13/219** APKs |
 | `CipherOutputStreamSpec` | **(D)** idem | wrappers de `write`/`flush`/`close` com call site em **10/219** |
 | `KeyGeneratorSpec` | **(D)** idem | `init` inline tecido em 66/219, wrappers com call site em 69/219; `fail` e o `UnsafeAlgorithm` do `gk1` alcançáveis, mas não exercitados |
-| `PBEKeySpecSpec` | **(B) parcial — resta lacuna** | `err1`–`err3` descartados (§4.8); sobram `f1`/`f2`, que **transitam para `fail`** (`{3,3,3,3}`) e **estão tecidos** em 20/219 e 1/219 APKs (o wrapper do `c2` tem call site em apenas 2/219). Que não tenham disparado só pode ser explicado por não-execução em runtime — **não fechado por análise estática** |
+| `PBEKeySpecSpec` | **(B)** — ✅ **fechado na rev. 5** | `err1`–`err3` descartados (§4.8); sobram `f1`/`f2`, que **transitam para `fail`** (`{3,3,3,3}`) e **estão tecidos** em 20/219 e 1/219 APKs. A rev. 4 dizia que só a não-execução poderia explicar o silêncio e que isso não se decidia estaticamente. **Decidiu-se com dado, e a resposta é a oposta:** `dev.leonlatsch.photok_62` **executou** `KeyGen.derivePasswordKeyEncryptionKey` na campanha (registrado no `coverage.csv`), e é exatamente o método onde o ajc reporta `err1`+`err2` — e ainda assim o app tem **0** eventos da spec no dexlib2 (§11.3) |
 
-Em resumo: **(A)** ERE de evento único com monitor chaveado pelo objeto criado → `fail` inalcançável, 3 specs; **(B)** emissores de erro descartados pela truncagem inline, 4 specs; **(C)** incapacidade estrutural declarada, 3 specs; **(D)** API pouco ou nada exercitada, 3 specs. Resta apenas o `PBEKeySpecSpec` com lacuna genuína.
+Em resumo: **(A)** ERE de evento único com monitor chaveado pelo objeto criado → `fail` inalcançável, 3 specs; **(B)** emissores de erro descartados pela truncagem inline, 4 specs; **(C)** incapacidade estrutural declarada, 3 specs; **(D)** API pouco ou nada exercitada, 3 specs.
+
+> **Rev. 5 — as 13 estão fechadas, e o mecanismo (D) ganhou confirmação de runtime.** A lacuna do `PBEKeySpecSpec` fechou em **(B)**, não numa quarta categoria: o silêncio é defeito de weaving, não não-execução. E o (D) dos dois stream specs, que a rev. 4 sustentava só por contagem de call site, agora tem o dado direto: dos sítios que o ajc reporta em `dev.leonlatsch.photok_62`, **0 de 2** (`CipherInputStreamSpec`) e **0 de 6** (`CipherOutputStreamSpec`) aparecem no `coverage.csv` da campanha — a API existe no app, é exercitada pelos testes dele, e a exploração de GUI nunca a alcançou. O (D) é o único dos quatro mecanismos que **não** é defeito nosso.
 
 > O mecanismo **(A)** é uma generalização do que a rev. 3 achou só para o `GCMParameterSpecSpec`. Ele merece registro como padrão de tradução, não como bug isolado: **toda spec CrySL cujo `ORDER` é um único evento de construção vira, na tradução para JavaMOP com monitor chaveado pelo objeto construído, uma spec que não pode falhar.** São 3 das 23 no conjunto `jca`.
 
@@ -760,11 +794,15 @@ O problema mudou de forma com a §2.2, e o gate deve mudar junto. Ele **não** p
 6. **(rev. 4) A truncagem inline de advices fundidos** — hoje `monitorCalls.get(0)` descarta o resto em silêncio (§4.8). Duas ações, em ordem de custo: **(a)** gate imediato — falhar alto (ou ao menos contar) quando um advice com `monitorCalls.size() > 1` cai no caminho inline; **(b)** correção real — fazer o inline iterar a lista, como o `WrapperEmitter` já faz. É o item de **maior impacto sobre validade** dos seis, porque produz falso negativo: hoje ele apaga uma categoria inteira de erro (`UnsatisfiedConstraint`) sem deixar rastro.
 7. **(rev. 4) A escolha silenciosa do `android.jar`** — `ConfigResolver.resolveAndroidJarFromEnv` (`$DEXLIB2/cli/.../ConfigResolver.java:111-127`) escolhe o **máximo lexicográfico** dos diretórios de `$ANDROID_HOME/platforms`, e o driver Python nunca passa `--android-jar` (a lista de argumentos em `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py:394-417` não o inclui). O jar escolhido **não é registrado em log algum**. Gate mínimo: logar o jar resolvido e falhar quando o nome do diretório não for numericamente o maior. Ver §7.5 para o que isso significou na campanha.
 
-Onde: na geração, sobre o **descritor** — é o artefato que o weaver consome e onde a expressão chega verbatim. Custo baixo; evita que qualquer spec de F2/F5 seja tecida errada em silêncio. Os itens 5 e 6 são a exceção: vivem no weaver, porque é lá que a informação de colisão/truncagem existe.
+8. **(rev. 6) Os contadores que o weaver já mantém são descartados na fronteira Python.** `BatchRunner` serializa onze contadores por APK em `weaveCounts` dentro do `instrument_results.json`, e `_parse_results_json` lê quatro campos e ignora o resto; `InstrumentationResults` não tem campo para recebê-los (§12.4). É o item mais barato dos oito — o produtor já existe, falta o consumidor — e é pré-requisito prático dos itens 5 e 6: sem um canal onde um contador novo possa chegar até o resultado do experimento, "ao menos contar" não tem para onde contar.
+
+Onde: na geração, sobre o **descritor** — é o artefato que o weaver consome e onde a expressão chega verbatim. Custo baixo; evita que qualquer spec de F2/F5 seja tecida errada em silêncio. Os itens 5 e 6 são a exceção: vivem no weaver, porque é lá que a informação de colisão/truncagem existe; e o 8 é a via de saída dos dois.
 
 > **Rev. 4 — nota de prioridade.** Dos sete, o item 6 é o único que hoje **apaga** violações reais, e o item 5 é o único que hoje **fabrica** violações falsas. Os dois estão medidos (§3.11, §4.8). Os itens 1–4 são riscos de autoria futura, não defeitos ativos no corpus: nenhuma spec do conjunto usa `execution`, `within` positivo ou `!adviceexecution()` (§2.3).
 
-Vale registrar que a matriz existente `docs/aspectj_grammar_coverage.md` está ⚠️ **desatualizada**: cita `PointcutMatcher.java:158-159 (NamedRefPC always-match)` para seis PCDs, e `:158-159` é a escotilha do `adviceexecution` — esses PCDs caem no `throw` de `:161`.
+> **Rev. 6 — a lista passou a oito, e a prioridade não muda de topo.** Os itens 5 e 6 seguem sendo os dois que alteram resultado, e a §12.2 mostra que ambos atravessam intactos para o `jca_android` — ou seja, deixam de ser dívida de uma campanha encerrada e passam a ser defeito ativo do conjunto que será usado a seguir. O item 8 é novo e não altera resultado nenhum; entra porque é o que torna os itens 5 e 6 observáveis.
+
+A matriz existente `docs/aspectj_grammar_coverage.md` estava ⚠️ **desatualizada** e ✅ **foi corrigida nesta revisão**: citava `PointcutMatcher.java:158-159 (NamedRefPC always-match)` para seis PCDs (`withincode`, `cflow`, `cflowbelow`, `handler`, `initialization`, `preinitialization`), quando `:158-159` é a escotilha do `adviceexecution` e esses seis caem no `throw` de `:161`. Detalhe da correção na §11.8.
 
 ---
 
@@ -805,7 +843,7 @@ Para a §9.4, a `KeyGenParameterSpec.Builder` (item 3) ganha peso: é o produtor
 
 O plano trata a camada 3 como fonte de **falso positivo**. A §4.8 acrescenta um eixo que ele não tem: a truncagem inline produz **falso negativo**, e apaga uma categoria de erro inteira. Consequências para o ordenamento:
 
-1. Corrigir `monitorCalls.get(0)` no caminho inline é a mudança de **maior retorno por linha** de todo o levantamento: sete advices, nove eventos, quatro specs e uma categoria de `ErrorType` voltam a existir.
+1. Corrigir `monitorCalls.get(0)` no caminho inline é a mudança de **maior retorno por linha** de todo o levantamento: sete advices, nove eventos, quatro specs e uma categoria de `ErrorType` voltam a existir. **(rev. 5)** E deixou de ser argumento de plausibilidade: o grupo de controle mostra a categoria viva sob outro weaver, com 30 de 34 tuplas em código de aplicação (§11.2, §11.4). A re-execução que o item 10 pede é a medição de maior valor que resta ao plano — e agora tem alvo barato definido: `photok`, `aegis` e `org.cry.otp`, os três apps onde há sítio executado e mudo (§11.3).
 2. Ela precisa vir **antes** de qualquer releitura de "specs que não detectam nada": hoje `SecretKeySpecSpec` está tecido em 193 dos 219 APKs e é completamente mudo por esse motivo, não por falta de uso.
 3. Ela muda o significado de um número do artigo: "13 de 23 specs nunca disparam" hoje mistura decisão de projeto com defeito de weaving. Depois da §4.9, a leitura correta é **3 incapazes por desenho, 3 inalcançáveis por construção, 4 silenciadas por defeito do weaver, 3 não exercitadas**.
 
@@ -835,12 +873,12 @@ Explicitamente, para não ser promovido por descuido:
 7. ~~`thread(...)`.~~ ✅ **Resolvido na rev. 4 — e a expectativa da rev. 3 estava invertida.** `thread(...)` **não pode** cair no `throw` do matcher, porque nunca chega lá: `EventDefinition` (`$JAVAMOP/parser/ast/mopspec/EventDefinition.java:113-117`) extrai a variável com `ThreadVarVisitor` e **remove** o `thread(...)` do pointcut com `RemoveThreadVisitor`, exatamente como faz com `condition(...)`. O `resultPointCut` — que é o que o `DescriptorWriter` serializa — já vem sem ele. O mesmo vale para `threadName(...)` (`:127`, `RemoveThreadNameVisitor`), um PCD que a matriz da §2.1 sequer mencionava. O risco residual é **outro e menor**: a variável de thread é excluída da lista `parameters` do advice (`AdviceAndPointCut.java:83`) mas continua nos argumentos da chamada de monitor (`DescriptorWriter.java:137-139`, comentário “*including threadVar*”), de modo que uma spec que usasse `thread(...)` produziria um argumento sem binding resolvível — caindo no drop **com contador** `plansSkippedUnresolvedBinding`, não em abort. ✅ Uso no corpus: **zero** ocorrências de `thread(` nos quatro conjuntos (`jca`, `generic`, `generic_new`, `aspect`).
 8. ~~Generalização do censo observado.~~ ✅ **Resolvido na rev. 3 (§3.2)** e **reproduzido de forma independente na rev. 4** (script novo, `census4.py`): mesmos 96 wrappers, mesmas 10 assinaturas disputadas, mortos 15–22 (mediana 19), **zero falsificações**, vencedor sempre o último wrapper declarado.
 
-**Aberto após a rev. 4** — o que fica, explicitamente:
+**Aberto após a rev. 4, resolvido na rev. 5** — três dos quatro caíram sem re-executar a campanha, porque a segunda execução já existia no dataset (§11):
 
-9. **O `PBEKeySpecSpec`** (item 6 acima) — único silêncio sem explicação estática.
-10. **Quanto a truncagem inline (§4.8) apagou.** Sabemos que apagou *toda* a categoria `UnsatisfiedConstraint` (8 sítios, 0 eventos) e os emissores de erro de 4 specs. Não sabemos quantas violações **reais** isso representa: ao contrário da colisão, aqui não há relato residual de onde inferir, porque o evento nunca foi tecido. Decide-se com uma re-execução após corrigir o `get(0)` — e essa é a medição de maior valor que resta ao plano.
-11. **Se a má-atribuição de sítio do `UnsafeProtocol` altera conclusões do artigo.** A §3.10 prova que a atribuição é uma corrida para os 8.802 eventos do `SSLContextSpec` (27,1% do dataset). Não medimos quantos dos 125 sítios reportados estão errados — exigiria, por app, ordenar os `getInstance` no tempo, e o `errors.csv` só tem granularidade de segundo.
-12. **A validade do `InvalidSequenceOfMethodCalls` como métrica.** ✅ Re-derivado na rev. 4: são **70.760 de 97.018 (72,9%)**, e **as 454 tuplas de misuse, todas, têm ao menos uma linha desse tipo**. Combinado com §3.11 (a maior parte das do TMF é co-emissão espúria) e §4.9 (23 dos 51 `addError` são desse tipo), a categoria parece medir mais o acoplamento do gerador do que uso incorreto de API. **Não investigado fora do TMF/SSLContext.**
+9. ~~O `PBEKeySpecSpec`.~~ ✅ **Fechado na rev. 5 (§11.3), e a resposta é a oposta da esperada.** A rev. 4 supunha que o silêncio só poderia ser não-execução. O join com o `coverage.csv` mostra **7 sítios em 3 apps que executaram na campanha** e mesmo assim ficaram mudos, entre eles o `KeyGen.derivePasswordKeyEncryptionKey` do `photok` — o mesmo método em que o ajc reporta `err1`+`err2`. O silêncio é **defeito de weaving**, não falta de exercício. Com isso as 13 specs mudas ficam com **três** mecanismos de defeito nosso ((A), (B), (C)) e um só de exercício ((D)).
+10. **Quanto a truncagem inline (§4.8) apagou** — ✅ **quantificado num piso medido, ainda sem o número do corpus.** No regime de controle, a categoria apagada é **34 de 134 tuplas de misuse (25,4%)**, e **30 dessas 34 estão classificadas como `app_producao`** pelo `categoria_unit_tests.csv` — 45% de todas as tuplas de código de aplicação daquele baseline (§11.4). Continua **em aberto** o que falta: quantas violações reais o defeito apagou **nos 219 APKs**, que só uma re-execução após corrigir o `get(0)` decide. O que mudou é que deixou de ser uma incógnita sem ordem de grandeza, e a ordem de grandeza é desconfortável — o que o weaver apaga concentra-se em código de aplicação, exatamente ao contrário do que ele fabrica (§3.11), que é quase todo de biblioteca e 100% artefato.
+11. ~~Se a má-atribuição de sítio do `UnsafeProtocol` altera conclusões do artigo.~~ ✅ **Fechado na rev. 5 como indecidível a partir do dado publicado (§11.5)**, por duas razões independentes, e não pela que a rev. 4 supunha. A rev. 4 atribuiu a dificuldade à granularidade de segundo; ela é a razão **secundária**. A primária é que o `errors.csv` registra o **sítio que reporta**, não o `getInstance` que escreve na fatia vazia — e a §3.10 já provara, em bytecode, que os dois diferem. Os escritores não estão no dado, em granularidade nenhuma. A razão secundária está medida: **93,7% dos eventos** dividem o balde `(tarefa, segundo)` com ao menos um outro. Falsificador declarado: re-execução com timestamp de milissegundo e log do argumento no wrapper.
+12. **A validade do `InvalidSequenceOfMethodCalls` como métrica** — ⚠️ **continua em aberto como juízo, mas deixou de ser inexplorado.** ✅ Re-derivado na rev. 4: **70.760 de 97.018 (72,9%)**, e as 454 tuplas, todas, têm ao menos uma linha desse tipo. A rev. 5 acrescenta dois fatos que a rev. 4 marcava como não investigados fora do TMF/SSLContext (§11.6): **(i)** a co-emissão é **100% nos dois regimes de execução** — 454/454 no dexlib2 e 134/134 no ajc, weaver, driver e corpus diferentes —, o que a caracteriza como invariante estrutural do gerador e não como observação; **(ii)** **249 das 454 tuplas (54,8%) não carregam nenhum outro tipo de erro** — mais da metade do que o artigo conta como misuse é uma sequência inválida e nada mais. O que **permanece aberto** é o juízo, que é de artigo e não de relatório: se uma categoria com essas duas propriedades deve entrar na contagem de misuse.
 
 ---
 
@@ -941,6 +979,353 @@ Nenhuma escrita fora do scratchpad da sessão e deste arquivo: `$APKS` e `$RESUL
 
 ---
 
+## 10. L1.5 — o `CipherSpec` não tem allow-list, e a que existe mora em Java compartilhado
+
+Registrado em 2026-08-06, ao fim da change `gh99-metacrysl-jca-android`. **Deveria ter
+sido fechado lá e não foi.** A change derivou o conjunto `jca_android` do MetaCrySL e
+deixou o `CipherSpec.mop` verbatim, tratando a lacuna como dívida para uma change
+seguinte. A justificativa dada — que a correção exige mexer em Java compartilhado — é
+verdadeira, mas não torna a lacuna menor: ela deixa o conjunto **internamente
+contraditório**, e isso está demonstrado abaixo. Fica aqui porque é um defeito do
+substrato das specs, do mesmo tipo dos §3 e §4.8, e não uma pendência de planejamento.
+
+### 10.1 O mecanismo
+
+✅ O `CipherSpec.mop` é o único dos 23 que **não carrega allow-list própria**. Não há um
+`Arrays.asList` sequer no arquivo. Ele importa `$CORE/jca/util/CipherTransformationUtil.*`
+(`:15`) e delega toda a decisão a `isValid(transformation)`, em seis sítios — as guardas
+`condition(isValid(...))` em `:34` e `:42`, `condition(!isValid(...))` em `:51`, e os
+testes `if (!isValid(currentTransformation))` em `:59` e `:74`. O arquivo é **idêntico**
+em `$JCA` e `$JCA_ANDROID`: a derivação não o tocou, e não tinha por onde tocá-lo.
+
+✅ As tabelas não são nem constantes de classe. `modes` (uma `List`) e `padding` (um
+`HashMap`) são **locais de `isValid()`**, reconstruídos a cada chamada. O método trata
+apenas duas famílias:
+
+- `alg == "AES"` → exige o modo em `{CBC, CCM, GCM, PCBC, CTR, CTS, CFB, OFB}` e o padding
+  na lista daquele modo;
+- `alg == "RSA"` → exige modo vazio ou `ECB`, com padding em `{NoPadding, PKCS1Padding,
+  OAEPWith{MD5,SHA-224,SHA-256,SHA-384,SHA-512}AndMGF1Padding}`;
+- **qualquer outra coisa cai no `return false` final.**
+
+### 10.2 A contradição interna do `jca_android`
+
+✅ A regra derivada `$API30/Cipher.cryptsl:118` admite oito algoritmos:
+`{ChaCha20, AES_128, ARC4, RSA, DESede, AES, BLOWFISH, AES_256}`, cada um com sua tabela
+de modo e padding. O `isValid()` aceita **duas** famílias. O resultado é que o próprio
+conjunto se contradiz: o `KeyGeneratorSpec` derivado admite `ChaCha20`, `DESede`,
+`BLOWFISH` e `ARC4` — o Android os publica — enquanto **qualquer** `Cipher.getInstance`
+sobre eles é marcado como uso indevido pelo `isValid()`. O `jca_android` permite gerar a
+chave e acusa quem a usa.
+
+✅ As divergências entre a regra derivada e o Java compilado, em ambas as direções:
+
+| caso | regra derivada (`$API30/Cipher.cryptsl`) | `isValid()` (`$CORE`) | efeito |
+|---|---|---|---|
+| `ChaCha20`, `DESede`, `BLOWFISH`, `ARC4`, `AES_128`, `AES_256` | admitidos, com tabelas próprias | `return false` | **falso positivo** — seis algoritmos disponíveis no Android acusados |
+| `AES/ECB/...` | admitido (`ECB` está no conjunto de modos do `AES`) | rejeitado (`ECB` não está em `modes`) | divergência na direção conservadora, mas o `.mop` desobedece a própria regra derivada |
+| `RSA` + `OAEPWithMD5AndMGF1Padding` | ausente | aceito | falso negativo |
+| `RSA` + `OAEPPadding`, `OAEPwithSHA-1andMGF1Padding` | admitidos | rejeitados | falso positivo |
+| `AES/GCM-SIV/NoPadding` | ausente (defeito D6) | rejeitado (`GCM-SIV` não está em `modes`) | falso positivo, e **reparar só a regra não resolveria** |
+
+⚠️ A disponibilidade de `AES/GCM-SIV/NoPadding` a partir do API 30 vem do mapa de tiers da
+gh99 (`docs/20260806_metacrysl_tier_map.md`), não foi re-derivada aqui contra a
+documentação da plataforma.
+
+### 10.3 Por que não foi feito, e o que custa fazer
+
+✅ `CipherTransformationUtil` compila dentro do `rvsec-core` e é chamado **em tempo de
+execução** pelos monitores dos **dois** conjuntos — o `CipherSpec.mop` do `jca` e o do
+`jca_android` importam a mesma classe. Editá-la não é adaptar o `jca_android`: é mudar
+retroativamente o que toda campanha já medida com o `jca` teria reportado. Foi essa a
+razão de a gh99 parar aqui.
+
+Duas saídas, ambas mudança de código em Java compartilhado, e por isso uma change própria:
+
+1. **Utilitário paralelo** selecionado por conjunto de specs — preserva o `jca` intacto ao
+   custo de duplicar a lógica de `part()`/validação.
+2. **Parametrizar** `isValid` pelas tabelas, com o conjunto de specs escolhendo quais — não
+   duplica, mas mexe na assinatura usada pelas guardas dos dois `.mop`.
+
+A opção 2 é a que elimina a contradição da §10.2 de vez, porque faz as tabelas virem da
+mesma fonte que gerou a regra derivada, em vez de serem uma segunda tradução à mão — que é
+exatamente a ameaça W3 que a gh99 existiu para evitar, e que sobreviveu intacta dentro do
+`CipherSpec`.
+
+### 10.4 Dois defeitos de higiene no mesmo arquivo
+
+✅ Menores, mas ficam registrados já que a §10.3 vai abrir o arquivo de qualquer forma:
+`padding.put("CBC", ...)` e `padding.put("PCBC", ...)` listam `"PKCS5PADDING"` **duas
+vezes** cada; e o ramo do `RSA` carrega um bloco `rsaECBPaddings` comentado, idêntico ao
+código vivo logo abaixo — resíduo que o P4 manda apagar.
+
+---
+
+## 11. O grupo de controle (revisão 5) — o que foi medido e o que continua aberto
+
+Sessão nova, 2026-08-06. **Método:** scripts próprios sobre os CSVs da campanha e sobre a fonte do `rvsec-dataset`; nenhum subagente; nenhuma escrita fora do scratchpad, deste arquivo e de `docs/aspectj_grammar_coverage.md`. **Disciplina de partida:** antes de usar qualquer número da rev. 4, re-derivei uma manchete por conta própria — os 643 eventos `X509` do `TrustManagerFactorySpec` e sua decomposição por sítio (229 `MemorizingTrustManager` do openhab · 208 `Platform` do openhab · 190 `MemorizingTrustManager` do luhmer · 8 `CertUtils` + 8 `SSLParametersImpl` do etesync) saem idênticos, e idênticos **nas duas bases**.
+
+### 11.1 O achado que destrava três itens: existe uma segunda execução, com outro weaver
+
+A rev. 4 tratou os itens 9, 10 e 11 como dependentes de re-executar a campanha. Não eram. O `$RESULTS` contém `errors_unit_tests.csv` — 298 linhas, mesmo esquema, `tool=unit_test`, `timeout=0` — que nenhuma revisão anterior abriu.
+
+✅ **O que ele é, lido na fonte e não inferido.** `$WS/rvsec-dataset/src/rvsec_dataset/unittests/configure_agent.py:9-10`, verbatim:
+
+> *"This is where MOP monitoring enters the unit-test track: the 23 JCA `.mop` specs are compiled INTO the agent jar and attached as a plain JVM `-javaagent`. **No emulator, no dexlib2.**"*
+
+E `run.py:1` declara o desenho (*"execute unit tests with the JCA agent attached"*), com os marcadores de prova de anexação em `:44-45` (`org.aspectj.weaver`, `JavaMOP`). São os **mesmos 23 `.mop`**, o **mesmo gerador de monitor**, tecidos por **AspectJ** em vez do weaver DEX, sobre os **mesmos apps** (32 apps, todos ⊂ 163) a partir do código-fonte em `$REPOS`.
+
+**Isso é um grupo de controle, e o que ele isola é exatamente a variável do defeito nº 3.** Spec, monitor, tabelas de transição e guardas são idênticos; o que muda é o emissor. Não foi construído para isto — é um baseline metodológico do dataset (`$WS/rvsec-dataset/docs/20260709_unit-test-analysis.md`) —, e é justamente por isso que serve: ninguém o desenhou para confirmar a hipótese que ele confirma.
+
+Ressalva declarada, e ela é real: o regime de execução também muda (testes do próprio projeto contra exploração de GUI), então **contagens absolutas não são comparáveis** entre os dois lados. O que é comparável é a **presença ou ausência de uma categoria** e, quando o mesmo `(app, classe, método)` aparece dos dois lados, o confronto direto — que é o da §11.3.
+
+### 11.2 O defeito nº 3 deixa de ser previsão
+
+✅ Contagens por tipo de erro, as três populações:
+
+| `ErrorType` | ajc / unit-test | dexlib2 / GUI 163 | dexlib2 / GUI 219 |
+|---|---:|---:|---:|
+| `InvalidSequenceOfMethodCalls` | 199 | 70.760 | 116.528 |
+| **`UnsatisfiedConstraint`** | **43** | **0** | **0** |
+| `UnsafeAlgorithm` | 41 | 15.444 | 30.511 |
+| `UnsafeProtocol` | 15 | 8.802 | 16.433 |
+| `InvalidKeyStoreType` | 0 | 2.005 | 2.520 |
+| `InvalidKeySize` | 0 | 7 | 7 |
+
+✅ E por spec, restringindo às quatro cujos emissores de erro o *inline* trunca (§4.8):
+
+| spec | ajc | dexlib2 163 | dexlib2 219 |
+|---|---:|---:|---:|
+| `IvParameterSpecSpec` | 26 eventos / 13 sítios | **0** | **0** |
+| `PBEKeySpecSpec` | 16 / 5 | **0** | **0** |
+| `SecretKeySpecSpec` | 38 / 16 | **0** | **0** |
+| `SecureRandomSpec` | 14 / 10 | 12.400 | 14.740 |
+
+A quarta linha é a que dá confiança nas três primeiras: no `SecureRandomSpec` **só o `c3` é truncado**, os demais eventos sobrevivem — e a spec fala normalmente sob dexlib2. O padrão não é "specs de parameter spec somem"; é "**os eventos truncados somem, e só eles**".
+
+✅ Os 43 `UnsatisfiedConstraint` do controle distribuem-se por `IvParameterSpecSpec` (13), `PBEKeySpecSpec` (11) e `SecretKeySpecSpec` (19) — três das quatro specs que a §4.8 lista, e que somam **7 dos 8** sítios `addError(UnsatisfiedConstraint)` do conjunto. O oitavo é o `c3` do `SecureRandomSpec`, que também não dispara no controle.
+
+**O que isto autoriza dizer, e o que não autoriza.** Autoriza: a categoria `UnsatisfiedConstraint` é emissível pelas specs como estão escritas, e o que a zera na campanha é o weaver. Não autoriza: concluir que os 43 eventos do controle teriam aparecido na campanha — regimes diferentes exercitam código diferente. A ponte entre as duas coisas é a §11.3.
+
+### 11.3 Item 9 fechado — e o join com `coverage.csv` responde ao contrário do esperado
+
+O instrumento é o que a rev. 4 apontou e não usou: `coverage.csv` registra quais métodos do app executaram. Varri as **20.825.013 linhas** em streaming, filtrando os 32 apps do controle, e perguntei, para cada `(apk, classe, método)` que o ajc reportou: **esse método executou na campanha?**
+
+✅ Resultado agregado — sítios do controle que também executaram sob GUI:
+
+| spec | sítios reportados pelo ajc | executaram na campanha |
+|---|---:|---:|
+| `SecretKeySpecSpec` | 16 | **5** |
+| `IvParameterSpecSpec` | 13 | **1** |
+| `PBEKeySpecSpec` | 5 | **1** |
+| `CipherInputStreamSpec` | 2 | 0 |
+| `CipherOutputStreamSpec` | 6 | 0 |
+| `SecureRandomSpec` | 10 | 0 |
+
+**Os 7 sítios da coluna direita são a resposta ao item 9.** Eles executaram na campanha, e nos seus apps a spec correspondente tem **zero** eventos no `errors.csv`:
+
+| app | sítio que executou | spec | eventos da spec no dexlib2 |
+|---|---|---|---:|
+| `dev.leonlatsch.photok_62` | `KeyGen.derivePasswordKeyEncryptionKey` | `PBEKeySpecSpec` | **0** |
+| `dev.leonlatsch.photok_62` | `KeyGen.derivePasswordKeyEncryptionKey` | `SecretKeySpecSpec` | **0** |
+| `dev.leonlatsch.photok_62` | `PasswordVaultProtectionHandler.unlock` | `IvParameterSpecSpec` | **0** |
+| `dev.leonlatsch.photok_62` | `PasswordVaultProtectionHandler.unlock` | `SecretKeySpecSpec` | **0** |
+| `com.beemdevelopment.aegis_81` | `HOTP.getHash` | `SecretKeySpecSpec` | **0** |
+| `com.beemdevelopment.aegis_81` | `Slot.getKey` | `SecretKeySpecSpec` | **0** |
+| `org.cry.otp_31` | `TOTP.hmac_sha` | `SecretKeySpecSpec` | **0** |
+
+✅ Os três apps **falam** sob dexlib2 — `photok` emite 96 eventos de `CipherSpec`, `aegis` 5 de `CipherSpec` e 1 de `MacSpec`, `org.cry.otp` 2 de `MacSpec`. Não é app sem instrumentação nem app sem execução: é o mesmo APK, na mesma corrida, reportando por outras specs e mudo por estas.
+
+A linha decisiva é a primeira. O ajc reporta, **nesse método**, `err1` (*"first argument should have been randomized"*) e `err2` (*"second argument should have been randomized"*) — os eventos que a §4.8 mostra descartados por `monitorCalls.get(0)`. A campanha executou o método. O dexlib2 não reportou nada.
+
+**Limite honesto.** O `coverage.csv` é por **método**, não por instrução: que o método contenedor tenha executado não prova que aquela instrução `new PBEKeySpec(...)` executou. Num método cujo nome e propósito é derivar a chave, a construção não é plausivelmente condicional — mas a inferência é essa, e fica declarada como inferência. O que **não** é inferência: os 7 métodos executaram, e as specs ficaram mudas. Falsificador barato: re-executar `photok`, `aegis` e `org.cry.otp` após corrigir o `get(0)`.
+
+### 11.4 Item 10 — o piso medido, e por que ele incomoda
+
+O item 10 pergunta quantas violações **reais** a truncagem apagou. Isso continua exigindo re-execução (§7.10). O que a rev. 5 acrescenta é ordem de grandeza e, sobretudo, **composição**.
+
+✅ No controle, a categoria apagada é **34 de 134 tuplas de misuse (25,4%)**. E o `$RESULTS/categoria_unit_tests.csv` — um terceiro arquivo que nenhuma revisão tinha aberto, que classifica cada tupla em `app_producao` / `lib` / `robolectric_noise` / `test_code` — diz onde elas moram:
+
+| categoria | tuplas `UnsatisfiedConstraint` | todas as tuplas do controle |
+|---|---:|---:|
+| `app_producao` | **30** | 67 |
+| `lib` | 4 | 51 |
+| `robolectric_noise` | 0 | 13 |
+| `test_code` | 0 | 3 |
+
+**30 das 34 tuplas apagadas estão em código de aplicação — e são 45% de todo o código de aplicação que o baseline encontra.** Some-se isto à §3.11 e o sistema fica assim descrito:
+
+| | população | onde mora | veredito |
+|---|---|---|---|
+| o que o weaver **fabrica** | 17.175 dos 18.029 eventos do TMF (95,3%) | `okhttp`, `conscrypt`, `MemorizingTrustManager` — biblioteca | artefato, zero verdadeiros positivos |
+| o que o weaver **apaga** | categoria inteira, 34 tuplas no controle | 30/34 em código de aplicação | não medido no corpus |
+
+O erro não é só grande: é **anticorrelacionado com o que interessa**. O que sobra no dado é ruído de biblioteca; o que some é uso da API pelo próprio app.
+
+### 11.5 Item 11 fechado como indecidível — e a razão principal não era a granularidade
+
+✅ Semântica da coluna `time` do `errors.csv`: inteiro em **segundos** desde o início da tarefa, `0…294`, 295 valores distintos.
+
+A rev. 4 disse que a ordenação falhava por granularidade. Falha, e está medido: **93,7% dos 97.018 eventos** (90.900) dividem o balde `(apk, rep, timeout, tool, time)` com pelo menos um outro evento; a mediana é de 4 eventos por balde e o máximo é 26.
+
+Mas a razão **primária** é anterior e definitiva: o `errors.csv` registra o sítio que **reporta**, não a chamada `getInstance` que **escreve** na fatia vazia. A §3.10 já provara essa diferença em bytecode — em `de.lukasneugebauer.nextcloudcookbook_62` o criador do `TLS` é `Platform.newSSLContext` e o reportador é `Platform.newSslSocketFactory`. ✅ Re-derivado aqui: a spec tem 794 eventos no app, distribuídos por três sítios reportadores (`newSslSocketFactory` 324, `configureTrustAllCertificates` 310, `newSSLContext` 160), e os 265 `UnsafeProtocol` saem exatos como a rev. 4 registrou (162 `TLS` em `newSslSocketFactory`, 103 `SSL` em `configureTrustAllCertificates`).
+
+**Os escritores não estão no dado publicado, em granularidade nenhuma.** Portanto: quantos dos 125 sítios do `SSLContextSpec` têm atribuição errada é **indecidível a partir do que a campanha publicou** — não "difícil". Fecha-se assim, e não como pendência vaga. O que continua verdadeiro e medido é o enunciado da §3.10: a atribuição é uma corrida, para 8.802 eventos.
+
+### 11.6 Item 12 — dois fatos novos, o juízo continua aberto
+
+A rev. 4 marcava o item como "não investigado fora do TMF/SSLContext". Duas medições corpus-inteiro:
+
+✅ **(i) A co-emissão é invariante entre regimes.** No dexlib2, **454 de 454** tuplas têm ao menos uma linha `InvalidSequenceOfMethodCalls`. No ajc, **134 de 134**. Weaver diferente, driver de execução diferente, recorte de corpus diferente, mesmo 100%. Isso a caracteriza como propriedade do **gerador** — a combinação de `@fail` com tabelas de transição que levam a `fail` de qualquer estado —, não como observação sobre os programas.
+
+✅ **(ii) Mais da metade das tuplas não tem nada além dela.** Decomposição por combinação de tipos:
+
+| combinação de `ErrorType` na tupla | dexlib2 (454) | ajc (134) |
+|---|---:|---:|
+| **só `InvalidSequenceOfMethodCalls`** | **249 (54,8%)** | **57 (42,5%)** |
+| + `UnsafeAlgorithm` | 123 | 28 |
+| + `UnsafeProtocol` | 68 | 15 |
+| + `UnsatisfiedConstraint` | **0** | 34 |
+| + `InvalidKeyStoreType` | 12 | 0 |
+| + `InvalidKeySize` | 2 | 0 |
+
+A linha `UnsatisfiedConstraint` lida na vertical é a §11.2 de novo, agora em tuplas.
+
+**O que fica aberto, e é de artigo.** Se 249 das 454 tuplas são "sequência inválida e nada mais", e se a categoria é co-emitida em 100% das tuplas nos dois regimes, então contá-la como misuse mede acoplamento do gerador. Este relatório não decide isso — decide que quem contar precisa saber destes dois números.
+
+### 11.7 A base dos números, declarada e recalculada
+
+Nenhuma revisão anterior disse em que base estavam os números de runtime. Estão todos na **base de análise de 163 apps**, enquanto todo o censo de DEX está na **base executada de 219**. Recálculo das manchetes:
+
+| manchete | base 163 (declarada agora) | base 219 | conclusão muda? |
+|---|---:|---:|---|
+| eventos | 97.018 | 165.999 | — |
+| tuplas de misuse | 454 | 635 | — |
+| `InvalidSequenceOfMethodCalls` | 70.760 (72,9%) | 116.528 (70,2%) | não |
+| `TrustManagerFactorySpec` | 18.029 (18,6%) | 33.745 (20,3%) | não |
+| `SSLContextSpec` | 26.312 (27,1%) | 49.168 (29,6%) | não |
+| população de valor vazio | 8.843 | 16.843 | não |
+| **`UnsatisfiedConstraint`** | **0** | **0** | não |
+| artefato no TMF (§3.11) | 17.175/18.029 = **95,3%** | 32.891/33.745 = **97,5%** | **não — reforça** |
+
+✅ A conta da §3.11 na base 219: valor vazio 16.226 + `InvalidSequenceOfMethodCalls` co-emitidos (16.876 − 427) + `X509` difundido 216 = **32.891**. Sobrevivem os mesmos **854** eventos nas duas bases — 427 `X509` de sítio literal mais seus 427 co-emitidos —, porque **toda a população `X509` está dentro dos 163**. Daí a manchete subir de 95,3% para 97,5%: o denominador cresce e o numerador de verdadeiros positivos não.
+
+✅ Duas observações de composição, para quem for reusar estes números: os eventos de valor vazio do `MessageDigestSpec` vão de 156 para 301 entre as bases, enquanto `SSLContextSpec` (51), `SignatureSpec` (234) e `MacSpec` (31) ficam **idênticos** — os 55 apps removidos pelo filtro de escopo de denominador contribuíam com `MessageDigest` e `TrustManagerFactory`, e com nada das outras três. E os sítios por spec crescem de 70 para 106 (TMF) e de 125 para 193 (SSLContext).
+
+**Consequência para a issue #99.** As duas manchetes que a gh99 cita — o volume de artefato e o saldo zero de verdadeiros positivos — valem nas duas bases, e a primeira é **maior** na base executada. Nenhuma premissa da change precisa ser rechecada por causa desta seção.
+
+### 11.8 Correções de higiene
+
+✅ **`docs/aspectj_grammar_coverage.md` corrigido.** Seis linhas (`withincode`, `cflow`, `cflowbelow`, `handler`, `initialization`, `preinitialization`) citavam `PointcutMatcher.java:158-159` como *"`NamedRefPC` always-match"*. Lido na fonte: `:152-157` é o ramo do `BaseAspect.notwithin()`, `:158-159` é a escotilha do `adviceexecution`, e `:161` é `throw new UnresolvedNamedRefException`. As seis passaram a citar `:161` (fail-closed); a linha `named-pointcut reference` passou a citar `:152-157`; a linha `adviceexecution()`, que já citava `:158-159`, está correta e ficou. Resíduo registrado e **não** corrigido: o teste-evidência da linha `handler` chama-se `handlerAbsorbedByNamedRefPC`, nome que carrega a crença antiga — renomeá-lo é mudança de código e sai do escopo de um relatório.
+
+⚠️ **Os `.pkgdet` ganham a frase que faltava.** Os 30 arquivos `<apk>.apk.json.pkgdet` de `$APKS`, contados na §3.7 sem serem explicados, são saída de **detecção de pacote e alcançabilidade**: JSON com `package`, `mainActivity`, `components` (atividades com `reachesTarget` e `targetMethods`), `reachability`, `windows`, `transitions`. Mesmo formato dos 219 `.apk.json` que os acompanham — a diferença de contagem (30 contra 219) não foi investigada.
+
+### 11.9 O que a rev. 5 **não** verificou
+
+Explicitamente, para não ser promovido por descuido:
+
+1. **Não re-executei nada.** Todo confronto entre ajc e dexlib2 é entre dados já publicados; nenhum APK foi tecido, nenhum teste unitário rodado.
+2. **A equivalência de tecelagem entre ajc e dexlib2 não foi verificada em bytecode.** Que o `-javaagent` não trunca advices fundidos está estabelecido por (a) o AspectJ compilar o corpo inteiro do advice, e (b) a categoria reaparecer — não por leitura do bytecode tecido pelo ajc. É a inferência mais forte do §11.2 e a mais barata de falsificar.
+3. **O `coverage.csv` é por método**, não por instrução (§11.3). E o casamento de nomes entre o relato do ajc (JVM, fonte) e o `coverage.csv` (APK) supõe ausência de ofuscação — verdadeira por construção do corpus, não conferida por mim APK a APK.
+4. **Os contadores do weaver continuam não lidos, e agora sabe-se que não existem.** ✅ O caminho é real — o driver Python passa `--results-json` (`dexlib_instrumentation.py:334`) e o `BatchRunner.java:294-304` serializa `plansSkipped`, `plansSkippedAliasing`, `plansSkippedHighRegister` e `plansSkippedUnresolvedBinding`. Mas **nenhum `instrument_results.json` sobreviveu** em `$APKS`, em `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/` ou em `$WS/rvsec-dataset/docs/` (buscas limitadas por tempo, todas sem acerto; o relatório de fase 8 não menciona o arquivo). Registro que, mesmo se existissem, **não fechariam o item 10**: a truncagem inline é precisamente o drop que **não** tem contador (§4.8) — os contadores mediriam os outros descartes, não este.
+5. **O `summary.csv` não foi usado.** Suas colunas `cov_reaches_mop` / `cov_directly_reaches_mop` são a ponte pronta entre alcançabilidade estática e erro observado, e continuam intocadas.
+6. **A população `Cipher`/`Mac` da §4.7** (11.620 eventos / 80 misuses / 24 apps, "mecanismo indeterminável pelo CSV") não foi perseguida.
+7. **O item 12 não foi decidido**, só instrumentado com dois números (§11.6).
+
+---
+
+## 12. O conjunto `jca_android` herda os três defeitos (revisão 6)
+
+Sessão nova, 2026-08-06. **Reenquadramento que motiva a seção:** as revisões 2–5 investigaram o instrumentador através da campanha `experimento-20260706`. Mas o weaver dexlib2 não é artefato de um experimento — é ferramenta que será usada em vários. Sob essa lente, um número de campanha (quantos eventos, em que base, em quantos apps) é consequência; o que é propriedade da ferramenta é o mecanismo. E a pergunta prática que nenhuma revisão fez é: **o que atravessa para o conjunto de specs que vamos usar a seguir?**
+
+A §10 já examinou o `jca_android` por um lado — a allow-list ausente do `CipherSpec`. Esta seção examina o que a derivação do MetaCrySL **não** tocou, que é tudo o mais.
+
+### 12.1 O diff: só allow-list mudou
+
+✅ Comparação arquivo a arquivo entre `$JCA` e `$JCA_ANDROID`. Os dois diretórios têm as mesmas 23 specs (o `jca` carrega além delas o `MultiSpec_1MonitorAspect.aj`, resíduo de build). **Treze specs são byte-idênticas.** As dez restantes diferem, e em todas as dez a diferença é **exclusivamente** o conteúdo de uma lista de algoritmo/protocolo/tipo — mais uma string de mensagem no `SSLContextSpec`, que só reproduz a lista nova no texto do erro:
+
+| spec | o que mudou |
+|---|---|
+| `TrustManagerFactorySpec` | `algorithms`: `{PKIX, SunX509}` → `{PKIX}` |
+| `KeyManagerFactorySpec` | `safeAlgorithms`: `{PKIX, SunX509}` → `{PKIX}` |
+| `SecureRandomSpec` | `algorithms`: 6 valores → `{SHA1PRNG}` |
+| `SSLContextSpec` | `protocols`: `{TLSV1.2, TLSV1.3}` → 7 valores, incluindo `DEFAULT`, `SSL`, `TLS`; e a mensagem do `addError` |
+| `KeyStoreSpec` | `types`: conjunto JSE → `{AndroidCAStore, AndroidKeyStore, BKS, BouncyCastle, PKCS12}` |
+| `KeyGeneratorSpec` | `safeAlgorithms`: acrescenta `ARC4`, `BLOWFISH`, `ChaCha20`, `DESede`, `HmacMD5`, `HmacSHA1`, `HmacSHA224` |
+| `KeyPairGeneratorSpec` | `safeAlgorithms` e a tabela de `keySize` (sai `EC` e `DiffieHellman`; `RSA` perde 3072) |
+| `MacSpec` | `safeAlgorithms`: acrescenta `HmacMD5`, `HmacSHA1`, `HmacSHA224` |
+| `MessageDigestSpec` | `algorithms`: acrescenta `MD5`, `SHA-1`, `SHA-224` |
+| `SignatureSpec` | `algorithms`: 7 valores → 20, incluindo `MD5withRSA`, `NONEwithRSA`, `SHA1withRSA` |
+
+✅ E o que decide esta seção: **nenhum pointcut, nenhuma cláusula `returning`, nenhuma declaração de evento, nenhuma `fsm`/`ere` e nenhum sítio `addError` mudou em spec alguma.** A derivação do MetaCrySL reescreveu o *conteúdo* das guardas e não tocou a *estrutura* que os três defeitos exploram.
+
+### 12.2 Os três defeitos atravessam intactos
+
+✅ Verificado linha a linha no `$JCA_ANDROID`, e as linhas são as mesmas do `$JCA`:
+
+| defeito | sítio no `jca_android` | estado |
+|---|---|---|
+| **colisão de wrappers** (§3) | `TrustManagerFactorySpec.mop:44` — `event g3 after(String alg) returning(TrustManagerFactory k)`, contra `mf` em `:28`/`:36`/`:51` | **intacto** — mesma falha de fusão (`MOPParameter.equals` compara o nome), mesmo *last-writer-wins*, g1 morto |
+| **colisão de wrappers** (§3.10) | `SSLContextSpec.mop:46` — `event unsafe_protocol after(String protocol):`, **sem `returning`** | **intacto** — `retVal` de tamanho 0 contra 1 do `g1`, nunca funde |
+| **binding vazio + difusão** (§3.4, §3.12) | os mesmos dois eventos, mais `gtm1` em `TrustManagerFactorySpec.mop:62` (ainda `returning(TrustManager[][] trustManager)`) | **intacto** — os três defeitos de cópia-e-cola do `gtm1` (§4.3d) sobreviveram à derivação |
+| **truncagem inline** (§4.8) | os sete advices vivem em `IvParameterSpec.mop`, `PBEKeySpecSpec.mop`, `PBEParameterSpecSpec.mop`, `SecretKeySpecSpec.mop` e `SecureRandomSpec.mop` | **intacto** — as quatro primeiras são **byte-idênticas** ao `jca`; a quinta difere só na allow-list, que não toca o advice truncado (`call(public SecureRandom.new(byte[])) && args(seed)`) |
+
+Corolário: as **10 assinaturas disputadas**, os **9 eventos descartados** e as **8 cláusulas `addError(UnsatisfiedConstraint)` mudas** da §4.8 valem para o `jca_android` sem alteração. Isso é derivação estrutural, não medição — mas é derivação forte, porque tudo de que os três mecanismos dependem (expressão de pointcut, nome do binding `returning`, ordem de declaração dos eventos, se o alvo é construtor) está byte-idêntico. Falsificação barata: gerar o descritor do `jca_android` e conferir que ele tem os mesmos 115 advices, os mesmos 17 com `monitorCalls` múltiplas e os mesmos 7 no caminho inline.
+
+### 12.3 Mudar a allow-list não reduz o artefato — troca o rótulo
+
+Este é o resultado que muda a ordem do trabalho, e ele é **derivação a partir das guardas**, não medição.
+
+A §3.8 estabeleceu que corrigir a allow-list do `TrustManagerFactorySpec` e do `SSLContextSpec` "não muda absolutamente nada, porque a allow-list é consultada contra uma variável que nunca é escrita". O `jca_android` é, por construção, **uma mudança de allow-list**. Vale a pena percorrer o que isso produz, porque o desfecho é pior do que "nada".
+
+**No `SSLContextSpec`.** O `g1` — único evento que escreveria `currentProtocol` com um valor válido pela sobrecarga de 1 argumento — está morto pela colisão. Sobra o `unsafe_protocol`, cuja guarda é `!protocols.contains(protocol.toUpperCase())`. E o `init` reporta com `!protocols.contains(currentProtocol.toUpperCase())`, partindo do inicializador `""` (`$JCA_ANDROID/SSLContextSpec.mop:24`).
+
+| chamada | `jca` (lista `{TLSV1.2, TLSV1.3}`) | `jca_android` (lista com `TLS`, `SSL`, `DEFAULT`, …) |
+|---|---|---|
+| `SSLContext.getInstance("TLS")` | `unsafe_protocol` dispara → escreve `"TLS"` na fatia vazia → difunde | guarda **falsa** → **nada é escrito** → `currentProtocol` fica `""` |
+| `init` subsequente | `!contains("TLS")` = verdadeira → `UnsafeProtocol` *"found TLS"* | `!contains("")` = verdadeira → `UnsafeProtocol` **"found ."** |
+
+O relato **não desaparece: muda de rótulo**. O gatilho é o `init`, que dispara igual nos dois conjuntos; o que a lista nova altera é apenas *qual string* o `init` encontra na variável. E o efeito colateral é que, sem ninguém escrevendo na fatia vazia, some também a difusão — de modo que **todos** os monitores passam a ler `""` em vez de alguns lerem um protocolo real. Pela contagem da §3.10, os 8.648 relatos `TLS` e 103 `SSL` migrariam em bloco para a população de valor vazio, que é 100% artefato. **O `SSLContextSpec` do `jca_android` tende a ser mais uniformemente artefato do que o do `jca`, não menos.**
+
+**No `TrustManagerFactorySpec`** o efeito é menor e na direção oposta, mas também não é redução. A lista encolheu de `{PKIX, SunX509}` para `{PKIX}`. Para a população dominante — os sítios que passam `getDefaultAlgorithm()`, que no Android devolve `PKIX` — nada muda: `g3` continua silencioso, `currentAlgorithmInstance` continua `""`, o `init` continua emitindo *"found ."*. Os ≈17.175 eventos de artefato da §3.11 atravessam. O que muda é que um sítio que passe `"SunX509"` agora cai fora da lista, faz o `g3` escrever e difundir — ou seja, o conjunto novo **acrescenta uma fonte de difusão** em vez de tirar.
+
+> Como falsificar: aplicadas as partes 1 e 2 da §3.9 ao `jca_android`, uma execução do `de.lukasneugebauer.nextcloudcookbook_62` (o app da §3.10, que exibe dois protocolos) decide as duas tabelas acima de uma vez. Sem a correção, a previsão é que o `SSLContextSpec` reporte **só** valor vazio nesse app.
+
+### 12.4 Onde os contadores do weaver morrem de fato
+
+✅ Precisão sobre o item 4 da §11.9, que registrou "os contadores continuam não lidos, e agora sabe-se que não existem". A segunda metade merece correção: eles **existem e são escritos**; o que não existe é o consumidor.
+
+A cadeia, lida de ponta a ponta:
+
+1. `DexWeaver.weave` devolve um `WeaveReport` com onze contadores (`DexWeaver.java:948-977`), entre eles `plansSkipped`, `plansSkippedUnresolvedBinding`, `plansSkippedHighRegister`, `plansSkippedAliasing` e `wrappersAliasedToSubtype`.
+2. ✅ `BatchRunner` acumula todos por APK e os grava num `Map<String,Integer> weaveCounts` que é campo do `PerApkResult` (`BatchRunner.java:363`, `:448-455`), serializado inteiro pelo Jackson em `writeResultsJson` (`:423-431`).
+3. ✅ O driver Python **passa** `--results-json` (`dexlib_instrumentation.py:334-335`) e lê o arquivo.
+4. ❌ **E aqui morrem.** `_parse_results_json` (`dexlib_instrumentation.py:494-528`) extrai de cada entrada apenas `success`, `apkName`, `phase` e `message`; `weaveCounts` nunca é lido. E não teria para onde ir: `InstrumentationResults` (`modules/rv-instrumentation-core/src/rv_instrumentation_core/results.py:32-67`) tem quatro campos — `errors`, `success_count`, `total_count`, `variant` — e nenhum aceita contadores.
+
+Ou seja, o que sobrevive da travessia é a **projeção de erro**. ✅ E é exatamente isso que se encontra na campanha: em `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/` há **três** `instrument_errors.json` (`m3/results/exp_03`, `m4/results/exp_00`, `m4/results/exp_03`), **todos com conteúdo `{}`**, e **nenhum** `instrument_results.json` em parte alguma da árvore — nem lá, nem em `$APKS`, onde os 219 `.json` são saída de detecção de pacote e alcançabilidade, não de instrumentação.
+
+A distinção importa porque muda o conserto. "Os JSONs não sobreviveram" sugeriria um problema de arquivamento, resolvido copiando arquivos. O que há é um estreitamento de tipo na fronteira Python: enquanto `InstrumentationResults` não tiver onde guardá-los, **toda campanha futura vai perdê-los de novo**, inclusive a do `jca_android`.
+
+> Ressalva que continua valendo, e é da §11.9: mesmo lidos, esses contadores **não fechariam o item 10**. A truncagem inline é precisamente o descarte que não tem contador (§4.8). Eles mediriam os outros drops — o que já é mais do que zero, e hoje é zero.
+
+### 12.5 O `android.jar`: a objeção óbvia, testada
+
+✅ A §7.5 registrou que no host a regra escolhe `android-4`. A objeção natural é que o `ANDROID_HOME` esteja errado. **Não está.** Verificado nesta sessão: `ANDROID_HOME=/home/pedro/desenvolvimento/aplicativos/android/sdk` (idêntico a `ANDROID_SDK_ROOT`), um SDK legítimo com **27** plataformas instaladas, **todas** com `android.jar` presente: `android-4`, `android-10`, `android-14`…`android-36`, `android-36.1`, `android-37`, `android-37.0`.
+
+O máximo por `String.compareTo` sobre esse conjunto é `android-4`, porque a comparação para no segundo caractere depois do hífen: `'4' > '3'`. Reproduzido com a mesma regra do `ConfigResolver.resolveAndroidJarFromEnv` (`$DEXLIB2/cli/src/main/java/br/unb/cic/rv/cli/ConfigResolver.java:111-127`) aplicada à listagem real, filtrando por presença de `android.jar`: o escolhido é `android-4`.
+
+O defeito é a ordenação, não o ambiente — e ele fica pior quanto mais atualizado for o SDK, porque `android-4` só perde para uma plataforma cujo nome comece por `'5'` ou mais, que não existirá tão cedo. Confirma-se o item 7 do gate (§5), com a nota de que **um SDK correto não protege**.
+
+### 12.6 O que a rev. 6 não verificou
+
+1. **Não gerei o descritor do `jca_android`.** A §12.2 é derivação estrutural a partir do diff dos `.mop`; a confirmação direta — mesmos 17 advices com `monitorCalls` múltiplas, mesmos 7 truncados — exige rodar o javamop sobre o conjunto novo e não foi feita.
+2. **A §12.3 é previsão, não medição.** Nenhum APK foi tecido com o `jca_android`, nenhuma execução foi feita. As duas tabelas saem das guardas e do inicializador `""`, lidos na fonte.
+3. **Não testei o caminho fail-open** do `parseCommonPointcut` (§2.2, item 4 do gate). Continua verificado em código e nunca exercitado.
+4. **Não medi o efeito das outras oito allow-lists alteradas.** A §12.3 percorre `SSLContextSpec` e `TrustManagerFactorySpec` porque são as duas com colisão; `SecureRandomSpec`, `KeyStoreSpec`, `SignatureSpec` e as demais mudaram de lista e não foram analisadas.
+5. **Nada foi implementado.** Os consertos que as §12.4 e §12.5 apontam — propagar `weaveCounts` até o modelo Python e ordenar o `android.jar` por nível numérico — estão descritos e não escritos.
+
+---
+
 ## Fontes
 
 As abreviaturas de raiz (`$WS`, `$JAVAMOP`, `$DEXLIB2`, `$JCA`, `$MONITOR`, `$CORE`, `$RESULTS`, `$APKS`, `$REPOS`, `$CRYSL`) estão expandidas na tabela da seção **Convenção de caminhos**, no topo. Caminhos sem `$` são relativos à raiz do `rv-android`.
@@ -967,6 +1352,35 @@ As abreviaturas de raiz (`$WS`, `$JAVAMOP`, `$DEXLIB2`, `$JCA`, `$MONITOR`, `$CO
 | `census4.py` | por APK: extrai `classes*.dex`, desmonta cada um, lê `mop/MonitorWrappers`, agrupa wrappers pela assinatura **original** (a chave que `DexWeaver.registerWrapper` usa) e conta os call sites de cada um no APK inteiro | `census4.jsonl` |
 | `reachcensus.py` | censo de alcançabilidade sem desmontar: um nome de evento que aparece na tabela de strings de um DEX **que não define o monitor** só pode ser referência, isto é, sítio tecido. Validado contra a desmontagem do etesync | `reachcensus.jsonl` |
 | `errors4.py` | re-derivação completa de `errors.csv`: tuplas, `unique_msg`, tipos de erro, população de valor vazio, sítios geradores, valores por sítio, co-emissão | stdout |
+
+**Fontes novas da rev. 5** (nenhuma delas tinha sido aberta pelas revisões anteriores):
+
+| fonte | o que é | usada em |
+|---|---|---|
+| `$RESULTS/errors_unit_tests.csv` (+ `_bck`) | 298 linhas (391 na base 219), mesmo esquema, `tool=unit_test` — o **baseline de testes unitários**, tecido por AspectJ | §11.1, §11.2, §11.6 |
+| `$RESULTS/categoria_unit_tests.csv` (+ `_bck`) | 134 linhas; classifica cada tupla em `app_producao` / `lib` / `robolectric_noise` / `test_code` | §11.4 |
+| `$RESULTS/coverage.csv` | 20.825.013 linhas; quais métodos do app executaram, por tarefa. Lido em **streaming**, nunca carregado | §11.3 |
+| `$RESULTS/errors_bck.csv` | base executada de 219 apps, congelada | §11.7 |
+| `$RESULTS/README.md` e `apks/unit_tests_status.csv` | funil `227 → 219 → 164 → 163`, convenção `_bck`, estado de build/execução dos testes por app | §11.7 |
+| `$WS/rvsec-dataset/src/rvsec_dataset/unittests/{configure_agent,run}.py` | **prova do mecanismo de tecelagem do controle** — `-javaagent:JavaMOPAgent.jar`, *"No emulator, no dexlib2"* | §11.1 |
+| `$WS/rvsec-dataset/docs/20260709_unit-test-analysis.md` | desenho e resultados do baseline de testes unitários (391 violações em 37 apps, base 219) | §11.1 |
+| `$DEXLIB2/cli/.../BatchRunner.java:294-304` | serialização dos contadores do weaver — existe, mas nenhum `instrument_results.json` da campanha sobreviveu | §11.9 |
+
+**Scripts da rev. 5** (no scratchpad da sessão): `probe_bc.py` (leads B e C — esquema, tipos de erro e proveniência do controle), `probe_ut2.py` (mensagens integrais das specs mudas), `covjoin.py` (join direcionado em streaming sobre o `coverage.csv`, saída em `covjoin.json`).
+
+**Fontes novas da rev. 6:**
+
+| fonte | o que é | usada em |
+|---|---|---|
+| `$JCA_ANDROID/*.mop` (23 specs) | conjunto derivado do MetaCrySL, comparado arquivo a arquivo com `$JCA` | §12.1, §12.2, §12.3 |
+| `$DEXLIB2/dex-mutator/.../DexWeaver.java:948-977` | o record `WeaveReport` e seus onze contadores | §12.4 |
+| `$DEXLIB2/cli/.../BatchRunner.java:363, :423-431, :448-455` | acúmulo dos contadores em `weaveCounts` e serialização integral do `PerApkResult` | §12.4 |
+| `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py:334-335, :494-528` | o driver passa `--results-json` e descarta `weaveCounts` no parse | §12.4 |
+| `modules/rv-instrumentation-core/src/rv_instrumentation_core/results.py:32-67` | `InstrumentationResults` — quatro campos, nenhum para contadores | §12.4 |
+| `/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/` | resultados **brutos** da campanha (m1–m4); três `instrument_errors.json`, todos `{}`; nenhum `instrument_results.json` — **somente leitura** | §12.4 |
+| `$ANDROID_HOME/platforms` (27 plataformas) | listagem real do host, para reproduzir a escolha do `ConfigResolver` | §12.5 |
+
+A rev. 6 não escreveu script novo: as verificações são `diff`, `grep` e uma reprodução de três linhas da regra de `max()` sobre a listagem de plataformas.
 
 Scripts das rev. 2–3, mantidos para rastreabilidade: `G0_census.py`/`.json`, `G0_census_aj.py`/`.json`, `A1_extract.py` + `A1_property_graph.csv`, `A2_parse_crysl.py` + `A2_crysl_crosscheck.csv` + `A2_predicate_graph.csv`, `A3_codegen_survival.md` + `raw_guards.txt`, `A4_errors_analysis.py` + `A4_report.md` + `Q1..Q6_*.csv`, `B2_extract.py` + `B2_pcd_usage.md` + `B2_jca_call_hook_surface.md`, `census.py` + `B3_wrapper_collision.md`. **Nenhum deles foi reutilizado pela rev. 4.**
 
