@@ -419,6 +419,90 @@ primary record its own 4.1 captures ahead of this smoke; a disagreement here wou
 worth reporting, but 5.5–5.10 no longer wait on this run. Letting a telemetry-only observation block
 24 hours of campaign time would give it authority over an experiment that does not read it.
 
+### D12 — `COMPLETED` is not evidence that a run happened
+
+Discovered on 2026-08-05, seventy minutes into a campaign that had already been launched, and folded
+in as **amendment 02** rather than left for a later change. The window mattered: a criterion that
+decides which data enters an analysis has to be registered before the outcomes are read, or it is a
+ruler chosen with the score already visible.
+
+**What was found.** Container `rearch_aperv_05` recorded its third replica of `mop_on_llm_off` as
+`COMPLETED`, with `error_message` null and `execution_time_seconds` of **1284** against a budget of
+1800. The emulator had died 20 min into a 30 min exploration: the `adb shell` returned exit 255, and
+the teardown's `emu kill` found nothing on port 5554. A second, with a different cause, appeared the
+next morning on `rearch_aperv_07` — `net.pfiers.osmfocus` at **1012 s**, exit code 1, the emulator
+alive and answering, APE-RV having simply stopped. Two failure modes, one indistinguishable record.
+
+**Why every existing gate passed.** `verify.py` ranks a record `COMPLETED`-first (`_rank`, line 150)
+and its pairing gate asks only that a logcat be non-empty — a run truncated at 68 % of its budget has
+a large, well-formed logcat. Nothing in the five gates reads duration. Task 9.4, as originally
+written, asked for exactly the property that had already been satisfied: *"all tasks COMPLETED"*.
+
+**Why the exit code cannot be the discriminator.** `aperv-tool`'s own documentation records that a
+non-zero exit is normal — APE-RV exits non-zero when it detects an application crash during
+exploration, which is data the campaign exists to collect. So exit 255 from a vanished device and
+exit 1 from a crashing application are the same signal. This is not a defect in the exit convention;
+it is the reason `tool.py:1298` logged `APE-RV execution completed successfully` unconditionally, and
+the reason the fix cannot be "check the exit code".
+
+**Elapsed time is the discriminator, and the rule is structural rather than fitted.** The exploration
+is budget-bound by construction, so a run that returned before its budget did not do the work,
+whatever ended it. The separation is not marginal and was not tuned: across the campaign's 357 intact
+runs the wall-clock spans **1860–1909 s** against an 1800 s budget, while the two truncated runs sit
+at 1012 and 1284. The floor is expressed against the `+45 s` teardown grace the command already
+carries rather than against a new constant, so no number is introduced that someone has to defend.
+
+**The check lives in two places, deliberately, and they are not redundant.** `tool.py` raises at the
+moment of truncation (INV-APV-60) so `rv-platform` stores `ERROR` and its ordinary resume recovers the
+identity with no operator involved — the same path that already recovers a failed `adb install`. That
+is prevention, and it is what makes the class of loss self-healing for every campaign after this one.
+`verify.py`'s Gate 6 judges the recorded tree afterwards, over criteria the tool cannot apply
+(coverage that came out zero, a logcat with no `RVSEC-COV` marker, a trace with no step) and over data
+the tool never saw. Prevention cannot audit history and the audit cannot repair the future.
+
+**Six criteria, and the two the owner did not name are the ones the platform's own design demands.**
+C1 state and empty `error_message`; C2 `execution_time_seconds >= timeout`; C3 a trace with at least
+one step beyond `RUN_START`; C4 at least one distinct `RVSEC-COV` signature; C5 `cov_method > 0` and
+`cov_act > 0`; C6 the count of admissible identities equal to the manifest's `predicted_identities`.
+C5 exists because `rv-platform` emits a deliberately **zeroed** coverage row when a logcat is present
+but its static-analysis JSON cannot be resolved (INV-PLT-16) — a designed behaviour that would
+otherwise pass as a valid task carrying zero coverage. C3 exists because `_check_empty_trace` already
+detects a silent startup crash and downgrades it to a warning; the signal was being produced and
+discarded.
+
+**C4's floor is 1, not 10.** A structural floor asks whether the application executed any instrumented
+method at all; a floor of 10 is a number chosen by someone, and choosing it against this campaign's
+own distribution is the thing the pre-registration exists to prevent. The observed distribution is
+reported so it can be calibrated later, on evidence, by a change that is not also reading the result.
+
+**The criteria are blind to arm and to the direction of the effect**, and are applied before any
+aggregation. An admissibility rule that could see which arm it was judging would be able to prune one
+side of the comparison, which is the failure this whole change is built to avoid at the jar level.
+
+**`repair_tasks.py` is remedial, not permanent machinery.** Once INV-APV-60 is in the tool, a
+truncated run never reaches `tasks.json` as `COMPLETED` again. The script exists because this
+campaign's records were written by the code that had the defect, and it is written accordingly:
+`--dry-run` by default, artifacts and the original `tasks.json` copied to `backup/` with a
+`SHA256SUMS` **before** anything is mutated, then `result.state` set to `"ERROR"` — the enum *name*,
+which is what `TaskState[...]` reads back (`task.py:473`) — with an `error_message` naming the
+criterion that failed. It imports the predicate from `verify.py` and never the reverse; INV-CAL-04
+forbids `verify.py` sharing derivation with the **consolidator**, and this direction does not touch
+that. Preserving the artifacts is not caution: the re-execution writes to the same filenames, so
+without the copy the evidence of the defect is destroyed by the act of repairing it.
+
+**The procedure was executed by hand before it was written down**, on `rearch_aperv_07` and
+`rearch_aperv_05` on 2026-08-06, because both containers had finished and the campaign could not wait
+for the script. Both repairs produced the intended result — `Resume: skipped 35 already-completed
+tasks (1 remaining)` where the container had reported `36/36 tasks completed (100.0%)` a line earlier.
+The script therefore describes a validated procedure rather than proposing one.
+
+**One counting rule is part of the gate, learned by getting it wrong.** A resume **appends** a task
+record rather than overwriting the failed one, so counting records instead of identities double-counts
+every recovery: during this campaign that turned 3 outstanding tasks into an apparent 8. Admissibility
+is decided per identity `(apk_name, tool_config.name, tool_config.variant, repetition, timeout)`, with
+the best record per identity chosen first — the same rule `scripts/monitor.sh` and `verify.py`'s
+`_rank` already apply, and the same 2026-06-19 lesson recorded in the tasks file.
+
 ## API Design
 
 ### `ApeRVTool.configure(config: dict) -> None`
@@ -433,6 +517,20 @@ owns the contract, not the corpus.
 
 *Postcondition*: the generated `ape.properties` contains `ape.corpusBasis=<value>` when configured,
 and contains no line beginning `ape.corpusBasis` otherwise (INV-APV-56).
+
+### `ApeRVTool.execute_tool_specific_logic(...)` — the completion check
+
+*Precondition*: the exploration command has returned without raising `RVCommandTimeoutError`.
+*Postcondition*: the run is reported successful only when the elapsed exploration time reached
+`timeout_seconds - APERV_TEARDOWN_GRACE_S`.
+*Error*: `RVToolExecutionError` naming the elapsed time and the budget when it did not (INV-APV-60);
+`rv-platform` stores the task as `ERROR`, so its own resume re-executes the identity.
+*Reads*: only the tool's own elapsed measurement — no trace, no logcat, no artifact (INV-APV-43).
+
+`APERV_TEARDOWN_GRACE_S = 45` replaces the literal `45` that `_build_command` already adds to the
+command timeout (`tool.py:1059`) so the same grace is stated once and used by both, per the repository
+rule against magic values. The timeout path is untouched: it remains the expected ending, and the
+compression it performs before re-raising is unchanged.
 
 ### `preflight_runstart.py --results <dir> --manifest <json>`
 
@@ -465,6 +563,8 @@ JSON object line from stage 2 onward, so the pre-flight does **not** depend on `
 | Pre-flight `corpus_basis` mismatch | transcribed digest | fail the gate, exit 1 | recompute from `calibracao/subset40.txt` |
 | Pre-flight `corpus_basis` **absent** | DSL parameter path dropped it | fail the gate, exit 1 | fall back to a per-arm `overrides` entry (design D8) |
 | Task `ERROR`/`FAILED` | transient `adb install` | resume pass (`up -d` re-entry) | identity-based skip of COMPLETED |
+| Exploration returns short of budget | dead emulator, or APE-RV stopping early | `RVToolExecutionError` (INV-APV-60) | stored as `ERROR`; the ordinary resume re-executes it |
+| Truncated run already stored `COMPLETED` | written before INV-APV-60 existed | `repair_tasks.py`, artifacts preserved first | `state→ERROR`; resume re-executes it |
 | Container exit 137 | OOM | `docker restart` | standing authorization in the monitor |
 | Missing arm at consolidation | lost pair | report the count, never silence it | resume; discard only if unrecoverable |
 
@@ -522,6 +622,9 @@ JSON object line from stage 2 onward, so the pre-flight does **not** depend on `
 |-------|-------------|-----|-------|
 | Unit | `corpus_basis` push, omission, validation | pytest over `_push_properties`/`configure`, no device | ~4 |
 | Unit | source sweep proving nothing reads `RUN_START` | grep-based test over `modules/aperv-tool/src` | 1 |
+| Unit | truncated return raises; full budget and timeout do not | pytest over the completion check, no device | ~3 |
+| Unit | admissibility predicate C1–C6, each criterion failing alone | pytest over `verify.py` with synthetic task records | ~7 |
+| Unit | repair marks only inadmissible records, backs up first, is a no-op under `--dry-run` | pytest over `repair_tasks.py` on a fixture tree | ~3 |
 | Unit | G1/G2/G3 arithmetic on synthetic pairs | pytest over `compare.py` with hand-built vectors | ~3 |
 | Integration | pre-flight against a real smoke trace | the smoke itself; gates the campaign | 1 gate |
 | Campaign | validity gates before any outcome is read | `verify.py` over the full results tree | 4 gates |

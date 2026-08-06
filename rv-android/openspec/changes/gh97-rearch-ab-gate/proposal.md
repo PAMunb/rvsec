@@ -123,6 +123,17 @@ a control it does not have, and would misjudge how much of the difference the co
   criterion and reproduces gh71's shape at the image layer. Both image IDs are pinned in the
   pre-registration document, whose sha256 is frozen in `calibracao/journal.jsonl` before launch.
 
+- **A per-task admissibility gate, entered by amendment 02 while the campaign was already running.**
+  `COMPLETED` turned out not to mean *executed*. Two runs of leg B ended early — one when the emulator
+  died at 1284 s of an 1800 s budget, one when APE-RV exited on its own at 1012 s — and both were
+  recorded `COMPLETED` with an empty `error_message`, because the tool logged success without
+  inspecting anything. All five existing gates pass on such a run: `verify.py` ranks `COMPLETED` first
+  and its pairing gate asks only for a non-empty logcat. Six criteria now decide admissibility per
+  task, blind to arm and to the direction of the effect, applied before any aggregation; the tool
+  stops reporting a success it did not establish (INV-APV-60); and `scripts/repair_tasks.py` returns
+  an inadmissible task to the queue after preserving its artifacts, which is what lets the resume that
+  already recovers loud failures also recover silent ones.
+
 - **The result is reported whatever it says**, with its CI, including a tie. The campaign executes
   only after every change lands on both sides, and the gate's verdict is what unblocks the merge of
   `rearch-counterparts` into `modules`.
@@ -135,8 +146,9 @@ _None._
 
 ### Modified Capabilities
 
-- `aperv`: one **added** requirement covering the corpus-basis property the harness pushes and the
-  provenance it records. Nothing else in the capability changes.
+- `aperv`: two **added** requirements — the corpus-basis property the harness pushes with the
+  provenance it records, and the completion contract under which a run that returned before its
+  budget is an error rather than a success. Nothing else in the capability changes.
 
 **No `calibration-control` delta.** Its requirements are written about `preflight.py`,
 `smoke_check.py` and the `iterN/` layout of `experimento-cal/`, which is a finished campaign's
@@ -151,8 +163,16 @@ unchanged, with the emulator lifecycle owned entirely by the platform.
 ## Impact
 
 **Modules**: `modules/aperv-tool` only — `src/aperv_tool/tools/aperv/tool.py` (`_push_properties`
-gains the corpus-basis line) and its tests. The campaign directory and its adapted scripts are
-experiment scaffold, not module code.
+gains the corpus-basis line; the exploration step gains the completion check of INV-APV-60) and its
+tests. The campaign directory and its adapted scripts are experiment scaffold, not module code.
+
+**Documentation reach**: the admissibility criteria are recorded outside this change's own artifacts,
+because a criterion that lives only in a campaign directory is re-derived by the next campaign.
+`.claude/skills/rv-experiment-compare/SKILL.md` gains them as a standard step of any multi-tool
+comparison; `modules/rv-platform/CLAUDE.md` records that a `COMPLETED` task is not by itself a valid
+one and what the resume contract does with each state; `modules/aperv-tool/CLAUDE.md` gains the
+counterpart to its existing "non-zero exit is normal" note — that the exit code cannot be the
+authority, because a dead emulator and an application crash are indistinguishable by it.
 
 **Requirements**: FR18 and FR19 (tool execution and configuration) for the pushed property; FR11 and
 FR13 (violation and coverage analysis over recorded artifacts) for the consolidation and comparison;

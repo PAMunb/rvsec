@@ -69,6 +69,13 @@ place `RUN_START` is ever consumed.
   `run-spec` INV-RUN-03 and `gh95` decision D1. Any verification of the echoed value SHALL be
   post-hoc analysis over a recorded trace, outside `tool.py`.
 
+- **INV-APV-60**: `ApeRVTool` SHALL NOT report a run as successful on the strength of the exploration
+  process having returned. A return that arrives materially before the requested exploration budget
+  SHALL raise `RVToolExecutionError` naming the elapsed time and the budget. The exit code SHALL NOT
+  be used to decide this: a non-zero exit is normal for APE-RV — it exits non-zero when it detects an
+  application crash during exploration — so a dead emulator and a crashing application are
+  indistinguishable by it, and the elapsed time is the one signal that separates them.
+
 ## ADDED Requirements
 
 ### Requirement: Corpus Basis Provenance (FR18, FR19, NFR06)
@@ -118,3 +125,46 @@ work, performed by an operator script over a recorded trace.
 - **THEN** `ApeRVTool` SHALL have pushed the value unchanged, because shape is all it validates
 - **AND** the pre-flight SHALL report the mismatch between the recomputed digest and `RUN_START.corpus_basis` and fail the gate
 - **AND** no component of `modules/aperv-tool` SHALL have read `RUN_START` in the process
+
+### Requirement: Run Completion Is Established, Not Assumed (FR18, NFR06)
+
+`ApeRVTool` SHALL establish that an exploration ran for the budget it was given before reporting the
+run as successful. When the exploration process returns and the elapsed time falls short of the
+requested budget by more than the teardown grace already applied to the command, the tool SHALL raise
+`RVToolExecutionError` naming the elapsed time and the budget, so `rv-platform` records the task as
+`ERROR` and its own resume re-executes it (INV-APV-60).
+
+**The exit code is not the discriminator, and cannot be made into one.** A non-zero exit is a normal
+outcome for APE-RV — it exits non-zero when it detects an application crash during exploration — so
+the same code means both "the application under test misbehaved, which is data" and "the device went
+away, which is a lost run". Elapsed time separates them without ambiguity: an exploration that was
+asked for 1800 s and returned at 1012 s did not do the work, whatever ended it.
+
+**A timeout remains the normal, successful ending and SHALL NOT be affected.** APE-RV is designed to
+explore until stopped; the existing `RVToolTimeoutError` path, its trace compression and its treatment
+as a completed run are unchanged. What this requirement removes is the third path — a return that is
+neither a timeout nor a full budget — which previously logged success and inspected nothing.
+
+The check SHALL read only the tool's own measurement of the exploration it launched. It SHALL NOT
+open, parse or inspect the trace, the logcat or any recorded artifact: `tool.py` reads no jar output
+(INV-APV-43), and admissibility judged from artifacts is the campaign gate's work, performed after the
+fact by `scripts/verify.py` over the whole results tree.
+
+#### Scenario: A run cut short by a dead emulator fails loudly
+
+- **WHEN** an exploration is launched with a 1800 s budget and the `adb shell` command returns after 1284 s because the emulator died mid-run
+- **THEN** `ApeRVTool` SHALL raise `RVToolExecutionError` naming both 1284 s and 1800 s
+- **AND** it SHALL NOT log that the execution completed successfully
+- **AND** `rv-platform` SHALL record the task with state `ERROR` and a non-empty `error_message`, so the identity is not skipped on the next resume
+
+#### Scenario: A run that reaches its budget is unaffected
+
+- **WHEN** an exploration is launched with a 1800 s budget and APE-RV returns on its own clock at approximately 1800 s, having exited non-zero because the application under test crashed during exploration
+- **THEN** the tool SHALL treat the run as successful, because the budget was consumed
+- **AND** the non-zero exit SHALL NOT by itself cause a failure, since an application crash is data the run exists to collect
+
+#### Scenario: The timeout path keeps its meaning
+
+- **WHEN** the exploration is still running when the command's timeout expires
+- **THEN** `RVToolTimeoutError` SHALL be raised exactly as before and the run SHALL be recorded as completed
+- **AND** the trace SHALL be compressed on this path as it already is, with the truncated final line included
