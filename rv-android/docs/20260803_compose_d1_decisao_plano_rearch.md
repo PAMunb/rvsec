@@ -14,6 +14,8 @@
 
 **Emenda posterior**: a §11 (2026-08-06) corrige a §3 deste documento e a §11.2(c) do doc 4 — a costura do E1 é expressável no descritor, e o hook tem de ser em `<clinit>`, não em `onCreate`. Nenhuma conclusão de desenho muda, e **o E1 continua sem rodar**.
 
+**Emenda de 2026-08-06, à noite — o E1 rodou, e a emenda acima estava errada na mecânica.** Ver `20260806_compose_e1_resultado.md` (sexto da série). Dois pontos: (a) a costura por `<clinit>` **não** é expressável no descritor — o pré-passe `DexWeaver.weaveStaticInit` descarta, sem contador e sem WARN, todo advice `staticinitialization` que não entregue o token `thisJoinPoint.getStaticPart().getSignature()`, e o advice do E1 declarava `args: []`; (b) isso não custou nada ao desenho, porque o advice `before` sobre `call(setContent$default)` já precede a primeira composição, que era a única razão de preferir o `<clinit>`. **O resultado**: a Via A passou — 343 FQNs distintos em runtime, casando com a extração estática por igualdade de string, a ~1,8 µs por composable; a Via B ficou em `distinct=0`, como o doc 3 previa. O gate da Fase 2 (saturação do alcance transitivo, §6) segue aberto e não foi tocado.
+
 **Método desta sessão**: três verificações independentes de escopo disjunto — (a) as sete changes `rearch-01..07` lidas por completo (proposal, design, tasks, delta specs, ~7.200 linhas); (b) o consumidor APE-RV (`MopData`, `MopScorer`, passes, `GUITreeBuilder`, `StatefulAgent`, `ApePromptBuilder`, `Config`, e a varredura de todos os canais de arquivo em runtime); (c) o produtor rvsec (pipeline `dexlib2`, gancho no gator, writer/parser do `.apk.json`, e os vereditos dos docs 1–3 reconferidos). Mais a incorporação de `20260731_verificacao_analise_percepcao.md`, que o doc 4 não consumiu.
 
 ---

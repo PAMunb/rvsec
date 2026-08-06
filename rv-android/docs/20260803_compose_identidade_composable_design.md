@@ -11,6 +11,7 @@
 3. `20260731_sota_analise_estatica_compose.md` — *o que o mundo faz*, e a opção que isso reabriu.
 4. **este** — *como essa opção seria construída*, o que a mataria, e a que custo.
 5. `20260803_compose_d1_decisao_plano_rearch.md` — a decisão (D1), as verificações em código, e o plano integrado à rearquitetura do APE-RV. **Corrige dois pontos deste documento**: o canal da §13 (`applyXPathlets`) é deletado e proibido pela change `rearch-02-runspec`, e a change `telemetry-proof-llm-efficacy` (§17, §20) foi arquivada em 2026-08-02. A emenda de 2026-08-06 daquele documento (§11) **corrige um terceiro ponto deste**: a §11.2(c) abaixo.
+6. `20260806_compose_e1_resultado.md` — **o E1 da §9 rodou, e a Via A passou**: 343 FQNs distintos em runtime, casando com a extração estática por igualdade de string, a 1,8 µs por composable. A Via B ficou em zero, como previsto. Aquele documento **corrige a emenda que corrigia a §11.2(c) deste**: o pré-passe `DexWeaver.weaveStaticInit` descarta em silêncio todo advice `staticinitialization` que não entregue Signature, então a costura por `<clinit>` não é expressável no descritor como a emenda supunha — mas também não é necessária, porque o advice `before` sobre o `call(setContent)` já precede a primeira composição.
 
 ---
 
