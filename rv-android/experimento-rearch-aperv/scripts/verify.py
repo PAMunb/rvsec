@@ -26,6 +26,17 @@ The fixed numeric gates (INV-CAL-09), applied over 100% of tasks:
                      (mop_total, mop_unique, crashes), <= 0.01pp on percentage metrics
                      (cov_method, cov_act, cov_mop). Any divergence -> quarantine, citing the
                      identity/cell and both values.
+  6. INTEGRITY       every identity admissible under six criteria (C1-C6 below), judged
+                     before any aggregation and blind to which arm it is judging. Any
+                     inadmissible identity, or a count that misses the manifest's
+                     `predicted_identities`, quarantines.
+
+Gate 6 exists because `COMPLETED` is a claim the harness makes, not one anything checked.
+Two runs of the gh97 leg B campaign returned early — one at 1284 s of an 1800 s budget when
+the emulator died, one at 1012 s when APE-RV stopped on its own — and both were stored
+`COMPLETED` with `error_message` null. Gates 1-5 all pass on such a run: `_rank` puts
+`COMPLETED` first and the pairing gate asks only that a logcat be non-empty, which a run
+truncated at 68 % of its budget amply satisfies. Nothing above reads duration.
 
 Plus a seeded hand-count sample (>=10 tasks, fixed --seed) comparing re-derived per-identity
 numbers cell-by-cell to the CSV, and a written ``iterN/verification_report.md``.
@@ -64,6 +75,25 @@ _COV_RE = re.compile(r"\bRVSEC-COV\s*:\s*(.+?)\s*$")
 _INTEGER_METRICS = ("mop_total", "mop_unique", "crashes")
 _PERCENT_METRICS = ("cov_method", "cov_act", "cov_mop")
 _PERCENT_TOL = 0.01  # percentage-point tolerance (INV-CAL-09)
+
+# Gate 6's floor on distinct RVSEC-COV signatures (C4). It is 1 and it stays 1: a structural
+# floor asks whether the application executed any instrumented method at all, which is a
+# question about whether the run happened. Any higher number is one somebody chose, and
+# choosing it against this campaign's own distribution is precisely what a pre-registration
+# exists to prevent. The observed distribution is reported instead, so a later change can
+# calibrate a floor on evidence it is not simultaneously reading the result of.
+_COV_SIGNATURE_FLOOR = 1
+
+# The six admissibility criteria, in the order they are applied and reported. Kept as data
+# so the report, the per-criterion tally and repair_tasks.py all name them identically.
+ADMISSIBILITY_CRITERIA = {
+    "C1": "state == COMPLETED with an empty error_message",
+    "C2": "execution_time_seconds >= timeout",
+    "C3": "the trace carries at least one step beyond RUN_START",
+    "C4": f"at least {_COV_SIGNATURE_FLOOR} distinct RVSEC-COV signature in the logcat",
+    "C5": "cov_method > 0 and cov_act > 0",
+    "C6": "admissible identities == the manifest's predicted_identities",
+}
 
 # The manifest declares each arm as `preset` plus `expected_params`, keyed by the jar's own
 # `ape.*` names — the same shape `RUN_START.params` reports, so the gate compares like with
@@ -116,7 +146,7 @@ def _load_tasks(iter_dir: Path) -> List[Dict[str, Any]]:
         except (OSError, json.JSONDecodeError):
             continue
         base = tasks_json.parent
-        for task in payload.get("tasks", []):
+        for index, task in enumerate(payload.get("tasks", [])):
             cfg = task.get("config") or {}
             tc = cfg.get("tool_config") or {}
             name = tc.get("name")
@@ -139,6 +169,12 @@ def _load_tasks(iter_dir: Path) -> List[Dict[str, Any]]:
                     "timeout": cfg.get("timeout"),
                     "result": task.get("result") or {},
                     "base": base,
+                    # Where this record physically lives. repair_tasks.py rewrites a record
+                    # in place, so it needs the file and the position within it; a resume
+                    # APPENDS rather than overwrites, so position is the only thing that
+                    # distinguishes two records of the same identity.
+                    "tasks_json": tasks_json,
+                    "index": index,
                 }
             )
     return out
@@ -160,7 +196,12 @@ def _rank(rec: Dict[str, Any]) -> Tuple[int, float]:
     return (completed, cov_sum)
 
 
-def _logcat_path(rec: Dict[str, Any], suffix: str) -> Path:
+def artifact_path(rec: Dict[str, Any], suffix: str) -> Path:
+    """Path to one of a run's artifacts — `logcat`, `trace` or `trace.ndjson.gz`.
+
+    Public because `repair_tasks.py` preserves those three before it rewrites a record,
+    and it must locate them exactly as the gate that condemned them did.
+    """
     frag = _toolfrag(rec["name"], rec["variant"])
     return (
         rec["base"]
@@ -177,7 +218,7 @@ def _rederive_identity(rec: Dict[str, Any]) -> Dict[str, Any]:
     mop_unique and crashes (the values a resume leaves intact; read with our own parser,
     not the consolidator's).
     """
-    logcat = _logcat_path(rec, "logcat")
+    logcat = artifact_path(rec, "logcat")
     mop_total = 0
     cov_sigs: set = set()
     non_empty = False
@@ -209,6 +250,134 @@ def _rederive_identity(rec: Dict[str, Any]) -> Dict[str, Any]:
         "mop_unique": _to_float(cov.get("total_errors")) or 0.0,
         "mop_total": float(mop_total),
         "crashes": _to_float(rec["result"].get("detected_errors_count")) or 0.0,
+    }
+
+
+def _trace_has_steps(trace: Path) -> bool:
+    """True when the trace carries at least one exploration step beyond `RUN_START` (C3).
+
+    Read through `aperv_tool.analysis.trace_ndjson`, the sanctioned reader of the format:
+    step records key their timestamp on `t` and carry no `type`, so a scan looking for a
+    record type would misclassify every one of them. A missing or unreadable trace is a
+    failure of the criterion, not a skip — a run that recorded no steps is exactly what
+    this asks about.
+    """
+    try:
+        reader = trace_ndjson.TraceReader(trace)
+    except OSError:
+        return False
+    try:
+        for _step in reader:
+            return True
+    except OSError:
+        return False
+    return False
+
+
+# --- admissibility (Gate 6) -------------------------------------------------------------
+def admissibility_failures(
+    rec: Dict[str, Any], rederived: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
+    """The criteria this record fails, in C1..C5 order. An empty list means admissible.
+
+    C6 is deliberately absent: it compares a campaign-wide count against the manifest and
+    has no meaning for a single record. `_gate_integrity` applies it over the whole set.
+
+    The criteria are **blind to the arm and to the direction of the effect** — nothing here
+    reads `variant`, and none of the thresholds was derived from the numbers being judged.
+    An admissibility rule that could see which arm it was judging would be able to prune one
+    side of the comparison, which is the failure the whole gate exists to prevent.
+
+    `rederived` is accepted so a caller that has already re-derived this identity does not
+    pay for a second pass over the same logcat; when omitted it is computed here, which is
+    what makes the predicate usable on its own by `repair_tasks.py`.
+    """
+    if rederived is None:
+        rederived = _rederive_identity(rec)
+
+    failures: List[Dict[str, Any]] = []
+    result = rec["result"]
+
+    # C1 — what already failed declaredly. An empty error_message is part of the criterion:
+    # a COMPLETED record carrying a message is a contradiction worth surfacing.
+    state = result.get("state")
+    error_message = result.get("error_message")
+    if state != "COMPLETED" or error_message:
+        failures.append(
+            {
+                "criterion": "C1",
+                "detail": f"state={state!r}, error_message={error_message!r}",
+            }
+        )
+
+    # C2 — the truncated run. The exploration is budget-bound by construction, so a run
+    # that returned before its budget did not do the work, whatever ended it. The exit code
+    # cannot say this: APE-RV exits non-zero when it detects an application crash during
+    # exploration, so a dead emulator and a crashing application look identical through it.
+    elapsed = _to_float(result.get("execution_time_seconds"))
+    timeout = _to_float(rec["timeout"])
+    if elapsed is None or timeout is None or elapsed < timeout:
+        failures.append(
+            {
+                "criterion": "C2",
+                "detail": f"execution_time_seconds={elapsed} < timeout={timeout}",
+            }
+        )
+
+    # C3 — the silent startup crash. `_check_empty_trace` in the tool already detects this
+    # and downgrades it to a warning, so the signal was being produced and discarded.
+    if not _trace_has_steps(artifact_path(rec, "trace")):
+        failures.append(
+            {"criterion": "C3", "detail": "trace carries no step beyond RUN_START"}
+        )
+
+    # C4 — an application that never launched. Structural floor of 1; see _COV_SIGNATURE_FLOOR.
+    signatures = rederived["cov_methods_distinct"]
+    if signatures < _COV_SIGNATURE_FLOOR:
+        failures.append(
+            {
+                "criterion": "C4",
+                "detail": f"{signatures} distinct RVSEC-COV signature(s)",
+            }
+        )
+
+    # C5 — the deliberately zeroed coverage row. rv-platform emits one when a logcat is
+    # present but its static-analysis JSON cannot be resolved (INV-PLT-16), which is
+    # designed behaviour that would otherwise pass as a valid task carrying zero coverage.
+    if rederived["cov_method"] <= 0 or rederived["cov_act"] <= 0:
+        failures.append(
+            {
+                "criterion": "C5",
+                "detail": (
+                    f"cov_method={rederived['cov_method']}, "
+                    f"cov_act={rederived['cov_act']}"
+                ),
+            }
+        )
+
+    return failures
+
+
+def admissibility_by_identity(iter_dir: Path) -> Dict[Tuple, Dict[str, Any]]:
+    """Best record per identity plus the criteria it fails — the scan `repair_tasks.py` runs.
+
+    Deduping to the best record first is not a detail: a resume **appends** a task record
+    rather than overwriting the failed one, so judging records instead of identities
+    double-counts every recovery. During the leg B campaign that arithmetic turned 3
+    outstanding tasks into an apparent 8.
+
+    Lives here rather than in `repair_tasks.py` so there is one derivation of admissibility
+    and the repair imports it, never the reverse. INV-CAL-04 forbids this module sharing
+    derivation with the *consolidator*; a repair tool downstream of it does not touch that.
+    """
+    best: Dict[Tuple, Dict[str, Any]] = {}
+    for rec in _load_tasks(iter_dir):
+        ident = rec["identity"]
+        if ident not in best or _rank(rec) > _rank(best[ident]):
+            best[ident] = rec
+    return {
+        ident: {"record": rec, "failures": admissibility_failures(rec)}
+        for ident, rec in best.items()
     }
 
 
@@ -331,7 +500,7 @@ def _gate_config(
         declared = declared_by_arm.get(arm)
         if not declared:  # nothing declared for this arm -> nothing to gate
             continue
-        trace = _logcat_path(rec, "trace")
+        trace = artifact_path(rec, "trace")
         if not trace.exists():
             continue
         n_audited_tasks += 1
@@ -447,7 +616,7 @@ def _gate_latency(best: Dict[Tuple, Dict[str, Any]]) -> Dict[str, Any]:
     """
     time_by_arm: Dict[str, List[int]] = defaultdict(list)
     for rec in best.values():
-        trace = _logcat_path(rec, "trace")
+        trace = artifact_path(rec, "trace")
         if trace.exists():
             t = _parse_time_ms(trace)
             if t is not None:
@@ -522,6 +691,72 @@ def _gate_divergence(
     return {"divergences": divergences, "csv_cells": csv_cells}
 
 
+def _gate_integrity(
+    best: Dict[Tuple, Dict[str, Any]],
+    rederived: Dict[Tuple, Dict[str, Any]],
+    manifest: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Gate 6 (INTEGRITY): every identity admissible under C1-C5, and the admissible count
+    equal to the manifest's `predicted_identities` (C6).
+
+    Applied over 100% of identities before any aggregation, so an inadmissible run never
+    reaches a mean, a pairing or a comparison. Nothing here reads the arm.
+
+    The distribution of distinct RVSEC-COV signatures is returned whether the gate passes or
+    fails, because C4's floor is structural and someone will eventually want to calibrate it
+    — on a campaign whose result they are not simultaneously reading.
+
+    Returns ``{"inadmissible": [...], "criterion_counts": {...}, "n_admissible": int,
+    "predicted_identities": int|None, "count_matches": bool,
+    "cov_signature_distribution": {...}}``.
+    """
+    inadmissible: List[Dict[str, Any]] = []
+    criterion_counts: Dict[str, int] = {c: 0 for c in ADMISSIBILITY_CRITERIA}
+    signature_counts: List[int] = []
+
+    for ident in sorted(best, key=lambda i: tuple(str(x) for x in i)):
+        rec = best[ident]
+        r = rederived[ident]
+        signature_counts.append(r["cov_methods_distinct"])
+        failures = admissibility_failures(rec, r)
+        if failures:
+            for failure in failures:
+                criterion_counts[failure["criterion"]] += 1
+            inadmissible.append(
+                {
+                    "identity": ident,
+                    "arm": r["arm"],
+                    "container": rec["base"].parent.name,
+                    "failures": failures,
+                }
+            )
+
+    n_admissible = len(best) - len(inadmissible)
+    predicted = manifest.get("predicted_identities") if manifest else None
+    count_matches = predicted is None or n_admissible == predicted
+    if not count_matches:
+        criterion_counts["C6"] = 1
+
+    signature_counts.sort()
+    distribution = {
+        "n": len(signature_counts),
+        "min": signature_counts[0] if signature_counts else None,
+        "median": median(signature_counts) if signature_counts else None,
+        "max": signature_counts[-1] if signature_counts else None,
+        "at_floor_or_below": sum(
+            1 for c in signature_counts if c <= _COV_SIGNATURE_FLOOR
+        ),
+    }
+    return {
+        "inadmissible": inadmissible,
+        "criterion_counts": criterion_counts,
+        "n_admissible": n_admissible,
+        "predicted_identities": predicted,
+        "count_matches": count_matches,
+        "cov_signature_distribution": distribution,
+    }
+
+
 def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
     """Apply every gate and return a structured result (verdict + per-gate findings).
 
@@ -561,6 +796,12 @@ def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
         if ident not in best or _rank(rec) > _rank(best[ident]):
             best[ident] = rec
     rederived = {ident: _rederive_identity(rec) for ident, rec in best.items()}
+
+    # Gate 6 runs first among the identity-scoped gates: admissibility decides which data
+    # may enter an analysis, so it is judged before anything aggregates. Inadmissible
+    # identities are not filtered out of the gates below — an inadmissible one quarantines
+    # the whole run, which makes the downstream numbers moot rather than in need of repair.
+    integrity_result = _gate_integrity(best, rederived, manifest)
 
     config_result = _gate_config(best, manifest)
     config_findings = config_result["config_findings"]
@@ -604,6 +845,16 @@ def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
 
     # --- verdict ---
     quarantine_reasons: List[str] = []
+    if integrity_result["inadmissible"]:
+        quarantine_reasons.append(
+            f"{len(integrity_result['inadmissible'])} inadmissible identity(ies) "
+            "under Gate 6"
+        )
+    if not integrity_result["count_matches"]:
+        quarantine_reasons.append(
+            f"{integrity_result['n_admissible']} admissible identities against "
+            f"{integrity_result['predicted_identities']} predicted by the manifest (C6)"
+        )
     if config_findings:
         quarantine_reasons.append(
             f"{len(config_findings)} RUN_START mismatch(es) in {n_audited_tasks} audited tasks"
@@ -625,6 +876,7 @@ def verify(iter_dir: Path, sample_size: int, seed: int) -> Dict[str, Any]:
         "quarantine_reasons": quarantine_reasons,
         "n_tasks": len(tasks),
         "n_identities": len(best),
+        "integrity": integrity_result,
         "config_findings": config_findings,
         "n_audited_tasks": n_audited_tasks,
         "collisions": collisions,
@@ -654,6 +906,54 @@ def render_report(iter_dir: Path, result: Dict[str, Any]) -> str:
     lines.append(
         f"Tasks: {result['n_tasks']} | identities (deduped): {result['n_identities']} | "
         f"Tasks audited: {result['n_audited_tasks']}\n"
+    )
+
+    integrity = result["integrity"]
+    lines.append("## Gate 6 — admissibility (100% of identities, before any aggregation)\n")
+    lines.append("Criteria, applied blind to arm and to the direction of the effect:\n")
+    for code, description in ADMISSIBILITY_CRITERIA.items():
+        lines.append(f"- **{code}** — {description}")
+    lines.append("")
+    lines.append(
+        f"Admissible: {integrity['n_admissible']} / {result['n_identities']} identities"
+        + (
+            f" | manifest predicts {integrity['predicted_identities']}"
+            if integrity["predicted_identities"] is not None
+            else ""
+        )
+        + "\n"
+    )
+    if not integrity["inadmissible"] and integrity["count_matches"]:
+        lines.append("PASS — every identity is admissible and the count is as predicted.\n")
+    else:
+        lines.append(f"FAIL — {len(integrity['inadmissible'])} inadmissible identity(ies):")
+        for row in integrity["inadmissible"]:
+            failed = ", ".join(
+                f"{f['criterion']} ({f['detail']})" for f in row["failures"]
+            )
+            lines.append(
+                f"- `{row['container']}` identity `{row['identity']}` "
+                f"arm `{row['arm']}` fails {failed}"
+            )
+        if not integrity["count_matches"]:
+            lines.append(
+                f"- C6: {integrity['n_admissible']} admissible against "
+                f"{integrity['predicted_identities']} predicted"
+            )
+        lines.append("")
+    lines.append(
+        "Failures per criterion (an identity may fail more than one): "
+        + ", ".join(f"{c}={n}" for c, n in integrity["criterion_counts"].items())
+        + "\n"
+    )
+    # Reported on every run, pass or fail: C4's floor is structural, and calibrating it
+    # later needs a distribution measured by a campaign that was not also reading its own
+    # result to choose the number.
+    dist = integrity["cov_signature_distribution"]
+    lines.append(
+        f"Distinct RVSEC-COV signatures per identity — n={dist['n']}, min={dist['min']}, "
+        f"median={dist['median']}, max={dist['max']}, "
+        f"at or below the floor of {_COV_SIGNATURE_FLOOR}: {dist['at_floor_or_below']}\n"
     )
 
     lines.append("## Gate 1 — RUN_START == manifest (100% of tasks)\n")

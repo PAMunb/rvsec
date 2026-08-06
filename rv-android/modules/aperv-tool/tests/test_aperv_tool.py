@@ -12,6 +12,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,8 +30,25 @@ from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_PROPERTIES_PATH,
     APERV_ORCHESTRATION_KEYS,
     APERV_PROPERTY_MAPPING,
+    APERV_TEARDOWN_GRACE_S,
     ApeRVTool,
 )
+
+
+def _stub_clock(*readings):
+    """A stand-in for the `time` module whose monotonic() returns the given readings.
+
+    The readings are handed out in order and the last one is held, so a caller states only
+    the pair the completion check reads: the moment the exploration started and the moment
+    it returned. Replacing the module reference in tool.py's namespace, rather than
+    time.monotonic itself, keeps the stub from reaching anything else in the session.
+    """
+    pending = list(readings)
+
+    def monotonic():
+        return pending.pop(0) if len(pending) > 1 else pending[0]
+
+    return SimpleNamespace(monotonic=monotonic)
 
 
 def _written_properties(tool, tmp_path, mop_json_pushed=False):
@@ -414,6 +432,13 @@ class TestBuildCommand:
         cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 300)
         assert cmd.timeout == 345
 
+    def test_adb_timeout_is_derived_from_the_shared_grace(self):
+        # The command timeout and INV-APV-60's completion floor are the same grace
+        # read from opposite sides, so it is stated once. A literal here would let
+        # the two drift apart silently.
+        cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 300)
+        assert cmd.timeout == 300 + APERV_TEARDOWN_GRACE_S
+
 
 class TestConstants:
     """Verify constant values (INV-APV-03)."""
@@ -583,6 +608,102 @@ class TestTimeoutPathCollects:
         assert (tmp_path / "run.trace.ndjson.gz").is_file()
         with gzip.open(tmp_path / "run.trace.ndjson.gz", "rb") as handle:
             assert handle.read() == trace.read_bytes()
+
+
+class TestCompletionIsEstablished:
+    """INV-APV-60: a run is not successful merely because the process returned.
+
+    Two runs of the gh97 leg B campaign ended early — one at 1284 s of an 1800 s
+    budget when the emulator died (adb exit 255), one at 1012 s when APE-RV stopped
+    on its own (exit 1) — and both were stored COMPLETED with error_message null,
+    so no resume could reach them. The exit code cannot separate those two from a
+    normal run, because APE-RV exits non-zero when it detects an application crash
+    during exploration. Elapsed time can: the exploration is budget-bound by
+    construction.
+    """
+
+    def setup_method(self):
+        self.tool = ApeRVTool()
+        self.tool.configure({"strategy": "sata", "preset": "aperv", "overrides": {}})
+
+    def _clock(self, monkeypatch, *readings):
+        monkeypatch.setattr(aperv_mod, "time", _stub_clock(*readings))
+
+    def _run(self, tmp_path, timeout, invoke_result):
+        task = MagicMock()
+        task.results_dir = str(tmp_path)
+        task.config.apk_name = "app.apk"
+        task.config.device_id = "emulator-5554"
+        task.config.timeout = timeout
+        trace = tmp_path / "run.trace"
+        trace.write_bytes(b'{"s":1,"t":10,"act":1,"st":1}\n')
+        task.result.trace_file = str(trace)
+
+        app = MagicMock()
+        app.package_name = "br.unb.cic.cryptoapp"
+
+        (tmp_path / "ape-rv.jar").write_bytes(b"jar")
+        self.tool._resolve_jar_path = lambda: str(tmp_path / "ape-rv.jar")
+        self.tool._push_file_to_device = lambda *a, **kw: None
+
+        main_cmd = MagicMock()
+        if isinstance(invoke_result, Exception):
+            main_cmd.invoke.side_effect = invoke_result
+        else:
+            main_cmd.invoke.return_value = invoke_result
+        self.tool._build_main_command = lambda *a, **kw: main_cmd
+
+        self.tool.execute_tool_specific_logic(task, app)
+
+    def test_truncated_run_raises_naming_elapsed_and_budget(self, tmp_path, monkeypatch):
+        # net.pfiers.osmfocus rep 1 as it actually happened: back at 1012 s of 1800,
+        # exit 1, emulator alive. Before this check it was stored COMPLETED.
+        self._clock(monkeypatch, 1000.0, 1000.0 + 1012)
+
+        with pytest.raises(RVToolExecutionError) as excinfo:
+            self._run(tmp_path, 1800, MagicMock(code=1))
+
+        message = str(excinfo.value)
+        assert "1012" in message
+        assert "1800" in message
+
+    def test_truncated_run_still_compresses_the_trace(self, tmp_path, monkeypatch):
+        # The artifacts of a truncated run are the evidence of what truncated it,
+        # so the new exit path compresses before it raises, like the other two.
+        self._clock(monkeypatch, 1000.0, 1000.0 + 1284)
+
+        with pytest.raises(RVToolExecutionError):
+            self._run(tmp_path, 1800, MagicMock(code=255))
+
+        assert (tmp_path / "run.trace.ndjson.gz").is_file()
+
+    def test_full_budget_with_nonzero_exit_does_not_raise(self, tmp_path, monkeypatch):
+        # The campaign's 357 intact runs spanned 1860-1909 s against an 1800 s budget,
+        # many of them exiting non-zero because the application under test crashed —
+        # which is data the run exists to collect, not a failure.
+        self._clock(monkeypatch, 1000.0, 1000.0 + 1860)
+
+        self._run(tmp_path, 1800, MagicMock(code=211))
+
+        assert (tmp_path / "run.trace.ndjson.gz").is_file()
+
+    def test_return_inside_the_teardown_grace_does_not_raise(self, tmp_path, monkeypatch):
+        # The floor is budget minus the grace the command already carries, so a run
+        # that ended a few seconds early is a normal ending, not a truncation.
+        self._clock(monkeypatch, 1000.0, 1000.0 + (1800 - APERV_TEARDOWN_GRACE_S))
+
+        self._run(tmp_path, 1800, MagicMock(code=0))
+
+    def test_timeout_path_is_untouched(self, tmp_path, monkeypatch):
+        # A timeout is the expected, successful ending: it must still raise
+        # RVToolTimeoutError — which rv-platform records as a completed run — and
+        # must not be re-judged by the completion check, whatever the clock says.
+        self._clock(monkeypatch, 1000.0, 1000.0 + 10)
+
+        with pytest.raises(RVToolTimeoutError):
+            self._run(tmp_path, 1800, RVCommandTimeoutError("killed after 1845 s"))
+
+        assert (tmp_path / "run.trace.ndjson.gz").is_file()
 
 
 class TestFrozenCorpusCarveOut:
@@ -1661,6 +1782,10 @@ class TestExecuteMopArtifactFlow:
     def setup_method(self):
         self.tool = ApeRVTool()
         self.pushed = []
+        self._real_time = aperv_mod.time
+
+    def teardown_method(self):
+        aperv_mod.time = self._real_time
 
     def _make_task(self, tmp_path, source_path=None):
         task = MagicMock()
@@ -1713,6 +1838,12 @@ class TestExecuteMopArtifactFlow:
         main_cmd = MagicMock()
         main_cmd.invoke.return_value = result
         self.tool._build_main_command = lambda *a, **kw: main_cmd
+
+        # The mocked command returns instantly, which INV-APV-60 would read as a run
+        # truncated to 0 s. These tests are about what reaches the device, not about the
+        # completion contract — TestCompletionIsEstablished owns that — so the clock
+        # reports an exploration that consumed its budget.
+        aperv_mod.time = _stub_clock(1000.0, 1000.0 + task.config.timeout)
 
         self.tool.execute_tool_specific_logic(task, app)
         return task

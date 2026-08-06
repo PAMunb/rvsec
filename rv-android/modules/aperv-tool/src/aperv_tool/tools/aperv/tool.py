@@ -49,6 +49,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import urllib.request
 from typing import Any, Dict
 
@@ -83,6 +84,15 @@ APERV_JAR_NAME = "ape-rv.jar"
 APERV_DEVICE_JAR_PATH = "/data/local/tmp/ape-rv.jar"
 APERV_DEVICE_PROPERTIES_PATH = "/data/local/tmp/ape.properties"
 APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"
+
+# Seconds of teardown allowed beyond the exploration budget, used for two things that
+# have to agree: the command timeout is the budget plus this grace, and an exploration
+# that returned more than this grace short of its budget did not do the work it was
+# asked for (INV-APV-60). Stating it once is what keeps the two from drifting apart.
+#
+# The value is a HYPOTHESIS about censored teardown durations, not a measurement — see
+# _build_main_command for what the iter0 evidence does and does not support.
+APERV_TEARDOWN_GRACE_S = 45
 
 # Suffix of the in-progress artifact write. The temporary file shares the results
 # directory with its destination so the rename that publishes it is atomic.
@@ -1003,7 +1013,7 @@ class ApeRVTool(AbstractTool):
             timeout_seconds: Execution timeout in seconds
 
         Returns:
-            Command with timeout = timeout_seconds + 45
+            Command with timeout = timeout_seconds + APERV_TEARDOWN_GRACE_S
         """
         strategy = self._tool_config.get("strategy", "sata")
         # APE-RV accepts minutes, not seconds. Floor division with min 1 ensures
@@ -1043,20 +1053,21 @@ class ApeRVTool(AbstractTool):
         if seed is not None:
             cmd_args += ["-s", str(seed)]
 
-        # +45s grace period gives APE-RV time to flush its WTG model, emit the
+        # The grace period gives APE-RV time to flush its WTG model, emit the
         # coverage dump and exit cleanly after --running-minutes expires. Without
         # this buffer, the Command timeout kills the process before it can write
         # final output.
         #
-        # The 45 is a HYPOTHESIS about censored teardown durations, not a
-        # measurement, and the distinction matters: among iter0 runs whose teardown
-        # completed, the overrun beyond the exploration budget reaches 12,991 ms
-        # with 32 runs stacked against the old 15 s ceiling and none beyond it —
-        # the signature of a hard wall rather than a natural distribution. The
-        # teardown duration of the runs that were cut is unobservable, which is
-        # what censoring means, so no recovery rate can be claimed in advance; the
-        # smoke reports what the wider window actually cost (design D9).
-        return Command("adb", cmd_args, timeout_seconds + 45)
+        # APERV_TEARDOWN_GRACE_S is a HYPOTHESIS about censored teardown durations,
+        # not a measurement, and the distinction matters: among iter0 runs whose
+        # teardown completed, the overrun beyond the exploration budget reaches
+        # 12,991 ms with 32 runs stacked against the old 15 s ceiling and none
+        # beyond it — the signature of a hard wall rather than a natural
+        # distribution. The teardown duration of the runs that were cut is
+        # unobservable, which is what censoring means, so no recovery rate can be
+        # claimed in advance; the smoke reports what the wider window actually cost
+        # (design D9).
+        return Command("adb", cmd_args, timeout_seconds + APERV_TEARDOWN_GRACE_S)
 
     def _check_empty_trace(self, trace_file_path: str) -> None:
         """
@@ -1131,13 +1142,20 @@ class ApeRVTool(AbstractTool):
         Execute APE-RV exploration on the device.
 
         Orchestrates JAR resolution, device push, properties push, command
-        execution, the empty-trace check and trace compression. Timeout is the
-        expected normal exit for exploration tools, and collection runs on that
-        path too — it is where most runs end.
+        execution, the empty-trace check, trace compression and the completion
+        check. Timeout is the expected normal exit for exploration tools, and
+        collection runs on that path too — it is where most runs end.
 
         Args:
             task: Task configuration with device, timeout, trace file
             app: Application under test
+
+        Raises:
+            RVToolTimeoutError: The exploration was still running at the command
+                timeout. This is the expected, successful ending.
+            RVToolExecutionError: The exploration returned more than
+                APERV_TEARDOWN_GRACE_S short of its budget (INV-APV-60), or a MOP
+                arm had no static-analysis JSON to arm from.
         """
         self.logger.info(f"Executing APE-RV for {app.package_name}")
 
@@ -1250,6 +1268,12 @@ class ApeRVTool(AbstractTool):
 
         self.logger.info(f"Starting APE-RV exploration (timeout={timeout_seconds}s)")
 
+        # The tool's own clock on the exploration it launched, and the only input to
+        # the completion check below (INV-APV-60). Nothing is read back from the jar
+        # (INV-APV-43): whether the recorded artifacts are admissible is decided
+        # after the fact, by the campaign's verifier over the whole results tree.
+        exploration_started = time.monotonic()
+
         try:
             # "wb" (not "ab") because the main execution output should replace the
             # push diagnostic output written earlier. The push output is low-value;
@@ -1294,5 +1318,35 @@ class ApeRVTool(AbstractTool):
         # Step 5: Compress the raw capture beside the trace. Write-only and
         # non-fatal; the trace itself is left byte-identical (INV-APV-52).
         self._gzip_trace(task.result.trace_file)
+
+        # Step 6: Establish that the exploration ran for the budget it was given,
+        # rather than reporting success on the strength of the process having
+        # returned (INV-APV-60). Compression happens first, deliberately: this is a
+        # third exit path and the artifacts of a truncated run are the evidence of
+        # what truncated it, so it keeps the property that every path compresses.
+        #
+        # The exit code is NOT consulted, and cannot be: APE-RV exits non-zero when
+        # it detects an application crash during exploration, which is data the run
+        # exists to collect, so exit 255 from a device that vanished and exit 1 from
+        # a crashing application carry the same information. Elapsed time separates
+        # them because the exploration is budget-bound by construction — an APE-RV
+        # asked for 1800 s and back at 1012 s did not do the work, whatever ended it.
+        #
+        # Raising here makes rv-platform store the task as ERROR with a non-empty
+        # error_message, which is what lets its ordinary resume re-execute the
+        # identity — the same path that already recovers a failed `adb install`.
+        # Before this check the run was stored COMPLETED with error_message null and
+        # no resume could reach it.
+        elapsed_seconds = time.monotonic() - exploration_started
+        completion_floor = timeout_seconds - APERV_TEARDOWN_GRACE_S
+        if elapsed_seconds < completion_floor:
+            raise RVToolExecutionError(
+                f"APE-RV returned after {elapsed_seconds:.0f}s of a "
+                f"{timeout_seconds}s exploration budget "
+                f"(floor {completion_floor}s): the exploration was truncated, "
+                "so this run did not happen as declared",
+                tool_name=self.name,
+                cause=None,
+            )
 
         self.logger.info("APE-RV execution completed successfully")
