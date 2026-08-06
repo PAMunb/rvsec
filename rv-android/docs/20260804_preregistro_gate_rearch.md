@@ -228,6 +228,65 @@ não se ajusta a análise para contorná-lo.
 O `verify.py` roda esses portões por re-derivação independente, e só então o `consolidate.py`
 produz os CSVs.
 
+### Emenda 02 (2026-08-06, **depois** da campanha e **antes** de qualquer desfecho) — o portão 6
+
+**O que muda**: o item 5 acima — *"Toda task COMPLETED com cobertura > 0"* — deixa de ser o critério
+de integridade e passa a ser um dos seis. Entra o **portão 6 (INTEGRIDADE)**, aplicado por identidade
+sobre 100% das tasks, **cego ao braço e à direção do efeito**, e **antes de qualquer agregação**:
+
+| | Critério | Fonte | O que pega |
+|---|---|---|---|
+| C1 | `state == COMPLETED` e `error_message` vazio | `tasks.json` | o que já falhou declaradamente |
+| C2 | `execution_time_seconds >= timeout` | `tasks.json` | o run truncado |
+| C3 | o trace carrega ≥ 1 passo além do `RUN_START` | `trace_ndjson` | queda silenciosa na partida |
+| C4 | ≥ 1 assinatura `RVSEC-COV` distinta | logcat | aplicação que nunca subiu |
+| C5 | `cov_method > 0` **e** `cov_act > 0` | `coverage_metrics` | a linha deliberadamente zerada do INV-PLT-16 |
+| C6 | identidades admissíveis == `predicted_identities` do manifesto | manifesto | completude da campanha |
+
+Uma identidade inadmissível, ou uma contagem abaixo do previsto, põe a corrida em quarentena. Nenhum
+desfecho é lido antes disso, como já valia para os cinco portões anteriores.
+
+**Por que a emenda existe.** `COMPLETED` é uma afirmação que a ferramenta faz, não uma que alguma
+coisa tivesse conferido. Dois runs da perna B voltaram antes da hora — `de.lukasneugebauer.nextcloudcookbook_62.apk`
+réplica 3 do `mop_on_llm_off` aos **1284 s** de 1800 (o emulador morreu, `adb` saiu 255) e
+`net.pfiers.osmfocus_1009013.apk` réplica 1 do mesmo braço aos **1012 s** (saída 1, emulador vivo, o
+APE-RV parou sozinho) — e **ambos foram gravados `COMPLETED` com `error_message` nulo**. Os cinco
+portões passavam nos dois: o `verify.py` ordena `COMPLETED` primeiro e o portão de pareamento pede
+apenas que o logcat não esteja vazio, e um run cortado a 68% do orçamento tem logcat grande e bem
+formado. Nenhum dos cinco lia duração.
+
+**O código de saída não pode ser o discriminador.** O APE-RV sai com código não-zero quando detecta
+uma queda da aplicação durante a exploração — que é dado que a campanha existe para coletar —, então
+a saída 255 de um dispositivo que sumiu e a saída 1 de uma aplicação que quebrou carregam a mesma
+informação. **O tempo decorrido separa as duas** sem ambiguidade, porque a exploração é limitada pelo
+orçamento por construção: um run a que se pediu 1800 s e que voltou aos 1012 s não fez o trabalho,
+seja lá o que o tenha encerrado.
+
+**O piso do C2 é estrutural, não ajustado.** Ele é o próprio orçamento da task, não um número
+escolhido contra a distribuição observada — que, dita para o leitor conferir, separa os dois casos
+por larga margem: os 357 runs íntegros ocupam 1860–1909 s contra 1800 s de orçamento, e os dois
+truncados estão em 1012 e 1284. **O piso do C4 é 1, e permanece 1**: um piso estrutural pergunta se a
+aplicação executou algum método instrumentado, ao passo que um piso de 10 é um número que alguém
+escolheu, e escolhê-lo contra a distribuição desta própria campanha é exatamente o que um pré-registro
+existe para impedir. A distribuição observada é reportada no relatório do `verify.py` para que uma
+mudança futura possa calibrá-lo sobre evidência que não esteja lendo o resultado ao mesmo tempo.
+
+**O que NÃO muda**: os três braços, as 40 aplicações, as 3 réplicas, o timeout, os 360 runs, os
+desfechos, as margens, as premissas e as três regras de decisão G1, G2 e G3. A emenda decide **quais
+dados entram** na análise, e não como a análise lê os dados que entram.
+
+**Sobre a honestidade desta emenda, dita sem atenuação.** Ao contrário da emenda 01, esta é
+registrada **depois** de a campanha ter terminado — o defeito só era visível nos registros que ela
+produziu. O que a sustenta é que ela é registrada **antes de qualquer desfecho ser lido**, e isso é
+verificável de fora e não pela palavra de quem escreve: no momento deste registro não existe
+`experimento-rearch-aperv/per_apk_paired.csv`, o `consolidate.py` e o `compare.py` ainda não rodaram
+sobre a campanha, e não há documento de resultado. Um critério de admissibilidade decide quais dados
+entram na análise; registrá-lo depois de os números estarem à vista seria escolher a régua com o
+placar na mão. Os dois runs truncados foram reparados e re-executados **antes** desta leitura, com os
+artefatos originais preservados sob `backup/gh97-truncated-runs/` com `SHA256SUMS`, de modo que a
+evidência do defeito sobrevive ao conserto. Aplicado à árvore final, o portão 6 acusa **360
+identidades varridas, 0 inadmissíveis**.
+
 ---
 
 ## 5. A regra de decisão, em três partes
