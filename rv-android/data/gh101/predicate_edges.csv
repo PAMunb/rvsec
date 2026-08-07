@@ -1,0 +1,85 @@
+mop_file,rule,clause,predicate,negated,argument,property,verdict,bucket,group,note
+CipherInputStreamSpec.mop,CipherInputStream,REQUIRES,generatedCipher,no,cipher,,missing,capability-absent,5,no Property constant exists
+CipherInputStreamSpec.mop,CipherInputStream,ENSURES,cipheredInputStream,no,inputStream,,missing,capability-absent,5,no Property constant exists
+CipherOutputStreamSpec.mop,CipherOutputStream,REQUIRES,generatedCipher,no,cipher,,missing,capability-absent,5,no Property constant exists
+CipherOutputStreamSpec.mop,CipherOutputStream,ENSURES,cipheredOutputStream,no,outputStream,,missing,capability-absent,5,no Property constant exists
+CipherSpec.mop,Cipher,REQUIRES,generatedKey,no,key,GENERATED_KEY,present,,,
+CipherSpec.mop,Cipher,REQUIRES,randomized,no,random,RANDOMIZED,missing,translation-defect,4,
+CipherSpec.mop,Cipher,REQUIRES,preparedAlg,no,params,,missing,capability-absent,5,no Property constant exists
+CipherSpec.mop,Cipher,REQUIRES,macced,yes,_,GENERATED_MAC,missing,translation-defect,4,
+CipherSpec.mop,Cipher,REQUIRES,preparedIV,no,paramSpec,PREPARED_IV,missing,translation-defect,4,
+CipherSpec.mop,Cipher,REQUIRES,preparedGCM,no,paramSpec,PREPARED_GCM,missing,translation-defect,4,
+CipherSpec.mop,Cipher,REQUIRES,preparedOAEP,no,paramSpec,,missing,capability-absent,5,no Property constant exists
+CipherSpec.mop,Cipher,ENSURES,generatedCipher,no,this,,recorded,deliberate-omission,4.3,"Same substitution: CipherSpec.mop:217 marks the cipher as in an accepting state instead of writing a predicate over `this`. The two REQUIRES of generatedCipher in the stream specifications are a separate matter -- they need a constant and a reader, and are not absolved here."
+CipherSpec.mop,Cipher,ENSURES,encrypted,no,preCipherText,ENCRYPTED,present,,,
+CipherSpec.mop,Cipher,ENSURES,encrypted,no,cipherText,ENCRYPTED,present,,,
+CipherSpec.mop,Cipher,ENSURES,encrypted,no,cipherTextByteBuffer,ENCRYPTED,present,,,
+CipherSpec.mop,Cipher,ENSURES,wrappedKey,no,wrappedKeyBytes,WRAPPED_KEY,present,,,
+DHGenParameterSpecSpec.mop,DHGenParameterSpec,ENSURES,preparedDH,no,this,PREPARED_DH,present,,,
+GCMParameterSpecSpec.mop,GCMParameterSpec,REQUIRES,randomized,no,src,RANDOMIZED,present,,,
+GCMParameterSpecSpec.mop,GCMParameterSpec,ENSURES,preparedGCM,no,this,PREPARED_GCM,present,,,
+HMACParameterSpecSpec.mop,HMACParameterSpec,ENSURES,preparedHMAC,no,this,PREPARED_HMAC,present,,,
+IvParameterSpec.mop,IvParameterSpec,REQUIRES,randomized,no,iv,RANDOMIZED,present,,,
+IvParameterSpec.mop,IvParameterSpec,ENSURES,preparedIV,no,this,PREPARED_IV,present,,,
+KeyGeneratorSpec.mop,KeyGenerator,REQUIRES,randomized,no,random,RANDOMIZED,missing,translation-defect,4,
+KeyGeneratorSpec.mop,KeyGenerator,ENSURES,generatedKey,no,key,GENERATED_KEY,present,,,
+KeyManagerFactorySpec.mop,KeyManagerFactory,REQUIRES,generatedKeyStore,no,keyStore,GENERATED_KEY_STORE,missing,translation-defect,4,
+KeyManagerFactorySpec.mop,KeyManagerFactory,REQUIRES,generatedManagerFactoryParameters,no,params,,missing,capability-absent,5,no Property constant exists
+KeyManagerFactorySpec.mop,KeyManagerFactory,ENSURES,generatedKeyManager,no,this,GENERATED_KEY_MANAGERS,present,,,
+KeyManagerFactorySpec.mop,KeyManagerFactory,ENSURES,generatedKeyManagers,no,keyManager,GENERATED_KEY_MANAGERS,present,,,
+KeyPairGeneratorSpec.mop,KeyPairGenerator,REQUIRES,preparedRSA,no,params,,missing,capability-absent,5,no Property constant exists
+KeyPairGeneratorSpec.mop,KeyPairGenerator,REQUIRES,preparedDSA,no,params,,missing,capability-absent,5,no Property constant exists
+KeyPairGeneratorSpec.mop,KeyPairGenerator,REQUIRES,preparedDH,no,params,PREPARED_DH,missing,translation-defect,4,
+KeyPairGeneratorSpec.mop,KeyPairGenerator,REQUIRES,preparedEC,no,params,,missing,capability-absent,5,no Property constant exists
+KeyPairGeneratorSpec.mop,KeyPairGenerator,ENSURES,generatedKeypair,no,keyPair,GENERATED_KEY_PAIR,present,,,
+KeyPairSpec.mop,KeyPair,REQUIRES,generatedPrivkey,no,privateKey,GENERATED_PRIVATE_KEY,missing,translation-defect,4,
+KeyPairSpec.mop,KeyPair,REQUIRES,generatedPubkey,no,publicKey,GENERATED_PUBLIC_KEY,missing,translation-defect,4,
+KeyPairSpec.mop,KeyPair,ENSURES,generatedKeypair,no,this,GENERATED_KEY_PAIR,missing,translation-defect,4,
+KeyPairSpec.mop,KeyPair,ENSURES,generatedPubkey,no,retPublicKey,GENERATED_PUBLIC_KEY,present,,,
+KeyPairSpec.mop,KeyPair,ENSURES,generatedPrivkey,no,retPrivateKey,GENERATED_PRIVATE_KEY,wrong-constant,translation-defect,4,"KeyPairSpec.mop:38 writes GENERATED_PUBLIC_KEY over the private key -- a copy of :32 with the value changed and the constant not. Partially self-masking: the disjunction at CipherSpec.mop:71 still accepts, so there is no false positive, only the loss of the public/private distinction the CrySL predicates exist to make."
+KeyStoreSpec.mop,KeyStore,ENSURES,generatedKeyStore,no,this,GENERATED_KEY_STORE,present,,,
+KeyStoreSpec.mop,KeyStore,ENSURES,generatedKey,no,key,GENERATED_KEY,present,,,
+KeyStoreSpec.mop,KeyStore,ENSURES,generatedPrivkey,no,key,GENERATED_PRIVATE_KEY,missing,translation-defect,4,
+KeyStoreSpec.mop,KeyStore,ENSURES,generatedPubkey,no,key,GENERATED_PUBLIC_KEY,missing,translation-defect,4,
+MacSpec.mop,Mac,REQUIRES,encrypted,yes,output1,ENCRYPTED,missing,translation-defect,4,
+MacSpec.mop,Mac,REQUIRES,encrypted,yes,output2,ENCRYPTED,missing,translation-defect,4,
+MacSpec.mop,Mac,REQUIRES,preparedHMAC,no,params,PREPARED_HMAC,missing,translation-defect,4,
+MacSpec.mop,Mac,REQUIRES,generatedKey,no,key,GENERATED_KEY,present,,,
+MacSpec.mop,Mac,ENSURES,macced,no,output1,GENERATED_MAC,present,,,
+MacSpec.mop,Mac,ENSURES,macced,no,output1,GENERATED_MAC,present,,,
+MacSpec.mop,Mac,ENSURES,macced,no,output2,GENERATED_MAC,present,,,
+MessageDigestSpec.mop,MessageDigest,ENSURES,generatedMessageDigest,no,this,,recorded,deliberate-omission,4.3,"Every `ENSURES p[this] after Init/Get` is rewritten as setObjectAsInAcceptingState(md) in the @match handler (ExecutionContext.java:107-114). The substitution is half-built: isInAcceptingState is never read from any .mop, so the mechanism is inert at runtime."
+MessageDigestSpec.mop,MessageDigest,ENSURES,digested,no,output,DIGESTED,present,,,
+MessageDigestSpec.mop,MessageDigest,ENSURES,digested,no,output,DIGESTED,present,,,
+PBEKeySpecSpec.mop,PBEKeySpec,REQUIRES,randomized,no,salt,RANDOMIZED,present,,,
+PBEKeySpecSpec.mop,PBEKeySpec,ENSURES,speccedKey,no,this,SPECCED_KEY,present,,,
+PBEKeySpecSpec.mop,PBEKeySpec,NEGATES,speccedKey,no,this,SPECCED_KEY,present,,,
+PBEParameterSpecSpec.mop,PBEParameterSpec,REQUIRES,randomized,no,salt,RANDOMIZED,present,,,
+PBEParameterSpecSpec.mop,PBEParameterSpec,ENSURES,preparedPBE,no,this,PREPARED_PBE,present,,,
+SSLContextSpec.mop,SSLContext,REQUIRES,generatedKeyManagers,no,km,GENERATED_KEY_MANAGERS,missing,translation-defect,3,
+SSLContextSpec.mop,SSLContext,REQUIRES,generatedTrustManagers,no,tm,GENERATED_TRUST_MANAGERS,missing,translation-defect,3,
+SSLContextSpec.mop,SSLContext,REQUIRES,randomized,no,random,RANDOMIZED,missing,translation-defect,3,
+SSLContextSpec.mop,SSLContext,ENSURES,generatedSSLContext,no,this,GENERATE_SSL_CONTEXT,present,,,
+SSLContextSpec.mop,SSLContext,ENSURES,generatedSSLEngine,no,eng,GENERATE_SSL_ENGINE,present,,,
+SecretKeySpec.mop,SecretKey,ENSURES,preparedKeyMaterial,no,keyMaterial,RANDOMIZED,present-surrogate,,,carried as Property.RANDOMIZED
+SecretKeySpec.mop,SecretKey,NEGATES,generatedKey,no,this,GENERATED_KEY,missing,translation-defect,4,
+SecretKeySpecSpec.mop,SecretKeySpec,REQUIRES,preparedKeyMaterial,no,keyMaterial,RANDOMIZED,present-surrogate,,,carried as Property.RANDOMIZED
+SecretKeySpecSpec.mop,SecretKeySpec,ENSURES,speccedKey,no,this,SPECCED_KEY,missing,translation-defect,4,
+SecretKeySpecSpec.mop,SecretKeySpec,ENSURES,generatedKey,no,this,GENERATED_KEY,present,,,
+SecureRandomSpec.mop,SecureRandom,REQUIRES,randomized,no,seed,RANDOMIZED,present,,,
+SecureRandomSpec.mop,SecureRandom,REQUIRES,randomized,no,lSeed,RANDOMIZED,recorded,inexpressible,4.4,"randomized[lSeed] asserts that a long came from a CSPRNG -- provenance, not value. ExecutionContext keys by equals, so a boxed primitive is matched by value. The write side already commits the matching unsoundness: SecureRandomSpec.mop writes RANDOMIZED over ints, and the Integer cache (-128..127) makes one small nextInt() mark every equal literal in the process."
+SecureRandomSpec.mop,SecureRandom,ENSURES,randomized,no,this,RANDOMIZED,present,,,
+SecureRandomSpec.mop,SecureRandom,ENSURES,randomized,no,genSeed,RANDOMIZED,present,,,
+SecureRandomSpec.mop,SecureRandom,ENSURES,randomized,no,bytes,RANDOMIZED,present,,,
+SecureRandomSpec.mop,SecureRandom,ENSURES,randomized,no,randInt,RANDOMIZED,present,,,
+SecureRandomSpec.mop,SecureRandom,ENSURES,randomized,no,randIntInRange,RANDOMIZED,present,,,
+SignatureSpec.mop,Signature,REQUIRES,generatedPrivkey,no,privateKey,GENERATED_PRIVATE_KEY,missing,translation-defect,4,
+SignatureSpec.mop,Signature,REQUIRES,generatedPubkey,no,publicKey,GENERATED_PUBLIC_KEY,missing,translation-defect,4,
+SignatureSpec.mop,Signature,ENSURES,signed,no,output,SIGNED,present,,,
+SignatureSpec.mop,Signature,ENSURES,signed,no,output,SIGNED,present,,,
+SignatureSpec.mop,Signature,ENSURES,signed,no,output,SIGNED,present,,,
+SignatureSpec.mop,Signature,ENSURES,verified,no,verified,VERIFIED,present,,,
+TrustManagerFactorySpec.mop,TrustManagerFactory,REQUIRES,generatedKeyStore,no,keyStore,GENERATED_KEY_STORE,missing,translation-defect,3,
+TrustManagerFactorySpec.mop,TrustManagerFactory,REQUIRES,generatedManagerFactoryParameters,no,params,,missing,capability-absent,5,no Property constant exists
+TrustManagerFactorySpec.mop,TrustManagerFactory,ENSURES,generatedTrustManager,no,this,GENERATED_TRUST_MANAGER,present,,,
+TrustManagerFactorySpec.mop,TrustManagerFactory,ENSURES,generatedTrustManagers,no,trustManager,GENERATED_TRUST_MANAGERS,wrong-constant,translation-defect,3,"TrustManagerFactorySpec.mop:65 writes GENERATED_KEY_MANAGERS, copied from KeyManagerFactorySpec, so GENERATED_TRUST_MANAGERS is never written and only ever removed."
