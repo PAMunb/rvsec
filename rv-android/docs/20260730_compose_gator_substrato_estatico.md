@@ -145,7 +145,7 @@ E **97 de 103** apps Compose têm ao menos uma função `@Composable` com `reach
 Duas leituras, ambas necessárias:
 
 - **A boa notícia**: as funções `@Composable` do app estão no call graph e alcançam os alvos JCA. A cobertura de reachability não tem um buraco Compose-específico; o buraco é só na camada GUI.
-- **A ressalva**: 96,1% contra 28,8% é diferença grande demais para ser real. A alcançabilidade transitiva satura, e o `reachesTarget` de código de UI Compose é aproximadamente a constante `true` — carrega pouca informação. **A causa está corrigida na §4.3.1**: não é CHA, é `all-reachable:true` sobre SPARK.
+- **A ressalva**: 96,1% contra 28,8% é diferença grande demais para ser real. A alcançabilidade transitiva satura, e o `reachesTarget` de código de UI Compose é aproximadamente a constante `true` — carrega pouca informação. **A atribuição da causa está corrigida na §4.3.1**: não é CHA, e a suspeita recai sobre `all-reachable:true` sobre SPARK — hipótese que as §6.5.1 e §6.5.2 tentaram testar e **não** confirmaram.
 - E `directlyReachesTarget` é **0,00%** entre composables, o que é semanticamente correto e esperado: criptografia não mora em código de UI, mora em ViewModel/repository. Isso é consistente com o achado F1 (alcance direto 0-hop é raro em qualquer estrato) e reforça que o eixo "direto" precisa da redefinição do N6 para significar algo.
 
 #### 4.3.1 Correção de 2026-08-06: não é CHA, é `all-reachable` — e não é o `-exclude`
@@ -172,7 +172,7 @@ args.addAll(Arrays.asList("-p", "cg", "all-reachable:true"));
 
 **E não adianta mexer no `-exclude`.** `androidx.compose.`, `kotlin.` e `kotlinx.` já estão excluídos com `-no-bodies-for-excluded` (`Main.java:224-227`), o que já converte essas classes em *phantom* e corta qualquer aresta **através** delas. A saturação acontece apesar disso, porque os caminhos que saturam são internos ao app — `composable → lambda do app → ViewModel → repository → JCA` —, e esses não há como excluir sem excluir o objeto da análise.
 
-**Status**: mecanismo inferido da leitura do código, e **continua não medido** depois do experimento de 2026-08-07. O experimento rodou, mas o contrafactual que ele constrói é degenerado: desligar `all-reachable` sozinho não produz "alcance real", produz *ausência de alcance*, porque no Android não há `main()` e o gator não alimenta nenhum entry point substituto. Os dois estratos vão a zero juntos, então a previsão diferencial desta seção — cair muito em Compose e pouco em View — não chega a ser testada. O relato completo está na §6.5.1. A hipótese permanece de pé como explicação plausível e **não confirmada**; nada abaixo nesta seção depende dela, porque a consequência prática (`reachesTarget` booleano não discrimina em Compose) é medida direta da §4.3, não inferência sobre a causa.
+**Status**: mecanismo inferido da leitura do código, e **continua não medido** depois do experimento de 2026-08-07. O experimento rodou, mas o contrafactual que ele constrói é degenerado: desligar `all-reachable` sozinho não produz "alcance real", produz *ausência de alcance*, porque no Android não há `main()` e o gator não alimenta nenhum entry point substituto. Os dois estratos vão a zero juntos, então a previsão diferencial desta seção — cair muito em Compose e pouco em View — não chega a ser testada. O relato completo está na §6.5.1, e o teste lateral do mecanismo — nulo — na §6.5.2. Depois das duas rodadas a hipótese permanece plausível e **não confirmada**, agora com um nulo em contra; nada abaixo nesta seção depende dela, porque a consequência prática (`reachesTarget` booleano não discrimina em Compose) é medida direta da §4.3, não inferência sobre a causa.
 
 ---
 
@@ -296,6 +296,26 @@ A enumeração de classes e métodos é idêntica entre os braços (625/3.939 e 
 - **Copiar `lib/gator/` não basta**: `pygator/unpacker.py:6` resolve o apktool como `<gator>/../../apktool/apktool.jar`, isto é, um irmão do diretório copiado.
 
 **Veredito: executado, inconclusivo por desenho.** A pergunta continua aberta e barata de fechar apenas se alguém já for mexer em entry points no gator por outro motivo. Sozinha, ela não justifica a mudança.
+
+#### 6.5.2 Teste lateral do mecanismo, sem tocar no gator: a previsão não se sustenta
+
+O braço degenerado da §6.5.1 não testa o mecanismo, mas o mecanismo faz uma **previsão lateral** que os dados já em disco conseguem checar, offline e em minutos. Se a saturação vem do leque sobre parâmetro de tipo lambda, então **método que recebe `kotlin.jvm.functions.FunctionN` como parâmetro deve saturar mais que método que não recebe** — e isso tem de valer também em app de Views puro, senão "receber lambda" e "ser Compose" são a mesma variável disfarçada.
+
+O teste é pareado dentro de cada app e restrito a métodos **não-composable**, o que remove Compose como explicação concorrente. A lista de parâmetros é extraída da assinatura Soot (`<CLASSE: RET NOME(P1,...)>`): casar `Function` contra a assinatura inteira contaria também métodos que apenas *devolvem* lambda, sobre os quais o mecanismo nada diz. Apps entram quando os dois grupos têm ao menos 30 métodos — 143 dos 219.
+
+| recorte | apps | mediana COM lambda | mediana SEM lambda | Δ pareado | Wilcoxon | Spearman densidade × taxa |
+|---|---:|---:|---:|---:|---:|---:|
+| todos | 143 | 31,5% | 26,4% | **+0,6 pp** | p=0,084 | ρ=+0,435 (p=5,6e-08) |
+| **View puro** | 30 | 21,7% | 21,3% | **−0,0 pp** | p=0,299 | ρ=+0,195 (p=0,302) |
+| com Compose | 113 | 32,0% | 27,1% | +1,6 pp | p=0,115 | ρ=+0,400 (p=1,1e-05) |
+
+**O contraste direto é nulo.** Receber um parâmetro lambda praticamente não muda `reachesTarget`: diferença pareada de +0,6 pp no conjunto todo, e exatamente zero nos apps de View puro, onde o mecanismo deveria aparecer limpo. Em 76 de 143 apps o grupo com lambda vem por cima — perto de cara-ou-coroa.
+
+**A correlação de nível de app existe, mas não sustenta a hipótese.** ρ=+0,435 entre densidade de lambda e taxa do app parece forte, só que é correlação ecológica e desaparece justamente onde o teste seria limpo: nos apps de View puro cai para +0,195 com p=0,30. Ela sobrevive só onde há Compose, o que é explicado com mais parcimônia por "app Compose difere em muitas coisas ao mesmo tempo" (tamanho, Kotlin idiomático, corrotinas, DI) do que pelo mecanismo do parâmetro lambda.
+
+**Uma limitação que impede ler isto como refutação.** `reachesTarget` é transitivo: basta o leque acontecer em *algum* ponto a jusante para que todos os chamadores herdem o alcance, tenham eles parâmetro lambda ou não. Isso dilui o contraste método-a-método e pode mascarar um efeito real. Ou seja, o nulo enfraquece a hipótese, mas não a mata — um teste imune a essa diluição precisaria de dados de aresta do call graph, que o `.apk.json` não carrega.
+
+**Balanço das duas rodadas.** O mecanismo da §4.3.1 continua sem nenhuma evidência a favor: o teste direto é degenerado por construção, e o teste lateral dá nulo com uma ressalva de diluição. Ele segue sendo a explicação plausível mais óbvia — parâmetro de entry point sem restrição de points-to é comportamento documentado do SPARK —, mas quem citar isto na tese deve citá-lo como **hipótese não confirmada**, não como causa estabelecida. O que está estabelecido é o fato medido da §4.3: `reachesTarget` booleano não discrimina em código Compose.
 
 ---
 
