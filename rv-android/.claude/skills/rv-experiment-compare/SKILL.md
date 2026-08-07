@@ -222,6 +222,11 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
 > isso conta **em dobro**, porque o estado COMPLETED também aparece em `result.state_transitions[]`
 > (erro real cometido na corrida de 2026-06-19; números saíram 2× inflados).
 
+> ⚠️ **Atraso aparente não é travamento**: o `tasks.json` só é gravado quando a task **fecha**, então
+> o último `start_time` registrado é o da task que terminou — a seguinte já está em voo, invisível.
+> O atraso normal chega a **~2 ciclos**; só suspeitar acima disso, e confirmar pelo `docker logs`
+> (um container vivo está bootando emulador ou executando a ferramenta).
+
 ## Fase 4 — Resume final + Consolidar/Analisar (gera)
 
 1. **Passada de resume final**: ao terminar, os containers Exitam com alguns FAILED transientes de
