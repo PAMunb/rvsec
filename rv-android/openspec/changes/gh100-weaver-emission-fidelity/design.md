@@ -127,6 +127,42 @@ The key at `DexWeaver:145` collides for distinct advices. Two options: widen the
 
 The control group's records span more than the sites of interest. Which records enter the oracle is a decision that determines what the gate can conclude. **Decision: the filter is expressed as a named, scripted selection over the source CSV, recorded in the oracle's provenance block together with the source file's content hash**, so the oracle can be re-derived and audited without re-reading this document.
 
+The open question this left — whether records whose site cannot exist in a shipped APK should enter — is answered: **they do not**. `categoria_unit_tests.csv` classifies each `(apk, spec, class, method)` tuple, and only `app_producao` is admitted; the excluded `lib` tuples are `*Test` classes that no Android build contains. Admitting them would let the oracle demand events from sites the APK does not have, which is a false negative manufactured by the oracle rather than observed in the pipeline. The filter keeps 138 of 298 control rows, over 12 apps.
+
+### D-O3 — the unit of analysis is the article's, not the comparator's
+
+The first derivation keyed the oracles on `(spec, errorType)`, reasoning that `TraceComparator.matched` is existential and ignores `location`, and that R8 renames classes between variants so matching on them would measure the minifier.
+
+**Decision: key on `(apk, class, method, spec)`** — the unique-misuse unit defined at `results-rq1.tex:41` and implemented at `data-analysis/repair_summary_outcome.py:53` and `analyze_intersection_rv_cc.py:39`. Both halves of the earlier argument fail. An argument from what a validator currently does cannot set the unit of analysis: if the comparator ignores location, that is the comparator diverging from the article, and the fix belongs to the comparator (D-O4). And the strings that looked like divergent minification — `okio.ByteString.digest$okio(r8-map-id-…:17)` appearing as both class and method — were not R8 at all; they were the frame-form defect, 2,476 rows of `events_fair.csv` where the summarizer's fallback copied a whole stack frame into both columns.
+
+The correction is not cosmetic. At `(spec, errorType)` the paired record shows 8 categories reported only by `dexlib2`; at the article's key it shows 5 unique misuses, and the difference is not rounding — two of the eight were the same misuse counted twice because the line number had entered the key. The repaired figures are `ajc = 13`, `dexlib2 = 17`, `both = 12`, `only-ajc = 1`, `only-dexlib2 = 5`.
+
+The frame-form repair itself uses the producer's rule (`ErrorDescription.FRAME_SUFFIX`), **not** the article's `repair_frame_keys.py`. The two agree on the article's own sheets and disagree here: the article's rule requires the stripped group to look like `File.ext:NN`, and the campaign's frames are `(Unknown Source:1)` and `(r8-map-id-…:17)`, which have no dot and, in the first case, a space. It repairs 0 of the 2,476 rows. The producer's rule repairs all 2,476 with zero residue, because it is deliberately unrestricted about everything except the trailing `:<digits>` and the absence of nested parentheses.
+
+### D-O4 — the comparator reads the producer's format and matches on location
+
+`TraceComparator.RVSEC_LINE` matches `[Spec] EType: msg`. `ErrorCollector.java:37` emits seven comma-separated fields under a padded `RVSEC   :` tag. Nothing in the pipeline emits the bracketed shape — not the collector, and not `ErrorDescription.toString()`, whose ` at ` separator the pattern's mandatory `:` or `-` rejects. The pattern came from `drive_cryptoapp.py:89-94`, whose comment *asserts* the format, and the Java javadoc names that script as its authority.
+
+**Decision: teach the comparator the producer's format and match on `location`, in this change.** Three options were weighed. Leaving both alone keeps the change small but ships two oracles that only run against traces written in an invented shape — Layer 3 stays inert while looking executable, which is worse than the honest N/A it had before. Matching on location without fixing the parser is impossible: the bracketed shape carries no class or method to match against. Fixing the parser without matching on location wastes the class and method the real line already supplies, and leaves the gate weaker than the oracle, which INV-INS-109 forbids.
+
+Two details are forced by the data rather than chosen. The oracle's `location.class` must match against field 1 **or** field 2, because the line carries the class both fully qualified and short, and the two admissible provenances use different forms — `cryptoapp` names `MessageDigestUtil`, a derived oracle names `okhttp3.internal.platform.Platform`. And an oracle event that declares no location keeps matching on `(spec, errorType)` alone, so under-specification stays available deliberately and never happens by accident.
+
+The measured effect: `MessageDigestSpec` is reported once by `ajc` at `jh.h.c` in `gizz.tapes.foss_63` and once by `dexlib2` at `okio.ByteString.digest$okio` in `com.wirelessalien.android.moviedb_33`. Today those score as one agreement. With location, they become one false negative and one false positive, which is what they are.
+
+This breaks all five `TraceComparatorTest` cases, which declare `location: { class: C, method: m }` in the oracle and feed `[SpecX] ErrA: detail one` as the trace. They are rewritten against the collector's format, which is the point: the fixtures were the last thing keeping the invented shape alive.
+
+### D-O5 — one oracle per APK, because `apk` is the one key element the line does not carry
+
+The first derivation wrote a single pooled oracle per profile. **Decision: one oracle file per APK**, named `<apkBaseName>-oracle.yaml`.
+
+The reason is not tidiness. Of the article's four key elements, the violation line supplies class, method and specification, and never the APK — the APK is recoverable only from the oracle's identity or the result-tree filename. `TraceComparator.resolveOracleForApk` already implements exactly that mapping for batch mode, and `cryptoapp-oracle.yaml` already obeys it; the pooled files do not, so in batch mode they resolve for no APK at all. They do work in analyze mode, where `compare` pairs `apkSubsetDir/<oracleName>/` by oracle name — which is why the defect was not noticed. A pooled oracle also lets one app dominate a profile's verdict: on the paired record a single app contributes 1,708 of the events.
+
+### D-O6 — admission is enforced where the comparison happens
+
+`OracleLoader` implements INV-INS-107, but `TraceComparator.compare` lists the oracle directory itself (`TraceComparator.java:96-101`) and `run_phase5_validators.sh` runs `layer1, layer2, layer5, layer3_batch, layer4` without ever invoking the `oracles` subcommand. Admission is therefore reachable only by an operator who chooses to run it.
+
+**Decision: the comparison consults the admission rule.** An oracle rejected for circularity or missing attribution does not contribute to a verdict, and its rejection is carried into the report rather than dropped. Group 3 built the rule; without this it guards a door nobody walks through.
+
 ## API Design
 
 ### `InstrumentationCli instrument <apk> [--results-json <path>]`
@@ -149,7 +185,9 @@ Unchanged in signature. The per-APK loop in `dexlib_instrumentation.py` aggregat
 
 Repair path: descriptor → `advice-emitter` produces an emission plan carrying all N monitor calls → `dex-mutator` splices N invokes, applying register-pressure handling → counters accumulate → `cli` writes the results JSON → Python parses it into `InstrumentationResults` → platform result processing.
 
-Evidence path: the production descriptor and a woven APK → the census script produces the pre-repair count of truncated advices and dropped events → V0 and V2 run red against pre-repair code and their output is committed → the repair lands → V0 and V2 run green → the same census script produces the post-repair count → L3-b and L3-c run against their derived oracles and their verdicts are recorded.
+Evidence path: the production descriptor and a woven APK → the census script produces the pre-repair count of truncated advices and dropped events → V0 and V2 run red against pre-repair code and their output is committed → the repair lands → V0 and V2 run green → the same census script produces the post-repair count → L3-b and L3-c run against their derived oracles and their verdicts are recorded as characterization.
+
+Layer-3 trace path: `ErrorCollector` writes seven fields under the `RVSEC` tag → logcat records them with a padded tag → `parseObserved` reads spec, error type, both class forms, method and the rejoined message → `matched` compares them against each oracle event's `(spec, errorType, location)` → per-spec F1 and κ. The derived oracles reconstruct their trace pair in the same collector format, so a recording and a reconstruction enter through one code path and a fixture cannot drift away from the producer without the recording drifting too.
 
 ## Error Handling
 
@@ -169,6 +207,8 @@ Evidence path: the production descriptor and a woven APK → the census script p
 - [The change spans two repositories] → the Java work is delivered as a jar into `rv-android/lib/` by the reactor; the Python side is two files. Task groups are ordered so the Python side integrates after the CLI option exists.
 - [`get(0)` may exist in sites not yet enumerated] → INV-INS-106 is enforced by a contract test over the validator and emitter sources rather than by the five known line numbers.
 - [The specification sets these monitors derive from are being edited in parallel by issue #101] → the descriptor and monitor sources used for the red evidence are content-addressed and pinned, and the green run reuses them; drift between the two runs would void INV-INS-108.
+- [A parser can be wrong for fifteen months while every test around it passes] → `RVSEC_LINE` was written in `drive_cryptoapp.py` from a comment asserting the format, copied into `TraceComparator` with the Python script cited as its authority, and then surrounded by fixtures written to fit it. Nothing in the loop ever touched the producer. Every artefact agreed with every other artefact and all of them disagreed with `ErrorCollector`. INV-INS-110 exists to make the producer the authority; the scenario that enforces it rejects "another parser agrees" as justification, because that is precisely the argument that held here.
+- [Making the comparator stricter can turn a passing gate red for reasons unrelated to the weaver] → matching on location is additive only where the oracle declares it, and a derived oracle declares it by construction. The `cryptoapp` oracle already declares it and already claims it is matched, so no oracle is made stricter than its own text. What changes is that the claim becomes true.
 
 ## Testing Strategy
 
@@ -176,6 +216,10 @@ Evidence path: the production descriptor and a woven APK → the census script p
 |-------|-------------|-----|-------|
 | Unit (Java) | Emission cardinality on every path; inline/wrapper parity; wrapper key collision; fail-closed parse | Existing emitter test suites, extended with an N=3 fixture | ~10 tests |
 | Unit (Java) | `OracleLoader` provenance admission and rejection | Synthetic oracle YAMLs | ~4 tests |
+| Unit (Java) | `parseObserved` reads the collector's seven-field line: padded tag, rejoined `expecting`, both class forms | Fixtures copied verbatim from a recorded logcat | ~4 tests |
+| Unit (Java) | `matched` / `countFalsePositives` honour `location`, and ignore it when the oracle omits it | Rewritten `TraceComparatorTest` fixtures | ~5 tests |
+| Unit (Java) | An inadmissible oracle does not contribute to a verdict | Circular oracle in the comparison directory | ~2 tests |
+| Unit (Python) | The frame-form repair on the L3-b source: 2,476 rows repaired, zero residue | Derivation script self-check | ~2 tests |
 | Contract (Java) | No validator or emitter source reads `getMonitorCalls().get(0)` | Source scan test | 1 test |
 | Integration (Java) | V2 — the 9 events appear as `invoke-static` in the woven DEX | Weave one APK, baksmali, count | 1 gate |
 | Integration (Python) | The production path produces and parses a results JSON | `rv-instrumentation-dexlib2` tests | ~3 tests |
@@ -186,5 +230,6 @@ Python tests run with `--import-mode=importlib -o "addopts="`, per the CI contra
 ## Open Questions
 
 - Whether the widened wrapper key (D-B1) changes the generated wrapper method names in a way that affects `BaksmaliDiffer`'s string matching. To be checked when the key shape is chosen; if it does, the Layer-1 normalisation gap documented in May 2026 is touched and must be handled in the same task group.
-- Whether the L3-c filter should include control-group records whose site does not exist in the Android build. The conservative choice is to exclude them and say so in the provenance block; the decision is recorded when the derivation script is written.
+- ~~Whether the L3-c filter should include control-group records whose site does not exist in the Android build.~~ **Answered in D-O2**: excluded, via the `app_producao` classification, which keeps 138 of 298 control rows over 12 apps. The excluded tuples are `*Test` classes no APK contains.
+- Whether the derived oracles should carry `expected_message_substring`. The recorded `expecting` text is generated by the specification and names the offending parameter, so it discriminates two misuses of one method — but it is also the field most likely to change when a `.mop` set is edited, and issue #101 is editing those sets in parallel. Left null in the derived oracles for now; revisit if a verdict turns out to hinge on a distinction only the message carries.
 - Whether the post-repair count of register-pressure discards is small enough to absorb or large enough to become its own issue. Answerable only after D-A3's baseline exists.

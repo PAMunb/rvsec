@@ -6,7 +6,17 @@ The first property is emission cardinality. A JavaMOP advice in the production d
 
 The second property is reporting. The weaver computes counters and has a `--results-json` option to write them, but that option lives only on the `batch` subcommand while the production Python path calls the single-APK `instrument` subcommand. The consequence is not a formatting problem downstream: the file is never written, which is why the results tree holds 289 `instrument_errors.json` and no `instrument_results.json` at all. Counters matter here beyond hygiene, because repairing emission cardinality increases the number of invokes spliced at a site and can push a method over its register budget; without counters that discard is invisible.
 
-The third property is the integrity of the validation instrument. Layer 3 of the validation framework compares event *sets* produced by the `ajc` and `dexlib2` variants for the same APK against a ground-truth oracle, and it was pre-registered in April 2026 with an oracle whose event #8 is one of the nine that the truncation erases. It has never run to a verdict. Two of the three blockers are self-inflicted: the oracle minimum of three stands against two oracle files, one of them an empty template, and the static differ used to attribute a wrapper to a spec reads `getMonitorCalls().get(0)` — it shares the premise of the defect it would have to observe, so it cannot see the repair. Four unit-test fixtures inherit the same premise; no advice with N > 1 is exercised anywhere in the suite.
+The third property is the integrity of the validation instrument. Layer 3 of the validation framework compares event *sets* produced by the `ajc` and `dexlib2` variants for the same APK against a ground-truth oracle, and it was pre-registered in April 2026 with an oracle whose event #8 is one of the nine that the truncation erases. It has never run to a verdict. Three of the four blockers are self-inflicted: the oracle minimum of three stands against two oracle files, one of them an empty template; the static differ used to attribute a wrapper to a spec reads `getMonitorCalls().get(0)`, so it shares the premise of the defect it would have to observe and cannot see the repair; and the comparator does not parse the violation line the device actually emits. Four unit-test fixtures inherit the `get(0)` premise; no advice with N > 1 is exercised anywhere in the suite.
+
+The parsing blocker is the one that would have made a green verdict meaningless. `ErrorCollector.java:37` logs a violation as seven comma-separated fields under the `RVSEC` tag — `spec,classQualifiedName,className,methodName,location,errorType,expecting` — which is what `logcat_parser.py:319` in `rv-android` reads and what produced the 55,169-event paired record. A line recorded on 2026-08-06 reads, verbatim:
+
+```
+08-06 18:17:04.465  3144  3457 V RVSEC   : TrustManagerFactorySpec,okhttp3.internal.platform.Platform,Platform,platformTrustManager,Platform.kt:80,UnsafeAlgorithm,expecting one of PKIX,SunX509 but found .
+```
+
+Three properties of that line matter and none of them is optional. The tag is padded to a fixed width, so it reads `RVSEC   :` and a pattern anchored on the literal `RVSEC:` finds nothing. The last field carries commas of its own (`PKIX,SunX509`), so fields 0 through 5 are positional and everything from 6 on is rejoined. And the class arrives twice, fully qualified in field 1 and short in field 2, which is what lets a hand-written oracle name `MessageDigestUtil` and a derived one name `okhttp3.internal.platform.Platform` and both be matchable against the same line. `TraceComparator.RVSEC_LINE` instead expects `[Spec] ErrorType: message`, a bracketed shape nothing in the pipeline emits: not `ErrorCollector`, and not `ErrorDescription.toString()` either, whose ` at ` separator the pattern's mandatory `:` or `-` rejects. The pattern was copied verbatim from `rv-android/scripts/drive_cryptoapp.py:89-94`, and its javadoc names that script as its authority — one parser justified by another parser rather than by the producer. Every trace Layer 3 has ever scored is therefore a reconstruction written in the invented shape, including the fixtures of its own unit tests. A comparator that cannot read the recording cannot certify anything about it, and a gate built on that comparator reports success without having read the evidence.
+
+The same reconstruction hid a second gap. The canonical hand-validated oracle states in its own description that "presence of the (spec, errorType, class, method) tuple is sufficient" and declares `location: { class, method }` on all eight of its events, but `TraceComparator.matched` compares only `(spec, errorType)` and the message substring. Location has been documentary since the comparator was written. The consequence is measurable on the paired record: `MessageDigestSpec` is reported once by `ajc` at `jh.h.c` in one APK and once by `dexlib2` at `okio.ByteString.digest$okio` in a different APK — two unrelated misuses that the comparator scores as one agreement, granting a true positive that was not earned and suppressing the false positive that was.
 
 The resolution for the oracle minimum is provenance, not volume. A ground-truth oracle derived from a run of the pipeline under test is circular, which is exactly the objection recorded when the layer was declared N/A in May 2026. An oracle derived from an execution of a **different, independent weaver** is not circular in the same way: it states what an independent implementation of the same specification observed, and it is admissible as ground truth for the implementation under test provided it is frozen before the comparison runs. Two such sources already exist on disk and require no new execution: 55,169 paired `ajc` × `dexlib2` events over 8 APKs run under both variants, and the JVM `-javaagent` control group, which is the only regime in the record where `UnsatisfiedConstraint` is observable at all.
 
@@ -24,7 +34,8 @@ The runtime arm of Layer 3 — driving a single APK deterministically inside a b
 
 - `instrument_results.json` — per-APK weaver counters written by the production instrumentation path (destination: the APK's output directory, consumed by `rv-instrumentation-dexlib2`)
 - `InstrumentationResults` — the parsed counters (destination: `rv-instrumentation-core`, consumed by the platform's result processing)
-- `validator/oracles/<name>-oracle.yaml` — derived oracles, each carrying its provenance block (destination: the Layer-3 comparator)
+- `validator/oracles/<apkBaseName>-oracle.yaml` — derived oracles, one per APK, each carrying its provenance block and each expected event's `location` (destination: the Layer-3 comparator)
+- `validator/traces/<apkBaseName>/{ajc,dexlib2}.logcat` — the reconstructed trace pair for each derived oracle, written in the collector's own line format so the comparator reads reconstruction and recording through one code path
 
 ### Side-Effects
 
@@ -48,6 +59,10 @@ The runtime arm of Layer 3 — driving a single APK deterministically inside a b
 - **INV-INS-107**: A ground-truth oracle MAY be derived from recorded execution data only when the recording comes from a weaver implementation **other than** the one under validation, and the derived YAML is frozen — content-addressed, with its source file and derivation script named in a provenance block — before the Layer-3 comparison that consumes it runs. An oracle derived from the implementation under test is inadmissible.
 
 - **INV-INS-108**: An acceptance test for an emission repair MUST be executed against the pre-repair code and its failure recorded as an artefact of the change before the repair is integrated. A test that has only ever been observed passing does not establish that it discriminates.
+
+- **INV-INS-109**: A Layer-3 oracle MUST key its expected events on `(apk, class, method, spec)` — the unique-misuse unit defined in the journal article at `results-rq1.tex:41` and implemented at `data-analysis/repair_summary_outcome.py:53`. The comparator that consumes it MUST match on every element of that key the oracle declares. An oracle keyed more finely than the comparator matches makes the gate weaker than the evidence it rests on; a comparator matching more finely than the oracle keys rejects agreements the ground truth never claimed. Neither direction is acceptable, and what a comparator happens to do today is not an argument for changing the unit.
+
+- **INV-INS-110**: The Layer-3 comparator MUST parse the violation line the on-device collector emits (`ErrorCollector.java:37`), and its parsing MUST be justified against that producer. A parser accepted on the authority of another parser is not evidence that the format is right: the shape `TraceComparator.RVSEC_LINE` has matched since gh52 is emitted by nothing in the pipeline, and every trace the layer has scored was written to fit it.
 
 ## ADDED Requirements
 
@@ -160,6 +175,36 @@ This is not process ceremony. The defect this change repairs survived because a 
 - **THEN** that test MUST NOT be accepted as evidence for the repair
 - **AND** the change MUST record why it does not discriminate, and replace it
 
+### Requirement: Layer-3 Trace Parsing and Matching Fidelity
+
+The Layer-3 comparator SHALL read the violation line format the on-device collector emits, and SHALL match an observed event against an oracle event on every key element the oracle declares.
+
+The producer is `ErrorCollector.java:37`, which logs `ErrorSummary.toString()` followed by the `expecting` text under the `RVSEC` tag: seven fields, `spec,classQualifiedName,className,methodName,location,errorType,expecting`. Fields 0 through 5 are positional; field 6 onward is rejoined, because the `expecting` text carries commas of its own. The logcat tag is padded to a fixed column, so it appears as `RVSEC   :` rather than `RVSEC:`. `rv-android`'s `logcat_parser.py:319` already reads exactly this and is the reference implementation; the two SHALL agree, and where they disagree the producer decides.
+
+The class arrives twice on every line — fully qualified in field 1, short in field 2. An oracle's `location.class` SHALL match against either, because the two admissible provenances name classes differently: the hand-validated `cryptoapp` oracle names `MessageDigestUtil`, while an oracle derived from a recorded campaign names `okhttp3.internal.platform.Platform`. Requiring one form would make one whole provenance class unmatchable.
+
+Matching on location is not an enhancement; it is what the oracles already claim. `cryptoapp-oracle.yaml` states that "presence of the `(spec, errorType, class, method)` tuple is sufficient" and declares `location: { class, method }` on all eight of its events, and `TraceComparator.matched` has never read either field. Until it does, two unrelated misuses of the same specification in different classes score as one agreement.
+
+#### Scenario: The comparator reads a line the device actually emitted
+
+- **WHEN** `parseObserved` is given a logcat containing a line whose tag is `RVSEC` and whose message carries the seven collector fields
+- **THEN** it MUST yield an observed event whose spec, error type, qualified class, short class and method come from fields 0, 5, 1, 2 and 3 respectively
+- **AND** the message MUST be fields 6 onward rejoined with commas, so an `expecting` text such as `expecting one of PKIX,SunX509 but found .` survives intact
+- **AND** the padded tag form `RVSEC   :` MUST be accepted, since that is how logcat writes it
+
+#### Scenario: An event at a different site is not an agreement
+
+- **WHEN** an oracle event declares `location: { class: jh.h, method: c }` for a specification, and the observed trace reports that same specification and error type at `okio.ByteString.digest$okio`
+- **THEN** the oracle event MUST count as a false negative for that pipeline, not a true positive
+- **AND** the observed event MUST count as a false positive, since it matches no oracle entry
+- **AND** an oracle event that declares no location MUST keep matching on `(spec, errorType)` alone, so an oracle may under-specify deliberately but never by accident
+
+#### Scenario: A parser is justified against the producer, not against another parser
+
+- **WHEN** the trace parsing behaviour of the comparator is changed or extended
+- **THEN** the change MUST cite the producing code and a recorded line that exhibits the format
+- **AND** citing another parser's agreement MUST NOT be accepted as justification, because that is how the current pattern — copied from `drive_cryptoapp.py:89-94` and never checked against `ErrorCollector` — survived from gh52 to this change
+
 ## MODIFIED Requirements
 
 ### Requirement: Ground-Truth Oracle Diversity for Equivalence Claims
@@ -177,11 +222,19 @@ The three mandatory profiles are:
 2. **Paired-execution profile (L3-b)** — the profile that discriminates the wrapper-collision defect. Derived from the 55,169 paired `ajc` × `dexlib2` events over the 8 APKs executed under both variants, recorded in `out/run_jca_compare_consolidated/events_fair.csv`. Provenance: derived from an independent weaver.
 3. **Control-group profile (L3-c)** — the profile that discriminates the inline-truncation defect. Derived from the JVM `-javaagent` AspectJ control group, which is the only recorded regime in which `ErrorType.UnsatisfiedConstraint` is observable at all. Provenance: derived from an independent weaver. The provenance filter that selects which control-group records enter the oracle MUST be stated in the YAML and justified in the change.
 
+A derived oracle SHALL be written one file per APK, named `<apkBaseName>-oracle.yaml` after the convention `TraceComparator.resolveOracleForApk` implements — the `.apk` suffix and any trailing `_<digits>` version suffix stripped. This is not a filing preference. `apk` is the first element of the key INV-INS-109 mandates, and it is the one element a violation line does not carry: the collector logs class, method, specification and error type, never the APK. The only place the APK is recoverable is the oracle's identity and the result-tree filename, so an oracle pooling several APKs into one file cannot honour the key at all, and in batch mode is never resolved for any APK.
+
+A derivation reading a recorded campaign SHALL repair frame-form `(class, method)` values before keying, and SHALL declare the repair in the provenance block. When the on-device summarizer failed to split a stack frame it copied the whole frame — source position included — into both columns, so the line number silently joined the key and one misuse counted once per line. The repair is the algorithm the producer now performs at `ErrorDescription.FRAME_SUFFIX`: strip a trailing parenthesised group that contains no nested parenthesis and ends in `:<digits>`, then split the remainder at its last dot. The repair rule in the article's `data-analysis/repair_frame_keys.py` SHALL NOT be substituted for it: that rule additionally requires the stripped group to look like `File.ext:NN`, which the campaign's `(Unknown Source:1)` and `(r8-map-id-…:17)` forms do not satisfy, and it therefore repairs none of the 2,476 affected rows of `events_fair.csv`. Two rules that agree on the article's own sheets disagree here, and the producer's is the one that describes this data.
+
+Provenance admission SHALL be enforced on the path that executes the comparison. `OracleLoader` decides admission today, but `TraceComparator.compare` lists the oracle directory itself and `run_phase5_validators.sh` never invokes the `oracles` subcommand before `layer3`, so a circular or unattributed oracle is scored normally by the gate it was written to be excluded from. An admission rule that only the operator can trigger is not an admission rule.
+
 The multidex profile from JCA-400, mandated by the earlier form of this requirement and never written, is NOT one of the three. Its absence MUST carry an entry in `docs/LIMITATIONS.md` naming the unverified profile.
 
 Additional oracles MAY be added, but dropping below three is permitted only if `LIMITATIONS.md` carries an explicit entry naming the unverified profile and acknowledging the reviewer scrutiny that concession invites. A single oracle (cryptoapp alone) is insufficient for Phase-6 promotion.
 
 The runtime per-APK arm of Layer 3 — driving one APK deterministically inside a booted emulator and comparing the captured logcat — is out of scope of the current change and remains unexecuted. The substituted acceptance criterion for emission repairs is Java-side (V0 and V2 under `Requirement: Pre-Fix Red Evidence for Emission Repairs`), and it proves emission and arrival in the woven DEX, not arrival in logcat at runtime. That substitution MUST be stated wherever a Layer-3 verdict is reported, so the weaker claim is not read as the stronger one.
+
+A Layer-3 verdict obtained from derived oracles in this change is **characterization, not certification**, and MUST be reported as such. Both sides available to L3-b and L3-c are frozen pre-repair recordings: the comparison can show that the defect is present and what shape it takes, but it cannot flip from red to green when the repair lands, because a green side would require a fresh `dexlib2` execution over the same APKs — an emulator session (L3-a) or a corpus re-run (V4), both out of scope. A gate clause that reads a derived-oracle verdict as evidence that the repair worked claims what frozen data cannot deliver.
 
 #### Scenario: Layer 3 runs against three oracles
 
@@ -208,6 +261,27 @@ The runtime per-APK arm of Layer 3 — driving one APK deterministically inside 
 - **WHEN** an oracle derived from an independent weaver's recording is used in a Layer-3 comparison
 - **THEN** the YAML MUST already carry the content hash of its source data and the name of its derivation script
 - **AND** re-deriving it after the comparison, for any reason, MUST invalidate that comparison's verdict
+
+#### Scenario: Derived oracle is written per APK and keyed on the article's unit
+
+- **WHEN** an oracle is derived from a recorded campaign spanning more than one APK
+- **THEN** one oracle file MUST be written per APK, named `<apkBaseName>-oracle.yaml` after `TraceComparator.resolveOracleForApk`
+- **AND** each expected event MUST carry the `class` and `method` of its site, so the file keys on `(apk, class, method, spec)`
+- **AND** the derivation MUST repair frame-form values with the producer's rule and say so in the provenance block
+
+#### Scenario: A circular oracle reaches the comparison
+
+- **WHEN** `TraceComparator` is invoked for a Layer-3 verdict over a directory containing an oracle whose provenance names the implementation under test
+- **THEN** that oracle MUST NOT contribute to the verdict
+- **AND** its rejection MUST appear in the report, so a shortfall is visible rather than silent
+- **AND** listing the directory without consulting the admission rule MUST NOT be how the comparison selects its oracles
+
+#### Scenario: A derived-oracle verdict is reported as characterization
+
+- **WHEN** a Layer-3 verdict obtained from L3-b or L3-c is recorded in this change
+- **THEN** it MUST state that both sides are frozen pre-repair recordings
+- **AND** it MUST state that the verdict documents the defect rather than certifying its repair
+- **AND** it MUST name what a certifying verdict would require — a fresh `dexlib2` run, meaning L3-a or V4 — and that neither ran
 
 #### Scenario: Multidex profile unavailable
 

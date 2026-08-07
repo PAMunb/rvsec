@@ -39,6 +39,26 @@
 - [x] 3.6 Add Java unit tests for `OracleLoader`: admission with each provenance class, rejection of a circular oracle, rejection below `MINIMUM_ORACLES`
 - [x] 3.7 Confirm `MINIMUM_ORACLES = 3` is now satisfiable without lowering the threshold
 
+## 3b. Oracle granularity and comparator fidelity — runs before Group 4
+
+<!-- Numbered 3b rather than renumbering: the handoff, the commits and issue #100's
+     acceptance criteria already cite "4.3", "5.3" and "6.2" by number.
+     Tasks 3.3 and 3.4 delivered oracles keyed on (spec, errorType), pooled into one
+     file per profile, against a comparator that reads a line format nothing emits.
+     Group 3 stays checked off as the record of what was built; this group corrects it. -->
+
+- [ ] 3b.1 Teach `TraceComparator.parseObserved` the collector's line (`ErrorCollector.java:37`): padded `RVSEC   :` tag, seven fields `spec,classQualifiedName,className,methodName,location,errorType,expecting`, fields 6+ rejoined. `ObservedEvent` gains the qualified class, the short class and the method. Agree with `rv-android`'s `logcat_parser.py:319`, which is the reference implementation (INV-INS-110)
+- [ ] 3b.2 Make `matched` and `countFalsePositives` honour an oracle event's `location`, accepting a match against either the qualified or the short class form, and falling back to `(spec, errorType)` only when the oracle declares no location (INV-INS-109). **Add the test that fails without it first**: `MessageDigestSpec` at `jh.h.c` versus `okio.ByteString.digest$okio` must score one FN and one FP, not one TP
+- [ ] 3b.3 Rewrite the five `TraceComparatorTest` fixtures against the collector's format. They currently declare `location: { class: C, method: m }` and feed `[SpecX] ErrA: detail one`; keeping them would preserve the invented shape the whole group exists to remove
+- [ ] 3b.4 Add the parsing tests from a **verbatim recorded line** (`data/results/cmp163_00/…/app.eduroam.geteduroam_2685.apk__1__300__aperv:mop_on_llm_off.logcat`, 2026-08-06): padded tag accepted, `expecting one of PKIX,SunX509 but found .` survives the rejoin intact, both class forms readable
+- [ ] 3b.5 Make the comparison consult the admission rule (D-O6): `TraceComparator.compare` lists the oracle directory itself and `run_phase5_validators.sh` never invokes the `oracles` subcommand, so a circular oracle is scored by the gate written to exclude it. Rejections carry into the report
+- [ ] 3b.6 Rewrite `scripts/derive_l3b_oracle.py`: key on `(apk, class, method, spec)`; apply the frame-form repair with the producer's rule (`ErrorDescription.FRAME_SUFFIX`) and assert 2,476 rows repaired with zero residue; **do not** substitute `data-analysis/repair_frame_keys.py`, which repairs 0 of them here (D-O3); declare the repair in the provenance block
+- [ ] 3b.7 Rewrite `scripts/derive_l3c_oracle.py` on the same key. Its sources arrive already repaired (0 frame-form rows), so the repair is a guard there, not a transformation — a non-zero count means the upstream defect reappeared and the run must abort rather than silently repair
+- [ ] 3b.8 Emit one oracle per APK, named `<apkBaseName>-oracle.yaml` per `TraceComparator.resolveOracleForApk`, each with its trace pair under `validator/traces/<apkBaseName>/`, written in the collector's format (D-O5). Delete the two pooled files — they resolve for no APK in batch mode
+- [ ] 3b.9 Re-run both derivations and record the counts: L3-b `ajc=13, dexlib2=17, both=12, only-ajc=1, only-dexlib2=5` over 8 paired APKs; L3-c the `app_producao` set over 12 apps, with the three `UnsatisfiedConstraint` specs named
+- [ ] 3b.10 Confirm `MINIMUM_ORACLES = 3` still holds against the per-APK set, and that `OracleLoaderTest`'s assertion against the real `oracles/` directory still passes
+- [ ] 3b.11 Run the `$DEXLIB2` validator suite; record the surefire counts rather than trusting a quiet `mvn -q`
+
 ## 4. Red evidence — barrier, nothing in Group 5 may be integrated before this is committed
 
 - [ ] 4.1 Run V0 against the **pre-repair** weaver: an advice with N monitor calls emits N invokes in descriptor order. It must fail. Commit the failing output as an artefact of this change
@@ -63,9 +83,10 @@
 - [ ] 6.2 Re-run V2 over the `jca_android` descriptor and monitor sources pinned in 4.3: the 9 events must appear as `invoke-static` in the woven DEX
 - [ ] 6.3 Re-run the census script from 1.4 and record the post-repair counts against the pre-repair baseline
 - [ ] 6.4 Read the weaver counters for sites discarded under register pressure after the repair, and record the delta. An increase is reported explicitly; if it is systematic, open a follow-up issue rather than absorbing it
-- [ ] 6.5 Execute L3-b against its derived oracle and record the verdict
-- [ ] 6.6 Execute L3-c against its derived oracle and record the verdict — this is the only regime where `UnsatisfiedConstraint` is observable, so it is the gate that speaks to the erased category
+- [ ] 6.5 Execute L3-b against its derived oracles and record the verdict
+- [ ] 6.6 Execute L3-c against its derived oracles and record the verdict — this is the only regime where `UnsatisfiedConstraint` is observable, so it is the gate that speaks to the erased category
 - [ ] 6.7 State in the recorded verdicts that the runtime arm (L3-a) did not run and that V0/V2 prove emission and arrival in the woven DEX, not arrival in logcat
+- [ ] 6.8 State in the recorded verdicts that they are **characterization, not certification**: both sides of each derived oracle are frozen pre-repair recordings, so neither can flip green when the repair lands, and a certifying verdict would need a fresh `dexlib2` run (L3-a or V4), neither of which is in scope
 
 ## 7. Integration and verification
 
