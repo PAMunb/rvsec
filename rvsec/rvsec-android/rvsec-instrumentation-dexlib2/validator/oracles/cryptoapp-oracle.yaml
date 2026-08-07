@@ -1,8 +1,15 @@
 name: cryptoapp
 profile: java_pre_r8
 provenance:
-  source: rv-android/docs/20260423_plano_validacao.md §3.4
-  ground_truth_run: results/gh50_def_val/cryptoapp.apk/cryptoapp.apk__1__300__aperv.logcat
+  class: hand_validated
+  source: rv-android/docs/20260423_plano_validacao.md §3.4 oracle table
+  # Corroboration, not the source of the list. The eight events were
+  # established from the plan's oracle table by source inspection; the run
+  # below is where they were seen to fire. It is named so the two can be
+  # compared, and it is deliberately NOT an admission field: a run of the
+  # pipeline under validation cannot be what makes an oracle admissible
+  # (INV-INS-107).
+  corroborating_run: results/gh50_def_val/cryptoapp.apk/cryptoapp.apk__1__300__aperv.logcat
   origin: gh50 def_val phase-B run, single-replica APE-RV exploration over 300s
 description: |
   Canonical 8-violation oracle for the cryptoapp APK shipped under

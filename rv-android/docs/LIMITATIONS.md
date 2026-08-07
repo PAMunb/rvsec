@@ -56,9 +56,33 @@ case, this doc MUST gain the matching entry (per task 5.11).
 The Phase-5 ratification gate requires three oracle APKs covering
 distinct bytecode profiles (INV-INS-22). Any profile not yet carried by a
 committed oracle is "unverified" until the third oracle is selected and
-its `validator/oracles/<name>-oracle.yaml` lands:
+its `validator/oracles/<name>-oracle.yaml` lands.
 
-- Multidex real-world APK from JCA-400 — **PENDING** (task 10.14).
+### Multidex profile unverified
+
+The multidex real-world APK from JCA-400 was mandated in April 2026 and never
+written. gh100 does **not** write it: the three mandatory profiles were
+re-specified as cryptoapp (hand-validated), the paired-execution profile L3-b
+and the control-group profile L3-c, and multidex is not among them.
+
+The scrutiny this invites is specific, and worth stating rather than leaving to
+be discovered. Multidex is where the weaver's cross-DEX behaviour lives:
+`InheritanceResolver` is built over every DEX of an APK precisely so wrapper
+subtype expansion can see a subclass declared in `classes2.dex` while the call
+site sits in `classes.dex`, and `MultidexMerger` repacks the woven DEXes back
+into their original slots. None of that is exercised by an oracle. cryptoapp is
+single-DEX; the L3-b and L3-c profiles are derived from recorded event data and
+say nothing about DEX layout. A reviewer is entitled to ask what evidence
+covers multidex weaving, and the honest answer is that no oracle does — only
+the per-APK counters (`dexFiles`, `wovenDexes`) and the absence of reported
+failures across the corpus.
+
+The kotlin_r8 slot (`hateitorrateit-oracle.yaml`) is in the same position for a
+different reason: it ships with an empty event list and a `pending` ground
+truth. Since gh100 it no longer pads the oracle count — `OracleLoader` rejects
+it for declaring no admissible provenance class, and names it in the rejection
+report. It is left in the tree as a visible placeholder rather than deleted,
+because a named rejection documents the gap where a missing file would not.
 
 ## Unmapped specification-set-specific constructs
 
