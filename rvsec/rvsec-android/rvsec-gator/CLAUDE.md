@@ -86,6 +86,27 @@ Canonical spec: `../rv-android/openspec/specs/analysis/spec.md` (invariants **IN
 
 ## Gotchas
 
+- **Overloads do not exist for this analysis. Never reason about targets by full
+  signature.** MOP-sourced targets are always built `MatchPolicy.LENIENT`
+  (`client/.../target/MopSpecsTargetSource.java:38`), and `TargetResolver.resolveInScene`
+  under LENIENT compares **only `(className, methodName)`** and then `break`s
+  (`commons/.../target/TargetResolver.java:52-66`) — `params` and `signature` are never
+  read, so every overload of a targeted `(class, method)` becomes a seed. This is by
+  design, not an oversight: pointcuts carry wildcards, and at runtime `rv-monitor`
+  identifies the offending frame from a `StackTraceElement`, which has **no descriptor** —
+  `ViolationRecorder.getLineOfCode()` yields `Class.method(File:line)`, which
+  `rvsec-core`'s `ErrorDescription.createErrorSummary` parses back into
+  `(class, method, loc)`. The `(apk, class, method, spec)` key every downstream analysis
+  uses is method-name-granular at both ends. A full signature cannot be honoured end to
+  end, so nothing in the pipeline tries.
+- **`Loaded N MOP signatures` is NOT the target count.** N is
+  `HashSet<TargetMethod>.size()` and `TargetMethod.equals/hashCode` **do** include `params`
+  and `signature`, so N counts signature-distinct rows while the analysis seeds on
+  `(class, method)` pairs. Measured over the 23 specs: `jca` prints **120** and seeds
+  **68**; `jca_android` prints **119** and seeds **67**. Adding an overload of an
+  already-targeted method raises N by one and adds **zero** seeds. Any gate, diff or
+  regression check over the target set must count distinct `(class, method)` — comparing N
+  will fire, or fail to fire, for the wrong reason.
 - **Partial JSON on WTG timeout:** two-write strategy overwrites the pre-WTG file; no
   sentinel => `complete=false`, parser recovers. Windows absent from the WTG get a
   `fallbackId >= 100000`.
