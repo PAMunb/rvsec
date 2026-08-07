@@ -103,11 +103,13 @@ ToolConfig(BaseValidatedModel):
 
 App(BaseValidatedModel):
   app_path: str                  # Absolute path to APK file
+  package_detector: bool         # Elect the package heuristically (default False)
   # computed fields:
   path: str                      # os.path.abspath(app_path)
   name: str                      # os.path.basename(app_path)
   package_name: str              # From AndroidManifest.xml (for device ops)
-  code_package: str              # Detected via PackageDetector (for static analysis)
+  code_package: str              # package_name, or PackageDetector when enabled
+  code_package_source: str       # "manifest" | "detector"
   sdk_target: int                # Target SDK version
   permissions: List[str]         # Requested permissions
   min_api: int                   # Minimum API level
@@ -221,7 +223,7 @@ RvErrorLog(BaseValidatedModel):
 
 - **INV-CORE-17**: App MUST validate that `app_path` is non-empty and points to an existing `.apk` file. If the file does not exist or is not a valid APK, it MUST raise `ConfigurationError`.
 
-- **INV-CORE-18**: App.package_name MUST return the manifest package name (from `APK.get_package()`). App.code_package MUST return the implementation package detected by PackageDetector. These values MAY differ (observed in ~27.5% of APKs).
+- **INV-CORE-18**: `App.package_name` MUST return the manifest package name (from `APK.get_package()`), verbatim, with no normalization of any kind. `App.code_package` MUST return that same value when `package_detector` is disabled, and the package elected by `PackageDetector` when it is enabled. `App.code_package_source` MUST report which of the two produced the returned value. The default MUST be the manifest package: constructing `App` without stating a preference MUST NOT run `PackageDetector`.
 
 - **INV-CORE-19**: Task.id MUST be a UUID string. If no `task_id` is provided to the constructor, a new UUID MUST be generated via `uuid.uuid4()`.
 
@@ -253,6 +255,8 @@ RvErrorLog(BaseValidatedModel):
 - **INV-CORE-40**: `RvErrorLog.to_dict()` MUST include the `source` field. `source` MUST NOT appear in `unique_msg` and MUST NOT participate in `__eq__` or `__hash__`, so adding it cannot change any deduplicated count.
 - **INV-CORE-41**: `RvErrorLog.unique_msg` counts at event granularity (`class:::method:::spec:::error_type:::message`) and is deliberately finer than the `(apk, class, method, spec)` key used for unique-misuse analysis. Any documentation or export that reports `unique_errors` MUST NOT present it as equivalent to a unique-misuse count.
 - **INV-CORE-42**: No value written to the `class_full_name` or `method` field of an `RvErrorLog` MUST end with a `(<file>:<line>)` group. The source position belongs in `source` alone.
+
+- **INV-CORE-55**: `modules/rv-android-core/src/rv_android_core/domain/app.py` MUST NOT read the process environment. The `package_detector` value MUST reach `App` as a constructor argument. The three L1 canonical reader locations (`util/validation/config.py`, `util/jar_resolver.py`, `util/android/android.py`) MUST remain the complete set of environment readers inside `rv-android-core`, and `scripts/check_env_vars_drift.py` MUST keep enforcing it.
 ## Requirements
 ### Requirement: Error Handling with Recovery Strategies (FR34, NFR04)
 
@@ -529,11 +533,13 @@ ToolConfig(BaseValidatedModel):
 
 App(BaseValidatedModel):
   app_path: str                  # Absolute path to APK file
+  package_detector: bool         # Elect the package heuristically (default False)
   # computed fields:
   path: str                      # os.path.abspath(app_path)
   name: str                      # os.path.basename(app_path)
   package_name: str              # From AndroidManifest.xml (for device ops)
-  code_package: str              # Detected via PackageDetector (for static analysis)
+  code_package: str              # package_name, or PackageDetector when enabled
+  code_package_source: str       # "manifest" | "detector"
   sdk_target: int                # Target SDK version
   permissions: List[str]         # Requested permissions
   min_api: int                   # Minimum API level
@@ -543,6 +549,8 @@ Command(BaseValidatedModel):
   args: List[str]                # Command arguments
   timeout: Optional[float]       # Seconds (None = no timeout)
 ```
+
+`App.package_detector` carries a decision made by the user, not one derived from the APK. Which package scopes app-owned classes depends on the corpus under study, so `App` reports the package the APK declares and elects one heuristically only on request. The value is resolved at the entry point the user invoked and passed to the constructor; the domain model reads no environment variable (INV-CORE-55). Any normalization of the declared identifier — stripping build-type suffixes, repairing prefixes — is a property of a particular corpus and belongs to whoever curates it, not to this model.
 
 ToolConfig is the single source of truth for tool configuration across all modules. It represents exactly one (tool, variant, parameters) combination. For experiments with multiple variants of the same tool, multiple ToolConfig instances are created — one per variant. All modules import ToolConfig from rv-android-core; no other module defines its own ToolConfig class.
 
@@ -590,12 +598,27 @@ ToolConfig provides `from_dict()` for deserialization from JSON. It accepts only
 - **AND** `task.result.start_time` MUST be set to approximately the current time
 - **AND** `task.result.state_transitions` MUST contain entries for both CREATED and RUNNING
 
-#### Scenario: App package mismatch detection
+#### Scenario: App reports the declared package by default
 
-- **WHEN** an App is created from an APK where the manifest package is "ir.hsn6.trans" but the implementation package is "org.godotengine.godot"
-- **THEN** `app.package_name` MUST return "ir.hsn6.trans"
-- **AND** `app.code_package` MUST return "org.godotengine.godot"
+- **WHEN** an App is created from the Godot game whose manifest declares `ir.hsn6.trans` and whose implementation classes live under `org.godotengine.godot`, without stating a package preference
+- **THEN** `app.package_name` MUST return `"ir.hsn6.trans"`
+- **AND** `app.code_package` MUST return `"ir.hsn6.trans"`
+- **AND** `app.code_package_source` MUST return `"manifest"`
+- **AND** `PackageDetector` MUST NOT be invoked
+
+#### Scenario: App elects the implementation package when the detector is enabled
+
+- **WHEN** an App is created from the same APK with `package_detector=True`
+- **THEN** `app.package_name` MUST return `"ir.hsn6.trans"`
+- **AND** `app.code_package` MUST return `"org.godotengine.godot"`
+- **AND** `app.code_package_source` MUST return `"detector"`
 - **AND** a log message MUST be emitted at INFO level indicating the mismatch
+
+#### Scenario: The declared package is reported verbatim, suffix included
+
+- **WHEN** an App is created from `org.fossify.calendar_20.apk`, whose manifest declares `org.fossify.calendar.debug`, without stating a package preference
+- **THEN** `app.code_package` MUST return `"org.fossify.calendar.debug"`
+- **AND** no build-type segment MUST be stripped, because normalization is a property of the corpus and not of this model
 
 #### Scenario: Coverage repository ignores unknown methods
 
@@ -609,6 +632,28 @@ ToolConfig provides `from_dict()` for deserialization from JSON. It accepts only
 - **THEN** both instances MUST have identical `unique_msg` computed properties
 - **AND** `error1 == error2` MUST return True
 - **AND** `hash(error1) == hash(error2)` MUST return True
+
+### Requirement: Package Key Provenance on the App Model (FR33, NFR06)
+
+`App` MUST expose which mechanism produced `code_package`, as the computed field `code_package_source`, taking the value `"manifest"` when the package was read from the APK manifest and `"detector"` when it was elected by `PackageDetector`.
+
+The field exists because the choice does not survive in the data it shapes. Two runs over one APK can produce different `code_package` values, and the artefacts downstream — including the GATOR analysis JSON, which records the manifest package rather than the key that filtered it — carry no trace of which run produced them. Whoever records a run MUST be able to state the key and its origin without re-deriving either.
+
+`App` MUST NOT read an existing analysis artefact to infer a key, and MUST NOT override a caller's choice on the grounds that a stored artefact used a different one. Reconciling stored results with the key they were measured under is data management, outside this model's responsibility.
+
+#### Scenario: Provenance follows the mechanism that ran
+
+- **WHEN** `App(apk_path)` is constructed with no package preference and `code_package` is read
+- **THEN** `app.code_package_source` MUST be `"manifest"`
+
+- **WHEN** `App(apk_path, package_detector=True)` is constructed and `code_package` is read
+- **THEN** `app.code_package_source` MUST be `"detector"`
+
+#### Scenario: Provenance is consistent with the returned key
+
+- **WHEN** any `App` instance has been asked for `code_package`
+- **THEN** `code_package == package_name` MUST hold whenever `code_package_source == "manifest"`
+- **AND** `code_package` MUST equal the `PackageDetector` election whenever `code_package_source == "detector"`
 
 ### Requirement: Environment-Variable Identifier Registry (NFR01, NFR03)
 

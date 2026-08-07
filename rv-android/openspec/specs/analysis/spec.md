@@ -328,7 +328,7 @@ rv-screen-parser:
 
 - **INV-ANA-02**: The `StaticAnalysisParser` MUST apply `SignatureNormalizer` to all class names and method signatures before storing them in domain models. The normalization converts inner class dot notation (`OuterClass.InnerClass`) to dollar notation (`OuterClass$InnerClass`) using Java naming convention heuristics. The normalizer is applied in all three JSON sections (`windows`, `transitions`, `reachability`).
 
-- **INV-ANA-03**: The `StaticAnalysisParser` MUST receive `code_package` (from `App.code_package`, detected by `PackageDetector`) for class filtering, NOT `package_name` (from AndroidManifest.xml). The parser MUST filter classes in the `reachability` section and windows in the `windows` section by verifying that class names contain the `code_package` string.
+- **INV-ANA-03**: The `StaticAnalysisParser` MUST receive `App.code_package` for class filtering, NOT `App.package_name`. The two are equal by default and differ only when the user enabled `PackageDetector`; the parser MUST NOT reason about which of the two produced the value. The parser MUST filter classes in the `reachability` section and windows in the `windows` section by verifying that class names contain the `code_package` string.
 
 - **INV-ANA-04**: The `CoverageTracker` MUST log coverage metric updates whenever coverage metrics change. It MUST log MOP error detections immediately when an RV error is detected. Log entries MUST include the `task_id` if one was provided during initialization.
 
@@ -350,7 +350,7 @@ rv-screen-parser:
 
 - **INV-ANA-13**: `ItemAction.coordinates` MUST be validated as a non-negative integer tuple of exactly 2 elements `(x, y)`, or None. The `get_execution_coordinates()` method MUST resolve coordinates using priority: (1) explicit coordinates, (2) target view bounds center.
 
-- **INV-ANA-14**: The `PackageDetector` MUST apply detection heuristics in the following priority order: (1) same-as-manifest, (2) game engine detection, (3) single package, (4) common prefix, (5) most common (60%+ frequency), (6) string similarity (85%+ threshold), (7) manifest fallback. Each strategy returns early if a match is found.
+- **INV-ANA-14**: When — and only when — the user has enabled `PackageDetector`, it MUST apply detection heuristics in the following priority order: (1) same-as-manifest, (2) game engine detection, (3) single package, (4) common prefix, (5) most common (60%+ frequency), (6) string similarity (85%+ threshold), (7) manifest fallback. Each strategy returns early if a match is found. With the detector disabled — the default — none of these strategies MUST run.
 
 - **INV-ANA-15**: Coverage metrics MUST be calculated with reachability data as the denominator. `method_coverage` = (called methods) / (total reachable methods from the analysis JSON's reachability section). `mop_method_coverage` = (called methods that reach MOP) / (total methods with reaches_target=true). Without reachability data, percentage-based coverage MUST NOT be reported; only absolute counts are valid.
 
@@ -388,6 +388,8 @@ rv-screen-parser:
 - **INV-ANA-50**: `parse_logcat_line` MUST NOT return an `RvErrorLog` whose `class_full_name` or `method` ends with a `(<file>:<line>)` group. Any such value present in the emitted message MUST be normalized before the record is constructed.
 - **INV-ANA-51**: Normalization MUST be idempotent and MUST be a no-op on well-formed values: for any value `v` that does not end with a `(<file>:<line>)` group, `normalize(v) == v` byte-for-byte, and for any value at all, `normalize(normalize(v)) == normalize(v)`.
 - **INV-ANA-52**: The normalization guard MUST be anchored on the trailing group only. It MUST NOT constrain the prefix, because real method names in the corpus contain spaces and nested parentheses. Verified by the corner-case corpus, which includes `…CryptoMigrationV2CompatibilityTest.V2-header files (3xx format) are still decryptable after reading a V1-header file(CryptoMigrationV2CompatibilityTest.kt:131)`.
+
+- **INV-ANA-58**: No component of the analysis pipeline MUST derive a filtering key from an existing analysis artefact. The `package` member of a GATOR JSON is the manifest package as GATOR read it and MUST NOT be treated as the key that filtered that file. A run MUST record the key it used and its origin; it MUST NOT infer, repair, or override a key on the basis of a stored artefact.
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -639,6 +641,24 @@ This limitation does NOT apply to `cgDelegation=false` (the default), which uses
 - **THEN** `presto.android.util.JimpleDefUtils` MUST exist with public static methods `definitionRhs(Unit, Local)`, `resolveInt(Value)`, `resolveStr(Value)`
 - **AND** `MenuExtractor.java` and `SpinnerItemExtractor.java` MUST contain zero private duplicates of those helpers (grep within those two files yields zero hits for `private.*definitionRhs|private.*resolveInt|private.*resolveStr`)
 - **AND** `MenuExtractor` and `SpinnerItemExtractor` MUST invoke the helpers via `JimpleDefUtils.*` qualified calls
+
+### Requirement: Analysis Key Provenance Is Recorded, Never Inferred (FR04, FR05, FR06, NFR06)
+
+Every static analysis run MUST record the package key it filtered on and the origin of that key (`manifest` or `detector`), at the time the analysis is performed, in the run's own output. The record exists because the analysis artefact cannot carry the information: GATOR writes the manifest package into the JSON's `package` member irrespective of the `codePackage` client parameter it was invoked with, so the file is silent about its own scope.
+
+No component MUST attempt to recover the key from a stored artefact, and no component MUST substitute the caller's requested key with one derived from a stored artefact. When a previously produced JSON was measured under a different key than the current run resolves, the mismatch is a data-management fact about the corpus, and the tool MUST NOT resolve it silently in either direction.
+
+#### Scenario: The key and its origin are recorded with the analysis
+
+- **WHEN** a static analysis runs over `org.fossify.calendar_20.apk` with the detector disabled, so that the resolved key is the declared `org.fossify.calendar.debug`
+- **THEN** the run's record MUST state the key `org.fossify.calendar.debug` and the origin `manifest`
+- **AND** the same key MUST be the one passed to GATOR as `-clientParam codePackage=` and the one given to `StaticAnalysisParser`
+
+#### Scenario: A stored artefact never supplies the key
+
+- **WHEN** an analysis JSON exists at `<results_dir>/<apk>.json` whose `package` member reads `org.fossify.calendar.debug`, and a run re-parses it with a resolved key of `org.fossify.calendar`
+- **THEN** the parser MUST filter using `org.fossify.calendar`, the key it was given
+- **AND** the `package` member of the JSON MUST NOT be read as a filtering key, nor used to override the resolved one
 
 ### Requirement: Target Method Source Abstraction (FR04)
 
