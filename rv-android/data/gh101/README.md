@@ -1,6 +1,6 @@
 # The records the JCA specification sets are checked against (gh101)
 
-Five files here, all regenerable, all committed. They exist because the two JCA
+Six data files here, all regenerable, all committed. They exist because the two JCA
 specification sets stopped being interchangeable: `jca` produced published
 measurements and is frozen at commit `7e7acb69`, so every correction lands in
 `jca_android` alone and the sets now diverge outside their allow-lists on
@@ -18,6 +18,18 @@ else. These records are what keeps the difference at least *nameable*.
 | `divergence_record.csv` | every hunk by which the sets differ, with its reason | `scripts/gh101_divergence_record.py` |
 
 The gates that consume them live in `tests/parity/test_gh101_specset_gates.py`.
+
+Two prose records sit beside them. `frozen_set_debt.md` lists what the `jca` set
+knowingly retains — each entry a repair made in the derived set and deliberately
+not made there — so a set kept reproducible is not mistaken for a set kept
+correct.
+
+`algorithm_naming.md` is the other, and is prose rather than data: it records
+the gap between what a specification compares and what the platform resolves —
+case, spelling variants and provider aliases — measured from the campaign and
+from the corpus sources, together with the two rule defects the same sweep
+surfaced and the design that would close the gap properly. Only its smallest part
+is repaired in this change.
 
 ## The predicate inventory
 

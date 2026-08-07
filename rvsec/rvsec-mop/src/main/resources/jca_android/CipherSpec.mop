@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
 import br.unb.cic.mop.Property;
-import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;
+import static br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil.*;
 
 
 /**

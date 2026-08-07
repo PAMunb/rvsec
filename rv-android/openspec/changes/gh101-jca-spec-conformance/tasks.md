@@ -34,14 +34,14 @@
 
 ## 2. Transformation tables for the derived set
 
-- [ ] 2.1 Add `br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil` with `isValid(String)` — beside the frozen class, in the package that already exists — transcribing the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode tables and per-mode padding tables, held as immutable class-level data (D-S3, INV-INS-112)
-- [ ] 2.2 Delegate parsing to the frozen utility's `alg`, `mode` and `pad` rather than restating the split, so a transformation string is decomposed in one place for both sets; being in the same package, the calls need no import. Fold case on all three components, which the frozen class does for padding only and which one corpus call site (`AES/CBC/PKCS5PADDING`) depends on
-- [ ] 2.3 Point `jca_android/CipherSpec.mop` at the new utility by redirecting its **static wildcard import** at `:15` only; the call sites read bare `isValid(...)`, so all five keep their current form byte for byte
-- [ ] 2.4 Table-driven test over the derived utility: each of the eight algorithms admitted with a conforming transformation, and rejected with a non-conforming mode or padding. Cover the two transformations the corpus contains where the derived verdict differs from the frozen one — `AES/ECB/NoPadding`, which the rule leaves unconstrained and the frozen class rejects, and `AES/CBC/PKCS5PADDING`, which only the case fold admits
-- [ ] 2.5 Assert the specific contradiction this closes: `ChaCha20`, `DESede`, `BLOWFISH` and `ARC4` are accepted by `KeyGeneratorSpec` and are now also accepted by `CipherSpec` in the derived set
-- [ ] 2.6 Record in the divergence record that `jca_android/CipherSpec.mop` diverges from `jca` by its import, with the reason
-- [ ] 2.7 Record as knowingly retained, in the frozen set's debt list, the two hygiene defects inside the freeze: `PKCS5PADDING` duplicated for `CBC` and `PCBC`, and the commented `rsaECBPaddings` block
-- [ ] 2.8 Run the freeze check and the divergence-record check
+- [x] 2.1 Add `br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil` with `isValid(String)` — beside the frozen class, in the package that already exists — transcribing the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode tables and per-mode padding tables, held as immutable class-level data (D-S3, INV-INS-112)
+- [x] 2.2 Delegate parsing to the frozen utility's `alg`, `mode` and `pad` rather than restating the split, so a transformation string is decomposed in one place for both sets; being in the same package, the calls need no import. Fold case on all three components, which the frozen class does for padding only and which one corpus call site (`AES/CBC/PKCS5PADDING`) depends on
+- [x] 2.3 Point `jca_android/CipherSpec.mop` at the new utility by redirecting its **static wildcard import** at `:15` only; the call sites read bare `isValid(...)`, so all five keep their current form byte for byte
+- [x] 2.4 Table-driven test over the derived utility: each of the eight algorithms admitted with a conforming transformation, and rejected with a non-conforming mode or padding. Cover the two transformations the corpus contains where the derived verdict differs from the frozen one — `AES/ECB/NoPadding`, which the rule leaves unconstrained and the frozen class rejects, and `AES/CBC/PKCS5PADDING`, which only the case fold admits
+- [x] 2.5 Assert the specific contradiction this closes: `ChaCha20`, `DESede`, `BLOWFISH` and `ARC4` are accepted by `KeyGeneratorSpec` and are now also accepted by `CipherSpec` in the derived set
+- [x] 2.6 Record in the divergence record that `jca_android/CipherSpec.mop` diverges from `jca` by its import, with the reason
+- [x] 2.7 Record as knowingly retained, in the frozen set's debt list, the two hygiene defects inside the freeze: `PKCS5PADDING` duplicated for `CBC` and `PCBC`, and the commented `rsaECBPaddings` block
+- [x] 2.8 Run the freeze check and the divergence-record check
 
 ## 3. The two hot specifications
 
