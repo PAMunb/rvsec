@@ -140,6 +140,30 @@ Com o molde da §13 morto, as saídas para o canal probe → APE-RV são:
 > **WHEN** >90% dos composables de toda tela alcançam alvo sob qualquer corte testado
 > **THEN** o sinal booleano está saturado; se nem o graduado discriminar, D1 morre por falta de valor — com E1 aprovado ou não — e o resultado entra na série como medição, não como plano abandonado.
 
+### 6.1 Emenda de 2026-08-07: o que é derivável, e o que o pré-gate offline já mostra
+
+Duas correções à mitigação acima, ambas medidas.
+
+**`minHops` não é derivável do artefato existente.** A Fase 2 da Trilha A promete a tabela graduada "por script sobre o dex + `reachability[]` existente", sem tocar o gator. Isso vale para a densidade, não para `minHops`. O `.apk.json` carrega, por método, exatamente cinco campos — `name`, `signature`, `reachable`, `reachesTarget`, `directlyReachesTarget` —, todos booleanos: não há contagem de hops nem lista de classes-alvo. Das três gradações consideradas, só a **densidade por tela** sai do que já existe; `minHops` e `[classes-alvo]` são mudança de produtor, sujeitas à regra do gator.
+
+O consolo é que a mudança é mínima *em computação*. O `ReachabilityEngine` já inverte o grafo e roda BFS multi-fonte a partir dos alvos (`multiSourceBfs`, `RvsecAnalysisClient.java:417-441`), e **`minHops` é exatamente a camada em que a BFS visita o método** — trocar o `Set<V> visited` por um `Map<V,Integer>` de distâncias dá o valor na mesma passada, mesma complexidade. O booleano de hoje é essa informação calculada e descartada (`reachesTarget` ≡ `minHops < ∞`; `directlyReachesTarget` ≡ `minHops == 1`). O custo é de governança, não de CPU — e o `int` ainda teria de caber no schema compacto da rearch-07, cujo INV-DRV-06 proíbe chaves `*Target` e call-graph no wire.
+
+**A densidade — a única variante barata — quase reprova no pré-gate.** Tela não existe offline, então o proxy é a classe declarante (composable de topo compila para `<Arquivo>Kt`, logo classe ≈ arquivo ≈ tela). O proxy é assimétrico e é por isso que vale: se em toda classe 100% dos composables alcançam alvo, então toda tela — subconjunto de composables de uma ou mais classes — também está em 100%, e a densidade não pode discriminar. Sobre 7.743 classes com ≥3 composables em 116 apps Compose:
+
+| | classes | |
+|---|---:|---|
+| em 100% (saturadas) | 6.964 | **89,9%** |
+| em 0% | 200 | 2,6% |
+| parciais (0<f<1) — onde a gradação viveria | 579 | **7,5%** |
+
+Mediana por app: **93% das classes em 100%**. Em **26 dos 116 apps (22,4%) toda classe está em 100%** — ali a refutação é estrita. Só **18 de 116 (15,5%)** têm ao menos 20% das classes fora da saturação.
+
+E há um agravante estrutural: uma tela compõe composables de **várias** classes, então a densidade por tela é uma média sobre o conjunto ativo. Média sobre um universo em que 90% dos itens valem 1 puxa quase toda tela para perto de 1 — **agregar reduz variância**, então a densidade por tela real tende a discriminar *menos* que este proxy. O número acima é o caso otimista.
+
+**O que isto decide.** Sobre o substrato como ele existe hoje, a densidade herda a saturação da §4.3 do doc 1 e não escapa dela. Não decide o caso geral: a medição é feita sobre os mesmos dados suspeitos de saturação artificial, e as duas rodadas do doc 1 §6.5 não conseguiram estabelecer se a causa é artefato de análise. Se for, um grafo corrigido poderia produzir densidade discriminativa. A refutação é do substrato atual, não da ideia.
+
+**Consequência para o plano**: se a Fase 2 rodar, o piloto não deve sortear ~5 APKs — deve olhar os 18 com massa não-saturada, que são o único lugar onde a densidade tem chance de mostrar contraste. E a variante que teria chance real de discriminar, `minHops`, deixou de ser "offline, não toca gator".
+
 ---
 
 ## 7. O plano, em três trilhas
@@ -149,7 +173,7 @@ Com o molde da §13 morto, as saídas para o canal probe → APE-RV são:
 | Fase | O que | Custo | Gate |
 |---|---|---|---|
 | **1 — E1** | probe reflexivo (vias A: tracer de `traceEventStart`; B: `CompositionData`) injetado em `dev.itsvic.parceltracker` via fat jar com `--no-coverage`; run pela plataforma (gestão de emulador é da plataforma, sem exceção) | 1 descritor `.json` + 1 `.java`, ambos descartáveis + 1 run (§11) | FQNs aparecem **e** leitura < ~80 ms (fallback: instantâneo por estado novo — encaixa no APE-RV, que tem o hook "1× por estado novo" em `registerScreenElements`) |
-| **2 — Piloto D1 offline** | tabela graduada `FQN → {reaches, minHops}` por script sobre o dex + `reachability[]` existente, ~5 APKs; probe emite conjunto ativo por estado | dias; **não toca gator nem APE-RV** | o gate da §6 |
+| **2 — Piloto D1 offline** | tabela graduada `FQN → {reaches, minHops}`, ~5 APKs; probe emite conjunto ativo por estado. **`minHops` não sai do `reachability[]` existente** — ver §6.1 | dias para a densidade; `minHops` **toca o gator** | o gate da §6, já parcialmente antecipado pela §6.1 |
 
 Quando a Fase 2 iniciar, abrir issue GitHub + change `gh<N>-compose-screen-signal` neste repositório, pelas skills OpenSpec (convenção do projeto).
 
