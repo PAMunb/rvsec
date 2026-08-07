@@ -172,7 +172,7 @@ args.addAll(Arrays.asList("-p", "cg", "all-reachable:true"));
 
 **E não adianta mexer no `-exclude`.** `androidx.compose.`, `kotlin.` e `kotlinx.` já estão excluídos com `-no-bodies-for-excluded` (`Main.java:224-227`), o que já converte essas classes em *phantom* e corta qualquer aresta **através** delas. A saturação acontece apesar disso, porque os caminhos que saturam são internos ao app — `composable → lambda do app → ViewModel → repository → JCA` —, e esses não há como excluir sem excluir o objeto da análise.
 
-**Status**: mecanismo inferido da leitura do código, **não medido**. O experimento que o confirmaria está registrado na §6.5.
+**Status**: mecanismo inferido da leitura do código, e **continua não medido** depois do experimento de 2026-08-07. O experimento rodou, mas o contrafactual que ele constrói é degenerado: desligar `all-reachable` sozinho não produz "alcance real", produz *ausência de alcance*, porque no Android não há `main()` e o gator não alimenta nenhum entry point substituto. Os dois estratos vão a zero juntos, então a previsão diferencial desta seção — cair muito em Compose e pouco em View — não chega a ser testada. O relato completo está na §6.5.1. A hipótese permanece de pé como explicação plausível e **não confirmada**; nada abaixo nesta seção depende dela, porque a consequência prática (`reachesTarget` booleano não discrimina em Compose) é medida direta da §4.3, não inferência sobre a causa.
 
 ---
 
@@ -266,9 +266,36 @@ Ressalva: muda o mecanismo do B9, e portanto o que a RQ-C4 avaliaria como tratam
 
 **Prioridade**: baixa, e o motivo **não** é o custo — é que o resultado **não altera o plano**. Se a hipótese se confirmar, o conserto (desligar `all-reachable` e alimentar entry points de verdade) continua sendo mudança no gator mais re-análise dos 348 APKs; se for refutada, a saturação tem outra causa e a conclusão prática — `reachesTarget` booleano não discrimina em Compose — permanece igual. A mitigação já escolhida, a tabela graduada `FQN → {reaches, minHops}` do doc 5 §6, contorna o problema sem depender desta resposta.
 
-**Quando**: análise estática é pesada em CPU. Enquanto a campanha `cmp163` ocupar a máquina, rodar os dois braços rouba CPU dela e ainda mede tempos inúteis. A preparação do jar é offline e pode ser feita a qualquer momento; a execução deve esperar a máquina livre.
+#### 6.5.1 Resultado de 2026-08-07: o contrafactual é degenerado
 
-**Veredito: registrar e adiar.** Vale como item de rigor para o texto da tese (explica *por que* o sinal satura, em vez de só constatar que satura), não como pré-requisito da Fase 2.
+O experimento rodou com a máquina livre, pela rota preferida. O patch de constant pool funcionou como previsto: 18 bytes por 19, prefixo de comprimento corrigido, `javap -v -c` idêntico ao original exceto pela constante `#483` e pelo comentário do `ldc_w` que a carrega. Os quatro braços imprimiram a linha `[SOOT-ARG]` esperada, então nenhum foi descartado.
+
+**A linha de base reproduziu exatamente**, que era o portão de entrada: os dois braços BASE devolveram os mesmos números do `.apk.json` vigente *e* o mesmo grafo dos logs de proveniência de junho — 130.036 vértices e 711.893 arestas no APK Compose, 69.791 e 269.279 no View. Reprodução em tamanho de grafo, não só em percentual, é evidência forte de que o pipeline foi replicado fielmente.
+
+| braço | APK | vértices → | arestas → | `reachesTarget` composables | demais métodos | tempo |
+|---|---|---|---|---|---|---|
+| BASE | parceltracker (Compose) | 130.036 | 711.893 | 142/142 (**100,0%**) | 806/3.797 (21,2%) | 395s |
+| EXP | parceltracker (Compose) | **7** | **12** | 0/142 (**0,0%**) | 0/3.797 (0,0%) | 33s |
+| BASE | retrowars (View) | 69.791 | 269.279 | — (0 composables) | 628/2.933 (21,4%) | 181s |
+| EXP | retrowars (View) | **1.009** | **2.445** | — | 0/2.933 (0,0%) | 96s |
+
+A enumeração de classes e métodos é idêntica entre os braços (625/3.939 e 514/2.933), assim como `windows` e `transitions`: o JSON continua íntegro e a camada GUI não depende da flag. O que colapsa é só o que deriva do call graph.
+
+**Por que isso não responde à pergunta.** A previsão da §4.3.1 era diferencial — Compose cai muito, View cai pouco. O que se observa é que **os dois caem até o chão**, porque `all-reachable:false` não deixa entry point nenhum: no Android não existe `main()`, os callbacks são chamados pelo framework, e o gator não gera um `dummyMain` que os substitua. Sem raiz, o grafo se desfaz (130.036 vértices viram 7) e `reachesTarget` vira constante `false` em toda parte. Um contrafactual que zera o construto medido não separa "artefato de modelagem de entry point" de "nenhuma modelagem de entry point": ele só mostra que a flag é *load-bearing*, o que já se sabia.
+
+**Portanto a hipótese não foi confirmada nem refutada — ela segue não testada.** Testá-la de verdade exige `all-reachable:false` **mais** um conjunto real de entry points (callbacks de ciclo de vida à la FlowDroid), que é a rota alternativa 2 acima: mudança de verdade no gator, sujeita à regra vigente e a autorização explícita. Não foi feita.
+
+**Uma observação secundária, e fraca.** O braço Compose colapsou para 7 vértices enquanto o View reteve 1.009 — ou seja, sobra algum esqueleto enraizado em código convencional no app de Views e quase nada no app Compose. Isso é *compatível* com a leitura de que em Compose praticamente toda a estrutura pende do leque de entry points, mas com n=2 e sem controle sobre o que exatamente o Soot ainda enraíza (inicializadores estáticos, o caminho de `-cgDelegation`), não sustenta conclusão. Fica registrado como pista, não como achado.
+
+**O que muda no plano: nada**, exatamente como o parágrafo de prioridade acima previa. A consequência prática — `reachesTarget` booleano não discrimina em Compose — vem da medição direta da §4.3 e independe da causa. A mitigação escolhida, a tabela graduada `FQN → {reaches, minHops}` do doc 5 §6, continua sendo a resposta certa.
+
+**Três correções operacionais**, para quem repetir isto:
+
+- **A entrada da análise é o APK original, não o instrumentado.** Os `.apk.json` moram junto dos APKs instrumentados, mas a proveniência (`rvsec-dataset-sa/logs/*.log`) mostra `-project .../rvsec-dataset/head_apks/<apk>`. Rodar sobre o instrumentado mudaria o call graph e derrubaria o portão da linha de base.
+- **A verificação prometida acima não é gratuita pela rota descrita.** `Logger.trace` é no-op por padrão e só liga sob `-verbose` (`Main.java:66`), que o `rv-static-analysis` nunca passa — as linhas `[SOOT-ARG]` exigem invocar o launcher do gator direto com `-v`. Todos os usos de `Configs.verbose` são de log e não alteram a análise, então os dois braços podem carregá-lo sem prejuízo.
+- **Copiar `lib/gator/` não basta**: `pygator/unpacker.py:6` resolve o apktool como `<gator>/../../apktool/apktool.jar`, isto é, um irmão do diretório copiado.
+
+**Veredito: executado, inconclusivo por desenho.** A pergunta continua aberta e barata de fechar apenas se alguém já for mexer em entry points no gator por outro motivo. Sozinha, ela não justifica a mudança.
 
 ---
 
