@@ -26,7 +26,8 @@ uv run rv-experiment run --tools aperv:sata_mop --specification-set jca   # MOP-
 | `tests/test_trace_ndjson.py` | Reader semantics against `tests/fixtures/trace_ndjson_golden.ndjson` |
 | `tests/test_coverage_dump.py` | `UICOV` / `UICOV-ACT` parsing |
 | `tests/test_clock_logcat_join.py` | Heartbeat placement, including both routes to `UNALIGNED` |
-| `tests/migration/` | The one-time regeneration diff against `arm_effective_baseline.json`, the retirement list, the pinned jar tables, the mapping sweep. Deleted once the owner signs off and `gh97-rearch-ab-gate` has run |
+| `tests/migration/` | The standing part of the preset migration: the retirement list, the pinned jar tables (INV-APV-41), the mapping sweep and the decisive-run contrasts. Requires `$APE_REPO`; **skips silently without it**, so a green run here is not evidence the tier executed |
+| `docs/gh95-migration-record/` | The archived one-time evidence: `arm_effective_baseline.json` (29 pre-change arms) and the record of the empty regeneration diff. The diff test was deleted at sign-off — it is one-time by rule (INV-APV-44) and must not become a standing constant-vs-constant guard. `tests/migration/capture_arm_baseline.py` still produces the baseline and writes here |
 | `tests/fixtures/cryptoapp.apk.json` | Ground-truth static-analysis JSON (provenance in `tests/fixtures/README.md`) |
 | `docs/architecture.md` | Architecture notes |
 

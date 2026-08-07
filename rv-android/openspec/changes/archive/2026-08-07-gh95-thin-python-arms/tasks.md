@@ -88,7 +88,40 @@
 - [x] 7.4c Delete `KNOWN_DEAD` from `tests/migration/test_mapping_sweep.py` — the entry it tolerated is gone, so the assertion was vacuous and would have accepted the dead key's return; assert no mapped key is dead instead
 - [x] 7.4d Delete the orphaned INV-APV-13 comment block above `_DECISIVE_ARMS` in `tests/test_aperv_tool.py` (P3/P4: it describes a deleted constant and carries migration history), and the unreachable not-yet-migrated path in `test_arm_regeneration_diff.py` (`_from_explicit_keys` and its branch), whose "green from day one" narrative describes a state that no longer exists
 - [x] 7.5 Run `/rv-docs-sync aperv-tool`
-- [ ] 7.6 **Owner sign-off**: present the final diff report and the task 1.6 finding. The sign-off approves the *migration*, not the retirement of its evidence: deleting `tests/migration/test_arm_regeneration_diff.py` and archiving `arm_effective_baseline.json`, the final diff output and the `ape` source provenance under `modules/aperv-tool/docs/` as the migration record are gated on `gh97-rearch-ab-gate` having executed. Everything this change does is offline, so `gh97`'s run is the first time a device honours `ape.preset`, and the diff plus the baseline are exactly what a mismatch there would need. When that deletion happens, only `test_arm_regeneration_diff.py` goes — `jar_tables.py`, `retirements.py`, `test_jar_tables.py`, `test_mapping_sweep.py` and `test_decisive_contrasts.py` stay, because INV-APV-41 and the decisive-run contrasts are standing checks (INV-APV-44 — the diff is one-time and MUST NOT become a standing constant-vs-constant guard). Name one residual risk in the sign-off: the whole migration tier skips silently without `$APE_REPO` (47 skips, by design — CI has no `ape` checkout), so a green module run is not evidence the gate ran; the executed result and the `ape` commit it ran against belong in the sign-off record, not merely in the baseline's provenance
+- [x] 7.6 **Owner sign-off**: present the final diff report and the task 1.6 finding. The sign-off approves the *migration*, not the retirement of its evidence: deleting `tests/migration/test_arm_regeneration_diff.py` and archiving `arm_effective_baseline.json`, the final diff output and the `ape` source provenance under `modules/aperv-tool/docs/` as the migration record are gated on `gh97-rearch-ab-gate` having executed. Everything this change does is offline, so `gh97`'s run is the first time a device honours `ape.preset`, and the diff plus the baseline are exactly what a mismatch there would need. When that deletion happens, only `test_arm_regeneration_diff.py` goes — `jar_tables.py`, `retirements.py`, `test_jar_tables.py`, `test_mapping_sweep.py` and `test_decisive_contrasts.py` stay, because INV-APV-41 and the decisive-run contrasts are standing checks (INV-APV-44 — the diff is one-time and MUST NOT become a standing constant-vs-constant guard). Name one residual risk in the sign-off: the whole migration tier skips silently without `$APE_REPO` (47 skips, by design — CI has no `ape` checkout), so a green module run is not evidence the gate ran; the executed result and the `ape` commit it ran against belong in the sign-off record, not merely in the baseline's provenance
+      **Signed off 2026-08-07, and the evidence retired in the same act.** The final diff is
+      **empty over all 8 surviving arms**, executed rather than asserted: `APE_REPO=<ape checkout>
+      pytest tests/migration` reports **48 passed in 0.49 s** against `ape` commit `822fc6cf`. The
+      baseline was captured earlier, at `8416c305` — the jar's source advanced between the two dates
+      and the diff stayed empty, which is the stronger reading, since the arms survived a moving
+      substrate rather than a frozen one.
+      **The decision 8.7 deferred here no longer needs making.** 8.7 recorded 13 failures and left
+      "re-capture the baseline?" to this sign-off. Commit `7902bab4`, forty minutes later, closed them
+      by the other route: `ape-rearch ea2d5a65` deleted `Feature.STEP_TELEMETRY` outright, so
+      `ape.stepTelemetryEnabled` now aborts plan validation as an unknown key; the Python side retired
+      it from `APERV_PROPERTY_MAPPING` to match, and the diff excludes it **by name, with its reason**,
+      as the jar's vocabulary moving rather than this migration's drift. The baseline stays a
+      historical document, which is what it is for.
+      **The 1.6 finding**: 21 retirements — **17** *finished campaign*, **3** *never distinct*, **1**
+      *name consolidated*. Two name a survivor: `sata_mop_widget` → `sata_mop` and
+      `sata_mop_act_frontier` → `mop_on_llm_off`, the second checked by the test rather than asserted.
+      **Residual risk, named as the task requires**: the tier **skips silently** without `$APE_REPO`
+      — 22 skips today, not the 47 this task's text records — and CI has no `ape` checkout, so a green
+      `/rv-verify aperv-tool` is *not* evidence this gate ran. That is why the executed result and the
+      commit it ran against are written here and in the migration record, not left to the baseline's
+      provenance block.
+      **Retirement executed.** `tests/migration/test_arm_regeneration_diff.py` deleted (backed up to
+      `backup/gh95-migration-evidence/` first); `arm_effective_baseline.json` archived under
+      `modules/aperv-tool/docs/gh95-migration-record/` with a README carrying the executed result and
+      the residual risk. The five standing pieces stay, as the task requires. Two consequences the
+      task did not foresee, both handled rather than worked around: `test_decisive_contrasts.py` — one
+      of the five — imported `regenerate()` from the deleted module, so that helper moved to
+      `capture_arm_baseline.py`, which stays; and `capture_arm_baseline.py` itself could not be
+      archived beside its output, because it imports `jar_tables.py` as a package sibling and an
+      archived script that cannot run is worse than none — it stays in the tier and now writes to the
+      archived path, so the baseline can still be re-derived instead of merely trusted.
+      **Module suite after the deletion: 296 passed, 22 skipped** (from 310/32). The arithmetic is
+      exact — the deleted file held 24 tests, 14 of which passed and 10 skipped without `$APE_REPO`.
 - [x] 7.7 Close the counterpart obligation the `ape`-side `rearch-05-thin-python-arms` reserved to this repository's OpenSpec workflow. There is nothing to tick over there: its task 1.3 records that **no task 8.5a exists and none will be created**, because the obligation — "open a change in rv-android carrying this stage's counterpart delta rather than hand-editing that repo's `openspec/specs/`" — is discharged structurally by `gh95` existing, and a numbered task to receive the pointer would re-import the coupling that rewrite removed. So this closes against that change as a whole, and no file in the `ape` worktree is touched
 
 ## 8. Retirement of the in-source jar-identity declaration (owner directive, 2026-08-05)

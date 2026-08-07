@@ -41,6 +41,10 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - `task.config.apk_name: str` -- APK filename used to locate the static analysis JSON
 - `app.package_name: str` -- Android package name passed to APE's `-p` flag
 - `self._tool_config: Dict[str, Any]` -- resolved variant configuration from `configure()`
+- `variant dict: Dict[str, Any]` -- per arm: `preset: str` (one of `aperv`, `mop`, `llm`, `llm_mop`), `overrides: Dict[str, Any]` (deltas over the preset, possibly empty), plus the Python-only orchestration keys `strategy` and `mop_data` (source: `ApeRVTool.get_variants()`, merged with experiment parameters by `ToolFactory`). No arm declares the revision or the digest of an `ape-rv.jar` build (INV-APV-59)
+- `tool_config.parameters: Dict[str, Any]` -- tool-DSL overrides (`aperv:<variant>@key=value`), merged **at the top level** over the variant dict by `ToolFactory` (`registry/factory.py:127`) and folded into `overrides` by `configure()` (INV-APV-39)
+- `APERV_PROPERTY_MAPPING: Dict[str, str]` -- override key → `ape.*` property name; contains only keys the deployed jar accepts (source: `tool.py` module constant)
+- preset vectors and the accepted-key vocabulary -- read from the `ape` source checkout (`runtime/Presets.java`, `runtime/KeyOwnership.java`) by the migration tooling only; not a runtime dependency of `aperv-tool`
 - `ape-rv.jar` -- Dalvik JAR resolved at execution time via priority search
 - `system-broadcast.json` -- optional broadcast catalog file shipped alongside the tool module
 - `<task.results_dir>/<task.config.apk_name>.json` -- static-analysis document produced by `rvsec-analysis-client.jar`. Sections consumed by the handler-reach enrichment: `windows[].widgets[].listeners[].handler` (handler signatures) and `reachability[].methods[]` (`signature`, `reachable`, `reachesTarget`, `directlyReachesTarget`)
@@ -51,6 +55,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 ### Output
 
 - `task.result.trace_file` -- populated with APE-RV stdout+stderr (binary write mode)
+- `ape.properties` on device -- `ape.preset=<name>` first, `ape.mopDataPath=<artifact>` when the derived MOP artifact was pushed, then one `ape.<key>=<value>` line per `overrides` entry (destination: `/data/local/tmp/ape.properties`, consumed by the jar's key resolution)
 - Task output provenance fields: `llm_backend`, `llm_model`, `llm_sampling` -- recorded per run (LLM arms)
 - Join report (A9): per-run rows correlating step clock positions with `RVSEC:` violation timestamps
 - Per-run coverage rows at Activity grain from the offline coverage-dump parser, each carrying an explicit dump status (complete, partial, or absent)
@@ -72,7 +77,8 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 ### Error
 
-- `ConfigurationError` -- raised by `configure()` when `strategy` key is absent or not in `["sata", "random", "bfs", "dfs"]`, and when `corpus_basis` is present but does not match `^[A-Za-z0-9._-]+:[0-9a-f]{64}$`. Both are raised before any device interaction, so a malformed value costs no emulator time and produces no partially-configured run
+- `ConfigurationError` -- raised by `configure()` when `strategy` is absent or outside `["sata", "random"]`, when `preset` is absent or empty, when `overrides` is not a dict, when a top-level key is neither mapped nor a recognised orchestration key (INV-APV-39), when an `overrides` key has no `APERV_PROPERTY_MAPPING` entry, and when `corpus_basis` is present but does not match `^[A-Za-z0-9._-]+:[0-9a-f]{64}$`. All are raised before any device interaction, so a malformed value costs no emulator time and produces no partially-configured run
+- Jar-side abort -- an unknown key, a retired key, an invalid type, or a non-neutral value of an inactive feature aborts the run before step 1; visible in the trace, never silent
 - `RVToolExecutionError` -- raised when `ape-rv.jar` cannot be found in any search path, when an ADB push fails, when a MOP arm has no full JSON or its derivation fails, or when the exploration returns materially short of its budget (INV-APV-60). Non-MOP arms are unaffected by the MOP cases
 - `DerivationError` -- raised by `derive()` when the document is structurally unusable (`complete` absent or false, missing `package`, a section of the wrong type). No partial artifact is produced; the caller re-raises it as `RVToolExecutionError`
 - `RVToolTimeoutError` -- raised when execution exceeds `task.config.timeout + 45` seconds (expected normal exit for exploration tools)
@@ -89,7 +95,12 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-04**: The `app_process` working directory SHALL be `/system/bin` (not `/data/local/tmp/`). The enhanced APE binary references system-level resources relative to its working directory during startup; using `/data/local/tmp/` causes startup failures. This intentionally diverges from the builtin `ape` tool, which uses `/data/local/tmp/` as working directory.
 
-- **INV-APV-05**: `get_variants()` SHALL return a dict containing at minimum the keys `["default", "sata", "sata_mop", "bfs", "random", "sata_llm", "sata_mop_llm"]` plus the prompt variant experiment variants (`sata_mop_llm_<prompt>`). The `"default"` key SHALL map to the `sata` strategy (INV-TOOL-02 compliance).
+- **INV-APV-05**: `get_variants()` SHALL return a dict whose keys are exactly `default`,
+  `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off` and
+  `mop_on_llm_70`, with `default` bound to the same object as `sata` (INV-TOOL-02). The pre-change
+  minimum set named `bfs`, `random` and the six `sata_mop_llm_<prompt>` variants, all of which this
+  change retires; the invariant is restated rather than exempted, because a minimum-set rule that
+  lists retired names is false, not merely outdated.
 
 - **INV-APV-06**: The `sata_mop` variant SHALL set `mop_data` to `"static_analysis"`. When `mop_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the full static-analysis JSON, obtain the derived compact artifact from it (cache-or-generate), and push **only that artifact** to the device. If the JSON is not found, or its derivation fails, the task SHALL fail before the jar is launched (INV-APV-45): there is no graceful-degradation path, because a MOP arm that runs without MOP data is a mislabelled run rather than a degraded one.
 
@@ -105,46 +116,6 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-12**: Non-zero exit codes from APE-RV SHALL NOT be treated as failures. APE-RV exits with non-zero codes when it detects app crashes during exploration (e.g., exit code 211). Coverage is collected via logcat regardless. Only `RVCommandTimeoutError` is re-raised as `RVToolTimeoutError`.
 
-- **INV-APV-13**: `APERV_PROPERTY_MAPPING` MUST contain an entry for every key in `ARM_DEFINING_KEYS`. The
-  Python→Java names MUST be: `frontier_boost_weight`→`ape.frontierBoostWeight`,
-  `activity_trigger_enabled`→`ape.activityTriggerEnabled`,
-  `back_menu_pick_cap`→`ape.backMenuPickCap`, `foreign_activity_guard`→`ape.foreignActivityGuard`,
-  `tree_package_guard`→`ape.treePackageGuard`, `dynamic_epsilon`→`ape.dynamicEpsilon`,
-  `heuristic_input`→`ape.heuristicInput`, `fuzz_input_typed`→`ape.fuzzInputTyped`,
-  `form_completion_enabled`→`ape.formCompletionEnabled`, `step_telemetry_enabled`→`ape.stepTelemetryEnabled`,
-  `model_menu_enabled`→`ape.modelMenuEnabled`, `least_visited_priority_tiebreak`→`ape.leastVisitedPriorityTiebreak`,
-  `tree_enhancements_enabled`→`ape.treeEnhancementsEnabled`, `activity_budget_enabled`→`ape.activityBudgetEnabled`,
-  `mop_activity_source_components`→`ape.mopActivitySourceComponents`, `mop_frontier_weight`→`ape.mopFrontierWeight`,
-  `llm_percentage_no_substrate`→`ape.llmPercentageNoSubstrate` — 17 keys. The set is bounded by what the jar
-  reads: `ape.triggerMopFirst` and `ape.apePureMode` are absent from it because the jar has no
-  `Config.triggerMopFirst` and no `apePureMode` forcing mechanism. `ape.apePureMode` is further a **retired
-  key**: the jar aborts at bootstrap, before step 1, when a properties file carries it, so it MUST NOT appear
-  in `APERV_PROPERTY_MAPPING` or in any variant dictionary.
-
-- **INV-APV-14**: Every variant returned by `get_variants()` **except** the exempt ones (INV-APV-17) MUST
-  set **every** key in `ARM_DEFINING_KEYS` explicitly in its dictionary. A variant MUST NOT rely on a jar
-  `Config` default for any arm-defining flag.
-
-- **INV-APV-15**: `ARM_DEFINING_KEYS` MUST be a module-level constant in `tool.py` (a `frozenset` or
-  tuple), the single source of truth consumed by both the guard tests and any reviewer. Adding a new
-  arm-defining flag means adding it to `ARM_DEFINING_KEYS`, to `APERV_PROPERTY_MAPPING`, and to every
-  non-exempt variant — in the same commit (the guard tests fail otherwise). `mop_data` and `strategy` are
-  Python-only orchestration keys and MUST NOT be in `ARM_DEFINING_KEYS`; the MOP weight keys
-  (`mop_weight_direct`/`mop_weight_transitive`/`mop_weight_open_menu`/`mop_weight_wtg`) are gated by
-  `mop_data` (a null `MopData` disables scoring regardless of weights) and are therefore NOT arm-defining,
-  but MUST be set explicitly in the MOP arms for auditability. `max_idle_timeout_ms`
-  (→ `ape.maxIdleTimeoutMs`) is likewise an arm-neutral tuning knob: it is in `APERV_PROPERTY_MAPPING` but
-  NOT in `ARM_DEFINING_KEYS`, and need not be set per-variant.
-
-- **INV-APV-16**: `get_variants()["sata_mop"]` MUST be identical to `get_variants()["sata_mop_widget"]`
-  (the documented alias). Changing the widget arm MUST change the alias in lockstep (they SHOULD reference
-  one shared dict).
-
-- **INV-APV-17**: The six gh43 prompt-experiment variants (`sata_mop_llm_ape_current`,
-  `sata_mop_llm_ape_reasoning`, `sata_mop_llm_compact_v1`, `sata_mop_llm_v13`, `sata_mop_llm_v17`,
-  `sata_mop_llm_visual_only`) are **frozen for historical reproducibility** and are EXEMPT from INV-APV-14.
-  The exemption set MUST be an explicit, named constant so the guard test enumerates it deliberately (not a
-  prefix match that could silently absorb a future non-exempt `sata_mop_llm_*` arm).
 
 - **INV-APV-18**: When a `seed` is present in `_tool_config`, `_build_main_command` MUST append `-s <seed>`
   to the `app_process` argument vector (after `--ape <strategy>`). When no seed is configured, the command
@@ -153,10 +124,6 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
   `Monkey.mRandom` and APE's `RandomHelper`, INV-EXPL-14); this invariant closes the rv-android-side gap
   that previously dropped the seed.
 
-- **INV-APV-19**: Introducing a new arm-defining APE-RV flag into `aperv-tool` MUST, in the same commit,
-  (a) add the Python key to `ARM_DEFINING_KEYS`, (b) add its `APERV_PROPERTY_MAPPING` entry, and (c) set it
-  explicitly in every non-exempt variant. INV-APV-13 and INV-APV-14 are the executable enforcement of this
-  policy.
 
 - **INV-APV-29**: The MOP-off control arm SHALL set `mop_data` to a **present and loadable** document, SHALL set `mop_weight_direct`, `mop_weight_transitive`, `mop_weight_open_menu`, `mop_weight_wtg`, and `mop_frontier_weight` all to `0`, and SHALL set `activity_trigger_enabled=false`. It SHALL NOT achieve MOP-off by omitting `mop_data` or by pointing `ape.mopDataPath` at a missing file — the first disables the generic WTG and frontier passes as collateral, the second aborts the run.
 
@@ -164,7 +131,6 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-33**: Backend provenance SHALL be obtained from a live `/v1/models` query performed at the start of each run, never from static configuration. When the query fails, the provenance fields SHALL record the failure explicitly; the run SHALL NOT be aborted and a value SHALL NOT be inferred from configuration.
 
-- **INV-APV-34**: `llm_snap_tolerance_px=150` SHALL be applied only in an arm that also declares both the git sha and the sha256 of the `ape-rv.jar` build containing the dead-pair ban (sister change `telemetry-proof-llm-efficacy`, item B1). The tolerance and the two declarations SHALL be present together or absent together — a guard test SHALL fail on any one alone. The declared sha256 SHALL be verified against the `jar_sha256` captured at run start, before the decisive run consumes wall-clock. Against a jar without B1, the wider radius amplifies repeated dead taps instead of rescuing near-misses.
 
 - **INV-APV-35**: The clock↔logcat join SHALL be an offline, read-only computation over recorded artifacts. It SHALL NOT read logcat from a running device, SHALL NOT require an emulator, and SHALL NOT modify any artifact it reads.
 
@@ -220,6 +186,64 @@ which the sibling `ape` change already references by number.
 - **INV-DRV-07**: Each emitted activity SHALL carry `deepLinkUri` derived by the rule the jar applies
   today; the intent-filter structure itself SHALL NOT be on the wire.
 
+- **INV-APV-38**: Every arm whose `preset` is `llm` or `llm_mop` MUST carry `llm_url` in its
+  `overrides`. The preset deliberately omits the server URL because it names a machine rather than an
+  arm, while still stating the LLM routing gates ON, so an arm that inherits the preset without
+  supplying the URL activates routing over an absent mechanism and aborts at resolution. This is a
+  fail-fast, not a fallback.
+- **INV-APV-39**: `configure()` MUST fold every top-level config key that has an
+  `APERV_PROPERTY_MAPPING` entry into `overrides`, and MUST raise `ConfigurationError` for any
+  top-level key that is neither mapped nor one of the recognised orchestration keys (`preset`,
+  `overrides`, `strategy`, `mop_data`, `seed`, `device_port`, `device_serial`,
+  `device_id`). The three device keys are addressing rather than
+  configuration: rv-experiment's `ExecutionController` injects all three into every tool's
+  parameters whenever `--device-port` is set, which every Docker compose file does, and the tool
+  reads the serial from `task.config.device_id` at execution time rather than from `_tool_config`.
+  Rejecting them would abort every containerized and parallel run inside `Platform._load_tool`,
+  before a device is touched. The
+  tool DSL (`aperv:<variant>@key=value`) delivers its overrides at the top level — `ToolFactory`
+  merges `{**variant_config, **tool_config.parameters}` — while `_push_properties()` reads only
+  `overrides`. Without the fold, a DSL override would be silently discarded: no property line, no
+  error, and a run executing a configuration nobody asked for. A key that cannot be honoured MUST
+  fail loudly rather than vanish.
+- **INV-APV-40**: Every variant returned by `get_variants()` MUST consist of a `preset` name, an
+  `overrides` dict (possibly empty), and Python-only orchestration keys. No variant may carry a full
+  property expansion; the substrate spread dicts are deleted, not retained in reduced form.
+- **INV-APV-41**: `APERV_PROPERTY_MAPPING` MUST contain only keys the deployed jar accepts. Dead keys
+  are removed, not commented out. `llm_snap_tolerance_px` and `llm_max_tokens` are live jar keys
+  (`Feature.LLM` sub-parameters) and MUST remain mapped.
+- **INV-APV-42**: The eight surviving variant names are frozen. The variant string is the
+  resume-identity key and the consolidation column key; re-expression MUST NOT rename a surviving
+  arm, and an owner-approved intentional divergence in effective configuration MUST be introduced as
+  a new declared arm name, never as a silent edit. The 21 retired names MUST be recorded in the
+  migration arm report as documented retirements — never as regeneration diffs and never as silent
+  absences — and each MUST carry its kind: *never distinct*, *name consolidated* (naming the arm the
+  configuration survives under), or *finished campaign*. A retirement whose configuration survives
+  elsewhere and one whose configuration ends are different facts, and a report that merges them
+  misstates what the migration did.
+- **INV-APV-43**: `tool.py` MUST NOT parse, validate or branch on `RUN_START` or any other jar echo
+  output (owner decision D1). Provenance is write-only in the trace; drift auditing is post-hoc
+  analysis.
+- **INV-APV-59**: No source file under `modules/` SHALL state the revision, digest or version of a
+  build artifact produced outside this repository, and no guard SHALL require an arm to declare one.
+  The identity of such an artifact SHALL be obtained by measuring the artifact at the moment it is
+  used — as `_capture_llm_provenance()` digests `ape-rv.jar` into `jar_sha256` at push time — and
+  recorded in the run's provenance, never asserted in advance by a literal. A literal identity is
+  unfalsifiable at rest and stale from the first rebuild: `ape-rv.jar` comes from a sibling
+  repository whose build is not bit-reproducible, so the same revision yields a different digest each
+  time it is built, and any pin becomes a maintenance obligation discharged by an author's memory. A
+  gate that compares a measurement against such a pin therefore fails on correct redeployments and
+  passes on stale ones, which is worse than no gate at all. This retires INV-APV-34, whose pairing of
+  the snap tolerance to a declared jar identity was the mechanism being described.
+- **INV-APV-44**: The one-time regeneration diff that proved every surviving arm's effective
+  configuration unchanged under `preset + overrides` MUST NOT survive as a standing
+  constant-vs-constant guard. It ran per arm against a captured baseline of all 29 pre-change
+  arms, on typed values rather than property text, with the 21 retired names excluded by an
+  explicit list rather than by silent absence; it was deleted at owner sign-off on 2026-08-07,
+  and its baseline and executed result are archived under
+  `modules/aperv-tool/docs/gh95-migration-record/`. Re-creating it under any name would recreate
+  the retired INV-APV-14 — a constant validated against a frozen copy of itself.
+
 - **INV-APV-48**: `trace_ndjson.py` SHALL be read-only and analysis-time only. It SHALL NOT write to the trace, SHALL NOT emit legacy `[APE-*]` lines, SHALL NOT be imported or invoked from `execute_tool_specific_logic()` or any other collection-path code, and SHALL NOT require a device, an emulator or `adb`.
 
 - **INV-APV-49**: Default materialization SHALL be total for the fields whose absence means a default, and SHALL NOT be applied to the fields whose absence is itself information. The six boost fields (`mop`, `mopf`, `wtg`, `cov`, `menu`, `form`) SHALL be materialized at `0` when absent, and `out.new_state` / `out.act_changed` at `false`. `dec.patched` and `dec.cf` SHALL be preserved as absent when absent — defaulting `patched` to `0` would make "no resolved target" indistinguishable from "natively clickable node", which is a tri-state the jar emits explicitly for that reason.
@@ -268,212 +292,236 @@ which the sibling `ape` change already references by number.
 
 ### Requirement: ApeRVTool Variants (FR20)
 
-`ApeRVTool` SHALL define named variants organized in five tiers: base variants, MOP-arm variants, LLM
-variants, prompt experiment variants, and calibration arm variants. Every variant SHALL include a
-`"strategy"` key and a `"throttle_ms"` key. The `"default"` variant SHALL use strategy `"sata"`
-(INV-TOOL-02).
+`ApeRVTool` SHALL define named variants as `preset + overrides`. Every variant SHALL consist of a
+`preset` name, an `overrides` dict, and Python-only orchestration keys (INV-APV-40).
 
-Every variant **except** the exempt prompt-experiment variants (INV-APV-17) SHALL set every key in
-`ARM_DEFINING_KEYS` explicitly (INV-APV-14) so the arm's behavior is defined by the variant dictionary and
-never by a jar `Config` default. Baseline arms (`default`/`sata`, `bfs`, `random`) SHALL set the RV
-exploration flags to the current jar defaults made explicit (`back_menu_pick_cap=3`,
-`foreign_activity_guard=true`, `tree_package_guard=true`, `dynamic_epsilon=true`,
-`heuristic_input=true`, `fuzz_input_typed=true`, `form_completion_enabled=true`, `step_telemetry_enabled=true`,
-`model_menu_enabled=true`, `least_visited_priority_tiebreak=true`, `tree_enhancements_enabled=true`,
-`activity_budget_enabled=true`, `llm_percentage_no_substrate=-1`) and the MOP/reach/frontier flags
-OFF (`frontier_boost_weight=0`, `activity_trigger_enabled=false`,
-`mop_activity_source_components=false`, `mop_frontier_weight=0`).
+`get_variants()` SHALL return exactly these **eight** frozen names, carrying **seven** distinct
+configurations:
 
-#### Base Variants
+| Variant | preset | mop_data | overrides |
+|---|---|---|---|
+| `default` | `aperv` | — | _(empty)_ — bound to the same object as `sata` (INV-TOOL-02) |
+| `sata` | `aperv` | — | _(empty)_ |
+| `sata_mop` | `mop` | `"static_analysis"` | _(empty)_ |
+| `sata_llm` | `llm` | — | `llm_url` |
+| `sata_mop_llm` | `llm_mop` | `"static_analysis"` | `llm_url` |
+| `mop_on_llm_off` | `mop` | `"static_analysis"` | the four reach-package keys |
+| `mop_off_llm_off` | `mop` | `"static_analysis"` | the MOP-off set (see "Decisive Run Arm Set") |
+| `mop_on_llm_70` | `llm_mop` | `"static_analysis"` | the reach package plus the LLM dose |
 
-| Variant | strategy | mop_data | RV exploration flags | frontier_boost_weight | activity_trigger_enabled | Notes |
-|---------|----------|----------|----------------------|-----------------------|--------------------------|-------|
-| `default` | `"sata"` | -- | ON (defaults explicit) | `0` | `false` | Alias for sata |
-| `sata` | `"sata"` | -- | ON (defaults explicit) | `0` | `false` | aperv baseline, RV exploration ON, MOP off |
-| `bfs` | `"bfs"` | -- | ON (defaults explicit) | `0` | `false` | Breadth-first baseline |
-| `random` | `"random"` | -- | ON (defaults explicit) | `0` | `false` | Priority-weighted random baseline |
-| `ape_pure` | `"sata"` | -- | **OFF (all explicit)** | `0` | `false` | Original APE; every RV flag off/0 |
+Four of the seven configurations are one-to-one with the jar's presets and carry nothing but the
+deployment-specific server URL where an LLM is involved. The remaining three are the E3 decisive
+run's arms: a reference on the reach package, its MOP-off control, and its LLM arm.
 
-`ape_pure` SHALL set every arm-defining flag to its off/zero value explicitly. That enumeration IS the arm:
-the jar exposes no switch that forces the RV extensions off, so nothing else distinguishes original APE from
-the baseline, and the explicit offs are what make the arm auditable from `ape.properties` and keep the guard
-test uniform across variants. `ape_pure` SHALL NOT set `mop_data`.
+**Arm shape.** An arm's `preset` names one of the four jar-resident vectors; the jar, not Python,
+defines what it contains. `overrides` carries only the deltas that distinguish this arm from its
+preset — an arm identical to its preset carries an empty dict. Python-only keys stay at the top level
+and are never written to `ape.properties`: `strategy` (the `--ape` CLI flag), `mop_data`
+(`"static_analysis"` triggers the derived-artifact push, unchanged), `seed`, and the two B3
+jar-provenance declarations. The explicit `overrides` sub-dict rather than a flat dict is what keeps
+the boundary machine-checkable: everything under `overrides` is translated and written, everything at
+the top level is orchestration.
 
-#### MOP-Arm Variants
+Every LLM-preset arm SHALL carry `llm_url` in its overrides (INV-APV-38) — the preset omits the
+deployment-specific server URL while stating the routing gates ON, so its absence aborts resolution.
+`throttle_ms` SHALL NOT appear in any arm: the `aperv` preset already states
+`ape.defaultGUIThrottle=200`, which every arm used. Ablations SHALL be expressed as named override
+sets, never as new presets: the preset vocabulary belongs to the jar.
 
-The MOP arms decompose the reach mechanism. All set `mop_data="static_analysis"` and the four MOP weights
-explicitly (`mop_weight_direct=500`, `mop_weight_transitive=300`, `mop_weight_open_menu=250`,
-`mop_weight_wtg=200`) and keep the full RV exploration baseline ON.
+`sata_mop` is the frozen-corpus name and SHALL NOT be renamed or folded away: 4,096
+`aperv:sata_mop.trace` artifacts and 1,066 files under `results/` carry that exact token, so a rename
+would orphan every one of those runs from resume and every one of those rows from consolidation. This
+is a data-identity constraint, not backward compatibility (INV-APV-42).
 
-| Variant | mop_activity_source_components (A′) | frontier_boost_weight | mop_frontier_weight (B) | activity_trigger_enabled (E-min) | Notes |
-|---------|-------------------------------------|-----------------------|-------------------------|----------------------------------|-------|
-| `sata_mop_widget` | `false` | `0` | `0` | `false` | Current widget mechanism (MOP control) |
-| `sata_mop_activity` | `true` | `0` | `0` | `false` | Isolates strategy A′ |
-| `sata_mop_act_frontier` | `true` | `200` | `200` | `true` | Reach package A′+B+E-min |
-| `sata_mop` | — alias of `sata_mop_widget` (identical dict, INV-APV-16) — | | | | Back-compat name |
+#### Retired variants
 
-The `mop_frontier_weight=200` value for `sata_mop_act_frontier` is a calibration starting point (design
-§4: "≈200, calibrate in smoke"); calibration smokes use the DSL override
-(`aperv:sata_mop_act_frontier@mop_frontier_weight=400`) and do not require a new variant.
+Twenty-one names are retired. Retiring a name is a decision about the experimental matrix — Python's
+authority — and touches no jar mechanism: every key those arms set remains in the mapping, and every
+feature they activated remains implemented.
 
-#### LLM Variants
+| Retired | Kind | Disposition |
+|---|---|---|
+| `ape_pure` | never distinct | purity is structural in the jar; `ape.apePureMode` is a retired key that aborts resolution. The comparison with original APE stays anchored on the frozen phase-2 data |
+| `bfs` | never distinct | never an agent type; always carried `sata`'s effective configuration |
+| `sata_mop_widget` | never distinct | one object under two names; `sata_mop` is the surviving name |
+| `sata_mop_act_frontier` | name consolidated | byte-identical to `mop_on_llm_off`; the configuration survives under that name |
+| `sata_mop_activity` | finished campaign | an intermediate step of the reach decomposition, superseded by the reach package |
+| `random` | finished campaign | the `random` strategy stays in the `configure()` whitelist and remains reachable as `aperv:sata@strategy=random`; what ends is the named arm |
+| the six `sata_mop_llm_<prompt>` arms | finished campaign | the gh43 prompt ablation concluded; recorded results are unaffected |
+| the nine `cal_a1`…`cal_a9` arms | finished campaign | the Phase-A calibration campaign concluded (VERIFY `ADMISSIBLE`, 2026-07-24) and phases B and C were superseded by the decisive run's pre-registration freeze |
 
-LLM variants add LLM-guided action selection. `llm_url` uses `http://10.0.2.2:30000/v1` (emulator host
-loopback), overridable via `APERV_LLM_BASE_URL`. They set the full arm-defining set explicitly:
-`sata_llm` on the `sata` baseline (MOP off), `sata_mop_llm` on the `sata_mop_widget` substrate (MOP on).
+Retirement removes the ability to launch new runs under a name. It does not invalidate recorded
+results: those are frozen artifacts, read by frozen-corpus analysis scripts that this change does not
+touch.
 
-| Variant | mop_data | Arm-defining baseline | Notes |
-|---------|----------|-----------------------|-------|
-| `sata_llm` | -- | `sata` (MOP off) | SATA + LLM |
-| `sata_mop_llm` | `"static_analysis"` | `sata_mop_widget` (MOP on) | SATA + MOP + LLM (round-2 base) |
+Every surviving arm's effective configuration after re-expression SHALL be identical to its
+pre-change effective configuration (INV-APV-44); any intentional divergence requires owner approval
+and a new arm name (INV-APV-42).
 
-LLM variants also include sampling parameters: `llm_model="default"`, `llm_temperature=0.3`,
-`llm_top_p=0.6`, `llm_top_k=50`, `llm_timeout_ms=15000`.
+#### Scenario: Preset-identity arm carries nothing
 
-#### Prompt Experiment Variants (FROZEN / EXEMPT — INV-APV-17)
+- **WHEN** `get_variants()["sata_mop"]` is read
+- **THEN** `preset` SHALL be `"mop"` and `overrides` SHALL be empty
+- **AND** `mop_data` SHALL be `"static_analysis"` at the top level
+- **AND** the same emptiness SHALL hold for `sata` and `default` against the `aperv` preset
 
-Six variants for controlled prompt ablation (gh43). All use SATA + MOP + LLM with `llm_percentage=0.7` and
-differ only in `llm_prompt_variant`. They are **frozen exactly as authored** and are EXEMPT from the
-arm-defining explicitness policy (INV-APV-14) to preserve historical reproducibility.
+#### Scenario: LLM arm carries the server URL and nothing else
 
-| Variant | llm_prompt_variant |
-|---------|--------------------|
-| `sata_mop_llm_ape_current` | `ape_current` |
-| `sata_mop_llm_ape_reasoning` | `ape_reasoning` |
-| `sata_mop_llm_compact_v1` | `compact_v1` |
-| `sata_mop_llm_v13` | `v13` |
-| `sata_mop_llm_v17` | `v17` |
-| `sata_mop_llm_visual_only` | `visual_only` |
+- **WHEN** `get_variants()["sata_mop_llm"]` is read
+- **THEN** `preset` SHALL be `"llm_mop"` and `overrides` SHALL be exactly
+  `{"llm_url": "http://10.0.2.2:30000/v1"}`
+- **AND** every variant whose preset is `llm` or `llm_mop` SHALL likewise carry `llm_url`
+  (INV-APV-38)
 
-#### Calibration Arm Variants (cal_*)
+#### Scenario: The reach package survives under the reference arm
 
-Nine variants implementing the Phase-A arm table of the LLM calibration plan
-(`docs/20260721_plano_calibracao_llm.md` §6, rev. 3.2). All are built on the `sata_mop_act_frontier`
-arm-defining substrate (MOP on, reach package A′+B+E-min ON: `mop_data="static_analysis"`,
-`mop_activity_source_components=true`, `frontier_boost_weight=200`, `mop_frontier_weight=200`,
-`activity_trigger_enabled=true`, the four MOP weights explicit) plus the LLM keys, as explicit dict
-literals — no builder abstraction. The frontier substrate is the algorithmic configuration that won the
-cmpma multi-arm comparison (cov_mop 37.75% vs ≤35%, Friedman+Holm): whenever the router does not
-delegate a step to the LLM — and on every `no_match` fallback — the arm explores in frontier mode.
-`sata_mop_act_frontier` without LLM keys is exactly the ANC2 anchor arm, so the paired difference
-`cal_* − ANC2` isolates the LLM contribution on the same algorithmic base.
+- **WHEN** `get_variants()["mop_on_llm_off"]` is read
+- **THEN** `preset` SHALL be `"mop"` and `overrides` SHALL contain exactly
+  `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`,
+  `activity_trigger_enabled=True`
+- **AND** no MOP weight key SHALL appear, because the `mop` preset already states
+  `ape.mopWeightDirect=500`, `ape.mopWeightTransitive=300`, `ape.mopWeightOpenMenu=250` and
+  `ape.mopWeightWtg=200`
+- **AND** its effective configuration SHALL equal the baseline entry captured for the retired
+  `sata_mop_act_frontier`
 
-Each `cal_*` variant declares every key in `LLM_ARM_KEYS` explicitly (INV-APV-26) in addition to the
-full `ARM_DEFINING_KEYS` set (INV-APV-14). Names are tool-agnostic (`cal_*`, never a tool-name prefix).
-`cal_a1` is the calibration control arm: the cmp_llm_20260721 LLM-key configuration (`v13` prompt,
-`llm_percentage=0.7`, temperature 0) carried onto the frontier substrate (the cmp_llm campaign itself
-ran on the widget substrate — cross-substrate anchors are re-measured in-experiment by the Phase-A
-design). `cal_a2`–`cal_a9` differ from `cal_a1` only in the keys listed below.
+#### Scenario: The frozen corpus name keeps resolving
 
-Common explicit LLM keys (all nine arms): `llm_url="http://10.0.2.2:30000/v1"`, `llm_model="default"`
-(the served model is proven per task by the `[APE-LLM-CONFIG-ACK] server_model` smoke gate),
-`llm_timeout_ms=15000`, `llm_percentage_no_substrate=-1`.
+- **WHEN** `get_variants()` is read
+- **THEN** `"sata_mop"` SHALL be present
+- **AND** a resume over an existing `aperv:sata_mop` result directory SHALL still match its arm
+- **AND** `"sata_mop_widget"` SHALL NOT be a key, so there is no alias left to keep in lockstep
 
-| Variant | Hypothesis | llm_prompt_variant | llm_percentage | llm_temperature | llm_top_p | llm_top_k | llm_on_new_state | llm_on_stagnation |
-|---------|------------|--------------------|----------------|-----------------|-----------|-----------|------------------|-------------------|
-| `cal_a1` | control | `v13` | `0.7` | `0` | `0.6` | `50` | `true` | `true` |
-| `cal_a2` | H1 | `v13` | `0.3` | `0` | `0.6` | `50` | `true` | `true` |
-| `cal_a3` | H1 (stagnation-only) | `v13` | `0` | `0` | `0.6` | `50` | `false` | `true` |
-| `cal_a4` | H1 (new-state+stagnation) | `v13` | `0` | `0` | `0.6` | `50` | `true` | `true` |
-| `cal_a5` | H3 (vendor bundle) | `v13` | `0.3` | `0.7` | `0.8` | `20` | `true` | `true` |
-| `cal_a6` | H3 (temperature isolated) | `v13` | `0.3` | `0.7` | `0.6` | `50` | `true` | `true` |
-| `cal_a7` | H3 (AutoDroid point) | `v13` | `0.3` | `0.25` | `0.6` | `50` | `true` | `true` |
-| `cal_a8` | H2 (short extreme) | `visual_only` | `0.3` | `0` | `0.6` | `50` | `true` | `true` |
-| `cal_a9` | H2 (long extreme) | `v17` | `0.3` | `0` | `0.6` | `50` | `true` | `true` |
+#### Scenario: Retired variants are absent
 
-Phase-B arms (`cal_b*`) are not pre-defined: they depend on Phase-A survivors and are added to
-`get_variants()` under the same `LLM_ARM_KEYS` guard when Phase B is designed, deployed via the
-calibration-control snapshot+bind-mount mechanism without an image rebuild.
+- **WHEN** `get_variants()` is read after this change
+- **THEN** the mapping SHALL have exactly eight keys
+- **AND** none of `ape_pure`, `bfs`, `random`, `sata_mop_widget`, `sata_mop_activity`,
+  `sata_mop_act_frontier`, the six `sata_mop_llm_<prompt>` names or `cal_a1`…`cal_a9` SHALL be among
+  them
+- **AND** the module SHALL contain no `_APE_PURE_ARM_FLAGS` constant
+- **AND** all 21 SHALL appear in the migration arm report as documented retirements carrying their
+  kind, not as diffs
 
-#### Scenario: Baseline sata arm disables RV steering explicitly
-- **WHEN** `get_variants()["sata"]` is read
-- **THEN** it SHALL contain `frontier_boost_weight == 0` and `activity_trigger_enabled == False` explicitly
-- **AND** it SHALL contain every key in `ARM_DEFINING_KEYS`
-- **AND** it SHALL NOT contain a `mop_data` key
+#### Scenario: No arm carries a property expansion
 
-#### Scenario: ape_pure arm sets every RV flag off
-- **WHEN** `get_variants()["ape_pure"]` is read
-- **THEN** `ape_pure_mode` SHALL NOT be present
-- **AND** every key in `ARM_DEFINING_KEYS` SHALL be present with its off/zero value (e.g. `dynamic_epsilon == False`, `form_completion_enabled == False`, `model_menu_enabled == False`, `tree_enhancements_enabled == False`)
-- **AND** `mop_data` SHALL NOT be present
+- **WHEN** any variant returned by `get_variants()` is inspected
+- **THEN** its top-level keys SHALL be drawn only from `preset`, `overrides`, `strategy`, `mop_data`
+  and `seed`
+- **AND** no variant SHALL carry `expected_jar_git_sha` or `expected_jar_sha256` (INV-APV-59)
+- **AND** the module SHALL contain none of `_BASELINE_ARM_FLAGS`, `_MOP_SUBSTRATE`, `_LLM_FLAGS`,
+  `_FRONTIER_SUBSTRATE`, `_MOP_OFF_OVERRIDES` or `_CAL_LLM_COMMON`
+- **AND** no variant SHALL contain a `throttle_ms` key
 
-#### Scenario: sata_mop_widget is the MOP control arm
-- **WHEN** `get_variants()["sata_mop_widget"]` is read
-- **THEN** `mop_data` SHALL equal `"static_analysis"`
-- **AND** `mop_weight_direct == 500`, `mop_weight_transitive == 300`, `mop_weight_open_menu == 250`, `mop_weight_wtg == 200`
-- **AND** `mop_activity_source_components == False`, `frontier_boost_weight == 0`, `mop_frontier_weight == 0`, `activity_trigger_enabled == False`
-- **AND** `trigger_mop_first` SHALL NOT be present (removed — jar deleted the property)
-
-#### Scenario: sata_mop_activity isolates strategy A′
-- **WHEN** `get_variants()["sata_mop_activity"]` is read
-- **THEN** it SHALL differ from `sata_mop_widget` only by `mop_activity_source_components == True`
-- **AND** all other arm-defining keys SHALL equal the `sata_mop_widget` values
-
-#### Scenario: sata_mop_act_frontier enables the reach package
-- **WHEN** `get_variants()["sata_mop_act_frontier"]` is read
-- **THEN** `mop_activity_source_components == True`, `frontier_boost_weight == 200`, `mop_frontier_weight == 200`, `activity_trigger_enabled == True`
-- **AND** `mop_data` SHALL equal `"static_analysis"`
-- **AND** `trigger_mop_first` SHALL NOT be present (E-min is carried by `activity_trigger_enabled` alone)
-
-#### Scenario: sata_mop is an alias of sata_mop_widget
-- **WHEN** `get_variants()["sata_mop"]` and `get_variants()["sata_mop_widget"]` are compared
-- **THEN** the two dictionaries SHALL be equal (INV-APV-16)
-
-#### Scenario: Every non-exempt variant sets every arm-defining key (guard)
-- **WHEN** `get_variants()` is iterated over every variant whose name is NOT in the exempt set (the six `sata_mop_llm_<prompt>` variants)
-- **THEN** each such variant SHALL contain every key in `ARM_DEFINING_KEYS`
-- **AND** a variant missing any arm-defining key SHALL fail the guard test with a message naming the variant and the missing keys
-
-#### Scenario: Creating tool with a new MOP arm variant
-- **WHEN** `ToolFactory.create_tool(ToolConfig(name="aperv", variant="sata_mop_act_frontier"))` is called
-- **THEN** the factory SHALL return a configured `ApeRVTool` instance
-- **AND** `tool._tool_config["mop_data"]` SHALL be `"static_analysis"`
-- **AND** `tool._tool_config["activity_trigger_enabled"]` SHALL be `True`
-
-#### Scenario: cal_a1 is the LLM control configuration on the frontier substrate
-- **WHEN** `get_variants()["cal_a1"]` is read
-- **THEN** `llm_prompt_variant == "v13"`, `llm_percentage == 0.7`, `llm_temperature == 0`, `llm_top_p == 0.6`, `llm_top_k == 50`, `llm_on_new_state == True`, `llm_on_stagnation == True`
-- **AND** `mop_data` SHALL equal `"static_analysis"` and the arm-defining substrate SHALL equal the `sata_mop_act_frontier` values (`mop_activity_source_components == True`, `frontier_boost_weight == 200`, `mop_frontier_weight == 200`, `activity_trigger_enabled == True`)
-
-#### Scenario: Every cal_* arm falls back to frontier mode when the LLM does not act
-- **WHEN** `get_variants()` is iterated over every variant whose name starts with `cal_`
-- **THEN** each SHALL contain the `sata_mop_act_frontier` substrate values (`mop_activity_source_components == True`, `frontier_boost_weight == 200`, `mop_frontier_weight == 200`, `activity_trigger_enabled == True`, `mop_data == "static_analysis"`)
-- **AND** no `cal_*` arm SHALL carry the `sata_mop_widget` substrate (`frontier_boost_weight == 0`)
-
-#### Scenario: cal_a3 is the stagnation-only routing regime
-- **WHEN** `get_variants()["cal_a3"]` is read
-- **THEN** `llm_on_new_state == False`, `llm_on_stagnation == True`, `llm_percentage == 0`
-- **AND** all other `LLM_ARM_KEYS` values SHALL equal the `cal_a1` values
-
-#### Scenario: cal_a6 vs cal_a5 isolates top_p/top_k from temperature
-- **WHEN** `get_variants()["cal_a5"]` and `get_variants()["cal_a6"]` are compared
-- **THEN** they SHALL differ only in `llm_top_p` (`0.8` vs `0.6`) and `llm_top_k` (`20` vs `50`)
-- **AND** both SHALL have `llm_temperature == 0.7` and `llm_percentage == 0.3`
-
-#### Scenario: Every cal_* variant declares every LLM key (LLM_ARM_KEYS guard)
-- **WHEN** `get_variants()` is iterated over every variant whose name starts with `cal_`
-- **THEN** each SHALL contain every key in `LLM_ARM_KEYS`
-- **AND** a `cal_*` variant missing any LLM key SHALL fail the guard test with a message naming the variant and the missing keys
+---
 
 ### Requirement: ApeRVTool Configuration (FR19)
 
-`ApeRVTool.configure(config)` SHALL store the resolved variant configuration in `self._tool_config` after validation. It SHALL validate that `config["strategy"]` is one of `["sata", "random", "bfs", "dfs"]`. If absent or invalid, it SHALL raise `ConfigurationError` before any device interaction.
+`ApeRVTool.configure(config)` SHALL store the resolved variant configuration in `self._tool_config`
+after validation. It SHALL validate that `config["strategy"]` is one of `["sata", "random"]`, that
+`config["preset"]` is present and non-empty, and that `config.get("overrides", {})` is a dict. If any
+check fails, it SHALL raise `ConfigurationError` before any device interaction.
 
-When the `APERV_LLM_BASE_URL` environment variable is set and `llm_url` is present in the config, the environment variable value SHALL override the config value. This allows operators to redirect LLM traffic without modifying variant definitions.
+**Tool-DSL overrides SHALL be folded into `overrides`** (INV-APV-39). `ToolFactory` merges
+`{**variant_config, **tool_config.parameters}` (`modules/rv-tools/src/rv_tools/registry/factory.py:127`),
+so a DSL override written as `aperv:sata_mop@frontier_boost_weight=200` arrives as a **top-level** key,
+while `_push_properties()` reads only `overrides`. `configure()` SHALL therefore move every top-level
+key that has an `APERV_PROPERTY_MAPPING` entry into `overrides`, where a DSL value takes precedence
+over an arm's own entry for the same key — the DSL is the operator's last word, which is what makes it
+useful for smokes and ablations without declaring a variant.
 
-#### Scenario: Valid strategy configured
-- **WHEN** `configure({"strategy": "sata", "throttle_ms": 200})` is called
-- **THEN** `self._tool_config["strategy"]` SHALL equal `"sata"`
+Any remaining top-level key that is neither mapped nor one of `preset`, `overrides`, `strategy`,
+`mop_data`, `seed`, `device_port`, `device_serial`,
+`device_id` SHALL raise `ConfigurationError` naming it. `expected_jar_git_sha` and
+`expected_jar_sha256` are not on that list and SHALL therefore be rejected like any other
+unhonourable key, which is what stops the retired declaration from being reintroduced through
+experiment YAML (INV-APV-59). Without both halves of this rule a DSL
+override would be discarded in silence: no property line, no error, and a run executing a
+configuration nobody asked for — the exact failure mode this change exists to remove, reintroduced
+on the operator's path. A key that cannot be honoured fails loudly.
+
+The three device keys are the platform's own injection, not an operator's: `ExecutionController`
+adds `device_port`, `device_serial` and `device_id` to every tool's parameters whenever
+`--device-port` is set, so every containerized and parallel run carries them. They address a device
+rather than configure the jar — `execute_tool_specific_logic()` takes the serial from
+`task.config.device_id` — so `configure()` SHALL accept and ignore them, and they SHALL never reach
+`ape.properties`.
+
+**Unmappable `overrides` keys SHALL be rejected in `configure()`**, not at push time. `_push_properties()`
+runs after the jar, the broadcast catalog and the derived MOP artifact have been pushed, so a check
+living there would already have cost three pushes and a derivation. Validating in `configure()` puts
+one rule over both sources of an override key — an arm's own dict and the DSL keys just folded into
+it — and is what makes "before any `adb push`" true as written.
+
+The whitelist SHALL shrink from the pre-change `["sata", "random", "bfs", "dfs"]` — the deletion stage
+2 delegated to this change. `bfs` and `dfs` are not agent types: `ApeAgent.createAgent` recognises
+`sata`, `random` and `replay` and nothing else, so before stage 2 they ran `SataAgent` silently and
+after it they abort on the device. Accepting them Python-side would let a run pass local validation
+only to fail on the emulator, which is precisely the silent-degradation class the re-architecture
+exists to remove. `replay` is legal in the jar but SHALL NOT be accepted here: it requires
+`--ape-replay <log>`, which this tool never passes.
+
+When the `APERV_LLM_BASE_URL` environment variable is set and `llm_url` is present in the config, the
+environment variable value SHALL override the config value. This allows operators to redirect LLM
+traffic without modifying variant definitions.
+
+#### Scenario: Valid preset arm configured
+- **WHEN** `configure({"strategy": "sata", "preset": "mop", "overrides": {}})` is called
+- **THEN** `self._tool_config["preset"]` SHALL equal `"mop"`
 - **AND** no exception SHALL be raised
 
+#### Scenario: Missing preset raises ConfigurationError
+- **WHEN** `configure({"strategy": "sata"})` is called
+- **THEN** `ConfigurationError` SHALL be raised naming the missing `preset` key
+
 #### Scenario: Invalid strategy raises ConfigurationError
-- **WHEN** `configure({"strategy": "unknown"})` is called
+- **WHEN** `configure({"strategy": "unknown", "preset": "aperv"})` is called
 - **THEN** `ConfigurationError` SHALL be raised with a message listing valid strategies
 
+#### Scenario: Retired strategy rejected before the device
+- **WHEN** `configure({"strategy": "bfs", "preset": "aperv"})` or
+  `configure({"strategy": "dfs", "preset": "aperv"})` is called
+- **THEN** `ConfigurationError` SHALL be raised before any device interaction
+- **AND** the run SHALL NOT reach the jar, where an unknown `--ape` value aborts
+
+#### Scenario: Non-dict overrides rejected
+- **WHEN** `configure({"strategy": "sata", "preset": "mop", "overrides": ["frontier_boost_weight"]})`
+  is called
+- **THEN** `ConfigurationError` SHALL be raised naming the `overrides` key
+
+#### Scenario: DSL override reaches the properties file
+- **WHEN** `aperv:sata_mop@frontier_boost_weight=200` is resolved and `configure()` runs
+- **THEN** `self._tool_config["overrides"]["frontier_boost_weight"]` SHALL equal `200`
+- **AND** `_push_properties()` SHALL write `ape.frontierBoostWeight=200`
+- **AND** no top-level `frontier_boost_weight` key SHALL remain in `_tool_config`
+
+#### Scenario: DSL override wins over the arm's own value
+- **WHEN** `aperv:mop_on_llm_off@mop_frontier_weight=400` is resolved, and the arm's `overrides`
+  already carries `mop_frontier_weight=200`
+- **THEN** the folded value SHALL be `400`
+- **AND** exactly one `ape.mopFrontierWeight` line SHALL be written
+
+#### Scenario: The platform's device addressing is accepted and never written
+
+- **WHEN** a containerized run resolves `aperv:sata_mop` with `--device-port 5554`, so
+  `ExecutionController` has injected `device_port=5554`, `device_serial="emulator-5554"` and
+  `device_id="emulator-5554"` at the top level
+- **THEN** `configure()` SHALL accept the configuration without raising
+- **AND** the generated `ape.properties` SHALL contain no line naming any of the three keys and no
+  occurrence of the port value
+- **AND** the arm SHALL still resolve as `ape.preset=mop` plus `ape.mopDataPath`
+
+#### Scenario: Unhonourable top-level key fails loudly
+- **WHEN** `aperv:sata_mop@frontier_bost_weight=200` is resolved (a typo absent from
+  `APERV_PROPERTY_MAPPING`)
+- **THEN** `ConfigurationError` SHALL be raised naming the key
+- **AND** the key SHALL NOT be silently dropped, which would run the arm unchanged under an operator's
+  belief that it had been overridden
+
 #### Scenario: LLM URL override via environment variable
-- **WHEN** `configure({"strategy": "sata", "llm_url": "http://10.0.2.2:30000/v1"})` is called
+- **WHEN** `configure({"strategy": "sata", "preset": "llm", "overrides": {"llm_url": "http://10.0.2.2:30000/v1"}})` is called
 - **AND** the `APERV_LLM_BASE_URL` environment variable is set to `"http://192.168.1.100:30000/v1"`
-- **THEN** `self._tool_config["llm_url"]` SHALL equal `"http://192.168.1.100:30000/v1"`
+- **THEN** the effective `llm_url` SHALL be `"http://192.168.1.100:30000/v1"`
 
 ---
 
@@ -508,9 +556,9 @@ The first existing path that contains `ape-rv.jar` wins. If no path resolves, `R
 
 3. **Push broadcast catalog**: If `system-broadcast.json` exists in the module directory (`os.path.dirname(__file__)`), push it to `/data/local/tmp/system-broadcast.json`. This catalog provides typed extras for system broadcast intents used by APE-RV's component triggering. If the file is absent, skip (APE-RV degrades gracefully).
 
-4. **Derive and push the MOP artifact** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json` via `_find_static_analysis_file(task)`. **If it is not found, raise `RVToolExecutionError` naming the expected path** — a MOP arm without its static-analysis input is a failed task, never a silently degraded run. If found, obtain the derived artifact via `_derive_mop_artifact(task)` (cache-or-generate; a `DerivationError` is re-raised as `RVToolExecutionError`), push it to `/data/local/tmp/mop-artifact.json`, and set `mop_json_pushed = True`. The full JSON SHALL NOT be pushed under any condition (INV-APV-46).
+4. **Derive and push the MOP artifact** (MOP variants only): When `_tool_config.get("mop_data") == "static_analysis"`, locate `<task.results_dir>/<apk_name>.json`, derive `<task.results_dir>/<apk_name>.mop.json` from it, and push **only that artifact** to `/data/local/tmp/mop-artifact.json`. The source document is never modified and never pushed. A MOP arm with no static-analysis JSON, or whose derivation fails, raises `RVToolExecutionError`.
 
-5. **Push ape.properties**: Generate `ape.properties` from `_tool_config` using `APERV_PROPERTY_MAPPING` to translate Python keys to Java property names. When `mop_json_pushed` is True, include `ape.mopDataPath=/data/local/tmp/mop-artifact.json`. Push to `/data/local/tmp/ape.properties`.
+5. **Push ape.properties**: Generate `ape.properties` as `ape.preset=<preset>` first, then `ape.mopDataPath=<artifact device path>` when the MOP artifact was pushed, then one `ape.<key>=<value>` line per entry of `overrides`, translated through `APERV_PROPERTY_MAPPING`. Push to `/data/local/tmp/ape.properties`. The full property expansion of the pre-change mapping loop SHALL NOT be performed.
 
 6. **Capture LLM backend provenance** (LLM arms only): query `GET {llm_url}/v1/models` once and record the result in the task output -- see "Per-Run LLM Backend Provenance". A failed query is encoded, never inferred from configuration, and never aborts the run (INV-APV-33).
 
@@ -523,6 +571,8 @@ The first existing path that contains `ape-rv.jar` wins. If no path resolves, `R
 10. **Gzip at collection**: Compress the raw capture to `<trace>.ndjson.gz` next to the trace file. On failure, log a WARNING and continue.
 
 Step 10 SHALL NOT inspect, validate or act on the trace's content: no `RUN_START` or `RUN_END` presence check, no exit-code interpretation beyond the existing debug log, no task-status change (INV-APV-53). `task.result.trace_file` SHALL remain the raw capture, byte-for-byte, after collection completes — no step of this flow rewrites, reformats or truncates it, and no NDJSON→legacy conversion step exists anywhere in the tool (INV-APV-52).
+
+The tool SHALL NOT read back, parse or validate any jar output, `RUN_START` included (INV-APV-43, owner decision D1). The effective plan the jar resolved is echoed write-only into the trace; reconstructing which arm ran a task is post-hoc analysis, not a runtime check.
 
 No health-check step is required (APE has no `--health-check` flag).
 
@@ -540,6 +590,21 @@ adb -s <serial> shell CLASSPATH=/data/local/tmp/ape-rv.jar /system/bin/app_proce
 ```
 
 The trailing `-s <seed>` is appended only when a seed is configured (INV-APV-18).
+
+#### Scenario: Successful APE-RV execution with sata variant
+- **WHEN** `execute_tool_specific_logic(task, app)` is called with `strategy="sata"`, timeout=60
+- **THEN** `ape-rv.jar` SHALL be pushed to `/data/local/tmp/ape-rv.jar`
+- **AND** the adb command SHALL include `--running-minutes 1` and `--ape sata`
+- **AND** stdout+stderr SHALL be written to `task.result.trace_file`
+- **AND** no MOP artifact SHALL be pushed to the device
+
+#### Scenario: Properties file carries preset plus deltas only
+- **WHEN** step 5 runs for `mop_on_llm_off` with the MOP artifact pushed
+- **THEN** the generated file SHALL begin with `ape.preset=mop`
+- **AND** SHALL contain `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
+- **AND** SHALL contain exactly the four override lines `ape.mopActivitySourceComponents=true`,
+  `ape.frontierBoostWeight=200`, `ape.mopFrontierWeight=200`, `ape.activityTriggerEnabled=true`
+- **AND** SHALL contain no other `ape.*` line
 
 #### Scenario: Collection leaves the NDJSON trace intact
 - **WHEN** a run completes and `task.result.trace_file` holds 1,603 NDJSON records
@@ -564,33 +629,10 @@ The trailing `-s <seed>` is appended only when a seed is configured (INV-APV-18)
 - **THEN** the tool SHALL NOT detect, log or act on its absence
 - **AND** the task status SHALL be identical to that of a run whose trace ends with `RUN_END`
 
-#### Scenario: Successful APE-RV execution with sata variant
-- **WHEN** `execute_tool_specific_logic(task, app)` is called with `strategy="sata"`, timeout=60
-- **THEN** `ape-rv.jar` SHALL be pushed to `/data/local/tmp/ape-rv.jar`
-- **AND** the adb command SHALL include `--running-minutes 1` and `--ape sata`
-- **AND** stdout+stderr SHALL be written to `task.result.trace_file`
-- **AND** no static analysis file SHALL be pushed to the device
-- **AND** no derivation SHALL be attempted
-
-#### Scenario: sata_mop execution with static analysis JSON present
-- **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
-- **AND** `_find_static_analysis_file(task)` returns a valid path
-- **THEN** `_derive_mop_artifact(task)` SHALL return the cached-or-generated `<apk_name>.mop.json`
-- **AND** that file SHALL be pushed to `/data/local/tmp/mop-artifact.json`
-- **AND** the full JSON SHALL remain byte-identical and SHALL NOT be pushed
-- **AND** `ape.properties` SHALL contain `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
-
-#### Scenario: sata_mop execution with static analysis JSON absent
-- **WHEN** `execute_tool_specific_logic(task, app)` is called with `mop_data="static_analysis"`
-- **AND** no static analysis JSON file is found in `task.results_dir`
-- **THEN** `RVToolExecutionError` SHALL be raised naming the expected path
-- **AND** the jar SHALL NOT be launched
-- **AND** no warn-and-continue path SHALL exist
-
-#### Scenario: sata_mop execution when derivation fails
-- **WHEN** the full JSON exists but `derive()` raises `DerivationError`
-- **THEN** `RVToolExecutionError` SHALL be raised carrying the derivation error
-- **AND** no artifact SHALL be pushed and the jar SHALL NOT be launched
+#### Scenario: No echo read-back
+- **WHEN** the run completes and the trace's first record is the jar's `RUN_START` echo of the
+  resolved plan
+- **THEN** the tool SHALL NOT have parsed, validated or branched on it (INV-APV-43)
 
 #### Scenario: Broadcast catalog pushed when present
 - **WHEN** `system-broadcast.json` exists in the module directory
@@ -635,98 +677,130 @@ The trailing `-s <seed>` is appended only when a seed is configured (INV-APV-18)
 
 ### Requirement: ape.properties Generation
 
-`ApeRVTool._push_properties()` SHALL generate an `ape.properties` file from `_tool_config` using
-`APERV_PROPERTY_MAPPING` and push it to `/data/local/tmp/ape.properties` on the device. Only keys present
-in both `_tool_config` and `APERV_PROPERTY_MAPPING` are written; Python-only keys (`strategy`, `mop_data`,
-`seed`) have no mapping entry and are excluded automatically.
+`ApeRVTool._push_properties()` SHALL generate an `ape.properties` file and push it to
+`/data/local/tmp/ape.properties` on the device. The file SHALL be composed in a fixed order so that
+two runs of the same arm produce byte-identical output:
 
-`APERV_PROPERTY_MAPPING` SHALL contain an entry for every arm-defining key (INV-APV-13), so that a flag set
-in a variant dictionary actually reaches the device. The mapping translates Python config keys to Java
-property names:
+```text
+ape.preset=<preset>                                   # always first
+ape.mopDataPath=/data/local/tmp/mop-artifact.json     # only when the artifact was pushed
+ape.<mapped-override-key>=<value>                     # one line per overrides entry, mapping order
+```
 
-| Python Key | Java Property | Category |
-|------------|--------------|----------|
-| `throttle_ms` | `ape.defaultGUIThrottle` | Exploration |
-| `default_epsilon` | `ape.defaultEpsilon` | Exploration |
-| `graph_stable_restart_threshold` | `ape.graphStableRestartThreshold` | Exploration |
-| `state_stable_restart_threshold` | `ape.stateStableRestartThreshold` | Exploration |
-| `fuzzing_rate` | `ape.fuzzingRate` | Exploration |
-| `do_fuzzing` | `ape.doFuzzing` | Exploration |
-| `throttle_for_activity_transition` | `ape.throttleForActivityTransition` | Exploration |
-| `max_extra_priority_aliased_actions` | `ape.maxExtraPriorityAliasedActions` | Exploration |
-| `max_states_per_activity` | `ape.maxStatesPerActivity` | Exploration |
-| `trivial_activity_rank_threshold` | `ape.trivialActivityRankThreshold` | Exploration |
-| `do_back_to_trivial_activity` | `ape.doBackToTrivialActivity` | Exploration |
-| `back_menu_pick_cap` | `ape.backMenuPickCap` | RV exploration (arm-defining) |
-| `max_idle_timeout_ms` | `ape.maxIdleTimeoutMs` | arm-neutral (global tuning knob) |
-| `foreign_activity_guard` | `ape.foreignActivityGuard` | RV exploration (arm-defining) |
-| `tree_package_guard` | `ape.treePackageGuard` | RV exploration (arm-defining) |
-| `dynamic_epsilon` | `ape.dynamicEpsilon` | RV exploration (arm-defining) |
-| `heuristic_input` | `ape.heuristicInput` | RV exploration (arm-defining) |
-| `fuzz_input_typed` | `ape.fuzzInputTyped` | RV exploration (arm-defining) |
-| `form_completion_enabled` | `ape.formCompletionEnabled` | RV exploration (arm-defining) |
-| `step_telemetry_enabled` | `ape.stepTelemetryEnabled` | RV exploration (arm-defining) |
-| `model_menu_enabled` | `ape.modelMenuEnabled` | RV exploration (arm-defining) |
-| `least_visited_priority_tiebreak` | `ape.leastVisitedPriorityTiebreak` | RV exploration (arm-defining) |
-| `tree_enhancements_enabled` | `ape.treeEnhancementsEnabled` | RV exploration (arm-defining) |
-| `activity_budget_enabled` | `ape.activityBudgetEnabled` | RV exploration (arm-defining) |
-| `mop_weight_direct` | `ape.mopWeightDirect` | MOP |
-| `mop_weight_transitive` | `ape.mopWeightTransitive` | MOP |
-| `mop_weight_activity` | `ape.mopWeightActivity` | MOP (inert; back-compat) |
-| `mop_weight_open_menu` | `ape.mopWeightOpenMenu` | MOP |
-| `mop_weight_wtg` | `ape.mopWeightWtg` | MOP |
-| `mop_activity_source_components` | `ape.mopActivitySourceComponents` | MOP reach A′ (arm-defining) |
-| `mop_frontier_weight` | `ape.mopFrontierWeight` | MOP reach B (arm-defining) |
-| `frontier_boost_weight` | `ape.frontierBoostWeight` | Frontier (arm-defining) |
-| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | Component triggering / MOP reach E-min (arm-defining) |
-| `component_percentage` | `ape.componentPercentage` | Component triggering |
-| `mop_target_pick_cap` | `ape.mopTargetPickCap` | MOP |
-| `coverage_boost_weight` | `ape.coverageBoostWeight` | Coverage |
-| `llm_url` | `ape.llmUrl` | LLM |
-| `llm_on_new_state` | `ape.llmOnNewState` | LLM |
-| `llm_on_stagnation` | `ape.llmOnStagnation` | LLM |
-| `llm_model` | `ape.llmModel` | LLM |
-| `llm_temperature` | `ape.llmTemperature` | LLM |
-| `llm_top_p` | `ape.llmTopP` | LLM |
-| `llm_top_k` | `ape.llmTopK` | LLM |
-| `llm_timeout_ms` | `ape.llmTimeoutMs` | LLM |
-| `llm_percentage` | `ape.llmPercentage` | LLM |
-| `llm_percentage_no_substrate` | `ape.llmPercentageNoSubstrate` | LLM seam F′ (arm-defining) |
-| `llm_prompt_variant` | `ape.llmPromptVariant` | LLM |
+Only the entries of `_tool_config["overrides"]` are translated and written. Python-only keys
+(`preset` itself apart from the first line, `strategy`, `mop_data`, `seed`, and the three
+device-addressing keys) have no mapping entry and never reach
+the file. Python bools SHALL be serialized lowercase (`True` → `true`). An `overrides` key with no
+`APERV_PROPERTY_MAPPING` entry SHALL raise `ConfigurationError` **in `configure()`**, which is what
+makes the rejection precede every `adb push` of the run rather than only the properties push: under
+fail-fast a misspelled key would abort on the device anyway, and catching it on the host saves the
+emulator time (same rationale as INV-APV-02).
 
-When `mop_json_pushed` is True, the properties file SHALL also include
-`ape.mopDataPath=/data/local/tmp/mop-artifact.json` (hardcoded device path matching the push
-destination). An `ape.*` key the jar does not recognize is ignored by the jar's `Config` loader (a
-name-mismatch is inert, not an error).
+`APERV_PROPERTY_MAPPING` is a pass-through translation table and nothing more (see "Arm Property
+Overrides Pass-Through"). It SHALL contain only keys the deployed jar accepts (INV-APV-41). The 50
+entries are:
 
-#### Scenario: Arm-defining flags appear in properties for a baseline arm
+| Python Key | Java Property | Notes |
+|------------|--------------|-------|
+| `throttle_ms` | `ape.defaultGUIThrottle` | in every preset; an override only when an arm deviates |
+| `default_epsilon` | `ape.defaultEpsilon` | exploration |
+| `graph_stable_restart_threshold` | `ape.graphStableRestartThreshold` | exploration |
+| `state_stable_restart_threshold` | `ape.stateStableRestartThreshold` | exploration |
+| `fuzzing_rate` | `ape.fuzzingRate` | `FUZZING` sub-parameter |
+| `do_fuzzing` | `ape.doFuzzing` | `FUZZING` activation |
+| `throttle_for_activity_transition` | `ape.throttleForActivityTransition` | exploration |
+| `max_extra_priority_aliased_actions` | `ape.maxExtraPriorityAliasedActions` | exploration |
+| `max_states_per_activity` | `ape.maxStatesPerActivity` | exploration |
+| `trivial_activity_rank_threshold` | `ape.trivialActivityRankThreshold` | exploration |
+| `do_back_to_trivial_activity` | `ape.doBackToTrivialActivity` | exploration |
+| `back_menu_pick_cap` | `ape.backMenuPickCap` | exploration |
+| `max_idle_timeout_ms` | `ape.maxIdleTimeoutMs` | arm-neutral tuning knob |
+| `foreign_activity_guard` | `ape.foreignActivityGuard` | `FOREIGN_ACTIVITY_GUARD` |
+| `tree_package_guard` | `ape.treePackageGuard` | `TREE_PACKAGE_GUARD` |
+| `dynamic_epsilon` | `ape.dynamicEpsilon` | `DYNAMIC_EPSILON` |
+| `heuristic_input` | `ape.heuristicInput` | `HEURISTIC_INPUT` |
+| `fuzz_input_typed` | `ape.fuzzInputTyped` | `TYPED_FUZZ` |
+| `form_completion_enabled` | `ape.formCompletionEnabled` | `FORM_COMPLETION` |
+| `step_telemetry_enabled` | `ape.stepTelemetryEnabled` | `STEP_TELEMETRY` |
+| `model_menu_enabled` | `ape.modelMenuEnabled` | `MODEL_MENU` |
+| `least_visited_priority_tiebreak` | `ape.leastVisitedPriorityTiebreak` | `LEAST_VISITED_TIEBREAK` |
+| `tree_enhancements_enabled` | `ape.treeEnhancementsEnabled` | `TREE_ENHANCEMENTS` |
+| `activity_budget_enabled` | `ape.activityBudgetEnabled` | `ACTIVITY_BUDGET` |
+| `mop_weight_direct` | `ape.mopWeightDirect` | `MOP` sub-parameter |
+| `mop_weight_transitive` | `ape.mopWeightTransitive` | `MOP` sub-parameter |
+| `mop_weight_open_menu` | `ape.mopWeightOpenMenu` | `MENU_GATEWAY` activation |
+| `mop_weight_wtg` | `ape.mopWeightWtg` | `WTG` activation |
+| `mop_activity_source_components` | `ape.mopActivitySourceComponents` | `MOP_ACTIVITY_SOURCE` |
+| `mop_frontier_weight` | `ape.mopFrontierWeight` | `MOP_FRONTIER` activation |
+| `frontier_boost_weight` | `ape.frontierBoostWeight` | `FRONTIER` activation |
+| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | `ACTIVITY_TRIGGER` activation |
+| `activity_trigger_stagnation_step` | `ape.activityTriggerStagnationStep` | `ACTIVITY_TRIGGER` sub-parameter |
+| `activity_trigger_max_per_run` | `ape.activityTriggerMaxPerRun` | `ACTIVITY_TRIGGER` sub-parameter |
+| `component_percentage` | `ape.componentPercentage` | `COMPONENT_TRIGGER` activation |
+| `mop_target_pick_cap` | `ape.mopTargetPickCap` | `MOP` sub-parameter |
+| `coverage_boost_weight` | `ape.coverageBoostWeight` | `COVERAGE_BOOST` activation |
+| `llm_url` | `ape.llmUrl` | `LLM` activation; required on every LLM-preset arm (INV-APV-38) |
+| `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
+| `llm_on_stagnation` | `ape.llmOnStagnation` | `LLM_STAGNATION` activation |
+| `llm_model` | `ape.llmModel` | `LLM` sub-parameter |
+| `llm_temperature` | `ape.llmTemperature` | `LLM` sub-parameter |
+| `llm_top_p` | `ape.llmTopP` | `LLM` sub-parameter |
+| `llm_top_k` | `ape.llmTopK` | `LLM` sub-parameter |
+| `llm_timeout_ms` | `ape.llmTimeoutMs` | `LLM` sub-parameter |
+| `llm_percentage` | `ape.llmPercentage` | `LLM_RANDOM` activation |
+| `llm_percentage_no_substrate` | `ape.llmPercentageNoSubstrate` | `LLM_RANDOM` sub-parameter; the `-1` sentinel is accepted on a plan with no LLM |
+| `llm_prompt_variant` | `ape.llmPromptVariant` | `LLM` sub-parameter |
+| `llm_max_tokens` | `ape.llmMaxTokens` | `LLM` sub-parameter |
+| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | `LLM` sub-parameter; set by `mop_on_llm_70` alone |
+
+`mop_weight_activity → ape.mopWeightActivity` is deleted: the jar's `KeyOwnership` table lists
+`ape.mopWeightActivity` as retired ("dead since mop-fairtest: the weight it named was deleted from
+the scorer"), so a properties file carrying it now aborts the run rather than being ignored. No arm
+set it.
+
+A key the jar does not recognise is no longer inert. Under stage-2 resolution an unknown key, a
+retired key, or a non-neutral value of an inactive feature aborts before step 1 — which is what makes
+the mapping's contents a correctness property rather than a tidiness one.
+
+#### Scenario: Preset line comes first
+- **WHEN** `_push_properties()` is called for `sata_mop_llm` with the MOP artifact pushed
+- **THEN** the first line SHALL be `ape.preset=llm_mop`
+- **AND** the second SHALL be `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
+- **AND** the only remaining line SHALL be `ape.llmUrl=http://10.0.2.2:30000/v1`
+
+#### Scenario: Empty-override arm writes two lines
+- **WHEN** `_push_properties()` is called for `sata_mop` with the MOP artifact pushed
+- **THEN** the file SHALL contain exactly `ape.preset=mop` and the `ape.mopDataPath` line
+- **AND** no `ape.mopWeight*` line SHALL appear, because those values come from the preset
+
+#### Scenario: Baseline arm writes one line
 - **WHEN** `_push_properties()` is called for the `sata` variant
-- **THEN** the generated properties file SHALL contain `ape.frontierBoostWeight=0`
-- **AND** it SHALL contain `ape.activityTriggerEnabled=false`
-- **AND** it SHALL contain `ape.dynamicEpsilon=true`
-- **AND** it SHALL NOT contain `ape.mopDataPath`
+- **THEN** the file SHALL contain exactly `ape.preset=aperv`
+- **AND** it SHALL NOT contain `ape.mopDataPath`, `ape.frontierBoostWeight` or `ape.dynamicEpsilon`
 
-#### Scenario: No kill-switch property is written for ape_pure
-- **WHEN** `_push_properties()` is called for the `ape_pure` variant
-- **THEN** the generated properties file SHALL NOT contain `ape.apePureMode`
-- **AND** it SHALL contain `ape.frontierBoostWeight=0` and `ape.activityTriggerEnabled=false`
+#### Scenario: Bools are serialized lowercase
+- **WHEN** `_push_properties()` is called for `mop_on_llm_off`
+- **THEN** the file SHALL contain `ape.activityTriggerEnabled=true`, not `True`
+- **AND** it SHALL contain `ape.mopActivitySourceComponents=true`
 
-#### Scenario: No campaign arm writes the retired kill-switch property
-- **WHEN** `_push_properties()` is called for `sata_mop_widget` with `mop_json_pushed=True`
-- **THEN** the generated properties file SHALL NOT contain `ape.apePureMode`
-- **AND** it SHALL contain `ape.mopActivitySourceComponents=false`
-- **AND** the run SHALL reach step 1 — a retired key would abort the jar at bootstrap, zeroing the arm's coverage and MOP violations
+#### Scenario: Unmapped override key aborts before push
+- **WHEN** an arm's `overrides` contains `frontier_bost_weight` (a typo absent from
+  `APERV_PROPERTY_MAPPING`)
+- **THEN** `ConfigurationError` SHALL be raised naming the key
+- **AND** no `adb push` SHALL have been issued
 
-#### Scenario: Reach-package flags appear in properties for sata_mop_act_frontier
-- **WHEN** `_push_properties()` is called for `sata_mop_act_frontier` with `mop_json_pushed=True`
-- **THEN** the properties file SHALL contain `ape.mopActivitySourceComponents=true`
-- **AND** it SHALL contain `ape.mopFrontierWeight=200` and `ape.activityTriggerEnabled=true`
-- **AND** it SHALL contain `ape.mopDataPath=/data/local/tmp/mop-artifact.json`
-- **AND** it SHALL NOT contain `ape.triggerMopFirst` (property removed)
+#### Scenario: Retired jar key is not in the mapping
+- **WHEN** `APERV_PROPERTY_MAPPING` is inspected after this change
+- **THEN** it SHALL NOT contain `mop_weight_activity`
+- **AND** it SHALL contain exactly 50 entries
+- **AND** it SHALL still contain `llm_max_tokens` and `llm_snap_tolerance_px`, which are live
+  `Feature.LLM` sub-parameters
 
 #### Scenario: Python-only keys are still excluded
-- **WHEN** `_push_properties()` is called for a variant whose `_tool_config` contains `strategy`, `mop_data`, and `seed`
-- **THEN** the properties file SHALL NOT contain `strategy`, `mop_data`, or `seed`
+- **WHEN** `_push_properties()` is called for `mop_on_llm_70`, whose `_tool_config` carries
+  `strategy`, `mop_data` and `seed`
+- **THEN** the properties file SHALL contain none of those three names
+- **AND** it SHALL contain `ape.llmSnapTolerancePx=150`, which is an ordinary override
 
 ---
 
@@ -764,47 +838,6 @@ The `[project.entry-points."rv_tools.plugins"]` table SHALL NOT be used for `ape
 
 ---
 
-### Requirement: Arm-Defining Flag Completeness (FR20)
-
-`aperv-tool` SHALL declare a module-level constant `ARM_DEFINING_KEYS` in `tool.py` enumerating every
-Python config key whose value defines an experiment arm (INV-APV-15). A guard test suite SHALL enforce two
-properties so an arm's identity can never silently fall back to a jar default:
-
-1. **Mapping completeness (INV-APV-13)**: every key in `ARM_DEFINING_KEYS` has an entry in
-   `APERV_PROPERTY_MAPPING`.
-2. **Variant explicitness (INV-APV-14)**: every variant returned by `get_variants()`, except the exempt
-   gh43 prompt-experiment variants (INV-APV-17), sets every key in `ARM_DEFINING_KEYS` explicitly.
-
-The exempt set SHALL be an explicit named constant (not a prefix match), so a future non-exempt
-`sata_mop_llm_*` arm is not silently absorbed (INV-APV-17). Introducing a new arm-defining flag SHALL
-require updating `ARM_DEFINING_KEYS`, `APERV_PROPERTY_MAPPING`, and every non-exempt variant in the same
-commit (INV-APV-19) — the guard tests are the executable enforcement.
-
-`mop_data` and `strategy` are Python-only orchestration keys and SHALL NOT be members of
-`ARM_DEFINING_KEYS`. The four MOP weight keys are gated by `mop_data` (a null `MopData` disables scoring
-regardless of weight) and SHALL NOT be members of `ARM_DEFINING_KEYS`, but SHALL be set explicitly in the
-MOP arms for auditability.
-
-#### Scenario: Every arm-defining key is mapped
-- **WHEN** the guard test iterates `ARM_DEFINING_KEYS`
-- **THEN** every key SHALL be present in `APERV_PROPERTY_MAPPING`
-- **AND** a key absent from the mapping SHALL fail the test naming the offending key
-
-#### Scenario: Every non-exempt variant is explicit
-- **WHEN** the guard test iterates `get_variants()` excluding the six named gh43 prompt-experiment variants
-- **THEN** each remaining variant SHALL contain every key in `ARM_DEFINING_KEYS`
-- **AND** the failure message SHALL name the variant and the missing arm-defining keys
-
-#### Scenario: Exempt variants are skipped deliberately
-- **WHEN** the guard test computes the exempt set
-- **THEN** it SHALL be the explicit constant naming exactly the six `sata_mop_llm_<prompt>` variants
-- **AND** the six exempt variants SHALL NOT be required to set `ARM_DEFINING_KEYS`
-
-#### Scenario: mop_data and strategy are not arm-defining keys
-- **WHEN** the guard test inspects `ARM_DEFINING_KEYS`
-- **THEN** it SHALL NOT contain `mop_data` or `strategy`
-
----
 
 ### Requirement: Seed Propagation to APE-RV (FR18, FR19)
 
@@ -837,87 +870,85 @@ is required.
 
 ### Requirement: Decisive Run Arm Set (FR20)
 
-`aperv-tool` SHALL define the three arms of the E3 decisive run as named variants, so that each arm's identity comes from its variant dictionary and never from a jar default. The three arms SHALL be:
+`aperv-tool` SHALL define the three arms of the E3 decisive run as named variants, so that each arm's
+identity comes from its preset and override dict and never from an undeclared inheritance. The three
+arms SHALL be:
 
 1. **`mop_on_llm_off`** — reference: MOP guidance on, LLM off. The shared baseline of both contrasts.
-2. **`mop_off_llm_off`** — control: MOP guidance off, LLM off. Isolates the effect of MOP guidance (the study's central hypothesis).
-3. **`mop_on_llm_70`** — LLM arm: MOP guidance on, LLM on at `llm_percentage=0.7`. Isolates the effect of adding the LLM.
+2. **`mop_off_llm_off`** — control: MOP guidance off, LLM off. Isolates the effect of MOP guidance
+   (the study's central hypothesis).
+3. **`mop_on_llm_70`** — LLM arm: MOP guidance on, LLM on at `llm_percentage=0.7`. Isolates the effect
+   of adding the LLM.
 
-The variant names are normative, not cosmetic: the variant string is the resume identity key and the consolidation column key, so a rename silently splits a campaign's results.
+The variant names are normative, not cosmetic: the variant string is the resume identity key and the
+consolidation column key, so a rename silently splits a campaign's results.
 
-The reference arm and the LLM arm differ only in the LLM keys; the reference arm and the control arm differ only in the MOP keys. This is what makes each contrast a single-factor comparison.
+`mop_on_llm_off` absorbs the retired `sata_mop_act_frontier`: the two carried byte-identical effective
+configurations — the ANC2 anchor under two names — so the reference arm is not a newly invented
+baseline but the configuration that won the cmpma multi-arm comparison, under the name the decisive
+run recorded. With `sata_mop_act_frontier` retired, these three are the only arms in the module that
+carry a non-trivial override set; the other four are one-to-one with the jar's presets.
 
-The jar-provenance declaration required by INV-APV-34 — `expected_jar_git_sha` and `expected_jar_sha256`, carried by the LLM arm alone — is the one exemption from that diff, and it is safe because the keys are **inert by construction**: neither appears in `APERV_PROPERTY_MAPPING`, so neither is written to `ape.properties` and neither can reach the jar or move the arm's behaviour. Single-factor is a claim about the keys that reach the jar; these do not. The guard test that keeps them out of the mapping is therefore what licenses the exemption, and the two SHALL be asserted together.
+All three SHALL carry `mop_data="static_analysis"` and the frontier substrate (INV-APV-30) — the
+control removes MOP guidance, not navigation. Expressed as preset + overrides:
 
-All three arms SHALL use the frontier substrate (INV-APV-30). The control arm SHALL follow the shape fixed by INV-APV-29: `mop_data` present and loadable, all four MOP weights and `mop_frontier_weight` zeroed, `activity_trigger_enabled=false`. All three arms SHALL set `mop_activity_source_components=true` rather than inheriting the jar's `false` default (`Config.java:159`), whose suppression of the MOP-activity signal is measured at 20.0% → 85.0% of activities flagged on the subset40 and 17.7% → 86.2% offline across the 181 apps.
+| Arm | preset | overrides |
+|---|---|---|
+| `mop_on_llm_off` | `mop` | `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True` |
+| `mop_off_llm_off` | `mop` | `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_weight_direct=0`, `mop_weight_transitive=0`, `mop_weight_open_menu=0`, `mop_weight_wtg=0` |
+| `mop_on_llm_70` | `llm_mop` | the reference's four, plus `llm_url`, `llm_prompt_variant="v13"`, `llm_percentage=0.7`, `llm_temperature=0`, `llm_snap_tolerance_px=150` |
 
-The arms SHALL satisfy the existing arm-flag guards: every key in `ARM_DEFINING_KEYS` set explicitly (INV-APV-14), every such key present in `APERV_PROPERTY_MAPPING` (INV-APV-13). The MOP weight keys, though not members of `ARM_DEFINING_KEYS`, SHALL be set explicitly in all three arms for auditability — for the control arm this is not merely auditability but the mechanism itself.
+The control's shape is fixed by INV-APV-29 and is now expressed jointly by the preset and the
+overrides: `mop_data` present and loadable (top-level), all four MOP weights zeroed and
+`mop_frontier_weight` at the preset's `0` (so `WTG`, `MENU_GATEWAY` and `MOP_FRONTIER` are inactive at
+their neutral values), and `activity_trigger_enabled` at the preset's `false`. `frontier_boost_weight`
+stays at `200` deliberately, keeping `FRONTIER` active. The alternatives are worse and were rejected
+for reasons that have not changed: pointing `ape.mopDataPath` at a missing file aborts the run, and
+omitting `mop_data` kills the generic WTG and frontier passes as collateral, turning the contrast into
+"full substrate versus almost none".
 
-Arm 3 SHALL declare every key of `LLM_ARM_KEYS` explicitly, at `llm_percentage=0.7` with prompt variant `v13`, temperature 0, `top_p` 0.6, `top_k` 50, and both routing triggers on. Because that guard is scoped to `cal_`-prefixed variants, its scope SHALL be extended to cover arm 3 — an unscoped arm would satisfy the guard vacuously (INV-APV-26).
+Single-factor remains a property of the **effective plan**, and the override dicts now make it
+readable directly. Reference minus control is exactly the five MOP weight keys plus
+`activity_trigger_enabled`; reference minus LLM arm is exactly the LLM keys, with no exemption. The
+two B3 jar declarations that used to be that exemption are gone (INV-APV-59), so the diff no longer
+needs an argument about why an extra pair of keys is harmless — the arms differ in the LLM keys and
+in nothing else.
 
 #### Scenario: Control arm keeps the frontier alive while MOP guidance is off
-- **WHEN** the control arm's variant dictionary is resolved
-- **THEN** it SHALL contain `mop_data="static_analysis"`
-- **AND** `mop_weight_direct=0`, `mop_weight_transitive=0`, `mop_weight_open_menu=0`, `mop_weight_wtg=0`, `mop_frontier_weight=0`
-- **AND** `activity_trigger_enabled=false`
-- **AND** `frontier_boost_weight` SHALL remain at its frontier-substrate value, so generic WTG and frontier navigation stay enabled (INV-APV-30)
+- **WHEN** `get_variants()["mop_off_llm_off"]` is resolved
+- **THEN** `mop_data` SHALL equal `"static_analysis"`
+- **AND** `overrides` SHALL contain `mop_weight_direct=0`, `mop_weight_transitive=0`,
+  `mop_weight_open_menu=0`, `mop_weight_wtg=0`
+- **AND** `overrides` SHALL contain `frontier_boost_weight=200`, so generic WTG and frontier
+  navigation stay enabled (INV-APV-30)
+- **AND** `mop_frontier_weight` and `activity_trigger_enabled` SHALL be absent from `overrides`,
+  taking the `mop` preset's `0` and `false`
 
 #### Scenario: Control arm never omits the static analysis document
 - **WHEN** the guard test inspects the control arm's variant dictionary
-- **THEN** `mop_data` SHALL be present
-- **AND** the test SHALL fail with a message naming INV-APV-29 if `mop_data` is absent, because an absent document disables `WtgPass` and `FrontierPass` as collateral damage
+- **THEN** `mop_data` SHALL be present at the top level
+- **AND** the test SHALL fail naming INV-APV-29 if it is absent, because an absent document disables
+  `WtgPass` and `FrontierPass` as collateral damage
 
 #### Scenario: Reference and control differ only in MOP keys
-- **WHEN** the guard test diffs the reference arm's dictionary against the control arm's
-- **THEN** the differing keys SHALL be exactly the five MOP weight keys and `activity_trigger_enabled`
+- **WHEN** the effective configurations of `mop_on_llm_off` and `mop_off_llm_off` are diffed
+- **THEN** the differing keys SHALL be exactly `ape.mopWeightDirect`, `ape.mopWeightTransitive`,
+  `ape.mopWeightOpenMenu`, `ape.mopWeightWtg`, `ape.mopFrontierWeight` and
+  `ape.activityTriggerEnabled`
 - **AND** every other key SHALL be identical, so the contrast is single-factor
 
 #### Scenario: Reference and LLM arm differ only in LLM keys
-- **WHEN** the guard test diffs the reference arm's dictionary against the LLM arm's
-- **THEN** every differing key SHALL be either an LLM key or one of the two inert jar-provenance declaration keys of INV-APV-34
-- **AND** the same test SHALL assert that neither declaration key is present in `APERV_PROPERTY_MAPPING`, since that absence is what makes the exemption safe rather than a hole in the contrast
-- **AND** no MOP weight, frontier, or RV exploration flag SHALL differ
+- **WHEN** the effective configurations of `mop_on_llm_off` and `mop_on_llm_70` are diffed
+- **THEN** every differing key SHALL be an `ape.llm*` key
+- **AND** the two arms' top-level keys SHALL be identical, neither carrying a jar declaration
+  (INV-APV-59)
+- **AND** no MOP weight, frontier or exploration key SHALL differ
 
 #### Scenario: Source components flag is explicit in all three arms
-- **WHEN** the guard test iterates the three decisive-run arms
-- **THEN** each SHALL set `mop_activity_source_components=true` explicitly
-- **AND** none SHALL rely on the jar default
+- **WHEN** the three decisive-run arms are iterated
+- **THEN** each SHALL carry `mop_activity_source_components=True` in its `overrides`
+- **AND** none SHALL rely on the `mop` preset's `false`
 
-#### Scenario: The LLM arm is inside the LLM key guard
-- **WHEN** the `LLM_ARM_KEYS` guard collects the variants it audits
-- **THEN** `mop_on_llm_70` SHALL be among them despite not carrying the `cal_` prefix
-- **AND** the guard SHALL fail if any key of `LLM_ARM_KEYS` is left implicit in that arm
-
----
-
-### Requirement: Snap Tolerance Gating on the Dead-Pair Ban (FR19, FR20)
-
-`aperv-tool` SHALL apply `llm_snap_tolerance_px=150` only in an arm that also declares the git sha of the `ape-rv.jar` build containing the dead-pair ban (item B1 of the sister change `telemetry-proof-llm-efficacy`). Widening the snap radius makes more LLM answers resolve to a widget; without the ban, the additional resolutions include repeated taps on pairs already known to produce no new state, so the wider radius amplifies the measured 25.6% dead-call waste instead of rescuing near-misses. With the ban in place the same widening rescues genuine near-misses only.
-
-The gate SHALL be a **declaration in the arm plus a verification against the installed binary**, not a claim the tool can check by itself. The jar carries no build provenance to introspect: `ape-rv.jar` has no stamped constant and emits no `[APE-BUILD]` banner, because the change that would have added them — `gh14-build-provenance-stamp` in the `ape` repository — was archived without implementation on 2026-06-21, superseded by build-time provenance (a pinned `APE_REF` plus an image label). What is verifiable is the jar file itself, whose sha256 the tool already captures as `jar_sha256` at run start.
-
-The gate therefore has two halves. At configuration time, an arm carrying `llm_snap_tolerance_px=150` SHALL also carry `expected_jar_git_sha` (the `ape` revision the jar was built from, documentary) and `expected_jar_sha256` (the digest of that build, verifiable), and a guard test SHALL fail when any of the three is present without the others — this makes the coupling visible in the source and enforced by the suite rather than left to the operator's memory. At verification time, the `jar_sha256` captured at run start SHALL be compared against the declared `expected_jar_sha256`, and a mismatch SHALL fail the smoke gate before the decisive run starts (INV-APV-34). Because the `ape` build is not bit-reproducible, a rebuild of the same revision invalidates the declaration; the failure SHALL therefore name the expected digest, the observed digest and the declared git sha, so that the required action — reinstall the declared jar, or re-record the declaration — is unambiguous.
-
-#### Scenario: Tolerance and jar declaration travel together
-- **WHEN** the guard test inspects an arm containing `llm_snap_tolerance_px=150`
-- **THEN** the arm SHALL also declare both `expected_jar_git_sha` and `expected_jar_sha256`
-- **AND** the test SHALL fail naming INV-APV-34 when the tolerance is present without both declarations
-
-#### Scenario: Declaration without the raised tolerance also fails
-- **WHEN** the guard test inspects an arm declaring an expected jar git sha but leaving `llm_snap_tolerance_px` at 50
-- **THEN** the test SHALL fail, because a dangling declaration is a stale coupling that will silently mislead the next reader
-
-#### Scenario: Observed jar digest contradicts the declaration
-- **WHEN** the `jar_sha256` captured at the start of a smoke run differs from the arm's declared `expected_jar_sha256`
-- **THEN** the smoke gate SHALL fail naming both digests and the declared git sha
-- **AND** the decisive run SHALL NOT be launched with that configuration
-
-#### Scenario: Tolerance stays at the jar default when no arm declares the ban
-- **WHEN** no arm declares an expected jar git sha
-- **THEN** `llm_snap_tolerance_px` SHALL remain at the jar default of 50 (`Config.java:223`)
-- **AND** the run provenance SHALL record that the raise was not applied
-
----
 
 ### Requirement: Per-Run LLM Backend Provenance (FR19, NFR06)
 
@@ -1026,22 +1057,6 @@ The parser exists because the dump has **no automated consumer today**: a search
 - **WHEN** the parser completes over any run directory
 - **THEN** every artifact it read SHALL be byte-identical to its prior content
 
-### Requirement: Calibration Property Mappings (FR20, NFR05)
-
-`APERV_PROPERTY_MAPPING` SHALL contain the entries `llm_max_tokens` → `ape.llmMaxTokens` and
-`llm_snap_tolerance_px` → `ape.llmSnapTolerancePx` (INV-APV-27). These keys are NOT members of
-`LLM_ARM_KEYS` and NOT set by any `cal_a*` arm: the Phase-A jar hardcodes `max_tokens=1024` and the
-snapping tolerance, so a variant setting them would declare configuration the deployed binary ignores.
-The mapping entries exist so that Phase-B arms can set the keys the moment the Phase-B jar (J1/J4
-changes in the `ape` repo) exposes the properties, with no further `aperv-tool` change.
-
-#### Scenario: New mappings are present but unused by Phase-A arms
-- **WHEN** `APERV_PROPERTY_MAPPING` is read
-- **THEN** it SHALL map `llm_max_tokens` to `"ape.llmMaxTokens"` and `llm_snap_tolerance_px` to `"ape.llmSnapTolerancePx"`
-- **AND** no `cal_a*` variant SHALL contain either key
-- **AND** `ape.properties` generation for a `cal_a*` arm SHALL NOT emit `ape.llmMaxTokens` or `ape.llmSnapTolerancePx` (INV-APV-08: only keys present in both `_tool_config` and the mapping are written)
-
----
 
 ### Requirement: Native NDJSON Trace Reader (FR11, FR13, NFR03, NFR06)
 
@@ -1634,5 +1649,53 @@ fact over the whole results tree.
 - **WHEN** the exploration is still running when the command's timeout expires
 - **THEN** `RVToolTimeoutError` SHALL be raised exactly as before and the run SHALL be recorded as completed
 - **AND** the trace SHALL be compressed on this path as it already is, with the truncated final line included
+
+### Requirement: Arm Property Overrides Pass-Through
+
+`APERV_PROPERTY_MAPPING` SHALL be a pass-through table and nothing more: it exists to translate a
+Python override key into an `ape.*` property name, and it SHALL contain only keys the deployed jar
+accepts (INV-APV-41). Behavioural validation of values, types, dependencies and combinations is the
+jar's responsibility under stage-2 fail-fast resolution; the Python side SHALL perform no semantic
+validation of overrides beyond the mapping-membership check.
+
+This is a deliberate transfer of responsibility rather than a loss of one. The pre-change guards
+could only compare Python constants with Python constants, so they detected a missing mapping entry
+but never a value the jar would reject, a sub-parameter whose feature was inactive, or a key the jar
+had stopped reading. The jar now rejects all four, at run time, with an abort naming the key — a
+stronger check than the one being retired, applied to the binary that actually runs.
+
+At implementation time the mapping SHALL be swept against the jar's accepted-key vocabulary
+(`KeyOwnership.allKeys()` plus the retired list, read from the `ape` source checkout) and any dead
+entry removed. The sweep performed while authoring this change found exactly one:
+`mop_weight_activity`. The remaining 50 entries are all accepted keys.
+
+`llm_snap_tolerance_px` SHALL remain mapped and reach the jar only as an explicit override of the arm
+that sets it (`mop_on_llm_70`), subject to the jar's own feature-dependency validation. It SHALL
+carry no Python-side pairing with a declared jar identity: INV-APV-34 is retired by INV-APV-59, and
+the arm's `overrides` entry stands on its own like every other.
+
+#### Scenario: Dead key removed
+- **WHEN** `APERV_PROPERTY_MAPPING` is inspected after this change
+- **THEN** it SHALL NOT contain `mop_weight_activity`
+- **AND** a grep for `mopWeightActivity` across `modules/aperv-tool/src` SHALL return no hit
+
+#### Scenario: Every mapped key is one the jar accepts
+- **WHEN** each value of `APERV_PROPERTY_MAPPING` is checked against the jar's accepted-key
+  vocabulary
+- **THEN** every one SHALL be present in it
+- **AND** none SHALL appear in the jar's retired-key list
+
+#### Scenario: Live ungoverned key travels the normal path
+- **WHEN** `get_variants()["mop_on_llm_70"]` is read
+- **THEN** `llm_snap_tolerance_px: 150` SHALL be an entry of its `overrides`
+- **AND** `_push_properties()` SHALL write `ape.llmSnapTolerancePx=150` for that arm
+- **AND** the arm SHALL carry no key declaring the jar it was raised for (INV-APV-59)
+
+#### Scenario: No semantic validation is performed on override values
+- **WHEN** an arm's `overrides` carries a mapped key at a value the jar will reject
+- **THEN** `_push_properties()` SHALL write it unchanged
+- **AND** the rejection SHALL come from the jar as an abort before step 1, visible in the trace
+
+---
 
 ---

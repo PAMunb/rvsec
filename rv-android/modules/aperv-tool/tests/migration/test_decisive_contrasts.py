@@ -19,7 +19,7 @@ import pytest
 from aperv_tool.tools.aperv.tool import ApeRVTool
 
 from .jar_tables import load_key_specs, load_presets
-from .test_arm_regeneration_diff import regenerate
+from .capture_arm_baseline import regenerate
 
 # What "MOP guidance off" is allowed to move, stated in jar keys because that is the level
 # the run sees. Five weights plus the activity-trigger launcher: the control zeroes the four

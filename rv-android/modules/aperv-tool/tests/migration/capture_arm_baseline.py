@@ -37,7 +37,14 @@ from .jar_tables import KeySpec, load_key_specs, resolve_ape_repo, source_proven
 # effective plan even though it has no APERV_PROPERTY_MAPPING entry.
 DEVICE_ARTIFACT_PATH = "/data/local/tmp/mop-artifact.json"
 
-BASELINE_FILE = Path(__file__).parent / "arm_effective_baseline.json"
+# The baseline lives with the migration record rather than beside this script: it is an archived
+# artifact of a finished migration, and the test that read it here is gone (INV-APV-44 — the
+# regeneration diff is one-time and must not become a standing guard). This script stays because it
+# is how the artifact was produced, and an archived measurement whose producer was deleted can only
+# be trusted, never re-derived.
+BASELINE_FILE = (
+    Path(__file__).parents[2] / "docs" / "gh95-migration-record" / "arm_effective_baseline.json"
+)
 
 
 def typed(value: Any, spec: KeySpec | None) -> Any:
@@ -68,6 +75,35 @@ def _as_property_text(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     return str(value)
+
+
+def regenerate(
+    arm: Dict[str, Any],
+    presets: Dict[str, Dict[str, str]],
+    key_specs: Dict[str, KeySpec],
+) -> Dict[str, Any]:
+    """The typed plan a post-migration arm resolves to: the jar's preset vector, overlaid with
+    the arm's `overrides`, overlaid on the jar's declared defaults for whatever neither supplies.
+
+    This is the `preset + overrides` shape. `effective_config()` below is the shape that
+    preceded it — the explicit key dictionaries each arm used to carry — and the two producing
+    the same map over every arm is what the migration claimed and what the archived baseline
+    under `docs/gh95-migration-record/` measured.
+    """
+    vector = presets[arm["preset"]]
+    overrides = arm.get("overrides", {})
+    config: Dict[str, Any] = {}
+    for python_key, java_key in APERV_PROPERTY_MAPPING.items():
+        spec = key_specs.get(java_key)
+        if python_key in overrides:
+            config[java_key] = typed(overrides[python_key], spec)
+        elif java_key in vector:
+            config[java_key] = typed(vector[java_key], spec)
+        elif spec is not None and spec.default is not None:
+            config[java_key] = typed(spec.default, spec)
+    if arm.get("mop_data") == "static_analysis":
+        config["ape.mopDataPath"] = DEVICE_ARTIFACT_PATH
+    return config
 
 
 def effective_config(
