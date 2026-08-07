@@ -43,7 +43,8 @@ Para não re-litigar o que já foi medido, estes pontos entram como premissas, c
 | Mediana de 0 widgets, 55,2% dos apps Compose com zero widgets, 89,5% sem aresta cross-window | doc 1, §4.1 |
 | A guia MOP em nível de widget é **inerte**: 0 ações impulsionadas em 629.417 avaliadas (22 APKs Compose), contra 12,75% no estrato View | doc 2, §2 |
 | O produtor (gator) é barato: a exclusão do Soot remove corpos do framework, não sítios de chamada no app | doc 2, §3 |
-| O consumidor (APE-RV) é o bloqueio: todo join é por `resourceID`; `idName` vazio → descarte, `idName` sintético → não casa | doc 2, §5 |
+| O consumidor (APE-RV) é a barreira **latente**: todo join é por `resourceID`; `idName` vazio → descarte, `idName` sintético → não casa. **Não é a barreira vinculante** — ver a linha seguinte | doc 2, §5 |
+| A barreira **vinculante** é do produtor: o GATOR emite `flagged=0` em 22/22 apps Compose, e com o conjunto flagged vazio o `MopScorer.score` devolve 0 para qualquer par `(activity, shortId)` — o join por `resourceID` nunca é alcançado. `droppedNoId=0` nos mesmos 22: o filtro de id nunca perdeu um widget flagged, porque nenhum existiu | verificação, §1.2.1 |
 | Join por texto (teto 23,6%; 2,5% na classe `View` genérica) e por saco de textos (topo-1 de 10,4%) reprovados | doc 2, §5.1 e §6 |
 | `testTag` disponível sem opt-in, mas com prevalência de 0% / 1,8% — a via está aberta e vazia | doc 3, §3.3 e §6 |
 | Grafo de rotas extraível (68,2%) mas com obsolescência anunciada pelo Navigation 3 | doc 3, §3.5 |
@@ -376,7 +377,13 @@ Seis sítios consomem essa chave, mas **cinco deles passam por duas funções** 
 
 ### 12.2 O que não é cirúrgico
 
-- **O descarte é anterior ao índice.** `MopData.java:435-445` elimina hoje 100% dos widgets sem `resourceID`. Uma identidade de composable exigiria uma **segunda estrutura de índice**, não uma reinterpretação da existente. (Nota de desenho já correta no código: `:429-434` marca `mopActivities` **antes** do descarte, e é por isso que o `activityHasMop` continua correto mesmo perdendo todos os widgets.)
+- **O descarte é anterior ao índice.** `MopData.java:435-445` elimina do índice todo widget estático sem `idName`. Uma identidade de composable exigiria uma **segunda estrutura de índice**, não uma reinterpretação da existente. (Nota de desenho já correta no código: `:429-434` marca `mopActivities` **antes** do descarte, e é por isso que o `activityHasMop` continua correto mesmo perdendo todos os widgets.)
+
+  Duas ressalvas, para que esta linha não seja lida como a causa do colapso Compose:
+
+  **Ela não é o que quebra Compose.** `droppedNoId=0` em 22/22 apps Compose (verificação, §1.2.1): o filtro de id nunca perdeu um widget flagged, porque o GATOR nunca emitiu nenhum. A barreira vinculante é do produtor — com o conjunto flagged vazio, `MopScorer.score` devolve 0 para qualquer par `(activity, shortId)` e o join por `resourceID` nem chega a ser exercitado. O descarte é barreira **latente**: real, e nunca alcançada. A prova é negativa e decisiva — dez apps View com 53%–96% de `resourceID` presente pontuam identicamente zero, pelo mesmo `flagged=0`.
+
+  **Ela também não é comportamento herdado do APE.** `MopData` é adição do RVSEC (2026-03-12, `5dd6c80e`, gh4 Fase 3); o APE upstream não tem conceito de MOP. O APE original faz o contrário de descartar: `GUITreeBuilder.fillNode:629` grava `""` via `cacheStringEmptyOnNull` e **mantém o nó**, que segue entrando na abstração de estado (o `TypeNamer` o nomeia como o par `className` + `resourceID`, isto é, `(classe, "")`), gerando ações e sendo explorado. `resourceID` no APE é um atributo entre vários, nunca requisito de existência. O descarte, portanto, não retira nada da exploração — retira apenas a possibilidade de **casar** um nó de runtime com uma flag MOP estática, que é uma camada que só o RVSEC introduziu.
 - **Não há por onde a identidade entrar em runtime.** O funil é `fillNode:629`, que lê exclusivamente `getViewIdResourceName()`. Para D2 seria preciso um campo novo em `GUITreeNode` e o espelhamento no caminho de replay XML (`buildNodeFromXml:522-562`, `fillElement:592-612`).
 
 ### 12.3 Um achado colateral que vale corrigir de qualquer forma
