@@ -4,6 +4,7 @@
 **Fase:** 0 — Ideação (`docs/WORKFLOW.md` §1). Documento de análise técnica, **não** é artefato OpenSpec.
 **Entrada para:** `/opsx:new` ou `/opsx:explore` das changes propostas na §6.
 **Estado do código:** nada implementado. Nenhum `.mop`, nenhuma fonte do weaver, nenhum arquivo sob `$WS/ase-journal/`, `$APKS` ou `$REPOS` foi modificado nesta sessão.
+**Atualizado em 2026-08-06** (segunda sessão, após a análise do `rv-platform`): §5.5 (degrau V3), §6 (abertura), §6.4 (análise da plataforma e a decisão de não mexer no `rv-android`), §6.5 (o driver não é determinístico), §6.6 (critério de aceitação migrado), §7 (escopo da change 2) e §8 (decisão nº 2 fechada).
 
 ## 0. O que este documento é
 
@@ -249,20 +250,22 @@ Do mais barato ao mais caro; cada degrau só faz sentido depois do anterior:
 | **V0** | teste unitário de emissão: advice com N `monitorCalls` produz N invokes, **na ordem do descritor** | que o conserto de A faz o que diz, deterministicamente | minutos | corrigir os fixtures (§5.4.2) |
 | **V1** | paridade intra-weaver: para o mesmo advice fundido, o plano inline e o de wrapper emitem o mesmo conjunto de chamadas | que os dois caminhos do weaver concordam entre si | horas | V0 |
 | **V2** | Camada 1 sobre um APK tecido antes/depois: os 9 eventos aparecem como `invoke-static` onde não apareciam | que a mudança chegou ao DEX | horas | `BaksmaliDiffer` corrigido (§5.4.1) |
-| **V3** | **Camada 3 no `cryptoapp`**: ajc × dexlib2, os 8 eventos do oráculo, com o nº 8 como discriminante | que o evento apagado voltou **em runtime**, contra referência independente | dias | **§6 — decidido**; execução **só** via `rv-experiment` |
+| **V3** | **Camada 3 no `cryptoapp`**: ajc × dexlib2, os 8 eventos do oráculo, com o nº 8 como discriminante | que o evento apagado voltou **em runtime**, contra referência independente | dias | **parado em 2026-08-06** (§6.4) — exigiria código novo no `rv-android`, e emulador à mão é proibido |
 | **V4** | re-execução do corpus | quantas violações reais o defeito apagou (item 10 do relatório) | alto | V3 |
 
 Três observações que valem mais que a tabela:
 
 - **V3 tem referência dupla e independente**: o conserto faz o caminho inline concordar com (i) o caminho de wrapper do mesmo weaver e (ii) o AspectJ do grupo de controle. Duas referências que não se conversam, concordando — é a forma mais forte de evidência disponível sem re-executar o corpus.
 - **V4 tem alvo barato definido**: `photok`, `aegis` e `org.cry.otp` são os três apps onde há sítio executado e mudo (relatório §11.3). Não é preciso re-rodar 219 APKs para o primeiro sinal.
-- **Nenhum degrau autoriza tocar emulador à mão.** V3 e V4 passam por `rv-experiment run` / `rv-platform run`, que possuem o ciclo de vida inteiro (`CLAUDE.md`, regra permanente).
+- **Nenhum degrau autoriza tocar emulador à mão.** V4 passa por `rv-experiment run` / `rv-platform run`, que possuem o ciclo de vida inteiro (`CLAUDE.md`, regra permanente). Foi essa mesma regra que parou o V3 (§6.4): sem código novo na plataforma, não há janela legal para o driver.
 
 ---
 
 ## 6. Reviver a Camada 3 — decisão tomada
 
-**Decidido em 2026-08-06:** a Camada 3 volta. Isto resolve a decisão nº 4 da §7 e reordena a §5.5 — o degrau V3 deixa de ser opcional e passa a ser o critério de aceitação do conserto de A.
+**Decidido em 2026-08-06:** a Camada 3 volta. Isto resolve a decisão nº 4 da §7.
+
+**Corrigido no mesmo dia, depois da análise do `rv-platform`:** a camada volta **sem a L3-a**. O degrau V3 dependia de rodar o driver dentro da janela de emulador da plataforma, e isso exigiria código novo no `rv-android` — decidido contra (§6.4). O critério de aceitação do conserto de A passa a ser V0 e V2 (§6.6), do lado Java; L3-b e L3-c seguem inteiras, porque não dependem de driver nem de emulador.
 
 ### 6.1 O que já existe, e é mais do que o veredito de 2026-05-06 sugere
 
@@ -322,15 +325,61 @@ Daí a camada revivida ter três instrumentos, não dois:
 
 Ordem: **L3-a → L3-b → L3-c**. A ressalva do R1 que precisa ficar escrita: a cobertura média do ajc naqueles runs é baixa (`mean_cov_rv_method` ≈ 7–8% contra 31–37% do dexlib2, mediana ajc 0,0), efeito do estrato R8/Compose onde o ajc falha. Por isso o gate do L3-b só vale por APK em que o run ajc demonstrou estar vivo — critério objetivo: ter emitido evento de alguma outra spec.
 
-### 6.4 Ponto de integração que precisa de decisão
+### 6.4 O driver e o ciclo do `rv-platform` — analisado, e decidido contra
 
-`drive_cryptoapp.py` declara como pré-requisito "emulator booted and running" e recebe `--serial`. Isso **não pode** ser satisfeito à mão: o ciclo de vida do emulador pertence ao `rv-platform`, sem exceção, inclusive para validação (`CLAUDE.md`, regra permanente). Reviver a camada exige, portanto, decidir **como o driver entra no ciclo que a plataforma já possui** — como tool do `rv-tools`, como componente do `TaskExecutor`, ou como script invocado dentro da janela em que a plataforma já tem emulador e APK instalados. É decisão de arquitetura e pertence à change da §7.
+`drive_cryptoapp.py` declara como pré-requisito "emulator booted and running" e recebe `--serial`. Isso **não pode** ser satisfeito à mão: o ciclo de vida do emulador pertence ao `rv-platform`, sem exceção, inclusive para validação (`CLAUDE.md`, regra permanente). A pergunta era, portanto, como o driver entraria na janela que a plataforma já possui.
 
-### 6.5 Critério de aceitação proposto para a change do weaver
+**A análise do `rv-platform` foi feita em 2026-08-06**, lendo `docs/architecture/rv-platform.md` contra o código. O que ela estabelece ✅:
 
-Fica escrito aqui para virar critério de aceitação do artefato OpenSpec, e é falsificável:
+| fato | sítio |
+|---|---|
+| a janela existe e é exatamente a que o driver pede: dentro de `_run_emulator_session`, quando a tool roda, o emulador está bootado (o boot é *gate* — `wait_for_boot()` vira `EmulatorError` antes de qualquer tool), o APK está instalado e o logcat já está gravando | `executor.py:388` (`with`), `:400-407` (install), `:414` (logcat), `:437` (tool) |
+| a captura de logcat já é filtrada por tag `RVSEC`/`RVSEC-COV` — o arquivo por task é, sem adaptação, o insumo do comparador | `logcat_manager.py:79-82` |
+| tools **não** recebem o `context`; o `context["android"]` injetado em `executor.py:393` não tem consumidor. O serial vem de `task.config.device_id`, derivado por `resolve_device()` — a mesma derivação do boot, do install e da captura (INV-PLT-28) | `tool_execution.py:111`, `platform.py:245`, `device.py` |
+| o contrato de plugin são quatro métodos de `AbstractTool`; o registro é a lista de builtins ou o import guardado em `rv_platform/__init__.py`. **Não existe entry-point**, ao contrário do que afirma `modules/rvagent-tool/CLAUDE.md` | `abstract_tool.py`, `rv_tools/builtin/__init__.py:44-53` |
+| `TraceComparator.batchAnalyze` consome **literalmente** o layout da árvore de resultados do `rv-platform` — `<results>/<apk>.apk/<apk>.apk__<rep>__<timeout>__<tool>.logcat` | `TraceComparator.java:83,191` × `task.py:722-731` |
 
-> Antes do conserto de A, `validator-cli layer3 --mandatory` sobre o `cryptoapp` **reprova** o lado dexlib2 no evento nº 8, e aprova o lado ajc. Depois do conserto, aprova os dois, sem que nenhum dos outros 7 eventos mude de estado. Se o dexlib2 já passar no evento nº 8 **antes** do conserto, a hipótese do defeito nº 3 está errada e a change para para reavaliação.
+E o que ela **refuta**: "componente do `TaskExecutor`" esbarra na classificação de fases por `isinstance` (`executor.py:314-324`), que obrigaria cirurgia no executor para hospedar algo específico de um app; "script invocado por hook" esbarra no fato de que os hooks `pre`/`post` existem mas ficam **fora** do `with` (`:214` e `:246`/`:267`) — não há ponto de extensão dentro da janela. Sobrava "tool do `rv-tools`", tecnicamente confirmada e barata.
+
+**Decisão de 2026-08-06: não mexer no `rv-android`.** As três formas exigem código novo na árvore Python, e essa frente não será aberta agora.
+
+**A consequência, sem atenuação:** a **L3-a por execução em emulador fica parada**. As únicas saídas restantes seriam emulador à mão (proibido por regra permanente) ou código na plataforma (recusado). O critério de aceitação do defeito nº 3 migra para os degraus do lado Java — V0 e V2 da §5.5 —, que ficam inteiramente dentro do `$DEXLIB2`; o que se perde nessa troca está dito na §6.6. **L3-b e L3-c não são afetadas**: nenhuma das duas precisa de driver, de emulador novo ou de uma linha de Python — os runs pareados do R1 já estão em disco e o R2 é JVM.
+
+### 6.5 O driver não é determinístico — e é isso que o critério tem de contornar
+
+Independentemente de onde o driver rode, o adjetivo "determinístico" que o script carrega no próprio docstring não se sustenta. Vale ficar escrito porque é a objeção (c) de 2026-05-06 voltando por outra porta: a §6.2 a declara "resolvida em código" porque o driver substitui o monkey — e substitui, mas o sorteio que importa **está dentro do app**, não na exploração.
+
+**As fontes, em ordem de importância** ✅ (lidas do script e do oráculo):
+
+1. **A moeda está no app.** `CipherUtil` sorteia `random.nextInt(10) > 6` a cada clique em Encrypt, e o oráculo confirma que são métodos distintos: eventos 3/4/5 em `CipherUtil.des`, evento nº 8 em `CipherUtil.aes`. Os 30 cliques do script existem só para que os dois ramos caiam: P(nenhum AES) = 0,7³⁰ ≈ 2,3·10⁻⁵. Ou seja, ~1 em 43 mil execuções perde **justamente o discriminante** — e um falso MISS depois do conserto leria como "o conserto não funcionou".
+2. **Sincronização de UI** — esperas fixas de 0,6 s mais a espera implícita do `uiautomator2`, sobre SwiftShader. É a falha mais provável, mas falha **alto** (`UiObjectNotFoundError`), o que a torna distinguível de um evento ausente.
+3. **Perda no ring buffer do logcat** — os 30 cliques despejam muita linha de coverage. É a única fonte que **imita** o defeito, porque a perda é silenciosa.
+4. **Estado do monitor entre cenários** — os três cenários rodam no mesmo processo (`pm clear` só no início), e os eventos 3 e 7 são `InvalidSequenceOfMethodCalls`, cujo autômato é estado acumulado. A ordem fixa do script é o que os torna reprodutíveis; logo **a ordem é parte do oráculo**, e um crash que reinicie o processo no meio muda o resultado sem que nada esteja errado no weaver.
+
+**O que o comparador faz com isso** ✅ — três fatos que mudam o desenho do gate:
+
+- `matched()` é **existencial** (`TraceComparator.java:486-495`): multiplicidade não conta, 21 eventos DES valem o mesmo que 1. Clicar mais não infla TP.
+- `matched()` **ignora o campo `location`** — casa por (spec, errorType, substring). O `location` do YAML é documentação, não discriminante; só o evento nº 8 tem substring realmente própria.
+- `countFalsePositives()` (`:497-509`) conta **por ocorrência**, e o gate é F1 ≥ 0,98 sobre 1–2 entradas de oráculo por spec: 2 TP + 1 FP dá F1 = 0,8, reprovado. Os 30 cliques multiplicam por ~30 qualquer evento inesperado do caminho do Cipher. **O número de cliques é inofensivo do lado TP e perigoso do lado FP** — e com `--mandatory` qualquer FP reprova.
+
+**O desenho que resolve**, e que precisa entrar na change se a L3-a for algum dia desbloqueada: **condicionar o veredito a uma testemunha independente do ramo**. A entrada em `CipherUtil.aes` produz uma linha `RVSEC-COV`, emitida pelo *coverage weaving* — não pela chamada de monitor que a truncagem apaga. O gate deixa de ser "o evento nº 8 apareceu?" e passa a ser: se `RVSEC-COV` mostra `CipherUtil.aes` **e** o evento nº 8 não aparece → defeito; se `CipherUtil.aes` não aparece → execução **inconclusiva**, repetir. O falso MISS de 2,3·10⁻⁵ deixa de existir como veredito. Complementos: clicar **até** a testemunha em vez de 30 vezes fixas; `adb logcat -G` contra a fonte 3; e, se o fonte do `cryptoapp` estiver disponível — não verificado —, trocar o sorteio por escolha de algoritmo na UI elimina a fonte 1 inteira, ao custo de mudar o APK sob teste e re-datar o oráculo.
+
+Nada disso torna o roteiro determinístico. Torna o **veredito** determinístico condicionado a uma testemunha observável — que é o que um critério de aceitação precisa.
+
+### 6.6 Critério de aceitação para a change do weaver
+
+**Operativo hoje**, dado que a L3-a está parada (§6.4) — inteiramente dentro do `$DEXLIB2`, sem Python e sem emulador:
+
+> **V0.** Um advice com N `monitorCalls` produz N invokes, na ordem do descritor. Falha antes do conserto e passa depois. Hoje nenhum teste exercita N > 1 porque os fixtures constroem o esperado pelo próprio `get(0)` (§5.4.2) — isso cai junto, senão o teste herda a premissa que deveria refutar.
+> **V2.** No `cryptoapp` tecido antes e depois, os 9 eventos aparecem como `invoke-static` onde não apareciam, o que exige corrigir antes a mesma premissa em `BaksmaliDiffer.java:216` (§5.4.1).
+
+**O que isso perde, e não deve ser maquiado:** V0 e V2 provam que o bytecode certo foi emitido, não que o evento chega ao logcat. É a mesma forma da troca de 2026-05-06 que a §5.3 critica — com uma diferença que precisa ficar explícita para a comparação ser justa: o substituto de então (`cov_rv_method`) era **estruturalmente cego** ao defeito, enquanto V0 e V2 **continuam discriminantes**, falhando antes e passando depois. É um instrumento mais fraco, não um instrumento surdo.
+
+**Preservado para quando a L3-a for desbloqueada**, e falsificável:
+
+> Antes do conserto de A, o gate estrito sobre o `cryptoapp` **reprova** o lado dexlib2 no evento nº 8 e aprova o lado ajc; depois do conserto aprova os dois, sem que nenhum dos outros 7 mude de estado. Se o dexlib2 já passar no evento nº 8 **antes** do conserto, a hipótese do defeito nº 3 está errada e a change para para reavaliação. O veredito de cada lado só vale condicionado à testemunha `RVSEC-COV` de `CipherUtil.aes` (§6.5); sem ela a execução é inconclusiva e se repete.
+
+Duas correções de forma ao que estava escrito aqui antes ✅. O comando é `layer3 --batch --mandatory --ajc-results … --dexlib2-results …`, **não** `layer3 --mandatory`: o modo *analyze* espera um layout montado à mão (`<apkSubsetDir>/<oráculo>/{ajc,dexlib2}.logcat`, `TraceComparator.java:49-50,130-131`), enquanto o modo *batch* lê a árvore do `rv-platform` como ela é, e o `--mandatory` é honrado nos dois modos (`ValidationCli.java:208-218`). E o regex do batch captura a tool como `[^.]+`, então o nome `tool:variante` não pode conter ponto.
 
 ---
 
@@ -341,7 +390,7 @@ Recorte por **árvore** (Java irmão × Python) e por **risco** (mecânico × de
 | # | change | escopo | trilha sugerida | módulos | depende de |
 |---|---|---|---|---|---|
 | **1** | **contadores e observabilidade do weaver** | E (§3.4) + logar o `android.jar` de D (§3.3) | **FF SDD** — tem a decisão D-E1 (`batch` × `apk_paths`) | `$DEXLIB2/cli`, `rv-instrumentation-dexlib2`, `rv-instrumentation-core` | — |
-| **2** | **reviver a Camada 3** | §6 inteira: desbloquear o gate de oráculos, corrigir as premissas da §5.4, integrar `drive_cryptoapp.py` ao ciclo do `rv-platform`, executar L3-a e produzir o teste que **falha hoje** | **Full SDD** — decisão de arquitetura (§6.4), mudança de critério declarado (abandona ordenação, §6.2d) e decisão sobre `MINIMUM_ORACLES` | `$DEXLIB2/validator`, `rv-platform`, `rv-tools`, `scripts/` | — (paralela a 1) |
+| **2** | **reviver a Camada 3, sem a L3-a** | §6 menos o driver: desbloquear o gate de oráculos com oráculos derivados (§6.3), corrigir as premissas da §5.4 e executar **L3-b** e **L3-c** — nenhuma das duas precisa de driver, de emulador ou de Python | **Full SDD** — mudança de critério declarado (abandona ordenação, §6.2d), decisão sobre `MINIMUM_ORACLES` e o filtro de proveniência do L3-c | `$DEXLIB2/validator` | — (paralela a 1) |
 | **3** | **fidelidade de emissão do weaver** | A (§3.1) + B (§3.2) + F (§3.5) | **Full SDD** — D-A1, D-A2, D-A3, D-B1 | `$DEXLIB2/{advice-emitter,dex-mutator,pointcut-engine}` | 1 (para observar) e 2 (para provar) |
 | **4** | **correções de autoria das specs** | C (§4.1) nos **dois** conjuntos: binding + `fsm` + os três defeitos do `gtm1` | **FF SDD** — pouca decisão, mas altera comportamento documentado em spec e tem consequência de replicação (D1) | `$JCA`, `$JCA_ANDROID` | 3 (senão a lista corrigida continua não sendo lida) |
 | **5** | **`CipherSpec` / `isValid` parametrizado** | G (§4.2) | **Full SDD** — decisão de arquitetura sobre código compartilhado entre conjuntos | `$CORE`, `$JCA`, `$JCA_ANDROID` | 4 |
@@ -351,7 +400,7 @@ Ordem defensável: **1 e 2 em paralelo → 3 → 4**, com 5 e 6 depois e indepen
 
 Três razões, e nenhuma é de conveniência:
 
-- **2 antes de 3** porque o critério de aceitação de 3 é um teste que precisa **falhar antes** do conserto (§6.5). Consertar primeiro e validar depois torna o resultado inauditável — é exatamente o modo de falha que produziu o defeito nº 3, quando o instrumento discriminante foi substituído por um agregado e o defeito atravessou.
+- **2 antes de 3** porque o critério de aceitação de 3 é um teste que precisa **falhar antes** do conserto (§6.6 — hoje V0 e V2). Consertar primeiro e validar depois torna o resultado inauditável — é exatamente o modo de falha que produziu o defeito nº 3, quando o instrumento discriminante foi substituído por um agregado e o defeito atravessou.
 - **1 antes de 3** porque sem contador não se enxerga o efeito colateral de 3 (descarte por pressão de registrador).
 - **3 antes de 4** porque a allow-list corrigida continua sendo lida de uma variável que a colisão impede de escrever.
 
@@ -364,8 +413,8 @@ Três razões, e nenhuma é de conveniência:
 **Já decidido nesta sessão:** reviver a Camada 3 (§6). O que decorre disso e ainda está em aberto:
 
 1. **O terceiro oráculo** (§6.2b) — **decidido em 2026-08-06: derivar de execução AspectJ existente**, em vez de escrever o multidex à mão ou baixar o `MINIMUM_ORACLES`. Com a §6.3, a derivação passa a ter duas fontes com papéis distintos (R1 pareado para o defeito nº 1, R2 para a categoria apagada), e o mínimo de três passa a ser satisfeito por oráculos derivados, não por YAMLs escritos à mão.
-2. **Integração do driver** (§6.4) — `drive_cryptoapp.py` como tool do `rv-tools`, como componente do `TaskExecutor`, ou como script invocado dentro da janela que o `rv-platform` já possui?
-3. **L3-b e L3-c entram na change 2 ou viram change própria?** L3-a sozinha já basta como critério de aceitação da change 3. L3-b é quase de graça (os runs pareados já existem); L3-c exige gerador e a decisão do filtro de proveniência.
+2. **Integração do driver** (§6.4) — **decidido em 2026-08-06: não mexer no `rv-android`.** A análise da plataforma confirmou que a forma tecnicamente correta seria uma tool do `rv-tools` e refutou as outras duas, mas as três exigem código novo na árvore Python. Decorre disso a L3-a parada e o critério migrado para V0/V2 (§6.6). Reabrir isso é reabrir a decisão, não ajustar um detalhe de implementação.
+3. **L3-b e L3-c entram na change 2 ou viram change própria?** Com a L3-a fora, elas são a change 2 inteira — a pergunta muda de "juntas ou separadas da L3-a" para "juntas ou separadas entre si". L3-b é quase de graça (os runs pareados já existem); L3-c exige gerador e a decisão do filtro de proveniência.
 
 Independentes da decisão acima:
 
@@ -398,5 +447,7 @@ Duas coisas que **não** são perguntas, e é bom que fique escrito para não se
 | `out/run_jca_compare_consolidated/events_fair.csv` | **regime R1** — 55.169 eventos pareados `variant ∈ {ajc, dexlib2}`, mesmo corpus, mesmas tools, mesmo emulador; 8 APKs com as duas variantes | §6.3 |
 | `out/run_jca_compare_consolidated/{per_apk_paired,tool_variant_comparison}.csv` | cobertura por APK e por tool/variante — base da ressalva sobre o estrato R8/Compose | §6.3 |
 | `modules/rv-instrumentation-ajc/` | o instrumentador AspectJ de APK (dex2jar + ajc + d8) que produziu o lado ajc do R1 | §6.3 |
-| `scripts/drive_cryptoapp.py` | driver determinístico de 369 linhas, escrito para reproduzir os 8 eventos do `cryptoapp-oracle.yaml` | §6.1, §6.4 |
-| `$DEXLIB2/validator/src/main/java/.../{TraceComparator,OracleLoader,ValidationCli}.java` | o comparador, o gate `MINIMUM_ORACLES = 3` e o subcomando `layer3 --mandatory` | §5.1, §6.1 |
+| `scripts/drive_cryptoapp.py` | driver de 369 linhas, escrito para reproduzir os 8 eventos do `cryptoapp-oracle.yaml` — e não determinístico, pelas razões da §6.5 | §6.1, §6.4, §6.5 |
+| `$DEXLIB2/validator/src/main/java/.../{TraceComparator,OracleLoader,ValidationCli}.java` | o comparador, o gate `MINIMUM_ORACLES = 3` e o subcomando `layer3 --mandatory` | §5.1, §6.1, §6.5, §6.6 |
+| `docs/architecture/rv-platform.md` + `modules/{rv-platform,rv-tools,rv-android-core}/src` | o subsistema de execução: contrato de plugin, ciclo do `TaskExecutor`, resolução de device, captura de logcat e layout da árvore de resultados | §6.4 |
+| `docs/20260806_handoff_rv_platform_and_layer3_driver.md` | o handoff que originou a segunda sessão de 2026-08-06 (análise do `rv-platform` + decisões 2 e 3) | §6.4 |
