@@ -43,19 +43,45 @@ SSLContextSpec(SSLContext ctx) {
         currentProtocol = protocol;
     }
 
-    event unsafe_protocol after(String protocol):
+    // Without a returning clause this event had no specification parameter to
+    // bind, so it lived in the empty parameter slice and never fired on the
+    // context being monitored. currentProtocol therefore kept whatever g1 or g2
+    // had left there -- the empty string, when neither matched -- which is why
+    // the campaign reports this specification's UnsafeProtocol with an empty
+    // "but found" value. Binding ctx is what makes the observed protocol reach
+    // the label.
+    event unsafe_protocol after(String protocol) returning(SSLContext ctx):
       call(public static SSLContext SSLContext.getInstance(String)) &&
       args(protocol) &&
       condition(!protocols.contains(protocol.toUpperCase())) {
         currentProtocol = protocol;
     }
 
-   event init after(SSLContext ctx):
+   // CrySL requires three predicates of this call -- generatedKeyManagers[km],
+   // generatedTrustManagers[tm] and randomized[random] -- and the translation
+   // read none of them, so a TLS context assembled from unvalidated key and
+   // trust managers raised nothing. The three are read here rather than as a
+   // condition(...) guard: a failing guard takes no transition, which would
+   // silently remove init from the automaton and turn a later createSSLEngine
+   // into a sequence violation.
+   event init after(SSLContext ctx, KeyManager[] km, TrustManager[] tm, SecureRandom random):
      call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) &&
-     target(ctx) {
+     target(ctx) && args(km, tm, random) {
        if (!protocols.contains(currentProtocol.toUpperCase())) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLContextSpec", "" + __LOC,
            "expecting one of {Default, SSL, TLS, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3} but found " + currentProtocol + "."));
+       }
+       if (km != null && !ExecutionContext.instance().validate(Property.GENERATED_KEY_MANAGERS, km)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+           "init() requires key managers established by a monitored KeyManagerFactory sequence."));
+       }
+       if (tm != null && !ExecutionContext.instance().validate(Property.GENERATED_TRUST_MANAGERS, tm)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+           "init() requires trust managers established by a monitored TrustManagerFactory sequence."));
+       }
+       if (random != null && !ExecutionContext.instance().validate(Property.RANDOMIZED, random)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+           "init() requires a SecureRandom established by a monitored SecureRandom sequence."));
        }
        ExecutionContext.instance().setProperty(Property.GENERATE_SSL_CONTEXT, context);
    }
@@ -66,10 +92,23 @@ SSLContextSpec(SSLContext ctx) {
        ExecutionContext.instance().setProperty(Property.GENERATE_SSL_ENGINE, eng);
    }
 
+  // unsafe_protocol was absent from this automaton, so the generator gave it a
+  // row sending every state to fail. That was inert while the missing returning
+  // clause kept it out of the context's parameter slice; adding the clause
+  // without this would have made every protocol outside the allow-list an
+  // immediate InvalidSequenceOfMethodCalls at getInstance, before any sequence
+  // violation exists. unsafeProtocol mirrors the unsafeAlg state
+  // KeyManagerFactorySpec uses for the same event shape.
   fsm:
     start [
       g1 -> s1
       g2 -> s1
+      unsafe_protocol -> unsafeProtocol
+    ]
+    unsafeProtocol [
+      g1 -> s1
+      g2 -> s1
+      unsafe_protocol -> unsafeProtocol
     ]
     s1 [
       init -> end

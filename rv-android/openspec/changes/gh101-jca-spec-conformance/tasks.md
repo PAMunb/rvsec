@@ -45,12 +45,12 @@
 
 ## 3. The two hot specifications
 
-- [ ] 3.1 `jca_android/TrustManagerFactorySpec.mop`: rename the `g3` binding at `:44`, add `g3` to the `fsm`, and correct the three `gtm1` defects at `:62-65` — the wrong `Property` constant at `:65`, the `TrustManager[][]` binding at `:62`, and the `KeyManager[]` return type at `:63` — plus the **2** predicate-graph edges the map assigns to this file at this stage (`ENSURES generatedTrustManagers`, which is the `:65` defect itself, and `REQUIRES generatedKeyStore`). Its third edge, `REQUIRES generatedManagerFactoryParameters`, needs new vocabulary and belongs to Group 5
-- [ ] 3.2 `jca_android/SSLContextSpec.mop`: add `returning(SSLContext ctx)` at `:46`, add `unsafe_protocol` to the `fsm`, and close the **3** unread `REQUIRES` the map assigns to this file — `generatedKeyManagers`, `generatedTrustManagers`, `randomized`
-- [ ] 3.3 Enter every hunk from 3.1 and 3.2 in the divergence record, each with its reason and this task
+- [x] 3.1 `jca_android/TrustManagerFactorySpec.mop`: rename the `g3` binding at `:44`, add `g3` to the `fsm`, and correct the three `gtm1` defects at `:62-65` — the wrong `Property` constant at `:65`, the `TrustManager[][]` binding at `:62`, and the `KeyManager[]` return type at `:63` — plus the **2** predicate-graph edges the map assigns to this file at this stage (`ENSURES generatedTrustManagers`, which is the `:65` defect itself, and `REQUIRES generatedKeyStore`). Its third edge, `REQUIRES generatedManagerFactoryParameters`, needs new vocabulary and belongs to Group 5
+- [x] 3.2 `jca_android/SSLContextSpec.mop`: add `returning(SSLContext ctx)` at `:46`, add `unsafe_protocol` to the `fsm`, and close the **3** unread `REQUIRES` the map assigns to this file — `generatedKeyManagers`, `generatedTrustManagers`, `randomized`
+- [x] 3.3 Enter every hunk from 3.1 and 3.2 in the divergence record, each with its reason and this task
 - [ ] 3.4 Generate monitors from the derived set and assert that no bound event has an all-`fail` transition row (INV-INS-110) — this is what proves the `fsm` half of the correction landed
-- [ ] 3.5 Record in the frozen set's debt list that `jca` retains both defects and the spurious `InvalidSequenceOfMethodCalls` they produce
-- [ ] 3.6 Run the freeze check and the divergence-record check
+- [x] 3.5 Record in the frozen set's debt list that `jca` retains both defects and the spurious `InvalidSequenceOfMethodCalls` they produce
+- [x] 3.6 Run the freeze check and the divergence-record check
 
 ## 4. Predicate graph — `.mop` only
 

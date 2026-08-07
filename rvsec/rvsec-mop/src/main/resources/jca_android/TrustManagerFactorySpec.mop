@@ -41,34 +41,64 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         currentAlgorithmInstance = alg;
     }
 
-    event g3 after(String alg) returning(TrustManagerFactory k):
+    event g3 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
       && args(alg)
       && condition(!algorithms.contains(alg))  {
         currentAlgorithmInstance = alg;
     }
 
-    event init before(TrustManagerFactory mf):
+    // CrySL states two events here -- i1: init(keyStore) and i2: init(params) --
+    // and requires a predicate of each argument. The translation fused them into
+    // one event over a disjunctive pointcut, so neither argument was bound and
+    // neither REQUIRES could be read. Binding the single argument as Object and
+    // discriminating by type reads the one whose vocabulary exists;
+    // generatedManagerFactoryParameters has no Property constant yet.
+    event init before(TrustManagerFactory mf, Object param):
        ( call(public void TrustManagerFactory.init(KeyStore)) ||
          call(public void TrustManagerFactory.init(ManagerFactoryParameters))
-       ) && target(mf) {
+       ) && target(mf) && args(param) {
         if (!algorithms.contains(currentAlgorithmInstance)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
               "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
         }
+        if (param instanceof KeyStore && !ExecutionContext.instance().validate(Property.GENERATED_KEY_STORE, param)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
+              "init() requires a key store established by a monitored KeyStore sequence."));
+        }
        ExecutionContext.instance().setProperty(Property.GENERATED_TRUST_MANAGER, trustManagerFactory);
     }
 
-    event gtm1 after(TrustManagerFactory k) returning(TrustManager[][] trustManager):
-      call(public KeyManager[] TrustManagerFactory.getTrustManagers())
-      && target(k) {
-        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, trustManager);
+    // Four defects, all copied from KeyManagerFactorySpec, where the same lines
+    // are correct because its specification parameter is named k. Here the
+    // parameter is mf, so binding k put this event in the empty parameter slice:
+    // the generated monitor dispatched it on TrustManagerFactorySpec__Map, a
+    // single global monitor, rather than on the factory that produced the trust
+    // managers. The return type was TrustManager[][], the pointcut declared a
+    // KeyManager[] return that getTrustManagers() never has, and the constant
+    // written was the key-manager one.
+    event gtm1 after(TrustManagerFactory mf) returning(TrustManager[] trustManager):
+      call(public TrustManager[] TrustManagerFactory.getTrustManagers())
+      && target(mf) {
+        ExecutionContext.instance().setProperty(Property.GENERATED_TRUST_MANAGERS, trustManager);
     }
 
+    // g3 was absent from this automaton, so the generator gave it a row sending
+    // every state to fail. That was inert while its binding kept it out of the
+    // monitored object's slice; repairing the binding without this would have
+    // made every algorithm outside the allow-list an immediate
+    // InvalidSequenceOfMethodCalls. The unsafeAlg state is the shape
+    // KeyManagerFactorySpec already uses for the same event.
     fsm :
       start [
         g1 -> waitingInit
         g2 -> waitingInit
+        g3 -> unsafeAlg
+      ]
+      unsafeAlg [
+        g1 -> waitingInit
+        g2 -> waitingInit
+        g3 -> unsafeAlg
       ]
       waitingInit [
         init -> final
