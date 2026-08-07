@@ -74,9 +74,10 @@ public record EmitPlan(
      * {@code Ljava/lang/Throwable;} that plain {@code after() throwing(...)}
      * without a declared type produces.
      *
-     * <p>{@code throwingOperandIndex} is the position (in the monitor invoke's
-     * operand list) of the {@code throwing(<name>)}-bound exception argument, or
-     * {@code -1} when the advice binds no exception parameter. The
+     * <p>{@code throwingOperandIndices} carries, for each invoke in
+     * {@code toInsert} and in the same order, the position (in that invoke's
+     * operand list) of the {@code throwing(<name>)}-bound exception argument,
+     * or {@code -1} when that call binds no exception parameter. The
      * {@code MonitorInvokeBuilder} emits a placeholder register at that slot
      * (it cannot know the caught-exception register until the executor allocates
      * one); the executor rewrites that slot to the register written by
@@ -84,19 +85,24 @@ public record EmitPlan(
      * dedicated index avoids guessing which operand is the exception when the
      * monitor event also takes args/target bindings (the corpus's sole site
      * passes {@code (o, e)} — two operands, only the second is the exception).
+     *
+     * <p>It is a list rather than a single index because a fused advice emits
+     * one invoke per monitor call and those calls may declare different
+     * argument lists, putting the exception in a different slot in each
+     * (INV-INS-104).
      */
-    public record TryCatchSpec(String catchType, boolean catchAny, int throwingOperandIndex) {
-        public static TryCatchSpec catchAll() {
-            return new TryCatchSpec("Ljava/lang/Throwable;", true, -1);
+    public record TryCatchSpec(String catchType, boolean catchAny,
+                               List<Integer> throwingOperandIndices) {
+        public TryCatchSpec {
+            throwingOperandIndices = throwingOperandIndices == null
+                    ? List.of() : List.copyOf(throwingOperandIndices);
         }
-        public static TryCatchSpec catchAll(int throwingOperandIndex) {
-            return new TryCatchSpec("Ljava/lang/Throwable;", true, throwingOperandIndex);
+        public static TryCatchSpec catchAll(List<Integer> throwingOperandIndices) {
+            return new TryCatchSpec("Ljava/lang/Throwable;", true, throwingOperandIndices);
         }
-        public static TryCatchSpec specific(String catchType) {
-            return new TryCatchSpec(catchType, false, -1);
-        }
-        public static TryCatchSpec specific(String catchType, int throwingOperandIndex) {
-            return new TryCatchSpec(catchType, false, throwingOperandIndex);
+        public static TryCatchSpec specific(String catchType,
+                                            List<Integer> throwingOperandIndices) {
+            return new TryCatchSpec(catchType, false, throwingOperandIndices);
         }
     }
 

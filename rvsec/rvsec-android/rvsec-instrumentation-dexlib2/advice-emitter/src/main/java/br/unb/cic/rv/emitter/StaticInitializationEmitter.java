@@ -62,7 +62,7 @@ public final class StaticInitializationEmitter implements AdviceEmitter {
             // (new-instance) — see DexWeaver's staticinit pre-pass.
             List<BuilderInstruction> ins = signatureDelivery(
                     ctx.monitorOwnerDescriptor,
-                    eventMethodName(ctx.advice),
+                    eventMethodNames(ctx.advice),
                     ctx.matchedClassDescriptor,
                     /*regClass=*/ 0, /*regSig=*/ 1);
             return EmitPlan.of(ins, InsertionPoint.METHOD_ENTRY, RegisterRequest.scratch(2));
@@ -77,40 +77,63 @@ public final class StaticInitializationEmitter implements AdviceEmitter {
     public String kind() { return "staticinitialization"; }
 
     /**
-     * {@code true} when this advice's single monitor call passes the
-     * {@code thisJoinPoint.getStaticPart().getSignature()} token (the
+     * {@code true} when <em>every</em> monitor call this advice carries passes
+     * the {@code thisJoinPoint.getStaticPart().getSignature()} token (the
      * generic_new staticinit shape).
+     *
+     * <p>All of them rather than the first: a fused advice's calls come from
+     * events whose position and pointcut coincide, so they agree on the shape,
+     * and an advice mixing the token with bound arguments is not a shape this
+     * emitter can deliver. Reading only the first would route such an advice
+     * down the signature path and silently drop everything after it
+     * (INV-INS-104).
      */
     public static boolean deliversSignature(AdviceDescriptor advice) {
-        MonitorCallDescriptor call = primaryCall(advice);
-        if (call == null || call.getArgs() == null || call.getArgs().size() != 1) return false;
-        return SIGNATURE_ARG_TOKEN.equals(call.getArgs().get(0).trim());
+        List<MonitorCallDescriptor> calls = advice.getMonitorCalls();
+        if (calls == null || calls.isEmpty()) return false;
+        for (MonitorCallDescriptor call : calls) {
+            if (call.getArgs() == null || call.getArgs().size() != 1) return false;
+            if (!SIGNATURE_ARG_TOKEN.equals(call.getArgs().get(0).trim())) return false;
+        }
+        return true;
     }
 
-    /** The short monitor event method name (after the last {@code .}). */
-    public static String eventMethodName(AdviceDescriptor advice) {
-        MonitorCallDescriptor call = primaryCall(advice);
-        if (call == null || call.getMethod() == null) return "";
-        String m = call.getMethod();
-        int dot = m.lastIndexOf('.');
-        return dot >= 0 ? m.substring(dot + 1) : m;
+    /** The short monitor event method names (after the last {@code .}), in descriptor order. */
+    public static List<String> eventMethodNames(AdviceDescriptor advice) {
+        List<MonitorCallDescriptor> calls = advice.getMonitorCalls();
+        if (calls == null) return List.of();
+        List<String> names = new ArrayList<>(calls.size());
+        for (MonitorCallDescriptor call : calls) {
+            String m = call.getMethod();
+            if (m == null) { names.add(""); continue; }
+            int dot = m.lastIndexOf('.');
+            names.add(dot >= 0 ? m.substring(dot + 1) : m);
+        }
+        return names;
     }
 
     /**
-     * Build the const-class + new-instance + invoke-direct + invoke-static
-     * sequence that delivers a {@code ClassSignature} over
-     * {@code declaringTypeDescriptor} to {@code monitorOwner.event(Signature)}.
+     * Build the const-class + new-instance + invoke-direct sequence that
+     * materialises a {@code ClassSignature} over
+     * {@code declaringTypeDescriptor}, followed by one
+     * {@code monitorOwner.<event>(Signature)} invoke per entry of
+     * {@code events}, in that order.
+     *
+     * <p>The three materialisation instructions are emitted once and the
+     * resulting instance is shared across the invokes: the events of a fused
+     * advice fire at the same join point over the same class, so a second
+     * {@code ClassSignature} would be the same object built twice.
      *
      * @param regClass scratch register receiving {@code const-class}; also the
      *                 single argument to {@code ClassSignature.<init>}.
      * @param regSig   scratch register receiving the {@code new-instance};
      *                 the receiver of {@code <init>} and the sole argument of
-     *                 the monitor invoke.
+     *                 each monitor invoke.
      */
     public static List<BuilderInstruction> signatureDelivery(
-            String monitorOwner, String event, String declaringTypeDescriptor,
+            String monitorOwner, List<String> events, String declaringTypeDescriptor,
             int regClass, int regSig) {
-        List<BuilderInstruction> out = new ArrayList<>(4);
+        List<BuilderInstruction> out = new ArrayList<>(3 + events.size());
 
         // const-class vC, <DeclaringType>
         out.add(new BuilderInstruction21c(
@@ -132,18 +155,15 @@ public final class StaticInitializationEmitter implements AdviceEmitter {
                 initRef));
 
         // invoke-static {vS}, <monitorOwner>.<event>(Lorg/aspectj/lang/Signature;)V
-        MethodReference eventRef = new ImmutableMethodReference(
-                monitorOwner, event, List.of(SIGNATURE_DESC), "V");
-        out.add(new BuilderInstruction35c(
-                Opcode.INVOKE_STATIC, /*regCount=*/ 1,
-                /*c=*/ regSig, /*d=*/ 0, /*e=*/ 0, /*f=*/ 0, /*g=*/ 0,
-                eventRef));
+        for (String event : events) {
+            MethodReference eventRef = new ImmutableMethodReference(
+                    monitorOwner, event, List.of(SIGNATURE_DESC), "V");
+            out.add(new BuilderInstruction35c(
+                    Opcode.INVOKE_STATIC, /*regCount=*/ 1,
+                    /*c=*/ regSig, /*d=*/ 0, /*e=*/ 0, /*f=*/ 0, /*g=*/ 0,
+                    eventRef));
+        }
 
         return out;
-    }
-
-    private static MonitorCallDescriptor primaryCall(AdviceDescriptor advice) {
-        List<MonitorCallDescriptor> calls = advice.getMonitorCalls();
-        return (calls == null || calls.isEmpty()) ? null : calls.get(0);
     }
 }

@@ -5,6 +5,7 @@ import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.MonitorCallDescriptor;
 import br.unb.cic.rv.descriptor.ParameterDescriptor;
 import br.unb.cic.rv.emitter.EmitterDispatch;
+import br.unb.cic.rv.emitter.UnsupportedAspectConstructError;
 import br.unb.cic.rv.pointcut.AndroidClassIndex;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
 import br.unb.cic.rv.pointcut.TypeResolver;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -112,22 +114,36 @@ class DexWeaverDegradationTest {
     }
 
     // ------------------------------------------------------------------
-    // (2) malformed commonPointcut → advice-only matching (§4.D.0)
+    // (2) malformed commonPointcut → the weave fails loud (gh100 task 5.5)
     // ------------------------------------------------------------------
 
     @Test
-    void malformedCommonPointcutDegradesToAdviceOnlyMatching() {
+    void malformedCommonPointcutFailsTheWeave() {
+        // This test used to assert the opposite — that an unparseable
+        // commonPointcut degrades to advice-only matching "rather than dropping
+        // all weaving". That reading treats the commonPointcut as an optional
+        // refinement. It is not: it carries the class-level exclusions
+        // (BaseAspect.notwithin(), !within(...RVMObject+)), which appear in no
+        // advice's own expression. Degrading to advice-only matching weaves
+        // every site those clauses exist to exclude, with neither error nor
+        // warning, over machine-generated source no reviewer reads. The delta
+        // spec's Fail-Closed Pointcut Parsing requirement replaces the old
+        // behaviour; the assertion is inverted rather than deleted so the
+        // record shows the contract changed deliberately.
         DexFile dex = dexWithDoFinalCall();
         AspectDescriptor descriptor = beforeDoFinalDescriptor();
         descriptor.setCommonPointcut("!!within(((garbage");  // unparseable
 
         Map<String, MutableMethodImplementation> muts = new HashMap<>();
-        DexWeaver.WeaveReport report = weave(dex, descriptor, mapSupplier(muts));
+        UnsupportedAspectConstructError error = assertThrows(
+                UnsupportedAspectConstructError.class,
+                () -> weave(dex, descriptor, mapSupplier(muts)));
 
-        assertEquals(1, report.matchesApplied(),
-                "§4.D.0: an unparseable commonPointcut must degrade to "
-                        + "advice-only matching, not drop all weaving");
-        assertEquals(0, report.plansSkipped());
+        assertTrue(error.getMessage().contains("!!within(((garbage"),
+                "the message must name the expression that failed to parse, so the parser "
+                        + "gets extended deliberately: " + error.getMessage());
+        assertTrue(muts.isEmpty(),
+                "nothing may be woven against an aspect whose exclusions could not be read");
     }
 
     // ------------------------------------------------------------------

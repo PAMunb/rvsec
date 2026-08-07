@@ -5,6 +5,7 @@ import br.unb.cic.rv.descriptor.MonitorCallDescriptor;
 import br.unb.cic.rv.pointcut.Match;
 import br.unb.cic.rv.pointcut.TypeResolver;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -46,9 +47,17 @@ public final class EmitContext {
         this.matchedClassDescriptor = matchedClassDescriptor;
     }
 
-    /** Convenience accessor for the single monitor call typical of a MOP advice. */
-    public MonitorCallDescriptor primaryMonitorCall() {
-        if (advice.getMonitorCalls().isEmpty()) return null;
-        return advice.getMonitorCalls().get(0);
+    /**
+     * Every monitor call this advice carries, in descriptor order, never null.
+     *
+     * <p>An advice may carry more than one: JavaMOP fuses advices whose
+     * position and pointcut coincide, and the production descriptor holds 115
+     * advices of which 17 are fused. Descriptor order is normative — it is the
+     * order the generated monitor expects its events in — so callers iterate
+     * this list and never reorder it (INV-INS-104).
+     */
+    public List<MonitorCallDescriptor> monitorCalls() {
+        List<MonitorCallDescriptor> calls = advice.getMonitorCalls();
+        return calls == null ? List.of() : calls;
     }
 }

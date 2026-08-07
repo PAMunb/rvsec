@@ -226,9 +226,10 @@ public final class InstructionInjector {
      *     invoke-static {... vException ...}, monitor.event(...)
      *     throw vException                   ; re-throw — LAST instruction
      * </pre>
-     * The {@code throwing(<name>)}-bound operand of the monitor invoke (slot
-     * {@code plan.tryCatchSpec().throwingOperandIndex()}) is rewritten from the
-     * emitter's placeholder to {@code vException}.
+     * The {@code throwing(<name>)}-bound operand of each monitor invoke (slot
+     * {@code plan.tryCatchSpec().throwingOperandIndices().get(i)} for the i-th
+     * invoke) is rewritten from the emitter's placeholder to
+     * {@code vException}.
      *
      * <p>Range-splitting: every pre-existing user try-block that COVERS
      * {@code matchedIdx} is split into three sequential ranges —
@@ -290,9 +291,15 @@ public final class InstructionInjector {
         body.add(new BuilderInstruction11x(Opcode.MOVE_EXCEPTION, exceptionRegister));
         // The advice invoke(s), with the throwing-bound operand rewritten to
         // vException (the emitter emitted a placeholder it could not resolve).
-        int throwingSlot = plan.tryCatchSpec().throwingOperandIndex();
-        for (BuilderInstruction insn : plan.toInsert()) {
-            body.add(rewriteThrowingOperand(insn, throwingSlot, exceptionRegister));
+        // One slot per invoke: a fused advice emits one invoke per monitor call
+        // and those calls can put the exception in different operand positions,
+        // so a single index applied to all of them would rewrite an unrelated
+        // register in the others (INV-INS-104).
+        List<Integer> throwingSlots = plan.tryCatchSpec().throwingOperandIndices();
+        List<BuilderInstruction> invokes = plan.toInsert();
+        for (int i = 0; i < invokes.size(); i++) {
+            int slot = i < throwingSlots.size() ? throwingSlots.get(i) : -1;
+            body.add(rewriteThrowingOperand(invokes.get(i), slot, exceptionRegister));
         }
         // throw vException — re-throw so user catch clauses still run.
         body.add(new BuilderInstruction11x(Opcode.THROW, exceptionRegister));

@@ -212,7 +212,7 @@ class InstructionInjectorEdgeTest {
                 List.of(new BuilderInstruction35c(
                         Opcode.INVOKE_STATIC, 1, 0, 0, 0, 0, 0, MONITOR_EVENT)),
                 RegisterRequest.NONE,
-                EmitPlan.TryCatchSpec.catchAll(/*throwingOperandIndex=*/ 0));
+                EmitPlan.TryCatchSpec.catchAll(/*throwingOperandIndices=*/ List.of(0)));
 
         MutableMethodImplementation rebuilt = new InstructionInjector(impl)
                 .installTryCatch(/*matchedIdx=*/ 1, plan, /*exceptionRegister=*/ 1);

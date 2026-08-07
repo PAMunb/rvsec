@@ -21,40 +21,71 @@ import java.util.List;
  * Shared helper for building the {@code invoke-static} instruction that calls
  * the generated RuntimeMonitor's event method.
  *
- * <p>Every {@link AdviceEmitter} ultimately emits one such invoke; differences
- * between advice kinds are about placement (before/after/try-catch) and about
- * which registers hold the bound args, not about the invoke shape.
+ * <p>An advice emits one such invoke per entry of its {@code monitorCalls}
+ * list. Differences between advice kinds are about placement
+ * (before/after/try-catch) and about which registers hold the bound args, not
+ * about the invoke shape.
  */
 public final class MonitorInvokeBuilder {
 
     private MonitorInvokeBuilder() {}
 
     /**
-     * @return a single-instruction list containing the {@code invoke-static}
-     *         call to {@code <monitorOwner>.<monitorCall.method>(<paramTypes>)V}
-     *         with arg registers drawn from {@code match.argBindings}.
+     * Build one {@code invoke-static} per entry of the advice's
+     * {@code monitorCalls}, in descriptor order.
      *
-     * @throws UnresolvedBindingException when any binding name from
-     *         {@code monitorCall.args} cannot be resolved to a real register.
-     *         {@code DexWeaver} catches this at the {@code emitter.emit(ctx)}
-     *         funnel, increments
-     *         {@code WeaveReport.plansSkippedUnresolvedBinding}, logs the
-     *         site, and continues weaving. The previous contract injected
-     *         literal {@code v0} for unresolved names, which produced
-     *         type-mismatched invokes that ART rejected with
-     *         {@code java.lang.VerifyError} — see INV-INS-71 and
-     *         {@code docs/20260514_erro.md}.
+     * <p>INV-INS-104. JavaMOP fuses advices whose position and pointcut
+     * coincide, so an advice carrying N monitor calls is a normal descriptor
+     * shape — 17 of the production descriptor's 115 advices are fused. Until
+     * gh100 this method read {@code get(0)} and dropped the rest, which erased
+     * 9 events from every woven APK and, with them, the whole
+     * {@code UnsatisfiedConstraint} category from a 97,018-event corpus. The
+     * wrapper path at {@code WrapperEmitter:637} always iterated; this is the
+     * inline path catching up to it, and {@code EmissionParityTest} pins the
+     * two together.
+     *
+     * <p>Descriptor order is normative (D-A2): {@code monitorCalls} is a list
+     * and its order is the order the generated monitor expects.
+     *
+     * @return the invokes to
+     *         {@code <monitorOwner>.<monitorCall.method>(<paramTypes>)V}, arg
+     *         registers drawn from {@code match.argBindings}; empty when the
+     *         advice carries no monitor call.
+     *
+     * @throws UnresolvedBindingException when any binding name of <em>any</em>
+     *         monitor call cannot be resolved to a real register. The whole
+     *         advice is then skipped, not just the offending call: the funnel's
+     *         contract is "a consistent monitor invoke sequence, or none", and
+     *         emitting a fused advice's first event without its second would
+     *         drive the monitor's state machine through a transition its
+     *         accompanying event never accompanied. {@code DexWeaver} catches
+     *         this at the {@code emitter.emit(ctx)} funnel, increments
+     *         {@code WeaveReport.plansSkippedUnresolvedBinding}, logs the site,
+     *         and continues weaving. The previous contract injected literal
+     *         {@code v0} for unresolved names, which produced type-mismatched
+     *         invokes that ART rejected with {@code java.lang.VerifyError} —
+     *         see INV-INS-71 and {@code docs/20260514_erro.md}.
      */
     static List<BuilderInstruction> buildInvoke(EmitContext ctx) {
-        AdviceDescriptor advice = ctx.advice;
-        MonitorCallDescriptor call = ctx.primaryMonitorCall();
-        if (call == null) return Collections.emptyList();
+        List<MonitorCallDescriptor> calls = ctx.monitorCalls();
+        if (calls.isEmpty()) return Collections.emptyList();
 
+        List<BuilderInstruction> invokes = new ArrayList<>(calls.size());
+        for (MonitorCallDescriptor call : calls) {
+            invokes.add(buildInvoke(ctx, call));
+        }
+        return invokes;
+    }
+
+    /** The single {@code invoke-static} for one monitor call of {@code ctx}'s advice. */
+    private static BuilderInstruction buildInvoke(EmitContext ctx, MonitorCallDescriptor call) {
+        AdviceDescriptor advice = ctx.advice;
         String owner = ctx.monitorOwnerDescriptor;
         String eventMethod = shortName(call.getMethod());
-        MethodReference ref = buildMethodReference(owner, eventMethod, advice, ctx.typeResolver);
+        MethodReference ref = buildMethodReference(owner, eventMethod, advice,
+                ctx.typeResolver, call);
 
-        int[] regs = registersFor(advice, ctx.match);
+        int[] regs = registersFor(advice, ctx.match, call);
         if (regs == null) {
             // Determine which binding name caused the failure for the WARN
             // message. Walk monitorCall.args, find the first name absent from
@@ -82,7 +113,7 @@ public final class MonitorInvokeBuilder {
         // verifier rejects the low half of the wide as "non-reference register
         // (type=Long Low Half)" used in a position that expects a single slot.
         int[] expandedRegs = expandWideSlots(regs, ref);
-        return Collections.singletonList(buildInvokeStatic(ref, expandedRegs));
+        return buildInvokeStatic(ref, expandedRegs);
     }
 
     /**
@@ -127,15 +158,17 @@ public final class MonitorInvokeBuilder {
 
     private static MethodReference buildMethodReference(String owner, String name,
                                                          AdviceDescriptor advice,
-                                                         TypeResolver resolver) {
+                                                         TypeResolver resolver,
+                                                         MonitorCallDescriptor call) {
         // Build paramDescriptors in `monitorCall.args` order, looking up each
         // name's declared type in the advice's parameters / returning /
         // throwing list. The runtime monitor's signature follows
         // monitorCall.args order, not the advice's declaration order — they
-        // can differ when the advice's bindings are reordered.
-        MonitorCallDescriptor call = primaryMonitorCall(advice);
-        java.util.List<String> argNames = call != null ? call.getArgs()
-                : adviceParamNames(advice);
+        // can differ when the advice's bindings are reordered. The args list is
+        // read from THIS call: two calls fused into one advice may declare
+        // different argument lists, so a signature built from a sibling's would
+        // be the wrong one.
+        java.util.List<String> argNames = call.getArgs();
         if (argNames == null) argNames = adviceParamNames(advice);
 
         java.util.Map<String, String> nameToType = new java.util.LinkedHashMap<>();
@@ -210,13 +243,13 @@ public final class MonitorInvokeBuilder {
      *         incrementing {@code WeaveReport.plansSkippedUnresolvedBinding}.
      *         This method never throws.
      */
-    private static int[] registersFor(AdviceDescriptor advice, Match match) {
+    private static int[] registersFor(AdviceDescriptor advice, Match match,
+                                      MonitorCallDescriptor call) {
         // The advice descriptor's `monitorCalls.args` lists the param names
         // in the order the monitor expects them (not necessarily the advice's
-        // declaration order), so we honor that order here.
-        MonitorCallDescriptor call = primaryMonitorCall(advice);
-        java.util.List<String> argNames = call != null ? call.getArgs()
-                : adviceParamNames(advice);
+        // declaration order), so we honor that order here — per call, since
+        // fused calls may order or select their arguments differently.
+        java.util.List<String> argNames = call.getArgs();
         if (argNames == null) argNames = adviceParamNames(advice);
 
         java.util.Map<String, Integer> nameToReg = resolveBindings(advice, match);
@@ -233,11 +266,6 @@ public final class MonitorInvokeBuilder {
             regs[i] = r;
         }
         return regs;
-    }
-
-    private static MonitorCallDescriptor primaryMonitorCall(AdviceDescriptor advice) {
-        java.util.List<MonitorCallDescriptor> calls = advice.getMonitorCalls();
-        return (calls == null || calls.isEmpty()) ? null : calls.get(0);
     }
 
     /**

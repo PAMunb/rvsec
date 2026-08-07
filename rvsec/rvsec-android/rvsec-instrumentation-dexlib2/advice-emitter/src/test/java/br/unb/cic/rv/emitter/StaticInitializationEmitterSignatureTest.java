@@ -157,13 +157,13 @@ class StaticInitializationEmitterSignatureTest {
     }
 
     @Test
-    void eventMethodNameStripsQualifier() {
-        assertEquals("ArrayListSpec_clinitEvent",
-                StaticInitializationEmitter.eventMethodName(
+    void eventMethodNamesStripTheQualifier() {
+        assertEquals(List.of("ArrayListSpec_clinitEvent"),
+                StaticInitializationEmitter.eventMethodNames(
                         signatureAdvice("MultiSpec_1RuntimeMonitor.ArrayListSpec_clinitEvent")));
         // No qualifier → the whole name is the event.
-        assertEquals("bareEvent",
-                StaticInitializationEmitter.eventMethodName(signatureAdvice("bareEvent")));
+        assertEquals(List.of("bareEvent"),
+                StaticInitializationEmitter.eventMethodNames(signatureAdvice("bareEvent")));
     }
 
     @Test
@@ -173,7 +173,8 @@ class StaticInitializationEmitterSignatureTest {
         // MUST be vSig and its argument vClass (reversing them constructs the
         // ClassSignature over the wrong reference).
         List<BuilderInstruction> ins = StaticInitializationEmitter.signatureDelivery(
-                "Lmop/Owner;", "evt", "Lcom/example/Bar;", /*regClass=*/ 4, /*regSig=*/ 7);
+                "Lmop/Owner;", List.of("evt"), "Lcom/example/Bar;",
+                /*regClass=*/ 4, /*regSig=*/ 7);
         assertEquals(4, ins.size());
         assertEquals(4, ((BuilderInstruction21c) ins.get(0)).getRegisterA(), "const-class → vClass=v4");
         assertEquals(7, ((BuilderInstruction21c) ins.get(1)).getRegisterA(), "new-instance → vSig=v7");

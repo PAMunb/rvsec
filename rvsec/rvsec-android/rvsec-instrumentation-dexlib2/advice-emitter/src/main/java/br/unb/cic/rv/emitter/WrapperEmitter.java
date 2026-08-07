@@ -112,6 +112,29 @@ public final class WrapperEmitter {
         }
     }
 
+    /** One concrete call and every advice that wraps it, in descriptor order. */
+    private static final class WrapperGroup {
+        final ConcreteCall call;
+        final List<AdviceDescriptor> advices = new ArrayList<>();
+
+        WrapperGroup(ConcreteCall call) { this.call = call; }
+    }
+
+    /**
+     * The identity the {@code dex-mutator}'s wrapper registry keys on: the
+     * original call's declaring type, name, parameter list and return type.
+     *
+     * <p>It mirrors {@code DexWeaver.registerWrapper}'s key in FQN form rather
+     * than DEX descriptors — the two need only agree on what counts as the same
+     * call, not on spelling. Grouping here is what makes that registry
+     * single-valued, so its guard against rebinding can be an assertion instead
+     * of a routine occurrence.
+     */
+    private static String registryKey(ConcreteCall cc) {
+        return cc.declFqn + "#" + cc.methodName + "("
+                + String.join(",", cc.paramFqns) + ")" + cc.returnFqn;
+    }
+
     private WrapperEmitter() {}
 
     /**
@@ -206,8 +229,21 @@ public final class WrapperEmitter {
             src.append('\n');
         }
 
-        Map<String, Integer> nameCounts = new LinkedHashMap<>();
-        boolean bodyStarted = false;
+        // Group the advices by the ORIGINAL call they wrap, then emit one
+        // wrapper per group.
+        //
+        // One wrapper per group, not per advice: the dex-mutator's registry is
+        // keyed on the original call site's own MethodReference — that is all a
+        // call site carries, so the key cannot be widened to tell two advices
+        // apart. Emitting a wrapper per advice therefore bound several wrappers
+        // to one key and the last write won, silently discarding the others and
+        // attributing the site to whichever specification registered last. On
+        // the production descriptor that lost 12 of 96 wrappers across 10
+        // colliding keys, `SecureRandom.getInstance(String)` alone accounting
+        // for three. A merged wrapper fires every advice bound to the call, in
+        // descriptor order, which is what the call site would have done had the
+        // registry been able to hold them all (D-B1, INV-INS-104).
+        Map<String, WrapperGroup> groups = new LinkedHashMap<>();
         for (AdviceDescriptor advice : descriptor.getAdvices()) {
             if (!shouldWrap(advice)) continue;
             CallPC target = firstCallTarget(advice.getExpression());
@@ -232,15 +268,22 @@ public final class WrapperEmitter {
             }
 
             for (ConcreteCall cc : overloads) {
-                if (!bodyStarted) {
-                    src.append("public final class ").append(WRAPPER_CLASS_NAME).append(" {\n");
-                    src.append("    private ").append(WRAPPER_CLASS_NAME).append("() {}\n\n");
-                    bodyStarted = true;
-                }
-                WrapperEntry entry = buildEntry(cc, nameCounts);
-                entries.add(entry);
-                appendWrapperMethod(src, advice, entry);
+                groups.computeIfAbsent(registryKey(cc), k -> new WrapperGroup(cc))
+                        .advices.add(advice);
             }
+        }
+
+        Map<String, Integer> nameCounts = new LinkedHashMap<>();
+        boolean bodyStarted = false;
+        for (WrapperGroup group : groups.values()) {
+            if (!bodyStarted) {
+                src.append("public final class ").append(WRAPPER_CLASS_NAME).append(" {\n");
+                src.append("    private ").append(WRAPPER_CLASS_NAME).append("() {}\n\n");
+                bodyStarted = true;
+            }
+            WrapperEntry entry = buildEntry(group.call, nameCounts);
+            entries.add(entry);
+            appendWrapperMethod(src, group.advices, entry);
         }
         if (!bodyStarted) {
             // Emit an empty class so monitor-builder compiles uniformly
@@ -594,7 +637,17 @@ public final class WrapperEmitter {
         return hasAmbiguousObjectParam(entry.originalParamFqn);
     }
 
-    private static void appendWrapperMethod(StringBuilder src, AdviceDescriptor advice,
+    /**
+     * Emit the wrapper method for {@code entry}, firing the monitor calls of
+     * every advice in {@code advices} — in advice order, and within each advice
+     * in {@code monitorCalls} order.
+     *
+     * <p>Several advices reach one wrapper whenever more than one specification
+     * advises the same API call. They all fire, because the call site can only
+     * route to one wrapper and dropping the rest is what the registry used to do
+     * by accident.
+     */
+    private static void appendWrapperMethod(StringBuilder src, List<AdviceDescriptor> advices,
                                              WrapperEntry entry) {
         String ret = entry.originalReturnFqn;
         src.append("    public static ").append(ret).append(' ').append(entry.wrapperName)
@@ -634,10 +687,12 @@ public final class WrapperEmitter {
         src.append(entry.originalMethodName).append('(')
                 .append(String.join(", ", paramNames)).append(");\n");
 
-        for (MonitorCallDescriptor mc : advice.getMonitorCalls()) {
-            src.append("        ").append(mc.getMethod()).append('(');
-            src.append(buildMonitorArgs(advice, mc, paramNames, entry.isStatic));
-            src.append(");\n");
+        for (AdviceDescriptor advice : advices) {
+            for (MonitorCallDescriptor mc : advice.getMonitorCalls()) {
+                src.append("        ").append(mc.getMethod()).append('(');
+                src.append(buildMonitorArgs(advice, mc, paramNames, entry.isStatic));
+                src.append(");\n");
+            }
         }
         if (!isVoid) src.append("        return result;\n");
         src.append("    }\n\n");

@@ -8,6 +8,7 @@ import br.unb.cic.rv.emitter.EmitPlan;
 import br.unb.cic.rv.emitter.EmitterDispatch;
 import br.unb.cic.rv.emitter.InsertionPoint;
 import br.unb.cic.rv.emitter.StaticInitializationEmitter;
+import br.unb.cic.rv.emitter.UnsupportedAspectConstructError;
 import br.unb.cic.rv.pointcut.CombinedPC;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
 import br.unb.cic.rv.pointcut.Match;
@@ -156,6 +157,23 @@ public final class DexWeaver {
         MethodReference wrapperRef = new ImmutableMethodReference(
                 WrapperEmitter.WRAPPER_CLASS_DESC, w.wrapperName,
                 wrapperParamDescs, origReturnDesc);
+        // Fail loud on a rebinding (D-B1). The key is the call site's own
+        // signature and cannot be widened to tell two wrappers apart, so a
+        // second wrapper for the same key has nowhere to go: the last write
+        // would win and the earlier wrapper's monitor events would never fire
+        // at that site, with the site attributed to whichever specification
+        // registered last. WrapperEmitter now merges every advice that wraps a
+        // call into ONE wrapper, so reaching this branch means the emitter and
+        // the registry disagree about what counts as the same call — a build
+        // defect, not a data one, and a silent overwrite here is exactly how it
+        // stayed invisible for fifteen months.
+        MethodReference bound = wrapperReplacements.get(key);
+        if (bound != null && !bound.equals(wrapperRef)) {
+            throw new IllegalStateException(
+                    "wrapper registry key already bound to a different wrapper: " + key
+                            + " -> " + bound.getName() + ", rebinding to " + w.wrapperName
+                            + ". WrapperEmitter must emit one wrapper per original call.");
+        }
         wrapperReplacements.put(key, wrapperRef);
     }
 
@@ -605,20 +623,23 @@ public final class DexWeaver {
                     continue;
                 }
 
-                String event = StaticInitializationEmitter.eventMethodName(advice);
                 if (!StaticInitializationEmitter.deliversSignature(advice)) {
                     // Non-Signature staticinit advice is out of §4.Y's scope;
                     // skip rather than emit a malformed event. The corpus's
                     // staticinit advices all carry the getSignature() token.
                     continue;
                 }
+                // One event per monitor call the advice carries (INV-INS-104).
+                // A fused staticinit advice delivers the same ClassSignature to
+                // each of them.
+                List<String> events = StaticInitializationEmitter.eventMethodNames(advice);
 
                 if (existingClinit == null) {
                     // Synthesize a fresh <clinit>: deliver against v0/v1 in a
                     // 2-register private frame.
                     List<BuilderInstruction> body =
                             StaticInitializationEmitter.signatureDelivery(
-                                    monitorOwner, event, classDef.getType(),
+                                    monitorOwner, events, classDef.getType(),
                                     /*regClass=*/ 0, /*regSig=*/ 1);
                     Method clinit = StaticInitSynthesizer.synthesize(
                             classDef.getType(), body, /*registerCount=*/ 2);
@@ -641,7 +662,7 @@ public final class DexWeaver {
                     mutableSupplier.replaceImpl(existingClinit, grown);
                     List<BuilderInstruction> body =
                             StaticInitializationEmitter.signatureDelivery(
-                                    monitorOwner, event, classDef.getType(),
+                                    monitorOwner, events, classDef.getType(),
                                     /*regClass=*/ 0, /*regSig=*/ 1);
                     int at = 0;
                     for (BuilderInstruction ins : body) {
@@ -849,9 +870,17 @@ public final class DexWeaver {
 
     /**
      * §4.D.0: parse the descriptor's {@code commonPointcut} once per weave. Returns {@code null}
-     * when absent/blank or unparseable — in which case the advice expression is matched alone (the
-     * pre-§4.D.0 behaviour), so a malformed commonPointcut degrades gracefully rather than dropping
-     * all weaving. A non-null result is AND-composed onto every advice match.
+     * when absent or blank, in which case each advice expression is matched alone. A non-null
+     * result is AND-composed onto every advice match.
+     *
+     * <p>An expression that is present but unparseable fails the weave. It used to be swallowed
+     * into {@code null}, which reads as graceful degradation and is not: the commonPointcut is
+     * where the class-level exclusions live ({@code BaseAspect.notwithin()},
+     * {@code !within(...RVMObject+)}), and they appear in no advice's own expression. Dropping it
+     * silently weaves every site those clauses exist to exclude — instrumentation that is wrong
+     * with neither error nor warning, over machine-generated source no reviewer reads. Failing
+     * here names the expression and the aspect, so the parser gets extended deliberately, in its
+     * own change.
      */
     private PointcutExpression parseCommonPointcut(AspectDescriptor descriptor) {
         String cp = descriptor.getCommonPointcut();
@@ -859,7 +888,9 @@ public final class DexWeaver {
         try {
             return PointcutExpressionParser.parse(cp);
         } catch (RuntimeException ex) {
-            return null;
+            throw new UnsupportedAspectConstructError(
+                    "unparseable commonPointcut in aspect '" + descriptor.getAspectName()
+                            + "': " + cp, ex);
         }
     }
 

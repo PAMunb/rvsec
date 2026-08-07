@@ -192,17 +192,27 @@ public final class BaksmaliDiffer {
     }
 
     /**
-     * Read the descriptor JSON once and produce the {@code wrapperName → spec}
-     * map. The wrapper name derivation mirrors {@code WrapperEmitter}'s
+     * Read the descriptor JSON once and produce the {@code wrapperBaseName →
+     * specs} map. The derivation mirrors {@code WrapperEmitter}'s
      * descriptor-literal path so the validator can run without invoking the
      * emitter (which itself needs an {@code AndroidClassIndex} for full
      * overload expansion — overkill for spec attribution).
+     *
+     * <p>Keys are BASE names, without the numeric suffix the emitter appends to
+     * disambiguate overloads, and the specs of every advice over a base name are
+     * unioned into one entry. Two things force that. The emitter mints one
+     * wrapper per original call and fires every advice bound to it, so one
+     * wrapper name legitimately carries several specs. And the emitter's suffix
+     * numbering counts concrete overloads expanded from android.jar, which this
+     * derivation never sees — reproducing it from the descriptor alone was never
+     * possible, and matching on it made the attribution depend on a count that
+     * could not be right. {@link #specOfInvoke} strips the suffix before looking
+     * a name up.
      */
     static Map<String, Set<String>> buildWrapperToSpec(Path descriptorJson) {
         AspectDescriptor desc = DescriptorReader.read(descriptorJson);
         TypeResolver resolver = new TypeResolver(desc.getImports());
         Map<String, Set<String>> out = new LinkedHashMap<>();
-        Map<String, Integer> nameCounts = new LinkedHashMap<>();
         for (AdviceDescriptor advice : desc.getAdvices()) {
             if (!"after".equals(advice.getPosition())) continue;
             if (advice.getMonitorCalls() == null || advice.getMonitorCalls().isEmpty()) continue;
@@ -212,7 +222,7 @@ public final class BaksmaliDiffer {
             // is wrapped; we don't filter on that here because the goal is to
             // catch every wrapper the dexlib2 side might emit, not to mirror
             // the emitter's gating exactly.
-            String wrapperName = deriveWrapperName(advice, resolver, nameCounts);
+            String wrapperName = deriveWrapperBaseName(advice, resolver);
             if (wrapperName == null) continue;
             // Every monitor call, not just the first (INV-INS-106). A fused
             // advice carries one call per event, and reading only element 0
@@ -227,23 +237,22 @@ public final class BaksmaliDiffer {
                 if (spec != null) specs.add(spec);
             }
             if (specs.isEmpty()) continue;
-            out.put(wrapperName, specs);
+            out.computeIfAbsent(wrapperName, k -> new LinkedHashSet<>()).addAll(specs);
         }
         return out;
     }
 
     /**
-     * Replicates {@code WrapperEmitter}'s wrapper-name derivation for the
-     * descriptor-literal path: {@code <fqClass>_<methodName>} with a numeric
-     * suffix on collisions. The actual Android-jar-driven path expands
-     * overloads — for hook recall we only need the PREFIX-form so the same
-     * advice can be matched whether the woven APK uses inline or wrapper
-     * emission. We register both the primary derived name AND a normalized
-     * "any wrapper that begins with {@code <fqClass>_<methodName>}" key so
-     * callers can probe with the actual name found in the DEX.
+     * The wrapper BASE name for an advice: {@code <fqClass>_<methodName>},
+     * derived from the pointcut expression alone.
+     *
+     * <p>No collision suffix. The emitter appends one per concrete overload it
+     * expands from android.jar, and this derivation sees no overloads at all —
+     * so any number produced here would be a guess. Hook recall only needs the
+     * base form, and {@link #specOfInvoke} normalises the DEX's actual name down
+     * to it.
      */
-    private static String deriveWrapperName(AdviceDescriptor advice, TypeResolver resolver,
-                                            Map<String, Integer> nameCounts) {
+    private static String deriveWrapperBaseName(AdviceDescriptor advice, TypeResolver resolver) {
         // Intent: reproduce, from the AspectJ pointcut expression string alone,
         // the exact wrapper method name WrapperEmitter would mint for this
         // advice — WITHOUT loading an AndroidClassIndex. The name is
@@ -302,10 +311,7 @@ public final class BaksmaliDiffer {
         // WrapperEmitter disambiguates overloads.
         String fqType = type.contains(".") ? type : resolver.resolveFqn(type);
         if (fqType == null) fqType = type;
-        String base = fqType.replace('.', '_') + "_" + method;
-        int count = nameCounts.getOrDefault(base, 0);
-        nameCounts.put(base, count + 1);
-        return count == 0 ? base : base + "_" + count;
+        return fqType.replace('.', '_') + "_" + method;
     }
 
     /**
@@ -379,9 +385,26 @@ public final class BaksmaliDiffer {
             return spec == null ? Set.of() : Set.of(spec);
         }
         if (WRAPPER_CLASS_DESC.equals(defining)) {
-            return wrapperToSpec.getOrDefault(name, Set.of());
+            Set<String> exact = wrapperToSpec.get(name);
+            if (exact != null) return exact;
+            // The emitter disambiguates overloads of one method with a trailing
+            // "_<n>"; the descriptor-only derivation cannot know how many
+            // overloads android.jar yielded, so it keys on the base name and we
+            // normalise here. Exact first, so a wrapped method whose own name
+            // ends in "_<digits>" still resolves before the strip.
+            return wrapperToSpec.getOrDefault(stripOverloadSuffix(name), Set.of());
         }
         return Set.of();
+    }
+
+    /** Drop a trailing {@code _<digits>} overload-disambiguation suffix. */
+    private static String stripOverloadSuffix(String wrapperName) {
+        int idx = wrapperName.lastIndexOf('_');
+        if (idx <= 0 || idx == wrapperName.length() - 1) return wrapperName;
+        for (int i = idx + 1; i < wrapperName.length(); i++) {
+            if (!Character.isDigit(wrapperName.charAt(i))) return wrapperName;
+        }
+        return wrapperName.substring(0, idx);
     }
 
     /**

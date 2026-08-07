@@ -44,7 +44,7 @@ class AfterThrowingEmitterTest {
         EmitPlan plan = emitter.emit(ctx(a));
 
         assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
-        assertEquals(0, plan.tryCatchSpec().throwingOperandIndex(),
+        assertEquals(List.of(0), plan.tryCatchSpec().throwingOperandIndices(),
                 "bound exception name present in monitor args must map to its slot");
     }
 
@@ -64,7 +64,7 @@ class AfterThrowingEmitterTest {
         assertTrue(plan.tryCatchSpec().catchAny(),
                 "no throwing() clause must fall back to a catch-any on Throwable");
         assertEquals("Ljava/lang/Throwable;", plan.tryCatchSpec().catchType());
-        assertEquals(-1, plan.tryCatchSpec().throwingOperandIndex());
+        assertEquals(List.of(-1), plan.tryCatchSpec().throwingOperandIndices());
     }
 
     @Test
@@ -79,21 +79,22 @@ class AfterThrowingEmitterTest {
         EmitPlan plan = emitter.emit(ctx(a));
 
         assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
-        assertEquals(-1, plan.tryCatchSpec().throwingOperandIndex());
+        assertEquals(List.of(-1), plan.tryCatchSpec().throwingOperandIndices());
     }
 
     @Test
     void missingMonitorCallResolvesToNoOperand() {
-        // No monitor call at all → primaryMonitorCall() is null → there is no args
-        // list to search → operand -1. The try/catch is still installed (a bound
-        // Exception type), just with no operand to rewrite.
+        // No monitor call at all → no invoke is emitted → the index list is empty.
+        // The try/catch is still installed (a bound Exception type), just with
+        // nothing in its handler to rewrite.
         AdviceDescriptor a = adviceAfterThrowing("ath", "Exception");
         a.setMonitorCalls(Collections.emptyList());
 
         EmitPlan plan = emitter.emit(ctx(a));
 
         assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
-        assertEquals(-1, plan.tryCatchSpec().throwingOperandIndex());
+        assertEquals(List.of(), plan.tryCatchSpec().throwingOperandIndices(),
+                "no monitor call means no invoke, so there is no operand slot to report");
     }
 
     @Test
@@ -108,7 +109,7 @@ class AfterThrowingEmitterTest {
         EmitPlan plan = emitter.emit(ctx(a));
 
         assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
-        assertEquals(-1, plan.tryCatchSpec().throwingOperandIndex());
+        assertEquals(List.of(-1), plan.tryCatchSpec().throwingOperandIndices());
     }
 
     @Test
@@ -123,7 +124,7 @@ class AfterThrowingEmitterTest {
         EmitPlan plan = emitter.emit(ctx(a));
 
         assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
-        assertEquals(-1, plan.tryCatchSpec().throwingOperandIndex());
+        assertEquals(List.of(-1), plan.tryCatchSpec().throwingOperandIndices());
     }
 
     @Test
