@@ -133,19 +133,34 @@ SecureRandomSpec(SecureRandom r) {
           ExecutionContext.instance().setProperty(Property.RANDOMIZED, stream);
      }
 
+    // c3, g4 and setSeed3 are the violating branches of c2, g1/g2 and setSeed2. Each
+    // reports in its own body, and none of the three was in this automaton, so the
+    // generator gave each a row sending every state to fail and every report arrived
+    // with an InvalidSequenceOfMethodCalls on top of it.
+    //
+    // setSeed3 goes where setSeed2 goes. `end` is not the accepting state -- only `init`
+    // is, via match1 -- so admitting it endorses nothing.
+    //
+    // c3 and g4 create the object, so they cannot go to `init` without earning it the
+    // RANDOMIZED property that the rule's constraint denies them. unsafeInit is that
+    // state: the object exists and is monitored, and the calls that consume it are
+    // admitted so they do not accuse, but no path from it reaches match1.
     fsm :
       start [
          c1 -> init
          c2 -> init
+         c3 -> unsafeInit
          g1 -> init
          g2 -> init
          g3 -> init
+         g4 -> unsafeInit
       ]
       init [
          c1       -> init
          genSeed  -> end
          setSeed1 -> end
          setSeed2 -> end
+         setSeed3 -> end
          next1    -> end
          next2    -> end
          next3    -> end
@@ -155,9 +170,20 @@ SecureRandomSpec(SecureRandom r) {
          genSeed  -> end
          setSeed1 -> end
          setSeed2 -> end
+         setSeed3 -> end
          next1    -> end
          next3    -> end
          ints     -> end
+      ]
+      unsafeInit [
+         genSeed  -> unsafeInit
+         setSeed1 -> unsafeInit
+         setSeed2 -> unsafeInit
+         setSeed3 -> unsafeInit
+         next1    -> unsafeInit
+         next2    -> unsafeInit
+         next3    -> unsafeInit
+         ints     -> unsafeInit
       ]
 
     alias match1 = init

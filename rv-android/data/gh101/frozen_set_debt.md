@@ -88,13 +88,24 @@ events. The frozen set therefore keeps both the dead event and the empty label.
 `PBEParameterSpecSpec.c3`, `SecretKeySpecSpec.c3`/`c4`,
 `SecureRandomSpec.c3`/`g4`/`setSeed3`, `SignatureSpec.g3`.
 
-All sixteen share one shape: an error-reporting event with a negated or violating
-guard, which reports in its body and was left out of the automaton. Unlike the
-two above, most of them **do** bind the monitored object, so in `jca` every one of
-them fires a real report *and* a sequence violation on top of it.
+Fifteen of them share one shape: the violating branch of an event the CrySL rule
+states once — the translation split `c1: PBEKeySpec(password, salt,
+iterationCount, keylength)` into a conforming `c1` and three violating `err1`,
+`err2`, `err3`, and only the conforming half reached the automaton. Each reports
+in its own body. Unlike the two above, most of them **do** bind the monitored
+object, so in `jca` every one of them fires a real report *and* a sequence
+violation on top of it.
 
-What that is worth in the published dataset, recomputed from `errors.csv`
-(the error type lives in `unique_msg`, not in `message`):
+The sixteenth, `MessageDigestSpec.reset`, is not of that shape. No generated rule
+models `reset`: the API 30 `MessageDigest` rule declares `getInstance`, `update`
+and `digest` and nothing else, so CogniCrypt ignores `reset()` calls entirely. Its
+`.mop` event has an empty body and is absent from the `ere`, so the all-`fail` row
+is the whole of its effect — a legitimate API call becomes a sequence violation
+and the monitor is reset. The derived set deletes the event; `jca` keeps it.
+
+What the specifications carrying these events are worth in the published dataset,
+recomputed from `errors.csv` (the error type lives in `unique_msg`, not in
+`message`):
 
 | origin | `InvalidSequenceOfMethodCalls` events | of that category | of all 97,018 events |
 |---|---:|---:|---:|
@@ -102,11 +113,54 @@ What that is worth in the published dataset, recomputed from `errors.csv`
 | the 2 repaired first | 26,525 | 37.5% | 27.3% |
 | **together** | **49,817** | **70.4%** | **51.3%** |
 
-**70% of every `InvalidSequenceOfMethodCalls` in the published dataset comes from
-events that should not be judging sequence at all.** This is the mechanism behind
-the co-emission the investigation measured — all 454 misuse tuples carrying at
-least one `InvalidSequenceOfMethodCalls` line for the same tuple.
+**Read this as a ceiling, not as a cause.** 70.4% of every
+`InvalidSequenceOfMethodCalls` in the published dataset comes from ten
+specifications, and every one of those ten carries an unconditional accuser. It
+does not follow that the eighteen events produced them: the `@fail` handler emits
+no message naming the event that triggered it, so the published record cannot
+separate an error caused by one of the eighteen from an error caused by the same
+specification's language being left legitimately. `MessageDigestSpec` also accuses
+`digest()` with no preceding `update()`, which is ordinary code and has nothing to
+do with `reset`. Splitting the 49,817 would require re-measuring the corpus with
+the repaired set, which no change has yet done.
+
+What the number does establish is that the dominant error type of the dataset is
+concentrated exactly where the defect is, which is the mechanism behind the
+co-emission the investigation measured — all 454 misuse tuples carrying at least
+one `InvalidSequenceOfMethodCalls` line for the same tuple.
 
 The frozen set keeps all eighteen. Its `InvalidSequenceOfMethodCalls` counts stay
-exactly reproducible and stay, in the majority, not evidence of a sequence
-violation.
+exactly reproducible, and an unknown but bounded majority of them are not evidence
+of a sequence violation.
+
+---
+
+## The residue both sets keep: a violating branch does not absorb what follows it (task 3b.11b)
+
+This one is **not** a debt of the frozen set alone. It is present in both sets,
+before and after this change, and Group 3b deliberately neither widens nor narrows
+it.
+
+Giving a violating event a place in the automaton stops it accusing on its own
+call. It does not make the state it lands in accept the calls that legitimately
+follow. `TrustManagerFactorySpec`'s `unsafeAlg`, added by task 3.1, admits `g1`,
+`g2` and `g3` and nothing else, so `getInstance` with an unlisted algorithm
+followed by `init` still reaches `fail`. The same holds for the `unsafeAlg` of
+`CipherSpec` and `KeyManagerFactorySpec`, for the `g3*` prefix of `MacSpec`,
+`KeyGeneratorSpec`, `KeyStoreSpec` and `MessageDigestSpec`, and for the seven
+prefixes Group 3b adds. The accusation moves from the violating call to the next
+one; it is not removed.
+
+Repairing it would mean an absorbing state — the object is poisoned and nothing
+afterwards can accuse it — which an `fsm` can express and an `ere` cannot. That
+was considered and rejected for Group 3b (D-S9), on two grounds. It is stricter
+than the repair Group 3 had already landed, so adopting it for some files would
+leave the set with two repair philosophies. And it trades a false positive for a
+false negative: after poisoning, a genuine misuse of the same object — `sign()`
+with no preceding `update()` — goes unreported.
+
+It affects thirteen specifications and predates this change, so it is recorded
+here rather than settled inside a change scoped to INV-INS-110, which asks only
+that a bound event have a row that is not `fail` from every state. No issue has
+been opened for it; that is the user's call, like the two rule gaps left open in
+[`algorithm_naming.md`](algorithm_naming.md).

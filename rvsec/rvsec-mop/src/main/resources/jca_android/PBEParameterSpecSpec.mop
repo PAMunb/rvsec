@@ -50,7 +50,12 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
                     "expecting at least 1000 iterations and a randomized salt."));
         }
 
-        ere : c1 | c2
+        // c3 reports too few iterations or an unrandomized salt in its own body. It was
+        // absent from the automaton, so the generator gave it a row sending every state
+        // to fail and the report arrived with a spurious InvalidSequenceOfMethodCalls on
+        // top of it. The Kleene prefix gives it a place without letting it reach the
+        // accepting state, so a spec built by c3 never earns PREPARED_PBE.
+        ere : c3* (c1 | c2)
 
         @fail {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC));

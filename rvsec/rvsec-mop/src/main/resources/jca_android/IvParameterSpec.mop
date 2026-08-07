@@ -55,7 +55,15 @@ IvParameterSpecSpec(IvParameterSpec s) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
        }
 
-    ere : c1 | c2
+    // c3 and c4 report an unrandomized IV in their own bodies, and neither appeared
+    // here. The generator gives an event absent from the automaton a row sending every
+    // state to fail, so each report arrived with an InvalidSequenceOfMethodCalls on top
+    // of it. The Kleene prefix is the shape MacSpec and KeyGeneratorSpec already use for
+    // a violating branch: the event is seen, it never reaches the accepting state, and
+    // it never accuses. A construction fires exactly one of the four, so a spec built by
+    // c3 or c4 simply stays live and unmatched, which is what it should be -- it never
+    // earns PREPARED_IV.
+    ere : (c3 | c4)* (c1 | c2)
 
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "IvParameterSpecSpec", "" + __LOC));

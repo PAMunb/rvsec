@@ -127,7 +127,13 @@ SignatureSpec(Signature s) {
             ExecutionContext.instance().setProperty(Property.VERIFIED, signed);
        }
 
-       ere: (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
+       // g3 records an unlisted algorithm in currentAlgorithmInstance so that i1 to i4
+       // can report it at the point the algorithm is actually used. It was absent from
+       // the automaton, so getInstance with an unlisted algorithm was itself an
+       // immediate InvalidSequenceOfMethodCalls. The g3* prefix is the shape MacSpec and
+       // KeyGeneratorSpec use: g3 is seen, it does not advance towards the accepting
+       // state, and a later g1 or g2 still starts a well-ordered sequence.
+       ere: (g3* g1 | g3* g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
 
        @fail {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC));

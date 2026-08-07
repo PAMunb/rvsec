@@ -104,7 +104,13 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
     }
 
-    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4) gen
+    // initError is the violating branch of init1: the same initialize(int) call with a
+    // key size the algorithm rejects, reporting InvalidKeySize in its own body. It was
+    // absent from the automaton, so the report arrived with a spurious
+    // InvalidSequenceOfMethodCalls on top of it. It is admitted in both positions where
+    // an initialize may occur -- before a valid one, which is a caller correcting the
+    // size, and after -- and in neither does it advance towards the accepting state.
+    ere: (g3* g1 | g3* g2) initError* (init1 | init2 | init3 | init4) initError* gen
 
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC));

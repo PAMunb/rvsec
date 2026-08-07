@@ -53,7 +53,7 @@
 - [x] 3.1 `jca_android/TrustManagerFactorySpec.mop`: rename the `g3` binding at `:44`, add `g3` to the `fsm`, and correct the three `gtm1` defects at `:62-65` — the wrong `Property` constant at `:65`, the `TrustManager[][]` binding at `:62`, and the `KeyManager[]` return type at `:63` — plus the **2** predicate-graph edges the map assigns to this file at this stage (`ENSURES generatedTrustManagers`, which is the `:65` defect itself, and `REQUIRES generatedKeyStore`). Its third edge, `REQUIRES generatedManagerFactoryParameters`, needs new vocabulary and belongs to Group 5
 - [x] 3.2 `jca_android/SSLContextSpec.mop`: add `returning(SSLContext ctx)` at `:46`, add `unsafe_protocol` to the `fsm`, and close the **3** unread `REQUIRES` the map assigns to this file — `generatedKeyManagers`, `generatedTrustManagers`, `randomized`
 - [x] 3.3 Enter every hunk from 3.1 and 3.2 in the divergence record, each with its reason and this task
-- [ ] 3.4 Generate monitors from the derived set and assert that no bound event has an all-`fail` transition row (INV-INS-110) — this is what proves the `fsm` half of the correction landed. The invariant is set-wide, and writing this check is what surfaced the sixteen further events of Group 3b, so the assertion is run once, at task 3b.10, and closes both groups
+- [x] 3.4 Generate monitors from the derived set and assert that no bound event has an all-`fail` transition row (INV-INS-110) — this is what proves the `fsm` half of the correction landed. The invariant is set-wide, and writing this check is what surfaced the sixteen further events of Group 3b, so the assertion is run once, at task 3b.10, and closes both groups
 - [x] 3.5 Record in the frozen set's debt list that `jca` retains both defects and the spurious `InvalidSequenceOfMethodCalls` they produce
 - [x] 3.6 Run the freeze check and the divergence-record check
 
@@ -61,27 +61,32 @@
 
 <!-- The two events of Group 3 were the visible tip of a pattern of eighteen. The check written
      for task 3.4 reports 18 all-`fail` events in the frozen set, of which sixteen remain in the
-     derived set, spread over eight further specifications and all of one shape: an
-     error-reporting event with a negated or violating guard, which reports in its body and was
-     never added to the automaton. Most of them bind the monitored object, so each firing
-     produces the report its author intended *and* an InvalidSequenceOfMethodCalls on top of it.
-     Repair uses the same `unsafeAlg` idiom Group 3 used, and INV-INS-110 is not weakened —
-     repairing all sixteen is what makes it true of the derived set as written.
+     derived set, spread over eight further specifications. Fifteen are of one shape: the
+     violating branch of an event the CrySL rule states once, reporting in its body and never
+     added to the automaton. Most bind the monitored object, so each firing produces the report
+     its author intended *and* an InvalidSequenceOfMethodCalls on top of it.
+     The repair form is the one Group 3 established and is not stricter than it (D-S9): a Kleene
+     prefix on the violating branch where the automaton is an `ere` -- the shape MacSpec,
+     KeyGeneratorSpec, KeyStoreSpec and MessageDigestSpec already use -- and new rows where it
+     is an `fsm`. No automaton is re-derived. The sixteenth, MessageDigestSpec.reset, is removed
+     rather than placed: no generated rule models it and its body is empty.
+     INV-INS-110 is not weakened; repairing all sixteen is what makes it true as written.
      One task per file, naming the events it closes, so completion is arithmetic:
      2 + 1 + 1 + 5 + 1 + 2 + 3 + 1 = 16. -->
 
-- [ ] 3b.1 `jca_android/IvParameterSpec.mop` (specification `IvParameterSpecSpec`): admit `c3` and `c4` into the `fsm` — **2** events
-- [ ] 3b.2 `jca_android/KeyPairGeneratorSpec.mop`: `initError` — **1**
-- [ ] 3b.3 `jca_android/MessageDigestSpec.mop`: `reset` — **1**
-- [ ] 3b.4 `jca_android/PBEKeySpecSpec.mop`: `f1`, `f2`, `err1`, `err2`, `err3` — **5**. `f1` and `f2` also carry the binding defect Group 3 met: neither has a `returning` clause, so both land in the empty parameter slice and need both halves, the binding and the `fsm`
-- [ ] 3b.5 `jca_android/PBEParameterSpecSpec.mop`: `c3` — **1**
-- [ ] 3b.6 `jca_android/SecretKeySpecSpec.mop`: `c3` and `c4` — **2**
-- [ ] 3b.7 `jca_android/SecureRandomSpec.mop`: `c3`, `g4`, `setSeed3` — **3**
-- [ ] 3b.8 `jca_android/SignatureSpec.mop`: `g3` — **1**
-- [ ] 3b.9 Enter each file's hunks in the divergence record as that file is completed, not in a batch at the end, each with its reason and its task
-- [ ] 3b.10 Generate monitors from the derived set and run `scripts/gh101_monitor_transition_check.py`: it must report no bound event with an all-`fail` transition row (INV-INS-110). Run it against the frozen set in the same session first, where the answer is known to be **18**, so a check that has quietly stopped seeing a monitor kind is caught before it is trusted. This closes task 3.4 and Group 3b together
-- [ ] 3b.11 Record in the frozen set's debt list that `jca` retains all eighteen events, with the share of the published dataset they account for — 49,817 of 70,760 `InvalidSequenceOfMethodCalls` (70.4%) and 51.3% of all 97,018 reported errors — so the debt is stated as a measured quantity rather than as a known defect
-- [ ] 3b.12 Run the freeze check and the divergence-record check
+- [x] 3b.1 `jca_android/IvParameterSpec.mop` (specification `IvParameterSpecSpec`): prefix the `ere` with the violating constructors — `(c3 | c4)* (c1 | c2)` — **2** events
+- [x] 3b.2 `jca_android/KeyPairGeneratorSpec.mop`: admit `initError` in both positions where an `initialize` may occur — **1**
+- [x] 3b.3 `jca_android/MessageDigestSpec.mop`: **remove** the `reset` event — the generated API 30 rule declares `getInstance`, `update` and `digest` and models no `reset`, the event body is empty, and the all-`fail` row is the whole of its effect — **1**
+- [x] 3b.4 `jca_android/PBEKeySpecSpec.mop`: prefix the `ere` with `(f1 | f2 | err1 | err2 | err3)*` — **5**. `f1` and `f2` also carry the binding defect Group 3 met: neither has a `returning` clause, so both land in the empty parameter slice and need both halves, the binding and the automaton. The prefix must be a star and not an option, because one construction can fire `err1` and `err2` together
+- [x] 3b.5 `jca_android/PBEParameterSpecSpec.mop`: `c3* (c1 | c2)` — **1**
+- [x] 3b.6 `jca_android/SecretKeySpecSpec.mop`: `(c3 | c4)* (c1 | c2)` — **2**
+- [x] 3b.7 `jca_android/SecureRandomSpec.mop`: rows in the existing `fsm` — `c3` and `g4` into a state that is not the accepting one, `setSeed3` where `setSeed2` already goes — **3**
+- [x] 3b.8 `jca_android/SignatureSpec.mop`: `(g3* g1 | g3* g2) (...)`, the shape `MacSpec` uses — **1**
+- [x] 3b.9 Enter each file's hunks in the divergence record as that file is completed, not in a batch at the end, each with its reason and its task
+- [x] 3b.10 Generate monitors from the derived set and run `scripts/gh101_monitor_transition_check.py`: it must report no bound event with an all-`fail` transition row (INV-INS-110). Run it against the frozen set in the same session first, where the answer is known to be **18**, so a check that has quietly stopped seeing a monitor kind is caught before it is trusted. This closes task 3.4 and Group 3b together
+- [x] 3b.11 Record in the frozen set's debt list that `jca` retains all eighteen events, with the share of the published dataset the ten specifications carrying them account for — 49,817 of 70,760 `InvalidSequenceOfMethodCalls` (70.4%) and 51.3% of all 97,018 reported errors — stated as a **ceiling on what the eighteen can explain**, not as a measurement of what they caused, since `@fail` records no message naming the event that triggered it
+- [x] 3b.11b Record in the frozen set's debt list the residue this repair form deliberately leaves: in every specification of the set the state reached by a violating branch does not admit the calls that legitimately follow it, so the accusation moves from the violating call to the next one. It predates this change, it is present in `CipherSpec`, `KeyManagerFactorySpec`, `MacSpec`, `KeyGeneratorSpec`, `KeyStoreSpec` and in the two files Group 3 repaired, and Group 3b neither widens nor narrows it (D-S9)
+- [x] 3b.12 Run the freeze check and the divergence-record check
 
 ## 4. Predicate graph — `.mop` only
 

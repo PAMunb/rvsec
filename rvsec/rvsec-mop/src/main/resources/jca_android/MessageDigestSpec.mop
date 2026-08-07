@@ -72,10 +72,6 @@ MessageDigestSpec(MessageDigest digest) {
 		}
 	  }
 
-	event reset before(MessageDigest digest):
-	  call(void MessageDigest.reset()) &&
-	  target(digest) { }
-
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
 	 target(digest) {

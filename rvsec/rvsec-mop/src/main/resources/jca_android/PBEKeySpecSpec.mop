@@ -18,13 +18,18 @@ PBEKeySpecSpec(PBEKeySpec s) {
 
         PBEKeySpec spec;
 
-        event f1 after(char[] password):
+        // f1 and f2 are the constructors the rule does not have: it states one, taking
+        // an iteration count. Both report that in their own bodies. Without a returning
+        // clause they bound no PBEKeySpec, so they landed in the empty parameter slice
+        // and the automaton saw them from a state that was never theirs, adding a second
+        // InvalidSequenceOfMethodCalls to the one the body already emitted.
+        event f1 after(char[] password) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec",  "" + __LOC));
         }
 
-        event f2 after(char[] password, byte[] salt, int keyLength):
+        event f2 after(char[] password, byte[] salt, int keyLength) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[], byte[], int)) &&
           args(password, salt, keyLength) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec",  "" + __LOC));
@@ -72,7 +77,15 @@ PBEKeySpecSpec(PBEKeySpec s) {
             ExecutionContext.instance().remove(Property.SPECCED_KEY, s);
         }
 
-        ere : c1 c2
+        // err1, err2 and err3 are the three violating branches of c1, and f1 and f2 the
+        // two constructors the rule does not have. All five report in their own bodies
+        // and none was in the automaton, so each report arrived with a spurious
+        // InvalidSequenceOfMethodCalls on top of it. The prefix has to be a star rather
+        // than an option: the three err guards are not mutually exclusive, so a single
+        // new PBEKeySpec(password, salt, 500, 256) with an unrandomized password fires
+        // err1 and err2 for the same construction. None of the five advances towards the
+        // accepting state, so a spec built by any of them never earns SPECCED_KEY.
+        ere : (f1 | f2 | err1 | err2 | err3)* c1 c2
 
         @fail {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec",
