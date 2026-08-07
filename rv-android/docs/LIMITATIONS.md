@@ -66,3 +66,67 @@ At time of writing, neither JCA nor Generic specs use the eight
 out-of-scope constructs. The empirical scan will re-run before Phase 5;
 any new usage surfaced there bumps this doc before the gate is allowed
 to proceed.
+
+## Known defects left unrepaired
+
+Recorded rather than fixed. Both were found while implementing gh100 and both
+were deliberately left alone; they are here so a later reader does not have to
+rediscover them.
+
+### The SDK platform jar is chosen by lexicographic order (gh100, 2026-08-07)
+
+`ConfigResolver.resolveAndroidJarFromEnv` picks the platform jar by taking the
+lexicographic maximum of the directory names under `$ANDROID_HOME/platforms/`:
+
+```java
+.max((a, b) -> a.getParent().getFileName().toString()
+        .compareTo(b.getParent().getFileName().toString()))
+```
+
+With `android-4` through `android-37` installed, `"android-4"` wins over
+`"android-37"` because `'4' > '3'` at the eighth character. The weaver then
+resolves API level 4 — Android 1.6, from 2009 — as the platform it matches
+pointcuts against. `latestUnder`, which picks `d8` / `zipalign` / `apksigner`
+out of `build-tools/`, has the same shape and prefers `37.0.0-rc1` over
+`37.0.0`.
+
+The defect is observable because gh100 made the weaver log the resolved
+`android.jar` at instrumentation start; that log line found it on its first
+real use.
+
+**Why it matters.** `AndroidClassIndex` is built from this jar, and it drives
+overload expansion in `WrapperEmitter`. A target the index cannot resolve falls
+through to the inline emission path — the path that truncates fused advices. So
+a wrongly-resolved platform jar adds truncation from a second cause on top of
+the one gh100 repairs.
+
+**Why it was not repaired.** Measured, not assumed: weaving `cryptoapp.apk`
+under `android-4` and under `android-37.0` differs only in `wrappersGenerated`
+(90 against 96), and the six extra wrappers are for call targets the app never
+invokes. `wrappersSubstituted` (74), `matchesApplied` (32) and
+`constructorInlineApplied` (11) are identical, so the woven output is the same
+and gh100's evidence baseline is unaffected. The comparison holds for this APK;
+it is not a general result, and an APK exercising modern framework overloads
+could well diverge.
+
+**Current mitigation, and its shelf life.** On the development machine
+`platforms/android-4` was moved aside, which makes the lexicographic maximum
+land on `android-37.0` by accident of the remaining list. Installing any
+single-digit platform (`android-8`, `android-9`) brings the defect straight
+back. Nothing was changed in the resolver, in the Docker image, or on any other
+machine. Pass `--android-jar` explicitly when the resolution matters.
+
+### A root reactor build needs `-DskipMopAgent=true` (gh100, 2026-08-07)
+
+`mvn install` from the `rvsec` root fails in `rvsec-agent` at
+`mop-maven-plugin:agent-gen` with `aspectjrt.jar is missing from the classpath`.
+`rvsec-agent` precedes `rvsec-android` in the reactor order, so the failure
+stops the build before the dexlib2 CLI jar is produced at all.
+
+`-DskipMopAgent=true` skips the failing mojo and the build completes, delivering
+`instr-cli.jar` into `modules/rv-instrumentation-dexlib2/lib/`. The property is
+the same one the `-Pcheck` profile sets (`rvsec/pom.xml:38`).
+
+The JSE agent is not on the dexlib2 instrumentation path, so skipping it costs
+that pipeline nothing. The failure itself is out of scope and was left
+untouched by explicit decision.
