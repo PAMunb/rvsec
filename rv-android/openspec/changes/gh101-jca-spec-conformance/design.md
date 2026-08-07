@@ -63,8 +63,8 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
 | INV-INS-109 (a) freeze | same | `git diff <base> -- <frozen paths>` is empty |
 | INV-INS-109 (b) enumeration | divergence record | every non-allow-list hunk of the set diff is named by an entry |
 | INV-INS-113 (verdict per file) | conformance record | 23/23 rows, no blanks |
-| Event Membership in the Automaton | `fsm` rows in `jca_android`'s `TrustManagerFactorySpec`, `SSLContextSpec` | generated monitor's transition table has no all-`fail` row for a bound event |
-| INV-INS-110 | same | monitor-generation assertion over the derived set |
+| Event Membership in the Automaton | `fsm` rows in `jca_android` for all 18 all-`fail` events — `TrustManagerFactorySpec` and `SSLContextSpec` in Group 3, the other 16 over 8 files in Group 3b | generated monitor's transition table has no all-`fail` row for a bound event |
+| INV-INS-110 | same | monitor-generation assertion over the derived set, run once after Group 3b |
 | Cipher Tables of the Derived Set | new `jca/util/AndroidCipherTransformationUtil` | Android verdicts follow the derived rule; the frozen class is untouched |
 | INV-INS-112 | same | no hand-maintained table, and no runtime selection over a shared one |
 | Predicate Contract | `Property.java` + `jca_android` `.mop` reads | write/read guard derived from the inventory |
@@ -75,7 +75,7 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
 
 **Goals:**
 
-- The derived set free of the layer-2 authoring defects, with the frozen set demonstrably untouched.
+- The derived set free of the layer-2 authoring defects — all eighteen all-`fail` events among them, not only the two that were visible when the change was written — with the frozen set demonstrably untouched.
 - `Cipher` transformation tables for the derived set sourced from the generated rule, in a utility the derived specification names directly.
 - The predicate graph reconnected where it is a defect, and recorded where it is not.
 - A conformance verdict for all 23 derived specifications, and a divergence record that keeps every difference between the sets attributable.
@@ -154,6 +154,20 @@ D-S0 makes it a hazard. The derived set is now the only one carrying the correct
 
 This is the one part of the change that writes Python inside `rv-android`, which the change did not originally do. It is admitted because the alternative is a correctness hazard in exactly the set this change exists to correct.
 
+### D-S9 — all eighteen all-`fail` events are repaired, not only the two that were visible
+
+The change was written around two events that can never behave. Writing task 3.4's check — the INV-INS-110 assertion over a generated monitor — showed the frozen set has **eighteen**, of which sixteen remain in the derived set after Group 3, in eight specifications this change had not planned to touch: `IvParameterSpecSpec.c3`/`c4`, `KeyPairGeneratorSpec.initError`, `MessageDigestSpec.reset`, `PBEKeySpecSpec.f1`/`f2`/`err1`/`err2`/`err3`, `PBEParameterSpecSpec.c3`, `SecretKeySpecSpec.c3`/`c4`, `SecureRandomSpec.c3`/`g4`/`setSeed3`, `SignatureSpec.g3`.
+
+They are one pattern, not sixteen accidents. Each is an error-reporting event whose guard is a negation or a violation — `condition(!ExecutionContext.instance().validate(...))`, `condition(!algorithms.contains(alg))` — which does its reporting in the event body and was never given a row in the automaton. Most of them bind the monitored object, so the automaton does see them fire, from whatever state the object is in, and sends it to `fail`. The result is that the report the author intended arrives accompanied by an `InvalidSequenceOfMethodCalls` that no one authored. In the published corpus these eight specifications carry 23,292 such errors and the two of Group 3 carry 26,525 — together 49,817 of 70,760, **70.4% of the category and 51.3% of all 97,018 reported errors**.
+
+Two ways to close it. Narrow INV-INS-110 to the two events the change named and record the sixteen as a finding for later; or repair all sixteen here.
+
+**Decision: repair all sixteen, in the derived set, as Group 3b.** The repair is not new work — it is the `unsafeAlg` idiom Group 3 already established, applied sixteen more times, one file per task with the events named so completion is counted rather than reviewed. Against that, a carve-out would leave the invariant true only of the part of the set someone happened to look at, and would leave the dominant error type of the dataset misattributed with the mechanism already known and written down.
+
+**INV-INS-110 is not weakened.** Repairing all sixteen is exactly what makes it true of the derived set as authored, so it keeps its full form: an event in a specification's event list must appear in that specification's automaton. The invariant does not acquire an exception list, and a carve-out would have been the only alternative reading of the same evidence.
+
+Two things this decision inherits from how the sixteen were found, and they belong in the design rather than in a task note. First, `PBEKeySpecSpec.f1` and `f2` carry the Group 3 binding defect as well — neither has a `returning` clause, so both land in the empty parameter slice — and therefore need both halves, the binding and the `fsm`, as `TrustManagerFactorySpec.gtm1` did. Second, the check that found them passed the frozen set until it was taught that events landing in the empty parameter slice generate an `AbstractSynchronizedMonitor` rather than an `AbstractAtomicMonitor`, which is precisely where the defective events live. A check that agrees with a set known to be defective is a bug in the check, so the frozen set — where the answer is known to be 18 — is the baseline every extension of it is run against first.
+
 ### D-S6 — the empirical verification of the two hot specifications is last, and is not relaxed
 
 The corrected allow-list of `SSLContextSpec` and `TrustManagerFactorySpec` is compared against a variable the wrapper collision prevents from being written, so their corrections have no observable effect until issue #100 task 5.3 lands. **Decision: place that verification in the final task group**, and if #100 has not landed, record the task as blocked citing the artefact rather than substituting a weaker check. Every other task in this change is independent of #100.
@@ -215,6 +229,7 @@ Verification: regenerate the `jca_android` inventory → the write/read guard pa
 - [Two utilities could drift apart as the derived rules are regenerated] → the frozen one is frozen, so drift is one-directional and is the derived one following its rule, which is the intended behaviour rather than a hazard.
 - [The inventory could drift from the specifications after the edits] → it is regenerated at verification time and compared against the committed one, for both sets.
 - [9 new `Property` constants, closing 11 edges, could repeat the original defect] → each lands with its reader in the same task, and the guard fails on any constant that does not.
+- [The defect counts written into the tasks were floors, not ceilings — `gtm1` had four defects where three were enumerated, and the all-`fail` pattern eighteen events where two were] → every count in this change comes from a script run over the material rather than from the prose that motivated it, and each such check is run against the frozen set first, where the answer is independently known. A check that agrees with a set known to be defective is a bug in the check, which is how the transition checker was found to be skipping a whole monitor kind.
 
 ## Testing Strategy
 
@@ -224,7 +239,7 @@ Verification: regenerate the `jca_android` inventory → the write/read guard pa
 | Contract | Every non-allow-list hunk recorded (INV-INS-109 b) | Set diff cross-checked against the divergence record, both directions | 1 check, run per task group |
 | Contract | Conformance verdict present for all 23 (INV-INS-113) | Assertion over the conformance record | 1 check |
 | Contract | Write/read guard (INV-INS-111) | Guard derived from the committed inventory | 1 check |
-| Generation | No bound event has an all-`fail` transition row (INV-INS-110) | Assert over the monitor generated from the derived set | 1 check |
+| Generation | No bound event has an all-`fail` transition row (INV-INS-110) | Assert over the monitor generated from the derived set, after Group 3b; the same check over the frozen set must still report 18, which is what proves the check itself still sees both monitor kinds | 1 check, two sets |
 | Generation | The frozen set's monitor is unchanged | Compare against the monitor generated at the base commit — this is what proves the additive `Property` constants are invisible to it | 1 check |
 | Unit (Java) | The derived utility follows the generated rule | Table-driven test over the eight admitted algorithms, with rejected cases per algorithm | ~20 cases |
 | Unit (Python) | `specification_set = "jca_android"` resolves to the derived directory without `custom_specs_dir` | Test beside the existing `get_monitored_operations_config` tests | 2 cases |
