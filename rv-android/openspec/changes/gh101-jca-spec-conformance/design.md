@@ -29,9 +29,8 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
         |                               |
         v                               v
                 rvsec-core
-  jca/util/                      jca_android/util/
-  CipherTransformationUtil       CipherTransformationUtil
-  FROZEN                         derived API 30 tables
+  jca/util/CipherTransformationUtil          FROZEN
+  jca/util/AndroidCipherTransformationUtil   derived API 30 tables
         \                               /
          \      Property.java          /
           \  (additive constants only) /
@@ -48,11 +47,11 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
 | conformance check | Verdict per `.mop` against its generated rule | `.mop` allow-list, `.cryptsl` constraint | anchored / uncontradicted / no-anchor + evidence |
 | freeze check | Enforce INV-INS-109 (a) | base commit, the frozen paths | failure on any byte changed under `jca/` or in its `CipherTransformationUtil` |
 | divergence record | Enforce INV-INS-109 (b) | the two set directories | every non-allow-list hunk named with its reason, or failure |
-| `Property.java` | The predicate vocabulary | — | enum constants (23 today, 34 after), additive only |
+| `Property.java` | The predicate vocabulary | — | enum constants (23 today, 32 after), additive only |
 | `ExecutionContext` | The predicate store | writes from `.mop` | reads from `.mop` |
 | predicate inventory | Every write, read and removal with file, line, spec, event, constant | the 23 `.mop` of a set | versioned CSV |
 | write/read guard | Enforce INV-INS-111 | the inventory | failure on an unread, unrecorded constant |
-| `jca_android/util/CipherTransformationUtil` | Transformation verdict under the derived rule | transformation string | boolean |
+| `jca/util/AndroidCipherTransformationUtil` | Transformation verdict under the derived rule | transformation string | boolean |
 | `specification_set` mapping | Make the derived set selectable by name | `"jca_android"` | its `mop_specs_dir` |
 
 ## Mapping: Spec → Implementation → Test
@@ -66,7 +65,7 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
 | INV-INS-113 (verdict per file) | conformance record | 23/23 rows, no blanks |
 | Event Membership in the Automaton | `fsm` rows in `jca_android`'s `TrustManagerFactorySpec`, `SSLContextSpec` | generated monitor's transition table has no all-`fail` row for a bound event |
 | INV-INS-110 | same | monitor-generation assertion over the derived set |
-| Cipher Tables of the Derived Set | new `jca_android/util/CipherTransformationUtil` | Android verdicts follow the derived rule; the frozen class is untouched |
+| Cipher Tables of the Derived Set | new `jca/util/AndroidCipherTransformationUtil` | Android verdicts follow the derived rule; the frozen class is untouched |
 | INV-INS-112 | same | no hand-maintained table, and no runtime selection over a shared one |
 | Predicate Contract | `Property.java` + `jca_android` `.mop` reads | write/read guard derived from the inventory |
 | INV-INS-111 | write/read guard | fails on a constant written and never read |
@@ -111,15 +110,21 @@ The natural grouping (one pass for bindings, one for the graph) collides inside 
 
 The write/read inventory (85 sites: 49 writes, 27 reads, 9 removals) exists only in an ephemeral session scratchpad. Everything downstream — the per-file edge counts, the guard, the deliberate-omission list — depends on it. **Decision: regenerate it as the first task and commit it**, together with the script that produces it, so it can be re-derived after the edits and compared.
 
-### D-S3 — a separate utility for the derived set, not a parameterised shared one
+### D-S3 — a separate class for the derived set, not a parameterised shared one
 
-Two ways to give the Android set its own transformation tables: parameterise the existing utility by the active specification set, or give the derived set a utility of its own.
+Two ways to give the Android set its own transformation tables: parameterise the existing utility by the active specification set, or give the derived set a class of its own.
 
 Parameterising was the earlier decision, on the grounds that a parallel utility duplicates parsing and validation logic. D-S0 removes that option outright: `jca/CipherSpec.mop` and `jca_android/CipherSpec.mop` are identical today, both importing `br.unb.cic.mop.jca.util.CipherTransformationUtil` and calling `isValid(...)` at five sites, so parameterising the signature means editing the frozen set's call site. The only way to parameterise without touching it would be a mutable switch read at runtime — which puts the frozen set's verdict under the control of state set elsewhere, exactly the failure mode the freeze exists to prevent.
 
-**Decision: add `br.unb.cic.mop.jca_android.util.CipherTransformationUtil`**, holding the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode and padding tables as immutable class-level data. Only `jca_android/CipherSpec.mop` changes, and only its import line. The original class is not touched, so `jca` behaviour is preserved by construction — no pinning test is needed as a gate, because there is no edit for it to guard.
+**Decision: add `br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil`**, holding the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode and padding tables as immutable class-level data.
+
+It lands **beside** the frozen class in the package that already exists, rather than in a `jca_android` package mirroring the specification directory. Both forms satisfy INV-INS-112 equally, because what selects the tables is the specification naming the class; the sibling form simply costs less. It adds no package, raises no question about an underscore in a package name, and lets the new class call `alg`, `mode` and `pad` directly, with no import at all. The freeze is unaffected either way: it covers the *file* `jca/util/CipherTransformationUtil.java`, not the directory, and a new class no `jca` specification imports leaves the frozen set's generated monitor unchanged.
+
+The `.mop` side is a single line whichever form is chosen, and the reason is worth recording because it is not obvious: `CipherSpec.mop` reaches the utility through a **static wildcard import** (`import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;`) and calls bare `isValid(transformation)`. Redirecting that import to the new class leaves all five call sites byte-identical. Nothing else from the utility is used in the `.mop`, so the wildcard imports one symbol in practice.
 
 The duplication objection is answered rather than accepted: `alg`, `mode` and `pad` are `public static` and correct, so the new class calls them instead of restating them. What differs is only the tables and the admissibility decision — and those genuinely differ in shape, since the frozen implementation branches over two algorithm families while the derived rule expresses eight with per-algorithm implications from mode to padding.
+
+One behaviour of the frozen class is carried over deliberately rather than inherited by accident: it folds the padding to upper case before comparing (`pad(transformation).toUpperCase()`). The corpus contains `Cipher.getInstance("AES/CBC/PKCS5PADDING")`, which is accepted today only because of that fold, so a transcription that compared the rule's literals exactly would regress it. The derived class folds case on all three components, which is a repair rather than a transcription and is recorded as such — the wider question of case and alias handling across the other specifications is left open and is not part of this change.
 
 Two hygiene defects in the frozen class — `PKCS5PADDING` listed twice for both `CBC` and `PCBC`, and a commented `rsaECBPaddings` block duplicating the live code — are consequently **not** repaired here. They are inside the freeze. They are recorded as knowingly retained, with the rest of the frozen set's debt.
 
@@ -155,20 +160,20 @@ The corrected allow-list of `SSLContextSpec` and `TrustManagerFactorySpec` is co
 
 ## API Design
 
-### `br.unb.cic.mop.jca_android.util.CipherTransformationUtil.isValid(transformation: String) -> boolean`
+### `br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil.isValid(transformation: String) -> boolean`
 
-- **Signature**: identical to the frozen utility's, so `jca_android/CipherSpec.mop` changes its import and nothing else — the five call sites stay as they are.
+- **Signature**: identical to the frozen utility's, so `jca_android/CipherSpec.mop` redirects its static import and nothing else — the five call sites stay as they are.
 - **Precondition**: none. The transformation string arrives from the monitored application.
-- **Postcondition**: returns whether the transformation's algorithm, mode and padding are jointly admissible under the generated API 30 `Cipher` rule — eight algorithms, each with its own admissible modes and, per mode, its admissible paddings.
+- **Postcondition**: returns whether the transformation's algorithm, mode and padding are jointly admissible under the generated API 30 `Cipher` rule — eight algorithms, each with its own admissible modes and, per mode, its admissible paddings. Where the rule places no padding implication on a pair (`AES/ECB`, `AES/CTS`, `DESede/ECB`, `DESede/CTS`, `BLOWFISH/ECB`, `BLOWFISH/CTS`), the padding is unconstrained, which is what the rule says and is a divergence from the frozen class's behaviour rather than an oversight. Comparison folds case on all three components.
 - **Error**: a malformed transformation returns `false`, as the frozen utility does; it does not raise, because the call site is a monitor guard.
 
-The tables are class-level and immutable, not method locals rebuilt per call. Parsing is delegated to the frozen utility's `alg`, `mode` and `pad`, which are `public static` and correct, so the split of a transformation string is defined in one place for both sets.
+The tables are class-level and immutable, not method locals rebuilt per call. Parsing is delegated to the frozen utility's `alg`, `mode` and `pad`, which are `public static` and correct and in the same package, so the split of a transformation string is defined in one place for both sets and reached without an import.
 
 `br.unb.cic.mop.jca.util.CipherTransformationUtil` is unchanged, including its two hygiene defects, which are inside the freeze.
 
 ### `Property` (enum, `rvsec-core`)
 
-Gains 11 constants for the predicates that have no vocabulary today: `preparedAlg`, `preparedOAEP`, `generatedCipher`, `preparedRSA`, `preparedDSA`, `preparedEC`, `generatedManagerFactoryParameters`, `cipheredInputStream`, `cipheredOutputStream`, and the two remaining from the inventory's bucket (i-b). Each new constant lands together with the read that consumes it, in the same task — a constant added without a reader is exactly the defect this change removes.
+Gains **9** constants for the predicates that have no vocabulary today: `preparedAlg`, `preparedOAEP`, `generatedCipher`, `preparedRSA`, `preparedDSA`, `preparedEC`, `generatedManagerFactoryParameters`, `cipheredInputStream` and `cipheredOutputStream`. Nine constants close the eleven edges of the inventory's capability-absent bucket, because `generatedCipher` accounts for three of them — one `ENSURES` in `Cipher` and one `REQUIRES` in each stream rule — and `generatedManagerFactoryParameters` for two. Each new constant lands together with the read that consumes it, in the same task — a constant added without a reader is exactly the defect this change removes.
 
 The additions are admissible under the freeze because no `jca` specification references them: an enum that grows does not change the monitor generated from a set that never names the new members. The readers themselves are `.mop` edits and land in `jca_android` only.
 
@@ -209,7 +214,7 @@ Verification: regenerate the `jca_android` inventory → the write/read guard pa
 - [A correction could be applied to the frozen set out of habit, since the defect is visibly there] → the freeze check runs after every group and fails on any byte, so the window is one group wide.
 - [Two utilities could drift apart as the derived rules are regenerated] → the frozen one is frozen, so drift is one-directional and is the derived one following its rule, which is the intended behaviour rather than a hazard.
 - [The inventory could drift from the specifications after the edits] → it is regenerated at verification time and compared against the committed one, for both sets.
-- [11 new `Property` constants could repeat the original defect] → each lands with its reader in the same task, and the guard fails on any constant that does not.
+- [9 new `Property` constants, closing 11 edges, could repeat the original defect] → each lands with its reader in the same task, and the guard fails on any constant that does not.
 
 ## Testing Strategy
 

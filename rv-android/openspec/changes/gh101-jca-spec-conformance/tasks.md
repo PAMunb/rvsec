@@ -34,10 +34,10 @@
 
 ## 2. Transformation tables for the derived set
 
-- [ ] 2.1 Add `br.unb.cic.mop.jca_android.util.CipherTransformationUtil` with `isValid(String)`, transcribing the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode tables and per-mode padding tables, held as immutable class-level data (D-S3, INV-INS-112)
-- [ ] 2.2 Delegate parsing to the frozen utility's `alg`, `mode` and `pad` rather than restating the split, so a transformation string is decomposed in one place for both sets
-- [ ] 2.3 Point `jca_android/CipherSpec.mop` at the new utility by changing its import only; the five `condition(isValid(...))` call sites keep their current form
-- [ ] 2.4 Table-driven test over the derived utility: each of the eight algorithms admitted with a conforming transformation, and rejected with a non-conforming mode or padding
+- [ ] 2.1 Add `br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil` with `isValid(String)` — beside the frozen class, in the package that already exists — transcribing the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode tables and per-mode padding tables, held as immutable class-level data (D-S3, INV-INS-112)
+- [ ] 2.2 Delegate parsing to the frozen utility's `alg`, `mode` and `pad` rather than restating the split, so a transformation string is decomposed in one place for both sets; being in the same package, the calls need no import. Fold case on all three components, which the frozen class does for padding only and which one corpus call site (`AES/CBC/PKCS5PADDING`) depends on
+- [ ] 2.3 Point `jca_android/CipherSpec.mop` at the new utility by redirecting its **static wildcard import** at `:15` only; the call sites read bare `isValid(...)`, so all five keep their current form byte for byte
+- [ ] 2.4 Table-driven test over the derived utility: each of the eight algorithms admitted with a conforming transformation, and rejected with a non-conforming mode or padding. Cover the two transformations the corpus contains where the derived verdict differs from the frozen one — `AES/ECB/NoPadding`, which the rule leaves unconstrained and the frozen class rejects, and `AES/CBC/PKCS5PADDING`, which only the case fold admits
 - [ ] 2.5 Assert the specific contradiction this closes: `ChaCha20`, `DESede`, `BLOWFISH` and `ARC4` are accepted by `KeyGeneratorSpec` and are now also accepted by `CipherSpec` in the derived set
 - [ ] 2.6 Record in the divergence record that `jca_android/CipherSpec.mop` diverges from `jca` by its import, with the reason
 - [ ] 2.7 Record as knowingly retained, in the frozen set's debt list, the two hygiene defects inside the freeze: `PKCS5PADDING` duplicated for `CBC` and `PCBC`, and the commented `rsaECBPaddings` block
@@ -45,8 +45,8 @@
 
 ## 3. The two hot specifications
 
-- [ ] 3.1 `jca_android/TrustManagerFactorySpec.mop`: rename the `g3` binding at `:44`, add `g3` to the `fsm`, and correct the three `gtm1` defects at `:62-65` — the wrong `Property` constant at `:65`, the `TrustManager[][]` binding at `:62`, and the `KeyManager[]` return type at `:63` — plus every predicate-graph edge the inventory assigns to this file
-- [ ] 3.2 `jca_android/SSLContextSpec.mop`: add `returning(SSLContext ctx)` at `:46`, add `unsafe_protocol` to the `fsm`, and close the three unread `REQUIRES` the inventory assigns to this file
+- [ ] 3.1 `jca_android/TrustManagerFactorySpec.mop`: rename the `g3` binding at `:44`, add `g3` to the `fsm`, and correct the three `gtm1` defects at `:62-65` — the wrong `Property` constant at `:65`, the `TrustManager[][]` binding at `:62`, and the `KeyManager[]` return type at `:63` — plus the **2** predicate-graph edges the map assigns to this file at this stage (`ENSURES generatedTrustManagers`, which is the `:65` defect itself, and `REQUIRES generatedKeyStore`). Its third edge, `REQUIRES generatedManagerFactoryParameters`, needs new vocabulary and belongs to Group 5
+- [ ] 3.2 `jca_android/SSLContextSpec.mop`: add `returning(SSLContext ctx)` at `:46`, add `unsafe_protocol` to the `fsm`, and close the **3** unread `REQUIRES` the map assigns to this file — `generatedKeyManagers`, `generatedTrustManagers`, `randomized`
 - [ ] 3.3 Enter every hunk from 3.1 and 3.2 in the divergence record, each with its reason and this task
 - [ ] 3.4 Generate monitors from the derived set and assert that no bound event has an all-`fail` transition row (INV-INS-110) — this is what proves the `fsm` half of the correction landed
 - [ ] 3.5 Record in the frozen set's debt list that `jca` retains both defects and the spurious `InvalidSequenceOfMethodCalls` they produce
@@ -54,7 +54,7 @@
 
 ## 4. Predicate graph — `.mop` only
 
-- [ ] 4.1 Correct the remaining translation defects in `jca_android`, one file at a time, applying every edge the inventory assigns to that file — including the wrong constant at `KeyPairSpec.mop:38`
+- [ ] 4.1 Correct the remaining translation defects in `jca_android`, one file at a time, applying every edge the map assigns to that file — including the wrong constant at `KeyPairSpec.mop:38`. **20 edges** over ten files: `KeyPairSpec` 4, `CipherSpec` 4, `MacSpec` 3, `KeyStoreSpec` 2, `SignatureSpec` 2, and one each in `KeyGeneratorSpec`, `KeyManagerFactorySpec`, `KeyPairGeneratorSpec`, `SecretKeySpec` and `SecretKeySpecSpec` (see `data/gh101/edge_counts_per_file.csv`)
 - [ ] 4.2 Enter each file's hunks in the divergence record as that file is completed, not in a batch at the end
 - [ ] 4.3 Record the two deliberate omissions with their reason, including that the accepting-state mechanism they were replaced by is never read from any `.mop` and is therefore inert at runtime
 - [ ] 4.4 Record `randomized[lSeed]` as inexpressible — a provenance predicate over a primitive cannot be represented by a map keyed on `equals` — together with the matching unsoundness on the write side, where marking small `int` values as randomised marks every equal literal in the process through the boxed-integer cache
@@ -62,7 +62,7 @@
 
 ## 5. Predicate graph — new vocabulary
 
-- [ ] 5.1 Add each of the 11 `Property` constants **together with the read that consumes it** in `jca_android`, in the same task; a constant added without a reader is the defect this change removes
+- [ ] 5.1 Add each of the **9** `Property` constants **together with the read that consumes it** in `jca_android`, in the same task; a constant added without a reader is the defect this change removes. Nine constants close the group's 11 edges — `generatedCipher` carries three and `generatedManagerFactoryParameters` two
 - [ ] 5.2 Confirm the additions are invisible to the frozen set: no `jca` specification references any new constant, and the monitor generated from `jca` is unchanged against the one generated at the base commit
 - [ ] 5.3 Enter the specification-side hunks in the divergence record
 - [ ] 5.4 Regenerate the `jca_android` inventory and confirm every new constant has both a writer and a reader

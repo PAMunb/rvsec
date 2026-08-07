@@ -21,7 +21,7 @@ The price is paid in two places and must not be left implicit. First, the `jca` 
 ## What Changes
 
 - **Layer-2 authoring defects, in the derived set.** `TrustManagerFactorySpec`: rename the `g3` binding, add the event to the `fsm`, and correct the three `gtm1` defects at `:62-65`. `SSLContextSpec`: add `returning(SSLContext ctx)` at `:46` and add `unsafe_protocol` to the `fsm`. The `fsm` half is not optional — fixing the binding alone makes every algorithm outside the allow-list emit a spurious `InvalidSequenceOfMethodCalls`.
-- **Transformation tables for the derived set, in a class of their own.** A new `br.unb.cic.mop.jca_android.util.CipherTransformationUtil` transcribes the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode and padding tables, reusing the existing `alg`/`mode`/`pad` parsers rather than restating them. Only `jca_android/CipherSpec.mop` changes its import; the original class is not touched, so the `jca` verdict is preserved by construction rather than by a pinning test.
+- **Transformation tables for the derived set, in a class of their own.** A new `br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil` transcribes the eight algorithms of the generated API 30 `Cipher` rule with their per-algorithm mode and padding tables. It sits beside the frozen class in the package that already exists, so it reuses the `alg`/`mode`/`pad` parsers by calling them, without an import and without restating them. `jca_android/CipherSpec.mop` reaches it by a static import, so only that one line changes and the five `isValid(...)` call sites stay as they are; the original class is not touched, so the `jca` verdict is preserved by construction rather than by a pinning test.
 - **Predicate graph reconnected, in the derived set.** 23 translation defects corrected in `.mop` (including the two wrong constants at `KeyPairSpec.mop:38` and `TrustManagerFactorySpec.mop:65`); 11 edges that need a new `Property` constant added in `rvsec-core` and read in their specifications; 2 deliberate omissions and 1 inexpressible edge recorded with their reason.
 - **A guard against silent constant defects.** A test derived from the write/read inventory cross-checks the `Property` constants written against those read, so a wrong constant cannot fail silently again.
 - **CrySL conformance re-checked.** Each of the 23 `jca_android` allow-lists is verified against its generated `.cryptsl` rule for API 30, including confirmation that each of the thirteen files kept verbatim is genuinely uncontradicted by any rule. The result is committed as an artefact.
@@ -49,7 +49,7 @@ None. This change repairs and constrains behaviour the `instrumentation` capabil
 | `rvsec/rvsec-core/.../mop/jca/util/CipherTransformationUtil.java` | **nothing — frozen at the base commit** |
 | `rvsec/rvsec-mop/src/main/resources/jca_android` | 23 `.mop`: binding, `fsm`, `gtm1`, predicate-graph edges, the `CipherSpec` import |
 | `rvsec/rvsec-core/.../mop/Property.java` | 11 new constants — additive only; no `jca` specification references them, so the frozen set is unaffected |
-| `rvsec/rvsec-core/.../mop/jca_android/util/CipherTransformationUtil.java` | new: the derived API 30 transformation tables |
+| `rvsec/rvsec-core/.../mop/jca/util/AndroidCipherTransformationUtil.java` | new: the derived API 30 transformation tables, beside the frozen class |
 
 **Read-only reference**: `MetaCrySL/generated/api30/` (33 `.cryptsl` rules). That tree is not modified by this change.
 
