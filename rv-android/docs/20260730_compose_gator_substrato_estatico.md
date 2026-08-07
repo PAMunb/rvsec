@@ -145,8 +145,34 @@ E **97 de 103** apps Compose têm ao menos uma função `@Composable` com `reach
 Duas leituras, ambas necessárias:
 
 - **A boa notícia**: as funções `@Composable` do app estão no call graph e alcançam os alvos JCA. A cobertura de reachability não tem um buraco Compose-específico; o buraco é só na camada GUI.
-- **A ressalva**: 96,1% contra 28,8% é diferença grande demais para ser real. Composables funilam pela máquina de recomposição, e com CHA + `all-reachable:true` a alcançabilidade transitiva satura. O `reachesTarget` de código de UI Compose é aproximadamente a constante `true` — carrega pouca informação.
+- **A ressalva**: 96,1% contra 28,8% é diferença grande demais para ser real. A alcançabilidade transitiva satura, e o `reachesTarget` de código de UI Compose é aproximadamente a constante `true` — carrega pouca informação. **A causa está corrigida na §4.3.1**: não é CHA, é `all-reachable:true` sobre SPARK.
 - E `directlyReachesTarget` é **0,00%** entre composables, o que é semanticamente correto e esperado: criptografia não mora em código de UI, mora em ViewModel/repository. Isso é consistente com o achado F1 (alcance direto 0-hop é raro em qualquer estrato) e reforça que o eixo "direto" precisa da redefinição do N6 para significar algo.
+
+#### 4.3.1 Correção de 2026-08-06: não é CHA, é `all-reachable` — e não é o `-exclude`
+
+A ressalva acima atribuía a super-aproximação a "CHA + `all-reachable:true`". **A metade "CHA" está errada.** O algoritmo efetivo é **SPARK**:
+
+```java
+// Configs.java:74
+public static String cgAlgorithm = "spark"; // cha, rta, vta, spark — default per gh51 D5
+```
+
+e o `rv-static-analysis` fixa `cg_algorithm="spark"` por padrão (`config.py:104-109`), com a justificativa explícita *"full points-to gives accurate reachesTarget"*. O `"cha"` de `Main.java:73` só entra sob a flag `-withCHA`, que o pipeline não passa. O corpus inteiro foi analisado com SPARK. (O javadoc do `ReachabilityEngine` já dizia "SPARK call graph" — era este documento que estava desatualizado, não o código.)
+
+**SPARK é inegociável** e não está em discussão: é a decisão D5 do gh51, e trocá-lo por um algoritmo mais barato pioraria a precisão em vez de melhorá-la.
+
+O termo que sobra é o outro, aplicado incondicionalmente:
+
+```java
+// Main.java:234
+args.addAll(Arrays.asList("-p", "cg", "all-reachable:true"));
+```
+
+**O mecanismo, e por que ele atinge Compose com força desproporcional.** `all-reachable` faz todo método do app virar entry point — necessário no Android, onde não existe um `main()` e os callbacks são invocados pelo framework. O efeito colateral é que **parâmetros de entry point ficam sem restrição de points-to**: são modelados como objetos arbitrários do tipo declarado. Uma chamada virtual sobre um parâmetro passa então a leque para todos os subtipos, e SPARK degrada para perto de CHA exatamente nesse ponto. Composables recebem lambdas como parâmetro (`Function2`), e `invoke()` sobre elas alcança toda implementação de `Function2` do app. Código não-composable passa muito menos por invocação de lambda parametrizada — daí 96,1% contra 28,8%.
+
+**E não adianta mexer no `-exclude`.** `androidx.compose.`, `kotlin.` e `kotlinx.` já estão excluídos com `-no-bodies-for-excluded` (`Main.java:224-227`), o que já converte essas classes em *phantom* e corta qualquer aresta **através** delas. A saturação acontece apesar disso, porque os caminhos que saturam são internos ao app — `composable → lambda do app → ViewModel → repository → JCA` —, e esses não há como excluir sem excluir o objeto da análise.
+
+**Status**: mecanismo inferido da leitura do código, **não medido**. O experimento que o confirmaria está registrado na §6.5.
 
 ---
 
@@ -211,6 +237,21 @@ Como a §2 estabelece, a árvore de semantics existe em runtime e é justamente 
 Ressalva: muda o mecanismo do B9, e portanto o que a RQ-C4 avaliaria como tratamento. É decisão de desenho, não de engenharia.
 
 **Veredito: candidato preferido se o B9 voltar à mesa.**
+
+### 6.5 Experimento registrado: `all-reachable:false`, para medir a causa da §4.3.1
+
+**Pergunta**: quanto dos 96,1% de `reachesTarget` entre composables é artefato de `all-reachable:true`, e não alcance real? A hipótese da §4.3.1 prevê que o número caia muito no estrato Compose e pouco no estrato View — porque o mecanismo suspeito (parâmetro de entry point sem restrição de points-to, leque sobre `Function2.invoke`) é desproporcionalmente comum em composables.
+
+**Desenho**: um APK Compose e um APK View do corpus, analisados duas vezes cada — `all-reachable:true` (linha de base, reproduzindo o `.apk.json` vigente) e `false`. Comparar `reachesTarget` por método, particionado pelo detector B (parâmetro `$composer`), mais o tamanho do call graph e o tempo de análise.
+
+**Custo, e o obstáculo que precisa ser dito**: `all-reachable:true` está **hardcoded** em `Main.java:234`, dentro de um `List<String>` fechado por `args.toArray(new String[0])` em `:254`. Não há flag de CLI nem passthrough de argumentos Soot — o parser de `Main` reconhece `-cgAlgorithm`, `-withCHA` e ~20 outras opções, nenhuma delas alcança este ponto. **Logo o experimento não é executável "offline, sem tocar no gator"**, ao contrário do que se supôs ao levantá-lo. As duas rotas honestas são:
+
+1. **Build local descartável**: alterar a linha, recompilar o jar, rodar os dois APKs, restaurar o jar do backup. Toca a árvore do repositório irmão e um binário rastreado (`rv-android/lib/gator/`), e portanto exige backup antes e verificação de reversão depois. Não é mudança de produto.
+2. **Flag `-cgAllReachable <bool>`**: ~4 linhas no parser + 1 na montagem, com `true` como padrão. É mudança no gator de verdade, e portanto sujeita à regra vigente — mas é a menor mudança concebível, puramente aditiva, e tornaria a questão investigável para sempre em vez de uma vez.
+
+**Prioridade**: baixa, e o motivo é que o resultado **não altera o plano**. Se a hipótese se confirmar, o conserto (desligar `all-reachable` e alimentar entry points de verdade) continua sendo mudança no gator mais re-análise dos 348 APKs; se for refutada, a saturação tem outra causa e a conclusão prática — `reachesTarget` booleano não discrimina em Compose — permanece igual. A mitigação já escolhida, a tabela graduada `FQN → {reaches, minHops}` do doc 5 §6, contorna o problema sem depender desta resposta.
+
+**Veredito: registrar e adiar.** Vale como item de rigor para o texto da tese (explica *por que* o sinal satura, em vez de só constatar que satura), não como pré-requisito da Fase 2.
 
 ---
 
