@@ -402,6 +402,7 @@ Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigg
 | `rv-analyze-dependencies` | `/rv-analyze-dependencies [module]` | Module dependency mapping, violation/cycle detection | Module | memory (git hash cache) |
 | `rv-analyze-dead-code` | `/rv-analyze-dead-code [module]` | Module-wide dead code detection (pyflakes/vulture) | Module | pyflakes, vulture, memory (git hash cache) |
 | `rv-analyze-module` | `/rv-analyze-module [module]` | Module architecture (chains to 3 sub-skills + 4 perspectives) | Module (L1) | memory (git hash cache) |
+| `rv-analyze-spec` | `/rv-analyze-spec [spec or set]` | JavaMOP `.mop` specifications: event alphabet and generator cost, pointcut/overload verification, automaton, CrySL conformance | Specification (Java side) | javamop, rv-monitor, javap, `android.jar`, bundled Java harnesses |
 
 **Complexity Thresholds**:
 | Metric | Threshold | Action |
