@@ -73,12 +73,28 @@ public final class BatchRunner {
     private BatchRunner() {}
 
     /**
-     * Run the pipeline against a single APK and print its {@link PerApkResult}
-     * to stdout. Used by the picocli {@code instrument} subcommand, where the
-     * caller wants immediate console feedback rather than a results file.
+     * Run the pipeline against a single APK, print its {@link PerApkResult} to
+     * stdout and, when {@code resultsJson} is given, write that one result as a
+     * results document. Used by the picocli {@code instrument} subcommand.
+     *
+     * <p>The document has the same shape as {@link #instrumentBatch}'s, with a
+     * one-element {@code results} array, so the Python wrapper parses both
+     * subcommands' output with a single code path.
+     *
+     * <p>The file is written whether the weave succeeded or failed, which is
+     * what INV-INS-105 requires: a failed APK's counters and phase are exactly
+     * what a post-mortem needs, and an absent file must mean the JVM died
+     * rather than that the weave went badly. {@link #runPipeline} never throws,
+     * so a well-formed failure always reaches this point.
+     *
+     * @param resultsJson where to write this APK's counters; when {@code null},
+     *                    the result is only printed (ad-hoc console runs)
      */
-    public static void instrumentOne(EffectiveConfig cfg, Path apk) {
+    public static void instrumentOne(EffectiveConfig cfg, Path apk, Path resultsJson) {
         PerApkResult result = runPipeline(cfg, apk);
+        if (resultsJson != null) {
+            writeResultsJson(List.of(result), resultsJson);
+        }
         System.out.println("instr-cli result: " + result);
     }
 
@@ -127,6 +143,13 @@ public final class BatchRunner {
      */
     static PerApkResult runPipeline(EffectiveConfig cfg, Path apk) {
         Map<String, Integer> counts = new LinkedHashMap<>();
+        // The platform jar decides which framework types the pointcut engine
+        // can resolve, and ConfigResolver picks it from --android-jar, from
+        // ANDROID_HOME, or from the highest API level installed — three inputs
+        // that can disagree. Naming the resolved path here makes a mismatch
+        // readable from the log alone, without re-running the resolution.
+        System.out.println("[dexlib2] " + apk.getFileName() + ": android.jar = "
+                + (cfg.androidJar() == null ? "<unresolved>" : cfg.androidJar().toAbsolutePath()));
         try {
             // Phase 1: descriptor.
             if (cfg.descriptorPath() == null) {
@@ -420,8 +443,15 @@ public final class BatchRunner {
 
     private record ExtractedDex(String entryName, DexBackedDexFile dex) {}
 
-    private static void writeResultsJson(List<PerApkResult> results, Path out) {
+    static void writeResultsJson(List<PerApkResult> results, Path out) {
         try {
+            // The single-APK path writes one file per APK into a directory the
+            // caller names, so the parent may not exist yet. Creating it here
+            // keeps a successful weave from being reported as a write failure.
+            Path parent = out.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
             Map<String, Object> root = new LinkedHashMap<>();
             root.put("variant", "dexlib2");
             root.put("results", results);

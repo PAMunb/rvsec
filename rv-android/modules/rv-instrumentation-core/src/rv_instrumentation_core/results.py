@@ -55,6 +55,19 @@ class InstrumentationResults(BaseValidatedModel):
     total_count: int = Field(
         default=0, ge=0, description="Total number of APKs processed"
     )
+    weave_counts: Dict[str, Dict[str, int]] = Field(
+        default_factory=dict,
+        description=(
+            "Per-APK weaver counters, keyed by APK name, as reported by the "
+            "instrumentation backend (e.g. matchesApplied, plansSkipped, "
+            "plansSkippedHighRegister, coverageInstrumented). Empty for "
+            "backends that report no counters. These are what makes a "
+            "side effect of a weaving change measurable rather than inferred: "
+            "emitting more invokes per site can push a method over its "
+            "register budget, and plansSkippedHighRegister is where that "
+            "shows up."
+        ),
+    )
     variant: str = Field(
         ...,
         description=(

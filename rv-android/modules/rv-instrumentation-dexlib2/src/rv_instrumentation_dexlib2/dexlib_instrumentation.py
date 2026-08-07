@@ -179,9 +179,13 @@ class DexlibInstrumentation(Instrumenter):
                 When ``None``, the ``batch`` subcommand processes the entire
                 ``apks_dir`` in one JVM.
 
-        Emits the batch summary to ``results_dir/instrument_results.json``
-        per the Java CLI's ``--results-json`` flag, then parses it into an
-        ``InstrumentationResults`` tagged with ``variant="dexlib2"``.
+        Both paths emit ``results_dir/instrument_results.json`` through the
+        Java CLI's ``--results-json`` flag and parse it into an
+        ``InstrumentationResults`` tagged with ``variant="dexlib2"``, carrying
+        the weaver's per-APK counters. The ``batch`` subcommand writes that
+        file itself; the ``apk_paths`` path collects one file per APK under
+        ``instrument_results.d/`` and merges them, since a single JVM run only
+        knows about its own APK.
         """
         from pathlib import Path
 
@@ -203,6 +207,14 @@ class DexlibInstrumentation(Instrumenter):
             )
 
             total = len(apk_paths)
+            # One results JSON per APK: the Java CLI's ``instrument``
+            # subcommand handles a single APK, so a shared path would have
+            # each run overwrite the previous one's counters. They are merged
+            # back into ``instrument_results.json`` after the loop so this
+            # path and the ``batch`` path leave the same artefact behind
+            # (INV-INS-105).
+            per_apk_dir = results_dir / "instrument_results.d"
+            per_apk_dir.mkdir(parents=True, exist_ok=True)
             self._logger.info(
                 f"Starting batch instrumentation: {total} APKs (apk_paths mode)",
                 extra={
@@ -247,6 +259,8 @@ class DexlibInstrumentation(Instrumenter):
                         [
                             "instrument",
                             str(apk),
+                            "--results-json",
+                            str(per_apk_dir / f"{apk.stem}.json"),
                             *self._common_cli_args(results_dir),
                         ]
                     )
@@ -299,10 +313,17 @@ class DexlibInstrumentation(Instrumenter):
                             "error_type": type(ex).__name__,
                         },
                     )
+            # Merge the per-APK counters after the loop rather than inside it:
+            # the Java CLI writes its results JSON whether the weave succeeded
+            # or failed, so globbing afterwards picks up the counters of APKs
+            # whose run the guard above demoted to an error — exactly the runs
+            # a post-mortem needs the counters for.
+            weave_counts = self._merge_per_apk_results(per_apk_dir, results_json)
             results = InstrumentationResults(
                 success_count=success,
                 total_count=total,
                 errors=errors,
+                weave_counts=weave_counts,
                 variant="dexlib2",
             )
             self._logger.info(
@@ -354,6 +375,58 @@ class DexlibInstrumentation(Instrumenter):
         )
         self._persist_errors_json(results, results_dir)
         return results
+
+    def _merge_per_apk_results(
+        self, per_apk_dir: Path, results_json: Path
+    ) -> dict[str, dict[str, int]]:
+        """Merge the per-APK results JSONs into one, and return their counters.
+
+        The ``apk_paths`` path runs one JVM per APK, so the weaver's counters
+        arrive as one file each. Concatenating their ``results`` arrays into
+        ``instrument_results.json`` gives this path the same artefact the
+        ``batch`` path writes directly, in the same schema — which is what lets
+        a results tree be checked for INV-INS-105 without knowing which path
+        produced it.
+
+        A missing or malformed per-APK file is logged and skipped rather than
+        raised: the loop's own bookkeeping already decided each APK's outcome
+        from whether its APK landed on disk, and losing a counter must not
+        turn a successful batch into a failed one.
+
+        Returns:
+            Per-APK weaver counters keyed by APK name.
+        """
+        entries: List[dict] = []
+        counts: dict[str, dict[str, int]] = {}
+        for path in sorted(per_apk_dir.glob("*.json")):
+            try:
+                body = json.loads(path.read_text())
+            except (OSError, ValueError) as ex:
+                self._logger.warning(
+                    f"Could not read per-APK results at {path}: {ex}",
+                    extra={"results_file": str(path)},
+                )
+                continue
+            for entry in body.get("results", []):
+                entries.append(entry)
+                if entry.get("weaveCounts"):
+                    counts[entry.get("apkName", path.stem)] = entry["weaveCounts"]
+
+        try:
+            results_json.write_text(
+                json.dumps({"variant": "dexlib2", "results": entries}, indent=2)
+            )
+            self._logger.info(
+                f"Weaver counters merged into {results_json} "
+                f"({len(entries)} APK entries)",
+                extra={"results_file": str(results_json), "entry_count": len(entries)},
+            )
+        except OSError as ex:
+            self._logger.error(
+                f"Failed to write {results_json}: {ex}",
+                extra={"results_file": str(results_json)},
+            )
+        return counts
 
     def _persist_errors_json(
         self, results: InstrumentationResults, results_dir: Path
@@ -512,9 +585,13 @@ class DexlibInstrumentation(Instrumenter):
         entries = body.get("results", [])
         success = sum(1 for e in entries if e.get("success"))
         errors: dict[str, InstrumentationError] = {}
+        weave_counts: dict[str, dict[str, int]] = {}
         for e in entries:
+            name = e.get("apkName", "<unknown>")
+            if e.get("weaveCounts"):
+                weave_counts[name] = e["weaveCounts"]
             if not e.get("success"):
-                errors[e.get("apkName", "<unknown>")] = InstrumentationError(
+                errors[name] = InstrumentationError(
                     code=1,
                     phase=e.get("phase", "dexlib2_pipeline"),
                     tool="instr-cli",
@@ -524,6 +601,7 @@ class DexlibInstrumentation(Instrumenter):
             success_count=success,
             total_count=len(entries),
             errors=errors,
+            weave_counts=weave_counts,
             variant="dexlib2",
         )
 
@@ -606,6 +684,10 @@ def _demote_silent_failures(
         success_count=max(0, new_success),
         total_count=results.total_count,
         errors=new_errors,
+        # Demotion changes the verdict on an APK, not what the weaver did to
+        # it. A demoted APK's counters are the most interesting ones in the
+        # batch, so they must survive the rebuild.
+        weave_counts=results.weave_counts,
         variant=results.variant,
     )
 

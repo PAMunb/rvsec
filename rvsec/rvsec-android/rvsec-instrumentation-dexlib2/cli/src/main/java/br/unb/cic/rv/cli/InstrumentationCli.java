@@ -14,9 +14,15 @@ import java.util.List;
  * <p>Subcommands:
  * <ul>
  *   <li>{@code instrument <apk>} — weave a single APK.</li>
- *   <li>{@code batch <apks-dir>} — weave every {@code .apk} in the directory,
- *       emitting an aggregate {@code InstrumentationResults} JSON.</li>
+ *   <li>{@code batch <apks-dir>} — weave every {@code .apk} in the directory.</li>
  * </ul>
+ *
+ * <p>Both subcommands accept {@code --results-json}, and both write the same
+ * document shape ({@code {"variant": "dexlib2", "results": [...]}}) so the
+ * Python wrapper parses either with one code path. {@code instrument} writes a
+ * single-element {@code results} array. The option used to exist only on
+ * {@code batch} while production instruments through {@code instrument}, which
+ * is why the weaver's counters never reached Python at all (INV-INS-105).
  *
  * <p>Flags follow the precedence declared in {@link ConfigResolver}:
  * explicit flag → environment variable → built-in default.
@@ -103,6 +109,11 @@ public final class InstrumentationCli implements Runnable {
             scope = CommandLine.ScopeType.INHERIT)
     String logLevel;
 
+    @Option(names = "--results-json",
+            description = "Path to write the weaver counters as an InstrumentationResults JSON",
+            scope = CommandLine.ScopeType.INHERIT)
+    Path resultsJson;
+
     @Override
     public void run() {
         // Root command alone does nothing; one of the subcommands must be given.
@@ -118,7 +129,7 @@ public final class InstrumentationCli implements Runnable {
         @Override
         public void run() {
             EffectiveConfig cfg = ConfigResolver.resolve(parent);
-            BatchRunner.instrumentOne(cfg, apk);
+            BatchRunner.instrumentOne(cfg, apk, parent.resultsJson);
         }
     }
 
@@ -126,15 +137,12 @@ public final class InstrumentationCli implements Runnable {
     public static final class Batch implements Runnable {
         @Parameters(index = "0", description = "Directory containing APKs")
         Path apksDir;
-        @Option(names = "--results-json",
-                description = "Path to write the aggregate InstrumentationResults JSON")
-        Path resultsJson;
         @picocli.CommandLine.ParentCommand InstrumentationCli parent;
 
         @Override
         public void run() {
             EffectiveConfig cfg = ConfigResolver.resolve(parent);
-            BatchRunner.instrumentBatch(cfg, apksDir, resultsJson);
+            BatchRunner.instrumentBatch(cfg, apksDir, parent.resultsJson);
         }
     }
 

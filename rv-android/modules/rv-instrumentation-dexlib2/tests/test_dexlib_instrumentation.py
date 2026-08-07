@@ -698,3 +698,234 @@ def test_prepare_instrumentation_calls_resolve_runtime_libs(tmp_workspace, monke
     # Args: (rvsec_root, lib_tmp_dir)
     assert args[0] == rvsec_root
     assert args[1] == tmp_workspace["work"] / "lib_tmp"
+
+
+# --- gh100: weaver counters reach Python on the production path -------------
+# The `apk_paths` branch is what rv-experiment actually runs, and it used to
+# invoke `instrument` without --results-json — an option that existed only on
+# `batch`. The file was therefore never written, which is why a results tree
+# holds instrument_errors.json files and no instrument_results.json at all
+# (INV-INS-105). These tests pin the repaired path end to end on the Python
+# side: argv carries the flag, the per-APK files are merged, and the counters
+# survive into InstrumentationResults.
+
+
+def _fake_per_apk_run(results_dir, counts_by_apk, land_apk=True):
+    """Build a `subprocess.run` stub that mimics the Java `instrument` CLI.
+
+    Writes the results JSON at whatever path argv names and, unless
+    ``land_apk`` is False, drops the output APK into ``results_dir`` so the
+    wrapper's silent-failure guard is satisfied.
+    """
+
+    def fake_run(cmd, **kwargs):
+        apk_path = Path(cmd[cmd.index("instrument") + 1])
+        out_json = Path(cmd[cmd.index("--results-json") + 1])
+        out_json.parent.mkdir(parents=True, exist_ok=True)
+        out_json.write_text(
+            json.dumps(
+                {
+                    "variant": "dexlib2",
+                    "results": [
+                        {
+                            "apkName": apk_path.name,
+                            "success": True,
+                            "message": "instrumented + signed",
+                            "phase": "signed",
+                            "weaveCounts": counts_by_apk[apk_path.name],
+                        }
+                    ],
+                }
+            )
+        )
+        if land_apk:
+            results_dir.mkdir(parents=True, exist_ok=True)
+            (results_dir / apk_path.name).write_bytes(b"woven")
+
+        class _R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _R()
+
+    return fake_run
+
+
+def _apk_paths_workspace(tmp_workspace, names):
+    _seed_descriptor(tmp_workspace)
+    apks_dir = tmp_workspace["root"] / "apks"
+    apks_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name in names:
+        apk = apks_dir / name
+        apk.write_bytes(b"stub")
+        paths.append(str(apk))
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    return DexlibInstrumentation(cfg), apks_dir, paths
+
+
+def test_apk_paths_argv_carries_results_json(tmp_workspace):
+    inst, apks_dir, paths = _apk_paths_workspace(tmp_workspace, ["one.apk"])
+    results_dir = tmp_workspace["root"] / "results"
+    captured = {}
+
+    fake = _fake_per_apk_run(results_dir, {"one.apk": {"matchesApplied": 5}})
+
+    def spy(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return fake(cmd, **kwargs)
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch("subprocess.run", side_effect=spy),
+    ):
+        inst.instrument_apks(apks_dir, results_dir, apk_paths=paths)
+
+    cmd = captured["cmd"]
+    assert "instrument" in cmd
+    assert "--results-json" in cmd, (
+        "the production single-APK path must request the weaver's counters; "
+        "without the flag the Java CLI writes nothing (INV-INS-105)"
+    )
+    # One file per APK — a shared path would have each run overwrite the last.
+    named = Path(cmd[cmd.index("--results-json") + 1])
+    assert named.parent == results_dir / "instrument_results.d"
+    assert named.name == "one.apk.json".replace(".apk", "")
+
+
+def test_apk_paths_merges_per_apk_results_and_counters(tmp_workspace):
+    inst, apks_dir, paths = _apk_paths_workspace(
+        tmp_workspace, ["one.apk", "two.apk"]
+    )
+    results_dir = tmp_workspace["root"] / "results"
+    counts = {
+        "one.apk": {"matchesApplied": 5, "plansSkippedHighRegister": 0},
+        "two.apk": {"matchesApplied": 9, "plansSkippedHighRegister": 2},
+    }
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch("subprocess.run", side_effect=_fake_per_apk_run(results_dir, counts)),
+    ):
+        results = inst.instrument_apks(apks_dir, results_dir, apk_paths=paths)
+
+    merged = results_dir / "instrument_results.json"
+    assert merged.is_file(), (
+        "the apk_paths path must leave the same artefact the batch path does"
+    )
+    body = json.loads(merged.read_text())
+    assert body["variant"] == "dexlib2"
+    assert {e["apkName"] for e in body["results"]} == {"one.apk", "two.apk"}
+
+    assert results.success_count == 2
+    assert results.total_count == 2
+    assert results.errors == {}
+    assert results.weave_counts == counts
+    # The counter task 6.4 reads, to tell whether emitting N invokes instead
+    # of 1 pushed any site over its register budget.
+    assert results.weave_counts["two.apk"]["plansSkippedHighRegister"] == 2
+
+
+def test_apk_paths_keeps_counters_for_an_apk_that_never_landed(tmp_workspace):
+    """A run the guard demotes is the one whose counters matter most."""
+    inst, apks_dir, paths = _apk_paths_workspace(tmp_workspace, ["ghost.apk"])
+    results_dir = tmp_workspace["root"] / "results"
+    counts = {"ghost.apk": {"matchesApplied": 3}}
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch(
+            "subprocess.run",
+            side_effect=_fake_per_apk_run(results_dir, counts, land_apk=False),
+        ),
+    ):
+        results = inst.instrument_apks(apks_dir, results_dir, apk_paths=paths)
+
+    # The CLI claimed success but no APK landed: the wrapper's cross-check
+    # demotes it, and the counters still come through.
+    assert results.success_count == 0
+    assert results.total_count == 1
+    # The apk_paths loop keys errors by the caller's path string, while the
+    # weaver keys its counters by APK basename. Both are pinned here because
+    # the two maps genuinely use different keys.
+    assert results.errors and all("ghost.apk" in k for k in results.errors)
+    assert results.weave_counts == counts
+
+
+def test_parse_results_json_carries_weave_counts(tmp_workspace):
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+    path = tmp_workspace["instrumented"] / "instrument_results.json"
+    path.write_text(
+        json.dumps(
+            {
+                "variant": "dexlib2",
+                "results": [
+                    {
+                        "apkName": "a.apk",
+                        "success": True,
+                        "message": "ok",
+                        "phase": "signed",
+                        "weaveCounts": {"matchesApplied": 7},
+                    },
+                    {
+                        "apkName": "b.apk",
+                        "success": False,
+                        "message": "boom",
+                        "phase": "io_error",
+                        "weaveCounts": {"matchesApplied": 0},
+                    },
+                ],
+            }
+        )
+    )
+    results = inst._parse_results_json(path)
+    assert results.success_count == 1
+    assert results.total_count == 2
+    assert results.weave_counts == {
+        "a.apk": {"matchesApplied": 7},
+        "b.apk": {"matchesApplied": 0},
+    }
+
+
+def test_demote_silent_failures_preserves_weave_counts(tmp_workspace):
+    from rv_instrumentation_core import InstrumentationResults
+    from rv_instrumentation_dexlib2.dexlib_instrumentation import (
+        _demote_silent_failures,
+    )
+
+    results_dir = tmp_workspace["instrumented"]
+    (results_dir / "instrument_results.json").write_text(
+        json.dumps(
+            {
+                "variant": "dexlib2",
+                "results": [
+                    {"apkName": "gone.apk", "success": True, "phase": "signed"}
+                ],
+            }
+        )
+    )
+    before = InstrumentationResults(
+        success_count=1,
+        total_count=1,
+        errors={},
+        weave_counts={"gone.apk": {"matchesApplied": 4}},
+        variant="dexlib2",
+    )
+
+    after = _demote_silent_failures(before, results_dir)
+
+    assert after.success_count == 0
+    assert "gone.apk" in after.errors
+    assert after.weave_counts == {"gone.apk": {"matchesApplied": 4}}

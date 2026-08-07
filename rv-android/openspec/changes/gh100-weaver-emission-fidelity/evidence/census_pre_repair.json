@@ -1,0 +1,186 @@
+{
+  "inputs": {
+    "descriptor": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json",
+    "descriptorSha256": "e53f0af17f119e083d12cf779f5ad88ee488e4d969e359a9d6d243b2d7324b4f",
+    "monitorSource": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/gh92_e2e2/monitors/MultiSpec_1RuntimeMonitor.java",
+    "monitorSourceSha256": "78b1fcf50274ea8859d682cf5047f634dfdff4c4779c83a74cc3179e7c6d8f9c",
+    "weaverSource": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter/src/main/java"
+  },
+  "emissionModel": {
+    "truncating": true,
+    "truncationSites": [
+      {
+        "file": "EmitContext.java",
+        "line": 52,
+        "form": "direct",
+        "text": "return advice.getMonitorCalls().get(0);"
+      },
+      {
+        "file": "MonitorInvokeBuilder.java",
+        "line": 240,
+        "form": "indirect",
+        "text": "return (calls == null || calls.isEmpty()) ? null : calls.get(0);"
+      },
+      {
+        "file": "StaticInitializationEmitter.java",
+        "line": 147,
+        "form": "indirect",
+        "text": "return (calls == null || calls.isEmpty()) ? null : calls.get(0);"
+      }
+    ]
+  },
+  "counts": {
+    "advices": 115,
+    "fusedAdvices": 17,
+    "inlineRoutedAdvices": 7,
+    "wrapperRoutedAdvices": 10,
+    "unclassifiedAdvices": 0,
+    "eventsDropped": 9,
+    "errorEmittersDropped": 8
+  },
+  "errorTypesDropped": {
+    "UnsatisfiedConstraint": 7,
+    "UnsafeAlgorithm": 1
+  },
+  "inlineRouted": [
+    {
+      "advice": "IvParameterSpecSpec_c1",
+      "spec": "IvParameterSpecSpec",
+      "monitorCalls": 2,
+      "kept": "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c1Event",
+      "dropped": [
+        {
+          "method": "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c3Event",
+          "spec": "IvParameterSpecSpec",
+          "event": "c3",
+          "errorTypes": [
+            "UnsatisfiedConstraint"
+          ]
+        }
+      ]
+    },
+    {
+      "advice": "IvParameterSpecSpec_c2",
+      "spec": "IvParameterSpecSpec",
+      "monitorCalls": 2,
+      "kept": "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c2Event",
+      "dropped": [
+        {
+          "method": "MultiSpec_1RuntimeMonitor.IvParameterSpecSpec_c4Event",
+          "spec": "IvParameterSpecSpec",
+          "event": "c4",
+          "errorTypes": [
+            "UnsatisfiedConstraint"
+          ]
+        }
+      ]
+    },
+    {
+      "advice": "PBEKeySpecSpec_c1",
+      "spec": "PBEKeySpecSpec",
+      "monitorCalls": 4,
+      "kept": "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_c1Event",
+      "dropped": [
+        {
+          "method": "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_err1Event",
+          "spec": "PBEKeySpecSpec",
+          "event": "err1",
+          "errorTypes": [
+            "UnsatisfiedConstraint"
+          ]
+        },
+        {
+          "method": "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_err2Event",
+          "spec": "PBEKeySpecSpec",
+          "event": "err2",
+          "errorTypes": [
+            "UnsatisfiedConstraint"
+          ]
+        },
+        {
+          "method": "MultiSpec_1RuntimeMonitor.PBEKeySpecSpec_err3Event",
+          "spec": "PBEKeySpecSpec",
+          "event": "err3",
+          "errorTypes": [
+            "UnsatisfiedConstraint"
+          ]
+        }
+      ]
+    },
+    {
+      "advice": "PBEParameterSpecSpec_c1",
+      "spec": "PBEParameterSpecSpec",
+      "monitorCalls": 2,
+      "kept": "MultiSpec_1RuntimeMonitor.PBEParameterSpecSpec_c1Event",
+      "dropped": [
+        {
+          "method": "MultiSpec_1RuntimeMonitor.PBEParameterSpecSpec_c3Event",
+          "spec": "PBEParameterSpecSpec",
+          "event": "c3",
+          "errorTypes": [
+            "UnsafeAlgorithm"
+          ]
+        }
+      ]
+    },
+    {
+      "advice": "SecretKeySpecSpec_c1",
+      "spec": "SecretKeySpecSpec",
+      "monitorCalls": 2,
+      "kept": "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c1Event",
+      "dropped": [
+        {
+          "method": "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c3Event",
+          "spec": "SecretKeySpecSpec",
+          "event": "c3",
+          "errorTypes": [
+            "UnsatisfiedConstraint"
+          ]
+        }
+      ]
+    },
+    {
+      "advice": "SecretKeySpecSpec_c2",
+      "spec": "SecretKeySpecSpec",
+      "monitorCalls": 2,
+      "kept": "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c2Event",
+      "dropped": [
+        {
+          "method": "MultiSpec_1RuntimeMonitor.SecretKeySpecSpec_c4Event",
+          "spec": "SecretKeySpecSpec",
+          "event": "c4",
+          "errorTypes": [
+            "UnsatisfiedConstraint"
+          ]
+        }
+      ]
+    },
+    {
+      "advice": "SecureRandomSpec_c2",
+      "spec": "SecureRandomSpec",
+      "monitorCalls": 2,
+      "kept": "MultiSpec_1RuntimeMonitor.SecureRandomSpec_c2Event",
+      "dropped": [
+        {
+          "method": "MultiSpec_1RuntimeMonitor.SecureRandomSpec_c3Event",
+          "spec": "SecureRandomSpec",
+          "event": "c3",
+          "errorTypes": []
+        }
+      ]
+    }
+  ],
+  "wrapperRouted": [
+    "CipherSpec_g1",
+    "KeyGeneratorSpec_g1",
+    "KeyManagerFactorySpec_g1",
+    "KeyPairGeneratorSpec_g1",
+    "KeyPairGeneratorSpec_init1",
+    "KeyStoreSpec_g1",
+    "MacSpec_g1",
+    "MessageDigestSpec_g1",
+    "SecureRandomSpec_setSeed2",
+    "SignatureSpec_g1"
+  ],
+  "unclassified": []
+}

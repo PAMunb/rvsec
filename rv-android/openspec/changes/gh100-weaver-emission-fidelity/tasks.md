@@ -13,13 +13,13 @@
 
 ## 1. Counters and observability
 
-- [ ] 1.1 Add `--results-json <path>` to the `instrument` subcommand of `InstrumentationCli` ($DEXLIB2/cli), writing the per-APK counters whether the weave succeeded or failed (D-E1)
-- [ ] 1.2 Log the resolved `android.jar` path at instrumentation start, so a platform-jar mismatch is diagnosable from the log alone
-- [ ] 1.3 Add Java unit tests: the option produces a JSON for a successful weave and for a failed one
-- [ ] 1.4 Re-derive the truncation census mechanically over the production descriptor `results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json` — advices with N>1, advices truncated, events dropped — and commit the script plus its pre-repair output (D-A3)
-- [ ] 1.5 Pass `--results-json` from the per-APK loop in `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py` and aggregate the per-APK JSONs into one `InstrumentationResults` with `variant="dexlib2"`, mirroring how the loop already aggregates errors
-- [ ] 1.6 Add Python tests: the `apk_paths` path produces `instrument_results.json`; the aggregate carries the right `success_count` / `total_count`; `_demote_silent_failures` still applies
-- [ ] 1.7 Run `/rv-test-run rv-instrumentation-dexlib2`
+- [x] 1.1 Add `--results-json <path>` to the `instrument` subcommand of `InstrumentationCli` ($DEXLIB2/cli), writing the per-APK counters whether the weave succeeded or failed (D-E1)
+- [x] 1.2 Log the resolved `android.jar` path at instrumentation start, so a platform-jar mismatch is diagnosable from the log alone
+- [x] 1.3 Add Java unit tests: the option produces a JSON for a successful weave and for a failed one
+- [x] 1.4 Re-derive the truncation census mechanically over the production descriptor `results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json` — advices with N>1, advices truncated, events dropped — and commit the script plus its pre-repair output (D-A3)
+- [x] 1.5 Pass `--results-json` from the per-APK loop in `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py` and aggregate the per-APK JSONs into one `InstrumentationResults` with `variant="dexlib2"`, mirroring how the loop already aggregates errors
+- [x] 1.6 Add Python tests: the `apk_paths` path produces `instrument_results.json`; the aggregate carries the right `success_count` / `total_count`; `_demote_silent_failures` still applies
+- [x] 1.7 Run `/rv-test-run rv-instrumentation-dexlib2`
 - [ ] 1.8 Verify INV-INS-105 over a real results tree: every APK processed has a results JSON (today the tree has 289 `instrument_errors.json` and zero `instrument_results.json`)
 
 ## 2. Validator independence from the emission premise
