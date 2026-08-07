@@ -109,7 +109,7 @@ def test_subprocess_error_demoted_per_apk_not_propagated(tmp_workspace):
     )
     inst = DexlibInstrumentation(cfg)
 
-    def fake_run_cli(args):
+    def fake_run_cli(args, **kwargs):  # kwargs: log_path
         # Look at the APK arg (positional after "instrument")
         apk = Path(args[1])
         if apk.name == "bad.apk":
@@ -154,7 +154,7 @@ def test_persist_errors_json_writes_file(tmp_workspace):
     )
     inst = DexlibInstrumentation(cfg)
 
-    def fake_run_cli(args):
+    def fake_run_cli(args, **kwargs):  # kwargs: log_path
         (results_dir / "ok.apk").write_bytes(b"signed")
 
     with (
@@ -425,7 +425,7 @@ def test_wrapper_guard_apk_paths_succeeds_when_apk_present(tmp_workspace):
     )
     inst = DexlibInstrumentation(cfg)
 
-    def write_apk(args):
+    def write_apk(args, **kwargs):  # kwargs: log_path
         # Simulate the CLI writing the output APK
         (results_dir / "cryptoapp.apk").write_bytes(b"PK\x03\x04stub-apk-out")
 
@@ -535,7 +535,7 @@ def test_apk_paths_complete_path_no_duplicate_prefix(
 
     captured = {}
 
-    def fake_run_cli(args):
+    def fake_run_cli(args, **kwargs):  # kwargs: log_path
         # The wrapper passes the resolved input path as argv[1] to instr-cli.
         captured["apk_arg"] = args[1]
         # Simulate the CLI writing the output APK by basename.
@@ -929,3 +929,30 @@ def test_demote_silent_failures_preserves_weave_counts(tmp_workspace):
     assert after.success_count == 0
     assert "gone.apk" in after.errors
     assert after.weave_counts == {"gone.apk": {"matchesApplied": 4}}
+
+
+def test_apk_paths_persists_the_cli_log(tmp_workspace):
+    """The weaver's stdout is the only place the resolved android.jar appears.
+
+    ``capture_output=True`` takes it out of the terminal, so unless the wrapper
+    writes it down the platform jar a weave actually used is unrecoverable
+    afterwards — which is what the android.jar log line exists to prevent.
+    """
+    inst, apks_dir, paths = _apk_paths_workspace(tmp_workspace, ["one.apk"])
+    results_dir = tmp_workspace["root"] / "results"
+    base = _fake_per_apk_run(results_dir, {"one.apk": {"matchesApplied": 1}})
+
+    def fake(cmd, **kwargs):
+        proc = base(cmd, **kwargs)
+        proc.stdout = "[dexlib2] one.apk: android.jar = /sdk/platforms/android-34/android.jar"
+        return proc
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch("subprocess.run", side_effect=fake),
+    ):
+        inst.instrument_apks(apks_dir, results_dir, apk_paths=paths)
+
+    log = results_dir / "instrument_results.d" / "one.log"
+    assert log.is_file(), "the CLI output must survive the subprocess"
+    assert "android.jar = /sdk/platforms/android-34/android.jar" in log.read_text()

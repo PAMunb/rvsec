@@ -262,7 +262,8 @@ class DexlibInstrumentation(Instrumenter):
                             "--results-json",
                             str(per_apk_dir / f"{apk.stem}.json"),
                             *self._common_cli_args(results_dir),
-                        ]
+                        ],
+                        log_path=per_apk_dir / f"{apk.stem}.log",
                     )
                     # Cross-check: the single-APK ``instrument`` subcommand
                     # of instr-cli prints compilation errors to stdout but
@@ -278,7 +279,8 @@ class DexlibInstrumentation(Instrumenter):
                         raise RuntimeError(
                             f"instr-cli reported success but {output_apk} "
                             f"was not created — silent javac/d8 failure; "
-                            f"inspect cli stdout for compilation errors"
+                            f"see {per_apk_dir / f'{apk.stem}.log'} for the "
+                            f"compilation errors"
                         )
                     success += 1
                     apk_elapsed = time.time() - apk_start
@@ -354,7 +356,8 @@ class DexlibInstrumentation(Instrumenter):
                 *self._common_cli_args(results_dir),
                 "--results-json",
                 str(results_json),
-            ]
+            ],
+            log_path=results_dir / "instr-cli.log",
         )
         results = self._parse_results_json(results_json)
         # Cross-check: the CLI's batch subcommand can mark an APK as
@@ -512,7 +515,9 @@ class DexlibInstrumentation(Instrumenter):
             )
         return matches[0]
 
-    def _run_cli(self, cli_args: List[str]) -> subprocess.CompletedProcess[str]:
+    def _run_cli(
+        self, cli_args: List[str], log_path: Optional[Path] = None
+    ) -> subprocess.CompletedProcess[str]:
         cmd = [
             "java",
             *self.config.extra_java_args,
@@ -540,6 +545,25 @@ class DexlibInstrumentation(Instrumenter):
             env=_build_subprocess_env(env_extras),
         )
         elapsed = time.time() - start
+        # The weaver reports through stdout — the resolved android.jar, the
+        # per-advice skips, the d8/javac diagnostics. ``capture_output`` takes
+        # all of it out of the terminal, so without persisting it here the
+        # output exists only for the lifetime of this call and a platform-jar
+        # mismatch is not diagnosable after the fact.
+        if log_path is not None:
+            try:
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                log_path.write_text(
+                    f"$ {' '.join(cmd)}\n\n"
+                    f"--- exit {proc.returncode} after {elapsed:.1f}s ---\n\n"
+                    f"--- stdout ---\n{proc.stdout}\n"
+                    f"--- stderr ---\n{proc.stderr}\n"
+                )
+            except OSError as ex:
+                self._logger.warning(
+                    f"Could not write instr-cli log to {log_path}: {ex}",
+                    extra={"log_file": str(log_path)},
+                )
         self._logger.info(
             f"instr-cli ({subcmd}) returned exit={proc.returncode} in {elapsed:.1f}s",
             extra={

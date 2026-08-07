@@ -1,0 +1,32 @@
+{
+  "variant": "dexlib2",
+  "results": [
+    {
+      "apkName": "cryptoapp.apk",
+      "success": true,
+      "message": "instrumented + signed \u2192 /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/2cda63ea-e3f7-4311-a3bd-4021ab19ab1b/scratchpad/inv105b/instrumented/cryptoapp.apk",
+      "phase": "signed",
+      "weaveCounts": {
+        "advices": 115,
+        "dexFiles": 6,
+        "maxInputApi": 23,
+        "wrappersGenerated": 90,
+        "classesSeen": 3822,
+        "methodsSeen": 30028,
+        "matchesApplied": 32,
+        "plansSkipped": 0,
+        "plansSkippedAliasing": 3,
+        "wrappersSubstituted": 74,
+        "wrappersAliasedToSubtype": 0,
+        "constructorInlineApplied": 11,
+        "constructorInlineSkippedAliasing": 0,
+        "plansSkippedHighRegister": 0,
+        "plansSkippedUnresolvedBinding": 0,
+        "coverageInstrumented": 118,
+        "coverageSpillFailed": 0,
+        "wovenDexes": 6,
+        "monitorDexes": 1
+      }
+    }
+  ]
+}

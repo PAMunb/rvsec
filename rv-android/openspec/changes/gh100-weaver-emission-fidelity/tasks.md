@@ -20,7 +20,7 @@
 - [x] 1.5 Pass `--results-json` from the per-APK loop in `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py` and aggregate the per-APK JSONs into one `InstrumentationResults` with `variant="dexlib2"`, mirroring how the loop already aggregates errors
 - [x] 1.6 Add Python tests: the `apk_paths` path produces `instrument_results.json`; the aggregate carries the right `success_count` / `total_count`; `_demote_silent_failures` still applies
 - [x] 1.7 Run `/rv-test-run rv-instrumentation-dexlib2`
-- [ ] 1.8 Verify INV-INS-105 over a real results tree: every APK processed has a results JSON (today the tree has 289 `instrument_errors.json` and zero `instrument_results.json`)
+- [x] 1.8 Verify INV-INS-105 over a real results tree: every APK processed has a results JSON (today the tree has 289 `instrument_errors.json` and zero `instrument_results.json`)
 
 ## 2. Validator independence from the emission premise
 
