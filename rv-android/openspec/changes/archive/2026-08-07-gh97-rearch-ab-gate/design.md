@@ -64,7 +64,7 @@ modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar
 
 | Component | Responsibility | Input | Output |
 |-----------|---------------|-------|--------|
-| `ApeRVTool._push_properties` | Appends `ape.corpusBasis` when configured | `_tool_config["corpus_basis"]` | one `ape.properties` line |
+| `ApeRVTool._push_properties` | Appends `ape.corpusBasis` when configured | `_tool_config["overrides"]["corpus_basis"]` | one `ape.properties` line |
 | `ApeRVTool.configure` | Validates the basis shape before any device call | `str` | `None` or `ConfigurationError` |
 | `scripts/preflight_runstart.py` | Reads `RUN_START` from one trace per arm; three checks | trace paths, manifest | PASS/FAIL report, exit code |
 | `scripts/consolidate.py` | Copy of `consolidate_cal.py`, trace parsing on `trace_ndjson` | results tree | `per_apk_paired.csv`, `tel_proxies.csv` |
@@ -508,7 +508,9 @@ the best record per identity chosen first — the same rule `scripts/monitor.sh`
 ### `ApeRVTool.configure(config: dict) -> None`
 
 *Precondition*: called before any device interaction.
-*Postcondition*: `_tool_config["corpus_basis"]` is present and shape-valid, or absent.
+*Postcondition*: `_tool_config["overrides"]["corpus_basis"]` is present and shape-valid, or absent —
+the fold of mapped keys into `overrides` runs first, so the postcondition holds however the key was
+supplied.
 *Error*: `ConfigurationError` when present and not matching `^[A-Za-z0-9._-]+:[0-9a-f]{64}$`, naming
 the key and the rejected value. The tool does not verify that the digest corresponds to any file — it
 owns the contract, not the corpus.

@@ -45,6 +45,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - `system-broadcast.json` -- optional broadcast catalog file shipped alongside the tool module
 - `<task.results_dir>/<task.config.apk_name>.json` -- static-analysis document produced by `rvsec-analysis-client.jar`. Sections consumed by the handler-reach enrichment: `windows[].widgets[].listeners[].handler` (handler signatures) and `reachability[].methods[]` (`signature`, `reachable`, `reachesTarget`, `directlyReachesTarget`)
 - `llm_url: str` -- OpenAI-compatible base URL already held by the tool configuration; the source of the `/v1/models` provenance query (LLM arms)
+- `corpus_basis: str` -- optional key identifying the application list a run was drawn from, supplied through the same configuration path as any other mapped key and resting at `self._tool_config["overrides"]["corpus_basis"]`, which is where validation reads it. The nesting is not incidental: `configure()` folds every `APERV_PROPERTY_MAPPING` key from the top level of the configuration into `overrides` before validating anything, so an arm that declares the basis in its own `overrides` dict and a campaign that supplies it as an `@corpus_basis=…` DSL parameter arrive at the same place, and one rule covers both. Format `<corpus-id>:<sha256>`, where `<corpus-id>` is a short human-readable identifier of the list (e.g. `subset40`) and `<sha256>` is the lowercase hexadecimal SHA-256 of the list file's bytes
 - Recorded run artifacts for the offline join and the coverage-dump parser: per-run trace files carrying the step clock and the `[APE-RV] UICOV`/`UICOV-ACT` dump lines, and the logcat lines matching `RVSEC:`
 
 ### Output
@@ -53,6 +54,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - Task output provenance fields: `llm_backend`, `llm_model`, `llm_sampling` -- recorded per run (LLM arms)
 - Join report (A9): per-run rows correlating step clock positions with `RVSEC:` violation timestamps
 - Per-run coverage rows at Activity grain from the offline coverage-dump parser, each carrying an explicit dump status (complete, partial, or absent)
+- `ape.corpusBasis=<corpus-id>:<sha256>` -- one line appended to the generated `ape.properties`, pushed to `/data/local/tmp/ape.properties`. Consumed by the jar's resolver, echoed into `RUN_START.corpus_basis`, and read by no runtime component on either side
 
 ### Side-Effects
 
@@ -61,7 +63,8 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - **[Device]**: `/data/local/tmp/mop-artifact.json` receives the derived compact MOP artifact -- MOP variants only. One pushed file per MOP-arm run, and never the full static-analysis JSON (INV-APV-46)
 - **[Host filesystem]**: one cached `<task.results_dir>/<task.config.apk_name>.mop.json` per (apk, full-JSON digest), written atomically in canonical bytes and regenerated transparently when missing or stale
 - **[Filesystem]**: `<task.results_dir>/<task.config.apk_name>.json` is read and never written
-- **[Device]**: `ape.properties` pushed to `/data/local/tmp/ape.properties` (when `_tool_config` is non-empty)
+- **[Device]**: `ape.properties` pushed to `/data/local/tmp/ape.properties` (when `_tool_config` is non-empty); the pushed file gains one `ape.corpusBasis` line when a corpus basis is configured, and no other device state changes
+- **[Trace]**: `RUN_START.corpus_basis` becomes present in every trace of a run configured with a corpus basis
 - **[Logcat]**: APE-RV writes `RVSEC-COV` log lines during execution (read by rv-android coverage infrastructure)
 - **[Network]**: LLM variants send HTTP requests from the emulator to the SGLang server (via `10.0.2.2` loopback or overridden URL)
 - **[Network]**: one `GET /v1/models` per LLM-arm run at preflight time (backend provenance)
@@ -69,8 +72,8 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 ### Error
 
-- `ConfigurationError` -- raised by `configure()` when `strategy` key is absent or not in `["sata", "random", "bfs", "dfs"]`
-- `RVToolExecutionError` -- raised when `ape-rv.jar` cannot be found in any search path, when an ADB push fails, or when a MOP arm has no full JSON or its derivation fails. Non-MOP arms are unaffected
+- `ConfigurationError` -- raised by `configure()` when `strategy` key is absent or not in `["sata", "random", "bfs", "dfs"]`, and when `corpus_basis` is present but does not match `^[A-Za-z0-9._-]+:[0-9a-f]{64}$`. Both are raised before any device interaction, so a malformed value costs no emulator time and produces no partially-configured run
+- `RVToolExecutionError` -- raised when `ape-rv.jar` cannot be found in any search path, when an ADB push fails, when a MOP arm has no full JSON or its derivation fails, or when the exploration returns materially short of its budget (INV-APV-60). Non-MOP arms are unaffected by the MOP cases
 - `DerivationError` -- raised by `derive()` when the document is structurally unusable (`complete` absent or false, missing `package`, a section of the wrong type). No partial artifact is produced; the caller re-raises it as `RVToolExecutionError`
 - `RVToolTimeoutError` -- raised when execution exceeds `task.config.timeout + 45` seconds (expected normal exit for exploration tools)
 - `SystemExit(2)` -- the offline clock-to-violation join utility on usage error (missing or unreadable run directory)
@@ -233,7 +236,13 @@ which the sibling `ape` change already references by number.
 
 - **INV-APV-55**: The frozen legacy-corpus readers SHALL NOT be migrated, adapted or deleted by this change: `scripts/cmpm_stratify.py`, `scripts/analyze_cmpv2_llm.py`, `experimento-cal/scripts/*`, `experimento-20260721/scripts/*` and `calibracao/*`. They read an archived dataset that will not be regenerated, and are not compatibility shims.
 
+- **INV-APV-56**: When `corpus_basis` is absent from the tool configuration, `_push_properties()` SHALL omit `ape.corpusBasis` from the generated `ape.properties` entirely. It SHALL NOT emit the key with an empty, placeholder or defaulted value — the jar's contract is that the key is absent when the corpus is unstated, and a defaulted value would assert a provenance the harness does not have.
+
+- **INV-APV-57**: No component of `modules/aperv-tool` SHALL read `RUN_START` — including `corpus_basis` — on any execution path. The property is write-only from this side, mirroring `run-spec` INV-RUN-03. Any verification of the echoed value SHALL be post-hoc analysis over a recorded trace, outside `tool.py`.
+
 - **INV-APV-58**: The reader SHALL NOT drop data the trace carries. Every field of an `llm[]` sub-event SHALL reach the caller, prompt and response dumps included, and every run-level record SHALL be reachable — `MOP_DATA`, `PIPELINE` and `LLM_ACK` as reader attributes. `RUN_END` is the sole exception and is governed by INV-APV-53. Because this module is the *sole* mechanism for consuming a stage-4 trace, a field it declines to surface is a field no conformant analysis can read: the omission is not a defer, it is a deletion at the boundary.
+
+- **INV-APV-60**: `ApeRVTool` SHALL NOT report a run as successful on the strength of the exploration process having returned. A return that arrives materially before the requested exploration budget SHALL raise `RVToolExecutionError` naming the elapsed time and the budget. The exit code SHALL NOT be used to decide this: a non-zero exit is normal for APE-RV — it exits non-zero when it detects an application crash during exploration — so a dead emulator and a crashing application are indistinguishable by it, and the elapsed time is the one signal that separates them.
 
 ## Requirements
 ### Requirement: ApeRVTool Registration (FR18, FR19)
@@ -1523,5 +1532,107 @@ parser once green; what survives is the per-rule unit suite of this module.
 - **THEN** the gate SHALL fail
 - **AND** the omission SHALL be repaired by a synthetic that fires the rule, never by lowering the
   requirement — a rule with no firing member is uncovered, whatever the rest of the set proves
+
+### Requirement: Corpus Basis Provenance (FR18, FR19, NFR06)
+
+`ApeRVTool` SHALL accept an optional `corpus_basis` configuration value identifying the application
+list a run was drawn from, and `_push_properties()` SHALL write it to the generated `ape.properties`
+as `ape.corpusBasis=<value>` when present. The value SHALL be treated as opaque provenance: the tool
+validates its shape and passes it through unchanged, and SHALL NOT derive, complete or normalize it.
+
+This exists because a run's artifacts cannot today answer which corpus it belonged to. A results
+directory names one application; the list that application was drawn from lives in a campaign
+directory, a compose file's bind-mount, or an operator's memory. The cost is not hypothetical — this
+study has counted its analysis basis as 163, 181 and 219 applications in different documents, and
+every cross-campaign analysis has had to re-derive the membership before it could compare anything.
+
+Validation SHALL occur in `configure()`, before any device interaction, and SHALL reject any value not
+matching `^[A-Za-z0-9._-]+:[0-9a-f]{64}$` with `ConfigurationError` naming the offending value. The
+two-part shape is what makes the value useful: the identifier is what a human reads in a report, and
+the digest is what makes two runs provably drawn from the same list rather than from two lists that
+happen to share a name.
+
+The tool SHALL NOT own the corpus list and SHALL NOT grow a filesystem dependency on a campaign's
+layout in order to hash it. Correctness of the digest itself is established where the corpus lives, by
+recomputing it from the list file and comparing against `RUN_START.corpus_basis` during a campaign's
+pre-flight — a check against the file, not a transcription anyone has to trust.
+
+When the value is absent the key SHALL be omitted entirely (INV-APV-56). Absence is a legitimate state
+— every campaign before this requirement ran without it, and every standalone invocation still does —
+and it SHALL NOT be treated as an error, a warning, or a reason to synthesize a value.
+
+The tool SHALL NOT read the value back from `RUN_START` or from any other artifact at run time
+(INV-APV-57). Confirming that the jar received and echoed what was pushed is the campaign pre-flight's
+work, performed by an operator script over a recorded trace.
+
+#### Scenario: A configured corpus basis reaches the device
+
+- **WHEN** `configure()` receives `corpus_basis="subset40:4157faa071fae1b405730de6d3fabf3d6821e54830473e98d2c342bffcadd252"` and `_push_properties()` runs for variant `mop_on_llm_off`
+- **THEN** the generated `ape.properties` SHALL contain the line `ape.corpusBasis=subset40:4157faa071fae1b405730de6d3fabf3d6821e54830473e98d2c342bffcadd252`
+- **AND** the value SHALL be byte-identical to what was configured, with no re-derivation, truncation or case change
+- **AND** the run's `RUN_START` SHALL carry `corpus_basis` with that same value
+
+#### Scenario: An unstated corpus produces no key at all
+
+- **WHEN** `_push_properties()` runs for variant `sata` and `corpus_basis` is absent from `_tool_config`
+- **THEN** the generated `ape.properties` SHALL NOT contain any line beginning `ape.corpusBasis`
+- **AND** no warning SHALL be logged and no placeholder value SHALL be substituted
+- **AND** the run SHALL proceed normally, since a standalone invocation has no corpus to state
+
+#### Scenario: A malformed basis fails before the emulator is touched
+
+- **WHEN** `configure()` receives `corpus_basis="subset40"` — an identifier with no digest
+- **THEN** it SHALL raise `ConfigurationError` naming the key and the rejected value
+- **AND** the error SHALL be raised before any `adb push`, so no device is started and no partially-configured run exists
+
+#### Scenario: A digest that does not match the list is caught by the pre-flight, not by the tool
+
+- **WHEN** a campaign is configured with `corpus_basis="subset40:<digest>"` where `<digest>` is well-formed but was transcribed from a different list, and the pre-flight recomputes the SHA-256 of the list file
+- **THEN** `ApeRVTool` SHALL have pushed the value unchanged, because shape is all it validates
+- **AND** the pre-flight SHALL report the mismatch between the recomputed digest and `RUN_START.corpus_basis` and fail the gate
+- **AND** no component of `modules/aperv-tool` SHALL have read `RUN_START` in the process
+
+### Requirement: Run Completion Is Established, Not Assumed (FR18, NFR06)
+
+`ApeRVTool` SHALL establish that an exploration ran for the budget it was given before reporting the
+run as successful. When the exploration process returns and the elapsed time falls short of the
+requested budget by more than the teardown grace already applied to the command, the tool SHALL raise
+`RVToolExecutionError` naming the elapsed time and the budget, so `rv-platform` records the task as
+`ERROR` and its own resume re-executes it (INV-APV-60).
+
+**The exit code is not the discriminator, and cannot be made into one.** A non-zero exit is a normal
+outcome for APE-RV — it exits non-zero when it detects an application crash during exploration — so
+the same code means both "the application under test misbehaved, which is data" and "the device went
+away, which is a lost run". Elapsed time separates them without ambiguity: an exploration that was
+asked for 1800 s and returned at 1012 s did not do the work, whatever ended it.
+
+**A timeout remains the normal, successful ending and is unaffected.** APE-RV is designed to explore
+until stopped; the `RVToolTimeoutError` path, its trace compression and its treatment as a completed
+run are unchanged. What this requirement removes is the third path — a return that is neither a
+timeout nor a full budget — which previously logged success and inspected nothing.
+
+The check SHALL read only the tool's own measurement of the exploration it launched. It SHALL NOT
+open, parse or inspect the trace, the logcat or any recorded artifact: `tool.py` reads no jar output
+(INV-APV-43), and admissibility judged from artifacts is a campaign gate's work, performed after the
+fact over the whole results tree.
+
+#### Scenario: A run cut short by a dead emulator fails loudly
+
+- **WHEN** an exploration is launched with a 1800 s budget and the `adb shell` command returns after 1284 s because the emulator died mid-run
+- **THEN** `ApeRVTool` SHALL raise `RVToolExecutionError` naming both 1284 s and 1800 s
+- **AND** it SHALL NOT log that the execution completed successfully
+- **AND** `rv-platform` SHALL record the task with state `ERROR` and a non-empty `error_message`, so the identity is not skipped on the next resume
+
+#### Scenario: A run that reaches its budget is unaffected
+
+- **WHEN** an exploration is launched with a 1800 s budget and APE-RV returns on its own clock at approximately 1800 s, having exited non-zero because the application under test crashed during exploration
+- **THEN** the tool SHALL treat the run as successful, because the budget was consumed
+- **AND** the non-zero exit SHALL NOT by itself cause a failure, since an application crash is data the run exists to collect
+
+#### Scenario: The timeout path keeps its meaning
+
+- **WHEN** the exploration is still running when the command's timeout expires
+- **THEN** `RVToolTimeoutError` SHALL be raised exactly as before and the run SHALL be recorded as completed
+- **AND** the trace SHALL be compressed on this path as it already is, with the truncated final line included
 
 ---

@@ -38,10 +38,15 @@ place `RUN_START` is ever consumed.
 ## Data Contracts
 
 ### Input
-- `corpus_basis: str` — optional key in `ApeRVTool._tool_config`, supplied through the same
-  configuration path as any other mapped key. Format `<corpus-id>:<sha256>`, where `<corpus-id>` is a
-  short human-readable identifier of the list (e.g. `subset40`) and `<sha256>` is the lowercase
-  hexadecimal SHA-256 of the list file's bytes.
+- `corpus_basis: str` — optional key, supplied through the same configuration path as any other
+  mapped key and resting at `ApeRVTool._tool_config["overrides"]["corpus_basis"]`, which is where
+  validation reads it. The nesting is not incidental: `configure()` folds every
+  `APERV_PROPERTY_MAPPING` key from the top level of the configuration into `overrides` before
+  validating anything, so an arm that declares the basis in its own `overrides` dict and a campaign
+  that supplies it as an `@corpus_basis=…` DSL parameter arrive at the same place, and one rule
+  covers both. Format `<corpus-id>:<sha256>`, where `<corpus-id>` is a short human-readable
+  identifier of the list (e.g. `subset40`) and `<sha256>` is the lowercase hexadecimal SHA-256 of the
+  list file's bytes.
 
 ### Output
 - `ape.corpusBasis=<corpus-id>:<sha256>` — one line appended to the generated `ape.properties`,
