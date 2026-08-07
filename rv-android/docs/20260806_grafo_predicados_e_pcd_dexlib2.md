@@ -13,8 +13,26 @@
 
 > **Revisão 6 (o instrumentador como ferramenta, e o conjunto `jca_android`)** — sessão nova, 2026-08-06. As revisões 2–5 examinaram o instrumentador **através de uma campanha**. Ele é ferramenta de uso continuado, e a pergunta que ficou sem resposta é outra: o que ele faz errado independentemente do dataset, e o que disso atravessa para o conjunto de specs que será usado a seguir. Novidades: **(a)** o `jca_android` difere do `jca` **apenas em allow-lists** — dez specs, todas só no conteúdo de listas; nenhum pointcut, nenhuma cláusula `returning`, nenhuma declaração de evento mudou —, de modo que **os três defeitos de tecelagem atravessam intactos**, com as mesmas linhas (`$JCA_ANDROID/TrustManagerFactorySpec.mop:44`, `$JCA_ANDROID/SSLContextSpec.mop:46`) (§12.1, §12.2); **(b)** consequência derivada e desconfortável: no `SSLContextSpec` a lista nova **não reduz o volume de relato — troca o rótulo**, convertendo "found TLS" em "found ." e tornando a spec *mais* uniformemente artefato do que era (§12.3); **(c)** precisão sobre o item 4 da §11.9: os contadores do weaver **não morrem por falta de arquivo** — o Java os serializa em `weaveCounts` por APK, e é o lado Python que os descarta na travessia (`_parse_results_json` lê quatro campos e joga o resto fora; `InstrumentationResults` não tem campo para recebê-los). O que sobrou da campanha em `RESULTS/` são três `instrument_errors.json`, todos `{}` (§12.4); **(d)** a §7.5 confirmada no host contra a objeção óbvia: o `ANDROID_HOME` **está correto**, e a regra ainda assim escolhe `android-4` (§12.5).
 
-**Continua:** `docs/20260806_plano_specs_jca_android.md` (commit `31f7b883`), fase F0.
+**Continua:** `docs/20260806_plano_specs_jca_android.md` (commit `31f7b883`, com a §9 atualizada pela gh99 em `3a88cb06`), fase F0.
 **Resolve:** a questão G0 do plano (§3, §5), o item F0.4' e, na rev. 4, **F0.3**.
+
+> **Continuação em outro documento (2026-08-06).** A investigação deste relatório foi levada à **Fase 0 do workflow SDD** em
+> **`docs/20260806_ideacao_consertos_instrumentador_e_specs.md`**, que não repete nada daqui e acrescenta cinco coisas:
+> **(a)** re-derivação independente das alegações centrais — o núcleo bateu, incluindo os **7 advices / 9 eventos** da §4.8
+> recontados do zero, com o refinamento de que **os 7 são inteiramente o ramo do construtor** (`WrapperEmitter.java:215-219`),
+> porque todos os 17 advices fundidos são `after` e o ramo `shouldWrap`-falso contribui zero;
+> **(b)** duas correções a este relatório: a frase *"nenhuma métrica derivável dá 116"* da §2.3 é forte demais — o dedup ingênuo
+> `call([^)]*)[^)]*)` devolve exatamente 116 —, e o diagnóstico da §12.4 está certo mas incompleto: o caminho de produção usa o
+> subcomando `instrument` (um JVM por APK), que **não tem** `--results-json`, de modo que os contadores morrem antes do parse
+> Python, não nele;
+> **(c)** a especificação concreta de cada conserto no weaver, com as decisões de desenho embutidas;
+> **(d)** o achado que faltava a este relatório: a **Camada 3** de validação (`TraceComparator`, ajc × dexlib2 contra oráculo)
+> foi executada uma vez em 2026-04-26 com 0 linhas e **declarada N/A em 2026-05-06**, substituída por evidência agregada de
+> cobertura — que é **estruturalmente cega** à truncagem inline, pois o defeito não altera cobertura de método nenhuma. E o
+> oráculo canônico `cryptoapp-oracle.yaml` já contém, como evento nº 8, um `SecretKeySpecSpec`/`UnsatisfiedConstraint` que é
+> **um dos 9 que a §4.8 mostra descartados**;
+> **(e)** a decisão, tomada em 2026-08-06, de **reviver a Camada 3**, com as quatro objeções do fechamento da Fase 5
+> respondidas uma a uma — a da circularidade dos oráculos pelo próprio grupo de controle da rev. 5.
 
 ## Marcadores de confiança
 
