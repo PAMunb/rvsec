@@ -16,7 +16,7 @@
 - [x] 1.1 Add `--results-json <path>` to the `instrument` subcommand of `InstrumentationCli` ($DEXLIB2/cli), writing the per-APK counters whether the weave succeeded or failed (D-E1)
 - [x] 1.2 Log the resolved `android.jar` path at instrumentation start, so a platform-jar mismatch is diagnosable from the log alone
 - [x] 1.3 Add Java unit tests: the option produces a JSON for a successful weave and for a failed one
-- [x] 1.4 Re-derive the truncation census mechanically over the production descriptor `results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json` — advices with N>1, advices truncated, events dropped — and commit the script plus its pre-repair output (D-A3)
+- [x] 1.4 Re-derive the truncation census mechanically over the production descriptor `results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json` — advices with N>1, advices truncated, events dropped — and commit the script plus its pre-repair output (D-A3). This descriptor was generated from the `jca` set, and stays there deliberately: the census explains the 97,018-event dataset, which ran with `jca`. V2 (4.2, 6.2) weaves fresh monitors and uses `jca_android`, the set going forward — the two answer different questions, and neither is the other's baseline
 - [x] 1.5 Pass `--results-json` from the per-APK loop in `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py` and aggregate the per-APK JSONs into one `InstrumentationResults` with `variant="dexlib2"`, mirroring how the loop already aggregates errors
 - [x] 1.6 Add Python tests: the `apk_paths` path produces `instrument_results.json`; the aggregate carries the right `success_count` / `total_count`; `_demote_silent_failures` still applies
 - [x] 1.7 Run `/rv-test-run rv-instrumentation-dexlib2`
@@ -42,7 +42,7 @@
 ## 4. Red evidence — barrier, nothing in Group 5 may be integrated before this is committed
 
 - [ ] 4.1 Run V0 against the **pre-repair** weaver: an advice with N monitor calls emits N invokes in descriptor order. It must fail. Commit the failing output as an artefact of this change
-- [ ] 4.2 Run V2 against the **pre-repair** weaver: weave one APK with the JCA set, baksmali it, count the `invoke-static` for the 9 events. They must be absent. Commit the failing output
+- [ ] 4.2 Run V2 against the **pre-repair** weaver: weave one APK with the `jca_android` set, baksmali it, count the `invoke-static` for the 9 events. They must be absent. Commit the failing output
 - [ ] 4.3 Freeze the descriptor and the generated monitor sources that V2 weaves with, before it runs: record the sha256 of the descriptor and of each generated monitor source in the red-evidence artefact, and reuse exactly those inputs for the green run in 6.2. The `.mop` specification sets these monitors are generated from are being edited in parallel by issue #101; if they move between the red run and the green one, the two runs stop being comparable and INV-INS-108 proves nothing. Task 1.4's descriptor (`results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json`) is committed and already insulated — V2 is the run that needs the pin
 - [ ] 4.4 Record in this file which commit carries the red evidence, so the repair commits can reference it (INV-INS-108)
 - [ ] 4.5 Confirm that neither V0 nor V2 passes before the repair — a test that passes here is rejected as evidence and must be replaced
@@ -60,7 +60,7 @@
 ## 6. Green evidence and gates
 
 - [ ] 6.1 Re-run V0: it must pass, with descriptor order asserted, not just the call set
-- [ ] 6.2 Re-run V2 over the descriptor and monitor sources pinned in 4.3: the 9 events must appear as `invoke-static` in the woven DEX
+- [ ] 6.2 Re-run V2 over the `jca_android` descriptor and monitor sources pinned in 4.3: the 9 events must appear as `invoke-static` in the woven DEX
 - [ ] 6.3 Re-run the census script from 1.4 and record the post-repair counts against the pre-repair baseline
 - [ ] 6.4 Read the weaver counters for sites discarded under register pressure after the repair, and record the delta. An increase is reported explicitly; if it is systematic, open a follow-up issue rather than absorbing it
 - [ ] 6.5 Execute L3-b against its derived oracle and record the verdict

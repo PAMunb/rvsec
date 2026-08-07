@@ -2,7 +2,7 @@
 
 This delta covers three connected properties of the DEX-native instrumentation pipeline: that the weaver emits every monitor call an advice carries, that it reports what it did, and that the validation layer which checks the first two does not rest on the same assumption that the defect rests on.
 
-The first property is emission cardinality. A JavaMOP advice in the production descriptor may carry more than one `monitorCall` — the descriptor holds 115 advices, 17 of them with N > 1 — because the JavaMOP fusion stage merges advices whose position and pointcut coincide. The weaver has two emission paths: the wrapper path, which synthesises a static wrapper method and iterates the monitor calls correctly, and the inline path, which splices the invoke directly at the call site. The inline path reads `getMonitorCalls().get(0)` and drops the rest. Because `WrapperEmitter.shouldWrap` is `"after".equals(position)` and every fused advice in the production descriptor is `after`, the path that truncates is reached through the explicit constructor `continue`, and the events lost are concentrated: 7 advices, 9 events, and every one of the 9 an error emitter. The observable signature is an entire `ErrorType` category — `UnsatisfiedConstraint` — reading zero across 97,018 events while the independent AspectJ weaver reports 43 for the same specification set.
+The first property is emission cardinality. A JavaMOP advice in the production descriptor may carry more than one `monitorCall` — the descriptor holds 115 advices, 17 of them with N > 1 — because the JavaMOP fusion stage merges advices whose position and pointcut coincide. The weaver has two emission paths: the wrapper path, which synthesises a static wrapper method and iterates the monitor calls correctly, and the inline path, which splices the invoke directly at the call site. The inline path reads `getMonitorCalls().get(0)` and drops the rest. Because `WrapperEmitter.shouldWrap` is `"after".equals(position)` and every fused advice in the production descriptor is `after`, the path that truncates is reached through the explicit constructor `continue`, and the events lost are concentrated: 7 advices and 9 events, 8 of them error emitters — 7 raising `UnsatisfiedConstraint`, one `UnsafeAlgorithm` — and the ninth, `SecureRandomSpec`/`c3`, a state transition that raises nothing itself but gates a later violation. The observable signature is an entire `ErrorType` category — `UnsatisfiedConstraint` — reading zero across 97,018 events while the independent AspectJ weaver reports 43 for the same specification set.
 
 The second property is reporting. The weaver computes counters and has a `--results-json` option to write them, but that option lives only on the `batch` subcommand while the production Python path calls the single-APK `instrument` subcommand. The consequence is not a formatting problem downstream: the file is never written, which is why the results tree holds 289 `instrument_errors.json` and no `instrument_results.json` at all. Counters matter here beyond hygiene, because repairing emission cardinality increases the number of invokes spliced at a site and can push a method over its register budget; without counters that discard is invisible.
 
@@ -68,9 +68,10 @@ Repairing cardinality increases the invokes spliced per site. The change SHALL r
 
 #### Scenario: The nine erased events reach the woven DEX
 
-- **WHEN** an APK is woven with the JCA specification set after this change
+- **WHEN** an APK is woven with the `jca_android` specification set after this change
 - **THEN** the 9 events previously dropped by the inline path MUST appear as `invoke-static` instructions in the woven DEX
-- **AND** all 9 MUST be error emitters of the categories they belong to, `SecretKeySpecSpec`/`UnsatisfiedConstraint` among them
+- **AND** the 8 of them that raise an error MUST include `SecretKeySpecSpec`/`UnsatisfiedConstraint`
+- **AND** the ninth, `SecureRandomSpec`/`c3`, MUST be emitted too — it raises nothing itself, so a criterion demanding an error from all 9 would fail against a correct weave
 
 #### Scenario: Register pressure after cardinality repair is observed, not assumed
 
