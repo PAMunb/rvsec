@@ -3,6 +3,7 @@ package br.unb.cic.rv.validator;
 import br.unb.cic.rv.descriptor.AdviceDescriptor;
 import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.DescriptorReader;
+import br.unb.cic.rv.descriptor.MonitorCallDescriptor;
 import br.unb.cic.rv.pointcut.TypeResolver;
 
 import com.android.tools.smali.dexlib2.Opcode;
@@ -108,7 +109,7 @@ public final class BaksmaliDiffer {
                     "descriptor JSON missing", metrics);
         }
 
-        Map<String, String> wrapperToSpec = buildWrapperToSpec(descriptorJson);
+        Map<String, Set<String>> wrapperToSpec = buildWrapperToSpec(descriptorJson);
         metrics.put("wrapperEntries", wrapperToSpec.size());
 
         List<String> ajcNames = listApks(ajcApkDir);
@@ -197,10 +198,10 @@ public final class BaksmaliDiffer {
      * emitter (which itself needs an {@code AndroidClassIndex} for full
      * overload expansion — overkill for spec attribution).
      */
-    static Map<String, String> buildWrapperToSpec(Path descriptorJson) {
+    static Map<String, Set<String>> buildWrapperToSpec(Path descriptorJson) {
         AspectDescriptor desc = DescriptorReader.read(descriptorJson);
         TypeResolver resolver = new TypeResolver(desc.getImports());
-        Map<String, String> out = new LinkedHashMap<>();
+        Map<String, Set<String>> out = new LinkedHashMap<>();
         Map<String, Integer> nameCounts = new LinkedHashMap<>();
         for (AdviceDescriptor advice : desc.getAdvices()) {
             if (!"after".equals(advice.getPosition())) continue;
@@ -213,9 +214,20 @@ public final class BaksmaliDiffer {
             // the emitter's gating exactly.
             String wrapperName = deriveWrapperName(advice, resolver, nameCounts);
             if (wrapperName == null) continue;
-            String spec = specOfMonitorMethod(advice.getMonitorCalls().get(0).getMethod());
-            if (spec == null) continue;
-            out.put(wrapperName, spec);
+            // Every monitor call, not just the first (INV-INS-106). A fused
+            // advice carries one call per event, and reading only element 0
+            // would make this instrument share the premise of the defect it
+            // has to certify the repair of: the validator would bind the
+            // wrapper to one spec while the repaired weaver emits invokes for
+            // all of them, and the recall computed for the others would
+            // silently miss those hooks.
+            Set<String> specs = new LinkedHashSet<>();
+            for (MonitorCallDescriptor call : advice.getMonitorCalls()) {
+                String spec = specOfMonitorMethod(call.getMethod());
+                if (spec != null) specs.add(spec);
+            }
+            if (specs.isEmpty()) continue;
+            out.put(wrapperName, specs);
         }
         return out;
     }
@@ -301,7 +313,7 @@ public final class BaksmaliDiffer {
      * entries. Hooks are deduplicated per {@code (callerClass, callerMethod,
      * spec)} — the same spec called multiple times in one method counts once.
      */
-    static Set<HookKey> extractHooks(Path apk, Map<String, String> wrapperToSpec)
+    static Set<HookKey> extractHooks(Path apk, Map<String, Set<String>> wrapperToSpec)
             throws IOException {
         Set<HookKey> hooks = new HashSet<>();
         try (ZipFile zf = new ZipFile(apk.toFile())) {
@@ -321,7 +333,7 @@ public final class BaksmaliDiffer {
         return hooks;
     }
 
-    static void collectHooks(DexFile dex, Map<String, String> wrapperToSpec,
+    static void collectHooks(DexFile dex, Map<String, Set<String>> wrapperToSpec,
                               Set<HookKey> out) {
         for (ClassDef cd : dex.getClasses()) {
             String callerClass = cd.getType();
@@ -336,10 +348,12 @@ public final class BaksmaliDiffer {
                     if (!(insn instanceof ReferenceInstruction)) continue;
                     Object ref = ((ReferenceInstruction) insn).getReference();
                     if (!(ref instanceof MethodReference mr)) continue;
-                    String spec = specOfInvoke(mr, wrapperToSpec);
-                    if (spec == null) continue;
-                    if (seenSpecs.add(spec)) {
-                        out.add(new HookKey(callerClass, callerMethod, spec));
+                    // One invoke can attribute to more than one spec once the
+                    // wrapper it targets was minted from a fused advice.
+                    for (String spec : specOfInvoke(mr, wrapperToSpec)) {
+                        if (seenSpecs.add(spec)) {
+                            out.add(new HookKey(callerClass, callerMethod, spec));
+                        }
                     }
                 }
             }
@@ -347,20 +361,27 @@ public final class BaksmaliDiffer {
     }
 
     /**
-     * Map a {@code invoke-static} target to its spec, or {@code null} if the
-     * target is neither a runtime-monitor event nor a known wrapper.
+     * Map an {@code invoke-static} target to the specs it attributes to, or an
+     * empty set if the target is neither a runtime-monitor event nor a known
+     * wrapper.
+     *
+     * <p>A direct monitor invoke names exactly one event and therefore one
+     * spec. A wrapper can stand for several, because the advice it was minted
+     * from may carry one monitor call per fused event.
      */
-    private static String specOfInvoke(MethodReference mr, Map<String, String> wrapperToSpec) {
+    private static Set<String> specOfInvoke(MethodReference mr,
+                                            Map<String, Set<String>> wrapperToSpec) {
         String defining = mr.getDefiningClass();
         String name = mr.getName();
         if (defining.startsWith(MONITOR_CLASS_PREFIX)
                 && defining.endsWith(MONITOR_CLASS_SUFFIX)) {
-            return specOfMonitorMethod(name);
+            String spec = specOfMonitorMethod(name);
+            return spec == null ? Set.of() : Set.of(spec);
         }
         if (WRAPPER_CLASS_DESC.equals(defining)) {
-            return wrapperToSpec.get(name);
+            return wrapperToSpec.getOrDefault(name, Set.of());
         }
-        return null;
+        return Set.of();
     }
 
     /**

@@ -106,6 +106,33 @@ final class EmitterTestFixtures {
         return a;
     }
 
+    /**
+     * Turn any advice from the builders above into a fused one carrying
+     * {@code n} monitor calls, the shape JavaMOP produces when it merges
+     * advices whose position and pointcut coincide.
+     *
+     * <p>This is a normal descriptor shape, not an edge case: the production
+     * descriptor holds 115 advices of which 17 carry more than one monitor
+     * call. Until gh100 no fixture in this suite built one, which is why the
+     * inline path could read only element 0 for fifteen months without a test
+     * noticing.
+     *
+     * <p>The extra calls reuse the first call's argument list so they stay
+     * resolvable against {@link #bindings}; only the event name differs, which
+     * is what makes descriptor order observable in the emitted invokes.
+     */
+    static AdviceDescriptor fused(AdviceDescriptor advice, int n) {
+        MonitorCallDescriptor first = advice.getMonitorCalls().get(0);
+        String[] args = first.getArgs().toArray(new String[0]);
+        List<MonitorCallDescriptor> calls = new ArrayList<>();
+        calls.add(first);
+        for (int i = 2; i <= n; i++) {
+            calls.add(monitorCall(first.getEventId() + "_fused" + i, args));
+        }
+        advice.setMonitorCalls(calls);
+        return advice;
+    }
+
     static MonitorCallDescriptor monitorCall(String event, String... args) {
         MonitorCallDescriptor mc = new MonitorCallDescriptor();
         mc.setMethod("MultiSpec_1RuntimeMonitor." + event);

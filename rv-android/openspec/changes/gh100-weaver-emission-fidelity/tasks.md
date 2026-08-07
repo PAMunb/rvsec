@@ -24,10 +24,10 @@
 
 ## 2. Validator independence from the emission premise
 
-- [ ] 2.1 Fix `BaksmaliDiffer.java:216` to attribute a woven artefact using all of `monitorCalls`, not `get(0)`
-- [ ] 2.2 Extend the emitter fixtures to build an advice with N=3 monitor calls: `EmitPlanShapeTest:74`, `StaticInitializationEmitterSignatureTest:143-154`, `AfterThrowingEmitterTest:60/77/105/121`
-- [ ] 2.3 Add the contract test for INV-INS-106: no validator or emitter source reads `getMonitorCalls().get(0)`
-- [ ] 2.4 Run the `$DEXLIB2` validator and emitter test suites; they must pass with the new fixtures against the **unrepaired** weaver except where the fixture asserts cardinality (those are Group 4's red evidence)
+- [x] 2.1 Fix `BaksmaliDiffer.java:216` to attribute a woven artefact using all of `monitorCalls`, not `get(0)`
+- [x] 2.2 Extend the emitter fixtures to build an advice with N=3 monitor calls: `EmitPlanShapeTest:74`, `StaticInitializationEmitterSignatureTest:143-154`, `AfterThrowingEmitterTest:60/77/105/121`
+- [x] 2.3 Add the contract test for INV-INS-106: no validator or emitter source reads `getMonitorCalls().get(0)`
+- [x] 2.4 Run the `$DEXLIB2` validator and emitter test suites; they must pass with the new fixtures against the **unrepaired** weaver except where the fixture asserts cardinality (those are Group 4's red evidence)
 
 ## 3. Derived oracles
 

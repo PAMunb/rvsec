@@ -60,6 +60,52 @@ class EmitPlanShapeTest {
         assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
     }
 
+    // --- gh100: fused advices reach the emitters ---------------------------
+    // A fused advice carries one monitor call per merged event. The three
+    // tests below pin the plan SHAPE only — that each emitter accepts N > 1
+    // and still returns a well-formed plan at the right insertion point.
+    // How many invokes come out is deliberately not asserted here: that is
+    // V0, and INV-INS-108 requires it to be observed failing against the
+    // unrepaired weaver before the repair lands, so it belongs to the
+    // red-evidence group. Asserting cardinality here would leave this suite
+    // red for the whole of groups 2 and 3.
+
+    @Test
+    void fusedAfterAdviceStillProducesAWellFormedPlan() {
+        AdviceDescriptor a = EmitterTestFixtures.fused(adviceAfter("fusedAfter"), 3);
+        assertEquals(3, a.getMonitorCalls().size(), "fixture must build N=3");
+
+        EmitPlan plan = new AfterEmitter().emit(ctx(a));
+
+        assertEquals(InsertionPoint.AFTER, plan.insertionPoint());
+        assertFalse(plan.toInsert().isEmpty(), "plan must emit at least the first monitor invoke");
+    }
+
+    @Test
+    void fusedStaticInitAdviceStillProducesAWellFormedPlan() {
+        AdviceDescriptor a = EmitterTestFixtures.fused(
+                adviceStaticInit("fusedSi", "java.util.ArrayList+"), 3);
+        assertEquals(3, a.getMonitorCalls().size(), "fixture must build N=3");
+
+        EmitPlan plan = new StaticInitializationEmitter().emit(ctx(a));
+
+        assertEquals(InsertionPoint.METHOD_ENTRY, plan.insertionPoint());
+        assertFalse(plan.toInsert().isEmpty());
+    }
+
+    @Test
+    void fusedAfterThrowingAdviceStillProducesAWellFormedPlan() {
+        AdviceDescriptor a = EmitterTestFixtures.fused(
+                adviceAfterThrowing("fusedAth", "Exception"), 3);
+        assertEquals(3, a.getMonitorCalls().size(), "fixture must build N=3");
+
+        EmitPlan plan = new AfterThrowingEmitter().emit(ctx(a));
+
+        assertEquals(InsertionPoint.TRY_CATCH_WRAP, plan.insertionPoint());
+        assertNotNull(plan.tryCatchSpec());
+        assertEquals("Ljava/lang/Exception;", plan.tryCatchSpec().catchType());
+    }
+
     @Test
     void afterThrowingWithoutBoundTypeCatchesAnyThrowable() {
         AdviceDescriptor a = adviceAfterThrowing("ath", "Throwable");
