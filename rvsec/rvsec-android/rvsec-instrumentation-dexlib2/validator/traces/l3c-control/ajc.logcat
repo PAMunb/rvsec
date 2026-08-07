@@ -1,0 +1,19 @@
+RVSEC: [CipherInputStreamSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [CipherOutputStreamSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [CipherSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [CipherSpec] UnsafeAlgorithm: expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found AES/CBC/PKCS7Padding.
+RVSEC: [IvParameterSpecSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [IvParameterSpecSpec] UnsatisfiedConstraint: unknown
+RVSEC: [KeyStoreSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [MacSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [MessageDigestSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [MessageDigestSpec] UnsafeAlgorithm: expecting one of {SHA-256, SHA-384, SHA-512} but found MD5.
+RVSEC: [PBEKeySpecSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [PBEKeySpecSpec] UnsatisfiedConstraint: first argument should have been randomized
+RVSEC: [SSLContextSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [SSLContextSpec] UnsafeProtocol: expecting one of {TLSv1.2, TLSv1.3} but found SSL.
+RVSEC: [SecretKeySpecSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [SecretKeySpecSpec] UnsatisfiedConstraint: Using either an invalid algorithm or keyMaterial.length is not randomized.
+RVSEC: [SecureRandomSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [TrustManagerFactorySpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [TrustManagerFactorySpec] UnsafeAlgorithm: expecting one of PKIX,SunX509 but found X509.

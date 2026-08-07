@@ -33,11 +33,11 @@
 
 - [x] 3.1 Add the provenance block to the oracle YAML schema and make `OracleLoader` require it: hand-validated, or derived-from-an-independent-weaver with source path, source content hash and derivation script name (INV-INS-107)
 - [x] 3.2 Make `OracleLoader` reject an oracle whose provenance names the implementation under test, with a message naming the circularity
-- [ ] 3.3 Write the L3-b derivation script over `out/run_jca_compare_consolidated/events_fair.csv` (55,169 paired ajc × dexlib2 events, 8 APKs under both variants) and commit the derived oracle with its provenance block
-- [ ] 3.4 Decide and record the L3-c provenance filter — which control-group records enter the oracle and why (D-O2) — then write the derivation script over the JVM `-javaagent` control-group results and commit the derived oracle
+- [x] 3.3 Write the L3-b derivation script over `out/run_jca_compare_consolidated/events_fair.csv` (55,169 paired ajc × dexlib2 events, 8 APKs under both variants) and commit the derived oracle with its provenance block
+- [x] 3.4 Decide and record the L3-c provenance filter — which control-group records enter the oracle and why (D-O2) — then write the derivation script over the JVM `-javaagent` control-group results and commit the derived oracle
 - [x] 3.5 Add the `LIMITATIONS.md` entry for the unwritten multidex profile
 - [x] 3.6 Add Java unit tests for `OracleLoader`: admission with each provenance class, rejection of a circular oracle, rejection below `MINIMUM_ORACLES`
-- [ ] 3.7 Confirm `MINIMUM_ORACLES = 3` is now satisfiable without lowering the threshold
+- [x] 3.7 Confirm `MINIMUM_ORACLES = 3` is now satisfiable without lowering the threshold
 
 ## 4. Red evidence — barrier, nothing in Group 5 may be integrated before this is committed
 

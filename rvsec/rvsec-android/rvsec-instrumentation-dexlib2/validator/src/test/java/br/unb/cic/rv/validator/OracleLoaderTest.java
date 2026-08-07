@@ -154,6 +154,32 @@ class OracleLoaderTest {
         assertTrue(r.message.contains("INV-INS-59"));
     }
 
+    /**
+     * The committed oracle set, not a fixture. The minimum of three has to be
+     * met by the oracles actually in the tree, and met by provenance rather
+     * than by lowering the threshold (D-O1) — so the assertion is on the
+     * admitted count with MINIMUM_ORACLES left where it is.
+     */
+    @Test
+    void theCommittedOracleSetSatisfiesTheMinimum() throws Exception {
+        Path oracles = MonitorCallsPremiseContractTest.moduleDir().resolve("oracles");
+        assertTrue(Files.isDirectory(oracles), "oracle directory not found at " + oracles);
+
+        var loaded = OracleLoader.load(oracles);
+        Report r = OracleLoader.report(loaded);
+
+        assertEquals(3, OracleLoader.MINIMUM_ORACLES,
+                "the minimum is met by provenance, never by lowering it (D-O1)");
+        assertTrue(r.passed,
+                "committed oracles: " + loaded.admitted().stream()
+                        .map(p -> p.getFileName().toString()).toList()
+                        + "; rejected: " + loaded.rejected());
+        // The placeholder slot must be rejected rather than counted — it used
+        // to pad the count to two while carrying no ground truth at all.
+        assertTrue(loaded.rejected().containsKey("hateitorrateit-oracle.yaml"),
+                "the pending kotlin_r8 slot must not count toward the minimum");
+    }
+
     @Test
     void ignoresNonOracleYamls(@TempDir Path tmp) throws Exception {
         handValidated(tmp, "cryptoapp");

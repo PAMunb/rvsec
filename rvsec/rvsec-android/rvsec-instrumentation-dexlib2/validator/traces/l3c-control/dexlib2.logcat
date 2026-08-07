@@ -1,0 +1,18 @@
+RVSEC: [CipherSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [CipherSpec] UnsafeAlgorithm: expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found RSA/ECB/OAEPWithSHA1AndMGF1Padding.
+RVSEC: [KeyPairGeneratorSpec] InvalidKeySize: invalid key size for algorithm DSA.
+RVSEC: [KeyPairGeneratorSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [KeyPairSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [KeyStoreSpec] InvalidKeyStoreType: expecting one ofJCEKS,JKS,DKS,PKCS11,PKCS12 but found AndroidKeyStore.
+RVSEC: [KeyStoreSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [MacSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [MacSpec] UnsafeAlgorithm: expecting one of HmacSHA256,HmacSHA384,HmacSHA512,HmacPBESHA1,PBEWithHmacSHA1,PBEWithHmacSHA224,PBEWithHmacSHA256,PBEWithHmacSHA384,PBEWithHmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512,PBEWITHHMACSHA,PBEWITHHMACSHA-256 but found .
+RVSEC: [MessageDigestSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [MessageDigestSpec] UnsafeAlgorithm: expecting one of {SHA-256, SHA-384, SHA-512} but found .
+RVSEC: [SSLContextSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [SSLContextSpec] UnsafeProtocol: expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+RVSEC: [SecureRandomSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [SignatureSpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [SignatureSpec] UnsafeAlgorithm: expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found .
+RVSEC: [TrustManagerFactorySpec] InvalidSequenceOfMethodCalls: unknown
+RVSEC: [TrustManagerFactorySpec] UnsafeAlgorithm: expecting one of PKIX,SunX509 but found .
