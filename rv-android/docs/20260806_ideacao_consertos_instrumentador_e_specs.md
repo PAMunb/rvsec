@@ -286,20 +286,41 @@ O fechamento da Fase 5 declarou a camada N/A por "design weakness". As objeçõe
 
 | # | objeção (verbatim, `20260426_dexlib2_validation_results.md` §5.3) | resposta hoje |
 |---|---|---|
-| (a) | *"oracles are observation-driven (circular)"* | **Resolvida, e é o achado que reabre a camada.** O `$RESULTS/errors_unit_tests.csv` é uma execução das **mesmas 23 specs tecidas por AspectJ** via `-javaagent` — *"No emulator, no dexlib2"* verbatim na fonte ✅. Um evento observado sob **outro weaver** é ground truth **independente** do weaver sob teste. A circularidade era real enquanto o oráculo vinha de uma execução dexlib2; deixa de ser quando vem do controle. Ninguém tinha aberto esse arquivo em maio de 2026. |
+| (a) | *"oracles are observation-driven (circular)"* | **Resolvida, e é o achado que reabre a camada.** Existem **duas** execuções das mesmas 23 specs tecidas por AspectJ: uma **pareada, em APK e em emulador** (`events_fair.csv`, 55.169 eventos) e uma em JVM via `-javaagent` (`errors_unit_tests.csv`) ✅ — detalhe na §6.3. Um evento observado sob **outro weaver** é ground truth **independente** do weaver sob teste. A circularidade era real enquanto o oráculo vinha de uma execução dexlib2; deixa de ser quando vem de qualquer um dos dois regimes. |
 | (b) | *"INV-INS-59 multidex oracle never authored"* | **Continua aberta** — é a decisão nº 4 da §7, agora reduzida a "escrever o terceiro oráculo" × "baixar o mínimo com justificativa registrada". |
 | (c) | *"determinism fragile (monkey -s 42 has emulator timing variance)"* | **Resolvida em código, e antes da objeção.** `scripts/drive_cryptoapp.py` é o nível 3.1.b do próprio plano de validação (taps explícitos, coordenadas fixas). A variância do monkey não é mais o caminho. |
 | (d) | *"event-ordering pretension non-discriminating for atomic JCA calls"* | **Aceita — e o desenho muda por causa dela.** A camada revivida **abandona ordenação** como critério e passa a comparar **conjuntos** de `(spec, errorType, class, method)`. Para o defeito sob teste isso é estritamente mais forte: o que se quer saber é se o evento **existe**, não quando. |
 
-### 6.3 Dois instrumentos, não um
+### 6.3 Existem **dois** regimes AspectJ, e eles servem a defeitos diferentes
 
-A camada revivida tem duas formas, com custos e poderes diferentes. São complementares.
+Correção a uma afirmação minha anterior, feita em 2026-08-06 e errada como generalização: *"o lado AspectJ vem de teste unitário em JVM"*. Isso vale **apenas** para o `errors_unit_tests.csv`. O `rv-instrumentation-ajc` instrumenta APK (dex2jar + ajc + d8) e **foi executado em emulador**, pareado com o dexlib2 ✅. O dado existe e ninguém o tinha cruzado com esta investigação:
 
-**L3-a — pareada e estrita (`cryptoapp`).** Mesmo APK, mesmo driver (`drive_cryptoapp.py`), duas variantes de instrumentação, `--mandatory` ligado. Critério: os 8 eventos do oráculo presentes nos dois lados. O **evento nº 8 é o discriminante do defeito nº 3** — hoje a previsão é que o dexlib2 falhe nele e o ajc passe; depois do conserto de A, ambos passam. É um teste que **falha antes e passa depois**, que é a única forma de validação que prova alguma coisa.
+| regime | fonte | o que é | tamanho ✅ |
+|---|---|---|---|
+| **R1 — pareado, em APK** | `out/run_jca_compare_consolidated/events_fair.csv` | mesmo corpus, mesmas tools (`ape`, `aperv:sata_mop`, `fastbot`), mesmo emulador, coluna `variant ∈ {ajc, dexlib2}` | 55.169 eventos (ajc 30.537 / dexlib2 24.632), 8 APKs com as duas variantes |
+| **R2 — não pareado, em JVM** | `$RESULTS/errors_unit_tests.csv` | specs no `JavaMOPAgent.jar` via `-javaagent`, sem emulador e sem dexlib2 | 298 eventos, 134 tuplas, 32 apps |
 
-**L3-b — ampla e não pareada (grupo de controle).** Gerar oráculos a partir de `$RESULTS/errors_unit_tests.csv` (+ `categoria_unit_tests.csv` para proveniência) e comparar por **presença** de tupla, não por traço. Cobre **32 apps / 134 tuplas** ✅ em vez de um. Não é pareada — o lado ajc vem de teste unitário em JVM e o lado dexlib2 de execução em emulador, com drivers diferentes —, então não sustenta F1/κ; sustenta a pergunta que interessa: *a categoria que o dexlib2 emite zero vezes reaparece?* Como o piso atual é **exatamente zero** em 97.018 e em 165.999 eventos ✅, qualquer valor não nulo é sinal, e a diferença de driver não confunde o resultado.
+**O que o R1 mostra, e é observação, não derivação** ✅:
 
-Ordem: **L3-a primeiro** (barato, determinístico, discriminante), L3-b depois (mais amplo, resolve de quebra a objeção (b), porque 32 apps de ground truth independente valem mais que três YAMLs escritos à mão).
+| | ajc | dexlib2 |
+|---|---:|---:|
+| `TrustManagerFactorySpec` | **0** | **5.544** |
+| `UnsafeAlgorithm` (categoria) | 10 | 2.842 |
+| `UnsatisfiedConstraint` | **0** | **0** |
+
+Nos 8 APKs pareados, o `TrustManagerFactorySpec` emite **zero sob ajc em todos**, contra 20 / 1.708 / 32 / 1.588 sob dexlib2. E não é silêncio por pipeline morto: em `com.wirelessalien.android.moviedb_33` o mesmo run ajc emitiu **15.640** eventos de `SSLContextSpec` e ainda assim **0** de TMF. **A fabricação da colisão de wrappers (defeito nº 1) deixa de ser derivada das guardas e passa a ser contraste pareado, sob a única variável que mudou — o weaver.**
+
+**O que o R1 não mostra:** `UnsatisfiedConstraint` é **zero nos dois lados**, e a família de *parameter specs* que a truncagem apaga mal aparece. Isso não refuta o defeito nº 3 — é a mesma razão já medida no relatório (§11.3, §11.4): os eventos apagados moram em código de aplicação que a exploração de UI não alcança, e o teste unitário alcança. **O R2 continua sendo o único regime onde a categoria apagada existe.**
+
+Daí a camada revivida ter três instrumentos, não dois:
+
+**L3-a — pareada e estrita (`cryptoapp`).** Mesmo APK, mesmo driver (`drive_cryptoapp.py`), duas variantes, `--mandatory` ligado. Critério: os 8 eventos do oráculo nos dois lados. O **evento nº 8 é o discriminante do defeito nº 3** — a previsão é que hoje o dexlib2 falhe nele e o ajc passe, e que depois do conserto ambos passem. Teste que **falha antes e passa depois**.
+
+**L3-b — pareada e ampla (R1).** Oráculos derivados do `events_fair.csv`, comparando por conjunto de tuplas nos 8 APKs pareados. É o instrumento do **defeito nº 1**: a previsão é que o TMF sob dexlib2 caia dos 5.544 para perto do zero do ajc depois da correção da colisão. Não depende de escrever driver nenhum — os runs já existem como linha de base.
+
+**L3-c — não pareada e de presença (R2).** Oráculos derivados do `errors_unit_tests.csv` filtrado por `app_producao`, comparando **presença** de `(spec, errorType, class, method)`. Único instrumento com poder sobre a categoria `UnsatisfiedConstraint`. Gate apenas nos três apps de silêncio provado pelo join com `coverage.csv` — `photok`, `aegis`, `org.cry.otp`; o resto em modo relatório.
+
+Ordem: **L3-a → L3-b → L3-c**. A ressalva do R1 que precisa ficar escrita: a cobertura média do ajc naqueles runs é baixa (`mean_cov_rv_method` ≈ 7–8% contra 31–37% do dexlib2, mediana ajc 0,0), efeito do estrato R8/Compose onde o ajc falha. Por isso o gate do L3-b só vale por APK em que o run ajc demonstrou estar vivo — critério objetivo: ter emitido evento de alguma outra spec.
 
 ### 6.4 Ponto de integração que precisa de decisão
 
@@ -342,9 +363,9 @@ Três razões, e nenhuma é de conveniência:
 
 **Já decidido nesta sessão:** reviver a Camada 3 (§6). O que decorre disso e ainda está em aberto:
 
-1. **O terceiro oráculo** (§6.2b) — escrever o oráculo multidex, ou baixar `MINIMUM_ORACLES` com justificativa registrada? A L3-b (§6.3) é uma terceira saída: 32 apps de ground truth independente valem mais que três YAMLs à mão, e o mínimo poderia passar a contar oráculos **derivados do controle**.
+1. **O terceiro oráculo** (§6.2b) — **decidido em 2026-08-06: derivar de execução AspectJ existente**, em vez de escrever o multidex à mão ou baixar o `MINIMUM_ORACLES`. Com a §6.3, a derivação passa a ter duas fontes com papéis distintos (R1 pareado para o defeito nº 1, R2 para a categoria apagada), e o mínimo de três passa a ser satisfeito por oráculos derivados, não por YAMLs escritos à mão.
 2. **Integração do driver** (§6.4) — `drive_cryptoapp.py` como tool do `rv-tools`, como componente do `TaskExecutor`, ou como script invocado dentro da janela que o `rv-platform` já possui?
-3. **L3-b entra na change 2 ou vira change própria?** Ela é ampla e mexe em geração de oráculo a partir de dado de campanha; L3-a sozinha já basta como critério de aceitação de 3.
+3. **L3-b e L3-c entram na change 2 ou viram change própria?** L3-a sozinha já basta como critério de aceitação da change 3. L3-b é quase de graça (os runs pareados já existem); L3-c exige gerador e a decisão do filtro de proveniência.
 
 Independentes da decisão acima:
 
@@ -369,3 +390,13 @@ Duas coisas que **não** são perguntas, e é bom que fique escrito para não se
 - `docs/WORKFLOW.md` — §1 (Fase 0), §3 (seleção de trilha)
 - `openspec/changes/archive/2026-08-06-gh99-metacrysl-jca-android/` — a change arquivada; `docs/20260806_metacrysl_tier_map.md` para tiers, rastreabilidade e dívida
 - `docs/20260806_handoff_plan_review_and_changes.md` — o handoff que originou esta sessão; correções a ele na §2.2
+
+**Fontes de dado abertas nesta sessão e não usadas por nenhum dos documentos acima:**
+
+| fonte | o que é | usada em |
+|---|---|---|
+| `out/run_jca_compare_consolidated/events_fair.csv` | **regime R1** — 55.169 eventos pareados `variant ∈ {ajc, dexlib2}`, mesmo corpus, mesmas tools, mesmo emulador; 8 APKs com as duas variantes | §6.3 |
+| `out/run_jca_compare_consolidated/{per_apk_paired,tool_variant_comparison}.csv` | cobertura por APK e por tool/variante — base da ressalva sobre o estrato R8/Compose | §6.3 |
+| `modules/rv-instrumentation-ajc/` | o instrumentador AspectJ de APK (dex2jar + ajc + d8) que produziu o lado ajc do R1 | §6.3 |
+| `scripts/drive_cryptoapp.py` | driver determinístico de 369 linhas, escrito para reproduzir os 8 eventos do `cryptoapp-oracle.yaml` | §6.1, §6.4 |
+| `$DEXLIB2/validator/src/main/java/.../{TraceComparator,OracleLoader,ValidationCli}.java` | o comparador, o gate `MINIMUM_ORACLES = 3` e o subcomando `layer3 --mandatory` | §5.1, §6.1 |
