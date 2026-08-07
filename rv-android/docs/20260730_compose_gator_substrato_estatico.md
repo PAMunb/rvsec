@@ -244,12 +244,29 @@ Ressalva: muda o mecanismo do B9, e portanto o que a RQ-C4 avaliaria como tratam
 
 **Desenho**: um APK Compose e um APK View do corpus, analisados duas vezes cada — `all-reachable:true` (linha de base, reproduzindo o `.apk.json` vigente) e `false`. Comparar `reachesTarget` por método, particionado pelo detector B (parâmetro `$composer`), mais o tamanho do call graph e o tempo de análise.
 
-**Custo, e o obstáculo que precisa ser dito**: `all-reachable:true` está **hardcoded** em `Main.java:234`, dentro de um `List<String>` fechado por `args.toArray(new String[0])` em `:254`. Não há flag de CLI nem passthrough de argumentos Soot — o parser de `Main` reconhece `-cgAlgorithm`, `-withCHA` e ~20 outras opções, nenhuma delas alcança este ponto. **Logo o experimento não é executável "offline, sem tocar no gator"**, ao contrário do que se supôs ao levantá-lo. As duas rotas honestas são:
+**O obstáculo**: `all-reachable:true` está **hardcoded** em `Main.java:234`, dentro de um `List<String>` fechado por `args.toArray(new String[0])` em `:254` e entregue direto a `soot.Main.main` em `:289`. Não há flag de CLI nem passthrough de argumentos Soot — o parser de `Main` reconhece `-cgAlgorithm`, `-withCHA` e ~20 outras opções, e o `else` final não acumula desconhecidos. Não se alcança este ponto por CLI do gator, por config do `rv-static-analysis` nem por variável de ambiente. **Logo o experimento não é executável "sem tocar no gator"** no sentido de deixar o bytecode intacto, ao contrário do que se supôs ao levantá-lo.
 
-1. **Build local descartável**: alterar a linha, recompilar o jar, rodar os dois APKs, restaurar o jar do backup. Toca a árvore do repositório irmão e um binário rastreado (`rv-android/lib/gator/`), e portanto exige backup antes e verificação de reversão depois. Não é mudança de produto.
+**Mas o custo é muito menor do que essa frase sugere**, por dois fatos verificados em 2026-08-06:
+
+- **Os jars do gator não são versionados.** `lib/gator/.gitignore` lista `/rvsec-gator.jar` e `/rvsec-analysis-client.jar`. O que o git rastreia ali são scripts, `listeners.xml`, `libPackages.txt` e os `consts/`. Não há risco de binário entrar em commit por acidente. *(Corrige uma afirmação da primeira redação desta seção, que dizia o contrário.)*
+- **O diretório do gator é configurável.** O `rv-static-analysis` expõe `--gator-dir` e `--analysis-client-jar`, ambos `Optional` com resolução para `lib/gator` só por omissão (`config.py:92-96, 216-220`). Um braço experimental pode apontar para uma **cópia** do gator, sem que nada em nenhum dos dois repositórios seja alterado.
+
+**Rota preferida — patch de constant pool, sem recompilar:**
+
+1. `presto/android/Main.class` mora em `rvsec-gator.jar`, e `all-reachable:true` está lá como **uma única entrada UTF-8** do constant pool (verificado por extração da classe). Entradas UTF-8 de class file carregam prefixo de comprimento explícito, e class files não contêm offsets absolutos de byte — trocar 18 por 19 caracteres é seguro desde que o prefixo seja atualizado. Nenhuma recompilação, nenhum build Maven.
+2. Copiar `lib/gator/` para um diretório descartável e substituir apenas o jar pela versão corrigida.
+3. Rodar os dois braços com `--gator-dir` apontando para cada cópia.
+
+**A verificação é gratuita e obrigatória**: `Main.java:278` itera sobre `sootArgs` e os imprime antes de invocar o Soot. O log do braço experimental **tem** de mostrar `all-reachable:false`; se não mostrar, o patch não pegou e o resultado é descartado. É o que torna o patch binário defensável — a intervenção é de um literal só, e o próprio programa a confirma em execução.
+
+**Rotas alternativas**, se o patch falhar:
+
+1. **Build local descartável**: alterar a linha, recompilar, rodar, restaurar o jar do backup. Toca a árvore do repositório irmão (revertível por `git checkout`) e sobrescreve um jar gitignored (revertível por cópia). Não é mudança de produto.
 2. **Flag `-cgAllReachable <bool>`**: ~4 linhas no parser + 1 na montagem, com `true` como padrão. É mudança no gator de verdade, e portanto sujeita à regra vigente — mas é a menor mudança concebível, puramente aditiva, e tornaria a questão investigável para sempre em vez de uma vez.
 
-**Prioridade**: baixa, e o motivo é que o resultado **não altera o plano**. Se a hipótese se confirmar, o conserto (desligar `all-reachable` e alimentar entry points de verdade) continua sendo mudança no gator mais re-análise dos 348 APKs; se for refutada, a saturação tem outra causa e a conclusão prática — `reachesTarget` booleano não discrimina em Compose — permanece igual. A mitigação já escolhida, a tabela graduada `FQN → {reaches, minHops}` do doc 5 §6, contorna o problema sem depender desta resposta.
+**Prioridade**: baixa, e o motivo **não** é o custo — é que o resultado **não altera o plano**. Se a hipótese se confirmar, o conserto (desligar `all-reachable` e alimentar entry points de verdade) continua sendo mudança no gator mais re-análise dos 348 APKs; se for refutada, a saturação tem outra causa e a conclusão prática — `reachesTarget` booleano não discrimina em Compose — permanece igual. A mitigação já escolhida, a tabela graduada `FQN → {reaches, minHops}` do doc 5 §6, contorna o problema sem depender desta resposta.
+
+**Quando**: análise estática é pesada em CPU. Enquanto a campanha `cmp163` ocupar a máquina, rodar os dois braços rouba CPU dela e ainda mede tempos inúteis. A preparação do jar é offline e pode ser feita a qualquer momento; a execução deve esperar a máquina livre.
 
 **Veredito: registrar e adiar.** Vale como item de rigor para o texto da tese (explica *por que* o sinal satura, em vez de só constatar que satura), não como pré-requisito da Fase 2.
 
