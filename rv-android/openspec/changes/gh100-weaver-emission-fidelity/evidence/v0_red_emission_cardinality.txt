@@ -1,0 +1,60 @@
+V0 — red evidence for INV-INS-104, recorded before any repair (gh100 tasks 4.1, 4.5)
+====================================================================================
+
+Recorded 2026-08-07 against the unrepaired weaver, from the reactor root:
+
+  mvn test -pl rvsec/rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter -am \
+      -DskipMopAgent=true -Dtest=EmissionCardinalityTest \
+      -Dsurefire.failIfNoSpecifiedTests=false
+
+  mvn test -pl rvsec/rvsec-android/rvsec-instrumentation-dexlib2/validator -am \
+      -DskipMopAgent=true -Dtest=MonitorCallsPremiseContractTest \
+      -Dsurefire.failIfNoSpecifiedTests=false
+
+Four of the five V0 assertions fail. The fifth — unfusedAdviceStillEmitsExactlyOneInvoke
+— passes, and passing is what it is for: it is the negative control, pinning that the
+repair must not reach its counts by emitting the list twice or by inventing a call the
+descriptor never declared. A suite in which every assertion failed would not tell the
+two apart.
+
+The source scan fails on the three accessors that carry the premise. It is listed here
+rather than with the validator repair because INV-INS-108 requires it to be seen failing
+against the unrepaired weaver first.
+
+--- surefire: br.unb.cic.rv.emitter.EmissionCardinalityTest -------------------------
+
+-------------------------------------------------------------------------------
+Test set: br.unb.cic.rv.emitter.EmissionCardinalityTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 4, Errors: 0, Skipped: 0, Time elapsed: 0.145 s <<< FAILURE! -- in br.unb.cic.rv.emitter.EmissionCardinalityTest
+br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedBeforeAdviceEmitsOneInvokePerMonitorCallInDescriptorOrder -- Time elapsed: 0.088 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: INV-INS-104: the inline before path must emit every monitor call the advice carries, in descriptor order ==> expected: <[hasNextEvent, hasNextEvent_fused2, hasNextEvent_fused3]> but was: <[hasNextEvent]>
+	at br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedBeforeAdviceEmitsOneInvokePerMonitorCallInDescriptorOrder(EmissionCardinalityTest.java:94)
+
+br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedStaticInitAdviceEmitsOneInvokePerMonitorCallInDescriptorOrder -- Time elapsed: 0.004 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: INV-INS-104: the static-initialization inline path must emit every monitor call the advice carries, in descriptor order ==> expected: <[classInitEvent, classInitEvent_fused2, classInitEvent_fused3]> but was: <[classInitEvent]>
+	at br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedStaticInitAdviceEmitsOneInvokePerMonitorCallInDescriptorOrder(EmissionCardinalityTest.java:121)
+
+br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedAfterAdviceEmitsOneInvokePerMonitorCallInDescriptorOrder -- Time elapsed: 0.003 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: INV-INS-104: the inline after path must emit every monitor call the advice carries, in descriptor order ==> expected: <[nextEvent, nextEvent_fused2, nextEvent_fused3]> but was: <[nextEvent]>
+	at br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedAfterAdviceEmitsOneInvokePerMonitorCallInDescriptorOrder(EmissionCardinalityTest.java:105)
+
+br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedAfterThrowingHandlerEmitsOneInvokePerMonitorCallInDescriptorOrder -- Time elapsed: 0.004 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: INV-INS-104: the after-throwing handler must invoke every monitor call the advice carries, in descriptor order ==> expected: <[nextThrewEvent, nextThrewEvent_fused2, nextThrewEvent_fused3]> but was: <[nextThrewEvent]>
+	at br.unb.cic.rv.emitter.EmissionCardinalityTest.fusedAfterThrowingHandlerEmitsOneInvokePerMonitorCallInDescriptorOrder(EmissionCardinalityTest.java:136)
+
+
+--- surefire: br.unb.cic.rv.validator.MonitorCallsPremiseContractTest --------------
+
+-------------------------------------------------------------------------------
+Test set: br.unb.cic.rv.validator.MonitorCallsPremiseContractTest
+-------------------------------------------------------------------------------
+Tests run: 2, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.182 s <<< FAILURE! -- in br.unb.cic.rv.validator.MonitorCallsPremiseContractTest
+br.unb.cic.rv.validator.MonitorCallsPremiseContractTest.noEmitterSourceReadsOnlyTheFirstMonitorCall -- Time elapsed: 0.099 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: 
+INV-INS-104: every emission path must emit every monitor call, not the first. Offending sites:
+  EmitContext.java:52: return advice.getMonitorCalls().get(0);
+  StaticInitializationEmitter.java:147: return (calls == null || calls.isEmpty()) ? null : calls.get(0);
+  MonitorInvokeBuilder.java:240: return (calls == null || calls.isEmpty()) ? null : calls.get(0); ==> expected: <true> but was: <false>
+	at br.unb.cic.rv.validator.MonitorCallsPremiseContractTest.noEmitterSourceReadsOnlyTheFirstMonitorCall(MonitorCallsPremiseContractTest.java:69)
+

@@ -54,6 +54,24 @@ class MonitorCallsPremiseContractTest {
     }
 
     /**
+     * The same scan over the emitter sources — part of V0's red evidence.
+     *
+     * <p>INV-INS-104 forbids any emission path from reading only the first
+     * element of {@code monitorCalls}, and the emitters are where that premise
+     * does its damage; the validator merely inherited it. The scan lands with
+     * V0 rather than with the validator repair because INV-INS-108 requires it
+     * to be seen failing against the unrepaired weaver first.
+     */
+    @Test
+    void noEmitterSourceReadsOnlyTheFirstMonitorCall() throws IOException {
+        List<String> offenders = scan(
+                moduleDir().resolveSibling("advice-emitter").resolve("src/main/java"));
+        assertTrue(offenders.isEmpty(),
+                "INV-INS-104: every emission path must emit every monitor call, "
+                        + "not the first. Offending sites:\n  " + String.join("\n  ", offenders));
+    }
+
+    /**
      * Every {@code .java} under {@code root} that reduces {@code monitorCalls}
      * to its first element, as {@code <file>:<line>: <text>}.
      */

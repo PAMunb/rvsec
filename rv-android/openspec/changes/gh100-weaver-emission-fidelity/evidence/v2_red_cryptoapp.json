@@ -1,0 +1,169 @@
+{
+  "inputs": {
+    "apk": "/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/89ef741a-fb2b-45eb-a32a-4ee519e31da8/scratchpad/v2_red/instrumented/cryptoapp.apk",
+    "apkSha256": "8a20c2f4665652d585fb55d25d10489b3674269f46804ee87d7815ce4a14f490",
+    "descriptor": "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/gh99_jca_android_monitors/monitors/MultiSpec_1MonitorAspect.json",
+    "descriptorSha256": "e53f0af17f119e083d12cf779f5ad88ee488e4d969e359a9d6d243b2d7324b4f",
+    "monitorSource": "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/gh99_jca_android_monitors/monitors/MultiSpec_1RuntimeMonitor.java",
+    "monitorSourceSha256": "03fe08f07f40f99adc9a8f4e75aab0fd8e54627d65a3e46458ff8ec7aa93ba04",
+    "instrCli": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar",
+    "instrCliSha256": "77cbd6e71e3a3563bc0a41221fa11075a9d78ac9b0e5304af81a1118237ce25e"
+  },
+  "emissionModel": {
+    "truncating": true,
+    "truncationSites": [
+      {
+        "file": "EmitContext.java",
+        "line": 52,
+        "form": "direct",
+        "text": "return advice.getMonitorCalls().get(0);"
+      },
+      {
+        "file": "MonitorInvokeBuilder.java",
+        "line": 240,
+        "form": "indirect",
+        "text": "return (calls == null || calls.isEmpty()) ? null : calls.get(0);"
+      },
+      {
+        "file": "StaticInitializationEmitter.java",
+        "line": 147,
+        "form": "indirect",
+        "text": "return (calls == null || calls.isEmpty()) ? null : calls.get(0);"
+      }
+    ]
+  },
+  "counts": {
+    "droppedEventsInDescriptor": 9,
+    "advicesThatWove": 2,
+    "droppedEventsReachable": 2,
+    "droppedEventsPresent": 0,
+    "droppedEventsAbsent": 2
+  },
+  "verdict": "fail",
+  "findings": [
+    {
+      "advice": "IvParameterSpecSpec_c1",
+      "spec": "IvParameterSpecSpec",
+      "keptEvent": "IvParameterSpecSpec_c1Event",
+      "keptInvokes": 4,
+      "droppedEvent": "IvParameterSpecSpec_c3Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsatisfiedConstraint"
+      ],
+      "adviceWove": true,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "IvParameterSpecSpec_c2",
+      "spec": "IvParameterSpecSpec",
+      "keptEvent": "IvParameterSpecSpec_c2Event",
+      "keptInvokes": 0,
+      "droppedEvent": "IvParameterSpecSpec_c4Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsatisfiedConstraint"
+      ],
+      "adviceWove": false,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "PBEKeySpecSpec_c1",
+      "spec": "PBEKeySpecSpec",
+      "keptEvent": "PBEKeySpecSpec_c1Event",
+      "keptInvokes": 0,
+      "droppedEvent": "PBEKeySpecSpec_err1Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsatisfiedConstraint"
+      ],
+      "adviceWove": false,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "PBEKeySpecSpec_c1",
+      "spec": "PBEKeySpecSpec",
+      "keptEvent": "PBEKeySpecSpec_c1Event",
+      "keptInvokes": 0,
+      "droppedEvent": "PBEKeySpecSpec_err2Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsatisfiedConstraint"
+      ],
+      "adviceWove": false,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "PBEKeySpecSpec_c1",
+      "spec": "PBEKeySpecSpec",
+      "keptEvent": "PBEKeySpecSpec_c1Event",
+      "keptInvokes": 0,
+      "droppedEvent": "PBEKeySpecSpec_err3Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsatisfiedConstraint"
+      ],
+      "adviceWove": false,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "PBEParameterSpecSpec_c1",
+      "spec": "PBEParameterSpecSpec",
+      "keptEvent": "PBEParameterSpecSpec_c1Event",
+      "keptInvokes": 0,
+      "droppedEvent": "PBEParameterSpecSpec_c3Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsafeAlgorithm"
+      ],
+      "adviceWove": false,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "SecretKeySpecSpec_c1",
+      "spec": "SecretKeySpecSpec",
+      "keptEvent": "SecretKeySpecSpec_c1Event",
+      "keptInvokes": 5,
+      "droppedEvent": "SecretKeySpecSpec_c3Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsatisfiedConstraint"
+      ],
+      "adviceWove": true,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "SecretKeySpecSpec_c2",
+      "spec": "SecretKeySpecSpec",
+      "keptEvent": "SecretKeySpecSpec_c2Event",
+      "keptInvokes": 0,
+      "droppedEvent": "SecretKeySpecSpec_c4Event",
+      "droppedInvokes": 0,
+      "errorTypes": [
+        "UnsatisfiedConstraint"
+      ],
+      "adviceWove": false,
+      "present": false,
+      "callers": {}
+    },
+    {
+      "advice": "SecureRandomSpec_c2",
+      "spec": "SecureRandomSpec",
+      "keptEvent": "SecureRandomSpec_c2Event",
+      "keptInvokes": 0,
+      "droppedEvent": "SecureRandomSpec_c3Event",
+      "droppedInvokes": 0,
+      "errorTypes": [],
+      "adviceWove": false,
+      "present": false,
+      "callers": {}
+    }
+  ]
+}
