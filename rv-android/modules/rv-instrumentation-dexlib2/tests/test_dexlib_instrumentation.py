@@ -800,9 +800,7 @@ def test_apk_paths_argv_carries_results_json(tmp_workspace):
 
 
 def test_apk_paths_merges_per_apk_results_and_counters(tmp_workspace):
-    inst, apks_dir, paths = _apk_paths_workspace(
-        tmp_workspace, ["one.apk", "two.apk"]
-    )
+    inst, apks_dir, paths = _apk_paths_workspace(tmp_workspace, ["one.apk", "two.apk"])
     results_dir = tmp_workspace["root"] / "results"
     counts = {
         "one.apk": {"matchesApplied": 5, "plansSkippedHighRegister": 0},
@@ -816,9 +814,9 @@ def test_apk_paths_merges_per_apk_results_and_counters(tmp_workspace):
         results = inst.instrument_apks(apks_dir, results_dir, apk_paths=paths)
 
     merged = results_dir / "instrument_results.json"
-    assert merged.is_file(), (
-        "the apk_paths path must leave the same artefact the batch path does"
-    )
+    assert (
+        merged.is_file()
+    ), "the apk_paths path must leave the same artefact the batch path does"
     body = json.loads(merged.read_text())
     assert body["variant"] == "dexlib2"
     assert {e["apkName"] for e in body["results"]} == {"one.apk", "two.apk"}
@@ -944,7 +942,9 @@ def test_apk_paths_persists_the_cli_log(tmp_workspace):
 
     def fake(cmd, **kwargs):
         proc = base(cmd, **kwargs)
-        proc.stdout = "[dexlib2] one.apk: android.jar = /sdk/platforms/android-34/android.jar"
+        proc.stdout = (
+            "[dexlib2] one.apk: android.jar = /sdk/platforms/android-34/android.jar"
+        )
         return proc
 
     with (
@@ -993,8 +993,11 @@ def test_every_processed_apk_carries_counters_even_when_one_fails(tmp_workspace)
                         {
                             "apkName": apk_path.name,
                             "success": not failed,
-                            "message": "d8 exited with code 1" if failed
-                            else "instrumented + signed",
+                            "message": (
+                                "d8 exited with code 1"
+                                if failed
+                                else "instrumented + signed"
+                            ),
                             "phase": "uncaught" if failed else "signed",
                             "weaveCounts": counts[apk_path.name],
                         }
@@ -1022,9 +1025,10 @@ def test_every_processed_apk_carries_counters_even_when_one_fails(tmp_workspace)
     merged = results_dir / "instrument_results.json"
     assert merged.is_file(), "INV-INS-105: the merged results JSON must exist"
     body = json.loads(merged.read_text())
-    assert {e["apkName"] for e in body["results"]} == {"good.apk", "bad.apk"}, (
-        "every APK processed must appear, not only the ones that succeeded"
-    )
+    assert {e["apkName"] for e in body["results"]} == {
+        "good.apk",
+        "bad.apk",
+    }, "every APK processed must appear, not only the ones that succeeded"
 
     assert results.success_count == 1
     assert results.total_count == 2
