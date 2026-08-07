@@ -41,8 +41,16 @@ def main():
     name = sys.argv[1] if len(sys.argv) > 1 else sys.exit("uso: consolidate_compare.py <name>")
     meta = json.loads((ROOT / "data" / "results" / f"{name}_compare_meta.json").read_text())
     containers, tools_order = meta["containers"], meta["tools"]
-    # normaliza rotulos de tool: 'ape' ou 'aperv:<variant>' (sem @overrides)
-    tool_labels = [t.split("@")[0] for t in tools_order]
+    # normaliza rotulos de tool: 'ape' ou 'aperv:<variant>' (sem @overrides).
+    # Um spec pode carregar VARIOS variants ('aperv:v1:v2'), e cada variant e' um braco
+    # separado no tasks.json. Sem expandir, o rotulo composto nao casa com nenhum registro,
+    # 'tools' fica com um elemento so e o Wilcoxon all-pairs sai vazio. E' a mesma pegadinha
+    # que obriga a corrigir 'n_tools' no meta a mao.
+    def expand(label: str) -> list:
+        parts = label.split(":")
+        return [label] if len(parts) <= 2 else [f"{parts[0]}:{v}" for v in parts[1:]]
+
+    tool_labels = [lbl for t in tools_order for lbl in expand(t.split("@")[0])]
     out = ROOT / "data" / "results" / f"{name}_consolidado"
     out.mkdir(parents=True, exist_ok=True)
 
