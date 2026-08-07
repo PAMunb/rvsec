@@ -168,6 +168,7 @@ Evidence path: the production descriptor and a woven APK → the census script p
 - [Cardinality repair may trigger register-pressure discards] → counters land before the repair (D-E1 before D-A1 in the task order) precisely so this is measurable rather than inferred.
 - [The change spans two repositories] → the Java work is delivered as a jar into `rv-android/lib/` by the reactor; the Python side is two files. Task groups are ordered so the Python side integrates after the CLI option exists.
 - [`get(0)` may exist in sites not yet enumerated] → INV-INS-106 is enforced by a contract test over the validator and emitter sources rather than by the five known line numbers.
+- [The specification sets these monitors derive from are being edited in parallel by issue #101] → the descriptor and monitor sources used for the red evidence are content-addressed and pinned, and the green run reuses them; drift between the two runs would void INV-INS-108.
 
 ## Testing Strategy
 

@@ -43,8 +43,9 @@
 
 - [ ] 4.1 Run V0 against the **pre-repair** weaver: an advice with N monitor calls emits N invokes in descriptor order. It must fail. Commit the failing output as an artefact of this change
 - [ ] 4.2 Run V2 against the **pre-repair** weaver: weave one APK with the JCA set, baksmali it, count the `invoke-static` for the 9 events. They must be absent. Commit the failing output
-- [ ] 4.3 Record in this file which commit carries the red evidence, so the repair commits can reference it (INV-INS-108)
-- [ ] 4.4 Confirm that neither V0 nor V2 passes before the repair — a test that passes here is rejected as evidence and must be replaced
+- [ ] 4.3 Freeze the descriptor and the generated monitor sources that V2 weaves with, before it runs: record the sha256 of the descriptor and of each generated monitor source in the red-evidence artefact, and reuse exactly those inputs for the green run in 6.2. The `.mop` specification sets these monitors are generated from are being edited in parallel by issue #101; if they move between the red run and the green one, the two runs stop being comparable and INV-INS-108 proves nothing. Task 1.4's descriptor (`results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json`) is committed and already insulated — V2 is the run that needs the pin
+- [ ] 4.4 Record in this file which commit carries the red evidence, so the repair commits can reference it (INV-INS-108)
+- [ ] 4.5 Confirm that neither V0 nor V2 passes before the repair — a test that passes here is rejected as evidence and must be replaced
 
 ## 5. Emission repairs
 
@@ -59,7 +60,7 @@
 ## 6. Green evidence and gates
 
 - [ ] 6.1 Re-run V0: it must pass, with descriptor order asserted, not just the call set
-- [ ] 6.2 Re-run V2: the 9 events must appear as `invoke-static` in the woven DEX
+- [ ] 6.2 Re-run V2 over the descriptor and monitor sources pinned in 4.3: the 9 events must appear as `invoke-static` in the woven DEX
 - [ ] 6.3 Re-run the census script from 1.4 and record the post-repair counts against the pre-repair baseline
 - [ ] 6.4 Read the weaver counters for sites discarded under register pressure after the repair, and record the delta. An increase is reported explicitly; if it is systematic, open a follow-up issue rather than absorbing it
 - [ ] 6.5 Execute L3-b against its derived oracle and record the verdict

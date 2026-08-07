@@ -151,6 +151,7 @@ This is not process ceremony. The defect this change repairs survived because a 
 - **THEN** V0 and V2 MUST already have been executed against the pre-repair code
 - **AND** their failing output MUST be committed as an artefact of the change
 - **AND** the repair commit MUST reference that artefact
+- **AND** the descriptor and generated monitor sources used by the failing run MUST be content-addressed in the recorded artefact, and the post-repair run MUST use exactly those inputs — a green run over different inputs does not answer the red one
 
 #### Scenario: A test that passes before the fix is rejected as evidence
 
