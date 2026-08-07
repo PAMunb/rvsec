@@ -956,3 +956,81 @@ def test_apk_paths_persists_the_cli_log(tmp_workspace):
     log = results_dir / "instrument_results.d" / "one.log"
     assert log.is_file(), "the CLI output must survive the subprocess"
     assert "android.jar = /sdk/platforms/android-34/android.jar" in log.read_text()
+
+
+def test_every_processed_apk_carries_counters_even_when_one_fails(tmp_workspace):
+    """INV-INS-105 end to end: a results JSON for every APK, successful or not.
+
+    The invariant is not "counters for the APKs that worked". A results tree
+    holding 289 error JSONs and no results JSON was the state that made the
+    weaver's own numbers unreadable, and a run where the failures are the silent
+    ones is exactly the run whose counters someone needs.
+
+    This drives the production entry point over a mixed batch — one APK the CLI
+    weaves, one it fails on — and asserts both reach the merged artefact with
+    their counters intact. Task 6.4 reads `plansSkippedHighRegister` from this
+    path to tell whether emitting N invokes instead of 1 pushed any site over
+    its register budget; if a failing APK dropped out of the merge, an increase
+    concentrated in the failures would read as no increase at all.
+    """
+    inst, apks_dir, paths = _apk_paths_workspace(tmp_workspace, ["good.apk", "bad.apk"])
+    results_dir = tmp_workspace["root"] / "results"
+    counts = {
+        "good.apk": {"matchesApplied": 7, "plansSkippedHighRegister": 0},
+        "bad.apk": {"matchesApplied": 2, "plansSkippedHighRegister": 4},
+    }
+
+    def fake_run(cmd, **kwargs):
+        apk_path = Path(cmd[cmd.index("instrument") + 1])
+        failed = apk_path.name == "bad.apk"
+        out_json = Path(cmd[cmd.index("--results-json") + 1])
+        out_json.parent.mkdir(parents=True, exist_ok=True)
+        out_json.write_text(
+            json.dumps(
+                {
+                    "variant": "dexlib2",
+                    "results": [
+                        {
+                            "apkName": apk_path.name,
+                            "success": not failed,
+                            "message": "d8 exited with code 1" if failed
+                            else "instrumented + signed",
+                            "phase": "uncaught" if failed else "signed",
+                            "weaveCounts": counts[apk_path.name],
+                        }
+                    ],
+                }
+            )
+        )
+        if not failed:
+            results_dir.mkdir(parents=True, exist_ok=True)
+            (results_dir / apk_path.name).write_bytes(b"woven")
+
+        class _R:
+            returncode = 1 if failed else 0
+            stdout = ""
+            stderr = "d8 exited with code 1" if failed else ""
+
+        return _R()
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch("subprocess.run", side_effect=fake_run),
+    ):
+        results = inst.instrument_apks(apks_dir, results_dir, apk_paths=paths)
+
+    merged = results_dir / "instrument_results.json"
+    assert merged.is_file(), "INV-INS-105: the merged results JSON must exist"
+    body = json.loads(merged.read_text())
+    assert {e["apkName"] for e in body["results"]} == {"good.apk", "bad.apk"}, (
+        "every APK processed must appear, not only the ones that succeeded"
+    )
+
+    assert results.success_count == 1
+    assert results.total_count == 2
+    assert results.errors and any("bad.apk" in k for k in results.errors)
+    assert results.weave_counts == counts, (
+        "the failing APK's counters must survive the merge — they are the ones "
+        "that explain the failure"
+    )
+    assert results.weave_counts["bad.apk"]["plansSkippedHighRegister"] == 4

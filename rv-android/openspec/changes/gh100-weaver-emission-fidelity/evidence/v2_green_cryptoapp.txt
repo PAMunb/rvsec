@@ -1,0 +1,53 @@
+V2 — do the truncated monitor events reach the woven DEX?
+========================================================================
+
+apk             /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/89ef741a-fb2b-45eb-a32a-4ee519e31da8/scratchpad/v2_green/instrumented/cryptoapp.apk
+                  sha256 e044c9fff74f844ea9fde879063557d1b32ee12d54cfebc8258894d833a4cf32
+descriptor      /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/gh99_jca_android_monitors/monitors/MultiSpec_1MonitorAspect.json
+                  sha256 e53f0af17f119e083d12cf779f5ad88ee488e4d969e359a9d6d243b2d7324b4f
+monitor source  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/results/gh99_jca_android_monitors/monitors/MultiSpec_1RuntimeMonitor.java
+                  sha256 03fe08f07f40f99adc9a8f4e75aab0fd8e54627d65a3e46458ff8ec7aa93ba04
+instr-cli       /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
+                  sha256 f8a6a49caba13f776e5180729e9ddeddf519832e1da539529616385db7cc3677
+
+INLINE PATH ITERATES
+
+Per dropped event
+------------------------------------------------------------------------
+  [PRESENT] IvParameterSpecSpec_c3Event  [UnsatisfiedConstraint]
+            advice IvParameterSpecSpec_c1: kept IvParameterSpecSpec_c1Event x4, dropped x4
+  [n/a    ] IvParameterSpecSpec_c4Event  [UnsatisfiedConstraint]
+            advice IvParameterSpecSpec_c2: kept IvParameterSpecSpec_c2Event x0, dropped x0
+            advice did not weave in this APK — inconclusive, not evidence
+  [n/a    ] PBEKeySpecSpec_err1Event  [UnsatisfiedConstraint]
+            advice PBEKeySpecSpec_c1: kept PBEKeySpecSpec_c1Event x0, dropped x0
+            advice did not weave in this APK — inconclusive, not evidence
+  [n/a    ] PBEKeySpecSpec_err2Event  [UnsatisfiedConstraint]
+            advice PBEKeySpecSpec_c1: kept PBEKeySpecSpec_c1Event x0, dropped x0
+            advice did not weave in this APK — inconclusive, not evidence
+  [n/a    ] PBEKeySpecSpec_err3Event  [UnsatisfiedConstraint]
+            advice PBEKeySpecSpec_c1: kept PBEKeySpecSpec_c1Event x0, dropped x0
+            advice did not weave in this APK — inconclusive, not evidence
+  [n/a    ] PBEParameterSpecSpec_c3Event  [UnsafeAlgorithm]
+            advice PBEParameterSpecSpec_c1: kept PBEParameterSpecSpec_c1Event x0, dropped x0
+            advice did not weave in this APK — inconclusive, not evidence
+  [PRESENT] SecretKeySpecSpec_c3Event  [UnsatisfiedConstraint]
+            advice SecretKeySpecSpec_c1: kept SecretKeySpecSpec_c1Event x5, dropped x5
+  [n/a    ] SecretKeySpecSpec_c4Event  [UnsatisfiedConstraint]
+            advice SecretKeySpecSpec_c2: kept SecretKeySpecSpec_c2Event x0, dropped x0
+            advice did not weave in this APK — inconclusive, not evidence
+  [n/a    ] SecureRandomSpec_c3Event  [no error emission]
+            advice SecureRandomSpec_c2: kept SecureRandomSpec_c2Event x0, dropped x0
+            advice did not weave in this APK — inconclusive, not evidence
+
+Counts
+------------------------------------------------------------------------
+  droppedEventsInDescriptor    9
+  advicesThatWove              2
+  droppedEventsReachable       2
+  droppedEventsPresent         2
+  droppedEventsAbsent          0
+
+VERDICT: PASS
+
+JSON written to openspec/changes/gh100-weaver-emission-fidelity/evidence/v2_green_cryptoapp.json

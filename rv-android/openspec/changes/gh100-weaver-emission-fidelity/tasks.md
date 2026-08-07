@@ -79,10 +79,10 @@
 
 ## 6. Green evidence and gates
 
-- [ ] 6.1 Re-run V0: it must pass, with descriptor order asserted, not just the call set
-- [ ] 6.2 Re-run V2 over the `jca_android` descriptor and monitor sources pinned in 4.3: the 9 events must appear as `invoke-static` in the woven DEX
-- [ ] 6.3 Re-run the census script from 1.4 and record the post-repair counts against the pre-repair baseline
-- [ ] 6.4 Read the weaver counters for sites discarded under register pressure after the repair, and record the delta. An increase is reported explicitly; if it is systematic, open a follow-up issue rather than absorbing it
+- [x] 6.1 Re-run V0: it must pass, with descriptor order asserted, not just the call set — 5/5, against 4 failures in the red run; the source scan passes too. `evidence/green_deltas.md`
+- [x] 6.2 Re-run V2 over the `jca_android` descriptor and monitor sources pinned in 4.3: the 9 events must appear as `invoke-static` in the woven DEX — verdict **PASS** over the same pinned bytes. Of the 9, `cryptoapp` reaches 2: `IvParameterSpecSpec_c3Event` ×0→×4 and `SecretKeySpecSpec_c3Event` ×0→×5, each now matching its kept sibling's count exactly. The other 7 stay `n/a` in both runs — their advices matched no site in this APK, so it is silent about them either way. `evidence/v2_green_cryptoapp.{json,txt}`
+- [x] 6.3 Re-run the census script from 1.4 and record the post-repair counts against the pre-repair baseline — `INLINE PATH ITERATES`, truncation sites 3→0, **events dropped 9→0**, error emitters 8→0, with the descriptor and its routing unchanged (115 advices, 17 fused, 10 wrapper / 7 inline). `evidence/census_post_repair.json`
+- [x] 6.4 Read the weaver counters for sites discarded under register pressure after the repair, and record the delta. An increase is reported explicitly; if it is systematic, open a follow-up issue rather than absorbing it — **`plansSkippedHighRegister` 0 → 0: no increase, no follow-up issue**. `matchesApplied` and `wrappersSubstituted` are unchanged (32, 74); `wrappersGenerated` falls 96→84, which is the wrapper merge removing exactly the 12 entries the registry used to overwrite. This is a statement about `cryptoapp`, not the corpus — the counter now reaches the Python layer (INV-INS-105) so the next corpus run answers it without being asked
 - [ ] 6.5 Execute L3-b against its derived oracles and record the verdict
 - [ ] 6.6 Execute L3-c against its derived oracles and record the verdict — this is the only regime where `UnsatisfiedConstraint` is observable, so it is the gate that speaks to the erased category
 - [ ] 6.7 State in the recorded verdicts that the runtime arm (L3-a) did not run and that V0/V2 prove emission and arrival in the woven DEX, not arrival in logcat
@@ -90,8 +90,8 @@
 
 ## 7. Integration and verification
 
-- [ ] 7.1 Build the sibling reactor from its root and confirm the updated jar lands in `rv-android/lib/`
-- [ ] 7.2 Add the Python integration test for the end-to-end counters path
+- [x] 7.1 Build the sibling reactor from its root and confirm the updated jar lands in `rv-android/lib/` — `mvn -q install -DskipTests -DskipMopAgent=true`, 12m12s, exit 0 (the ~4 min in the handoff was optimistic). `modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` sha256 `f8a6a49c…`; `lib/frame-computer/rv-frame-computer.jar` also refreshed
+- [x] 7.2 Add the Python integration test for the end-to-end counters path — `test_every_processed_apk_carries_counters_even_when_one_fails`: a mixed batch where one APK weaves and one fails, asserting both reach the merged results JSON with counters intact. That is INV-INS-105's actual claim ("successful or not"), and the gap group 1's tests left — a run whose failures dropped out of the merge would report a register-pressure increase concentrated in them as no increase at all. 36 passed
 - [ ] 7.3 Run `/rv-qa-lint-fix rv-instrumentation-dexlib2`
 - [ ] 7.4 Run `/rv-verify rv-instrumentation-dexlib2`
 - [ ] 7.5 Invoke `/rv-code-reviewer` via the Skill tool
