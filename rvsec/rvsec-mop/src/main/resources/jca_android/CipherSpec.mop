@@ -5,7 +5,6 @@ import java.security.Key;
 import javax.crypto.Cipher;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
-import java.security.cert.Certificate;
 
 import java.nio.ByteBuffer;
 
@@ -25,82 +24,203 @@ import static br.unb.cic.mop.jca.util.AndroidCipherTransformationUtil.*;
  */
 CipherSpec(Cipher c) {
 
+   // The alphabet is budgeted, not transcribed. The rule names 24 events -- eight init
+   // overloads and seven doFinal among them -- and the monitor generator cannot build that:
+   // for a specification with an @fail handler it records the full powerset of the alphabet
+   // as coenable sets, n * (2^n - 1) of them, which is 402,653,160 at 24 events and produces
+   // a string longer than Java's maximum String length. The ceiling is 17 (INV-INS-115).
+   // So an event earns a slot here only when it carries a binding or a body no other event
+   // carries. The weaver resolves overloads itself -- owner, method name, return type and
+   // parameter types, with T+ subtype-aware and `..` for the tail -- so covering several of
+   // the rule's signatures with one pointcut is free at weave time and costs nothing the
+   // rule states: its ORDER quantifies over the aggregates (Inits, updates, DOFINALS), never
+   // over an individual signature.
+   // What the fusion has to preserve is the bindings, and that is what decides the grouping:
+   // the candidates are grouped by arity first, because args(a, b, third, ..) requires arity
+   // >= 3 and would drop the shorter overload out of the automaton entirely, and within an
+   // arity the position that varies is bound as Object+ and discriminated with instanceof in
+   // the body. Every argument the rule's clauses quantify over -- ranGen, params, param and
+   // plainText -- is bound. 14 events, verified against all 28 members of javax.crypto.Cipher
+   // published by android-30/android.jar: the three init candidates partition all eight
+   // overloads, the five doFinal candidates partition all seven, and nothing reaches
+   // updateAAD, unwrap or getIV.
+
    Cipher cipher = null;
    String currentTransformation = "";
 
+   // The transformation check reports from three init events. __LOC expands to the event that
+   // is reporting, and only an event body can expand it, so the location is passed in.
+   private void reportUnsafeTransformation(String loc) {
+     if (!isValid(currentTransformation)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", loc,
+        "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
+     }
+   }
+
+   // REQUIRES randomized[ranGen]. The rule states it of every init that takes a SecureRandom
+   // -- its i2, i6, i7 and i8 -- and no pointcut bound the argument before the re-budget, so
+   // the clause had no reader at all.
+   private void reportUnrandomized(SecureRandom ranGen, String loc) {
+     if (ranGen != null && !ExecutionContext.instance().validate(Property.RANDOMIZED, ranGen)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", loc,
+         "init() requires a SecureRandom established by a monitored SecureRandom sequence."));
+     }
+   }
+
+   // REQUIRES preparedIV[params] and preparedGCM[params], both of which the rule states
+   // conditionally on the transformation's mode -- and preparedIV on the direction as well.
+   // requiresPreparedIv / requiresPreparedGcm hold the rule's mode lists, so the condition is
+   // transcribed once, in the class that already carries this rule's tables, rather than
+   // copied into the specification.
+   // The reads sit here in the event body rather than in a condition(...) guard, because a
+   // failing guard takes no transition: the init would leave the automaton and the doFinal
+   // that follows it would be reported as a sequence violation instead of as the unsatisfied
+   // requirement it is.
+   private void reportUnpreparedParams(AlgorithmParameterSpec params, int encmode, String loc) {
+     if (params == null) {
+        return;
+     }
+     if (requiresPreparedIv(currentTransformation, encmode)
+         && !ExecutionContext.instance().validate(Property.PREPARED_IV, params)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", loc,
+         "init() in a CBC-family mode requires an IvParameterSpec established by a monitored sequence."));
+     }
+     if (requiresPreparedGcm(currentTransformation)
+         && !ExecutionContext.instance().validate(Property.PREPARED_GCM, params)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", loc,
+         "init() in GCM requires a GCMParameterSpec established by a monitored sequence."));
+     }
+   }
+
+   // REQUIRES !macced[_, plainText]: a Cipher must not encrypt data a monitored Mac computed a
+   // MAC over. It is a negated requirement, so the report fires when the predicate DOES hold,
+   // which is the opposite direction from every other read in this specification.
+   // MACED is the second place of CrySL's two-place macced[M, D]; GENERATED_MAC holds the
+   // first. The clause leaves the first place anonymous, so reading the projection onto the
+   // data is exactly what it asks rather than an approximation of it.
+   private void reportMacedPlainText(byte[] plainText, String loc) {
+     if (plainText != null && ExecutionContext.instance().validate(Property.MACED, plainText)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", loc,
+         "doFinal() must not encrypt data a monitored Mac computed a MAC over."));
+     }
+   }
+
+   // The rule writes g2 as `getInstance(transformation, _)` -- an anonymous second argument,
+   // so CrySL itself does not distinguish the provider overloads. One pointcut with `..`
+   // covers all three getInstance members, and the two events below differ only in whether
+   // the transformation conforms.
+   // This closes a defect: the invalid-transformation event used to be getInstance(String),
+   // arity 1, so getInstance(transformation, provider) over an unsafe algorithm matched only
+   // the conforming event, whose condition then rejected it. Nothing fired, the automaton
+   // stayed at start, and the init that followed was reported as InvalidSequenceOfMethodCalls
+   // instead of as UnsafeAlgorithm.
    event g1 after(String transformation) returning(Cipher c):
-     call(public static Cipher Cipher.getInstance(String)) &&
-     args(transformation) &&
+     call(public static Cipher Cipher.getInstance(String, ..)) &&
+     args(transformation, ..) &&
      condition(isValid(transformation)) {
        currentTransformation = transformation;
        cipher = c;
    }
 
-   event g2 after(String transformation, Object provider) returning(Cipher c):
-      call(public static Cipher Cipher.getInstance(String, Object+)) &&
-      args(transformation, provider) &&
-      condition(isValid(transformation)) {
-        currentTransformation = transformation;
-        cipher = c;
-   }
-
-
    event g3 after(String transformation) returning(Cipher c):
-     call(public static Cipher Cipher.getInstance(String)) &&
-     args(transformation) &&
+     call(public static Cipher Cipher.getInstance(String, ..)) &&
+     args(transformation, ..) &&
      condition(!isValid(transformation)) {
         currentTransformation = transformation;
    }
 
-   event i1 before(int mode, Certificate cert, Cipher c):
-     call(public void Cipher.init(int, Certificate, ..)) &&
-     args(mode, cert, ..) &&
-     target(c) {
-       if (!isValid(currentTransformation)) {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
-        "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
-        }
+   // The three init events, grouped by arity. Together they partition all eight overloads:
+   // arity 2 covers the rule's i1 and i3, arity 3 its i2, i4, i5 and i8, arity 4 its i6 and
+   // i7. The second position is a Certificate in i1 and i2 and a Key everywhere else, so it
+   // is bound as Object+ and the key requirement is guarded by an instanceof.
+   // REQUIRES generatedKey[key, ...] stays in the condition(...) it has always been in, so
+   // the derived set keeps the behaviour it has today for that clause: an init over a key no
+   // monitored sequence produced takes no transition, and the misuse surfaces as a sequence
+   // violation on the call that follows. The guard is widened with `!(keyOrCert instanceof
+   // Key)` so that the certificate overloads, which carry no such requirement, keep firing.
+   // ENSURES generatedCipher[this] after Inits. Every init marks the cipher it initialised,
+   // and the two stream specifications read that mark. It is written here rather than in the
+   // @match handler because the rule states it of the init events: a cipher passed to a
+   // CipherInputStream has been initialised and has encrypted nothing yet -- the stream makes
+   // those calls itself -- so a mark placed on reaching the accepting state would never be
+   // present when the stream is constructed. Writing it inside the condition(...) is
+   // deliberate as well: the guard already carries the key requirement, so a cipher
+   // initialised with an unvalidated key goes unmarked, which is the rule's own coupling of
+   // its ENSURES to its REQUIRES.
+   event init2 before(int encmode, Object keyOrCert, Cipher c):
+     call(public void Cipher.init(int, Object+)) &&
+     args(encmode, keyOrCert) &&
+     target(c) &&
+     condition(
+         !(keyOrCert instanceof Key)
+      || ExecutionContext.instance().validate(Property.GENERATED_KEY, keyOrCert)
+      || ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, keyOrCert)
+      || ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, keyOrCert)
+     ){
+        reportUnsafeTransformation("" + __LOC);
+        ExecutionContext.instance().setProperty(Property.GENERATED_CIPHER, c);
     }
 
-   event i2 before(int mode, Key key, Cipher c):
-     call(public void Cipher.init(int, Key,..)) &&
-     args(mode, key, ..) &&
+   // The third argument is a SecureRandom in the rule's i2 and i8, an AlgorithmParameterSpec
+   // in i4 and an AlgorithmParameters in i5. Each carries a different clause, which is why
+   // the instanceof chain is the whole point of the fusion rather than an accident of it.
+   // The AlgorithmParameters branch is the rule's preparedAlg[param, ...], which this set
+   // cannot state: the predicate is produced by the AlgorithmParameters rule, and no
+   // specification here models it, so a read would fail on every execution. The argument is
+   // bound all the same, so the read is one line if that specification is ever written.
+   event init3 before(int encmode, Object keyOrCert, Object third, Cipher c):
+     call(public void Cipher.init(int, Object+, Object+)) &&
+     args(encmode, keyOrCert, third) &&
+     target(c) &&
+     condition(
+         !(keyOrCert instanceof Key)
+      || ExecutionContext.instance().validate(Property.GENERATED_KEY, keyOrCert)
+      || ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, keyOrCert)
+      || ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, keyOrCert)
+     ){
+        reportUnsafeTransformation("" + __LOC);
+        if (third instanceof SecureRandom) {
+            reportUnrandomized((SecureRandom) third, "" + __LOC);
+        }
+        if (third instanceof AlgorithmParameterSpec) {
+            reportUnpreparedParams((AlgorithmParameterSpec) third, encmode, "" + __LOC);
+        }
+        ExecutionContext.instance().setProperty(Property.GENERATED_CIPHER, c);
+    }
+
+   // Arity 4 is the rule's i6 and i7 only, so the second position is a Key in both and the
+   // fourth is a SecureRandom in both; only the third varies, between the two parameter types.
+   event init4 before(int encmode, Key key, Object params, SecureRandom ranGen, Cipher c):
+     call(public void Cipher.init(int, Key, Object+, SecureRandom)) &&
+     args(encmode, key, params, ranGen) &&
      target(c) &&
      condition(
          ExecutionContext.instance().validate(Property.GENERATED_KEY, key)
       || ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, key)
       || ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, key)
      ){
-        if (!isValid(currentTransformation)) {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
-        "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
+        reportUnsafeTransformation("" + __LOC);
+        reportUnrandomized(ranGen, "" + __LOC);
+        if (params instanceof AlgorithmParameterSpec) {
+            reportUnpreparedParams((AlgorithmParameterSpec) params, encmode, "" + __LOC);
         }
+        ExecutionContext.instance().setProperty(Property.GENERATED_CIPHER, c);
     }
 
+   // The rule's u1 and u2, which differ only in whether the offsets are given. Both return
+   // the ciphertext, which is what the return type separates them by from u3 and u4.
    event u1 after (byte[] plainText, Cipher c) returning(byte[] cipherText):
-     call(public byte[] Cipher.update(byte[])) &&
-     args(plainText) &&
+     call(public byte[] Cipher.update(byte[], ..)) &&
+     args(plainText, ..) &&
      target(c) {
         ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
-   event u2 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, Cipher c) returning(byte[] cipherText):
-     call(public byte[] Cipher.update(byte[], int, int)) &&
-     args(plainText, prePlainTextOffset, prePlainTextLen) &&
-     target(c) {
-        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
-   }
-
+   // The rule's u3 and u4, where the ciphertext arrives as an argument and the call returns
+   // the number of bytes written.
    event u3 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, Cipher c):
-     call(public int Cipher.update(byte[], int, int, byte[])) &&
-     args(plainText, prePlainTextOffset, prePlainTextLen, cipherText) &&
-     target(c) {
-       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
-   }
-
-   event u4 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, int outputOffset, Cipher c):
-     call(public int Cipher.update(byte[], int, int, byte[], int)) &&
-     args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, outputOffset) &&
+     call(public int Cipher.update(byte[], int, int, byte[], ..)) &&
+     args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, ..) &&
      target(c) {
        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
@@ -124,9 +244,16 @@ CipherSpec(Cipher c) {
       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
-   event f2 after(Cipher c) returning(byte[] cipherText):
-     call(public byte[] Cipher.doFinal(..)) &&
+   // The rule's f2 and f4: the plaintext as an argument, the ciphertext returned. The
+   // pointcut used to be doFinal(..), which in this dialect matches zero arguments too, so a
+   // plain doFinal() fired this event as well as f1 -- two transitions for one call -- and
+   // the rule's f4 had no event of its own. Naming the first argument separates the three,
+   // and it binds the plainText the !macced clause quantifies over.
+   event f2 after(byte[] plainText, Cipher c) returning(byte[] cipherText):
+     call(public byte[] Cipher.doFinal(byte[], ..)) &&
+     args(plainText, ..) &&
      target(c) {
+       reportMacedPlainText(plainText, "" + __LOC);
        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
@@ -137,18 +264,13 @@ CipherSpec(Cipher c) {
        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
+    // The rule's f5 and f6, which differ only in the output offset.
     event f5 after(byte[] plainText, int offset, int len, byte[] cipherText, Cipher c):
-      call(public int Cipher.doFinal(byte[], int, int, byte[])) &&
-      args(plainText, offset, len, cipherText) &&
+      call(public int Cipher.doFinal(byte[], int, int, byte[], ..)) &&
+      args(plainText, offset, len, cipherText, ..) &&
       target(c) {
+         reportMacedPlainText(plainText, "" + __LOC);
          ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
-    }
-
-    event f6 after(byte[] plainText, int offset, int len, byte[] cipherText, int cipherOffset, Cipher c):
-      call(public int Cipher.doFinal(byte[], int, int, byte[], int)) &&
-      args(plainText, offset, len, cipherText, cipherOffset) &&
-      target(c) {
-        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
     }
 
     event f7 after(ByteBuffer plainTextBuffer, ByteBuffer cipherTextBuffer, Cipher c):
@@ -158,31 +280,32 @@ CipherSpec(Cipher c) {
          ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherTextBuffer);
     }
 
+   // The language is unchanged; only the alphabet moved. Each new event takes exactly the
+   // transitions the events it covers had: the three inits sit where i1 and i2 sat, u1 and u3
+   // absorb the old u2 and u4, f2 absorbs the old f4's share and f5 the old f6.
+   // s2 admits no bare doFinal() by design -- the rule's ORDER puts f1 in DOFINALS but not in
+   // FINWOU, so a doFinal without a preceding update is not a conforming sequence.
    fsm :
      start [
         g3 -> unsafeAlg
         g1 -> s1
-        g2 -> s1
      ]
      unsafeAlg [
         g3 -> unsafeAlg
         g1 -> s1
-        g2 -> s1
      ]
      s1 [
-       i1 -> s2
-       i2 -> s2
+       init2 -> s2
+       init3 -> s2
+       init4 -> s2
      ]
      s2 [
        wkb1 -> end
        f2   -> end
        f5   -> end
-       f6   -> end
        f7   -> end
        u1   -> s3
-       u2   -> s3
        u3   -> s3
-       u4   -> s3
        u5   -> s3
      ]
      s3 [
@@ -190,19 +313,15 @@ CipherSpec(Cipher c) {
        f2 -> end
        f3 -> end
        f5 -> end
-       f6 -> end
        f7 -> end
      ]
      end [
         wkb1 -> end
         f2   -> end
         f5   -> end
-        f6   -> end
         f7   -> end
         u1   -> s3
-        u2   -> s3
         u3   -> s3
-        u4   -> s3
         u5   -> s3
      ]
 

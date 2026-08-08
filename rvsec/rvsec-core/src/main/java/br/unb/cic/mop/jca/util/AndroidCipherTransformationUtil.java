@@ -76,6 +76,15 @@ public final class AndroidCipherTransformationUtil {
     /** Algorithm to mode to admissible paddings. A missing entry means unconstrained. */
     private static final Map<String, Map<String, Set<String>>> PADDINGS;
 
+    /**
+     * The modes over which the rule makes {@code preparedIV} a requirement. It is
+     * the rule's own list, which is not the same as the union of the mode tables
+     * above -- {@code PCBC} appears here and in no algorithm's catalogue, because
+     * the two clauses are independent: one says which transformations are
+     * admissible, the other says what an admissible one additionally demands.
+     */
+    private static final Set<String> IV_MODES = set("CBC", "CFB", "CTR", "CTS", "OFB", "PCBC");
+
     // Everything is held upper case and without hyphens, so a lookup folds both
     // by construction, and as immutable class-level data rather than locals
     // rebuilt per call. The empty mode of ChaCha20 and RSA is deliberately
@@ -184,6 +193,48 @@ public final class AndroidCipherTransformationUtil {
         Set<String> admissiblePaddings =
                 paddingsFor(fold(CipherTransformationUtil.alg(transformation)), mode);
         return admissiblePaddings == null || admissiblePaddings.contains(padding);
+    }
+
+    /**
+     * Whether the rule's {@code preparedIV[params]} requirement applies to a call.
+     *
+     * <p>The rule states it conditionally --
+     * {@code part(1,"/",transformation) in {CBC,CTS,CTR,CFB,PCBC,OFB} && encmode == 1
+     * => preparedIV[params]} -- so both the mode and the direction decide whether the
+     * parameter spec has to come from a monitored {@code IvParameterSpec} sequence.
+     * The specification calls this instead of restating the mode list, so the rule is
+     * transcribed in one place and the {@code .mop} carries no second copy of it.
+     *
+     * @param encmode the {@code opmode} the application passed to {@code init};
+     *                {@code 1} is {@code Cipher.ENCRYPT_MODE}
+     */
+    public static boolean requiresPreparedIv(String transformation, int encmode) {
+        return encmode == 1 && IV_MODES.contains(modeOf(transformation));
+    }
+
+    /**
+     * Whether the rule's {@code preparedGCM[params]} requirement applies to a call:
+     * {@code part(1,"/",transformation) in {GCM} => preparedGCM[params]}. Unlike the
+     * IV form it holds in both directions, since a GCM decryption needs the same
+     * authenticated parameters the encryption produced.
+     */
+    public static boolean requiresPreparedGcm(String transformation) {
+        return "GCM".equals(modeOf(transformation));
+    }
+
+    /**
+     * The transformation's mode, folded, or {@code ""} when it carries none.
+     *
+     * <p>Guards the same malformed input {@link #isValid(String)} guards: the frozen
+     * parser reads {@code split("/")[1]} unchecked, and these two predicates are read
+     * from a monitor guard, where a raised exception takes the application down.
+     */
+    private static String modeOf(String transformation) {
+        if (transformation == null
+                || (transformation.indexOf('/') >= 0 && transformation.split("/").length < 2)) {
+            return "";
+        }
+        return fold(CipherTransformationUtil.mode(transformation));
     }
 
     /** The paddings admissible for a pair, or {@code null} where the rule states none. */

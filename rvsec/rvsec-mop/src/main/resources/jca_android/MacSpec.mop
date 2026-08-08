@@ -2,6 +2,7 @@ package mop;
 
 import javax.crypto.Mac;
 import java.security.spec.AlgorithmParameterSpec;
+import java.nio.ByteBuffer;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.ExecutionContext;
@@ -16,6 +17,33 @@ MacSpec(Mac m) {
         String currentAlgorithmInstance = "";
 
         Mac mac = null;
+
+        // The MAC this monitor's object produced. It is held in a field because @fail has to
+        // withdraw the mark from that object and the value is a local of the event that wrote
+        // it -- the one-argument remove(Property) that used to stand there deleted the whole
+        // set for the predicate, so one failing Mac erased every other monitor's mark.
+        byte[] generatedMac;
+
+        // The data this monitor's Mac has been fed but has not yet MACed. CrySL ensures
+        // macced[output, input] at the doFinal, when the MAC exists -- not at the update that
+        // supplied the data -- so the inputs are held here and marked when a MAC is actually
+        // produced. Marking them at update time would mark data whose MAC was never computed,
+        // and since the Cipher clause that reads this is negated, that would report a misuse
+        // for encrypting data nobody MACed.
+        List<Object> pendingInputs = new ArrayList<Object>();
+
+        // Marks everything this Mac was fed, plus a buffer passed straight to doFinal, as the
+        // second place of macced[_, D]. Called from the three doFinal events, which is where
+        // the rule ensures the predicate.
+        private void markAsMaced(byte[] directInput) {
+          for (Object input : pendingInputs) {
+             ExecutionContext.instance().setProperty(Property.MACED, input);
+          }
+          pendingInputs.clear();
+          if (directInput != null) {
+             ExecutionContext.instance().setProperty(Property.MACED, directInput);
+          }
+        }
 
         event g1 after(String alg) returning(Mac m):
           call(public static Mac Mac.getInstance(String)) &&
@@ -52,6 +80,13 @@ MacSpec(Mac m) {
 
         }
 
+        // CrySL requires preparedHMAC[params] of this call: the parameter spec must be one a
+        // monitored HMACParameterSpec construction established. The translation read the key
+        // predicate and left this one unread, so init() over an arbitrary
+        // AlgorithmParameterSpec raised nothing. The read is in the body rather than in the
+        // condition(...) beside it, because a failing guard takes no transition: i2 would
+        // silently leave the automaton and the doFinal() that follows would be reported as a
+        // sequence violation instead.
         event i2 after(java.security.Key key, java.security.spec.AlgorithmParameterSpec params, Mac m):
           call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
           args(key, params) &&
@@ -61,30 +96,107 @@ MacSpec(Mac m) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
         "one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
         }
+            if (params != null && !ExecutionContext.instance().validate(Property.PREPARED_HMAC, params)) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                 "init() requires an AlgorithmParameterSpec established by a monitored HMACParameterSpec sequence."));
+            }
         }
 
-        event update after(Mac m):
-          call(public void Mac.update(..)) &&
+        // The fused update(..) bound nothing, so the data a MAC was computed over was
+        // unavailable and the Cipher rule's !macced[_, plainText] had no predicate to read.
+        // Split by binding profile, verified with the production PointcutMatcher against all
+        // four update overloads android-30 publishes: the three below partition them and are
+        // pairwise disjoint. They take exactly the place the fused event had in the ere.
+        event uArr after(byte[] input, Mac m):
+          call(public void Mac.update(byte[], ..)) &&
+          args(input, ..) &&
+          target(m) {
+            if (input != null) {
+               pendingInputs.add(input);
+            }
+        }
+
+        // The rule's u1, over a single byte. It needs an event of its own because args(Object)
+        // does not match a primitive. Marking the boxed value carries the unsoundness task 4.4
+        // records for randomized: inside the Byte cache identity and equality coincide, so one
+        // MACed byte marks every equal literal in the process.
+        event uByte after(byte input, Mac m):
+          call(public void Mac.update(byte)) &&
+          args(input) &&
+          target(m) {
+            pendingInputs.add(input);
+        }
+
+        // Not one of the rule's events -- CrySL models no ByteBuffer update -- so the buffer is
+        // deliberately not marked. The event exists so the overload keeps the place in the
+        // automaton the fused update gave it; dropping it would turn a legitimate call into a
+        // sequence violation. What it leaves is a false negative recorded with the change: data
+        // fed through a ByteBuffer is never marked, and the Cipher clause is silent about it.
+        event uBuf after(ByteBuffer input, Mac m):
+          call(public void Mac.update(ByteBuffer)) &&
+          args(input) &&
           target(m) { }
 
+        // CrySL requires !encrypted of the buffer a MAC is computed over -- !encrypted[output1, _]
+        // of doFinal() and doFinal(byte[], int), !encrypted[output2, _] of doFinal(byte[]) -- so a
+        // Mac must not be taken over a value a monitored Cipher produced. It is a negated
+        // REQUIRES, so the report fires when the predicate does hold, which is the opposite
+        // direction from every other read in this set. Neither was read by the translation.
+        // f1 and f2 used to be one event over a disjunctive pointcut. They are separated
+        // because they differ in a binding the rule quantifies over: the rule's f2 takes the
+        // data as an argument -- macced[output2, input] -- and doFinal() does not.
         event f1 after(Mac m) returning(byte[] output):
-          (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) &&
+          call(byte[] Mac.doFinal()) &&
           target(m){
+           if (output != null && ExecutionContext.instance().validate(Property.ENCRYPTED, output)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                "doFinal() requires a buffer that is not the output of a monitored Cipher."));
+           }
+           generatedMac = output;
+           markAsMaced(null);
            ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
         }
 
-        event f2 after(byte[] output, int outOffset):
+        // The rule's f2, where the data is handed straight to doFinal rather than fed through
+        // update. It is MACed by this very call, so it is marked alongside whatever is pending.
+        event f2 after(byte[] input, Mac m) returning(byte[] output):
+          call(byte[] Mac.doFinal(byte[])) &&
+          args(input) &&
+          target(m){
+           if (output != null && ExecutionContext.instance().validate(Property.ENCRYPTED, output)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                "doFinal() requires a buffer that is not the output of a monitored Cipher."));
+           }
+           generatedMac = output;
+           markAsMaced(input);
+           ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
+        }
+
+        // The rule's f3, where the MAC arrives as an argument rather than as the return.
+        event f3 after(byte[] output, int outOffset):
           call(void Mac.doFinal(byte[], int)) &&
           args(output, outOffset) &&
           target(m){
+            if (output != null && ExecutionContext.instance().validate(Property.ENCRYPTED, output)) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                 "doFinal() requires a buffer that is not the output of a monitored Cipher."));
+            }
+            generatedMac = output;
+            markAsMaced(null);
             ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
         }
 
-        ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
+        // Same language, wider alphabet: the fused update becomes the three that partition its
+        // overloads, and the fused doFinal becomes the rule's f1, f2 and f3.
+        ere : (g3* g1 | g3* g2) (i1 | i2) ((uArr | uByte | uBuf)* (f1 | f2 | f3))
 
         @fail {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC));
-            ExecutionContext.instance().remove(Property.GENERATED_MAC);
+            ExecutionContext.instance().remove(Property.GENERATED_MAC, generatedMac);
+            // Data fed but never finalised is dropped rather than marked: no MAC was produced
+            // over it, so macced holds of nothing here. Marks already written stand, because
+            // the doFinal that wrote them did happen.
+            pendingInputs.clear();
             __RESET;
         }
 

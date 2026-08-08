@@ -10,7 +10,20 @@ import br.unb.cic.mop.Property;
 
 CipherInputStreamSpec() {
 
-    event c1 after(): call(public CipherInputStream.new(InputStream, Cipher)) { }
+    // REQUIRES generatedCipher[ciph]. The rule requires the stream to be constructed with a
+    // cipher that completed getInstance and init; CipherSpec writes that mark at its init
+    // events. The read sits in the event body rather than in a condition(...) guard, because
+    // a failing guard takes no transition: the construction would leave the automaton and the
+    // first read would then be reported as a sequence violation instead of as the unsatisfied
+    // requirement it is.
+    event c1 after(InputStream is, Cipher ciph):
+      call(public CipherInputStream.new(InputStream, Cipher)) &&
+      args(is, ciph) {
+        if (!ExecutionContext.instance().validate(Property.GENERATED_CIPHER, ciph)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherInputStreamSpec", "" + __LOC,
+            "CipherInputStream requires a Cipher established by a monitored getInstance/init sequence."));
+        }
+    }
 
     event r1 after(): call(public int CipherInputStream.read()) || call(public int CipherInputStream.read(byte[])) {  }
 

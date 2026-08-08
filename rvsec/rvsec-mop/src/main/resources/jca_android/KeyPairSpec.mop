@@ -20,10 +20,25 @@ KeyPairSpec(KeyPair keyPair) {
 
     KeyPair keyPair = null;
 
+    // CrySL states three clauses over this constructor and the translation wrote none of
+    // them: a predicate is required of each argument -- generatedPrivkey[consPriv] and
+    // generatedPubkey[consPub] -- and generatedKeypair[this] is ensured after the call.
+    // The two reads are in the body rather than in a condition(...) guard, because a
+    // failing guard takes no transition: c1 would silently leave the automaton and the
+    // next getPublic() would be reported as a sequence violation instead.
     event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair kp):
       call(public KeyPair.new(PublicKey, PrivateKey))
       && args(publicKey, privateKey) {
+        if (publicKey != null && !ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, publicKey)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
+              "the KeyPair constructor requires a public key established by a monitored sequence."));
+        }
+        if (privateKey != null && !ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
+              "the KeyPair constructor requires a private key established by a monitored sequence."));
+        }
         keyPair = kp;
+        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
     }
 
     event gpu after(KeyPair keyPair) returning(PublicKey publicKey):
@@ -32,10 +47,15 @@ KeyPairSpec(KeyPair keyPair) {
         ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, publicKey);
     }
 
+    // A copy of gpu with the value changed and the constant left behind, so getPrivate()
+    // marked its result as a public key. The defect is partly self-masking: CipherSpec.init
+    // accepts a key carrying either constant, so nothing was reported falsely. What was
+    // lost is the public/private distinction the CrySL predicates exist to make, and
+    // SignatureSpec.initSign now depends on it.
     event gpr after(KeyPair keyPair) returning(PrivateKey privateKey):
       call(public PrivateKey KeyPair.getPrivate()) &&
       target(keyPair) {
-        ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, privateKey);
+        ExecutionContext.instance().setProperty(Property.GENERATED_PRIVATE_KEY, privateKey);
     }
 
     ere: c1 (gpu | gpr)*

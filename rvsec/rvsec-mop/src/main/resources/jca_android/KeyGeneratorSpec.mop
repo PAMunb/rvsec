@@ -27,6 +27,16 @@ KeyGeneratorSpec(KeyGenerator k) {
 
     Key generatedKey;
 
+    // REQUIRES randomized[ranGen], read by the three init events that take a SecureRandom.
+    // The location is passed in because __LOC names the event that is reporting, and only the
+    // event body can expand it.
+    private void reportUnrandomized(SecureRandom random, String loc) {
+      if (random != null && !ExecutionContext.instance().validate(Property.RANDOMIZED, random)) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", loc,
+          "init() requires a SecureRandom established by a monitored SecureRandom sequence."));
+      }
+    }
+
     event g1 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
@@ -50,13 +60,48 @@ KeyGeneratorSpec(KeyGenerator k) {
         currentAlgorithmInstance = alg;
     }
 
-    event init before(KeyGenerator k):
-       ( call(public void KeyGenerator.init(int)) ||
-         call(public void KeyGenerator.init(int, SecureRandom)) ||
-         call(public void KeyGenerator.init(AlgorithmParameterSpec)) ||
-         call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) ||
-         call(public void KeyGenerator.init(SecureRandom))
-       ) && target(k) {  }
+    // CrySL states five init events, one per KeyGenerator.init overload Android publishes, and
+    // the translation fused them into the one disjunctive pointcut its ORDER needs. The fusion
+    // is lossless for the ORDER, which names only the aggregate Inits, and lossy for the one
+    // clause that names an argument: REQUIRES randomized[ranGen], where ranGen is the
+    // SecureRandom of i2, i4 and i5. A fused pointcut binds none of the arguments, and the
+    // Object-and-instanceof form is not available here either, because args(Object) does not
+    // match the int of init(int).
+    // The five are transcribed 1:1 with the rule and keep its numbering. No automaton is
+    // re-derived: the five take exactly the place the fused event had in the ere.
+    // The read is in the event body rather than in a condition(...) guard, because a failing
+    // guard takes no transition and would make the generateKey() that follows a sequence
+    // violation.
+    event i1 before(int keySize, KeyGenerator k):
+       call(public void KeyGenerator.init(int)) &&
+       args(keySize) &&
+       target(k) {  }
+
+    event i2 before(int keySize, SecureRandom random, KeyGenerator k):
+       call(public void KeyGenerator.init(int, SecureRandom)) &&
+       args(keySize, random) &&
+       target(k) {
+         reportUnrandomized(random, "" + __LOC);
+    }
+
+    event i3 before(AlgorithmParameterSpec params, KeyGenerator k):
+       call(public void KeyGenerator.init(AlgorithmParameterSpec)) &&
+       args(params) &&
+       target(k) {  }
+
+    event i4 before(AlgorithmParameterSpec params, SecureRandom random, KeyGenerator k):
+       call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) &&
+       args(params, random) &&
+       target(k) {
+         reportUnrandomized(random, "" + __LOC);
+    }
+
+    event i5 before(SecureRandom random, KeyGenerator k):
+       call(public void KeyGenerator.init(SecureRandom)) &&
+       args(random) &&
+       target(k) {
+         reportUnrandomized(random, "" + __LOC);
+    }
 
     event gk1 after(KeyGenerator k) returning(SecretKey key):
       call(public SecretKey KeyGenerator.generateKey())
@@ -69,7 +114,9 @@ KeyGeneratorSpec(KeyGenerator k) {
         ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);
     }
 
-    ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
+    // The five init events take exactly the place the fused one had: the rule's Inits? is a
+    // single optional init, whichever overload it was.
+    ere : (g3* g1+ | g3* g2+) (((i1 | i2 | i3 | i4 | i5) gk1) | gk1)
 
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC));

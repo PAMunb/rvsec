@@ -28,7 +28,7 @@ A word on what conformance to the derived rules can and cannot mean. The `androi
 
 ### Side-Effects
 
-- **[Runtime]**: `ExecutionContext.setProperty` stores a strong reference in a static map; the predicate graph's edges are these entries
+- **[Runtime]**: `ExecutionContext.setProperty` stores a strong reference in a static map, keyed by object identity; the predicate graph's edges are these entries
 - **[Generation]**: an event absent from its specification's `fsm` receives a transition row that sends every state to `fail`
 
 ### Error
@@ -40,11 +40,17 @@ A word on what conformance to the derived rules can and cannot mean. The `androi
 
 - **INV-INS-109**: The `jca` specification set and the `CipherTransformationUtil` it delegates to MUST remain byte-identical to their state at this change's base commit, and every divergence between `jca_android` and `jca` outside allow-list content MUST appear in the divergence record with its reason. An unrecorded divergence is a defect; a recorded one is a deliberate repair confined to the derived set. Any edit reaching the frozen paths fails the check regardless of its merit.
 
+  The check bounds what it can establish, and the bound is part of the invariant rather than a caveat on it. Byte-identity of the frozen paths, and of the monitor generated from them, does **not** establish that the frozen set behaves as it did: shared runtime code the specifications call is outside both, so a repair there changes behaviour with every mechanical check still passing. Such a repair is governed by the admissibility conditions above, and its effect on the frozen set MUST be enumerated site by site in the change's records. Establishing the effect empirically would require the corpus re-measured, which this change does not do.
+
 - **INV-INS-110**: An event that appears in a specification's event list MUST appear in that specification's `fsm` or `ere`. An event bound but absent from the automaton receives a transition row to `fail` from every state, which turns the specification into an unconditional accuser.
 
 - **INV-INS-111**: Every `Property` constant written by any specification MUST be read by at least one specification, or MUST be recorded in the deliberate-omission list with its reason. A constant that is neither read nor recorded is a silent defect, not a spare.
 
 - **INV-INS-112**: The `Cipher` transformation tables consulted by a specification set MUST originate in the same derivation that produced that set's rules, and each set MUST reach them without any runtime selection: the specification names the utility it calls. A hand-maintained table that duplicates a derived rule is inadmissible regardless of whether it currently agrees, and a shared table chosen by a mutable switch is inadmissible because it would place the frozen set's verdict under the control of state set elsewhere.
+
+- **INV-INS-114**: A specification's events MUST be granular enough to bind every argument its rule's clauses quantify over. Fusing several method signatures into one pointcut is admissible only where no `REQUIRES`, `ENSURES`, `NEGATES` or `CONSTRAINTS` clause refers to an argument the fusion leaves unbound. Fusion is lossless for the `ORDER`, which names only the rule's aggregate, and lossy for everything that names its individual events — which is why a fused specification can look well-formed and still be unable to state most of its rule. The converse also binds: an event that carries no binding and no body another event does not already carry MUST NOT be split out, because the alphabet is a scarce resource under INV-INS-115.
+
+- **INV-INS-115**: A specification's event count MUST be verified to generate. The monitor generator computes, for the `fail` category of any specification declaring an `@fail` handler, a coenable set of exactly `n × (2ⁿ − 1)` members over an alphabet of `n` events; measured on this machine, 17 events generate in 53 s, 18 raise `StackOverflowError` in the enable-set parser, and 24 exceed Java's maximum `String` length and cannot be built at all. The notation does not change this — `ere`, `ltl` and `ptltl` are rewritten into `fsm` and reach the same computation. A specification MUST therefore be generated end to end before its alphabet is accepted, and a design that cannot be generated MUST be recorded as such rather than left in the plan.
 
 - **INV-INS-113**: Every `.mop` in the `jca_android` set MUST carry a conformance verdict against the generated rules for its target API level: anchored to a named rule, or declared uncontradicted with the rule that was checked, or declared to have no anchor with the reason. A file with no verdict is unverified, not verbatim.
 
@@ -86,7 +92,11 @@ Corrections to the platform-independent portion of a specification — an event 
 
 Two consequences SHALL be carried in the change's records rather than left to be inferred. The `jca` set knowingly retains its defects and the spurious reports they produce, so results measured under it are reproducible without being correct. And a difference in outcome between the two sets can no longer be attributed to the platform allow-list alone, because it may equally arise from a repair present in one set only; no measurement separates the two contributions after the fact.
 
-Additive changes to shared Java are admissible where the frozen set cannot observe them: a new `Property` constant that no `jca` specification references, or a new class that no `jca` specification imports, leaves the frozen set's generated monitor unchanged. A change to a symbol the frozen set already references does not qualify, however narrow.
+The freeze governs what the instrument **states** — the specifications and the transformation tables the frozen `CipherSpec` delegates to — and not the runtime it executes on. Additive changes to shared Java are admissible where the frozen set cannot observe them at all: a new `Property` constant that no `jca` specification references, or a new class that no `jca` specification imports, leaves the frozen set's generated monitor unchanged.
+
+A **repair to shared runtime code the frozen set does reference** is also admissible, under two conditions and not otherwise. The repair MUST apply identically to both sets — shared code MUST NOT branch on the active specification set, because that would place the frozen set's verdict under state set outside its own specification, which is the hazard INV-INS-112 exists to prevent. And its effect on the frozen set MUST be enumerated site by site in the change's records rather than assumed absent. A defect in the machinery is not made correct by having been present when a measurement was taken, and a rule forbidding its repair would forbid repairing the weaver as well.
+
+The distinction is between a correction of what counts as a misuse, which is confined to the derived set, and a correction of the mechanism that decides it, which is not confinable and is therefore recorded.
 
 #### Scenario: Correction reaches the frozen set
 
@@ -113,6 +123,13 @@ Additive changes to shared Java are admissible where the frozen set cannot obser
 - **THEN** the freeze check MUST pass
 - **AND** the monitor generated from the `jca` set MUST be unchanged, which is what makes the addition admissible
 
+#### Scenario: Shared runtime code the frozen set references is repaired
+
+- **WHEN** a defect is corrected in `rvsec-core` code that specifications of both sets call
+- **THEN** the repair MUST apply identically to both sets, with no branch on the active specification set
+- **AND** the sites at which the frozen set's behaviour changes MUST be enumerated in the change's records
+- **AND** the freeze check passing MUST NOT be reported as evidence that the frozen set's behaviour is unchanged
+
 ### Requirement: Event Membership in the Specification Automaton
 
 Every event declared in a specification SHALL appear in that specification's `fsm` or `ere`. The monitor generator assigns an event absent from the automaton a transition row that moves every state to `fail`, so such an event does not merely go unmodelled — it makes the specification accuse unconditionally.
@@ -130,6 +147,21 @@ This makes automaton membership part of any binding correction rather than a fol
 - **WHEN** an event's binding is corrected while the event remains absent from the automaton
 - **THEN** every call outside the allow-list MUST be expected to emit a spurious `InvalidSequenceOfMethodCalls`
 - **AND** the change MUST NOT be accepted in that state
+
+#### Scenario: A fused pointcut leaves a required argument unbound
+
+- **WHEN** a specification collapses several of its rule's events into one pointcut, and a `REQUIRES`, `ENSURES`, `NEGATES` or `CONSTRAINTS` clause quantifies over an argument the fusion leaves unbound
+- **THEN** the fusion MUST be replaced by one event per distinct binding profile — the set of arguments the clauses mentioning that event need bound — each taking exactly the transitions of the fused event it replaces
+- **AND** the automaton's accepted language MUST be unchanged, only its alphabet refined
+- **AND** signatures that share a binding profile and a body MUST stay fused, since the weaver resolves overloads on owner, name, return type and parameter types, so splitting them binds nothing new and spends alphabet that INV-INS-115 makes scarce
+- **AND** where a fusion binds the varying argument as `Object+` and discriminates by type in the body, the fused signatures MUST share an arity, because `args(a, b, third, ..)` requires arity ≥ 3 and drops a shorter overload out of the automaton entirely, and none of the varying positions may be primitive, because `Object+` rejects primitives
+- **AND** each resulting pointcut MUST be verified against the target API's real overload set, showing that the candidates jointly cover every signature the rule names and are pairwise disjoint
+
+#### Scenario: Two events match the same call
+
+- **WHEN** two pointcuts in one specification both match a single call, as an argument-less signature and the same signature with `(..)` do
+- **THEN** the specification MUST be treated as defective, because one call takes two transitions
+- **AND** the narrower pointcut MUST be made disjoint from the wider one
 
 ### Requirement: Cipher Transformation Tables of the Derived Set
 
@@ -164,7 +196,11 @@ A `Property` constant written through `ExecutionContext` by one specification an
 
 Nothing links the constant written to the constant read. Both sides are enum members, so a specification that writes a neighbouring specification's constant compiles and runs and reports nothing; two specifications do this today. A read of an absent key returns false, so the failure is quiet in both directions — a missing write turns a guarded accusation into an unconditional one, and a wrong write turns a real accusation into silence.
 
-Predicates that cannot be expressed by this mechanism SHALL be recorded rather than approximated. A predicate asserting **provenance** over a primitive cannot be represented by a map keyed on `equals`: `randomized[lSeed]` asserts that a `long` came from a CSPRNG, and the corresponding write side already carries the matching unsoundness, where marking small `int` values as randomised marks every equal literal in the process through the boxed-integer cache.
+The store SHALL identify objects the way the monitor index identifies them: **by identity**. JavaMOP keys a monitor by `System.identityHashCode` confirmed with `==`, so it never conflates two alike instances; a predicate store keyed by `equals` does, and the two halves of one mechanism then disagree about what "the same object" means. The consequence is not academic and runs in all three directions: a write over an object equal to a stored one adds nothing, so two monitors share a mark; a `REQUIRES` succeeds for an object that no monitored sequence produced, provided an equal one was; and a removal in one monitor's `@fail` takes another monitor's mark. It bites wherever `equals` is value-based — `Key` implementations, `String`, boxed primitives — and is invisible wherever it is not, which is why it survived a translation that is otherwise careful.
+
+Predicates that cannot be expressed by this mechanism SHALL be recorded rather than approximated. A predicate asserting **provenance** over a primitive remains inexpressible under identity keying, for a different reason than under `equals`: a boxed primitive has no stable identity across boxing operations, so `randomized[lSeed]` — that a `long` came from a CSPRNG — is asserted of a box that the next autoboxing of the same value does not reproduce. The residual unsoundness on the write side narrows to the `Integer` cache, where equal small values genuinely *are* one object, so marking one still marks every equal literal in the process.
+
+The contract binds in both directions, and the converse failure is the more damaging one. A constant written and never read is inert: nothing consumes it, so nothing misreports because of it. A constant *read* and never written is the opposite, because a requirement that cannot be satisfied is not silent — a read placed in an event body reports whenever it fails, which is exactly why reads are placed there rather than in a `condition(...)`. So a `REQUIRES` whose producing rule has no specification in the set MUST NOT be given a reader on the strength of the rule alone: the rule names a producer this set does not model, and transcribing only the consumer half turns every conforming execution into a reported misuse. Such an edge SHALL be recorded as unclosable, naming the rule that would have produced it, so that the gap is attributable to a missing specification rather than mistaken for a translation defect.
 
 #### Scenario: Constant written and never read
 
@@ -177,6 +213,25 @@ Predicates that cannot be expressed by this mechanism SHALL be recorded rather t
 - **WHEN** a specification writes a `Property` constant that does not correspond to the predicate its CrySL rule ensures
 - **THEN** the guard MUST detect the mismatch from the inventory
 - **AND** the defect MUST NOT depend on code review to be caught
+
+#### Scenario: Two equal objects are monitored separately
+
+- **WHEN** an application constructs two `SecretKeySpec` instances with the same key material and algorithm, one through a conforming sequence and one through a violating branch
+- **THEN** the store MUST mark only the instance the conforming sequence produced
+- **AND** a later `Cipher.init` over the other instance MUST NOT be validated by the first
+- **AND** a `@fail` unmarking either MUST leave the other's mark untouched
+
+#### Scenario: A predicate's whole set is deleted
+
+- **WHEN** a specification's `@fail` removes a `Property` without naming the object it wrote
+- **THEN** every other monitor's mark for that predicate is erased as well
+- **AND** the removal MUST name the object, which requires the specification to hold it in a monitor field
+
+#### Scenario: Required predicate has no producer in the set
+
+- **WHEN** a rule's `REQUIRES` names a predicate whose producing rule has no specification in the set
+- **THEN** the requirement MUST be recorded as unclosable, naming the producing rule that is absent
+- **AND** a reader MUST NOT be added against a predicate no specification in the set writes, because a body read of an unwritten predicate reports on every execution
 
 #### Scenario: Inexpressible predicate is recorded, not approximated
 

@@ -48,7 +48,7 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
 | freeze check | Enforce INV-INS-109 (a) | base commit, the frozen paths | failure on any byte changed under `jca/` or in its `CipherTransformationUtil` |
 | divergence record | Enforce INV-INS-109 (b) | the two set directories | every non-allow-list hunk named with its reason, or failure |
 | `Property.java` | The predicate vocabulary | — | enum constants (23 today, 32 after), additive only |
-| `ExecutionContext` | The predicate store | writes from `.mop` | reads from `.mop` |
+| `ExecutionContext` | The predicate store, keyed by object identity so it agrees with the monitor index | writes from `.mop` | reads from `.mop` |
 | predicate inventory | Every write, read and removal with file, line, spec, event, constant | the 23 `.mop` of a set | versioned CSV |
 | write/read guard | Enforce INV-INS-111 | the inventory | failure on an unread, unrecorded constant |
 | `jca/util/AndroidCipherTransformationUtil` | Transformation verdict under the derived rule | transformation string | boolean |
@@ -68,6 +68,9 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
 | Cipher Tables of the Derived Set | new `jca/util/AndroidCipherTransformationUtil` | Android verdicts follow the derived rule; the frozen class is untouched |
 | INV-INS-112 | same | no hand-maintained table, and no runtime selection over a shared one |
 | Predicate Contract | `Property.java` + `jca_android` `.mop` reads | write/read guard derived from the inventory |
+| Events are 1:1 with the rule's events | fused pointcuts split in four files | the regenerated monitor's alphabet matches the rule's event count, and INV-INS-110 still holds |
+| Predicate store agrees with the monitor index | identity-keyed `ExecutionContext` | two `equals` objects do not share a mark |
+| Shared repair does not branch by set | one `ExecutionContext` for both sets | no `specification_set` reaches `rvsec-core` |
 | INV-INS-111 | write/read guard | fails on a constant written and never read |
 | Specification Set Support (FR03) | `specification_set` mapping in `config.py` | `"jca_android"` resolves without `custom_specs_dir` |
 
@@ -101,6 +104,8 @@ The layer-2 defects are present in both sets, byte for byte, because they sit in
 Two costs are accepted and recorded rather than mitigated. The `jca` set keeps its defects and the spurious reports they cause, so its results stay reproducible without becoming correct. And the sets stop differing along one axis: an outcome difference between them can now come from the platform allow-list or from a repair present in one set only, and nothing separates the contributions after the fact. This is why the parity check inverts into a freeze check plus an enumeration — see D-S7.
 
 This reverses decision D1 of `docs/20260806_plano_specs_jca_android.md`, which had accepted the replication cost. The reversal is deliberate and is the user's: reproducibility of published work outranks the tidiness of a single correction landing everywhere it applies.
+
+What the freeze covers is **specification content**: the `.mop` files and the transformation tables the frozen `CipherSpec` calls, which together are the instrument's statement of what a misuse is. It does not extend to the runtime the instrument executes on — issue #100 repairs a weaver defect on this same branch, which changes what the frozen set reports without being read as a break of the freeze. D-S10 settles the one shared-runtime repair this change makes and states the criterion that separates the two.
 
 ### D-S1 — partition the work by file, not by defect class
 
@@ -180,6 +185,114 @@ What this leaves standing is a residue, and it is recorded rather than repaired:
 
 Two things this decision inherits from how the sixteen were found, and they belong in the design rather than in a task note. First, `PBEKeySpecSpec.f1` and `f2` carry the Group 3 binding defect as well — neither has a `returning` clause, so both land in the empty parameter slice — and therefore need both halves, the binding and the `fsm`, as `TrustManagerFactorySpec.gtm1` did. Second, the check that found them passed the frozen set until it was taught that events landing in the empty parameter slice generate an `AbstractSynchronizedMonitor` rather than an `AbstractAtomicMonitor`, which is precisely where the defective events live. A check that agrees with a set known to be defective is a bug in the check, so the frozen set — where the answer is known to be 18 — is the baseline every extension of it is run against first.
 
+### D-S10 — the predicate store is keyed by identity, in the shared class
+
+Two halves of one mechanism disagree about what "the same object" means, and the disagreement is what makes the predicate graph report wrongly even where every edge is correctly written and correctly read.
+
+The monitor index keys by **identity**. `CachedWeakReference` caches `System.identityHashCode(ref)` at construction, and the lookup confirms the match with `key == wref.get()` in `BucketNode.findByStrongRef`. So JavaMOP hands a specification one monitor per instance, and it never confuses two instances however alike they are.
+
+`ExecutionContext` keys by **`equals`**. Its store is a `Map<Property, Set<Object>>` over `HashSet`, as are `acceptingState` and the set `hasEnsuredPredicate` scans. So the facts those per-instance monitors record about their own object land in a store that cannot tell two equal objects apart.
+
+The failure is three-sided and quiet in each direction. A write over an object equal to one already stored adds nothing, so two monitors share one mark. A read succeeds for an object no monitored sequence ever produced, as long as an equal one was produced — the `REQUIRES` reports satisfied when it is not, which is a false negative in exactly the clauses this change exists to connect. And a removal in one monitor's `@fail` takes the mark belonging to another monitor's object.
+
+It bites only where `equals` is value-based, which makes the affected surface enumerable rather than hypothetical. Across the frozen set's 27 reads, eight change their answer:
+
+| read | object | why it is affected |
+|---|---|---|
+| `CipherSpec.i2` (three reads) | `java.security.Key` | `SecretKeySpec.equals` compares key material and algorithm |
+| `MacSpec.i1`, `MacSpec.i2` | `java.security.Key` | same |
+| `SecretKeySpec.e1` | `SecretKey` | same |
+| `SecureRandomSpec` seed reads | `long` | boxed; the `Integer` cache makes equal small values one object |
+| `RandomStringPasswordSpec.vo`, `.gb` | `String` | value equality |
+
+The remaining reads are over `byte[]` and `char[]`, whose `equals` is already identity, and are unaffected. The direction is uniform: today an unmarked object validates because an equal marked one exists, so identity keying makes the store **stricter** and the sets report more, not less. The case it closes is concrete — `SecretKeySpecSpec` writes `GENERATED_KEY` over the spec it accepted, and an application that builds a second `SecretKeySpec` with the same material through the *violating* branch has that second one validated at `Cipher.init` by the first.
+
+**Decision: re-key `ExecutionContext` by identity, in the shared class.** `IdentityHashMap` is Java 1.4 and Android API 1, and `Collections.newSetFromMap` is Java 6 and API 9, so neither is a modern-language dependency of the kind that has caused trouble here before; where API 1 is wanted, an `IdentityHashMap<Object, Boolean>` serves directly. `acceptingState` and the scan behind `hasEnsuredPredicate` carry the same defect and are re-keyed with it.
+
+A sibling class was considered, on the D-S3 precedent, and rejected. D-S3 gave the derived set its own transformation tables because the *tables themselves* differ between the sets — the derivation computes them per API level. Here nothing differs: an `equals`-keyed store is wrong for both sets in the same way. Duplicating it would rename some eighty-five call sites across the derived `.mop` files, flood the divergence record with mechanical hunks, and leave a second store whose only distinguishing feature is a defect.
+
+**This is not a deviation from D-S0.** D-S0 freezes the specification set — the `.mop` content and the transformation tables the frozen `CipherSpec` calls — because that is where the instrument states what a misuse is. It does not freeze the runtime the instrument executes on. Issue #100 is repairing a weaver defect on this same branch, which also changes what the frozen set reports, and that was never read as breaking the freeze; a defect in the shared predicate store stands on the same footing. What D-S0 forbids is a correction of *specification content* landing in `jca`, and none does.
+
+What follows from it is recorded rather than mitigated: the eight reads above are the observable surface, and any later comparison against the published numbers has to know the store changed underneath them.
+
+**The delta's own prohibition was too wide and is narrowed rather than excepted.** The requirement text said that a change to a symbol the frozen set already references "does not qualify, however narrow". It was protecting against the D-S3 hazard — shared code made to behave differently depending on which set is active, which would put the frozen set's verdict under state set elsewhere — and over-generalised into a rule that would forbid repairing any defect in `rvsec-core`, the weaver defect of issue #100 included. The criterion it should state is the one it was actually protecting: **shared code MUST NOT branch on the active specification set.** A repair that applies equally to both sets is admissible, and its effect on the frozen set is enumerated rather than assumed absent.
+
+**A blind spot this exposes, named rather than closed.** Task 5.2 checks that the monitor generated from `jca` is unchanged against the base commit. That check still passes after this decision, because `ExecutionContext` is a separate class and the generated monitor source does not mention its internals. Byte-identity of the frozen paths and of the generated monitor therefore does not establish that the frozen set *behaves* as it did. Closing the gap would mean re-measuring the corpus, which is an explicit non-goal, so INV-INS-109 states the limit instead of pretending to cover it.
+
+**The one-argument `remove(Property)` is a separate defect, and identity keying does not touch it.** It deletes the entire set for a property (`ExecutionContext.java:50`, already `@Deprecated`), so one monitor's `@fail` erases every other monitor's mark for that predicate. Four sites carry it in the derived set — `KeyManagerFactorySpec:91`, `MacSpec:87` and `TrustManagerFactorySpec:117-118` — and it now matters, because Group 3 made `SSLContextSpec.init` read `GENERATED_TRUST_MANAGERS`, so one failing factory produces a false `UnsatisfiedConstraint` for every other. That defect *is* specification content, so it is repaired in `jca_android` alone and recorded in the divergence record, exactly as D-S0 requires. Three of the four need a monitor field to hold the object being unmarked, because the value is a local of the event that wrote it.
+
+### D-S11 — event granularity follows the rule's bindings, not its signatures
+
+Four of Group 4's twenty edges, and two of Group 5's, fall on arguments that no pointcut binds. They are unreachable not because the translation forgot to read them but because it destroyed the events that carry them.
+
+CrySL declares **one event per method signature**, with parameters named and typed in `OBJECTS`. The generated `Cipher` rule states eight init events, which are exactly the eight `Cipher.init` overloads Android publishes, and the names are not interchangeable: `params` is `AlgorithmParameterSpec` and `param` is `AlgorithmParameters`, and the `REQUIRES` gives each a *different* predicate — `preparedIV`/`preparedGCM` over the first, `preparedAlg` over the second. Only after the events does the rule define aggregates over them, `IWOIV := i1 | i2 | i3 | i8` and `IWIV := i4 | i5 | i6 | i7`, with `Inits := IWOIV | IWIV`; CogniCrypt resolves each event to a concrete method signature and binds its arguments positionally and statically.
+
+The translation kept the aggregate and dropped the events: `Inits` became two pointcuts with `..`. The fusion survived because for the `ORDER` it is **lossless** — the `ORDER` mentions only `Inits`, never `i4` — so nothing in the part of the rule the automaton models looks wrong. What it loses is everything that quantifies over individual events:
+
+| the rule states | needs bound | modelled today |
+|---|---|---|
+| `REQUIRES randomized[ranGen]` | `ranGen` (i2, i6, i7, i8) | no |
+| `REQUIRES preparedIV[params]`, `preparedGCM[params]` | `params` (i4, i6) | no |
+| `REQUIRES preparedAlg[param, …]` | `param` (i5, i7) | no |
+| `… && encmode != 1 => noCallTo(IWOIV)` | the named subset itself | no |
+| `… && encmode == 1 => callTo(iv)` | a `getIV()` event, absent from the `.mop` | no |
+
+The first three are this change's edges. The last two are `CONSTRAINTS` and outside its scope, and they are listed here because they establish that the rule's granularity is structural rather than stylistic: a rule can only say "with a CBC-family mode in a decrypt, do not call an init without an IV" because *init without an IV* is a named subset of its events. Fusing the events removes the ability to state it at all.
+
+**Decision: one event per distinct binding profile, not one event per rule signature.** An event earns a place in a specification's alphabet when it carries a binding or a body no other event carries. Where several of the rule's signatures share a profile, one pointcut covers them — the weaver resolves overloads itself, on owner, method name, return type and parameter types, with `T+` subtype-aware and `..` for the tail, so overload granularity is free at weave time and buys nothing when spent.
+
+This is a revision. The decision first written here was to transcribe 1:1 with the rule, and for three of its four applications that is what a binding profile analysis produces anyway: `KeyGeneratorSpec` (init 1 → 5), `KeyManagerFactorySpec` (init 1 → 2) and `TrustManagerFactorySpec` (init 1 → 2) are all landed and validated under it. **`CipherSpec` is the exception, and it is narrowed here, because the literal transcription is not executable.**
+
+The reason is a hard limit in the monitor generator, measured rather than inferred. Every `(state, event)` pair a specification does not declare is sent to `fail`, and a `.mop` with an `@fail` handler makes `fail` a category, so `FSMCoenables` walks backwards from a state to which everything is co-reachable and records **the full powerset of the alphabet**: exactly `n × (2ⁿ − 1)` sets, confirmed to the unit at `n=17` (2,228,207) and `n=18` (4,718,574). At 17 events `CipherSpec` generates in 53 s and 3.3 GB; at 18 it dies with a `StackOverflowError` inside `EnableSet.parseSets`, whose regex has nested quantifiers and recurses once per repetition over a 184 MB string; the launcher already passes `-Xss1g` and the JVM refuses to start above it. At the 24 events a 1:1 transcription needs, the coenable string would run to roughly 1.5 × 10¹⁰ characters against Java's maximum `String` length of 2³¹ − 1, so it is not slow — it cannot be built. Rewriting the automaton as an `ere` does not help: `EREPlugin` rewrites into `fsm` and the logic repository re-dispatches it, so `ere`, `ltl` and `ptltl` all reach the same `FSMCoenables` — measured identical counts, identical wall-clock and the identical failure. **The ceiling is 17 events, and `CipherSpec` is already standing on it.** INV-INS-115 states it as a constraint on specification design, and D-S12 records why the generator is not repaired instead.
+
+So `CipherSpec` is re-budgeted rather than transcribed. Grouping the rule's events by binding profile and then by arity yields **14 events** where the specification has 17 and the literal transcription needs 24, and it binds every argument the rule's clauses quantify over — `ranGen`, `params`, `param` and `plainText` all become reachable. Each candidate pointcut was verified with the production `PointcutMatcher` against all 28 `javax.crypto.Cipher` members published by `android-30/android.jar`: the three `init` candidates partition all eight overloads, the five `doFinal` candidates partition all seven, and nothing reaches `updateAAD`, `unwrap` or `getIV`. It generates in 6.1 s and 1.0 GB.
+
+Two defects fall out of the same table at no cost in slots. `byte[] doFinal(..)` matches `f1`, `f2` **and** `f4`, so a plain `doFinal()` takes two transitions and the rule's `f4` has no event of its own; the replacement candidates are disjoint. And the invalid-transformation event is `getInstance(String)`, arity 1, so `getInstance(transformation, provider)` over an unsafe algorithm fires nothing at all and is later misreported as a sequence violation rather than as `UnsafeAlgorithm`; `getInstance(String, ..)` closes it.
+
+**What this costs, stated plainly, because the earlier decision rejected it.** Discrimination between overloads moves out of the pointcut and into an `instanceof` in the event body — the very idiom task 3.1 used in `TrustManagerFactorySpec` and that this decision previously ruled out. Two of the three objections to it stand and are what shape the design: it is inapplicable across arities, since `args(a, b, third, ..)` requires arity ≥ 3 and drops the shorter overload out of the automaton entirely, and inapplicable to a primitive, since `Object+` rejects `int` — which is why the candidates are grouped by arity first and why `KeyGeneratorSpec` still needs its five events. The third objection, that it re-creates at runtime a distinction the pointcut makes statically, is true and is now accepted as the price: the predicate reads are identical either way, and the `ORDER` never distinguished the events, so what is lost is a static guarantee about *which* overload was called, not any clause of the rule. Where a fused event spans two of the rule's aggregates — one candidate covers members of both `IWOIV` and `IWIV` — that is recorded, since `noCallTo(IWOIV)` would need the same `instanceof` to be recovered if it ever comes into scope.
+
+**`TrustManagerFactorySpec` is retrofitted rather than left as the exception.** The `Object`-and-`instanceof` idiom is correct there, because its two overloads happen to share an arity and take reference types, but it is a special case of the general form rather than a second philosophy. Leaving it would make the set explain, file by file, which of two shapes applies; replacing it makes the set 1:1 with the rules throughout and lets Group 5's `generatedManagerFactoryParameters` be bound statically. Its divergence-record entries are rewritten, since their digests change with their content.
+
+**The double firing, for the record.** `CipherSpec.f1` is `call(public byte[] Cipher.doFinal())` and `f2` is `call(public byte[] Cipher.doFinal(..))`. In AspectJ `(..)` matches zero arguments, so a plain `doFinal()` fires **both** events — verified in the generated aspect, `MultiSpec_1MonitorAspect.aj:250` and `:255`, and again with the matcher, which returns `[f1, f2, f4]` for that one pointcut. It is `f4` that binds the `plainText` the `!macced[_, plainText]` clause needs.
+
+### D-S12 — the generator is not repaired; the alphabet is budgeted against its ceiling
+
+The 17-event ceiling comes from a computation that, for this family of specifications, produces nothing. `EnableSet.parseSets` maps the coenable sets to *specification parameters*, and every one of the 23 specifications has at most one; in `CipherSpec` every event carries that same `Cipher c`, so all 2,228,207 sets collapse to a single line in the generated monitor, `//alive_parameters_0 = [Cipher c]`. `OptimizedCoenableSet.optimize` already reaches the same value for free through its `if (enables == null) enables = getFullEnable()` fallback. A repair in `FSMCoenables` that skipped the saturated `fail` category would therefore be verifiable by byte-diffing the monitor generated from the frozen `jca`, which is exactly what task 5.2 checks.
+
+**Decision: do not repair `rv-monitor`.** It is out of this change's scope, it would raise the ceiling only to roughly 20 events — still short of the 24 a literal transcription needs, since the `String` limit is a separate wall — and it enlarges the blast radius of a change whose whole discipline is that the frozen set's instrument does not move. The ceiling is instead **recorded as a measured constraint on specification design**, and the alphabet is budgeted under it.
+
+The method and the two harnesses that produced these numbers live in the `rv-analyze-spec` skill (`.claude/skills/rv-analyze-spec/`, commit `3d093592`): `CoenableProbe` prices a property against the production `FSMCoenables` without generating code, and `PointcutBudget` runs the production `PointcutMatcher` over a class's real overloads and reports coverage, overlap and leakage. Anything asserted here about what a pointcut matches or what a specification costs is reproducible with them.
+
+### D-S13 — `!macced[_, plainText]` is transcribed, and the projection is faithful
+
+The `Cipher` rule requires `!macced[_, plainText]` of its `doFinal` events, and `macced` is produced by the `Mac` rule, which ensures it three times: `macced[output1, inp]`, `macced[output1, pre_input]`, `macced[output2, input]`. It is a **two-place** predicate — `macced[M, D]` says *M is the MAC of D*.
+
+`ExecutionContext` represents one-place predicates only: a `Set<Object>` per `Property`. So the two-place relation had to be projected onto one place, and `MacSpec` projected it onto the **first**: it writes `GENERATED_MAC` over the MAC it produced. The `Cipher` clause quantifies over the **second** — its first place is `_` — so it reads *this plaintext was never MACed*, and there is no set of MACed data to read it against. Binding `plainText`, which task 4.6 now does in `f2` and `f5`, gives the argument and nothing to compare it with. This is a **missing predicate**, not a granularity defect, and it is the one thing the re-budget was expected to fix and does not.
+
+**Decision: transcribe it.** A new `Property` over the MACed data, written where the data enters `MacSpec` and read in `CipherSpec`.
+
+**The projection is faithful, which is why this is a transcription rather than an approximation.** The clause's first place is anonymous, so the one-place projection onto the *second* argument is exactly what it asks for. What a one-place store loses is the ability to say *which* MAC — and this clause does not ask which. That reasoning does not generalise: a clause naming both places would still be inexpressible, and `randomized[lSeed]` remains so for a different reason (task 4.4).
+
+**The cost, measured.** The data enters `MacSpec` at two points that bind nothing today: `event update` is `call(public void Mac.update(..))` with no `args`, and `event f1` fuses `doFinal(byte[])` with `doFinal()`. Android publishes four `update` overloads and three `doFinal`. Under the alphabet-budget method that is about three further events — `update(byte[], ..)` covering the rule's `u2`, `u3` and `u4`, a separate `update(byte)` because `Object+` rejects a primitive, and `doFinal(byte[])` split out of the fused `f1`. `MacSpec` has 8 events, so it lands near 11, comfortably under the ceiling of 17 (INV-INS-115).
+
+**Two residues, recorded rather than mitigated.** `Mac.update(java.nio.ByteBuffer)` is not among the rule's events, so data entering through it is never marked and the clause is silent about it — a false negative. And `update(byte)` marks a boxed primitive, which carries exactly the unsoundness task 4.4 records for `randomized`: inside the `Byte` cache identity and equality coincide, so one MACed byte marks every equal literal in the process.
+
+The two alternatives were put to the user with this material and declined: recording it as inexpressible beside `randomized[lSeed]`, which would have been the cheaper reading of a clause that turns out to be expressible; and reading `!validate(GENERATED_MAC, plainText)`, which is cheap and already available but states a *different* clause — "do not encrypt a MAC" rather than "do not encrypt what you MACed" — and would have had to be recorded as a deliberate divergence rather than as the rule's.
+
+### D-S14 — Group 5 adds one constant; the rest of its bucket is recorded
+
+The inventory's capability-absent bucket has eleven edges over nine predicates, and the plan was to add all nine constants, each with its reader. Checking which of them the derived set can actually *close* changed the answer, and the criterion turns out not to be the CrySL anchor but whether **both ends of the edge are modelled by a `.mop` in this set of 23**.
+
+Six predicates — `preparedAlg`, `preparedRSA`, `preparedDSA`, `generatedManagerFactoryParameters`, `preparedEC`, `preparedOAEP` — have their consumer in the set and their producer outside it: `AlgorithmParameters`, `RSAKeyGenParameterSpec`, `DSAGenParameterSpec`, `CertPathTrustManagerParameters`/`KeyStoreBuilderParameters`, `ECGenParameterSpec` and `OAEPParameterSpec` have no specification here. Every read this change has added sits in an event body rather than a `condition(...)`, precisely so that a failing requirement reports instead of vanishing (D-S9). A body read of a predicate nothing in the set writes therefore fails on every execution and reports every legitimate use. That is not a recorded gap; it is a new defect of the same family this change exists to remove.
+
+Two — `cipheredInputStream` and `cipheredOutputStream` — have their producer in the set and no consumer anywhere: no rule in either CrySL anchor requires them. They would be writes with no reader, which INV-INS-111 forbids unless recorded, and recording them is the honest outcome rather than a reader invented to satisfy the guard.
+
+One is fully expressible: **`generatedCipher`**, produced by `Cipher` and required by both stream rules, all three modelled here. **Decision: Group 5 adds `GENERATED_CIPHER` alone**, and the remaining eight predicates are recorded with the mechanical reason above.
+
+**This reopens task 4.3's deliberate omission, and must.** The predicate's three edges sit in two buckets: the two `REQUIRES` are Group 5's, while the `ENSURES generatedCipher[this]` was recorded as deliberately omitted because `CipherSpec.mop:323` substitutes `setObjectAsInAcceptingState(cipher)` — a mechanism the same record measured as inert, with nineteen writes and no readers of `isInAcceptingState` in either set. Adding the two reads against that producer would reproduce exactly the false-positive trap that disqualifies the other six, so the `ENSURES` becomes a real write of `GENERATED_CIPHER` and task 4.3's record keeps only `generatedMessageDigest`. That one stays omitted under the identical criterion: its consumers would be `DigestInputStream` and `DigestOutputStream`, and neither has a specification here.
+
+**The anchor question is therefore nearly moot.** Of the two predicates the API 30 rules do not name, `preparedOAEP` is excluded for want of a producer regardless of anchor, so the choice decides only `generatedCipher`. The derivation's 33 rules omit `OAEPParameterSpec` altogether, against 47 rules in CrySL 1.5.2 — a matter of corpus coverage rather than of platform, which is the same reasoning that anchored `predicate_edges.csv` to 1.5.2 in the first place.
+
 ### D-S6 — the empirical verification of the two hot specifications is last, and is not relaxed
 
 The corrected allow-list of `SSLContextSpec` and `TrustManagerFactorySpec` is compared against a variable the wrapper collision prevents from being written, so their corrections have no observable effect until issue #100 task 5.3 lands. **Decision: place that verification in the final task group**, and if #100 has not landed, record the task as blocked citing the artefact rather than substituting a weaker check. Every other task in this change is independent of #100.
@@ -197,9 +310,22 @@ The tables are class-level and immutable, not method locals rebuilt per call. Pa
 
 `br.unb.cic.mop.jca.util.CipherTransformationUtil` is unchanged, including its two hygiene defects, which are inside the freeze.
 
+### `ExecutionContext` (singleton, `rvsec-core`)
+
+- **Change**: the three `HashSet<Object>` stores — the per-`Property` sets, `acceptingState`, and the set `hasEnsuredPredicate` scans — become identity-keyed. Every method signature stays as it is, so no `.mop` in either set changes.
+- **Postcondition**: `validate(p, o)` is true exactly when `setProperty(p, o)` was called with **that** object and no `remove(p, o)` has taken it since. Two distinct objects that are `equals` no longer share a mark.
+- **Why the shared class**: the defect is identical in both sets, so a per-set store would duplicate correct code to isolate a repair neither set benefits from missing (D-S10).
+- **Effect on the frozen set**: eight of its 27 reads change answer, all in the direction of reporting more; they are enumerated in D-S10 rather than assumed absent.
+
 ### `Property` (enum, `rvsec-core`)
 
-Gains **9** constants for the predicates that have no vocabulary today: `preparedAlg`, `preparedOAEP`, `generatedCipher`, `preparedRSA`, `preparedDSA`, `preparedEC`, `generatedManagerFactoryParameters`, `cipheredInputStream` and `cipheredOutputStream`. Nine constants close the eleven edges of the inventory's capability-absent bucket, because `generatedCipher` accounts for three of them — one `ENSURES` in `Cipher` and one `REQUIRES` in each stream rule — and `generatedManagerFactoryParameters` for two. Each new constant lands together with the read that consumes it, in the same task — a constant added without a reader is exactly the defect this change removes.
+Gains **2** constants: `generatedCipher` and `macced`.
+
+`generatedCipher` closes three edges — the two `REQUIRES` the inventory's capability-absent bucket assigns to the stream specifications, and the `ENSURES` in `CipherSpec` that task 4.3 had recorded as a deliberate omission. It is the only predicate of that bucket's nine whose producing rule *and* consuming rules are all modelled by a specification in this set, which is what makes it the only one addable without inventing a reader or a writer; D-S14 records the criterion and the eight exclusions. `macced` is not from that bucket at all: its edge is counted among Group 4's twenty as a translation defect, because a constant *does* exist for the predicate and simply holds the wrong end of it (D-S13).
+
+The other eight predicates of the bucket gain no constant. Six have no producer in the set, so a reader would report on every execution; two have no consumer in any rule, so a writer would be a write with no reader. Both cases are recorded with their reason rather than approximated, which leaves nine of the bucket's eleven edges open and documented.
+
+Each new constant lands together with the read that consumes it **and** the write that produces it, in the same task — a constant added without a reader is exactly the defect this change removes, and a reader added without a writer is the defect D-S14 refuses to introduce in its place.
 
 The additions are admissible under the freeze because no `jca` specification references them: an enum that grows does not change the monitor generated from a set that never names the new members. The readers themselves are `.mop` edits and land in `jca_android` only.
 
@@ -240,7 +366,11 @@ Verification: regenerate the `jca_android` inventory → the write/read guard pa
 - [A correction could be applied to the frozen set out of habit, since the defect is visibly there] → the freeze check runs after every group and fails on any byte, so the window is one group wide.
 - [Two utilities could drift apart as the derived rules are regenerated] → the frozen one is frozen, so drift is one-directional and is the derived one following its rule, which is the intended behaviour rather than a hazard.
 - [The inventory could drift from the specifications after the edits] → it is regenerated at verification time and compared against the committed one, for both sets.
-- [9 new `Property` constants, closing 11 edges, could repeat the original defect] → each lands with its reader in the same task, and the guard fails on any constant that does not.
+- [2 new `Property` constants — `generatedCipher` closing 3 edges and `macced` closing one of Group 4's — could repeat the original defect] → each lands with its reader and its writer in the same task, and the guard fails on any constant that does not.
+- [Nine of the eleven capability-absent edges stay open, so the derived set still cannot state most of that bucket] → accepted and recorded under D-S14 rather than mitigated, because the six without a producer would report on every execution and the two without a consumer would be writes with no reader. Closing the six needs seven further specifications (`AlgorithmParameters`, `RSAKeyGenParameterSpec`, `DSAGenParameterSpec`, `ECGenParameterSpec`, `OAEPParameterSpec`, `CertPathTrustManagerParameters`, `KeyStoreBuilderParameters`), which is a change of its own and is named as such rather than half-started here.
+- [Splitting a fused pointcut could change the automaton's language rather than only its alphabet] → each new event takes exactly the transitions of the event it replaces, and INV-INS-110 is re-run over the regenerated monitor, where every new event must have a row that is not `fail` from every state.
+- [Re-keying the shared predicate store changes what the frozen set reports, and the freeze check cannot see it] → the effect is enumerated site by site in D-S10 rather than mitigated, and INV-INS-109 states the limit: byte-identity of the frozen paths and of the generated monitor does not establish unchanged behaviour. Closing the gap would need the corpus re-measured, which is a non-goal.
+- [A repair to shared Java could be made to depend on the active specification set, reintroducing the D-S3 hazard] → the criterion is stated as a prohibition on branching, not on touching: shared code may be repaired, and may not behave differently by set.
 - [The defect counts written into the tasks were floors, not ceilings — `gtm1` had four defects where three were enumerated, and the all-`fail` pattern eighteen events where two were] → every count in this change comes from a script run over the material rather than from the prose that motivated it, and each such check is run against the frozen set first, where the answer is independently known. A check that agrees with a set known to be defective is a bug in the check, which is how the transition checker was found to be skipping a whole monitor kind.
 
 ## Testing Strategy
@@ -253,6 +383,7 @@ Verification: regenerate the `jca_android` inventory → the write/read guard pa
 | Contract | Write/read guard (INV-INS-111) | Guard derived from the committed inventory | 1 check |
 | Generation | No bound event has an all-`fail` transition row (INV-INS-110) | Assert over the monitor generated from the derived set, after Group 3b; the same check over the frozen set must still report 18, which is what proves the check itself still sees both monitor kinds | 1 check, two sets |
 | Generation | The frozen set's monitor is unchanged | Compare against the monitor generated at the base commit — this is what proves the additive `Property` constants are invisible to it | 1 check |
+| Unit (Java) | The predicate store distinguishes two `equals` objects | Two `SecretKeySpec` with the same material: marking one leaves the other unmarked, and removing one leaves the other marked | 3 cases |
 | Unit (Java) | The derived utility follows the generated rule | Table-driven test over the eight admitted algorithms, with rejected cases per algorithm | ~20 cases |
 | Unit (Python) | `specification_set = "jca_android"` resolves to the derived directory without `custom_specs_dir` | Test beside the existing `get_monitored_operations_config` tests | 2 cases |
 | Empirical | The two hot specifications report as intended | Blocked on #100 task 5.3 | 2 checks |

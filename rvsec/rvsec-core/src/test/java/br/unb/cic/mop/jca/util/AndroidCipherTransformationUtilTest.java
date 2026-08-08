@@ -196,4 +196,56 @@ public class AndroidCipherTransformationUtilTest {
         assertFalse(CipherTransformationUtil.isValid("BLOWFISH/CBC/PKCS5Padding"));
         assertFalse(CipherTransformationUtil.isValid("ARC4/ECB/NoPadding"));
     }
+
+    // --- the two conditional REQUIRES the specification reads (task 4.6) ---
+
+    /**
+     * {@code part(1,"/",transformation) in {CBC,CTS,CTR,CFB,PCBC,OFB} && encmode == 1
+     * => preparedIV[params]}. Both halves of the guard decide: a decryption in the
+     * same mode does not demand a monitored IV, because the IV it is given is the
+     * one the encryption already produced.
+     */
+    @Test
+    public void requiresAPreparedIvOnlyForAnEncryptionInACbcFamilyMode() {
+        assertTrue(AndroidCipherTransformationUtil.requiresPreparedIv("AES/CBC/PKCS5Padding", 1));
+        assertTrue(AndroidCipherTransformationUtil.requiresPreparedIv("AES/CTR/NoPadding", 1));
+        assertTrue(AndroidCipherTransformationUtil.requiresPreparedIv("DESede/OFB/NoPadding", 1));
+
+        // PCBC is in the rule's list for this clause and in no algorithm's mode
+        // catalogue: the two clauses are independent of one another.
+        assertTrue(AndroidCipherTransformationUtil.requiresPreparedIv("AES/PCBC/PKCS5Padding", 1));
+
+        // Decryption, wrap and unwrap are modes 2, 3 and 4.
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedIv("AES/CBC/PKCS5Padding", 2));
+
+        // Neither GCM nor ECB is in the list, whatever the direction.
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedIv("AES/GCM/NoPadding", 1));
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedIv("AES/ECB/NoPadding", 1));
+    }
+
+    /**
+     * {@code part(1,"/",transformation) in {GCM} => preparedGCM[params]}, which the
+     * rule states without a direction, so it holds for a decryption too.
+     */
+    @Test
+    public void requiresPreparedGcmParametersInBothDirections() {
+        assertTrue(AndroidCipherTransformationUtil.requiresPreparedGcm("AES/GCM/NoPadding"));
+        assertTrue(AndroidCipherTransformationUtil.requiresPreparedGcm("aes/gcm/nopadding"));
+        assertTrue(AndroidCipherTransformationUtil.requiresPreparedGcm("AES_256/GCM/NoPadding"));
+
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedGcm("AES/CBC/PKCS5Padding"));
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedGcm("AES"));
+    }
+
+    /** Both predicates are read from a monitor guard, so neither may raise. */
+    @Test
+    public void answersRatherThanRaisingOnMalformedInputForBothRequirements() {
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedIv(null, 1));
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedIv("AES/", 1));
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedIv("/", 1));
+
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedGcm(null));
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedGcm("AES/"));
+        assertFalse(AndroidCipherTransformationUtil.requiresPreparedGcm(""));
+    }
 }

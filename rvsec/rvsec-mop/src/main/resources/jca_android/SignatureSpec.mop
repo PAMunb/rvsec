@@ -52,6 +52,12 @@ SignatureSpec(Signature s) {
            currentAlgorithmInstance = alg;
        }
 
+       // CrySL requires generatedPrivkey[priv] of both initSign forms and generatedPubkey[pub]
+       // of initVerify(PublicKey). The translation read neither, so a signature produced with
+       // a private key of unknown provenance -- one never handed out by a monitored KeyPair or
+       // KeyStore sequence -- raised nothing. The read is in the body rather than in a
+       // condition(...) guard: a failing guard takes no transition, and initSign would leave
+       // the automaton, making the update() that follows a sequence violation.
        event i1 before(PrivateKey privateKey, Signature s):
          call(public void Signature.initSign(PrivateKey)) &&
          args(privateKey) &&
@@ -59,6 +65,10 @@ SignatureSpec(Signature s) {
            if (!algorithms.contains(currentAlgorithmInstance)) {
               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
+           }
+           if (privateKey != null && !ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey)) {
+              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+               "initSign() requires a private key established by a monitored KeyPair or KeyStore sequence."));
            }
         }
 
@@ -69,6 +79,10 @@ SignatureSpec(Signature s) {
               if (!algorithms.contains(currentAlgorithmInstance)) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                 "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
+        }
+              if (privateKey != null && !ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                "initSign() requires a private key established by a monitored KeyPair or KeyStore sequence."));
         }
         }
 
@@ -89,6 +103,10 @@ SignatureSpec(Signature s) {
               if (!algorithms.contains(currentAlgorithmInstance)) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                  "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
+        }
+              if (key != null && !ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, key)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                 "initVerify() requires a public key established by a monitored KeyPair or KeyStore sequence."));
         }
         }
 

@@ -78,15 +78,37 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       target(k) &&
       condition(validate(keySize)) { }
 
+    // CrySL states one REQUIRES per algorithm over the parameter spec these two events
+    // take -- alg in {"DH"} => preparedDH[params], and the same shape for DSA, RSA and
+    // EC. The translation read none of the four, so a generator initialised with an
+    // arbitrary parameter spec raised nothing. Only preparedDH has a Property constant
+    // today; the other three arrive with the vocabulary of Group 5.
+    // Each read is an implication, as the rule states it: a parameter spec is only
+    // constrained when the generator was obtained for that algorithm. It sits in the
+    // event body rather than in a condition(...) guard, because a failing guard takes no
+    // transition, which would remove the initialize from the automaton and make the
+    // generateKeyPair() that follows a sequence violation.
     event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
       args(params) &&
-      target(k)  { }
+      target(k)  {
+        if ("DH".equals(algorithm) && params != null
+            && !ExecutionContext.instance().validate(Property.PREPARED_DH, params)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
+             "initialize() for DH requires an AlgorithmParameterSpec established by a monitored DHGenParameterSpec sequence."));
+        }
+    }
 
     event init4 after(AlgorithmParameterSpec params, SecureRandom random, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) &&
       args(params, random) &&
-      target(k) { }
+      target(k) {
+        if ("DH".equals(algorithm) && params != null
+            && !ExecutionContext.instance().validate(Property.PREPARED_DH, params)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
+             "initialize() for DH requires an AlgorithmParameterSpec established by a monitored DHGenParameterSpec sequence."));
+        }
+    }
 
     event initError after(int keySize, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(int)) &&

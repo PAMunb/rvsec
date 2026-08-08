@@ -23,6 +23,14 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     String currentAlgorithmInstance = "";
     KeyManagerFactory keyManagerFactory = null;
 
+    // The key managers this monitor's factory handed out. They are held in a field because
+    // @fail has to withdraw the mark from that array and the value is a local of the event
+    // that wrote it. The one-argument remove(Property) that used to stand there deleted the
+    // whole set for the predicate, so one failing factory erased every other factory's mark --
+    // and since task 3.2 made SSLContextSpec.init read the trust-manager predicate, a
+    // predicate erased wholesale turns into an UnsatisfiedConstraint for everyone else.
+    KeyManager[] keyManagers;
+
     event g1 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
@@ -46,10 +54,36 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         currentAlgorithmInstance = alg;
     }
 
-    event init before(KeyManagerFactory k):
-       ( call(public void KeyManagerFactory.init(KeyStore, char[])) ||
-         call(public void KeyManagerFactory.init(ManagerFactoryParameters))
-       ) && target(k) {
+    // CrySL states init as two events -- i1: init(keyStore, password) and i2: init(params) --
+    // and the translation fused them into one disjunctive pointcut. The fusion is lossless for
+    // the ORDER, which names only the aggregate Init, and lossy for the REQUIRES: the two
+    // overloads differ in arity, so a fused pointcut can bind neither argument, and both
+    // arguments carry a predicate. generatedKeyStore[keyStore] is read here; the parameter
+    // form's generatedManagerFactoryParameters has no Property constant yet and arrives with
+    // Group 5.
+    // Both take exactly the transition the fused event had, waitingInit -> final, so the
+    // automaton is not re-derived. The read is in the event body rather than in a
+    // condition(...) guard, because a failing guard takes no transition and would turn the
+    // getKeyManagers() that follows into a sequence violation.
+    event i1 before(KeyStore keyStore, char[] password, KeyManagerFactory k):
+       call(public void KeyManagerFactory.init(KeyStore, char[])) &&
+       args(keyStore, password) &&
+       target(k) {
+        if (!safeAlgorithms.contains(currentAlgorithmInstance)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
+        " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+        }
+        if (keyStore != null && !ExecutionContext.instance().validate(Property.GENERATED_KEY_STORE, keyStore)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
+             "init() requires a KeyStore established by a monitored KeyStore sequence."));
+        }
+       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManagerFactory);
+    }
+
+    event i2 before(ManagerFactoryParameters params, KeyManagerFactory k):
+       call(public void KeyManagerFactory.init(ManagerFactoryParameters)) &&
+       args(params) &&
+       target(k) {
         if (!safeAlgorithms.contains(currentAlgorithmInstance)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
         " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
@@ -60,6 +94,7 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     event gkm1 after(KeyManagerFactory k) returning(KeyManager[] keyManager):
       call(public KeyManager[] KeyManagerFactory.getKeyManagers())
       && target(k) {
+        keyManagers = keyManager;
         ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManager);
     }
 
@@ -75,7 +110,8 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         g2 -> waitingInit
       ]
       waitingInit [
-        init -> final
+        i1 -> final
+        i2 -> final
       ]
       final [
         g1   -> waitingInit
@@ -88,7 +124,8 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC));
         ExecutionContext.instance().unsetObjectAsInAcceptingState(keyManagerFactory);
-        ExecutionContext.instance().remove(Property.GENERATED_KEY_MANAGERS);
+        ExecutionContext.instance().remove(Property.GENERATED_KEY_MANAGERS, keyManagerFactory);
+        ExecutionContext.instance().remove(Property.GENERATED_KEY_MANAGERS, keyManagers);
 
         __RESET;
     }
