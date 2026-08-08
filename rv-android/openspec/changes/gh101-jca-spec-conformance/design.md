@@ -47,10 +47,10 @@ Relevant requirements: FR03 (specification set support), FR01/FR02 (the specific
 | conformance check | Verdict per `.mop` against its generated rule | `.mop` allow-list, `.cryptsl` constraint | anchored / uncontradicted / no-anchor + evidence |
 | freeze check | Enforce INV-INS-109 (a) | base commit, the frozen paths | failure on any byte changed under `jca/` or in its `CipherTransformationUtil` |
 | divergence record | Enforce INV-INS-109 (b) | the two set directories | every non-allow-list hunk named with its reason, or failure |
-| `Property.java` | The predicate vocabulary | — | enum constants (23 today, 32 after), additive only |
+| `Property.java` | The predicate vocabulary | — | enum constants (23 before this change, 25 after — D-S14 cut the nine planned additions to one, and D-S13 accounts for the other), additive only |
 | `ExecutionContext` | The predicate store, keyed by object identity so it agrees with the monitor index | writes from `.mop` | reads from `.mop` |
 | predicate inventory | Every write, read and removal with file, line, spec, event, constant | the 23 `.mop` of a set | versioned CSV |
-| write/read guard | Enforce INV-INS-111 | the inventory | failure on an unread, unrecorded constant |
+| write/read guard | Enforce INV-INS-111 | the inventory and the specifications | failure on an unread, unrecorded constant |
 | `jca/util/AndroidCipherTransformationUtil` | Transformation verdict under the derived rule | transformation string | boolean |
 | `specification_set` mapping | Make the derived set selectable by name | `"jca_android"` | its `mop_specs_dir` |
 
@@ -158,6 +158,10 @@ Both halves run at the end of every task group, as the parity check did.
 D-S0 makes it a hazard. The derived set is now the only one carrying the corrections, so a mistyped or stale `custom` path silently selects the uncorrected instrument and the experiment reports under `jca` while believing it ran under `jca_android`. **Decision: add `jca_android` to the accepted values and to the directory mapping**, so the corrected set is selected by name.
 
 This is the one part of the change that writes Python inside `rv-android`, which the change did not originally do. It is admitted because the alternative is a correctness hazard in exactly the set this change exists to correct.
+
+The value is enumerated in more places than the two the decision first named, and an enumeration left behind does not degrade gracefully — it states, closed, that a fourth value does not exist. Six sites carry it: `valid_spec_sets` and the directory mapping in `config.py`; the `click.Choice` on `--specification-set`, which is the gate the CLI applies **before** any config is built and therefore the one that decides whether the set is selectable by name at all; INV-EXP-03 clause (f), which `config.py`'s validation docstring cites by letter; INV-INS-09; and the mapping paragraph inside `Just-in-Time Sub-Module Configuration (FR17, NFR05)`. The first three are code and belong to Group 6; the last three are specification text, which is why this change carries a delta for the `experiment` capability as well as for `instrumentation` — a capability it changes in no other way.
+
+One consequence for the tests. `"jca_android"` contains `"jca"`, so any check written as a substring match over the resolved directory passes on the derived set as readily as on the frozen one. The pre-existing assertion for the frozen set was exactly that shape and was tightened to match the path tail, because a check that cannot tell the two sets apart is worse here than no check: distinguishing them is the whole purpose of the value.
 
 ### D-S9 — all eighteen all-`fail` events are repaired, not only the two that were visible
 

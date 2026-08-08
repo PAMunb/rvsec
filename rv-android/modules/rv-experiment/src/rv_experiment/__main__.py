@@ -365,6 +365,7 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
 
     **Monitored Operations Support:**
     - `--specification-set jca`: JCA cryptography API monitoring
+    - `--specification-set jca_android`: the JCA set derived for an Android API level
     - `--specification-set generic`: Generic programming patterns monitoring
     - `--specification-set custom`: User-defined monitored operations
 
@@ -439,7 +440,7 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     "--specification-set",
     default=DEFAULT_SPEC_SET,
     envvar=ENV_SPEC_SET,
-    type=click.Choice(["jca", "generic", "custom"]),
+    type=click.Choice(["jca", "jca_android", "generic", "custom"]),
     help=f"Monitored operations specification set (default: {DEFAULT_SPEC_SET})",
 )
 @click.option(
@@ -651,7 +652,8 @@ def run(
 
     ### Monitored Operations:
     The system supports experiments with different specification sets:
-    - `jca`: JCA cryptography API monitoring for security-related operations
+    - `jca`: JCA cryptography API monitoring
+    - `jca_android`: the JCA set derived for an Android API level
     - `generic`: Generic programming pattern monitoring (e.g., Iterator usage patterns)
     - `custom`: Custom specification sets for domain-specific monitored operations
     """
@@ -1188,7 +1190,7 @@ def _create_experiment_config_from_cli(
         timeouts: Execution timeouts in seconds (already parsed to a list)
         repetitions: Number of experiment repetitions
         apks_dir: Directory containing APK files
-        specification_set: Monitored operations specification set (jca, generic, custom)
+        specification_set: Monitored operations specification set (jca, jca_android, generic, custom)
         custom_specs_dir: Custom specification directory (required for custom specification set)
         custom_aspects_dir: Custom AspectJ aspects directory (optional, defaults to standard RVSEC)
         generate_monitors: Flag to enable monitor generation

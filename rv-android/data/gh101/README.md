@@ -1,6 +1,8 @@
 # The records the JCA specification sets are checked against (gh101)
 
-Six data files here, all regenerable, all committed. They exist because the two JCA
+Seven data files here, all committed. Six are regenerable from the specifications;
+the seventh, the omission list, is written by hand and checked against them. They
+exist because the two JCA
 specification sets stopped being interchangeable: `jca` produced published
 measurements and is frozen at commit `7e7acb69`, so every correction lands in
 `jca_android` alone and the sets now diverge outside their allow-lists on
@@ -12,17 +14,21 @@ else. These records are what keeps the difference at least *nameable*.
 |---|---|---|
 | `predicate_inventory_jca.csv` | every `ExecutionContext` site in the frozen set — the freeze baseline | `scripts/gh101_predicate_inventory.py` |
 | `predicate_inventory_jca_android.csv` | the same for the derived set — the working baseline | same |
-| `predicate_edges.csv` | one row per CrySL predicate clause, with whether the set implements it | `scripts/gh101_predicate_edges.py` |
-| `edge_counts_per_file.csv` | per `.mop`, how many edges it must close | same |
+| `predicate_edges.csv` | one row per CrySL predicate clause, with whether the set implemented it **before the repairs** — the yardstick Groups 3 to 5 were counted against, kept as authored | `scripts/gh101_predicate_edges.py` |
+| `edge_counts_per_file.csv` | per `.mop`, how many edges it had to close — same baseline | same |
 | `conformance_record.csv` | the verdict of each of the 23 derived specifications against its generated API 30 rule | `scripts/gh101_conformance_check.py` |
 | `divergence_record.csv` | every hunk by which the sets differ, with its reason | `scripts/gh101_divergence_record.py` |
+| `predicate_omissions.csv` | every edge the derived set leaves open, with the reason it is not closable here | written by hand, checked by `scripts/gh101_predicate_pairing_check.py` |
 
 The gates that consume them live in `tests/parity/test_gh101_specset_gates.py`.
 
 Two prose records sit beside them. `frozen_set_debt.md` lists what the `jca` set
 knowingly retains — each entry a repair made in the derived set and deliberately
 not made there — so a set kept reproducible is not mistaken for a set kept
-correct.
+correct. Its section "What Group 8 measured" carries the one measurement in this
+change that was taken on a device: two arms differing only in the specification
+set, and the correction it forced to an attribution the record had been making
+since Group 3.
 
 `algorithm_naming.md` is the other, and is prose rather than data: it records
 the gap between what a specification compares and what the platform resolves —
@@ -31,7 +37,7 @@ from the corpus sources, together with the two rule defects the same sweep
 surfaced and the design that would close the gap properly. Only its smallest part
 is repaired in this change.
 
-## The predicate inventory
+## The predicate inventory, before the repairs
 
 85 sites in each set — 49 writes, 27 reads, 9 removals — all in `.mop`, none in
 Java. The two inventories are identical in every column but `line`: the same
@@ -56,6 +62,86 @@ Sorting the 23 `Property` constants by how they are used reproduces §4.2 of
 the substitution the graph is supposed to lean on is half-built: 19
 `setObjectAsInAcceptingState` and 6 `unsetObjectAsInAcceptingState` calls, and
 zero readers of `isInAcceptingState` or `hasEnsuredPredicate` in any `.mop`.
+
+## The predicate inventory, after the repairs (task 7.4)
+
+Both inventories were regenerated once every edit had landed. The frozen one is
+**identical to its Group 1 baseline byte for byte**, which is the freeze's second
+witness: the specifications it inventories were not touched, so neither is the
+record of them. The derived one grew from 85 sites to **127 — 58 writes, 56
+reads, 13 removals** — and every difference belongs to a task of this change:
+
+| difference | files | task |
+|---|---|---|
+| 29 reads added, closing a `REQUIRES` that had no site | `CipherSpec`, `MacSpec`, `SSLContextSpec`, `KeyManagerFactorySpec`, `TrustManagerFactorySpec`, `KeyPairSpec`, `KeyPairGeneratorSpec`, `KeyGeneratorSpec`, `SignatureSpec`, both stream specifications | 3.2, 4.1, 4.6, 4.7, 4.8, 4.9, 5.1, 5.1b |
+| 12 writes added, closing an `ENSURES` | `CipherSpec`, `KeyManagerFactorySpec`, `KeyPairSpec`, `KeyStoreSpec`, `MacSpec`, `SecretKeySpecSpec`, `TrustManagerFactorySpec` | 4.1, 4.8, 4.9, 5.1, 5.1b |
+| 4 removals added, closing a `NEGATES` | `KeyManagerFactorySpec`, `KeyStoreSpec`, `SecretKeySpec` | 4.1, 4.8 |
+| 2 writes moved to the right constant | `KeyPairSpec` (`gpr` wrote the public-key constant), `TrustManagerFactorySpec` (`gtm1` wrote the key-manager one) | 4.1, 4.9 |
+| 3 writes removed with the events that carried them | `CipherSpec` `u2`, `u4`, `f6` — dropped by the alphabet re-budget, their binding profiles duplicating `u1`, `u3` and `f5` (D-S11) | 4.6 |
+
+Attribution is not a matter of reading: each of those sites lives inside a hunk
+of the set diff, and every hunk carries an entry in `divergence_record.csv`
+naming the task that introduced it (INV-INS-109 b).
+
+Sorted the same way as the table above, the derived set's 25 constants now read:
+
+| class | n | constants |
+|---|---:|---|
+| written **and** read — a live edge | 14 | `ENCRYPTED`, `GENERATED_CIPHER`, `GENERATED_KEY`, `GENERATED_KEY_MANAGERS`, `GENERATED_KEY_STORE`, `GENERATED_PRIVATE_KEY`, `GENERATED_PUBLIC_KEY`, `GENERATED_TRUST_MANAGERS`, `MACED`, `PREPARED_DH`, `PREPARED_GCM`, `PREPARED_HMAC`, `PREPARED_IV`, `RANDOMIZED` |
+| written, never read — **each one recorded** | 11 | `DIGESTED`, `GENERATED_KEY_PAIR`, `GENERATED_MAC`, `GENERATED_TRUST_MANAGER`, `GENERATE_SSL_CONTEXT`, `GENERATE_SSL_ENGINE`, `PREPARED_PBE`, `SIGNED`, `SPECCED_KEY`, `VERIFIED`, `WRAPPED_KEY` |
+| read, never written | 0 | — |
+| neither — only removed | 0 | — |
+
+3 live edges became 14. The two classes that were defects by construction are
+empty: nothing is read without a writer, which would report on every conforming
+call, and nothing is only removed.
+
+## The omission list, and the guard that reads it (tasks 7.1, 7.2)
+
+`predicate_omissions.csv` is the other half of INV-INS-111. A constant written
+and never read is a silent defect — the `ENSURES` side of a clause transcribed
+and the `REQUIRES` side not — unless there is a reason it cannot be paired here,
+and then the reason is what the file holds. Two kinds of entry, because the
+graph has two ways of leaving an edge open:
+
+| kind | n | what it is |
+|---|---:|---|
+| `constant-write-no-read` | 11 | a `Property` constant that exists and is written, with no reader |
+| `predicate-no-constant` | 9 | a CrySL predicate for which no constant was added at all — the eight of task 5.1d, plus `generatedMessageDigest` from task 4.3 |
+
+Both kinds live in one file on purpose: they are omissions from the same graph,
+and splitting them across two would let one drift from the other.
+
+The eleven fall into three reasons, and none of them is taste:
+
+- **Terminal in both anchors** (`DIGESTED`, `GENERATE_SSL_CONTEXT`,
+  `GENERATE_SSL_ENGINE`, `SIGNED`, `VERIFIED`, `WRAPPED_KEY`,
+  `GENERATED_KEY_PAIR`): the predicate is ensured and no rule in either CrySL
+  corpus requires it. A reader would have to be invented rather than transcribed.
+- **The consuming rule has no `.mop` here** (`PREPARED_PBE` — `AlgorithmParameters`;
+  `SPECCED_KEY` — `SecretKeyFactory` and `KeyFactory`): D-S14's criterion seen
+  from the producing side.
+- **The clause makes the place anonymous** (`GENERATED_MAC`): the only consumer
+  of `macced[M, D]` is the `Cipher` rule's `!macced[_, plainText]`, which reads
+  the second place alone — `MACED`, which `CipherSpec` does read (D-S13).
+  `GENERATED_TRUST_MANAGER` is the same shape one level up: the API 30 rule
+  ensures `generatedTrustManager` of the factory *and* of the array it returns,
+  and `SSLContext` requires only the array.
+
+`scripts/gh101_predicate_pairing_check.py` is what makes the list load-bearing
+rather than decorative. It recomputes the pairing from the `.mop` files — it does
+not trust the committed inventory, and fails if that inventory has gone stale —
+and then fails on a constant written, unread and unlisted; on a constant read
+that nothing writes, which is the false-positive trap D-S14 turns on; and on an
+entry that has stopped being true, either because nothing writes the constant any
+more or because something now reads it. The list cannot quietly outlive the
+defect it records.
+
+```bash
+uv run python scripts/gh101_predicate_pairing_check.py
+# -> 25 constant(s) written: 14 read by another specification,
+#    11 recorded as deliberate omissions
+```
 
 ## The edge map, and what anchors it
 
@@ -150,7 +236,7 @@ uppercase because the specification compares `protocol.toUpperCase()`, so
 
 ## The divergence record
 
-100 hunks over the derived set. Each entry names the hunk by a digest of its
+106 hunks over the derived set. Each entry names the hunk by a digest of its
 changed lines, so an edit elsewhere in the same file does not invalidate it,
 while changing what the hunk contains does: the reason recorded for the old
 content has not been shown to hold for the new.
@@ -158,12 +244,12 @@ content has not been shown to hold for the new.
 | kind | n | what it is |
 |---|---:|---|
 | `allow-list` | 12 | the derivation acting as it may — platform membership constraints |
-| `layer-2-repair` | 52 | authoring defects and the `CipherSpec` / `MacSpec` alphabet re-budgets |
-| `predicate-graph` | 39 | an edge of the CrySL graph given a reader, a writer or a removal |
+| `layer-2-repair` | 51 | authoring defects and the `CipherSpec` / `MacSpec` alphabet re-budgets |
+| `predicate-graph` | 42 | an edge of the CrySL graph given a reader, a writer or a removal |
 | `cipher-import` | 1 | `CipherSpec.mop`'s static import redirected to the derived tables |
 
 The 12 `allow-list` hunks are the state before any of this change's edits; the
-other 92 are repairs confined to the derived set, which is the whole reason the
+other 94 are repairs confined to the derived set, which is the whole reason the
 parity check was replaced by an enumeration (D-S7).
 
 ## What identity keying changes in the frozen set (tasks 4b.3, 4b.4)
@@ -231,6 +317,11 @@ cannot. Closing the gap would mean re-measuring the corpus, which is an explicit
 non-goal.
 
 ## The deliberate omissions, and why one of them is now closed (tasks 4.3, 5.1)
+
+The narrative below and the two sections that follow it are the *why*; the rows
+the guard reads are in `predicate_omissions.csv`, and `generatedMessageDigest` is
+one of them. Neither side may drift from the other: the file is where a reason
+becomes checkable, and this is where it stays readable.
 
 Two `ENSURES` clauses were recorded rather than closed, both of the same shape —
 a predicate the rule ensures **of the object itself** after its construction.
@@ -330,6 +421,12 @@ derivation's own oracle does not ask for it is recorded here rather than passed
 over.
 
 ## The eight predicates Group 5 does not add (task 5.1d)
+
+The eight are rows of `predicate_omissions.csv`, of kind `predicate-no-constant`
+— the file the pairing guard reads. What follows is the derivation of the
+criterion that put them there; the numbers below are counted over
+`predicate_edges.csv`, which is the Group 1 baseline and is deliberately not
+regenerated, so the bucket it names stays the one the decision was taken against.
 
 The capability-absent bucket holds **11 edges over 9 predicates**. One predicate,
 `generatedCipher`, gained a constant; the other eight did not, and the reason is

@@ -200,7 +200,8 @@ The system MUST instrument Android APKs with generated monitors through a 6-step
 #### FR03: Specification Set Support
 
 The system MUST support multiple specification sets for different API domains:
-- **JCA**: Java Cryptography Architecture monitors — 23 specifications detecting cryptographic API misuses (Cipher, MessageDigest, SSLContext, SecretKeySpec, KeyGenerator, Signature, Mac, KeyStore, etc.)
+- **JCA**: Java Cryptography Architecture monitors — 23 specifications detecting cryptographic API misuses (Cipher, MessageDigest, SSLContext, SecretKeySpec, KeyGenerator, Signature, Mac, KeyStore, etc.). Frozen against the measurements published from it
+- **JCA Android**: the same 23 specifications derived against generated CrySL rules for a declared Android API level. Selectable by name (`--specification-set jca_android`), because it is the only set carrying the specification repairs and a hand-written `custom` path would silently select the uncorrected one
 - **Generic (FSM)**: General programming pattern monitors — 118 FSM-based specifications from JavaMOP's specification database (e.g., Iterator hasNext before next, stream closing)
 - **Generic (new)**: Curated generic specifications — 27 specifications with descriptive names (e.g., `Closeable_MeaninglessClose`, `Map_UnsafeIterator`, `InputStream_ManipulateAfterClose`)
 - **Custom**: User-defined specification directories

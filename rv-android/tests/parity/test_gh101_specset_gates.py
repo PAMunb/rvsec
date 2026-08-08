@@ -18,10 +18,12 @@ which the sets differ is named in a versioned record with the reason it exists.
                      and the frozen set's predicate inventory is unchanged
     INV-INS-109 (b)  every hunk of the set diff is named by a record entry,
                      and no entry names a hunk that no longer exists
+    INV-INS-111      every Property constant the derived set writes is read by
+                     another specification, or recorded as a deliberate omission
     INV-INS-113      every one of the 23 derived specifications carries a
                      conformance verdict against the generated API 30 rules
 
-All four run against the sibling Java reactor, so they skip when it is absent.
+All five run against the sibling Java reactor, so they skip when it is absent.
 """
 
 from __future__ import annotations
@@ -106,6 +108,18 @@ def test_every_divergence_between_the_sets_is_recorded():
     """INV-INS-109 (b): the set diff and the divergence record name the same hunks."""
     _rvsec_home()
     result = _run(sys.executable, str(SCRIPTS / "gh101_divergence_record.py"), "--check")
+    assert result.returncode == 0, result.stderr
+
+
+def test_every_written_constant_is_read_or_recorded():
+    """INV-INS-111: no constant is written into the graph and left unconsulted.
+
+    The guard recomputes the pairing from the `.mop` files rather than reading it
+    off the committed inventory, so this gate also fails when that inventory has
+    gone stale.
+    """
+    _rvsec_home()
+    result = _run(sys.executable, str(SCRIPTS / "gh101_predicate_pairing_check.py"))
     assert result.returncode == 0, result.stderr
 
 

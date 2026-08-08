@@ -118,6 +118,27 @@ class TestSpecificationSetValidation:
         config = make_config(tmp_apk_dir, specification_set="custom")
         assert config.specification_set == "custom"
 
+    def test_jca_android_spec_set_valid(self, tmp_apk_dir):
+        """INV-EXP-03 (f): the derived Android set is an accepted value, and it is
+        accepted without a custom_specs_dir.
+
+        The decorated validate() absorbs its ValueError, so calling it proves nothing
+        either way; functools.wraps exposes the undecorated function, which is the one
+        carrying the accepted-value list.
+        """
+        config = make_config(tmp_apk_dir, specification_set="jca_android")
+        assert config.custom_specs_dir is None
+
+        ExperimentConfig.validate.__wrapped__(config)
+
+    def test_near_miss_spec_set_still_rejected(self, tmp_apk_dir):
+        """INV-EXP-03 (f): widening the list did not turn it into an allow-anything.
+        A hyphenated near-miss of the derived set's name is still refused."""
+        config = make_config(tmp_apk_dir, specification_set="jca-android")
+
+        with pytest.raises(ValueError, match="Invalid specification set"):
+            ExperimentConfig.validate.__wrapped__(config)
+
 
 class TestValidateSpecsDir:
     """INV-EXP-04: validate_specs_dir checks for .mop files."""

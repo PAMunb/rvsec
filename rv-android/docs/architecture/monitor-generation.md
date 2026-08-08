@@ -69,7 +69,7 @@ two workarounds around JavaMOP quirks — nothing about monitor semantics.
 - **MOP specification (`.mop`)** — A Monitoring-Oriented Programming spec: a text file pairing
   AspectJ-style events (method-call pointcuts) with a temporal/state-machine property that
   classifies event sequences as valid or violating. It is the subsystem's input; spec sets live
-  under `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/{jca,generic,generic_new}`.
+  under `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/{jca,jca_android,generic,generic_new}`.
 - **AspectJ pointcut / advice** — A pointcut is a pattern selecting join points (for example
   `call(* Cipher.getInstance(..))`); advice is code that runs before/after/around them. JavaMOP
   emits pointcut+advice as an `.aj` file; the advice body calls into the generated monitor.
@@ -88,14 +88,16 @@ two workarounds around JavaMOP quirks — nothing about monitor semantics.
   information as the `.aj`, but as a machine-readable tree so the DEX-native (dexlib2) weaver
   never has to parse textual AspectJ.
 - **specification set** — A named group of `.mop` files used as a unit: `jca` (23
-  cryptography-misuse specs), `generic`/`generic_new` (general API-usage specs). Exactly one set
-  is used per experiment run; the caller selects it by pointing `mop_specs_dir` at the set.
+  cryptography-misuse specs), `jca_android` (the same 23 derived against generated CrySL rules
+  for a declared Android API level), `generic`/`generic_new` (general API-usage specs). Exactly
+  one set is used per experiment run; the caller selects it by pointing `mop_specs_dir` at the
+  set.
 
 ### 3. System overview and context
 
 The subsystem sits between the RVSEC spec repository and the two instrumentation variants. Its
 input is the `rvsec-mop` resource tree, which supplies the `.mop` specification sets
-(`jca`/`generic`/`generic_new`) plus the hand-written custom aspects `coverage.aj` and
+(`jca`/`jca_android`/`generic`/`generic_new`) plus the hand-written custom aspects `coverage.aj` and
 `logging.aj`. Its output feeds two consumers: the **ajc variant** of `rv-instrumentation`,
 which weaves the generated `.aj` and `.java` (plus `coverage.aj`) into APKs via dex2jar + ajc +
 d8; and the **dexlib2 variant** (`rvsec-instrumentation-dexlib2`), which reads only the
@@ -594,7 +596,7 @@ The single behavioral variability point is the `emit_descriptor` toggle on `RVGe
 (default `True`): with it on, JavaMOP produces the `.json` descriptor for the dexlib2 weaver;
 with it off (or an unpatched JavaMOP), the `.aj`/`.rvm`/`.java` outputs are unchanged and only
 the descriptor is absent. The spec set is selected at runtime by pointing `mop_specs_dir` at
-`jca`, `generic`, or `generic_new`.
+`jca`, `jca_android`, `generic`, or `generic_new`.
 
 **Scenarios**
 
@@ -681,7 +683,7 @@ flowchart TB
         subgraph rvsec["$RVSEC_HOME (installed toolchain)"]
             jmrel["javamop/bin/javamop<br/>+ lib/*.jar + lib/plugins/*.jar"]
             rvmrel["rv-monitor/bin/rv-monitor<br/>+ lib/*.jar + lib/plugins/*.jar"]
-            specs["rvsec/rvsec-mop/.../resources/<br/>{jca,generic,generic_new} + aspect/"]
+            specs["rvsec/rvsec-mop/.../resources/<br/>{jca,jca_android,generic,generic_new} + aspect/"]
         end
         outdir[("experiment out/monitors/<br/>(generated artifacts)")]
     end
@@ -698,7 +700,7 @@ flowchart TB
 | `RuntimeVerificationGenerator` / `RVGeneratorConfig` | Python `.venv` on the host | In-process; no JVM dependency of its own. |
 | JavaMOP release | `$RVSEC_HOME/javamop/` (`bin/` + `lib/` + `lib/plugins/`) | Built by `maven-assembly-plugin` as `target/release/javamop/`; resolved installed launcher. |
 | RV-Monitor release | `$RVSEC_HOME/rv-monitor/` (`bin/` + `lib/` + `lib/plugins/`) | Same assembly layout; plugin jars loaded by exact filename. |
-| Spec + aspect resources | `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/{jca,generic,generic_new,aspect}` | Input `.mop` sets and custom `coverage.aj`/`logging.aj`. |
+| Spec + aspect resources | `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/{jca,jca_android,generic,generic_new,aspect}` | Input `.mop` sets and custom `coverage.aj`/`logging.aj`. |
 | Generated artifacts | `<experiment out>/monitors/` | Output of a run; consumed by the weavers. |
 
 **Context** — see [system context](#3-system-overview-and-context).
@@ -769,7 +771,7 @@ code in this subsystem; there are no unmapped invariants in this set.
 
 | Type | IDs | Where realized |
 |------|-----|----------------|
-| Functional requirements | FR01, FR03 | FR01 (monitor generation): `RuntimeVerificationGenerator.generate_monitors` driving JavaMOP + RV-Monitor. FR03 (spec-set support): `RVGeneratorConfig.mop_specs_dir` selecting one of `jca`/`generic`/`generic_new` as an atomic unit. |
+| Functional requirements | FR01, FR03 | FR01 (monitor generation): `RuntimeVerificationGenerator.generate_monitors` driving JavaMOP + RV-Monitor. FR03 (spec-set support): `RVGeneratorConfig.mop_specs_dir` selecting one of `jca`/`jca_android`/`generic`/`generic_new` as an atomic unit. |
 | Invariants | INV-INS-01, INV-INS-02, INV-INS-03, INV-INS-04, INV-INS-05, INV-INS-09, INV-INS-12, INV-INS-97 | INV-INS-01 (≥1 `.aj` + `.java` else `False`): `generate_monitors` return contract. INV-INS-02 (`≥1 .mop` else `ConfigurationError`) & INV-INS-03 (executable binaries respond to `-h`) & INV-INS-12 (fail at construction when unconfigured): `RVGeneratorConfig.model_post_init` validation. INV-INS-04 (no leftover `.rvm`): `delete_files_by_extension('.rvm', ...)` in `_execute_rvmonitor`. INV-INS-05 (`coverage.aj` copied): `copy_files_by_extension('.aj', aspects_dir, ...)` in `_execute_javamop`. INV-INS-09 (sets never mixed): one `mop_specs_dir` per run. INV-INS-97 (`baseAspectExclusions` schema): `DescriptorWriter.defaultBaseAspectExclusions()` in `javamop`. |
 | NFRs | NFR07, NFR05, NFR04, NFR08 | see [Rationale](#7-rationale) |
 

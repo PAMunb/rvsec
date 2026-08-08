@@ -33,7 +33,7 @@ Passed via `--tools` (see top `rv-android/CLAUDE.md` for `run` examples) or `--c
 ## ExperimentConfig (`config.py`)
 Fields: `name`, `description`, `tool_configs=[ToolConfig(...)]`, `repetitions`, `timeouts`,
 `no_window`, pre-proc flags `generate_monitors`/`instrument_apks`/`run_static_analysis`,
-`specification_set` (`jca`/`generic`/`custom`) + `custom_specs_dir`, and
+`specification_set` (`jca`/`jca_android`/`generic`/`custom`) + `custom_specs_dir`, and
 `apks_dir`/`output_dir`/`results_dir`.
 
 JIT methods (config built lazily on access):
@@ -58,6 +58,10 @@ register it in `rv-platform/src/rv_platform/__init__.py::_register_external_tool
 
 ## Specification sets
 - `jca`: `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca/`
+- `jca_android`: `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca_android/` — the JCA
+  set derived for a declared Android API level, and the one carrying the specification
+  repairs; it is selectable by name so that a stale `custom` path cannot silently
+  substitute the frozen `jca` set for it
 - `generic`: `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/generic/`
 - `custom`: `--custom-specs-dir` pointing at a dir of `.mop` files
 

@@ -22,7 +22,8 @@
        $MOP  = $RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/{jca,jca_android}
        $CORE = $RVSEC_HOME/rvsec/rvsec-core/src/main/java/br/unb/cic/mop
        Reference rules are read-only at MetaCrySL/generated/api30/ — that tree is not modified.
-       The exception is Group 6, which touches rv-experiment's config.py.
+       The exception is Group 6, which touches rv-experiment: config.py, constants.py, the
+       CLI in __main__.py and the pre_processor comment that enumerates the set directories.
      - 23 .mop files are touched, all in jca_android. Per-file edit counts come from Group 1's
        inventory, so each task is checked by counting rather than by reading. -->
 
@@ -162,31 +163,32 @@
 
 ## 6. The derived set becomes selectable by name
 
-- [ ] 6.1 Add `"jca_android"` to `valid_spec_sets` in `ExperimentConfig.validate()` and to the directory mapping in `get_monitored_operations_config()`, resolving to `{mop_base_dir}/jca_android/` (D-S8)
-- [ ] 6.2 Test that `specification_set = "jca_android"` resolves to the derived directory and does not require `custom_specs_dir`
-- [ ] 6.3 Check whether any documentation enumerates the accepted values — `CLAUDE.md`, `docs/PRD.md`, `.claude/project-info.md` — and update what does
+- [x] 6.1 Add `"jca_android"` to `valid_spec_sets` in `ExperimentConfig.validate()` and to the directory mapping in `get_monitored_operations_config()`, resolving to `{mop_base_dir}/jca_android/` (D-S8). The third code site is the `click.Choice` on `--specification-set` in `__main__.py`, which rejects the value before any config is built: without it the set is not selectable by name whatever `config.py` accepts
+- [x] 6.2 Test that `specification_set = "jca_android"` resolves to the derived directory and does not require `custom_specs_dir`. `validate()` runs under `ErrorHandler.handle_errors`, which absorbs the `ValueError`, so assert against the undecorated function (`__wrapped__`) or the test asserts nothing; assert too that a near-miss spelling is still rejected, and tighten the frozen set's own path assertion, which was a substring match that `"jca_android"` also satisfies
+- [x] 6.3 Check whether any documentation enumerates the accepted values — `CLAUDE.md`, `docs/PRD.md`, `.claude/project-info.md` — and update what does
+- [x] 6.4 Restate the enumerations the specifications carry outside FR03, since a closed list that omits the new value contradicts the requirement it constrains: INV-INS-09 in the `instrumentation` delta, and in a delta for the `experiment` capability the input contract for `specification_set`, INV-EXP-03 clause (f) — cited by clause letter in `config.py`'s validation docstring — and the directory mapping inside `Just-in-Time Sub-Module Configuration (FR17, NFR05)`, with the scenario for resolving the derived set from its name alone. Record the second capability in the proposal, which named only `instrumentation`
 
 ## 7. Guards and records
 
-- [ ] 7.1 Write the write/read guard: it reads the committed inventory and the specifications, recomputes the pairing, and fails on any constant written and neither read nor listed in the deliberate-omission list (D-S5, INV-INS-111)
-- [ ] 7.2 Commit the deliberate-omission list as versioned data beside the inventory
-- [ ] 7.3 Run the guard against the derived set; it must pass, and it must fail if a constant is deliberately mistyped in a scratch copy
-- [ ] 7.4 Regenerate both inventories after all edits: the `jca_android` one diffed against the Group 1 baseline, where every difference must correspond to a task in this change; the `jca` one identical to its baseline, byte for byte
-- [ ] 7.5 Record in the replication package that the published numbers reproduce exactly because the `jca` set was frozen, and that the debt this buys is a set that stays reproducible without being correct (D-S0)
-- [ ] 7.6 Record that comparisons of violation counts across the two sets now confound two causes — the platform allow-list and the layer-2 repairs present in the derived set only — and that no post-hoc measurement separates them
-- [ ] 7.7 Record that the derived Android profile models availability rather than recommendation — `MessageDigest` admits `MD5` and `SHA-1` — so a fall in the violation count across the sets is not evidence of better analysed code
+- [x] 7.1 Write the write/read guard: it reads the committed inventory and the specifications, recomputes the pairing, and fails on any constant written and neither read nor listed in the deliberate-omission list (D-S5, INV-INS-111)
+- [x] 7.2 Commit the deliberate-omission list as versioned data beside the inventory
+- [x] 7.3 Run the guard against the derived set; it must pass, and it must fail if a constant is deliberately mistyped in a scratch copy
+- [x] 7.4 Regenerate both inventories after all edits: the `jca_android` one diffed against the Group 1 baseline, where every difference must correspond to a task in this change; the `jca` one identical to its baseline, byte for byte
+- [x] 7.5 Record in the replication package that the published numbers reproduce exactly because the `jca` set was frozen, and that the debt this buys is a set that stays reproducible without being correct (D-S0)
+- [x] 7.6 Record that comparisons of violation counts across the two sets now confound two causes — the platform allow-list and the layer-2 repairs present in the derived set only — and that no post-hoc measurement separates them
+- [x] 7.7 Record that the derived Android profile models availability rather than recommendation — `MessageDigest` admits `MD5` and `SHA-1` — so a fall in the violation count across the sets is not evidence of better analysed code
 
 ## 8. Empirical verification — depends on issue #100
 
-- [ ] 8.1 Once issue #100 task 5.3 (wrapper registry key) has landed, verify empirically that the corrected `TrustManagerFactorySpec` and `SSLContextSpec` report as intended under the derived set. If it has not landed, record this task as blocked citing the artefact — do not substitute a weaker check (D-S6)
-- [ ] 8.2 Confirm the corrected allow-lists become observable, in particular that the `SSLContextSpec` label stops depending on a variable that is never written
+- [x] 8.1 Once issue #100 task 5.3 (wrapper registry key) has landed, verify empirically that the corrected `TrustManagerFactorySpec` and `SSLContextSpec` report as intended under the derived set. If it has not landed, record this task as blocked citing the artefact — do not substitute a weaker check (D-S6)
+- [x] 8.2 Confirm the corrected allow-lists become observable, in particular that the `SSLContextSpec` label stops depending on a variable that is never written
 
 ## 9. Verification
 
-- [ ] 9.1 Build the sibling reactor from its root and confirm both specification sets generate monitors without error — coordinating with the gh100 session first, since the reactor and `~/.m2` are shared
-- [ ] 9.2 Run the full conformance record check: 23 of 23 verdicts present, no blanks (INV-INS-113)
-- [ ] 9.3 Run the freeze check and the divergence-record check a final time (INV-INS-109)
-- [ ] 9.4 Run `/rv-qa-lint-fix` for the Python touched — `rv-experiment` and any verification scripts
-- [ ] 9.5 Run `/rv-verify rv-experiment`
-- [ ] 9.6 Invoke `/rv-code-reviewer` via the Skill tool
-- [ ] 9.7 Run `/rv-docs-sync` for any module whose docs the Group 6 change makes stale
+- [x] 9.1 Build the sibling reactor from its root and confirm both specification sets generate monitors without error — coordinating with the gh100 session first, since the reactor and `~/.m2` are shared
+- [x] 9.2 Run the full conformance record check: 23 of 23 verdicts present, no blanks (INV-INS-113)
+- [x] 9.3 Run the freeze check and the divergence-record check a final time (INV-INS-109)
+- [x] 9.4 Run `/rv-qa-lint-fix` for the Python touched — `rv-experiment` and any verification scripts
+- [x] 9.5 Run `/rv-verify rv-experiment`
+- [x] 9.6 Invoke `/rv-code-reviewer` via the Skill tool
+- [x] 9.7 Run `/rv-docs-sync` for any module whose docs the Group 6 change makes stale

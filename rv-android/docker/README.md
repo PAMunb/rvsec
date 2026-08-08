@@ -23,7 +23,7 @@ The Docker image chain builds incrementally:
 | `RV_REPETITIONS` | `--repetitions` | Number of repetitions |
 | `RV_APKS_DIR` | `--apks-dir` | APK directory path |
 | `RV_NO_WINDOW` | `--no-window` / `--window` | Emulator headless mode |
-| `RV_SPEC_SET` | `--specification-set` | Specification set (jca, generic, custom) |
+| `RV_SPEC_SET` | `--specification-set` | Specification set (jca, jca_android, generic, custom) |
 | `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation |
 | `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation |
 | `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis |

@@ -78,8 +78,40 @@ class TestJitMonitorConfig:
         assert result is mock_config
         call_kwargs = mock_cls.call_args[1]
         assert call_kwargs["rvsec_root"] == str(rvsec_dir)
-        assert "jca" in call_kwargs["mop_specs_dir"]
+        # The tail is matched exactly rather than by substring: "jca_android" also
+        # contains "jca", so a substring check would pass on the derived directory.
+        assert call_kwargs["mop_specs_dir"].endswith(os.path.join("resources", "jca"))
         assert "aspect" in call_kwargs["aspects_dir"]
+
+    def test_jca_android_spec_set_resolves_paths(self, tmp_apk_dir, tmp_path):
+        """FR03 scenario "JCA Android specification set selection": the derived set
+        resolves from its name alone, with no custom_specs_dir involved."""
+        rvsec_dir = tmp_path / "rvsec"
+        rvsec_dir.mkdir()
+
+        config = make_config(
+            tmp_apk_dir,
+            specification_set="jca_android",
+            rvsec_root=str(rvsec_dir),
+        )
+        assert config.custom_specs_dir is None
+
+        mock_config = MagicMock()
+        with patch(
+            "rv_experiment.config.RVGeneratorConfig", return_value=mock_config
+        ) as mock_cls:
+            config.get_monitored_operations_config()
+
+        call_kwargs = mock_cls.call_args[1]
+        assert call_kwargs["mop_specs_dir"] == os.path.join(
+            str(rvsec_dir),
+            "rvsec",
+            "rvsec-mop",
+            "src",
+            "main",
+            "resources",
+            "jca_android",
+        )
 
     def test_generic_spec_set_resolves_paths(self, tmp_apk_dir, tmp_path):
         """FR17: generic spec set resolves to generic directory."""

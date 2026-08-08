@@ -11,8 +11,9 @@ each one is written down, so the set stays reproducible without anyone being abl
 to mistake it for correct. Nothing here is a proposal — each entry is a repair
 that was made in the derived set and deliberately **not** made here.
 
-The two consequences that follow from the freeze, and that any report using
-either set has to carry:
+Three consequences follow — the first two from the freeze, the third from what
+the derived set was derived against — and any report using either set has to
+carry all three:
 
 1. Results measured under `jca` reproduce exactly, and remain wrong in the ways
    listed below.
@@ -21,6 +22,15 @@ either set has to carry:
    now come from the allow-list **or** from a repair present only in the derived
    set. No measurement decomposes an observed difference after the fact. The
    divergence record keeps the differences named; it cannot make them separable.
+3. The derived profile models **availability, not recommendation**. Its
+   allow-lists come from rules generated against what Android API 30 publishes,
+   and the platform publishes weak algorithms: the derived `MessageDigest` rule
+   admits `MD5` and `SHA-1`, so `MessageDigestSpec` reports fewer violations than
+   the frozen one on the same corpus while checking the same code no more
+   strictly. A fall in the violation count across the sets is therefore not
+   evidence of better analysed code, and the direction of the effect varies by
+   specification — see the conformance verdicts in
+   [`README.md`](README.md), where ten of the 23 are `anchored`.
 
 ---
 
@@ -76,11 +86,12 @@ originally named. `scripts/gh101_monitor_transition_check.py` is the check.
 
 Both were inert in `jca` for a second reason — a binding defect kept them out of
 the monitored object's parameter slice — so the frozen set does not currently
-emit the spurious report from them. It emits a different symptom instead: because
-`unsafe_protocol` never fires, `currentProtocol` keeps the empty string, and the
-campaign's `UnsafeProtocol` for this specification reads `but found .` — 51
-events. `TrustManagerFactorySpec` does the same for `UnsafeAlgorithm`, 8,371
-events. The frozen set therefore keeps both the dead event and the empty label.
+emit the spurious report from them. The empty label the campaign shows alongside
+them (`but found .`: 51 `UnsafeProtocol` events for `SSLContextSpec`, 8,371
+`UnsafeAlgorithm` events for `TrustManagerFactorySpec`) was long attributed to the
+same binding defect. **Task 8.1 measured it and the attribution was wrong** — the
+empty label came from the weaver, not from the specification. The section
+"What Group 8 measured" below carries the measurement and the corrected account.
 
 **The sixteen the derived set also repairs, in eight further specifications:**
 `IvParameterSpecSpec.c3`/`c4`, `KeyPairGeneratorSpec.initError`,
@@ -132,6 +143,79 @@ one `InvalidSequenceOfMethodCalls` line for the same tuple.
 The frozen set keeps all eighteen. Its `InvalidSequenceOfMethodCalls` counts stay
 exactly reproducible, and an unknown but bounded majority of them are not evidence
 of a sequence violation.
+
+---
+
+## What Group 8 measured (tasks 8.1, 8.2)
+
+D-S6 put the empirical check last because the two repaired specifications compare
+their allow-list against a variable the weaver's wrapper collision prevented from
+being written. That collision is issue #100's task 5.3, landed in `48b57fc5`. This
+section is what running the instrument after it says.
+
+**Design.** Two arms, everything held fixed except the specification set: the same
+four APKs, the same repaired `dexlib2` weaver, `monkey`, 180 s, one repetition,
+static analysis skipped. The APKs were chosen from the published campaign's own
+`errors.csv` as the apps that carry the symptom — `com.owncloud.android_48000100`
+and `eu.opencloud.android_9` are the only two apps in the dataset that produce the
+empty label for *both* specifications, `de.luhmer.owncloudnewsreader_196` is the
+most reliable producer of a non-empty one, and `com.etesync.syncadapter_20700`
+carries both shapes. `apks_examples/cryptoapp.apk` cannot serve here: its DEX
+contains no reference to `SSLContext` or `TrustManagerFactory` at all.
+
+Monkey is stochastic and one repetition is not a rate, so nothing below is read as
+a count. What is read is the **shape of a message at a named site**.
+
+| | frozen `jca` | derived `jca_android` |
+|---|---|---|
+| `but found .`, over all eight logcats | **0** | **0** |
+| `TrustManagerFactorySpec` `UnsafeAlgorithm` at `MemorizingTrustManager.java:282` | `expecting one of PKIX,SunX509 but found X509.` | `expecting one of PKIX but found X509.` |
+| `SSLContextSpec` at `HttpClient.getOkHttpClient` | no line | `UnsatisfiedConstraint — init() requires trust managers established by a monitored TrustManagerFactory sequence.` |
+| `TrustManagerFactorySpec` at `AdvancedX509TrustManager.findX509TrustManager` | no line | `InvalidSequenceOfMethodCalls` |
+
+`com.etesync.syncadapter_20700` reached no monitored call in either arm — its
+`monkey` run spent the budget in a `WebViewActivity`. It is reported rather than
+dropped.
+
+**8.2 is answered, and not by the observable the plan predicted.** The corrected
+allow-list is observable: the same app, at the same line, is told
+`expecting one of PKIX` where the frozen set says `expecting one of PKIX,SunX509`.
+That is the derived `TrustManagerFactory` rule reaching the report.
+
+**8.1 corrected a recorded attribution.** The plan expected the repair to be
+visible as the label ceasing to be empty. It does not distinguish the sets,
+because the empty label is gone from the **frozen** arm too. The cause was never
+the binding defect; it was the wrapper collision, and the campaign's own
+distribution confirms it. Both specifications advise one call site twice —
+`TrustManagerFactory.getInstance(String)` carries `g1` and `g3`,
+`SSLContext.getInstance(String)` carries `g1` and `unsafe_protocol` — and the
+pre-`48b57fc5` weaver emitted one wrapper per call site, so one of each pair was
+discarded. Which one survived decides the label:
+
+| what survived | what the label reads | campaign |
+|---|---|---|
+| `g3` / `unsafe_protocol`, on an argument outside the allow-list | the argument | 643 `X509`, 8,648 `TLS` |
+| the same, on an argument *inside* the allow-list — nothing is written | empty | 8,371 + 51 |
+
+That is the whole distribution, with nothing left over. With every advice emitted,
+the frozen `SSLContextSpec` writes `currentProtocol` at these sites and finds it
+admissible under `{TLSv1.2, TLSv1.3}` — which is why its arm shows no line at all
+while the derived arm, whose `init` reads three predicates the translation dropped,
+shows one.
+
+**The binding defect is real and its cost is not the empty label.** `g3` binds `k`
+and `unsafe_protocol` binds nothing, so both live in the empty parameter slice, and
+the frozen arm still delivered `but found X509.` to a monitor indexed by the
+factory. Parametric monitoring is what carries it: a monitor for `{mf}` is created
+by copying the maximal ancestor, and the empty slice is that ancestor. The value
+therefore arrives — but it is the *last* value any factory wrote, not this one's.
+The defect surfaces with two live factories, not with one, which is why a
+single-object app cannot see it and why the repair is still the right one.
+
+**What this does not say.** Nothing here measures a violation rate, and nothing
+here compares the two sets' totals — task 7.6 already records that such a
+comparison confounds the platform allow-list with the layer-2 repairs. The claim
+is exactly the four rows of the table above.
 
 ---
 

@@ -123,14 +123,15 @@ class PreProcessor:
         """Generate runtime verification monitors using JavaMOP and RV-Monitor."""
         # Monitor generation pipeline:
         # 1. Read .mop specification files from the specification_set directory
-        #    (jca/ or generic/ under RVSEC_HOME/rvsec/rvsec-mop/.../resources/)
+        #    (jca/, jca_android/ or generic/ under
+        #    RVSEC_HOME/rvsec/rvsec-mop/.../resources/)
         # 2. JavaMOP compiles .mop files into .aj (AspectJ) aspect files
         # 3. RV-Monitor generates runtime monitor classes from .mop files
         # 4. Output (aspects + monitors) goes to out/monitors/
         #
-        # ExperimentConfig.specification_set ("jca" or "generic") determines
-        # which .mop files are used. The two sets are mutually exclusive —
-        # an experiment uses one or the other, never both.
+        # ExperimentConfig.specification_set ("jca", "jca_android" or "generic")
+        # determines which .mop files are used. The sets are mutually exclusive —
+        # an experiment uses exactly one of them, never several.
         with self.logger.with_context(phase="generate_monitors"):
             self.logger.info(LOG_START.format(phase="monitor generation"))
 

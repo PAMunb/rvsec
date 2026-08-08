@@ -13,7 +13,7 @@ This module implements requirements from `openspec/specs/instrumentation/spec.md
 | FR | Description | Architectural Support |
 |----|-------------|----------------------|
 | FR01 | Monitor generation from JavaMOP specifications | `RuntimeVerificationGenerator.generate_monitors()` orchestrates the JavaMOP -> RV-Monitor pipeline, including the `-d` bug workaround, custom aspect copying, and `.rvm` cleanup |
-| FR03 | Specification set support | `RVGeneratorConfig` resolves `mop_specs_dir` to JCA, generic, or custom specification directories; defaults to JCA when only `rvsec_root` is provided |
+| FR03 | Specification set support | `RVGeneratorConfig` resolves `mop_specs_dir` to JCA, JCA Android, generic, or custom specification directories; defaults to JCA when only `rvsec_root` is provided |
 
 ### Key Invariants
 

@@ -227,7 +227,7 @@ from rv_experiment.config import ExperimentConfig
 
 config = ExperimentConfig(
     name="monitor_experiment",
-    specification_set="jca",  # or "generic" or "custom"
+    specification_set="jca",  # or "jca_android", "generic", "custom"
     generate_monitors=True
 )
 

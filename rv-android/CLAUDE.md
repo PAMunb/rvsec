@@ -141,10 +141,13 @@ Comments describe what the code does *now*. No migration history ("migrated from
 ## Important Implementation Notes
 
 ### Specification Sets (Runtime Verification)
-The system supports two distinct specification sets, used **separately** across experiments (one experiment instruments with JCA, another with generic):
+The system supports three distinct specification sets, used **separately** across experiments (one experiment instruments with JCA, another with generic):
 
-1. **JCA Specifications**: detect misuse of the Java Cryptography Architecture (JCA) API — e.g. proper cipher initialization, key generation, secure random.
-2. **Generic Specifications**: detect violations of general API usage — e.g. `hasNext()` before `next()` on Iterator; close streams after use.
+1. **JCA Specifications** (`--specification-set jca`): detect misuse of the Java Cryptography Architecture (JCA) API — e.g. proper cipher initialization, key generation, secure random.
+2. **JCA Android Specifications** (`--specification-set jca_android`): the same 23 specifications derived against generated CrySL rules for a declared Android API level. It is the set that carries the specification repairs; `jca` is frozen against the measurements published from it.
+3. **Generic Specifications** (`--specification-set generic`): detect violations of general API usage — e.g. `hasNext()` before `next()` on Iterator; close streams after use.
+
+A fourth value, `custom`, takes a directory of `.mop` files via `--custom-specs-dir`.
 
 **Important**: "MOP" (Monitored Operations) refers to operations monitored by ANY specification, not specifically security-related ones. Do NOT use "security" terminology for MOP — use "monitored operations".
 

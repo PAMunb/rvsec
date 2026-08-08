@@ -42,7 +42,7 @@ uv run rv-experiment run [OPTIONS]
 | `--timeouts` | 300 | Execution timeouts per APK in seconds, comma-separated (e.g. `300` or `60,300`); each value is one arm of the task matrix |
 | `--repetitions, -r` | 1 | Number of repetitions |
 | `--apks-dir, -a` | `./apks_examples/` | Directory containing APK files |
-| `--specification-set` | `jca` | Specification set: `jca`, `generic`, `custom` |
+| `--specification-set` | `jca` | Specification set: `jca`, `jca_android`, `generic`, `custom` |
 | `--output-dir` | auto-generated | Output directory for results |
 | `--name` | auto-generated | Experiment name. When `results/<name>/tasks.json` exists, auto-enables resume |
 | `--resume-dir` | — | Resume from a specific results directory (overrides `--name`) |

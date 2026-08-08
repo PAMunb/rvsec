@@ -81,14 +81,20 @@ DEFAULT_REPETITIONS = 1
 DEFAULT_TOOL_TIMEOUT = 60
 
 # Specification sets for runtime verification monitors.
-# JCA and generic are predefined directories under RVSEC_HOME containing .mop files.
-# Custom allows user-provided .mop files via --custom-specs-dir.
+# JCA, JCA Android and generic are predefined directories under RVSEC_HOME containing
+# .mop files. Custom allows user-provided .mop files via --custom-specs-dir.
 # An experiment uses exactly one spec set — they are mutually exclusive.
+# SPEC_SET_JCA_ANDROID is the JCA set derived against generated CrySL rules for a
+# declared Android API level. It is selectable by name rather than only through
+# SPEC_SET_CUSTOM because it is the only set carrying the specification repairs
+# (issue #101): a mistyped or stale custom path selects the uncorrected instrument
+# while the experiment reports as though it ran the corrected one.
 # SPEC_SET_CUSTOM triggers INV-EXP-04: when specification_set is "custom",
 # custom_specs_dir MUST be set and point to a directory containing at least one .mop
 # file, else the CLI raises ClickException before execution. DEFAULT_SPEC_SET (jca) is
 # the default from Scenario "Single Tool With Default Configuration".
 SPEC_SET_JCA = "jca"
+SPEC_SET_JCA_ANDROID = "jca_android"
 SPEC_SET_GENERIC = "generic"
 SPEC_SET_CUSTOM = "custom"
 DEFAULT_SPEC_SET = SPEC_SET_JCA

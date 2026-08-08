@@ -42,6 +42,10 @@ from rv_experiment.constants import (
     INSTRUMENTED_DIR,
     MONITORS_DIR,
     RESULTS_DIR,
+    SPEC_SET_CUSTOM,
+    SPEC_SET_GENERIC,
+    SPEC_SET_JCA,
+    SPEC_SET_JCA_ANDROID,
 )
 from rv_instrumentation_ajc.config import (
     AjcInstrumentationConfig,
@@ -241,10 +245,13 @@ class ExperimentConfig(BaseValidatedModel):
     # --- 5. Specification set ---
     # Determines which .mop files are used for monitor generation in Phase 1.
     # "jca" = Java Cryptography Architecture API misuse detection
+    # "jca_android" = the same 23 specifications derived against generated CrySL
+    #   rules for a declared Android API level, and the only set carrying the
+    #   specification repairs of issue #101
     # "generic" = general API usage patterns (Iterator, Collections, Streams)
     # "custom" = user-provided .mop files via custom_specs_dir
-    # The two standard sets are mutually exclusive — an experiment uses one
-    # or the other, never both.
+    # The predefined sets are mutually exclusive — an experiment uses one
+    # of them, never several.
     specification_set: str = Field(
         default=DEFAULT_SPEC_SET, description="Specification set type"
     )
@@ -375,7 +382,8 @@ class ExperimentConfig(BaseValidatedModel):
         tool is configured, (c) repetitions > 0, (d) all timeouts > 0, (e) the
         APK source directory exists and contains .apk files (via
         _validate_apk_sources), and (f) specification_set is one of "jca",
-        "generic", "custom". Each check below is tagged with its clause letter.
+        "jca_android", "generic", "custom". Each check below is tagged with its
+        clause letter.
 
         ### Validation Strategy:
         - Basic parameter validation (names, timeouts, repetitions)
@@ -418,10 +426,15 @@ class ExperimentConfig(BaseValidatedModel):
             )
 
         # Validate specification set — INV-EXP-03 (f): specification_set is one of
-        # "jca", "generic", "custom". "jca" and "generic" map to predefined
-        # directories under RVSEC_HOME; "custom" requires a user-provided path to
-        # .mop files.
-        valid_spec_sets = ["jca", "generic", "custom"]
+        # "jca", "jca_android", "generic", "custom". The first three map to
+        # predefined directories under RVSEC_HOME; "custom" requires a
+        # user-provided path to .mop files.
+        valid_spec_sets = [
+            SPEC_SET_JCA,
+            SPEC_SET_JCA_ANDROID,
+            SPEC_SET_GENERIC,
+            SPEC_SET_CUSTOM,
+        ]
         if self.specification_set not in valid_spec_sets:
             raise ValueError(
                 f"Invalid specification set '{self.specification_set}'. "
@@ -632,8 +645,8 @@ class ExperimentConfig(BaseValidatedModel):
         when PreProcessor invokes it. The specification_set -> directory mapping is
         asserted by that Requirement and by Scenario "JIT Configuration for Monitor
         Generation With JCA Specs": jca -> .../resources/jca,
-        generic -> .../resources/generic, custom -> custom_specs_dir, and
-        aspects_dir -> .../resources/aspect.
+        jca_android -> .../resources/jca_android, generic -> .../resources/generic,
+        custom -> custom_specs_dir, and aspects_dir -> .../resources/aspect.
 
         ### Configuration Pattern:
         This method creates monitor generation configuration only when needed,
@@ -641,6 +654,7 @@ class ExperimentConfig(BaseValidatedModel):
 
         ### Specification Set Support:
         - **JCA**: Java Cryptography Architecture API monitoring
+        - **JCA Android**: the JCA set derived for a declared Android API level
         - **Generic**: Generic programming patterns (Iterator, Collections, etc.)
         - **Custom**: User-defined specification sets
 
@@ -660,19 +674,24 @@ class ExperimentConfig(BaseValidatedModel):
         # Map specification_set to the directory containing .mop files.
         # The directory structure under RVSEC_HOME is:
         #   rvsec/rvsec-mop/src/main/resources/
-        #     jca/       <- JCA crypto API specs (.mop files)
-        #     generic/   <- generic API usage specs (.mop files)
-        #     aspect/    <- shared AspectJ aspects
+        #     jca/          <- JCA crypto API specs (.mop files)
+        #     jca_android/  <- the same specs derived for an Android API level
+        #     generic/      <- generic API usage specs (.mop files)
+        #     aspect/       <- shared AspectJ aspects
         # This mapping is the one asserted by Scenario "JIT Configuration for
-        # Monitor Generation With JCA Specs".
+        # Monitor Generation With JCA Specs". The predefined sets resolve from the
+        # set name alone: no path is supplied by the caller, which is what keeps a
+        # stale path from selecting a set other than the one the experiment reports.
         mop_base_dir = os.path.join(
             rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources"
         )
-        if self.specification_set == "jca":
-            mop_specs_dir = os.path.join(mop_base_dir, "jca")
-        elif self.specification_set == "generic":
-            mop_specs_dir = os.path.join(mop_base_dir, "generic")
-        elif self.specification_set == "custom":
+        if self.specification_set == SPEC_SET_JCA:
+            mop_specs_dir = os.path.join(mop_base_dir, SPEC_SET_JCA)
+        elif self.specification_set == SPEC_SET_JCA_ANDROID:
+            mop_specs_dir = os.path.join(mop_base_dir, SPEC_SET_JCA_ANDROID)
+        elif self.specification_set == SPEC_SET_GENERIC:
+            mop_specs_dir = os.path.join(mop_base_dir, SPEC_SET_GENERIC)
+        elif self.specification_set == SPEC_SET_CUSTOM:
             if self.custom_specs_dir:
                 mop_specs_dir = self.custom_specs_dir
                 # Scenario "JIT Configuration for Custom Specification Set": a

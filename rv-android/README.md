@@ -145,6 +145,9 @@ Specification source: `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/`
 # JCA specifications (default)
 uv run rv-experiment run --tools monkey --specification-set jca
 
+# JCA specifications derived for an Android API level
+uv run rv-experiment run --tools monkey --specification-set jca_android
+
 # Generic FSM specifications
 uv run rv-experiment run --tools monkey --specification-set generic
 
@@ -296,7 +299,7 @@ uv run rv-experiment run --tools <tools> [options]
 --timeouts CSV             # Execution timeouts, comma-separated (e.g. 300 or 60,300; default: 300)
 --repetitions N            # Number of repetitions (default: 1)
 --apks-dir DIR             # APK directory (default: ./apks_examples)
---specification-set SET    # jca, generic, or custom (default: jca)
+--specification-set SET    # jca, jca_android, generic, or custom (default: jca)
 --name NAME                # Experiment name (enables implicit resume)
 --resume-dir DIR           # Resume from specific directory
 --no-window                # Headless emulator mode
@@ -353,7 +356,7 @@ documentation, and source code. Pattern rationale: `docs/adr/0001-env-var-patter
 | `RV_APKS_DIR` | `--apks-dir` | `./apks_examples` | rv-experiment (L5) | APK source directory |
 | `RV_TOOLS` | `--tools` | `monkey` | rv-experiment (L5) | Tool spec DSL (`name[:variant][@params]`, comma-separated) |
 | `RV_INSTRUMENTATION_VARIANT` | `--instrumentation-variant` | `ajc` | rv-experiment (L5) | Instrumentation pipeline (`ajc` or `dexlib2`) |
-| `RV_SPEC_SET` | `--specification-set` | `jca` | rv-experiment (L5) | Specification set (`jca`, `generic`, `custom`) |
+| `RV_SPEC_SET` | `--specification-set` | `jca` | rv-experiment (L5) | Specification set (`jca`, `jca_android`, `generic`, `custom`) |
 | `RV_APKS_FILTER` | `--apks-filter` | (none) | rv-experiment (L5) | APK basename filter file (one per line) |
 | `RV_TIMEOUTS` | `--timeouts` | `300` | rv-experiment (L5) | Per-task timeouts (seconds); comma-separated list, one arm per value |
 | `RV_REPETITIONS` | `--repetitions` | `1` | rv-experiment (L5) | Repetitions per (APK, tool, timeout) |
