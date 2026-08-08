@@ -61,7 +61,7 @@ Relevant requirements: FR02 (APK instrumentation with monitors), NFR07 (correctn
 |-------------|---------------|------|
 | Emission Cardinality for Fused Advices | `EmitContext:51-52`, `MonitorInvokeBuilder:238-241`, `StaticInitializationEmitter:145-148`, `AfterThrowingEmitter:72` | V0: `EmitPlanShapeTest`, `StaticInitializationEmitterSignatureTest`, `AfterThrowingEmitterTest` with an N=3 fixture |
 | INV-INS-104 (N calls → N invokes, every path) | same, plus `WrapperEmitter:637` as reference | parity assertion: inline plan and wrapper plan emit the same call set |
-| Wrapper Registry Key Uniqueness | `DexWeaver:145` (key), `:159` (write), guard idiom at `:208` | unit test with two advices colliding on the key |
+| Wrapper Registry Key Uniqueness | `WrapperEmitter` merges the advices bound to one call into one wrapper; `DexWeaver:145` (key), `:159` (write, fail-loud guard) | `WrapperMergeTest` (3), `WrapperRegistryGuardTest` (3) |
 | Fail-Closed Pointcut Parsing | `parseCommonPointcut` | unit test: unparseable expression raises, does not match |
 | Instrumentation Result Reporting | `InstrumentationCli:129-137`, `dexlib_instrumentation.py:245-252`, `_parse_results_json:494` | integration: production path produces `instrument_results.json` |
 | INV-INS-105 (results JSON always written) | same | assertion over a results tree: every APK has a results JSON |
@@ -111,11 +111,17 @@ Routing everything through wrappers would change bytecode shape for every curren
 
 The census (7 advices, 9 events) was derived from the production descriptor by inspection. **Decision: re-derive it mechanically as a task inside this change, before the repair**, so the post-repair count has a pre-repair baseline computed by the same code rather than by a different method. This is one script and it doubles as part of the V2 evidence.
 
-### D-B1 — the wrapper key is disambiguated, and collision fails loud until it is
+### D-B1 — the wrapper key cannot be widened, so the emitter merges instead
 
-The key at `DexWeaver:145` collides for distinct advices. Two options: widen the key so distinct advices produce distinct keys, or keep the key and guard the write.
+The key at `DexWeaver:145` collides for distinct advices. Two options were on the table: widen the key so distinct advices produce distinct keys, or keep the key and guard the write.
 
-**Decision: widen the key, and additionally guard the write to fail loud** when a key would be rebound to a different advice. Guarding alone (the `containsKey` idiom at `:208`) would silently drop the second advice's wrapper instead of silently overwriting the first — a different wrong answer. Widening fixes the cause; the guard turns any residual collision into a build failure rather than a data defect.
+**Neither is available.** The key is `origClassDesc#method(params)return` — the call site's own `MethodReference`, which is the only identity a call site carries. Any component added to it is a component the lookup cannot supply, because at substitution time the weaver has the invoke and nothing else; so there is nothing to widen the key *with*. And guarding alone would abort the weave on the real production descriptor, which has 10 keys bound more than once.
+
+**Decision, confirmed with the user on 2026-08-07: `WrapperEmitter` merges.** One wrapper is emitted per original call, and its body fires the monitor calls of every advice bound to that call. The registry becomes single-valued by construction — there is no second binding left to disambiguate — and the fail-loud guard stays, demoted from being the repair to being the assertion that emitter and registry still agree about what counts as the same call.
+
+Measured on the production descriptor **before** the merge: 96 wrappers over 84 distinct keys, 10 keys bound more than once, **12 wrappers silently discarded**; `SecureRandom.getInstance(String)` alone was bound three times. After it: `wrappersGenerated` 96 → 84, `wrappersSubstituted` unchanged at 74 — no call site lost its wrapper.
+
+This satisfies the delta spec, which requires the weaver to *either* disambiguate the key or fail loud, never to bind the second advice's wrapper to the first advice's site. Merging removes the second binding rather than telling the two apart, which meets the requirement by making its precondition unreachable.
 
 ### D-O1 — the oracle minimum is met by provenance, not by lowering the threshold
 
@@ -194,7 +200,7 @@ Layer-3 trace path: `ErrorCollector` writes seven fields under the `RVSEC` tag �
 | Error | Source | Strategy | Recovery |
 |-------|--------|----------|----------|
 | `UnsupportedAspectConstructError` | `parseCommonPointcut` on an unrecognised expression | Fail the weave, name expression and aspect | Extend the parser deliberately, in its own change |
-| Wrapper key rebinding | `DexWeaver` registry write | Fail loud | Widen the key for the colliding shape |
+| Wrapper key rebinding | `DexWeaver` registry write | Fail loud | Fix the emitter: one wrapper per original call. The key is the call site's own `MethodReference` and cannot be widened (D-B1) |
 | Register-pressure discard after cardinality repair | `dex-mutator` | Count and report; do not silently drop | Reported in the change; a discard that turns out to be systematic becomes its own issue |
 | Missing results JSON | Python driver | Treat as instrumentation failure for that APK | Investigate the CLI invocation, not the parser |
 | Circular oracle | `OracleLoader` | Reject with a message naming the circularity | Re-derive from an independent weaver's recording |
@@ -229,7 +235,7 @@ Python tests run with `--import-mode=importlib -o "addopts="`, per the CI contra
 
 ## Open Questions
 
-- Whether the widened wrapper key (D-B1) changes the generated wrapper method names in a way that affects `BaksmaliDiffer`'s string matching. To be checked when the key shape is chosen; if it does, the Layer-1 normalisation gap documented in May 2026 is touched and must be handled in the same task group.
+- ~~Whether the widened wrapper key (D-B1) changes the generated wrapper method names in a way that affects `BaksmaliDiffer`'s string matching.~~ **Answered in D-B1 and task 5.4**: the key was never widened, but the merge does move the names, and the Layer-1 gap was already open before it. `specOfInvoke` looked wrapper names up **exactly**, while its own javadoc claimed it registered a prefix form — it never did. Reproducing the emitter's `_<n>` overload numbering from the descriptor alone was never possible either, because the descriptor does not carry the `android.jar` overloads the emitter numbers over. `buildWrapperToSpec` now keys on the base name `<fqClass>_<method>` and unions the specs of every advice over it; `specOfInvoke` tries the exact name first, then strips a trailing `_<digits>`.
 - ~~Whether the L3-c filter should include control-group records whose site does not exist in the Android build.~~ **Answered in D-O2**: excluded, via the `app_producao` classification, which keeps 138 of 298 control rows over 12 apps. The excluded tuples are `*Test` classes no APK contains.
 - Whether the derived oracles should carry `expected_message_substring`. The recorded `expecting` text is generated by the specification and names the offending parameter, so it discriminates two misuses of one method — but it is also the field most likely to change when a `.mop` set is edited, and issue #101 is editing those sets in parallel. Left null in the derived oracles for now; revisit if a verdict turns out to hinge on a distinction only the message carries.
 - Whether the post-repair count of register-pressure discards is small enough to absorb or large enough to become its own issue. Answerable only after D-A3's baseline exists.

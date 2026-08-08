@@ -96,7 +96,7 @@ Repairing cardinality increases the invokes spliced per site. The change SHALL r
 
 ### Requirement: Wrapper Registry Key Uniqueness
 
-The wrapper registry SHALL NOT overwrite an entry already bound to a different advice. The key computed at `DexWeaver.java:145` collides for distinct advices, and `:159` writes without a guard; the `containsKey` guard needed to resolve it already exists in the same file at `:208`. The collision has a direction — it fabricates violations by binding a call site to the wrong specification — and it is also the mechanism by which a corrected specification allow-list is read from a variable that never gets written, which is why issue #101 depends on this requirement and on nothing else in this change.
+The wrapper registry SHALL NOT overwrite an entry already bound to a different advice. The key computed at `DexWeaver.java:145` collides for distinct advices, and `:159` writes without a guard. The key is the call site's own `MethodReference` and cannot be widened, so the collision has to be removed where it is created — in the emitter, by emitting one wrapper per original call whose body fires every advice bound to it (D-B1); a guard at the registry write cannot resolve it on its own, because dropping the second binding is as wrong as overwriting the first. The collision has a direction — it fabricates violations by binding a call site to the wrong specification — and it is also the mechanism by which a corrected specification allow-list is read from a variable that never gets written, which is why issue #101 depends on this requirement and on nothing else in this change.
 
 #### Scenario: Two advices producing the same registry key
 

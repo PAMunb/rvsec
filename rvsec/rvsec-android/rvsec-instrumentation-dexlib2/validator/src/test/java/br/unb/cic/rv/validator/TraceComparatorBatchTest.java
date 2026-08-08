@@ -23,6 +23,25 @@ class TraceComparatorBatchTest {
     private static final String EXPECTED_HEADER =
             "apk,rep,tool,spec,ajcF1,dexF1,kappa,ajcTp,ajcFp,ajcFn,dexTp,dexFp,dexFn";
 
+    /** Minimal admissible provenance — batchAnalyze enforces admission (D-O6). */
+    private static final String PROVENANCE =
+            "provenance:\n"
+          + "  class: hand_validated\n"
+          + "  source: synthetic fixture for TraceComparatorBatchTest\n";
+
+    /**
+     * One violation line in the format the on-device collector emits: a padded
+     * logcat tag, then {@code ErrorSummary}'s six fields plus the {@code
+     * expecting} text. The fixtures pin class {@code C} / method {@code m}
+     * because every oracle here declares that site.
+     */
+    private static String line(String spec, String errorType, String expecting) {
+        return "08-06 18:17:04.465  3144  3457 V RVSEC   : "
+                + String.join(",", spec, "com.example.C", "C", "m", "C.java:1",
+                              errorType, expecting)
+                + "\n";
+    }
+
     @Test
     void singleApkSingleSpecRoundTrip(@TempDir Path tmp) throws Exception {
         Path oracleDir = Files.createDirectories(tmp.resolve("oracles"));
@@ -32,6 +51,7 @@ class TraceComparatorBatchTest {
 
         Files.writeString(oracleDir.resolve("cryptoapp-oracle.yaml"),
                 "name: cryptoapp\n"
+              + PROVENANCE
               + "expected_events:\n"
               + "  - id: 1\n"
               + "    spec: SpecX\n"
@@ -39,7 +59,7 @@ class TraceComparatorBatchTest {
               + "    location: { class: C, method: m }\n"
               + "    expected_message_substring: null\n");
 
-        String body = "RVSEC: [SpecX] ErrA: detail\n";
+        String body = line("SpecX", "ErrA", "detail");
         writeLogcat(ajcDir, "cryptoapp.apk", "1", "300", "aperv", body);
         writeLogcat(dexDir, "cryptoapp.apk", "1", "300", "aperv", body);
 
@@ -65,7 +85,8 @@ class TraceComparatorBatchTest {
         Path csv = tmp.resolve("metrics.csv");
 
         Files.writeString(oracleDir.resolve("cryptoapp-oracle.yaml"),
-                "expected_events:\n"
+                PROVENANCE
+              + "expected_events:\n"
               + "  - id: 1\n"
               + "    spec: SpecA\n"
               + "    error_type: ErrA\n"
@@ -77,7 +98,7 @@ class TraceComparatorBatchTest {
               + "    location: { class: C, method: m }\n"
               + "    expected_message_substring: null\n");
 
-        String body = "RVSEC: [SpecA] ErrA: x\nRVSEC: [SpecB] ErrB: y\n";
+        String body = line("SpecA", "ErrA", "x") + line("SpecB", "ErrB", "y");
         // 1 APK x 3 reps x 2 tools = 6 logcats per side. Use rep=10 to verify
         // numeric (not lexicographic) sorting puts it after rep=2.
         String[] reps = {"1", "2", "10"};
@@ -121,14 +142,15 @@ class TraceComparatorBatchTest {
 
         // Only cryptoapp has an oracle; orphan.apk has none.
         Files.writeString(oracleDir.resolve("cryptoapp-oracle.yaml"),
-                "expected_events:\n"
+                PROVENANCE
+              + "expected_events:\n"
               + "  - id: 1\n"
               + "    spec: SpecX\n"
               + "    error_type: ErrA\n"
               + "    location: { class: C, method: m }\n"
               + "    expected_message_substring: null\n");
 
-        String body = "RVSEC: [SpecX] ErrA: x\n";
+        String body = line("SpecX", "ErrA", "x");
         writeLogcat(ajcDir, "cryptoapp.apk", "1", "300", "aperv", body);
         writeLogcat(dexDir, "cryptoapp.apk", "1", "300", "aperv", body);
         writeLogcat(ajcDir, "orphan.apk", "1", "300", "aperv", body);
@@ -156,14 +178,15 @@ class TraceComparatorBatchTest {
         Path csv = tmp.resolve("metrics.csv");
 
         Files.writeString(oracleDir.resolve("cryptoapp-oracle.yaml"),
-                "expected_events:\n"
+                PROVENANCE
+              + "expected_events:\n"
               + "  - id: 1\n"
               + "    spec: SpecX\n"
               + "    error_type: ErrA\n"
               + "    location: { class: C, method: m }\n"
               + "    expected_message_substring: null\n");
 
-        String body = "RVSEC: [SpecX] ErrA: x\n";
+        String body = line("SpecX", "ErrA", "x");
         // Triple (cryptoapp.apk, rep=1, monkey) only on the ajc side -> unpaired.
         writeLogcat(ajcDir, "cryptoapp.apk", "1", "300", "monkey", body);
         // Triple (cryptoapp.apk, rep=1, aperv) on both sides -> paired.
@@ -197,14 +220,15 @@ class TraceComparatorBatchTest {
 
         // Mirrors the F-Droid corpus: app.pwhs.blockads_45.apk -> app.pwhs.blockads-oracle.yaml.
         Files.writeString(oracleDir.resolve("app.pwhs.blockads-oracle.yaml"),
-                "expected_events:\n"
+                PROVENANCE
+              + "expected_events:\n"
               + "  - id: 1\n"
               + "    spec: SpecX\n"
               + "    error_type: ErrA\n"
               + "    location: { class: C, method: m }\n"
               + "    expected_message_substring: null\n");
 
-        String body = "RVSEC: [SpecX] ErrA: x\n";
+        String body = line("SpecX", "ErrA", "x");
         writeLogcat(ajcDir, "app.pwhs.blockads_45.apk", "1", "300", "aperv", body);
         writeLogcat(dexDir, "app.pwhs.blockads_45.apk", "1", "300", "aperv", body);
 

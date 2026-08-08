@@ -1,0 +1,644 @@
+{
+  "layer" : "layer3-trace-comparator",
+  "passed" : false,
+  "message" : "trace comparison failed: F1_min=0.00, kappa_min=0.00 across 47 specs",
+  "metrics" : {
+    "oracleDir" : "/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/32b8a74b-5b77-41cc-b223-990765e130e1/scratchpad/l3c_run/oracles",
+    "apkSubsetDir" : "/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/32b8a74b-5b77-41cc-b223-990765e130e1/scratchpad/l3c_run/traces",
+    "gateF1Threshold" : 0.98,
+    "gateKappaThreshold" : 0.9,
+    "totalOracles" : 12,
+    "discoveredOracles" : 12,
+    "rejectedOracles" : { },
+    "emptyOracles" : [ ],
+    "skippedMissingTrace" : [ ],
+    "perOracle" : {
+      "com.beemdevelopment.aegis" : {
+        "perSpec" : {
+          "CipherSpec" : {
+            "ajcTp" : 6,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 1,
+            "dexFn" : 6,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "IvParameterSpecSpec" : {
+            "ajcTp" : 12,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 12,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "MacSpec" : {
+            "ajcTp" : 1,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 1,
+            "dexFp" : 0,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 1.0,
+            "kappa" : 1.0,
+            "passed" : true
+          },
+          "MessageDigestSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "PBEKeySpecSpec" : {
+            "ajcTp" : 6,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 6,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "SecretKeySpecSpec" : {
+            "ajcTp" : 14,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 14,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "com.darkrockstudios.app.securecamera" : {
+        "perSpec" : {
+          "CipherSpec" : {
+            "ajcTp" : 3,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 3,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "KeyStoreSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 3,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "MessageDigestSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 3,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "SecretKeySpecSpec" : {
+            "ajcTp" : 6,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 6,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "SecureRandomSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 2,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "com.hegocre.nextcloudpasswords" : {
+        "perSpec" : {
+          "CipherSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 5,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "KeyStoreSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 4,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "SSLContextSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "SecureRandomSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 1,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "com.leekleak.trafficlight" : {
+        "perSpec" : {
+          "CipherSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 1,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "KeyStoreSpec" : {
+            "ajcTp" : 1,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 1,
+            "dexFp" : 0,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 1.0,
+            "kappa" : 1.0,
+            "passed" : true
+          },
+          "SecureRandomSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 1,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "com.vrem.wifianalyzer" : {
+        "perSpec" : {
+          "MessageDigestSpec" : {
+            "ajcTp" : 4,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 4,
+            "dexFp" : 0,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 1.0,
+            "kappa" : 1.0,
+            "passed" : true
+          }
+        },
+        "passed" : true
+      },
+      "de.stephanlindauer.criticalmaps" : {
+        "perSpec" : {
+          "MessageDigestSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 2,
+            "dexFp" : 0,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 1.0,
+            "kappa" : 1.0,
+            "passed" : true
+          },
+          "SSLContextSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 3,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "TrustManagerFactorySpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 2,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "dev.dettmer.simplenotes" : {
+        "perSpec" : {
+          "CipherSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 7,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "KeyStoreSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 4,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "PBEKeySpecSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "SSLContextSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 3,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "SecretKeySpecSpec" : {
+            "ajcTp" : 4,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 4,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "SecureRandomSpec" : {
+            "ajcTp" : 1,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 1,
+            "dexFn" : 1,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "TrustManagerFactorySpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 2,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "dev.leonlatsch.photok" : {
+        "perSpec" : {
+          "CipherInputStreamSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "CipherOutputStreamSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "CipherSpec" : {
+            "ajcTp" : 7,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 2,
+            "dexFp" : 0,
+            "dexFn" : 5,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.4444,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "IvParameterSpecSpec" : {
+            "ajcTp" : 6,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 6,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "PBEKeySpecSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          },
+          "SecretKeySpecSpec" : {
+            "ajcTp" : 6,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 6,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "eu.opencloud.android" : {
+        "perSpec" : {
+          "KeyStoreSpec" : {
+            "ajcTp" : 1,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 1,
+            "dexFp" : 0,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 1.0,
+            "kappa" : 1.0,
+            "passed" : true
+          },
+          "SSLContextSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 2,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "TrustManagerFactorySpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 2,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "net.gaast.giggity" : {
+        "perSpec" : {
+          "MessageDigestSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 2,
+            "dexFp" : 0,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 1.0,
+            "kappa" : 1.0,
+            "passed" : true
+          }
+        },
+        "passed" : true
+      },
+      "org.cry.otp" : {
+        "perSpec" : {
+          "MacSpec" : {
+            "ajcTp" : 1,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 1,
+            "dexFp" : 1,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.6667,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "SecretKeySpecSpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 0,
+            "dexFn" : 2,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 0.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      },
+      "org.openhab.habdroid" : {
+        "perSpec" : {
+          "CipherSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 6,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "KeyStoreSpec" : {
+            "ajcTp" : 1,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 1,
+            "dexFp" : 4,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.3333,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "MessageDigestSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 2,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "SSLContextSpec" : {
+            "ajcTp" : 4,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 4,
+            "dexFp" : 3,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.7273,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "SecureRandomSpec" : {
+            "ajcTp" : 0,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 0,
+            "dexFp" : 1,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.0,
+            "kappa" : 1.0,
+            "passed" : false
+          },
+          "TrustManagerFactorySpec" : {
+            "ajcTp" : 2,
+            "ajcFp" : 0,
+            "ajcFn" : 0,
+            "dexTp" : 2,
+            "dexFp" : 2,
+            "dexFn" : 0,
+            "ajcF1" : 1.0,
+            "dexF1" : 0.6667,
+            "kappa" : 1.0,
+            "passed" : false
+          }
+        },
+        "passed" : false
+      }
+    },
+    "minDexF1" : 0.0,
+    "minKappa" : 0.0
+  }
+}

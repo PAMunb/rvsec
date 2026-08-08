@@ -1,0 +1,3 @@
+08-06 00:00:00.000  1000  1000 V RVSEC   : SSLContextSpec,n3.n,n3.n,l,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown
+08-06 00:00:00.000  1000  1000 V RVSEC   : SSLContextSpec,n3.n,n3.n,m,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown
+08-06 00:00:00.000  1000  1000 V RVSEC   : SSLContextSpec,n3.n,n3.n,m,Unknown Source:1,UnsafeProtocol,expecting one of {TLSv1.2, TLSv1.3} but found TLS.

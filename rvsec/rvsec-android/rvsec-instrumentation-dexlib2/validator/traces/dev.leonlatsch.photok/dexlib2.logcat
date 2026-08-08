@@ -1,0 +1,2 @@
+08-06 00:00:00.000  1000  1000 V RVSEC   : CipherSpec,dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,create,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown
+08-06 00:00:00.000  1000  1000 V RVSEC   : CipherSpec,dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown

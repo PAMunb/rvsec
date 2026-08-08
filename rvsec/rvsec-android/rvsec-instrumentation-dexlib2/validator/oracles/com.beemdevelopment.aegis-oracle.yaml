@@ -1,0 +1,260 @@
+name: com.beemdevelopment.aegis
+profile: control_group
+apk: com.beemdevelopment.aegis_81.apk
+gated: true
+provenance:
+  class: derived_from_independent_weaver
+  source_weaver: aspectj_javaagent
+  source_data: /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal/dataset/results/errors_unit_tests.csv
+  source_sha256: d938beb204419745156ee4d15c077e667c7711d58ef7aca731f382da1cee82ac
+  derivation_script: derive_l3c_oracle.py
+  source: |
+    The JCA specifications compiled into JavaMOPAgent.jar and attached as a
+    plain JVM -javaagent while this app's own unit-test suite runs. AspectJ
+    weaving, no emulator, no dexlib2. Same 23 .mop specs, same monitor
+    generator, same app as the campaign.
+
+    Filtered to app_producao tuples per
+    /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal/dataset/results/categoria_unit_tests.csv
+    (sha256 393547d9a06b1b8c31a369bb61443a33db80f5ba41a44bde16e426e969f4a50a): only application code can be
+    expected to exist in the shipped APK. The excluded lib tuples are test
+    classes that will never be in one.
+
+    Presence, never counts: the execution regime differs from the campaign's
+    (a project's own unit tests against GUI exploration), so absolute
+    occurrence counts are not comparable between the two sides.
+  repair: |
+    None applied. Unlike events_fair.csv, this source carries zero
+    frame-form rows; the derivation asserts that rather than assuming it, and
+    aborts if the upstream defect reappears.
+description: |
+  Control-group profile for a single APK. The only recorded regime in which
+  ErrorType.UnsatisfiedConstraint is observable at all, and therefore the
+  only oracle with power over the category the inline-truncation defect
+  erases.
+
+  24 unique misuse(s) at the article's key (apk, class, method,
+  spec), listed below as 41 expected event(s): a site that produced
+  two error types is one misuse and two events, because the comparator scores
+  per event and drops an event that declares no error_type.
+
+  GATED. This app's silence under dexlib2 was proved by joining the
+  campaign's coverage against the erased sites: the method ran and emitted
+  nothing. Absence is evidence here.
+expected_events:
+  - id: 1
+    spec: CipherSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.crypto.CryptoUtils, method: decrypt }
+    expected_message_substring: null
+  - id: 2
+    spec: CipherSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.AuthyImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 3
+    spec: CipherSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.FreeOtpImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 4
+    spec: CipherSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.StratumImporter$LegacyEncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 5
+    spec: CipherSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.TotpAuthenticatorImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 6
+    spec: CipherSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.TwoFASImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 7
+    spec: IvParameterSpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.AuthyImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 8
+    spec: IvParameterSpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.AuthyImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 9
+    spec: IvParameterSpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.FreeOtpImporter$DecryptedStateV2, method: convertEntry }
+    expected_message_substring: null
+  - id: 10
+    spec: IvParameterSpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.FreeOtpImporter$DecryptedStateV2, method: convertEntry }
+    expected_message_substring: null
+  - id: 11
+    spec: IvParameterSpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.FreeOtpImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 12
+    spec: IvParameterSpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.FreeOtpImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 13
+    spec: IvParameterSpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.StratumImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 14
+    spec: IvParameterSpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.StratumImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 15
+    spec: IvParameterSpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.StratumImporter$LegacyEncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 16
+    spec: IvParameterSpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.StratumImporter$LegacyEncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 17
+    spec: IvParameterSpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.TotpAuthenticatorImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 18
+    spec: IvParameterSpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.TotpAuthenticatorImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 19
+    spec: MacSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.crypto.otp.HOTP, method: getHash }
+    expected_message_substring: null
+  - id: 20
+    spec: MessageDigestSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.crypto.otp.MOTP, method: getDigest }
+    expected_message_substring: null
+  - id: 21
+    spec: MessageDigestSpec
+    error_type: UnsafeAlgorithm
+    location: { class: com.beemdevelopment.aegis.crypto.otp.MOTP, method: getDigest }
+    expected_message_substring: null
+  - id: 22
+    spec: PBEKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.AuthyImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 23
+    spec: PBEKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.AuthyImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 24
+    spec: PBEKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.TwoFASImporter$EncryptedState, method: deriveKey }
+    expected_message_substring: null
+  - id: 25
+    spec: PBEKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.TwoFASImporter$EncryptedState, method: deriveKey }
+    expected_message_substring: null
+  - id: 26
+    spec: PBEKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.ui.tasks.PBKDFTask, method: deriveKey }
+    expected_message_substring: null
+  - id: 27
+    spec: PBEKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.ui.tasks.PBKDFTask, method: deriveKey }
+    expected_message_substring: null
+  - id: 28
+    spec: SecretKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.crypto.otp.HOTP, method: getHash }
+    expected_message_substring: null
+  - id: 29
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.crypto.otp.HOTP, method: getHash }
+    expected_message_substring: null
+  - id: 30
+    spec: SecretKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.AndOtpImporter$EncryptedState, method: decryptOldFormat }
+    expected_message_substring: null
+  - id: 31
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.AndOtpImporter$EncryptedState, method: decryptOldFormat }
+    expected_message_substring: null
+  - id: 32
+    spec: SecretKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.AuthyImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 33
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.AuthyImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 34
+    spec: SecretKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.TotpAuthenticatorImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 35
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.TotpAuthenticatorImporter$EncryptedState, method: decrypt }
+    expected_message_substring: null
+  - id: 36
+    spec: SecretKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.importers.TwoFASImporter$EncryptedState, method: deriveKey }
+    expected_message_substring: null
+  - id: 37
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.importers.TwoFASImporter$EncryptedState, method: deriveKey }
+    expected_message_substring: null
+  - id: 38
+    spec: SecretKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.ui.tasks.PBKDFTask, method: deriveKey }
+    expected_message_substring: null
+  - id: 39
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.ui.tasks.PBKDFTask, method: deriveKey }
+    expected_message_substring: null
+  - id: 40
+    spec: SecretKeySpecSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: com.beemdevelopment.aegis.vault.slots.Slot, method: getKey }
+    expected_message_substring: null
+  - id: 41
+    spec: SecretKeySpecSpec
+    error_type: UnsatisfiedConstraint
+    location: { class: com.beemdevelopment.aegis.vault.slots.Slot, method: getKey }
+    expected_message_substring: null
+acceptance:
+  unique_misuse_count: 24
+  required_event_count: 41
+  full_coverage_required: true
+notes: |
+  Both sides available to this oracle are frozen pre-repair recordings, and
+  the dexlib2 side comes from a different execution regime than the control.
+  Executing it characterises the erased category; it cannot certify the
+  repair. A verdict that flips would need a fresh dexlib2 run over these
+  apps, which means an emulator session (L3-a) and is out of scope of the
+  change that derived this oracle. Any report citing it must say so.

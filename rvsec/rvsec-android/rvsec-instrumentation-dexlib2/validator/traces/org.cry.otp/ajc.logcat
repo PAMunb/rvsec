@@ -1,0 +1,3 @@
+08-06 00:00:00.000  1000  1000 V RVSEC   : MacSpec,org.cry.otp.TOTP,org.cry.otp.TOTP,hmac_sha,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown
+08-06 00:00:00.000  1000  1000 V RVSEC   : SecretKeySpecSpec,org.cry.otp.TOTP,org.cry.otp.TOTP,hmac_sha,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown
+08-06 00:00:00.000  1000  1000 V RVSEC   : SecretKeySpecSpec,org.cry.otp.TOTP,org.cry.otp.TOTP,hmac_sha,Unknown Source:1,UnsatisfiedConstraint,Using either an invalid algorithm or keyMaterial.length is not randomized.

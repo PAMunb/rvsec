@@ -28,15 +28,18 @@ import java.util.stream.Stream;
  * the two pipelines are computed; both must clear pre-registered gates.
  *
  * <h2>Matching</h2>
- * An oracle event matches an observed event when the {@code (spec,
- * error_type, expected_message_substring?)} triple agrees: spec and
- * error_type are byte-equal, and if the oracle declares an
- * {@code expected_message_substring} then the observed message must
- * contain it (case-sensitive). The oracle's {@code location.{class,
- * method}} is informational — it appears in the report for diagnostics
- * but is NOT used for matching, because the location is implicit in the
- * spec (each spec is bound to a class/method by its construction
- * inventory).
+ * An oracle event matches an observed event when spec and error_type are
+ * byte-equal, any declared {@code expected_message_substring} is contained in
+ * the observed message (case-sensitive), and any declared {@code location}
+ * agrees. The class is accepted in either the qualified or the short form the
+ * violation line carries; the method must be equal. An oracle event that
+ * declares no location falls back to {@code (spec, error_type)} alone.
+ *
+ * <p>
+ * Location is matched, not merely reported, because the unit of analysis is
+ * {@code (apk, class, method, spec)} — the article's unique misuse — and a
+ * comparator that ignored the site would score two different misuses of the
+ * same specification as one agreement (INV-INS-109, D-O3, D-O4).
  *
  * <h2>Gate</h2>
  * Per-spec {@code F1(dexlib2) >= 0.98} AND per-spec {@code kappa >= 0.9}
@@ -66,12 +69,46 @@ public final class TraceComparator {
     private static final int MAX_UNPAIRED_DIAGNOSTIC = 50;
 
     /**
-     * Same regex used by {@code rv-android/scripts/drive_cryptoapp.py}: an
-     * optional {@code RVSEC:} prefix, a bracketed spec name, an error
-     * type, and a colon-or-dash separated detail message.
+     * Isolates the payload of an on-device violation line from whatever logcat
+     * prefix precedes it.
+     *
+     * <p>
+     * The producer is {@code ErrorCollector.addError} (rvsec-logger-logcat),
+     * which calls {@code Log.v("RVSEC", message)}. Logcat's default
+     * {@code threadtime} format renders that as a fixed-width tag, so the real
+     * recordings carry {@code V RVSEC   :} — the tag padded with spaces to the
+     * column width. The padding is why a naive {@code RVSEC:} literal matches
+     * nothing on a real file.
+     *
+     * <p>
+     * The tag boundary matters in the other direction too. The same apps emit
+     * thousands of {@code RVSEC-COV:} coverage lines (2,266 against 5 violation
+     * lines in the 2026-08-06 recording used by the tests), and those are not
+     * violations. Requiring optional spaces and then the colon <em>immediately</em>
+     * after {@code RVSEC} excludes them: {@code RVSEC-COV:} has {@code -COV}
+     * where this pattern demands whitespace-or-colon.
      */
     private static final Pattern RVSEC_LINE = Pattern.compile(
-            "(?:RVSEC:\\s*)?\\[(?<spec>\\w+)\\]\\s+(?<etype>\\w+)\\s*[:\\-]\\s*(?<msg>.*)$");
+            "(?:^|\\s)RVSEC\\s*:\\s*(?<payload>\\S.*)$");
+
+    /**
+     * Number of comma-separated fields a violation payload carries.
+     *
+     * <p>
+     * {@code ErrorSummary.toString()} emits six —
+     * {@code spec,classQualifiedName,className,methodName,location,error} — and
+     * {@code ErrorCollector:37} appends {@code "," + expecting} for a seventh.
+     * The {@code expecting} text is generated from the specification and
+     * routinely contains commas of its own ({@code "expecting one of
+     * PKIX,SunX509 but found ."}), so everything from this index on is rejoined
+     * rather than split. This is the same rule
+     * {@code rv-android/modules/rv-coverage/.../logcat_parser.py} applies, which
+     * is the reference implementation for the format (INV-INS-110).
+     */
+    private static final int VIOLATION_FIELDS = 7;
+
+    /** Index of the first field belonging to the rejoined {@code expecting} text. */
+    private static final int EXPECTING_INDEX = 6;
 
     /**
      * Filename grammar emitted by rv-experiment:
@@ -91,24 +128,30 @@ public final class TraceComparator {
         metrics.put("gateF1Threshold", GATE_F1_THRESHOLD);
         metrics.put("gateKappaThreshold", GATE_KAPPA_THRESHOLD);
 
-        List<Path> oracleFiles = new ArrayList<>();
-        if (Files.isDirectory(oracleDir)) {
-            try (Stream<Path> ls = Files.list(oracleDir)) {
-                ls.filter(Files::isRegularFile)
-                  .filter(p -> p.getFileName().toString().endsWith("-oracle.yaml"))
-                  .sorted()
-                  .forEach(oracleFiles::add);
-            }
-        }
+        // Admission is consulted here rather than left to an operator who
+        // remembers to run the `oracles` subcommand (D-O6). Listing the
+        // directory directly, as this method used to, scores every file it
+        // finds — including one rejected for circularity, which is the single
+        // thing INV-INS-107 exists to keep out of a verdict. The rejections
+        // travel into the report so a shrunken oracle set is visible rather
+        // than merely smaller.
+        OracleLoader.LoadResult loaded = OracleLoader.load(oracleDir);
+        List<Path> oracleFiles = loaded.admitted();
 
         metrics.put("totalOracles", oracleFiles.size());
+        metrics.put("discoveredOracles", loaded.files().size());
+        metrics.put("rejectedOracles", loaded.rejected());
         if (oracleFiles.isEmpty()) {
             metrics.put("emptyOracles", List.of());
             metrics.put("skippedMissingTrace", List.of());
             metrics.put("perOracle", new LinkedHashMap<String, Object>());
             metrics.put("minDexF1", round4(1.0));
             metrics.put("minKappa", round4(1.0));
-            return new Report(LAYER_NAME, false, "no oracles to compare", metrics);
+            String why = loaded.files().isEmpty()
+                    ? "no oracles to compare"
+                    : "no admissible oracles to compare: all " + loaded.files().size()
+                            + " were rejected — see metrics.rejectedOracles";
+            return new Report(LAYER_NAME, false, why, metrics);
         }
 
         List<String> emptyOracles = new ArrayList<>();
@@ -226,6 +269,16 @@ public final class TraceComparator {
         metrics.put("dexlibResultsDir", dexlibResultsDir.toString());
         metrics.put("outputCsv", outputCsv.toString());
 
+        // Batch mode is where the per-APK oracles (D-O5) are consumed, so it is
+        // where admission has to hold (D-O6). An oracle rejected here resolves
+        // for no APK, and that APK is reported as having no oracle rather than
+        // scored against an inadmissible one.
+        OracleLoader.LoadResult loaded = OracleLoader.load(oracleDir);
+        java.util.Set<Path> admitted = new java.util.LinkedHashSet<>(loaded.admitted());
+        metrics.put("discoveredOracles", loaded.files().size());
+        metrics.put("admittedOracles", loaded.admitted().size());
+        metrics.put("rejectedOracles", loaded.rejected());
+
         Map<String, ResultLogcat> ajcByTriple = collectByTriple(ajcResultsDir);
         Map<String, ResultLogcat> dexByTriple = collectByTriple(dexlibResultsDir);
         int totalLogcats = ajcByTriple.size() + dexByTriple.size();
@@ -260,7 +313,7 @@ public final class TraceComparator {
 
         for (Map.Entry<String, List<String>> entry : triplesByApk.entrySet()) {
             String apk = entry.getKey();
-            Path oracleYaml = resolveOracleForApk(oracleDir, apk);
+            Path oracleYaml = resolveOracleForApk(oracleDir, apk, admitted);
             if (oracleYaml == null) {
                 skippedNoOracleSet.add(apk);
                 continue;
@@ -301,7 +354,7 @@ public final class TraceComparator {
         // Also flag APKs whose triples were unpaired but never reached the oracle check.
         for (String t : unpairedSet) {
             String apk = t.substring(0, t.indexOf('|'));
-            if (resolveOracleForApk(oracleDir, apk) == null) {
+            if (resolveOracleForApk(oracleDir, apk, admitted) == null) {
                 skippedNoOracleSet.add(apk);
             }
         }
@@ -339,8 +392,15 @@ public final class TraceComparator {
      * file exists. Caveat: APK package names that legitimately end with
      * {@code _<digits>} would be misclassified, but our F-Droid corpus
      * uses {@code _<versionCode>.apk} as the universal naming convention.
+     *
+     * <p>
+     * The result is additionally restricted to {@code admitted}: an oracle
+     * whose provenance was rejected resolves for no APK, so batch mode enforces
+     * the same admission rule as {@link #compare} (D-O6) rather than scoring
+     * whatever file happens to bear the right name.
      */
-    private static Path resolveOracleForApk(Path oracleDir, String apkFilename) {
+    private static Path resolveOracleForApk(Path oracleDir, String apkFilename,
+                                            java.util.Set<Path> admitted) {
         String base = apkFilename.endsWith(".apk")
                 ? apkFilename.substring(0, apkFilename.length() - 4)
                 : apkFilename;
@@ -355,7 +415,9 @@ public final class TraceComparator {
             if (allDigits) base = base.substring(0, us);
         }
         Path candidate = oracleDir.resolve(base + "-oracle.yaml");
-        return Files.isRegularFile(candidate) ? candidate : null;
+        if (!Files.isRegularFile(candidate)) return null;
+        if (!admitted.contains(candidate)) return null;
+        return candidate;
     }
 
     /**
@@ -424,11 +486,27 @@ public final class TraceComparator {
             bySpec.computeIfAbsent(e.spec, k -> new ArrayList<>()).add(e);
         }
 
+        // Score the UNION of the specs the oracle declares and the specs either
+        // trace reports. A spec observed but absent from the oracle gets an
+        // empty expected-event list, so every event under it counts as a false
+        // positive — which is exactly what it is.
+        //
+        // Iterating the oracle alone made the gate blind to the defect this
+        // layer exists to detect. A wrapper-registry collision binds a call site
+        // to the WRONG specification, so it surfaces under a spec the
+        // independent weaver never reported for that APK — precisely the case
+        // the oracle has no entry for. Measured over the derived set before this
+        // change: 10 of 26 dexlib2 events in L3-b and 45 of 87 in L3-c were
+        // never scored at all, and L3-b reported dexFp=0 while carrying five
+        // dexlib2-only unique misuses.
+        TreeSet<String> specs = new TreeSet<>(bySpec.keySet());
+        for (ObservedEvent o : ajcObs) specs.add(o.spec);
+        for (ObservedEvent o : dexObs) specs.add(o.spec);
+
         Map<String, Map<String, Object>> perSpec = new LinkedHashMap<>();
         boolean oraclePassed = true;
-        for (Map.Entry<String, List<OracleEvent>> en : bySpec.entrySet()) {
-            String spec = en.getKey();
-            List<OracleEvent> specOracle = en.getValue();
+        for (String spec : specs) {
+            List<OracleEvent> specOracle = bySpec.getOrDefault(spec, List.of());
             List<ObservedEvent> ajcSpec = filterBySpec(ajcObs, spec);
             List<ObservedEvent> dexSpec = filterBySpec(dexObs, spec);
 
@@ -485,11 +563,7 @@ public final class TraceComparator {
 
     private static boolean matched(OracleEvent oe, List<ObservedEvent> obs) {
         for (ObservedEvent o : obs) {
-            if (!o.spec.equals(oe.spec)) continue;
-            if (!o.etype.equals(oe.errorType)) continue;
-            if (oe.expectedMessageSubstring != null
-                    && !o.msg.contains(oe.expectedMessageSubstring)) continue;
-            return true;
+            if (satisfies(oe, o)) return true;
         }
         return false;
     }
@@ -499,16 +573,56 @@ public final class TraceComparator {
         for (ObservedEvent o : obs) {
             boolean any = false;
             for (OracleEvent oe : oracle) {
-                if (!oe.spec.equals(o.spec)) continue;
-                if (!oe.errorType.equals(o.etype)) continue;
-                if (oe.expectedMessageSubstring != null
-                        && !o.msg.contains(oe.expectedMessageSubstring)) continue;
-                any = true;
-                break;
+                if (satisfies(oe, o)) { any = true; break; }
             }
             if (!any) fp++;
         }
         return fp;
+    }
+
+    /**
+     * Does this observation satisfy this oracle event?
+     *
+     * <p>
+     * Single definition on purpose: true positives are counted by walking the
+     * oracle and false positives by walking the observations, and if the two
+     * walks disagreed about what a match is, an event could count as neither or
+     * as both.
+     */
+    private static boolean satisfies(OracleEvent oe, ObservedEvent o) {
+        if (!oe.spec.equals(o.spec)) return false;
+        if (!oe.errorType.equals(o.etype)) return false;
+        if (oe.expectedMessageSubstring != null
+                && !o.msg.contains(oe.expectedMessageSubstring)) return false;
+        return locationMatches(oe, o);
+    }
+
+    /**
+     * Compare an oracle event's declared location against an observation's
+     * (INV-INS-109).
+     *
+     * <p>
+     * The class is accepted against either form the line carries — fully
+     * qualified or short — because the two admissible provenances write
+     * different ones and neither is wrong. The method, when declared, must
+     * match exactly; it is a single identifier in both forms, so there is
+     * nothing to normalise and a loose comparison would only hide a real
+     * mismatch.
+     *
+     * <p>
+     * An oracle event that declares no location keeps matching on
+     * {@code (spec, errorType)} alone. That is deliberate: under-specification
+     * stays available to an oracle author who has no site to name, and the
+     * absence of a field is the only way to ask for it, so it can never happen
+     * by accident.
+     */
+    private static boolean locationMatches(OracleEvent oe, ObservedEvent o) {
+        if (oe.locationClass != null
+                && !oe.locationClass.equals(o.classQualified)
+                && !oe.locationClass.equals(o.className)) {
+            return false;
+        }
+        return oe.locationMethod == null || oe.locationMethod.equals(o.method);
     }
 
     private static List<ObservedEvent> filterBySpec(List<ObservedEvent> all, String spec) {
@@ -567,10 +681,20 @@ public final class TraceComparator {
     // --- I/O + parsing -------------------------------------------------------
 
     /**
-     * Parse RVSEC violation lines from a logcat file. Empty/blank lines and
-     * lines whose tag does not match the {@link #RVSEC_LINE} pattern are
-     * silently skipped — same lenient behaviour as
-     * {@code drive_cryptoapp.py}.
+     * Parse RVSEC violation lines from a logcat file, in the format the
+     * on-device collector actually emits.
+     *
+     * <p>
+     * A line contributes an event only if it carries an {@code RVSEC} tag
+     * <em>and</em> its payload splits into at least {@link #VIOLATION_FIELDS}
+     * comma-separated fields. Both conditions are needed: the tag alone also
+     * selects lines the collector never wrote, and a violation payload is the
+     * only {@code RVSEC} payload with that shape. Anything else — blank lines,
+     * other tags, a short payload — is skipped rather than guessed at, because
+     * a mis-split line would enter the comparison as a fabricated event and
+     * silently move a verdict.
+     *
+     * @see #RVSEC_LINE for why the tag match is anchored the way it is
      */
     static List<ObservedEvent> parseObserved(Path logcat) throws IOException {
         List<ObservedEvent> out = new ArrayList<>();
@@ -582,15 +706,43 @@ public final class TraceComparator {
             String line;
             while ((line = reader.readLine()) != null) {
                 Matcher m = RVSEC_LINE.matcher(line);
-                if (m.find()) {
-                    out.add(new ObservedEvent(
-                            m.group("spec"),
-                            m.group("etype"),
-                            m.group("msg") == null ? "" : m.group("msg").trim()));
-                }
+                if (!m.find()) continue;
+                ObservedEvent e = parseViolationPayload(m.group("payload"));
+                if (e != null) out.add(e);
             }
         }
         return out;
+    }
+
+    /**
+     * Split one {@code RVSEC} payload into an {@link ObservedEvent}, or return
+     * {@code null} if it is not a violation record.
+     *
+     * <p>
+     * The field order is {@code ErrorSummary.toString()}'s, with the collector's
+     * appended {@code expecting}:
+     * {@code spec,classQualifiedName,className,methodName,location,errorType,expecting}.
+     * Both class forms are kept. The line carries the class fully qualified
+     * <em>and</em> short because {@code ErrorSummary} writes both, and the two
+     * admissible oracle provenances happen to use different forms — a
+     * hand-validated {@code cryptoapp} oracle names {@code MessageDigestUtil}
+     * while a derived one names {@code okhttp3.internal.platform.Platform}. An
+     * oracle that declares either must be able to match, which is why
+     * {@link #locationMatches} accepts both.
+     */
+    private static ObservedEvent parseViolationPayload(String payload) {
+        String[] f = payload.split(",", -1);
+        if (f.length < VIOLATION_FIELDS) return null;
+        String expecting = String.join(",",
+                java.util.Arrays.copyOfRange(f, EXPECTING_INDEX, f.length)).trim();
+        return new ObservedEvent(
+                f[0].trim(),   // spec
+                f[5].trim(),   // errorType
+                expecting,     // the human-readable `expecting` text
+                f[1].trim(),   // classQualifiedName
+                f[2].trim(),   // className (short)
+                f[3].trim(),   // methodName
+                f[4].trim());  // location (file:line)
     }
 
     /**
@@ -804,7 +956,19 @@ public final class TraceComparator {
 
     // --- value types ---------------------------------------------------------
 
-    record ObservedEvent(String spec, String etype, String msg) {}
+    /**
+     * One violation line as the on-device collector wrote it.
+     *
+     * <p>
+     * {@code classQualified} and {@code className} are the same class in two
+     * forms, both taken from the line rather than derived from one another:
+     * {@code ErrorSummary} computes the short form itself, and reproducing that
+     * here would be a second implementation of a rule the producer already
+     * owns.
+     */
+    record ObservedEvent(String spec, String etype, String msg,
+                         String classQualified, String className,
+                         String method, String location) {}
 
     record OracleEvent(String spec, String errorType,
                        String locationClass, String locationMethod,

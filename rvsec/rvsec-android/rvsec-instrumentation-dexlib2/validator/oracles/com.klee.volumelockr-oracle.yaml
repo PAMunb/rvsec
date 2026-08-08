@@ -1,0 +1,58 @@
+name: com.klee.volumelockr
+profile: paired_execution
+apk: com.klee.volumelockr_16.apk
+provenance:
+  class: derived_from_independent_weaver
+  source_weaver: ajc
+  source_data: out/run_jca_compare_consolidated/events_fair.csv
+  source_sha256: f43eaf102bb4569c0879bc47a16a885bd0c4f2d9e68b781e9905d25730c26d33
+  derivation_script: derive_l3b_oracle.py
+  source: |
+    Recorded events of the ajc variant (dex2jar + AspectJ + d8), an
+    independent implementation of the same 23 JCA specifications, run in
+    the same emulator campaign as the dexlib2 variant it is ground truth
+    for. Reduced to unique misuses (apk, class, method, spec): occurrence
+    counts reflect how deep each side's GUI exploration went rather than
+    what either weaver emits, and the comparator counts false positives
+    per occurrence.
+  repair: |
+    2476 rows of the source carried a whole stack frame in both the
+    class and the method column — the fallback in
+    ErrorDescription.createErrorSummary, which fires when its split fails.
+    They were repaired with the producer's own rule (FRAME_SUFFIX: a
+    trailing (…:<digits>) group with no nested parenthesis, then a split at
+    the last dot), leaving zero residue. The article's repair_frame_keys.py
+    is NOT used: it requires the stripped group to look like File.ext:NN and
+    repairs 0 of these rows, whose frames are (Unknown Source:1) and
+    (r8-map-id-…:17).
+description: |
+  Paired-execution profile for a single APK. Discriminates the
+  wrapper-registry collision: a call site bound to the wrong specification
+  surfaces as a misuse the implementation under test reports and the
+  independent weaver never does.
+
+  It says nothing about the inline-truncation defect. UnsatisfiedConstraint
+  is absent from both variants in this recording, because the erased events
+  live in application code GUI exploration does not reach. That is L3-c's
+  question, not this oracle's.
+
+  1 unique misuse(s) at the article's key (apk, class, method,
+  spec), listed below as 1 expected event(s): a site that produced
+  two error types is one misuse and two events, because the comparator scores
+  per event and drops an event that declares no error_type.
+expected_events:
+  - id: 1
+    spec: KeyStoreSpec
+    error_type: InvalidSequenceOfMethodCalls
+    location: { class: androidx.security.crypto.MasterKeys, method: keyExists }
+    expected_message_substring: null
+acceptance:
+  unique_misuse_count: 1
+  required_event_count: 1
+  full_coverage_required: true
+notes: |
+  Both sides of this oracle are frozen pre-repair recordings, so executing
+  it characterises the defect rather than certifying its repair. A verdict
+  that flips would need a fresh dexlib2 run over the same APKs, which means
+  an emulator session (L3-a) and is out of scope of the change that derived
+  this oracle. Any report citing it must say so.

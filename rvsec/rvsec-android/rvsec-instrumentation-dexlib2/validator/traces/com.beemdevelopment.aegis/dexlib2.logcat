@@ -1,0 +1,2 @@
+08-06 00:00:00.000  1000  1000 V RVSEC   : CipherSpec,com.beemdevelopment.aegis.crypto.CryptoUtils,com.beemdevelopment.aegis.crypto.CryptoUtils,encrypt,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown
+08-06 00:00:00.000  1000  1000 V RVSEC   : MacSpec,com.beemdevelopment.aegis.crypto.otp.HOTP,com.beemdevelopment.aegis.crypto.otp.HOTP,getHash,Unknown Source:1,InvalidSequenceOfMethodCalls,unknown
