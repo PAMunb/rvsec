@@ -1,0 +1,19 @@
+paren balance of each `event` header (0 = balanced), per file:
+  DHGenParameterSpecSpec.mop   event c1   (line  21): balance +0
+  HMACParameterSpecSpec.mop    event c    (line  21): balance +0
+  PBEParameterSpecSpec.mop     event c1   (line  22): balance +0
+  PBEParameterSpecSpec.mop     event c2   (line  32): balance +0
+  PBEParameterSpecSpec.mop     event c3   (line  42): balance +0
+  IvParameterSpec.mop          event c1   (line  21): balance +0
+  IvParameterSpec.mop          event c2   (line  30): balance +0
+  IvParameterSpec.mop          event c3   (line  42): balance +0
+  IvParameterSpec.mop          event c4   (line  51): balance +0
+  SecretKeySpecSpec.mop        event c1   (line  24): balance -1   <-- UNBALANCED
+  SecretKeySpecSpec.mop        event c2   (line  34): balance +0
+  SecretKeySpecSpec.mop        event c3   (line  41): balance +0
+  SecretKeySpecSpec.mop        event c4   (line  51): balance +0
+
+anomaly: SecretKeySpecSpec.mop event c1 line 24: balance -1 in source.
+  generated .rvm total balance: +0 (condition text present: True)
+  generated .aj  total balance: +0
+  => the generator accepted the malformed source silently (exit 0, empty stderr per generation manifest) and emitted balanced artifacts.

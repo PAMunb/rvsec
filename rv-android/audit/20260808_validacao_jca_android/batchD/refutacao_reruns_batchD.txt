@@ -1,0 +1,66 @@
+# Refuter re-executions — batch D refutation round, 2026-08-09
+# All re-runs executed by the refuter in own scratch (refutacao/), record files untouched.
+
+## Rescore (juiz_rescore_batchD.py)
+python3 juiz_rescore_batchD.py > rescore_rerun.txt
+diff juiz_rescore_batchD_output.txt rescore_rerun.txt -> IDENTICAL (full copy: refutacao_rescore_rerun_batchD.txt)
+Independent recount (own code, not the judge's script): 123 rows = 39 PASS / 81 FAIL / 3 INCONCLUSIVE;
+54 critical FAIL claims; 21 phenomena with >=1 critical; 34 FEN groups with FAILs; position flips
+exactly {BETA-KPG-05 FAIL->PASS, GAMA-MDG-03 FAIL->PASS}, 0 PASS->FAIL; 17 severity changes
+(15 ->critica, ALFA-MAC-12 minor->major, GAMA-SIG-04 minor->major); 4 classificacao_final changes
+(2 overturn-linked + GAMA-SRD-04 + GAMA-SIG-04). All weighted sums re-derived by hand from the
+per-dimension counts: MAC 12.57, MDG 47.83, KPG 24.75, SRD 16.50, SIG 29.17, SET 8.75, AGG 24.51 — exact.
+Derived readings 13.23/59.79/26.05/20.62/36.46/19.44% — exact.
+
+## Builder (juiz_build_csv_batchD.py) — D-batchB-1 assert + ALFA-SRD-08 repair
+Copied builder + 3 agent CSVs to scratch, ran there (record file NOT touched):
+output CSV byte-identical (diff empty) to batchD/juiz_claims_resolvidos_batchD.csv.
+Repair verified content-preserving: 122/123 rows exact-match on all 14 original columns vs the
+agent CSVs; the ALFA-SRD-08 15-field row re-joins to contraevidencia_procurada =
+"g2 correctly covers all safe 2-arg shapes (args(alg,*))" with the remaining fields shifted back
+exactly; the repair is assert-guarded and declared in the builder and in synthesis §7.
+
+## J1-D walk (juiz_walk_batchD.py)
+BATCHD_GEN=<scratch>/batchD python3 juiz_walk_batchD.py -> exit 0, 46 checks 0 failures;
+output diff vs juiz_walk_batchD_output.txt -> IDENTICAL.
+
+## J2-D drive (juiz_JuizDriveD.java) — independent recompile from frozen sources
+Monitors: the five RuntimeMonitor.java from gen_*/out (sha = generation_manifest, re-hashed)
+compiled with javac against rv-monitor-rt 0fa65fbc..., rvsec-core 7b4d72aa...,
+rvsec-logger-csv 6787f411... (all three jar hashes re-verified on disk): exit 0
+(one benign "uses unchecked or unsafe operations" note on MacSpecRuntimeMonitor).
+java JuizDriveD -> output sha256 e136cf4c9a3dc5bdb2f8b8bfbc43c1b7bb3f804360be5583002c58f0614c9dc3
+= juiz_driveD_rep1.txt = rep2 = rep3. D1(NPE both event methods), D2(2 FP), D3(1 specific/0 spurious
++ material/object split), D4(displaced FP), D5(alias FN + acceptance), D6(3x2 records, 3-entry
+message), D7a(delayed FP)/D7b(FN + GENERATED_KEY_PAIR), D8(wrong-slot VERIFIED), D9(broadcast
+both directions) all reproduced.
+
+## Frozen-input re-hash
+5 jca_android .mop + 5 api30 .cryptsl: sha256 = generation_manifest = fase0/manifest_hashes (10/10).
+20/20 gen_*/out artifacts spot-hashed = manifest. juiz_hashes_batchD.txt: 11/11 match on disk.
+android-30 jar 96ccfdc8... re-hashed.
+
+## Judge greps re-executed
+__RESET census: specs 1/1/1/1/0 (KPG 0); monitors this.reset() 1/1/1/1/0 (KPG 0) — confirmed.
+REF-D-04: SRD g2 args(alg,*) under (String,..) at :62-67; g4 args(alg) at :76-80 — confirmed.
+"|| call(" sweep over jca_android: exactly KPG:123, CipherInputStreamSpec:28,
+CipherOutputStreamSpec:27 — the cross-round finding is accurate AND exhaustive.
+data/gh101 absence greps: "byte Signature", "target(m)", "switch(algorithm)", "Provider)" -> 0 hits;
+"next2" only in the two predicate_inventory files — confirmed.
+predicate_edges.csv:47/:74-75/:81 read as cited; README.md:148-153 declares the 1.5.2 anchor with
+the invariance premise; raw api30 rules confirm the falsification (Mac REQUIRES has no generatedKey;
+SecureRandom ENSURES randomized[numB] with ne=next(numB), protected on the platform;
+Signature ENSURES verified[sign] with byte[] sign). D-S14: predicate_omissions.csv:14-17 +
+KeyPairGeneratorSpec.mop:85 Group-5 comment — the BETA-KPG-05 overturn ground exists as cited.
+divergence_record rows b532e439f79a/151e53aa8e1f/ff425611fcba/029a4511565f located.
+
+## javap (independent, from unzip-extracted android-30 bytes)
+Signature: byte[] sign(), int sign(byte[],int,int) — no byte sign(); Mac.doFinal(byte[],int) void;
+(String,Provider) getInstance declared on Mac/KPG/Signature; SecureRandom: protected final int
+next(int), nextInt/ints not declared, NO SecureRandomParameters overloads (see
+refutacao_javap_trap_batchD.txt); KPG declares genKeyPair() AND generateKeyPair();
+MessageDigest declares reset() and clone().
+
+## Coenable arithmetic
+11*2047=22517, 8*255=2040, 9*511=4599, 12*4095=49140, 15*32767=491505, 17*131071=2228207 — all exact
+as published in beta_coenable_summary.txt and §0.10.

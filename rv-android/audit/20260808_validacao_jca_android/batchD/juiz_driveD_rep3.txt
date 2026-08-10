@@ -1,0 +1,33 @@
+== D1: KPG NPE — initialize(int) as first event on an unseen generator ==
+  init1Event threw to caller: java.lang.NullPointerException
+  initErrorEvent threw to caller: java.lang.NullPointerException
+  DELTA D1 (0): []
+== D2: SRD repeated nextBytes (canonical usage) ==
+  DELTA D2 after nextBytes#1 (0): []
+  DELTA D2 after nextBytes#2 (1): [InvalidSequenceOfMethodCalls/SecureRandomSpec expecting=unknown]
+  DELTA D2 after nextBytes#3 (1): [InvalidSequenceOfMethodCalls/SecureRandomSpec expecting=unknown]
+== D3: SRD unsafe getInstance (g1-then-g4 advice) — unsafeInit sink, no pairing; overgrant probe ==
+  DELTA D3 (1): [UnsafeAlgorithm/SecureRandomSpec expecting=expecting one of SHA1PRNG but found NativePRNG.]
+  RANDOMIZED[bytes-from-unsafe-instance]=true RANDOMIZED[unsafe sr object]=false
+== D4: MAC key gate — safe alg, UNMARKED key: i1 suppressed, doFinal accused ==
+  DELTA D4 (1): [InvalidSequenceOfMethodCalls/MacSpec expecting=unknown]
+== D5: MAC alias FN — getInstance("HMAC-SHA256") spec-safe, raw-violating ==
+  DELTA D5 (0): []
+  isInAcceptingState(mB)=true  <- 0 errors + acceptance on an alg the raw 12-literal list rejects = executed FN
+== D6: MDG carrier — unsafe alg then update/update/digest at distinct sites ==
+  DELTA D6 after update#1 (2): [InvalidSequenceOfMethodCalls/MessageDigestSpec expecting=unknown, UnsafeAlgorithm/MessageDigestSpec expecting=expecting one of {SHA-256, SHA-384, SHA-512} but found MD2.]
+  DELTA D6 after update#2 (2): [InvalidSequenceOfMethodCalls/MessageDigestSpec expecting=unknown, UnsafeAlgorithm/MessageDigestSpec expecting=expecting one of {SHA-256, SHA-384, SHA-512} but found MD2.]
+  DELTA D6 after d2 (2): [InvalidSequenceOfMethodCalls/MessageDigestSpec expecting=unknown, UnsafeAlgorithm/MessageDigestSpec expecting=expecting one of {SHA-256, SHA-384, SHA-512} but found MD2.]
+== D7a: KPG delayed pairing — bad size, then generate (no correction) ==
+  DELTA D7a after initialize(1024) (1): [InvalidKeySize/KeyPairGeneratorSpec expecting=invalid key size for algorithm RSA.]
+  DELTA D7a after generateKeyPair (1): [InvalidSequenceOfMethodCalls/KeyPairGeneratorSpec expecting=unknown]
+== D7b: KPG correction route — bad size, corrected, then generate ==
+  DELTA D7b (expect InvalidKeySize only, no InvalidSeq) (1): [InvalidKeySize/KeyPairGeneratorSpec expecting=invalid key size for algorithm RSA.]
+  isInAcceptingState(kpgC)=true GENERATED_KEY_PAIR[kpC]=true  <- CrySL forbids the 2nd Inits: monitor acceptance here = FN direction
+== D8: SIG VERIFIED written on the boxed Boolean, not the sign bytes ==
+  DELTA D8 (0): []
+  VERIFIED[Boolean.TRUE]=true VERIFIED[signBytes]=false  <- rule says verified[sign] (the bytes)
+== D9: MAC f3 broadcast — one unbound f3 event touches every live Mac monitor ==
+  DELTA D9 after one f3Event (1): [InvalidSequenceOfMethodCalls/MacSpec expecting=unknown]
+  isInAcceptingState(mX) before=false after=true  <- foreign monitor advanced to accepting by an event it never received; innocent mY accused
+== done ==

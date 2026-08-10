@@ -1,0 +1,97 @@
+== KGN-T1 happy: getInstance("AES"); init(128); generateKey() ==
+  [end] errors=0
+  GENERATED_KEY(realKey)=true accepting(k1)=true
+== KGN-T2 FP: getInstance("DES") [unsafe carrier]; init(56); generateKey() — rule-conformant ORDER ==
+  [after getInstance] errors=0
+  [after init] errors=1
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:94,InvalidSequenceOfMethodCalls | expecting=unknown
+  [after generateKey] errors=3
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:94,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:97,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:97,UnsafeAlgorithm | expecting=expecting one ofAES,ARC4,BLOWFISH,ChaCha20,DESede,HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found DES.
+== KGN-T3 FP: getInstance("DES", provider) [2-arg unsafe: NO mop event]; init; generateKey ==
+  [after init] errors=1
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:102,InvalidSequenceOfMethodCalls | expecting=unknown
+  [after generateKey] errors=3
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:102,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:105,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:105,UnsafeAlgorithm | expecting=expecting one ofAES,ARC4,BLOWFISH,ChaCha20,DESede,HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .
+== KGN-T4 Inits? optional: getInstance("AES"); generateKey() ==
+  [end] errors=0
+== KGN-T5 FN keySize constraint: getInstance("AES"); init(64); generateKey() — alg in {AES} => keySize in {128,192,256} violated ==
+  [end (expect ZERO errors = FN vs CONSTRAINT 2)] errors=0
+== KGN-T6 interleaving/isolation: k6a safe vs k6b unsafe ==
+  [k6a completed (errors here belong to k6b's monitor only if contaminated: expect 0)] errors=0
+  accepting(k6a)=true
+== KGN-T7 randomized read: init(int, new SecureRandom()) with unmarked SecureRandom ==
+  [after init (expect UnsatisfiedConstraint: randomized[ranGen] is bound in rule => faithful read)] errors=1
+    KeyGeneratorSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:133,UnsatisfiedConstraint | expecting=init() requires a SecureRandom established by a monitored SecureRandom sequence.
+== CHAIN-T1 fully monitored happy chain + unmarked SecureRandom at SSLContext.init ==
+  GENERATED_KEY_STORE(ks)=true
+  [end (expect EXACTLY ONE UnsatisfiedConstraint: the randomized read — extra-oracle: rule binds `_`, not sr)] errors=1
+    SSLContextSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:151,UnsatisfiedConstraint | expecting=init() requires a SecureRandom established by a monitored SecureRandom sequence.
+  accepting: kmf=true tmf=true ctx=true
+  GENERATE_SSL_CONTEXT(ctx)=true
+== CHAIN-T2 rule-conformant 2-arg KeyStore.getInstance (NO mop event) -> FP cascade ==
+  [after load (expect InvalidSequenceOfMethodCalls FP)] errors=1
+    KeyStoreSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:160,InvalidSequenceOfMethodCalls | expecting=unknown
+  GENERATED_KEY_STORE(ks2)=false
+  [after kmf.init (expect + UnsatisfiedConstraint FP: generatedKeyStore starved)] errors=2
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:164,UnsatisfiedConstraint | expecting=init() requires a KeyStore established by a monitored KeyStore sequence.
+    KeyStoreSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:160,InvalidSequenceOfMethodCalls | expecting=unknown
+== CHAIN-T3 second getKeyManagers(): raw-rule violation, but remove-cascade poisons SSL ==
+  after gkm#1: GENERATED_KEY_MANAGERS(kms3)=true
+  [after gkm#2 (sequence error itself is raw-consistent)] errors=1
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:175,InvalidSequenceOfMethodCalls | expecting=unknown
+  after gkm#2: GENERATED_KEY_MANAGERS(kms3)=false  <- mark revoked although ENSURES was already granted (no NEGATES in rule)
+  [after ssl.init (UnsatisfiedConstraint on km = downstream FP; tm unmarked too here)] errors=2
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:175,InvalidSequenceOfMethodCalls | expecting=unknown
+    SSLContextSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:180,UnsatisfiedConstraint | expecting=init() requires key managers established by a monitored KeyManagerFactory sequence.
+== KMF-T1 FP: getInstance("SunX509"); init(ks,pw) — rule-conformant ORDER (constraint-only violation) ==
+  [after getInstance (carrier: expect 0 sequence errors)] errors=0
+  [after init (expect UnsafeAlgorithm + SPURIOUS InvalidSequenceOfMethodCalls)] errors=2
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:189,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:189,UnsafeAlgorithm | expecting= expecting one of PKIX but found SunX509.
+  [after getKeyManagers (expect a second InvalidSequence)] errors=3
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:189,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:189,UnsafeAlgorithm | expecting= expecting one of PKIX but found SunX509.
+    KeyManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:192,InvalidSequenceOfMethodCalls | expecting=unknown
+== KMF-T2 acceptance end: g1 i1 gkm1 — CrySL-complete word ==
+  accepting after init=true
+  accepting after gkm1=true (monitor state left at 0 = start; mark persists only because gkm1 has no handler)
+  [end (expect 0 errors)] errors=0
+== TMF-T1 FP: getInstance("X509"); init(ks) — the campaign shape (frozen_set_debt: 8371 UnsafeAlgorithm events) ==
+  [after init (expect UnsafeAlgorithm + SPURIOUS InvalidSequence)] errors=2
+    TrustManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:211,InvalidSequenceOfMethodCalls | expecting=unknown
+    TrustManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:211,UnsafeAlgorithm | expecting=expecting one of PKIX but found X509.
+  [after getTrustManagers (expect second InvalidSequence)] errors=3
+    TrustManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:211,InvalidSequenceOfMethodCalls | expecting=unknown
+    TrustManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:211,UnsafeAlgorithm | expecting=expecting one of PKIX but found X509.
+    TrustManagerFactorySpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:213,InvalidSequenceOfMethodCalls | expecting=unknown
+== SSL-T1 FP + null-write: getInstance("SSLv3"-like unsafe); init(km,tm,null) ==
+  [after getInstance (carrier: expect 0)] errors=0
+  [after init (expect UnsafeProtocol + SPURIOUS InvalidSequence; null guards suppress the 3 reads)] errors=2
+    SSLContextSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:220,InvalidSequenceOfMethodCalls | expecting=unknown
+    SSLContextSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:220,UnsafeProtocol | expecting=expecting one of {Default, SSL, TLS, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3} but found NOPROTO.
+  GENERATE_SSL_CONTEXT set for null (field never assigned): validate(P,null)=true
+== SSL-T2 engine channel: after init, createSSLEngine leaves no trace (pointcut declares void return) ==
+  [after real createSSLEngine (no event by construction)] errors=0
+  GENERATE_SSL_ENGINE(engReal)=false (ENSURES generatedSSLEngine[eng] never establishable)
+== KST-T1 happy: getInstance("PKCS12"); load; getEntry; getKey ==
+  [end (expect 0)] errors=0
+  GENERATED_KEY=true GENERATED_PRIVATE_KEY=true GENERATED_PUBLIC_KEY=true
+== KST-T2 FP: unsafe type carrier getInstance("JKS"); load — rule flags CONSTRAINT only ==
+  [after getInstance (expect 0)] errors=0
+  [after load (expect SPURIOUS InvalidSequence)] errors=1
+    KeyStoreSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:252,InvalidSequenceOfMethodCalls | expecting=unknown
+  [after getKey (expect InvalidKeyStoreType + another InvalidSequence)] errors=3
+    KeyStoreSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:252,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyStoreSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:254,InvalidKeyStoreType | expecting=expecting one ofAndroidCAStore,AndroidKeyStore,BKS,BouncyCastle,PKCS12 but found JKS.
+    KeyStoreSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:254,InvalidSequenceOfMethodCalls | expecting=unknown
+== KST-T3 FN: getInstance("PKCS12"); load; setCertificateEntry [declared CrySL event scE, no pointcut]; getKey ==
+  [end (expect ZERO errors = FN: scE is a typestate violation of the raw ORDER)] errors=0
+== KST-T4 store without setEntry: g1 load store — raw rule forbids, monitor should also flag (consistency check) ==
+  [end (expect InvalidSequence — CONSISTENT with raw oracle)] errors=1
+    KeyStoreSpec,AlfaHarnessC,AlfaHarnessC,main,AlfaHarnessC.java:267,InvalidSequenceOfMethodCalls | expecting=unknown
+
+DONE

@@ -1,0 +1,78 @@
+################ SCENARIO cis
+== CIS (a): c1 with cipher lacking GENERATED_CIPHER (repair check)
+after c1(unmarked) | errors=1  <-- +1
+after r1 | errors=1
+after cl1 | errors=1
+---- CIS (a) full error set:
+  [UnsatisfiedConstraint] spec=CipherInputStreamSpec loc=gama.GamaBatchBDrive.cis(GamaBatchBDrive.java:80) expecting=CipherInputStream requires a Cipher established by a monitored getInstance/init sequence.
+== CIS (b): two fully conformant sequential streams, marked cipher
+stream A complete (construct,read,close) | errors=3  <-- +3
+stream B c1 | errors=3
+stream B r1 | errors=3
+stream B cl1 | errors=3
+---- CIS (b) full error set:
+  [InvalidSequenceOfMethodCalls] spec=CipherInputStreamSpec loc=gama.GamaBatchBDrive.cis(GamaBatchBDrive.java:98) expecting=unknown
+  [InvalidSequenceOfMethodCalls] spec=CipherInputStreamSpec loc=gama.GamaBatchBDrive.cis(GamaBatchBDrive.java:97) expecting=unknown
+  [InvalidSequenceOfMethodCalls] spec=CipherInputStreamSpec loc=gama.GamaBatchBDrive.cis(GamaBatchBDrive.java:96) expecting=unknown
+################ SCENARIO cos
+== COS: construct, write, close (conformant), then flush
+after construct+write+close | errors=0
+after flush-after-close | errors=1  <-- +1
+---- COS full error set:
+  [InvalidSequenceOfMethodCalls] spec=CipherOutputStreamSpec loc=gama.GamaBatchBDrive.cos(GamaBatchBDrive.java:119) expecting=unknown
+################ SCENARIO kpr_a
+== KPR (a): KeyPairGenerator-produced pair; rule ORDER 'co?' accepts this
+after getPublic() | errors=1  <-- +1
+after getPrivate() | errors=2  <-- +1
+---- KPR (a) full error set:
+  [InvalidSequenceOfMethodCalls] spec=KeyPairSpec loc=gama.GamaBatchBDrive.kprA(GamaBatchBDrive.java:134) expecting=unknown
+  [InvalidSequenceOfMethodCalls] spec=KeyPairSpec loc=gama.GamaBatchBDrive.kprA(GamaBatchBDrive.java:132) expecting=unknown
+################ SCENARIO kpr_b
+== KPR (b): two constructor-built pairs; broadcast + null accepting mark
+after c1(kp1) | errors=0
+  isInAcceptingState(kp1) = false   isInAcceptingState(null) = true
+after kp1.getPublic() | errors=0
+after c1(kp2) | errors=1  <-- +1
+after kp2.getPublic() | errors=2  <-- +1
+  isInAcceptingState(kp1) = false   isInAcceptingState(kp2) = false   isInAcceptingState(null) = true
+---- KPR (b) full error set:
+  [InvalidSequenceOfMethodCalls] spec=KeyPairSpec loc=gama.GamaBatchBDrive.kprB(GamaBatchBDrive.java:161) expecting=unknown
+  [InvalidSequenceOfMethodCalls] spec=KeyPairSpec loc=gama.GamaBatchBDrive.kprB(GamaBatchBDrive.java:163) expecting=unknown
+################ SCENARIO kpr_c
+== KPR (c): both REQUIRES violated at ONE site -> dedupe collapse
+after c1 with BOTH keys unmonitored | errors=1  <-- +1
+---- KPR (c) full error set:
+  [UnsatisfiedConstraint] spec=KeyPairSpec loc=gama.GamaBatchBDrive.kprC(GamaBatchBDrive.java:180) expecting=the KeyPair constructor requires a public key established by a monitored sequence.
+################ SCENARIO pbk
+== PBK (a): weak construction, all four events from one line (as the merged advice does)
+after 4-arg ctor with 3 violated clauses (same __LOC) | errors=1  <-- +1
+---- PBK (a) - which clause survived? full error set:
+  [UnsatisfiedConstraint] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:193) expecting=third argument should be >= 1000
+== PBK (a2): clearPassword on the weak spec (rule ORDER c1, cP is satisfied)
+after clearPassword() | errors=2  <-- +1
+---- PBK (a2) full error set:
+  [InvalidSequenceOfMethodCalls] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:197) expecting=unknown
+  [UnsatisfiedConstraint] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:193) expecting=third argument should be >= 1000
+== PBK (b): control - the three err events from THREE distinct lines
+after err1+err2+err3 on distinct lines | errors=3  <-- +3
+---- PBK (b) full error set:
+  [UnsatisfiedConstraint] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:206) expecting=first argument should have been randomized
+  [UnsatisfiedConstraint] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:207) expecting=second argument should have been randomized
+  [UnsatisfiedConstraint] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:205) expecting=third argument should be >= 1000
+== PBK (c): forbidden 1-arg ctor, then clearPassword
+after forbidden PBEKeySpec(char[]) | errors=1  <-- +1
+after clearPassword() | errors=2  <-- +1
+---- PBK (c) - two records, same category, both 'unknown' full error set:
+  [InvalidSequenceOfMethodCalls] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:217) expecting=unknown
+  [InvalidSequenceOfMethodCalls] spec=PBEKeySpecSpec loc=gama.GamaBatchBDrive.pbk(GamaBatchBDrive.java:215) expecting=unknown
+################ SCENARIO sky
+== SKY (a): getEncoded on a key without GENERATED_KEY (rule has no such REQUIRES)
+  RANDOMIZED(enc1) = false  (rule ENSURES preparedKeyMaterial unconditionally)
+after suppressed e1 | errors=0
+== SKY (b): marked key; getEncoded, destroy, getEncoded-after-destroy
+  RANDOMIZED(enc2) = true
+  after d: GENERATED_KEY(key) = false  (NEGATES honoured)
+  RANDOMIZED(enc3) = false
+after getEncoded-after-destroy (an ORDER violation) | errors=0
+after second destroy() | errors=0
+---- SKY full error set:

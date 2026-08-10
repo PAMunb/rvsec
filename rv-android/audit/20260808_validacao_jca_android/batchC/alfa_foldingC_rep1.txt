@@ -1,0 +1,41 @@
+== KeyGeneratorSpec (exact contains) ==
+  "AES"          resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "aes"          resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "Aes"          resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "HmacSHA256"   resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "hmacsha256"   resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "HMAC-SHA256"  resolvesJDK=false(NoSuchAlgorithmException) mopGuardSafe=true  rawLiteralOk=false -> consistent
+  "HMAC/SHA256"  resolvesJDK=false(NoSuchAlgorithmException) mopGuardSafe=true  rawLiteralOk=false -> consistent
+  "DES"          resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "ChaCha20"     resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+== KeyManagerFactorySpec (exact contains) ==
+  "PKIX"         resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "pkix"         resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "Pkix"         resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "SunX509"      resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "X509"         resolvesJDK=false(NoSuchAlgorithmException) mopGuardSafe=false rawLiteralOk=false -> consistent
+  "NewSunX509"   resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+== TrustManagerFactorySpec (exact contains) ==
+  "PKIX"         resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "pkix"         resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "SunX509"      resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "X509"         resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+== SSLContextSpec (folds toUpperCase) ==
+  "TLS"          resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "tls"          resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=false -> FN vs raw rule (spec safe, raw constraint violated)
+  "TLSv1.2"      resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "tlsv1.2"      resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=false -> FN vs raw rule (spec safe, raw constraint violated)
+  "TLSV1.2"      resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=false -> FN vs raw rule (spec safe, raw constraint violated)
+  "Default"      resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "default"      resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=false -> FN vs raw rule (spec safe, raw constraint violated)
+  "DEFAULT"      resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=false -> FN vs raw rule (spec safe, raw constraint violated)
+  "SSLv3"        resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "DTLS"         resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+== KeyStoreSpec (exact contains) ==
+  "PKCS12"       resolvesJDK=true  mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "pkcs12"       resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "Pkcs12"       resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "JKS"          resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "jks"          resolvesJDK=true  mopGuardSafe=false rawLiteralOk=false -> consistent
+  "BKS"          resolvesJDK=false(KeyStoreException) mopGuardSafe=true  rawLiteralOk=true  -> consistent
+  "AndroidKeyStore" resolvesJDK=false(KeyStoreException) mopGuardSafe=true  rawLiteralOk=true  -> consistent

@@ -1,0 +1,39 @@
+J2a CIS stream1 (legal) deltaErrors=0
+J2a CIS stream2 (legal, same process) deltaErrors=3
+    CipherInputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:79,InvalidSequenceOfMethodCalls expecting=[unknown]
+    CipherInputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:80,InvalidSequenceOfMethodCalls expecting=[unknown]
+    CipherInputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:81,InvalidSequenceOfMethodCalls expecting=[unknown]
+J2b CIS ctor with unmarked cipher (oracle-legal) deltaErrors=1
+    CipherInputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:86,UnsatisfiedConstraint expecting=[CipherInputStream requires a Cipher established by a monitored getInstance/init sequence.]
+J2c COS [construct,flush,close] NO write (rule rejects: Writes+) deltaErrors=0
+J2c COS legal cycle (may inherit global-monitor state) deltaErrors=3
+    CipherOutputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:96,InvalidSequenceOfMethodCalls expecting=[unknown]
+    CipherOutputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:97,InvalidSequenceOfMethodCalls expecting=[unknown]
+    CipherOutputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:98,InvalidSequenceOfMethodCalls expecting=[unknown]
+J2c COS flush AFTER close (rule does not observe flush) deltaErrors=1
+    CipherOutputStreamSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:100,InvalidSequenceOfMethodCalls expecting=[unknown]
+J2d KPR generateKeyPair() then getPublic() (CrySL-legal: co?) deltaErrors=1
+    KeyPairSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:107,InvalidSequenceOfMethodCalls expecting=[unknown]
+J2e KPR construction 1 (legal, keys marked) deltaErrors=0
+J2e KPR construction 2 (legal) deltaErrors=1
+    KeyPairSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:121,InvalidSequenceOfMethodCalls expecting=[unknown]
+J2e KPR kp2.getPublic() after its own legal c1 deltaErrors=1
+    KeyPairSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:123,InvalidSequenceOfMethodCalls expecting=[unknown]
+J2e KPR @match probe: isInAcceptingState(kp1)=false isInAcceptingState(kp2)=false isInAcceptingState(null)=true
+J2f KPR both REQUIRES violated at ONE __LOC (2 addError calls) deltaErrors=1
+    KeyPairSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:131,UnsatisfiedConstraint expecting=[the KeyPair constructor requires a public key established by a monitored sequence.]
+J2g SKY unmarked key: RANDOMIZED(enc1)=false (rule ENSURES preparedKeyMaterial UNCONDITIONALLY)
+J2g SKY unmarked-key getEncoded deltaErrors=0
+J2g SKY double-destroy + ge-after-destroy (2 oracle violations) deltaErrors=0
+J2g SKY dead-state body write: RANDOMIZED(enc2)=true
+J2h PBK user password + random salt + iter=10000 (rule-CONFORMANT) deltaErrors=1
+    PBEKeySpecSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:161,UnsatisfiedConstraint expecting=[first argument should have been randomized]
+J2h PBK SPECCED_KEY(spec1)=false (rule ENSURES speccedKey after c1)
+J2h PBK legal clearPassword after the accused construction deltaErrors=1
+    PBEKeySpecSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:166,InvalidSequenceOfMethodCalls expecting=[unknown]
+J2i PBK err1+err2 same __LOC (2 clauses violated) deltaErrors=1
+    PBEKeySpecSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:171,UnsatisfiedConstraint expecting=[third argument should be >= 1000]
+J2i PBK err1,err2 on DISTINCT lines (control) deltaErrors=2
+    PBEKeySpecSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:173,UnsatisfiedConstraint expecting=[third argument should be >= 1000]
+    PBEKeySpecSpec,juiz.JuizDriveB,JuizDriveB,main,JuizDriveB.java:174,UnsatisfiedConstraint expecting=[first argument should have been randomized]
+TOTAL errors recorded: 17

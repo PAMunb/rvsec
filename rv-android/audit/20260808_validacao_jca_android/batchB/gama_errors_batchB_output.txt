@@ -1,0 +1,70 @@
+sha256(errors.csv) = 78023defec078353bbd1f64331edb7992a2c34e29570e6ceb064fb57f37dea69
+freeze check PASS (== fase0 manifest)
+
+schema: ['apk', 'rep', 'timeout', 'tool', 'time', 'spec', 'class', 'method', 'message', 'unique_msg']
+data lines total: 97018
+global units: lines=97018 unique_msg=225 apks=113 sites=454 executions=8147 (pilot: 97018/225/113/454/8147)
+
+==============================================================================
+A. Per batch-B spec (unit: lines / unique_msg / APKs / sites)
+==============================================================================
+CipherInputStreamSpec      lines=     0 unique_msg=  0 apks=  0 sites=  0
+CipherOutputStreamSpec     lines=     0 unique_msg=  0 apks=  0 sites=  0
+KeyPairSpec                lines=   668 unique_msg=  5 apks=  8 sites=  8
+SecretKeySpec              lines=     0 unique_msg=  0 apks=  0 sites=  0
+PBEKeySpecSpec             lines=     0 unique_msg=  0 apks=  0 sites=  0
+
+==============================================================================
+B. KeyPairSpec deep stratification (the only non-zero batch-B spec)
+==============================================================================
+
+B.1 by error_type (lines/unique_msg/apks/sites):
+  InvalidSequenceOfMethodCalls        668 /   5 /   8 /   8
+
+B.2 by message literal (field 5 of unique_msg) (lines/apks/sites):
+     668 lines /  8 apks /  8 sites : 'unknown'
+
+B.3 sites (apk :: class :: method) with lines and error_types:
+     286  com.mateusrodcosta.apps.vidyamusic_2200.apk  io.ktor.network.tls.TLSClientHandshakeKt:::generateECKeys  ['InvalidSequenceOfMethodCalls']
+     218  org.glpi.inventory.agent_39469.apk  org.flyve.inventory.CryptoUtil:::generateKeyPair  ['InvalidSequenceOfMethodCalls']
+     134  com.sapuseven.untis_29198884.apk  io.ktor.network.tls.TLSClientHandshakeKt:::generateECKeys  ['InvalidSequenceOfMethodCalls']
+      16  systems.sieber.droid_scep_7.apk  systems.sieber.droid_scep.ScepClient:::CertReq  ['InvalidSequenceOfMethodCalls']
+       8  com.serwylo.beatgame_35.apk  io.ktor.network.tls.TLSClientHandshakeKt:::generateECKeys  ['InvalidSequenceOfMethodCalls']
+       2  com.serwylo.retrowars_70.apk  io.ktor.network.tls.TLSClientHandshakeKt:::generateECKeys  ['InvalidSequenceOfMethodCalls']
+       2  com.sshborg_18.apk  com.jcraft.jsch.jce.KeyPairGenRSA:::init  ['InvalidSequenceOfMethodCalls']
+       2  io.treehouses.remote_6098.apk  io.treehouses.remote.bases.BaseSSHKeyGen:::generateKey  ['InvalidSequenceOfMethodCalls']
+
+B.4 by tool (lines / executions with >=1 KPR line):
+  qtesting                  136 lines /  19 apk-rep-timeout cells
+  ape                        70 lines /  29 apk-rep-timeout cells
+  ares                       70 lines /  24 apk-rep-timeout cells
+  fastbot                    66 lines /  26 apk-rep-timeout cells
+  droidmate                  54 lines /  24 apk-rep-timeout cells
+  monkey                     54 lines /  27 apk-rep-timeout cells
+  droidbot:dfs_greedy        50 lines /  25 apk-rep-timeout cells
+  droidbot:dfs_naive         48 lines /  24 apk-rep-timeout cells
+  droidbot:bfs_greedy        44 lines /  22 apk-rep-timeout cells
+  humanoid                   38 lines /  19 apk-rep-timeout cells
+  droidbot:bfs_naive         38 lines /  19 apk-rep-timeout cells
+
+B.5 H2 pairing (cells (apk,rep,timeout,tool,class,method)):
+  cells total=258 both-specific-and-InvalidSeq=0 only-InvalidSeq=258 only-specific=0
+
+B.6 H4 'but found .' lines within KeyPairSpec: 0
+B.7 message=='unknown' lines: 668/668
+
+==============================================================================
+C. Token scan over ALL fields of ALL 97,018 lines (lines/apks per token)
+==============================================================================
+  CipherInputStream    lines=     0 apks=  0 specs={}
+  CipherOutputStream   lines=     0 apks=  0 specs={}
+  KeyPair              lines=   684 apks=  8 specs={'KeyPairSpec': 668, 'KeyPairGeneratorSpec': 16}
+  SecretKey            lines=    24 apks=  1 specs={'KeyStoreSpec': 24}
+  PBEKeySpec           lines=     0 apks=  0 specs={}
+  getPublic            lines=     0 apks=  0 specs={}
+  getPrivate           lines=     0 apks=  0 specs={}
+  getEncoded           lines=     0 apks=  0 specs={}
+  clearPassword        lines=     0 apks=  0 specs={}
+
+  'KeyPair' with 'KeyPairGenerator' occurrences removed: lines=668 apks=8
+  'SecretKey' with 'SecretKeySpec' occurrences removed:  lines=24 apks=1

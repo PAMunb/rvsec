@@ -1,0 +1,45 @@
+Agent Beta — batch B fail-open probes (mutated copies in scratch ONLY; frozen toolchain
+javamop ab4e3765… / rv-monitor fab40319…; scratch batchB/beta/probes/). 2026-08-09.
+
+p1  stray ')' appended to CIS r1 pointcut (read()) )
+    javamop exit 0, stderr EMPTY (0 bytes); CipherInputStreamSpec.rvm BYTE-IDENTICAL to
+    the unmutated round input (sha256 8a23b29b…). Close-paren absorption reproduced on a
+    batch-B shape (pilot/batch-A FEN-SET-parenteses-tolerados).
+
+p2  stray '(' inserted in KPR gpu pointcut
+    javamop prints "javamop.util.MOPException: ... error ... parsing the pointcut ..."
+    to stderr but EXITS 0 and produces NO artifacts (no .rvm, out/ empty). A pipeline
+    gated on exit code loses the whole spec silently (batch-A p4 / pilot BETA-SET-04
+    reproduced).
+
+p3  undefined symbol 'w9' substituted for w2 in COS ere  (ere: c1 (w1 | w9 | fl)+ cl)
+    Both phases exit 0, stderr empty. 'w9' flows into the .rvm and is silently dropped
+    (no transition table, no wrapper). NEW sharper consequence measured: the REAL declared
+    event w2 — now absent from the ERE — is given an ALL-FAIL row by the generator:
+    Prop_1_transition_w2[] = {4,4,4,4,4} (probe artifact :147). A typo in one ERE symbol
+    does not merely narrow the language: it converts every write(byte[],int,int) into an
+    InvalidSequenceOfMethodCalls false positive. (Same mechanism the SecretKeySpec.mop
+    comment block describes as the "event with no place" defect.)
+
+p5  rv-monitor invoked on a nonexistent .rvm path
+    Prints "[Error] Target file, ./DoesNotExist.rvm, doesn't exist!" to stderr but EXITS 0
+    and produces nothing. Observed live in this round: JavaMOP -d writes the .rvm BESIDE
+    the .mop source (not into -d out/), so a pipeline that assumes out/<spec>.rvm runs
+    rv-monitor on a missing file and gets a silent no-op with exit 0.
+
+p6  'epsilon' typo'd to 'epsilom' in SKY ere  (ere: e1* (d | epsilom))
+    Both phases exit 0, stderr empty (0 bytes both). Transition tables UNCHANGED
+    ({0,2,2}/{1,2,2}) but the match category SILENTLY changes:
+      frozen artifact : Category_match = nextstate == 1 || nextstate == 0   (state 0 accepting)
+      p6 artifact     : Category_match = nextstate == 1                     (state 0 NOT accepting)
+    i.e. the accepted language loses epsilon (ge* d? -> ge* d) with zero diagnostics.
+    Discriminating value: proves the frozen SKY artifact realizes `epsilon` correctly
+    (union with the empty word), and that the fail-open symbol drop can silently change
+    ACCEPTANCE, not only reachability.
+
+DestroyDemo (JVM, Temurin 25): new SecretKeySpec(new byte[16],"AES").destroy() ->
+    THREW javax.security.auth.DestroyFailedException (Destroyable default method).
+    Relevance: SKY event d is plain `after` (after-finally) on the ajc half — it would
+    fire and remove GENERATED_KEY even when destroy FAILS — while the dexlib2 wrapper
+    body (WrapperEmitter.java:679-698: call, then monitor invokes, no try/finally) fires
+    events only on normal return. The two halves diverge on the COMMON case.

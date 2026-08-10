@@ -1,0 +1,38 @@
+### fail-crash sweep: creation-initialized field dereferences per monitor class
+
+-- HMACParameterSpecSpecMonitor (fields: HMACParameterSpec spec, WeakReference Ref_hmacParameterSpec)
+   DEREF  Ref_hmacParameterSpec line 4576 in Prop_1_event_c(): hmacParameterSpec = (HMACParameterSpec)Ref_hmacParameterSpec.get();
+   writers of spec: line 4579 in Prop_1_event_c()
+
+-- KeyPairGeneratorSpecMonitor (fields: KeyPairGenerator kpg, KeyPair kp, String algorithm)
+   SWITCH algorithm    line 5489 in validate(): switch(algorithm) {
+   writers of kpg: line 5558 in Prop_1_event_g1(), line 5576 in Prop_1_event_g2()
+   writers of algorithm: line 5559 in Prop_1_event_g1(), line 5577 in Prop_1_event_g2(), line 5594 in Prop_1_event_g3()
+   writers of kp: line 5687 in Prop_1_event_gen()
+
+-- KeyPairSpecMonitor (fields: KeyPair keyPair, WeakReference Ref_keyPair)
+   DEREF  Ref_keyPair  line 5910 in Prop_1_event_c1(): keyPair = (KeyPair)Ref_keyPair.get();
+   writers of keyPair: line 5908 in Prop_1_event_c1(), line 5910 in Prop_1_event_c1(), line 5919 in Prop_1_event_c1()
+   writers of Ref_keyPair: line 5935 in Prop_1_event_gpu(), line 5950 in Prop_1_event_gpr()
+
+-- KeyStoreSpecMonitor (fields: KeyStore keyStore, Key generatedKey, WeakReference Ref_ks)
+   DEREF  Ref_ks       line 6104 in Prop_1_event_g1(): ks = (KeyStore)Ref_ks.get();
+   DEREF  Ref_ks       line 6126 in Prop_1_event_g2(): ks = (KeyStore)Ref_ks.get();
+   DEREF  Ref_ks       line 6147 in Prop_1_event_load(): ks = (KeyStore)Ref_ks.get();
+   DEREF  Ref_ks       line 6163 in Prop_1_event_store(): ks = (KeyStore)Ref_ks.get();
+   DEREF  Ref_ks       line 6178 in Prop_1_event_ge1(): ks = (KeyStore)Ref_ks.get();
+   DEREF  Ref_ks       line 6193 in Prop_1_event_se1(): ks = (KeyStore)Ref_ks.get();
+   DEREF  Ref_ks       line 6208 in Prop_1_event_gk1(): ks = (KeyStore)Ref_ks.get();
+   writers of keyStore: line 6111 in Prop_1_event_g1()
+   writers of generatedKey: line 6214 in Prop_1_event_gk1()
+
+-- MacSpecMonitor (fields: Mac mac, WeakReference Ref_m)
+   DEREF  Ref_m        line 6599 in Prop_1_event_f3(): m = (Mac)Ref_m.get();
+   writers of mac: line 6407 in Prop_1_event_g1(), line 6428 in Prop_1_event_g2()
+   writers of Ref_m: line 6412 in Prop_1_event_g1(), line 6433 in Prop_1_event_g2(), line 6453 in Prop_1_event_g3(), line 6475 in Prop_1_event_i1(), line 6500 in Prop_1_event_i2(), line 6517 in Prop_1_event_uArr(), line 6532 in Prop_1_event_uByte(), line 6546 in Prop_1_event_uBuf(), line 6566 in Prop_1_event_f1(), line 6586 in Prop_1_event_f2()
+
+-- RandomStringPasswordSpecMonitor (fields: WeakReference Ref_str)
+   DEREF  Ref_str      line 7560 in Prop_1_event_vo(): str = (String)Ref_str.get();
+   DEREF  Ref_str      line 7580 in Prop_1_event_gb(): str = (String)Ref_str.get();
+
+total dereference sites flagged: 13

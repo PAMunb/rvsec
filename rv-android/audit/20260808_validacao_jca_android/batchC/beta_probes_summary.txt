@@ -1,0 +1,33 @@
+# Agent Beta batch C - fail-open probes (frozen javamop ab4e3765 / rv-monitor fab40319)
+# All probes: spec copied to scratch specs/, production commands (-d out -merge --emit-descriptor),
+# exit codes captured in <probe>/log, stderr in jm.err/rm.err, artifacts in <probe>/out/.
+
+p1  KGN stray ')' appended to the ere ('| gk1)' -> '| gk1))').
+    javamop exit 0; rv-monitor exit 0 BUT stderr "Logic Engine Error: null" and NO
+    KeyGeneratorSpecRuntimeMonitor.java generated (only .rvm/.aj/.json). NEW SHAPE vs batch A
+    (there the stray paren was absorbed byte-identically): here the paren flows into the .rvm and
+    kills the ERE plugin, with exit 0. A pipeline gated on exit codes sees success; the break
+    surfaces only later, when javac cannot find the monitor class the aspect references.
+
+p3  KST ere with one symbol typo'd (ge1 -> geX): batch B undefined-symbol shape REPRODUCED on
+    KeyStoreSpec. geX dropped silently; the real event ge1 is orphaned and gets an ALL-FAIL row
+    ({4,4,4,4,4}, p3/out/KeyStoreSpecRuntimeMonitor.java:246): every getEntry would become an
+    InvalidSequenceOfMethodCalls. Exit 0, empty stderr, whole automaton silently re-shaped
+    (5 states instead of 6).
+
+pF1 TMF with the g3 transitions removed from the fsm (event declared, absent from the body) —
+    the exact pre-gh101 TrustManagerFactorySpec shape. Generator emits an ALL-FAIL row for g3
+    ({3,3,3,3}, pF1/out/TrustManagerFactorySpecRuntimeMonitor.java:195) with exit 0 and EMPTY
+    stderr. Confirms the mechanism described in the .mop:112-117 comment is live in the frozen
+    toolchain and that the defect family can regress with zero diagnostics.
+
+pF2 KMF alias to a nonexistent state (match1 = finall): rv-monitor prints the warning
+    "The following states are used but never defined: finall" on stderr but EXITS 0 and emits
+    .rvm/.aj/.json while SILENTLY OMITTING the RuntimeMonitor. Same downstream-javac failure
+    mode as p1.
+
+pF3 SSL fsm transition to an undeclared state (init -> ennd): same shape as pF2 — warning on
+    stderr, exit 0, no RuntimeMonitor.
+
+p5  rv-monitor over a nonexistent .rvm: "[Error] Target file ... doesn't exist!" on stderr,
+    exit 0, nothing generated (batch B p5 reproduced this session).

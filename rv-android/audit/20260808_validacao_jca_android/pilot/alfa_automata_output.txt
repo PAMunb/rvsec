@@ -1,0 +1,57 @@
+MetaCrySL-precedence reading (B) sanity: is the normal usage G I Fw in L(B)?
+  G I Fw in L(reading B): False  -> reading (B) is degenerate; (A) adopted
+
+== CipherSpec.mop fsm  vs  Cipher.cryptsl ORDER (reading A) ==
+  L(CrySL) word REJECTED by MOP  (inclusion CrySL<=MOP fails; FP side): G I I W
+  MOP-accepted word NOT in L(CrySL) (inclusion MOP<=CrySL fails; FN side): G I W Fw
+  MOP @fail on CrySL-viable prefix   (FP verdict): G I I
+  CrySL violation, MOP takes no @fail (FN verdict): G I W U
+
+state-by-state walks of the separating traces (MOP fsm):
+  walk [viol_only_cand]: G I I
+    start --G--> s1
+    s1 --I--> s2
+    s2 --I--> @FAIL (no transition)
+  walk [match_only_cand]: G I W Fw
+    start --G--> s1
+    s1 --I--> s2
+    s2 --W--> end
+    end --Fw--> end
+    end of trace in state end; accepting=True
+  walk [match_only_ref]: G I I W
+    start --G--> s1
+    s1 --I--> s2
+    s2 --I--> @FAIL (no transition)
+  walk [viol_only_ref]: G I W U
+    start --G--> s1
+    s1 --I--> s2
+    s2 --W--> end
+    end --U--> s3
+    end of trace in state s3; accepting=False
+
+hand-verified counterexamples:
+  walk [candidate]: G I I
+    start --G--> s1
+    s1 --I--> s2
+    s2 --I--> @FAIL (no transition)
+  walk [candidate]: G I U U
+    start --G--> s1
+    s1 --I--> s2
+    s2 --U--> s3
+    s3 --U--> @FAIL (no transition)
+  walk [candidate]: G I W Fw
+    start --G--> s1
+    s1 --I--> s2
+    s2 --W--> end
+    end --Fw--> end
+    end of trace in state end; accepting=True
+  walk [candidate]: G I Fw W
+    start --G--> s1
+    s1 --I--> s2
+    s2 --Fw--> end
+    end --W--> end
+    end of trace in state end; accepting=True
+
+== GCMParameterSpecSpec.mop (hypothesis H-GCM)  vs  GCMParameterSpec.cryptsl ORDER ==
+  no separating trace up to length 12 -- dual inclusion HOLDS on this model
+

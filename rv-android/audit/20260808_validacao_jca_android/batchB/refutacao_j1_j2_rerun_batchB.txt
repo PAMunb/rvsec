@@ -1,0 +1,27 @@
+# REFUTATION batch B — J1-B/J2-B independent re-execution (2026-08-09)
+#
+# J1-B walk: python3 <scratch>/batchB/juiz/juiz_walk_batchB.py (sha256 fecc43a1... = batchB/juiz_walk_batchB.py)
+#   -> output diff vs batchB/juiz_walk_batchB_output.txt: IDENTICAL; freeze asserts inside passed (5/5 monitor hashes).
+#
+# J2-B drive: fresh compile of batchB/juiz_JuizDriveB.java + the 5 round monitors
+#   (hash-checked vs generation_manifest.md) with
+#   javac -cp rv-monitor-rt.jar(0fa65fbc):rvsec-core-0.9.3-SNAPSHOT.jar(7b4d72aa):rvsec-logger-csv-0.9.3-SNAPSHOT.jar(6787f411)
+#   run 3x from clean working dirs (java 25.0.3, package juiz):
+  <scratch>/batchB/refutacao/j2/drive_rerun_rep1.txt
+  <scratch>/batchB/refutacao/j2/drive_rerun_rep2.txt
+  <scratch>/batchB/refutacao/j2/drive_rerun_rep3.txt
+#   all three = ac889f1a81f33d54afac76cfd70f5ac19bfbafbd56ce840090308cb2d12b90c5 = batchB/juiz_driveB_rep1.txt (byte-identical).
+#
+# Independent evidence re-checks (all PASS):
+#   - batchB/juiz_* 8 files: sha256 equal to sintese par.7 list.
+#   - judge CSV: 133 rows; 0 original agent cells altered; position changes exactly {BETA-CIS-08 P->F, BETA-COS-09 P->F, BETA-SET-10 F->P}.
+#   - severity changes on FAIL rows: 7 harmonized claims (see refutacao_parecer REF-C-01) + 2 from overturns.
+#   - critical FAILs 38; they reconcile to the 12 named phenomena only after manually assigning the 3 critical claims with empty fenomeno_id (REF-C-02).
+#   - generatedCipher grep: 0/33 api30 .cryptsl; CIS/COS/SecretKey rules: no REQUIRES; COS ORDER 'Constructs, Writes+, c'; CONSTRAINT 'len > off' untranscribed in CIS/COS .mop.
+#   - errors.csv sha 78023def... : 668 KeyPairSpec lines, 668/668 contain 'unknown'; 0 lines CIS/COS/PBK.
+#   - android-30 jar sha 96ccfdc8...: javax.crypto.SecretKey declares only serialVersionUID (javap over bytes extracted from the frozen jar, not JDK fallback); CIS/COS 1-arg ctors protected.
+#   - source mechanisms re-read at file:line: WrapperEmitter findFirstCall/shouldWrap/literalFallback; AndroidClassIndex.methods declared-only + walkAncestors only in isAssignableFrom; DexWeaver INV-INS-66 + expandWrapperReplacementsForApk (APK-internal subtypes only); ErrorDescription equals/hashCode over summary, expecting excluded; ErrorCollector Set.add dedupe; RvsecAnalysisClient literal declaringClass#name keying.
+#   - gh101 registers re-read: divergence_record rows 2-3 ('Closes the rule's REQUIRES generatedCipher[ciph]') and row 83 ('...getEncoded after d fails.'); README.md:17 predicate_edges = pre-repair baseline 'kept as authored'; edges row 64 present-surrogate, no gate caveat; conformance rows 16/18/20; omissions rows 3/10/19/20; design.md:190; tasks.md 3b.4 (PBK f1/f2 empty-slice repair).
+#   - beta_weave_all.out conferred: SKY all 7 owner variants UNTOUCHED; cis_readB/cos_writeB UNTOUCHED with plansSkippedAliasing=1, siblings WRAPPED.
+#   - agent evidence hashes (alfa_report companion list, gama_report REF-B-01 list, beta_hashes.txt): spot-checked, match.
+#   - jca twin check: jca/SecretKeySpec.mop:25 carries the same GENERATED_KEY condition gate (basis of REF-C-05).

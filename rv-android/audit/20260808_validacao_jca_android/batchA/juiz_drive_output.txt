@@ -1,0 +1,15 @@
+A: PREPARED_DH(okSpec)=true
+A: errors=0
+B: PREPARED_DH(fpSpec)=false  (construction is LEGAL under the raw api30 oracle)
+B: errors=1 [UnsatisfiedConstraint spec=KeyPairGeneratorSpec expecting=initialize() for DH requires an AlgorithmParameterSpec established by a monitored DHGenParameterSpec sequence.]
+J2 RESULT: END-TO-END FALSE POSITIVE CONFIRMED (accusation at KeyPairGeneratorSpec for an oracle-legal DHGenParameterSpec)
+A: PREPARED_DH(okSpec)=true
+A: errors=0
+B: PREPARED_DH(fpSpec)=false  (construction is LEGAL under the raw api30 oracle)
+B: errors=1 [UnsatisfiedConstraint spec=KeyPairGeneratorSpec expecting=initialize() for DH requires an AlgorithmParameterSpec established by a monitored DHGenParameterSpec sequence.]
+J2 RESULT: END-TO-END FALSE POSITIVE CONFIRMED (accusation at KeyPairGeneratorSpec for an oracle-legal DHGenParameterSpec)
+A: PREPARED_DH(okSpec)=true
+A: errors=0
+B: PREPARED_DH(fpSpec)=false  (construction is LEGAL under the raw api30 oracle)
+B: errors=1 [UnsatisfiedConstraint spec=KeyPairGeneratorSpec expecting=initialize() for DH requires an AlgorithmParameterSpec established by a monitored DHGenParameterSpec sequence.]
+J2 RESULT: END-TO-END FALSE POSITIVE CONFIRMED (accusation at KeyPairGeneratorSpec for an oracle-legal DHGenParameterSpec)

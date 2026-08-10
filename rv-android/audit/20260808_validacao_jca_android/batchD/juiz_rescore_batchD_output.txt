@@ -1,0 +1,50 @@
+== Per-unit raw weighted sums (of record, D-batchA-1) ==
+MAC: RAW 12.57  [ling 0.00 (0/2); capt 4.00 (1/5); bind 4.29 (2/7); pred 4.29 (2/7); tool 0.00 (0/1); diag 0.00 (0/3); repr --/5]  COMPLETE  unattainable weight 5  derived reading (labeled, NOT the record): 12.57/95 = 13.23%
+MDG: RAW 47.83  [ling 8.00 (2/5); capt 13.33 (2/3); bind 9.00 (3/5); pred 15.00 (1/1); tool --/15; diag 2.50 (1/4); repr --/5]  COMPLETE  unattainable weight 20  derived reading (labeled, NOT the record): 47.83/80 = 59.79%
+KPG: RAW 24.75  [ling 5.00 (1/4); capt 4.00 (1/5); bind 3.75 (1/4); pred 12.00 (4/5); tool 0.00 (0/3); diag 0.00 (0/2); repr --/5]  COMPLETE  unattainable weight 5  derived reading (labeled, NOT the record): 24.75/95 = 26.05%
+SRD: RAW 16.50  [ling 4.00 (1/5); capt 0.00 (0/6); bind 5.00 (1/3); pred 7.50 (3/6); tool --/15; diag 0.00 (0/1 +1INC); repr --/5]  INCOMPLETE (1 INCONCLUSIVE outside denominator)  unattainable weight 20  derived reading (labeled, NOT the record): 16.50/80 = 20.62%
+SIG: RAW 29.17  [ling 6.67 (1/3); capt 0.00 (0/5); bind 15.00 (4/4); pred 7.50 (2/4); tool --/15; diag 0.00 (0/1); repr --/5]  COMPLETE  unattainable weight 20  derived reading (labeled, NOT the record): 29.17/80 = 36.46%
+SET: RAW 8.75  [ling --/20; capt --/20; bind --/15; pred 3.75 (1/4); tool 0.00 (0/2 +2INC); diag 0.00 (0/5); repr 5.00 (5/5)]  INCOMPLETE (2 INCONCLUSIVE outside denominator)  unattainable weight 55  derived reading (labeled, NOT the record): 8.75/45 = 19.44%
+
+== Batch-D aggregate (context only; 105 spec claims, SET excluded) ==
+AGG: RAW 24.51  [ling 5.26 (5/19); capt 3.33 (4/24); bind 7.17 (11/23); pred 7.83 (12/23); tool 0.00 (0/4); diag 0.91 (1/11 +1INC); repr --/5]  INCOMPLETE (1 INC)  unattainable weight 5  derived reading (labeled, NOT the record): 24.51/95 = 25.80%
+
+Resolutions: 39 PASS / 81 FAIL / 3 INCONCLUSIVE (123 total)
+
+== Per-phenomenon FAIL counts (fenomeno_id_final; 34 phenomena) ==
+FEN-C-GETS-INVISIVEL: 12 FAIL (9 critical) <- ALFA-KPG-07, ALFA-MAC-07, ALFA-MDG-04, ALFA-SIG-03, ALFA-SRD-08, BETA-KPG-04, BETA-MAC-02, BETA-SIG-02, BETA-SRD-02, GAMA-KPG-02, GAMA-SIG-03, GAMA-SRD-06
+FEN-C-CARRIER-SEQFAIL: 10 FAIL (10 critical) <- ALFA-KPG-05, ALFA-MAC-05, ALFA-MDG-03, ALFA-SET-13, ALFA-SIG-02, BETA-KPG-03, BETA-MAC-06, GAMA-KPG-03, GAMA-MAC-01, GAMA-MDG-01
+FEN-C-EMPTY-LABEL: 5 FAIL (3 critical) <- ALFA-SET-14, GAMA-MAC-04, GAMA-MDG-02, GAMA-SET-27, GAMA-SIG-02
+FEN-MAC-F3-UNBOUND: 4 FAIL (4 critical) <- ALFA-MAC-02, ALFA-MAC-03, BETA-MAC-01, GAMA-MAC-03
+FEN-D-CACHE-BOXING: 3 FAIL (0 critical) <- BETA-MAC-04, BETA-SRD-05, GAMA-SRD-04
+FEN-MAC-KEYGATE-EXTRA: 3 FAIL (3 critical) <- ALFA-MAC-04, BETA-MAC-05, GAMA-MAC-02
+FEN-SIG-SIGN-VOID: 3 FAIL (3 critical) <- ALFA-SIG-01, BETA-SIG-01, GAMA-SIG-01
+FEN-SRD-RANDOMIZED-OVERGRANT: 3 FAIL (3 critical) <- ALFA-SET-11, ALFA-SRD-04, GAMA-SRD-03
+FEN-C-ACCEPT-END: 2 FAIL (0 critical) <- ALFA-MDG-11, ALFA-SRD-09
+FEN-C-WHITELIST-EXTRA: 2 FAIL (1 critical) <- ALFA-MAC-12, ALFA-MDG-05
+FEN-D-ARITH-OMITIDA: 2 FAIL (0 critical) <- ALFA-MAC-11, ALFA-MDG-08
+FEN-D-REGISTER-ANCHOR-DRIFT: 2 FAIL (0 critical) <- ALFA-SET-12, GAMA-MAC-06
+FEN-D-S13-BYTEBUFFER: 2 FAIL (0 critical) <- ALFA-MAC-09, BETA-MAC-03
+FEN-KPG-INIT2-SUPPRESSED: 2 FAIL (2 critical) <- ALFA-KPG-04, GAMA-KPG-05
+FEN-KPG-NPE: 2 FAIL (2 critical) <- ALFA-KPG-02, GAMA-KPG-01
+FEN-MDG-LABEL-STALE: 2 FAIL (0 critical) <- ALFA-MDG-10, GAMA-MDG-04
+FEN-SET-firstcall-disjunct: 2 FAIL (2 critical) <- BETA-KPG-02, GAMA-KPG-06
+FEN-SIG-VERIFIED-WRONGSLOT: 2 FAIL (0 critical) <- ALFA-SIG-05, GAMA-SIG-04
+FEN-SRD-C3-SILENT: 2 FAIL (2 critical) <- ALFA-SRD-02, BETA-SRD-04
+FEN-SRD-NEXTBYTES-FP: 2 FAIL (2 critical) <- ALFA-SRD-01, GAMA-SRD-01
+FEN-A-STALE-FLAGS: 1 FAIL (1 critical) <- GAMA-KPG-04
+FEN-D-KEYPAIR-EDGE: 1 FAIL (1 critical) <- ALFA-KPG-10
+FEN-D-PREPAREDHMAC-GUARANTEED-FIRE: 1 FAIL (1 critical) <- ALFA-SET-10
+FEN-KPG-FAILSINK: 1 FAIL (1 critical) <- ALFA-KPG-03
+FEN-KPG-INITERROR-PLACEMENT: 1 FAIL (1 critical) <- ALFA-KPG-06
+FEN-MAC-G2-EXTRA: 1 FAIL (0 critical) <- ALFA-MAC-06
+FEN-SET-DECLARED-ONLY: 1 FAIL (0 critical) <- BETA-SRD-03
+FEN-SET-DEDUPE: 1 FAIL (0 critical) <- GAMA-SET-26
+FEN-SET-FAIL-OPEN: 1 FAIL (1 critical) <- BETA-SET-04
+FEN-SET-STATIC-DEAD-TARGETS: 1 FAIL (0 critical) <- GAMA-SET-23
+FEN-SET-STATIC-JCA-DEFAULT: 1 FAIL (0 critical) <- GAMA-SET-24
+FEN-SET-VARARGS-ARGS-IGNORED: 1 FAIL (1 critical) <- BETA-SRD-01
+FEN-SRD-EXTRA-ALPHABET: 1 FAIL (0 critical) <- ALFA-SRD-06
+FEN-SRD-SEED-AFTER-END: 1 FAIL (1 critical) <- ALFA-SRD-03
+
+critical FAIL claims: 54; phenomena with >=1 critical FAIL: 21

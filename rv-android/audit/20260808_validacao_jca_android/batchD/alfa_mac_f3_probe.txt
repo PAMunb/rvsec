@@ -1,0 +1,73 @@
+# Batch D / ALFA - Mac f3 target(m) probe (AJC path + descriptor)
+# date: 2026-08-09; command below; aspect hash = generation manifest (bf26c8e7...)
+# ajc: lib_tmp/aspectjtools.jar sha256:
+b07ce76ce7c7234f47ffa7651b6ecb6ad5144240bb320998de6280fe926b2615  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/lib_tmp/aspectjtools.jar
+# input aspect:
+bf26c8e7f6c826b266eb9970ffa33b9f2feecd27e2cd7e2f62082ca773341f2c  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/alfa/../gen_MacSpec/out/MacSpecMonitorAspect.aj
+## command: java -cp aspectjtools.jar org.aspectj.tools.ajc.Main -1.8 -cp aspectjrt:rv-monitor-rt:rvsec-core:monitors:android-30.jar -d out MacSpecMonitorAspect.aj
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:88 [warning] no match for this type name: m [Xlint:invalidAbsoluteTypeName]
+pointcut MacSpec_f3(byte[] output, int outOffset) : (call(void Mac.doFinal(byte[], int)) && args(output, outOffset) && target(m)) && MOP_CommonPointCut();
+                                                                                                                              ^
+	[Xlint:invalidAbsoluteTypeName]
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:89 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:84 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:79 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:74 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:69 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:64 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:59 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:54 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:46 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:41 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+
+11 warnings
+ajc_exit=0
+## descriptor (dexlib2 input) f3 advice, MacSpecMonitorAspect.json:
+{
+ "name": "MacSpec_f3",
+ "specName": "MacSpec",
+ "parameters": [
+  {
+   "type": "byte[]",
+   "name": "output"
+  },
+  {
+   "type": "int",
+   "name": "outOffset"
+  }
+ ],
+ "position": "after",
+ "isAround": false,
+ "returning": null,
+ "throwing": null,
+ "expression": "call(void Mac.doFinal(byte[], int)) && args(output, outOffset) && target(m)",
+ "monitorCalls": [
+  {
+   "method": "MacSpecRuntimeMonitor.MacSpec_f3Event",
+   "specName": "MacSpec",
+   "eventId": "f3",
+   "uniqueId": "f3",
+   "args": [
+    "output",
+    "outOffset"
+   ],
+   "countCond": null
+  }
+ ]
+}
+## jca twin provenance (jca/MacSpec.mop:76-79, same shape under the name f2):
+        event f2 after(byte[] output, int outOffset):
+          call(void Mac.doFinal(byte[], int)) &&
+          args(output, outOffset) &&
+          target(m){
+            ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);

@@ -1,0 +1,49 @@
+== DHG tables: c1=[1, 2, 2]
+PASS DHG: every event is {1,2,2} or {0,2,2}
+PASS DHG: single c1 -> state 1 (match/accepting)
+PASS DHG: second event on SAME monitor -> state 2 (fail)
+PASS DHG: fail UNREACHABLE with a single event per monitor
+== HMC tables: c=[1, 2, 2]
+PASS HMC: every event is {1,2,2} or {0,2,2}
+PASS HMC: single c -> state 1 (match/accepting)
+PASS HMC: second event on SAME monitor -> state 2 (fail)
+PASS HMC: fail UNREACHABLE with a single event per monitor
+== PBE tables: c1=[1, 2, 2], c2=[1, 2, 2], c3=[0, 2, 2]
+PASS PBE: every event is {1,2,2} or {0,2,2}
+PASS PBE: single c1 -> state 1 (match/accepting)
+PASS PBE: second event on SAME monitor -> state 2 (fail)
+PASS PBE: single c2 -> state 1 (match/accepting)
+PASS PBE: second event on SAME monitor -> state 2 (fail)
+PASS PBE: single c3 -> state 0 (loop, no match, no fail)
+PASS PBE: c3 then c1 -> 1 (Kleene prefix)
+PASS PBE: fail UNREACHABLE with a single event per monitor
+== IVP tables: c1=[1, 2, 2], c2=[1, 2, 2], c3=[0, 2, 2], c4=[0, 2, 2]
+PASS IVP: every event is {1,2,2} or {0,2,2}
+PASS IVP: single c1 -> state 1 (match/accepting)
+PASS IVP: second event on SAME monitor -> state 2 (fail)
+PASS IVP: single c2 -> state 1 (match/accepting)
+PASS IVP: second event on SAME monitor -> state 2 (fail)
+PASS IVP: single c3 -> state 0 (loop, no match, no fail)
+PASS IVP: c3 then c1 -> 1 (Kleene prefix)
+PASS IVP: single c4 -> state 0 (loop, no match, no fail)
+PASS IVP: c4 then c1 -> 1 (Kleene prefix)
+PASS IVP: fail UNREACHABLE with a single event per monitor
+== SKS tables: c1=[1, 2, 2], c2=[1, 2, 2], c3=[0, 2, 2], c4=[0, 2, 2]
+PASS SKS: every event is {1,2,2} or {0,2,2}
+PASS SKS: single c1 -> state 1 (match/accepting)
+PASS SKS: second event on SAME monitor -> state 2 (fail)
+PASS SKS: single c2 -> state 1 (match/accepting)
+PASS SKS: second event on SAME monitor -> state 2 (fail)
+PASS SKS: single c3 -> state 0 (loop, no match, no fail)
+PASS SKS: c3 then c1 -> 1 (Kleene prefix)
+PASS SKS: single c4 -> state 0 (loop, no match, no fail)
+PASS SKS: c4 then c1 -> 1 (Kleene prefix)
+PASS SKS: fail UNREACHABLE with a single event per monitor
+
+-- parametrization walk (indexing read from the artifacts §0) --
+DHG/PBE/IVP/SKS: MapOfMonitor keyed on the returned object -> one event per monitor
+  => fail dead in realizable traces for these four (confirmed above: needs 2nd event).
+HMC: single static Tuple2 (global monitor) -> ALL constructions share one monitor
+PASS HMC(global): two CrySL-LEGAL constructions in one process -> fail state 2 (separating trace: L(CrySL) accepts, artifact fires InvalidSequenceOfMethodCalls)
+
+ALL PASS

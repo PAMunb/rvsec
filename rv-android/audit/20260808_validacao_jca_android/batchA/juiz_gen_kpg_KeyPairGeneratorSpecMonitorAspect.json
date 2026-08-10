@@ -1,0 +1,194 @@
+{
+  "aspectName" : "KeyPairGeneratorSpecMonitorAspect",
+  "fileName" : "KeyPairGeneratorSpec",
+  "shortName" : "KeyPairGeneratorSpec",
+  "package" : "package mop;",
+  "imports" : [ "java.security.KeyPair", "java.security.KeyPairGenerator", "java.security.SecureRandom", "java.security.spec.AlgorithmParameterSpec", "br.unb.cic.mop.eh.*", "br.unb.cic.mop.ExecutionContext", "br.unb.cic.mop.Property", "java.util.concurrent.*", "java.util.concurrent.locks.*", "java.util.*", "javamoprt.*", "java.lang.ref.*", "org.aspectj.lang.*" ],
+  "commonPointcut" : "!within(com.runtimeverification.rvmonitor.java.rt.RVMObject+) && !adviceexecution() && BaseAspect.notwithin()",
+  "baseAspectExclusions" : [ "sun..*", "java..*", "javax..*", "com.sun..*", "org.dacapo.harness..*", "org.apache.commons..*", "org.apache.geronimo..*", "net.sf.cglib..*", "mop..*", "javamoprt..*", "rvmonitorrt..*", "com.runtimeverification..*" ],
+  "advices" : [ {
+    "name" : "KeyPairGeneratorSpec_g1",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) && args(alg)",
+    "monitorCalls" : [ {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_g1Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "g1",
+      "uniqueId" : "g1",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    }, {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_g3Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "g3",
+      "uniqueId" : "g3",
+      "args" : [ "alg", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_g2",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "String",
+      "name" : "alg"
+    }, {
+      "type" : "String",
+      "name" : "provider"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "throwing" : null,
+    "expression" : "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)) && args(alg, provider)",
+    "monitorCalls" : [ {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_g2Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "g2",
+      "uniqueId" : "g2",
+      "args" : [ "alg", "provider", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init1",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "keySize"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(int)) && args(keySize) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_init1Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init1",
+      "uniqueId" : "init1",
+      "args" : [ "keySize", "k" ],
+      "countCond" : null
+    }, {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_initErrorEvent",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "initError",
+      "uniqueId" : "initError",
+      "args" : [ "keySize", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init2",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "int",
+      "name" : "keySize"
+    }, {
+      "type" : "SecureRandom",
+      "name" : "random"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(int, SecureRandom)) && args(keySize, random) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_init2Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init2",
+      "uniqueId" : "init2",
+      "args" : [ "keySize", "random", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init3",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "AlgorithmParameterSpec",
+      "name" : "params"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) && args(params) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_init3Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init3",
+      "uniqueId" : "init3",
+      "args" : [ "params", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_init4",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "AlgorithmParameterSpec",
+      "name" : "params"
+    }, {
+      "type" : "SecureRandom",
+      "name" : "random"
+    }, {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : null,
+    "throwing" : null,
+    "expression" : "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) && args(params, random) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_init4Event",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "init4",
+      "uniqueId" : "init4",
+      "args" : [ "params", "random", "k" ],
+      "countCond" : null
+    } ]
+  }, {
+    "name" : "KeyPairGeneratorSpec_gen",
+    "specName" : "KeyPairGeneratorSpec",
+    "parameters" : [ {
+      "type" : "KeyPairGenerator",
+      "name" : "k"
+    } ],
+    "position" : "after",
+    "isAround" : false,
+    "returning" : [ {
+      "type" : "KeyPair",
+      "name" : "keyPair"
+    } ],
+    "throwing" : null,
+    "expression" : "(call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) && target(k)",
+    "monitorCalls" : [ {
+      "method" : "KeyPairGeneratorSpecRuntimeMonitor.KeyPairGeneratorSpec_genEvent",
+      "specName" : "KeyPairGeneratorSpec",
+      "eventId" : "gen",
+      "uniqueId" : "gen",
+      "args" : [ "k", "keyPair" ],
+      "countCond" : null
+    } ]
+  } ]
+}

@@ -1,0 +1,29 @@
+KGN: fail=[5] match=[1] tables={g1:[4, 5, 5, 5, 4, 5], g2:[3, 5, 5, 3, 5, 5], g3:[0, 5, 5, 5, 5, 5], gk1:[5, 5, 1, 1, 1, 5], i1:[5, 5, 5, 2, 2, 5], i2:[5, 5, 5, 2, 2, 5], i3:[5, 5, 5, 2, 2, 5], i4:[5, 5, 5, 2, 2, 5], i5:[5, 5, 5, 2, 2, 5]}
+KMF: fail=[3] match=[2] tables={g1:[1, 3, 1, 3], g2:[1, 3, 1, 3], g3:[0, 3, 3, 3], gkm1:[3, 3, 0, 3], i1:[3, 2, 3, 3], i2:[3, 2, 3, 3]}
+TMF: fail=[3] match=[2] tables={g1:[1, 3, 1, 3], g2:[1, 3, 1, 3], g3:[0, 3, 3, 3], gtm1:[3, 3, 0, 3], i1:[3, 2, 3, 3], i2:[3, 2, 3, 3]}
+SSL: fail=[3] match=[1] tables={engine:[3, 1, 3, 3], g1:[2, 3, 3, 3], g2:[2, 3, 3, 3], init:[3, 3, 1, 3], unsafe_protocol:[0, 3, 3, 3]}
+KST: fail=[5] match=[1] tables={g1:[4, 4, 5, 5, 5, 5], g2:[0, 0, 5, 5, 5, 5], ge1:[5, 3, 5, 5, 5, 5], gk1:[5, 1, 5, 1, 5, 5], load:[5, 5, 5, 5, 1, 5], se1:[5, 2, 5, 5, 5, 5], store:[5, 5, 1, 5, 5, 5]}
+[PASS] KST table equals published
+[PASS] KMF/TMF tables equal published
+[PASS] SSL table equals published
+[PASS] KGN table equals published
+[PASS] KST is the empty-binding global Tuple2 (spec param ks bound by no event)
+[PASS] KGN/KMF/TMF/SSL are per-object MapOfMonitor
+[PASS] reset() clears category flags (stale-flag path benign)
+[PASS] TMF g3,i1,gtm1 (rule-ORDER-CONFORMANT, constraint-only misuse) -> fails at i1 AND gtm1  (FEN-C-CARRIER-SEQFAIL + FEN-C-DELAYED)
+[PASS] KMF same shape
+[PASS] SSL unsafe_protocol,init (ORDER-conformant) -> fails at init
+[PASS] KGN g3,i1,gk1 (ORDER-conformant) -> fails at i1 AND gk1
+[PASS] KST g2,load,gk1 (ORDER-conformant, type constraint-only) -> fails at load AND gk1
+[PASS] KST global monitor: interleaved 2nd store's g1 -> fail (two objects, one automaton)  (per-object each trace is legal; ere (g2* g1 load...)+ forbids g1 g1)
+[PASS] KST g1,load,[skE1 unobserved],store (rule route sE,Stores broken by omission) -> fail at store  (FEN-KST-ENTRIES-OMITIDAS displaced accusation)
+[PASS] KST captured sE control g1,load,se1,store -> clean
+[PASS] KMF 2nd getKeyManagers (genuine ORDER violation gkm?) -> fail at gkm#2
+[PASS] SSL 2nd engine (rule Engine? violation) -> SILENT (FN): engine loops at end  (FEN-SSL-ENGINE-LOOP; masked by dead pointcut FEN-SSL-ENGINE-VOID)
+[PASS] KMF complete rule word g1,i1,gkm1 ends OUTSIDE match1 (state 0)  (FEN-C-ACCEPT-END)
+[PASS] KGN conformant word -> match, no fail
+[PASS] dexlib2 merged-wrapper emission g1,g2 on ONE 1-arg getInstance("PKIX") -> fail at g2  (FEN-SET-VARARGS-ARGS-IGNORED table-level effect (Beta DX-1/DX-2))
+[PASS] KST creation-at-consume: load as first event -> fail (2-arg-created store)
+[PASS] SSL creation-at-consume: init as first event -> fail ((String,Provider) overload)
+
+22/22 checks PASS

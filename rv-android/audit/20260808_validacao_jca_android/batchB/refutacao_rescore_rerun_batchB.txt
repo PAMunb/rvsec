@@ -1,0 +1,64 @@
+# REFUTATION batch B — rescore re-run (2026-08-09)
+# Command: python3 batchB/juiz_rescore_batchB.py  (cwd: refutation scratch)
+# diff vs batchB/juiz_rescore_batchB_output.txt: IDENTICAL (exit 0)
+
+== Per-spec scores (that spec's resolved claims only; D-piloto-4) ==
+CIS CipherInputStreamSpec: raw = 40.00 / 100 pre-registered weight; INCOMPLETE (1 INCONCLUSIVE outside denominator)
+   ling 6.67 (1/3) | capt 5.00 (1/4 +1INC) | bind 2.50 (1/6) | pred 7.50 (2/4) | tool 15.00 (1/1) | diag 3.33 (1/3) | repr 0.00 (0/1)
+COS CipherOutputStreamSpec: raw = 34.17 / 100 pre-registered weight; COMPLETE
+   ling 3.33 (1/6) | capt 5.00 (1/4) | bind 0.00 (0/5) | pred 7.50 (2/4) | tool 15.00 (1/1) | diag 3.33 (1/3) | repr 0.00 (0/1)
+KPR KeyPairSpec: raw = 50.50 / 100 pre-registered weight; INCOMPLETE (1 INCONCLUSIVE outside denominator)
+   ling 8.00 (2/5) | capt 20.00 (1/1) | bind 0.00 (0/6) | pred 15.00 (2/2) | tool 7.50 (1/2) | diag 0.00 (0/3) | repr 0.00 (0/2 +1INC)
+SKY SecretKeySpec(SecretKey): raw = 47.50 / 100 pre-registered weight; INCOMPLETE (1 INCONCLUSIVE outside denominator)
+   ling 20.00 (3/3) | capt 0.00 (0/1 +1INC) | bind 5.00 (1/3) | pred 7.50 (2/4) | tool 15.00 (2/2) | diag 0.00 (0/3) | repr 0.00 (0/2)
+PBK PBEKeySpecSpec: raw = 59.60 / 100 pre-registered weight; COMPLETE
+   ling 6.67 (2/6) | capt 20.00 (1/1) | bind 9.00 (3/5) | pred 7.50 (2/4) | tool 15.00 (1/1) | diag 1.43 (1/7) | repr 0.00 (0/1)
+
+== SET score (separate; D-piloto-4 item 2) ==
+SET: raw = 8.33 / 100 pre-registered weight; unattainable weight = 35; derived reading (labeled, not the record): 8.33/65 = 12.82%; INCOMPLETE (2 INCONCLUSIVE outside denominator)
+   ling — | capt 0.00 (0/1) | bind — | pred 0.00 (0/1) | tool 0.00 (0/11 +1INC) | diag 3.33 (1/3) | repr 5.00 (2/2 +1INC)
+
+== Batch-B aggregate (context only; spec claims, SET excluded) ==
+AGGREGATE: raw = 40.87 / 100 pre-registered weight; INCOMPLETE (3 INCONCLUSIVE outside denominator)
+   ling 7.83 (9/23) | capt 7.27 (4/11 +2INC) | bind 3.00 (5/25) | pred 8.33 (10/18) | tool 12.86 (6/7) | diag 1.58 (3/19) | repr 0.00 (0/7 +1INC)
+
+== Resolution totals ==
+133 claims = 40 PASS + 88 FAIL + 5 INCONCLUSIVE; critical FAILs: 38
+
+== Per-phenomenon counts (D-piloto-4 item 3; unified FEN groups) ==
+  FEN-STREAMS-MONITOR-GLOBAL: 10 claims ({'FAIL': 10}) max-sev=critica
+  FEN-SET-FAIL-UNKNOWN: 7 claims ({'FAIL': 7}) max-sev=major
+  FEN-KPR-C1-SLICE-VAZIO: 6 claims ({'FAIL': 6}) max-sev=critica
+  FEN-KPR-CO-OPCIONAL: 5 claims ({'FAIL': 4, 'INCONCLUSIVE': 1}) max-sev=critica
+  FEN-CIS-LENOFF: 4 claims ({'FAIL': 4}) max-sev=major
+  FEN-PBK-SENHA-EXTRA: 4 claims ({'FAIL': 4}) max-sev=critica
+  FEN-SKY-GATE-SUPRESSAO: 4 claims ({'FAIL': 4}) max-sev=critica
+  FEN-SKY-SEM-CANAL: 4 claims ({'FAIL': 4}) max-sev=critica
+  FEN-CIS-CTOR1-OMITIDA: 3 claims ({'FAIL': 2, 'INCONCLUSIVE': 1}) max-sev=major
+  FEN-COS-FLUSH: 3 claims ({'FAIL': 3}) max-sev=critica
+  FEN-PBE-MSG-1000: 3 claims ({'FAIL': 3}) max-sev=major
+  FEN-SET-DEDUPE: 3 claims ({'FAIL': 3}) max-sev=major
+  FEN-SET-EOT: 3 claims ({'FAIL': 3}) max-sev=minor
+  FEN-SET-FIRSTCALL-DISJUNCT: 3 claims ({'FAIL': 3}) max-sev=critica
+  FEN-SET-GENCIPHER-EXTRA: 3 claims ({'FAIL': 3}) max-sev=critica
+  FEN-SET-LAYER2-REPARO: 3 claims ({'PASS': 3})
+  FEN-CIS-ENSURES-SEM-CONSTANTE: 2 claims ({'PASS': 2})
+  FEN-KPR-MATCH-NULL: 2 claims ({'FAIL': 2}) max-sev=major
+  FEN-PBK-FORBIDDEN-MAP: 2 claims ({'FAIL': 2}) max-sev=major
+  FEN-PBK-RESIDUO: 2 claims ({'FAIL': 2}) max-sev=critica
+  FEN-SKY-ZERO-CAPTURA: 2 claims ({'FAIL': 2}) max-sev=critica
+  FEN-KPR-NULL-LENIENTE: 1 claims ({'FAIL': 1}) max-sev=minor
+  FEN-SET-CTOR-INVISIVEL-ESTATICA: 1 claims ({'FAIL': 1}) max-sev=major
+  FEN-SET-FAILOPEN: 1 claims ({'FAIL': 1}) max-sev=major
+  FEN-SET-GENERATEDKEY-2A-CASA: 1 claims ({'FAIL': 1}) max-sev=major
+  FEN-SET-GERADOR-SILENCIO: 1 claims ({'FAIL': 1}) max-sev=major
+  FEN-SET-INTERFACE-RECEIVER: 1 claims ({'FAIL': 1}) max-sev=major
+  FEN-SET-JCA-DIR-DEFAULT: 1 claims ({'FAIL': 1}) max-sev=minor
+  FEN-SET-NEWLINE-ESCAPE: 1 claims ({'PASS': 1})
+  FEN-SET-TIPO-ESTATICO: 1 claims ({'FAIL': 1}) max-sev=major
+  FEN-SET-ZERO-EMISSAO-PARAMSPECS: 1 claims ({'INCONCLUSIVE': 1})
+  FEN-SET-advice-kind: 1 claims ({'FAIL': 1}) max-sev=minor
+  FEN-SKS-SURROGATE: 1 claims ({'FAIL': 1}) max-sev=critica
+  FEN-SKY-DESPACHO-ESTATICO: 1 claims ({'INCONCLUSIVE': 1})
+  FEN-SKY-NEGATES: 1 claims ({'PASS': 1})
+  FEN-SKY-ORDEM-EQUIVALENTE: 1 claims ({'PASS': 1})

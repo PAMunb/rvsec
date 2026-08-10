@@ -1,0 +1,43 @@
+== Per-unit raw weighted sums (of record, D-batchA-1) ==
+KGN: RAW 51.25  [ling 15.00 (3/4); capt 10.00 (2/4); bind 7.50 (5/10); pred 11.25 (3/4); tool 7.50 (1/2); diag 0.00 (0/3); repr 0.00 (0/1)]  COMPLETE
+KMF: RAW 48.67  [ling 6.67 (1/3); capt 0.00 (0/3); bind 15.00 (4/4); pred 12.00 (4/5); tool 15.00 (1/1); diag 0.00 (0/2); repr --/5]  COMPLETE  unattainable weight 5  derived reading (labeled, NOT the record): 48.67/95 = 51.23%
+TMF: RAW 47.92  [ling 6.67 (1/3); capt 0.00 (0/3); bind 15.00 (2/2); pred 11.25 (3/4); tool 15.00 (1/1); diag 0.00 (0/4 +1INC); repr --/5]  INCOMPLETE (1 INCONCLUSIVE outside denominator)  unattainable weight 5  derived reading (labeled, NOT the record): 47.92/95 = 50.44%
+SSL: RAW 39.50  [ling 8.00 (2/5); capt 0.00 (0/7); bind 7.50 (2/4); pred 9.00 (3/5); tool 15.00 (1/1); diag 0.00 (0/3 +1INC); repr --/5]  INCOMPLETE (1 INCONCLUSIVE outside denominator)  unattainable weight 5  derived reading (labeled, NOT the record): 39.50/95 = 41.58%
+KST: RAW 43.29  [ling 15.00 (3/4); capt 0.00 (0/5); bind 4.29 (2/7); pred 9.00 (3/5); tool 15.00 (1/1); diag 0.00 (0/1 +1INC); repr --/5]  INCOMPLETE (1 INCONCLUSIVE outside denominator)  unattainable weight 5  derived reading (labeled, NOT the record): 43.29/95 = 45.56%
+SET: RAW 17.08  [ling --/20; capt --/20; bind --/15; pred 8.33 (5/9); tool 3.75 (1/4 +1INC); diag 0.00 (0/3 +1INC); repr 5.00 (1/1 +1INC)]  INCOMPLETE (3 INCONCLUSIVE outside denominator)  unattainable weight 55  derived reading (labeled, NOT the record): 17.08/45 = 37.96%
+
+== Batch-C aggregate (context only; 114 spec claims, SET excluded) ==
+AGG: RAW 43.61  [ling 10.53 (10/19); capt 1.82 (2/22); bind 8.33 (15/27); pred 10.43 (16/23); tool 12.50 (5/6); diag 0.00 (0/13 +3INC); repr 0.00 (0/1)]  INCOMPLETE (3 INC)
+
+Resolutions: 55 PASS / 73 FAIL / 6 INCONCLUSIVE (134 total)
+
+== Per-phenomenon FAIL counts (fenomeno_id_final; 27 phenomena) ==
+FEN-C-CARRIER-SEQFAIL: 15 FAIL (14 critical) <- ALFA-KGN-02, ALFA-KGN-12, ALFA-KMF-02, ALFA-KST-03, ALFA-SSL-02, ALFA-TMF-02, BETA-KGN-05, BETA-KMF-04, BETA-SSL-06, BETA-TMF-04, GAMA-KGN-02, GAMA-KMF-01, GAMA-KST-03, GAMA-SSL-01, GAMA-TMF-01
+FEN-C-GETS-INVISIVEL: 9 FAIL (9 critical) <- ALFA-KGN-03, ALFA-KMF-03, ALFA-SSL-03, ALFA-TMF-03, BETA-SSL-03, GAMA-KGN-06, GAMA-KMF-02, GAMA-SSL-02, GAMA-TMF-03
+FEN-SSL-ENGINE-VOID: 5 FAIL (3 critical) <- ALFA-SET-05, ALFA-SSL-04, BETA-SSL-02, GAMA-SET-20, GAMA-SSL-03
+FEN-C-REMOVE-CASCADE: 3 FAIL (3 critical) <- ALFA-KMF-07, ALFA-SET-06, ALFA-TMF-07
+FEN-C-WHITELIST-EXTRA: 3 FAIL (3 critical) <- ALFA-KGN-04, ALFA-SSL-09, GAMA-KGN-03
+FEN-KGN-KEYSIZE-OMITIDA: 3 FAIL (3 critical) <- ALFA-KGN-05, BETA-KGN-06, GAMA-KGN-04
+FEN-KST-G2-OMITIDA: 3 FAIL (3 critical) <- ALFA-KST-02, BETA-KST-03, GAMA-KST-04
+FEN-KST-MONITOR-GLOBAL: 3 FAIL (3 critical) <- BETA-KST-02, BETA-KST-08, GAMA-KST-01
+FEN-SET-VARARGS-ARGS-IGNORED: 3 FAIL (3 critical) <- BETA-KMF-02, BETA-SET-02, BETA-TMF-03
+FEN-C-ACCEPT-END: 2 FAIL (0 critical) <- ALFA-KMF-04, ALFA-TMF-04
+FEN-KGN-NAOCOMPILA: 2 FAIL (0 critical) <- ALFA-KGN-09, GAMA-KGN-01
+FEN-KST-ENTRIES-OMITIDAS: 2 FAIL (0 critical) <- ALFA-KST-04, GAMA-KST-05
+FEN-SET-DEDUPE: 2 FAIL (0 critical) <- GAMA-SET-17, GAMA-SSL-04
+FEN-SET-GENERATEDKEY-2A-CASA: 2 FAIL (0 critical) <- ALFA-KGN-07, ALFA-SET-03
+FEN-SET-NESTED-TYPE-DESCRIPTOR: 2 FAIL (2 critical) <- BETA-KST-04, BETA-SET-03
+FEN-SSL-ENGINE-LOOP: 2 FAIL (2 critical) <- ALFA-SSL-05, GAMA-SSL-05
+FEN-SSL-GETDEFAULT-OMITIDA: 2 FAIL (2 critical) <- ALFA-SSL-06, GAMA-SSL-06
+FEN-C-DELAYED: 1 FAIL (1 critical) <- GAMA-TMF-02
+FEN-C-NULL-POLLUTION: 1 FAIL (0 critical) <- ALFA-SSL-10
+FEN-KST-ERASURE: 1 FAIL (1 critical) <- GAMA-KST-02
+FEN-KST-LOAD-TIMING: 1 FAIL (0 critical) <- ALFA-KST-05
+FEN-KST-NULL-KEY-MARK: 1 FAIL (0 critical) <- BETA-KST-07
+FEN-SET-DESIGN-SPLIT: 1 FAIL (0 critical) <- GAMA-SET-22
+FEN-SET-FAIL-OPEN: 1 FAIL (0 critical) <- BETA-SET-04
+FEN-SET-FAIL-UNKNOWN: 1 FAIL (0 critical) <- GAMA-SET-18
+FEN-SSL-RANDOMIZED-EXTRA: 1 FAIL (1 critical) <- ALFA-SSL-07
+FEN-TMF-GTM-INVISIVEL: 1 FAIL (0 critical) <- BETA-TMF-05
+
+critical FAIL claims: 53; phenomena with >=1 critical FAIL: 15

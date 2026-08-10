@@ -1,0 +1,92 @@
+
+== spec DHG (per-spec score, SET claims excluded) ==
+dimension                weight resolv  PASS  FAIL  INC  subscore
+linguagem_formal             20      2     2     0    0     20.00
+captura_eventos              20      1     1     0    0     20.00
+bindings_clausulas           15      2     0     2    0      0.00
+predicados_composicao        15      3     1     2    0      5.00
+toolchain_android            15      1     1     0    0     15.00
+diagnostico                  10      3     1     2    0      3.33
+reprodutibilidade             5      2     0     2    0      0.00
+TOTAL                       100     14     6     8    0     63.33
+  raw weighted sum 63.33 over attainable weight 100 -> normalized 63.33% (all 7 dimensions present)
+
+== spec HMC (per-spec score, SET claims excluded) ==
+dimension                weight resolv  PASS  FAIL  INC  subscore
+linguagem_formal             20      2     1     1    0     10.00
+captura_eventos              20      2     0     2    0      0.00
+bindings_clausulas           15      2     1     1    0      7.50
+predicados_composicao        15      2     1     1    0      7.50
+toolchain_android            15      2     1     1    0      7.50
+diagnostico                  10      1     0     1    0      0.00
+reprodutibilidade             5      -     -     -    - (no claims)
+TOTAL                        95     11     4     7    0     32.50
+  raw weighted sum 32.50 over attainable weight 95 -> normalized 34.21% (dimensions with no claims excluded from attainable)
+
+== spec PBE (per-spec score, SET claims excluded) ==
+dimension                weight resolv  PASS  FAIL  INC  subscore
+linguagem_formal             20      2     2     0    0     20.00
+captura_eventos              20      2     1     1    0     10.00
+bindings_clausulas           15      3     1     2    0      5.00
+predicados_composicao        15      3     3     0    0     15.00
+toolchain_android            15      1     1     0    0     15.00
+diagnostico                  10      6     1     5    0      1.67
+reprodutibilidade             5      2     1     1    0      2.50
+TOTAL                       100     19    10     9    0     69.17
+  raw weighted sum 69.17 over attainable weight 100 -> normalized 69.17% (all 7 dimensions present)
+
+== spec IVP (per-spec score, SET claims excluded) ==
+dimension                weight resolv  PASS  FAIL  INC  subscore
+linguagem_formal             20      2     2     0    0     20.00
+captura_eventos              20      2     2     0    0     20.00
+bindings_clausulas           15      2     2     0    0     15.00
+predicados_composicao        15      2     2     0    0     15.00
+toolchain_android            15      2     2     0    0     15.00
+diagnostico                  10      3     1     2    0      3.33
+reprodutibilidade             5      1     0     1    0      0.00
+TOTAL                       100     14    11     3    0     88.33
+  raw weighted sum 88.33 over attainable weight 100 -> normalized 88.33% (all 7 dimensions present)
+
+== spec SKS (per-spec score, SET claims excluded) ==
+dimension                weight resolv  PASS  FAIL  INC  subscore
+linguagem_formal             20      2     2     0    0     20.00
+captura_eventos              20      1     1     0    0     20.00
+bindings_clausulas           15      5     1     4    0      3.00
+predicados_composicao        15      6     3     3    0      7.50
+toolchain_android            15      3     2     1    0     10.00
+diagnostico                  10      3     1     2    0      3.33
+reprodutibilidade             5      1     1     0    0      5.00
+TOTAL                       100     21    11    10    0     68.83
+  raw weighted sum 68.83 over attainable weight 100 -> normalized 68.83% (all 7 dimensions present)
+
+== SET claims (separate set score, D-piloto-4 item 2) ==
+dimension                weight resolv  PASS  FAIL  INC  subscore
+linguagem_formal             20      -     -     -    - (no claims)
+captura_eventos              20      1     1     0    0     20.00
+bindings_clausulas           15      -     -     -    - (no claims)
+predicados_composicao        15      -     -     -    - (no claims)
+toolchain_android            15     10     0    10    1      0.00
+diagnostico                  10      2     1     1    0      5.00
+reprodutibilidade             5      2     2     0    1      5.00
+TOTAL                        50     15     4    11    2     30.00
+  raw weighted sum 30.00 over attainable weight 50 -> normalized 60.00% (dimensions with no claims excluded from attainable)
+  score INCOMPLETE: 2 INCONCLUSIVE outside the denominator
+
+== BATCH-A AGGREGATE over the 5 specs' claims (context only; SET excluded) ==
+dimension                weight resolv  PASS  FAIL  INC  subscore
+linguagem_formal             20     10     9     1    0     18.00
+captura_eventos              20      8     5     3    0     12.50
+bindings_clausulas           15     14     5     9    0      5.36
+predicados_composicao        15     16    10     6    0      9.38
+toolchain_android            15      9     7     2    0     11.67
+diagnostico                  10     16     4    12    0      2.50
+reprodutibilidade             5      6     2     4    0      1.67
+TOTAL                       100     79    42    37    0     61.07
+  raw weighted sum 61.07 over attainable weight 100 -> normalized 61.07% (all 7 dimensions present)
+
+claims total: 96
+INCONCLUSIVE outside all denominators (2): BETA-SET-09, GAMA-SET-11
+
+Labels (mandatory): descriptive score != probability of correction != verdict;
+never rounded to 100; a score never opens a gate; scores with INCONCLUSIVE
+claims outside the denominator are INCOMPLETE.

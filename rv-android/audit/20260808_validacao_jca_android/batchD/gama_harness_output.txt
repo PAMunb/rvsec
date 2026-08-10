@@ -1,0 +1,87 @@
+== scenario mac_a: 2 record(s)
+   [MacSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:82) expecting  expecting one of HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,PBEwithHmacSHA,PBEwithHmacSHA1,PBEwithHmacSHA224,PBEwithHmacSHA256,PBEwithHmacSHA384,PBEwithHmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found DES.
+   [MacSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:82) expecting unknown
+== scenario mac_b: 1 record(s)
+   [MacSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:93) expecting unknown
+   GENERATED_MAC(out1) after @fail remove = false
+== scenario mac_c: 2 record(s)
+   [MacSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:103) expecting  expecting one of HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,PBEwithHmacSHA,PBEwithHmacSHA1,PBEwithHmacSHA224,PBEwithHmacSHA256,PBEwithHmacSHA384,PBEwithHmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .
+   [MacSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:103) expecting unknown
+   -- before f3 broadcast: 0 records expected: 0
+== scenario mac_d: 2 record(s)
+   [MacSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:119) expecting unknown
+   [MacSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:121) expecting unknown
+== scenario mac_e: 1 record(s)
+   [MacSpec] UnsatisfiedConstraint at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:131) expecting init() requires an AlgorithmParameterSpec established by a monitored HMACParameterSpec sequence.
+   MACED(pending data) = true
+   MACED(direct input) = true
+   GENERATED_MAC(out1) = true
+   isInAcceptingState(mac1) = true
+== scenario mdg_a: 2 record(s)
+   [MessageDigestSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:153) expecting unknown
+   [MessageDigestSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:153) expecting expecting one of {SHA-256, SHA-384, SHA-512} but found .
+== scenario mdg_b: 0 record(s)
+== scenario mdg_c: 6 record(s)
+   [MessageDigestSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:174) expecting unknown
+   [MessageDigestSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:173) expecting unknown
+   [MessageDigestSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:174) expecting expecting one of {SHA-256, SHA-384, SHA-512} but found FOO.
+   [MessageDigestSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:176) expecting unknown
+   [MessageDigestSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:173) expecting expecting one of {SHA-256, SHA-384, SHA-512} but found FOO.
+   [MessageDigestSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:176) expecting expecting one of {SHA-256, SHA-384, SHA-512} but found FOO.
+== scenario mdg_d: 0 record(s)
+   DIGESTED(out) = true
+== scenario mdg_e: 2 record(s)
+   [MessageDigestSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:198) expecting unknown
+   [MessageDigestSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:198) expecting expecting one of {SHA-256, SHA-384, SHA-512} but found FOO.
+== scenario kpg_a: 3 record(s)
+   [KeyPairGeneratorSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:210) expecting  expecting one of DH,DSA,RSA but found EC.
+   [KeyPairGeneratorSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:210) expecting unknown
+   [KeyPairGeneratorSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:211) expecting unknown
+   -- after initError (specific alone expected): 1 record(s)
+   GENERATED_KEY_PAIR(realPair) after gen-fail = false
+== scenario kpg_b: 3 record(s)
+   [KeyPairGeneratorSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:224) expecting unknown
+   [KeyPairGeneratorSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:227) expecting unknown
+   [KeyPairGeneratorSpec] InvalidKeySize at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:221) expecting invalid key size for algorithm RSA.
+   THROWN from init1Event: java.lang.NullPointerException: Cannot invoke "String.hashCode()" because "<local2>" is null
+   THROWN from initErrorEvent: java.lang.NullPointerException: Cannot invoke "String.hashCode()" because "<local2>" is null
+== scenario kpg_c: 0 record(s)
+== scenario kpg_d: 1 record(s)
+   [KeyPairGeneratorSpec] UnsatisfiedConstraint at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:256) expecting initialize() for DH requires an AlgorithmParameterSpec established by a monitored DHGenParameterSpec sequence.
+   GENERATED_KEY_PAIR(realPair) = true
+   isInAcceptingState(kpg1) = true
+   -- after init2(1024) (0 records = no InvalidKeySize channel): 0 record(s)
+== scenario kpg_f: 1 record(s)
+   [KeyPairGeneratorSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:273) expecting unknown
+== scenario srd_a: 2 record(s)
+   [SecureRandomSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:288) expecting unknown
+   [SecureRandomSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:287) expecting unknown
+   RANDOMIZED(b2) despite fail = true
+== scenario srd_a2: 0 record(s)
+== scenario srd_b: 1 record(s)
+   [SecureRandomSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:307) expecting expecting one of SHA1PRNG but found FOO.
+   RANDOMIZED(b1) from unsafeInit = true
+   RANDOMIZED(b2) from unsafeInit = true
+== scenario srd_c: 1 record(s)
+   [SecureRandomSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:323) expecting unknown
+   RANDOMIZED(b1) on the fail path = true
+   RANDOMIZED(new box of 100) = true
+   RANDOMIZED(new box of 1000) = false
+== scenario srd_d: 0 record(s)
+== scenario srd_e: 0 record(s)
+   RANDOMIZED(rnd) after c1 = true
+   isInAcceptingState(rnd) = true
+== scenario sig_a: 3 record(s)
+   [SignatureSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:357) expecting expecting one of DSA,DSAwithSHA1,DSS,MD5withRSA,NONEwithDSA,NONEwithRSA,SHA1withDSA,SHA1withRSA,SHA1withRSA/PSS,SHA224withDSA,SHA224withECDSA,SHA224withRSA,SHA224withRSA/PSS,SHA256withDSA,SHA256withRSA,SHA256withRSA/PSS,SHA384withRSA,SHA384withRSA/PSS,SHA512withRSA,SHA512withRSA/PSS but found .
+   [SignatureSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:357) expecting unknown
+   [SignatureSpec] UnsatisfiedConstraint at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:357) expecting initSign() requires a private key established by a monitored KeyPair or KeyStore sequence.
+== scenario sig_b: 0 record(s)
+   isInAcceptingState(sig1) = false
+   SIGNED(anyOut ever) = false
+== scenario sig_c: 0 record(s)
+   VERIFIED(Boolean.TRUE global) = true
+   isInAcceptingState(sig1) = true
+== scenario sig_d: 2 record(s)
+   [SignatureSpec] UnsafeAlgorithm at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:399) expecting expecting one of DSA,DSAwithSHA1,DSS,MD5withRSA,NONEwithDSA,NONEwithRSA,SHA1withDSA,SHA1withRSA,SHA1withRSA/PSS,SHA224withDSA,SHA224withECDSA,SHA224withRSA,SHA224withRSA/PSS,SHA256withDSA,SHA256withRSA,SHA256withRSA/PSS,SHA384withRSA,SHA384withRSA/PSS,SHA512withRSA,SHA512withRSA/PSS but found ECDSAwithFOO.
+   [SignatureSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchDDrive.main(GamaBatchDDrive.java:399) expecting unknown
+== scenario sig_e: 0 record(s)

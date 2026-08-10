@@ -1,0 +1,200 @@
+########## CipherInputStreamSpec
+== WrapperEmitter entries (3) for CipherInputStreamSpecMonitorAspect.json
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=40, matchesApplied=1, plansSkipped=0, plansSkippedAliasing=1, wrappersSubstituted=3, wrappersAliasedToSubtype=0, constructorInlineApplied=1, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  cis_ctor2      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;,Ljavax/crypto/Cipher;) -> [INLINE:CipherInputStreamSpec_c1Event]
+  cis_ctor1      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;) -> UNTOUCHED
+  cis_read0      javax.crypto.CipherInputStream.read()      -> [WRAPPED:javax_crypto_CipherInputStream_read]
+  cis_readB      javax.crypto.CipherInputStream.read([B)    -> UNTOUCHED
+  cis_readBII    javax.crypto.CipherInputStream.read([B,I,I) -> [WRAPPED:javax_crypto_CipherInputStream_read_1]
+  cis_skip       javax.crypto.CipherInputStream.skip(J)     -> UNTOUCHED
+  cis_avail      javax.crypto.CipherInputStream.available() -> UNTOUCHED
+  cis_close      javax.crypto.CipherInputStream.close()     -> [WRAPPED:javax_crypto_CipherInputStream_close]
+  cis_marks      javax.crypto.CipherInputStream.markSupported() -> UNTOUCHED
+  cis_up_read0   java.io.InputStream.read()                 -> UNTOUCHED
+  cis_up_readB   java.io.FilterInputStream.read([B)         -> UNTOUCHED
+  cis_up_close   java.io.InputStream.close()                -> UNTOUCHED
+  cos_ctor2      javax.crypto.CipherOutputStream.<init>(Ljava/io/OutputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cos_writeI     javax.crypto.CipherOutputStream.write(I)   -> UNTOUCHED
+  cos_writeB     javax.crypto.CipherOutputStream.write([B)  -> UNTOUCHED
+  cos_writeBII   javax.crypto.CipherOutputStream.write([B,I,I) -> UNTOUCHED
+  cos_flush      javax.crypto.CipherOutputStream.flush()    -> UNTOUCHED
+  cos_close      javax.crypto.CipherOutputStream.close()    -> UNTOUCHED
+  cos_up_writeB  java.io.OutputStream.write([B)             -> UNTOUCHED
+  kpr_ctor       java.security.KeyPair.<init>(Ljava/security/PublicKey;,Ljava/security/PrivateKey;) -> UNTOUCHED
+  kpr_gpu        java.security.KeyPair.getPublic()          -> UNTOUCHED
+  kpr_gpr        java.security.KeyPair.getPrivate()         -> UNTOUCHED
+  sky_ge_iface   javax.crypto.SecretKey.getEncoded()        -> UNTOUCHED
+  sky_d_iface    javax.crypto.SecretKey.destroy()           -> UNTOUCHED
+  sky_ge_sks     javax.crypto.spec.SecretKeySpec.getEncoded() -> UNTOUCHED
+  sky_ge_key     java.security.Key.getEncoded()             -> UNTOUCHED
+  sky_d_dest     javax.security.auth.Destroyable.destroy()  -> UNTOUCHED
+  sky_ge_app     com.example.probe.MyKey.getEncoded()       -> UNTOUCHED
+  sky_d_app      com.example.probe.MyKey.destroy()          -> UNTOUCHED
+  pbk_ctor1      javax.crypto.spec.PBEKeySpec.<init>([C)    -> UNTOUCHED
+  pbk_ctor3      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I) -> UNTOUCHED
+  pbk_ctor4      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I,I) -> UNTOUCHED
+  pbk_clear      javax.crypto.spec.PBEKeySpec.clearPassword() -> UNTOUCHED
+  pbk_getpw      javax.crypto.spec.PBEKeySpec.getPassword() -> UNTOUCHED
+  pbk_getsalt    javax.crypto.spec.PBEKeySpec.getSalt()     -> UNTOUCHED
+  sks_ctor2      javax.crypto.spec.SecretKeySpec.<init>([B,Ljava/lang/String;) -> UNTOUCHED
+########## CipherOutputStreamSpec
+== WrapperEmitter entries (4) for CipherOutputStreamSpecMonitorAspect.json
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=40, matchesApplied=1, plansSkipped=0, plansSkippedAliasing=1, wrappersSubstituted=4, wrappersAliasedToSubtype=0, constructorInlineApplied=1, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  cis_ctor2      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cis_ctor1      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;) -> UNTOUCHED
+  cis_read0      javax.crypto.CipherInputStream.read()      -> UNTOUCHED
+  cis_readB      javax.crypto.CipherInputStream.read([B)    -> UNTOUCHED
+  cis_readBII    javax.crypto.CipherInputStream.read([B,I,I) -> UNTOUCHED
+  cis_skip       javax.crypto.CipherInputStream.skip(J)     -> UNTOUCHED
+  cis_avail      javax.crypto.CipherInputStream.available() -> UNTOUCHED
+  cis_close      javax.crypto.CipherInputStream.close()     -> UNTOUCHED
+  cis_marks      javax.crypto.CipherInputStream.markSupported() -> UNTOUCHED
+  cis_up_read0   java.io.InputStream.read()                 -> UNTOUCHED
+  cis_up_readB   java.io.FilterInputStream.read([B)         -> UNTOUCHED
+  cis_up_close   java.io.InputStream.close()                -> UNTOUCHED
+  cos_ctor2      javax.crypto.CipherOutputStream.<init>(Ljava/io/OutputStream;,Ljavax/crypto/Cipher;) -> [INLINE:CipherOutputStreamSpec_c1Event]
+  cos_writeI     javax.crypto.CipherOutputStream.write(I)   -> [WRAPPED:javax_crypto_CipherOutputStream_write]
+  cos_writeB     javax.crypto.CipherOutputStream.write([B)  -> UNTOUCHED
+  cos_writeBII   javax.crypto.CipherOutputStream.write([B,I,I) -> [WRAPPED:javax_crypto_CipherOutputStream_write_1]
+  cos_flush      javax.crypto.CipherOutputStream.flush()    -> [WRAPPED:javax_crypto_CipherOutputStream_flush]
+  cos_close      javax.crypto.CipherOutputStream.close()    -> [WRAPPED:javax_crypto_CipherOutputStream_close]
+  cos_up_writeB  java.io.OutputStream.write([B)             -> UNTOUCHED
+  kpr_ctor       java.security.KeyPair.<init>(Ljava/security/PublicKey;,Ljava/security/PrivateKey;) -> UNTOUCHED
+  kpr_gpu        java.security.KeyPair.getPublic()          -> UNTOUCHED
+  kpr_gpr        java.security.KeyPair.getPrivate()         -> UNTOUCHED
+  sky_ge_iface   javax.crypto.SecretKey.getEncoded()        -> UNTOUCHED
+  sky_d_iface    javax.crypto.SecretKey.destroy()           -> UNTOUCHED
+  sky_ge_sks     javax.crypto.spec.SecretKeySpec.getEncoded() -> UNTOUCHED
+  sky_ge_key     java.security.Key.getEncoded()             -> UNTOUCHED
+  sky_d_dest     javax.security.auth.Destroyable.destroy()  -> UNTOUCHED
+  sky_ge_app     com.example.probe.MyKey.getEncoded()       -> UNTOUCHED
+  sky_d_app      com.example.probe.MyKey.destroy()          -> UNTOUCHED
+  pbk_ctor1      javax.crypto.spec.PBEKeySpec.<init>([C)    -> UNTOUCHED
+  pbk_ctor3      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I) -> UNTOUCHED
+  pbk_ctor4      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I,I) -> UNTOUCHED
+  pbk_clear      javax.crypto.spec.PBEKeySpec.clearPassword() -> UNTOUCHED
+  pbk_getpw      javax.crypto.spec.PBEKeySpec.getPassword() -> UNTOUCHED
+  pbk_getsalt    javax.crypto.spec.PBEKeySpec.getSalt()     -> UNTOUCHED
+  sks_ctor2      javax.crypto.spec.SecretKeySpec.<init>([B,Ljava/lang/String;) -> UNTOUCHED
+########## KeyPairSpec
+== WrapperEmitter entries (2) for KeyPairSpecMonitorAspect.json
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=40, matchesApplied=1, plansSkipped=0, plansSkippedAliasing=0, wrappersSubstituted=2, wrappersAliasedToSubtype=0, constructorInlineApplied=1, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  cis_ctor2      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cis_ctor1      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;) -> UNTOUCHED
+  cis_read0      javax.crypto.CipherInputStream.read()      -> UNTOUCHED
+  cis_readB      javax.crypto.CipherInputStream.read([B)    -> UNTOUCHED
+  cis_readBII    javax.crypto.CipherInputStream.read([B,I,I) -> UNTOUCHED
+  cis_skip       javax.crypto.CipherInputStream.skip(J)     -> UNTOUCHED
+  cis_avail      javax.crypto.CipherInputStream.available() -> UNTOUCHED
+  cis_close      javax.crypto.CipherInputStream.close()     -> UNTOUCHED
+  cis_marks      javax.crypto.CipherInputStream.markSupported() -> UNTOUCHED
+  cis_up_read0   java.io.InputStream.read()                 -> UNTOUCHED
+  cis_up_readB   java.io.FilterInputStream.read([B)         -> UNTOUCHED
+  cis_up_close   java.io.InputStream.close()                -> UNTOUCHED
+  cos_ctor2      javax.crypto.CipherOutputStream.<init>(Ljava/io/OutputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cos_writeI     javax.crypto.CipherOutputStream.write(I)   -> UNTOUCHED
+  cos_writeB     javax.crypto.CipherOutputStream.write([B)  -> UNTOUCHED
+  cos_writeBII   javax.crypto.CipherOutputStream.write([B,I,I) -> UNTOUCHED
+  cos_flush      javax.crypto.CipherOutputStream.flush()    -> UNTOUCHED
+  cos_close      javax.crypto.CipherOutputStream.close()    -> UNTOUCHED
+  cos_up_writeB  java.io.OutputStream.write([B)             -> UNTOUCHED
+  kpr_ctor       java.security.KeyPair.<init>(Ljava/security/PublicKey;,Ljava/security/PrivateKey;) -> [INLINE:KeyPairSpec_c1Event]
+  kpr_gpu        java.security.KeyPair.getPublic()          -> [WRAPPED:java_security_KeyPair_getPublic]
+  kpr_gpr        java.security.KeyPair.getPrivate()         -> [WRAPPED:java_security_KeyPair_getPrivate]
+  sky_ge_iface   javax.crypto.SecretKey.getEncoded()        -> UNTOUCHED
+  sky_d_iface    javax.crypto.SecretKey.destroy()           -> UNTOUCHED
+  sky_ge_sks     javax.crypto.spec.SecretKeySpec.getEncoded() -> UNTOUCHED
+  sky_ge_key     java.security.Key.getEncoded()             -> UNTOUCHED
+  sky_d_dest     javax.security.auth.Destroyable.destroy()  -> UNTOUCHED
+  sky_ge_app     com.example.probe.MyKey.getEncoded()       -> UNTOUCHED
+  sky_d_app      com.example.probe.MyKey.destroy()          -> UNTOUCHED
+  pbk_ctor1      javax.crypto.spec.PBEKeySpec.<init>([C)    -> UNTOUCHED
+  pbk_ctor3      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I) -> UNTOUCHED
+  pbk_ctor4      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I,I) -> UNTOUCHED
+  pbk_clear      javax.crypto.spec.PBEKeySpec.clearPassword() -> UNTOUCHED
+  pbk_getpw      javax.crypto.spec.PBEKeySpec.getPassword() -> UNTOUCHED
+  pbk_getsalt    javax.crypto.spec.PBEKeySpec.getSalt()     -> UNTOUCHED
+  sks_ctor2      javax.crypto.spec.SecretKeySpec.<init>([B,Ljava/lang/String;) -> UNTOUCHED
+########## SecretKeySpec
+== WrapperEmitter entries (0) for SecretKeySpecMonitorAspect.json
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=40, matchesApplied=0, plansSkipped=0, plansSkippedAliasing=2, wrappersSubstituted=0, wrappersAliasedToSubtype=0, constructorInlineApplied=0, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  cis_ctor2      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cis_ctor1      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;) -> UNTOUCHED
+  cis_read0      javax.crypto.CipherInputStream.read()      -> UNTOUCHED
+  cis_readB      javax.crypto.CipherInputStream.read([B)    -> UNTOUCHED
+  cis_readBII    javax.crypto.CipherInputStream.read([B,I,I) -> UNTOUCHED
+  cis_skip       javax.crypto.CipherInputStream.skip(J)     -> UNTOUCHED
+  cis_avail      javax.crypto.CipherInputStream.available() -> UNTOUCHED
+  cis_close      javax.crypto.CipherInputStream.close()     -> UNTOUCHED
+  cis_marks      javax.crypto.CipherInputStream.markSupported() -> UNTOUCHED
+  cis_up_read0   java.io.InputStream.read()                 -> UNTOUCHED
+  cis_up_readB   java.io.FilterInputStream.read([B)         -> UNTOUCHED
+  cis_up_close   java.io.InputStream.close()                -> UNTOUCHED
+  cos_ctor2      javax.crypto.CipherOutputStream.<init>(Ljava/io/OutputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cos_writeI     javax.crypto.CipherOutputStream.write(I)   -> UNTOUCHED
+  cos_writeB     javax.crypto.CipherOutputStream.write([B)  -> UNTOUCHED
+  cos_writeBII   javax.crypto.CipherOutputStream.write([B,I,I) -> UNTOUCHED
+  cos_flush      javax.crypto.CipherOutputStream.flush()    -> UNTOUCHED
+  cos_close      javax.crypto.CipherOutputStream.close()    -> UNTOUCHED
+  cos_up_writeB  java.io.OutputStream.write([B)             -> UNTOUCHED
+  kpr_ctor       java.security.KeyPair.<init>(Ljava/security/PublicKey;,Ljava/security/PrivateKey;) -> UNTOUCHED
+  kpr_gpu        java.security.KeyPair.getPublic()          -> UNTOUCHED
+  kpr_gpr        java.security.KeyPair.getPrivate()         -> UNTOUCHED
+  sky_ge_iface   javax.crypto.SecretKey.getEncoded()        -> UNTOUCHED
+  sky_d_iface    javax.crypto.SecretKey.destroy()           -> UNTOUCHED
+  sky_ge_sks     javax.crypto.spec.SecretKeySpec.getEncoded() -> UNTOUCHED
+  sky_ge_key     java.security.Key.getEncoded()             -> UNTOUCHED
+  sky_d_dest     javax.security.auth.Destroyable.destroy()  -> UNTOUCHED
+  sky_ge_app     com.example.probe.MyKey.getEncoded()       -> UNTOUCHED
+  sky_d_app      com.example.probe.MyKey.destroy()          -> UNTOUCHED
+  pbk_ctor1      javax.crypto.spec.PBEKeySpec.<init>([C)    -> UNTOUCHED
+  pbk_ctor3      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I) -> UNTOUCHED
+  pbk_ctor4      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I,I) -> UNTOUCHED
+  pbk_clear      javax.crypto.spec.PBEKeySpec.clearPassword() -> UNTOUCHED
+  pbk_getpw      javax.crypto.spec.PBEKeySpec.getPassword() -> UNTOUCHED
+  pbk_getsalt    javax.crypto.spec.PBEKeySpec.getSalt()     -> UNTOUCHED
+  sks_ctor2      javax.crypto.spec.SecretKeySpec.<init>([B,Ljava/lang/String;) -> UNTOUCHED
+########## PBEKeySpecSpec
+== WrapperEmitter entries (1) for PBEKeySpecSpecMonitorAspect.json
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=40, matchesApplied=3, plansSkipped=0, plansSkippedAliasing=0, wrappersSubstituted=1, wrappersAliasedToSubtype=0, constructorInlineApplied=3, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  cis_ctor2      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cis_ctor1      javax.crypto.CipherInputStream.<init>(Ljava/io/InputStream;) -> UNTOUCHED
+  cis_read0      javax.crypto.CipherInputStream.read()      -> UNTOUCHED
+  cis_readB      javax.crypto.CipherInputStream.read([B)    -> UNTOUCHED
+  cis_readBII    javax.crypto.CipherInputStream.read([B,I,I) -> UNTOUCHED
+  cis_skip       javax.crypto.CipherInputStream.skip(J)     -> UNTOUCHED
+  cis_avail      javax.crypto.CipherInputStream.available() -> UNTOUCHED
+  cis_close      javax.crypto.CipherInputStream.close()     -> UNTOUCHED
+  cis_marks      javax.crypto.CipherInputStream.markSupported() -> UNTOUCHED
+  cis_up_read0   java.io.InputStream.read()                 -> UNTOUCHED
+  cis_up_readB   java.io.FilterInputStream.read([B)         -> UNTOUCHED
+  cis_up_close   java.io.InputStream.close()                -> UNTOUCHED
+  cos_ctor2      javax.crypto.CipherOutputStream.<init>(Ljava/io/OutputStream;,Ljavax/crypto/Cipher;) -> UNTOUCHED
+  cos_writeI     javax.crypto.CipherOutputStream.write(I)   -> UNTOUCHED
+  cos_writeB     javax.crypto.CipherOutputStream.write([B)  -> UNTOUCHED
+  cos_writeBII   javax.crypto.CipherOutputStream.write([B,I,I) -> UNTOUCHED
+  cos_flush      javax.crypto.CipherOutputStream.flush()    -> UNTOUCHED
+  cos_close      javax.crypto.CipherOutputStream.close()    -> UNTOUCHED
+  cos_up_writeB  java.io.OutputStream.write([B)             -> UNTOUCHED
+  kpr_ctor       java.security.KeyPair.<init>(Ljava/security/PublicKey;,Ljava/security/PrivateKey;) -> UNTOUCHED
+  kpr_gpu        java.security.KeyPair.getPublic()          -> UNTOUCHED
+  kpr_gpr        java.security.KeyPair.getPrivate()         -> UNTOUCHED
+  sky_ge_iface   javax.crypto.SecretKey.getEncoded()        -> UNTOUCHED
+  sky_d_iface    javax.crypto.SecretKey.destroy()           -> UNTOUCHED
+  sky_ge_sks     javax.crypto.spec.SecretKeySpec.getEncoded() -> UNTOUCHED
+  sky_ge_key     java.security.Key.getEncoded()             -> UNTOUCHED
+  sky_d_dest     javax.security.auth.Destroyable.destroy()  -> UNTOUCHED
+  sky_ge_app     com.example.probe.MyKey.getEncoded()       -> UNTOUCHED
+  sky_d_app      com.example.probe.MyKey.destroy()          -> UNTOUCHED
+  pbk_ctor1      javax.crypto.spec.PBEKeySpec.<init>([C)    -> [INLINE:PBEKeySpecSpec_f1Event]
+  pbk_ctor3      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I) -> [INLINE:PBEKeySpecSpec_f2Event]
+  pbk_ctor4      javax.crypto.spec.PBEKeySpec.<init>([C,[B,I,I) -> [INLINE:PBEKeySpecSpec_c1Event, INLINE:PBEKeySpecSpec_err1Event, INLINE:PBEKeySpecSpec_err2Event, INLINE:PBEKeySpecSpec_err3Event]
+  pbk_clear      javax.crypto.spec.PBEKeySpec.clearPassword() -> [WRAPPED:javax_crypto_spec_PBEKeySpec_clearPassword]
+  pbk_getpw      javax.crypto.spec.PBEKeySpec.getPassword() -> UNTOUCHED
+  pbk_getsalt    javax.crypto.spec.PBEKeySpec.getSalt()     -> UNTOUCHED
+  sks_ctor2      javax.crypto.spec.SecretKeySpec.<init>([B,Ljava/lang/String;) -> UNTOUCHED

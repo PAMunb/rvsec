@@ -1,0 +1,23 @@
+T1 IvParameterSpec(byte[],int,int) envelope:
+  T1a    PASS offset=-1 throws: ArrayIndexOutOfBoundsException: offset is negative
+  T1b    PASS len=-1 throws: ArrayIndexOutOfBoundsException: len is negative
+  T1c    PASS iv.length<offset+len throws: IllegalArgumentException: IV buffer too short for given offset/length combination
+  T1d    PASS valid (12,4) returns normally
+T2 SecretKeySpec(byte[],int,int,String) envelope:
+  T2a    PASS key.length<offset+len throws: IllegalArgumentException: Invalid offset/length combination
+  T2b    PASS offset=-1 throws: ArrayIndexOutOfBoundsException: offset is negative
+  T2c    PASS len=-1 throws: ArrayIndexOutOfBoundsException: len is negative
+  T2d    PASS valid (0,16) returns normally
+T3 PBEParameterSpec with iterationCount=100 (misuse under the oracle):
+  T3a    PASS 2-arg returns normally (2-arg misuse HAS a carrier: c3 reports)
+  T3b    PASS 3-arg returns normally => realizable misuse with NO carrier: silent
+T4 DHGenParameterSpec values valid under the api30 oracle, suppressed by the MOP condition:
+  T4a    PASS (1024,1024) returns normally; MOP condition exponentSize<primeSize false => c1 suppressed
+  T4b    PASS (512,1024) returns normally; also suppressed (exponent>prime)
+T5 folding x JCA (adapted test (a)): lower-case key algorithm accepted downstream:
+  T5a    PASS Mac(HmacSHA256).init(key alg 'hmacsha256'): accepted
+  T5b    PASS Cipher(AES).init(key alg 'aes'): accepted
+  T5c   INFO getInstance("aes/cbc/pkcs5padding"): resolved (case-insensitive)
+
+summary: 14 PASS, 0 FAIL
+java.version=25.0.3

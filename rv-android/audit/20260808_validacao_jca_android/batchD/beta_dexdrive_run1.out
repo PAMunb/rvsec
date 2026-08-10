@@ -1,0 +1,15 @@
+MEASURE DX-MAC-anon f3 with no live monitors: delta=[InvalidSequenceOfMethodCalls/MacSpec] InvalidSeq=1 (>0 => anonymous root monitor accused nobody's trace)
+MEASURE DX-MAC-bcast1 after A.doFinal(out,0): delta=[InvalidSequenceOfMethodCalls/MacSpec] A.accepting=true B.accepting=true (B true => false accept by broadcast)
+MEASURE DX-MAC-bcast2 B.update after A's f3: delta=[InvalidSequenceOfMethodCalls/MacSpec] InvalidSeq=1 (>0 => broadcast f3 poisoned B's monitor)
+MEASURE DX-SRD-1 getInstance("SHA1PRNG") via wrapper: delta=[InvalidSequenceOfMethodCalls/SecureRandomSpec] InvalidSeq=1 (>0 => args()-ignored expansion fires g2 after g1: FP on the correct call)
+MEASURE DX-SRD-2 nextInt()/ints() on device path: delta=[] (empty + no RANDOMIZED writes => next3/ints events dead on dexlib2)
+PASS DX-SRD-2b nextBytes (declared member, inline) still writes RANDOMIZED
+PASS DX-KPG-1 generateKeyPair via wrapper marks GENERATED_KEY_PAIR
+MEASURE DX-KPG-1 delta=[] accepting=true
+MEASURE DX-KPG-2 genKeyPair (first-disjunct drop): GENERATED_KEY_PAIR(kpB)=false accepting(k2)=false delta=[] (false/false/empty => silent FN)
+MEASURE DX-SIG-1 after sign(): SIGNED=false accepting=false delta=[]
+MEASURE DX-SIG-2 re-initSign: delta=[InvalidSequenceOfMethodCalls/SignatureSpec UnsatisfiedConstraint/SignatureSpec] InvalidSeq=1 (>0 => same induced FP as ajc half)
+PASS DX-MDG-1 legal digest clean
+PASS DX-MDG-2 accepting
+PASS DX-MDG-3 DIGESTED
+HARNESS OK

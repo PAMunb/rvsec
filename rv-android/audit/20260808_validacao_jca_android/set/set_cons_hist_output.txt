@@ -1,0 +1,70 @@
+errors.csv sha256 VERIFIED = 78023defec078353bbd1f64331edb7992a2c34e29570e6ceb064fb57f37dea69
+UNITS REPORTED SEPARATELY: lines | unique_msg | APKs | sites=(class,method). PRE-repair history: hypothesis generator only; no causal attribution.
+data lines parsed: 97018; malformed/null-field lines: 0
+
+== all-spec strata (four units separately) ==
+spec                           lines uniq_msg  apks  sites  unknown empty_lbl  categories
+SSLContextSpec                 26312       30    62     16    17510        51  InvalidSequenceOfMethodCalls=17510 UnsafeProtocol=8802
+TrustManagerFactorySpec        18029       22    64     10     9015      8371  InvalidSequenceOfMethodCalls=9015 UnsafeAlgorithm=9014
+MessageDigestSpec              16183       65    38     35    10135       156  InvalidSequenceOfMethodCalls=10135 UnsafeAlgorithm=6048
+SecureRandomSpec               12400       15    43     15    12400         0  InvalidSequenceOfMethodCalls=12400
+CipherSpec                     10923       32    21     31    10814         0  InvalidSequenceOfMethodCalls=10814 UnsafeAlgorithm=109
+KeyStoreSpec                   10660       35    22     30     8655         0  InvalidSequenceOfMethodCalls=8655 InvalidKeyStoreType=2005
+SignatureSpec                    990       11     4      8      748       234  InvalidSequenceOfMethodCalls=748 UnsafeAlgorithm=242
+MacSpec                          837        6     7      5      806        31  InvalidSequenceOfMethodCalls=806 UnsafeAlgorithm=31
+KeyPairSpec                      668        5     8      5      668         0  InvalidSequenceOfMethodCalls=668
+KeyPairGeneratorSpec              16        4     2      2        9         0  InvalidSequenceOfMethodCalls=9 InvalidKeySize=7
+TOTAL                          97018      225   113    153
+
+== pairing-shape census (H2 hypothesis shape; cells = (apk,class,method) per spec) ==
+spec                           cells cells_invseq cells_specific cells_BOTH both/invseq
+SSLContextSpec                   125          125             68         68       0.544
+CipherSpec                        72           72              1          1       0.014
+TrustManagerFactorySpec           70           70             70         70       1.000
+MessageDigestSpec                 55           55             48         48       0.873
+SecureRandomSpec                  53           53              0          0       0.000
+KeyStoreSpec                      52           52             12         12       0.231
+SignatureSpec                      9            9              3          3       0.333
+MacSpec                            8            8              1          1       0.125
+KeyPairSpec                        8            8              0          0       0.000
+KeyPairGeneratorSpec               2            2              2          2       1.000
+
+MDG oracle-shift stratum: UnsafeAlgorithm lines=6048, of which naming MD5/SHA-1=5891 — SAFE under the api30 oracle (batchD §6.6: any future drop here is oracle change, not repair). Judge-quoted figures were 6 048 / 5 891; deltas vs this computation reflect message-matching definition and are printed, not asserted.
+
+zero-emission specs in the historical file (13): GCMParameterSpecSpec, DHGenParameterSpecSpec, HMACParameterSpecSpec, PBEParameterSpecSpec, IvParameterSpecSpec, SecretKeySpecSpec, CipherInputStreamSpec, CipherOutputStreamSpec, SecretKeySpec, PBEKeySpecSpec, KeyGeneratorSpec, KeyManagerFactorySpec, RandomStringPasswordSpec
+(GAMA-SET-16: CIS/COS/SKY/PBK; GAMA-SET-21: KGN/KMF — all INCONCLUSIVE, replay batteries named; absence of firing is never acceptance, modelo_semantico §5)
+
+== hypothesis-link table (historical volume x audited mechanism x discriminating test) ==
+- SecureRandomSpec: [lines=12400, uniq=15, apks=43, sites=15]
+    mechanism (closed, judge-executed): H-SRD-1: next2 missing from `end` => FP on 2nd+ nextBytes (FEN-SRD-NEXTBYTES-FP, judge D2 executed; site profile of the historical lines matches the FP shape — GAMA-SRD-02 INCONCLUSIVE)
+    discriminating replay: G10-SRD-1 (device replay, paired jca/jca_android)
+- KeyPairSpec: [lines=668, uniq=5, apks=8, sites=5]
+    mechanism (closed, judge-executed): H-KPR-1: co? made mandatory => FP at first getter on the canonical generateKeyPair route (FEN-KPR-CO-OPCIONAL, judge J2d executed; 668 historical lines 100% unknown-InvalidSeq — GAMA-KPR-06 INCONCLUSIVE)
+    discriminating replay: GAMA-KPR-06 battery: micro-APK ajc+dexlib2, paired replay, campaign-APK DEX inspection
+- TrustManagerFactorySpec: [lines=18029, uniq=22, apks=64, sites=10]
+    mechanism (closed, judge-executed): H4/TMF fingerprint: creation-at-consume carrier => UnsafeAlgorithm with EMPTY 'but found .' label + paired InvalidSeq at the same site (FEN-C-EMPTY-LABEL H4 closed live; FEN-C-CARRIER-SEQFAIL; batchC pF1 pre-repair reconstruction conferred)
+    discriminating replay: G10-TMF-1
+- MessageDigestSpec: [lines=16183, uniq=65, apks=38, sites=35]
+    mechanism (closed, judge-executed): H2 (immediate pairing): specific error + spurious InvalidSeq on the same consuming call (FEN-C-CARRIER-SEQFAIL, judge D6 executed: pair at each of 3 distinct sites). ORACLE-SHIFT WARNING (batchD §6.6): most historical UnsafeAlgorithm lines are MD5/SHA-1 — SAFE under api30; any future drop is oracle change, not repair
+    discriminating replay: G10 batch battery (paired replay)
+- KeyGeneratorSpec: [ZERO emission (see census)]
+    mechanism (closed, judge-executed): H2 + carrier (batchC S1-S5 executed); historical zero-emission of KGN/KMF is GAMA-SET-21 (INCONCLUSIVE) — and the batchC non-compiling artifact (FEN-KGN-NAOCOMPILA) is a candidate mechanism for per-spec builds
+    discriminating replay: G10-KGN-1 (per-spec production build) + GAMA-SET-21 battery
+- KeyPairGeneratorSpec: [lines=16, uniq=4, apks=2, sites=2]
+    mechanism (closed, judge-executed): H2 immediate AND delayed pairing (FEN-KPG-INITERROR-PLACEMENT, judge D7a/D7b executed both directions); KPG NPE route would CRASH the app (FEN-KPG-NPE, D1) — a crash annihilates subsequent records from the process
+    discriminating replay: G10-KPG-1 (NPE), G10-KPG-2 (genKeyPair dexlib2 weave)
+- SignatureSpec: [lines=990, uniq=11, apks=4, sites=8]
+    mechanism (closed, judge-executed): sign branch dead on both weave halves (FEN-SIG-SIGN-VOID) => conformant signing never accepts; empty-label live (sig_a)
+    discriminating replay: G10-SIG-1
+- MacSpec: [lines=837, uniq=6, apks=7, sites=5]
+    mechanism (closed, judge-executed): key-gate suppression displaces accusations (FEN-MAC-KEYGATE-EXTRA, D4); f3 ajc-dead vs dexlib2-broadcast (FEN-MAC-F3-UNBOUND, D9)
+    discriminating replay: G10-MAC-1
+- CipherInputStreamSpec / CipherOutputStreamSpec / SecretKeySpec / PBEKeySpecSpec: [ZERO emission (see census)]
+    mechanism (closed, judge-executed): historical zero-emission (GAMA-SET-16 INCONCLUSIVE); consistent with FEN-SKY-ZERO-CAPTURA (SKY inert on production dexlib2, measured) and the CIS/COS first-disjunct suspicion (batchD §6.7) — hypotheses only
+    discriminating replay: GAMA-SET-16 replay battery + host dexlib2 re-measure of CIS/COS
+- SSLContextSpec: [lines=26312, uniq=30, apks=62, sites=16]
+    mechanism (closed, judge-executed): engine events dead both halves (FEN-SSL-ENGINE-VOID); carrier pairing (S1-S5); getDefault FORBIDDEN omitted (silence, not lines)
+    discriminating replay: G10-SSL-2
+- KeyStoreSpec: [lines=10660, uniq=35, apks=22, sites=30]
+    mechanism (closed, judge-executed): global monitor + erasure chain (FEN-KST-MONITOR-GLOBAL/-ERASURE, S6/S7 executed)
+    discriminating replay: G10-KST-1

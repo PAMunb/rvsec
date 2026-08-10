@@ -1,0 +1,75 @@
+# Agent Beta batch D - capture matrix vs real android-30 (jar 96ccfdc8), BOTH weave halves.
+# ajc  = compile-time -showWeaveInfo, aspectjtools 1.9.25.1 (b07ce76c), merged 23-spec aspect (beta/ajc).
+# dex  = production dexlib2 (instr-cli.jar 356e8b70) DescriptorReader->TypeResolver->AndroidClassIndex(android-30)
+#         ->WrapperEmitter->DexWeaver over a synthetic DEX, one site per member (beta/weave/weave_all_D.out).
+# Member tables from class bytes EXTRACTED from the jar (javap trap neutralized, beta/capture/member_tables.txt).
+# Expected = the CrySL-modeled members; Neighbors (n_* sites) must NOT match.
+#
+# site                 ajc                                  dexlib2                              verdict
+site_mac_gi1           ['MacSpec_g1', 'MacSpec_g3']         [WRAPPED:javax_crypto_Mac_getInstance] both
+site_mac_gi2s          ['MacSpec_g2']                       [WRAPPED:javax_crypto_Mac_getInstance_1] both
+site_mac_gi2p          UNCAPTURED                           UNTOUCHED                              NEITHER (dead both)
+site_mac_init_k        ['MacSpec_i1']                       [INLINE:MacSpec_i1Event]               both
+site_mac_init_kaps     ['MacSpec_i2']                       [WRAPPED:javax_crypto_Mac_init]        both
+site_mac_up_b          ['MacSpec_uByte']                    [WRAPPED:javax_crypto_Mac_update_2]    both
+site_mac_up_arr        ['MacSpec_uArr']                     [WRAPPED:javax_crypto_Mac_update]      both
+site_mac_up_arr3       ['MacSpec_uArr']                     [WRAPPED:javax_crypto_Mac_update_1]    both
+site_mac_up_buf        ['MacSpec_uBuf']                     [WRAPPED:javax_crypto_Mac_update_3]    both
+site_mac_df0           ['MacSpec_f1']                       [WRAPPED:javax_crypto_Mac_doFinal]     both
+site_mac_df_arr        ['MacSpec_f2']                       [WRAPPED:javax_crypto_Mac_doFinal_1]   both
+site_mac_df_out        UNCAPTURED                           [WRAPPED:javax_crypto_Mac_doFinal_2]   dex-only (ajc dead)
+site_n_mac_reset       UNCAPTURED                           UNTOUCHED                              NEIGHBOR-OK
+site_mdg_gi1           ['MessageDigestSpec_g1', 'MessageDigestSpec_g4'] [WRAPPED:java_security_MessageDigest_getInstance] both
+site_mdg_gi2s          ['MessageDigestSpec_g2']             [WRAPPED:java_security_MessageDigest_getInstance_1] both
+site_mdg_gi2p          ['MessageDigestSpec_g3']             [WRAPPED:java_security_MessageDigest_getInstance_2] both
+site_mdg_up_b          ['MessageDigestSpec_update']         [WRAPPED:java_security_MessageDigest_update] both
+site_mdg_up_arr        ['MessageDigestSpec_update']         [WRAPPED:java_security_MessageDigest_update_2] both
+site_mdg_up_arr3       ['MessageDigestSpec_update']         [WRAPPED:java_security_MessageDigest_update_1] both
+site_mdg_up_buf        ['MessageDigestSpec_update']         [WRAPPED:java_security_MessageDigest_update_3] both
+site_mdg_d0            ['MessageDigestSpec_d1']             [WRAPPED:java_security_MessageDigest_digest] both
+site_mdg_d_arr         ['MessageDigestSpec_d2']             [WRAPPED:java_security_MessageDigest_digest_1] both
+site_mdg_d3            ['MessageDigestSpec_d3']             [WRAPPED:java_security_MessageDigest_digest_2] both
+site_n_mdg_reset       UNCAPTURED                           UNTOUCHED                              NEIGHBOR-OK
+site_kpg_gi1           ['KeyPairGeneratorSpec_g1', 'KeyPairGeneratorSpec_g3'] [WRAPPED:java_security_KeyPairGenerator_getInstance] both
+site_kpg_gi2s          ['KeyPairGeneratorSpec_g2']          [WRAPPED:java_security_KeyPairGenerator_getInstance_1] both
+site_kpg_gi2p          UNCAPTURED                           UNTOUCHED                              NEITHER (dead both)
+site_kpg_init_i        ['KeyPairGeneratorSpec_init1', 'KeyPairGeneratorSpec_initError'] [WRAPPED:java_security_KeyPairGenerator_initialize] both
+site_kpg_init_isr      ['KeyPairGeneratorSpec_init2']       [WRAPPED:java_security_KeyPairGenerator_initialize_1] both
+site_kpg_init_aps      ['KeyPairGeneratorSpec_init3']       [WRAPPED:java_security_KeyPairGenerator_initialize_2] both
+site_kpg_init_apsr     ['KeyPairGeneratorSpec_init4']       [WRAPPED:java_security_KeyPairGenerator_initialize_3] both
+site_kpg_gen           ['KeyPairGeneratorSpec_gen']         [WRAPPED:java_security_KeyPairGenerator_generateKeyPair] both
+site_kpg_genkp         ['KeyPairGeneratorSpec_gen']         UNTOUCHED                              ajc-only (dex FN)
+site_n_kgn_gi1         ['KeyGeneratorSpec_g1', 'KeyGeneratorSpec_g3'] UNTOUCHED                              NEIGHBOR (other-spec)
+site_srd_c0            ['SecureRandomSpec_c1']              [INLINE:SecureRandomSpec_c1Event]      both
+site_srd_cb            ['SecureRandomSpec_c2', 'SecureRandomSpec_c3'] [INLINE:SecureRandomSpec_c2Event, INLINE:SecureRandomSpec_c3Event] both
+site_srd_gi1           ['SecureRandomSpec_g1', 'SecureRandomSpec_g4'] [WRAPPED:java_security_SecureRandom_getInstance] both
+site_srd_gi2s          ['SecureRandomSpec_g2']              [WRAPPED:java_security_SecureRandom_getInstance_1] both
+site_srd_gi2p          ['SecureRandomSpec_g2']              [WRAPPED:java_security_SecureRandom_getInstance_2] both
+site_srd_gstrong       ['SecureRandomSpec_g3']              [WRAPPED:java_security_SecureRandom_getInstanceStrong] both
+site_srd_setseed_l     ['SecureRandomSpec_setSeed1']        [WRAPPED:java_security_SecureRandom_setSeed] both
+site_srd_setseed_b     ['SecureRandomSpec_setSeed2', 'SecureRandomSpec_setSeed3'] [WRAPPED:java_security_SecureRandom_setSeed_1] both
+site_srd_genseed       ['SecureRandomSpec_genSeed']         [WRAPPED:java_security_SecureRandom_generateSeed] both
+site_srd_nextint_b     ['SecureRandomSpec_next1']           [INLINE:SecureRandomSpec_next1Event]   both
+site_srd_nextint0      ['SecureRandomSpec_next3']           UNTOUCHED                              ajc-only (dex FN)
+site_srd_nextbytes     ['SecureRandomSpec_next2']           [INLINE:SecureRandomSpec_next2Event]   both
+site_srd_ints0         ['SecureRandomSpec_ints']            UNTOUCHED                              ajc-only (dex FN)
+site_srd_ints_l        ['SecureRandomSpec_ints']            UNTOUCHED                              ajc-only (dex FN)
+site_srd_ints_ii       ['SecureRandomSpec_ints']            UNTOUCHED                              ajc-only (dex FN)
+site_srd_ints_lii      ['SecureRandomSpec_ints']            UNTOUCHED                              ajc-only (dex FN)
+site_n_srd_nextlong    UNCAPTURED                           UNTOUCHED                              NEIGHBOR-OK
+site_n_srd_nextdouble  UNCAPTURED                           UNTOUCHED                              NEIGHBOR-OK
+site_sig_gi1           ['SignatureSpec_g1', 'SignatureSpec_g3'] [WRAPPED:java_security_Signature_getInstance] both
+site_sig_gi2s          ['SignatureSpec_g2']                 [WRAPPED:java_security_Signature_getInstance_1] both
+site_sig_gi2p          UNCAPTURED                           UNTOUCHED                              NEITHER (dead both)
+site_sig_isign         ['SignatureSpec_i1']                 [INLINE:SignatureSpec_i1Event]         both
+site_sig_isign_sr      ['SignatureSpec_i2']                 [INLINE:SignatureSpec_i2Event]         both
+site_sig_iver_c        ['SignatureSpec_i3']                 [INLINE:SignatureSpec_i3Event]         both
+site_sig_iver_p        ['SignatureSpec_i4']                 [INLINE:SignatureSpec_i4Event]         both
+site_sig_up_b          ['SignatureSpec_update']             [INLINE:SignatureSpec_updateEvent]     both
+site_sig_up_arr        ['SignatureSpec_update']             [INLINE:SignatureSpec_updateEvent]     both
+site_sig_up_arr3       ['SignatureSpec_update']             [INLINE:SignatureSpec_updateEvent]     both
+site_sig_up_buf        ['SignatureSpec_update']             [INLINE:SignatureSpec_updateEvent]     both
+site_sig_sign0         UNCAPTURED                           UNTOUCHED                              NEITHER (dead both)
+site_sig_sign3         UNCAPTURED                           UNTOUCHED                              NEITHER (dead both)
+site_sig_ver           ['SignatureSpec_v1']                 [WRAPPED:java_security_Signature_verify] both
+site_sig_ver3          ['SignatureSpec_v2']                 [WRAPPED:java_security_Signature_verify_1] both

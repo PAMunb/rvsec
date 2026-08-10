@@ -1,0 +1,12 @@
+errors=1 [[HMACParameterSpecSpec] InvalidSequenceOfMethodCalls at (Unknown) expecting unknown]
+h1 PREPARED_HMAC=true
+h2 PREPARED_HMAC=false
+GLOBAL MONITOR: FALSE POSITIVE on second legal construction
+errors=1 [[HMACParameterSpecSpec] InvalidSequenceOfMethodCalls at (Unknown) expecting unknown]
+h1 PREPARED_HMAC=true
+h2 PREPARED_HMAC=false
+GLOBAL MONITOR: FALSE POSITIVE on second legal construction
+errors=1 [[HMACParameterSpecSpec] InvalidSequenceOfMethodCalls at (Unknown) expecting unknown]
+h1 PREPARED_HMAC=true
+h2 PREPARED_HMAC=false
+GLOBAL MONITOR: FALSE POSITIVE on second legal construction

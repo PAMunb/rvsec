@@ -1,0 +1,96 @@
+== S1: SRD -> RANDOMIZED -> SKSS/PBK (object vs material split, writer->reader end to end) ==
+  DELTA S1a srd-safe (1): [InvalidSequenceOfMethodCalls/SecureRandomSpec expecting=unknown]
+  STORE S1a: [RANDOMIZED=[km1<-r1, r1(safe:new), salt<-r1]]
+  ACCEPTING(labeled) S1a: [r1(safe:new)]
+  RANDOMIZED[r1]=true RANDOMIZED[salt]=true RANDOMIZED[km1]=true
+  DELTA S1b skss-randomized-material (0): []
+  STORE S1b: [GENERATED_KEY=[sks1(km1,AES)], RANDOMIZED=[km1<-r1, r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES)]]
+  ACCEPTING(labeled) S1b: [r1(safe:new), sks1(km1,AES)]
+  SPECCED_KEY[sks1]=true GENERATED_KEY[sks1]=true
+  DELTA S1c srd-rejected (1): [UnsafeAlgorithm/SecureRandomSpec expecting=expecting one of SHA1PRNG but found NativePRNG.]
+  STORE S1c: [GENERATED_KEY=[sks1(km1,AES)], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES)]]
+  ACCEPTING(labeled) S1c: [r1(safe:new), sks1(km1,AES)]
+  RANDOMIZED[r2]=false RANDOMIZED[km2]=true  <- material-level mark from a rejected instance
+  DELTA S1c2 skss-from-rejected-material (0): []
+  STORE S1c2: [GENERATED_KEY=[sks1(km1,AES), sks2(km2,AES)], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S1c2: [r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  SPECCED_KEY[sks2]=true  <- reader satisfied by rejected randomness = executed FN direction
+  DELTA S1d skss-unmonitored-material (1): [UnsatisfiedConstraint/SecretKeySpecSpec expecting= Using either an invalid algorithm or keyMaterial.length is not randomized.]
+  STORE S1d: [GENERATED_KEY=[sks1(km1,AES), sks2(km2,AES)], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S1d: [r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  SPECCED_KEY[sks3]=false
+  DELTA S1e pbk-randomized-salt (1): [UnsatisfiedConstraint/PBEKeySpecSpec expecting=first argument should have been randomized]
+  STORE S1e: [GENERATED_KEY=[sks1(km1,AES), sks2(km2,AES)], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S1e: [r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  DELTA S1f pbk-raw-salt-weak-params (3): [UnsatisfiedConstraint/PBEKeySpecSpec expecting=first argument should have been randomized, UnsatisfiedConstraint/PBEKeySpecSpec expecting=second argument should have been randomized, UnsatisfiedConstraint/PBEKeySpecSpec expecting=third argument should be >= 1000]
+  STORE S1f: [GENERATED_KEY=[sks1(km1,AES), sks2(km2,AES)], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S1f: [r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+== S2: KGN -> GENERATED_KEY -> MAC / SKY gates ==
+  DELTA S2a kgn-generate (0): []
+  STORE S2a: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S2a: [kg(HmacSHA256), r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  GENERATED_KEY[skH]=true
+  DELTA S2b mac-with-generated-key (0): []
+  STORE S2b: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_MAC=[macOut1], MACED=[macIn], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S2b: [kg(HmacSHA256), mac1, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  acc(mac1)=true GENERATED_MAC[macOut1]=true
+  DELTA S2c mac-with-skss-key (0): []
+  STORE S2c: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_MAC=[macOut1, macOut2], MACED=[macIn], RANDOMIZED=[km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S2c: [kg(HmacSHA256), mac1, mac2, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  acc(mac2)=true GENERATED_KEY[sks1]=true  <- gate outcome depends on whether SecretKeySpecSpec also wrote GENERATED_KEY (second writer)
+  DELTA S2d sky-getEncoded-generated (0): []
+  STORE S2d: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_MAC=[macOut1, macOut2], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S2d: [kg(HmacSHA256), mac1, mac2, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  DELTA S2d2 sky-getEncoded-skss (0): []
+  STORE S2d2: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_MAC=[macOut1, macOut2], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S2d2: [kg(HmacSHA256), mac1, mac2, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+== S3: KPG -> generatedKeyPair -> KPR -> SIG (FP-toll edge) ==
+  DELTA S3a kpg-generate (0): []
+  STORE S3a: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_MAC=[macOut1, macOut2], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S3a: [kg(HmacSHA256), kpg(RSA), mac1, mac2, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  GENERATED_KEY_PAIR[kp]=true acc(kpg)=true
+  DELTA S3b kpr-getPrivate (FP toll?) (1): [InvalidSequenceOfMethodCalls/KeyPairSpec expecting=unknown]
+  STORE S3b: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S3b: [kg(HmacSHA256), kpg(RSA), mac1, mac2, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  DELTA S3c kpr-getPublic (FP toll?) (1): [InvalidSequenceOfMethodCalls/KeyPairSpec expecting=unknown]
+  STORE S3c: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S3c: [kg(HmacSHA256), kpg(RSA), mac1, mac2, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  GENERATED_PRIVATE_KEY[priv]=true GENERATED_PUBLIC_KEY[pub]=true
+  DELTA S3d sig-sign (s1 dead: no event emitted) (0): []
+  STORE S3d: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)]]
+  ACCEPTING(labeled) S3d: [kg(HmacSHA256), kpg(RSA), mac1, mac2, r1(safe:new), sks1(km1,AES), sks2(km2,AES)]
+  acc(sig)=false SIGNED[sigBytes]=false  <- dead s1 => SIGNED never written
+  DELTA S3e sig-verify (0): []
+  STORE S3e: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S3e: [kg(HmacSHA256), kpg(RSA), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES)]
+  verify-returned=true VERIFIED[sigBytes]=false VERIFIED[Boolean.TRUE]=true
+== S4: KST -> GENERATED_KEY_STORE -> KMF/TMF -> SSL init ==
+  DELTA S4a kst-load (0): []
+  STORE S4a: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_KEY_STORE=[ks(PKCS12)], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S4a: [kg(HmacSHA256), kpg(RSA), ks(PKCS12), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES)]
+  GENERATED_KEY_STORE[ks]=true acc(ks)=true
+  DELTA S4b kmf (3): [InvalidSequenceOfMethodCalls/KeyManagerFactorySpec expecting=unknown, InvalidSequenceOfMethodCalls/KeyManagerFactorySpec expecting=unknown, UnsafeAlgorithm/KeyManagerFactorySpec expecting= expecting one of PKIX but found SunX509.]
+  STORE S4b: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_KEY_STORE=[ks(PKCS12)], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S4b: [kg(HmacSHA256), kpg(RSA), ks(PKCS12), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES)]
+  DELTA S4c tmf (0): []
+  STORE S4c: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_KEY_STORE=[ks(PKCS12)], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], GENERATED_TRUST_MANAGER=[tmf(default-alg)], GENERATED_TRUST_MANAGERS=[tms], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S4c: [kg(HmacSHA256), kpg(RSA), ks(PKCS12), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES), tmf(default-alg)]
+  GENERATED_KEY_MANAGERS[kms]=false GENERATED_TRUST_MANAGERS[tms]=true
+  DELTA S4d ssl-init-with-r1 (1): [UnsatisfiedConstraint/SSLContextSpec expecting=init() requires key managers established by a monitored KeyManagerFactory sequence.]
+  STORE S4d: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_KEY_STORE=[ks(PKCS12)], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], GENERATED_TRUST_MANAGER=[tmf(default-alg)], GENERATED_TRUST_MANAGERS=[tms], GENERATE_SSL_CONTEXT=[ctx1(TLSv1.3)], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S4d: [ctx1(TLSv1.3), kg(HmacSHA256), kpg(RSA), ks(PKCS12), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES), tmf(default-alg)]
+  acc(ctx1)=true GENERATE_SSL_CONTEXT[ctx1]=true
+  DELTA S4e ssl-init-with-unmonitored-sr (1): [UnsatisfiedConstraint/SSLContextSpec expecting=init() requires key managers established by a monitored KeyManagerFactory sequence.]
+  STORE S4e: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_KEY_STORE=[ks(PKCS12)], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], GENERATED_TRUST_MANAGER=[tmf(default-alg)], GENERATED_TRUST_MANAGERS=[tms], GENERATE_SSL_CONTEXT=[ctx1(TLSv1.3), ctx2(TLSv1.3)], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S4e: [ctx1(TLSv1.3), ctx2(TLSv1.3), kg(HmacSHA256), kpg(RSA), ks(PKCS12), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES), tmf(default-alg)]
+  createSSLEngine executed; NO engine event exists in production weave (dead pointcut) -> GENERATE_SSL_ENGINE never written; engine-null-check: true
+  DELTA S4f ssl-engine-dead (0): []
+  STORE S4f: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_KEY_STORE=[ks(PKCS12)], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], GENERATED_TRUST_MANAGER=[tmf(default-alg)], GENERATED_TRUST_MANAGERS=[tms], GENERATE_SSL_CONTEXT=[ctx1(TLSv1.3), ctx2(TLSv1.3)], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S4f: [ctx1(TLSv1.3), ctx2(TLSv1.3), kg(HmacSHA256), kpg(RSA), ks(PKCS12), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES), tmf(default-alg)]
+== S5: KPG NPE crash class over the MERGED monitor (initialize(int) first event) ==
+  init1Event(first) threw to caller: java.lang.NullPointerException
+  initErrorEvent(first) threw to caller: java.lang.NullPointerException
+  DELTA S5 kpg-npe (0): []
+  STORE S5: [GENERATED_KEY=[skH(kg-generated), sks1(km1,AES), sks2(km2,AES)], GENERATED_KEY_PAIR=[kp], GENERATED_KEY_STORE=[ks(PKCS12)], GENERATED_MAC=[macOut1, macOut2], GENERATED_PRIVATE_KEY=[priv], GENERATED_PUBLIC_KEY=[pub], GENERATED_TRUST_MANAGER=[tmf(default-alg)], GENERATED_TRUST_MANAGERS=[tms], GENERATE_SSL_CONTEXT=[ctx1(TLSv1.3), ctx2(TLSv1.3)], MACED=[macIn], RANDOMIZED=[enc1(skH bytes), enc2(sks1 bytes), km1<-r1, km2<-r2(rejected), r1(safe:new), salt<-r1], SPECCED_KEY=[sks1(km1,AES), sks2(km2,AES)], VERIFIED=[?Boolean]]
+  ACCEPTING(labeled) S5: [ctx1(TLSv1.3), ctx2(TLSv1.3), kg(HmacSHA256), kpg(RSA), ks(PKCS12), mac1, mac2, r1(safe:new), sigV(verify), sks1(km1,AES), sks2(km2,AES), tmf(default-alg)]
+== done ==

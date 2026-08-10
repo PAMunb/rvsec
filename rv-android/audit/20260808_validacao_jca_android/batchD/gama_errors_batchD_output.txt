@@ -1,0 +1,216 @@
+sha256(errors.csv) = 78023defec078353bbd1f64331edb7992a2c34e29570e6ceb064fb57f37dea69
+freeze check PASS (== manifesto 78023def...)
+
+== A. global sanity (must equal pilot) ==
+lines=97018  unique_msg=225  apks=113  sites=454  executions=8147
+
+== B. batch D specs: four units, by spec ==
+MacSpec: lines=837 unique_msg=6 apks=7 sites=8
+MessageDigestSpec: lines=16183 unique_msg=65 apks=38 sites=55
+KeyPairGeneratorSpec: lines=16 unique_msg=4 apks=2 sites=2
+SecureRandomSpec: lines=12400 unique_msg=15 apks=43 sites=53
+SignatureSpec: lines=990 unique_msg=11 apks=4 sites=9
+
+== C. category x spec (lines / unique_msg / apks / sites) ==
+MacSpec | InvalidSequenceOfMethodCalls: lines=806 umsg=5 apks=7 sites=8
+MacSpec | UnsafeAlgorithm: lines=31 umsg=1 apks=1 sites=1
+MessageDigestSpec | InvalidSequenceOfMethodCalls: lines=10135 umsg=35 apks=38 sites=55
+MessageDigestSpec | UnsafeAlgorithm: lines=6048 umsg=30 apks=36 sites=48
+KeyPairGeneratorSpec | InvalidKeySize: lines=7 umsg=2 apks=2 sites=2
+KeyPairGeneratorSpec | InvalidSequenceOfMethodCalls: lines=9 umsg=2 apks=2 sites=2
+SecureRandomSpec | InvalidSequenceOfMethodCalls: lines=12400 umsg=15 apks=43 sites=53
+SignatureSpec | InvalidSequenceOfMethodCalls: lines=748 umsg=8 apks=4 sites=9
+SignatureSpec | UnsafeAlgorithm: lines=242 umsg=3 apks=2 sites=3
+
+== D. message literals per spec (all distinct, with line counts) ==
+MacSpec |    806 | 'unknown'
+MacSpec |     31 | 'expecting one of HmacSHA256,HmacSHA384,HmacSHA512,HmacPBESHA1,PBEWithHmacSHA1,PBEWithHmacSHA224,PBEWithHmac...'
+MessageDigestSpec |  10135 | 'unknown'
+MessageDigestSpec |   3552 | 'expecting one of {SHA-256, SHA-384, SHA-512} but found MD5.'
+MessageDigestSpec |   1915 | 'expecting one of {SHA-256, SHA-384, SHA-512} but found SHA-1.'
+MessageDigestSpec |    424 | 'expecting one of {SHA-256, SHA-384, SHA-512} but found SHA1.'
+MessageDigestSpec |    156 | 'expecting one of {SHA-256, SHA-384, SHA-512} but found .'
+MessageDigestSpec |      1 | 'expecting one of {SHA-256, SHA-384, SHA-512} but found SHA.'
+KeyPairGeneratorSpec |      9 | 'unknown'
+KeyPairGeneratorSpec |      5 | 'invalid key size for algorithm RSA.'
+KeyPairGeneratorSpec |      2 | 'invalid key size for algorithm DSA.'
+SecureRandomSpec |  12400 | 'unknown'
+SignatureSpec |    748 | 'unknown'
+SignatureSpec |    234 | 'expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SH...'
+SignatureSpec |      4 | 'expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SH...'
+SignatureSpec |      4 | 'expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SH...'
+
+== E. H4: 'but found .' (empty label) lines per spec, and their sites ==
+MacSpec: empty-label lines=31 umsg=1 apks=1 sites=1
+    site com.google.crypto.tink.subtle.Hkdf#computeHkdf (org.css_apps_m3.password_manager_16.apk): 31 lines
+MessageDigestSpec: empty-label lines=156 umsg=2 apks=2 sites=2
+    site io.matthewnelson.kmp.tor.runtime.FileID$Companion#createFID$lambda$0 (app.michaelwuensch.bitbanana_79.apk): 144 lines
+    site com.google.common.hash.MessageDigestHashFunction$MessageDigestHasher#update (ua.com.radiokot.photoprism_67.apk): 12 lines
+KeyPairGeneratorSpec: empty-label lines=0 umsg=0 apks=0 sites=0
+SecureRandomSpec: empty-label lines=0 umsg=0 apks=0 sites=0
+SignatureSpec: empty-label lines=234 umsg=1 apks=1 sites=1
+    site org.spongycastle.jcajce.provider.asymmetric.x509.X509CertificateObject#checkSignature (com.tananaev.passportreader_22.apk): 234 lines
+
+== F. H2 pairing cells per spec: (apk,rep,timeout,tool,class,method) cells with BOTH specific and InvalidSeq / only generic / only specific ==
+MacSpec: cells=197 both=31 only_generic=166 only_specific=0
+MessageDigestSpec: cells=2871 both=2780 only_generic=91 only_specific=0
+KeyPairGeneratorSpec: cells=7 both=7 only_generic=0 only_specific=0
+SecureRandomSpec: cells=4455 both=0 only_generic=4455 only_specific=0
+SignatureSpec: cells=133 both=107 only_generic=26 only_specific=0
+
+== G. site-level method-name profile (top 15 sites by lines) ==
+-- MacSpec
+       648  io.ktor.network.tls.HashesKt#P_hash  {'InvalidSequenceOfMethodCalls': 648}
+       186  com.google.crypto.tink.subtle.Hkdf#computeHkdf  {'InvalidSequenceOfMethodCalls': 155, 'UnsafeAlgorithm': 31}
+         1  com.beemdevelopment.aegis.crypto.otp.HOTP#getHash  {'InvalidSequenceOfMethodCalls': 1}
+         1  org.cry.otp.HOTP#hmac_sha1  {'InvalidSequenceOfMethodCalls': 1}
+         1  org.cry.otp.TOTP#hmac_sha  {'InvalidSequenceOfMethodCalls': 1}
+-- MessageDigestSpec
+      4044  okio.ByteString#digest$okio  {'InvalidSequenceOfMethodCalls': 2695, 'UnsafeAlgorithm': 1349}
+      2415  com.google.firebase.crashlytics.internal.common.CommonUtils#hash  {'InvalidSequenceOfMethodCalls': 1610, 'UnsafeAlgorithm': 805}
+      1265  com.google.android.gms.ads.internal.util.client.zzf#zzj  {'InvalidSequenceOfMethodCalls': 759, 'UnsafeAlgorithm': 506}
+      1062  com.google.android.gms.measurement.internal.zzgi#zzh  {'UnsafeAlgorithm': 531, 'InvalidSequenceOfMethodCalls': 531}
+      1000  com.google.android.gms.internal.ads.zzazv#zze  {'InvalidSequenceOfMethodCalls': 750, 'UnsafeAlgorithm': 250}
+       756  com.google.android.gms.ads.internal.util.client.zzf#zzG  {'InvalidSequenceOfMethodCalls': 504, 'UnsafeAlgorithm': 252}
+       624  com.absinthe.rulesbundle.utils.HashUtils#digest  {'InvalidSequenceOfMethodCalls': 468, 'UnsafeAlgorithm': 156}
+       576  github.paroj.dsub2000.util.Util#md5Hex  {'UnsafeAlgorithm': 288, 'InvalidSequenceOfMethodCalls': 288}
+       576  com.google.android.gms.measurement.internal.zzop#zza  {'UnsafeAlgorithm': 288, 'InvalidSequenceOfMethodCalls': 288}
+       570  com.google.android.gms.common.util.AndroidUtilsLight#getPackageCertificateHashBytes  {'UnsafeAlgorithm': 285, 'InvalidSequenceOfMethodCalls': 285}
+       543  com.vrem.wifianalyzer.wifi.accesspoint.AccessPointsAdapterData#calculateChildType  {'InvalidSequenceOfMethodCalls': 362, 'UnsafeAlgorithm': 181}
+       510  de.stephanlindauer.criticalmaps.utils.AeSimpleSHA1#SHA1  {'InvalidSequenceOfMethodCalls': 340, 'UnsafeAlgorithm': 170}
+       333  net.gaast.giggity.Schedule$Item#hashCode  {'InvalidSequenceOfMethodCalls': 222, 'UnsafeAlgorithm': 111}
+       292  io.matthewnelson.kmp.tor.runtime.FileID$Companion#createFID$lambda$0  {'InvalidSequenceOfMethodCalls': 148, 'UnsafeAlgorithm': 144}
+       285  com.apk.axml.APKParser#getCertificateFingerprint  {'UnsafeAlgorithm': 190, 'InvalidSequenceOfMethodCalls': 95}
+-- KeyPairGeneratorSpec
+        10  systems.sieber.droid_scep.ScepClient#CertReq  {'InvalidKeySize': 5, 'InvalidSequenceOfMethodCalls': 5}
+         6  io.treehouses.remote.bases.BaseSSHKeyGen#generateKey  {'InvalidSequenceOfMethodCalls': 4, 'InvalidKeySize': 2}
+-- SecureRandomSpec
+      3962  kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes  {'InvalidSequenceOfMethodCalls': 3962}
+      3104  io.ktor.util.NonceKt$nonceGeneratorJob$1#invokeSuspend  {'InvalidSequenceOfMethodCalls': 3104}
+      1256  com.google.crypto.tink.subtle.Random#randBytes  {'InvalidSequenceOfMethodCalls': 1256}
+      1229  kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid  {'InvalidSequenceOfMethodCalls': 1229}
+       530  com.google.android.gms.measurement.internal.zzgi#zzi  {'InvalidSequenceOfMethodCalls': 530}
+       500  org.spongycastle.jcajce.provider.drbg.DRBG#createBaseRandom  {'InvalidSequenceOfMethodCalls': 500}
+       288  com.google.android.gms.measurement.internal.zzgc#zzag  {'InvalidSequenceOfMethodCalls': 288}
+       276  com.google.crypto.tink.internal.Random#randBytes  {'InvalidSequenceOfMethodCalls': 276}
+       251  org.spongycastle.jcajce.provider.drbg.DRBG$HybridSecureRandom#<init>  {'InvalidSequenceOfMethodCalls': 251}
+       251  org.spongycastle.jcajce.provider.drbg.DRBG$HybridSecureRandom$SignallingEntropySource#getEntropy  {'InvalidSequenceOfMethodCalls': 251}
+       250  org.spongycastle.crypto.prng.BasicEntropySourceProvider$1#getEntropy  {'InvalidSequenceOfMethodCalls': 250}
+       250  org.spongycastle.jcajce.provider.drbg.DRBG$Default#engineNextBytes  {'InvalidSequenceOfMethodCalls': 250}
+       250  org.spongycastle.jcajce.provider.drbg.DRBG$HybridSecureRandom$SignallingEntropySource$EntropyGatherer#run  {'InvalidSequenceOfMethodCalls': 250}
+         2  io.treehouses.remote.ssh.Encryptor#encrypt  {'InvalidSequenceOfMethodCalls': 2}
+         1  dev.whyoleg.cryptography.random.CryptographyRandomImpl#nextBytes  {'InvalidSequenceOfMethodCalls': 1}
+-- SignatureSpec
+       934  org.spongycastle.jcajce.provider.asymmetric.x509.X509CertificateObject#checkSignature  {'InvalidSequenceOfMethodCalls': 700, 'UnsafeAlgorithm': 234}
+        20  org.conscrypt.OpenSSLX509Certificate#verifyInternal  {'InvalidSequenceOfMethodCalls': 20}
+         8  org.bouncycastle.jcajce.io.SignatureUpdatingOutputStream#write  {'InvalidSequenceOfMethodCalls': 8}
+         8  org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder#createRawSig  {'UnsafeAlgorithm': 4, 'InvalidSequenceOfMethodCalls': 4}
+         8  org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder$1#get  {'UnsafeAlgorithm': 4, 'InvalidSequenceOfMethodCalls': 4}
+         4  org.bouncycastle.jcajce.util.DefaultJcaJceHelper#createSignature  {'InvalidSequenceOfMethodCalls': 4}
+         4  org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder$SigVerifier#verify  {'InvalidSequenceOfMethodCalls': 4}
+         4  org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder$RawSigVerifier#verify  {'InvalidSequenceOfMethodCalls': 4}
+
+== H. KeyPairGeneratorSpec: full dump (16 lines expected) ==
+    io.treehouses.remote_6098.apk rep=1 to=180 tool=ape io.treehouses.remote.bases.BaseSSHKeyGen#generateKey :: InvalidKeySize :: invalid key size for algorithm DSA.
+    io.treehouses.remote_6098.apk rep=1 to=180 tool=ape io.treehouses.remote.bases.BaseSSHKeyGen#generateKey :: InvalidSequenceOfMethodCalls :: unknown
+    io.treehouses.remote_6098.apk rep=1 to=180 tool=ape io.treehouses.remote.bases.BaseSSHKeyGen#generateKey :: InvalidSequenceOfMethodCalls :: unknown
+    io.treehouses.remote_6098.apk rep=3 to=300 tool=ape io.treehouses.remote.bases.BaseSSHKeyGen#generateKey :: InvalidKeySize :: invalid key size for algorithm DSA.
+    io.treehouses.remote_6098.apk rep=3 to=300 tool=ape io.treehouses.remote.bases.BaseSSHKeyGen#generateKey :: InvalidSequenceOfMethodCalls :: unknown
+    io.treehouses.remote_6098.apk rep=3 to=300 tool=ape io.treehouses.remote.bases.BaseSSHKeyGen#generateKey :: InvalidSequenceOfMethodCalls :: unknown
+    systems.sieber.droid_scep_7.apk rep=1 to=180 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidKeySize :: invalid key size for algorithm RSA.
+    systems.sieber.droid_scep_7.apk rep=1 to=180 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidSequenceOfMethodCalls :: unknown
+    systems.sieber.droid_scep_7.apk rep=1 to=300 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidKeySize :: invalid key size for algorithm RSA.
+    systems.sieber.droid_scep_7.apk rep=1 to=300 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidSequenceOfMethodCalls :: unknown
+    systems.sieber.droid_scep_7.apk rep=3 to=180 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidKeySize :: invalid key size for algorithm RSA.
+    systems.sieber.droid_scep_7.apk rep=3 to=180 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidSequenceOfMethodCalls :: unknown
+    systems.sieber.droid_scep_7.apk rep=2 to=300 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidKeySize :: invalid key size for algorithm RSA.
+    systems.sieber.droid_scep_7.apk rep=2 to=300 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidSequenceOfMethodCalls :: unknown
+    systems.sieber.droid_scep_7.apk rep=3 to=300 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidKeySize :: invalid key size for algorithm RSA.
+    systems.sieber.droid_scep_7.apk rep=3 to=300 tool=fastbot systems.sieber.droid_scep.ScepClient#CertReq :: InvalidSequenceOfMethodCalls :: unknown
+
+== I. SecureRandomSpec: H-SRD-1 probe - method-name tokens ==
+distinct (class,method) sites: 15
+      3962  method=secureRandomBytes
+      3104  method=invokeSuspend
+      1532  method=randBytes
+      1229  method=secureRandomUuid
+       530  method=zzi
+       501  method=getEntropy
+       500  method=createBaseRandom
+       288  method=zzag
+       251  method=<init>
+       250  method=engineNextBytes
+       250  method=run
+         2  method=encrypt
+         1  method=nextBytes
+categories: {'InvalidSequenceOfMethodCalls': 12400}
+messages: {'unknown': 12400}
+
+== J. per-site line-count parity probe (SecureRandomSpec sites) ==
+    com.google.crypto.tink.subtle.Random#randBytes (app.maskan.chat_90.apk): lines=287 execs_with_lines=99 lines/exec=2.9
+    com.google.crypto.tink.subtle.Random#randBytes (app.michaelwuensch.bitbanana_79.apk): lines=109 execs_with_lines=90 lines/exec=1.2
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (app.plugbrain.android_154.apk): lines=138 execs_with_lines=99 lines/exec=1.4
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (app.pwhs.universalinstaller_24.apk): lines=216 execs_with_lines=99 lines/exec=2.2
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (br.com.colman.petals_3040000.apk): lines=183 execs_with_lines=99 lines/exec=1.8
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (com.a4a.g8invoicing_50.apk): lines=120 execs_with_lines=99 lines/exec=1.2
+    com.google.crypto.tink.subtle.Random#randBytes (com.afkanerd.deku_83.apk): lines=358 execs_with_lines=99 lines/exec=3.6
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.apps.adrcotfas.goodtime_348.apk): lines=97 execs_with_lines=90 lines/exec=1.1
+    com.google.crypto.tink.subtle.Random#randBytes (com.celzero.bravedns_619.apk): lines=94 execs_with_lines=84 lines/exec=1.1
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (com.celzero.bravedns_619.apk): lines=111 execs_with_lines=89 lines/exec=1.2
+    com.google.android.gms.measurement.internal.zzgi#zzi (com.craxiom.networksurvey_114.apk): lines=15 execs_with_lines=15 lines/exec=1.0
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.craxiom.networksurvey_114.apk): lines=36 execs_with_lines=34 lines/exec=1.1
+    dev.whyoleg.cryptography.random.CryptographyRandomImpl#nextBytes (com.darkrockstudios.app.securecamer): lines=1 execs_with_lines=1 lines/exec=1.0
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.darkrockstudios.app.securecamer): lines=178 execs_with_lines=99 lines/exec=1.8
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.darkrockstudios.apps.fasttrack_): lines=217 execs_with_lines=99 lines/exec=2.2
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.defname.localshare_14.apk): lines=175 execs_with_lines=99 lines/exec=1.8
+    com.google.android.gms.measurement.internal.zzgi#zzi (com.ds.avare_404.apk): lines=264 execs_with_lines=99 lines/exec=2.7
+    io.ktor.util.NonceKt$nonceGeneratorJob$1#invokeSuspend (com.flxrs.dankchat_40038.apk): lines=3098 execs_with_lines=92 lines/exec=33.7
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.flxrs.dankchat_40038.apk): lines=618 execs_with_lines=98 lines/exec=6.3
+    com.google.crypto.tink.internal.Random#randBytes (com.hegocre.nextcloudpasswords_38.a): lines=276 execs_with_lines=99 lines/exec=2.8
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.iyps_158.apk): lines=168 execs_with_lines=99 lines/exec=1.7
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (com.js.nowakelock_87.apk): lines=150 execs_with_lines=98 lines/exec=1.5
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.kwasow.musekit_1721768604.apk): lines=184 execs_with_lines=97 lines/exec=1.9
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.leekleak.trafficlight_38.apk): lines=278 execs_with_lines=98 lines/exec=2.8
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.mateusrodcosta.apps.share2stora): lines=207 execs_with_lines=99 lines/exec=2.1
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.mateusrodcosta.apps.vidyamusic_): lines=156 execs_with_lines=98 lines/exec=1.6
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (com.mensinator.app_24.apk): lines=167 execs_with_lines=99 lines/exec=1.7
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.password.monitor_102.apk): lines=185 execs_with_lines=99 lines/exec=1.9
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (com.sakethh.linkora_50.apk): lines=120 execs_with_lines=86 lines/exec=1.4
+    io.ktor.util.NonceKt$nonceGeneratorJob$1#invokeSuspend (com.serwylo.retrowars_70.apk): lines=6 execs_with_lines=1 lines/exec=6.0
+    com.google.android.gms.measurement.internal.zzgi#zzi (com.tananaev.passportreader_22.apk): lines=251 execs_with_lines=99 lines/exec=2.5
+    org.spongycastle.crypto.prng.BasicEntropySourceProvider$1#getEntropy (com.tananaev.passportreader_22.apk): lines=250 execs_with_lines=99 lines/exec=2.5
+    org.spongycastle.jcajce.provider.drbg.DRBG#createBaseRandom (com.tananaev.passportreader_22.apk): lines=500 execs_with_lines=99 lines/exec=5.1
+    org.spongycastle.jcajce.provider.drbg.DRBG$Default#engineNextBytes (com.tananaev.passportreader_22.apk): lines=250 execs_with_lines=99 lines/exec=2.5
+    org.spongycastle.jcajce.provider.drbg.DRBG$HybridSecureRandom#<init> (com.tananaev.passportreader_22.apk): lines=251 execs_with_lines=99 lines/exec=2.5
+    org.spongycastle.jcajce.provider.drbg.DRBG$HybridSecureRandom$SignallingEntropySource#getEntropy (com.tananaev.passportreader_22.apk): lines=251 execs_with_lines=99 lines/exec=2.5
+    org.spongycastle.jcajce.provider.drbg.DRBG$HybridSecureRandom$SignallingEntropySource$EntropyGatherer#run (com.tananaev.passportreader_22.apk): lines=250 execs_with_lines=99 lines/exec=2.5
+    com.google.crypto.tink.subtle.Random#randBytes (com.tk.quicksearch_65.apk): lines=96 execs_with_lines=89 lines/exec=1.1
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (com.yogeshpaliyal.deepr_28.apk): lines=144 execs_with_lines=98 lines/exec=1.5
+    com.google.crypto.tink.subtle.Random#randBytes (dev.dettmer.simplenotes_41.apk): lines=41 execs_with_lines=35 lines/exec=1.2
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (info.dvkr.screenstream_44000.apk): lines=178 execs_with_lines=99 lines/exec=1.8
+    io.treehouses.remote.ssh.Encryptor#encrypt (io.treehouses.remote_6098.apk): lines=2 execs_with_lines=2 lines/exec=1.0
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (me.zhanghai.android.untracker_9.apk): lines=66 execs_with_lines=61 lines/exec=1.1
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (net.adhikary.mrtbuddy_24.apk): lines=158 execs_with_lines=99 lines/exec=1.6
+    com.google.crypto.tink.subtle.Random#randBytes (org.css_apps_m3.password_manager_16): lines=40 execs_with_lines=31 lines/exec=1.3
+    com.google.android.gms.measurement.internal.zzgc#zzag (org.glpi.inventory.agent_39469.apk): lines=288 execs_with_lines=99 lines/exec=2.9
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (org.isoron.uhabits_20301.apk): lines=6 execs_with_lines=6 lines/exec=1.0
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (org.jellyfin.mobile_2060499.apk): lines=221 execs_with_lines=99 lines/exec=2.2
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (org.nsh07.pomodoro_34.apk): lines=175 execs_with_lines=99 lines/exec=1.8
+    com.google.crypto.tink.subtle.Random#randBytes (org.openhab.habdroid_589.apk): lines=231 execs_with_lines=99 lines/exec=2.3
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (org.piepmeyer.gauguin_75.apk): lines=138 execs_with_lines=92 lines/exec=1.5
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomUuid (ua.com.radiokot.photoprism_67.apk): lines=241 execs_with_lines=99 lines/exec=2.4
+    kotlin.uuid.UuidKt__UuidJVMKt#secureRandomBytes (vadimerenkov.aucards_21.apk): lines=160 execs_with_lines=99 lines/exec=1.6
+
+== K. MessageDigest oracle-realignment exposure: unsafe-algorithm literals that become SAFE under the api30 rule (MD5, SHA-1, aliases) ==
+      3552  'expecting one of {SHA-256, SHA-384, SHA-512} but found MD5.'
+      1915  'expecting one of {SHA-256, SHA-384, SHA-512} but found SHA-1.'
+       424  'expecting one of {SHA-256, SHA-384, SHA-512} but found SHA1.'
+       156  'expecting one of {SHA-256, SHA-384, SHA-512} but found .'
+         1  'expecting one of {SHA-256, SHA-384, SHA-512} but found SHA.'
+
+== L. tool distribution for batch D lines (pseudoreplication control) ==
+MacSpec: {'qtesting': 132, 'ares': 117, 'ape': 98, 'monkey': 90, 'droidbot:bfs_greedy': 84, 'droidbot:dfs_greedy': 84, 'droidmate': 61, 'fastbot': 48, 'droidbot:dfs_naive': 45, 'droidbot:bfs_naive': 39, 'humanoid': 39}
+MessageDigestSpec: {'qtesting': 3748, 'ape': 2068, 'fastbot': 1912, 'droidmate': 1863, 'ares': 1336, 'droidbot:bfs_greedy': 1090, 'droidbot:dfs_greedy': 988, 'humanoid': 914, 'droidbot:bfs_naive': 785, 'monkey': 756, 'droidbot:dfs_naive': 723}
+KeyPairGeneratorSpec: {'fastbot': 10, 'ape': 6}
+SecureRandomSpec: {'qtesting': 2988, 'ape': 2147, 'fastbot': 1740, 'droidmate': 962, 'droidbot:bfs_greedy': 943, 'ares': 910, 'droidbot:dfs_greedy': 606, 'humanoid': 595, 'droidbot:bfs_naive': 571, 'droidbot:dfs_naive': 477, 'monkey': 461}
+SignatureSpec: {'qtesting': 399, 'droidmate': 116, 'ape': 100, 'fastbot': 80, 'ares': 76, 'monkey': 39, 'droidbot:bfs_greedy': 36, 'droidbot:bfs_naive': 36, 'droidbot:dfs_greedy': 36, 'droidbot:dfs_naive': 36, 'humanoid': 36}

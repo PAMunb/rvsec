@@ -1,0 +1,9 @@
+# Refutation re-run of the KGN standalone compile probe (frozen artifact sha de9e5205...)
+# javac -nowarn -cp <production 3 jars> -d . KeyGeneratorSpecRuntimeMonitor.java
+exit=1
+KeyGeneratorSpecRuntimeMonitor.java:259: error: cannot find symbol
+	Key generatedKey;
+	^
+  symbol:   class Key
+  location: class KeyGeneratorSpecMonitor
+1 error

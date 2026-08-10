@@ -1,0 +1,42 @@
+# Refutation re-executions (independent, 2026-08-09)
+
+## J1 walk re-run (tail; full ALL PASS observed)
+PASS IVP: second event on SAME monitor -> state 2 (fail)
+PASS IVP: single c3 -> state 0 (loop, no match, no fail)
+PASS IVP: c3 then c1 -> 1 (Kleene prefix)
+PASS IVP: single c4 -> state 0 (loop, no match, no fail)
+PASS IVP: c4 then c1 -> 1 (Kleene prefix)
+PASS IVP: fail UNREACHABLE with a single event per monitor
+== SKS tables: c1=[1, 2, 2], c2=[1, 2, 2], c3=[0, 2, 2], c4=[0, 2, 2]
+PASS SKS: every event is {1,2,2} or {0,2,2}
+PASS SKS: single c1 -> state 1 (match/accepting)
+PASS SKS: second event on SAME monitor -> state 2 (fail)
+PASS SKS: single c2 -> state 1 (match/accepting)
+PASS SKS: second event on SAME monitor -> state 2 (fail)
+PASS SKS: single c3 -> state 0 (loop, no match, no fail)
+PASS SKS: c3 then c1 -> 1 (Kleene prefix)
+PASS SKS: single c4 -> state 0 (loop, no match, no fail)
+PASS SKS: c4 then c1 -> 1 (Kleene prefix)
+PASS SKS: fail UNREACHABLE with a single event per monitor
+
+-- parametrization walk (indexing read from the artifacts §0) --
+DHG/PBE/IVP/SKS: MapOfMonitor keyed on the returned object -> one event per monitor
+  => fail dead in realizable traces for these four (confirmed above: needs 2nd event).
+HMC: single static Tuple2 (global monitor) -> ALL constructions share one monitor
+PASS HMC(global): two CrySL-LEGAL constructions in one process -> fail state 2 (separating trace: L(CrySL) accepts, artifact fires InvalidSequenceOfMethodCalls)
+
+ALL PASS
+
+## J2 re-run (JuizDrive, judge classes + production jars: rvsec-core 7b4d72aa, rvsec-logger-csv 6787f411, rv-monitor-rt 0fa65fbc)
+A: PREPARED_DH(okSpec)=true
+A: errors=0
+B: PREPARED_DH(fpSpec)=false  (construction is LEGAL under the raw api30 oracle)
+B: errors=1 [UnsatisfiedConstraint spec=KeyPairGeneratorSpec expecting=initialize() for DH requires an AlgorithmParameterSpec established by a monitored DHGenParameterSpec sequence.]
+J2 RESULT: END-TO-END FALSE POSITIVE CONFIRMED (accusation at KeyPairGeneratorSpec for an oracle-legal DHGenParameterSpec)
+
+## J3 re-run (JuizHmc, same classpath)
+errors=1
+  [InvalidSequenceOfMethodCalls spec=HMACParameterSpecSpec expecting=unknown]
+h1 PREPARED_HMAC=true
+h2 PREPARED_HMAC=false
+J3 RESULT: GLOBAL-MONITOR FALSE POSITIVE REPRODUCED (2 legal constructions -> 1 InvalidSequenceOfMethodCalls; 2nd object denied PREPARED_HMAC)

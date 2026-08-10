@@ -1,0 +1,15 @@
+errors=1
+  [InvalidSequenceOfMethodCalls spec=HMACParameterSpecSpec expecting=unknown]
+h1 PREPARED_HMAC=true
+h2 PREPARED_HMAC=false
+J3 RESULT: GLOBAL-MONITOR FALSE POSITIVE REPRODUCED (2 legal constructions -> 1 InvalidSequenceOfMethodCalls; 2nd object denied PREPARED_HMAC)
+errors=1
+  [InvalidSequenceOfMethodCalls spec=HMACParameterSpecSpec expecting=unknown]
+h1 PREPARED_HMAC=true
+h2 PREPARED_HMAC=false
+J3 RESULT: GLOBAL-MONITOR FALSE POSITIVE REPRODUCED (2 legal constructions -> 1 InvalidSequenceOfMethodCalls; 2nd object denied PREPARED_HMAC)
+errors=1
+  [InvalidSequenceOfMethodCalls spec=HMACParameterSpecSpec expecting=unknown]
+h1 PREPARED_HMAC=true
+h2 PREPARED_HMAC=false
+J3 RESULT: GLOBAL-MONITOR FALSE POSITIVE REPRODUCED (2 legal constructions -> 1 InvalidSequenceOfMethodCalls; 2nd object denied PREPARED_HMAC)

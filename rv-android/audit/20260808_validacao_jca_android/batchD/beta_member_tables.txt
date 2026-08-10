@@ -1,0 +1,64 @@
+===== javax/crypto/Mac =====
+  protected javax.crypto.Mac(javax.crypto.MacSpi, java.security.Provider, java.lang.String);
+  public static final javax.crypto.Mac getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException;
+  public static final javax.crypto.Mac getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException;
+  public static final javax.crypto.Mac getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException;
+  public final void update(byte) throws java.lang.IllegalStateException;
+  public final void update(byte[]) throws java.lang.IllegalStateException;
+  public final void update(byte[], int, int) throws java.lang.IllegalStateException;
+  public final void update(java.nio.ByteBuffer);
+  public final byte[] doFinal() throws java.lang.IllegalStateException;
+  public final void doFinal(byte[], int) throws java.lang.IllegalStateException, javax.crypto.ShortBufferException;
+  public final byte[] doFinal(byte[]) throws java.lang.IllegalStateException;
+  public final void reset();
+===== java/security/MessageDigest =====
+  public static java.security.MessageDigest getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException;
+  public static java.security.MessageDigest getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException;
+  public static java.security.MessageDigest getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException;
+  public void update(byte);
+  public void update(byte[], int, int);
+  public void update(byte[]);
+  public final void update(java.nio.ByteBuffer);
+  public byte[] digest();
+  public int digest(byte[], int, int) throws java.security.DigestException;
+  public byte[] digest(byte[]);
+  public void reset();
+===== java/security/KeyPairGenerator =====
+  public static java.security.KeyPairGenerator getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException;
+  public static java.security.KeyPairGenerator getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException;
+  public static java.security.KeyPairGenerator getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException;
+  public void initialize(int);
+  public void initialize(int, java.security.SecureRandom);
+  public void initialize(java.security.spec.AlgorithmParameterSpec) throws java.security.InvalidAlgorithmParameterException;
+  public void initialize(java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom) throws java.security.InvalidAlgorithmParameterException;
+  public final java.security.KeyPair genKeyPair();
+  public java.security.KeyPair generateKeyPair();
+===== java/security/SecureRandom =====
+  public java.security.SecureRandom();
+  public java.security.SecureRandom(byte[]);
+  protected java.security.SecureRandom(java.security.SecureRandomSpi, java.security.Provider);
+  public static java.security.SecureRandom getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException;
+  public static java.security.SecureRandom getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException;
+  public static java.security.SecureRandom getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException;
+  public synchronized void setSeed(byte[]);
+  public void setSeed(long);
+  public synchronized void nextBytes(byte[]);
+  protected final int next(int);
+  public byte[] generateSeed(int);
+  public static java.security.SecureRandom getInstanceStrong() throws java.security.NoSuchAlgorithmException;
+===== java/security/Signature =====
+  public static java.security.Signature getInstance(java.lang.String) throws java.security.NoSuchAlgorithmException;
+  public static java.security.Signature getInstance(java.lang.String, java.lang.String) throws java.security.NoSuchAlgorithmException, java.security.NoSuchProviderException;
+  public static java.security.Signature getInstance(java.lang.String, java.security.Provider) throws java.security.NoSuchAlgorithmException;
+  public final void initVerify(java.security.PublicKey) throws java.security.InvalidKeyException;
+  public final void initVerify(java.security.cert.Certificate) throws java.security.InvalidKeyException;
+  public final void initSign(java.security.PrivateKey) throws java.security.InvalidKeyException;
+  public final void initSign(java.security.PrivateKey, java.security.SecureRandom) throws java.security.InvalidKeyException;
+  public final byte[] sign() throws java.security.SignatureException;
+  public final int sign(byte[], int, int) throws java.security.SignatureException;
+  public final boolean verify(byte[]) throws java.security.SignatureException;
+  public final boolean verify(byte[], int, int) throws java.security.SignatureException;
+  public final void update(byte) throws java.security.SignatureException;
+  public final void update(byte[]) throws java.security.SignatureException;
+  public final void update(byte[], int, int) throws java.security.SignatureException;
+  public final void update(java.nio.ByteBuffer) throws java.security.SignatureException;

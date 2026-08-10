@@ -1,0 +1,26 @@
+Judge KGN standalone-compile probe (batch C) — 2026-08-09
+
+Input: the FROZEN round artifact gen_KeyGeneratorSpec/out/KeyGeneratorSpecRuntimeMonitor.java
+sha256 de9e52053a47a661be3c5c687cd7fb6524969090b4b32a99990010db3fd58ecd (= generation manifest).
+
+Command (scratch dir, production classpath):
+  javac -nowarn -cp rv-monitor-rt.jar:rvsec-core-0.9.3-SNAPSHOT.jar:rvsec-logger-csv-0.9.3-SNAPSHOT.jar         -d . KeyGeneratorSpecRuntimeMonitor.java
+Result: exit 1
+  KeyGeneratorSpecRuntimeMonitor.java:259: error: cannot find symbol
+	Key generatedKey;
+	^
+  symbol:   class Key
+  location: class KeyGeneratorSpecMonitor
+(1 error)
+
+Independent of Alfa's and Gama's probes; agrees with both (exit 1, same symbol).
+
+Harness deviation of record (J2-C): the behavioral drive used a scratch copy whose ONLY
+delta is one added line 'import java.security.Key;' after the KeyGenerator import.
+  patched copy sha256: 685f7daea61d62fffd772ac84879625493a8d32643ee19f71e31d0558d006a8f
+  diff vs frozen artifact: 1 line (2a3 > import java.security.Key;)
+No file under the spec tree, rule tree, or gen_* round directories was modified.
+
+-merge masking verified at source: modules/rv-monitor-generator/src/rv_monitor_generator/
+runtime_verification_generator.py:211 (javamop -merge) and :269 (rv-monitor -merge) — the
+merged monitor's import union receives java.security.Key from KeyStoreSpec.mop.

@@ -1,0 +1,20 @@
+1c1
+< == WrapperEmitter entries (83) for MultiSpec_1MonitorAspect.json
+---
+> == WrapperEmitter entries (86) for MultiSpec_1MonitorAspect.json
+58,59c58,59
+<   wrapper java_security_MessageDigest_update_1                    java.security.MessageDigest.update(byte[],int,int):void static=false
+<   wrapper java_security_MessageDigest_update_2                    java.security.MessageDigest.update(byte[]):void static=false
+---
+>   wrapper java_security_MessageDigest_update_1                    java.security.MessageDigest.update(byte[]):void static=false
+>   wrapper java_security_MessageDigest_update_2                    java.security.MessageDigest.update(byte[],int,int):void static=false
+69a70,72
+>   wrapper java_security_SecureRandom_getInstance_3                java.security.SecureRandom.getInstance(java.lang.String,java.security.SecureRandomParameters):java.security.SecureRandom static=true
+>   wrapper java_security_SecureRandom_getInstance_4                java.security.SecureRandom.getInstance(java.lang.String,java.security.SecureRandomParameters,java.lang.String):java.security.SecureRandom static=true
+>   wrapper java_security_SecureRandom_getInstance_5                java.security.SecureRandom.getInstance(java.lang.String,java.security.SecureRandomParameters,java.security.Provider):java.security.SecureRandom static=true
+187,188c190,191
+<   mdg_up_arr     java.security.MessageDigest.update([B)     -> [WRAPPED:java_security_MessageDigest_update_2]
+<   mdg_up_arr3    java.security.MessageDigest.update([B,I,I) -> [WRAPPED:java_security_MessageDigest_update_1]
+---
+>   mdg_up_arr     java.security.MessageDigest.update([B)     -> [WRAPPED:java_security_MessageDigest_update_1]
+>   mdg_up_arr3    java.security.MessageDigest.update([B,I,I) -> [WRAPPED:java_security_MessageDigest_update_2]

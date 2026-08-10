@@ -1,0 +1,29 @@
+CipherInputStreamSpec exit=0 errors=0
+CipherOutputStreamSpec exit=0 errors=0
+CipherSpec exit=0 errors=0
+DHGenParameterSpecSpec exit=0 errors=0
+GCMParameterSpecSpec exit=0 errors=0
+HMACParameterSpecSpec exit=0 errors=0
+IvParameterSpec exit=0 errors=0
+KeyGeneratorSpec exit=1 errors=1
+KeyManagerFactorySpec exit=0 errors=0
+KeyPairGeneratorSpec exit=0 errors=0
+KeyPairSpec exit=0 errors=0
+KeyStoreSpec exit=0 errors=0
+MacSpec exit=0 errors=0
+MessageDigestSpec exit=0 errors=0
+PBEKeySpecSpec exit=0 errors=0
+PBEParameterSpecSpec exit=0 errors=0
+RandomStringPassword exit=0 errors=0
+SecretKeySpec exit=0 errors=0
+SecretKeySpecSpec exit=0 errors=0
+SecureRandomSpec exit=0 errors=0
+SignatureSpec exit=0 errors=0
+SSLContextSpec exit=0 errors=0
+TrustManagerFactorySpec exit=0 errors=0
+KeyGeneratorSpecRuntimeMonitor.java:259: error: cannot find symbol
+	Key generatedKey;
+	^
+  symbol:   class Key
+  location: class KeyGeneratorSpecMonitor
+1 error

@@ -1,0 +1,5 @@
+== X1: only the SecureRandom constraint fails at this site ==
+  DELTA X1 (1): [UnsatisfiedConstraint/SSLContextSpec expecting=init() requires a SecureRandom established by a monitored SecureRandom sequence.]
+== X2: km AND random constraints both fail at ONE call site ==
+  DELTA X2 (two distinct constraint failures, one site) (1): [UnsatisfiedConstraint/SSLContextSpec expecting=init() requires key managers established by a monitored KeyManagerFactory sequence.]
+== done ==

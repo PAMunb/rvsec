@@ -1,0 +1,49 @@
+== scenario tmf_a: 3 record(s)
+   [TrustManagerFactorySpec] UnsafeAlgorithm at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:69) expecting expecting one of PKIX but found X509.
+   [TrustManagerFactorySpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:70) expecting unknown
+   [TrustManagerFactorySpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:69) expecting unknown
+== scenario tmf_b: 0 record(s)
+   validate(GENERATED_TRUST_MANAGERS, tms) = true
+== scenario tmf_c: 2 record(s)
+   [TrustManagerFactorySpec] UnsafeAlgorithm at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:90) expecting expecting one of PKIX but found .
+   [TrustManagerFactorySpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:90) expecting unknown
+== scenario kmf_a: 3 record(s)
+   [KeyManagerFactorySpec] UnsafeAlgorithm at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:102) expecting  expecting one of PKIX but found SunX509.
+   [KeyManagerFactorySpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:102) expecting unknown
+   [KeyManagerFactorySpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:103) expecting unknown
+== scenario kmf_b: 0 record(s)
+   validate(GENERATED_KEY_MANAGERS, kms) = true
+== scenario ssl_a: 2 record(s)
+   [SSLContextSpec] UnsafeProtocol at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:128) expecting expecting one of {Default, SSL, TLS, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3} but found SSLv3.
+   [SSLContextSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:128) expecting unknown
+== scenario ssl_b: 1 record(s)
+   [SSLContextSpec] UnsatisfiedConstraint at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:136) expecting init() requires key managers established by a monitored KeyManagerFactory sequence.
+== scenario ssl_c: 2 record(s)
+   [SSLContextSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:146) expecting unknown
+   [SSLContextSpec] UnsafeProtocol at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:146) expecting expecting one of {Default, SSL, TLS, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3} but found .
+== scenario ssl_d: 0 record(s)
+== scenario kst_a: 3 record(s)
+   [KeyStoreSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:172) expecting unknown
+   [KeyStoreSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:174) expecting unknown
+   [KeyStoreSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:175) expecting unknown
+== scenario kst_b: 3 record(s)
+   [KeyStoreSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:184) expecting unknown
+   [KeyStoreSpec] InvalidKeyStoreType at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:185) expecting expecting one ofAndroidCAStore,AndroidKeyStore,BKS,BouncyCastle,PKCS12 but found JKS.
+   [KeyStoreSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:185) expecting unknown
+   after A load: validate(GENERATED_KEY_STORE, ksA) = true
+   after B store-fail: validate(GENERATED_KEY_STORE, ksA) = false
+== scenario kst_c: 2 record(s)
+   [KeyStoreSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:198) expecting unknown
+   [TrustManagerFactorySpec] UnsatisfiedConstraint at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:203) expecting init() requires a key store established by a monitored KeyStore sequence.
+== scenario kst_d: 0 record(s)
+   validate(GENERATED_KEY, key) = true
+   validate(GENERATED_PRIVATE_KEY, key) = true
+== scenario kgn_a: 2 record(s)
+   [KeyGeneratorSpec] InvalidSequenceOfMethodCalls at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:226) expecting unknown
+   [KeyGeneratorSpec] UnsafeAlgorithm at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:226) expecting expecting one ofAES,ARC4,BLOWFISH,ChaCha20,DESede,HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found DES.
+== scenario kgn_b: 0 record(s)
+   validate(GENERATED_KEY, sk) = true
+== scenario kgn_c: 0 record(s)
+== scenario kgn_d: 0 record(s)
+== scenario kgn_e: 1 record(s)
+   [KeyGeneratorSpec] UnsatisfiedConstraint at gama.GamaBatchCDrive.main(GamaBatchCDrive.java:264) expecting init() requires a SecureRandom established by a monitored SecureRandom sequence.

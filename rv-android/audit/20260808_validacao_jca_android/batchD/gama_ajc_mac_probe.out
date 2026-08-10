@@ -1,0 +1,26 @@
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:88 [warning] no match for this type name: m [Xlint:invalidAbsoluteTypeName]
+pointcut MacSpec_f3(byte[] output, int outOffset) : (call(void Mac.doFinal(byte[], int)) && args(output, outOffset) && target(m)) && MOP_CommonPointCut();
+                                                                                                                              ^
+	[Xlint:invalidAbsoluteTypeName]
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:89 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:84 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:79 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:74 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:69 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:64 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:59 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:54 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:46 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchD/gen_MacSpec/out/MacSpecMonitorAspect.aj:41 [warning] advice defined in mop.MacSpecMonitorAspect has not been applied [Xlint:adviceDidNotMatch]
+	
+
+11 warnings

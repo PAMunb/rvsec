@@ -1,0 +1,38 @@
+# Membership + public constructors of batch A target classes in the frozen android-30/android.jar
+# jar: /home/pedro/desenvolvimento/aplicativos/android/sdk/platforms/android-30/android.jar
+# sha256: 96ccfdc84d15fad4e22d76cbb8ef38b150a4b56327957067875ca7e18113a424
+# Method: membership decided by the jar's own entry table (unzip -l), because javap
+# with -classpath silently falls back to the host JDK's system modules for classes
+# missing from the classpath (observed for javax.xml.crypto.dsig.spec.HMACParameterSpec).
+
+== javax.crypto.spec.DHGenParameterSpec ==
+  entry javax/crypto/spec/DHGenParameterSpec.class present in jar: YES
+  public javax.crypto.spec.DHGenParameterSpec(int, int);
+  public int getPrimeSize();
+  public int getExponentSize();
+== javax.crypto.spec.PBEParameterSpec ==
+  entry javax/crypto/spec/PBEParameterSpec.class present in jar: YES
+  public javax.crypto.spec.PBEParameterSpec(byte[], int);
+  public javax.crypto.spec.PBEParameterSpec(byte[], int, java.security.spec.AlgorithmParameterSpec);
+  public byte[] getSalt();
+  public int getIterationCount();
+  public java.security.spec.AlgorithmParameterSpec getParameterSpec();
+== javax.crypto.spec.IvParameterSpec ==
+  entry javax/crypto/spec/IvParameterSpec.class present in jar: YES
+  public javax.crypto.spec.IvParameterSpec(byte[]);
+  public javax.crypto.spec.IvParameterSpec(byte[], int, int);
+  public byte[] getIV();
+== javax.crypto.spec.SecretKeySpec ==
+  entry javax/crypto/spec/SecretKeySpec.class present in jar: YES
+  public javax.crypto.spec.SecretKeySpec(byte[], java.lang.String);
+  public javax.crypto.spec.SecretKeySpec(byte[], int, int, java.lang.String);
+  public java.lang.String getAlgorithm();
+  public java.lang.String getFormat();
+  public byte[] getEncoded();
+  public int hashCode();
+  public boolean equals(java.lang.Object);
+== javax.xml.crypto.dsig.spec.HMACParameterSpec ==
+  entry javax/xml/crypto/dsig/spec/HMACParameterSpec.class present in jar: NO
+
+== javax/xml/crypto (any entry) ==
+  count: 0

@@ -1,0 +1,69 @@
+# beta_hashes.txt — Agent Beta, batch A, 2026-08-09. sha256 of every input used and output produced.
+# Inputs — frozen specs (jca_android) and CrySL rules (api30):
+f2f6aed6d049adc24b0a8be5c7901c5d2c163360866ae4e06c3425508f1072eb  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android/DHGenParameterSpecSpec.mop
+254040e78e3215708ab3855e08661413f20a34fe27b953d03121b300f608f282  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android/HMACParameterSpecSpec.mop
+f088e3b7cd4fa111c0f7da4286bd4c216f1a76672a43e7c18a7b0465df7635fd  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android/PBEParameterSpecSpec.mop
+633237ac49e0bcc9b6bfd83284a4d4821130a204178839a08a8b538d8704fede  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android/IvParameterSpec.mop
+d1cc088aee24205bffd3cb241427469f03d388e7aacdeed753399a088eacb8ef  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android/SecretKeySpecSpec.mop
+b5177f436864a60288a57fcab92baa58fe56544fcf1933c18ee0f32cc7335e98  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/MetaCrySL/generated/api30/DHGenParameterSpec.cryptsl
+61d064317962f3a5fd801b989f311e4b550366518777534da21d8e05b714f14e  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/MetaCrySL/generated/api30/HMACParameterSpec.cryptsl
+a6b7d2b18804502d9f70f54693ba6d6a245549457c1c0404726f38db48c8c827  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/MetaCrySL/generated/api30/PBEParameterSpec.cryptsl
+833c3e231f334396789727c41c43e81a593df81b2fa51fba760e7031ee81a1b6  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/MetaCrySL/generated/api30/IvParameterSpec.cryptsl
+ee7edaf9024c280ee1d6a037a8453540db8ab185630a956b830bfc4c8ead2538  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/MetaCrySL/generated/api30/SecretKeySpec.cryptsl
+# Toolchain and desks:
+ab4e3765b68ca03502265d892d22bbd1e598ccb2c1ae6142d6413e205bd98c0a  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/javamop/target/release/javamop/javamop/lib/javamop-0.9.3-SNAPSHOT.jar
+fab403190246e8f330ac79e091662f4c3ebd2ed0c14d343d4266652b1634dd55  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-monitor/target/release/rv-monitor/lib/rv-monitor.jar
+96ccfdc84d15fad4e22d76cbb8ef38b150a4b56327957067875ca7e18113a424  /home/pedro/desenvolvimento/aplicativos/android/sdk/platforms/android-30/android.jar
+d9eb9da824d9e247a352f570f01e1169e725b2954bca9e283a71786c59b59f9a  /home/pedro/desenvolvimento/aplicativos/android/sdk/platforms/android-36/android.jar
+bf1b4387cc7ca94fc6ef684f040d9d16fbf16248e181819f020736ea2053f177  /home/pedro/desenvolvimento/aplicativos/android/sdk/platforms/android-37.0/android.jar
+356e8b7066ae0aa70db6d0c653f510c290d2fec6a1c06f1ecaa1705ab52a9b1c  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
+7b4d72aac8527ac8f5a832e249a2b16d617d22e9c3207cfc5854b01948601f3e  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/lib_tmp/rvsec-core.jar
+0fa65fbc2a1e01fc4789df0bb1670e47617796d588d932c2c6022383c5441e8c  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/lib_tmp/rv-monitor-rt.jar
+6787f4118cf413e40036f762e91c968d8838e208a05244e22698ff42aabce8c7  /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-logger-csv/target/rvsec-logger-csv-0.9.3-SNAPSHOT.jar
+# Round-input artifacts (= my independent regeneration, byte-identical; 20 files):
+a92d1df8524594ac02b55c50164c423778d20f12d0dad8b64e23e80c919c7c5c  DHGenParameterSpecSpecMonitorAspect.aj [gen_DHGenParameterSpecSpec/out]
+146da773f5b3c532ef87f6193c8ac46f674026b96e99109aaa7eb085676c7ab6  DHGenParameterSpecSpecMonitorAspect.json [gen_DHGenParameterSpecSpec/out]
+90aaf45bbc1f8675120d23f764c60ac91f8d8130168d5861b312169c82f61051  DHGenParameterSpecSpecRuntimeMonitor.java [gen_DHGenParameterSpecSpec/out]
+dd21179dd3cc0ff0fc25367632a0ca96b92c433c28ad2232048657c6d7baad5e  DHGenParameterSpecSpec.rvm [gen_DHGenParameterSpecSpec/out]
+98350cde8a946148381ba1fa434fc8341e801bb4a4d9edde608fc35016fc21fa  HMACParameterSpecSpecMonitorAspect.aj [gen_HMACParameterSpecSpec/out]
+021e991ac26948ddba239f66afa999268cca37bcf25e66150600178fd4f1fcad  HMACParameterSpecSpecMonitorAspect.json [gen_HMACParameterSpecSpec/out]
+adebef513ac4a68b99365afc00c73a56b6d6dde679f93c3013ccc4f5d151b99f  HMACParameterSpecSpecRuntimeMonitor.java [gen_HMACParameterSpecSpec/out]
+5b32098c3b29fde9659cd455bd108b2a5c621067c03bf22a279bceff6fd554dd  HMACParameterSpecSpec.rvm [gen_HMACParameterSpecSpec/out]
+bf68bc7a02180cac7867f1a20ad075ef0149179513d6e5149758c8fa690e2e58  IvParameterSpecMonitorAspect.aj [gen_IvParameterSpec/out]
+5816b1d91ac0746279384c2f918cc37fe9cb1364b325fb3f23938a1b865212db  IvParameterSpecMonitorAspect.json [gen_IvParameterSpec/out]
+0fb95150c82ae1022e0210de4943feb72749b59d9de6f88680b51fad4e123fec  IvParameterSpecRuntimeMonitor.java [gen_IvParameterSpec/out]
+b25aec0fb3d356572556130cb349b125cf6ae7bfcb84b50c99f03d579995b348  IvParameterSpec.rvm [gen_IvParameterSpec/out]
+2f0928813a26218ba21b9278fa18bf3baf3aed67df579ae5b2f692bb0745a3aa  PBEParameterSpecSpecMonitorAspect.aj [gen_PBEParameterSpecSpec/out]
+0e3fb11d212d852dcb04435ce56aed5d568419c081453feaee33eaf9524a8a18  PBEParameterSpecSpecMonitorAspect.json [gen_PBEParameterSpecSpec/out]
+42bf007bdb4b87ba0533842449fee8549919357dfeaeb342e3a9f4f7764df66d  PBEParameterSpecSpecRuntimeMonitor.java [gen_PBEParameterSpecSpec/out]
+90685cbfc0e8a6f0efdbedf70709824193603322ad44da46709b6e402ebdd7eb  PBEParameterSpecSpec.rvm [gen_PBEParameterSpecSpec/out]
+633040e8fa55f370754aac3e0a2ceefcac2c46319fffca45582d40b3960e6fe1  SecretKeySpecSpecMonitorAspect.aj [gen_SecretKeySpecSpec/out]
+71d52f0dbb1d2177a7f8513c1502155289f9ed9b971279ba6737e26c2e74efbe  SecretKeySpecSpecMonitorAspect.json [gen_SecretKeySpecSpec/out]
+2216bf9a90e3eb3eab35833358a23515c750b8891df378141d207a124818f6d7  SecretKeySpecSpecRuntimeMonitor.java [gen_SecretKeySpecSpec/out]
+b3e92e099900cc53db985ad9c1ccfea4678e19d176881a5989053b106c3f4aca  SecretKeySpecSpec.rvm [gen_SecretKeySpecSpec/out]
+# Merged production-mode outputs (scratch gen_full/out):
+310fae0696635e0edefb00ff3dc9068b32418346d3d1a0bd65a641666937394a  MultiSpec_1MonitorAspect.aj
+e91570cee7f787dcdc886cbcb59f216865c2d564071909f1956d94e287135070  MultiSpec_1MonitorAspect.json
+d6228eac28af8d9d9e502ab9a078249f3ac01bb4c3d35b02aba5496a7a07d5df  MultiSpec_1RuntimeMonitor.java
+# Pilot harness provenance (reused, reviewed):
+3812ea2c97db88dd03332b5191c12ebaaa9c454cc7ca3363dfaa1b6a2a08d993  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchA/beta/harness/PointcutBudgetCtor.java
+# My harness sources/outputs (published under batchA/ with beta_ prefix):
+8013d67a600c68931f176b1a79adbb7a4655020b560eae2993a276e50bd7b0d7  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_BetaDrive.java
+bab02692a25767ff04d1d786949535cb488d92d93b272a84f07056d35cdf1ef6  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_BetaDriveHmc.java
+c10477aa9f97efda15dcbee4a8572d907df1286c5115b68ac4bd0637624fb22e  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_PointcutBudgetCtorB.java
+6b5697b2438699bf48839ff5caf67c43be042cbd09c4eb039f7bc788ed9b3422  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_betadrive_run1.out
+3bf0e320f2a2d288693da1ad2120098b06c4c962b6f89439e0f3b65991554669  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_betadrive_hmc.out
+f51baf04b42d93dc4502204e4326b4d2b535b7460d15400c59ca6d0aadf34225  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_capture_outputs.txt
+4bf4e038e06ebe244f0759cb96bd9643f8c2a0f34df66841690a1642ac837abc  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_probes_summary.txt
+# Drive determinism (3 reps, identical):
+6b5697b2438699bf48839ff5caf67c43be042cbd09c4eb039f7bc788ed9b3422  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchA/beta/drive/betadrive_run1.out
+6b5697b2438699bf48839ff5caf67c43be042cbd09c4eb039f7bc788ed9b3422  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchA/beta/drive/betadrive_run2.out
+6b5697b2438699bf48839ff5caf67c43be042cbd09c4eb039f7bc788ed9b3422  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchA/beta/drive/betadrive_run3.out
+# Fail-open probe artifacts:
+5b32098c3b29fde9659cd455bd108b2a5c621067c03bf22a279bceff6fd554dd  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchA/beta/probes/p1/out/HMACParameterSpecSpec.rvm
+b3e92e099900cc53db985ad9c1ccfea4678e19d176881a5989053b106c3f4aca  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchA/beta/probes/p2/out/SecretKeySpecSpec.rvm
+6c2e228f741109c5c8dcc00cbedf3ad5823ad418d8a0a2dd300d3ccbdbcd23f0  /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/batchA/beta/probes/p3/out/PBEParameterSpecSpec.rvm
+# Deliverables:
+b6a8edb6d937381689bfdad8acc5e5bad5270798aeb86302e97c21d6b5c9d045  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_report.md
+caf2a9b7385c373f822186c85434c17eba88d0e1719d5380f62dd5662a3d65e5  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_effective_automata.md
+38de0b2edfd12a609d58f4687322289dcf53f219f0b9291566aca7c85ed74d0a  /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/audit/20260808_validacao_jca_android/batchA/beta_claims.csv

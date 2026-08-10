@@ -1,0 +1,56 @@
+# ALFA batch B - API-30 member tables, extracted class bytes (not javap -classpath; batch A trap)
+jar: $ANDROID_SDK/platforms/android-30/android.jar sha256=96ccfdc84d15fad4e22d76cbb8ef38b150a4b56327957067875ca7e18113a424
+=== javax/crypto/CipherInputStream
+Compiled from "CipherInputStream.java"
+public class javax.crypto.CipherInputStream extends java.io.FilterInputStream {
+  public javax.crypto.CipherInputStream(java.io.InputStream, javax.crypto.Cipher);
+  protected javax.crypto.CipherInputStream(java.io.InputStream);
+  public int read() throws java.io.IOException;
+  public int read(byte[]) throws java.io.IOException;
+  public int read(byte[], int, int) throws java.io.IOException;
+  public long skip(long) throws java.io.IOException;
+  public int available() throws java.io.IOException;
+  public void close() throws java.io.IOException;
+  public boolean markSupported();
+}
+=== javax/crypto/CipherOutputStream
+Compiled from "CipherOutputStream.java"
+public class javax.crypto.CipherOutputStream extends java.io.FilterOutputStream {
+  public javax.crypto.CipherOutputStream(java.io.OutputStream, javax.crypto.Cipher);
+  protected javax.crypto.CipherOutputStream(java.io.OutputStream);
+  public void write(int) throws java.io.IOException;
+  public void write(byte[]) throws java.io.IOException;
+  public void write(byte[], int, int) throws java.io.IOException;
+  public void flush() throws java.io.IOException;
+  public void close() throws java.io.IOException;
+}
+=== javax/crypto/spec/PBEKeySpec
+Compiled from "PBEKeySpec.java"
+public class javax.crypto.spec.PBEKeySpec implements java.security.spec.KeySpec {
+  public javax.crypto.spec.PBEKeySpec(char[]);
+  public javax.crypto.spec.PBEKeySpec(char[], byte[], int, int);
+  public javax.crypto.spec.PBEKeySpec(char[], byte[], int);
+  public final void clearPassword();
+  public final char[] getPassword();
+  public final byte[] getSalt();
+  public final int getIterationCount();
+  public final int getKeyLength();
+}
+=== java/security/KeyPair
+Compiled from "KeyPair.java"
+public final class java.security.KeyPair implements java.io.Serializable {
+  public java.security.KeyPair(java.security.PublicKey, java.security.PrivateKey);
+  public java.security.PublicKey getPublic();
+  public java.security.PrivateKey getPrivate();
+}
+=== javax/crypto/SecretKey
+Compiled from "SecretKey.java"
+public interface javax.crypto.SecretKey extends java.security.Key,javax.security.auth.Destroyable {
+  public static final long serialVersionUID;
+}
+=== javax/security/auth/Destroyable
+Compiled from "Destroyable.java"
+public interface javax.security.auth.Destroyable {
+  public default void destroy() throws javax.security.auth.DestroyFailedException;
+  public default boolean isDestroyed();
+}

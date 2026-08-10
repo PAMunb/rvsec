@@ -1,0 +1,113 @@
+##### DHG owner=javax.crypto.spec.DHGenParameterSpec #####
+c1        call(public DHGenParameterSpec.new(int, int))                          -> [ctor/2]
+
+UNMATCHED [getPrimeSize/0, getExponentSize/0]
+DISJOINT  no member is matched by two candidates
+
+##### PBE owner=javax.crypto.spec.PBEParameterSpec #####
+c1        call(public PBEParameterSpec.new(byte[], int))                         -> [ctor/2]
+c2        call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) -> [ctor/3]
+c3        call(public PBEParameterSpec.new(byte[], int))                         -> [ctor/2]
+
+OVERLAP  ctor/2                       matched by [c1, c3]
+UNMATCHED [getSalt/0, getIterationCount/0, getParameterSpec/0]
+
+##### IVP owner=javax.crypto.spec.IvParameterSpec #####
+c1        call(public IvParameterSpec.new(byte[]))                               -> [ctor/1]
+c2        call(public IvParameterSpec.new(byte[], int, int))                     -> [ctor/3]
+c3        call(public IvParameterSpec.new(byte[]))                               -> [ctor/1]
+c4        call(public IvParameterSpec.new(byte[], int, int))                     -> [ctor/3]
+
+OVERLAP  ctor/1                       matched by [c1, c3]
+OVERLAP  ctor/3                       matched by [c2, c4]
+UNMATCHED [getIV/0]
+
+##### SKS owner=javax.crypto.spec.SecretKeySpec #####
+c1        call(public SecretKeySpec.new(byte[], String))                         -> [ctor/2]
+c2        call(public SecretKeySpec.new(byte[], int, int, String))               -> [ctor/4]
+c3        call(public SecretKeySpec.new(byte[], String))                         -> [ctor/2]
+c4        call(public SecretKeySpec.new(byte[], int, int, String))               -> [ctor/4]
+
+OVERLAP  ctor/2                       matched by [c1, c3]
+OVERLAP  ctor/4                       matched by [c2, c4]
+UNMATCHED [getAlgorithm/0, getFormat/0, getEncoded/0]
+
+##### HMC-bundled owner=javax.xml.crypto.dsig.spec.HMACParameterSpec #####
+c         call(public HMACParameterSpec.new(int))                                -> [ctor/1]
+
+UNMATCHED [getOutputLength/0]
+DISJOINT  no member is matched by two candidates
+
+##### NEIGHBOR DHParameterSpec vs DHG pcs owner=javax.crypto.spec.DHParameterSpec #####
+c1        call(public DHGenParameterSpec.new(int, int))                          -> []
+
+UNMATCHED [ctor/2, ctor/3]
+DISJOINT  no member is matched by two candidates
+
+##### NEIGHBOR GCMParameterSpec vs IVP pcs owner=javax.crypto.spec.GCMParameterSpec #####
+c1        call(public IvParameterSpec.new(byte[]))                               -> []
+c2        call(public IvParameterSpec.new(byte[], int, int))                     -> []
+c3        call(public IvParameterSpec.new(byte[]))                               -> []
+c4        call(public IvParameterSpec.new(byte[], int, int))                     -> []
+
+UNMATCHED [ctor/2, ctor/4]
+DISJOINT  no member is matched by two candidates
+
+##### NEIGHBOR GCMParameterSpec vs PBE pcs owner=javax.crypto.spec.GCMParameterSpec #####
+c1        call(public PBEParameterSpec.new(byte[], int))                         -> []
+c2        call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) -> []
+c3        call(public PBEParameterSpec.new(byte[], int))                         -> []
+
+UNMATCHED [ctor/2, ctor/4]
+DISJOINT  no member is matched by two candidates
+
+##### NEIGHBOR DESKeySpec vs SKS pcs owner=javax.crypto.spec.DESKeySpec #####
+c1        call(public SecretKeySpec.new(byte[], String))                         -> []
+c2        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+c3        call(public SecretKeySpec.new(byte[], String))                         -> []
+c4        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+
+UNMATCHED [ctor/1, ctor/2]
+DISJOINT  no member is matched by two candidates
+
+##### NEIGHBOR fake com.example.MySecretKeySpec vs SKS pcs owner=com.example.MySecretKeySpec #####
+c1        call(public SecretKeySpec.new(byte[], String))                         -> []
+c2        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+c3        call(public SecretKeySpec.new(byte[], String))                         -> []
+c4        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+
+UNMATCHED [ctor/2]
+DISJOINT  no member is matched by two candidates
+
+##### NEIGHBOR fake mop-like subclass ctor: com.example.SecretKeySpec (same simple name, wrong pkg) vs SKS pcs owner=com.example.SecretKeySpec #####
+c1        call(public SecretKeySpec.new(byte[], String))                         -> [ctor/2]
+c2        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+c3        call(public SecretKeySpec.new(byte[], String))                         -> [ctor/2]
+c4        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+
+OVERLAP  ctor/2                       matched by [c1, c3]
+
+##### TRAP re-run (production imports): owner com.example.SecretKeySpec vs SKS pcs #####
+c1        call(public SecretKeySpec.new(byte[], String))                         -> []
+c2        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+c3        call(public SecretKeySpec.new(byte[], String))                         -> []
+c4        call(public SecretKeySpec.new(byte[], int, int, String))               -> []
+
+UNMATCHED [ctor/2]
+DISJOINT  no member is matched by two candidates
+
+##### SKS positive re-run (production imports) #####
+c1        call(public SecretKeySpec.new(byte[], String))                         -> [ctor/2]
+c2        call(public SecretKeySpec.new(byte[], int, int, String))               -> [ctor/4]
+c3        call(public SecretKeySpec.new(byte[], String))                         -> [ctor/2]
+c4        call(public SecretKeySpec.new(byte[], int, int, String))               -> [ctor/4]
+
+OVERLAP  ctor/2                       matched by [c1, c3]
+OVERLAP  ctor/4                       matched by [c2, c4]
+UNMATCHED [getAlgorithm/0, getFormat/0, getEncoded/0]
+
+##### HMC app-bundled owner, production imports #####
+c         call(public HMACParameterSpec.new(int))                                -> [ctor/1]
+
+UNMATCHED [getOutputLength/0]
+DISJOINT  no member is matched by two candidates

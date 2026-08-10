@@ -1,0 +1,44 @@
+A1 ledger asserts PASS: 558 rows = 210/322/26; per-round figures match every rev. 2 record; criticals 164 of-record + 10 derived over 50 phenomena; 8 D-batchC-1 reconciliation rows; diagnostico 11/73/7.
+A2 D-batchB-1 assert PASS: every FAIL set claim carries fenomeno_id_final.
+A3 resolution asserts PASS: 30 = 22 FAIL / 8 PASS / 0 INCONCLUSIVE; severities 15 critica / 6 major / 1 minor (EXEC-SET-23 raised major->critica by the global judge).
+A5 D-batchC-1 assert PASS: fail-open set claims resolved at critica.
+
+Set-phase FAIL claims by phenomenon (20 phenomena over 22 claims):
+  FEN-D-KEYPAIR-EDGE: 1
+  FEN-D-RANDOMIZED-WRITER: 2
+  FEN-KGN-NAOCOMPILA: 1
+  FEN-KPG-NPE: 1
+  FEN-MAC-F3-UNBOUND: 1
+  FEN-SET-DECLARED-ONLY: 1
+  FEN-SET-DEDUPE: 1
+  FEN-SET-FAIL-UNKNOWN: 1
+  FEN-SET-FIRSTCALL-DISJUNCT: 1
+  FEN-SET-GENERATEDKEY-2A-CASA: 1
+  FEN-SET-KMF-CASCADE: 1
+  FEN-SET-NESTED-TYPE-DESCRIPTOR: 1
+  FEN-SET-STATIC-JCA-DEFAULT: 1
+  FEN-SET-VARARGS-ARGS-IGNORED: 1
+  FEN-SET-WRAPPER-NAME-ORDER: 1
+  FEN-SIG-SIGN-VOID: 2
+  FEN-SIG-VERIFIED-WRONGSLOT: 1
+  FEN-SRD-NEXTBYTES-FP: 1
+  FEN-SSL-ENGINE-VOID: 1
+  FEN-SSL-RANDOMIZED-EXTRA: 1
+
+Descriptive SET-phase score (pre-registered weights; raw weighted sum per D-batchA-1; denominator = claims resolved by the global judge; 0 INCONCLUSIVE -> COMPLETE; all 7 dimensions carry claims -> no unattainable weight):
+  linguagem_formal: weight 20, resolved 1, PASS 0, subscore 0.00
+  captura_eventos: weight 20, resolved 6, PASS 0, subscore 0.00
+  bindings_clausulas: weight 15, resolved 3, PASS 0, subscore 0.00
+  predicados_composicao: weight 15, resolved 8, PASS 1, subscore 1.88
+  toolchain_android: weight 15, resolved 7, PASS 4, subscore 8.57
+  diagnostico: weight 10, resolved 2, PASS 0, subscore 0.00
+  reprodutibilidade: weight 5, resolved 3, PASS 3, subscore 5.00
+  TOTAL (raw weighted sum): 15.45 / 100
+  MANDATORY LABELS: descriptive score != probability of correction != verdict; never rounded to 100; no score opens a gate; COMPLETE (0 INCONCLUSIVE).
+
+A4 gate-pointer assert PASS (rev. 2, REF-G-01-hardened): every round-qualified pointer resolves as a (round, claim) pair in the ledger; every unqualified claim ID exists in the ledger or the set-phase claims.
+A6 assert PASS: G6's cited referents (batchD BETA-SET-06, batchC BETA-SET-08, batchB BETA-SET-11) are each INCONCLUSIVE in their round of record (same-named claims in other rounds are distinct claims).
+
+Gate matrix written: {'PASS': 2, 'FAIL': 10, 'INCONCLUSIVE': 2} (PASS: G0,G1; INCONCLUSIVE: G6,G10; FAIL: the other 10).
+
+SET VERDICT (pre_registro §7 conjunction): NOT READY. Failing members: (1) 23/23 APROVADA -> 0/22 audited approved (22 REPROVADA; 1 researcher-excluded); (2) all gates PASS -> 10 FAIL + 2 INCONCLUSIVE; (3) no OMITIDA/INCORRETA/INCONCLUSIVA clause -> hundreds INCORRETA/OMITIDA + 26 INCONCLUSIVE; (4) no open counterexample -> executed counterexamples open. Member (5) reproducible evidence is the only one satisfied.

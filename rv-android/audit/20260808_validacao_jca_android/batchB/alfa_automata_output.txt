@@ -1,0 +1,110 @@
+
+================ CIS ================
+  FP: MOP emits, oracle silent
+    shortest witness: ['ctor2_unmarked']
+      ctor2_unmarked: ref 0->1 (oracle_err=False) | mop 0->3 (mop_emits=True)
+  FN: oracle flags, MOP silent
+    shortest witness: ['ctor2_marked', 'ctor1_subclass']
+      ctor2_marked: ref 0->1 (oracle_err=False) | mop 0->3 (mop_emits=False)
+      ctor1_subclass: ref 1->DEAD (oracle_err=True) | mop 3->3 (mop_emits=False)
+  end-of-trace: ref states [0, 1, 2] reachable and non-accepting; a trace ending there is a CrySL incomplete operation the monitor never reports (no end-of-trace channel).
+
+================ COS ================
+  FP: MOP emits, oracle silent
+    shortest witness: ['ctor2_unmarked']
+      ctor2_unmarked: ref 0->1 (oracle_err=False) | mop 0->2 (mop_emits=True)
+  FN: oracle flags, MOP silent
+    shortest witness: ['ctor2_marked', 'ctor1_subclass']
+      ctor2_marked: ref 0->1 (oracle_err=False) | mop 0->2 (mop_emits=False)
+      ctor1_subclass: ref 1->DEAD (oracle_err=True) | mop 2->2 (mop_emits=False)
+  end-of-trace: ref states [0, 1, 2] reachable and non-accepting; a trace ending there is a CrySL incomplete operation the monitor never reports (no end-of-trace channel).
+
+================ KPR ================
+  FP: MOP emits, oracle silent
+    shortest witness: ['getPublic']
+      getPublic: ref 0->1 (oracle_err=False) | mop 0->0 (mop_emits=True)
+  FN: oracle flags, MOP silent
+    shortest witness: ['getPublic', 'ctor_bothPredsHeld']
+      getPublic: ref 0->1 (oracle_err=False) | mop 0->0 (mop_emits=True)
+      ctor_bothPredsHeld: ref 1->DEAD (oracle_err=True) | mop 0->1 (mop_emits=False)
+
+================ SKY ================
+  no FP step mismatch reachable (single-instance product)
+  FN: oracle flags, MOP silent
+    shortest witness: ['destroy', 'getEncoded_keyUnmarked']
+      destroy: ref 0->1 (oracle_err=False) | mop 0->1 (mop_emits=False)
+      getEncoded_keyUnmarked: ref 1->DEAD (oracle_err=True) | mop 1->1 (mop_emits=False)
+
+================ PBK ================
+  FP: MOP emits, oracle silent
+    shortest witness: ['ctor4_iterOK_saltR_pwdUser']
+      ctor4_iterOK_saltR_pwdUser: ref 0->1 (oracle_err=False) | mop 0->0 (mop_emits=True)
+  FN: oracle flags, MOP silent
+    shortest witness: ['ctor4_iterOK_saltR_pwdUser', 'ctor4_iterOK_saltR_pwdR']
+      ctor4_iterOK_saltR_pwdUser: ref 0->1 (oracle_err=False) | mop 0->0 (mop_emits=True)
+      ctor4_iterOK_saltR_pwdR: ref 1->DEAD (oracle_err=True) | mop 0->1 (mop_emits=False)
+  end-of-trace: ref states [0, 1] reachable and non-accepting; a trace ending there is a CrySL incomplete operation the monitor never reports (no end-of-trace channel).
+
+======== named witnesses (distinct phenomena, full walks) ========
+
+  [COS] flush alone satisfies (w1|w2|fl)+ -> FN at close (oracle: Writes+ unmet)
+      ctor2_marked: ref 0->1 (oracle_err=False) | mop 0->2 (mop_emits=False)
+      flush: ref 1->1 (oracle_err=False) | mop 2->1 (mop_emits=False)
+      close: ref 1->DEAD (oracle_err=True) | mop 1->3 (mop_emits=False)
+
+  [COS] flush after close -> spurious @fail (oracle-invisible call changes state)
+      ctor2_marked: ref 0->1 (oracle_err=False) | mop 0->2 (mop_emits=False)
+      write_int_or_bytes: ref 1->2 (oracle_err=False) | mop 2->1 (mop_emits=False)
+      close: ref 2->3 (oracle_err=False) | mop 1->3 (mop_emits=False)
+      flush: ref 3->3 (oracle_err=False) | mop 3->0 (mop_emits=True)
+
+  [CIS] constraint len>off dropped: violating read flagged by oracle, silent in MOP
+      ctor2_marked: ref 0->1 (oracle_err=False) | mop 0->3 (mop_emits=False)
+      read3_lenLEoff: ref 1->2 (oracle_err=True) | mop 3->1 (mop_emits=False)
+
+  [COS] constraint len>off dropped (same class)
+      ctor2_marked: ref 0->1 (oracle_err=False) | mop 0->2 (mop_emits=False)
+      write3_lenLEoff: ref 1->2 (oracle_err=True) | mop 2->1 (mop_emits=False)
+
+  [PBK] residue: violating carrier loops at 0, later LEGAL clearPassword -> spurious @fail
+      ctor4_iterLow_saltR_pwdR: ref 0->1 (oracle_err=True) | mop 0->0 (mop_emits=True)
+      clearPassword: ref 1->2 (oracle_err=False) | mop 0->0 (mop_emits=True)
+
+  [PBK] FORBIDDEN => c1 mapping not honored: f1 loops at 0, legal cP -> spurious @fail
+      ctor1_forbidden: ref 0->1 (oracle_err=True) | mop 0->0 (mop_emits=True)
+      clearPassword: ref 1->2 (oracle_err=False) | mop 0->0 (mop_emits=True)
+
+  [SKY] double destroy: oracle rejects (d?), monitor reaches dead state 2 with NO handler
+      destroy: ref 0->1 (oracle_err=False) | mop 0->1 (mop_emits=False)
+      destroy: ref 1->DEAD (oracle_err=True) | mop 1->2 (mop_emits=False)
+
+  [KPR] generator-obtained pair: getPublic first (co? optional in rule) -> spurious @fail
+      getPublic: ref 0->1 (oracle_err=False) | mop 0->0 (mop_emits=True)
+
+======== multi-instance / lifecycle models (dimension 5) ========
+
+  [CIS] two-instance drive over the GLOBAL monitor: [(1, 'ctor2_marked'), (1, 'read0_or_readB'), (1, 'close'), (2, 'ctor2_marked'), (2, 'read0_or_readB'), (2, 'close')]
+      inst1 ctor2_marked: mop 0->3
+      inst1 read0_or_readB: mop 3->1
+      inst1 close: mop 1->2
+      inst2 ctor2_marked: mop 2->0 FAIL->handler+RESET
+      inst2 read0_or_readB: mop 0->0 FAIL->handler+RESET
+      inst2 close: mop 0->0 FAIL->handler+RESET
+      per-instance CrySL projections all accepted: True; spurious monitor emissions: 3 [(2, 'ctor2_marked'), (2, 'read0_or_readB'), (2, 'close')]
+
+  [COS] two-instance drive over the GLOBAL monitor: [(1, 'ctor2_marked'), (1, 'write_int_or_bytes'), (1, 'close'), (2, 'ctor2_marked'), (2, 'write_int_or_bytes'), (2, 'close')]
+      inst1 ctor2_marked: mop 0->2
+      inst1 write_int_or_bytes: mop 2->1
+      inst1 close: mop 1->3
+      inst2 ctor2_marked: mop 3->0 FAIL->handler+RESET
+      inst2 write_int_or_bytes: mop 0->0 FAIL->handler+RESET
+      inst2 close: mop 0->0 FAIL->handler+RESET
+      per-instance CrySL projections all accepted: True; spurious monitor emissions: 3 [(2, 'ctor2_marked'), (2, 'write_int_or_bytes'), (2, 'close')]
+
+  [KPR] broadcast drive (artifact semantics): [(1, 'ctor_bothPredsHeld'), (2, 'ctor_bothPredsHeld')]
+      per-instance CrySL projections: all legal (asserted); spurious @fail emissions: 1 [('empty-binding', 'c1')]
+
+  [KPR] broadcast drive (artifact semantics): [(1, 'ctor_bothPredsHeld'), (1, 'getPublic'), (2, 'ctor_bothPredsHeld'), (1, 'getPublic')]
+      per-instance CrySL projections: all legal (asserted); spurious @fail emissions: 3 [('empty-binding', 'c1'), ('monitor[1]', 'c1'), ('monitor[1]', 'gpu')]
+
+Summary: two sequential legal CIS streams -> 3 spurious emissions; COS: 3 ; KPR two ctors: 1 ; KPR interleaved: 3

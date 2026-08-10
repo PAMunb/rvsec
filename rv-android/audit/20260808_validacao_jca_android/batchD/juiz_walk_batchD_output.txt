@@ -1,0 +1,50 @@
+[PASS] MacSpec sha256 frozen
+[PASS] MacSpec fail-state = 4 — parsed [4]
+[PASS] MacSpec match-state(s) = [3] — parsed [3]
+[PASS] MacSpec transition tables == published (11 events)
+[PASS] MacSpec @fail has this.reset()
+[PASS] MAC f3Event dispatches on global root (matchedEntry = MacSpec__Map)
+[PASS] MessageDigestSpec sha256 frozen
+[PASS] MessageDigestSpec fail-state = 4 — parsed [4]
+[PASS] MessageDigestSpec match-state(s) = [1] — parsed [1]
+[PASS] MessageDigestSpec transition tables == published (8 events)
+[PASS] MessageDigestSpec @fail has this.reset()
+[PASS] KeyPairGeneratorSpec sha256 frozen
+[PASS] KeyPairGeneratorSpec fail-state = 4 — parsed [4]
+[PASS] KeyPairGeneratorSpec match-state(s) = [1] — parsed [1]
+[PASS] KeyPairGeneratorSpec transition tables == published (9 events)
+[PASS] KPG @fail has NO this.reset() (absorbing fail)
+[PASS] SecureRandomSpec sha256 frozen
+[PASS] SecureRandomSpec fail-state = 4 — parsed [4]
+[PASS] SecureRandomSpec match-state(s) = [2] — parsed [2]
+[PASS] SecureRandomSpec transition tables == published (15 events)
+[PASS] SecureRandomSpec @fail has this.reset()
+[PASS] SignatureSpec sha256 frozen
+[PASS] SignatureSpec fail-state = 8 — parsed [8]
+[PASS] SignatureSpec match-state(s) = [4, 6] — parsed [4, 6]
+[PASS] SignatureSpec @fail has this.reset()
+
+== decisive walks ==
+[PASS] walk SRD c1 nB nB nB (canonical repeated nextBytes) [CrySL: CONFORMANT (Ins, Ends*)] — c1:0->2 next2:2->3 next2:3->4 next2:0->4 | fails at [2, 3], expected [2, 3]
+[PASS] walk SRD c1 setSeed1 nB (canonical seeded usage) [CrySL: CONFORMANT (Ins, Seeds?, Ends*)] — c1:0->2 setSeed1:2->3 next2:3->4 | fails at [2], expected [2]
+[PASS] walk SRD c1 next1 nB (nextInt then nextBytes) [CrySL: extra-alphabet prefix; nB-after-End CONFORMANT] — c1:0->2 next1:2->3 next2:3->4 | fails at [2], expected [2]
+[PASS] walk SRD c1 nB setSeed1 (Seeds AFTER Ends) [CrySL: VIOLATING (Seeds? precedes Ends*) — monitor silent = FN] — c1:0->2 next2:2->3 setSeed1:3->3 | fails at [], expected []
+[PASS] walk SRD control: c1 next1 next1 next1 (nextInt only) [CrySL: extra-alphabet control — clean isolates next2 row] — c1:0->2 next1:2->3 next1:3->3 next1:3->3 | fails at [], expected []
+[PASS] walk SRD g4 unsafe then consumers (unsafeInit sink) [CrySL: VIOLATING (constraint) — no sequence pairing by design] — g4:0->1 next2:1->1 next2:1->1 setSeed1:1->1 | fails at [], expected []
+[PASS] walk KPG g1 initError gen (bad size then generate) [CrySL: ORDER-COMPLETE (i3 bad size IS an Inits; constraint misuse only)] — g1:0->2 initError:2->2 gen:2->4 | fails at [2], expected [2]
+[PASS] walk KPG g1 initError init1 gen (correction route) [CrySL: VIOLATING? no — correction adds 2nd Inits: rule single-Inits VIOLATED; monitor match] — g1:0->2 initError:2->2 init1:2->3 gen:3->1 | final=1 match=True | fails at [], expected []
+[PASS] walk KPG g1 init1 init1 gen (two valid Inits) [CrySL: VIOLATING (exactly one Inits) — monitor fails AND cascades (absorbing fail)] — g1:0->2 init1:2->3 init1:3->4 gen:4->4 | fails at [2, 3], expected [2, 3]
+[PASS] walk KPG fail-sink: g3-unsafe init1 then events cascade [CrySL: constraint misuse; monitor accuses every event after first fail] — g3:0->0 init1:0->4 gen:4->4 gen:4->4 | fails at [1, 2, 3], expected [1, 2, 3]
+[PASS] walk MAC carrier g3(unsafe) i1 uArr f1 [CrySL: ORDER-CONFORMANT (Gets,Inits,Updates+,Finals); constraint misuse only] — g3:0->0 i1:0->4 uArr:0->4 f1:0->4 | fails at [1, 2, 3], expected [1, 2, 3]
+[PASS] walk MAC safe path g1 i1 uArr f1 [CrySL: CONFORMANT] — g1:0->2 i1:2->1 uArr:1->1 f1:1->3 | final=3 match=True | fails at [], expected []
+[PASS] walk MAC key-gate: g1 [i1 suppressed] f1 (unmarked key) [CrySL: CONFORMANT trace (rule has NO generatedKey REQUIRES); i1 suppressed by extra-oracle gate] — g1:0->2 f1:2->4 | fails at [1], expected [1]
+[PASS] walk MAC invisible creation: i1 as first event [CrySL: CONFORMANT via (String,Provider) Gets the spec cannot see] — i1:0->4 uArr:0->4 f1:0->4 | fails at [0, 1, 2], expected [0, 1, 2]
+[PASS] walk MDG carrier g4(unsafe) update d2 [CrySL: ORDER-CONFORMANT; digestAlg constraint misuse only] — g4:0->0 update:0->4 d2:0->4 | fails at [1, 2], expected [1, 2]
+[PASS] walk MDG safe reuse: g1 update d1 update d1 [CrySL: CONFORMANT (Gets,(Updates+,Digests)+)] — g1:0->3 update:3->2 d1:2->1 update:1->2 d1:2->1 | final=1 match=True | fails at [], expected []
+[PASS] walk MDG d1 without update fails both oracles [CrySL: VIOLATING (Digests need Updates+ unless DWOU=d2) — consistent fail] — g1:0->3 d1:3->4 | fails at [1], expected [1]
+[PASS] walk SIG carrier g3(unsafe) i4 update v1 [CrySL: ORDER-CONFORMANT verify branch; alg constraint misuse only] — g3:0->0 i4:0->8 update:0->8 v1:0->8 | fails at [1, 2, 3], expected [1, 2, 3]
+[PASS] walk SIG verify branch safe: g1 i4 update v1 [CrySL: CONFORMANT] — g1:0->5 i4:5->2 update:2->3 v1:3->4 | final=4 match=True | fails at [], expected []
+[PASS] walk SIG sign branch: g1 i1 update s1 — s1 event exists in table but pointcut is DEAD [CrySL: CONFORMANT sign flow; on the real platform s1 never fires (byte vs byte[])] — g1:0->5 i1:5->1 update:1->7 s1:7->6 | final=6 match=True | fails at [], expected []
+[PASS] walk SIG sign flow as the platform sees it (s1 unobservable): g1 i1 update [CrySL: CONFORMANT complete flow truncated at sign — never accepts, SIGNED never written] — g1:0->5 i1:5->1 update:1->7 | final=7 match=False | fails at [], expected []
+
+46 checks, 0 failures

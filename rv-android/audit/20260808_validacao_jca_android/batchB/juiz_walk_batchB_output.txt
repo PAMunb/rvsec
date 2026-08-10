@@ -1,0 +1,30 @@
+Freeze: 5/5 monitors match generation_manifest.md hashes
+
+Tables CIS: {'c1': [3, 4, 4, 4, 4], 'r1': [4, 1, 4, 1, 4], 'r2': [4, 1, 4, 1, 4], 'cl1': [4, 2, 4, 4, 4]}
+[PASS] CIS stream1 legal, 0 fails, ends accept-state 2
+[PASS] CIS stream2 legal -> 3 spurious fails (post-__RESET cascade) — c1: 2->4 FAIL +__RESET->0; r1: 0->4 FAIL +__RESET->0; cl1: 0->4 FAIL +__RESET->0
+[PASS] CIS stream3 alternation (cascade-dependent state, 0 or 3 fails) — fails=0
+
+Tables COS: {'c1': [2, 4, 4, 4, 4], 'w1': [4, 1, 1, 4, 4], 'w2': [4, 1, 1, 4, 4], 'fl': [4, 1, 1, 4, 4], 'cl': [4, 3, 4, 4, 4]}
+[PASS] COS [construct,flush,close] ACCEPTED (0 fails) though rule requires Writes+ — FN witness — c1: 0->2; fl: 2->1; cl: 1->3
+[PASS] COS flush-after-close -> exactly 1 spurious fail — FP witness — c1: 0->2; w1: 2->1; cl: 1->3; fl: 3->4 FAIL +__RESET->0
+[PASS] COS legal cycle clean
+[PASS] COS stream2 legal -> 3 spurious fails (global-monitor cascade, = CIS shape) — c1: 3->4 FAIL +__RESET->0; w1: 0->4 FAIL +__RESET->0; cl: 0->4 FAIL +__RESET->0
+
+Tables KPR: {'c1': [1, 2, 2], 'gpu': [2, 1, 2], 'gpr': [2, 1, 2]}
+[PASS] KPR gpu[0] == 2 (fail): generator-obtained pair's FIRST getPublic accused
+[PASS] KPR walk [getPublic] (CrySL-legal under co?) -> 1 spurious fail — gpu: 0->2 FAIL +__RESET->0
+[PASS] KPR constructed pair, interleaved getters legal (reading A: (pu*,pr*)* = (pu|pr)*)
+
+Tables SKY: {'e1': [0, 2, 2], 'd': [1, 2, 2]}
+[PASS] SKY double-destroy reaches dead state 2 with NO fail category (silent) — d: 0->1; d: 1->2
+[PASS] SKY ge-after-destroy silent (dead state, no category)
+[PASS] SKY accepting states {0,1} realize ge* d? (epsilon accepted)
+
+Tables PBK: {'f1': [0, 3, 3, 3], 'f2': [0, 3, 3, 3], 'c1': [1, 3, 3, 3], 'err1': [0, 3, 3, 3], 'err2': [0, 3, 3, 3], 'err3': [0, 3, 3, 3], 'c2': [3, 2, 3, 3]}
+[PASS] PBK carriers f1/f2/err1/err2/err3 loop at 0 (layer-2 star prefix held)
+[PASS] PBK violating construction then LEGAL clearPassword -> 1 spurious fail (delayed residue) — err1: 0->0; c2: 0->3 FAIL +__RESET->0
+[PASS] PBK FORBIDDEN ctor then clearPassword -> spurious fail (FORBIDDEN=>c1 continuation not honored) — f1: 0->0; c2: 0->3 FAIL +__RESET->0
+[PASS] PBK valid path c1,cP -> match state 2, 0 fails
+
+RESULT: ALL WALKS CONFIRM THE CLAIMED TABLE PHENOMENA

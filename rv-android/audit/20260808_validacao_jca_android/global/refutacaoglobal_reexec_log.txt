@@ -1,0 +1,79 @@
+# refutacaoglobal_reexec_log.txt — GLOBAL REFUTATION reviewer, 2026-08-09
+# Every re-execution below ran in the reviewer's OWN scratch
+# (/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/d2ed0fb6-e4be-4945-abb4-21d8af2acd28/scratchpad/global/refutacao), from the audit-tree harness sources and the frozen inputs only.
+# Nothing was reused from the judge's or executor's scratch.
+
+## 1. juizglobal_build.py re-run (mirror copy, AUDIT pinned to audit root)
+exit=0; asserts A1-A5 pass; all three outputs byte-identical to global/:
+  juizglobal_build_output.txt  IDENTICAL
+  juizglobal_gates.csv         IDENTICAL
+  juizglobal_set_claims_resolvidos.csv IDENTICAL
+
+## 2. set_cons_build.py + set_cons_hist.py re-run (mirror with the five
+##    round CSVs copied; spec tree + errors.csv read at frozen paths)
+exit=0 both; in-script asserts pass (incl. errors.csv sha gate); outputs:
+  set_cons_ledger.csv, set_cons_fen_registry.csv,
+  set_cons_predicate_graph.csv, set_cons_build_output.txt,
+  set_cons_hist_output.txt  -- ALL IDENTICAL to set/
+
+## 3. Freeze re-check (23 specs, working tree vs record)
+23/23 sha256 match set_exec_hashes.txt and fase0/manifest_hashes.md; toolchain
+jars (javamop ab4e3765, rv-monitor fab40319, rv-monitor-rt 0fa65fbc) match.
+
+## 4. -merge regeneration from frozen specs (javamop exit 0, rv-monitor exit 0)
+310fae0696635e0edefb00ff3dc9068b32418346d3d1a0bd65a641666937394a  <scratch>/merge/out/MultiSpec_1MonitorAspect.aj
+e91570cee7f787dcdc886cbcb59f216865c2d564071909f1956d94e287135070  <scratch>/merge/out/MultiSpec_1MonitorAspect.json
+d6228eac28af8d9d9e502ab9a078249f3ac01bb4c3d35b02aba5496a7a07d5df  <scratch>/merge/out/MultiSpec_1RuntimeMonitor.java
+record: 310fae06... / e91570ce... / d6228eac...  -> IDENTICAL
+
+## 5. KGN standalone-compile probe (regenerated per-spec monitor)
+javamop exit 0; rv-monitor exit 0; javac KeyGeneratorSpecRuntimeMonitor.java
+-> exit 1, first error:
+out/KeyGeneratorSpecRuntimeMonitor.java:259: error: cannot find symbol
+	Key generatedKey;
+KeyGeneratorSpec.mop import block (lines 3-10) lacks java.security.Key: CONFIRMED
+MERGED MultiSpec_1RuntimeMonitor.java javac -> exit 0; 'import java.security.Key;'
+present at line 11: CONFIRMED (fail-open + merge-masking re-established).
+
+## 6. Composition drive + dedupe probe (compiled from set/ sources, run once)
+8168d2a7cbf4adfa23ea5fc08fb7eeca50b52c1c4e9b6f23daa941008adf821c  <scratch>/drive/drive_rep1.out
+3a658775c88fc2b1769ff056353c42c032a7e7ab2242f4c6dbcf4f92338cf0ed  <scratch>/drive/dedupe_rep1.out
+record: 8168d2a7... / 3a658775...  -> BOTH IDENTICAL
+verified inside: S5 KPG NPE both first-event routes; 14 error records with 5
+expecting=unknown (S1a, S3b, S3c, S4b x2); X2 emits ONLY the key-managers
+violation while X1 proves the SecureRandom check fires alone (dedupe collapse).
+
+## 7. Weave probe, production dexlib2, MERGED descriptor, both frozen jars
+14e84ccac66ba1ec42d92dc015cf6fca2286f80074884c3df5076a11d6a4318e  <scratch>/weave/weave30.out
+7da00861580c6f5e7cad131e8d8eb284841264ce27748d715d9c563a2038e170  <scratch>/weave/weave37.out
+record: 14e84cca... (android-30) / 7da00861... (android-37.0) -> IDENTICAL
+verified inside: 168 scenarios = 50 UNTOUCHED / 73 WRAPPED / 45 INLINE;
+cis_readB cos_writeB kpg_genkp kst_getentry kst_setentry srd_nextint0
+sig_sign0 sig_sign3 ssl_cse0 ssl_cse2 all UNTOUCHED; mac_df_out WRAPPED;
+wrappers 83 vs 86, the 3 extras = SecureRandom.getInstance(SecureRandomParameters
+overloads); SecureRandomParameters.class entries: 1 in android-37.0 jar, 0 in
+android-30 (unzip -l re-run). D-batchD-1 sweep re-run: 0 trap markers in the
+android-30-labeled outputs; 3 hits only in the android-37.0 output (genuine).
+
+## 8. Source verifications re-done by the reviewer (file:line)
+- ErrorDescription equals/hashCode = ErrorSummary(spec,type,class,method,loc);
+  javadoc declares expecting outside identity (rvsec-core .../eh/ErrorDescription.java).
+- RANDOMIZED readers: CipherSpec.mop:63-69 + KeyGeneratorSpec.mop:33-38 +
+  SSLContextSpec.mop:82 read on SecureRandom objects; IvParameterSpec.mop:25 and
+  PBEKeySpecSpec.mop:43-44,61,69 read on byte[]/char[] material;
+  SecureRandomSpec.mop @match1 writes on sr (object); SecretKeySpec.mop e1 writes
+  on key bytes gated by GENERATED_KEY -- consolidator split CONFIRMED.
+- api30 SSLContext.cryptsl: REQUIRES randomized[sr] with sr bound by NO event
+  (Init binds '_') -- the extra-oracle characterization is accurate.
+- predicate_edges.csv rows 47/74-75/81 vs api30: Mac REQUIRES has no
+  generatedKey; SecureRandom ENSURES has no randomized[randInt]/[randIntInRange];
+  Signature has verified[sign], not verified[verified] -- anchor drift CONFIRMED.
+- G12: rv_static_analysis/config.py:186 probe [33,29,28,27,26]; :199-208 literal
+  jca default; rv_experiment/config.py get_static_analysis_config passes no
+  mop_dir/targets_file/android_jar (grep over module: no caller does).
+- jca twins: MacSpec.mop target(m) unbound also in jca; SignatureSpec VERIFIED
+  written on the boolean return in both; KeyPairSpec ere 'c1 (gpu | gpr)*' in
+  both vs rule ORDER 'co?, (pu*, pr*)*'; KPG switch(algorithm) in both.
+
+## 9. juizglobal_hashes.txt spot-check
+25 random entries re-hashed: 0 mismatches, 0 missing.

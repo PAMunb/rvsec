@@ -1,0 +1,47 @@
+=== MAC (MacSpec.mop:13-16 exact contains vs Mac.cryptsl:71) ===
+candidate          resolves  spec-safe  raw-safe  verdict
+HmacSHA256         true      true       true      consistent
+hmacsha256         true      false      false     consistent
+HMACSHA256         true      false      false     consistent
+HMAC-SHA256        false     true       false     unresolvable-on-host (Android pending)
+HMAC/SHA256        false     true       false     unresolvable-on-host (Android pending)
+HMAC-SHA512        false     true       false     unresolvable-on-host (Android pending)
+PBEwithHmacSHA256  true      true       true      consistent
+PBEWithHmacSHA256  true      false      false     consistent
+=== MDG (MessageDigestSpec.mop:16-17 toUpperCase contains vs MessageDigest.cryptsl:63) ===
+candidate          resolves  spec-safe  raw-safe  verdict
+SHA-256            true      true       true      consistent
+sha-256            true      true       false     FN witness (spec accepts, raw rejects)
+md5                true      true       false     FN witness (spec accepts, raw rejects)
+MD5                true      true       true      consistent
+SHA256             true      true       false     FN witness (spec accepts, raw rejects)
+SHA384             true      true       false     FN witness (spec accepts, raw rejects)
+SHA512             true      true       false     FN witness (spec accepts, raw rejects)
+sha256             true      true       false     FN witness (spec accepts, raw rejects)
+SHA-1              true      true       true      consistent
+sha1               true      false      false     consistent
+SHA1               true      false      false     consistent
+=== KPG (KeyPairGeneratorSpec.mop:22 exact vs KeyPairGenerator.cryptsl:45) ===
+candidate          resolves  spec-safe  raw-safe  verdict
+RSA                true      true       true      consistent
+rsa                true      false      false     consistent
+DiffieHellman      true      false      false     consistent
+DH                 true      true       true      consistent
+dsa                true      false      false     consistent
+EC                 true      false      false     consistent
+=== SRD (SecureRandomSpec.mop:23 exact vs SecureRandom.cryptsl:61) ===
+candidate          resolves  spec-safe  raw-safe  verdict
+SHA1PRNG           true      true       true      consistent
+sha1prng           true      false      false     consistent
+NativePRNG         true      false      false     consistent
+DRBG               true      false      false     consistent
+=== SIG (SignatureSpec.mop:23-27 exact vs Signature.cryptsl:75) ===
+candidate          resolves  spec-safe  raw-safe  verdict
+SHA256withRSA      true      true       true      consistent
+sha256withrsa      true      false      false     consistent
+SHA256WithRSA      true      false      false     consistent
+DSS                true      true       true      consistent
+DSA                true      true       true      consistent
+MD5withRSA         true      true       true      consistent
+SHA1withRSA        true      true       true      consistent
+SHA256withECDSA    true      false      false     consistent

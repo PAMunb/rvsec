@@ -1,0 +1,48 @@
+PASS MAC-a1 no errors on two interleaved legal Macs
+PASS MAC-a2 A accepting
+PASS MAC-a3 B accepting
+PASS MAC-a4 MACED(data1) written at A.doFinal
+PASS MAC-a5 MACED(data2) written at B.doFinal
+PASS MAC-a6 GENERATED_MAC(outA)
+PASS MAC-a7 GENERATED_MAC(outB)
+MEASURE MAC-b1 f3 fired? GENERATED_MAC(outC)=false MACED(data3)=false C accepting=false delta=[]
+MEASURE MAC-b2 update after doFinal(out,0) delta=[] (empty => monitor never saw f3)
+MEASURE MAC-c1 unsafe route delta=[InvalidSequenceOfMethodCalls/MacSpec UnsafeAlgorithm/MacSpec] UnsafeAlg=1 InvalidSeq=1
+MEASURE MAC-d1 unmonitored-key init delta=[UnsatisfiedConstraint/SecretKeySpecSpec InvalidSequenceOfMethodCalls/MacSpec] UnsatisfiedConstraint=0 InvalidSeq=1
+PASS MDG-a1 no errors on legal digest
+PASS MDG-a2 accepting
+PASS MDG-a3 DIGESTED(h1)
+MEASURE MDG-b1 unsafe route delta=[UnsafeAlgorithm/MessageDigestSpec InvalidSequenceOfMethodCalls/MessageDigestSpec] UnsafeAlg=1 InvalidSeq=1
+PASS MDG-c1 lowercase safe alg: no UnsafeAlgorithm, no InvalidSeq
+PASS MDG-c2 accepting after d2
+MEASURE KPG-a0 delta after happy KPG (KeyPairSpec may interject)=[]
+PASS KPG-a1 GENERATED_KEY_PAIR(kp)
+PASS KPG-a2 accepting
+MEASURE KPG-b1 EC route delta=[UnsafeAlgorithm/KeyPairGeneratorSpec InvalidSequenceOfMethodCalls/KeyPairGeneratorSpec] UnsafeAlg=1 InvalidSeq=1 InvalidKeySize=0
+MEASURE KPG-c1 after initialize(1024) delta=[InvalidKeySize/KeyPairGeneratorSpec]
+MEASURE KPG-c2 corrected-size trace delta=[InvalidKeySize/KeyPairGeneratorSpec] accepting=true
+PASS KPG-d1 genKeyPair captured on ajc: GENERATED_KEY_PAIR(kp4)
+PASS KPG-d2 accepting
+PASS KPG-d3 no errors
+PASS SRD-a1 accepting after c1 (match1=init)
+PASS SRD-a2 RANDOMIZED(sr1) written by match1
+PASS SRD-a3 RANDOMIZED(rb) written by next2 (writer of the set-wide edge)
+PASS SRD-a4 RANDOMIZED(generateSeed ret)
+PASS SRD-a5 no errors on legal SecureRandom
+PASS SRD-b1 no error on getInstance("SHA1PRNG") via ajc
+PASS SRD-b2 accepting
+MEASURE SRD-c1 unsafe 1-arg delta=[UnsafeAlgorithm/SecureRandomSpec] UnsafeAlg=1 InvalidSeq=0
+MEASURE SRD-c2 RANDOMIZED(bytes from unsafe PRNG)=true accepting(sr3)=false
+MEASURE SRD-d1 unsafe 2-arg delta=[] (empty => silent FN on ajc) monitored=false
+MEASURE SRD-e1 unrandomized ctor seed delta=[] (empty => REQUIRES randomized[seed] violation is silent)
+MEASURE SRD-e2 unrandomized setSeed delta=[UnsatisfiedConstraint/SecureRandomSpec] UnsatisfiedConstraint=1
+MEASURE SRD-f1 after nextInt(100): RANDOMIZED(Integer 100)=true RANDOMIZED(result)=false
+MEASURE SRD-f2 after nextInt(): RANDOMIZED(re-boxed non-cached result)=false (false => identity store loses non-cached boxes)
+MEASURE SIG-a0 initVerify delta=[InvalidSequenceOfMethodCalls/KeyPairSpec] (UnsatisfiedConstraint here = generatedPubkey mark state)
+MEASURE SIG-a1 verify branch delta=[InvalidSequenceOfMethodCalls/KeyPairSpec] accepting=true
+MEASURE SIG-b0 initSign delta=[InvalidSequenceOfMethodCalls/KeyPairSpec] (UnsatisfiedConstraint here = generatedPrivkey mark state)
+MEASURE SIG-b1 after sign(): SIGNED(sig)=false accepting=false delta=[]
+MEASURE SIG-b2 re-initSign after sign delta=[InvalidSequenceOfMethodCalls/KeyPairSpec InvalidSequenceOfMethodCalls/SignatureSpec] InvalidSeq=1 (>0 => dead s1 turned a legal trace into a violation)
+MEASURE SIG-c1 unsafe route delta=[InvalidSequenceOfMethodCalls/SignatureSpec UnsafeAlgorithm/SignatureSpec InvalidSequenceOfMethodCalls/KeyPairSpec] UnsafeAlg=1 InvalidSeq=1
+MEASURE SIG-d1 interleaved verify delta=[InvalidSequenceOfMethodCalls/KeyPairSpec] A.accepting=true B.accepting=true
+HARNESS OK

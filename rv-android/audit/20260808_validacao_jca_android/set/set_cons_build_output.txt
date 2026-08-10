@@ -1,0 +1,52 @@
+== set_cons_build — consolidated ledger totals ==
+pilot   total= 72 PASS= 30 FAIL= 34 INC= 8 critFAIL= 10 critFEN= 1  (pilot critFAIL is a DERIVED parse — pilot record has no severity column)
+batchA  total= 96 PASS= 46 FAIL= 48 INC= 2 critFAIL= 18 critFEN= 7  (== published rev.2 figures)
+batchB  total=133 PASS= 40 FAIL= 88 INC= 5 critFAIL= 38 critFEN=12  (== published rev.2 figures)
+batchC  total=134 PASS= 55 FAIL= 71 INC= 8 critFAIL= 54 critFEN=17  (== published rev.2 figures)
+batchD  total=123 PASS= 39 FAIL= 81 INC= 3 critFAIL= 54 critFEN=21  (== published rev.2 figures)
+OVERALL total=558 PASS=210 FAIL=322 INC=26
+critical FAIL claims: of-record (A+B+C+D) = 164 (18+38+54+54=164); pilot derived-parsed = 10 -> overall derived = 174
+D-batchC-1 reconciliation column set on 8 pilot/A/B fail-open claims: pilot:BETA-SET-04(was minor), pilot:GAMA-GCM-01(was minor), batchA:ALFA-SET-02(was major), batchA:BETA-SET-03(was minor), batchA:BETA-SET-04(was major), batchA:BETA-SET-05(was major), batchA:GAMA-SKS-03(was minor), batchB:BETA-SET-09(was major)
+
+per-dimension resolution counts (all rounds pooled; context only, not a score):
+  bindings_clausulas       n= 99 PASS= 38 FAIL= 59 INC= 2
+  captura_eventos          n= 74 PASS= 21 FAIL= 50 INC= 3
+  diagnostico              n= 91 PASS= 11 FAIL= 73 INC= 7
+  linguagem_formal         n= 79 PASS= 37 FAIL= 41 INC= 1
+  predicados_composicao    n=107 PASS= 62 FAIL= 45 INC= 0
+  reprodutibilidade        n= 34 PASS= 14 FAIL= 14 INC= 6
+  toolchain_android        n= 74 PASS= 27 FAIL= 40 INC= 7
+
+FEN registry: 119 phenomena with claim linkage (50 with >=1 critical FAIL claim) -> set_cons_fen_registry.csv
+NOTE: pilot claims enter the registry only via the 9 documented joins; the pilot's other phenomena remain in the pilot record without FEN ids (pre-D-piloto-4).
+ledger: 558 rows -> set_cons_ledger.csv
+
+predicate graph: 127 Property sites over 25 constants -> set_cons_predicate_graph.csv
+graph asserts: 11 reader-less constants confirmed; GENERATED_CIPHER 3w/2r; PREPARED_HMAC 1w/1r (guaranteed-fire pair) — all against the frozen specs
+
+writer/reader/remove counts per constant:
+  DIGESTED                   writes= 3 reads= 0 removes= 0
+  ENCRYPTED                  writes= 8 reads= 3 removes= 0
+  GENERATED_CIPHER           writes= 3 reads= 2 removes= 0
+  GENERATED_KEY              writes= 3 reads= 6 removes= 3
+  GENERATED_KEY_MANAGERS     writes= 3 reads= 1 removes= 2
+  GENERATED_KEY_PAIR         writes= 2 reads= 0 removes= 1
+  GENERATED_KEY_STORE        writes= 1 reads= 2 removes= 1
+  GENERATED_MAC              writes= 3 reads= 0 removes= 1
+  GENERATED_PRIVATE_KEY      writes= 2 reads= 6 removes= 1
+  GENERATED_PUBLIC_KEY       writes= 2 reads= 5 removes= 1
+  GENERATED_TRUST_MANAGER    writes= 2 reads= 0 removes= 1
+  GENERATED_TRUST_MANAGERS   writes= 1 reads= 1 removes= 1
+  GENERATE_SSL_CONTEXT       writes= 1 reads= 0 removes= 0
+  GENERATE_SSL_ENGINE        writes= 1 reads= 0 removes= 0
+  MACED                      writes= 2 reads= 1 removes= 0
+  PREPARED_DH                writes= 1 reads= 2 removes= 0
+  PREPARED_GCM               writes= 1 reads= 1 removes= 0
+  PREPARED_HMAC              writes= 1 reads= 1 removes= 0
+  PREPARED_IV                writes= 1 reads= 1 removes= 0
+  PREPARED_PBE               writes= 1 reads= 0 removes= 0
+  RANDOMIZED                 writes= 9 reads=24 removes= 0
+  SIGNED                     writes= 2 reads= 0 removes= 0
+  SPECCED_KEY                writes= 2 reads= 0 removes= 1
+  VERIFIED                   writes= 2 reads= 0 removes= 0
+  WRAPPED_KEY                writes= 1 reads= 0 removes= 0

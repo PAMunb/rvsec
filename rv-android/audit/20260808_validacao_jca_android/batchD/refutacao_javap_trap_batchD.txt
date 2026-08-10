@@ -1,0 +1,19 @@
+# REF-E-01 evidence — alfa_javap_android30_batchD.txt is host-JDK output (JDK-fallback trap)
+# Refuter, batch D refutation round, 2026-08-09. All commands executed this session.
+
+## 1. The jar does not contain SecureRandomParameters at all
+$ unzip -l $ANDROID_HOME/platforms/android-30/android.jar | grep -i SecureRandomParameters
+(no output — the type java.security.SecureRandomParameters is absent from the frozen jar 96ccfdc8...)
+
+## 2. javap over UNZIP-EXTRACTED java/security/SecureRandom.class from that jar
+$ unzip android.jar java/security/SecureRandom.class && javap -p java/security/SecureRandom.class | grep -c SecureRandomParameters
+0
+getInstance overloads present: (String), (String,String), (String,Provider) ONLY; protected final int next(int); nextInt/ints NOT declared.
+
+## 3. The trap reproduced: -classpath lets the host JDK system class shadow the jar
+$ javap -classpath .../android-30/android.jar -p java.security.SecureRandom | grep -c SecureRandomParameters
+6
+
+## 4. alfa_javap_android30_batchD.txt lines 116-118 list getInstance(String, SecureRandomParameters[, String|Provider]) — impossible for the jar; its Mac section lists private sun.security.util.Debug fields, absent from the android-30 stub Mac.class (which has no private members).
+
+## 5. Consequence: ALFA-SRD-08's evidencia_primaria sub-assertion 'getInstance(String,SecureRandomParameters[,String|Provider]) exist on android-30' is FALSE; the 3-arg FP surface it projects is vacuous on the android-30 platform (host-JDK-only). The claim's operative mechanism (g4 args(alg) arity-1; born-at-consume FP, SRD-T6/srd_c) is independent and stands.

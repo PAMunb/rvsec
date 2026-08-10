@@ -1,0 +1,15 @@
+# Agent Beta batch D - fail-open probes (production javamop ab4e3765 + rv-monitor fab40319, scratch).
+# Every probe mutates a COPY of a batch-D .mop; NONE run over the spec tree. Exit codes recorded.
+#
+P1  SRD fsm: setSeed3 -> endX (undefined target state).
+    javamop exit 0; rv-monitor exit 0; stderr "The following states are used but never defined: endX";
+    NO RuntimeMonitor emitted. => SILENT fail-open: a typo'd transition drops the monitor with exit 0.
+P2  SIG ere: add undefined symbol iX to the initSign branch ((i1|i2|iX)+).
+    javamop exit 0; rv-monitor exit 0; RuntimeMonitor PRESENT with an orphan iX event row.
+    => unknown event symbol ACCEPTED silently; a mistyped event name is woven, not rejected.
+P3  MAC ere: unbalanced trailing paren.
+    rv-monitor prints "Logic Engine Error: null" on stderr, exit 0, NO RuntimeMonitor.
+    => same shape batch C p1 found; a stray token kills generation with a zero exit.
+#
+# Verdict (BETA-SET-04, major): all three exit 0. A pipeline gated on process exit codes catches none of
+# a dropped monitor (P1/P3) or an accepted-unknown-symbol monitor (P2). Consistent with batches A/B/C.

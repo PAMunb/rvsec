@@ -1,0 +1,75 @@
+== S1a TMF i1 (rule-ORDER-conformant trace, constraint-only misuse) : 2 record(s)
+   TrustManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:52,InvalidSequenceOfMethodCalls | expecting=unknown
+   TrustManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:52,UnsafeAlgorithm | expecting=expecting one of PKIX but found X509.
+== S1b TMF gtm1 after __RESET (delayed residue at the rule's own gtm?) : 1 record(s)
+   TrustManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:55,InvalidSequenceOfMethodCalls | expecting=unknown
+== S2a KMF i1 : 2 record(s)
+   KeyManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:66,InvalidSequenceOfMethodCalls | expecting=unknown
+   KeyManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:66,UnsafeAlgorithm | expecting= expecting one of PKIX but found SunX509.
+== S2b KMF gkm1 after __RESET : 1 record(s)
+   KeyManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:68,InvalidSequenceOfMethodCalls | expecting=unknown
+== S3 SSL init after unsafe_protocol (UnsafeProtocol + spurious InvalidSeq, same call) : 2 record(s)
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:77,InvalidSequenceOfMethodCalls | expecting=unknown
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:77,UnsafeProtocol | expecting=expecting one of {Default, SSL, TLS, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3} but found SSLv3.
+== S4a KGN i1 (spurious InvalidSeq) : 1 record(s)
+   KeyGeneratorSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:86,InvalidSequenceOfMethodCalls | expecting=unknown
+== S4b KGN gk1 (UnsafeAlgorithm + second spurious InvalidSeq, same call) : 2 record(s)
+   KeyGeneratorSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:88,InvalidSequenceOfMethodCalls | expecting=unknown
+   KeyGeneratorSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:88,UnsafeAlgorithm | expecting=expecting one ofAES,ARC4,BLOWFISH,ChaCha20,DESede,HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found DES.
+== S5a KST load (spurious InvalidSeq; rule ORDER satisfied) : 1 record(s)
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:97,InvalidSequenceOfMethodCalls | expecting=unknown
+== S5b KST getKey (InvalidKeyStoreType + spurious InvalidSeq) : 2 record(s)
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:99,InvalidKeyStoreType | expecting=expecting one ofAndroidCAStore,AndroidKeyStore,BKS,BouncyCastle,PKCS12 but found JKS.
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:99,InvalidSequenceOfMethodCalls | expecting=unknown
+S6 after load(A): validate(GKS,A)=false validate(GKS,B)=false  <- wrong-object identity (field, not receiver)
+== S6 KST two individually conformant interleaved stores (all records spurious) : 5 record(s)
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:110,InvalidSequenceOfMethodCalls | expecting=unknown
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:112,InvalidSequenceOfMethodCalls | expecting=unknown
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:115,InvalidSequenceOfMethodCalls | expecting=unknown
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:116,InvalidSequenceOfMethodCalls | expecting=unknown
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:117,InvalidSequenceOfMethodCalls | expecting=unknown
+S7 A loaded: validate(GKS,A)=true
+S7 after B's store: validate(GKS,A)=false  <- A's granted ENSURES erased by B's @fail (shared field)
+== S7a records from B's store : 1 record(s)
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:129,InvalidSequenceOfMethodCalls | expecting=unknown
+== S7b fully conformant TMF over A -> chained UnsatisfiedConstraint (FP) : 1 record(s)
+   TrustManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:136,UnsatisfiedConstraint | expecting=init() requires a key store established by a monitored KeyStore sequence.
+S8 after load(ks2): validate(GKS,ks2)=false  <- real store never marked (stale field marked instead)
+== S8a KST load on 2-arg-created store (spurious InvalidSeq) : 1 record(s)
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:144,InvalidSequenceOfMethodCalls | expecting=unknown
+== S8b conformant KMF over ks2 -> displaced UnsatisfiedConstraint (FP) : 1 record(s)
+   KeyManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:151,UnsatisfiedConstraint | expecting=init() requires a KeyStore established by a monitored KeyStore sequence.
+== S9a KST load,[setKeyEntry unobserved],store -> accusation lands displaced at store : 1 record(s)
+   KeyStoreSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:162,InvalidSequenceOfMethodCalls | expecting=unknown
+== S9b control: load,setEntry(captured),store -> clean : 0 record(s)
+S10 kms1 granted: validate(GKMS,kms1)=true
+S10 after gkm#2 fail: validate(GKMS,kms2)=false validate(GKMS,kms1)=true  <- handed-out kms2 revoked though the rules carry zero NEGATES
+== S10a records at gkm#2 (true positive) : 1 record(s)
+   KeyManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:185,InvalidSequenceOfMethodCalls | expecting=unknown
+== S10b SSL init(kms2) -> chained UnsatisfiedConstraint (FP: granted ENSURES revoked) : 1 record(s)
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:193,UnsatisfiedConstraint | expecting=init() requires key managers established by a monitored KeyManagerFactory sequence.
+S11 validate(GTMS,tms2)=false validate(GTMS,tms1)=true
+== S11a records at gtm#2 : 1 record(s)
+   TrustManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:208,InvalidSequenceOfMethodCalls | expecting=unknown
+== S11b SSL init(tms2) -> chained UnsatisfiedConstraint (FP) : 1 record(s)
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:215,UnsatisfiedConstraint | expecting=init() requires trust managers established by a monitored TrustManagerFactory sequence.
+== S12 SSL fully conformant init with fresh SecureRandom (extra-oracle randomized FP) : 1 record(s)
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:228,UnsatisfiedConstraint | expecting=init() requires a SecureRandom established by a monitored SecureRandom sequence.
+== S13 three REQUIRES violated at one init call -> records surviving dedupe : 1 record(s)
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:237,UnsatisfiedConstraint | expecting=init() requires key managers established by a monitored KeyManagerFactory sequence.
+== S14 SSL getInstance(String,Provider)+init (fully conformant) -> empty-label UnsafeProtocol + InvalidSeq : 2 record(s)
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:245,InvalidSequenceOfMethodCalls | expecting=unknown
+   SSLContextSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:245,UnsafeProtocol | expecting=expecting one of {Default, SSL, TLS, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3} but found .
+== S15a getInstance("tls") — raw literal set rejects, spec accepts (FN if empty) : 0 record(s)
+== S15b second createSSLEngine (ORDER violation) — silent = FN : 0 record(s)
+== S16 KGN AES init(64) — silent = FN of the keySize implication : 0 record(s)
+== S17 KGN getInstance("HMAC-SHA256") + generateKey — silent = FN vs raw oracle : 0 record(s)
+S18a KGN conformant: validate(GENERATED_KEY, sk)=true
+== S18a KGN conformant lifecycle : 0 record(s)
+== S18b KGN i2 with unmarked SecureRandom (expect 1 UnsatisfiedConstraint, 0 InvalidSeq) : 1 record(s)
+   KeyGeneratorSpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:298,UnsatisfiedConstraint | expecting=init() requires a SecureRandom established by a monitored SecureRandom sequence.
+S18c isolation: validate(GTMS,tA)=true (t1's grant survives t2's fail) validate(GTMS,tB)=false
+== S18c t2 records (true positive, self-scoped) : 1 record(s)
+   TrustManagerFactorySpec,JuizDriveC,JuizDriveC,main,JuizDriveC.java:314,InvalidSequenceOfMethodCalls | expecting=unknown
+== S18d full captured TLS chain, sr=null (expect 0 records) : 0 record(s)
+DONE

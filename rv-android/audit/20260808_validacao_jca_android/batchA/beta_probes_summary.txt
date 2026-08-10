@@ -1,0 +1,22 @@
+# Fail-open probes (Agent Beta, batch A) — mutated copies in scratch only; frozen toolchain
+# p1: stray ')' after HMC pointcut       -> javamop exit 0, stderr 0 bytes; .rvm byte-identical to unmutated
+# p2: two stray ')' in SKS conditions    -> javamop exit 0, stderr 0 bytes; .rvm byte-identical to unmutated
+# p3: undefined c9 in PBE ere            -> exit 0 both phases; c9 kept in .rvm ere, silently dropped by rv-monitor (3 events, no table)
+# p4: stray '(' in HMC pointcut          -> javamop stderr MOPException BUT exit 0; NO artifacts produced
+
+== p1 javamop.err (head) ==
+
+== p2 javamop.err (head) ==
+
+== p3 javamop.err (head) ==
+
+== p4 javamop.err (head) ==
+javamop.util.MOPException: MOP Expection:The following error encountered when parsing the pointcut in the event definition: Encountered " "(" "( "" at line 1, column 6.
+Was expecting one of:
+    "new" ...
+    "event" ...
+    "creation" ...
+
+== p3 evidence ==
+35:	ere:  c3* (c1 | c2 | c9)
+0

@@ -1,0 +1,12 @@
+== BetaDexPathDriveC (production dexlib2 wrappers, merged descriptor) ==
+PASS DX-1 MEASURE dexlib2 1-arg KMF.getInstance("PKIX") alone -> immediate spurious fail (g1 then g2)  [InvalidSequenceOfMethodCalls/KeyManagerFactorySpec@BetaDexPathDriveC.main(BetaDexPathDriveC.java:55)]
+PASS DX-2 MEASURE dexlib2 1-arg TMF.getInstance("PKIX") alone -> immediate spurious fail  [InvalidSequenceOfMethodCalls/TrustManagerFactorySpec@BetaDexPathDriveC.main(BetaDexPathDriveC.java:61)]
+PASS DX-3 dexlib2 2-arg KMF.getInstance -> no error (g2 only fires)
+PASS DX-4 MEASURE unsafe alg 1-arg -> NO immediate error (conditions suppress g2); FP hits only SAFE calls
+PASS DX-5a getInstance+load on dexlib2 path -> no error
+PASS DX-5b GENERATED_KEY_STORE marked
+PASS DX-5c MEASURE store after (invisible) setEntry -> spurious fail on the legal sE,Stores route  [InvalidSequenceOfMethodCalls/KeyStoreSpec@BetaDexPathDriveC.main(BetaDexPathDriveC.java:86)]
+PASS DX-6a dexlib2 SSL getInstance+init -> no seq error
+PASS DX-6b engine unobservable on dexlib2 (no wrapper exists; property never set)
+PASS DX-6c direct engineEvent on initialized ctx -> accepted, GENERATE_SSL_ENGINE marked
+== done; harness failures = 0 ; total errors = 3

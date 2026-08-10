@@ -1,0 +1,21 @@
+# Agent Beta batch D - CoenableProbe over production plugins (ere.jar/fsm.jar/logicrepository.jar,
+# rv-monitor 0.9.3-SNAPSHOT fab40319). Bodies are the ORDER expressions read from the generated .rvm
+# (the effective source, D-piloto-3). EV = the spec's full alphabet; categories include 'fail' (the
+# one that costs). This is the shipped FSMCoenables walk, not a model.
+#
+# spec  events  states_after_min  coenable[fail]  n*(2^n-1)  EXACT?  coenable[match]  coenable_chars  rv-monitor wall/RSS (measured, /usr/bin/time -v, scratch)
+MAC     11      4                 22517          11*2047=22517   YES   0    619683     1.58 s / 204.7 MB
+MDG      8      4                  2040           8*255=2040      YES  14    41213      1.01 s /  98.9 MB
+KPG      9      4                  4599           9*511=4599      YES   0    138409     1.08 s / 108.7 MB
+SIG     12      8                 49140          12*4095=49140    YES  84   1377409     2.20 s / 288.5 MB
+SRD     15      4                491505         15*32767=491505   YES   0   24084738    12.57 s / 1610.9 MB   <-- round stress case
+#
+# All five <= 17-event ceiling (max 15, SRD). Every @fail coenable set is EXACTLY n*(2^n-1) => saturated:
+# the generator enumerates the full power set of coenabled events for the failure category, so cost grows
+# as n*2^n in the alphabet. SRD (15 events) is the round's heaviest: 491505 coenable sets, a 24.08 MB
+# coenable string, generated in 12.57 s / 1.61 GB RSS (3 reps: 12.57 / 12.06 / 12.95 s; RuntimeMonitor
+# byte-identical across reps and to the round input). Reproduces the practical 17-event ceiling FROM THIS
+# DATA POINT: at 15 events RSS is already 1.6 GB; 17 events would be 17*131071=2228207 sets (~4.5x the
+# string) => multi-GB, the wall the ceiling encodes. SRD confirms the ceiling is real and the set sits
+# just under it. No spec of the round exceeds 17. Full 23-spec -merge in scratch: javamop 0.70 s /174.8 MB,
+# rv-monitor 28.08 s / 1.74 GB; the five per-spec .rvm are byte-identical to the merge outputs.

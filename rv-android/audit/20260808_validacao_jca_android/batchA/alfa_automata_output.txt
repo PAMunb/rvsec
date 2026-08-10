@@ -1,0 +1,58 @@
+== DHG ==
+   parsed transition tables: c1=[1, 2, 2]
+   [satisfying] Ctor2i -> c1: 0 --c1--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor2i -> NO CARRIER: event suppressed before handleEvent (silent).  CrySL: predicate/constraint error expected => report emitted only if a body exists: NONE  (documented as suppression; see claims)
+   [vacuous   ] from accepting state 1: c1->2   (reachable only by a second construction of the SAME object -- impossible)
+   [vacuous   ] @fail reachable only from state>=1 => dead per instance; handler (ErrorCollector InvalidSequenceOfMethodCalls + __RESET) is dead code
+   L(CrySL) [satisfying proj.] subset of alpha(L(MOP)): HOLDS
+   alpha(L(MOP)) subset of L(CrySL): HOLDS
+   dual inclusion on realizable traces: HOLDS
+
+== HMC ==
+   parsed transition tables: c=[1, 2, 2]
+   [satisfying] Ctor1i -> c: 0 --c--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor1i -> NO CARRIER: event suppressed before handleEvent (silent).  CrySL: predicate/constraint error expected => report emitted only if a body exists: NONE  (documented as suppression; see claims)
+   [vacuous   ] from accepting state 1: c->2   (reachable only by a second construction of the SAME object -- impossible)
+   [vacuous   ] @fail reachable only from state>=1 => dead per instance; handler (ErrorCollector InvalidSequenceOfMethodCalls + __RESET) is dead code
+   L(CrySL) [satisfying proj.] subset of alpha(L(MOP)): HOLDS
+   alpha(L(MOP)) subset of L(CrySL): HOLDS
+   dual inclusion on realizable traces: HOLDS
+
+== PBE ==
+   parsed transition tables: c1=[1, 2, 2], c2=[1, 2, 2], c3=[0, 2, 2]
+   [satisfying] Ctor2 -> c1: 0 --c1--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor2 -> c3: 0 --c3--> 0  (match=False, fail=False)  CrySL: NOT an ORDER violation => OK: no @fail, no match
+   [satisfying] Ctor3 -> c2: 0 --c2--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor3 -> NO CARRIER: event suppressed before handleEvent (silent).  CrySL: predicate/constraint error expected => report emitted only if a body exists: NONE  (documented as suppression; see claims)
+   [vacuous   ] from accepting state 1: c1->2, c2->2, c3->2   (reachable only by a second construction of the SAME object -- impossible)
+   [vacuous   ] @fail reachable only from state>=1 => dead per instance; handler (ErrorCollector InvalidSequenceOfMethodCalls + __RESET) is dead code
+   L(CrySL) [satisfying proj.] subset of alpha(L(MOP)): HOLDS
+   alpha(L(MOP)) subset of L(CrySL): HOLDS
+   dual inclusion on realizable traces: HOLDS
+
+== IVP ==
+   parsed transition tables: c1=[1, 2, 2], c2=[1, 2, 2], c3=[0, 2, 2], c4=[0, 2, 2]
+   [satisfying] Ctor1 -> c1: 0 --c1--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor1 -> c3: 0 --c3--> 0  (match=False, fail=False)  CrySL: NOT an ORDER violation => OK: no @fail, no match
+   [satisfying] Ctor3 -> c2: 0 --c2--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor3 -> c4: 0 --c4--> 0  (match=False, fail=False)  CrySL: NOT an ORDER violation => OK: no @fail, no match
+   [vacuous   ] from accepting state 1: c1->2, c2->2, c3->2, c4->2   (reachable only by a second construction of the SAME object -- impossible)
+   [vacuous   ] @fail reachable only from state>=1 => dead per instance; handler (ErrorCollector InvalidSequenceOfMethodCalls + __RESET) is dead code
+   L(CrySL) [satisfying proj.] subset of alpha(L(MOP)): HOLDS
+   alpha(L(MOP)) subset of L(CrySL): HOLDS
+   dual inclusion on realizable traces: HOLDS
+
+== SKS ==
+   parsed transition tables: c1=[1, 2, 2], c2=[1, 2, 2], c3=[0, 2, 2], c4=[0, 2, 2]
+   [satisfying] Ctor2 -> c1: 0 --c1--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor2 -> c3: 0 --c3--> 0  (match=False, fail=False)  CrySL: NOT an ORDER violation => OK: no @fail, no match
+   [satisfying] Ctor4 -> c2: 0 --c2--> 1  (MATCH)  CrySL: word in L(Cons) => OK
+   [violating ] Ctor4 -> c4: 0 --c4--> 0  (match=False, fail=False)  CrySL: NOT an ORDER violation => OK: no @fail, no match
+   [vacuous   ] from accepting state 1: c1->2, c2->2, c3->2, c4->2   (reachable only by a second construction of the SAME object -- impossible)
+   [vacuous   ] @fail reachable only from state>=1 => dead per instance; handler (ErrorCollector InvalidSequenceOfMethodCalls + __RESET) is dead code
+   L(CrySL) [satisfying proj.] subset of alpha(L(MOP)): HOLDS
+   alpha(L(MOP)) subset of L(CrySL): HOLDS
+   dual inclusion on realizable traces: HOLDS
+
+OVERALL (language dimension only, guard projections as stated): ALL DUAL INCLUSIONS HOLD
+NOTE: suppression findings (PBE 3-arg, DHG) are NOT language-dimension counterexamples -- they are binding/predicate findings, filed separately.

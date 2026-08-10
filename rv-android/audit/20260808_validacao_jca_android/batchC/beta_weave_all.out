@@ -1,0 +1,84 @@
+################ SSLContextSpec ################
+== WrapperEmitter entries (3) for SSLContextSpecMonitorAspect.json
+  wrapper javax_net_ssl_SSLContext_getInstance                    javax.net.ssl.SSLContext.getInstance(java.lang.String):javax.net.ssl.SSLContext static=true
+  wrapper javax_net_ssl_SSLContext_getInstance_1                  javax.net.ssl.SSLContext.getInstance(java.lang.String,java.lang.String):javax.net.ssl.SSLContext static=true
+  wrapper javax_net_ssl_SSLContext_init                           javax.net.ssl.SSLContext.init(javax.net.ssl.KeyManager[],javax.net.ssl.TrustManager[],java.security.SecureRandom):void static=false
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=12, matchesApplied=0, plansSkipped=0, plansSkippedAliasing=0, wrappersSubstituted=3, wrappersAliasedToSubtype=0, constructorInlineApplied=0, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  ssl_gi1        javax.net.ssl.SSLContext.getInstance(Ljava/lang/String;) -> [WRAPPED:javax_net_ssl_SSLContext_getInstance]
+  ssl_gi2s       javax.net.ssl.SSLContext.getInstance(Ljava/lang/String;,Ljava/lang/String;) -> [WRAPPED:javax_net_ssl_SSLContext_getInstance_1]
+  ssl_gi2p       javax.net.ssl.SSLContext.getInstance(Ljava/lang/String;,Ljava/security/Provider;) -> UNTOUCHED
+  ssl_init       javax.net.ssl.SSLContext.init([Ljavax/net/ssl/KeyManager;,[Ljavax/net/ssl/TrustManager;,Ljava/security/SecureRandom;) -> [WRAPPED:javax_net_ssl_SSLContext_init]
+  ssl_cse0       javax.net.ssl.SSLContext.createSSLEngine() -> UNTOUCHED
+  ssl_cse2       javax.net.ssl.SSLContext.createSSLEngine(Ljava/lang/String;,I) -> UNTOUCHED
+  n_ssl_getdef   javax.net.ssl.SSLContext.getDefault()      -> UNTOUCHED
+  n_ssl_sockf    javax.net.ssl.SSLContext.getSocketFactory() -> UNTOUCHED
+################ KeyManagerFactorySpec ################
+== WrapperEmitter entries (4) for KeyManagerFactorySpecMonitorAspect.json
+  wrapper javax_net_ssl_KeyManagerFactory_getInstance             javax.net.ssl.KeyManagerFactory.getInstance(java.lang.String):javax.net.ssl.KeyManagerFactory static=true
+  wrapper javax_net_ssl_KeyManagerFactory_getInstance_1           javax.net.ssl.KeyManagerFactory.getInstance(java.lang.String,java.lang.String):javax.net.ssl.KeyManagerFactory static=true
+  wrapper javax_net_ssl_KeyManagerFactory_getInstance_2           javax.net.ssl.KeyManagerFactory.getInstance(java.lang.String,java.security.Provider):javax.net.ssl.KeyManagerFactory static=true
+  wrapper javax_net_ssl_KeyManagerFactory_getKeyManagers          javax.net.ssl.KeyManagerFactory.getKeyManagers():javax.net.ssl.KeyManager[] static=false
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=11, matchesApplied=2, plansSkipped=0, plansSkippedAliasing=0, wrappersSubstituted=4, wrappersAliasedToSubtype=0, constructorInlineApplied=0, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  kmf_gi1        javax.net.ssl.KeyManagerFactory.getInstance(Ljava/lang/String;) -> [WRAPPED:javax_net_ssl_KeyManagerFactory_getInstance]
+  kmf_gi2s       javax.net.ssl.KeyManagerFactory.getInstance(Ljava/lang/String;,Ljava/lang/String;) -> [WRAPPED:javax_net_ssl_KeyManagerFactory_getInstance_1]
+  kmf_gi2p       javax.net.ssl.KeyManagerFactory.getInstance(Ljava/lang/String;,Ljava/security/Provider;) -> [WRAPPED:javax_net_ssl_KeyManagerFactory_getInstance_2]
+  kmf_init_ks    javax.net.ssl.KeyManagerFactory.init(Ljava/security/KeyStore;,[C) -> [INLINE:KeyManagerFactorySpec_i1Event]
+  kmf_init_mfp   javax.net.ssl.KeyManagerFactory.init(Ljavax/net/ssl/ManagerFactoryParameters;) -> [INLINE:KeyManagerFactorySpec_i2Event]
+  kmf_getkm      javax.net.ssl.KeyManagerFactory.getKeyManagers() -> [WRAPPED:javax_net_ssl_KeyManagerFactory_getKeyManagers]
+  n_kmf_defalg   javax.net.ssl.KeyManagerFactory.getDefaultAlgorithm() -> UNTOUCHED
+################ KeyStoreSpec ################
+== WrapperEmitter entries (2) for KeyStoreSpecMonitorAspect.json
+  wrapper java_security_KeyStore_getInstance                      java.security.KeyStore.getInstance(java.lang.String):java.security.KeyStore static=true
+  wrapper java_security_KeyStore_getKey                           java.security.KeyStore.getKey(java.lang.String,char[]):java.security.Key static=false
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=17, matchesApplied=4, plansSkipped=0, plansSkippedAliasing=0, wrappersSubstituted=2, wrappersAliasedToSubtype=0, constructorInlineApplied=0, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  kst_gi1        java.security.KeyStore.getInstance(Ljava/lang/String;) -> [WRAPPED:java_security_KeyStore_getInstance]
+  kst_gi2s       java.security.KeyStore.getInstance(Ljava/lang/String;,Ljava/lang/String;) -> UNTOUCHED
+  kst_gi2p       java.security.KeyStore.getInstance(Ljava/lang/String;,Ljava/security/Provider;) -> UNTOUCHED
+  kst_load_is    java.security.KeyStore.load(Ljava/io/InputStream;,[C) -> [INLINE:KeyStoreSpec_loadEvent]
+  kst_load_p     java.security.KeyStore.load(Ljava/security/KeyStore$LoadStoreParameter;) -> [INLINE:KeyStoreSpec_loadEvent]
+  kst_store_os   java.security.KeyStore.store(Ljava/io/OutputStream;,[C) -> [INLINE:KeyStoreSpec_storeEvent]
+  kst_store_p    java.security.KeyStore.store(Ljava/security/KeyStore$LoadStoreParameter;) -> [INLINE:KeyStoreSpec_storeEvent]
+  kst_getentry   java.security.KeyStore.getEntry(Ljava/lang/String;,Ljava/security/KeyStore$ProtectionParameter;) -> UNTOUCHED
+  kst_setentry   java.security.KeyStore.setEntry(Ljava/lang/String;,Ljava/security/KeyStore$Entry;,Ljava/security/KeyStore$ProtectionParameter;) -> UNTOUCHED
+  kst_getkey     java.security.KeyStore.getKey(Ljava/lang/String;,[C) -> [WRAPPED:java_security_KeyStore_getKey]
+  n_kst_setcert  java.security.KeyStore.setCertificateEntry(Ljava/lang/String;,Ljava/security/cert/Certificate;) -> UNTOUCHED
+  n_kst_setkeyE  java.security.KeyStore.setKeyEntry(Ljava/lang/String;,Ljava/security/Key;,[C,[Ljava/security/cert/Certificate;) -> UNTOUCHED
+  n_kst_aliases  java.security.KeyStore.aliases()           -> UNTOUCHED
+################ KeyGeneratorSpec ################
+== WrapperEmitter entries (4) for KeyGeneratorSpecMonitorAspect.json
+  wrapper javax_crypto_KeyGenerator_getInstance                   javax.crypto.KeyGenerator.getInstance(java.lang.String):javax.crypto.KeyGenerator static=true
+  wrapper javax_crypto_KeyGenerator_getInstance_1                 javax.crypto.KeyGenerator.getInstance(java.lang.String,java.lang.String):javax.crypto.KeyGenerator static=true
+  wrapper javax_crypto_KeyGenerator_getInstance_2                 javax.crypto.KeyGenerator.getInstance(java.lang.String,java.security.Provider):javax.crypto.KeyGenerator static=true
+  wrapper javax_crypto_KeyGenerator_generateKey                   javax.crypto.KeyGenerator.generateKey():javax.crypto.SecretKey static=false
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=16, matchesApplied=5, plansSkipped=0, plansSkippedAliasing=0, wrappersSubstituted=4, wrappersAliasedToSubtype=0, constructorInlineApplied=0, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  kgn_gi1        javax.crypto.KeyGenerator.getInstance(Ljava/lang/String;) -> [WRAPPED:javax_crypto_KeyGenerator_getInstance]
+  kgn_gi2s       javax.crypto.KeyGenerator.getInstance(Ljava/lang/String;,Ljava/lang/String;) -> [WRAPPED:javax_crypto_KeyGenerator_getInstance_1]
+  kgn_gi2p       javax.crypto.KeyGenerator.getInstance(Ljava/lang/String;,Ljava/security/Provider;) -> [WRAPPED:javax_crypto_KeyGenerator_getInstance_2]
+  kgn_init_i     javax.crypto.KeyGenerator.init(I)          -> [INLINE:KeyGeneratorSpec_i1Event]
+  kgn_init_isr   javax.crypto.KeyGenerator.init(I,Ljava/security/SecureRandom;) -> [INLINE:KeyGeneratorSpec_i2Event]
+  kgn_init_aps   javax.crypto.KeyGenerator.init(Ljava/security/spec/AlgorithmParameterSpec;) -> [INLINE:KeyGeneratorSpec_i3Event]
+  kgn_init_apsr  javax.crypto.KeyGenerator.init(Ljava/security/spec/AlgorithmParameterSpec;,Ljava/security/SecureRandom;) -> [INLINE:KeyGeneratorSpec_i4Event]
+  kgn_init_sr    javax.crypto.KeyGenerator.init(Ljava/security/SecureRandom;) -> [INLINE:KeyGeneratorSpec_i5Event]
+  kgn_genkey     javax.crypto.KeyGenerator.generateKey()    -> [WRAPPED:javax_crypto_KeyGenerator_generateKey]
+  n_kpg_gi1      java.security.KeyPairGenerator.getInstance(Ljava/lang/String;) -> UNTOUCHED
+  n_skf_gi1      javax.crypto.SecretKeyFactory.getInstance(Ljava/lang/String;) -> UNTOUCHED
+  n_kgn_getalg   javax.crypto.KeyGenerator.getAlgorithm()   -> UNTOUCHED
+################ TrustManagerFactorySpec ################
+== WrapperEmitter entries (4) for TrustManagerFactorySpecMonitorAspect.json
+  wrapper javax_net_ssl_TrustManagerFactory_getInstance           javax.net.ssl.TrustManagerFactory.getInstance(java.lang.String):javax.net.ssl.TrustManagerFactory static=true
+  wrapper javax_net_ssl_TrustManagerFactory_getInstance_1         javax.net.ssl.TrustManagerFactory.getInstance(java.lang.String,java.lang.String):javax.net.ssl.TrustManagerFactory static=true
+  wrapper javax_net_ssl_TrustManagerFactory_getInstance_2         javax.net.ssl.TrustManagerFactory.getInstance(java.lang.String,java.security.Provider):javax.net.ssl.TrustManagerFactory static=true
+  wrapper javax_net_ssl_TrustManagerFactory_getTrustManagers      javax.net.ssl.TrustManagerFactory.getTrustManagers():javax.net.ssl.TrustManager[] static=false
+== WeaveReport WeaveReport[classesSeen=2, methodsSeen=11, matchesApplied=2, plansSkipped=0, plansSkippedAliasing=0, wrappersSubstituted=4, wrappersAliasedToSubtype=0, constructorInlineApplied=0, constructorInlineSkippedAliasing=0, plansSkippedHighRegister=0, plansSkippedUnresolvedBinding=0, staticInitSynthesized=0, staticInitPrepended=0]
+== Site capture results
+  tmf_gi1        javax.net.ssl.TrustManagerFactory.getInstance(Ljava/lang/String;) -> [WRAPPED:javax_net_ssl_TrustManagerFactory_getInstance]
+  tmf_gi2s       javax.net.ssl.TrustManagerFactory.getInstance(Ljava/lang/String;,Ljava/lang/String;) -> [WRAPPED:javax_net_ssl_TrustManagerFactory_getInstance_1]
+  tmf_gi2p       javax.net.ssl.TrustManagerFactory.getInstance(Ljava/lang/String;,Ljava/security/Provider;) -> [WRAPPED:javax_net_ssl_TrustManagerFactory_getInstance_2]
+  tmf_init_ks    javax.net.ssl.TrustManagerFactory.init(Ljava/security/KeyStore;) -> [INLINE:TrustManagerFactorySpec_i1Event]
+  tmf_init_mfp   javax.net.ssl.TrustManagerFactory.init(Ljavax/net/ssl/ManagerFactoryParameters;) -> [INLINE:TrustManagerFactorySpec_i2Event]
+  tmf_gettm      javax.net.ssl.TrustManagerFactory.getTrustManagers() -> [WRAPPED:javax_net_ssl_TrustManagerFactory_getTrustManagers]
+  n_tmf_defalg   javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm() -> UNTOUCHED

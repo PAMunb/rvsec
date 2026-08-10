@@ -1,0 +1,168 @@
+== MAC-T1 conformant: g1(HmacSHA256) i1(markedKey) uArr f1 ==
+  [after f1] errors=0
+  MACED[data]=true GENERATED_MAC[out]=true accepting(mac)=true
+== MAC-T2 unsafe 1-arg carrier: g3(DES) i1(markedKey) uArr f1 ==
+  [after i1] errors=2
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:139,InvalidSequenceOfMethodCalls | expecting=unknown
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:139,UnsafeAlgorithm | expecting= expecting one of HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,PBEwithHmacSHA,PBEwithHmacSHA1,PBEwithHmacSHA224,PBEwithHmacSHA256,PBEwithHmacSHA384,PBEwithHmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found DES.
+  [after f1] errors=4
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:139,InvalidSequenceOfMethodCalls | expecting=unknown
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:139,UnsafeAlgorithm | expecting= expecting one of HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,PBEwithHmacSHA,PBEwithHmacSHA1,PBEwithHmacSHA224,PBEwithHmacSHA256,PBEwithHmacSHA384,PBEwithHmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found DES.
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:141,InvalidSequenceOfMethodCalls | expecting=unknown
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:142,InvalidSequenceOfMethodCalls | expecting=unknown
+== MAC-T3 extra-oracle key gate: g1(HmacSHA256) i1(UNMARKED) uArr f1 ==
+  [after suppressed i1] errors=0
+  [after f1 (expect InvalidSequence only, no UnsatisfiedConstraint)] errors=2
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:149,InvalidSequenceOfMethodCalls | expecting=unknown
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:150,InvalidSequenceOfMethodCalls | expecting=unknown
+== MAC-T4 two-arg safe (String,String): g2 i1(marked) f1 (rule models no 2-arg Gets) ==
+  [after f1] errors=0
+== MAC-T5 (String,Provider) overload invisible: i1(marked) uArr f1 born-at-i1 ==
+  [after f1 (spurious InvalidSequence on rule-silent object)] errors=4
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:163,InvalidSequenceOfMethodCalls | expecting=unknown
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:163,UnsafeAlgorithm | expecting= expecting one of HmacMD5,HmacSHA1,HmacSHA224,HmacSHA256,HmacSHA384,HmacSHA512,PBEwithHmacSHA,PBEwithHmacSHA1,PBEwithHmacSHA224,PBEwithHmacSHA256,PBEwithHmacSHA384,PBEwithHmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:164,InvalidSequenceOfMethodCalls | expecting=unknown
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:165,InvalidSequenceOfMethodCalls | expecting=unknown
+== MAC-T6 uBuf FN: g1 i1(marked) uBuf f1 -> buffer data never MACED-marked ==
+  [after f1] errors=0
+  MACED[buf]=false MACED[buf.array]=false  (registered FN if both false)
+== MAC-T7 uByte Byte-cache: g1 i1(marked) uByte(42) f1 ==
+  [after f1] errors=0
+  MACED[Byte.valueOf(42)]=true  (true = cache-wide mark, D-S13 over-marking mechanism)
+== MAC-T8 preparedHMAC read at i2 (writer unwritable per batch A HMC) ==
+  [after i2 (guaranteed-fire UnsatisfiedConstraint)] errors=1
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:193,UnsatisfiedConstraint | expecting=init() requires an AlgorithmParameterSpec established by a monitored HMACParameterSpec sequence.
+== MAC-T9 f3 unbound broadcast: two Macs, one doFinal(byte[],int) ==
+  [after single f3 (any InvalidSequence here hit the innocent mB)] errors=1
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:201,InvalidSequenceOfMethodCalls | expecting=unknown
+  accepting(mA)=true accepting(mB)=false
+== MAC-T10 !encrypted live read at f3: output buffer marked ENCRYPTED ==
+  [after f3 (expect UnsatisfiedConstraint: Mac over Cipher output)] errors=2
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:212,InvalidSequenceOfMethodCalls | expecting=unknown
+    MacSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:212,UnsatisfiedConstraint | expecting=doFinal() requires a buffer that is not the output of a monitored Cipher.
+== MDG-T1 conformant with reuse: g1(SHA-256) u d1 u d1 ==
+  [after 2 cycles] errors=0
+  DIGESTED[out1]=true
+== MDG-T2 one-shot: g1(SHA-256) d2 ==
+  [after d2] errors=0
+== MDG-T3 unsafe 1-arg carrier: g4(MD2) u d1 ==
+  [after update] errors=2
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:233,InvalidSequenceOfMethodCalls | expecting=unknown
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:233,UnsafeAlgorithm | expecting=expecting one of {SHA-256, SHA-384, SHA-512} but found MD2.
+  [after d1] errors=3
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:233,InvalidSequenceOfMethodCalls | expecting=unknown
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:233,UnsafeAlgorithm | expecting=expecting one of {SHA-256, SHA-384, SHA-512} but found MD2.
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:235,InvalidSequenceOfMethodCalls | expecting=unknown
+== MDG-T4 invisible unsafe 2-arg: (no g) u d1 -> empty-label UnsafeAlgorithm ==
+  [after u d1 (H4 'but found .' shape)] errors=3
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:240,InvalidSequenceOfMethodCalls | expecting=unknown
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:240,UnsafeAlgorithm | expecting=expecting one of {SHA-256, SHA-384, SHA-512} but found .
+    MessageDigestSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:241,InvalidSequenceOfMethodCalls | expecting=unknown
+== MDG-T5 (String,Provider) safe captured: g3 u d1 ==
+  [after d1 (expect 0)] errors=0
+== MDG-T6 folding/alias FN vs raw list: g1("md5") u d1 and g1("SHA256") u d1 ==
+  [after both (0 errors = 2 FN witnesses vs raw literal set)] errors=0
+== KPG-T1 conformant: g1(RSA) initialize(2048) generateKeyPair() ==
+  [after gen] errors=0
+  GENERATED_KEY_PAIR[kp]=true accepting=true
+== KPG-T2 gen-without-init + fail-sink cascade: g1(RSA) gen gen ==
+  [after first gen (flag consistent with rule)] errors=1
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:270,InvalidSequenceOfMethodCalls | expecting=unknown
+  [after second gen (sink: one more InvalidSequence, no __RESET)] errors=2
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:270,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:272,InvalidSequenceOfMethodCalls | expecting=unknown
+  GENERATED_KEY_PAIR[kp] after sink removes=false
+== KPG-T3 bad size then gen: g1(RSA) initialize(1024) gen ==
+  [after initError (expect InvalidKeySize only)] errors=1
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:80,InvalidKeySize | expecting=invalid key size for algorithm RSA.
+  [after gen (spurious InvalidSequence: rule ORDER is Gets,Inits,Gen and i3 IS an Inits)] errors=2
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:80,InvalidKeySize | expecting=invalid key size for algorithm RSA.
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:280,InvalidSequenceOfMethodCalls | expecting=unknown
+== KPG-T4 bad size 2-arg suppressed: g1(RSA) initialize(1024, sr) gen ==
+  [after suppressed init2 (expect NO InvalidKeySize - FN of the specific error)] errors=0
+  [after gen (spurious InvalidSequence instead)] errors=1
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:287,InvalidSequenceOfMethodCalls | expecting=unknown
+== KPG-T5 NPE on invisible creation: (no g) initialize(2048) ==
+  THROWN to caller: java.lang.NullPointerException: Cannot invoke "String.hashCode()" because "<local2>" is null
+  at mop.KeyPairGeneratorSpecMonitor.validate(KeyPairGeneratorSpecRuntimeMonitor.java:262)
+== KPG-T6 carrier EC: g3(EC) initialize(256) gen ==
+  [after init (UnsafeAlgorithm + spurious InvalidSequence, pilot H2 shape)] errors=3
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:79,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:79,UnsafeAlgorithm | expecting= expecting one of DH,DSA,RSA but found EC.
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:80,InvalidSequenceOfMethodCalls | expecting=unknown
+  [after gen (sink cascade)] errors=4
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:79,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:79,UnsafeAlgorithm | expecting= expecting one of DH,DSA,RSA but found EC.
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:80,InvalidSequenceOfMethodCalls | expecting=unknown
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:305,InvalidSequenceOfMethodCalls | expecting=unknown
+== KPG-T7 initError-then-good over-acceptance: g1(RSA) init(1024) init(2048) gen ==
+  [expect InvalidKeySize only; rule ORDER (exactly one Inits) is violated silently] errors=1
+    KeyPairGeneratorSpec,AlfaHarnessD,AlfaHarnessD,kpgInit1,AlfaHarnessD.java:80,InvalidKeySize | expecting=invalid key size for algorithm RSA.
+  accepting=true
+== KPG-CHAIN-T1 edge KPG->KeyPairSpec->SignatureSpec (generateKeyPair route) ==
+  [KPG accepted] errors=0
+  [after KeyPairSpec gpr (batch B shape: InvalidSequence FP from the reader spec)] errors=1
+    KeyPairSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:323,InvalidSequenceOfMethodCalls | expecting=unknown
+  GENERATED_PRIVATE_KEY[priv]=true
+  [after SIG initSign (expect NO UnsatisfiedConstraint: mark delivered)] errors=1
+    KeyPairSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:323,InvalidSequenceOfMethodCalls | expecting=unknown
+== SRD-T1 nextBytes twice: c1 nB nB nB ==
+  [after 1st nextBytes (expect 0)] errors=0
+  [after 2nd nextBytes (missing end->next2 row: expect InvalidSequence FP)] errors=1
+    SecureRandomSpec,AlfaHarnessD,AlfaHarnessD,srdNB,AlfaHarnessD.java:101,InvalidSequenceOfMethodCalls | expecting=unknown
+  [after 3rd nextBytes] errors=1
+    SecureRandomSpec,AlfaHarnessD,AlfaHarnessD,srdNB,AlfaHarnessD.java:101,InvalidSequenceOfMethodCalls | expecting=unknown
+== SRD-T2 conformant: c1 nB; writer semantics ==
+  [after nB] errors=0
+  RANDOMIZED[sr]=true RANDOMIZED[bytes]=true accepting=true
+== SRD-T3 seed-after-use over-acceptance: c1 nB setSeed(long) ==
+  [after setSeed (raw ORDER Ins,Seeds?,Ends* is violated; expect silence = FN)] errors=0
+== SRD-T4 c3 silent: new SecureRandom(unrandomizedSeed) nB ==
+  [whole trace (REQUIRES randomized[seed] violated; expect ZERO reports = silent FN)] errors=0
+  RANDOMIZED[sr]=false RANDOMIZED[bytes-from-unsafe]=true
+== SRD-T5 unsafe getInstance admitted: g4(NativePRNG) nB setSeed1 ==
+  [expect exactly 1 UnsafeAlgorithm, no InvalidSequence (gh101 unsafeInit verified)] errors=1
+    SecureRandomSpec,AlfaHarnessD,AlfaHarnessD,srdG1,AlfaHarnessD.java:98,UnsafeAlgorithm | expecting=expecting one of SHA1PRNG but found NativePRNG.
+  RANDOMIZED[sr]=false RANDOMIZED[bytes-from-unsafe-alg]=true
+== SRD-T6 invisible unsafe 2-arg: (no g) nB ==
+  [expect InvalidSequence FP and NO UnsafeAlgorithm] errors=1
+    SecureRandomSpec,AlfaHarnessD,AlfaHarnessD,srdNB,AlfaHarnessD.java:101,InvalidSequenceOfMethodCalls | expecting=unknown
+== SRD-T7 canonical seeded use: c1 setSeed(long) nB ==
+  [after setSeed (expect 0)] errors=0
+  [after nextBytes (rule-conformant Ins,Seeds,Ends: expect InvalidSequence FP)] errors=1
+    SecureRandomSpec,AlfaHarnessD,AlfaHarnessD,srdNB,AlfaHarnessD.java:101,InvalidSequenceOfMethodCalls | expecting=unknown
+== SRD-T8 nextInt writes + Integer cache: c1 nextInt(16) nB ==
+  RANDOMIZED[Integer.valueOf(16)]=true
+  [after nextInt then nextBytes (nextInt not a rule event; expect InvalidSequence FP)] errors=1
+    SecureRandomSpec,AlfaHarnessD,AlfaHarnessD,srdNB,AlfaHarnessD.java:101,InvalidSequenceOfMethodCalls | expecting=unknown
+== SIG-T1 sign path: g1 i1(marked) u [sign() invisible] ==
+  [whole trace (0 errors, but no acceptance and SIGNED never marked)] errors=0
+  accepting=false
+== SIG-T2 verify path + VERIFIED wrong slot: g1 i4(markedPub) u v1(true) ==
+  [after v1] errors=0
+  VERIFIED[Boolean.TRUE]=true VERIFIED[signBytes]=false accepting=true  (rule ensures verified[sign] over the BYTES)
+== SIG-T3 sign-without-update: g1 i1(marked) [sign() invisible] ==
+  [whole trace (raw ORDER requires Updates+ before Signs: violation is silent = FN)] errors=0
+== SIG-T4 unmarked private key: g1 i1(unmarked) ==
+  [expect exactly 1 UnsatisfiedConstraint and NO InvalidSequence (read in body, gh101)] errors=1
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:425,UnsatisfiedConstraint | expecting=initSign() requires a private key established by a monitored KeyPair or KeyStore sequence.
+== SIG-T5 unsafe carrier: g3(MD2withRSA) i4(marked) u v1 ==
+  [after i4 (UnsafeAlgorithm + spurious InvalidSequence, H2 shape)] errors=2
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:431,InvalidSequenceOfMethodCalls | expecting=unknown
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:431,UnsafeAlgorithm | expecting=expecting one of DSA,DSAwithSHA1,DSS,MD5withRSA,NONEwithDSA,NONEwithRSA,SHA1withDSA,SHA1withRSA,SHA1withRSA/PSS,SHA224withDSA,SHA224withECDSA,SHA224withRSA,SHA224withRSA/PSS,SHA256withDSA,SHA256withRSA,SHA256withRSA/PSS,SHA384withRSA,SHA384withRSA/PSS,SHA512withRSA,SHA512withRSA/PSS but found MD2withRSA.
+  [after u v1 (post-__RESET cascade)] errors=4
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:431,InvalidSequenceOfMethodCalls | expecting=unknown
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:431,UnsafeAlgorithm | expecting=expecting one of DSA,DSAwithSHA1,DSS,MD5withRSA,NONEwithDSA,NONEwithRSA,SHA1withDSA,SHA1withRSA,SHA1withRSA/PSS,SHA224withDSA,SHA224withECDSA,SHA224withRSA,SHA224withRSA/PSS,SHA256withDSA,SHA256withRSA,SHA256withRSA/PSS,SHA384withRSA,SHA384withRSA/PSS,SHA512withRSA,SHA512withRSA/PSS but found MD2withRSA.
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:433,InvalidSequenceOfMethodCalls | expecting=unknown
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:434,InvalidSequenceOfMethodCalls | expecting=unknown
+== SIG-T6 (String,Provider) safe invisible: (no g) i4(marked) u v1 ==
+  [empty-label UnsafeAlgorithm + InvalidSequence storm on conformant usage] errors=4
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:440,InvalidSequenceOfMethodCalls | expecting=unknown
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:440,UnsafeAlgorithm | expecting=expecting one of DSA,DSAwithSHA1,DSS,MD5withRSA,NONEwithDSA,NONEwithRSA,SHA1withDSA,SHA1withRSA,SHA1withRSA/PSS,SHA224withDSA,SHA224withECDSA,SHA224withRSA,SHA224withRSA/PSS,SHA256withDSA,SHA256withRSA,SHA256withRSA/PSS,SHA384withRSA,SHA384withRSA/PSS,SHA512withRSA,SHA512withRSA/PSS but found .
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:441,InvalidSequenceOfMethodCalls | expecting=unknown
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:442,InvalidSequenceOfMethodCalls | expecting=unknown
+== SIG-T7 branch exclusivity: g1 i1(marked) u v1 ==
+  [verify-after-initSign (both oracles flag: consistent InvalidSequence)] errors=1
+    SignatureSpec,AlfaHarnessD,AlfaHarnessD,main,AlfaHarnessD.java:450,InvalidSequenceOfMethodCalls | expecting=unknown
+
+DONE

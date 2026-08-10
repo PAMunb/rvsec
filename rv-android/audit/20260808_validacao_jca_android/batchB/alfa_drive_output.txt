@@ -1,0 +1,54 @@
+== CIS-a: one legal stream, cipher marked (oracle: legal; expect 0 errors)
+    c1(is1,cipher_marked) -> errors=0
+    r1(read) -> errors=0
+    cl1(close) -> errors=0
+  CIS-a total=0 (oracle expects 0)
+== CIS-b: SECOND legal stream, same process (oracle: legal; global monitor cascade expected)
+    c1(is2,cipher_marked) -> errors=1 [CipherInputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+    r1(read) -> errors=1 [CipherInputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+    cl1(close) -> errors=1 [CipherInputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+  CIS-b total=3 (oracle expects 0; every error is a false positive)
+== CIS-c: ctor with UNMARKED cipher (raw api30 rule has no REQUIRES; oracle: legal)
+    c1(is3,cipher_unmarked) -> errors=1 [CipherInputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),UnsatisfiedConstraint expecting=CipherInputStream requires a Cipher established by a monitored getInstance/init sequence.]
+  CIS-c total=1 (oracle expects 0)
+== COS-a: construct, flush, close - NO write (oracle: Writes+ unmet, VIOLATION; expect a report)
+    c1(os1,cipher_marked) -> errors=0
+    fl(flush) -> errors=0
+    cl(close) -> errors=0
+  COS-a total=0 (oracle expects >=1: close before any write; 0 = false negative)
+== COS-b: flush AFTER close on a second, fully legal stream (write then close then flush)
+    c1(os2,cipher_marked) -> errors=1 [CipherOutputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+    w1(write) -> errors=1 [CipherOutputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+    cl(close) -> errors=1 [CipherOutputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+    fl(flush after close) -> errors=1 [CipherOutputStreamSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+  COS-b total=4 (flush is not in the rule's alphabet; oracle expects 0)
+== KPR-a: generator-obtained KeyPair, getPublic() first (rule ORDER co?,... : legal)
+    gpu(kpA.getPublic) -> errors=1 [KeyPairSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+  KPR-a total=1 (oracle expects 0)
+== KPR-b: two constructed KeyPairs, both predicates held (oracle: both legal)
+    c1(kp1) -> errors=0
+    c1(kp2) -> errors=1 [KeyPairSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+    gpu(kp1.getPublic) -> errors=1 [KeyPairSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+  KPR-b total=2 (oracle expects 0)
+== PBK-a: iter=500, salt+password RANDOMIZED, then clearPassword (oracle: exactly 1 ConstraintError at ctor, cP legal)
+    ctor4 iter=500 (advice: c1,err1,err2,err3) -> errors=1 [PBEKeySpecSpec,(Unknown),(Unknown),(Unknown),(Unknown),UnsatisfiedConstraint expecting=third argument should be >= 1000]
+    c2(clearPassword) [LEGAL] -> errors=1 [PBEKeySpecSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+  PBK-a total=2 (oracle expects 1; anything at the c2 step is a false positive)
+== PBK-b: iter=10000, salt RANDOMIZED, password NOT (oracle: fully legal - only randomized[salt] is required)
+    ctor4 iter=10000 pwd-user (advice: c1,err1,err2,err3) -> errors=1 [PBEKeySpecSpec,(Unknown),(Unknown),(Unknown),(Unknown),UnsatisfiedConstraint expecting=first argument should have been randomized]
+    c2(clearPassword) [LEGAL] -> errors=1 [PBEKeySpecSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+  PBK-b total=2 (oracle expects 0; SPECCED_KEY earned=false, oracle grants speccedKey)
+== PBK-c: FORBIDDEN 1-arg ctor then clearPassword (oracle: 1 ForbiddenMethodError; f1=>c1 so cP is legal)
+    f1(ctor1) -> errors=1 [PBEKeySpecSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+    c2(clearPassword) [LEGAL under f1=>c1] -> errors=1 [PBEKeySpecSpec,(Unknown),(Unknown),(Unknown),(Unknown),InvalidSequenceOfMethodCalls expecting=unknown]
+  PBK-c total=2 (oracle expects 1, category forbidden-method)
+== SKY: gate + silent order violations (oracle: ge legal; ge-after-d and d-after-d are violations)
+    e1(getEncoded) unmarked key [oracle LEGAL, ensures preparedKeyMaterial] -> errors=0
+    -> RANDOMIZED(preparedKeyMaterial surrogate) written for enc1: false (oracle: must hold)
+    e1(getEncoded) marked key [oracle LEGAL] -> errors=0
+    -> RANDOMIZED written for enc2: true
+    d(destroy) [oracle LEGAL] -> errors=0
+    e1(getEncoded) AFTER destroy [oracle VIOLATION ge after d] -> errors=0
+    d(destroy) AGAIN [oracle VIOLATION d twice] -> errors=0
+  SKY total=0 (oracle expects 2 violations reported; 0 = two false negatives)
+== done

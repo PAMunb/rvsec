@@ -1,0 +1,36 @@
+== DHG ==
+PASS DHG a: 0 errors on compliant ctor
+PASS DHG a: PREPARED_DH set
+PASS DHG a: accepting state
+PASS DHG b: 0 errors on exp>=prime (silent suppression)
+PASS DHG b: PREPARED_DH NOT set (denied despite oracle-legal)
+PASS DHG c: artificial 2nd c1 on same object -> exactly the fail handler fires
+== HMC ==
+PASS HMC a: 0 errors
+PASS HMC a: PREPARED_HMAC set
+PASS HMC b: artificial 2nd c -> fail handler
+== PBE ==
+PASS PBE a: 0 errors on compliant 2-arg
+PASS PBE a-stale: PREPARED_PBE RE-written by handler re-run on SUPPRESSED c3 (stale Category_match flag)
+PASS PBE b: exactly 1 UnsafeAlgorithm on 2-arg violating
+PASS PBE b: no PREPARED_PBE
+PASS PBE c: 3-arg violating construction is TOTALLY SILENT (0 errors)
+PASS PBE c: no PREPARED_PBE (silent denial, no local accusation)
+PASS PBE d: 3-arg compliant -> PREPARED_PBE
+== IVP ==
+PASS IVP a: 0 errors, PREPARED_IV set
+PASS IVP b: 1 UnsatisfiedConstraint, no PREPARED_IV
+PASS IVP c: 0 errors, PREPARED_IV set
+PASS IVP d: 1 UnsatisfiedConstraint on 3-arg non-randomized
+      IVP e outcomes (JDK impl): offset=-1 -> ArrayIndexOutOfBoundsException; len>length -> IllegalArgumentException; overflow -> IllegalArgumentException
+PASS IVP e: every bad-range construction throws on the JDK impl (predicate hole unreachable via after-returning)
+== SKS ==
+PASS SKS a: 0 errors on compliant
+PASS SKS a-stale: GENERATED_KEY RE-written by handler re-run on SUPPRESSED c3
+PASS SKS a: SPECCED_KEY set
+PASS SKS b: 1 UnsatisfiedConstraint for algorithm outside the .mop whitelist
+PASS SKS b: no GENERATED_KEY
+PASS SKS c: 4-arg NON-randomized material -> GENERATED_KEY GRANTED, 0 errors (REQUIRES dropped on this overload)
+      SKS d outcomes (JDK impl): len>material -> IllegalArgumentException; off+len>material -> IllegalArgumentException
+PASS SKS e: lowercase "aes" accepted via folding (0 errors, GENERATED_KEY)
+ALL PASS

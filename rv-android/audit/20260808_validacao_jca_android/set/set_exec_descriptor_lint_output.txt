@@ -1,0 +1,72 @@
+### L1 descriptor <-> aspect 1:1
+descriptor advices: 119; .aj advice headers: 119
+descriptor expressions not found verbatim in .aj: 0
+
+### L2 monitorCalls -> RuntimeMonitor methods
+monitorCalls: 140; unresolved/misarity: 0
+
+### L3 per-spec advice/monitorCall counts
+  CipherInputStreamSpec          4 advices   4 monitorCalls
+  CipherOutputStreamSpec         5 advices   5 monitorCalls
+  CipherSpec                    13 advices  14 monitorCalls
+  DHGenParameterSpecSpec         1 advices   1 monitorCalls
+  GCMParameterSpecSpec           2 advices   2 monitorCalls
+  HMACParameterSpecSpec          1 advices   1 monitorCalls
+  IvParameterSpecSpec            2 advices   4 monitorCalls
+  KeyGeneratorSpec               8 advices   9 monitorCalls
+  KeyManagerFactorySpec          5 advices   6 monitorCalls
+  KeyPairGeneratorSpec           7 advices   9 monitorCalls
+  KeyPairSpec                    3 advices   3 monitorCalls
+  KeyStoreSpec                   6 advices   7 monitorCalls
+  MacSpec                       10 advices  11 monitorCalls
+  MessageDigestSpec              7 advices   8 monitorCalls
+  PBEKeySpecSpec                 4 advices   7 monitorCalls
+  PBEParameterSpecSpec           2 advices   3 monitorCalls
+  RandomStringPasswordSpec       2 advices   2 monitorCalls
+  SSLContextSpec                 4 advices   5 monitorCalls
+  SecretKeySpec                  2 advices   2 monitorCalls
+  SecretKeySpecSpec              2 advices   4 monitorCalls
+  SecureRandomSpec              13 advices  15 monitorCalls
+  SignatureSpec                 11 advices  12 monitorCalls
+  TrustManagerFactorySpec        5 advices   6 monitorCalls
+distinct specs: 23
+
+### L4 known defect mechanisms in the MERGED descriptor
+-- MAC f3 (unbound target): 1 advice(s)
+   MacSpec_f3                 params=['outOffset', 'output'] pos=after ret=None
+     expr: call(void Mac.doFinal(byte[], int)) && args(output, outOffset) && target(m)
+-- SIG sign advices: 2 advice(s)
+   SignatureSpec_s1           params=['s'] pos=after ret=[{'type': 'byte[]', 'name': 'output'}]
+     expr: call(public byte Signature.sign()) && target(s)
+   SignatureSpec_s2           params=['len', 'offset', 'output', 's'] pos=after ret=None
+     expr: call(public byte Signature.sign(byte[], int, int)) && args(output, offset, len) && target(s)
+-- SSL createSSLEngine: 1 advice(s)
+   SSLContextSpec_engine      params=['ctx'] pos=after ret=[{'type': 'SSLEngine', 'name': 'eng'}]
+     expr: call(public void SSLContext.createSSLEngine(..)) && target(ctx)
+-- KST getEntry/setEntry (nested types): 2 advice(s)
+   KeyStoreSpec_ge1           params=['k'] pos=before ret=None
+     expr: call(public Entry KeyStore.getEntry(String, ProtectionParameter)) && target(k)
+   KeyStoreSpec_se1           params=['k'] pos=before ret=None
+     expr: call(public void KeyStore.setEntry(String, Entry, ProtectionParameter)) && target(k)
+-- first-disjunct exposure (expressions with >=2 call() disjuncts): 3
+   CipherInputStreamSpec_r1   [CipherInputStreamSpec] 2 call() disjuncts
+     expr: call(public int CipherInputStream.read()) || call(public int CipherInputStream.read(byte[]))
+   CipherOutputStreamSpec_w1  [CipherOutputStreamSpec] 2 call() disjuncts
+     expr: call(public void CipherOutputStream.write(int)) || call(public void CipherOutputStream.write(byte[]))
+   KeyPairGeneratorSpec_gen   [KeyPairGeneratorSpec] 2 call() disjuncts
+     expr: (call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) && target(k)
+-- args() present alongside 'call(..(..))' wildcard-arity rows: 10
+   CipherSpec_g1              [CipherSpec] expr: call(public static Cipher Cipher.getInstance(String, ..)) && args(transformation, ..)
+   CipherSpec_u1              [CipherSpec] expr: call(public byte[] Cipher.update(byte[], ..)) && args(plainText, ..) && target(c)
+   CipherSpec_u3              [CipherSpec] expr: call(public int Cipher.update(byte[], int, int, byte[], ..)) && args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, ..) && target(c)
+   CipherSpec_f2              [CipherSpec] expr: call(public byte[] Cipher.doFinal(byte[], ..)) && args(plainText, ..) && target(c)
+   CipherSpec_f5              [CipherSpec] expr: call(public int Cipher.doFinal(byte[], int, int, byte[], ..)) && args(plainText, offset, len, cipherText, ..) && target(c)
+   KeyManagerFactorySpec_g2   [KeyManagerFactorySpec] expr: call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..)) && args(alg, *)
+   MacSpec_uArr               [MacSpec] expr: call(public void Mac.update(byte[], ..)) && args(input, ..) && target(m)
+   SecureRandomSpec_g2        [SecureRandomSpec] expr: call(public static SecureRandom SecureRandom.getInstance(String, ..)) && args(alg, *)
+   SecureRandomSpec_g4        [SecureRandomSpec] expr: call(public static SecureRandom SecureRandom.getInstance(String, ..)) && args(alg)
+   TrustManagerFactorySpec_g2 [TrustManagerFactorySpec] expr: call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..)) && args(alg, *)
+-- SRD inherited-member (declared-only index) candidates: 3
+   SecureRandomSpec_next1     expr: call(public int SecureRandom.nextInt(int)) && args(randIntInRange) && target(r)
+   SecureRandomSpec_next3     expr: call(public int SecureRandom.nextInt()) && target(r)
+   SecureRandomSpec_ints      expr: call(public IntStream SecureRandom.ints(..)) && target(r)

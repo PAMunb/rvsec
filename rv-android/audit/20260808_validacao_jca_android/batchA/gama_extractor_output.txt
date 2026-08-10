@@ -1,0 +1,11 @@
+# Command: java -jar $RVSEC_HOME/rvsec/rvsec-mop-extractor/target/mop-extractor.jar -d <scratch>/specs_copy -o extractor_methods_batchA.csv -t METHODS_PARAMS -debug
+# specs_copy = byte-identical copies of the 5 jca_android .mop (sha256 = frozen manifest); run 2026-08-09
+class,method,parameters,signature
+javax.crypto.spec.DHGenParameterSpec,new,"(int,int)","public DHGenParameterSpec.new(int, int)"
+javax.crypto.spec.IvParameterSpec,new,"(byte[],int,int)","public IvParameterSpec.new(byte[], int, int)"
+javax.crypto.spec.IvParameterSpec,new,"(byte[])","public IvParameterSpec.new(byte[])"
+javax.crypto.spec.PBEParameterSpec,new,"(byte[],int,java.security.spec.AlgorithmParameterSpec)","public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)"
+javax.crypto.spec.PBEParameterSpec,new,"(byte[],int)","public PBEParameterSpec.new(byte[], int)"
+javax.crypto.spec.SecretKeySpec,new,"(byte[],int,int,String)","public SecretKeySpec.new(byte[], int, int, String)"
+javax.crypto.spec.SecretKeySpec,new,"(byte[],String)","public SecretKeySpec.new(byte[], String)"
+javax.xml.crypto.dsig.spec.HMACParameterSpec,new,"(int)","public HMACParameterSpec.new(int)"

@@ -1,0 +1,20 @@
+R1. ledger rows: 558 Counter({'FAIL': 322, 'PASS': 210, 'INCONCLUSIVE': 26})
+    pilot (72, 30, 34, 8)
+    batchA (96, 46, 48, 2)
+    batchB (133, 40, 88, 5)
+    batchC (134, 55, 71, 8)
+    batchD (123, 39, 81, 3)
+    criticals: of-record 164 derived 10 | critical FEN groups 50 | s4-letter rows 8 | diagnostico {'FAIL': 73, 'PASS': 11, 'INCONCLUSIVE': 7}
+R2. criticals WITHOUT canonical FEN: 9 ['ALFA-CIP-01', 'ALFA-CIP-02', 'ALFA-CIP-03', 'ALFA-CIP-08', 'ALFA-CIP-17', 'ALFA-GCM-03', 'ALFA-GCM-04', 'BETA-GCM-04', 'GAMA-GCM-03']
+R3. FAIL rows without fen_canonical by round: {'pilot': 25, 'batchA': 1} (D-batchB-1 adopted from batch C onward; batch B retrofitted -- pilot/batchA gaps are within the deviation's registered scope)
+R4. set claims: {'PASS': 8, 'FAIL': 22} | severities: {'critica': 15, 'major': 6, 'minor': 1} | phenomena over FAILs: 20 / 22
+R5. set-phase raw weighted sum re-derived: 15.45
+R6. G2: 1/22 FAIL -> KGN
+R6. G3: 16/22 FAIL -> CIP,CIS,COS,HMC,KGN,KMF,KPG,KPR,KST,MAC,MDG,PBK,SIG,SRD,SSL,TMF
+R6. G4: 18/22 FAIL -> CIP,CIS,COS,DHG,GCM,HMC,KGN,KPG,KPR,KST,MAC,MDG,PBE,PBK,SKS,SKY,SRD,SSL
+R6. G5: 13/22 FAIL -> CIS,COS,KGN,KMF,KPG,KST,MAC,MDG,SIG,SKY,SRD,SSL,TMF
+R6. G7: 19/22 FAIL -> CIP,CIS,COS,DHG,GCM,HMC,KGN,KMF,KPG,KPR,KST,MAC,PBK,SIG,SKS,SKY,SRD,SSL,TMF
+R6. G9: 22/22 FAIL -> CIP,CIS,COS,DHG,GCM,HMC,IVP,KGN,KMF,KPG,KPR,KST,MAC,MDG,PBE,PBK,SIG,SKS,SKY,SRD,SSL,TMF
+R7. FEN registry rows: 119
+
+ALL REFUTATION RECOUNTS MATCH THE RECORD.

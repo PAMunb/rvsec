@@ -1,0 +1,30 @@
+# Refutation probe — alias resolvability + getInstance identity (executed 2026-08-09)
+# JVM: openjdk version "25.0.3" 2026-04-21 LTS
+# Source: AliasProbe.java (below); relevant to REF-D-02 and REF-D-06.
+
+HMAC-SHA256: NoSuchAlgorithmException
+HMAC/SHA256: NoSuchAlgorithmException
+HmacSHA256: RESOLVES (KeyGenerator)
+tls: NoSuchAlgorithmException
+AES: RESOLVES (KeyGenerator)
+SSLContext tls: RESOLVES
+KeyGenerator identity k1==k2: false
+
+--- AliasProbe.java ---
+import javax.crypto.KeyGenerator;
+public class AliasProbe {
+  public static void main(String[] a) {
+    for (String s : new String[]{"HMAC-SHA256","HMAC/SHA256","HmacSHA256","tls","AES"}) {
+      try { KeyGenerator.getInstance(s); System.out.println(s+": RESOLVES (KeyGenerator)"); }
+      catch (Exception e) { System.out.println(s+": "+e.getClass().getSimpleName()); }
+    }
+    try { javax.net.ssl.SSLContext.getInstance("tls"); System.out.println("SSLContext tls: RESOLVES"); }
+    catch (Exception e) { System.out.println("SSLContext tls: "+e.getClass().getSimpleName()); }
+    // BETA-KGN-04 identity: two getInstance calls, same algorithm — same reference?
+    try {
+      KeyGenerator k1 = KeyGenerator.getInstance("AES");
+      KeyGenerator k2 = KeyGenerator.getInstance("AES");
+      System.out.println("KeyGenerator identity k1==k2: " + (k1==k2));
+    } catch (Exception e) { System.out.println("identity probe: "+e); }
+  }
+}

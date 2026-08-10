@@ -1,0 +1,33 @@
+sha256 = 78023defec078353bbd1f64331edb7992a2c34e29570e6ceb064fb57f37dea69
+freeze check PASS
+
+total data lines = 97018
+total executions (apk,rep,timeout,tool) = 8147
+distinct spec values in dataset = 10
+
+=== Batch A specs: four units, stratified ===
+spec                           lines unique_msg  APKs  sites
+DHGenParameterSpecSpec             0          0     0      0
+HMACParameterSpecSpec              0          0     0      0
+PBEParameterSpecSpec               0          0     0      0
+IvParameterSpecSpec                0          0     0      0
+SecretKeySpecSpec                  0          0     0      0
+
+=== Token scan (monitored-class names anywhere in class/method/message/unique_msg) ===
+DHGenParameterSpec     lines=     0  by spec={}
+HMACParameterSpec      lines=     0  by spec={}
+PBEParameterSpec       lines=     0  by spec={}
+IvParameterSpec        lines=     0  by spec={}
+SecretKeySpec          lines=     0  by spec={}
+
+=== All spec values with line counts (context; NOT batch A scope) ===
+SSLContextSpec                   26312
+TrustManagerFactorySpec          18029
+MessageDigestSpec                16183
+SecureRandomSpec                 12400
+CipherSpec                       10923
+KeyStoreSpec                     10660
+SignatureSpec                      990
+MacSpec                            837
+KeyPairSpec                        668
+KeyPairGeneratorSpec                16

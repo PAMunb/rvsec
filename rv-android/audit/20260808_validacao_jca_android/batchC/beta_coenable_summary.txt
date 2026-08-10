@@ -1,0 +1,12 @@
+# Agent Beta batch C - CoenableProbe over production plugins (fsm.jar/ere.jar/logicrepository.jar,
+# rv-monitor 0.9.3-SNAPSHOT). Bodies copied from the .mop; the shipped FSMCoenables walk, not a model.
+# EV / categories are the spec's alphabet and handler names (fail included - it is the one that costs).
+KGN (ere)  events=9  states_after_min=5  coenable[fail]=4599 = saturated_predict 4599  coenable[match]=0  chars=94595
+KMF (fsm)  events=6  states_after_min=3  coenable[fail]=378  = saturated_predict 378   coenable[match1]=0 chars=5864
+TMF (fsm)  events=6  states_after_min=3  coenable[fail]=378  = saturated_predict 378   coenable[match1]=0 chars=5864
+SSL (fsm)  events=5  states_after_min=3  coenable[fail]=155  = saturated_predict 155   coenable[match1]=2 chars=3584
+KST (ere)  events=7  states_after_min=5  coenable[fail]=889  = saturated_predict 889   coenable[match]=4  chars=18065
+# All five <= 17-event ceiling (max 9, KGN). KGN's 9 events x saturated fail set = 4599 coenable sets,
+# 94595-char string for rv-monitor to parse - by far the heaviest of the round, yet rv-monitor
+# generated it in ~1.07 s / 111 MB RSS (measured, below). n x (2^n - 1): 9x(2^9-1)=4599 EXACT for KGN;
+# KST 7x(2^7-1)=889 EXACT; KMF/TMF 6x(2^6-1)=378 EXACT; SSL 5x(2^5-1)=155 EXACT. All saturated.

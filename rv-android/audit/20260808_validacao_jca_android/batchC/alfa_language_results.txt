@@ -1,0 +1,224 @@
+=== Effective automata parsed from RuntimeMonitor.java artifacts ===
+KGN (KeyGeneratorSpec): states=6 init=0 fail=5 match=1
+    g1: [4, 5, 5, 5, 4, 5]
+    g2: [3, 5, 5, 3, 5, 5]
+    g3: [0, 5, 5, 5, 5, 5]
+    gk1: [5, 5, 1, 1, 1, 5]
+    i1: [5, 5, 5, 2, 2, 5]
+    i2: [5, 5, 5, 2, 2, 5]
+    i3: [5, 5, 5, 2, 2, 5]
+    i4: [5, 5, 5, 2, 2, 5]
+    i5: [5, 5, 5, 2, 2, 5]
+KMF (KeyManagerFactorySpec): states=4 init=0 fail=3 match=2
+    g1: [1, 3, 1, 3]
+    g2: [1, 3, 1, 3]
+    g3: [0, 3, 3, 3]
+    gkm1: [3, 3, 0, 3]
+    i1: [3, 2, 3, 3]
+    i2: [3, 2, 3, 3]
+TMF (TrustManagerFactorySpec): states=4 init=0 fail=3 match=2
+    g1: [1, 3, 1, 3]
+    g2: [1, 3, 1, 3]
+    g3: [0, 3, 3, 3]
+    gtm1: [3, 3, 0, 3]
+    i1: [3, 2, 3, 3]
+    i2: [3, 2, 3, 3]
+SSL (SSLContextSpec): states=4 init=0 fail=3 match=1
+    engine: [3, 1, 3, 3]
+    g1: [2, 3, 3, 3]
+    g2: [2, 3, 3, 3]
+    init: [3, 3, 1, 3]
+    unsafe_protocol: [0, 3, 3, 3]
+KST (KeyStoreSpec): states=6 init=0 fail=5 match=1
+    g1: [4, 4, 5, 5, 5, 5]
+    g2: [0, 0, 5, 5, 5, 5]
+    ge1: [5, 3, 5, 5, 5, 5]
+    gk1: [5, 1, 5, 1, 5, 5]
+    load: [5, 5, 5, 5, 1, 5]
+    se1: [5, 2, 5, 5, 5, 5]
+    store: [5, 5, 1, 5, 5, 5]
+
+=== KGN (KeyGeneratorSpec) — call-class product verification ===
+L(CrySL) ⊆ α(L(MOP)) [no spurious fail on rule-conformant prefix]: FAIL
+  FP witness (1 fail(s)): G1u I1
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g3'])--> ref=q1 mop=0
+    --I1 (CrySL Inits; MOP emits ['i1'])--> ref=q2 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G1u I2
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g3'])--> ref=q1 mop=0
+    --I2 (CrySL Inits; MOP emits ['i2'])--> ref=q2 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G1u I5
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g3'])--> ref=q1 mop=0
+    --I5 (CrySL Inits; MOP emits ['i5'])--> ref=q2 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u I1
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --I1 (CrySL Inits; MOP emits ['i1'])--> ref=q2 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u I2
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --I2 (CrySL Inits; MOP emits ['i2'])--> ref=q2 mop=0 FAIL#1->reset
+α(L(MOP)) ⊆ L(CrySL) [no silent deviation]: PASS
+acceptance-set agreement at end of trace: PASS
+formal event-level (unrealizability ignored): effective accepts words outside L(CrySL)
+  g1 g1 gk1: accepted-by-effective, not in L(CrySL)
+  g3 g2 gk1: accepted-by-effective, not in L(CrySL)
+  g1 g1 i1 gk1: accepted-by-effective, not in L(CrySL)
+
+=== KMF (KeyManagerFactorySpec) — call-class product verification ===
+L(CrySL) ⊆ α(L(MOP)) [no spurious fail on rule-conformant prefix]: FAIL
+  FP witness (1 fail(s)): G1u I1
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g3'])--> ref=q1 mop=0
+    --I1 (CrySL Init; MOP emits ['i1'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G1u I2
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g3'])--> ref=q1 mop=0
+    --I2 (CrySL Init; MOP emits ['i2'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u I1
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --I1 (CrySL Init; MOP emits ['i1'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u I2
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --I2 (CrySL Init; MOP emits ['i2'])--> ref=A1 mop=0 FAIL#1->reset
+α(L(MOP)) ⊆ L(CrySL) [no silent deviation]: PASS
+acceptance-set agreement at end of trace: DIVERGES
+  word G1u I1: CrySL accepts in A1, monitor in non-match state 0
+  word G1u I2: CrySL accepts in A1, monitor in non-match state 0
+  word G2u I1: CrySL accepts in A1, monitor in non-match state 0
+  word G2u I2: CrySL accepts in A1, monitor in non-match state 0
+formal event-level (unrealizability ignored): effective accepts words outside L(CrySL)
+  g3 g1 i1: accepted-by-effective, not in L(CrySL)
+  g3 g1 i2: accepted-by-effective, not in L(CrySL)
+
+=== TMF (TrustManagerFactorySpec) — call-class product verification ===
+L(CrySL) ⊆ α(L(MOP)) [no spurious fail on rule-conformant prefix]: FAIL
+  FP witness (1 fail(s)): G1u I1
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g3'])--> ref=q1 mop=0
+    --I1 (CrySL Init; MOP emits ['i1'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G1u I2
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g3'])--> ref=q1 mop=0
+    --I2 (CrySL Init; MOP emits ['i2'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u I1
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --I1 (CrySL Init; MOP emits ['i1'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u I2
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --I2 (CrySL Init; MOP emits ['i2'])--> ref=A1 mop=0 FAIL#1->reset
+α(L(MOP)) ⊆ L(CrySL) [no silent deviation]: PASS
+acceptance-set agreement at end of trace: DIVERGES
+  word G1u I1: CrySL accepts in A1, monitor in non-match state 0
+  word G1u I2: CrySL accepts in A1, monitor in non-match state 0
+  word G2u I1: CrySL accepts in A1, monitor in non-match state 0
+  word G2u I2: CrySL accepts in A1, monitor in non-match state 0
+formal event-level (unrealizability ignored): effective accepts words outside L(CrySL)
+  g3 g1 i1: accepted-by-effective, not in L(CrySL)
+  g3 g1 i2: accepted-by-effective, not in L(CrySL)
+
+=== SSL (SSLContextSpec) — call-class product verification ===
+L(CrySL) ⊆ α(L(MOP)) [no spurious fail on rule-conformant prefix]: FAIL
+  FP witness (1 fail(s)): G1u INIT
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['unsafe_protocol'])--> ref=q1 mop=0
+    --INIT (CrySL Init; MOP emits ['init'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2sP INIT
+    ref=q0 mop=0 var=EMPTY
+    --G2sP (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --INIT (CrySL Init; MOP emits ['init'])--> ref=A1 mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u INIT
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --INIT (CrySL Init; MOP emits ['init'])--> ref=A1 mop=0 FAIL#1->reset
+α(L(MOP)) ⊆ L(CrySL) [no silent deviation]: FAIL
+  FN witness (silent CrySL violation): G1s ENG
+    ref=q0 mop=0 var=EMPTY
+    --G1s (CrySL Gets; MOP emits ['g1'])--> ref=q1 mop=2
+    --ENG (CrySL Engine; MOP emits nothing)--> ref=V mop=2
+  FN witness (silent CrySL violation): G1u ENG
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['unsafe_protocol'])--> ref=q1 mop=0
+    --ENG (CrySL Engine; MOP emits nothing)--> ref=V mop=0
+  FN witness (silent CrySL violation): G2s ENG
+    ref=q0 mop=0 var=EMPTY
+    --G2s (CrySL Gets; MOP emits ['g2'])--> ref=q1 mop=2
+    --ENG (CrySL Engine; MOP emits nothing)--> ref=V mop=2
+  FN witness (silent CrySL violation): G2sP ENG
+    ref=q0 mop=0 var=EMPTY
+    --G2sP (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --ENG (CrySL Engine; MOP emits nothing)--> ref=V mop=0
+  FN witness (silent CrySL violation): G2u ENG
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --ENG (CrySL Engine; MOP emits nothing)--> ref=V mop=0
+acceptance-set agreement at end of trace: DIVERGES
+  word G1u INIT: CrySL accepts in A1, monitor in non-match state 0
+  word G2sP INIT: CrySL accepts in A1, monitor in non-match state 0
+  word G2u INIT: CrySL accepts in A1, monitor in non-match state 0
+  word G1u INIT ENG: CrySL accepts in A2, monitor in non-match state 0
+formal event-level (unrealizability ignored): effective accepts words outside L(CrySL)
+  unsafe_protocol g1 init: accepted-by-effective, not in L(CrySL)
+
+=== KST (KeyStoreSpec) — call-class product verification ===
+L(CrySL) ⊆ α(L(MOP)) [no spurious fail on rule-conformant prefix]: FAIL
+  FP witness (1 fail(s)): G1u LOAD
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g2'])--> ref=q1 mop=0
+    --LOAD (CrySL Loads; MOP emits ['load'])--> ref=A mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2s LOAD
+    ref=q0 mop=0 var=EMPTY
+    --G2s (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --LOAD (CrySL Loads; MOP emits ['load'])--> ref=A mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2u LOAD
+    ref=q0 mop=0 var=EMPTY
+    --G2u (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --LOAD (CrySL Loads; MOP emits ['load'])--> ref=A mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G1u LOAD SE
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g2'])--> ref=q1 mop=0
+    --LOAD (CrySL Loads; MOP emits ['load'])--> ref=A mop=0 FAIL#1->reset
+    --SE (CrySL sE; MOP emits ['se1'])--> ref=C mop=0 FAIL#1->reset
+  FP witness (1 fail(s)): G2s LOAD SE
+    ref=q0 mop=0 var=EMPTY
+    --G2s (CrySL Gets; MOP emits nothing)--> ref=q1 mop=0
+    --LOAD (CrySL Loads; MOP emits ['load'])--> ref=A mop=0 FAIL#1->reset
+    --SE (CrySL sE; MOP emits ['se1'])--> ref=C mop=0 FAIL#1->reset
+α(L(MOP)) ⊆ L(CrySL) [no silent deviation]: FAIL
+  FN witness (silent CrySL violation): G1s SCE
+    ref=q0 mop=0 var=EMPTY
+    --G1s (CrySL Gets; MOP emits ['g1'])--> ref=q1 mop=4
+    --SCE (CrySL scE; MOP emits nothing)--> ref=V mop=4
+  FN witness (silent CrySL violation): G1s SKE1
+    ref=q0 mop=0 var=EMPTY
+    --G1s (CrySL Gets; MOP emits ['g1'])--> ref=q1 mop=4
+    --SKE1 (CrySL skE1; MOP emits nothing)--> ref=V mop=4
+  FN witness (silent CrySL violation): G1s SKE2
+    ref=q0 mop=0 var=EMPTY
+    --G1s (CrySL Gets; MOP emits ['g1'])--> ref=q1 mop=4
+    --SKE2 (CrySL skE2; MOP emits nothing)--> ref=V mop=4
+  FN witness (silent CrySL violation): G1u SCE
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g2'])--> ref=q1 mop=0
+    --SCE (CrySL scE; MOP emits nothing)--> ref=V mop=0
+  FN witness (silent CrySL violation): G1u SKE1
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g2'])--> ref=q1 mop=0
+    --SKE1 (CrySL skE1; MOP emits nothing)--> ref=V mop=0
+  FN witness (silent CrySL violation): G1u SKE2
+    ref=q0 mop=0 var=EMPTY
+    --G1u (CrySL Gets; MOP emits ['g2'])--> ref=q1 mop=0
+    --SKE2 (CrySL skE2; MOP emits nothing)--> ref=V mop=0
+acceptance-set agreement at end of trace: DIVERGES
+  word G1u LOAD: CrySL accepts in A, monitor in non-match state 0
+  word G2s LOAD: CrySL accepts in A, monitor in non-match state 0
+  word G2u LOAD: CrySL accepts in A, monitor in non-match state 0
+  word G1u LOAD SE STORE: CrySL accepts in A, monitor in non-match state 0
+formal event-level (unrealizability ignored): effective accepts words outside L(CrySL)
+  g2 g1 load: accepted-by-effective, not in L(CrySL)

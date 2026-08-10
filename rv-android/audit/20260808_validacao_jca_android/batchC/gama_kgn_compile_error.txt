@@ -1,0 +1,8 @@
+$ javac -nowarn -cp <rt:core:logger-csv> -d /tmp/kgncheck gen_KeyGeneratorSpec/out/KeyGeneratorSpecRuntimeMonitor.java
+../gen_KeyGeneratorSpec/out/KeyGeneratorSpecRuntimeMonitor.java:259: error: cannot find symbol
+	Key generatedKey;
+	^
+  symbol:   class Key
+  location: class KeyGeneratorSpecMonitor
+1 error
+exit=1

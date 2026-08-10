@@ -1,0 +1,94 @@
+freeze check PASS sha256=78023defec078353bbd1f64331edb7992a2c34e29570e6ceb064fb57f37dea69
+total data lines: 97018
+
+== A. global units ==
+lines 97018
+unique_msg 225
+APKs 113
+sites 454
+executions 8147
+
+== B. batch C per-spec strata ==
+
+--- KeyGeneratorSpec ---
+lines 0 | unique_msg 0 | APKs 0 | sites 0
+
+--- KeyManagerFactorySpec ---
+lines 0 | unique_msg 0 | APKs 0 | sites 0
+
+--- TrustManagerFactorySpec ---
+lines 18029 | unique_msg 22 | APKs 64 | sites 70
+categories (lines): {'UnsafeAlgorithm': 9014, 'InvalidSequenceOfMethodCalls': 9015}
+  UnsafeAlgorithm: unique_msg=12 APKs=64 sites=70
+  InvalidSequenceOfMethodCalls: unique_msg=10 APKs=64 sites=70
+message=='unknown' lines: 9015 (50.0%)
+'but found .' (empty label) lines: 8371 | unique_msg 7 | APKs 62 | sites 65
+top specific-message literals:
+     8371  expecting one of PKIX,SunX509 but found .
+      643  expecting one of PKIX,SunX509 but found X509.
+
+--- SSLContextSpec ---
+lines 26312 | unique_msg 30 | APKs 62 | sites 125
+categories (lines): {'InvalidSequenceOfMethodCalls': 17510, 'UnsafeProtocol': 8802}
+  InvalidSequenceOfMethodCalls: unique_msg=16 APKs=62 sites=125
+  UnsafeProtocol: unique_msg=14 APKs=62 sites=68
+message=='unknown' lines: 17510 (66.5%)
+'but found .' (empty label) lines: 51 | unique_msg 2 | APKs 2 | sites 2
+top specific-message literals:
+     8648  expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+      103  expecting one of {TLSv1.2, TLSv1.3} but found SSL.
+       51  expecting one of {TLSv1.2, TLSv1.3} but found .
+
+--- KeyStoreSpec ---
+lines 10660 | unique_msg 35 | APKs 22 | sites 52
+categories (lines): {'InvalidSequenceOfMethodCalls': 8655, 'InvalidKeyStoreType': 2005}
+  InvalidSequenceOfMethodCalls: unique_msg=30 APKs=22 sites=52
+  InvalidKeyStoreType: unique_msg=5 APKs=11 sites=12
+message=='unknown' lines: 8655 (81.2%)
+'but found .' (empty label) lines: 0 | unique_msg 0 | APKs 0 | sites 0
+top specific-message literals:
+     2005  expecting one ofJCEKS,JKS,DKS,PKCS11,PKCS12 but found AndroidKeyStore.
+
+== C. pairing (specific + InvalidSeq) per execution x site cell ==
+KeyGeneratorSpec: no lines
+KeyManagerFactorySpec: no lines
+TrustManagerFactorySpec: cells=4602 both=4599 only_generic=0 only_specific=3
+SSLContextSpec: cells=8475 both=4507 only_generic=3967 only_specific=1
+KeyStoreSpec: cells=3698 both=927 only_generic=2771 only_specific=0
+
+== D. TMF deep dive ==
+per-tool lines: {'droidbot:bfs_greedy': 1309, 'droidbot:bfs_naive': 845, 'droidbot:dfs_greedy': 1142, 'droidbot:dfs_naive': 799, 'droidmate': 1434, 'fastbot': 1264, 'humanoid': 988, 'ares': 1692, 'monkey': 968, 'qtesting': 5508, 'ape': 2080}
+top sites (apk|class|method, lines):
+     1187  com.flxrs.dankchat_40038.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      907  app.eduroam.geteduroam_2685.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      880  co.epitre.aelf_lectures_86.apk | okhttp3.tls.internal.TlsUtil | newTrustManager
+      872  co.epitre.aelf_lectures_86.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      562  app.pachli_50.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      558  net.pfiers.osmfocus_1009013.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      553  app.maskan.chat_90.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      546  me.mudkip.moememos_48.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      476  org.tomasino.stutter_29.apk | okhttp3.internal.platform.Platform | platformTrustManager
+      458  org.openhab.habdroid_589.apk | de.duenndns.ssl.MemorizingTrustManager | getTrustManager
+UnsafeAlgorithm literals: {'expecting one of PKIX,SunX509 but found .': 8371, 'expecting one of PKIX,SunX509 but found X509.': 643}
+
+== E. SSLContextSpec deep dive ==
+UnsafeProtocol literals (top 10):
+     8648  expecting one of {TLSv1.2, TLSv1.3} but found TLS.
+      103  expecting one of {TLSv1.2, TLSv1.3} but found SSL.
+       51  expecting one of {TLSv1.2, TLSv1.3} but found .
+
+== F. KeyStoreSpec deep dive ==
+InvalidKeyStoreType literals: {'expecting one ofJCEKS,JKS,DKS,PKCS11,PKCS12 but found AndroidKeyStore.': 2005}
+KST top sites:
+      867  github.paroj.dsub2000_217.apk | github.paroj.dsub2000.util.KeyStoreUtil | getKey
+      716  com.afkanerd.deku_83.apk | com.google.crypto.tink.integration.android.Android | <init>
+      574  app.maskan.chat_90.apk | com.google.crypto.tink.integration.android.Android | <init>
+      552  com.hegocre.nextcloudpasswords_38.apk | com.google.crypto.tink.integration.android.Android | <init>
+      531  com.darkrockstudios.app.securecamera_31. | com.darkrockstudios.app.securecamera.security.Secu | isKeyInHardware
+      462  org.openhab.habdroid_589.apk | com.google.crypto.tink.integration.android.Android | <init>
+      440  co.epitre.aelf_lectures_86.apk | okhttp3.tls.internal.TlsUtil | newEmptyKeyStore
+      358  com.afkanerd.deku_83.apk | androidx.security.crypto.MasterKeys | keyExists
+
+== G. token search for zero-line specs ==
+token 'KeyGenerator': lines with token anywhere=0; spec==KeyGeneratorSpec lines=0
+token 'KeyManagerFactory': lines with token anywhere=0; spec==KeyManagerFactorySpec lines=0

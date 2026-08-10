@@ -1,0 +1,423 @@
+grammar de.darmstadt.tu.crossing.CrySL with org.eclipse.xtext.xbase.Xtype
+
+generate crySL "http://www.darmstadt.de/tu/crossing/CrySL"
+import "http://www.eclipse.org/xtext/common/JavaVMTypes" as types
+import "http://www.eclipse.org/emf/2002/Ecore" as ecore
+
+/* Outer Structure */
+
+Domainmodel:
+	'SPEC'          javaType    = JvmTypeReference
+	( 'OBJECTS'     objects     = ObjectsBlock     ) ?
+	( 'FORBIDDEN'   forbidden   = ForbiddenBlock   ) ?
+	( 'EXCEPTIONS'  exceptions  = ExceptionsBlock  ) ?
+	( 'EVENTS'      events      = EventsBlock      ) ?
+	( 'ORDER'       order       = OrderBlock       ) ?
+	( 'CONSTRAINTS' constraints = ConstraintsBlock ) ?
+	( 'REQUIRES'    requires    = RequiresBlock    ) ?
+	( 'ENSURES'     ensures     = EnsuresBlock     ) ?
+	( 'NEGATES'     negates     = NegatesBlock     ) ?
+	( 'WEAKNESSES'  weaknesses  = WeaknessesBlock  ) ?
+	( 'VULNERABILITIES' vulnerabilities = VulnerabilitiesBlock ) ?
+	( 'REFERENCES'  references  = ReferencesBlock  ) ?
+;
+
+
+/* Object Declarations */
+
+ObjectsBlock:
+	(declarations += Object ';')+
+;
+
+Object:
+	type = JvmTypeReference name = ID
+;
+
+
+/* Forbidden Events */
+
+ForbiddenBlock:
+	(forbiddenMethods += ForbiddenMethod ';')+
+;
+
+ForbiddenMethod:
+	method = [types::JvmExecutable|ID]
+		'(' (parameters += JvmTypeReference (',' parameters += JvmTypeReference)*)?')'
+		('=>' replacement = [Event])?
+;
+
+/* Exception Declarations */
+
+ExceptionsBlock:
+	(exceptions += Exception ';')+
+;
+
+Exception:
+	ExceptionDeclaration | ExceptionAggregate
+;
+
+ExceptionDeclaration:
+	name = ID ':' exception = JvmTypeReference
+;
+
+ExceptionAggregate:
+	name = ID ':=' exceptions += [Exception] ('|' exceptions += [Exception])*
+;
+
+/* Event Declarations */
+
+EventsBlock:
+	(events += Event ';')+
+;
+
+Event:
+	LabeledMethodCall
+	| Aggregate
+;
+
+LabeledMethodCall:
+	name = ID ':' method = Method ('throws' exception = [Exception])?
+;
+
+Method:
+	(return = [Object] '=')? (=> method = [types::JvmExecutable|ID])
+		'(' (parameters += Parameter (',' parameters += Parameter)*)? ')'
+;
+
+Parameter:
+	value = [Object]
+	| {AnyParameterType} '_'
+;
+
+Aggregate:
+	name = ID ':=' (events += [Event] ('|' events += [Event])*)?
+;
+
+
+/* Order Declaration */
+
+OrderBlock:
+	order = Order
+;
+
+Order:
+	Sequence
+;
+
+Sequence returns Order:
+	Alternative ({Order.left=current} op=SequenceOperator right=Alternative)*
+;
+
+enum SequenceOperator returns OrderOperator:
+	SEQUENCE = ','
+;
+
+Alternative returns Order:
+	Cardinality ({Order.left=current} op=AlternativeOperator right=Cardinality)*
+;
+
+enum AlternativeOperator returns OrderOperator:
+	ALTERNATIVE = '|'
+;
+
+Cardinality returns Order:
+	Primary ({Order.left=current} op = CardinalityOperator)?
+;
+
+enum CardinalityOperator returns OrderOperator:
+	ZERO_OR_MORE = '*' | ONE_OR_MORE = '+' | ZERO_OR_ONE = '?'
+;
+
+Primary returns Order:
+	{Primary} event = [Event]
+	| '(' Order ')'
+;
+
+
+/* Constraints Declarations */
+
+ConstraintsBlock:
+	(constraints += Constraint ';')+
+;
+
+Constraint:
+	LogicalImplyExpression
+;
+
+LogicalImplyExpression returns Constraint:
+	LogicalOrExpression
+	({Constraint.left = current} op = ImplyOp right = LogicalOrExpression)*
+;
+
+enum ImplyOp returns Operator:
+	IMPLY = '=>'
+;
+
+LogicalOrExpression returns Constraint:
+	LogicalAndExpression
+	({Constraint.left = current} op=OrOp right = LogicalAndExpression)*
+;
+
+enum OrOp returns Operator:
+	OR = '||'
+;
+
+LogicalAndExpression returns Constraint:
+	EqualityExpression
+	({Constraint.left = current} op = AndOp right = EqualityExpression)*
+;
+
+enum AndOp returns Operator:
+	AND = '&&'
+;
+
+EqualityExpression returns Constraint:
+	ComparisonExpression
+	({Constraint.left = current} op = EqualityOp right=ComparisonExpression)*
+;
+
+enum EqualityOp returns Operator:
+	EQUAL = '==' | UNEQUAL = '!='
+;
+
+ComparisonExpression returns Constraint:
+	ArithmeticExpression
+	({Constraint.left = current} op = OrderOp right = ArithmeticExpression)*
+;
+
+enum OrderOp returns Operator:
+	LESS = '<' | LESS_OR_EQUAL = '<=' | GREATER_OR_EQUAL = '>=' | GREATER = '>'
+;
+
+ArithmeticExpression returns Constraint:
+	AdditionExpression
+;
+
+AdditionExpression returns Constraint:
+	ModuloExpression
+	({Constraint.left = current} op = AdditionOp right = ModuloExpression)*
+;
+
+enum AdditionOp returns Operator:
+	PLUS = '+' | MINUS = '-'
+;
+
+ModuloExpression returns Constraint:
+	MultiplicationExpression
+	({Constraint.left = current} op = ModuloOp right = MultiplicationExpression)*
+;
+
+enum ModuloOp returns Operator:
+	MODULO = '%'
+;
+
+MultiplicationExpression returns Constraint:
+	UnaryPreExpression
+	({Constraint.left = current} op = MultiplicationOperator right = UnaryPreExpression)*
+	
+;
+
+enum MultiplicationOperator returns Operator:
+	TIMES = '*' | DIVIDE = '/'
+;
+
+UnaryPreExpression returns Constraint:
+	(op = UnaryPreOperator left = UnaryPreExpression)
+	| Operand
+;
+
+enum UnaryPreOperator returns Operator:
+	NOT = '!'
+;
+
+Operand returns Constraint:
+	InExpression
+	| '(' Constraint ')'
+;
+
+InExpression returns Constraint:
+	LiteralExpression ({Constraint.left=current} op = InOp right = LiteralList)?
+;
+
+enum InOp returns Operator:
+ IN = 'in'
+;
+
+LiteralList returns Constraint:
+	{LiteralList} '{' elements += Literal (',' elements += Literal)* '}'
+;
+
+LiteralExpression:
+	  BuiltinPredicate
+	| Literal
+	| ObjectExpression
+;
+
+BuiltinPredicate:
+	  predicate = NeverTypeOfPredicate  '[' object = [Object] ',' type = JvmTypeReference ']'
+	| predicate = InstanceOfPredicate    '[' object = [Object] ',' type = JvmTypeReference ']'
+	| predicate = NoCallToPredicate     '[' event  = [Event]  ']'
+	| predicate = CallToPredicate       '[' event  = [Event]  ']'
+	| predicate = NotHardCodedPredicate '[' object = [Object] ']'
+	| predicate = LengthPredicate       '[' object = [Object] ']'
+;
+
+enum NeverTypeOfPredicate returns BuiltinPredicates:
+	NEVER_TYPE_OF = 'neverTypeOf'
+;
+
+enum InstanceOfPredicate returns BuiltinPredicates:
+	INSTANCE_OF = 'instanceOf'
+;
+
+enum NoCallToPredicate returns BuiltinPredicates:
+	NO_CALL_TO = 'noCallTo'
+;
+
+enum CallToPredicate returns BuiltinPredicates:
+	CALL_TO = 'callTo'
+;
+
+enum NotHardCodedPredicate returns BuiltinPredicates:
+	NOT_HARD_CODED = 'notHardCoded'
+;
+
+enum LengthPredicate returns BuiltinPredicates:
+	LENGTH = 'length'
+;
+
+ObjectExpression:
+	ObjectReference
+	| ObjectOperation
+;
+
+ObjectReference:
+	object = [Object]
+;
+
+ObjectOperation:
+	  fn = PartOperator     '(' index = INTEGER ',' split = STRING ',' object = [Object] ')'
+	| fn = AlgOperator      '(' object = [Object] ')'
+	| fn = ModeOperator     '(' object = [Object] ')'
+	| fn = PadOperator      '(' object = [Object] ')'
+	| fn = ElementsOperator '(' object = [Object] ')'
+;
+
+enum PartOperator returns ObjectOp:
+	PART = 'part'
+;
+
+enum AlgOperator returns ObjectOp:
+	ALG = 'alg'
+;
+
+enum ModeOperator returns ObjectOp:
+	MODE = 'mode'
+;
+
+enum PadOperator returns ObjectOp:
+	PAD = 'pad'
+;
+
+enum ElementsOperator returns ObjectOp:
+	ELEMENTS = 'elements'
+;
+
+Literal:
+	  {IntLiteral}      value = INTEGER
+	| {StringLiteral}   value = STRING
+	| {BooleanLiteral}  value = BOOLEAN
+;
+
+INTEGER:
+	INT | INT '^' INT
+;
+	
+terminal BOOLEAN:
+	'true' | 'false'
+;
+
+terminal INT returns ecore::EInt:
+	'0'..'9' ('0'..'9' | '_')*
+;
+
+
+/* Predicate Declarations */
+
+RequiresBlock:
+	(requiredPredicates += AlternativeRequiredPredicates ';')+
+;
+
+EnsuresBlock:
+	(ensuredPredicates += EnsuredPredicate ';')+
+;
+
+NegatesBlock:
+	(negatedPredicates += NegatedPredicate ';')+
+;
+
+WeaknessesBlock:
+    (cwEs += CWE_ID ';')+
+;
+
+terminal CWE_ID: 'CWE-' INT;
+
+VulnerabilitiesBlock:
+    (cvEs += CVE_ID ';')+
+;
+
+terminal CVE_ID: 'CVE-' INT '-' INT;
+
+ReferencesBlock:
+    (references+=ReferenceEntry ';')+
+;
+
+ReferenceEntry:
+    name=STRING ',' author=STRING ',' link=STRING ( ',' '{' pageNumbers=PageList '}' )?
+;
+
+PageList:
+    ranges+=PageRange (',' ranges+=PageRange)*
+;
+
+PageRange:
+    start=INT ('-' end=INT)?
+;
+
+AlternativeRequiredPredicates:
+	alternatives += RequiredPredicate ('||' alternatives += RequiredPredicate)*
+;
+
+RequiredPredicate:
+	(condition = PredicateCondition '=>')? (negated ?= '!')? predicate = Predicate
+;
+
+EnsuredPredicate:
+	(condition = PredicateCondition '=>')? predicate = Predicate ('after' after = [Event])?
+;
+
+NegatedPredicate:
+	(condition = PredicateCondition '=>')? predicate = Predicate ('after' after = [Event])?
+;
+
+Predicate:
+	name = ID '[' (parameters += PredicateParameter (',' parameters += PredicateParameter)*)? ']'
+;
+
+PredicateCondition:
+	Constraint | Predicate
+;
+
+TimedPredicate: // Artificial super-type
+	=> EnsuredPredicate | NegatedPredicate
+;
+
+ConditionalPredicate: // Artificial super-type
+	=> RequiredPredicate | TimedPredicate
+;
+
+PredicateParameter:
+	value = ObjectExpression
+	| {WildcardPredicateParameter} '_'
+	| {ThisPredicateParameter}     'this'
+;
