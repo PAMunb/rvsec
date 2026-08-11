@@ -48,7 +48,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gh91_sa_rerun as drv  # noqa: E402  (path must be set first)
-from gh91_campaign import has_sentinel  # noqa: E402
+from gh91_campaign import has_sentinel, is_complete, read_progress  # noqa: E402
 
 try:
     from rv_android_core.util.android.signature_normalizer import SignatureNormalizer
@@ -161,9 +161,12 @@ def check(rows: list[dict]) -> tuple[list[dict], dict[str, list[str]]]:
             results.append(entry)
             continue
 
-        # 3.2 — the sentinel, not "it parses". Bracket recovery repairs a truncated file, so
-        # a partial JSON would otherwise pass every downstream check unnoticed.
-        entry["complete"] = has_sentinel(json_path)
+        # 3.2 — the sentinel is necessary and not sufficient. Bracket recovery repairs a
+        # truncated file, so a partial JSON would otherwise pass every downstream check
+        # unnoticed; and the client writes the JSON once before building the WTG, so a run
+        # killed in the WTG carries the sentinel over an empty graph. Both are asked.
+        entry["sentinel"] = has_sentinel(json_path)
+        entry["complete"] = is_complete(drv.OUT_DIR, apk)
         if not entry["complete"]:
             failures["3.2"].append(apk)
 
@@ -205,6 +208,26 @@ def check(rows: list[dict]) -> tuple[list[dict], dict[str, list[str]]]:
 
         # 3.6 — recorded, not gated.
         entry.update(_predecessor(apk, mneut, detected))
+
+        # 3.7 — the WTG state each APK travels with, as a declared column of the corpus.
+        # `transitions == 0` has two very different meanings and the JSON cannot tell them
+        # apart: a graph that is genuinely empty, and a graph whose construction was killed.
+        # The run's own timeout flag is what separates them, and Phase C copies this value
+        # straight into `wtg_status` rather than re-deriving it from a JSON that no longer
+        # sits next to its `_progress` record.
+        #
+        # Recorded, not gated: an empty graph is a fact about the app, not a failure of this
+        # round. A *killed* one does fail, but it fails at 3.2, which is where an APK that
+        # never finished belongs — so a `truncated` here always comes with a 3.2 failure for
+        # the same APK, and the two never disagree.
+        progress = read_progress(drv.OUT_DIR, apk)
+        transitions = len(raw.get("transitions") or [])
+        entry["transitions"] = transitions
+        entry["wtg_status"] = (
+            "ok" if transitions > 0
+            else "truncated" if progress and progress.get("timed_out")
+            else "genuine_empty"
+        )
         results.append(entry)
 
     return results, failures
@@ -258,7 +281,7 @@ def main() -> int:
             for name in unexpected_files:
                 print(f"        unexpected non-deliverable file: {name}")
         labels = {
-            "3.2": 'completeness ("complete": true)',
+            "3.2": "completeness (sentinel + no timeout)",
             "3.3a": "key applied (classes)",
             "3.3b": "key applied (Filter package: line)",
             "3.4": "right APK (manifest package)",
@@ -269,6 +292,15 @@ def main() -> int:
             mark = "PASS" if not bad else "FAIL"
             print(f"  {key:<4} {labels[key]:<35} {mark}"
                   + (f"  ({len(bad)}): {', '.join(sorted(bad))}" if bad else ""))
+
+        counts: dict[str, int] = {}
+        for entry in results:
+            counts[entry.get("wtg_status", "unclassified")] = (
+                counts.get(entry.get("wtg_status", "unclassified"), 0) + 1)
+        print("\n  3.7 wtg_status (recorded, not gated)")
+        for status in ("ok", "truncated", "genuine_empty", "unclassified"):
+            if counts.get(status):
+                print(f"      {status:<16} {counts[status]}")
 
         print("\n  3.6 denominator delta (recorded, not gated)")
         print(f"      {'apk':45} {'prev(Mneut)':>12} {'prev(det)':>10} {'new':>8}")

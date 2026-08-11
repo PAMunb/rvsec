@@ -13,25 +13,32 @@ WHY GATOR IS INVOKED DIRECTLY (change design D1)
     which this change excludes.
     The argv built below mirrors `RVStaticAnalysisConfig.get_tool_command`
     (`modules/rv-static-analysis/src/rv_static_analysis/config.py`) verbatim, so the
-    invocation is identical to a production one apart from `codePackage` and `skipWtg`.
+    invocation is identical to a production one apart from `codePackage`.
 
-WHY `--skip-wtg` IS PASSED (design D3/R2)
-    It appears in none of the 30 original invocations — it is a deliberate new deviation.
-    The reprocessing path consumes only the `reachability` section, and GATOR's write order
-    is components -> reachability -> windows -> transitions, so skipping the WTG returns
-    before the most expensive tail on a corpus that is timeout-bound (9 of these 30 timed
-    out originally, all of them inside the WTG builder). Only `sa_transitions_count` is
-    emptied by it; `sa_windows_count` is still written.
+WHY THE WTG RUNS HERE
+    Study 03's guided arm consumes the derived MOP artefact, and that artefact needs a WTG:
+    `_build_wtg` turns `click` transitions into the edges the arm walks. The previous round
+    passed `skipWtg=true` and so produced JSONs that carry the corrected key but no
+    transitions — right for a reachability-only question, useless for this corpus. These 30
+    are the only APKs that have never been analysed with both the corrected key and the WTG,
+    which is the whole reason this round exists.
+
+    The cost is real and was the reason to skip it: GATOR's write order is
+    components -> reachability -> windows -> transitions, so the WTG is the expensive tail,
+    and 9 of these 30 timed out inside it in Phase 7. The escalation ladder in
+    `gh91_campaign.py` is what pays that cost, and the completeness predicate there is what
+    keeps a timeout inside the WTG from being mistaken for a finished run.
 
 WHY THE PER-APK (memory, timeout) PAIR IS READ BACK FROM THE ORIGINAL LOGS (design D3)
     `rvsec-dataset`'s Phase 7 recorded the exact argv on line 1 of every
     `rvsec-dataset-sa/logs/<id>.apk.log`. Those 30 lines are the authority for each APK's
     budget: 120g/5400 x1, 60g/3600 x1, 56g/3600 x1, 32g/3600 x16, 12g/1800 x11. Flattening
     them to a single pair would cut short the 19 APKs that originally needed more than
-    12g/1800. Under `--skip-wtg` such a run dies inside the Soot/spark analysis, before the
-    write, and leaves no JSON at all — a loud failure. The quiet one, a file truncated
-    mid-write, is a narrow window but not impossible, which is why completeness is judged by
-    the `"complete": true` sentinel rather than by whether the file parses.
+    12g/1800. With the WTG running, a budget that runs out no longer necessarily leaves a
+    loud failure: the client writes the JSON once before building the WTG, so a kill in the
+    tail leaves a file that parses, carries the sentinel, and holds no transitions. Judging
+    completeness therefore takes the sentinel *and* the run's own timeout flag — see
+    `gh91_campaign.is_complete`.
 
 WHY CONCURRENCY IS BOUNDED BY MEMORY AND NOT BY A WORKER COUNT (design D4/R4)
     The tiers are heterogeneous, so `workers x jvm-memory` cannot express what fits: five
@@ -79,15 +86,21 @@ from pathlib import Path
 RV_ANDROID = Path(__file__).resolve().parent.parent
 WORKSPACE = RV_ANDROID.parent.parent  # .../workspace-rv
 
-CHANGE_DIR = RV_ANDROID / "openspec" / "changes" / "gh91-sa-rerun-manifest-key"
-APKS_CSV = CHANGE_DIR / "30_apks.csv"
+# The list of the 30 and their keys. It lives at the repository root because the change that
+# produced it has been archived, and an archived change directory is not a path anything may
+# still read from.
+APKS_CSV = RV_ANDROID / "30_apks.csv"
 
 DATASET_ROOT = Path(os.environ.get(
     "GH91_DATASET_ROOT", "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET"))
 # The uninstrumented corpus. NEVER the APKS_INSTRUMENTED_* copies: those carry woven
 # monitor classes and therefore a different class universe.
 APKS_DIR = DATASET_ROOT / "APKS"
-OUT_DIR = DATASET_ROOT / "SA_RERUN_gh91"
+# This run's output. `SA_RERUN_gh91/` holds the previous round — a signed deliverable with its
+# own `record/` and sha256 manifests — and is never written into again. `REGISTRO`,
+# `_campaign_state.json` and `_superseded/` all derive from this path in `gh91_campaign.py`, so
+# the whole campaign follows the rename.
+OUT_DIR = DATASET_ROOT / "SA_RERUN_gh91_wtg"
 
 # The smoke (change task 2.1) checks the driver's plumbing on a small APK that is NOT one of
 # the 30, and writes to a SIBLING directory — never into OUT_DIR, not even in a subdirectory,
@@ -265,7 +278,7 @@ def smoke_job() -> Job:
     """The infrastructure smoke (change task 2.1): `cryptoapp.apk`, outside the 30.
 
     It checks the driver, not the corpus — argv assembly, SDK/jar/mopDir resolution, the
-    output path, the `"complete": true` sentinel under `skipWtg=true`, and the
+    output path, the `"complete": true` sentinel, and the
     `[RvsecAnalysisClient] Filter package:` line landing in the log, which is the evidence
     gate 3.3(b) reads back. A real APK from the list would cost hours and would establish
     nothing the gate does not assert for all 30 afterwards. Its `(memory, timeout)` is the
@@ -306,7 +319,6 @@ def build_argv(job: Job) -> list[str]:
         "--timeout", str(job.timeout),
         "--jvm-memory", job.jvm_memory.upper(),
         "-clientParam", f"codePackage={job.code_package}",
-        "-clientParam", "skipWtg=true",
         "-cgDelegation", CG_DELEGATION,
     ]
 
@@ -428,9 +440,10 @@ def run_one(job: Job, *, grace: int) -> dict:
     seconds = round(time.monotonic() - start, 1)
     json_exists = job.json_path.is_file()
     raw = sa_runner._load_json(job.json_path) if json_exists else None
-    # GATOR's launcher exits -50 on its own timeout (206 once the shell masks it). Under
-    # `--skip-wtg` that usually means no JSON was written at all, since the write follows the
-    # analysis immediately; whatever did reach disk, `classify_status` distinguishes.
+    # GATOR's launcher exits -50 on its own timeout (206 once the shell masks it). With the
+    # WTG running, that timeout most often lands in the WTG builder, after the client has
+    # already written the JSON — so a file on disk proves nothing by itself, and the flag
+    # recorded here is what the campaign reads to tell a finished run from a killed one.
     inner_timed_out = returncode in (-50, 206)
     status = sa_runner.classify_status(
         raw, json_exists=json_exists, timed_out=timed_out or inner_timed_out)

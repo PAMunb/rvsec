@@ -21,16 +21,27 @@ WHY A FAILED APK'S JSON IS MOVED ASIDE BEFORE ITS RETRY (design R5)
     The driver resumes by output-file existence, so ANY file left in place — partial, or
     complete but superseded by a retry — would make round 2 skip exactly the APK round 1
     failed, and the campaign would "converge" having analysed nothing. On the measured
-    magnitude: a WTG timeout leaves a *complete* file (the pre-WTG write already fsynced it),
-    and under `--skip-wtg` a timeout leaves no file at all, so a genuinely partial JSON needs
-    the kill to land inside the write window. The guard stays regardless because it costs one
-    `os.replace`. The superseded files are kept, not deleted: they are provenance.
+    magnitude: a WTG timeout leaves a file that carries the sentinel (the pre-WTG write
+    already fsynced it), so the file left behind is not even partial — it is complete-looking
+    and empty. The superseded files are kept, not deleted: they are provenance.
 
-WHY THE SUCCESS CRITERION IS THE SENTINEL AND NOTHING ELSE (design R5)
-    Neither "it parses" nor `sa_status == complete` proves completeness. Only the
-    `"complete": true` sentinel does, and bracket recovery can never synthesise it: the
-    recovery closes the object at the last `]`, discarding the trailing `,"complete":true` by
-    construction.
+WHY THE SUCCESS CRITERION IS THE SENTINEL *AND* THE TIMEOUT FLAG
+    The sentinel is necessary and not sufficient. `JsonReportWriter.java:111` emits
+    `"complete": true` at the end of every successful write, and `RvsecAnalysisClient` does
+    one such write at `:169-170`, *before* `WTGBuilder.build()` at `:189`. A kill in the WTG
+    therefore leaves a JSON that parses, ends in the sentinel, and holds `"transitions": []`.
+    Judging by the sentinel alone, such an APK counts as finished, is never promoted to the
+    larger round, and the campaign reports success over an empty graph.
+
+    This was invisible while `skipWtg=true` was passed: the client returned right after the
+    pre-WTG write (`:180-184`), so there was nothing after the sentinel to be killed inside,
+    and sentinel and completeness were the same fact. Running the WTG is exactly what pulls
+    them apart, and the target is not hypothetical — 9 of these 30 timed out in Phase 7.
+
+    `is_complete` therefore also reads the run's own outcome record. Bracket recovery still
+    cannot synthesise the sentinel — it closes the object at the last `]`, discarding the
+    trailing `,"complete":true` by construction — so the sentinel keeps its old job of
+    rejecting truncated files; the timeout flag adds the job it never had.
 
 Usage:
     python scripts/gh91_campaign.py --plan       # rounds, ladder and round-1 contents
@@ -112,6 +123,38 @@ def has_sentinel(path: Path) -> bool:
     return _SENTINEL_RE.search(tail.strip()) is not None
 
 
+def is_complete(out_dir: Path, apk: str) -> bool:
+    """Whether this APK's analysis finished, WTG included — the campaign's only "done".
+
+    Two facts have to agree. The sentinel says the writer reached the end of a write; the
+    outcome record says which write that was. A run killed inside `WTGBuilder.build()` has a
+    sentinel from the pre-WTG write and `timed_out: true`, and only the second fact separates
+    it from a run that genuinely finished with nothing to report.
+
+    The record is always on disk when this is asked: `run_all` flushes `_progress/<apk>.json`
+    before it calls `on_done` (`gh91_sa_rerun.py:515`), and every later caller reads it from
+    disk on a fresh process. A JSON with no record beside it was not written by this campaign;
+    it cannot be confirmed, so it counts as incomplete and earns a re-run rather than a silent
+    pass. An APK that finishes with `"transitions": []` and no timeout is complete — that is a
+    genuine empty graph, and re-running it would only spend hours reproducing it.
+
+    Takes the directory and the APK id rather than a `Job` so that the validation gate, which
+    walks the CSV and never builds jobs, asks the question in exactly the same way.
+    """
+    if not has_sentinel(out_dir / f"{apk}.json"):
+        return False
+    record = read_progress(out_dir, apk)
+    return record is not None and record.get("timed_out") is False
+
+
+def read_progress(out_dir: Path, apk: str) -> dict | None:
+    """This APK's outcome record from `out_dir`, or None if there is none to read."""
+    try:
+        return json.loads((out_dir / "_progress" / f"{apk}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def log_tail(path: Path, lines: int = 25) -> str:
     try:
         content = path.read_text(encoding="utf-8", errors="replace")
@@ -179,7 +222,9 @@ def registro_entry(record: dict, job: drv.Job, *, round_no: int, budget: float,
     json_state = "absent"
     if job.json_path.is_file():
         size_mb = job.json_path.stat().st_size / (1024 * 1024)
-        json_state = f"present ({size_mb:.1f} MB), sentinel={'YES' if complete else 'NO'}"
+        json_state = (f"present ({size_mb:.1f} MB), sentinel="
+                      f"{'YES' if has_sentinel(job.json_path) else 'NO'}, "
+                      f"complete={'YES' if complete else 'NO'}")
     lines = [
         f"\n### r{round_no} · {job.apk} · **{verdict}**\n\n",
         f"- ended: {datetime.now().isoformat(timespec='seconds')}\n",
@@ -240,7 +285,7 @@ def retryable(jobs: list[drv.Job], state: dict) -> list[drv.Job]:
     "campaign over" would strand exactly the APKs the retry rounds exist for.
     """
     return [j for j in jobs
-            if not has_sentinel(j.json_path)
+            if not is_complete(j.out_dir, j.apk)
             and state.get(j.apk, {}).get("verdict") != CLASS_DETERMINISTIC]
 
 
@@ -248,9 +293,9 @@ def pending_for_round(jobs: list[drv.Job], state: dict, round_no: int,
                       home: dict) -> list[drv.Job]:
     """The APKs this round must run: its own tier, plus anything promoted into it.
 
-    An APK is finished when its JSON carries the sentinel — never because a state file says
-    so, which is what makes the campaign recoverable from an inconsistent state file too.
-    A DETERMINISTIC verdict removes it from every later round.
+    An APK is finished when its own artefacts on disk say so (`is_complete`) — never because
+    a state file says so, which is what makes the campaign recoverable from an inconsistent
+    state file too. A DETERMINISTIC verdict removes it from every later round.
 
     Promotion is the `home[...] <= round_no` clause: an APK whose home is round 1 and which
     failed there has `rounds_done == 1`, so it joins round 2 and runs under round 2's larger
@@ -261,7 +306,7 @@ def pending_for_round(jobs: list[drv.Job], state: dict, round_no: int,
         entry = state.get(job.apk, {})
         if home[job.apk] > round_no:
             continue  # its tier's round has not arrived yet
-        if has_sentinel(job.json_path):
+        if is_complete(job.out_dir, job.apk):
             continue
         if entry.get("verdict") == CLASS_DETERMINISTIC:
             continue
@@ -300,7 +345,7 @@ def run_round(jobs: list[drv.Job], home: dict, state: dict, *, round_no: int,
 
     def on_done(record: dict, job: drv.Job) -> None:
         nonlocal completed
-        complete = has_sentinel(job.json_path)
+        complete = is_complete(job.out_dir, job.apk)
         tail = "" if complete else log_tail(job.log_path)
         verdict = classify(record, complete=complete, tail=tail)
         if complete:
@@ -346,7 +391,7 @@ def run_campaign(jobs: list[drv.Job], home: dict, state: dict, *, max_rounds: in
 def final_report(jobs: list[drv.Job], state: dict) -> tuple[int, list[str], list[str]]:
     done, transient, deterministic = [], [], []
     for job in jobs:
-        if has_sentinel(job.json_path):
+        if is_complete(job.out_dir, job.apk):
             done.append(job.apk)
         elif state.get(job.apk, {}).get("verdict") == CLASS_DETERMINISTIC:
             deterministic.append(job.apk)
@@ -354,7 +399,7 @@ def final_report(jobs: list[drv.Job], state: dict) -> tuple[int, list[str], list
             transient.append(job.apk)
 
     body = [f"\n## Final — {datetime.now().isoformat(timespec='seconds')}\n\n",
-            f"- complete (sentinel): **{len(done)}/{len(jobs)}**\n"]
+            f"- complete (sentinel + no timeout): **{len(done)}/{len(jobs)}**\n"]
     if deterministic:
         body.append(f"- DETERMINISTIC, not retried: {', '.join(sorted(deterministic))}\n")
     if transient:
@@ -387,7 +432,7 @@ def _print_plan(jobs: list[drv.Job], home: dict, recorded: dict, max_rounds: int
             print(f"{job.apk:46}{rec:>16}{job.prior_seconds:>11.0f}s")
         worst = sum(j.prior_seconds for j in members) / slots
         print(f"  Phase 7 wall clock at this concurrency: ~{worst / 3600:.1f} h "
-              f"(that run included the WTG, now skipped)")
+              f"(that run also included the WTG, but under the detector's key)")
     print(f"\nAPKs that failed round 1 are promoted into round 2 and run under its "
           f"configuration; round {max_rounds} is the last.")
 
@@ -487,10 +532,12 @@ def main() -> int:
             "Incremental audit trail and live progress view, flushed after every APK.\n"
             "`tail REGISTRO.md` answers \"where is it?\" without touching the running "
             "process.\n\n"
-            "Completeness means one thing only: the JSON carries the `\"complete\": true` "
-            "sentinel.\nNeither \"it parses\" nor `sa_status == complete` is accepted as "
-            "evidence.\nEvery run is WTG-skipped (`-clientParam skipWtg=true`), which "
-            "empties `sa_transitions_count` only — `sa_windows_count` is populated.\n"
+            "Completeness means two things at once: the JSON carries the "
+            "`\"complete\": true` sentinel AND the run did not time out.\nThe sentinel "
+            "alone is not enough — the client writes the JSON once before building the "
+            "WTG, so a run killed in the WTG leaves a sentinel over an empty graph.\n"
+            "Every run builds the WTG; `sa_transitions_count` is the point of this "
+            "round.\n"
         )
     registro(f"\n---\n\n> campaign invoked {started.isoformat(timespec='seconds')} · "
              f"{len(jobs)} APK(s) in scope · max {args.max_rounds} rounds\n")
