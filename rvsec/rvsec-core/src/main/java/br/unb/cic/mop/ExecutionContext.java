@@ -1,8 +1,7 @@
 package br.unb.cic.mop;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -14,17 +13,6 @@ import java.util.Set;
  * We use it to "mimic" the ensures / requires
  * clauses of CrySL and to execute the unit
  * test cases.
- *
- * <p>Objects are identified <b>by identity</b>, which is how JavaMOP identifies
- * the object a monitor belongs to: it keys a monitor by
- * {@code System.identityHashCode} and confirms the match with {@code ==}. A
- * store keyed by {@code equals} would disagree with that on every type whose
- * {@code equals} is value-based -- {@code SecretKeySpec}, {@code String}, boxed
- * primitives -- and the disagreement is silent in all three directions: a write
- * over an object equal to a stored one adds nothing, so two monitors share one
- * mark; a {@code validate} succeeds for an object no monitored sequence ever
- * produced, provided an equal one was; and a removal in one monitor's
- * {@code @fail} takes another monitor's mark.
  */
 public class ExecutionContext {
 
@@ -40,17 +28,7 @@ public class ExecutionContext {
      */
     private ExecutionContext() {
         context = new HashMap<>();
-        acceptingState = identitySet();
-    }
-
-    /*
-     * A set that holds objects by identity rather than by equals.
-     * IdentityHashMap is Java 1.4 and Android API 1; Collections.newSetFromMap
-     * is Java 6 and Android API 9, which is the floor this imposes on an
-     * instrumented application.
-     */
-    private static Set<Object> identitySet() {
-        return Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>());
+        acceptingState = new HashSet<>();
     }
 
     /**
@@ -100,7 +78,7 @@ public class ExecutionContext {
      * @param value object that will have a property assigned to
      */
     public void setProperty(Property property, Object value) {
-        Set<Object> objects = identitySet();
+        Set<Object> objects = new HashSet<>();
         if(context.containsKey(property)) {
             objects = context.get(property);
         }
