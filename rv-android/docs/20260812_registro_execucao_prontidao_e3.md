@@ -9,9 +9,9 @@ Ele não substitui nem edita o plano. Quatro defeitos foram medidos aqui, três 
 código de produção; todos estão descritos com `arquivo:linha`, porque handoff, relatório e
 aritmética não são verificação.
 
-**Corte deste documento: 2026-08-12 11:47.** A Fase A está encerrada e suas seções são
-definitivas. A Fase B está **em execução** — a §2.5 é parcial e precisa ser reescrita com os
-números finais. As pendências abertas estão na §4.
+**Corte deste documento: 2026-08-12 12:10. As duas fases estão encerradas e suas seções são
+definitivas.** A Fase A entregou 25/30 e **reprovou** no Gate A; a Fase B entregou **162/163**
+e a entrega está consolidada. O que continua aberto são decisões, não medições, e está na §3.
 
 ---
 
@@ -243,27 +243,41 @@ dois. **Um APK pode ter `matchesApplied = 0` e estar corretamente instrumentado.
 Ao medir superfície MOP instrumentada do corpus, somar `wrappersSubstituted`, e não comparar
 nenhum dos dois com a análise estática sem declarar qual universo cada lado enxerga.
 
-### 2.5 Lote dos 163 — parcial em 2026-08-12 11:47
+### 2.5 Lote dos 163 — encerrado, **162/163**
 
-**Estado: 148/163 tecidos, 1 falha, 7 fatias ainda em voo.** Lançado às 08:07 com N=8; ritmo
-efetivo de ~1,4 min/APK, contra as ~27 h seriais que o plano orçava. A cauda desacelera à
-medida que fatias fecham e o paralelismo cai (a s4 fechou primeiro, 20/20).
+**Executado de 2026-08-12 08:07 a 12:00, 3 h 53 min de relógio, `rc=0`.** Oito fatias
+concorrentes, ~1,4 min/APK efetivo. O plano orçava **~27 h seriais**: o sharding devolveu a
+fase em **1/7 do tempo**, sem alterar uma linha do instrumentador.
 
-*Esta seção é parcial e deve ser reescrita com os números finais quando o lote encerrar.*
+| fatia | entregue | | fatia | entregue |
+|---|---|---|---|---|
+| s0 | 21/21 | | s4 | 20/20 |
+| s1 | 21/21 | | s5 | 20/20 |
+| s2 | **20/21** | | s6 | 20/20 |
+| s3 | 20/20 | | s7 | 20/20 |
 
-**Qualidade dos 148 concluídos com sucesso:**
+**Cardinalidade conferida antes do merge:** 162 presentes, **zero duplicados entre fatias**,
+zero inesperados, e a única ausência é o `info.dvkr.screenstream_44000.apk` na s2. Toda outra
+fatia entregou exatamente o que sua lista pedia.
+
+**Qualidade dos 162 tecidos:**
 
 | medida | valor |
 |---|---|
-| `success` + `phase: signed` | 148/149 registros |
+| `success` + `phase: signed` | **162/163** registros |
 | `advices` | **115 em todos** — o mesmo conjunto `jca` validado no piloto |
-| `wrappersSubstituted` | mín **12** · mediana **168** · máx **3045** · **soma 42.578** |
+| `wrappersSubstituted` | mín **12** · p25 **98** · mediana **170** · p75 **299** · máx **3045** · **soma 46.926** |
 | APKs com zero sítios tecidos | **0** |
-| `plansSkipped` (genérico) | 0 |
-| `plansSkippedUnresolvedBinding` | 0 |
+| `constructorInlineApplied` | 6079, em 160 APKs |
+| `plansSkipped` (genérico) | **0** |
 
-O piso de 12 é o mesmo observado em `lstopo`/`giggity` no piloto — nenhum APK do corpus sai
-sem instrumentação MOP.
+O piso de 12 é o mesmo observado em `lstopo`/`giggity` no piloto — **nenhum APK do corpus sai
+sem instrumentação MOP.**
+
+**Entrega consolidada** em `E3_jca_dexlib2_163/instrumented_apks/`: os 162 APKs (3,8 GB, cópia
+real — as oito fatias ficam intactas como proveniência), o `instrument_results.json` fundido
+com os **163** registros (162 sucessos **mais o registro da falha**, que não se perde no
+merge), e um `SHA256SUMS` com as 162 linhas.
 
 #### Falha única: `info.dvkr.screenstream_44000.apk`
 
@@ -294,21 +308,23 @@ como observação medida, não como defeito caracterizado.
 
 #### Dois contadores de aliasing, lidos no fonte
 
-- **`plansSkippedAliasing` — 1609 em 127 APKs.** **Não é defeito.** É recusa deliberada e
+- **`plansSkippedAliasing` — 1832 em 139 dos 162 APKs.** **Não é defeito.** É recusa deliberada e
   documentada (INV-INS-66, `DexWeaver.java:481-512`): advice **AFTER** cujo `invoke` não é
   estático e portanto não pode ser roteado por wrapper — tipicamente chamada virtual ou de
   interface. Emitir o hook inline ali leria registradores de argumento que o `move-result*` já
   sobrescreveu, produzindo **`VerifyError` em todo sítio desses**. O weaver prefere não
   instrumentar a gerar APK quebrado; advice **BEFORE** não é afetado. Vale registrar como
   propriedade do corpus: são eventos AFTER monitorados que ficam sem instrumentação, por
-  desenho — cerca de 3,8% ante os 42.578 sítios tecidos.
-- **`wrappersAliasedToSubtype` — 14.444 em 24 APKs.** É **ganho, não perda**:
+  desenho — **3,9%** ante os 46.926 sítios tecidos.
+- **`wrappersAliasedToSubtype` — 16.740 em 27 APKs.** É **ganho, não perda**:
   `DexWeaver.java:222-228` registra o wrapper da classe-pai também para os **subtipos** dela,
   de forma idempotente, capturando chamadas cujo tipo estático é o subtipo. É crescimento da
   tabela de substituição, não contagem de sítios tecidos.
-- `coverageSpillFailed` — **1 ocorrência**, em `swati4star.createpdf_110.apk`. O sítio de
-  incremento não foi localizado no fonte, então **a semântica não está caracterizada**. É sonda
-  de cobertura, não monitor MOP. Pendente.
+- **Resíduos de um dígito**, todos declarados aqui para que ninguém os descubra depois como
+  surpresa: `plansSkippedHighRegister` **3** em 2 APKs; `plansSkippedUnresolvedBinding` **1**
+  em 1 APK; `coverageSpillFailed` **1**, em `swati4star.createpdf_110.apk`. Deste último o
+  sítio de incremento não foi localizado no fonte, então **a semântica não está
+  caracterizada** — é sonda de cobertura, não monitor MOP. Pendente.
 
 ---
 
@@ -325,8 +341,15 @@ Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 | P5 | **`instr-cli` retorna `exit 0` com `success=false`.** Sítio do exit code não inspecionado; só a checagem de existência no wrapper Python detecta. | §2.5 |
 | P6 | **`coverageSpillFailed` sem semântica caracterizada.** 1 ocorrência. | §2.5 |
 | P7 | **Metade do critério do piloto continua não provada**: instala, lança, `RVSEC-COV` no logcat, nenhum `VerifyError`. Exige corrida com emulador, que o plano não escreve. | §2.3 |
-| P8 | **Merge das 8 fatias** num `instrumented_apks/` único com `instrument_results.json` fundido, conferindo a cardinalidade antes de fundir. | §2.5 |
-| P9 | **Reescrever a §2.5 com os números finais** quando o lote encerrar. | §2.5 |
+| ~~P8~~ | ~~Merge das 8 fatias.~~ **Feito** em 2026-08-12 12:07: cardinalidade conferida antes de fundir (162, zero duplicados), APKs copiados, `instrument_results.json` fundido com os 163 registros, `SHA256SUMS` gerado. | §2.5 |
+| ~~P9~~ | ~~Reescrever a §2.5 com os números finais.~~ **Feito.** | §2.5 |
+
+Duas observações que não são pendências, mas condicionam quem for usar esta entrega:
+
+- **A entrega é de 162 APKs, não 163.** Qualquer contagem, denominador ou proporção calculada
+  sobre o corpus instrumentado tem de declarar isso, e não herdar o 163 do `apks_163.txt`.
+- **O corpus está instrumentado, não validado em execução.** A metade do critério do piloto que
+  exige emulador (P7) continua não provada, e nenhum destes 162 APKs foi instalado ou lançado.
 
 ---
 
@@ -341,4 +364,5 @@ Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 | Preflight da Fase B | `rv-android/scripts/e3_preflight_instrument.py` |
 | Piloto (válido) | `RV_ANDROID_NOVO_DATASET/E3_piloto10/` — `monitors_master/`, `s0..s4/` |
 | Piloto corrompido (evidência do defeito da §2.2) | `rv-android/backup/e3-piloto-monitor-race-20260812/` |
-| Lote dos 163 | `RV_ANDROID_NOVO_DATASET/E3_jca_dexlib2_163/` — `monitors_master/`, `s0..s7/`, `PROVENIENCIA.md` |
+| Lote dos 163 — fatias e proveniência | `RV_ANDROID_NOVO_DATASET/E3_jca_dexlib2_163/` — `monitors_master/`, `s0..s7/` + `s*.log`/`s*.preflight`, `PROVENIENCIA.md` |
+| **Entrega consolidada da Fase B** | `E3_jca_dexlib2_163/instrumented_apks/` — **162 APKs** (3,8 GB), `instrument_results.json` (163 registros), `SHA256SUMS` |
