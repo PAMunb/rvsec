@@ -533,8 +533,8 @@ absence, never for corruption). The failure mode this prevents is the silent kin
 fallback leaves a trace in logs or diagnostics.
 
 **Import-time hardcoded plugin registration instead of entry-point discovery.** Entry-point
-scanning (`importlib.metadata`) is the canonical alternative and rvagent-tool even declares
-one — but nothing scans it. The hardcoded import is a deliberate P1 trade: two lines per
+scanning (`importlib.metadata`) is the canonical alternative, and no module declares or scans
+an entry-point for it. The hardcoded import is a deliberate P1 trade: two lines per
 plugin, trivially debuggable, and gracefully degrading (an absent plugin package logs and
 skips, so a container image without rv-agent still runs Monkey experiments). The accepted
 cost is a Layer 4 → Layer 5 inversion that the dependency analyses consistently flag, plus an

@@ -12,9 +12,6 @@ dependencies = [
     "pydantic>=2.9.0",
 ]
 
-[project.entry-points."rv_tools.plugins"]
-rvagent = "rvagent_tool.tools.rvagent.tool:RVAgentTool"
-
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",

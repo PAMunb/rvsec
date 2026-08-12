@@ -518,9 +518,9 @@ health-check WARNING — degradation is visible, never silent. (INV-PLT-16)
 it has never heard of — rvagent-tool, aperv-tool, rvsmart-tool live in separate modules with
 heavy dependencies (LangGraph, LLM clients). Hard-importing them from the executor would make
 every Monkey smoke-run require the full LLM stack, and the rejected alternative of entry-point
-discovery adds packaging machinery for zero gain in a uv workspace (rvagent-tool's vestigial
-`rv_tools.plugins` entry-point is consumed by nothing — the real mechanism is the direct
-guarded import in `rv_platform/__init__.py`). The variant system carries a second decision:
+discovery adds packaging machinery for zero gain in a uv workspace — the real mechanism is the
+direct guarded import in `rv_platform/__init__.py`, and no module declares or scans an
+`rv_tools.plugins` entry-point. The variant system carries a second decision:
 presets live in `get_variants()` inside each tool and user parameters merge over them in the
 factory, so a task's full configuration is reconstructible from its `ToolConfig` alone — which
 is precisely what the resume identity tuple and the config checksum need. Without the seam,
@@ -824,8 +824,8 @@ that rv-tools and every plugin depend downward on core rather than sideways on e
   copy-pasted per-key validation blocks, both CC 24 — the module's only first-party complexity
   hotspot.
 - rvagent-tool and aperv-tool declare rv-tools in their pyproject but never import it; real
-  plugin loading is the direct import in `rv_platform/__init__.py`, and rvagent-tool's
-  `rv_tools.plugins` entry-point is consumed by nothing.
+  plugin loading is the direct import in `rv_platform/__init__.py`, and no `rv_tools.plugins`
+  entry-point is declared or scanned anywhere.
 
 **rv-android-core, platform slice** (`modules/rv-android-core`, foundation layer; slices:
 `tools/abstract_tool.py`, `domain/`, `util/android/emulator_manager.py`,

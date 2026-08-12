@@ -84,7 +84,7 @@ Five named variants, all using `strategy: rvagent`:
 | `src/rvagent_tool/tools/rvagent/tool.py` | Main tool class with variants, configure, and execution |
 | `src/rvagent_tool/tools/rvagent/config.py` | Configuration mapping from platform context to RVAgentConfig |
 | `tests/unit/test_tool.py` | Unit tests covering spec, variants, configure, config mapping |
-| `pyproject.toml` | Package metadata and `rv_tools.plugins` entry point registration |
+| `pyproject.toml` | Package metadata and workspace dependency declarations |
 
 ## Gotchas
 

@@ -1,44 +1,38 @@
 """
 RV-Tools Module
 
-Tool registry and plugin system for monitored operations testing in RV-Android.
-
-This module provides comprehensive tool management capabilities including:
-- Abstract base classes for tool implementations
-- Plugin discovery and registration system
-- Built-in testing tools (APE, DroidBot, Monkey, etc.)
-- External tool plugin interfaces
-- Configuration and variant management
+Tool registry and variant system for the testing tools RV-Android drives.
 
 ### Key Components:
 
-#### Base Classes:
+#### Base Classes (re-exported from rv-android-core):
 - **AbstractTool**: Base abstraction for all testing tools
-- **ConfigurableTool**: Enhanced tool base with configuration support
 - **ToolSpec**: Tool specification and metadata management
 
 #### Registry System:
-- **ToolRegistry**: Central registry for tool discovery and access
-- **ToolFactory**: Factory for creating configured tool instances
-- **PluginLoader**: Plugin discovery and loading system
+- **ToolRegistry**: Singleton registry of tool classes, specs and variants
+- **ToolFactory**: Builds a configured tool instance from a `ToolConfig`, merging
+  the named variant's defaults with the caller's parameter overrides
 
-#### Plugin System:
-- **ToolPlugin**: Interface for external tool plugins
-- **PluginManager**: Lifecycle management for plugins
-- **ExperimentToolManager**: Tool coordination for experiments
+### Registration:
+
+- **Built-in tools**: `_register_builtin_tools()` runs at import and registers every
+  class in `BUILTIN_TOOLS`. A tool whose registration raises is logged and skipped, so
+  one broken tool never blocks the import.
+- **External tools**: tools that live in their own modules (`rvagent-tool`, `aperv-tool`)
+  are registered by `_register_external_tools()` in `rv_platform/__init__.py` — not here,
+  and not by entry-point discovery. Registering them here would make rv-tools depend on
+  rv-agent and its LLM stack; pushing that import up to rv-platform is what keeps
+  rv-tools' only dependency at rv-android-core (openspec `tools` spec, INV-TOOL-12).
 
 ### Architectural Principles:
-- **Plugin Architecture**: Extensible system for external tools
-- **Configuration Management**: Rich configuration and variant support
-- **Dependency Injection**: Flexible tool composition and setup
-- **Registry Pattern**: Centralized tool discovery and management
-- **Factory Pattern**: Consistent tool creation and configuration
-- **Template Method**: Standardized tool execution workflow
+- **Registry Pattern**: one singleton is the source of truth for available tools
+- **Factory Pattern**: variant defaults merged with user parameters at creation time
+- **Template Method**: `AbstractTool.execute()` standardizes timeout handling and cleanup
 
 ### Integration Points:
 - **rv-android-core**: Base infrastructure, error handling, logging
-- **External Modules**: Plugin registration via entry points
-- **Experiment Framework**: Tool selection and execution coordination
+- **rv-platform / rv-experiment**: tool selection and task execution
 """
 
 # Core base classes

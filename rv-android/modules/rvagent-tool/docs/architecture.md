@@ -279,7 +279,7 @@ How the architecture supports non-functional requirements from the PRD.
 | NFR | PRD ID | Priority | Architectural Support |
 |-----|--------|----------|----------------------|
 | Modularity | NFR01 | P0 | Separate uv workspace module with its own `pyproject.toml`; editable mode means source changes are immediate |
-| Extensibility | NFR02 | P0 | Plugin entry point (`rv_tools.plugins`) enables auto-discovery; new variants added by modifying `get_variants()` |
+| Extensibility | NFR02 | P0 | Registered by rv-platform's `_register_external_tools()` via a direct guarded import, so the module stays out of rv-tools' dependency set; new variants added by modifying `get_variants()` |
 | Testability | NFR03 | P1 | Unit tests cover spec, variants, configuration, and info retrieval; mock-friendly design with dependency injection via `Task`/`App` |
 | Resilience | NFR04 | P1 | Inherits `AbstractTool` timeout handling (converts `RVCommandTimeoutError` to `RVToolTimeoutError`); `ErrorHandler` decorator on execution |
 | Configurability | NFR05 | P1 | 5 named variants map to rv-agent execution modes; tool specification DSL (`rvagent:pure_algorithm@llm_probability=0.8`) supports parameter overrides |

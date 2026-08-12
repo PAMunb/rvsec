@@ -59,7 +59,7 @@ tool = factory.create_tool(tool_config)
 ## Features
 
 - **Platform Integration**: Implements `AbstractTool` interface for use within rv-platform's task execution framework
-- **Plugin Registration**: Automatically registered via the `rv_tools.plugins` entry point
+- **Plugin Registration**: Registered by `_register_external_tools()` in `rv_platform/__init__.py`, which imports `RVAgentTool` directly at rv-platform import time
 - **Multiple Variants**: Supports different execution modes (multimode, pure_algorithm, llm_only, thorough)
 - **Static Analysis Support**: Receives and forwards static analysis data from the platform to rv-agent
 - **Configuration Mapping**: Maps platform Task/ToolConfig to RVAgentConfig, including LLM, strategy, and scorer parameters
