@@ -495,7 +495,7 @@ os 162 logcats.
 
 | linhas `RVSEC-COV` | mín | p25 | mediana | p75 | máx | soma |
 |---|---:|---:|---:|---:|---:|---:|
-| do pacote do app | **4** | 138 | 438 | 796 | 3493 | 95.848 |
+| do código do app | **4** | 116 | 425 | 786 | 3493 | 91.446 |
 | totais | 11 | — | 1068 | — | 7255 | 220.027 |
 
 O piso é 4, em `com.smartpack.packagemanager_79`; apenas 2 APKs ficam abaixo de 10. O
@@ -506,46 +506,87 @@ piso de 12 sítios tecidos funciona **em execução**, não só no relatório.
 **Isto é validação de boot, não de exploração.** Prova que o APK instrumentado sobe e emite
 evento monitorado; não diz nada sobre a instrumentação sobreviver a interação prolongada.
 
-#### O critério exige a chave de pacote, e ela é declarada, não derivada
+#### O critério mede contra o universo do artefato, e ler isso não pede chave
 
-O critério é `RVSEC-COV` **do pacote do app**, o mesmo universo que a análise estática usa como
-denominador de 100% de cobertura — a chave de filtragem do GATOR (`filterPackage`,
-`RvsecAnalysisClient.java:90`), aplicada por `startsWith` com exclusão de `.R`, `.R$*` e
-`.BuildConfig` (`isAppClass`, `:277-285`).
+O critério é `RVSEC-COV` **do código do app**, o mesmo universo que a análise estática usa como
+denominador de 100% de cobertura. Esse universo é a `reachability` do `.apk.json`, carregada
+como está: o GATOR foi invocado com `-clientParam codePackage=<chave>` e descartou tudo fora
+dela **antes de escrever**, então o artefato já chega escopado (INV-ANA-59). Uma linha
+`RVSEC-COV` é do app quando sua classe **pertence** a esse conjunto.
 
-**Essa chave não sai do `.apk.json`.** INV-ANA-58 (`domain/app.py:157-160`) declara que o JSON
-do GATOR grava o pacote do **manifesto** qualquer que tenha sido a chave que filtrou seu
-conteúdo — *"whoever records a run needs the origin stated rather than re-derived"*. E o
-pipeline devolve o `applicationId` verbatim (`app.py:146-147`; o `PackageDetector` está
-**desligado por padrão** e só roda por `RV_PACKAGE_DETECTOR` / `--package-detector`), porque
-tirar sufixo de build é trabalho de quem cura o corpus, não do pipeline.
+**A chave é assunto de produção, e o consumo não a pergunta** (INV-ANA-61). A Fase A precisou
+escolhê-la — foi por isso que passou `codePackage=Mneut` (§1) —, mas quem lê o artefato não
+pode reabrir a questão: só poderia discordar do produtor. A gh102 mediu o preço de reabri-la.
+Como `App.code_package` devolve o `applicationId` declarado desde a gh98 (`553ae54a`), e
+`io.keepalive.android.debug` não é prefixo de `io.keepalive.android.MainActivity`, o refiltro do
+`StaticAnalysisParser` **zerava 75 dos 162** — as mesmas 75 que carregam sufixo de build.
+Nenhuma passaria o critério de admissibilidade, e a `comp162` fecharia em **n=87**. O
+`corpus_evidence.md` da change mede o que estava em jogo: **110.692 → 215.430 classes** e
+**536.178 → 1.058.685 métodos**.
 
-A curadoria deste corpus está escrita fora deste repositório, e **é onde se deve olhar antes de
-deduzir qualquer coisa sobre pacote**:
+Esta validação reproduziu o número por outro caminho: somando `sa_classes` dos 162 dá
+**215.430**, idêntico ao "depois" da gh102.
 
-| artefato | onde | o que dá |
-|---|---|---|
-| o funil | `rvsec-dataset/docs/dataset.csv` | `detected_package` e `manifest_package` por APK; cobre os 162 sem ausências |
-| a regra de neutralização | `ase-journal/docs/20260730_relatorio_remocao_package_detector.md` §6 | denylist `{debug, dev, beta, staging, qa, nightly, alpha, snapshot, current, head, indev}`, removida repetidamente do fim, mínimo 2 segmentos |
-| o filtro de qualidade da chave | `rvsec-dataset/docs/20260714_package-scope-final-dataset.md` | por que 37 dos 219 saíram (`filtered_pkgdet_scope`) — é o `funnel_stage` do `30_apks.csv` |
-| a régua congelada | `rv-android/30_apks.csv`, coluna `Mneut` | a chave dos 30 da Fase A, passada verbatim (`gh91_sa_rerun.py:266`) |
+**Consequência para quem consumir esta saída:** o `validation.csv` traz `sa_classes` (tamanho do
+universo do artefato) e `cov_app` (linhas cuja classe pertence a ele). Nenhuma chave de pacote é
+lida em lugar nenhum do driver.
 
-Aplicando a regra do §6 sobre `detected_package`, verificado duas vezes: **reproduz o `Mneut`
-congelado em 30/30**, e a chave resultante **cobre toda a `reachability` em 162/162**. Uma
-ressalva: a denylist do §6 é minúscula e o corpus traz `com.vrem.wifianalyzer.BETA`, então a
-comparação de token tem de ser *case-insensitive*.
+#### Sete denominadores degenerados — a P12 ganha nomes
+
+O universo do artefato tem mediana de 671 classes, mas **7 dos 162 ficam abaixo de 50**, e em
+três deles a `reachability` contém **apenas activities**:
+
+| APK | `sa_classes` | `transitions` | o que a `reachability` tem |
+|---|---:|---:|---|
+| `br.com.colman.petals_3040000` | **1** | 12 | só `br.com.colman.petals.MainActivity` |
+| `com.github.livingwithhippos.unchained_60` | 2 | 0 | truncado da Fase A (§1.1) |
+| `com.nononsenseapps.feeder.play_4025` | 6 | 47 | as 6 activities, nada mais |
+| `com.tananaev.passportreader_22` | 18 | 32 | |
+| `com.github.cvzi.screenshottile_148` | 21 | 86 | as 21 activities |
+| `org.cry.otp_31` | 23 | 255 | |
+| `com.hwloc.lstopo_80283` | 37 | 48 | |
+
+**Só um dos sete se explica pelo que já era conhecido.** O `unchained_60` é truncado da Fase A.
+Os outros seis têm `transitions` povoadas, então não é truncamento; e não é sufixo, porque a
+gh102 é sobre o consumo e estes números são o que o produtor escreveu.
+
+Isto é exatamente o que a gh102 declara fora de escopo — *"an artefact produced with a wrong key
+still yields a wrong denominator"* — e o que a P12 registrava como dúvida. Agora tem nome e
+número. O `com.nononsenseapps.feeder.play_4025` já aparecia na §2.4 com "a SA vê 6 classes e o
+weaver 48.872", ali enquadrado como universos diferentes; com o denominador exposto, 6 classes
+para um app inteiro é outra coisa.
+
+**A autoridade para fechar isso não está no artefato**: é a linha
+`Filtered N classes (libraries/generated) using package: <chave>` que o cliente imprime no log
+da corrida (`RvsecAnalysisClient.java:105-107`). Para os 30 da Fase A os logs estão em
+`SA_RERUN_gh91_wtg/logs/`; para os 132 da Phase-7, em `rvsec-dataset-sa/logs/`. **Não conferido
+aqui.**
+
+Nada disto afeta o veredito desta validação — os 7 passam com folga sobre o limiar de 2 —, mas
+afeta qualquer proporção de cobertura calculada sobre eles.
+
+#### Como a Fase A escolheu a chave, do lado da produção
+
+Escolher a chave **é** decisão real quando se roda uma análise, e a Fase A teve de tomá-la: o
+`rv-static-analysis` não aceita chave arbitrária — a dele é `App(apk).code_package`, o
+`applicationId` declarado ou a eleição do `PackageDetector` —, então a gh91 chamou o GATOR
+direto para poder passar `-clientParam codePackage=<Mneut>` (`gh91_sa_rerun.py:266,321`), com o
+`Mneut` lido verbatim do `30_apks.csv`. Isso vale para os 30; os 132 da Phase-7 vieram como
+estavam.
+
+Onde a curadoria deste corpus está escrita, **fora deste repositório**:
+
+| artefato | onde |
+|---|---|
+| o funil, com `manifest_package` e `detected_package` por APK | `rvsec-dataset/docs/dataset.csv` |
+| por que 37 dos 219 saíram (`filtered_pkgdet_scope`) — o `funnel_stage` do `30_apks.csv` | `rvsec-dataset/docs/20260714_package-scope-final-dataset.md` |
+| o sufixo de build como artefato do nosso `assembleDebug`, e os arms medidos | `ase-journal/docs/20260730_relatorio_remocao_package_detector.md` |
+| a chave congelada dos 30 | `rv-android/30_apks.csv`, coluna `Mneut` |
 
 **Sufixo de build nos 162:** 75 têm, 87 não — `.debug` 61, `.dev` 7, `.beta` 4, `.current` 1,
-`.BETA` 1, `.qa.debug` 1. Os quatro últimos casos estão **fora** da lista que aparece no
-`30_apks.csv` (`.debug`/`.dev`/`.current`), e quem parar naquela lista deixa 6 APKs com o
-sufixo grudado. O impacto é **de leitura, não de dado**: as análises dos 162 já foram rodadas
-com chave sem sufixo — se não tivessem, o `startsWith` não casaria nada e a `reachability`
-sairia vazia, e nenhuma está. Nada precisa ser reanalisado.
-
-O que fica **não verificado**: que a chave usada nos 132 vindos da Phase-7 seja exatamente a
-neutralizada, e não algo mais raso. Chave rasa cobre a `reachability` do mesmo jeito e infla o
-denominador em vez de esvaziá-lo. Para os 30 da Fase A a questão está fechada pelo `Mneut`;
-para os 132 não há régua equivalente neste registro.
+`.BETA` 1, `.qa.debug` 1. Os quatro últimos estão fora da lista que aparece no `30_apks.csv`
+(`.debug`/`.dev`/`.current`). Isso não é problema **desta** leitura, que não usa chave; é o que
+determina quais APKs a gh102 recuperou.
 
 #### Armadilha do driver, medida aqui: o `ResolverActivity`
 
@@ -581,7 +622,7 @@ Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 | P10 | **O relatório do instrumentador não preserva a causa das falhas** (`BatchRunner.java:381-382` descarta trace e `getCause()`; `failed()` zera os contadores). Qualquer `RuntimeException` vira uma linha sem diagnóstico. | §2.5 |
 | P6 | **`coverageSpillFailed` sem semântica caracterizada.** 1 ocorrência. | §2.5 |
 | ~~P7~~ | ~~Metade do critério do piloto continua não provada.~~ **Feita** em 2026-08-12, 49 min: **162/162** instalam, lançam e emitem ≥ 2 linhas `RVSEC-COV` do pacote do app, com **zero `VerifyError`**, zero `FATAL EXCEPTION`, zero ANR. É validação de boot, não de exploração. | §3.2 |
-| P12 | **A chave de pacote dos 132 vindos da Phase-7 não tem régua.** Sabe-se que não tem sufixo de build (senão a `reachability` estaria vazia), mas não que seja a neutralizada e não uma mais rasa — que cobriria igual e inflaria o denominador. Os 30 da Fase A estão fechados pelo `Mneut`. | §3.2 |
+| P12 | **Sete artefatos têm denominador degenerado, e só um se explica.** `sa_classes` < 50 em 7 dos 162 — `petals` com **1** classe, `feeder.play` com 6, `screenshottile` com 21, e nesses três a `reachability` só tem activities. Um é truncado da Fase A; os outros seis têm `transitions` povoadas, então não é truncamento, e não é o defeito da gh102, que é de consumo. A autoridade é a linha `Filtered N classes … using package:` dos logs da corrida (`RvsecAnalysisClient.java:105-107`), **não conferida**. Afeta qualquer proporção de cobertura sobre esses APKs; não afeta o veredito da §3.2. | §3.2 |
 | ~~P8~~ | ~~Merge das 8 fatias.~~ **Feito** em 2026-08-12 12:07: cardinalidade conferida antes de fundir (162, zero duplicados), APKs copiados, `instrument_results.json` fundido com os 163 registros, `SHA256SUMS` gerado. | §2.5 |
 | ~~P9~~ | ~~Reescrever a §2.5 com os números finais.~~ **Feito.** | §2.5 |
 
@@ -594,10 +635,10 @@ Duas observações que não são pendências, mas condicionam quem for usar esta
 - **O corpus está instrumentado e validado em execução** (§3.2): os 162 instalam, lançam e
   emitem cobertura, sem nenhum `VerifyError`. O que **não** está provado é comportamento sob
   exploração prolongada — a validação é de boot.
-- **Pacote do manifesto não é chave de análise.** 75 dos 162 carregam sufixo de build, e tanto o
-  `.apk.json` quanto o `dataset.csv` gravam o identificador **com** ele. Comparar nome de classe
-  contra essa string dá zero em 75 APKs. A chave é declarada no funil e neutralizada pela regra
-  do §6 — ver §3.2.
+- **Ler o artefato não pede chave de pacote** (INV-ANA-59/61, gh102). A `reachability` já vem
+  escopada pelo produtor e **é** o denominador. Refiltrá-la por `applicationId` zerava 75 dos
+  162 — os que carregam sufixo de build — e teria fechado a `comp162` em n=87. Escolher a chave
+  é decisão de quem **roda** a análise, e a Fase A a tomou explicitamente (§1, §3.2).
 
 ---
 
@@ -617,5 +658,6 @@ Duas observações que não são pendências, mas condicionam quem for usar esta
 | **► DIRETÓRIO DO EXPERIMENTO FINAL** | `RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/` — 162 `.apk` + 162 `.apk.json` co-locados + `selected162.txt` (§3) |
 | Driver da validação em emulador | `rv-android/scripts/e3_validate_emulator.py` — serial, resume por CSV, `--reclassify` recomputa o critério offline sobre os logcats gravados |
 | **Saída da validação (P7)** | `RV_ANDROID_NOVO_DATASET/E3_VALIDACAO_EMULADOR_162/` — `validation.csv` (162 linhas), `logcats/*.logcat.gz` (evidência integral por APK), `run.log`, `validation_criterio_antigo.csv` |
-| Curadoria da chave de pacote | `rvsec-dataset/docs/dataset.csv` (o funil) · `ase-journal/docs/20260730_relatorio_remocao_package_detector.md` §6 (regra de neutralização) · `rvsec-dataset/docs/20260714_package-scope-final-dataset.md` (o corte dos 37) |
+| Curadoria da chave de pacote (produção) | `rvsec-dataset/docs/dataset.csv` (o funil) · `rvsec-dataset/docs/20260714_package-scope-final-dataset.md` (o corte dos 37) · `ase-journal/docs/20260730_relatorio_remocao_package_detector.md` (o sufixo como artefato do nosso build) |
+| O refiltro removido do consumo | `openspec/changes/gh102-artifact-scoped-parse/` — `proposal.md`, `corpus_evidence.md`, `corpus_verification.csv` (162 linhas, antes/depois) |
 | Evidência do diagnóstico do DEX 64K | `rv-android/backup/e3-screenstream-dex64k-20260812/` e `E3_jca_dexlib2_163/retry1/` (os `woven_*.dex` que provam o ponto de parada) |

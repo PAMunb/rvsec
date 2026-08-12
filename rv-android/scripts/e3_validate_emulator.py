@@ -6,15 +6,17 @@ logcat, classifica, desinstala. O emulador **não** é gerenciado aqui — ele s
 uma vez antes e cai uma vez depois, fora deste script, como faz o precedente
 `validate_ajc_apks_install.py`.
 
-O critério pedido pelo pesquisador é **2 ou mais linhas `RVSEC-COV` do pacote do
+O critério pedido pelo pesquisador é **2 ou mais linhas `RVSEC-COV` do código do
 próprio app** — o mesmo universo que a análise estática usa como denominador de
-100% de cobertura, isto é, a chave de filtragem do GATOR
-(`RvsecAnalysisClient.java:90`, `filterPackage`).
+100% de cobertura.
 
-**Essa chave é declarada, não derivada** — ver `load_dataset_keys`. Aplicam-se
-também as exclusões de `isAppClass` (`RvsecAnalysisClient.java:277-285`): `.R`,
-`.R$*` e `.BuildConfig` ficam de fora, como na estática, para não inflar o
-denominador.
+**Esse universo é a `reachability` do `.apk.json`, e lê-lo não pede chave nenhuma**
+(INV-ANA-59/61, gh102). O GATOR foi invocado com `-clientParam codePackage=<chave>`
+e descartou tudo fora dela antes de escrever, então o artefato já chega escopado;
+uma linha `RVSEC-COV` é do app quando sua classe **pertence** à `reachability`.
+Perguntar o escopo de novo aqui só poderia discordar do produtor — e num APK
+construído com `applicationIdSuffix` esvazia o universo inteiro, que foi o defeito
+que a gh102 corrigiu no `StaticAnalysisParser` (75 dos 162 mediam zero).
 
 Duas armadilhas medidas na campanha de julho obrigam a separar as causas de falha:
 
@@ -67,20 +69,8 @@ CORPUS = Path(
 OUT_DIR = Path(
     "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/E3_VALIDACAO_EMULADOR_162"
 )
-DATASET_CSV = Path(
-    "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/"
-    "rvsec-dataset/docs/dataset.csv"
-)
-
-# Tokens de build type da regra de neutralização declarada em
-# `ase-journal/docs/20260730_relatorio_remocao_package_detector.md` §6.
-BUILD_TOKENS = frozenset({
-    "debug", "dev", "beta", "staging", "qa", "nightly",
-    "alpha", "snapshot", "current", "head", "indev",
-})
-
 COV_TAG = "RVSEC-COV"
-COV_MIN = 2  # critério do pesquisador: 2+ linhas no pacote do app
+COV_MIN = 2  # critério do pesquisador: 2+ linhas do código do app
 
 # Sinais de erro a procurar no logcat. `Error type 3` é o do lançamento que não
 # resolve; os demais são falha em runtime do app já lançado.
@@ -96,8 +86,8 @@ ERROR_PATTERNS = {
 COV_CLASS = re.compile(r"RVSEC-COV:\s*<([^:]+):")
 
 CSV_FIELDS = [
-    "apk", "package", "sa_key", "status", "activity", "launch_method",
-    "cov_total", "cov_pkg", "cov_classes",
+    "apk", "package", "sa_classes", "status", "activity", "launch_method",
+    "cov_total", "cov_app", "cov_classes",
     "fatal_exception", "anr", "verify_error", "error_type_3", "force_stop",
     "install_s", "launch_s", "total_s", "detail",
 ]
@@ -107,12 +97,12 @@ CSV_FIELDS = [
 class Result:
     apk: str
     package: str = ""
-    sa_key: str = ""
+    sa_classes: int = 0      # tamanho do universo do artefato (denominador)
     status: str = ""
     activity: str = ""
     launch_method: str = ""
     cov_total: int = 0
-    cov_pkg: int = 0
+    cov_app: int = 0         # linhas cuja classe pertence a esse universo
     cov_classes: int = 0
     fatal_exception: int = 0
     anr: int = 0
@@ -206,54 +196,36 @@ def manifest_package(meta: Path) -> str:
         return ""
 
 
-def load_dataset_keys(dataset_csv: Path) -> dict[str, str]:
-    """Chave por APK: `detected_package` do funil, neutralizada do sufixo de build.
+def app_classes(meta: Path) -> set[str]:
+    """O universo do app, lido do artefato — sem chave e sem refiltro.
 
-    A chave **não** é recuperável do `.apk.json`: INV-ANA-58 (`app.py:157-160`)
-    declara que o JSON do GATOR grava o pacote do manifesto qualquer que tenha
-    sido a chave que filtrou seu conteúdo. Ela tem de ser *declarada*, e a
-    declaração é o funil — `rvsec-dataset/docs/dataset.csv`.
+    `reachability` é o que o GATOR escreveu depois de aplicar sua própria chave,
+    e é o denominador inteiro da cobertura (INV-ANA-59). Carrega-se como está.
 
-    A neutralização também não é invenção local. O pipeline devolve o
-    `applicationId` verbatim (`app.py:146-147`, com o detector desligado por
-    padrão) porque tirar sufixo é trabalho de quem cura o corpus; a regra desta
-    curadoria está escrita em `ase-journal/docs/20260730_relatorio_remocao_
-    package_detector.md` §6. Validada aqui: reproduz o `Mneut` congelado do
-    `30_apks.csv` em 30/30 e cobre a `reachability` dos 162 em 162/162."""
-    with open(dataset_csv, newline="") as fh:
-        return {r["apk"]: (r.get("detected_package") or "").strip()
-                for r in csv.DictReader(fh)}
-
-
-def neutralize(pkg: str) -> str:
-    """Remove os segmentos finais de build type, preservando 2 segmentos.
-
-    Comparação em minúsculo porque o corpus traz `com.vrem.wifianalyzer.BETA`,
-    e a regra do §6 lista os tokens em caixa baixa."""
-    parts = pkg.split(".")
-    while len(parts) > 2 and parts[-1].lower() in BUILD_TOKENS:
-        parts.pop()
-    return ".".join(parts)
+    Devolve os nomes como o artefato os escreveu, para que `len()` seja o
+    tamanho real do denominador; a diferença de grafia de classe interna é
+    reconciliada no teste de pertinência, não inflando o conjunto."""
+    if not meta.exists():
+        return set()
+    try:
+        entries = json.loads(meta.read_text()).get("reachability") or []
+    except Exception:
+        return set()
+    names = {e.get("className") or e.get("name") for e in entries}
+    names.discard(None)
+    return names
 
 
-def sa_key(keys: dict[str, str], apk_name: str, fallback: str) -> str:
-    """Chave desta APK, do funil quando ele a conhece."""
-    return neutralize(keys.get(apk_name) or fallback)
+def belongs(cls: str, universe: set[str]) -> bool:
+    """O artefato traz `Outer.Inner` onde o logcat traz `Outer$Inner`; aceitar as
+    duas grafias é o mesmo papel do `SignatureNormalizer` no parser."""
+    return cls in universe or cls.replace("$", ".") in universe
 
 
 # --- logcat ---
 
-def is_app_class(cls: str, key: str) -> bool:
-    """Espelha `RvsecAnalysisClient.isAppClass` (`:277-285`): dentro da chave, e
-    sem as geradas (`R`, `R$*`, `BuildConfig`) que inflariam o denominador."""
-    if not (cls == key or cls.startswith(key + ".")):
-        return False
-    suffix = cls[len(key):]
-    return not (suffix == ".R" or suffix.startswith(".R$") or suffix == ".BuildConfig")
-
-
-def analyze_logcat(text: str, key: str) -> dict:
-    cov_total = cov_pkg = 0
+def analyze_logcat(text: str, universe: set[str]) -> dict:
+    cov_total = cov_app = 0
     classes: set[str] = set()
     counts = {k: 0 for k in ERROR_PATTERNS}
     for line in text.splitlines():
@@ -263,25 +235,26 @@ def analyze_logcat(text: str, key: str) -> dict:
             if m:
                 cls = m.group(1)
                 classes.add(cls)
-                if is_app_class(cls, key):
-                    cov_pkg += 1
+                if belongs(cls, universe):
+                    cov_app += 1
         for name, pat in ERROR_PATTERNS.items():
             if pat.search(line):
                 counts[name] += 1
-    return {"cov_total": cov_total, "cov_pkg": cov_pkg,
+    return {"cov_total": cov_total, "cov_app": cov_app,
             "cov_classes": len(classes), **counts}
 
 
 # --- um APK ---
 
 def validate_one(apk: Path, device: str, aapt: Path, settle: int,
-                 logcat_dir: Path, meta: Path, keys: dict[str, str]) -> Result:
+                 logcat_dir: Path, meta: Path) -> Result:
     r = Result(apk=apk.name)
     t_start = time.time()
 
     pkg, act = badging(aapt, apk)
     r.package = pkg or manifest_package(meta)
-    r.sa_key = sa_key(keys, apk.name, r.package)
+    universe = app_classes(meta)
+    r.sa_classes = len(universe)
     if not r.package:
         r.status = "install_failed"
         r.detail = "não foi possível resolver o nome do pacote"
@@ -346,20 +319,20 @@ def validate_one(apk: Path, device: str, aapt: Path, settle: int,
         with gzip.open(logcat_dir / f"{apk.name}.logcat.gz", "wt") as fh:
             fh.write(logcat)
 
-        stats = analyze_logcat(logcat, r.sa_key or r.package)
+        stats = analyze_logcat(logcat, universe)
         for k, v in stats.items():
             setattr(r, k, v)
 
         # 6. classificar — a precedência importa: uma falha de lançamento
         # produz zero cobertura por si só, e reportá-la como falta de
         # instrumentação seria o erro de leitura da campanha de julho.
-        if launch_bad or (r.error_type_3 and r.cov_pkg < COV_MIN):
+        if launch_bad or (r.error_type_3 and r.cov_app < COV_MIN):
             r.status = "launch_failed"
             if not r.detail:
                 r.detail = (out + " " + err).strip()[:300]
         elif r.fatal_exception or r.verify_error or r.anr:
             r.status = "crash"
-        elif r.cov_pkg < COV_MIN:
+        elif r.cov_app < COV_MIN:
             r.status = "nocov"
         else:
             r.status = "pass"
@@ -389,7 +362,7 @@ def append_row(state_csv: Path, r: Result) -> None:
         w.writerow(asdict(r))
 
 
-def reclassify(corpus: Path, out: Path, keys: dict[str, str]) -> int:
+def reclassify(corpus: Path, out: Path) -> int:
     """Recalcula cobertura e status a partir dos logcats já gravados, sem tocar
     no device. Existe porque o critério é uma leitura do logcat, não uma
     propriedade da corrida: mudá-lo não pode custar 162 reinstalações."""
@@ -413,7 +386,8 @@ def reclassify(corpus: Path, out: Path, keys: dict[str, str]) -> int:
         for f in ("install_s", "launch_s", "total_s"):
             setattr(r, f, float(row.get(f) or 0))
         meta = corpus / f"{row['apk']}.json"
-        r.sa_key = sa_key(keys, row["apk"], r.package or manifest_package(meta))
+        universe = app_classes(meta)
+        r.sa_classes = len(universe)
 
         lg = logcat_dir / f"{row['apk']}.logcat.gz"
         if not lg.exists():
@@ -423,15 +397,15 @@ def reclassify(corpus: Path, out: Path, keys: dict[str, str]) -> int:
             continue
 
         with gzip.open(lg, "rt") as fh:
-            stats = analyze_logcat(fh.read(), r.sa_key or r.package)
+            stats = analyze_logcat(fh.read(), universe)
         for k, v in stats.items():
             setattr(r, k, v)
 
-        if row.get("status") == "launch_failed" or (r.error_type_3 and r.cov_pkg < COV_MIN):
+        if row.get("status") == "launch_failed" or (r.error_type_3 and r.cov_app < COV_MIN):
             r.status = "launch_failed"
         elif r.fatal_exception or r.verify_error or r.anr:
             r.status = "crash"
-        elif r.cov_pkg < COV_MIN:
+        elif r.cov_app < COV_MIN:
             r.status = "nocov"
         else:
             r.status = "pass"
@@ -465,14 +439,10 @@ def main() -> int:
                     help="revalida mesmo o que já está no CSV de estado")
     ap.add_argument("--reclassify", action="store_true",
                     help="recalcula status a partir dos logcats gravados, sem device")
-    ap.add_argument("--dataset-csv", type=Path, default=DATASET_CSV,
-                    help="o funil, de onde vem a chave de pacote por APK")
     args = ap.parse_args()
 
-    keys = load_dataset_keys(args.dataset_csv)
-
     if args.reclassify:
-        return reclassify(args.corpus, args.out, keys)
+        return reclassify(args.corpus, args.out)
 
     apks = sorted(args.corpus.glob("*.apk"))
     if not apks:
@@ -514,11 +484,11 @@ def main() -> int:
     for i, apk in enumerate(pending, 1):
         meta = apk.parent / f"{apk.name}.json"
         log.info("[%d/%d] %s", i, len(pending), apk.name)
-        r = validate_one(apk, device, aapt, args.settle, logcat_dir, meta, keys)
+        r = validate_one(apk, device, aapt, args.settle, logcat_dir, meta)
         append_row(state_csv, r)
         tally[r.status] = tally.get(r.status, 0) + 1
-        log.info("  → %s | cov %d (pkg %d) | %s | %.0fs",
-                 r.status.upper(), r.cov_total, r.cov_pkg,
+        log.info("  → %s | cov %d (app %d) | %s | %.0fs",
+                 r.status.upper(), r.cov_total, r.cov_app,
                  r.launch_method or "-", r.total_s)
         if r.detail:
             log.info("     %s", r.detail[:200])
