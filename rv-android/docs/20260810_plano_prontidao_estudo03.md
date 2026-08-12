@@ -730,6 +730,7 @@ Entram como ameaças à validade ou notas de proveniência, não como trabalho.
 | artefato | caminho |
 |---|---|
 | **Registro de execução das Fases A e B** (o que aconteceu ao rodar este plano, com os quatro defeitos medidos) | `rv-android/docs/20260812_registro_execucao_prontidao_e3.md` |
+| **► Diretório do experimento final** (162 APKs instrumentados + os 162 `.apk.json` co-locados) | `RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/` |
 | Lista dos 30 | `rv-android/30_apks.csv` |
 | Driver da rodada de SA | `rv-android/scripts/gh91_sa_rerun.py`, `gh91_campaign.py`, `gh91_gate.py`, `gh91_record.py` |
 | Change da rodada anterior | `rv-android/openspec/changes/archive/2026-07-31-gh91-sa-rerun-manifest-key/` |

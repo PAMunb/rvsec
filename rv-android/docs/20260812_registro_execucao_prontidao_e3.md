@@ -11,7 +11,9 @@ aritmética não são verificação.
 
 **Corte deste documento: 2026-08-12 12:10. As duas fases estão encerradas e suas seções são
 definitivas.** A Fase A entregou 25/30 e **reprovou** no Gate A; a Fase B entregou **162/163**
-e a entrega está consolidada. O que continua aberto são decisões, não medições, e está na §3.
+e a entrega está consolidada em `APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/`,
+**o diretório do experimento final** (§3). O que continua aberto são decisões, não medições, e
+está na §4.
 
 ---
 
@@ -393,7 +395,57 @@ como defeito caracterizado.
 
 ---
 
-## 3. Pendências abertas
+## 3. O diretório do experimento final
+
+**`RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/`**
+
+É **este** o diretório a ser usado no experimento final do Estudo 03. Montado em 2026-08-12 por
+decisão do pesquisador, segue a nomenclatura e o layout dos diretórios irmãos
+(`APKS_INSTRUMENTED_jca_dexlib2_experimento-20260706_selected163`): tudo plano, `<nome>.apk` e
+`<nome>.apk.json` lado a lado — que é como `pre_processor.py:459` procura a análise estática
+(`app_path + EXTENSION_STATIC_ANALYSIS`, INV-EXP-16) — mais um `selected162.txt` com a lista.
+
+| conteúdo | origem |
+|---|---|
+| **162 APKs instrumentados** | `E3_jca_dexlib2_163/instrumented_apks/` (Fase B, §2.5) |
+| **30 `.apk.json`** | `SA_RERUN_gh91_wtg/` — a rodada da Fase A, chave `Mneut` + WTG (§1) |
+| **132 `.apk.json`** | `rvsec-dataset/static_analysis/` — Phase-7, que já tinham chave do manifesto e WTG e por isso não foram reanalisados |
+| `selected162.txt` | a lista, no mesmo formato do `selected163.txt` |
+
+4,3 GB. Conferido: pareamento **1:1** entre `.apk` e `.apk.json`, `selected162.txt` idêntico ao
+conjunto de arquivos, e sha256 dos APKs batendo com o `SHA256SUMS` da entrega da Fase B.
+
+A aritmética fecha exatamente: os 163 do funil são **30 + 133**, com os 30 do `30_apks.csv`
+contidos nos 163; o APK excluído (`info.dvkr.screenstream_44000.apk`, §2.5) pertence ao grupo
+dos 133, então dele saem **132** JSON e o total é **30 + 132 = 162**.
+
+### 3.1 Achado ao montar: 40 dos 162 carregam WTG truncado, não vazio
+
+Aplicando aos 162 a mesma classificação que a Fase A estabeleceu — cruzar `transitions` com o
+`timed_out` do `_progress`, porque o sentinela sozinho não distingue os dois casos:
+
+| estado do WTG | quantos |
+|---|---|
+| povoado | **121** |
+| **vazio por truncamento** | **40** |
+| genuinamente vazio | 1 |
+| indeterminado | 0 |
+
+Dos 40 truncados, **5 são os da Fase A** (§1.1, já conhecidos e declarados no Gate A) e **35
+vêm da Phase-7** — descobertos agora, ao aplicar pela primeira vez o predicado `is_complete`
+sobre aquelas saídas. Os `_progress` correspondentes estão em `rvsec-dataset-sa/_progress/` e
+todos os 35 têm `timed_out: true`; nenhum ficou indeterminado.
+
+**Consequência a considerar antes do experimento:** o braço guiado do E3 consome o artefato MOP
+derivado, e esse artefato precisa do WTG (`wtgEdges`). **Um quarto do corpus entregaria grafo
+vazio**, e — este é o ponto — os 35 da Phase-7 *parecem completos* pelo sentinela, que é
+exatamente o defeito que a Fase A expôs. Não é decisão minha; fica registrado porque afeta a
+interpretação de qualquer medida de cobertura guiada, e porque o número não estava disponível
+antes desta montagem.
+
+---
+
+## 4. Pendências abertas
 
 Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 
@@ -404,6 +456,7 @@ Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 | P3 | **`ch.rmy.android.http_shortcuts` travou sem a exceção do `ConstantAnalysis`.** Causa não identificada. | §1.2 |
 | ~~P4~~ | ~~Destino do `info.dvkr.screenstream_44000.apk`.~~ **Decidido pelo pesquisador em 2026-08-12: o corpus fecha com 162**, com a causa documentada em detalhe. O reprocessamento isolado foi feito e reproduziu a falha; a causa é o teto de 64K referências do DEX, estrutural, não remediável sem reparticionar. | §2.5 |
 | P5 | **`instr-cli` retorna `exit 0` com `success=false`.** Sítio do exit code não inspecionado; só a checagem de existência no wrapper Python detecta. | §2.5 |
+| P11 | **35 JSON da Phase-7 carregam WTG truncado** e se declaram completos pelo sentinela (§3.1). Um quarto do corpus final entregaria grafo vazio ao braço guiado. | §3.1 |
 | P10 | **O relatório do instrumentador não preserva a causa das falhas** (`BatchRunner.java:381-382` descarta trace e `getCause()`; `failed()` zera os contadores). Qualquer `RuntimeException` vira uma linha sem diagnóstico. | §2.5 |
 | P6 | **`coverageSpillFailed` sem semântica caracterizada.** 1 ocorrência. | §2.5 |
 | P7 | **Metade do critério do piloto continua não provada**: instala, lança, `RVSEC-COV` no logcat, nenhum `VerifyError`. Exige corrida com emulador, que o plano não escreve. | §2.3 |
@@ -421,7 +474,7 @@ Duas observações que não são pendências, mas condicionam quem for usar esta
 
 ---
 
-## 4. Índice dos artefatos desta execução
+## 5. Índice dos artefatos desta execução
 
 | artefato | caminho |
 |---|---|
@@ -434,3 +487,5 @@ Duas observações que não são pendências, mas condicionam quem for usar esta
 | Piloto corrompido (evidência do defeito da §2.2) | `rv-android/backup/e3-piloto-monitor-race-20260812/` |
 | Lote dos 163 — fatias e proveniência | `RV_ANDROID_NOVO_DATASET/E3_jca_dexlib2_163/` — `monitors_master/`, `s0..s7/` + `s*.log`/`s*.preflight`, `PROVENIENCIA.md` |
 | **Entrega consolidada da Fase B** | `E3_jca_dexlib2_163/instrumented_apks/` — **162 APKs** (3,8 GB), `instrument_results.json` (163 registros), `SHA256SUMS` |
+| **► DIRETÓRIO DO EXPERIMENTO FINAL** | `RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/` — 162 `.apk` + 162 `.apk.json` co-locados + `selected162.txt` (§3) |
+| Evidência do diagnóstico do DEX 64K | `rv-android/backup/e3-screenstream-dex64k-20260812/` e `E3_jca_dexlib2_163/retry1/` (os `woven_*.dex` que provam o ponto de parada) |
