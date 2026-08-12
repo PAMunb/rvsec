@@ -287,24 +287,89 @@ uncaught error: Exception occurred while writing code_item for method
   Landroidx/core/view/WindowInsetsCompat$Impl20;->setTypeBoundingRectsMap([[Landroid/graphics/Rect;)V
 ```
 
-O dexlib2 falhou ao **serializar** o `code_item` de um método do `androidx.core` cujo parâmetro
-é `[[Rect` (array de arrays). Morreu após 400,2 s, antes de produzir contador algum — não é
-falha da tecelagem JCA, é o escritor de DEX. É 1 em 149 até aqui; se outros APKs exibirem a
-mesma exceção do `WindowInsetsCompat`, deixa de ser caso isolado e vira padrão a tratar.
+**Decisão do pesquisador em 2026-08-12: o corpus fecha com 162.** O APK não entra. O que segue
+é o diagnóstico completo, registrado em detalhe porque a causa é estrutural e vai reaparecer.
 
-**Achado colateral, mais grave que a falha em si: o `instr-cli` saiu com `exit 0`.** O próprio
-registro do CLI diz `success=false, phase=uncaught`, e ainda assim o processo retornou zero:
+**Reprocessamento isolado: reproduz.** Rodado sozinho, com o mesmo `monitors_master` e preflight
+próprio (`retry1/`), falhou de novo com **mensagem idêntica, mesmo método, mesma fase**, em
+347,5 s contra 400,2 s da primeira vez — só variação de tempo. **A falha é determinística, não
+transitória.**
+
+##### A causa: o APK bateu no teto de 64K referências de método do formato DEX
+
+Os intermediários do reprocessamento ficaram em disco e permitiram localizar onde a escrita
+parou. O laço percorre os DEX em **ordem lexicográfica** e escreveu 21 dos 29 antes de morrer:
+
+- `woven_classes28.dex` existe mas está **inválido**: 8.067.641 bytes com **cabeçalho zerado**
+  (`magic` de 8 bytes nulos, `file_size = 0`, `class_defs = 0`). O `DexWriter` escreve o header
+  por último e nunca chegou lá.
+- Os oito seguintes na ordem (`classes29`, `classes3`–`classes9`) **não chegaram a ser
+  tentados** — a exceção abortou o laço inteiro.
+- `Landroidx/core/view/WindowInsetsCompat$Impl20;` vive exatamente em `classes28.dex`.
+
+E o `classes28.dex` **original** já chega ao teto:
+
+| | |
+|---|---|
+| `method_ids` usados | **65.521** |
+| limite do formato DEX | **65.536** |
+| **folga** | **15 referências** |
+
+A tecelagem precisa injetar referências aos métodos de `mop.MonitorWrappers` (são **84**
+wrappers gerados) mais a sonda de cobertura. **Não cabem em 15 slots.** A comparação com os
+demais DEX do mesmo APK fecha o argumento: quase todos saíram com `orig + 1` referência, o
+`classes16` com `+4`. E o próprio `classes.dex` deste APK está na borda — **65.352 usados, 184
+de folga** — e passou raspando, saindo com 65.353.
+
+**Isto não é defeito do weaver nem da tecelagem JCA.** É limitação estrutural do formato: um
+APK cujo DEX já está no teto de 64K não admite instrumentação sem ser reparticionado. Explica
+todas as observações: o determinismo, a indiferença a mais memória e mais tempo, e a falha
+ocorrer no momento da **escrita**, não da análise. Remediar exigiria reparticionar o DEX antes
+de tecer — o projeto tem um `MultidexMerger`, mas a falha acontece **antes** dele, na escrita
+por DEX.
+
+**Risco residual para o corpus:** 1 em 163 nesta rodada. Qualquer APK com um DEX próximo de
+65.536 falha do mesmo modo, e a margem é o que decide — 184 de folga sobreviveu, 15 não. Vale
+como verificação barata em corpora futuros: ler `method_ids` (offset 88 do header DEX) de cada
+DEX antes de instrumentar.
+
+##### Dois defeitos de diagnóstico que este caso expôs
+
+**1. O relatório do instrumentador não preserva a causa da falha.** O registro completo do APK
+é uma linha de mensagem e nada mais:
+
+```json
+{ "apkName": "info.dvkr.screenstream_44000.apk", "success": false,
+  "message": "uncaught error: Exception occurred while writing code_item for method
+              Landroidx/core/view/WindowInsetsCompat$Impl20;->setTypeBoundingRectsMap([[Landroid/graphics/Rect;)V",
+  "phase": "uncaught", "weaveCounts": {} }
+```
+
+Por construção: `BatchRunner.java:381-382` faz
+`catch (RuntimeException ex) { return failed(apk, "uncaught error: " + ex.getMessage(), "uncaught"); }`
+— guarda **apenas `ex.getMessage()`**, descartando o *stack trace* e a **causa encadeada**; e
+`failed(...)` (`:386-388`) ainda substitui os contadores por `Map.of()`, apagando o que já fora
+medido. A exceção vem de `com.android.tools.smali.dexlib2.writer.DexWriter`, que embrulha a
+original em `new ExceptionWithContext(ex, "Exception occurred while writing code_item for
+method %s", …)`; e `ExceptionWithContext` **não sobrescreve `getMessage()`** (verificado com
+`javap`: a classe só expõe `printStackTrace`, `getContext`, `addContext`). Logo a causa real
+está em `getCause()`, **que ninguém lê**. `--log-level=TRACE` não ajuda — foi rodado, e a saída
+é idêntica, porque o `catch` descarta antes de qualquer log. Todo o diagnóstico acima teve de
+ser reconstruído a partir dos intermediários em disco.
+
+**2. O `instr-cli` sai com `exit 0` quando falha.** O próprio registro diz
+`success=false, phase=uncaught`, e o processo retorna zero:
 
 ```
---- exit 0 after 400.2s ---
+--- exit 0 after 347.5s ---
 instr-cli result: PerApkResult[... success=false, phase=uncaught ...]
 ```
 
-**O código de saída do `instr-cli` não é confiável para detectar falha por APK.** Quem
-interceptou foi a checagem de existência do arquivo no wrapper Python (`instr-cli reported
-success but ... was not created`). Um consumidor que confie no exit code engole a falha em
-silêncio. O sítio onde o exit code é definido não foi inspecionado, então isto fica registrado
-como observação medida, não como defeito caracterizado.
+**O código de saída não é confiável para detectar falha por APK.** Quem interceptou foi a
+checagem de existência do arquivo no wrapper Python (`instr-cli reported success but ... was
+not created`). Um consumidor que confie no exit code engole a falha em silêncio. O sítio onde o
+exit code é definido não foi inspecionado, então fica registrado como observação medida, não
+como defeito caracterizado.
 
 #### Dois contadores de aliasing, lidos no fonte
 
@@ -337,8 +402,9 @@ Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 | P1 | **O Gate A não fecha com os 5 truncados.** Corpus de 25; ou 30 com `wtg_status = truncated` documentado como exceção; ou corrigir o `CFGWorker`. Uma terceira rodada não resolve — o defeito é determinístico. | §1.2, §1.4 |
 | P2 | **Corrigir ou não o `CFGWorker` do gator.** Seria try/catch com `finally` devolvendo o worker ao pool, mas diverge do upstream. Sem issue aberta, por decisão de 2026-08-12. | §1.2 |
 | P3 | **`ch.rmy.android.http_shortcuts` travou sem a exceção do `ConstantAnalysis`.** Causa não identificada. | §1.2 |
-| P4 | **Destino do `info.dvkr.screenstream_44000.apk`**: reprocessar isolado, ou declarar 162 e documentar a exclusão. | §2.5 |
+| ~~P4~~ | ~~Destino do `info.dvkr.screenstream_44000.apk`.~~ **Decidido pelo pesquisador em 2026-08-12: o corpus fecha com 162**, com a causa documentada em detalhe. O reprocessamento isolado foi feito e reproduziu a falha; a causa é o teto de 64K referências do DEX, estrutural, não remediável sem reparticionar. | §2.5 |
 | P5 | **`instr-cli` retorna `exit 0` com `success=false`.** Sítio do exit code não inspecionado; só a checagem de existência no wrapper Python detecta. | §2.5 |
+| P10 | **O relatório do instrumentador não preserva a causa das falhas** (`BatchRunner.java:381-382` descarta trace e `getCause()`; `failed()` zera os contadores). Qualquer `RuntimeException` vira uma linha sem diagnóstico. | §2.5 |
 | P6 | **`coverageSpillFailed` sem semântica caracterizada.** 1 ocorrência. | §2.5 |
 | P7 | **Metade do critério do piloto continua não provada**: instala, lança, `RVSEC-COV` no logcat, nenhum `VerifyError`. Exige corrida com emulador, que o plano não escreve. | §2.3 |
 | ~~P8~~ | ~~Merge das 8 fatias.~~ **Feito** em 2026-08-12 12:07: cardinalidade conferida antes de fundir (162, zero duplicados), APKs copiados, `instrument_results.json` fundido com os 163 registros, `SHA256SUMS` gerado. | §2.5 |
@@ -346,8 +412,10 @@ Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 
 Duas observações que não são pendências, mas condicionam quem for usar esta entrega:
 
-- **A entrega é de 162 APKs, não 163.** Qualquer contagem, denominador ou proporção calculada
-  sobre o corpus instrumentado tem de declarar isso, e não herdar o 163 do `apks_163.txt`.
+- **A entrega é de 162 APKs, não 163, e isso é decisão fechada, não pendência.** Qualquer
+  contagem, denominador ou proporção calculada sobre o corpus instrumentado tem de declarar
+  isso, e não herdar o 163 do `apks_163.txt`. O APK excluído é o
+  `info.dvkr.screenstream_44000.apk`, pela causa estrutural descrita na §2.5.
 - **O corpus está instrumentado, não validado em execução.** A metade do critério do piloto que
   exige emulador (P7) continua não provada, e nenhum destes 162 APKs foi instalado ou lançado.
 
