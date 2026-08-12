@@ -9,8 +9,8 @@ Ele não substitui nem edita o plano. Quatro defeitos foram medidos aqui, três 
 código de produção; todos estão descritos com `arquivo:linha`, porque handoff, relatório e
 aritmética não são verificação.
 
-**Corte deste documento: 2026-08-12 12:10. As duas fases estão encerradas e suas seções são
-definitivas.** A Fase A entregou 25/30 e **reprovou** no Gate A; a Fase B entregou **162/163**
+**Corte deste documento: 2026-08-12 15:10. As duas fases estão encerradas e suas seções são
+definitivas, e a validação em emulador dos 162 (P7) foi executada e fechou 162/162 (§3.2).** A Fase A entregou 25/30 e **reprovou** no Gate A; a Fase B entregou **162/163**
 e a entrega está consolidada em `APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/`,
 **o diretório do experimento final** (§3). O que continua aberto são decisões, não medições, e
 está na §4.
@@ -469,6 +469,101 @@ tamanho modesto: os 35 da Phase-7 têm sentinela como qualquer outro, então a d
 feito antes. Fica registrado porque afeta a interpretação de qualquer medida de cobertura
 guiada, e porque o número não estava disponível antes desta montagem.
 
+### 3.2 Validação em execução dos 162 — a P7 fecha
+
+**Executada em 2026-08-12, das 14:19 às 15:10, 49 min de relógio, 18,1 s por APK.** Emulador
+`RVSec` (API 30, x86_64) subiu **uma vez** pelo comando canônico da imagem Docker
+(`scripts/run_emulator.sh`, com `-writable-system -wipe-data`) e caiu uma vez no fim. A regra
+PERMANENTE do `CLAUDE.md` continua valendo: o pesquisador autorizou o emulador **para esta
+validação e só para ela**, e o texto da regra não foi alterado.
+
+Driver: `scripts/e3_validate_emulator.py` — serial, resume por CSV append-only, um logcat
+gzipado por APK. Para cada um: instala com `adb install -r -g`, lança a activity principal,
+espera 15 s, captura `adb logcat -d`, classifica, desinstala.
+
+**As quatro metades do critério do piloto (§2.3), todas provadas:**
+
+| | |
+|---|---|
+| instalou | **162/162** |
+| lançou | **162/162** |
+| `RVSEC-COV` ≥ 2 no pacote do app | **162/162** |
+| `VerifyError` | **0** |
+
+Também zero `FATAL EXCEPTION`, zero `ANR in`, zero `Error type 3` e zero `force-stop`, somados
+os 162 logcats.
+
+| linhas `RVSEC-COV` | mín | p25 | mediana | p75 | máx | soma |
+|---|---:|---:|---:|---:|---:|---:|
+| do pacote do app | **4** | 138 | 438 | 796 | 3493 | 95.848 |
+| totais | 11 | — | 1068 | — | 7255 | 220.027 |
+
+O piso é 4, em `com.smartpack.packagemanager_79`; apenas 2 APKs ficam abaixo de 10. O
+`net.gaast.giggity_769`, um dos dois que no piloto apareciam com `matchesApplied = 0` e cujo
+mérito só se vê em `wrappersSubstituted` (§2.4), emite 80 linhas, todas do próprio pacote — o
+piso de 12 sítios tecidos funciona **em execução**, não só no relatório.
+
+**Isto é validação de boot, não de exploração.** Prova que o APK instrumentado sobe e emite
+evento monitorado; não diz nada sobre a instrumentação sobreviver a interação prolongada.
+
+#### O critério exige a chave de pacote, e ela é declarada, não derivada
+
+O critério é `RVSEC-COV` **do pacote do app**, o mesmo universo que a análise estática usa como
+denominador de 100% de cobertura — a chave de filtragem do GATOR (`filterPackage`,
+`RvsecAnalysisClient.java:90`), aplicada por `startsWith` com exclusão de `.R`, `.R$*` e
+`.BuildConfig` (`isAppClass`, `:277-285`).
+
+**Essa chave não sai do `.apk.json`.** INV-ANA-58 (`domain/app.py:157-160`) declara que o JSON
+do GATOR grava o pacote do **manifesto** qualquer que tenha sido a chave que filtrou seu
+conteúdo — *"whoever records a run needs the origin stated rather than re-derived"*. E o
+pipeline devolve o `applicationId` verbatim (`app.py:146-147`; o `PackageDetector` está
+**desligado por padrão** e só roda por `RV_PACKAGE_DETECTOR` / `--package-detector`), porque
+tirar sufixo de build é trabalho de quem cura o corpus, não do pipeline.
+
+A curadoria deste corpus está escrita fora deste repositório, e **é onde se deve olhar antes de
+deduzir qualquer coisa sobre pacote**:
+
+| artefato | onde | o que dá |
+|---|---|---|
+| o funil | `rvsec-dataset/docs/dataset.csv` | `detected_package` e `manifest_package` por APK; cobre os 162 sem ausências |
+| a regra de neutralização | `ase-journal/docs/20260730_relatorio_remocao_package_detector.md` §6 | denylist `{debug, dev, beta, staging, qa, nightly, alpha, snapshot, current, head, indev}`, removida repetidamente do fim, mínimo 2 segmentos |
+| o filtro de qualidade da chave | `rvsec-dataset/docs/20260714_package-scope-final-dataset.md` | por que 37 dos 219 saíram (`filtered_pkgdet_scope`) — é o `funnel_stage` do `30_apks.csv` |
+| a régua congelada | `rv-android/30_apks.csv`, coluna `Mneut` | a chave dos 30 da Fase A, passada verbatim (`gh91_sa_rerun.py:266`) |
+
+Aplicando a regra do §6 sobre `detected_package`, verificado duas vezes: **reproduz o `Mneut`
+congelado em 30/30**, e a chave resultante **cobre toda a `reachability` em 162/162**. Uma
+ressalva: a denylist do §6 é minúscula e o corpus traz `com.vrem.wifianalyzer.BETA`, então a
+comparação de token tem de ser *case-insensitive*.
+
+**Sufixo de build nos 162:** 75 têm, 87 não — `.debug` 61, `.dev` 7, `.beta` 4, `.current` 1,
+`.BETA` 1, `.qa.debug` 1. Os quatro últimos casos estão **fora** da lista que aparece no
+`30_apks.csv` (`.debug`/`.dev`/`.current`), e quem parar naquela lista deixa 6 APKs com o
+sufixo grudado. O impacto é **de leitura, não de dado**: as análises dos 162 já foram rodadas
+com chave sem sufixo — se não tivessem, o `startsWith` não casaria nada e a `reachability`
+sairia vazia, e nenhuma está. Nada precisa ser reanalisado.
+
+O que fica **não verificado**: que a chave usada nos 132 vindos da Phase-7 seja exatamente a
+neutralizada, e não algo mais raso. Chave rasa cobre a `reachability` do mesmo jeito e infla o
+denominador em vez de esvaziá-lo. Para os 30 da Fase A a questão está fechada pelo `Mneut`;
+para os 132 não há régua equivalente neste registro.
+
+#### Armadilha do driver, medida aqui: o `ResolverActivity`
+
+19 dos 162 não expõem `launchable-activity` no `aapt dump badging` porque declaram
+`MAIN`/`LAUNCHER` só em `<activity-alias>` — a causa dos 189 logcats perdidos da campanha de
+julho (`experimento-20260706/docs/residual/NOCOV_LOGCATS.md`). Perguntar ao PackageManager do
+device (`adb shell cmd package resolve-activity --brief -c LAUNCHER <pkg>`) resolve, porque ele
+enxerga o alias: 17 APKs lançaram assim, entre eles `org.fossify.notes_13`, cuja activity real
+é `…activities.SplashActivity.Green`.
+
+**Mas o resolve-activity tem seu próprio buraco.** Quando o app declara mais de uma activity
+LAUNCHER, o PackageManager devolve `android/com.android.internal.app.ResolverActivity` — o
+seletor do sistema. Lançar isso abre o chooser, não o app, e o logcat sai com zero cobertura
+por motivo nenhum do APK. Aconteceu com `com.gaurav.avnc_51` e `org.wikipedia_50595`, que
+foram reportados `nocov` na primeira passada; com o guarda que rejeita componente fora do
+pacote alvo e cai para `monkey -p`, os dois passam (1089 e 5239 linhas). **São os únicos dois
+não-`pass` da corrida, e ambos eram defeito do driver.**
+
 ---
 
 ## 4. Pendências abertas
@@ -485,7 +580,8 @@ Nenhuma destas foi decidida. Estão aqui para não se perderem entre sessões.
 | P11 | **35 JSON da Phase-7 carregam WTG truncado** e se declaram completos pelo sentinela (§3.1). Um quarto do corpus final entregaria grafo vazio ao braço guiado. | §3.1 |
 | P10 | **O relatório do instrumentador não preserva a causa das falhas** (`BatchRunner.java:381-382` descarta trace e `getCause()`; `failed()` zera os contadores). Qualquer `RuntimeException` vira uma linha sem diagnóstico. | §2.5 |
 | P6 | **`coverageSpillFailed` sem semântica caracterizada.** 1 ocorrência. | §2.5 |
-| P7 | **Metade do critério do piloto continua não provada**: instala, lança, `RVSEC-COV` no logcat, nenhum `VerifyError`. Exige corrida com emulador, que o plano não escreve. | §2.3 |
+| ~~P7~~ | ~~Metade do critério do piloto continua não provada.~~ **Feita** em 2026-08-12, 49 min: **162/162** instalam, lançam e emitem ≥ 2 linhas `RVSEC-COV` do pacote do app, com **zero `VerifyError`**, zero `FATAL EXCEPTION`, zero ANR. É validação de boot, não de exploração. | §3.2 |
+| P12 | **A chave de pacote dos 132 vindos da Phase-7 não tem régua.** Sabe-se que não tem sufixo de build (senão a `reachability` estaria vazia), mas não que seja a neutralizada e não uma mais rasa — que cobriria igual e inflaria o denominador. Os 30 da Fase A estão fechados pelo `Mneut`. | §3.2 |
 | ~~P8~~ | ~~Merge das 8 fatias.~~ **Feito** em 2026-08-12 12:07: cardinalidade conferida antes de fundir (162, zero duplicados), APKs copiados, `instrument_results.json` fundido com os 163 registros, `SHA256SUMS` gerado. | §2.5 |
 | ~~P9~~ | ~~Reescrever a §2.5 com os números finais.~~ **Feito.** | §2.5 |
 
@@ -495,8 +591,13 @@ Duas observações que não são pendências, mas condicionam quem for usar esta
   contagem, denominador ou proporção calculada sobre o corpus instrumentado tem de declarar
   isso, e não herdar o 163 do `apks_163.txt`. O APK excluído é o
   `info.dvkr.screenstream_44000.apk`, pela causa estrutural descrita na §2.5.
-- **O corpus está instrumentado, não validado em execução.** A metade do critério do piloto que
-  exige emulador (P7) continua não provada, e nenhum destes 162 APKs foi instalado ou lançado.
+- **O corpus está instrumentado e validado em execução** (§3.2): os 162 instalam, lançam e
+  emitem cobertura, sem nenhum `VerifyError`. O que **não** está provado é comportamento sob
+  exploração prolongada — a validação é de boot.
+- **Pacote do manifesto não é chave de análise.** 75 dos 162 carregam sufixo de build, e tanto o
+  `.apk.json` quanto o `dataset.csv` gravam o identificador **com** ele. Comparar nome de classe
+  contra essa string dá zero em 75 APKs. A chave é declarada no funil e neutralizada pela regra
+  do §6 — ver §3.2.
 
 ---
 
@@ -514,4 +615,7 @@ Duas observações que não são pendências, mas condicionam quem for usar esta
 | Lote dos 163 — fatias e proveniência | `RV_ANDROID_NOVO_DATASET/E3_jca_dexlib2_163/` — `monitors_master/`, `s0..s7/` + `s*.log`/`s*.preflight`, `PROVENIENCIA.md` |
 | **Entrega consolidada da Fase B** | `E3_jca_dexlib2_163/instrumented_apks/` — **162 APKs** (3,8 GB), `instrument_results.json` (163 registros), `SHA256SUMS` |
 | **► DIRETÓRIO DO EXPERIMENTO FINAL** | `RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/` — 162 `.apk` + 162 `.apk.json` co-locados + `selected162.txt` (§3) |
+| Driver da validação em emulador | `rv-android/scripts/e3_validate_emulator.py` — serial, resume por CSV, `--reclassify` recomputa o critério offline sobre os logcats gravados |
+| **Saída da validação (P7)** | `RV_ANDROID_NOVO_DATASET/E3_VALIDACAO_EMULADOR_162/` — `validation.csv` (162 linhas), `logcats/*.logcat.gz` (evidência integral por APK), `run.log`, `validation_criterio_antigo.csv` |
+| Curadoria da chave de pacote | `rvsec-dataset/docs/dataset.csv` (o funil) · `ase-journal/docs/20260730_relatorio_remocao_package_detector.md` §6 (regra de neutralização) · `rvsec-dataset/docs/20260714_package-scope-final-dataset.md` (o corte dos 37) |
 | Evidência do diagnóstico do DEX 64K | `rv-android/backup/e3-screenstream-dex64k-20260812/` e `E3_jca_dexlib2_163/retry1/` (os `woven_*.dex` que provam o ponto de parada) |
