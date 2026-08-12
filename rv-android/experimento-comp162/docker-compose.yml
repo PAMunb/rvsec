@@ -1,0 +1,201 @@
+# comp162 — APE original x APE-RV com e sem guia MOP, sobre a instrumentacao nova.
+#
+# NAO e o experimento final do Estudo 03. E um ensaio: a mesma grade da cmp163
+# (docs/20260806_cmp163.md, docs/20260807_resultados_cmp163.md) rodando sobre o
+# corpus recem-instrumentado, para ver como ele se comporta antes que o final
+# dependa dele. Plano: docs/20260812_comp162.md.
+#
+# GRADE. 3 bracos x 162 APKs x 3 repeticoes x 300 s = 1458 runs em 8 containers.
+#
+#   ape              baseline  — APE original, ape.jar builtin do rv-tools
+#   mop_off_llm_off  controle  — artefato MOP no dispositivo, cinco pesos em 0,
+#                                gatilho de atividade desligado. Remove a GUIA,
+#                                nao a navegacao (INV-APV-30)
+#   mop_on_llm_off   referencia— o mesmo + ACTIVITY_TRIGGER, MENU_GATEWAY,
+#                                MOP_FRONTIER, WTG
+#
+# TRES REPETICOES, e nao uma. E a lacuna declarada na §7 do relatorio da cmp163:
+# com R=1 nao ha medida de variancia dentro da celula, entao da para dizer que uma
+# diferenca e consistente entre aplicacoes, mas nao que ela e maior que o ruido de
+# repeticao. A gh97 mediu desvio-padrao entre replicas de 1,75-2,12 pp em
+# cov_method a 1800 s; a 300 s a dispersao tende a ser maior, e e isso que R=3
+# torna mensuravel.
+#
+# TRES COISAS DIFEREM DA cmp163, e todas as tres tocam a leitura do resultado:
+#
+#   1. OS BINARIOS. O corpus e o mesmo conjunto de aplicacoes menos uma, mas os
+#      APKs foram reinstrumentados em 2026-08-12. Este e o objeto do ensaio.
+#   2. A IMAGEM carrega a guarda INV-APV-60 (commit c1d28365, posterior ao build
+#      da 0.9.3-rearch). Exploracao truncada passa a levantar excecao no momento
+#      em que trunca, e o resume comum a recupera. Na cmp163 isso era invisivel e
+#      dependeu de reparo offline (data/results/cmp163_repair.py).
+#   3. O SUBSTRATO. A re-analise da gh91 recuperou o WTG de 10 aplicacoes
+#      (41 -> 51 com WTG povoado, censo_substrato.csv). Isso alimenta exatamente
+#      o braco de referencia, que consome wtgEdges.
+#
+# A PARTICAO E HERDADA da cmp163 menos o APK que saiu (scripts/make_filters.py).
+# Cada aplicacao roda no MESMO indice de container das duas vezes, entao efeito de
+# container cancela na diferenca pareada entre as campanhas. Gerar round-robin
+# sobre a lista nova faria o oposto: remover um elemento renumera tudo depois dele.
+#
+# O JAR SOB TESTE CHEGA POR BIND-MOUNT, montado :ro por cima do que a propria
+# imagem construiu. O Dockerfile clona phtcosta/ape sem --branch e sem pin de SHA
+# (gh71 D3), entao a imagem traz o HEAD do instante do build; o bind-mount fixa o
+# jar em a7eddf5a..., o mesmo da cmp163 e da perna B da gh97. Trocar jar e imagem
+# ao mesmo tempo poria duas diferencas de binario onde o ensaio quer uma.
+#
+# SEM SGLANG. Nenhum braco LLM nesta grade.
+#
+# Uso:
+#   docker compose -f docker-compose.smoke.yml up -d      # smoke primeiro
+#   uv run python scripts/smoke_gates.py                  # criterio de aceitacao
+#   docker compose up -d                                  # so com 6/6 portoes PASS
+#   bash scripts/monitor.sh
+#   # resume: re-rodar o mesmo 'up -d' (recupera FAILED transientes)
+#   # NAO dar 'down' antes de extrair os traces — artefatos efemeros no device
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.3-comp162
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:mop_off_llm_off:mop_on_llm_off@corpus_basis=selected162:3bbc5fa91ba2cf3cd59e040237501caa0718735647d2c6881e09581f1e972c85"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    # O dataset ja vem instrumentado (jca/dexlib2) com o <apk>.json co-locado, que
+    # e como pre_processor.py:459 acha a analise estatica (INV-EXP-16). Reinstrumentar
+    # aqui produziria binarios diferentes dos que o .apk.json descreve.
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+# Os volumes sao repetidos por servico e nao ancorados: o compose funde mapeamentos,
+# nunca listas, entao um alias de lista viraria lista aninhada e o arquivo nem
+# carregaria.
+#
+# RV_DELAY escalona a subida dos emuladores de 10 em 10 s: oito emuladores bootando
+# ao mesmo tempo disputam CPU e alguns estouram o timeout de boot.
+
+services:
+
+  comp162_00:
+    <<: *rvandroid-base
+    container_name: comp162_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_00:/opt/rvsec/rv-android/results
+
+  comp162_01:
+    <<: *rvandroid-base
+    container_name: comp162_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_01:/opt/rvsec/rv-android/results
+
+  comp162_02:
+    <<: *rvandroid-base
+    container_name: comp162_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_02:/opt/rvsec/rv-android/results
+
+  comp162_03:
+    <<: *rvandroid-base
+    container_name: comp162_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_03:/opt/rvsec/rv-android/results
+
+  comp162_04:
+    <<: *rvandroid-base
+    container_name: comp162_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_04:/opt/rvsec/rv-android/results
+
+  comp162_05:
+    <<: *rvandroid-base
+    container_name: comp162_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_05:/opt/rvsec/rv-android/results
+
+  comp162_06:
+    <<: *rvandroid-base
+    container_name: comp162_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_06:/opt/rvsec/rv-android/results
+
+  comp162_07:
+    <<: *rvandroid-base
+    container_name: comp162_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/comp162_07:/opt/rvsec/rv-android/results

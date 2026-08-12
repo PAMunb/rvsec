@@ -51,6 +51,15 @@
 /experimento-rearch-aperv/results_smoke/
 /experimento-rearch-aperv/container_logs/
 
+# experimento-comp162: 1458 runs (162 APKs x 3 arms x 3 reps), which at the ~5 MB
+# per run the cmp163 measured lands around 7.5 GB of result trees. Listed here
+# BEFORE the campaign runs, not after — the rearch entry above went in two days
+# late and spent that window one pathspec-less `git add` from the index. What the
+# campaign produces under consolidado/ is deliberately NOT ignored: those CSVs are
+# the evidence, and they are kilobytes.
+/experimento-comp162/results/
+/experimento-comp162/results_smoke/
+
 # gh52: instr-cli fat jar is auto-copied by the Maven build (design D9);
 # not versioned because it's a build output of
 # rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli.

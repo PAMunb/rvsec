@@ -1,0 +1,75 @@
+# Smoke da comp162 — o portao que libera a campanha.
+#
+# 2 APKs x 3 bracos x 1 rep a 120 s = 6 identidades, uma aplicacao por container.
+# O criterio de aceitacao e `scripts/smoke_gates.py`, nao "os containers subiram".
+#
+# 120 s e nao 300 s de proposito: o smoke pergunta se a configuracao resolve, nao
+# quanto ela cobre, e o piso de admissibilidade (C2) escala com o orcamento. O
+# script ainda extrapola dali o ciclo por run a 300 s, que e o que calibra o
+# wall-clock da corrida completa.
+#
+# OS DOIS APKs SAO ESCOLHIDOS PELO ARTEFATO. Ambos tem os tres sinais do censo —
+# flagged, wtgEdges e mopActivities todos > 0 — entao o braco de referencia tem o
+# que consumir nas tres vias; um APK sem substrato deixaria os portoes do RUN_START
+# vazios de conteudo. O `binaryeye` e deliberado: e uma das dez aplicacoes cujo WTG
+# a re-analise da gh91 recuperou (0 -> 177 arestas), entao o smoke exercita
+# justamente o substrato novo, que e a diferenca desta campanha que mais toca o
+# braco guiado.
+#
+# Uso:
+#   docker compose -f docker-compose.smoke.yml up -d
+#   uv run python scripts/smoke_gates.py
+#   docker compose -f docker-compose.smoke.yml down     # aqui o down PODE, os
+#                                                       # tracos ja foram lidos
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.3-comp162
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:mop_off_llm_off:mop_on_llm_off@corpus_basis=selected162:3bbc5fa91ba2cf3cd59e040237501caa0718735647d2c6881e09581f1e972c85"
+    RV_TIMEOUTS: "120"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+
+  comp162smoke_00:
+    <<: *rvandroid-base
+    container_name: comp162smoke_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162smoke_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/smoke_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results_smoke/comp162smoke_00:/opt/rvsec/rv-android/results
+
+  comp162smoke_01:
+    <<: *rvandroid-base
+    container_name: comp162smoke_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: comp162smoke_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/smoke_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results_smoke/comp162smoke_01:/opt/rvsec/rv-android/results

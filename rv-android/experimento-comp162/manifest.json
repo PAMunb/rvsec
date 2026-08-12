@@ -1,0 +1,62 @@
+{
+  "campaign": "comp162",
+  "purpose": "Ensaio da instrumentação nova (experimento-FINAL_selected162) na grade do cmp163. NÃO é o experimento final do Estudo 03.",
+  "compared_against": "data/results/cmp163_consolidado/per_apk_paired.csv",
+  "image": {
+    "tag": "phtcosta/rvandroid:0.9.3-comp162",
+    "id": "sha256:2c406490cac4b7572486aabdc89fdee63681f37a87adcb1fcdf82f74628f843d"
+  },
+  "build": {
+    "rvsec_branch": "modules",
+    "ape_rv_jar": "bind-mount local"
+  },
+  "corpus": {
+    "dataset_dir": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162",
+    "subset_file": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_dexlib2_experimento-FINAL_selected162/selected162.txt",
+    "apk_count": 162,
+    "corpus_basis": "selected162:3bbc5fa91ba2cf3cd59e040237501caa0718735647d2c6881e09581f1e972c85"
+  },
+  "reps": 3,
+  "timeout": 300,
+  "containers": 8,
+  "spec_set": "jca",
+  "arms": [
+    {
+      "role": "baseline",
+      "tool": "ape",
+      "variant": null,
+      "jar": "modules/rv-tools/src/rv_tools/builtin/ape/ape.jar"
+    },
+    {
+      "role": "control",
+      "tool": "aperv",
+      "variant": "mop_off_llm_off",
+      "preset": "mop",
+      "strategy": "sata",
+      "mop_data": "static_analysis",
+      "expected_params": {
+        "ape.mopActivitySourceComponents": true,
+        "ape.frontierBoostWeight": 200,
+        "ape.mopWeightDirect": 0,
+        "ape.mopWeightTransitive": 0,
+        "ape.mopWeightOpenMenu": 0,
+        "ape.mopWeightWtg": 0
+      }
+    },
+    {
+      "role": "reference",
+      "tool": "aperv",
+      "variant": "mop_on_llm_off",
+      "preset": "mop",
+      "strategy": "sata",
+      "mop_data": "static_analysis",
+      "expected_params": {
+        "ape.mopActivitySourceComponents": true,
+        "ape.frontierBoostWeight": 200,
+        "ape.mopFrontierWeight": 200,
+        "ape.activityTriggerEnabled": true
+      }
+    }
+  ],
+  "predicted_identities": 1458
+}
