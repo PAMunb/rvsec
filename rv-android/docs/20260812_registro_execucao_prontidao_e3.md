@@ -58,6 +58,31 @@ novo `is_complete` (`scripts/gh91_campaign.py:126`), que exige sentinela **e**
 `timed_out is False`, rejeitou os cinco e os promoveu à rodada 2. Verificado em produção sobre
 o arquivo real do `org.glpi`: `has_sentinel → True`, `is_complete → False`.
 
+**Por que o sentinela não basta, no fonte.** `JsonReportWriter.write()` emite o sentinela
+**incondicionalmente**, como último campo de toda escrita
+(`.../clients/json/JsonReportWriter.java:111`) — não há parâmetro que distinga escrita parcial
+de final. E o `RvsecAnalysisClient` chama esse mesmo `write()` **duas vezes**: antes do WTG,
+com `wtg = null` (`:167-169`, e o writer então emite `transitions: []`), e de novo depois do
+WTG, sobrescrevendo. As duas escritas levam o sentinela.
+
+O comentário do próprio cliente (`:155-163`) declara o contrário — que *"the pre-WTG write does
+NOT emit the sentinel"* e que um timeout no WTG deixaria o arquivo *"with NO sentinel"* —, e o
+comentário do writer registra o contrato ADR-6, segundo o qual é a **ausência** do sentinela que
+marca a amostra como incompleta. **A implementação não faz o que os dois comentários dizem.**
+Medido: 5/5 dos truncados da Fase A e 79/79 dos da Phase-7 têm o sentinela.
+
+O `skipWtg=true` da rodada anterior escondia isso porque o cliente retornava logo após a
+escrita pré-WTG (`:180-184`) — ali aquele arquivo *era* o final legítimo, e sentinela e
+completude coincidiam por acidente do fluxo.
+
+**O tamanho real disto.** A `reachability` é escrita antes do WTG e fica íntegra; o WTG falta de
+todo modo. A única coisa que se perde é **saber, olhando só o JSON, se o grafo está vazio por
+timeout ou por natureza** — e o `_progress` da corrida responde isso, que é exatamente o que o
+`is_complete` passou a consultar. Não há dado corrompido nem análise errada: há um campo que
+não carrega a informação que seria conveniente ele carregar. Conserto seria pequeno (um
+`boolean partial` no `write()`, ou emitir o sentinela só na segunda chamada), mas é
+`rvsec-gator` e não foi feito.
+
 ### 1.2 Defeito: o WTG do GATOR trava para sempre quando um worker morre
 
 **As 5 falhas não são fome de recurso.** Os APKs queimaram o teto exato do timeout em toda
@@ -438,10 +463,11 @@ todos os 35 têm `timed_out: true`; nenhum ficou indeterminado.
 
 **Consequência a considerar antes do experimento:** o braço guiado do E3 consome o artefato MOP
 derivado, e esse artefato precisa do WTG (`wtgEdges`). **Um quarto do corpus entregaria grafo
-vazio**, e — este é o ponto — os 35 da Phase-7 *parecem completos* pelo sentinela, que é
-exatamente o defeito que a Fase A expôs. Não é decisão minha; fica registrado porque afeta a
-interpretação de qualquer medida de cobertura guiada, e porque o número não estava disponível
-antes desta montagem.
+vazio.** O número em si é o que importa aqui — não o mecanismo, que é o mesmo da §1.1 e de
+tamanho modesto: os 35 da Phase-7 têm sentinela como qualquer outro, então a distinção entre
+"vazio por timeout" e "vazio por natureza" só sai do `_progress`, e por isso ninguém a tinha
+feito antes. Fica registrado porque afeta a interpretação de qualquer medida de cobertura
+guiada, e porque o número não estava disponível antes desta montagem.
 
 ---
 
