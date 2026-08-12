@@ -20,8 +20,9 @@ windows, then transitions).
 
 ### Role in the System:
 
-- Called by StaticAnalysisComponent in rv-platform during pre-processing
-  (Phase 1 of TaskExecutor, outside emulator session)
+- Called by rv-experiment's PreProcessor during pre-processing, before any
+  task runs. rv-platform does not run analyses — its components only read
+  artefacts already on disk, via the parser.
 - Produces StaticAnalysisData consumed by rv-agent (navigation guidance,
   MOP prioritization) and rv-coverage (method universe for coverage %)
 
@@ -112,7 +113,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
 
     ### Role in the System:
 
-    - Instantiated by StaticAnalysisComponent in rv-platform for each task
+    - Instantiated by rv-experiment's PreProcessor, once per APK
     - analyze() returns StaticAnalysisResult; get_static_data() parses the
       JSON into StaticAnalysisData for downstream consumers
     - get_metrics() provides execution timing for performance reporting
@@ -436,7 +437,10 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
 
         try:
             parser = StaticAnalysisParser()
-            static_data = parser.parse_file(self.analysis_file, self.app.code_package)
+            static_data = parser.parse_file(self.analysis_file)
+            # The key is logged because this run *performed* the analysis and
+            # chose the scope (INV-ANA-58); it is not passed to the parse, which
+            # reads the artefact at the scope already baked into it.
             self.logger.info(
                 "Static analysis data parsed",
                 extra={

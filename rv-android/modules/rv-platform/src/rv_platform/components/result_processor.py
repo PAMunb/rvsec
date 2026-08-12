@@ -266,9 +266,8 @@ class ResultProcessorComponent:
                 logcat_file = getattr(task.result, "logcat_file", None)
                 results_dir = os.path.dirname(logcat_file) if logcat_file else ""
             apk_name = task.config.apk_name
-            code_package = task.app.code_package if getattr(task, "app", None) else None
             static_data = static_analysis_parser.read_static_analysis_files(
-                results_dir, apk_name, code_package
+                results_dir, apk_name
             )
         except Exception as e:
             self.logger.warning(

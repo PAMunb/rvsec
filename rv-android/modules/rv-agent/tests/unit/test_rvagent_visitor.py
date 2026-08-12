@@ -44,7 +44,7 @@ def screenshots_path(fixtures_path):
 def static_data(static_analysis_path) -> StaticAnalysisData:
     """Load real static analysis data from unified JSON."""
     json_file = str(static_analysis_path / "cryptoapp.apk.json")
-    return parse_file(json_file, "br.unb.cic.cryptoapp")
+    return parse_file(json_file)
 
 
 @pytest.fixture

@@ -191,7 +191,7 @@ print(f"Method coverage: {coverage.method_coverage}%")
 
 # Static analysis integration
 from rv_static_analysis.parser.static.static_analysis_parser import parse_file
-static_data = parse_file("app.apk.json", "com.example.app")
+static_data = parse_file("app.apk.json")
 
 # Command execution with validation
 result = CommandResult(

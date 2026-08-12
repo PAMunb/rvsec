@@ -249,7 +249,14 @@ class TestStaticAnalyzer:
     def test_recorded_key_is_the_one_gator_and_the_parser_receive(
         self, mock_command, analyzer
     ):
-        """One key reaches all three places: the record, the argv and the parser."""
+        """The recorded key is the argv key, and it stops there.
+
+        Choosing a scope is a production decision (INV-ANA-58): the key this
+        run resolved reaches GATOR and the run's own record. It does not reach
+        the parse, which reads the artefact at whatever scope GATOR baked into
+        it (INV-ANA-61) — so there is no second place for the key to be
+        different.
+        """
         analyzer.app.code_package = "org.fossify.calendar.debug"
         analyzer.app.code_package_source = "manifest"
 
@@ -272,18 +279,21 @@ class TestStaticAnalyzer:
         ):
             analyzer.get_static_data()
 
-        assert parser_mock.parse_file.call_args.args[1] == result.code_package
+        parser_mock.parse_file.assert_called_once_with(analyzer.analysis_file)
 
     def test_a_disagreeing_json_package_member_never_changes_the_filter(
         self, analyzer, tmp_path
     ):
-        """A stored artefact does not supply, repair or override the key.
+        """Neither the artefact's `package` member nor the run's key filters.
 
         The real parser runs here, because the point is observable only in what
         it keeps. The JSON's `package` member says `org.fossify.calendar.debug`
-        while the run resolved `org.fossify.calendar`; the class below survives
-        the substring filter under the run's key and would be discarded under
-        the artefact's, so a passing assertion proves which one was used.
+        and the run resolved `org.fossify.calendar`; the second class below is
+        outside *both*, and it survives. Under either key it would have been
+        discarded, so a passing assertion proves no key was consulted
+        (INV-ANA-59, INV-ANA-61) — and, with the applicationId carrying a build
+        suffix that contains none of its own classes, that the first class is
+        not lost either.
         """
         analysis_file = tmp_path / "app.json"
         analysis_file.write_text(
@@ -296,7 +306,13 @@ class TestStaticAnalyzer:
                             "componentType": "ACTIVITY",
                             "isMain": True,
                             "methods": [],
-                        }
+                        },
+                        {
+                            "className": "org.fossify.commons.SharedHelper",
+                            "componentType": None,
+                            "isMain": False,
+                            "methods": [],
+                        },
                     ],
                     "windows": [],
                     "transitions": [],
@@ -311,6 +327,7 @@ class TestStaticAnalyzer:
         static_data = analyzer.get_static_data()
 
         assert "org.fossify.calendar.MainActivity" in static_data.classes.classes
+        assert "org.fossify.commons.SharedHelper" in static_data.classes.classes
 
     def test_get_metrics(self, analyzer):
         """Test retrieving metrics from the analyzer."""
@@ -340,9 +357,7 @@ class TestStaticAnalyzer:
             result = analyzer.get_static_data()
 
         assert result is not None
-        parser_mock.parse_file.assert_called_once_with(
-            analyzer.analysis_file, analyzer.app.code_package
-        )
+        parser_mock.parse_file.assert_called_once_with(analyzer.analysis_file)
 
     def test_get_static_data_analysis_failed(self, analyzer):
         """Test get_static_data when analysis was not successful."""

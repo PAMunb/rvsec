@@ -124,16 +124,13 @@ class StaticAnalysisComponent:
             try:
                 self.logger.info(LOG_START.format(phase="loading static analysis data"))
 
-                # Load GATOR/GESDA/REACH unified analysis data, scoped by
-                # code_package — the key this run resolved, carried on the App.
-                # The stored JSON cannot supply it: GATOR writes the manifest
-                # package into its `package` member whatever key filtered the
-                # contents, so reading it back would silently re-scope the
-                # coverage denominator (INV-ANA-58).
+                # Load GATOR/GESDA/REACH unified analysis data at the scope its
+                # producer gave it. No key is resolved here: GATOR filtered the
+                # artefact when it wrote it, so re-scoping on this side could
+                # only disagree with it (INV-ANA-61).
                 static_data = static_analysis_parser.read_static_analysis_files(
                     self.task.results_dir,
                     self.task.config.apk_name,
-                    self.task.app.code_package if self.task.app else None,
                 )
 
                 # Store static data in task

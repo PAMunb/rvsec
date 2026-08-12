@@ -42,7 +42,7 @@ def test_complete_true_propagates_to_static_analysis_data(tmp_path: Path) -> Non
     p = tmp_path / "with_sentinel.json"
     p.write_text(json.dumps(payload))
 
-    data = StaticAnalysisParser().parse_file(str(p), "com.app")
+    data = StaticAnalysisParser().parse_file(str(p))
     assert data.complete is True
 
 
@@ -52,7 +52,7 @@ def test_complete_false_when_explicitly_false(tmp_path: Path) -> None:
     p = tmp_path / "incomplete_sentinel.json"
     p.write_text(json.dumps(payload))
 
-    data = StaticAnalysisParser().parse_file(str(p), "com.app")
+    data = StaticAnalysisParser().parse_file(str(p))
     assert data.complete is False
 
 
@@ -67,7 +67,7 @@ def test_legacy_gh57_json_without_sentinel_parses_with_complete_false(
     p = tmp_path / "legacy.json"
     p.write_text(json.dumps(payload))
 
-    data = StaticAnalysisParser().parse_file(str(p), "com.app")
+    data = StaticAnalysisParser().parse_file(str(p))
     assert data.complete is False, (
         "Pre-sentinel JSONs MUST parse to complete=False — the sentinel's "
         "ABSENCE is exactly the signal consumers use to exclude the sample."
@@ -89,7 +89,7 @@ def test_truncated_recovery_yields_complete_false(tmp_path: Path) -> None:
     p = tmp_path / "truncated.json"
     p.write_text(raw)
 
-    data = StaticAnalysisParser().parse_file(str(p), "com.app")
+    data = StaticAnalysisParser().parse_file(str(p))
     # The load-bearing assertion: a truncation-recovered JSON CANNOT
     # contain the sentinel, because JsonReportWriter emits the sentinel
     # AFTER all sections and only on the success path. Whether the

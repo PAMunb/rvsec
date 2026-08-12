@@ -1223,7 +1223,7 @@ def _make_live_task_with_coverage(
     task.set_app(app)
 
     task.static_data = static_analysis_parser.read_static_analysis_files(
-        task.results_dir, apk_name, _GH58_CODE_PACKAGE
+        task.results_dir, apk_name
     )
     task.repository = parse_logcat_file(task.result.logcat_file, task.static_data)
 
@@ -1473,7 +1473,7 @@ def _make_gh83_live_task(tmp_path):
     task.result.tool_execution_start = _gh83_epoch()
 
     static_data = static_analysis_parser.read_static_analysis_files(
-        str(apk_dir), "sample_apk.apk", _GH58_CODE_PACKAGE
+        str(apk_dir), "sample_apk.apk"
     )
     tracker = CoverageTracker(
         logcat_file=task.result.logcat_file,

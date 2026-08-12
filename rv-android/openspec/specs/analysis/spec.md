@@ -55,7 +55,7 @@ sequenceDiagram
 
     Note over SAC,CT: Task Initialization
     SAC->>JSON: copy to task results dir
-    SAC->>Parser: parse_file(json_path, code_package)
+    SAC->>Parser: parse_file(json_path)
     Parser-->>SAC: StaticAnalysisData(Classes, Windows, WTG, Components)
     SAC->>CT: initialize(static_data)
     CT->>CT: build LogcatRepository (method universe)
@@ -95,7 +95,7 @@ sequenceDiagram
 
 5. **SignatureNormalizer for inner class notation**: Static analysis tools (Soot) use `$` for inner classes (`OuterClass$InnerClass`), but the analysis JSON may use `.` notation (`OuterClass.InnerClass`). The `StaticAnalysisParser` uses `SignatureNormalizer` to convert `.` to `$` based on Java naming convention heuristics (uppercase after separator indicates inner class).
 
-6. **PackageDetector resolves manifest vs code package**: In approximately 27.5% of APKs, the AndroidManifest.xml package name differs from the actual code package (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`). The `PackageDetector` uses a priority-based heuristic with 6 strategies: same-package check, game engine detection, single package, common prefix, frequency-based selection, and string similarity fallback. Static analysis parsers receive `code_package` (not `package_name`) for class filtering.
+6. **PackageDetector resolves manifest vs code package**: In approximately 27.5% of APKs, the AndroidManifest.xml package name differs from the actual code package (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`). The `PackageDetector` uses a priority-based heuristic with 6 strategies: same-package check, game engine detection, single package, common prefix, frequency-based selection, and string similarity fallback. The key it elects scopes the analysis when one is **run** — it is passed to GATOR as `-clientParam codePackage=`. Parsing a produced artefact receives no key at all (INV-ANA-61).
 
 7. **Visitor pattern for extensible UI parsing**: The rv-screen-parser uses the visitor pattern with `Node.accept(visitor)` dispatching to element-specific methods (`visit_button`, `visit_edit_text`, etc.). This allows different visitors to produce different output formats without modifying the parser. The visitor handles 30+ Android widget classes including standard, AndroidX AppCompat, and Material Design components.
 
@@ -285,7 +285,7 @@ rv-screen-parser:
 ### Input
 
 - `apk_path: str` -- Path to Android APK file (source: rv-experiment or user, consumed by StaticAnalyzer)
-- `code_package: str` -- Application code package name (source: App.code_package via PackageDetector, consumed by StaticAnalysisParser for class filtering)
+- `code_package: str` -- Application code package name (source: App.code_package via PackageDetector, consumed by `RVStaticAnalysisConfig.get_tool_command` to scope the GATOR invocation; not consumed by the parser)
 - `rvsec_root: str` -- Path to RVSEC installation (source: RVSEC_HOME env var or explicit, consumed by RVStaticAnalysisConfig for tool path resolution)
 - `mop_dir: str` -- Path to MOP specification directory (source: RVStaticAnalysisConfig, consumed by the analysis client via `-clientParam mopDir=<path>`)
 - `targets_file: str` -- Path to a text file of Soot method signatures, one per line (`#` comments allowed); mutually exclusive with `mop_dir` (source: RVStaticAnalysisConfig CLI `--targets-file`, consumed via `-clientParam targetsFile=<path>`; INV-ANA-33)
@@ -327,8 +327,6 @@ rv-screen-parser:
 ## Invariants
 
 - **INV-ANA-02**: The `StaticAnalysisParser` MUST apply `SignatureNormalizer` to all class names and method signatures before storing them in domain models. The normalization converts inner class dot notation (`OuterClass.InnerClass`) to dollar notation (`OuterClass$InnerClass`) using Java naming convention heuristics. The normalizer is applied in all three JSON sections (`windows`, `transitions`, `reachability`).
-
-- **INV-ANA-03**: The `StaticAnalysisParser` MUST receive `App.code_package` for class filtering, NOT `App.package_name`. The two are equal by default and differ only when the user enabled `PackageDetector`; the parser MUST NOT reason about which of the two produced the value. The parser MUST filter classes in the `reachability` section and windows in the `windows` section by verifying that class names contain the `code_package` string.
 
 - **INV-ANA-04**: The `CoverageTracker` MUST log coverage metric updates whenever coverage metrics change. It MUST log MOP error detections immediately when an RV error is detected. Log entries MUST include the `task_id` if one was provided during initialization.
 
@@ -389,7 +387,13 @@ rv-screen-parser:
 - **INV-ANA-51**: Normalization MUST be idempotent and MUST be a no-op on well-formed values: for any value `v` that does not end with a `(<file>:<line>)` group, `normalize(v) == v` byte-for-byte, and for any value at all, `normalize(normalize(v)) == normalize(v)`.
 - **INV-ANA-52**: The normalization guard MUST be anchored on the trailing group only. It MUST NOT constrain the prefix, because real method names in the corpus contain spaces and nested parentheses. Verified by the corner-case corpus, which includes `…CryptoMigrationV2CompatibilityTest.V2-header files (3xx format) are still decryptable after reading a V1-header file(CryptoMigrationV2CompatibilityTest.kt:131)`.
 
-- **INV-ANA-58**: No component of the analysis pipeline MUST derive a filtering key from an existing analysis artefact. The `package` member of a GATOR JSON is the manifest package as GATOR read it and MUST NOT be treated as the key that filtered that file. A run MUST record the key it used and its origin; it MUST NOT infer, repair, or override a key on the basis of a stored artefact.
+- **INV-ANA-58**: No component of the analysis pipeline MUST derive a filtering key from an existing analysis artefact. The `package` member of a GATOR JSON is the manifest package as GATOR read it and MUST NOT be treated as the key that filtered that file. A run that **performs** an analysis MUST record the key it used and its origin; it MUST NOT infer, repair, or override a key on the basis of a stored artefact. The invariant governs the **production** path only, because parsing no longer uses a key.
+
+- **INV-ANA-59**: The `StaticAnalysisParser` MUST load every entry of the `reachability` member of an analysis artefact and MUST NOT filter that member by any package key. The artefact is scoped by its producer, so the parsed method universe MUST equal the artefact's `reachability` member exactly, and the coverage denominator MUST equal that universe.
+
+- **INV-ANA-60**: The `StaticAnalysisParser` MUST scope `ACTIVITY` windows by membership in the artefact's `reachability` member: an `ACTIVITY` window MUST be admitted if and only if its normalized class name is present there. Window types other than `ACTIVITY` MUST be admitted unconditionally, because they can be system-provided overlays triggered by application code. No package key MUST participate in this decision.
+
+- **INV-ANA-61**: No function on the analysis **consumption** path — `StaticAnalysisParser.parse_file`, `read_static_analysis_files`, and their callers in `rv-platform` — MUST accept, resolve, or pass a package key. Resolving a scope is a **production**-path concern only.
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -646,19 +650,51 @@ This limitation does NOT apply to `cgDelegation=false` (the default), which uses
 
 Every static analysis run MUST record the package key it filtered on and the origin of that key (`manifest` or `detector`), at the time the analysis is performed, in the run's own output. The record exists because the analysis artefact cannot carry the information: GATOR writes the manifest package into the JSON's `package` member irrespective of the `codePackage` client parameter it was invoked with, so the file is silent about its own scope.
 
-No component MUST attempt to recover the key from a stored artefact, and no component MUST substitute the caller's requested key with one derived from a stored artefact. When a previously produced JSON was measured under a different key than the current run resolves, the mismatch is a data-management fact about the corpus, and the tool MUST NOT resolve it silently in either direction.
+The requirement governs the **production** path only. A run that performs an analysis chooses a scope, passes it to GATOR as `-clientParam codePackage=`, and records it. A run that merely reads an artefact chooses nothing: it consumes the file at the scope the producer gave it, so there is no key to record, to recover, or to disagree about. When two artefacts of a corpus were produced under different keys, that remains a data-management fact about the corpus, and no component MUST resolve it silently in either direction.
 
 #### Scenario: The key and its origin are recorded with the analysis
 
 - **WHEN** a static analysis runs over `org.fossify.calendar_20.apk` with the detector disabled, so that the resolved key is the declared `org.fossify.calendar.debug`
 - **THEN** the run's record MUST state the key `org.fossify.calendar.debug` and the origin `manifest`
-- **AND** the same key MUST be the one passed to GATOR as `-clientParam codePackage=` and the one given to `StaticAnalysisParser`
+- **AND** the same key MUST be the one passed to GATOR as `-clientParam codePackage=`
 
-#### Scenario: A stored artefact never supplies the key
+#### Scenario: A stored artefact never supplies a key, because none is wanted
 
-- **WHEN** an analysis JSON exists at `<results_dir>/<apk>.json` whose `package` member reads `org.fossify.calendar.debug`, and a run re-parses it with a resolved key of `org.fossify.calendar`
-- **THEN** the parser MUST filter using `org.fossify.calendar`, the key it was given
-- **AND** the `package` member of the JSON MUST NOT be read as a filtering key, nor used to override the resolved one
+- **WHEN** an analysis JSON exists at `<results_dir>/<apk>.json` whose `package` member reads `org.fossify.calendar.debug`, and a later run parses it
+- **THEN** the parser MUST load the artefact at the scope its producer gave it
+- **AND** the `package` member MUST NOT be read as a filtering key, and no other key MUST be resolved for the parse
+
+### Requirement: The Analysis Artefact Defines Its Own Scope (FR04, FR05, FR06, FR12)
+
+The parser MUST treat the analysis artefact as authoritative about which classes belong to the application. It MUST load the `reachability` member whole, and it MUST NOT apply any package-based filter to it. The producer already removed out-of-scope classes when it wrote the file; a second filter over that output cannot add information and can only remove some of it.
+
+`ACTIVITY` windows MUST be scoped by membership in `reachability`, because the producer does not scope the `windows` member. Windows of other types MUST continue to be admitted unconditionally.
+
+Neither `StaticAnalysisParser.parse_file` nor `read_static_analysis_files` MUST accept a package argument, and no caller on the consumption path MUST resolve one.
+
+#### Scenario: An applicationId that scopes nothing no longer empties the universe
+
+- **WHEN** `io.keepalive.android_133.apk.json` is parsed, whose `package` member reads `io.keepalive.android.debug` while its 203 `reachability` entries are named `io.keepalive.android.*`
+- **THEN** the parser MUST report 203 classes and 949 methods
+- **AND** `LogcatRepository` MUST be initialized with those 203 classes and 949 methods
+- **AND** `cov_method` MUST be computed over 949 as denominator, so a run whose logcat carries `RVSEC-COV` lines MUST NOT report `0.00`
+
+#### Scenario: A framework activity present in windows but absent from reachability is excluded
+
+- **WHEN** an artefact lists `androidx.compose.ui.tooling.PreviewActivity` as an `ACTIVITY` window and does not list it in `reachability`
+- **THEN** that window MUST NOT be admitted
+- **AND** it MUST NOT be counted in `total_activities`, so `cov_act` MUST NOT be diluted by an activity the application does not own
+
+#### Scenario: A non-ACTIVITY window is admitted regardless of reachability
+
+- **WHEN** an artefact lists a `DIALOG` window whose class is absent from `reachability`
+- **THEN** that window MUST be admitted, because a dialog can be a system-provided overlay triggered by application code
+
+#### Scenario: The consumption path carries no key
+
+- **WHEN** `rv-platform` loads static data for a task, or re-parses the artefact while reconstructing a repository from logcat on resume
+- **THEN** it MUST call `read_static_analysis_files` with the results directory and APK name only
+- **AND** it MUST NOT read `App.code_package`, so the parsed universe MUST be identical whether or not `PackageDetector` is enabled for the run
 
 ### Requirement: Target Method Source Abstraction (FR04)
 

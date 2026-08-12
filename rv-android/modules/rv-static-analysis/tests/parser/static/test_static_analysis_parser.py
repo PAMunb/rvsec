@@ -41,7 +41,7 @@ class TestWellFormedJSON:
 
     def test_parse_real_fixture(self, parser):
         """Parse the real cryptoapp fixture and verify basic counts."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
 
         assert isinstance(result, StaticAnalysisData)
         assert isinstance(result.classes, Classes)
@@ -56,7 +56,7 @@ class TestWellFormedJSON:
 
     def test_class_count(self, parser):
         """Verify expected number of classes from cryptoapp."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         # 16 app classes after gh57 R$*/BuildConfig filter. The earlier 27
         # came from including generated resource classes, which inflated the
         # coverage denominator. See baselines/MANIFEST.json for the canonical
@@ -65,30 +65,30 @@ class TestWellFormedJSON:
 
     def test_method_count(self, parser):
         """Verify expected number of methods from cryptoapp."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         # 106 methods under the post-gh57 R$*/BuildConfig filter.
         assert len(result.classes.methods) == 106
 
     def test_window_count(self, parser):
         """Verify expected number of windows from cryptoapp."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         assert len(result.windows.windows) == 5
 
     def test_transition_count(self, parser):
         """Verify expected number of transitions from cryptoapp."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         assert len(result.wtg.transitions) == 36
 
     def test_main_activity_detected(self, parser):
         """Verify main activity is correctly identified."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         main_clazz = result.classes.get_clazz("br.unb.cic.cryptoapp.MainActivity")
         assert main_clazz is not None
         assert main_clazz.is_main is True
 
     def test_activity_flag(self, parser):
         """Verify activity classes are marked as activities."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         main_clazz = result.classes.get_clazz("br.unb.cic.cryptoapp.MainActivity")
         assert main_clazz is not None
         assert main_clazz.component_type == "activity"
@@ -116,7 +116,7 @@ class TestWellFormedJSON:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "br.unb.cic.cryptoapp")
+        result = parser.parse_file(path)
         service_clazz = result.classes.get_clazz("br.unb.cic.cryptoapp.MyService")
         assert service_clazz is not None
         assert service_clazz.component_type == "service"
@@ -125,7 +125,7 @@ class TestWellFormedJSON:
 
     def test_reachability_flags(self, parser):
         """Verify reachability flags are parsed correctly."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         # At least some methods should be reachable
         reachable_methods = [m for m in result.classes.methods.values() if m.reachable]
         reaches_target = [
@@ -141,7 +141,7 @@ class TestWellFormedJSON:
 
     def test_window_types(self, parser):
         """Verify different window types are parsed."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         types = {w.type for w in result.windows.windows}
         assert WindowType.ACTIVITY in types
         # cryptoapp has an OptionsMenu
@@ -149,7 +149,7 @@ class TestWellFormedJSON:
 
     def test_widget_events_parsed(self, parser):
         """Verify widget click listeners are parsed."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         # Find widgets with events across all windows
         has_events = False
         for window in result.windows.windows:
@@ -175,7 +175,14 @@ class TestWellFormedJSON:
         import json
 
         fixture = {
-            "reachability": [],
+            "reachability": [
+                {
+                    "className": "com.example.X",
+                    "componentType": "activity",
+                    "isMain": True,
+                    "methods": [],
+                }
+            ],
             "windows": [
                 {
                     "id": 1,
@@ -219,7 +226,7 @@ class TestWellFormedJSON:
         fixture_path = tmp_path / "v2.json"
         fixture_path.write_text(json.dumps(fixture))
 
-        result = parser.parse_file(str(fixture_path), "com.example")
+        result = parser.parse_file(str(fixture_path))
         window = next(iter(result.windows.windows))
         by_name = {w.name: w for w in window.widgets.values()}
 
@@ -234,7 +241,7 @@ class TestWellFormedJSON:
 
     def test_click_event_type(self, parser):
         """Verify click events are mapped to CLICK type."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         for window in result.windows.windows:
             for widget in window.widgets.values():
                 for event in widget.events:
@@ -253,7 +260,7 @@ class TestEmptyAndMissingData:
 
     def test_missing_file(self, parser):
         """Missing file returns empty StaticAnalysisData."""
-        result = parser.parse_file("/nonexistent/path.json", PACKAGE)
+        result = parser.parse_file("/nonexistent/path.json")
         assert isinstance(result, StaticAnalysisData)
         assert len(result.classes.classes) == 0
         assert len(result.windows.windows) == 0
@@ -261,26 +268,34 @@ class TestEmptyAndMissingData:
 
     def test_none_file_path(self, parser):
         """None file path returns empty StaticAnalysisData."""
-        result = parser.parse_file(None, PACKAGE)
+        result = parser.parse_file(None)
         assert isinstance(result, StaticAnalysisData)
         assert len(result.classes.classes) == 0
 
     def test_empty_string_file_path(self, parser):
         """Empty string file path returns empty StaticAnalysisData."""
-        result = parser.parse_file("", PACKAGE)
+        result = parser.parse_file("")
         assert isinstance(result, StaticAnalysisData)
         assert len(result.classes.classes) == 0
 
     def test_empty_json_object(self, parser, tmp_path):
         """Empty JSON object {} returns empty data for all sections."""
         path = _write_json(tmp_path, {})
-        result = parser.parse_file(path, PACKAGE)
+        result = parser.parse_file(path)
         assert len(result.classes.classes) == 0
         assert len(result.windows.windows) == 0
         assert len(result.wtg.transitions) == 0
 
     def test_missing_reachability_section(self, parser, tmp_path):
-        """JSON without reachability returns empty Classes."""
+        """JSON without reachability returns empty Classes and no activities.
+
+        With no reachability there is nothing that can answer whether an
+        ACTIVITY belongs to the application (INV-ANA-60), so none is admitted.
+        The artefact reads as degenerate rather than as an application with
+        activities and no methods: coverage then reports a zero denominator on
+        both axes instead of a plausible-looking cov_act over framework classes.
+        Other window types still enter, so the section itself is not lost.
+        """
         data = {
             "windows": [
                 {
@@ -289,14 +304,23 @@ class TestEmptyAndMissingData:
                     "id": 1,
                     "isMain": True,
                     "widgets": [],
-                }
+                },
+                {
+                    "name": "com.example.Main#Dialog",
+                    "type": "DIALOG",
+                    "id": 2,
+                    "isMain": False,
+                    "widgets": [],
+                },
             ],
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert len(result.classes.classes) == 0
-        assert len(result.windows.windows) == 1
+        names = {w.name for w in result.windows.windows}
+        assert "com.example.Main" not in names
+        assert "com.example.Main#Dialog" in names
 
     def test_missing_windows_section(self, parser, tmp_path):
         """JSON without windows returns empty Windows."""
@@ -312,7 +336,7 @@ class TestEmptyAndMissingData:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert len(result.classes.classes) == 1
         assert len(result.windows.windows) == 0
 
@@ -323,32 +347,38 @@ class TestEmptyAndMissingData:
             "windows": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert len(result.wtg.transitions) == 0
 
     def test_empty_reachability_array(self, parser, tmp_path):
         """Empty reachability array returns empty Classes."""
         data = {"reachability": [], "windows": [], "transitions": []}
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert len(result.classes.classes) == 0
 
     def test_empty_windows_array(self, parser, tmp_path):
         """Empty windows array returns empty Windows."""
         data = {"reachability": [], "windows": [], "transitions": []}
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert len(result.windows.windows) == 0
 
 
-# --- Code package filtering (INV-ANA-03) ---
+# --- The artefact defines its own scope (INV-ANA-59, INV-ANA-60, INV-ANA-61) ---
 
 
-class TestCodePackageFiltering:
-    """Tests for class filtering by code_package."""
+class TestArtefactDefinesItsOwnScope:
+    """The parser loads an artefact at the scope its producer gave it."""
 
-    def test_filters_by_package(self, parser, tmp_path):
-        """Only classes matching the package are included."""
+    def test_inv_ana_59_reachability_loaded_whole(self, parser, tmp_path):
+        """Every reachability entry is loaded, whatever its namespace.
+
+        GATOR removed the out-of-scope classes before writing the file, so a
+        second opinion here could only subtract. An artefact that legitimately
+        spans namespaces — an app whose implementation lives under a library's
+        package — keeps both.
+        """
         data = {
             "reachability": [
                 {
@@ -368,39 +398,76 @@ class TestCodePackageFiltering:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
-        assert len(result.classes.classes) == 1
+        result = parser.parse_file(path)
+        assert len(result.classes.classes) == 2
         assert "com.example.MyClass" in result.classes.classes
-        assert "org.other.OtherClass" not in result.classes.classes
+        assert "org.other.OtherClass" in result.classes.classes
 
-    def test_empty_package_includes_all(self, parser, tmp_path):
-        """Empty package string includes all classes."""
+    def test_gh102_applicationid_suffix_full_denominator(self, parser, tmp_path):
+        """A build-suffixed applicationId no longer empties the universe.
+
+        The artefact's `package` member is the applicationId as GATOR read it
+        (`io.keepalive.android.debug`), which is strictly longer than the
+        namespace its own classes live in and contains none of them. This is
+        the shape that drove 75 of the 162 Estudo 03 applications to a zero
+        denominator while their logcats were full of executed methods.
+        """
         data = {
+            "package": "io.keepalive.android.debug",
             "reachability": [
                 {
-                    "className": "com.a.A",
-                    "componentType": None,
-                    "isMain": False,
-                    "methods": [],
+                    "className": "io.keepalive.android.MainActivity",
+                    "componentType": "activity",
+                    "isMain": True,
+                    "methods": [
+                        {
+                            "name": "onCreate",
+                            "signature": "<io.keepalive.android.MainActivity: void onCreate(android.os.Bundle)>",
+                            "reachable": True,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
+                        }
+                    ],
                 },
                 {
-                    "className": "com.b.B",
-                    "componentType": None,
+                    "className": "io.keepalive.android.SettingsActivity",
+                    "componentType": "activity",
                     "isMain": False,
-                    "methods": [],
+                    "methods": [
+                        {
+                            "name": "onResume",
+                            "signature": "<io.keepalive.android.SettingsActivity: void onResume()>",
+                            "reachable": True,
+                            "reachesTarget": False,
+                            "directlyReachesTarget": False,
+                        }
+                    ],
                 },
             ],
             "windows": [],
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "")
+        result = parser.parse_file(path)
         assert len(result.classes.classes) == 2
+        assert len(result.classes.methods) == 2
 
-    def test_window_package_filter_activity_only(self, parser, tmp_path):
-        """Package filter applies only to ACTIVITY windows, not OPTIONSMENU."""
+    def test_inv_ana_60_framework_activity_excluded(self, parser, tmp_path):
+        """An ACTIVITY absent from reachability is not the app's to cover.
+
+        GATOR scopes `reachability` but not `windows`, so library and
+        framework activities show up in the latter. Admitting them would
+        dilute `cov_act` with activities the application does not own.
+        """
         data = {
-            "reachability": [],
+            "reachability": [
+                {
+                    "className": "com.example.Main",
+                    "componentType": "activity",
+                    "isMain": True,
+                    "methods": [],
+                }
+            ],
             "windows": [
                 {
                     "name": "com.example.Main",
@@ -410,16 +477,9 @@ class TestCodePackageFiltering:
                     "widgets": [],
                 },
                 {
-                    "name": "org.other.Activity",
+                    "name": "androidx.compose.ui.tooling.PreviewActivity",
                     "type": "ACTIVITY",
                     "id": 2,
-                    "isMain": False,
-                    "widgets": [],
-                },
-                {
-                    "name": "com.example.Main#OptionsMenu",
-                    "type": "OPTIONSMENU",
-                    "id": 3,
                     "isMain": False,
                     "widgets": [],
                 },
@@ -427,13 +487,67 @@ class TestCodePackageFiltering:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         names = {w.name for w in result.windows.windows}
         assert "com.example.Main" in names
-        # OPTIONSMENU is not filtered by package
+        assert "androidx.compose.ui.tooling.PreviewActivity" not in names
+
+    def test_inv_ana_60_non_activity_admitted(self, parser, tmp_path):
+        """Non-ACTIVITY windows enter regardless of reachability.
+
+        A dialog or an options menu can be a system-provided overlay raised by
+        application code, so ownership is not the question being asked of it.
+        """
+        data = {
+            "reachability": [
+                {
+                    "className": "com.example.Main",
+                    "componentType": "activity",
+                    "isMain": True,
+                    "methods": [],
+                }
+            ],
+            "windows": [
+                {
+                    "name": "android.app.AlertDialog",
+                    "type": "DIALOG",
+                    "id": 1,
+                    "isMain": False,
+                    "widgets": [],
+                },
+                {
+                    "name": "com.example.Main#OptionsMenu",
+                    "type": "OPTIONSMENU",
+                    "id": 2,
+                    "isMain": False,
+                    "widgets": [],
+                },
+            ],
+            "transitions": [],
+        }
+        path = _write_json(tmp_path, data)
+        result = parser.parse_file(path)
+        names = {w.name for w in result.windows.windows}
+        assert "android.app.AlertDialog" in names
         assert "com.example.Main#OptionsMenu" in names
-        # Activity from other package is filtered out
-        assert "org.other.Activity" not in names
+
+    def test_inv_ana_61_no_package_parameter(self):
+        """The consumption path carries no key, at either entry point.
+
+        Removing the parameter rather than ignoring it is what makes a stale
+        call site fail loudly instead of silently re-scoping a denominator.
+        """
+        import inspect
+
+        for fn in (
+            StaticAnalysisParser.parse_file,
+            StaticAnalysisParser.read_static_analysis_files,
+            parse_file,
+            read_static_analysis_files,
+        ):
+            params = set(inspect.signature(fn).parameters)
+            assert "package" not in params
+            assert "code_package" not in params
 
 
 # --- Inner class normalization (INV-ANA-02) ---
@@ -457,7 +571,7 @@ class TestInnerClassNormalization:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert "com.example.Outer$Inner" in result.classes.classes
 
     def test_dot_notation_normalized(self, parser, tmp_path):
@@ -475,7 +589,7 @@ class TestInnerClassNormalization:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         # SignatureNormalizer converts Outer.Inner to Outer$Inner
         assert "com.example.Outer$Inner" in result.classes.classes
 
@@ -487,7 +601,15 @@ class TestPartialSectionFailure:
     """Tests for graceful handling of individual section failures."""
 
     def test_corrupted_reachability_doesnt_break_windows(self, parser, tmp_path):
-        """Bad reachability data doesn't prevent windows from parsing."""
+        """Bad reachability degrades on its own, and takes activities with it.
+
+        The windows section is still parsed (INV-ANA-06): a corrupt
+        reachability does not raise out of the parse, and window types that
+        need no ownership test still enter. ACTIVITY windows do need one, and
+        the only thing that can answer it is the reachability the artefact
+        failed to deliver (INV-ANA-60), so they are excluded rather than
+        admitted on trust.
+        """
         data = {
             "reachability": "not-an-array",
             "windows": [
@@ -497,16 +619,25 @@ class TestPartialSectionFailure:
                     "id": 1,
                     "isMain": True,
                     "widgets": [],
-                }
+                },
+                {
+                    "name": "com.example.Main#OptionsMenu",
+                    "type": "OPTIONSMENU",
+                    "id": 2,
+                    "isMain": False,
+                    "widgets": [],
+                },
             ],
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         # Reachability failed gracefully
         assert len(result.classes.classes) == 0
-        # Windows still parsed
-        assert len(result.windows.windows) == 1
+        # The windows section itself survived the corrupt sibling section
+        names = {w.name for w in result.windows.windows}
+        assert "com.example.Main#OptionsMenu" in names
+        assert "com.example.Main" not in names
 
 
 # --- Transitions with unknown window IDs ---
@@ -539,7 +670,7 @@ class TestTransitionsWithUnknownWindows:
             ],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert len(result.wtg.transitions) == 0
 
     def test_unknown_target_skipped(self, parser, tmp_path):
@@ -566,7 +697,7 @@ class TestTransitionsWithUnknownWindows:
             ],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert len(result.wtg.transitions) == 0
 
 
@@ -616,7 +747,7 @@ class TestTruncatedJSON:
         with open(path, "w") as f:
             f.write(truncated)
 
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         # Recovery may or may not succeed depending on truncation point
         # But it should NOT crash
         assert isinstance(result, StaticAnalysisData)
@@ -627,7 +758,7 @@ class TestTruncatedJSON:
         with open(path, "w") as f:
             f.write("this is not json at all")
 
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         assert isinstance(result, StaticAnalysisData)
         assert len(result.classes.classes) == 0
         assert len(result.windows.windows) == 0
@@ -670,7 +801,7 @@ class TestEmptyMOPSpecs:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
 
         for method in result.classes.methods.values():
             assert method.reaches_target is False
@@ -685,7 +816,7 @@ class TestConvenienceFunctions:
 
     def test_parse_file_function(self):
         """parse_file() delegates to singleton."""
-        result = parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parse_file(CRYPTOAPP_FIXTURE)
         assert isinstance(result, StaticAnalysisData)
         assert len(result.classes.classes) > 0
 
@@ -697,7 +828,7 @@ class TestConvenienceFunctions:
         dest = os.path.join(str(tmp_path), "cryptoapp.apk.json")
         shutil.copy(CRYPTOAPP_FIXTURE, dest)
 
-        result = read_static_analysis_files(str(tmp_path), "cryptoapp.apk", PACKAGE)
+        result = read_static_analysis_files(str(tmp_path), "cryptoapp.apk")
         assert isinstance(result, StaticAnalysisData)
         assert len(result.classes.classes) > 0
 
@@ -731,7 +862,7 @@ class TestMethodSignatureParsing:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         methods = list(result.classes.methods.values())
         assert len(methods) == 1
         assert methods[0].params == ["int", "java.lang.String"]
@@ -759,7 +890,7 @@ class TestMethodSignatureParsing:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         methods = list(result.classes.methods.values())
         assert len(methods) == 1
         assert methods[0].params == []
@@ -774,7 +905,14 @@ class TestListenerEventTypeMapping:
     def test_unmapped_event_type_excluded(self, parser, tmp_path):
         """Listeners with unmapped event types are excluded."""
         data = {
-            "reachability": [],
+            "reachability": [
+                {
+                    "className": "com.example.Main",
+                    "componentType": "activity",
+                    "isMain": True,
+                    "methods": [],
+                }
+            ],
             "windows": [
                 {
                     "name": "com.example.Main",
@@ -799,7 +937,7 @@ class TestListenerEventTypeMapping:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         window = list(result.windows.windows)[0]
         widget = list(window.widgets.values())[0]
         assert len(widget.events) == 0
@@ -807,7 +945,14 @@ class TestListenerEventTypeMapping:
     def test_click_event_mapped(self, parser, tmp_path):
         """Click listeners are mapped to WidgetEventType.CLICK."""
         data = {
-            "reachability": [],
+            "reachability": [
+                {
+                    "className": "com.example.Main",
+                    "componentType": "activity",
+                    "isMain": True,
+                    "methods": [],
+                }
+            ],
             "windows": [
                 {
                     "name": "com.example.Main",
@@ -832,7 +977,7 @@ class TestListenerEventTypeMapping:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
         window = list(result.windows.windows)[0]
         widget = list(window.widgets.values())[0]
         assert len(widget.events) == 1
@@ -878,17 +1023,17 @@ class TestBaselineEquivalence:
 
     def test_class_count_exact(self, parser):
         """Exact match: number of classes after package filtering."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         assert len(result.classes.classes) == self.BASELINE["classes"]
 
     def test_method_count_exact(self, parser):
         """Exact match: total number of methods."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         assert len(result.classes.methods) == self.BASELINE["methods"]
 
     def test_activity_count_exact(self, parser):
         """Exact match: number of activity classes."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         activities = [
             c for c in result.classes.classes.values() if c.component_type == "activity"
         ]
@@ -896,17 +1041,17 @@ class TestBaselineEquivalence:
 
     def test_window_count_exact(self, parser):
         """Exact match: number of windows in WTG."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         assert len(result.windows.windows) == self.BASELINE["windows"]
 
     def test_transition_count_exact(self, parser):
         """Exact match: number of expanded transitions (events flattened)."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         assert len(result.wtg.transitions) == self.BASELINE["transitions"]
 
     def test_directly_reaches_target_exact(self, parser):
         """Exact match: methods that directly call monitored operations."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         count = sum(
             1 for m in result.classes.methods.values() if m.directly_reaches_target
         )
@@ -914,7 +1059,7 @@ class TestBaselineEquivalence:
 
     def test_reachable_within_tolerance(self, parser):
         """±10% tolerance: reachable methods from entry points."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         count = sum(1 for m in result.classes.methods.values() if m.reachable)
         expected = self.BASELINE["reachable"]
         assert (
@@ -923,7 +1068,7 @@ class TestBaselineEquivalence:
 
     def test_reaches_target_within_tolerance(self, parser):
         """±10% tolerance: methods that can reach monitored operations."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         count = sum(1 for m in result.classes.methods.values() if m.reaches_target)
         expected = self.BASELINE["reaches_target"]
         assert (
@@ -932,7 +1077,7 @@ class TestBaselineEquivalence:
 
     def test_main_activity_identified(self, parser):
         """Main activity must be correctly identified."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         main = result.classes.get_main_activity()
         assert main is not None
         assert main.name == "br.unb.cic.cryptoapp.MainActivity"
@@ -945,7 +1090,7 @@ class TestBaselineEquivalence:
             "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
             "br.unb.cic.cryptoapp.generated.CryptographyActivity",
         }
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         actual = {
             c.name
             for c in result.classes.classes.values()
@@ -955,14 +1100,14 @@ class TestBaselineEquivalence:
 
     def test_wtg_window_ids_match_windows(self, parser):
         """WTG window_ids must be consistent with parsed windows."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         wtg_ids = result.wtg.window_ids
         window_ids = {w.id for w in result.windows.windows}
         assert wtg_ids == window_ids
 
     def test_transitions_reference_valid_windows(self, parser):
         """Every transition must reference source/target in window_ids."""
-        result = parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        result = parser.parse_file(CRYPTOAPP_FIXTURE)
         for t in result.wtg.transitions:
             assert (
                 t["source"] in result.wtg.window_ids
@@ -996,7 +1141,7 @@ class TestNormalizerSafetyNet:
             return result
 
         parser.normalizer.normalize_class_name = counting_normalize
-        parser.parse_file(CRYPTOAPP_FIXTURE, PACKAGE)
+        parser.parse_file(CRYPTOAPP_FIXTURE)
 
         assert (
             change_count == 0
@@ -1028,7 +1173,7 @@ class TestNormalizerSafetyNet:
         }
         path = _write_json(tmp_path, data)
         with caplog.at_level(logging.WARNING):
-            result = parser.parse_file(path, "com.example")
+            result = parser.parse_file(path)
 
         # The normalizer converts Outer.Inner -> Outer$Inner
         assert "com.example.Outer$Inner" in result.classes.classes
@@ -1056,7 +1201,7 @@ class TestNormalizerSafetyNet:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
 
         # Should be normalized to $ notation
         assert "com.example.Outer$Inner" in result.classes.classes
@@ -1093,7 +1238,7 @@ class TestNormalizerSafetyNet:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        result = parser.parse_file(path, "com.example")
+        result = parser.parse_file(path)
 
         for _, expected in classes:
             assert (
@@ -1101,11 +1246,16 @@ class TestNormalizerSafetyNet:
             ), f"Expected {expected} in classes, got: {list(result.classes.classes.keys())}"
 
 
-class TestMultiPackageFiltering:
-    """Test code_package filtering for multi-package APKs (Task 8.10e-f)."""
+class TestMultiPackageArtefacts:
+    """Artefacts whose classes span more than one namespace.
 
-    def test_multi_package_filtering(self, parser, tmp_path):
-        """Only classes matching code_package are included."""
+    These are the cases that used to motivate a key on this side, and they are
+    exactly the cases a key gets wrong. The producer already decided what
+    belongs; whatever it wrote is the application.
+    """
+
+    def test_multi_namespace_artefact_loaded_whole(self, parser, tmp_path):
+        """Every namespace GATOR kept is loaded, including a library's."""
         data = {
             "reachability": [
                 {
@@ -1156,20 +1306,26 @@ class TestMultiPackageFiltering:
         }
         path = _write_json(tmp_path, data)
 
-        # Filter by code_package prefix
-        result = parser.parse_file(path, "edu.cmu.cylab.starslinger")
+        result = parser.parse_file(path)
 
-        # Both starslinger packages should be included
         assert "edu.cmu.cylab.starslinger.demo.Main" in result.classes.classes
         assert (
             "edu.cmu.cylab.starslinger.exchange.ExchangeActivity"
             in result.classes.classes
         )
-        # Firebase should be excluded
-        assert "com.google.firebase.App" not in result.classes.classes
+        # A GATOR that kept com.google.firebase.App decided it is in scope for
+        # this analysis. Second-guessing that here is what INV-ANA-59 forbids.
+        assert "com.google.firebase.App" in result.classes.classes
 
-    def test_manifest_vs_code_package(self, parser, tmp_path):
-        """Using code_package correctly filters Godot engine classes."""
+    def test_implementation_namespace_differs_from_applicationid(
+        self, parser, tmp_path
+    ):
+        """A Godot game keeps both its launcher and the engine classes.
+
+        Manifest `ir.hsn6.trans`, implementation `org.godotengine.godot`: no
+        single key admits both, which is why the key had to go rather than get
+        better. The artefact answers it — GATOR wrote both, so both count.
+        """
         data = {
             "reachability": [
                 {
@@ -1206,12 +1362,10 @@ class TestMultiPackageFiltering:
         }
         path = _write_json(tmp_path, data)
 
-        # PackageDetector would return code_package="org.godotengine.godot"
-        result = parser.parse_file(path, "org.godotengine.godot")
+        result = parser.parse_file(path)
 
         assert "org.godotengine.godot.GodotActivity" in result.classes.classes
-        # Manifest package class should be filtered out
-        assert "ir.hsn6.trans.Launcher" not in result.classes.classes
+        assert "ir.hsn6.trans.Launcher" in result.classes.classes
 
 
 # --- Components parsing ---
@@ -1247,7 +1401,7 @@ class TestComponentsParsing:
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         assert len(result.components.activities) == 1
         activity = result.components.activities[0]
         assert activity.class_name == "com.example.MainActivity"
@@ -1281,7 +1435,7 @@ class TestComponentsParsing:
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         assert len(result.components.providers) == 1
         provider = result.components.providers[0]
         assert provider.class_name == "com.example.DataProvider"
@@ -1340,7 +1494,7 @@ class TestComponentsParsing:
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         assert len(result.components.activities) == 1
         assert len(result.components.receivers) == 1
         assert len(result.components.services) == 1
@@ -1350,7 +1504,7 @@ class TestComponentsParsing:
     def test_missing_components_section(self, parser, tmp_path):
         json_data = {"reachability": [], "windows": [], "transitions": []}
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         assert len(result.components.get_all()) == 0
 
     def test_empty_components_section(self, parser, tmp_path):
@@ -1361,7 +1515,7 @@ class TestComponentsParsing:
             "components": {},
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         assert len(result.components.get_all()) == 0
 
     def test_malformed_components_section(self, parser, tmp_path):
@@ -1372,7 +1526,7 @@ class TestComponentsParsing:
             "components": "not_an_object",
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         assert len(result.components.get_all()) == 0
 
     def test_target_methods_parsed(self, parser, tmp_path):
@@ -1404,7 +1558,7 @@ class TestComponentsParsing:
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         recv = result.components.receivers[0]
         assert recv.reaches_target is True
         assert recv.target_methods == [
@@ -1442,7 +1596,7 @@ class TestComponentsParsing:
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         exported = result.components.get_exported_components()
         assert len(exported) == 1
         assert exported[0].class_name == "com.example.Svc1"
@@ -1463,32 +1617,43 @@ class TestComponentsD15Enrichment:
         json_data = {
             "package": "com.example",
             "mainActivity": "com.example.Main",
-            "reachability": [], "windows": [], "transitions": [], "complete": True,
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "complete": True,
             "components": {
-                "activities": [{
-                    "className": "com.example.Main",
-                    "isMain": True,
-                    "intentFilters": [{
-                        "actions": ["android.intent.action.VIEW"],
-                        "categories": ["android.intent.category.BROWSABLE"],
-                        "data": {
-                            "schemes": ["myapp", "https"],
-                            "hosts": ["example.com"],
-                            "ports": [443],
-                            "paths": ["/exact"],
-                            "pathPrefixes": ["/api/"],
-                            "pathPatterns": ["/items/.*"],
-                            "mimeTypes": ["image/*"],
-                        },
-                    }],
-                    "exported": True, "permission": None,
-                    "reachesTarget": False, "targetMethods": [],
-                }],
-                "receivers": [], "services": [], "providers": [],
+                "activities": [
+                    {
+                        "className": "com.example.Main",
+                        "isMain": True,
+                        "intentFilters": [
+                            {
+                                "actions": ["android.intent.action.VIEW"],
+                                "categories": ["android.intent.category.BROWSABLE"],
+                                "data": {
+                                    "schemes": ["myapp", "https"],
+                                    "hosts": ["example.com"],
+                                    "ports": [443],
+                                    "paths": ["/exact"],
+                                    "pathPrefixes": ["/api/"],
+                                    "pathPatterns": ["/items/.*"],
+                                    "mimeTypes": ["image/*"],
+                                },
+                            }
+                        ],
+                        "exported": True,
+                        "permission": None,
+                        "reachesTarget": False,
+                        "targetMethods": [],
+                    }
+                ],
+                "receivers": [],
+                "services": [],
+                "providers": [],
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         f = result.components.activities[0].intent_filters[0]
         assert f.data_schemes == ["myapp", "https"]
         assert f.data_hosts == ["example.com"]
@@ -1503,23 +1668,33 @@ class TestComponentsD15Enrichment:
         json_data = {
             "package": "com.example",
             "mainActivity": "com.example.Main",
-            "reachability": [], "windows": [], "transitions": [], "complete": True,
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "complete": True,
             "components": {
-                "activities": [{
-                    "className": "com.example.Main",
-                    "isMain": True,
-                    "intentFilters": [{
-                        "actions": ["android.intent.action.MAIN"],
-                        "categories": ["android.intent.category.LAUNCHER"],
-                    }],
-                    "exported": True,
-                    "reachesTarget": False, "targetMethods": [],
-                }],
-                "receivers": [], "services": [], "providers": [],
+                "activities": [
+                    {
+                        "className": "com.example.Main",
+                        "isMain": True,
+                        "intentFilters": [
+                            {
+                                "actions": ["android.intent.action.MAIN"],
+                                "categories": ["android.intent.category.LAUNCHER"],
+                            }
+                        ],
+                        "exported": True,
+                        "reachesTarget": False,
+                        "targetMethods": [],
+                    }
+                ],
+                "receivers": [],
+                "services": [],
+                "providers": [],
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         f = result.components.activities[0].intent_filters[0]
         assert f.actions == ["android.intent.action.MAIN"]
         assert f.data_schemes == []
@@ -1530,22 +1705,39 @@ class TestComponentsD15Enrichment:
         """activities with permission=string and permission=null both parse."""
         json_data = {
             "package": "com.example",
-            "mainActivity": "", "reachability": [], "windows": [],
-            "transitions": [], "complete": True,
+            "mainActivity": "",
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "complete": True,
             "components": {
                 "activities": [
-                    {"className": "com.example.A", "isMain": False, "intentFilters": [],
-                     "exported": True, "permission": "android.permission.READ_CONTACTS",
-                     "reachesTarget": False, "targetMethods": []},
-                    {"className": "com.example.B", "isMain": False, "intentFilters": [],
-                     "exported": True, "permission": None,
-                     "reachesTarget": False, "targetMethods": []},
+                    {
+                        "className": "com.example.A",
+                        "isMain": False,
+                        "intentFilters": [],
+                        "exported": True,
+                        "permission": "android.permission.READ_CONTACTS",
+                        "reachesTarget": False,
+                        "targetMethods": [],
+                    },
+                    {
+                        "className": "com.example.B",
+                        "isMain": False,
+                        "intentFilters": [],
+                        "exported": True,
+                        "permission": None,
+                        "reachesTarget": False,
+                        "targetMethods": [],
+                    },
                 ],
-                "receivers": [], "services": [], "providers": [],
+                "receivers": [],
+                "services": [],
+                "providers": [],
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         a, b = result.components.activities
         assert a.permission == "android.permission.READ_CONTACTS"
         assert b.permission is None
@@ -1554,23 +1746,32 @@ class TestComponentsD15Enrichment:
         """Provider with readPermission/writePermission distinct."""
         json_data = {
             "package": "com.example",
-            "mainActivity": "", "reachability": [], "windows": [],
-            "transitions": [], "complete": True,
+            "mainActivity": "",
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "complete": True,
             "components": {
-                "activities": [], "receivers": [], "services": [],
-                "providers": [{
-                    "className": "com.example.P",
-                    "isMain": False, "authorities": "com.example.p",
-                    "exported": True,
-                    "permission": "com.example.BASE_PERM",
-                    "readPermission": "com.example.READ_PERM",
-                    "writePermission": "com.example.WRITE_PERM",
-                    "reachesTarget": False, "targetMethods": [],
-                }],
+                "activities": [],
+                "receivers": [],
+                "services": [],
+                "providers": [
+                    {
+                        "className": "com.example.P",
+                        "isMain": False,
+                        "authorities": "com.example.p",
+                        "exported": True,
+                        "permission": "com.example.BASE_PERM",
+                        "readPermission": "com.example.READ_PERM",
+                        "writePermission": "com.example.WRITE_PERM",
+                        "reachesTarget": False,
+                        "targetMethods": [],
+                    }
+                ],
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         p = result.components.providers[0]
         assert p.permission == "com.example.BASE_PERM"
         assert p.read_permission == "com.example.READ_PERM"
@@ -1580,20 +1781,29 @@ class TestComponentsD15Enrichment:
         """Pre-D15 provider (no permission keys) -> None defaults preserved."""
         json_data = {
             "package": "com.example",
-            "mainActivity": "", "reachability": [], "windows": [],
-            "transitions": [], "complete": True,
+            "mainActivity": "",
+            "reachability": [],
+            "windows": [],
+            "transitions": [],
+            "complete": True,
             "components": {
-                "activities": [], "receivers": [], "services": [],
-                "providers": [{
-                    "className": "com.example.P",
-                    "isMain": False, "authorities": "com.example.p",
-                    "exported": True,
-                    "reachesTarget": False, "targetMethods": [],
-                }],
+                "activities": [],
+                "receivers": [],
+                "services": [],
+                "providers": [
+                    {
+                        "className": "com.example.P",
+                        "isMain": False,
+                        "authorities": "com.example.p",
+                        "exported": True,
+                        "reachesTarget": False,
+                        "targetMethods": [],
+                    }
+                ],
             },
         }
         path = _write_json(tmp_path, json_data)
-        result = parser.parse_file(str(path), "com.example")
+        result = parser.parse_file(str(path))
         p = result.components.providers[0]
         assert p.permission is None
         assert p.read_permission is None

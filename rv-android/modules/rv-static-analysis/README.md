@@ -57,7 +57,9 @@ if result.success:
 ```python
 from rv_static_analysis.parser.static.static_analysis_parser import parse_file
 
-static_data = parse_file("/path/to/app.apk.json", "com.example.app")
+# No package key: GATOR scoped the artefact when it produced it, so the
+# parser loads `reachability` whole and derives the ACTIVITY scope from it.
+static_data = parse_file("/path/to/app.apk.json")
 
 if static_data.classes:
     print(f"Classes: {len(static_data.classes.classes)}")
@@ -111,10 +113,11 @@ The standalone gambiarra is documented in `CLAUDE.md` and tracked for proper arc
 ```bash
 cd modules/rv-static-analysis
 
-uv run pytest tests/ -v              # All tests (76)
-uv run pytest tests/parser/ -v       # Parser tests (55)
-uv run pytest tests/analysis/ -v     # Analyzer tests (13)
-uv run pytest tests/test_config.py -v # Config tests (8)
+uv run pytest tests/ -v              # All tests (142)
+uv run pytest tests/parser/ -v       # Parser tests (76)
+uv run pytest tests/analysis/ -v     # Analyzer tests (21)
+uv run pytest tests/cli/ -v          # CLI flag tests (32)
+uv run pytest tests/test_config.py -v # Config tests (13)
 ```
 
 ## Dependencies

@@ -965,7 +965,7 @@ Key use cases that validate the architecture.
 2. App's `model_post_init()` loads the APK via Androguard, extracting `package_name` from the manifest
 3. On first access of `code_package`: with the policy off, the declared package is returned and no detector runs; with it on, `PackageDetector.detect_package()` analyzes the DEX bytecode using its strategy chain
 4. On the detector path, if `package_name != code_package`, a log message reports the mismatch (INV-CORE-18)
-5. Downstream modules use `package_name` for device operations and `code_package` for static analysis path matching, and record `code_package_source` with the run
+5. Downstream modules use `package_name` for device operations and `code_package` to scope a static analysis they *run* (it becomes GATOR's `-clientParam codePackage=`), and record `code_package_source` with the run. Parsing an existing analysis artefact uses no key (INV-ANA-61)
 
 ### Scenario 3: Circuit Breaker Prevents Cascading Failures
 

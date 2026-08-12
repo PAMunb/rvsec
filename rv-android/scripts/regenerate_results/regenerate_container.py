@@ -12,11 +12,12 @@ What it does: for every `.logcat` file under a container directory
 (`RESULTADOS/m<i>/results/exp_<j>/exp_<j>/`):
   1. Parse the filename `<apk>__<rep>__<timeout>__<tool>.logcat`.
   2. Load StaticAnalysisData from the matching JSON in APKS_FINAL_JCA_DEXLIB
-     (cached per APK).
-     Passes `package=""` to the parser: GATOR upstream already filtered classes
-     by the real code_package via PackageDetector, and the JSON's `package`
-     field is the manifest_package (which can diverge, e.g. app.dumdum vs.
-     io.nekohasekai.sagernet). See docs/20260514_regenerar_planilhas.md §9.
+     (cached per APK). The parser takes no package: GATOR already filtered the
+     artefact by the key it was invoked with, and the JSON's `package` field is
+     the manifest_package, which can diverge (e.g. app.dumdum vs.
+     io.nekohasekai.sagernet) — INV-ANA-59/61. This script anticipated that by
+     passing an empty key; gh102 made it the rule.
+     See docs/20260514_regenerar_planilhas.md §9.
   3. Call `parse_logcat_file(logcat_path, static_data)`.
   4. Emit rows matching the official `result_processor.py` schemas:
        - summary_regen.csv:  apk,rep,timeout,tool,cov_act,cov_method,cov_rv_method,errors
@@ -95,11 +96,11 @@ def parse_logcat_filename(filename: str) -> Optional[Tuple[str, int, int, str]]:
 # easily holds the ~12 APKs per container and amortizes JSON parsing across reps/timeouts.
 @lru_cache(maxsize=256)
 def load_static_data(json_path: str):
-    """Load StaticAnalysisData from JSON with package='' (see module docstring)."""
+    """Load StaticAnalysisData at the artefact's own scope (see module docstring)."""
     if not os.path.isfile(json_path):
         return None
     parser = StaticAnalysisParser()
-    return parser.parse_file(json_path, "")
+    return parser.parse_file(json_path)
 
 
 def process_logcat(args: Tuple[str, str]) -> Optional[Dict]:

@@ -23,11 +23,13 @@ All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisC
 | Invariant | Description | Enforcement Mechanism |
 |-----------|-------------|----------------------|
 | INV-ANA-02 | SignatureNormalizer applied to all class names and method signatures | `StaticAnalysisParser` calls `SignatureNormalizer` in all three JSON section parsers before storing names in domain models |
-| INV-ANA-03 | Parser receives `code_package` (not `package_name`) for class filtering | `parse_file()` requires `code_package` parameter; filters classes and windows by checking `code_package in class_name` |
 | INV-ANA-06 | Parser does not propagate exceptions; returns empty domain objects per-section | Each `_parse_*()` method is wrapped in try/except; failures produce `Classes()`, `Windows()`, `WindowTransitionGraph()`, or `Components()` |
 | INV-ANA-11 | Intelligent caching -- skip execution if output JSON exists | `StaticAnalyzer._execute_command()` checks file existence before invoking GATOR; returns `CommandResult(0, b"", b"")` on cache hit |
 | INV-ANA-14 | PackageDetector applies heuristics in priority order, and only when the run enabled it | `PackageDetector` (in rv-android-core) resolves `code_package` via its 7-strategy priority chain under `--package-detector` / `RV_PACKAGE_DETECTOR`; by default `App` reports the declared applicationId and no strategy runs |
-| INV-ANA-58 | The filtering key is recorded by the run, never inferred from an artefact | `StaticAnalysisResult.code_package` / `.code_package_source` are set in `analyze()`; nothing reads the JSON's `package` member as a key (it holds the manifest package whatever key filtered the file) |
+| INV-ANA-58 | A run that *performs* an analysis records the key it used; no key is inferred from an artefact | `StaticAnalysisResult.code_package` / `.code_package_source` are set in `analyze()`; nothing reads the JSON's `package` member as a key (it holds the manifest package whatever key filtered the file) |
+| INV-ANA-59 | `reachability` is loaded whole; the parsed method universe equals it exactly | `_parse_classes()` has no package parameter and no filter — every entry becomes a `Clazz`. The universe is the coverage denominator |
+| INV-ANA-60 | An `ACTIVITY` window is admitted iff its class is present in `reachability`; other window types are admitted unconditionally | `_parse_windows()` tests `classes.get_clazz(normalized_name)` for `w_type_str == "ACTIVITY"` only |
+| INV-ANA-61 | No consumption-path function accepts, resolves, or passes a package key | Signatures are `parse_file(file_path)` and `read_static_analysis_files(results_dir, apk)`, both on `StaticAnalysisParser` and on the module-level singleton wrappers; the rv-platform call sites pass no key |
 
 ### Specification Scenarios
 
@@ -77,6 +79,14 @@ Each JSON section (reachability, windows, transitions, components) is parsed in 
 The module follows an Extract-Transform-Load pattern: `StaticAnalyzer` extracts raw data by running GATOR as a subprocess, `StaticAnalysisParser` transforms the JSON into domain objects, and the resulting `StaticAnalysisData` is loaded into downstream consumers.
 
 **Why**: GATOR is a Java program that cannot be imported as a Python library, so subprocess invocation with file-based I/O is the natural integration pattern. The file-based intermediate step also provides an audit trail -- the raw JSON is preserved in the results directory for post-experiment inspection.
+
+### ADR-7: Scope Belongs to the Producer, Not to the Parser
+
+Choosing which classes count as the application's own is a decision made **once**, when an analysis is run: `RVStaticAnalysisConfig.get_tool_command()` passes `-clientParam codePackage=<key>` and GATOR drops everything outside that key before writing the file. The parser makes no such decision -- it loads the `reachability` member whole (INV-ANA-59) and scopes `ACTIVITY` windows by membership in it (INV-ANA-60), a test the artefact answers on its own. No function on the consumption path accepts a package key (INV-ANA-61).
+
+**Why**: When the parser re-derived the scope from a key resolved at consumption time, it could disagree with the producer, and it did. The artefact does not record the key that filtered it (INV-ANA-58) and no heuristic recovers it: on applications built with an `applicationIdSuffix`, the consumer key carried the suffix while the analysed classes did not, so the prefix test matched nothing and the coverage denominator collapsed to zero. Deriving the ACTIVITY decision from `reachability` instead of from a key preserves the useful half of the old filter -- keeping framework activities such as `androidx.activity.ComponentActivity` out of the activity denominator -- while making disagreement structurally impossible. Verified on the 162-artefact corpus: parsed class count equals `len(reachability)` in 162/162, and the ACTIVITY decision reproduces the producer-key decision on 1526/1526 activities.
+
+**Boundary**: this is a consumption-path decision only. `analyze()` still resolves `app.code_package`, still passes it to GATOR, and still records `code_package` / `code_package_source` on its `StaticAnalysisResult`. An artefact produced under a wrong key still yields a wrong denominator -- that is a data-management fact, not something the parser resolves.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -150,7 +160,7 @@ flowchart LR
 2. **Intermediate file**: The GATOR client writes a single JSON file with four sections in priority order: `reachability` (classes with MOP flags), `windows` (widgets with event listeners and XML attribute extensions `prompt`/`spinnerMode`/`contentDescription`/`tooltipText` plus populated OPTIONSMENU widgets), `transitions` (window-to-window edges), and `components` (non-Activity component data). Each section is flushed before starting the next, so timeout preserves sections in priority order. When `skip_wtg=True` is set, the client returns after writing reachability and windows, leaving `transitions[]` empty by design (not a failure).
 
 3. **Transform**: `StaticAnalysisParser.parse_file()` reads the JSON and produces four domain objects:
-   - `Classes`: one `Clazz` per app class (filtered by `code_package` per INV-ANA-03), each containing `Method` objects with `reachable`, `reaches_target`, and `directly_reaches_target` flags.
+   - `Classes`: one `Clazz` per entry of `reachability`, unfiltered (INV-ANA-59) — the artefact was already scoped by GATOR, so this set is the whole coverage denominator. Each contains `Method` objects with `reachable`, `reaches_target`, and `directly_reaches_target` flags.
    - `Windows`: one `Window` per UI screen with `Widget` objects carrying event listeners (`WidgetEvent` with handler signatures).
    - `WindowTransitionGraph`: a `networkx.DiGraph` where nodes are `Window` objects and edges carry `WindowTransition` lists (widget ID, event type, handler method). Widgets referenced in transitions but absent from windows are back-filled on the fly.
    - `Components`: activities, receivers, services, and providers with intent filters, exported status, and MOP reachability data.
@@ -392,7 +402,7 @@ sequenceDiagram
     end
 
     Caller->>SA: get_static_data()
-    SA->>SAP: parse_file(json_path, code_package)
+    SA->>SAP: parse_file(json_path)
     SAP->>FS: read JSON
     SAP->>SAP: _parse_classes() -> Classes
     SAP->>SAP: _parse_windows() -> Windows
@@ -526,7 +536,7 @@ classDiagram
     }
 
     class StaticAnalysisParser {
-        +parse_file(path, code_package) StaticAnalysisData
+        +parse_file(path) StaticAnalysisData
         -_parse_classes() Classes
         -_parse_windows() Windows
         -_parse_transitions() WindowTransitionGraph
@@ -615,9 +625,9 @@ classDiagram
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | 55 tests covering all JSON sections, edge cases, truncated JSON recovery, SignatureNormalizer, class filtering |
-| Unit (analyzer) | `tests/analysis/static/test_static_analysis.py` | 13 tests covering caching, timeout handling, error scenarios (mocked Command) |
-| Unit (config) | `tests/test_config.py` | 8 tests covering path resolution, validation, command generation |
+| Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | 72 tests covering all JSON sections, edge cases, truncated JSON recovery, SignatureNormalizer, and artefact-scoped parsing (INV-ANA-59/60/61) |
+| Unit (analyzer) | `tests/analysis/static/test_static_analysis.py` | 19 tests covering caching, timeout handling, error scenarios (mocked Command) |
+| Unit (config) | `tests/test_config.py` | 13 tests covering path resolution, validation, command generation (including `-clientParam codePackage=`) |
 | Fixture | `tests/resources/cryptoapp.apk.json` | Reference analysis output for baseline equivalence tests |
 
 ## Related Documentation

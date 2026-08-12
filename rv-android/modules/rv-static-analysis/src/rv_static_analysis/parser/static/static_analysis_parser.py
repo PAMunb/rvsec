@@ -9,8 +9,11 @@ may be missing. The parser handles partial or truncated JSON gracefully by
 returning empty domain objects for missing or corrupt sections.
 
 All class names are normalized via SignatureNormalizer as a safety net for
-inner class notation (Outer.Inner -> Outer$Inner), and classes are filtered
-by code_package to exclude framework code.
+inner class notation (Outer.Inner -> Outer$Inner). The artefact arrives
+already scoped: GATOR was invoked with ``-clientParam codePackage=<key>`` and
+removed everything outside that key before writing, so the ``reachability``
+member is the application's whole method universe and is loaded as-is
+(INV-ANA-59).
 
 ### Architectural Decisions:
 
@@ -20,6 +23,10 @@ by code_package to exclude framework code.
   where the Java client flushed some sections but was killed mid-write
 - SignatureNormalizer is applied defensively -- the GATOR client already
   writes $-notation, but the normalizer guards against future changes
+- No package key reaches this module. The producer scoped the artefact once;
+  asking the question a second time here could only disagree with it, and on
+  an app built with ``applicationIdSuffix`` it emptied the universe outright
+  (INV-ANA-61)
 
 ### Role in the System:
 
@@ -32,7 +39,8 @@ by code_package to exclude framework code.
 
 - Graceful degradation: missing or corrupt sections yield empty domain objects
 - Truncated JSON recovery via bracket completion for timeout scenarios
-- Class filtering by code_package to exclude framework/library classes
+- ACTIVITY windows scoped by membership in reachability, because GATOR scopes
+  reachability but not windows (INV-ANA-60)
 - Widget back-fill: widgets referenced in transitions but absent from windows
   are created on-the-fly
 
@@ -174,7 +182,11 @@ class StaticAnalysisParser:
 
     SignatureNormalizer is applied to all class names as a safety net (INV-ANA-02),
     though the Java client already writes $-notation via SootClass.getName().
-    Classes are filtered by code_package (INV-ANA-03).
+
+    The parser holds no opinion about packages. The artefact defines its own
+    scope: ``reachability`` is loaded whole (INV-ANA-59) and ACTIVITY windows
+    are scoped by membership in it (INV-ANA-60), a test the artefact itself can
+    answer.
     """
 
     def __init__(self):
@@ -190,13 +202,15 @@ class StaticAnalysisParser:
         )
         self.normalizer = SignatureNormalizer()
 
-    def parse_file(self, file_path: str, package: str) -> StaticAnalysisData:
+    def parse_file(self, file_path: str) -> StaticAnalysisData:
         """
         Parse a unified analysis JSON file into StaticAnalysisData.
 
+        The file is parsed at the scope its producer gave it — no package key
+        participates (INV-ANA-61).
+
         Args:
             file_path: Path to the .json analysis output file
-            package: Application code_package for class filtering (INV-ANA-03)
 
         Returns:
             StaticAnalysisData with parsed Classes, Windows, WindowTransitionGraph, and Components.
@@ -216,8 +230,8 @@ class StaticAnalysisParser:
         # prevent recovery of the others (graceful degradation, INV-ANA-06).
         # Order matters: windows need classes (to mark main activity), and
         # transitions need windows (for source/target lookup and widget back-fill).
-        classes = self._parse_classes(data, package)
-        windows = self._parse_windows(data, package, classes)
+        classes = self._parse_classes(data)
+        windows = self._parse_windows(data, classes)
         # INV-CORE-34: aggregate Method.reaches_target up to the class level
         # before parsing transitions, so each WindowTransition can answer
         # `target_reaches_target` via lookup on the destination window's
@@ -251,7 +265,7 @@ class StaticAnalysisParser:
         )
 
     def read_static_analysis_files(
-        self, results_dir: str, apk: str, package: str
+        self, results_dir: str, apk: str
     ) -> StaticAnalysisData:
         """
         Parse the analysis JSON for an APK from a results directory.
@@ -263,14 +277,13 @@ class StaticAnalysisParser:
             results_dir: Directory containing analysis result files.
             apk: APK filename including extension (e.g., "cryptoapp.apk").
                 The JSON extension is appended automatically.
-            package: Application code_package for class filtering (INV-ANA-03).
 
         Returns:
             StaticAnalysisData with parsed Classes, Windows, and
             WindowTransitionGraph.
         """
         file_path = os.path.join(results_dir, apk + constants.EXTENSION_STATIC_ANALYSIS)
-        return self.parse_file(file_path, package)
+        return self.parse_file(file_path)
 
     def _load_json(self, file_path: str) -> dict | None:
         """Load and parse JSON, with bracket-recovery for truncated files from timeout.
@@ -323,16 +336,20 @@ class StaticAnalysisParser:
             self.logger.error("Cannot recover truncated JSON after bracket fix")
             return None
 
-    def _parse_classes(self, data: dict, package: str) -> Classes:
+    def _parse_classes(self, data: dict) -> Classes:
         """Parse the reachability section into Classes domain object.
 
         Each entry in data["reachability"] is a class with methods and
-        reachability flags. Class names are normalized (INV-ANA-02) and
-        filtered by code_package (INV-ANA-03).
+        reachability flags. Class names are normalized (INV-ANA-02).
+
+        Every entry is loaded (INV-ANA-59). The member is named ``reachability``
+        because its entries carry reachability flags, not because it is a
+        subset: GATOR already dropped the out-of-scope classes when it wrote
+        the file, so this list *is* the application's method universe and the
+        whole coverage denominator.
 
         Args:
             data: Parsed JSON dictionary from the analysis file.
-            package: Application code_package for class filtering.
 
         Returns:
             Classes populated with class and method entries, or empty
@@ -352,13 +369,6 @@ class StaticAnalysisParser:
                 # GATOR already outputs $-notation via SootClass.getName(), but
                 # the normalizer guards against future upstream changes.
                 normalized = self.normalizer.normalize_class_name(class_name)
-
-                # Filter by code_package prefix to exclude Android framework and
-                # third-party library classes. Uses substring match (not startswith)
-                # because code_package may differ from the manifest package in apps
-                # that use a library namespace (e.g., Godot games).
-                if package and package not in normalized:
-                    continue
 
                 component_type = cls_data.get(_JK.component_type, None)
                 is_main = cls_data.get(_JK.is_main, False)
@@ -392,18 +402,26 @@ class StaticAnalysisParser:
             self.logger.error(f"Error parsing reachability section: {e}")
             return Classes()
 
-    def _parse_windows(self, data: dict, package: str, classes: Classes) -> Windows:
+    def _parse_windows(self, data: dict, classes: Classes) -> Windows:
         """Parse the windows section into Windows domain object.
 
         Each entry in data["windows"] is a window with widgets and listeners.
-        Window names are normalized and filtered by code_package. Only
-        ACTIVITY-type windows are filtered; DIALOG, OPTIONSMENU, and other
-        types are included regardless of package.
+        Window names are normalized.
+
+        Unlike ``reachability``, the ``windows`` member is *not* scoped by the
+        producer, so framework and library activities
+        (``androidx.activity.ComponentActivity``,
+        ``com.canhub.cropper.CropImageActivity``) appear here and would inflate
+        the activity denominator. An ACTIVITY window is admitted exactly when
+        its class is present in ``reachability`` (INV-ANA-60) — a test the
+        artefact answers on its own, so it cannot disagree with the producer.
+        DIALOG, OPTIONSMENU, and other types are admitted unconditionally,
+        because they can be system-provided overlays triggered by app code.
 
         Args:
             data: Parsed JSON dictionary from the analysis file.
-            package: Application code_package for ACTIVITY filtering.
-            classes: Previously parsed Classes, used to mark main activity.
+            classes: Previously parsed Classes — supplies the ownership test
+                for ACTIVITY windows, and is used to mark the main activity.
 
         Returns:
             Windows populated with window and widget entries, or empty
@@ -415,21 +433,31 @@ class StaticAnalysisParser:
                 self.logger.debug("No windows data in analysis JSON")
                 return Windows()
 
+            # Nothing can answer the ownership test when reachability is absent
+            # or failed to parse, so every ACTIVITY below is about to be
+            # refused. That is the intended reading of a degenerate artefact
+            # (the denominator is zero on both axes rather than plausible over
+            # framework classes), but it must not be silent: truncated
+            # artefacts are a live condition in this corpus, and a zero
+            # denominator otherwise looks like an application that covers
+            # nothing.
+            if not classes.classes:
+                self.logger.warning(
+                    f"No reachability entries: all ACTIVITY windows will be "
+                    f"excluded ({len(windows_data)} windows in the artefact). "
+                    f"Coverage denominators will be zero."
+                )
+
             windows = Windows()
 
             for w_data in windows_data:
                 window_name = w_data.get(_JK.name, "")
                 normalized_name = self.normalizer.normalize_class_name(window_name)
 
-                # Only ACTIVITY windows are filtered by code_package. DIALOGs,
-                # OPTIONSMENUs, and other window types are kept regardless of package
-                # because they can be system-provided overlays triggered by app code.
+                # An ACTIVITY the application does not own is one the producer
+                # left out of reachability. Other window types are kept.
                 w_type_str = w_data.get(_JK.type, "ACTIVITY")
-                if (
-                    w_type_str == "ACTIVITY"
-                    and package
-                    and package not in normalized_name
-                ):
+                if w_type_str == "ACTIVITY" and not classes.get_clazz(normalized_name):
                     continue
 
                 # Map window type
@@ -627,14 +655,17 @@ class StaticAnalysisParser:
                         widget_id=widget_id,
                         event_type=event_type,
                         method=handler,
-                        target_window_class=target_window.class_name or target_window.name,
+                        target_window_class=target_window.class_name
+                        or target_window.name,
                     )
                     if class_reaches_target_index is not None:
                         # Share one index reference across every event of every
                         # transition — the index is read-only after parsing, so
                         # aliasing is safe and avoids per-event dict copies on
                         # APKs with thousands of edges.
-                        transition_event.attach_window_methods_index(class_reaches_target_index)
+                        transition_event.attach_window_methods_index(
+                            class_reaches_target_index
+                        )
                     events.append(transition_event)
 
                 if events:
@@ -822,30 +853,26 @@ class StaticAnalysisParser:
 _instance = StaticAnalysisParser()
 
 
-def parse_file(file_path: str, package: str) -> StaticAnalysisData:
+def parse_file(file_path: str) -> StaticAnalysisData:
     """Parse a unified analysis JSON file using the module singleton.
 
     Args:
         file_path: Path to the .json analysis output file.
-        package: Application code_package for class filtering.
 
     Returns:
         StaticAnalysisData with parsed domain objects.
     """
-    return _instance.parse_file(file_path, package)
+    return _instance.parse_file(file_path)
 
 
-def read_static_analysis_files(
-    results_dir: str, apk: str, package: str
-) -> StaticAnalysisData:
+def read_static_analysis_files(results_dir: str, apk: str) -> StaticAnalysisData:
     """Parse analysis JSON for an APK from a results directory using the module singleton.
 
     Args:
         results_dir: Directory containing analysis result files.
         apk: APK filename including extension (e.g., "cryptoapp.apk").
-        package: Application code_package for class filtering.
 
     Returns:
         StaticAnalysisData with parsed domain objects.
     """
-    return _instance.read_static_analysis_files(results_dir, apk, package)
+    return _instance.read_static_analysis_files(results_dir, apk)

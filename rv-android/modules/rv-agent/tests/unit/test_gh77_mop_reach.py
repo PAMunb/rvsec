@@ -49,7 +49,7 @@ def cryptoapp_static_data() -> StaticAnalysisData:
         / "cryptoapp"
         / "cryptoapp.apk.json"
     )
-    return parse_file(str(fixture), "br.unb.cic.cryptoapp")
+    return parse_file(str(fixture))
 
 
 def _mop_method(class_name: str, signature: str) -> Method:

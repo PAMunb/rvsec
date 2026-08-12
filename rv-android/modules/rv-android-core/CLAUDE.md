@@ -44,7 +44,7 @@ Notable files: `util/android/package_detector.py` (code-package vs manifest-pack
 
 The `App` model exposes two package properties, answering two different questions:
 - **`package_name`** — what the APK calls itself to the device: the applicationId from AndroidManifest.xml, verbatim. Use for device operations (install, launch, force-stop, monkey `-p`).
-- **`code_package`** — which package scopes the classes a study treats as the app's own. Use for static-analysis parsing and class filtering.
+- **`code_package`** — which package scopes the classes a study treats as the app's own. Use when *running* a static analysis: it becomes GATOR's `-clientParam codePackage=`, and the run records it. Parsing an artefact takes no key — GATOR already applied the scope before writing (INV-ANA-59/61).
 
 The second question is about the corpus, not about the APK, so it is an input rather than an inference. By default `code_package` **is** `package_name`, returned verbatim — no suffix stripping, no prefix repair; such rules belong to whoever curates a corpus. Passing `package_detector=True` runs `PackageDetector` over the APK's components instead, which is what a corpus of Godot games wants (manifest `ir.hsn6.trans`, classes under `org.godotengine.godot`); the mismatch is logged at INFO on that path only. `code_package_source` reports which mechanism produced the value (`"manifest"` or `"detector"`), because the analysis artefacts downstream carry no trace of it.
 
