@@ -4,7 +4,7 @@
   "compared_against": "data/results/cmp163_consolidado/per_apk_paired.csv",
   "image": {
     "tag": "phtcosta/rvandroid:0.9.3-comp162",
-    "id": "sha256:2c406490cac4b7572486aabdc89fdee63681f37a87adcb1fcdf82f74628f843d"
+    "id": "sha256:811d3ef3ad5b81da269e65662d5392a140630acfbb2c214dea7aeef724c9700d"
   },
   "build": {
     "rvsec_branch": "modules",
