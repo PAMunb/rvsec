@@ -460,9 +460,10 @@
          the pattern `fixture_gate.py` and `baseline_runs.py` already follow here.
      After the fixes: 700 passed, 22 skipped; flake8 on analysis/ silent; black/isort clean
      over 103 files. -->
-- [ ] 8.5 Check off the acceptance criteria in issue #103; commit with `closes #103` (or close via MCP if committed with `refs #103`)
-<!-- 8.5 BLOCKED ON THE AUTHOR by the checkpoint rule: both halves are outward-facing writes
+- [x] 8.5 Check off the acceptance criteria in issue #103; commit with `closes #103` (or close via MCP if committed with `refs #103`)
+<!-- 8.5 WAS BLOCKED ON THE AUTHOR by the checkpoint rule: both halves are outward-facing writes
      (a commit, and an edit to a GitHub issue), and neither happens without an explicit OK.
+     The four decisions were taken 2026-08-15; the resolution is at the end of this comment.
      The 14 criteria were assessed locally against the code. Twelve are met as written.
      THREE are met differently from how the issue words them, and the issue text - not the
      implementation - is what is wrong in each case:
@@ -490,4 +491,27 @@
      - criterion 8 (`censo_substrato.csv`) is met in the scoped form recorded on task 4.x:
        9 of its 11 columns come through `derive_mop_artifact.derive()`, collection-path code
        the analysis layer deliberately does not import. The parity test covers the two
-       artefact-owned columns plus membership and line count, and says so. -->
+       artefact-owned columns plus membership and line count, and says so.
+     RESOLVED 2026-08-15 - the author decided all four, and the issue body was edited to
+     match (`gh issue edit 103`, body verified byte-identical to the approved diff apart from
+     the trailing newline GitHub appends; the Affected Domains checkboxes were NOT touched):
+     - criterion 2: MET AS WRITTEN. The criterion says the reason to exist is gone, and it is.
+       The reworded box names `trace_ndjson.RunStart` as the seat of the 13 members and states
+       that migrating the script is `rvsec-calibracao` work, outside this change's boundary.
+     - criterion 4: corrected to '22 recovered retry records across 21 identities', and the 28
+       kept in the same sentence under its true name, SUPERSEDED records, so neither the
+       measured quantity nor the one the original text meant is lost.
+     - criterion 5: parity target corrected to `consolidado/per_rep.csv`, naming
+       `consolidate.py:150-176` as the reason; `per_apk_paired.csv` is recorded in the box as
+       a 4-decimal rounded derivative whose rounding manufactures ties, hence not a target.
+     - criterion 8: checked with the parity scope written into the box (2 artefact-owned
+       columns + membership + line count; 9 of 11 via `derive_mop_artifact.derive()`).
+     TWO ACTIONS OF THIS TASK WERE DECLINED BY THE AUTHOR AND ARE NOT DONE:
+     - `d6dcea86` was NOT pushed. The commit is still local to this machine; `git branch -r
+       --contains` is empty. Nothing in the change depends on the push.
+     - Issue #103 was NOT closed, and stays OPEN on purpose: with the commit unpushed, the
+       work the issue describes is not visible on the remote, so closing it would point a
+       closed issue at nothing. Close it after the push, via `gh issue close 103 --reason
+       completed` (no GitHub MCP is wired in this session; `gh` is the path). -->
+<!-- NOTE for whoever pushes: this commit and the 8.5 one both say `refs #103`, never
+     `closes #103`, so the push will not close the issue by itself. That is deliberate. -->
