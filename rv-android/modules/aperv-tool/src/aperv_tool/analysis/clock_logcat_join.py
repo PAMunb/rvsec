@@ -27,6 +27,15 @@ needs one — the unknowns are identical on both sides and cancel in the
 difference. Month and day are present, so a run crossing midnight places
 correctly.
 
+**The placement rule is the module's, the tag is the caller's.**
+`read_tagged_lines(path, tag)` and `place_on_timeline(stamp, heartbeats)` are
+public and tag-agnostic (INV-APV-63). The same file carries the violations, the
+monitored operations under `RVSEC-COV` and the opt-in diagnostic tags, all on the
+one heartbeat clock, so the rule that turns a stamp into a step belongs to the
+timeline rather than to any one stream. This module's own join calls them with
+`VIOLATION_TAG`; `step_bundle` calls them with the others. Three copies of the
+loop is how three consumers come to disagree about which step an event was on.
+
 **The trace supplies what the logcat cannot.** `analysis/trace_ndjson.py` is the
 one way this module reads a trace: the matched step keys into its rows for the
 activity and the abstract state the run was on. `RUN_START.t0` is the only source
@@ -62,20 +71,23 @@ import re
 import sys
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 from pathlib import Path
 
+from aperv_tool.analysis.run_identity import try_parse_run_filename
 from aperv_tool.analysis.trace_ndjson import StepRow, TraceReader
 
 # `MM-DD HH:MM:SS.mmm  PID  TID  LEVEL TAG: message`, with the tag padded to eight
-# characters. `RVSEC` is the violation tag; `RVSEC-COV` is the coverage tag and is
-# a different, far more numerous stream — the pattern must not admit it.
+# characters.
 _TIMESTAMP = (
     r"(?P<month>\d{2})-(?P<day>\d{2}) "
     r"(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\.(?P<millis>\d{3})"
 )
-_VIOLATION_LINE = re.compile(
-    rf"^{_TIMESTAMP}\s+\d+\s+\d+\s+[VDIWEF] RVSEC\s*:\s*(?P<payload>.*)$"
-)
+
+# The tag this module's own join reads. It is one argument of a tag-agnostic
+# reader (INV-APV-63), not a property of the reader: `step_bundle` calls the same
+# function with `RVSEC-COV` and with the diagnostic tags.
+VIOLATION_TAG = "RVSEC"
 
 # The per-step heartbeat: `... I ApeRvHb: s=<step> t=<run-relative ms>`. The tag
 # is the contract with the jar (`ape` design D-6) and is declared on this side in
@@ -89,11 +101,6 @@ _HEARTBEAT_LINE = re.compile(
 # and the message itself contains commas ("expecting one of {TLSv1.2, TLSv1.3}"),
 # so the split is bounded at six and the remainder is the message.
 _VIOLATION_FIELDS = 6
-
-# <apk>.apk__<repetition>__<timeout>__<tool>[:<variant>] — rv-platform's run identity.
-_RUN_FILENAME = re.compile(
-    r"^(?P<apk>.+\.apk)__(?P<repetition>\d+)__(?P<timeout>\d+)__(?P<arm>.+)$"
-)
 
 # One parsed `ApeRvHb` line: when it was logged, which step it opened, and that
 # step's run-relative milliseconds.
@@ -233,15 +240,10 @@ def _split_run_identity(
         not follow rv-platform's run identity — a hand-named or foreign trace is
         still joined, only without its identity fields.
     """
-    match = _RUN_FILENAME.match(trace_path.name.removesuffix(".trace"))
-    if not match:
+    key = try_parse_run_filename(trace_path)
+    if key is None:
         return None, None, None, None
-    return (
-        match.group("apk"),
-        int(match.group("repetition")),
-        int(match.group("timeout")),
-        match.group("arm"),
-    )
+    return key.apk, key.repetition, key.timeout_s, key.arm
 
 
 def _read_trace(trace_path: Path) -> tuple[dict[int, StepRow], int | None]:
@@ -314,31 +316,68 @@ def _read_heartbeats(logcat_path: Path) -> list[Heartbeat]:
     return heartbeats
 
 
-def _read_violation_lines(logcat_path: Path) -> list[tuple[dt.datetime, str]]:
-    """
-    Read every `RVSEC` violation line as `(device timestamp, payload)`.
+@lru_cache(maxsize=None)
+def _tagged_line(tag: str) -> re.Pattern[str]:
+    """The line pattern for exactly one logcat tag, compiled once per tag.
 
-    The cheap byte tests come first because the coverage stream (`RVSEC-COV`,
-    ~100k lines per file) dwarfs the violation stream and must not be decoded
-    line by line.
+    The tag is escaped, so a caller cannot smuggle a pattern in through it, and
+    it is followed by `\\s*:` rather than by anything looser — logcat pads the
+    tag out to eight characters, and that colon is what stops `RVSEC` from
+    admitting `RVSEC-COV`, a stream two orders of magnitude larger.
+    """
+    return re.compile(
+        rf"^{_TIMESTAMP}\s+\d+\s+\d+\s+[VDIWEF] {re.escape(tag)}\s*:\s*(?P<payload>.*)$"
+    )
+
+
+def read_tagged_lines(logcat_path: Path, tag: str) -> list[tuple[dt.datetime, str]]:
+    """
+    Read every line of one logcat tag as `(device timestamp, payload)`.
+
+    The admitted tag is a parameter rather than a property of this module
+    (INV-APV-63): the same three streams — violations under `RVSEC`, monitored
+    operations under `RVSEC-COV`, the opt-in diagnostics — arrive in one file
+    under one clock, and there is no reason for each consumer to re-derive how a
+    logcat line is shaped. Matching is exact, never a prefix: a request for
+    `RVSEC` returns no `RVSEC-COV` line and the reverse holds too.
+
+    The cheap byte tests come first because the coverage stream (~100k lines per
+    file) dwarfs the violation stream, and decoding every one of its lines only
+    to reject it would cost more than the join it feeds.
 
     Args:
         logcat_path: Recorded `.logcat` file. Not written to.
+        tag: The logcat tag to admit, e.g. `RVSEC`. Matched exactly.
 
     Returns:
-        One `(stamp, payload)` per `RVSEC` line, in file order. The stamp is the
-        device wall clock as logcat rendered it; the payload is everything after
-        the tag, still unparsed.
+        One `(stamp, payload)` per line carrying the tag, in file order. The
+        stamp is the device wall clock as logcat rendered it; the payload is
+        everything after the tag, still unparsed.
     """
-    violations: list[tuple[dt.datetime, str]] = []
+    pattern = _tagged_line(tag)
+    needle = tag.encode()
+    end_of_tag = len(needle)
+
+    lines: list[tuple[dt.datetime, str]] = []
     with open(logcat_path, "rb") as logcat_file:
         for raw_line in logcat_file:
-            if b"RVSEC" not in raw_line or b"RVSEC-" in raw_line:
+            start = raw_line.find(needle)
+            if start < 0:
                 continue
-            match = _VIOLATION_LINE.match(raw_line.decode("utf-8", errors="replace"))
+            # What separates a tag from a longer tag it prefixes is the very next
+            # byte: logcat writes `RVSEC   : …` and `RVSEC-COV: …`, so rejecting
+            # on that byte keeps the violation reader from paying the decode cost
+            # of the coverage stream. The pattern below would reject it anyway;
+            # this is why it never has to.
+            if raw_line[start + end_of_tag : start + end_of_tag + 1] not in (
+                b" ",
+                b":",
+            ):
+                continue
+            match = pattern.match(raw_line.decode("utf-8", errors="replace"))
             if match:
-                violations.append((_stamp_of(match), match.group("payload")))
-    return violations
+                lines.append((_stamp_of(match), match.group("payload")))
+    return lines
 
 
 def _stamp_of(match: re.Match) -> dt.datetime:
@@ -369,25 +408,31 @@ def _stamp_of(match: re.Match) -> dt.datetime:
     )
 
 
-def _place(
+def place_on_timeline(
     stamp: dt.datetime, heartbeats: list[Heartbeat]
 ) -> tuple[Phase, int | None, Heartbeat]:
     """
-    Find which step was executing when a violation fired.
+    Find which step was executing when a logcat line was written.
 
     The jar logs the heartbeat where the step envelope opens — at selection
-    start, before dispatch — so a violation between heartbeat N and heartbeat
-    N+1 belongs to step N.
+    start, before dispatch — so a line between heartbeat N and heartbeat N+1
+    belongs to step N.
+
+    The rule is about the timeline, not about what is being placed, so it lives
+    here once and takes no tag (INV-APV-63): a violation, a monitored operation
+    and a diagnostic line are all stamps out of one file, and placing them by
+    three copies of this loop is how three consumers come to disagree about which
+    step an event belonged to.
 
     Args:
-        stamp: Device stamp of the violation, as `_stamp_of` read it.
+        stamp: Device stamp of the line, as `_stamp_of` read it.
         heartbeats: The run's heartbeats, chronological and non-empty — a run
-            with none never reaches here.
+            with none is `UNALIGNED` and never reaches here.
 
     Returns:
         `(phase, step, anchor)`. The step is set only inside the exploration
-        window; outside it the violation has a phase but no step, because there
-        is no decision it can be attributed to. The anchor is the heartbeat the
+        window; outside it the line has a phase but no step, because there is no
+        decision it can be attributed to. The anchor is the heartbeat the
         absolute timestamp is composed from, which outside the window is the
         nearer end of the run.
     """
@@ -441,7 +486,7 @@ def join_run(trace_path: Path | str) -> RunJoin:
     step_map, t0_ms = _read_trace(trace_path)
     has_logcat = logcat_path.is_file()
     heartbeats = _read_heartbeats(logcat_path) if has_logcat else []
-    raw_violations = _read_violation_lines(logcat_path) if has_logcat else []
+    raw_violations = read_tagged_lines(logcat_path, VIOLATION_TAG) if has_logcat else []
 
     violations: list[Violation] = []
     for stamp, payload in raw_violations:
@@ -458,7 +503,7 @@ def join_run(trace_path: Path | str) -> RunJoin:
             )
             continue
 
-        phase, step, anchor = _place(stamp, heartbeats)
+        phase, step, anchor = place_on_timeline(stamp, heartbeats)
         anchor_stamp, _anchor_step, anchor_rel_ms = anchor
         # Both stamps came out of the same file through the same reader, so the
         # placeholder year and the missing zone cancel in the subtraction.

@@ -43,7 +43,10 @@ DEVICE_ARTIFACT_PATH = "/data/local/tmp/mop-artifact.json"
 # is how the artifact was produced, and an archived measurement whose producer was deleted can only
 # be trusted, never re-derived.
 BASELINE_FILE = (
-    Path(__file__).parents[2] / "docs" / "gh95-migration-record" / "arm_effective_baseline.json"
+    Path(__file__).parents[2]
+    / "docs"
+    / "gh95-migration-record"
+    / "arm_effective_baseline.json"
 )
 
 

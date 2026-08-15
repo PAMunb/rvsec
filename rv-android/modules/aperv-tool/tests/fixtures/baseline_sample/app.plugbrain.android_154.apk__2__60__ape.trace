@@ -1,0 +1,1658 @@
+[APE] *** INFO *** InputMethod ID: com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+[APE] *** INFO *** InputMethod ID: com.google.android.googlequicksearchbox/com.google.android.voicesearch.ime.VoiceInputMethodService
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Let's wait for activity loading...
+[APE] *** INFO *** Expected activity package [app.plugbrain.android.debug] is loaded...
+[APE] *** INFO *** App Activity app.plugbrain.android.ui.main.MainActivity started.
+[APE] *** WARNING *** Null info root node returned by UiTestAutomationBridge, generate activate action...
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Activating: generate app switch events.
+[APE] Press HOME after app switch
+[APE] >>>>>>>> SATA begin step [1][Elapsed: 0000 00:00:03]
+[APE] *** INFO *** Explored 2 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-431945682@Naming[0]@[W=2][A=2] for GUI tree GUITree[0@0]@g0s0[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-431945682@Naming[0]@[W=2][A=2]
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-431945682@Naming[0]@[W=2][A=2], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 988 ms.
+[APE] *** INFO *** Create state g0s0[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-431945682@Naming[0]@[W=2][A=2] for GUI tree GUITree[1@0]@g0s0[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-431945682@Naming[0]@[W=2][A=2]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-431945682@Naming[0]@[W=2][A=2], iteration: #1
+[APE] *** INFO *** getRootInActiveWindowSlow takes 399 ms.
+[APE] *** INFO *** Create state g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9] for GUI tree GUITree[2@0]@g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** New (trivial) state is updated from g0s0[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-431945682@Naming[0]@[W=2][A=2] to g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9].
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9]: #0
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;enabled=true;clickable=true; that has been resolved to 4 nodes
+[APE] this:Naming[3], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** Refine actions: nodes(4), new names (4), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - class=android.view.View;index=2;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=3;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=5;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=4;enabled=true;clickable=true;
+[APE] *** INFO *** Update naming for GUITree[2@1]@g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9]: existing in dict: Naming[0], current in tree: Naming[0], check in graph: Naming[0], new: Naming[3]
+[APE] *** INFO *** getNaming for tree GUITree[2@1]@g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9]: Source: Naming[0], Target: null, State: app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[0], Target: Naming[3], State: app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g0s1[-1,0][0]app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** > rebuilding tree #1
+[APE] *** INFO *** Create state g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12] for GUI tree GUITree[2@1]@g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12]
+[APE] *** INFO *** > Readding transitions finished in 0 ms.
+[APE] *** INFO *** Rebuilding model finished in 1 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 68 ms.
+[APE] *** INFO *** Check over-abstracted states g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12]: #1
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;enabled=true;clickable=true;checkable=true; that has been resolved to 5 nodes
+[APE] this:Naming[4], parent:Naming[3].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE]   3. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** Refine actions: nodes(5), new names (5), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - class=android.view.View;index=2;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=3;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=0;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=1;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=4;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** Update naming for GUITree[2@1]@g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12]: existing in dict: Naming[3], current in tree: Naming[3], check in graph: Naming[3], new: Naming[4]
+[APE] *** INFO *** getNaming for tree GUITree[2@1]@g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12]: Source: Naming[0], Target: Naming[3], State: app.plugbrain.android.ui.main.MainActivity@-1386833039@Naming[0]@[W=5]
+[APE] *** INFO *** getNaming for tree GUITree[2@1]@g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12]: Source: Naming[3], Target: null, State: app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[3], Target: Naming[4], State: app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g1s2[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1830330670@Naming[3]@[W=8][A=12]
+[APE] *** INFO *** > rebuilding tree #1
+[APE] *** INFO *** Create state g2s3[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16] for GUI tree GUITree[2@1]@g2s3[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** > Readding transitions finished in 0 ms.
+[APE] *** INFO *** Rebuilding model finished in 0 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 67 ms.
+[APE] *** INFO *** Check over-abstracted states g2s3[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]: #2
+[APE] *** INFO *** Checking over-abstracted states takes 137 ms
+[APE] *** INFO *** Check under-abstracted states g2s3[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Check under-abstracted states collected 1 targets for naming Naming[4]. The state is g2s3[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 1 targets for naming Naming[3]. The state is g2s3[-1,0][0]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 4 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-1.xml at step 1
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-1.png at step 1
+[APE] *** INFO *** Entry state: g2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]
+[APE] GSTG(g2): activities (1), states (1), edges (0), unvisited actions (16), visited actions (0)
+[APE] *** INFO *** -  0.00   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      0  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g2a23[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     2 g2a24[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     3 g2a25[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     4 g2a26[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     5 g2a27[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,1432,1080,1558][]
+[APE]     6 g2a28[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,1432,1080,1558][]
+[APE]     7 g2a29[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,402,1080,633][]
+[APE]     8 g2a30[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,633,1080,864][]
+[APE]     9 g2a31[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,864,1080,1095][]
+[APE]    10 g2a32[-1,0][0]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,1116,1080,1274][]
+[APE]    11 g2a33[-1,0][0]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][84,1432,277,1558][]
+[APE]    12 g2a34[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][298,1432,499,1558][]
+[APE]    13 g2a35[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][520,1432,769,1558][]
+[APE]    14 g2a36[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][790,1432,1015,1558][]
+[APE]    15 g2a37[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][1036,1432,1080,1558][]
+[APE]    16 g2a38[-1,0][0]@MODEL_BACKg2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g2a23[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][] by strategy EARLY_STAGE
+[APE] Last  state: null
+[APE] Last action: null
+[APE] Curr  state: null
+[APE] Curr action: null
+[APE] New   state: g2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]
+[APE] New  action: g2a23[1,1][1]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][][S=0.000000][RN=1][0,63,1080,1794][]
+[APE] >>>>>>>> SATA end step [1]
+[APE] >>>>>>>> SATA begin step [2][Elapsed: 0000 00:00:07]
+[APE] *** INFO *** Explored 2 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9] for GUI tree GUITree[3@0]@g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** Checking new state: g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 65 ms.
+[APE] *** INFO *** Create state g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9] for GUI tree GUITree[4@0]@g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9], iteration: #1
+[APE] *** INFO *** getRootInActiveWindowSlow takes 39 ms.
+[APE] *** INFO *** Create state g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9] for GUI tree GUITree[5@0]@g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9], iteration: #0
+[APE] *** INFO *** getRootInActiveWindowSlow takes 35 ms.
+[APE] *** INFO *** Create state g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9] for GUI tree GUITree[6@0]@g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** State g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9] is blacklisted from refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]: #0
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;enabled=true;clickable=true; that has been resolved to 4 nodes
+[APE] this:Naming[3], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** Refine actions: nodes(4), new names (4), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - class=android.view.View;index=2;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=3;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=5;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=4;enabled=true;clickable=true;
+[APE] *** INFO *** Update naming for GUITree[6@2]@g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]: existing in dict: Naming[0], current in tree: Naming[0], check in graph: Naming[0], new: Naming[3]
+[APE] *** INFO *** getNaming for tree GUITree[6@2]@g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]: Source: Naming[0], Target: null, State: app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[0], Target: Naming[3], State: app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g2s4[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5][A=9]
+[APE] *** INFO *** > rebuilding tree #2
+[APE] *** INFO *** Create state g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12] for GUI tree GUITree[6@2]@g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12]
+[APE] *** INFO *** > Readding transitions finished in 0 ms.
+[APE] *** INFO *** Rebuilding model finished in 1 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 42 ms.
+[APE] *** INFO *** Check over-abstracted states g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12]: #1
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;enabled=true;clickable=true;checkable=true; that has been resolved to 5 nodes
+[APE] this:Naming[4], parent:Naming[3].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE]   3. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** Refine actions: nodes(5), new names (5), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - class=android.view.View;index=2;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=3;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=0;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=1;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=4;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** Update naming for GUITree[6@2]@g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12]: existing in dict: Naming[3], current in tree: Naming[3], check in graph: Naming[3], new: Naming[4]
+[APE] *** INFO *** getNaming for tree GUITree[6@2]@g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12]: Source: Naming[0], Target: Naming[3], State: app.plugbrain.android.ui.settings.SettingsActivity@-938907599@Naming[0]@[W=5]
+[APE] *** INFO *** getNaming for tree GUITree[6@2]@g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12]: Source: Naming[3], Target: null, State: app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[3], Target: Naming[4], State: app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g3s5[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@-2016711186@Naming[3]@[W=8][A=12]
+[APE] *** INFO *** > rebuilding tree #2
+[APE] *** INFO *** Create state g4s6[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16] for GUI tree GUITree[6@2]@g4s6[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** > Readding transitions finished in 0 ms.
+[APE] *** INFO *** Rebuilding model finished in 1 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 31 ms.
+[APE] *** INFO *** Check over-abstracted states g4s6[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #2
+[APE] *** INFO *** Checking over-abstracted states takes 76 ms
+[APE] *** INFO *** Check under-abstracted states g4s6[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[4]. The state is g4s6[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[3]. The state is g4s6[-1,0][0]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 1 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-2.xml at step 2
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-2.png at step 2
+[APE] === Adding edge...
+[APE]     Source: g2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]
+[APE]     Action: g2a23[1,1][1]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     Target: g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE]     Add target result: true
+[APE] GSTG(g4): activities (2), states (2), edges (1), unvisited actions (31), visited actions (1)
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.00   1 app.plugbrain.android.ui.settings.SettingsActivity[2,2][1][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      1  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g4a60[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     2 g4a61[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     3 g4a62[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     4 g4a63[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     5 g4a64[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,1310,1080,1436][]
+[APE]     6 g4a65[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,1310,1080,1436][]
+[APE]     7 g4a66[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,280,1080,511][]
+[APE]     8 g4a67[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,511,1080,742][]
+[APE]     9 g4a68[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,742,1080,973][]
+[APE]    10 g4a69[-1,0][0]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,994,1080,1152][]
+[APE]    11 g4a70[-1,0][0]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][84,1310,277,1436][]
+[APE]    12 g4a71[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][298,1310,499,1436][]
+[APE]    13 g4a72[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][520,1310,769,1436][]
+[APE]    14 g4a73[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][790,1310,1015,1436][]
+[APE]    15 g4a74[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][1036,1310,1080,1436][]
+[APE]    16 g4a75[-1,0][0]@MODEL_BACKg4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** > - B: g2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** Never move from a cold activity (g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16])(app.plugbrain.android.ui.settings.SettingsActivity[2,2][1][S=1]) to a hot activity (g2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16])(app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g4a65[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,1310,1080,1436][] by strategy EARLY_STAGE
+[APE] Last  state: null
+[APE] Last action: null
+[APE] Curr  state: g2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]
+[APE] Curr action: g2a23[1,1][1]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][][S=0.000000][RN=1][0,63,1080,1794][]
+[APE] New   state: g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] New  action: g4a65[2,2][1]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=36][T=200][][S=0.000000][RN=1][0,1310,1080,1436][]
+[APE] >>>>>>>> SATA end step [2]
+[APE] >>>>>>>> SATA begin step [3][Elapsed: 0000 00:00:10]
+[APE] *** INFO *** Explored 2 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16] for GUI tree GUITree[7@0]@g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** Check under-abstracted states g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[4]. The state is g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[3]. The state is g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Pre-checking under-abstracted states takes 3 ms
+[APE] *** INFO *** Check over-abstracted states g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Check under-abstracted states g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[4]. The state is g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[3]. The state is g4s6[2,2][1]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 2 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-3.xml at step 3
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-3.png at step 3
+[APE] === Adding edge...
+[APE]     Source: g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE]     Action: g4a65[2,2][1]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=36][T=0][][S=1.000000][RN=1][0,1310,1080,1436][]
+[APE]     Target: g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE]     Add target result: true
+[APE] GSTG(g4): activities (2), states (2), edges (2), unvisited actions (30), visited actions (2)
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.settings.SettingsActivity[2,3][2][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (1), activity (1)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      2  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g4a60[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     2 g4a61[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     3 g4a62[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     4 g4a63[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     5 g4a64[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,1310,1080,1436][]
+[APE]     6 g4a65[2,2][1]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=26][T=0][][S=1.000000][RN=1][0,1310,1080,1436][]
+[APE]     7 g4a66[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,280,1080,511][]
+[APE]     8 g4a67[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,511,1080,742][]
+[APE]     9 g4a68[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,742,1080,973][]
+[APE]    10 g4a69[-1,0][0]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,994,1080,1152][]
+[APE]    11 g4a70[-1,0][0]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,1310,69,1436][]
+[APE]    12 g4a71[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][90,1310,339,1436][]
+[APE]    13 g4a72[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][360,1310,585,1436][]
+[APE]    14 g4a73[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][606,1310,826,1436][]
+[APE]    15 g4a74[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][847,1310,1080,1436][]
+[APE]    16 g4a75[-1,0][0]@MODEL_BACKg4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** > - B: g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** Never move from a cold state (g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]) to a hot state (g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g4a70[-1,0][0]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,1310,69,1436][] by strategy EARLY_STAGE
+[APE] Last  state: g2s3[1,1][1]app.plugbrain.android.ui.main.MainActivity@1617393697@Naming[4]@[W=12][A=16]
+[APE] Last action: g2a23[1,1][1]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][][S=0.000000][RN=1][0,63,1080,1794][]
+[APE] Curr  state: g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] Curr action: g4a65[2,2][1]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=26][T=0][][S=1.000000][RN=1][0,1310,1080,1436][]
+[APE] New   state: g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] New  action: g4a70[3,3][1]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=52][T=200][][S=0.000000][RN=1][0,1310,69,1436][]
+[APE] >>>>>>>> SATA end step [3]
+[APE] >>>>>>>> SATA begin step [4][Elapsed: 0000 00:00:11]
+[APE] *** INFO *** Explored 2 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16] for GUI tree GUITree[8@0]@g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** Check under-abstracted states g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[4]. The state is g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[3]. The state is g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Pre-checking under-abstracted states takes 2 ms
+[APE] *** INFO *** Check over-abstracted states g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Check under-abstracted states g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]: #0
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[4]. The state is g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[3]. The state is g4s6[2,3][2]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 1 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-4.xml at step 4
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-4.png at step 4
+[APE] === Adding edge...
+[APE]     Source: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE]     Action: g4a70[3,3][1]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=52][T=0][][S=1.000000][RN=1][0,1310,116,1436][]
+[APE]     Target: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE]     Add target result: true
+[APE] GSTG(g4): activities (2), states (2), edges (3), unvisited actions (29), visited actions (3)
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.13   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (2), activity (2)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g4a60[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     2 g4a61[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     3 g4a62[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     4 g4a63[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,63,1080,1794][]
+[APE]     5 g4a64[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,1310,1080,1436][]
+[APE]     6 g4a65[2,2][1]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=26][T=0][][S=1.000000][RN=1][0,1310,1080,1436][]
+[APE]     7 g4a66[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,280,1080,511][]
+[APE]     8 g4a67[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,511,1080,742][]
+[APE]     9 g4a68[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,742,1080,973][]
+[APE]    10 g4a69[-1,0][0]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,994,1080,1152][]
+[APE]    11 g4a70[3,3][1]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=42][T=0][][S=1.000000][RN=1][0,1310,116,1436][]
+[APE]    12 g4a71[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][137,1310,339,1436][]
+[APE]    13 g4a72[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][360,1310,585,1436][]
+[APE]    14 g4a73[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][606,1310,826,1436][]
+[APE]    15 g4a74[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][847,1310,1080,1436][]
+[APE]    16 g4a75[-1,0][0]@MODEL_BACKg4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** > - B: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** Never move from a cold state (g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]) to a hot state (g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g4a69[-1,0][0]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,994,1080,1152][] by strategy EARLY_STAGE
+[APE] Last  state: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] Last action: g4a65[2,2][1]@MODEL_SCROLL_RIGHT_LEFTclass=android.widget.HorizontalScrollView;enabled=true;scrollable=true;[P=26][T=0][][S=1.000000][RN=1][0,1310,1080,1436][]
+[APE] Curr  state: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] Curr action: g4a70[3,3][1]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=42][T=0][][S=1.000000][RN=1][0,1310,116,1436][]
+[APE] New   state: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] New  action: g4a69[4,4][1]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,994,1080,1152][]
+[APE] >>>>>>>> SATA end step [4]
+[APE] >>>>>>>> SATA begin step [5][Elapsed: 0000 00:00:12]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g4s7[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[9@0]@g4s7[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking new state: g4s7[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 1008 ms.
+[APE] *** INFO *** Create state g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8] for GUI tree GUITree[10@0]@g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8]
+[APE] *** INFO *** New (trivial) state is updated from g4s7[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] to g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8].
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8]: #0
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;enabled=true;clickable=true;checkable=true; that has been resolved to 8 nodes
+[APE] this:Naming[5], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** Refine actions: nodes(8), new names (8), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - class=android.view.View;index=5;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=2;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=6;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=3;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=1;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=0;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=7;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - class=android.view.View;index=4;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** Update naming for GUITree[10@5]@g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8]: existing in dict: Naming[0], current in tree: Naming[0], check in graph: Naming[0], new: Naming[5]
+[APE] *** INFO *** getNaming for tree GUITree[10@5]@g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8]: Source: Naming[0], Target: null, State: app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[0], Target: Naming[5], State: app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g4s8[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1267219622@Naming[0]@[W=4][A=8]
+[APE] *** INFO *** > rebuilding tree #5
+[APE] *** INFO *** Create state g5s9[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15] for GUI tree GUITree[10@5]@g5s9[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE] *** INFO *** > Readding transitions finished in 0 ms.
+[APE] *** INFO *** Rebuilding model finished in 1 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 21 ms.
+[APE] *** INFO *** Check over-abstracted states g5s9[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]: #1
+[APE] *** INFO *** Checking over-abstracted states takes 22 ms
+[APE] *** INFO *** Check under-abstracted states g5s9[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]: #0
+[APE] *** INFO *** Check under-abstracted states collected 1 targets for naming Naming[5]. The state is g5s9[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-5.xml at step 5
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-5.png at step 5
+[APE] === Adding edge...
+[APE]     Source: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE]     Action: g4a69[4,4][1]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,994,1080,1152][]
+[APE]     Target: g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE]     Add target result: true
+[APE] GSTG(g5): activities (3), states (3), edges (4), unvisited actions (43), visited actions (4)
+[APE] *** INFO *** -  0.00   1 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,5][1][S=1]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      4  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a87[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,273,1080,1794][]
+[APE]     2 g5a88[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,273,1080,1794][]
+[APE]     3 g5a89[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,273,1080,1794][]
+[APE]     4 g5a90[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,273,1080,1794][]
+[APE]     5 g5a91[-1,0][0]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,294,1080,483][]
+[APE]     6 g5a92[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,483,1080,672][]
+[APE]     7 g5a93[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,672,1080,861][]
+[APE]     8 g5a94[-1,0][0]@MODEL_CLICKclass=android.view.View;index=3;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,861,1080,1050][]
+[APE]     9 g5a95[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,1050,1080,1281][]
+[APE]    10 g5a96[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,273][]
+[APE]    11 g5a97[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,273][]
+[APE]    12 g5a98[-1,0][0]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,1281,1080,1470][]
+[APE]    13 g5a99[-1,0][0]@MODEL_CLICKclass=android.view.View;index=6;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,1470,1080,1659][]
+[APE]    14 g5a100[-1,0][0]@MODEL_CLICKclass=android.view.View;index=7;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,1659,1080,1848][]
+[APE]    15 g5a101[-1,0][0]@MODEL_BACKg5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE] *** INFO *** > - B: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] *** INFO *** Never move from a cold activity (g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15])(app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,5][1][S=1]) to a hot activity (g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16])(app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g5a96[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,273][] by strategy EARLY_STAGE
+[APE] Last  state: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] Last action: g4a70[3,3][1]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;checkable=true;[P=42][T=0][][S=1.000000][RN=1][0,1310,116,1436][]
+[APE] Curr  state: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] Curr action: g4a69[4,4][1]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,994,1080,1152][]
+[APE] New   state: g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE] New  action: g5a96[5,5][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,126,1080,273][]
+[APE] *** INFO *** Select [Battery ] 7/36 from string list
+[APE] >>>>>>>> SATA end step [5]
+[APE] *** INFO *** Input text is Battery 
+[APE] >>>>>>>> SATA begin step [6][Elapsed: 0000 00:00:19]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[11@0]@g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking new state: g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 100 ms.
+[APE] *** INFO *** Create state g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[12@0]@g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3], iteration: #1
+[APE] *** INFO *** getRootInActiveWindowSlow takes 33 ms.
+[APE] *** INFO *** Create state g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[13@0]@g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3], iteration: #0
+[APE] *** INFO *** getRootInActiveWindowSlow takes 6 ms.
+[APE] *** INFO *** Create state g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[14@0]@g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** State g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is blacklisted from refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[-1,0][0]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-6.xml at step 6
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-6.png at step 6
+[APE] === Adding edge...
+[APE]     Source: g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE]     Action: g5a96[5,5][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,126,1080,273][]
+[APE]     Target: g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: true
+[APE] GSTG(g5): activities (3), states (4), edges (5), unvisited actions (45), visited actions (5)
+[APE] *** INFO *** -  0.06   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,6][2][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (1)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      5  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[-1,0][0]@MODEL_BACKg5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** - g5a102[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g5a103[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,326][Battery ] by strategy EARLY_STAGE
+[APE] Last  state: g4s6[2,4][3]app.plugbrain.android.ui.settings.SettingsActivity@2065319137@Naming[4]@[W=12][A=16]
+[APE] Last action: g4a69[4,4][1]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,994,1080,1152][]
+[APE] Curr  state: g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE] Curr action: g5a96[5,5][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,126,1080,273][]
+[APE] New   state: g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][][S=0.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Select [Minimal ] 18/36 from string list
+[APE] >>>>>>>> SATA end step [6]
+[APE] >>>>>>>> SATA begin step [7][Elapsed: 0000 00:00:22]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[15@0]@g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,6][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 9 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-7.xml at step 7
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-7.png at step 7
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     Target: g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: true
+[APE] GSTG(g5): activities (3), states (4), edges (6), unvisited actions (44), visited actions (6)
+[APE] *** INFO *** -  0.11   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,7][3][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (1), activity (2)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      6  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=26][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[-1,0][0]@MODEL_BACKg5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** - g5a102[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Select action g5a102[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,126,1080,326][Battery ] by strategy EARLY_STAGE
+[APE] Last  state: g5s9[5,5][1]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@-268971268@Naming[5]@[W=11][A=15]
+[APE] Last action: g5a96[5,5][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,126,1080,273][]
+[APE] Curr  state: g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=26][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] New   state: g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,7][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][][S=0.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Select [Google P] 32/36 from string list
+[APE] *** INFO *** Use random string 100112950.05.06
+[APE] >>>>>>>> SATA end step [7]
+[APE] *** INFO *** Input text is 100112950.05.06
+[APE] >>>>>>>> SATA begin step [8][Elapsed: 0000 00:00:27]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[16@0]@g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,7][2]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-8.xml at step 8
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-8.png at step 8
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a102[7,7][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     Target: g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: true
+[APE] GSTG(g5): activities (3), states (4), edges (7), unvisited actions (43), visited actions (7)
+[APE] *** INFO *** -  0.17   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,8][4][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (2), activity (3)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      7  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,7][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=42][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=26][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[-1,0][0]@MODEL_BACKg5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** Find a greedy (unvisited) back action.
+[APE] *** INFO *** Select action g5a104[-1,0][0]@MODEL_BACKg5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED] by strategy EARLY_STAGE
+[APE] Last  state: g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=26][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] Curr  state: g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a102[7,7][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=42][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] New   state: g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a104[8,8][1]@MODEL_BACKg5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=13][T=200][]
+[APE] >>>>>>>> SATA end step [8]
+[APE] >>>>>>>> SATA begin step [9][Elapsed: 0000 00:00:28]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[17@0]@g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,8][3]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-9.xml at step 9
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-9.png at step 9
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a104[8,8][1]@MODEL_BACKg5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=13][T=0][]
+[APE]     Target: g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: true
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,9][5][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (3), activity (4)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,7][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[8,8][1]@MODEL_BACKg5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.914689, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a102[7,7][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] Curr  state: g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a104[8,8][1]@MODEL_BACKg5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Select [Google P] 32/36 from string list
+[APE] *** INFO *** Use random string +540752
+[APE] >>>>>>>> SATA end step [9]
+[APE] *** INFO *** Input text is +540752
+[APE] >>>>>>>> SATA begin step [10][Elapsed: 0000 00:00:31]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[18@0]@g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,9][4]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-10.xml at step 10
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-10.png at step 10
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     Target: g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,10][6][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (1), state (4), activity (5)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      1  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[8,8][1]@MODEL_BACKg5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.936464, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a103[6,6][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a104[8,8][1]@MODEL_BACKg5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] New   state: g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Select [Drive] 28/36 from string list
+[APE] *** INFO *** Use random string 350464700251662
+[APE] >>>>>>>> SATA end step [10]
+[APE] >>>>>>>> SATA begin step [11][Elapsed: 0000 00:00:33]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[19@0]@g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,10][5]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-11.xml at step 11
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-11.png at step 11
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     Target: g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,11][7][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (2), state (5), activity (6)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      2  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[8,8][1]@MODEL_BACKg5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.090438, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a104[8,8][1]@MODEL_BACKg5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] Curr  state: g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] New   state: g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a104[8,11][2]@MODEL_BACKg5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [11]
+[APE] >>>>>>>> SATA begin step [12][Elapsed: 0000 00:00:33]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[20@0]@g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,11][6]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-12.xml at step 12
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-12.png at step 12
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a104[8,11][2]@MODEL_BACKg5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,12][8][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (3), state (6), activity (7)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      3  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[8,11][2]@MODEL_BACKg5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.433083, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a102[7,9][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] Curr  state: g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a104[8,11][2]@MODEL_BACKg5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Select [1 x 3] 21/36 from string list
+[APE] >>>>>>>> SATA end step [12]
+[APE] *** INFO *** Input text is 1 x 3
+[APE] >>>>>>>> SATA begin step [13][Elapsed: 0000 00:00:36]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[21@0]@g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,12][7]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-13.xml at step 13
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-13.png at step 13
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     Target: g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,13][9][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (4), state (7), activity (8)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      4  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[8,11][2]@MODEL_BACKg5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.642122, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a103[6,10][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a104[8,11][2]@MODEL_BACKg5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] New   state: g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Select [5 min] 15/36 from string list
+[APE] >>>>>>>> SATA end step [13]
+[APE] >>>>>>>> SATA begin step [14][Elapsed: 0000 00:00:38]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[22@0]@g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,13][8]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-14.xml at step 14
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-14.png at step 14
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     Target: g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,14][10][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (5), state (8), activity (9)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      5  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[8,11][2]@MODEL_BACKg5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.326593, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a104[8,11][2]@MODEL_BACKg5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] Curr  state: g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] New   state: g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a104[8,14][3]@MODEL_BACKg5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [14]
+[APE] >>>>>>>> SATA begin step [15][Elapsed: 0000 00:00:39]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[23@0]@g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,14][9]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-15.xml at step 15
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-15.png at step 15
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a104[8,14][3]@MODEL_BACKg5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,15][11][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (6), state (9), activity (10)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      6  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     2 g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE]     3 g5a104[8,14][3]@MODEL_BACKg5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.162808, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a102[7,12][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] Curr  state: g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a104[8,14][3]@MODEL_BACKg5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,326][Battery ]
+[APE] *** INFO *** Select [1 x 3] 21/36 from string list
+[APE] *** INFO *** Use random string 831328229493875656
+[APE] >>>>>>>> SATA end step [15]
+[APE] *** INFO *** Input text is 831328229493875656
+[APE] >>>>>>>> SATA begin step [16][Elapsed: 0000 00:00:43]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[24@0]@g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,15][10]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-16.xml at step 16
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-16.png at step 16
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     Target: g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,16][12][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (7), state (10), activity (11)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      7  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     2 g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     3 g5a104[8,14][3]@MODEL_BACKg5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.412797, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a103[6,13][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a104[8,14][3]@MODEL_BACKg5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE] New   state: g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE] *** INFO *** Select [Blocking] 11/36 from string list
+[APE] *** INFO *** Use random string 693692982926.379305
+[APE] >>>>>>>> SATA end step [16]
+[APE] >>>>>>>> SATA begin step [17][Elapsed: 0000 00:00:44]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[25@0]@g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,16][11]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-17.xml at step 17
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-17.png at step 17
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     Target: g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,17][13][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (8), state (11), activity (12)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      8  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     2 g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     3 g5a104[8,14][3]@MODEL_BACKg5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.159536, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a104[8,14][3]@MODEL_BACKg5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE] Curr  state: g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE] New   state: g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a104[8,17][4]@MODEL_BACKg5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [17]
+[APE] >>>>>>>> SATA begin step [18][Elapsed: 0000 00:00:45]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[26@0]@g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,17][12]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-18.xml at step 18
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-18.png at step 18
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a104[8,17][4]@MODEL_BACKg5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,18][14][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (9), state (12), activity (13)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]      9  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     2 g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE]     3 g5a104[8,17][4]@MODEL_BACKg5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.345974, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a102[7,15][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE] Curr  state: g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a104[8,17][4]@MODEL_BACKg5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,384][Battery ]
+[APE] *** INFO *** Select [Blocking] 11/36 from string list
+[APE] *** INFO *** Use random string 56636867-05-10
+[APE] >>>>>>>> SATA end step [18]
+[APE] *** INFO *** Input text is 56636867-05-10
+[APE] >>>>>>>> SATA begin step [19][Elapsed: 0000 00:00:49]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[27@0]@g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,18][13]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 2 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-19.xml at step 19
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-19.png at step 19
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     Target: g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,19][15][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (10), state (13), activity (14)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     10  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,17][4]@MODEL_BACKg5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.159813, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a103[6,16][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a104[8,17][4]@MODEL_BACKg5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] New   state: g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] *** INFO *** Select [20 min] 20/36 from string list
+[APE] *** INFO *** Use random string 56686040606080290238.08654
+[APE] >>>>>>>> SATA end step [19]
+[APE] >>>>>>>> SATA begin step [20][Elapsed: 0000 00:00:51]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[28@0]@g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,19][14]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-20.xml at step 20
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-20.png at step 20
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     Target: g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,20][16][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (11), state (14), activity (15)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     11  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,17][4]@MODEL_BACKg5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.971055, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a104[8,17][4]@MODEL_BACKg5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] Curr  state: g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] New   state: g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a104[8,20][5]@MODEL_BACKg5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [20]
+[APE] >>>>>>>> SATA begin step [21][Elapsed: 0000 00:00:51]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[29@0]@g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,20][15]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-21.xml at step 21
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-21.png at step 21
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a104[8,20][5]@MODEL_BACKg5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,21][17][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (12), state (15), activity (16)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     12  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,20][5]@MODEL_BACKg5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.015579, epsilon=0.050000.
+[APE] *** INFO *** Try to randomly select a visited action.
+[APE] *** INFO *** Select action g5a102[7,18][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] Curr  state: g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a104[8,20][5]@MODEL_BACKg5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] >>>>>>>> SATA end step [21]
+[APE] >>>>>>>> SATA begin step [22][Elapsed: 0000 00:00:52]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[30@0]@g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,21][16]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-22.xml at step 22
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-22.png at step 22
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     Target: g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,22][18][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (13), state (16), activity (17)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     13  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,20][5]@MODEL_BACKg5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.337667, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a103[6,19][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a104[8,20][5]@MODEL_BACKg5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] New   state: g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] >>>>>>>> SATA end step [22]
+[APE] >>>>>>>> SATA begin step [23][Elapsed: 0000 00:00:54]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[31@0]@g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,22][17]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-23.xml at step 23
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-23.png at step 23
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     Target: g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,23][19][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (14), state (17), activity (18)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     14  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,20][5]@MODEL_BACKg5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.457739, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a104[8,20][5]@MODEL_BACKg5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] Curr  state: g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] New   state: g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a104[8,23][6]@MODEL_BACKg5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [23]
+[APE] >>>>>>>> SATA begin step [24][Elapsed: 0000 00:00:54]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[32@0]@g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,23][18]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-24.xml at step 24
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-24.png at step 24
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a104[8,23][6]@MODEL_BACKg5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,24][20][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (15), state (18), activity (19)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     15  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,23][6]@MODEL_BACKg5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.310241, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a102[7,21][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] Curr  state: g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a104[8,23][6]@MODEL_BACKg5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,24][7]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] >>>>>>>> SATA end step [24]
+[APE] >>>>>>>> SATA begin step [25][Elapsed: 0000 00:00:55]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[33@0]@g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,24][19]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-25.xml at step 25
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-25.png at step 25
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a102[7,24][7]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     Target: g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,25][21][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (16), state (19), activity (20)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     16  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,24][7]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,23][6]@MODEL_BACKg5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.595603, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g5a103[6,22][6]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a104[8,23][6]@MODEL_BACKg5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a102[7,24][7]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] New   state: g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a103[6,25][7]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] *** INFO *** Select [Search] 23/36 from string list
+[APE] *** INFO *** Use random string 853715187397901.056
+[APE] >>>>>>>> SATA end step [25]
+[APE] >>>>>>>> SATA begin step [26][Elapsed: 0000 00:00:57]
+[APE] *** INFO *** Explored 3 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] for GUI tree GUITree[34@0]@g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g5s10[6,25][20]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-26.xml at step 26
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.plugbrain.android.debug-ape-sata-running-minutes-1/step-26.png at step 26
+[APE] === Adding edge...
+[APE]     Source: g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Action: g5a103[6,25][7]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     Target: g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g5): activities (3), states (4), edges (8), unvisited actions (42), visited actions (8)
+[APE] *** INFO *** -  0.22   2 app.plugbrain.android.ui.selectapps.AppsSelectionActivity[5,26][22][S=2]
+[APE] *** INFO *** -  0.06   1 app.plugbrain.android.ui.main.MainActivity[1,1][1][S=1]
+[APE] *** INFO *** -  0.19   1 app.plugbrain.android.ui.settings.SettingsActivity[2,4][3][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (17), state (20), activity (21)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      8  EARLY_STAGE
+[APE]     17  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g5a102[7,24][7]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     2 g5a103[6,25][7]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE]     3 g5a104[8,23][6]@MODEL_BACKg5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) to a hot state (g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.040707, epsilon=0.050000.
+[APE] *** INFO *** Try to randomly select a visited action.
+[APE] *** INFO *** Select action g5a102[7,24][7]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ] by strategy EPSILON_GREEDY
+[APE] Last  state: g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Last action: g5a102[7,26][8]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] Curr  state: g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] Curr action: g5a103[6,25][7]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] New   state: g5s10[6,26][21]app.plugbrain.android.ui.selectapps.AppsSelectionActivity@1010089679@Naming[0]@[W=2][A=3]
+[APE] New  action: g5a102[7,26][8]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][0,126,1080,442][Battery ]
+[APE] *** INFO *** Select [com.andr] 27/36 from string list
+[APE] *** INFO *** Use random string 1661825757883131601690627539942
+[APE] >>>>>>>> SATA end step [26]
+[APE] *** INFO *** Input text is 1661825757883131601690627539942

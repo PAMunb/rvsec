@@ -1,0 +1,280 @@
+{
+ "fixture_class": "FIXTURE-REAL",
+ "sample_of": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS",
+ "generated_by": "modules/aperv-tool/tests/fixtures/build_baseline_sample.py",
+ "note": "A hashed sample of the E2 raw corpus, copied in so the baseline parsers are testable without the 39.8 GB tree. The source corpus is read-only and is never modified; these copies are the fixture.",
+ "directory": "baseline_sample",
+ "runs": [
+  {
+   "apk": "com.shub39.dharmik.online_2200.apk",
+   "repetition": 1,
+   "timeout_s": 60,
+   "arm": "ape",
+   "tool": "ape",
+   "variant": null,
+   "reason": "ape with no SATA begin step marker \u2014 'no steps' as an outcome",
+   "files": {
+    "com.shub39.dharmik.online_2200.apk__1__60__ape.trace": {
+     "sha256": "f372710c250b76787f4189784b1421620742438cddd703992d0586bec96664bc",
+     "bytes": 8475,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m2/results/exp_02/exp_02/com.shub39.dharmik.online_2200.apk/com.shub39.dharmik.online_2200.apk__1__60__ape.trace"
+    },
+    "com.shub39.dharmik.online_2200.apk__1__60__ape.logcat": {
+     "sha256": "a2d1b6f7c6895b0198a65f2a9eb145a72946c4e09a0b0e99bcf95aab86e26c88",
+     "bytes": 1565996,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m2/results/exp_02/exp_02/com.shub39.dharmik.online_2200.apk/com.shub39.dharmik.online_2200.apk__1__60__ape.logcat"
+    }
+   }
+  },
+  {
+   "apk": "com.serwylo.retrowars_70.apk",
+   "repetition": 3,
+   "timeout_s": 60,
+   "arm": "ape",
+   "tool": "ape",
+   "variant": null,
+   "reason": "ape carrying a // NOT RESPONDING block hoisted to a run-level event",
+   "files": {
+    "com.serwylo.retrowars_70.apk__3__60__ape.trace": {
+     "sha256": "65a341410f37b33657f30a9c4f22a5ec8cdc44e1858ccb40fe03b5cc264215af",
+     "bytes": 42016,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m2/results/exp_02/exp_02/com.serwylo.retrowars_70.apk/com.serwylo.retrowars_70.apk__3__60__ape.trace"
+    },
+    "com.serwylo.retrowars_70.apk__3__60__ape.logcat": {
+     "sha256": "2cb3caabd8efcb0dcb11576a4ad62dd6dc7fb112aab5169382f72e498bfc0fe9",
+     "bytes": 446489,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m2/results/exp_02/exp_02/com.serwylo.retrowars_70.apk/com.serwylo.retrowars_70.apk__3__60__ape.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.pwhs.universalinstaller_24.apk",
+   "repetition": 1,
+   "timeout_s": 60,
+   "arm": "ape",
+   "tool": "ape",
+   "variant": null,
+   "reason": "ape, 50 steps at 60 s \u2014 the ordinary case, densest of the six",
+   "files": {
+    "app.pwhs.universalinstaller_24.apk__1__60__ape.trace": {
+     "sha256": "56d69064bb992cecddb36d6419b54842cb8cb545b36c502bc8e884f9f39dfce2",
+     "bytes": 239302,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.pwhs.universalinstaller_24.apk/app.pwhs.universalinstaller_24.apk__1__60__ape.trace"
+    },
+    "app.pwhs.universalinstaller_24.apk__1__60__ape.logcat": {
+     "sha256": "6fc8f37803b14d233ec7cd45d79d6cb698b1780b398fc6b2997ffa89de1a3698",
+     "bytes": 90255,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.pwhs.universalinstaller_24.apk/app.pwhs.universalinstaller_24.apk__1__60__ape.logcat"
+    }
+   }
+  },
+  {
+   "apk": "at.techbee.jtx_216000015.apk",
+   "repetition": 3,
+   "timeout_s": 300,
+   "arm": "ape",
+   "tool": "ape",
+   "variant": null,
+   "reason": "ape at 300 s that produced only 5 steps \u2014 a long budget, little progress",
+   "files": {
+    "at.techbee.jtx_216000015.apk__3__300__ape.trace": {
+     "sha256": "fc4497f4c09c50bfb84799e7a4a8c356139d9e4db6d62954622be5c1c4004afb",
+     "bytes": 76199,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/at.techbee.jtx_216000015.apk/at.techbee.jtx_216000015.apk__3__300__ape.trace"
+    },
+    "at.techbee.jtx_216000015.apk__3__300__ape.logcat": {
+     "sha256": "9fe5e9d559d44deca7268fbf4dabfb5c212df478dda87293f0bb5de0bd40a1a5",
+     "bytes": 365159,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/at.techbee.jtx_216000015.apk/at.techbee.jtx_216000015.apk__3__300__ape.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.eduroam.geteduroam_2685.apk",
+   "repetition": 3,
+   "timeout_s": 60,
+   "arm": "ape",
+   "tool": "ape",
+   "variant": null,
+   "reason": "ape, single-activity application also present in cmp162",
+   "files": {
+    "app.eduroam.geteduroam_2685.apk__3__60__ape.trace": {
+     "sha256": "e5fff721e7635ce0f5dd100fa3d94c26716944d0dafc158948422d5b33ebceb2",
+     "bytes": 74294,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.eduroam.geteduroam_2685.apk/app.eduroam.geteduroam_2685.apk__3__60__ape.trace"
+    },
+    "app.eduroam.geteduroam_2685.apk__3__60__ape.logcat": {
+     "sha256": "5fc61d4d0ac65511d4f5663332670293a5d0ab0e1918ee4d00fdcaca1cd50e57",
+     "bytes": 389895,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.eduroam.geteduroam_2685.apk/app.eduroam.geteduroam_2685.apk__3__60__ape.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.plugbrain.android_154.apk",
+   "repetition": 2,
+   "timeout_s": 60,
+   "arm": "ape",
+   "tool": "ape",
+   "variant": null,
+   "reason": "ape, second replica of a second application",
+   "files": {
+    "app.plugbrain.android_154.apk__2__60__ape.trace": {
+     "sha256": "6f96b407e0c89d7c7448806bea52497d66d92e6407cfb0bb9f018877b41989d6",
+     "bytes": 166812,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.plugbrain.android_154.apk/app.plugbrain.android_154.apk__2__60__ape.trace"
+    },
+    "app.plugbrain.android_154.apk__2__60__ape.logcat": {
+     "sha256": "3c0970fdcd6cb39b3e82396bdd1e124f2f2a0e6f27a074ab99c51106fd80a36b",
+     "bytes": 273612,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.plugbrain.android_154.apk/app.plugbrain.android_154.apk__2__60__ape.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.maskan.chat_90.apk",
+   "repetition": 1,
+   "timeout_s": 60,
+   "arm": "droidbot:bfs_greedy",
+   "tool": "droidbot",
+   "variant": "bfs_greedy",
+   "reason": "droidbot bfs_greedy at 60 s \u2014 greedy prints 'Navigating to <state>' provenance",
+   "files": {
+    "app.maskan.chat_90.apk__1__60__droidbot:bfs_greedy.trace": {
+     "sha256": "79ac087572b9fa89e24705bec6e70bb7191858d1645edd42b583a23ff9dd45ae",
+     "bytes": 212078,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_greedy.trace"
+    },
+    "app.maskan.chat_90.apk__1__60__droidbot:bfs_greedy.logcat": {
+     "sha256": "7289661c81347511b987602d2e630c9b4356e78471d3eb139b2a1c856fe5978b",
+     "bytes": 176192,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_greedy.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.maskan.chat_90.apk",
+   "repetition": 1,
+   "timeout_s": 60,
+   "arm": "droidbot:bfs_naive",
+   "tool": "droidbot",
+   "variant": "bfs_naive",
+   "reason": "droidbot bfs_naive at 60 s \u2014 naive prints 'selected a \u2026 view' provenance",
+   "files": {
+    "app.maskan.chat_90.apk__1__60__droidbot:bfs_naive.trace": {
+     "sha256": "e02a0e6cc07d89034c6d38491e4393cff9fe97a7894ce82afb6896a678d8cb17",
+     "bytes": 218461,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_naive.trace"
+    },
+    "app.maskan.chat_90.apk__1__60__droidbot:bfs_naive.logcat": {
+     "sha256": "bc7c7508fa31064858cdfa0fa789e95146f0d352df9b025caa50f4abdd8870a7",
+     "bytes": 140886,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_naive.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.maskan.chat_90.apk",
+   "repetition": 1,
+   "timeout_s": 60,
+   "arm": "droidbot:dfs_greedy",
+   "tool": "droidbot",
+   "variant": "dfs_greedy",
+   "reason": "droidbot dfs_greedy at 60 s",
+   "files": {
+    "app.maskan.chat_90.apk__1__60__droidbot:dfs_greedy.trace": {
+     "sha256": "d0e27abe7169f2c4aec0a653124ef6021c586dd85b18b77429ccdc399f73f2cb",
+     "bytes": 207420,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_greedy.trace"
+    },
+    "app.maskan.chat_90.apk__1__60__droidbot:dfs_greedy.logcat": {
+     "sha256": "aff445f3d048aed7a4099e9ec16093e03801b02232f5b8c358246d2103805e0a",
+     "bytes": 183036,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_greedy.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.maskan.chat_90.apk",
+   "repetition": 1,
+   "timeout_s": 60,
+   "arm": "droidbot:dfs_naive",
+   "tool": "droidbot",
+   "variant": "dfs_naive",
+   "reason": "droidbot dfs_naive at 60 s",
+   "files": {
+    "app.maskan.chat_90.apk__1__60__droidbot:dfs_naive.trace": {
+     "sha256": "afdb95a09460e0a6ffda3c5eaaf5872885001ac88211128988f243fb4f6a3705",
+     "bytes": 206616,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_naive.trace"
+    },
+    "app.maskan.chat_90.apk__1__60__droidbot:dfs_naive.logcat": {
+     "sha256": "9ecf999be00a8665d2827d975842f7b259ea257dde39f0f9f073dec9bdad9823",
+     "bytes": 136267,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_naive.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.maskan.chat_90.apk",
+   "repetition": 3,
+   "timeout_s": 300,
+   "arm": "droidbot:dfs_naive",
+   "tool": "droidbot",
+   "variant": "dfs_naive",
+   "reason": "droidbot at 300 s that reached an orderly stop \u2014 truncated is False here alone",
+   "files": {
+    "app.maskan.chat_90.apk__3__300__droidbot:dfs_naive.trace": {
+     "sha256": "7cb4cf18de91f53eb5b4d60fa6ece731744e69aa7e461bf77357e6999fd4002a",
+     "bytes": 217649,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:dfs_naive.trace"
+    },
+    "app.maskan.chat_90.apk__3__300__droidbot:dfs_naive.logcat": {
+     "sha256": "f9e0f5429caf71658a61db7b2f3ac94fcb13b1ef796279eb706209e3058e7726",
+     "bytes": 277257,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:dfs_naive.logcat"
+    }
+   }
+  },
+  {
+   "apk": "app.maskan.chat_90.apk",
+   "repetition": 3,
+   "timeout_s": 300,
+   "arm": "droidbot:bfs_naive",
+   "tool": "droidbot",
+   "variant": "bfs_naive",
+   "reason": "droidbot at 300 s cut by the timeout \u2014 109 actions, truncated",
+   "files": {
+    "app.maskan.chat_90.apk__3__300__droidbot:bfs_naive.trace": {
+     "sha256": "bf04f2ce9633388b0e2a185a634e69c20e837e1d56260de52a334eb7254778c8",
+     "bytes": 231538,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:bfs_naive.trace"
+    },
+    "app.maskan.chat_90.apk__3__300__droidbot:bfs_naive.logcat": {
+     "sha256": "0c33ffe512dd73afb677a89c596db532ea7f1ec08ff7caf3f0514c18ae321b89",
+     "bytes": 178542,
+     "source_path": "/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/RESULTS/m1/results/exp_00/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:bfs_naive.logcat"
+    }
+   }
+  }
+ ],
+ "tasks_slice": {
+  "path": "baseline_sample/tasks_slice.json",
+  "records": 12,
+  "note": "No baseline trace carries an end-of-run summary \u2014 steps total, coverage and termination reason come from here, never from the trace."
+ },
+ "coverage": {
+  "ape_runs": 6,
+  "droidbot_runs": 6,
+  "droidbot_variants": [
+   "bfs_greedy",
+   "bfs_naive",
+   "dfs_greedy",
+   "dfs_naive"
+  ],
+  "timeouts_s": [
+   60,
+   300
+  ]
+ }
+}

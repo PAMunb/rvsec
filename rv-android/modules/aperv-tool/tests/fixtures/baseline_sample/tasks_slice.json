@@ -1,0 +1,760 @@
+{
+ "tasks": [
+  {
+   "id": "89aaca49-a240-49ad-8365-b3c0c2213b65",
+   "config": {
+    "apk_name": "app.eduroam.geteduroam_2685.apk",
+    "repetition": 3,
+    "timeout": 60,
+    "tool_config": {
+     "name": "ape",
+     "variant": "default",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-06T14:51:35.821948",
+    "end_time": "2026-07-06T14:53:42.910840",
+    "tool_execution_start": "2026-07-06T14:52:32.598369",
+    "execution_time_seconds": 127,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.eduroam.geteduroam_2685.apk/app.eduroam.geteduroam_2685.apk__3__60__ape.logcat",
+    "trace_file": "results/exp_00/app.eduroam.geteduroam_2685.apk/app.eduroam.geteduroam_2685.apk__3__60__ape.trace",
+    "coverage_metrics": {
+     "method_coverage": 14.722536806342015,
+     "activities_coverage": 50.0,
+     "methods_mop_reachable_coverage": 11.433756805807622,
+     "total_errors": 5.0,
+     "total_method_calls": 520.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-06T14:14:01.349798",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-06T14:14:01.349910",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-06T14:14:01.349946",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-06T14:51:35.821919",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-06T14:53:42.910777",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "d40d6d2d-be99-42cd-85c4-4d5e4e279139",
+   "config": {
+    "apk_name": "app.maskan.chat_90.apk",
+    "repetition": 1,
+    "timeout": 60,
+    "tool_config": {
+     "name": "droidbot",
+     "variant": "dfs_greedy",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-06T15:34:21.435327",
+    "end_time": "2026-07-06T15:36:43.531677",
+    "tool_execution_start": "2026-07-06T15:35:32.774912",
+    "execution_time_seconds": 142,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_greedy.logcat",
+    "trace_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_greedy.trace",
+    "coverage_metrics": {
+     "method_coverage": 15.688712083540526,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 12.73209549071618,
+     "total_errors": 16.0,
+     "total_method_calls": 631.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-06T14:14:01.359465",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-06T14:14:01.359589",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-06T14:14:01.359628",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-06T15:34:21.435304",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-06T15:36:43.531629",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "52314749-2144-4d2d-bd32-b6942c4f153c",
+   "config": {
+    "apk_name": "app.maskan.chat_90.apk",
+    "repetition": 1,
+    "timeout": 60,
+    "tool_config": {
+     "name": "droidbot",
+     "variant": "bfs_greedy",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-06T15:41:19.205205",
+    "end_time": "2026-07-06T15:43:31.094852",
+    "tool_execution_start": "2026-07-06T15:42:20.284192",
+    "execution_time_seconds": 131,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_greedy.logcat",
+    "trace_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_greedy.trace",
+    "coverage_metrics": {
+     "method_coverage": 14.917951268025858,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 11.538461538461538,
+     "total_errors": 16.0,
+     "total_method_calls": 600.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-06T14:14:01.360100",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-06T14:14:01.360211",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-06T14:14:01.360248",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-06T15:41:19.205151",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-06T15:43:31.094785",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "bda7f92e-4d1a-4dab-830b-5793c4de0a9d",
+   "config": {
+    "apk_name": "app.maskan.chat_90.apk",
+    "repetition": 1,
+    "timeout": 60,
+    "tool_config": {
+     "name": "droidbot",
+     "variant": "dfs_naive",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-06T15:46:43.778450",
+    "end_time": "2026-07-06T15:48:59.752293",
+    "tool_execution_start": "2026-07-06T15:47:49.514830",
+    "execution_time_seconds": 135,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_naive.logcat",
+    "trace_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:dfs_naive.trace",
+    "coverage_metrics": {
+     "method_coverage": 9.348582794629538,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 6.36604774535809,
+     "total_errors": 16.0,
+     "total_method_calls": 376.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-06T14:14:01.360709",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-06T14:14:01.360829",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-06T14:14:01.360866",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-06T15:46:43.778420",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-06T15:48:59.752235",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "5c4d8783-0bf2-4f76-9f71-7a5d1d724b03",
+   "config": {
+    "apk_name": "app.maskan.chat_90.apk",
+    "repetition": 1,
+    "timeout": 60,
+    "tool_config": {
+     "name": "droidbot",
+     "variant": "bfs_naive",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-06T15:53:16.048224",
+    "end_time": "2026-07-06T15:55:25.026779",
+    "tool_execution_start": "2026-07-06T15:54:14.255752",
+    "execution_time_seconds": 128,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_naive.logcat",
+    "trace_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__1__60__droidbot:bfs_naive.trace",
+    "coverage_metrics": {
+     "method_coverage": 9.19940328194928,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 6.36604774535809,
+     "total_errors": 16.0,
+     "total_method_calls": 370.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-06T14:14:01.361317",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-06T14:14:01.361425",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-06T14:14:01.361461",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-06T15:53:16.048189",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-06T15:55:25.026723",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "6038a954-864f-4c49-9aff-043c1d59eb3f",
+   "config": {
+    "apk_name": "app.plugbrain.android_154.apk",
+    "repetition": 2,
+    "timeout": 60,
+    "tool_config": {
+     "name": "ape",
+     "variant": "default",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-06T19:50:34.140640",
+    "end_time": "2026-07-06T19:52:34.607850",
+    "tool_execution_start": "2026-07-06T19:51:24.160590",
+    "execution_time_seconds": 120,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.plugbrain.android_154.apk/app.plugbrain.android_154.apk__2__60__ape.logcat",
+    "trace_file": "results/exp_00/app.plugbrain.android_154.apk/app.plugbrain.android_154.apk__2__60__ape.trace",
+    "coverage_metrics": {
+     "method_coverage": 36.971527178602244,
+     "activities_coverage": 75.0,
+     "methods_mop_reachable_coverage": 89.23076923076924,
+     "total_errors": 1.0,
+     "total_method_calls": 857.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-06T14:14:01.429953",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-06T14:14:01.430072",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-06T14:14:01.430113",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-06T19:50:34.140600",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-06T19:52:34.607795",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "9bad4a70-f69a-479f-837c-faa1760881d8",
+   "config": {
+    "apk_name": "app.pwhs.universalinstaller_24.apk",
+    "repetition": 1,
+    "timeout": 60,
+    "tool_config": {
+     "name": "ape",
+     "variant": "default",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-06T20:58:40.826908",
+    "end_time": "2026-07-06T21:00:41.910217",
+    "tool_execution_start": "2026-07-06T20:59:31.603496",
+    "execution_time_seconds": 121,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.pwhs.universalinstaller_24.apk/app.pwhs.universalinstaller_24.apk__1__60__ape.logcat",
+    "trace_file": "results/exp_00/app.pwhs.universalinstaller_24.apk/app.pwhs.universalinstaller_24.apk__1__60__ape.trace",
+    "coverage_metrics": {
+     "method_coverage": 2.2744828770062653,
+     "activities_coverage": 10.526315789473683,
+     "methods_mop_reachable_coverage": 1.3333333333333335,
+     "total_errors": 1.0,
+     "total_method_calls": 265.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-06T14:14:01.450470",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-06T14:14:01.450587",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-06T14:14:01.450623",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-06T20:58:40.826879",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-06T21:00:41.908947",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "7f298a8e-0c9a-4f58-b3a5-782767ce83b7",
+   "config": {
+    "apk_name": "app.maskan.chat_90.apk",
+    "repetition": 3,
+    "timeout": 300,
+    "tool_config": {
+     "name": "droidbot",
+     "variant": "dfs_naive",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-09T07:23:47.156037",
+    "end_time": "2026-07-09T07:28:42.352301",
+    "tool_execution_start": "2026-07-09T07:24:46.207950",
+    "execution_time_seconds": 295,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:dfs_naive.logcat",
+    "trace_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:dfs_naive.trace",
+    "coverage_metrics": {
+     "method_coverage": 28.368970661362507,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 24.6684350132626,
+     "total_errors": 17.0,
+     "total_method_calls": 1141.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-09T03:24:38.081026",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-09T03:24:38.081148",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-09T03:24:38.081191",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-09T07:23:47.156013",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-09T07:28:42.352238",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fe817fe0-f5ab-4fce-ab2e-9f99fc90cf5a",
+   "config": {
+    "apk_name": "app.maskan.chat_90.apk",
+    "repetition": 3,
+    "timeout": 300,
+    "tool_config": {
+     "name": "droidbot",
+     "variant": "bfs_naive",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-09T07:41:06.232487",
+    "end_time": "2026-07-09T07:47:16.908613",
+    "tool_execution_start": "2026-07-09T07:42:05.882022",
+    "execution_time_seconds": 370,
+    "error_message": null,
+    "logcat_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:bfs_naive.logcat",
+    "trace_file": "results/exp_00/app.maskan.chat_90.apk/app.maskan.chat_90.apk__3__300__droidbot:bfs_naive.trace",
+    "coverage_metrics": {
+     "method_coverage": 14.992541024365988,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 12.665782493368699,
+     "total_errors": 18.0,
+     "total_method_calls": 603.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-09T03:24:38.081634",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-09T03:24:38.081743",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-09T03:24:38.081779",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-09T07:41:06.232461",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-09T07:47:16.908551",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "3d7fea01-85e0-4863-8425-d2215402f446",
+   "config": {
+    "apk_name": "at.techbee.jtx_216000015.apk",
+    "repetition": 3,
+    "timeout": 300,
+    "tool_config": {
+     "name": "ape",
+     "variant": "default",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-10T13:00:20.858736",
+    "end_time": "2026-07-10T13:51:11.068848",
+    "tool_execution_start": "2026-07-10T13:01:31.958521",
+    "execution_time_seconds": 3050,
+    "error_message": null,
+    "logcat_file": "results/exp_00/at.techbee.jtx_216000015.apk/at.techbee.jtx_216000015.apk__3__300__ape.logcat",
+    "trace_file": "results/exp_00/at.techbee.jtx_216000015.apk/at.techbee.jtx_216000015.apk__3__300__ape.trace",
+    "coverage_metrics": {
+     "method_coverage": 6.553588558472137,
+     "activities_coverage": 33.33333333333333,
+     "methods_mop_reachable_coverage": 3.6788973014948554,
+     "total_errors": 0.0,
+     "total_method_calls": 1503.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-09T23:12:09.026491",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-09T23:12:09.026652",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-09T23:12:09.026701",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-10T13:00:20.858701",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-10T13:51:11.068781",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "cce337be-b1d1-4e02-b993-b0c9dc5eb14b",
+   "config": {
+    "apk_name": "com.serwylo.retrowars_70.apk",
+    "repetition": 3,
+    "timeout": 60,
+    "tool_config": {
+     "name": "ape",
+     "variant": "default",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-08T15:10:16.958194",
+    "end_time": "2026-07-08T15:12:25.001152",
+    "tool_execution_start": "2026-07-08T15:11:13.900651",
+    "execution_time_seconds": 128,
+    "error_message": null,
+    "logcat_file": "results/exp_02/com.serwylo.retrowars_70.apk/com.serwylo.retrowars_70.apk__3__60__ape.logcat",
+    "trace_file": "results/exp_02/com.serwylo.retrowars_70.apk/com.serwylo.retrowars_70.apk__3__60__ape.trace",
+    "coverage_metrics": {
+     "method_coverage": 4.97783839072622,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 3.821656050955414,
+     "total_errors": 0.0,
+     "total_method_calls": 146.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-08T13:00:24.633522",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-08T13:00:24.633627",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-08T13:00:24.633663",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-08T15:10:16.958164",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-08T15:12:25.001090",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  },
+  {
+   "id": "404e4302-90a0-4d86-9262-a4e853ad29ed",
+   "config": {
+    "apk_name": "com.shub39.dharmik.online_2200.apk",
+    "repetition": 1,
+    "timeout": 60,
+    "tool_config": {
+     "name": "ape",
+     "variant": "default",
+     "parameters": {}
+    },
+    "no_window": true,
+    "clean_logcat": true,
+    "skip_installation": false,
+    "device_id": "emulator-5554",
+    "export_to_csv": true
+   },
+   "result": {
+    "state": "COMPLETED",
+    "start_time": "2026-07-08T16:15:40.834227",
+    "end_time": "2026-07-08T16:17:51.832157",
+    "tool_execution_start": "2026-07-08T16:16:40.840940",
+    "execution_time_seconds": 130,
+    "error_message": null,
+    "logcat_file": "results/exp_02/com.shub39.dharmik.online_2200.apk/com.shub39.dharmik.online_2200.apk__1__60__ape.logcat",
+    "trace_file": "results/exp_02/com.shub39.dharmik.online_2200.apk/com.shub39.dharmik.online_2200.apk__1__60__ape.trace",
+    "coverage_metrics": {
+     "method_coverage": 33.02005012531328,
+     "activities_coverage": 100.0,
+     "methods_mop_reachable_coverage": 33.57531760435572,
+     "total_errors": 1.0,
+     "total_method_calls": 527.0
+    },
+    "detected_errors_count": 0,
+    "state_transitions": [
+     {
+      "state": "CREATED",
+      "timestamp": "2026-07-08T13:00:24.646447",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "INITIALIZING",
+      "timestamp": "2026-07-08T13:00:24.646560",
+      "previous_state": "CREATED"
+     },
+     {
+      "state": "READY",
+      "timestamp": "2026-07-08T13:00:24.646597",
+      "previous_state": "INITIALIZING"
+     },
+     {
+      "state": "RUNNING",
+      "timestamp": "2026-07-08T16:15:40.834204",
+      "previous_state": "READY"
+     },
+     {
+      "state": "COMPLETED",
+      "timestamp": "2026-07-08T16:17:51.832099",
+      "previous_state": "RUNNING"
+     }
+    ]
+   }
+  }
+ ]
+}

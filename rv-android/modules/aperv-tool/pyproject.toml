@@ -8,6 +8,18 @@ requires-python = ">=3.12"
 dependencies = [
     "rv-android-core",
     "rv-tools",
+    # The analysis layer's tidy carrier, numerics and estimator stack. Declared
+    # here rather than inherited transitively from a sibling module: the
+    # campaign analysis is a first-class consumer of these versions, and a
+    # version drift arriving through someone else's dependency set would move
+    # the parity tests without naming a cause.
+    "pandas>=3.0.0",
+    "numpy>=2.4.0",
+    "scipy>=1.17.0",
+    # Carries the negative-binomial GLM. Imported lazily inside
+    # analysis/estimators/count_glm.py so the three shipped readers and the
+    # collection path never pay its import cost.
+    "statsmodels>=0.14.6",
 ]
 
 [dependency-groups]
@@ -25,6 +37,9 @@ rv-tools = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"
+markers = [
+    "slow: reads or hashes the multi-gigabyte FIXTURE-REAL trees",
+]
 
 [tool.coverage.run]
 source = ["src"]

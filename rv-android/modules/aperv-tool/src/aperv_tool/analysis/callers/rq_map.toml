@@ -1,0 +1,118 @@
+# The catalogue: entry id -> builder, estimator, parameters.
+#
+# This file and the modules beside it are the ONLY place in `analysis/` where a
+# research-question identifier may appear (INV-CAN-22). Everything else in the
+# library computes estimates without knowing what they are for, and a test greps
+# the package to keep that true.
+#
+# Two rules govern what is written here.
+#
+# 1. NOTHING HAS A DEFAULT. Every knob an entry needs is declared, or the run
+#    fails naming what is missing. A knob whose decided value is "none" -- no
+#    offset, no reference level -- is written as the empty string, because TOML
+#    has no null and "said none" must stay distinguishable from "said nothing"
+#    (INV-CAN-11).
+#
+# 2. AN OPEN DECISION IS LEFT OPEN. Where the author has recorded that a knob is
+#    deliberately not yet fixed, the key is ABSENT and a comment says so. Filling
+#    it with a plausible value here would decide it on the author's behalf, which
+#    is the failure the freeze-item rule exists to prevent. Such an entry loads,
+#    reports as wired, and raises `FreezeItemUnset` if anyone runs it -- which is
+#    the correct behaviour for a question whose pre-registration is unfinished.
+#
+# `builder` and `estimator` are documentary: they record which pair of modules an
+# entry is answered by, so the catalogue reads without opening the caller. The
+# caller imports what it uses; nothing is dispatched off those strings.
+
+
+# --- Wired, every knob decided ----------------------------------------------
+
+[entry.E01]
+question = """
+On the decisive corpus, does MOP-guided exploration change per-application binary
+JCA-misuse detection versus the unguided control, under majority-of-3 replicas?
+"""
+builder = "aperv_tool.analysis.outcomes.binarize"
+estimator = "aperv_tool.analysis.estimators.paired_binary.mcnemar_exact"
+caller = "paired_detection:run"
+
+[entry.E01.parameters]
+arm_a = "aperv:mop_on_llm_off"
+arm_b = "aperv:mop_off_llm_off"
+count_column = "mop_errors_unique"
+# One violation is detection. A choice, not an obvious truth: it is what makes
+# the outcome saturate on a corpus where most applications either fire many or
+# fire none.
+threshold = 1
+replica_rule = "majority"
+# alpha = 0.025 is the two-sided 0.05 family split across a pair of comparisons.
+# It is also what puts the exact test's power floor at 7 discordant pairs, which
+# is the number the pre-registration declared.
+alpha = 0.025
+
+
+[entry.E15]
+question = """
+Does guidance increase the number of distinct monitored operations executed per
+application, independently of violation production?
+"""
+builder = "aperv_tool.analysis.outcomes.distinct_count"
+estimator = "aperv_tool.analysis.estimators.count_glm.fit"
+caller = "count_model:run"
+
+[entry.E15.parameters]
+formula = "distinct_signatures ~ {arm}"
+# Application size as a pure offset: the elasticity is constrained to one, which
+# is the modelling claim "twice the application, twice the opportunities". The
+# column must already be on the log scale; the caller applies no transform.
+offset_column = "log_apk_size"
+reference_level = "aperv:mop_off_llm_off"
+cluster = "apk"
+arm_column = "arm"
+
+
+# --- Wired, but carrying a knob the author has not fixed ---------------------
+
+[entry.E19]
+question = """
+What change on which named outcome constitutes improvement for the central
+hypothesis, fixed a priori? Primary form: unique misuses per application, IRR
+from a negative-binomial GLM.
+"""
+builder = "aperv_tool.analysis.outcomes.distinct_count"
+estimator = "aperv_tool.analysis.estimators.count_glm.fit"
+caller = "count_model:run"
+
+[entry.E19.parameters]
+formula = "mop_unique ~ {arm}"
+cluster = "apk"
+arm_column = "arm"
+# DELIBERATELY ABSENT, all three, and they must stay absent until the author
+# freezes them in the pre-registration (author decision recorded 2026-08-04):
+#
+#   offset_column    -- the application-size offset is an open specification
+#                       choice, and it is load-bearing: the sibling study's
+#                       effect does not survive the pure-offset specification.
+#   reference_level  -- declared as the campaign's own baseline generator; the
+#                       final roster is not yet frozen.
+#   margin           -- the minimum point estimate, deferred to the pilot plus
+#                       the instrument-noise measurement.
+#
+# Running this entry raises FreezeItemUnset naming the first one missing. That
+# is the intended behaviour, not a defect to be patched by adding a value here.
+
+
+# --- Declared, not yet wired -------------------------------------------------
+
+[entry.E14]
+question = """
+Does MOP guidance shorten the time from the first exploration step to the first
+observation of each distinct violation, with never-observed violations
+right-censored?
+"""
+builder = "aperv_tool.analysis.outcomes.time_to_first_event"
+estimator = "<none: no survival estimator exists in this library>"
+# No caller. The builder ships; the estimator does not -- a frailty model for a
+# hazard ratio is not in `estimators/` and adding one is its own change. The
+# coverage report names this entry so the gap stays visible instead of reading
+# as a question nobody asked.

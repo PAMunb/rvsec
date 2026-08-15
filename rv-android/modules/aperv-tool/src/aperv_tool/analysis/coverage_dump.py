@@ -5,8 +5,8 @@ At teardown the agent dumps what it actually exercised, one line per UI state
 (`UICOV`) and one per Activity (`UICOV-ACT`), into its stdout — which the tool
 captures as the run's `.trace` file. The lines say how many actions the agent
 *discovered* on a screen against how many it *interacted* with, which is the
-middle link of the chain the E3 study has to prove: decision -> action -> MOP
-screen -> violation. The ends of that chain are already measured (`[APE-STEP]`
+middle link of the chain from a decision to a violation: decision -> action ->
+MOP screen -> violation. The ends of that chain are already measured (`[APE-STEP]`
 for the decision, `RVSEC` logcat lines for the violation); this is the part that
 says whether a screen the agent reached was actually exercised.
 
@@ -47,6 +47,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from aperv_tool.analysis.run_identity import try_parse_run_filename
+
 # The dump line shape this parser was written against. The jar stamps no version
 # into the dump itself, so the constant records which shape was verified: both
 # line kinds carry `discovered`, `interacted`, `gap` and `byType`, `UICOV` ends
@@ -61,13 +63,6 @@ DUMP_SCHEMA_VERSION = 1
 # `UICOV` is a prefix of `UICOV-ACT`.
 _ACTIVITY_TAG = "[APE-RV] UICOV-ACT "
 _STATE_TAG = "[APE-RV] UICOV "
-
-# <apk>.apk__<repetition>__<timeout>__<tool>[:<variant>].trace — rv-platform's
-# run identity in the filename. Timeout is part of it, which is what keeps two
-# campaigns at different budgets disjoint.
-_RUN_FILENAME = re.compile(
-    r"^(?P<apk>.+\.apk)__(?P<repetition>\d+)__(?P<timeout>\d+)__(?P<arm>.+)$"
-)
 
 # byType is `TYPE:interacted/discovered` — in that order. Verified against the
 # corpus: the per-type first components sum to `interacted` and the second to
@@ -323,15 +318,10 @@ def _split_run_identity(
         is still parsed and still reported — dropping it would remove a run from
         the denominator (INV-APV-37).
     """
-    match = _RUN_FILENAME.match(trace_path.name.removesuffix(".trace"))
-    if not match:
+    key = try_parse_run_filename(trace_path)
+    if key is None:
         return None, None, None, None
-    return (
-        match.group("apk"),
-        int(match.group("repetition")),
-        int(match.group("timeout")),
-        match.group("arm"),
-    )
+    return key.apk, key.repetition, key.timeout_s, key.arm
 
 
 def parse_run(trace_path: Path | str) -> RunCoverage:

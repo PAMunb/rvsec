@@ -41,6 +41,16 @@ What the reader does for its callers, so that no consumer does it again:
   record, so the three-way join by `step=` that the retired format forced on
   every consumer ceases to exist. The sub-event keeps every field it was
   written with, prompt and response dumps included.
+- **Carries the whole header and checks the schema it declares.** `RUN_START`
+  is the run answering "what am I": the jar, the preset, the features and every
+  parameter someone chose. All thirteen of its members reach the caller
+  (INV-APV-61), because a reader that surfaced three of them would leave a trace
+  unable to say which jar or which arm produced it — the exact blindness
+  `build.sha` was created to end. Its `v` is compared against `FORMAT_VERSION`
+  and a mismatch is counted, or raised in strict mode (INV-APV-62), so a
+  cross-campaign comparison over incomparable fields fails loudly. The header is
+  the first sink record rather than the first line, since the jar's AOSP banners
+  print to the same stdout ahead of it.
 - **Surfaces the run-level census.** `MOP_DATA`, `PIPELINE` and `LLM_ACK` are
   reader attributes beside `run_start`, because a step-row iterator has no
   natural place for them and this module is the only sanctioned reader — a
@@ -67,7 +77,7 @@ run's analysis over its last line would be the worse failure.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
@@ -90,6 +100,38 @@ _TYPE_LLM_ACK = "LLM_ACK"
 # as malformed — counting them would report a healthy run as damaged.
 _RECORD_PREFIX = "{"
 
+# The trace schema this reader implements, checked against every `RUN_START.v`
+# (INV-APV-62). It mirrors the jar's `RunSpecEcho.FORMAT_VERSION`, and the two
+# move together: this study's own legacy traces already carry incompatible
+# schemas across campaigns — the calibration corpus has no `mop_frontier` field
+# and realises `mop=` over {0,300} where the decisive campaign realises {0,500}
+# — and neither trace says which it is. The version exists so the next such
+# comparison fails loudly instead of quietly averaging incomparable fields.
+FORMAT_VERSION = 1
+
+
+class SchemaVersionMismatch(Exception):
+    """A trace declares a `RUN_START.v` this reader does not implement.
+
+    Raised only in strict mode, and before any row is yielded, so a caller that
+    asked for one schema never receives a single row of another. A non-strict
+    reader counts the mismatch in `TraceDiagnostics.schema_version_mismatch`
+    instead — that is what lets a survey walk a mixed tree and report its
+    composition rather than stopping at the first foreign trace.
+
+    Attributes:
+        found: The version the trace declared.
+        expected: `FORMAT_VERSION`, the version this reader implements.
+    """
+
+    def __init__(self, found: Any, expected: int) -> None:
+        super().__init__(
+            f"trace declares RUN_START.v={found!r}, reader implements {expected}"
+        )
+        self.found = found
+        self.expected = expected
+
+
 # The six per-mechanism boost fields, in the wire names the sink emits, mapped
 # to their row attribute. Absent means zero (INV-SNK-05), and the reader
 # materializes that zero so no consumer has to remember the rule.
@@ -104,22 +146,91 @@ _BOOST_FIELDS = (
 
 
 @dataclass(frozen=True)
-class RunStart:
-    """The trace's first record: run identity and the epoch base for every step.
+class BuildStamp:
+    """Which jar wrote the trace, and when that jar was built.
+
+    This is the member the whole header record was created for. A stale jar once
+    shipped to an entire campaign, its MOP boost fired zero times across 147,153
+    evaluations, and nothing in 2,028 tasks' worth of output said which jar had
+    run. `sha` is what makes that question answerable from the artifact alone.
 
     Attributes:
+        sha: Git SHA the jar was built from, as `BuildInfo` stamped it. None
+            when the record carried no `sha`.
+        time: The jar's build timestamp, verbatim. None when absent.
+    """
+
+    sha: Optional[str] = None
+    time: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class RunStart:
+    """The trace's header record: the run specification the jar resolved.
+
+    The jar echoes preset, features, every parameter someone chose and its own
+    build into this one record so that a post-hoc audit can say which jar, which
+    arm and which parameters produced a trace without opening the harness's
+    source in another repository. This class carries all thirteen members of it
+    (INV-APV-61): a reader that surfaced three of them would reproduce, one
+    layer up, exactly the blindness `build.sha` was created to end.
+
+    **Every member is optional and absence is reported, never defaulted.** The
+    distinction is not pedantic: `inert=None` means the record did not say,
+    while `inert=()` means the jar declared no inert key, and a reader that
+    merged the two would answer a provenance question with its own default.
+
+    Attributes:
+        v: The record's format version, checked against `FORMAT_VERSION`
+            (INV-APV-62). None when the record carries no `v`, in which case the
+            schema is unknown and is not assumed.
         run_id: The run's identifier, carried only by the border records
             `RUN_START` and `RUN_END` and never repeated on a step (INV-SNK-04).
         t0_ms: Epoch milliseconds at which the run's clock started. Every step's
             `t` is an offset from this, and it is the only source of an absolute
-            timestamp the trace offers.
-        params: The run parameters the jar recorded for itself, verbatim. Read
-            as provenance, not as a contract: the sink owns their names.
+            timestamp the trace offers. None leaves every row's epoch expansion
+            unavailable rather than based on a guess (INV-APV-51).
+        seed: The seed the jar handed the Monkey. It is what makes two
+            repetitions of one arm paired trajectories rather than two
+            independent draws, so a run whose seed never arrived is a different
+            experiment from the one that was planned.
+        agent: The agent type the run instantiated, e.g. `sata`.
+        preset: The named preset the arm resolved from, e.g. `mop`.
+        features: The active feature names, sorted by the jar. Features are
+            derived from the configuration, whereas the assembled passes depend
+            on the APK's substrate — two different arms print identical passes
+            on an application with no transitions — so this is the member that
+            identifies the arm.
+        params: Every parameter someone chose, plus the activation key of each
+            active feature, verbatim. Read as provenance, not as a contract: the
+            sink owns these names. A key's absence means "at the jar default for
+            this `build.sha`", not "unset" — the jar omits defaults precisely
+            because the jar `build` names holds them.
+        inert: Keys the jar declared inert — set to the neutral value of a
+            feature that is not active. Inertia by design is legitimate; an
+            inert key outside the arm's expected set means the owning feature
+            left the plan.
+        corpus_basis: The application list the run was drawn from, when the
+            harness supplied one. The jar omits it rather than inventing one,
+            because an invented basis is a claim about the sample.
+        digest: The run specification's own digest, as the jar computed it.
+        props_digest: Digest of the resolved property set.
+        build: The jar's identity, or None when the record carried no `build`.
     """
 
-    run_id: str
-    t0_ms: int
-    params: Dict[str, Any] = field(default_factory=dict)
+    v: Optional[int] = None
+    run_id: Optional[str] = None
+    t0_ms: Optional[int] = None
+    seed: Optional[int] = None
+    agent: Optional[str] = None
+    preset: Optional[str] = None
+    features: Optional[Tuple[str, ...]] = None
+    params: Optional[Dict[str, Any]] = None
+    inert: Optional[Tuple[str, ...]] = None
+    corpus_basis: Optional[str] = None
+    digest: Optional[str] = None
+    props_digest: Optional[str] = None
+    build: Optional[BuildStamp] = None
 
 
 @dataclass(frozen=True)
@@ -390,6 +501,12 @@ class TraceDiagnostics:
             by a `SIGKILL`; a larger count means damage or schema drift.
         run_start_present: Whether a `RUN_START` was consumed. False makes
             every row's `t_epoch_ms` None.
+        schema_version_mismatch: How many times the header declared a `v` other
+            than `FORMAT_VERSION` — at most one per trace, so over a survey of
+            many traces it is the count of foreign ones. It stays 0 when the
+            header carries no `v` at all, because unknown is not mismatched.
+            A strict reader raises instead of reaching a non-zero value here
+            (INV-APV-62).
         activities: `ACT` dictionary entries absorbed.
         states: `STATE` dictionary entries absorbed.
     """
@@ -398,6 +515,7 @@ class TraceDiagnostics:
     steps_yielded: int = 0
     malformed: int = 0
     run_start_present: bool = False
+    schema_version_mismatch: int = 0
     activities: int = 0
     states: int = 0
 
@@ -410,6 +528,18 @@ def _as_int_pair(value: Any) -> Optional[Tuple[int, int]]:
     """
     if isinstance(value, list) and len(value) == 2:
         return (value[0], value[1])
+    return None
+
+
+def _as_str_tuple(value: Any) -> Optional[Tuple[str, ...]]:
+    """Freeze a wire array of names (`features`, `inert`) into a tuple.
+
+    Anything that is not a list stays None, which keeps "the record did not say"
+    distinct from "the jar declared an empty list" — the difference between not
+    knowing an arm's features and knowing it had none.
+    """
+    if isinstance(value, list):
+        return tuple(value)
     return None
 
 
@@ -484,7 +614,7 @@ class TraceReader:
     Errors: `OSError` if the file cannot be opened. Nothing else propagates.
     """
 
-    def __init__(self, trace_path: Path | str) -> None:
+    def __init__(self, trace_path: Path | str, *, strict: bool = False) -> None:
         """Bind the reader to a recorded trace without opening it.
 
         Construction touches no file, so a reader may be built for a path that
@@ -493,6 +623,13 @@ class TraceReader:
         Args:
             trace_path: Path to a recorded `.trace` file. Opened read-only and
                 never written to (INV-APV-48).
+            strict: Whether a header declaring a foreign `RUN_START.v` aborts
+                the read with `SchemaVersionMismatch` instead of being counted
+                (INV-APV-62). The default is non-strict because a survey over a
+                mixed tree should report its composition rather than stop at the
+                first foreign trace; an analysis that compares fields across
+                traces should ask for strict, since that comparison is exactly
+                what a schema change invalidates.
 
         State:
             self._run_start: The `RUN_START` payload. None until that record is
@@ -507,6 +644,7 @@ class TraceReader:
                 records, verbatim. Same lifecycle as `_run_start`.
         """
         self._path = Path(trace_path)
+        self._strict = strict
         self._run_start: Optional[RunStart] = None
         self._diagnostics = TraceDiagnostics()
         self._activities: Dict[int, Tuple[str, bool]] = {}
@@ -579,9 +717,12 @@ class TraceReader:
             reference already resolved.
 
         Raises:
-            OSError: When the file cannot be opened. Nothing else escapes — a
-                record that cannot be read increments `diagnostics.malformed`
-                and is skipped (INV-APV-50).
+            OSError: When the file cannot be opened.
+            SchemaVersionMismatch: In strict mode only, when the header
+                declares a foreign `RUN_START.v` — raised before the first row,
+                so no caller receives a partial read of a schema it rejected.
+                Nothing else escapes: a record that cannot be read increments
+                `diagnostics.malformed` and is skipped (INV-APV-50).
         """
         self._run_start = None
         self._diagnostics = TraceDiagnostics()
@@ -596,6 +737,14 @@ class TraceReader:
         # an escape sequence inside a string value. `errors="replace"` is what
         # keeps a byte-level corruption — the tail of a trace cut mid-write —
         # from aborting the read of every step that precedes it.
+        # The header is the trace's first sink record, not its first line: the
+        # jar's own AOSP banners are printed to the same stdout and routinely
+        # precede it. Only that first record is a candidate, which is what makes
+        # a later `RUN_START` — the signature of two runs' output concatenated
+        # into one file — visible as not-this-trace's-header instead of silently
+        # overwriting the specification the steps were produced under.
+        header_pending = True
+
         with self._path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 line = line.strip()
@@ -609,7 +758,9 @@ class TraceReader:
                     record = json.loads(line)
                 except ValueError:
                     # An unparseable line, including the partial final line a
-                    # SIGKILL leaves behind.
+                    # SIGKILL leaves behind. It does not consume the header
+                    # slot: a damaged first record says nothing about which
+                    # record the header is.
                     self._diagnostics.malformed += 1
                     continue
 
@@ -619,9 +770,11 @@ class TraceReader:
 
                 record_type = record.get("type")
                 if record_type is not None:
-                    self._absorb_typed_record(record_type, record)
+                    self._absorb_typed_record(record_type, record, header_pending)
+                    header_pending = False
                     continue
 
+                header_pending = False
                 try:
                     row = self._build_step_row(record)
                 except (UnresolvedReference, KeyError, TypeError, ValueError):
@@ -631,16 +784,24 @@ class TraceReader:
                 self._diagnostics.steps_yielded += 1
                 yield row
 
-    def _absorb_typed_record(self, record_type: str, record: Dict[str, Any]) -> None:
+    def _absorb_typed_record(
+        self, record_type: str, record: Dict[str, Any], is_header_candidate: bool
+    ) -> None:
         """Fill the ID tables, the run header and the run-level census.
 
-        A dictionary or header entry that is itself unreadable counts as
-        malformed, because losing it silently would turn every later reference
-        to it into an unresolved one with no explanation.
+        A dictionary entry that is itself unreadable counts as malformed,
+        because losing it silently would turn every later reference to it into
+        an unresolved one with no explanation.
 
         Args:
             record_type: The record's `type` member, already known non-None.
             record: The parsed record.
+            is_header_candidate: Whether this is the trace's first sink record,
+                the only position at which a `RUN_START` is this trace's header.
+
+        Raises:
+            SchemaVersionMismatch: In strict mode, when the header declares a
+                `v` other than `FORMAT_VERSION`.
         """
         if record_type == _TYPE_ACT:
             try:
@@ -658,27 +819,67 @@ class TraceReader:
             except (KeyError, TypeError):
                 self._diagnostics.malformed += 1
         elif record_type == _TYPE_RUN_START:
-            try:
-                self._run_start = RunStart(
-                    run_id=record["run_id"],
-                    t0_ms=record["t0"],
-                    params=record.get("params", {}),
-                )
-                self._diagnostics.run_start_present = True
-            except (KeyError, TypeError):
-                self._diagnostics.malformed += 1
+            if is_header_candidate:
+                self._absorb_header(record)
         elif record_type == _TYPE_MOP_DATA:
             self._mop_data = _without_type(record)
         elif record_type == _TYPE_PIPELINE:
             self._pipeline = _without_type(record)
         elif record_type == _TYPE_LLM_ACK:
             self._llm_ack = _without_type(record)
-        # RUN_END, and any type added later: well-formed and skipped without a
-        # malformed count. RUN_END is skipped by decision rather than by
-        # omission — D5 makes it write-only, and exposing it would invite the
-        # `if not run_end: ...` that is the exit contract that decision refuses
-        # (INV-APV-53). The three census records above are not termination
-        # signals, so surfacing them creates no such gradient.
+        # RUN_END, a RUN_START outside the header position, and any type added
+        # later: well-formed and skipped without a malformed count. RUN_END is
+        # skipped by decision rather than by omission — D5 makes it write-only,
+        # and exposing it would invite the `if not run_end: ...` that is the
+        # exit contract that decision refuses (INV-APV-53). The three census
+        # records above are not termination signals, so surfacing them creates
+        # no such gradient.
+
+    def _absorb_header(self, record: Dict[str, Any]) -> None:
+        """Read the whole `RUN_START` record and check the schema it declares.
+
+        Nothing here can fail on an absent member: all thirteen are optional by
+        design, and reporting one absent is the honest answer to "what did this
+        run say about itself" (INV-APV-61). What can fail is the schema check,
+        and only in strict mode.
+
+        Args:
+            record: The parsed `RUN_START`, known to be the first sink record.
+
+        Raises:
+            SchemaVersionMismatch: In strict mode, when `v` is present and is
+                not `FORMAT_VERSION`.
+        """
+        build = record.get("build")
+        self._run_start = RunStart(
+            v=record.get("v"),
+            run_id=record.get("run_id"),
+            t0_ms=record.get("t0"),
+            seed=record.get("seed"),
+            agent=record.get("agent"),
+            preset=record.get("preset"),
+            features=_as_str_tuple(record.get("features")),
+            params=record.get("params"),
+            inert=_as_str_tuple(record.get("inert")),
+            corpus_basis=record.get("corpus_basis"),
+            digest=record.get("digest"),
+            props_digest=record.get("props_digest"),
+            build=(
+                BuildStamp(sha=build.get("sha"), time=build.get("time"))
+                if isinstance(build, dict)
+                else None
+            ),
+        )
+        self._diagnostics.run_start_present = True
+
+        # A header with no `v` reports the version unknown, and unknown is not
+        # mismatched: the reader does not infer a version from the fields it
+        # happens to recognise (INV-APV-51 applies to the schema too).
+        version = self._run_start.v
+        if version is not None and version != FORMAT_VERSION:
+            self._diagnostics.schema_version_mismatch += 1
+            if self._strict:
+                raise SchemaVersionMismatch(version, FORMAT_VERSION)
 
     def _activity(self, act_id: int) -> Tuple[str, bool]:
         """Resolve an `ACT` ID to its (name, has-MOP) pair.
@@ -774,11 +975,12 @@ class TraceReader:
         if not isinstance(dec, dict):
             raise TypeError("dec is not an object")
 
-        # The epoch expansion exists only when the trace said where zero is.
-        # Absent RUN_START, the run-relative clock still stands and the absolute
-        # one is reported unavailable rather than guessed (INV-APV-51).
+        # The epoch expansion exists only when the trace said where zero is —
+        # which takes both a header and a `t0` on it. Without either, the
+        # run-relative clock still stands and the absolute one is reported
+        # unavailable rather than guessed (INV-APV-51).
         t_epoch_ms = None
-        if self._run_start is not None:
+        if self._run_start is not None and self._run_start.t0_ms is not None:
             t_epoch_ms = self._run_start.t0_ms + t_rel_ms
 
         boosts = {attr: dec.get(wire, 0) for wire, attr in _BOOST_FIELDS}

@@ -96,7 +96,29 @@ An experiment can add a delta without a new variant using the tool DSL, e.g. `--
 
 ## Offline analysis
 
-`aperv_tool.analysis` holds read-only utilities over artifacts a run already produced — no device, no adb, and nothing in the execution path: `trace_ndjson` (native reader of the stage-4 NDJSON trace), `coverage_dump` (the jar's `UICOV` / `UICOV-ACT` dump) and `clock_logcat_join` (placing `RVSEC` violation lines on the exploration timeline). They live in the tool package because the thesis experiment consumes them, not only a calibration campaign.
+`aperv_tool.analysis` is a read-only library over artifacts a run already produced — no device, no adb, and nothing in the execution path. It lives in the tool package because the thesis experiment consumes it, not only a calibration campaign.
+
+Three of its modules are the stream readers the calibration work started from: `trace_ndjson` (native reader of the stage-4 NDJSON trace), `coverage_dump` (the jar's `UICOV` / `UICOV-ACT` dump) and `clock_logcat_join` (placing `RVSEC` violation lines on the exploration timeline). Around them sits the campaign analysis layer:
+
+- **Layer 0** — `run_identity`, `runspec`, `tasks_record`, `loader`, `liveness`, `gates`, `corpus`, `clones`: which runs exist, which of them count, and what the denominator is
+- **Layer 1** — `outcomes`, `screen_visits`: streams into labelled per-unit values under declared conventions
+- **Layer 2** — `estimators/`: one estimator per module, every function returning an `Envelope`
+- **Layer 3** — `step_bundle`, `state_coverage_join`, `violations`, `monitored_ops`, `static_artifact`, `baseline_ape`, `baseline_droidbot`: parsing the recorded artifacts
+- **Layer 4** — `envelope`, `provenance`, `emit`: the result structure, its re-derivability, and the files it becomes
+- **`callers/` + `rq_map.toml`** — the only place a research-question identifier appears
+
+Two rules bind the whole library: it names no research question outside `callers/`, and no number leaves it without its estimand, both denominators, its conventions and its exclusions. Every knob the pre-registration is meant to decide — the margin, the corpus, the replica rule, the dedup convention, the GLM offset and reference level, the multiplicity strategy — is a required parameter with no default, and a call that omits one raises instead of choosing.
+
+The end-to-end smoke runs the whole chain over two applications with no device:
+
+```bash
+# from the repository root
+.venv/bin/python -m pytest modules/aperv-tool/tests/test_smoke_two_apps.py \
+    modules/aperv-tool/tests/test_corrupted_fixture.py \
+    --import-mode=importlib -o "addopts=" -q
+```
+
+Full narrative — the layers, the freeze-item rule, the two fixture classes, and why the activity-visit is the unit: [docs/analysis-layer.md](../../docs/analysis-layer.md).
 
 ## Dependencies
 

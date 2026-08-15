@@ -1,0 +1,862 @@
+[APE] *** INFO *** InputMethod ID: com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+[APE] *** INFO *** InputMethod ID: com.google.android.googlequicksearchbox/com.google.android.voicesearch.ime.VoiceInputMethodService
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Let's wait for activity loading...
+[APE] *** INFO *** Expected activity package [app.eduroam.geteduroam.debug] is loaded...
+[APE] *** INFO *** App Activity app.eduroam.geteduroam.MainActivity started.
+[APE] *** WARNING *** Null info root node returned by UiTestAutomationBridge, generate activate action...
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Activating: generate app switch events.
+[APE] Press BACK after app switch
+[APE] *** WARNING *** lastStartTimestamp [0] is not updated. Try to clear package.
+[APE] *** INFO *** Try to grant saved permission to app.eduroam.geteduroam.debug for clearing package... 
+[APE] *** INFO *** Grant saved permission android.permission.INTERNET to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.INTERNET is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission android.permission.ACCESS_WIFI_STATE to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.ACCESS_WIFI_STATE is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission android.permission.CHANGE_WIFI_STATE to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.CHANGE_WIFI_STATE is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission android.permission.POST_NOTIFICATIONS to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.POST_NOTIFICATIONS is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission android.permission.WAKE_LOCK to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.WAKE_LOCK is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission android.permission.ACCESS_NETWORK_STATE to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.ACCESS_NETWORK_STATE is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission android.permission.RECEIVE_BOOT_COMPLETED to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.RECEIVE_BOOT_COMPLETED is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission android.permission.FOREGROUND_SERVICE to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission android.permission.FOREGROUND_SERVICE is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Grant saved permission app.eduroam.geteduroam.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Permission app.eduroam.geteduroam.debug.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION is NOT granted to app.eduroam.geteduroam.debug... 
+[APE] *** INFO *** Let's wait for activity loading...
+[APE] *** INFO *** Expected activity package [app.eduroam.geteduroam.debug] is loaded...
+[APE] *** INFO *** App Activity app.eduroam.geteduroam.MainActivity started.
+[APE] *** WARNING *** Null info root node returned by UiTestAutomationBridge, generate activate action...
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Activating: generate app switch events.
+[APE] Press HOME after app switch
+[APE] *** WARNING *** Null info root node returned by UiTestAutomationBridge, generate activate action...
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Activating: generate app switch events.
+[APE] Press HOME after app switch
+[APE] >>>>>>>> SATA begin step [1][Elapsed: 0000 00:00:15]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[0@0]@g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 52 ms.
+[APE] *** INFO *** Create state g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[1@0]@g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3], iteration: #1
+[APE] *** INFO *** getRootInActiveWindowSlow takes 26 ms.
+[APE] *** INFO *** Create state g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[2@0]@g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3], iteration: #0
+[APE] *** INFO *** getRootInActiveWindowSlow takes 18 ms.
+[APE] *** INFO *** Create state g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[3@0]@g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** State g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is blacklisted from refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[-1,0][0]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-1.xml at step 1
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-1.png at step 1
+[APE] *** INFO *** Entry state: g0s0[1,1][1]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] GSTG(g0): activities (1), states (1), edges (0), unvisited actions (3), visited actions (0)
+[APE] *** INFO *** -  0.00   1 app.eduroam.geteduroam.MainActivity[1,1][1][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      0  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][42,105,1038,226][]
+[APE]     2 g0a1[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][42,105,1038,226][]
+[APE]     3 g0a2[-1,0][0]@MODEL_BACKg0s0[1,1][1]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g0a0[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][42,105,1038,226][] by strategy EARLY_STAGE
+[APE] Last  state: null
+[APE] Last action: null
+[APE] Curr  state: null
+[APE] Curr action: null
+[APE] New   state: g0s0[1,1][1]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][][S=0.000000][RN=1][42,105,1038,226][]
+[APE] *** INFO *** Select [Search f] 1/2 from string list
+[APE] >>>>>>>> SATA end step [1]
+[APE] *** INFO *** Input text is Search f
+[APE] >>>>>>>> SATA begin step [2][Elapsed: 0000 00:00:22]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,1][1]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[4@0]@g0s0[1,1][1]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,1][1]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,1][1]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-2.xml at step 2
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-2.png at step 2
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE]     Target: g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: true
+[APE] GSTG(g0): activities (1), states (1), edges (1), unvisited actions (2), visited actions (1)
+[APE] *** INFO *** -  0.33   1 app.eduroam.geteduroam.MainActivity[1,2][2][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      1  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=42][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE]     2 g0a1[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][42,105,1038,252][Search f]
+[APE]     3 g0a2[-1,0][0]@MODEL_BACKg0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g0a1[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][42,105,1038,252][Search f] by strategy EARLY_STAGE
+[APE] Last  state: null
+[APE] Last action: null
+[APE] Curr  state: g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=42][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE] New   state: g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][][S=0.000000][RN=1][42,105,1038,252][Search f]
+[APE] *** INFO *** Select [Search f] 1/3 from string list
+[APE] >>>>>>>> SATA end step [2]
+[APE] >>>>>>>> SATA begin step [3][Elapsed: 0000 00:00:26]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[5@0]@g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,2][2]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-3.xml at step 3
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-3.png at step 3
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE]     Target: g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: true
+[APE] GSTG(g0): activities (1), states (1), edges (2), unvisited actions (1), visited actions (2)
+[APE] *** INFO *** -  0.67   1 app.eduroam.geteduroam.MainActivity[1,3][3][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      2  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=42][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE]     2 g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=26][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE]     3 g0a2[-1,0][0]@MODEL_BACKg0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** Find a greedy (unvisited) back action.
+[APE] *** INFO *** Select action g0a2[-1,0][0]@MODEL_BACKg0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=13][T=200][, UNVISITED] by strategy EARLY_STAGE
+[APE] Last  state: g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=42][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE] Curr  state: g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=26][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE] New   state: g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a2[3,3][1]@MODEL_BACKg0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=13][T=200][]
+[APE] >>>>>>>> SATA end step [3]
+[APE] >>>>>>>> SATA begin step [4][Elapsed: 0000 00:00:27]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 0 MB, Max: 192 MB, Available: 192 MB
+[APE] *** INFO *** Create state g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[6@0]@g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,3][3]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-4.xml at step 4
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-4.png at step 4
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a2[3,3][1]@MODEL_BACKg0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=13][T=0][]
+[APE]     Target: g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: true
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,4][4][S=1]
+[APE] GSTG is updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE]     2 g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE]     3 g0a2[3,3][1]@MODEL_BACKg0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.856358, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a0[1,1][1]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE] Curr  state: g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a2[3,3][1]@MODEL_BACKg0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search f]
+[APE] *** INFO *** Select [App logo] 0/3 from string list
+[APE] *** INFO *** Use random string +3
+[APE] >>>>>>>> SATA end step [4]
+[APE] *** INFO *** Input text is +3
+[APE] >>>>>>>> SATA begin step [5][Elapsed: 0000 00:00:31]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[7@0]@g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,4][4]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-5.xml at step 5
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-5.png at step 5
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,5][5][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      1  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,3][1]@MODEL_BACKg0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.532660, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a1[2,2][1]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a2[3,3][1]@MODEL_BACKg0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] *** INFO *** Select [App logo] 0/4 from string list
+[APE] *** INFO *** Use random string +850218192722197588
+[APE] >>>>>>>> SATA end step [5]
+[APE] >>>>>>>> SATA begin step [6][Elapsed: 0000 00:00:32]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[8@0]@g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,5][5]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-6.xml at step 6
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-6.png at step 6
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,6][6][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      2  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,3][1]@MODEL_BACKg0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.625372, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a2[3,3][1]@MODEL_BACKg0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a2[3,6][2]@MODEL_BACKg0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [6]
+[APE] >>>>>>>> SATA begin step [7][Elapsed: 0000 00:00:33]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[9@0]@g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,6][6]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 3 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-7.xml at step 7
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-7.png at step 7
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a2[3,6][2]@MODEL_BACKg0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,7][7][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      3  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,6][2]@MODEL_BACKg0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.275449, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a0[1,4][2]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a2[3,6][2]@MODEL_BACKg0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a0[1,7][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] *** INFO *** Select [Search f] 1/4 from string list
+[APE] *** INFO *** Use random string 2
+[APE] >>>>>>>> SATA end step [7]
+[APE] *** INFO *** Input text is 2
+[APE] >>>>>>>> SATA begin step [8][Elapsed: 0000 00:00:36]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[10@0]@g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,7][7]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-8.xml at step 8
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-8.png at step 8
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a0[1,7][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,8][8][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      4  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,7][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,6][2]@MODEL_BACKg0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.031266, epsilon=0.050000.
+[APE] *** INFO *** Try to randomly select a visited action.
+[APE] *** INFO *** Select action g0a0[1,7][3]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a2[3,6][2]@MODEL_BACKg0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] *** INFO *** Select [App logo] 0/4 from string list
+[APE] *** INFO *** Use random string 8198539846328032686875931974626
+[APE] >>>>>>>> SATA end step [8]
+[APE] *** INFO *** Input text is 8198539846328032686875931974626
+[APE] >>>>>>>> SATA begin step [9][Elapsed: 0000 00:00:43]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[11@0]@g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,8][8]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-9.xml at step 9
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-9.png at step 9
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,9][9][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      5  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,6][2]@MODEL_BACKg0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.436254, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a1[2,5][2]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a1[2,9][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] >>>>>>>> SATA end step [9]
+[APE] >>>>>>>> SATA begin step [10][Elapsed: 0000 00:00:45]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[12@0]@g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,9][9]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-10.xml at step 10
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-10.png at step 10
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a1[2,9][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,10][10][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      6  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,9][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,6][2]@MODEL_BACKg0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.833628, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a2[3,6][2]@MODEL_BACKg0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a1[2,9][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a2[3,10][3]@MODEL_BACKg0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [10]
+[APE] >>>>>>>> SATA begin step [11][Elapsed: 0000 00:00:47]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[13@0]@g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,10][10]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-11.xml at step 11
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-11.png at step 11
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a2[3,10][3]@MODEL_BACKg0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,11][11][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      7  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,9][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,10][3]@MODEL_BACKg0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.338974, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a1[2,9][3]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a2[3,10][3]@MODEL_BACKg0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] *** INFO *** Select [Search f] 1/4 from string list
+[APE] >>>>>>>> SATA end step [11]
+[APE] >>>>>>>> SATA begin step [12][Elapsed: 0000 00:00:48]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[14@0]@g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,11][11]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-12.xml at step 12
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-12.png at step 12
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,12][12][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      8  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,10][3]@MODEL_BACKg0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.433179, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a2[3,10][3]@MODEL_BACKg0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a2[3,12][4]@MODEL_BACKg0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a2[3,12][4]@MODEL_BACKg0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [12]
+[APE] >>>>>>>> SATA begin step [13][Elapsed: 0000 00:00:49]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[15@0]@g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,12][12]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-13.xml at step 13
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-13.png at step 13
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a2[3,12][4]@MODEL_BACKg0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,13][13][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      9  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,12][4]@MODEL_BACKg0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.013254, epsilon=0.050000.
+[APE] *** INFO *** Try to randomly select a visited action.
+[APE] *** INFO *** Select action g0a0[1,8][4]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a2[3,12][4]@MODEL_BACKg0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] >>>>>>>> SATA end step [13]
+[APE] >>>>>>>> SATA begin step [14][Elapsed: 0000 00:00:50]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[16@0]@g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,13][13]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-14.xml at step 14
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-14.png at step 14
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,14][14][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]     10  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,12][4]@MODEL_BACKg0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.820789, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a1[2,11][4]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a2[3,12][4]@MODEL_BACKg0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] Curr  state: g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a1[2,14][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] >>>>>>>> SATA end step [14]
+[APE] >>>>>>>> SATA begin step [15][Elapsed: 0000 00:00:52]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[17@0]@g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,14][14]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-15.xml at step 15
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-15.png at step 15
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a1[2,14][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     Target: g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,15][15][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]     11  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,14][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,12][4]@MODEL_BACKg0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.714550, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a2[3,12][4]@MODEL_BACKg0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a1[2,14][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] New   state: g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a2[3,15][5]@MODEL_BACKg0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] >>>>>>>> SATA end step [15]
+[APE] >>>>>>>> SATA begin step [16][Elapsed: 0000 00:00:53]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] for GUI tree GUITree[18@0]@g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** State g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3] is in blacklist for refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[1,15][15]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Post-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-16.xml at step 16
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-app.eduroam.geteduroam.debug-ape-sata-running-minutes-1/step-16.png at step 16
+[APE] === Adding edge...
+[APE]     Source: g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Action: g0a2[3,15][5]@MODEL_BACKg0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE]     Target: g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE]     Add target result: false
+[APE] GSTG(g0): activities (1), states (1), edges (3), unvisited actions (0), visited actions (3)
+[APE] *** INFO *** -  1.00   1 app.eduroam.geteduroam.MainActivity[1,16][16][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is NOT changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]     12  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     2 g0a1[2,14][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE]     3 g0a2[3,15][5]@MODEL_BACKg0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** > - B: g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] *** INFO *** Never move from a cold state (g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) to a hot state (g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]) in ABA.
+[APE] *** INFO *** EGreedy value=0.479920, epsilon=0.050000.
+[APE] *** INFO *** Try to select the least visited action.
+[APE] *** INFO *** Select action g0a0[1,13][5]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +] by strategy EPSILON_GREEDY
+[APE] Last  state: g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Last action: g0a1[2,14][5]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=6][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] Curr  state: g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] Curr action: g0a2[3,15][5]@MODEL_BACKg0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3][P=8][T=0][]
+[APE] New   state: g0s0[1,16][16]app.eduroam.geteduroam.MainActivity@-1340691647@Naming[0]@[W=2][A=3]
+[APE] New  action: g0a0[1,16][6]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=22][T=0][][S=1.000000][RN=1][42,105,1038,252][Search +]
+[APE] *** INFO *** Select [Search +] 3/4 from string list
+[APE] *** INFO *** Use random string 126405145.07.15 14:32:14
+[APE] >>>>>>>> SATA end step [16]
+[APE] *** INFO *** Input text is 126405145.07.15 14:32:14

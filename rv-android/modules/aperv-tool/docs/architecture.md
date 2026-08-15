@@ -205,7 +205,30 @@ aperv-tool/
 │           ├── __init__.py
 │           ├── trace_ndjson.py             # native reader of the stage-4 NDJSON trace
 │           ├── coverage_dump.py            # parser of the jar's UICOV / UICOV-ACT dump
-│           └── clock_logcat_join.py        # places RVSEC violations on the exploration timeline
+│           ├── clock_logcat_join.py        # places RVSEC violations on the exploration timeline
+│           ├── run_identity.py             # single seat of the run identity: regex, arm table, frame columns
+│           ├── runspec.py                  # per-run attribution evidence against a declared arm
+│           ├── tasks_record.py             # tasks.json read by identity, with the collision policy
+│           ├── loader.py                   # a campaign into one tidy frame at the run grain
+│           ├── liveness.py                 # sole owner of the per-run admissibility verdict
+│           ├── gates.py                    # the five validity gates, per arm
+│           ├── corpus.py, clones.py        # declared subsets, both denominators, clone collapse
+│           ├── outcomes.py                 # metric-agnostic builders; conventions as parameters
+│           ├── screen_visits.py            # activity-visit segmentation, state trail, form episodes
+│           ├── step_bundle.py              # one record per step with every stream placed on it
+│           ├── state_coverage_join.py      # per-state UICOV onto steps by STATE.key, intra-run
+│           ├── violations.py, monitored_ops.py       # event streams at a declared grain
+│           ├── static_artifact.py          # size covariate and strata from <apk>.json
+│           ├── baseline_ape.py, baseline_droidbot.py # extract-only-what-is-certain baseline parsers
+│           ├── envelope.py                 # the result structure: no number leaves without one
+│           ├── provenance.py, emit.py      # re-derivability, and envelopes into tables/figures
+│           ├── estimators/                 # one estimator per module, each returning an Envelope
+│           └── callers/                    # the ONLY place a research-question identifier appears
+│               ├── rq_map.toml             #   entry id -> builder, estimator, parameters
+│               ├── basis.py                #   carrying corpus and attrition into the envelope
+│               ├── coverage.py             #   entries with no working caller, by kind
+│               ├── paired_detection.py     #   example caller: paired binary
+│               └── count_model.py          #   example caller: negative-binomial GLM
 ├── tests/
 │   ├── __init__.py
 │   ├── test_aperv_tool.py                  # spec, variants, configure/DSL fold, commands, properties, arms
@@ -213,7 +236,11 @@ aperv-tool/
 │   ├── test_trace_ndjson.py                # reader semantics against the golden NDJSON
 │   ├── test_coverage_dump.py               # coverage-dump parsing
 │   ├── test_clock_logcat_join.py           # heartbeat placement, including both routes to UNALIGNED
-│   ├── fixtures/                           # cryptoapp.apk.json, trace_ndjson_golden.ndjson (provenance in README.md)
+│   ├── test_smoke_two_apps.py              # the whole chain over two applications, no device
+│   ├── test_corrupted_fixture.py           # three defects, each reported rather than absorbed
+│   ├── test_no_rq_identifier.py            # the genericity scan over the package
+│   ├── test_analysis_off_collection_path.py  # import-graph proof the run path cannot reach analysis/
+│   ├── fixtures/                           # cryptoapp.apk.json, the golden NDJSON, the pinned manifests
 │   └── migration/                          # one-time regeneration diff, retirement list, jar tables, mapping sweep
 └── pyproject.toml
 ```
@@ -366,9 +393,11 @@ The two normal-exit branches are one code path that ends differently: compressio
 
 ### analysis package
 
-**Purpose**: Read-only utilities over the artifacts of a recorded run.
+**Purpose**: Read-only utilities over the artifacts of a recorded run, and the campaign analysis layer built on them.
 
 **Location**: `src/aperv_tool/analysis/`
+
+The three stream readers:
 
 | Module | Reads | Produces |
 |--------|-------|----------|
@@ -376,7 +405,20 @@ The two normal-exit branches are one code path that ends differently: compressio
 | `coverage_dump.py` | the `UICOV` / `UICOV-ACT` lines of the trace | parsed coverage records; unaffected by the NDJSON change, which does not touch those lines |
 | `clock_logcat_join.py` | a run's logcat plus `trace_ndjson` rows | each `RVSEC` violation placed at the step of the last `ApeRvHb` heartbeat at or before it |
 
-**Constraint**: nothing here is imported by the run path, and none of it holds a clock reconstruction. `clock_logcat_join` works because both series come out of the same logcat, so their identical unknowns (no year, no zone) cancel in the difference.
+The campaign analysis layer, in five layers plus a callers directory:
+
+| Layer | Modules | Establishes |
+|---|---|---|
+| 0 — run model and corpus | `run_identity`, `runspec`, `tasks_record`, `loader`, `liveness`, `gates`, `corpus`, `clones` | which runs exist, which of them count, and what the denominator is |
+| 1 — outcome builders | `outcomes`, `screen_visits` | streams into labelled per-unit values under declared conventions |
+| 2 — estimators | `estimators/` | one estimator per module, every function returning an `Envelope` |
+| 3 — stream readers | `step_bundle`, `state_coverage_join`, `violations`, `monitored_ops`, `static_artifact`, `baseline_ape`, `baseline_droidbot`, plus the three above | parsing the recorded artifacts |
+| 4 — reporting | `envelope`, `provenance`, `emit` | the result structure, its re-derivability, and the files it becomes |
+| callers | `callers/` + `rq_map.toml` | the only place a research-question identifier appears |
+
+**Constraints**: nothing here is imported by the run path, and none of it holds a clock reconstruction. `clock_logcat_join` works because both series come out of the same logcat, so their identical unknowns (no year, no zone) cancel in the difference. No `*.mop.json` is ever opened (INV-ANA-53). No research-question identifier appears outside `callers/` (INV-CAN-22). Every knob the pre-registration decides — the margin, the corpus, the replica rule, the dedup convention, the GLM offset and reference level, the multiplicity strategy — is a required parameter with no default (INV-CAN-11), so a call that omits one raises rather than choosing on the author's behalf.
+
+Full narrative, including the two fixture classes and why the activity-visit is the analysis unit: [docs/analysis-layer.md](../../../docs/analysis-layer.md).
 
 ### Constants and Configuration Mapping
 

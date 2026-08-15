@@ -1,0 +1,4 @@
+{"type":"RUN_START","v":2,"run_id":"cryptoapp.apk__1__1800__aperv:mop_on_llm_off","t0":1760000000000,"seed":1760000000001,"agent":"sata","preset":"mop","features":["MOP"],"params":{"ape.mopWeightDirect":"500"},"inert":[],"digest":"0f1e2d3c4b5a6978","props_digest":"7a6b5c4d3e2f1908","build":{"sha":"deadbeef","time":"2026-09-01T00:00:00Z"}}
+{"type":"ACT","id":1,"name":"br.unb.cic.cryptoapp/.MainActivity","mop":1}
+{"type":"STATE","id":1,"key":"S1","act":1}
+{"s":1,"t":100,"act":1,"st":1,"dec":{"a":"model=CLICK@[0,0][10,10]","src":"MOP_WIDGET","ch":"roulette_greedy"}}

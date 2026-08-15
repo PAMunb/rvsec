@@ -1,4 +1,4 @@
-{"type":"RUN_START","run_id":"cryptoapp.apk__1__1800__aperv:mop_on_llm_70","t0":1750000000000,"params":{"ape.mopWeightDirect":"500","ape.llmPercentage":"0.7","ape.telemetryHeartbeat":"true"}}
+{"type":"RUN_START","v":1,"run_id":"cryptoapp.apk__1__1800__aperv:mop_on_llm_70","t0":1750000000000,"seed":1750000000001,"agent":"sata","preset":"mop_llm","features":["ACTIVITY_TRIGGER","LLM_ROUTING","MOP","MOP_FRONTIER"],"params":{"ape.mopWeightDirect":"500","ape.llmPercentage":"0.7","ape.telemetryHeartbeat":"true"},"inert":["ape.componentPercentage"],"corpus_basis":"selected162:3bbc5fa91ba2cf3cd59e040237501caa0718735647d2c6881e09581f1e972c85","digest":"ad537a816a19f154","props_digest":"81feabbca801402f77b0a96ddc410c086e292b67a6b3d63dedc52d55cc64f25b","build":{"sha":"9e948102","time":"2026-08-05T17:22:00Z"}}
 {"type":"ACT","id":17,"name":"br.unb.cic.cryptoapp/.MainActivity","mop":1}
 {"type":"ACT","id":18,"name":"br.unb.cic.cryptoapp/.AboutActivity","mop":0}
 {"type":"STATE","id":231,"key":"S17a4f","act":17}

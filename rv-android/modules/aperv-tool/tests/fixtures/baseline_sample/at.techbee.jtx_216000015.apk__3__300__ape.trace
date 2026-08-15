@@ -1,0 +1,644 @@
+[APE] *** INFO *** InputMethod ID: com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME
+[APE] *** INFO *** InputMethod ID: com.google.android.googlequicksearchbox/com.google.android.voicesearch.ime.VoiceInputMethodService
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Let's wait for activity loading...
+[APE] *** INFO *** Expected activity package [at.techbee.jtx] is loaded...
+[APE] *** INFO *** App Activity at.techbee.jtx.MainActivity2 started.
+[APE] *** WARNING *** Null info root node returned by UiTestAutomationBridge, generate activate action...
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Activating: generate app switch events.
+[APE] Press HOME after app switch
+[APE] *** WARNING *** Null info root node returned by UiTestAutomationBridge, generate activate action...
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Activating: generate app switch events.
+[APE] Press HOME after app switch
+[APE] *** WARNING *** Null info root node returned by UiTestAutomationBridge, generate activate action...
+[APE] Power Manager says we are interactive
+[APE] *** INFO *** Activating: generate app switch events.
+[APE] Press BACK after app switch
+[APE] >>>>>>>> SATA begin step [1][Elapsed: 0000 00:00:13]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11] for GUI tree GUITree[0@0]@g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 94 ms.
+[APE] *** INFO *** Create state g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11] for GUI tree GUITree[1@0]@g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11], iteration: #1
+[APE] *** INFO *** getRootInActiveWindowSlow takes 59 ms.
+[APE] *** INFO *** Create state g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11] for GUI tree GUITree[2@0]@g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11], iteration: #0
+[APE] *** INFO *** getRootInActiveWindowSlow takes 62 ms.
+[APE] *** INFO *** Create state g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11] for GUI tree GUITree[3@0]@g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** State g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11] is blacklisted from refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]: #0
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;enabled=true;clickable=true; that has been resolved to 8 nodes
+[APE] this:Naming[3], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** Refine actions: nodes(8), new names (4), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - class=android.view.View;index=0;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=4;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=2;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=1;enabled=true;clickable=true;
+[APE] *** INFO *** Update naming for GUITree[3@1]@g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]: existing in dict: Naming[0], current in tree: Naming[0], check in graph: Naming[0], new: Naming[3]
+[APE] *** INFO *** getNaming for tree GUITree[3@1]@g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]: Source: Naming[0], Target: null, State: at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[0], Target: Naming[3], State: at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g0s0[-1,0][0]at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6][A=11]
+[APE] *** INFO *** > rebuilding tree #1
+[APE] *** INFO *** Create state g1s1[-1,0][0]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14] for GUI tree GUITree[3@1]@g1s1[-1,0][0]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]
+[APE] *** INFO *** > Readding transitions finished in 0 ms.
+[APE] *** INFO *** Rebuilding model finished in 1 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 85 ms.
+[APE] *** INFO *** Check over-abstracted states g1s1[-1,0][0]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: #1
+[APE] *** INFO *** Checking over-abstracted states takes 86 ms
+[APE] *** INFO *** Check under-abstracted states g1s1[-1,0][0]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: #0
+[APE] *** INFO *** Check under-abstracted states collected 1 targets for naming Naming[3]. The state is g1s1[-1,0][0]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 1 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-1.xml at step 1
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-1.png at step 1
+[APE] *** INFO *** Entry state: g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]
+[APE] GSTG(g1): activities (1), states (1), edges (0), unvisited actions (14), visited actions (0)
+[APE] *** INFO *** -  0.00   1 at.techbee.jtx.MainActivity2[1,1][1][S=1]
+[APE] GSTG is NOT updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (0)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      0  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g1a11[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     2 g1a12[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     3 g1a13[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     4 g1a14[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     5 g1a15[-1,0][0]@MODEL_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,910][]
+[APE]     6 g1a16[-1,0][0]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,910][]
+[APE]     7 g1a17[-1,0][0]@MODEL_CLICKclass=android.widget.Button;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][212,511,338,636][]
+[APE]     8 g1a18[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]     9 g1a19[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]    10 g1a20[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;[P=64][T=200][, UNVISITED][S=0.000000][RN=3][360,243,720,369][]
+[APE]    11 g1a21[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][720,243,1080,369][]
+[APE]    12 g1a22[-1,0][0]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;[P=64][T=200][, UNVISITED][S=0.000000][RN=3][890,1616,1037,1763][]
+[APE]    13 g1a23[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][901,91,1027,217][]
+[APE]    14 g1a24[-1,0][0]@MODEL_BACKg1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g1a14[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][] by strategy EARLY_STAGE
+[APE] Last  state: null
+[APE] Last action: null
+[APE] Curr  state: null
+[APE] Curr action: null
+[APE] New   state: g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]
+[APE] New  action: g1a14[1,1][1]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][][S=0.000000][RN=1][0,431,1080,1584][]
+[APE] >>>>>>>> SATA end step [1]
+[APE] >>>>>>>> SATA begin step [2][Elapsed: 0000 00:00:17]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g1s2[-1,0][0]at.techbee.jtx.MainActivity2@-387697327@Naming[0]@[W=4][A=8] for GUI tree GUITree[4@0]@g1s2[-1,0][0]at.techbee.jtx.MainActivity2@-387697327@Naming[0]@[W=4][A=8]
+[APE] *** INFO *** Checking new state: g1s2[-1,0][0]at.techbee.jtx.MainActivity2@-387697327@Naming[0]@[W=4][A=8], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 176 ms.
+[APE] *** INFO *** Create state g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14] for GUI tree GUITree[5@0]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]
+[APE] *** INFO *** New (trivial) state is updated from g1s2[-1,0][0]at.techbee.jtx.MainActivity2@-387697327@Naming[0]@[W=4][A=8] to g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14].
+[APE] *** INFO *** Check under-abstracted states g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: #0
+[APE] *** INFO *** Check under-abstracted states collected 1 targets for naming Naming[3]. The state is g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: #0
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;index=0;enabled=true;clickable=true; that has been resolved to 4 nodes
+[APE] this:Naming[4], parent:Naming[3].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE]   3. [002][REFINE] //*[@class="android.view.View"][@resource-id=""][@index=0][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[ParentNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]]
+[APE] *** INFO *** New names: 1, try another namer.
+[APE] *** INFO *** - enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;
+[APE] this:Naming[5], parent:Naming[3].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE]   3. [002][REFINE] //*[@class="android.view.View"][@resource-id=""][@index=0][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],TextNamer[text,content-desc],IndexNamer[index]]]
+[APE] *** INFO *** New names: 1, try another namer.
+[APE] *** INFO *** - class=android.view.View;text=;index=0;enabled=true;clickable=true;
+[APE] this:Naming[6], parent:Naming[3].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE]   3. [002][REFINE] //*[@class="android.view.View"][@resource-id=""][@index=0][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[AncestorNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]]
+[APE] *** INFO *** Rebuild document for tree #1
+[APE] *** INFO *** Refine actions: nodes(4), new names (4), new states (2), trees(2), state threshold (8)
+[APE] *** INFO *** - /class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=2;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;
+[APE] *** INFO *** - /class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=1;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;
+[APE] *** INFO *** - /class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;
+[APE] *** INFO *** - /class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;
+[APE] *** INFO *** Update naming for GUITree[3@1]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: existing in dict: Naming[3], current in tree: Naming[3], check in graph: Naming[3], new: Naming[6]
+[APE] *** INFO *** getNaming for tree GUITree[3@1]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: Source: Naming[0], Target: Naming[3], State: at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6]
+[APE] *** INFO *** getNaming for tree GUITree[3@1]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: Source: Naming[3], Target: null, State: at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[3], Target: Naming[6], State: at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9]
+[APE] *** INFO *** Update naming for GUITree[5@2]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: existing in dict: Naming[3], current in tree: Naming[3], check in graph: Naming[6], new: Naming[6]
+[APE] *** INFO *** getNaming for tree GUITree[5@2]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: Source: Naming[0], Target: Naming[3], State: at.techbee.jtx.MainActivity2@-2061548126@Naming[0]@[W=6]
+[APE] *** INFO *** getNaming for tree GUITree[5@2]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: Source: Naming[3], Target: Naming[6], State: at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9]
+[APE] *** INFO *** getNaming for tree GUITree[5@2]@g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]: Source: Naming[6], Target: null, State: at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g1s1[1,1][1]at.techbee.jtx.MainActivity2@-631557446@Naming[3]@[W=9][A=14]
+[APE] *** INFO *** > rebuilding tree #1
+[APE] *** INFO *** Create state g2s3[-1,0][0]at.techbee.jtx.MainActivity2@-777485135@Naming[6]@[W=11][A=16] for GUI tree GUITree[3@1]@g2s3[-1,0][0]at.techbee.jtx.MainActivity2@-777485135@Naming[6]@[W=11][A=16]
+[APE] *** INFO *** > rebuilding tree #2
+[APE] *** INFO *** Create state g2s4[-1,0][0]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17] for GUI tree GUITree[5@2]@g2s4[-1,0][0]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] *** INFO *** > Readding transitions finished in 1 ms.
+[APE] *** INFO *** Rebuilding model finished in 1 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 465 ms.
+[APE] *** INFO *** Check over-abstracted states g2s4[-1,0][0]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]: #1
+[APE] *** INFO *** Checking over-abstracted states takes 466 ms
+[APE] *** INFO *** Check under-abstracted states g2s4[-1,0][0]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]: #0
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[6]. The state is g2s4[-1,0][0]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 2, affected states: 2, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 2 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 2 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 2 targets for naming Naming[3]. The state is g2s4[-1,0][0]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 2, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 2 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 1 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-2.xml at step 2
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-2.png at step 2
+[APE] === Adding edge...
+[APE]     Source: g2s3[-1,0][0]at.techbee.jtx.MainActivity2@-777485135@Naming[6]@[W=11][A=16]
+[APE]     Action: g2a36[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=0][T=0][, INVALID, UNVISITED]
+[APE]     Target: g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE]     Add target result: true
+[APE] GSTG(g2): activities (1), states (2), edges (1), unvisited actions (33), visited actions (0)
+[APE] *** INFO *** -  0.00   2 at.techbee.jtx.MainActivity2[1,2][2][S=2]
+[APE] GSTG is updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (1)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      1  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g2a49[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     2 g2a50[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     3 g2a51[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     4 g2a52[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     5 g2a53[-1,0][0]@MODEL_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][]
+[APE]     6 g2a54[-1,0][0]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][]
+[APE]     7 g2a55[-1,0][0]@MODEL_CLICKclass=android.widget.Button;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][43,511,169,636][]
+[APE]     8 g2a56[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]     9 g2a57[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]    10 g2a58[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;[P=60][T=200][, UNVISITED][S=0.000000][RN=2][55,91,181,217][]
+[APE]    11 g2a59[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][720,243,1080,369][]
+[APE]    12 g2a60[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][901,91,1027,217][]
+[APE]    13 g2a61[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,243,360,369][]
+[APE]    14 g2a62[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][12,1633,138,1759][]
+[APE]    15 g2a63[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=1;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][890,1616,1037,1763][]
+[APE]    16 g2a64[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=2;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][264,1633,390,1759][]
+[APE]    17 g2a65[-1,0][0]@MODEL_BACKg2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** - g2a52[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] *** INFO *** > - B: g2s3[-1,0][0]at.techbee.jtx.MainActivity2@-777485135@Naming[6]@[W=11][A=16]
+[APE] *** INFO *** Move from A (g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]) to B (g2s3[-1,0][0]at.techbee.jtx.MainActivity2@-777485135@Naming[6]@[W=11][A=16]).
+[APE] *** INFO *** A cannot reach B.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g2a60[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][901,91,1027,217][] by strategy EARLY_STAGE
+[APE] Last  state: null
+[APE] Last action: null
+[APE] Curr  state: g2s3[-1,0][0]at.techbee.jtx.MainActivity2@-777485135@Naming[6]@[W=11][A=16]
+[APE] Curr action: g2a36[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=0][T=0][, INVALID, UNVISITED]
+[APE] New   state: g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] New  action: g2a60[2,2][1]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][][S=0.000000][RN=1][901,91,1027,217][]
+[APE] >>>>>>>> SATA end step [2]
+[APE] >>>>>>>> SATA begin step [3][Elapsed: 0000 00:00:19]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Create state g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14] for GUI tree GUITree[6@0]@g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE] *** INFO *** Check under-abstracted states g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]: #0
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[6]. The state is g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 3, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 3 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[3]. The state is g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Pre-checking under-abstracted states takes 27 ms
+[APE] *** INFO *** Check over-abstracted states g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Check under-abstracted states g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]: #0
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[6]. The state is g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 3, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 3 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[3]. The state is g2s5[-1,0][0]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 2 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-3.xml at step 3
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-3.png at step 3
+[APE] === Adding edge...
+[APE]     Source: g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE]     Action: g2a60[2,2][1]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][][S=0.000000][RN=1][901,91,1027,217][]
+[APE]     Target: g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE]     Add target result: true
+[APE] GSTG(g2): activities (1), states (3), edges (2), unvisited actions (46), visited actions (1)
+[APE] *** INFO *** -  0.02   3 at.techbee.jtx.MainActivity2[1,3][3][S=3]
+[APE] GSTG is updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (2)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      2  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g2a66[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     2 g2a67[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     3 g2a68[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     4 g2a69[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     5 g2a70[-1,0][0]@MODEL_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][]
+[APE]     6 g2a71[-1,0][0]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][]
+[APE]     7 g2a72[-1,0][0]@MODEL_CLICKclass=android.widget.Button;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][43,511,169,636][]
+[APE]     8 g2a73[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]     9 g2a74[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]    10 g2a75[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][55,91,181,217][]
+[APE]    11 g2a76[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][720,243,1080,369][]
+[APE]    12 g2a77[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][901,91,1027,217][]
+[APE]    13 g2a78[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,243,360,369][]
+[APE]    14 g2a79[-1,0][0]@MODEL_BACKg2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** - g2a69[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE] *** INFO *** - g2a77[-1,0][0]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][901,91,1027,217][]
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE] *** INFO *** > - B: g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] *** INFO *** Never move from a cold state (g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]) to a hot state (g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g2a71[-1,0][0]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][] by strategy EARLY_STAGE
+[APE] Last  state: g2s3[-1,0][0]at.techbee.jtx.MainActivity2@-777485135@Naming[6]@[W=11][A=16]
+[APE] Last action: g2a36[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=0][T=0][, INVALID, UNVISITED]
+[APE] Curr  state: g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] Curr action: g2a60[2,2][1]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=52][T=200][][S=0.000000][RN=1][901,91,1027,217][]
+[APE] New   state: g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE] New  action: g2a71[3,3][1]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][][S=0.000000][RN=1][21,442,1059,867][]
+[APE] >>>>>>>> SATA end step [3]
+[APE] >>>>>>>> SATA begin step [4][Elapsed: 0000 00:00:21]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 2 MB, Max: 192 MB, Available: 190 MB
+[APE] *** INFO *** Create state g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17] for GUI tree GUITree[7@0]@g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] *** INFO *** Check under-abstracted states g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]: #0
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[6]. The state is g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 3, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 3 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[3]. The state is g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Pre-checking under-abstracted states takes 5 ms
+[APE] *** INFO *** Check over-abstracted states g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]: #0
+[APE] *** INFO *** Checking over-abstracted states takes 0 ms
+[APE] *** INFO *** Check under-abstracted states g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]: #0
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[6]. The state is g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 3, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 3 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 3 targets for naming Naming[3]. The state is g2s4[2,2][1]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 3, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 3 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 26 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-4.xml at step 4
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-4.png at step 4
+[APE] === Adding edge...
+[APE]     Source: g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE]     Action: g2a71[3,3][1]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][][S=0.000000][RN=1][21,442,1059,867][]
+[APE]     Target: g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE]     Add target result: true
+[APE] GSTG(g2): activities (1), states (3), edges (3), unvisited actions (45), visited actions (2)
+[APE] *** INFO *** -  0.04   3 at.techbee.jtx.MainActivity2[1,4][4][S=3]
+[APE] GSTG is updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (3)
+[APE] Sata Strategy: buffer size (0)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      3  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      0  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g2a49[-1,0][0]@MODEL_SCROLL_BOTTOM_UPclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     2 g2a50[-1,0][0]@MODEL_SCROLL_TOP_DOWNclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     3 g2a51[-1,0][0]@MODEL_SCROLL_LEFT_RIGHTclass=android.view.View;enabled=true;scrollable=true;[P=44][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     4 g2a52[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE]     5 g2a53[-1,0][0]@MODEL_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][]
+[APE]     6 g2a54[-1,0][0]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][]
+[APE]     7 g2a55[-1,0][0]@MODEL_CLICKclass=android.widget.Button;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][43,511,169,636][]
+[APE]     8 g2a56[-1,0][0]@MODEL_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]     9 g2a57[-1,0][0]@MODEL_LONG_CLICKclass=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][54,74,1037,232][]
+[APE]    10 g2a58[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;[P=60][T=200][, UNVISITED][S=0.000000][RN=2][138,1633,264,1759][]
+[APE]    11 g2a59[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][720,243,1080,369][]
+[APE]    12 g2a60[2,2][1]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=42][T=0][][S=1.000000][RN=1][901,91,1027,217][]
+[APE]    13 g2a61[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][0,243,360,369][]
+[APE]    14 g2a62[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][12,1633,138,1759][]
+[APE]    15 g2a63[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=1;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][890,1616,1037,1763][]
+[APE]    16 g2a64[-1,0][0]@MODEL_CLICK/class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=5;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=2;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][264,1633,390,1759][]
+[APE]    17 g2a65[-1,0][0]@MODEL_BACKg2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** - g2a52[-1,0][0]@MODEL_SCROLL_RIGHT_LEFTclass=android.view.View;enabled=true;scrollable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][0,431,1080,1584][]
+[APE] *** INFO *** - g2a54[-1,0][0]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][, UNVISITED][S=0.000000][RN=1][21,442,1059,867][]
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] *** INFO *** > - B: g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE] *** INFO *** Move from A (g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]) to B (g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]).
+[APE] *** INFO *** Try to find a path (1/1) to a greedy state that we want to greedily visit in ABA.
+[APE]   1 (g2s4,g2a60,g2s5)
+[APE] *** INFO *** Move from A (g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]) to B (g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]).
+[APE] *** INFO *** Fill buffer..
+[APE] *** INFO ***    0 g2e1[3,3][1]@[H(1),M(0),T(0.000000)] g2s4 =[g2a60]=> g2s5
+[APE] *** INFO *** Move from A (g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]) to B (g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]) for ABA within 1 steps that start from action g2a60[2,2][1]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=42][T=200][][S=1.000000][RN=1][901,91,1027,217][]
+[APE] *** INFO *** Select action g2a60[2,2][1]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=42][T=200][][S=1.000000][RN=1][901,91,1027,217][] by strategy EARLY_STAGE
+[APE] Last  state: g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] Last action: g2a60[2,4][2]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=42][T=200][][S=1.000000][RN=1][901,91,1027,217][]
+[APE] Curr  state: g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE] Curr action: g2a71[3,3][1]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][][S=0.000000][RN=1][21,442,1059,867][]
+[APE] New   state: g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] New  action: g2a60[2,4][2]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=42][T=200][][S=1.000000][RN=1][901,91,1027,217][]
+[APE] >>>>>>>> SATA end step [4]
+[APE] >>>>>>>> SATA begin step [5][Elapsed: 0000 00:00:23]
+[APE] *** INFO *** Explored 1 app activities.
+[APE] *** INFO *** Used: 1 MB, Max: 192 MB, Available: 191 MB
+[APE] *** INFO *** Patching this node: android.view.View@@
+[APE] *** INFO *** Patching child node: android.widget.TextView@@Search
+[APE] *** INFO *** Create state g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6] for GUI tree GUITree[8@0]@g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]
+[APE] *** INFO *** Checking new state: g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6], iteration: #4
+[APE] *** INFO *** getRootInActiveWindowSlow takes 829 ms.
+[APE] *** INFO *** Patching this node: android.view.View@@
+[APE] *** INFO *** Patching child node: android.widget.TextView@@Search
+[APE] *** INFO *** Create state g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6] for GUI tree GUITree[9@0]@g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6], iteration: #1
+[APE] *** INFO *** getRootInActiveWindowSlow takes 38 ms.
+[APE] *** INFO *** Patching this node: android.view.View@@
+[APE] *** INFO *** Patching child node: android.widget.TextView@@Search
+[APE] *** INFO *** Create state g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6] for GUI tree GUITree[10@0]@g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** Checking new state: g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6], iteration: #0
+[APE] *** INFO *** getRootInActiveWindowSlow takes 59 ms.
+[APE] *** INFO *** Patching this node: android.view.View@@
+[APE] *** INFO *** Patching child node: android.widget.TextView@@Search
+[APE] *** INFO *** Create state g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6] for GUI tree GUITree[11@0]@g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]
+[APE] *** INFO *** Checking trivial new state: top naming equivalent.
+[APE] *** INFO *** State g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6] is blacklisted from refresh check.
+[APE] *** INFO *** Pre-checking under-abstracted states takes 0 ms
+[APE] *** INFO *** Check over-abstracted states g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]: #0
+[APE] *** INFO *** actionRefinement: Refine name class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true; that has been resolved to 4 nodes
+[APE] this:Naming[7], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.widget.CheckBox"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** New names: 1, try another namer.
+[APE] *** INFO *** - class=android.widget.CheckBox;index=0;enabled=true;clickable=true;checkable=true;
+[APE] this:Naming[8], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.widget.CheckBox"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[ParentNamer[TypeNamer[type,resource-id]]]
+[APE] *** INFO *** New names: 1, try another namer.
+[APE] *** INFO *** - class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;
+[APE] this:Naming[9], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.widget.CheckBox"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],TextNamer[text,content-desc]]]
+[APE] *** INFO *** New names: 1, try another namer.
+[APE] *** INFO *** - class=android.widget.CheckBox;text=;enabled=true;clickable=true;checkable=true;
+[APE] this:Naming[10], parent:Naming[0].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.widget.CheckBox"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[AncestorNamer[TypeNamer[type,resource-id]]]
+[APE] *** INFO *** Refine actions: nodes(4), new names (2), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - /class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** - /class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;
+[APE] *** INFO *** Update naming for GUITree[11@5]@g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]: existing in dict: Naming[0], current in tree: Naming[0], check in graph: Naming[0], new: Naming[10]
+[APE] *** INFO *** getNaming for tree GUITree[11@5]@g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]: Source: Naming[0], Target: null, State: at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[0], Target: Naming[10], State: at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g2s6[-1,0][0]at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6][A=6]
+[APE] *** INFO *** > rebuilding tree #5
+[APE] *** INFO *** Create state g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7] for GUI tree GUITree[11@5]@g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7]
+[APE] *** INFO *** > Readding transitions finished in 12 ms.
+[APE] *** INFO *** Rebuilding model finished in 14 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 289 ms.
+[APE] Update action buffer...
+[APE] Updating g2e1[3,3][2]@[H(1),M(0),T(0.000000)] g2s4 =[g2a60]=> g2s5
+[APE] Updated g2e1[3,3][2]@[H(1),M(0),T(0.000000)] g2s4 =[g2a60]=> g2s5
+[APE] *** INFO *** Check over-abstracted states g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7]: #1
+[APE] *** INFO *** actionRefinement: Refine name class=android.view.View;enabled=true;clickable=true; that has been resolved to 13 nodes
+[APE] this:Naming[11], parent:Naming[10].
+[APE]   0. [000][BASE] //*[@clickable='true' or @long-clickable='true' or @checkable='true' or @scrollable='true'] -> ActionPatchNamer[TypeNamer[type,resource-id]]
+[APE]   1. [000][BASE] //*[@clickable='false' and @long-clickable='false' and @checkable='false' and @scrollable='false'] -> ActionPatchNamer[EmptyNamer]
+[APE]   2. [001][REFINE] //*[@class="android.widget.CheckBox"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='true'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[AncestorNamer[TypeNamer[type,resource-id]]]
+[APE]   3. [001][REFINE] //*[@class="android.view.View"][@resource-id=""][@enabled='true'][@clickable='true'][@checkable='false'][@long-clickable='false'][@scrollable='false'] -> ActionPatchNamer[CompoundNamer[TypeNamer[type,resource-id],IndexNamer[index]]]
+[APE] *** INFO *** Refine actions: nodes(13), new names (11), new states (1), trees(1), state threshold (8)
+[APE] *** INFO *** - class=android.view.View;index=6;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=0;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=10;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=12;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=5;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=11;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=8;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=2;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=9;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=7;enabled=true;clickable=true;
+[APE] *** INFO *** - class=android.view.View;index=1;enabled=true;clickable=true;
+[APE] *** INFO *** Update naming for GUITree[11@5]@g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7]: existing in dict: Naming[10], current in tree: Naming[10], check in graph: Naming[10], new: Naming[11]
+[APE] *** INFO *** getNaming for tree GUITree[11@5]@g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7]: Source: Naming[0], Target: Naming[10], State: at.techbee.jtx.MainActivity2@991888963@Naming[0]@[W=6]
+[APE] *** INFO *** getNaming for tree GUITree[11@5]@g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7]: Source: Naming[10], Target: null, State: at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7]
+[APE] *** INFO *** updateNaming: Add - Source: Naming[10], Target: Naming[11], State: at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7]
+[APE] *** INFO *** Start rebuilding model... 
+[APE] *** INFO *** > Removing state g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7]
+[APE] *** INFO *** > Removing (1) old states and (0) transitions finished in 0 ms.
+[APE] *** INFO *** >> state: g3s7[-1,0][0]at.techbee.jtx.MainActivity2@-2030385536@Naming[10]@[W=7][A=7]
+[APE] *** INFO *** > rebuilding tree #5
+[APE] *** INFO *** Create state g4s8[-1,0][0]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17] for GUI tree GUITree[11@5]@g4s8[-1,0][0]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]
+[APE] *** INFO *** > Readding transitions finished in 10 ms.
+[APE] *** INFO *** Rebuilding model finished in 11 ms, removed 1 states and 0 state transitions, and rebuild 0 tree transitions.
+[APE] *** INFO *** Action refinement takes 91 ms.
+[APE] Update action buffer...
+[APE] Updating g2e1[3,3][3]@[H(1),M(0),T(0.000000)] g2s4 =[g2a60]=> g2s5
+[APE] Updated g2e1[3,3][3]@[H(1),M(0),T(0.000000)] g2s4 =[g2a60]=> g2s5
+[APE] *** INFO *** Check over-abstracted states g4s8[-1,0][0]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]: #2
+[APE] *** INFO *** Checking over-abstracted states takes 384 ms
+[APE] *** INFO *** Check under-abstracted states g4s8[-1,0][0]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]: #0
+[APE] *** INFO *** Check under-abstracted states collected 1 targets for naming Naming[11]. The state is g4s8[-1,0][0]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]. #0
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Check under-abstracted states collected 1 targets for naming Naming[10]. The state is g4s8[-1,0][0]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]. #1
+[APE] *** INFO *** batchAbstract: refined targets: 1, affected states: 1, threshold: 8, affected threshold.
+[APE] *** INFO *** batchAbstract: refined targets: 1 <= threshold: 8 
+[APE] *** INFO *** batchAbstract: affected states: 1 <= threshold: 8 
+[APE] *** INFO *** Post-checking under-abstracted states takes 2 ms
+[APE] *** INFO *** Saving GUI tree to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-5.xml at step 5
+[APE] *** INFO *** Saving screen shot to /sdcard/sata-at.techbee.jtx-ape-sata-running-minutes-5/step-5.png at step 5
+[APE] === Adding edge...
+[APE]     Source: g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE]     Action: g2a60[2,4][2]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=42][T=200][][S=1.000000][RN=1][901,91,1027,217][]
+[APE]     Target: g4s8[5,5][1]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]
+[APE]     Add target result: true
+[APE] GSTG(g4): activities (1), states (4), edges (4), unvisited actions (62), visited actions (2)
+[APE] *** INFO *** -  0.03   4 at.techbee.jtx.MainActivity2[1,5][5][S=4]
+[APE] GSTG is updated.
+[APE] GSTG state is changed.
+[APE] Graph Stable Counter: graph (0), state (0), activity (4)
+[APE] === Try to resolve the non-determinism!!
+[APE] *** INFO *** Find the non-deterministic edge
+[APE] *** INFO *** st1: g2e1[3,3][3]@[H(1),M(0),T(0.000000)] g2s4 =[g2a60]=> g2s5
+[APE] *** INFO *** st2: g4e3[5,5][1]@[H(1),M(0),T(0.000000)] g2s4 =[g2a60]=> g4s8
+[APE] ##################################
+[APE]   0 - class=android.view.View;enabled=true;scrollable=true;
+[APE]   1 - class=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;
+[APE]   2 - class=android.widget.Button;enabled=true;clickable=true;
+[APE]   3 - class=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;
+[APE]   4 - class=android.view.View;index=4;enabled=true;clickable=true;
+[APE]   5 - /class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;
+[APE] ----------------------------------
+[APE]   0 = class=android.view.View;index=1;enabled=true;clickable=true;
+[APE]   1 = class=android.view.View;index=2;enabled=true;clickable=true;
+[APE] ----------------------------------
+[APE]   0 + class=android.view.View;index=0;enabled=true;clickable=true;
+[APE]   1 + class=android.widget.TextView;enabled=true;clickable=true;
+[APE]   2 + class=android.widget.RadioButton;enabled=true;checkable=true;
+[APE]   3 + class=android.widget.RadioButton;enabled=true;clickable=true;checkable=true;
+[APE]   4 + /class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;
+[APE]   5 + /class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;
+[APE]   6 + class=android.view.View;index=5;enabled=true;clickable=true;
+[APE]   7 + class=android.view.View;index=6;enabled=true;clickable=true;
+[APE]   8 + class=android.view.View;index=7;enabled=true;clickable=true;
+[APE]   9 + class=android.view.View;index=8;enabled=true;clickable=true;
+[APE]  10 + class=android.view.View;index=9;enabled=true;clickable=true;
+[APE]  11 + class=android.view.View;index=10;enabled=true;clickable=true;
+[APE]  12 + class=android.view.View;index=11;enabled=true;clickable=true;
+[APE]  13 + class=android.view.View;index=12;enabled=true;clickable=true;
+[APE] ##################################
+[APE] *** INFO *** Try action refinement, where source states are not necessarily to be the same.
+[APE] *** INFO *** Action is not shared. No action refinement.
+[APE] *** INFO *** Action refinement has 0 results.
+[APE] *** INFO *** Try state refinement.
+[APE] *** INFO *** Rebuild document for tree #2
+[APE] *** INFO *** Rebuild document for tree #4
+[APE] *** INFO *** State refinement has 0 results.
+[APE] *** INFO *** Refinement takes 4824 ms.
+[APE] *** INFO *** No state refinement candidates to filter.
+[APE] *** INFO *** Cannot find a new naming that can resolve the non-deterministic transition.
+[APE] Sata Strategy: buffer size (1)
+[APE]      0  TRIVIAL_ACTIVITY
+[APE]      0  SATURATED_STATE
+[APE]      0  USE_BUFFER
+[APE]      4  EARLY_STAGE
+[APE]      0  EPSILON_GREEDY
+[APE]      0  RANDOM
+[APE]      0  NULL
+[APE]      0  BUFFER_LOSS
+[APE]      1  FILL_BUFFER
+[APE]      0  BAD_STATE
+[APE]     1 g4a93[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;[P=60][T=200][, UNVISITED][S=0.000000][RN=2][231,183,1037,309][]
+[APE]     2 g4a94[-1,0][0]@MODEL_CLICKclass=android.view.View;index=2;enabled=true;clickable=true;[P=60][T=200][, UNVISITED][S=0.000000][RN=2][912,946,1037,1072][]
+[APE]     3 g4a95[-1,0][0]@MODEL_CLICKclass=android.view.View;index=0;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,438,1037,564][]
+[APE]     4 g4a96[-1,0][0]@MODEL_CLICKclass=android.widget.TextView;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][358,220,474,273][Search]
+[APE]     5 g4a97[-1,0][0]@MODEL_CLICKclass=android.widget.RadioButton;enabled=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][232,568,358,693][]
+[APE]     6 g4a98[-1,0][0]@MODEL_CLICKclass=android.widget.RadioButton;enabled=true;clickable=true;checkable=true;[P=64][T=200][, UNVISITED][S=0.000000][RN=3][232,946,358,1072][]
+[APE]     7 g4a99[-1,0][0]@MODEL_CLICK/class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;[P=64][T=200][, UNVISITED][S=0.000000][RN=3][232,1335,358,1461][]
+[APE]     8 g4a100[-1,0][0]@MODEL_CLICK/class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][232,439,358,565][]
+[APE]     9 g4a101[-1,0][0]@MODEL_CLICKclass=android.view.View;index=5;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,567,1037,693][]
+[APE]    10 g4a102[-1,0][0]@MODEL_CLICKclass=android.view.View;index=6;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,693,1037,819][]
+[APE]    11 g4a103[-1,0][0]@MODEL_CLICKclass=android.view.View;index=7;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,819,1037,945][]
+[APE]    12 g4a104[-1,0][0]@MODEL_CLICKclass=android.view.View;index=8;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,945,1037,1071][]
+[APE]    13 g4a105[-1,0][0]@MODEL_CLICKclass=android.view.View;index=9;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,1074,1037,1201][]
+[APE]    14 g4a106[-1,0][0]@MODEL_CLICKclass=android.view.View;index=10;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,1204,1037,1331][]
+[APE]    15 g4a107[-1,0][0]@MODEL_CLICKclass=android.view.View;index=11;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,1334,1037,1460][]
+[APE]    16 g4a108[-1,0][0]@MODEL_CLICKclass=android.view.View;index=12;enabled=true;clickable=true;[P=52][T=200][, UNVISITED][S=0.000000][RN=1][231,1463,1037,1590][]
+[APE]    17 g4a109[-1,0][0]@MODEL_BACKg4s8[5,5][1]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17][P=13][T=200][, UNVISITED]
+[APE] *** INFO *** Check global actions.
+[APE] *** INFO *** Inconsistent states in action buffer: expected g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14], get g4s8[5,5][1]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]
+[APE] ##################################
+[APE]   0 - class=android.view.View;index=0;enabled=true;clickable=true;
+[APE]   1 - class=android.widget.TextView;enabled=true;clickable=true;
+[APE]   2 - class=android.widget.RadioButton;enabled=true;checkable=true;
+[APE]   3 - class=android.widget.RadioButton;enabled=true;clickable=true;checkable=true;
+[APE]   4 - /class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;
+[APE]   5 - /class=android.view.ViewGroup;resource-id=android:id/content;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;/class=android.widget.ScrollView;enabled=true;/class=android.view.View;enabled=true;/class=android.view.View;enabled=true;clickable=true;/class=android.widget.CheckBox;enabled=true;clickable=true;checkable=true;enabled=true;clickable=true;checkable=true;
+[APE]   6 - class=android.view.View;index=5;enabled=true;clickable=true;
+[APE]   7 - class=android.view.View;index=6;enabled=true;clickable=true;
+[APE]   8 - class=android.view.View;index=7;enabled=true;clickable=true;
+[APE]   9 - class=android.view.View;index=8;enabled=true;clickable=true;
+[APE]  10 - class=android.view.View;index=9;enabled=true;clickable=true;
+[APE]  11 - class=android.view.View;index=10;enabled=true;clickable=true;
+[APE]  12 - class=android.view.View;index=11;enabled=true;clickable=true;
+[APE]  13 - class=android.view.View;index=12;enabled=true;clickable=true;
+[APE] ----------------------------------
+[APE]   0 = class=android.view.View;index=1;enabled=true;clickable=true;
+[APE]   1 = class=android.view.View;index=2;enabled=true;clickable=true;
+[APE] ----------------------------------
+[APE]   0 + class=android.view.View;enabled=true;scrollable=true;
+[APE]   1 + class=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;
+[APE]   2 + class=android.widget.Button;enabled=true;clickable=true;
+[APE]   3 + class=android.widget.EditText;enabled=true;clickable=true;long-clickable=true;
+[APE]   4 + class=android.view.View;index=4;enabled=true;clickable=true;
+[APE]   5 + /class=android.widget.FrameLayout;index=0;enabled=true;/class=androidx.compose.ui.platform.ComposeView;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;/class=android.view.View;index=0;enabled=true;clickable=true;enabled=true;clickable=true;
+[APE] ##################################
+[APE] *** INFO *** Check A*BA->B, try to move from A to B.
+[APE] *** INFO *** > - A: g4s8[5,5][1]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]
+[APE] *** INFO *** > - B: g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] *** INFO *** Never move from a cold state (g4s8[5,5][1]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]) to a hot state (g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]) in ABA.
+[APE] *** INFO *** Find a greedy action in 0-step
+[APE] *** INFO *** Requesting disabling restart.
+[APE] *** INFO *** Select action g4a93[-1,0][0]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;[P=60][T=200][, UNVISITED][S=0.000000][RN=2][231,183,1037,309][] by strategy EARLY_STAGE
+[APE] Last  state: g2s5[3,3][1]at.techbee.jtx.MainActivity2@1898940659@Naming[6]@[W=9][A=14]
+[APE] Last action: g2a71[3,3][1]@MODEL_LONG_CLICKclass=android.view.View;resource-id=benchmark:ListCard;enabled=true;clickable=true;long-clickable=true;[P=36][T=200][][S=0.000000][RN=1][21,442,1059,867][]
+[APE] Curr  state: g2s4[2,4][2]at.techbee.jtx.MainActivity2@-1365438570@Naming[6]@[W=12][A=17]
+[APE] Curr action: g2a60[2,4][2]@MODEL_CLICKclass=android.view.View;index=4;enabled=true;clickable=true;[P=42][T=200][][S=1.000000][RN=1][901,91,1027,217][]
+[APE] New   state: g4s8[5,5][1]at.techbee.jtx.MainActivity2@522184168@Naming[11]@[W=17][A=17]
+[APE] New  action: g4a93[5,5][1]@MODEL_CLICKclass=android.view.View;index=1;enabled=true;clickable=true;[P=60][T=200][][S=0.000000][RN=2][231,183,1037,309][]
+[APE] >>>>>>>> SATA end step [5]

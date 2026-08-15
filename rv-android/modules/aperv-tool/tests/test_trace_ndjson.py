@@ -17,9 +17,13 @@ import ast
 from pathlib import Path
 
 import pytest
+from fixture_gate import MISSING_REAL
 
 from aperv_tool.analysis.trace_ndjson import (
+    FORMAT_VERSION,
+    BuildStamp,
     Counterfactual,
+    SchemaVersionMismatch,
     StepRow,
     TraceReader,
     read_steps,
@@ -27,6 +31,7 @@ from aperv_tool.analysis.trace_ndjson import (
 
 FIXTURES = Path(__file__).parent / "fixtures"
 GOLDEN = FIXTURES / "trace_ndjson_golden.ndjson"
+V2_HEADER = FIXTURES / "trace_ndjson_v2_header.ndjson"
 
 # The epoch base the golden fixture's RUN_START declares.
 GOLDEN_T0_MS = 1750000000000
@@ -368,6 +373,247 @@ class TestDiagnostics:
         assert rows[0].t_epoch_ms is None
 
 
+class TestRunStartHeader:
+    """The header is read whole, and the schema it declares is checked.
+
+    A trace that cannot say which jar, which arm and which parameters produced
+    it is only interpretable next to the code that produced it — the position
+    that made a whole campaign unreadable when a stale jar shipped. These tests
+    hold the reader to carrying the record the jar writes to end that, rather
+    than the three fields the earliest analyses happened to need.
+    """
+
+    def test_run_start_thirteen_members(self):
+        """All thirteen wire members reach the caller, `build` nested."""
+        reader = TraceReader(GOLDEN)
+        list(reader)
+        run_start = reader.run_start
+
+        assert run_start is not None
+        assert run_start.v == FORMAT_VERSION
+        assert run_start.run_id == "cryptoapp.apk__1__1800__aperv:mop_on_llm_70"
+        assert run_start.t0_ms == GOLDEN_T0_MS
+        assert run_start.seed == 1750000000001
+        assert run_start.agent == "sata"
+        assert run_start.preset == "mop_llm"
+        assert run_start.features == (
+            "ACTIVITY_TRIGGER",
+            "LLM_ROUTING",
+            "MOP",
+            "MOP_FRONTIER",
+        )
+        assert run_start.params["ape.llmPercentage"] == "0.7"
+        assert run_start.inert == ("ape.componentPercentage",)
+        assert run_start.corpus_basis.startswith("selected162:")
+        assert run_start.digest == "ad537a816a19f154"
+        assert run_start.props_digest.startswith("81feabbc")
+        assert run_start.build == BuildStamp(
+            sha="9e948102", time="2026-08-05T17:22:00Z"
+        )
+
+    def test_params_absence_means_the_jar_default(self):
+        """`params` is what someone chose, so an absent key is not an unset one.
+
+        The jar omits a parameter sitting at its own default because the default
+        is recoverable from the jar `build.sha` names. Reading absence as "unset"
+        would turn every default into a claim the record never made.
+        """
+        reader = TraceReader(GOLDEN)
+        list(reader)
+
+        assert "ape.mopWeightDirect" in reader.run_start.params
+        assert "ape.mopWeightWtg" not in reader.run_start.params
+
+    def test_inert_absent_is_none(self, tmp_path):
+        """An absent member is None; an empty list is an empty tuple.
+
+        The two are different facts — "the record did not say" against "the jar
+        declared no inert key" — and an inert key outside an arm's expected set
+        is how a feature silently leaving the plan announces itself. Defaulting
+        the first case to the second would answer that provenance question with
+        the reader's own guess.
+        """
+        trace = tmp_path / "no_inert.trace"
+        trace.write_text(
+            '{"type":"RUN_START","v":1,"run_id":"r","t0":10,"preset":"mop"}\n'
+            '{"type":"ACT","id":1,"name":"com.foo/.Main","mop":0}\n'
+            '{"type":"STATE","id":1,"key":"S1","act":1}\n'
+            '{"s":1,"t":5,"act":1,"st":1,'
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(trace)
+        list(reader)
+
+        assert reader.run_start.inert is None
+        assert reader.run_start.features is None
+        assert reader.run_start.build is None
+        assert reader.run_start.seed is None
+        assert reader.run_start.preset == "mop"
+
+        v2 = TraceReader(V2_HEADER)
+        list(v2)
+        assert v2.run_start.inert == (), "an empty list is not an absent member"
+        assert v2.run_start.corpus_basis is None
+
+    def test_missing_t0_leaves_the_epoch_unavailable(self, tmp_path):
+        """A header without `t0` is a header, not a malformed record.
+
+        It says everything else it says, and only the absolute clock is lost —
+        which is reported unavailable rather than based on a guess (INV-APV-51).
+        """
+        trace = tmp_path / "no_t0.trace"
+        trace.write_text(
+            '{"type":"RUN_START","v":1,"run_id":"r","preset":"mop"}\n'
+            '{"type":"ACT","id":1,"name":"com.foo/.Main","mop":0}\n'
+            '{"type":"STATE","id":1,"key":"S1","act":1}\n'
+            '{"s":1,"t":5,"act":1,"st":1,'
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(trace)
+        rows = list(reader)
+
+        assert reader.diagnostics.malformed == 0
+        assert reader.run_start.t0_ms is None
+        assert rows[0].t_rel_ms == 5
+        assert rows[0].t_epoch_ms is None
+
+    def test_v_mismatch_strict_raises(self):
+        """Strict mode fails loudly, and before a single row is handed over.
+
+        A caller comparing fields across traces is asking the one question a
+        schema change invalidates, so it gets the exception rather than rows it
+        would go on to average against rows of another schema.
+        """
+        reader = TraceReader(V2_HEADER, strict=True)
+
+        with pytest.raises(SchemaVersionMismatch) as raised:
+            list(reader)
+
+        assert raised.value.found == 2
+        assert raised.value.expected == FORMAT_VERSION
+        assert "2" in str(raised.value) and "1" in str(raised.value)
+        assert reader.diagnostics.steps_yielded == 0, "raised before any row"
+
+    def test_v_mismatch_counted(self):
+        """Non-strict, the same trace yields its rows and counts the mismatch.
+
+        A survey over a mixed tree should report the tree's composition, not
+        stop at its first foreign trace.
+        """
+        reader = TraceReader(V2_HEADER)
+        rows = list(reader)
+
+        assert len(rows) == 1
+        assert reader.diagnostics.schema_version_mismatch == 1
+        assert reader.run_start.v == 2
+
+    def test_matching_version_is_not_counted(self):
+        """The golden fixture is at `FORMAT_VERSION`, so nothing is counted."""
+        reader = TraceReader(GOLDEN, strict=True)
+        list(reader)
+
+        assert reader.diagnostics.schema_version_mismatch == 0
+
+    def test_absent_version_is_unknown_not_mismatched(self, tmp_path):
+        """No `v` means the schema is unknown, and unknown is never inferred.
+
+        Counting it as a mismatch would claim the record said something it did
+        not; assuming it matches would claim the opposite. Both are the reader
+        answering for the trace.
+        """
+        trace = tmp_path / "no_v.trace"
+        trace.write_text(
+            '{"type":"RUN_START","run_id":"r","t0":10}\n'
+            '{"type":"ACT","id":1,"name":"com.foo/.Main","mop":0}\n'
+            '{"type":"STATE","id":1,"key":"S1","act":1}\n'
+            '{"s":1,"t":5,"act":1,"st":1,'
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(trace, strict=True)
+        rows = list(reader)
+
+        assert len(rows) == 1
+        assert reader.run_start.v is None
+        assert reader.diagnostics.schema_version_mismatch == 0
+
+    def test_first_brace_line_is_header(self, tmp_path):
+        """The header is the first sink record, whatever text precedes it.
+
+        The jar prints its AOSP banners to the same stdout the trace is captured
+        from, so requiring line 1 would lose the header on a healthy run. The
+        rule is positional in records, not in lines: a `RUN_START` reached after
+        another sink record is not this trace's header — that is two runs'
+        output concatenated, and adopting the second header would attribute
+        these steps to that run's specification.
+        """
+        preamble = tmp_path / "banners_first.trace"
+        preamble.write_text(
+            "--------- beginning of main\n"
+            "[APE] *** INFO *** InputMethod ID: com.google.android.inputmethod\n"
+            '{"type":"RUN_START","v":1,"run_id":"r","t0":1000,"preset":"mop"}\n'
+            '{"type":"ACT","id":1,"name":"com.foo/.Main","mop":0}\n'
+            '{"type":"STATE","id":1,"key":"S1","act":1}\n'
+            '{"s":1,"t":5,"act":1,"st":1,'
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(preamble)
+        rows = list(reader)
+
+        assert reader.run_start is not None
+        assert reader.run_start.run_id == "r"
+        assert rows[0].t_epoch_ms == 1005
+
+        late = tmp_path / "header_not_first.trace"
+        late.write_text(
+            '{"type":"ACT","id":1,"name":"com.foo/.Main","mop":0}\n'
+            '{"type":"RUN_START","v":1,"run_id":"other-run","t0":1000}\n'
+            '{"type":"STATE","id":1,"key":"S1","act":1}\n'
+            '{"s":1,"t":5,"act":1,"st":1,'
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(late)
+        rows = list(reader)
+
+        assert reader.run_start is None
+        assert reader.diagnostics.run_start_present is False
+        assert reader.diagnostics.malformed == 0, "well-formed, just not the header"
+        assert rows[0].t_epoch_ms is None
+
+    def test_damaged_first_record_does_not_consume_the_header_slot(self, tmp_path):
+        """A truncated first line says nothing about which record is the header.
+
+        Letting it take the slot would turn one damaged line into a whole run
+        with no provenance, which is the failure the header exists to prevent.
+        """
+        trace = tmp_path / "damaged_first.trace"
+        trace.write_text(
+            '{"type":"MOP_DA\n'
+            '{"type":"RUN_START","v":1,"run_id":"r","t0":1000}\n'
+            '{"type":"ACT","id":1,"name":"com.foo/.Main","mop":0}\n'
+            '{"type":"STATE","id":1,"key":"S1","act":1}\n'
+            '{"s":1,"t":5,"act":1,"st":1,'
+            '"dec":{"a":"CLICK","src":"SATA","ch":"sata_other"}}\n',
+            encoding="utf-8",
+        )
+
+        reader = TraceReader(trace)
+        rows = list(reader)
+
+        assert reader.diagnostics.malformed == 1
+        assert reader.run_start is not None
+        assert rows[0].t_epoch_ms == 1005
+
+
 class TestRunLevelRecords:
     """The census records reach the caller, because nothing else can reach them.
 
@@ -447,6 +693,107 @@ class TestRunLevelRecords:
         assert reader.mop_data is None
         assert reader.pipeline is None
         assert reader.llm_ack is None
+
+
+class TestRunStartOnRecordedTraces:
+    """The header rules hold on captured output, not only on a hand-written one.
+
+    The golden fixture was written from the wire spec before the reader existed,
+    which is what makes it an independent check of the reader; what it cannot
+    check is whether the jar actually writes what the spec says. These tests
+    read the pinned cmp162 traces for that, and skip — never pass — when the
+    campaign tree is not on this machine.
+    """
+
+    def _aperv_traces(self, manifest: dict) -> list[str]:
+        return sorted(
+            path
+            for path in manifest["files"]
+            if path.endswith(".trace") and "aperv" in path
+        )
+
+    def test_cmp162_aperv_headers_carry_every_member(
+        self, cmp162_manifest: dict, cmp162_root: Path
+    ) -> None:
+        """Every pinned `aperv` header carries all thirteen members, `v` at 1.
+
+        The campaign holds 972 `aperv` traces; the manifest pins the 105 that
+        belong to its twelve-application raw subset, and this asserts over those
+        — the pin is the denominator, so a wider claim would be one the fixture
+        cannot support. Each read stops at the first step row, so the assertion
+        costs the head of each file rather than its whole length.
+        """
+        traces = self._aperv_traces(cmp162_manifest)
+        assert traces, "the manifest pins no aperv traces"
+
+        checked = 0
+        for relative in traces:
+            path = cmp162_root / relative
+            if not path.exists():
+                pytest.skip(f"{MISSING_REAL}: {relative}")
+
+            reader = TraceReader(path)
+            next(iter(reader), None)
+            run_start = reader.run_start
+
+            assert run_start is not None, f"{relative}: no RUN_START header"
+            absent = [
+                name
+                for name in (
+                    "v",
+                    "run_id",
+                    "t0_ms",
+                    "seed",
+                    "agent",
+                    "preset",
+                    "features",
+                    "params",
+                    "inert",
+                    "corpus_basis",
+                    "digest",
+                    "props_digest",
+                    "build",
+                )
+                if getattr(run_start, name) is None
+            ]
+            assert not absent, f"{relative}: header lacks {absent}"
+            assert run_start.v == FORMAT_VERSION
+            assert run_start.build.sha, f"{relative}: build carries no sha"
+            assert reader.diagnostics.schema_version_mismatch == 0
+            checked += 1
+
+        assert checked == len(traces)
+
+    def test_cmp162_headers_identify_the_arm_they_are_labelled_with(
+        self, cmp162_manifest: dict, cmp162_root: Path
+    ) -> None:
+        """`preset` and `features` corroborate the arm the filename claims.
+
+        The filename is written by the orchestrator — the code that was supposed
+        to apply the configuration — so it is the claim, not the evidence. The
+        header is the jar answering for itself, and this is the join that makes
+        arm attribution checkable at all.
+        """
+        by_arm: dict[str, set[str]] = {}
+        for relative in self._aperv_traces(cmp162_manifest):
+            path = cmp162_root / relative
+            if not path.exists():
+                pytest.skip(f"{MISSING_REAL}: {relative}")
+
+            reader = TraceReader(path)
+            next(iter(reader), None)
+            arm = path.name.rsplit("__", 1)[-1].removesuffix(".trace")
+            by_arm.setdefault(arm, set()).update(reader.run_start.features)
+
+            assert reader.run_start.preset, f"{relative}: no preset"
+
+        assert set(by_arm) == {"aperv:mop_off_llm_off", "aperv:mop_on_llm_off"}
+        for arm, features in by_arm.items():
+            assert not any(
+                name.startswith("LLM") for name in features
+            ), f"{arm} is an llm_off arm, yet its headers declare {sorted(features)}"
+        assert "MOP_FRONTIER" in by_arm["aperv:mop_on_llm_off"]
+        assert "MOP_FRONTIER" not in by_arm["aperv:mop_off_llm_off"]
 
 
 class TestCollectionPathIsolation:
