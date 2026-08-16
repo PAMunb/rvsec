@@ -39,7 +39,7 @@ import java.util.stream.Stream;
  * Location is matched, not merely reported, because the unit of analysis is
  * {@code (apk, class, method, spec)} — the article's unique misuse — and a
  * comparator that ignored the site would score two different misuses of the
- * same specification as one agreement (INV-INS-109, D-O3, D-O4).
+ * same specification as one agreement (INV-INS-116, D-O3, D-O4).
  *
  * <h2>Gate</h2>
  * Per-spec {@code F1(dexlib2) >= 0.98} AND per-spec {@code kappa >= 0.9}
@@ -103,7 +103,7 @@ public final class TraceComparator {
      * PKIX,SunX509 but found ."}), so everything from this index on is rejoined
      * rather than split. This is the same rule
      * {@code rv-android/modules/rv-coverage/.../logcat_parser.py} applies, which
-     * is the reference implementation for the format (INV-INS-110).
+     * is the reference implementation for the format (INV-INS-117).
      */
     private static final int VIOLATION_FIELDS = 7;
 
@@ -599,7 +599,7 @@ public final class TraceComparator {
 
     /**
      * Compare an oracle event's declared location against an observation's
-     * (INV-INS-109).
+     * (INV-INS-116).
      *
      * <p>
      * The class is accepted against either form the line carries — fully
