@@ -105,12 +105,19 @@ The library is validated on two fixture classes. **FIXTURE-REAL** is `experiment
 
 ### Requirement: Admissibility Has One Owner (NFR03)
 
-`analysis/liveness.py` SHALL be the promotion of `experimento-comp162/scripts/admissibility.py:48-105` (byte-identical in `experimento-comp162-ajc` by design) into the package, and both campaign copies SHALL become imports of it. It SHALL own the per-run admissibility verdict — completion, full-budget execution, corpse signals — and `gates.py` SHALL delegate to it (INV-CAN-05), so an excluded run is counted exactly once.
+`analysis/liveness.py` SHALL be the promotion of `experimento-comp162/scripts/admissibility.py:48-105` (byte-identical in `experimento-comp162-ajc` by design) into the package. It SHALL own the per-run admissibility verdict — completion, full-budget execution, corpse signals — and `gates.py` SHALL delegate to it (INV-CAN-05), so an excluded run is counted exactly once.
+
+**The two campaign copies SHALL remain independent implementations and SHALL NOT be turned into imports of the package.** They are the pre-promotion reference, and the only evidence that the promotion preserved the rule: `tests/test_liveness.py` loads one of them from disk by `importlib` and compares its verdicts and its selection against the package's, identity by identity. Rewriting either as an import would make that test compare `liveness` against itself — green, and vacuous. The duplication is therefore deliberate and load-bearing, not debt; the copies stay byte-identical to each other so that either may serve as the reference.
 
 #### Scenario: Gates delegate rather than reimplement
 - **WHEN** the tests inspect `gates.py`
 - **THEN** it SHALL import `liveness` and SHALL contain no predicate over trace size, coverage-all-zero or fatal exception of its own
-- **AND** the two campaign `admissibility.py` files SHALL consist of an import and re-export only
+
+#### Scenario: The campaign copies stay the independent reference
+- **WHEN** the tests inspect `experimento-comp162/scripts/admissibility.py` and `experimento-comp162-ajc/scripts/admissibility.py`
+- **THEN** neither SHALL import `aperv_tool`, and each SHALL carry its own implementation of the verdict and of the exclusion rule
+- **AND** the two SHALL be byte-identical to each other
+- **AND** the parity test SHALL compare the package against one of them over the pinned FIXTURE-REAL tree, on the per-identity verdicts and on every key of the selection
 
 ---
 

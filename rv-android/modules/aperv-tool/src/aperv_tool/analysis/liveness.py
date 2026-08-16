@@ -106,6 +106,11 @@ TRACE_FLOOR_BYTES = 64 * 1024
 #: The three criteria of the promoted rule, in the order a reason tuple lists them.
 CRITERIA = ("C1", "C2", "C5")
 
+#: Reported for an arm the campaign never ran, where there is no failed replica to
+#: name. It is distinct from an empty list of causes, which would read as "the arm
+#: ran and nothing went wrong" — the opposite of what happened.
+NO_EXECUTION = "no execution"
+
 # The three corpse signals, named so a report can print which ones fired rather
 # than asserting "corpse". They are independent by construction: a trace can be
 # truncated with coverage intact, and an exception can be named with a full trace.
@@ -528,6 +533,80 @@ def judge_identities(
     return judged
 
 
+def _index_by_cell(
+    judged: Mapping[tuple[str, str, int], Sequence[str]],
+) -> dict[tuple[str, str], dict[int, list[str]]]:
+    """Regroup per-identity verdicts into ``(apk, arm) -> {replica: failed}``.
+
+    The exclusion rule reasons about cells, not identities: whether an application
+    survives depends on every arm having at least one admissible replica, which is a
+    question about the cell. Everything downstream reads this shape.
+    """
+    by_cell: dict[tuple[str, str], dict[int, list[str]]] = defaultdict(dict)
+    for (apk, arm, replica), failed in judged.items():
+        by_cell[(apk, arm)][replica] = list(failed)
+    return by_cell
+
+
+def _split_cell(
+    cell: Mapping[int, Sequence[str]],
+) -> tuple[list[int], list[tuple[int, list[str]]]]:
+    """One cell's replicas, split into the admissible and the failed.
+
+    Both halves are read twice over: the admissible ones decide whether the cell
+    lives at all, and the failed ones are reported either as the cell's cause of
+    death or as replicas discarded inside a cell that survived. Splitting once is
+    what keeps those two readings of the same fact from drifting apart — they were
+    previously derived by two separate comprehensions over the same cell.
+    """
+    good = sorted(replica for replica, failed in cell.items() if not failed)
+    bad = [(replica, list(cell[replica])) for replica in sorted(cell) if cell[replica]]
+    return good, bad
+
+
+@dataclass(frozen=True, slots=True)
+class _AppVerdict:
+    """One application's fate under the exclusion rule.
+
+    ``excluded`` is ``None`` exactly when the application enters the paired analysis,
+    and the other two fields are then its per-arm bookkeeping. When it is set, it maps
+    each arm that had no admissible replica to why, and the application leaves
+    **whole** — a broken pair is not repaired by keeping the arms that did survive.
+    """
+
+    good_reps: dict[str, list[int]]
+    dropped_reps: dict[str, list[tuple[int, list[str]]]]
+    excluded: Optional[dict[str, list[str]]]
+
+
+def _decide_application(
+    cells: Mapping[str, Mapping[int, Sequence[str]]], arms: Sequence[str]
+) -> _AppVerdict:
+    """Apply the exclusion rule to one application, across its arms.
+
+    An arm with no admissible replica is named with the replicas it lost and why; an
+    arm with no execution at all has no replica to name, and says so rather than
+    reporting an empty cause (``NO_EXECUTION``). Either way the whole application
+    leaves, because the analysis is paired.
+    """
+    split = {arm: _split_cell(cells.get(arm, {})) for arm in arms}
+
+    excluded = {
+        arm: [f"rep{replica}:{'+'.join(failed)}" for replica, failed in bad]
+        or [NO_EXECUTION]
+        for arm, (good, bad) in split.items()
+        if not good
+    }
+    if excluded:
+        return _AppVerdict(good_reps={}, dropped_reps={}, excluded=excluded)
+
+    return _AppVerdict(
+        good_reps={arm: good for arm, (good, _bad) in split.items()},
+        dropped_reps={arm: bad for arm, (_good, bad) in split.items() if bad},
+        excluded=None,
+    )
+
+
 def select(
     judged: Mapping[tuple[str, str, int], Sequence[str]], arms: Sequence[str]
 ) -> dict:
@@ -548,10 +627,7 @@ def select(
             maximum observed;
             ``max_reps`` — that maximum.
     """
-    by_cell: dict[tuple[str, str], dict[int, list[str]]] = defaultdict(dict)
-    for (apk, arm, replica), failed in judged.items():
-        by_cell[(apk, arm)][replica] = list(failed)
-
+    by_cell = _index_by_cell(judged)
     apks = sorted({apk for apk, _ in by_cell})
     max_reps = max((len(cell) for cell in by_cell.values()), default=0)
 
@@ -561,37 +637,17 @@ def select(
     dropped_reps: dict[tuple[str, str], list[tuple[int, list[str]]]] = {}
 
     for apk in apks:
-        cells = {arm: by_cell.get((apk, arm), {}) for arm in arms}
-        good = {
-            arm: sorted(replica for replica, failed in cell.items() if not failed)
-            for arm, cell in cells.items()
-        }
-        dead = {
-            arm: [
-                f"rep{replica}:{'+'.join(failed)}"
-                for replica, failed in sorted(cell.items())
-                if failed
-            ]
-            for arm, cell in cells.items()
-            if not good[arm]
-        }
-        if dead or any(not replicas for replicas in good.values()):
-            # An arm with no admissible replica — or with no execution at all. The
-            # pair breaks, and the application leaves whole.
-            excluded[apk] = {
-                arm: dead.get(arm) or ["no execution"] for arm in arms if not good[arm]
-            }
+        decided = _decide_application(
+            {arm: by_cell.get((apk, arm), {}) for arm in arms}, arms
+        )
+        if decided.excluded is not None:
+            excluded[apk] = decided.excluded
             continue
         kept.append(apk)
-        for arm in arms:
-            good_reps[(apk, arm)] = good[arm]
-            bad = [
-                (replica, cells[arm][replica])
-                for replica in sorted(cells[arm])
-                if cells[arm][replica]
-            ]
-            if bad:
-                dropped_reps[(apk, arm)] = bad
+        for arm, replicas in decided.good_reps.items():
+            good_reps[(apk, arm)] = replicas
+        for arm, discarded in decided.dropped_reps.items():
+            dropped_reps[(apk, arm)] = discarded
 
     partial = {
         cell: len(replicas)
