@@ -139,7 +139,7 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - `tools: str` -- Comma-separated tool specification DSL string from CLI (source: user input via Click)
 - `config: str` -- Path to JSON configuration file (source: user input via Click, alternative to DSL)
 - `apks_dir: str` -- Directory containing source APK files (source: user input or default `./apks_examples/`)
-- `specification_set: str` -- One of "jca", "generic", "custom" (source: user input, default: "jca")
+- `specification_set: str` -- One of "jca", "jca_android", "generic", "custom" (source: user input, default: "jca"). The first three name a directory under `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/`; only "custom" reads a path from the user
 - `custom_specs_dir: str` -- Directory with `.mop` specification files (source: user input, required when specification_set == "custom")
 - `timeouts: str` -- Comma-separated positive integers, e.g. `"300"` or `"60,300"` (source: user input via Click `--timeouts` or `RV_TIMEOUTS`, default: `"300"`); parsed at the CLI boundary into `List[int]` per INV-EXP-33
 - `repetitions: int` -- Number of experiment repetitions (source: user input, default: 1)
@@ -180,7 +180,7 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 
 - **INV-EXP-02**: rv-experiment MUST NOT read back task results, coverage data, or error logs from rv-platform after execution. Data flows one-way from rv-experiment to rv-platform via `PlatformConfig`. The only information flowing back is the aggregate success/failure status from `Platform.run()` (a dictionary with `total_tasks`, `successful_tasks`, `failed_tasks` counts).
 
-- **INV-EXP-03**: `ExperimentConfig.validate()` MUST be called before experiment execution. The validation MUST check: (a) name is non-empty, (b) at least one tool is configured, (c) repetitions > 0, (d) all timeouts > 0, (e) APK source directory exists and contains `.apk` files, (f) specification_set is one of "jca", "generic", "custom".
+- **INV-EXP-03**: `ExperimentConfig.validate()` MUST be called before experiment execution. The validation MUST check: (a) name is non-empty, (b) at least one tool is configured, (c) repetitions > 0, (d) all timeouts > 0, (e) APK source directory exists and contains `.apk` files, (f) specification_set is one of "jca", "jca_android", "generic", "custom". Clause (f) is a closed enumeration and MUST reject anything outside it, including a near-miss spelling of a valid value: widening the list for the derived set MUST NOT weaken the check into an allow-anything, since a value that passes validation but names no directory would fail later, during monitor generation, with the experiment already under way.
 
 - **INV-EXP-04**: When `specification_set` is "custom", the `custom_specs_dir` field MUST be set and MUST point to a directory containing at least one `.mop` file. The CLI MUST raise `ClickException` before execution if this condition is violated.
 
@@ -501,7 +501,7 @@ The Experiment Orchestration domain MUST create sub-module configurations only w
 
 Each method MUST resolve RVSEC_HOME using the three-level priority hierarchy (INV-EXP-05) and MUST construct the appropriate sub-module configuration with validated paths. These methods are called only by `PreProcessor` during Phase 1 when the corresponding operation is enabled.
 
-The `get_monitored_operations_config()` method MUST select the specification directory based on the `specification_set` field: "jca" maps to `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca`, "generic" maps to `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/generic`, and "custom" uses the `custom_specs_dir` field directly.
+The `get_monitored_operations_config()` method MUST select the specification directory based on the `specification_set` field: "jca" maps to `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca`, "jca_android" maps to `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca_android`, "generic" maps to `$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/generic`, and "custom" uses the `custom_specs_dir` field directly. The three predefined values MUST derive their directory from the set name, so that selecting a predefined set never depends on a path the caller supplies and cannot be pointed at a set other than the one the experiment records.
 
 The `get_module_config()` method MUST serve as a generic dispatcher that routes module names to the appropriate JIT method. It MUST support the module names "rv-monitor-generator", "rv-instrumentation", and "rv-static-analysis".
 
@@ -514,6 +514,13 @@ The `get_module_config()` method MUST serve as a generic dispatcher that routes 
   - `rvmonitor_bin="/path/to/rvsec/rv-monitor/bin/rv-monitor"`
   - `mop_specs_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/jca"`
   - `aspects_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/aspect"`
+- **AND** `mop_specs_dir` MUST be the frozen set's directory exactly, not a directory whose name merely begins with it
+
+#### Scenario: JIT Configuration for Monitor Generation With the Derived Android Specs
+
+- **WHEN** `PreProcessor._generate_monitors()` calls `config.get_monitored_operations_config()` with `specification_set="jca_android"`, `custom_specs_dir=None` and `RVSEC_HOME="/path/to/rvsec"`
+- **THEN** the method MUST return an `RVGeneratorConfig` with `mop_specs_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android"`
+- **AND** MUST NOT raise for the absent `custom_specs_dir`, which is required by "custom" alone
 
 #### Scenario: JIT Configuration for Custom Specification Set
 
