@@ -1,0 +1,54 @@
+# Group 1 — E0 baseline and definitions
+
+Tracked checkboxes: `tasks.md` §1. This file is the execution brief. Wave 1; no dependency; disjoint from every other group.
+
+## Subagent brief
+
+You measure; you do not repair. Read `design.md` D-9 and `docs/20260815_gh103_analysis_layer.md:10-22,62-84,88-112` (freeze items, `Envelope`, "cmp162 is a fixture"). Every number you write leaves with numerator, denominator and the definition id that produced it. Reproduce first, compare with the expected values second; where you disagree, the artefact decides and you record the disagreement.
+
+## Files (create; nothing else is edited)
+
+- `scripts/gh104_baseline.py` — the measurement script (imports `aperv_tool.analysis.violations.read_errors_csv` for comp162; declares its own 10-column reader for the article dataset — `read_errors_csv` raises `ValueError` on it by design, `violations.py:242-246`).
+- `data/gh104/baseline.md`, `data/gh104/baseline.json` — the numbers with envelopes; the JSON is what the byte-identical test compares.
+- `data/gh104/definitions.md` — the freeze items.
+- `tests/parity/test_gh104_baseline.py`.
+
+## Definitions (freeze items — the script raises `FreezeItemUnset` if any is missing)
+
+| id | definition |
+|---|---|
+| `mute` | `message.strip() == 'unknown'` |
+| `site_comp162` | `(spec, class, method, source)` — comp162 has 11 columns |
+| `site_article` | `(spec, class, method)` — the article dataset (`/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal/dataset/results/errors.csv`) has 10 columns and **no `source`**; the lineage's twin numbers reproduce only under this |
+| `third_party_prefixes` | nine: `okhttp3.`, `com.google.`, `kotlin.`, `io.ktor.`, `org.bouncycastle.`, `androidx.`, `org.conscrypt.`, `okio.`, `org.spongycastle.` — the seven-vendor list gives 78.49 %, +`okio.` 82.67 %, all nine 85.44 % |
+| `shards` | `experimento-comp162/results/*/*/errors.csv` are 8 **disjoint** shards (112 distinct APKs, zero overlap, 3 tools × 3 repetitions each) — never "replicas" |
+| `identity5` | `(apk, rep, tool, spec, class, method, source, message)` for repetition; `ErrorSummary` identity is `(spec, error, class, method, location)` |
+| `error_type` | from `unique_msg.split(':::')[3]` (comp162), never from `message` |
+
+## Expected values (measured 2026-08-16; the script must reproduce them exactly)
+
+| quantity | value |
+|---|---|
+| article rows / distinct messages / `unknown` | 97,018 / 19 / 70,760 = 72.93 % |
+| article `but found .` | 8,843 = TMF 8,371 + Signature 234 + MessageDigest 156 + SSLContext 51 + Mac 31 |
+| article columns | `apk,rep,timeout,tool,time,spec,class,method,message,unique_msg` |
+| comp162 rows / mute / mute sites | 19,664 / 15,714 (79.91 %) / 296 |
+| comp162 mute-legible twins | 3,950 rows in 101 sites (= total legible rows; zero legible-only sites) |
+| comp162 mute-mute twins | 838 rows in 12 sites (all `IvParameterSpecSpec`, 419 + 419) |
+| comp162 mute-only remainder | 10,926 rows in 183 sites |
+| comp162 per-spec mute (top 8) | SSLContext 2,916 · SecureRandom 2,882 · TMF 2,855 · MessageDigest 2,008 · Cipher 1,461 · KeyStore 1,136 · IvParameterSpec 838 · SecretKeySpecSpec 820 |
+| comp162 `but found .` | 98 |
+| comp162 identities (`identity5`) | 6,344 for 19,664 rows; 67.74 % repetition; max 49; 0 % from replication (each identity in exactly one shard) |
+| third-party (article) | 76,154 = 78.49 % · 80,204 = 82.67 % · 82,890 = 85.44 % |
+| `UnsafeAlgorithm` MD5/SHA-1 (article) | 5,892 of 15,444 = 38.15 %, all `MessageDigestSpec` |
+| four spec sets | jca 23 files/21 `addError`/0 `Log.v`; jca_android 23/21/0; generic 118/0/118; generic_new 27/0/27 |
+| `new ErrorDescription` in jca | 51 = 25 three-arg + 26 four-arg |
+
+Reproduction commands are in `docs/20260816_javamop_mensagens_change_handoff_prompt.md:252-313` (read-only python one-liners). Copy them into the script as functions; do not paste numbers.
+
+## Acceptance
+
+- Two consecutive runs produce byte-identical `baseline.json` (`test_baseline_reproduces_byte_identical`).
+- Removing any freeze item raises `FreezeItemUnset` (`test_freeze_items_required`).
+- `data/gh104/baseline.md` states, per number, numerator, denominator, definition id, input file(s) and sha256 of the inputs.
+- The instrument discontinuity is written: comp162 through `read_errors_csv`, the article through the declared reader; parity ≠ correctness sentence quoted from the gh103 doc.
