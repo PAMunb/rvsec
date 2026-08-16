@@ -49,6 +49,6 @@
 
 ## 6. Downstream — unblock the campaign
 
-- [ ] 6.1 Rebuild `phtcosta/rvandroid:0.9.3-comp162` with `--no-cache` so the corrected parser ships in the image
-- [ ] 6.2 Re-run the `comp162` smoke and confirm 7/7 gates with a non-zero denominator on `io.keepalive.android_133` and `de.markusfisch.android.binaryeye_174`, both of which carry a build suffix
+- [x] 6.1 Rebuild `phtcosta/rvandroid:0.9.3-comp162` with `--no-cache` so the corrected parser ships in the image
+- [x] 6.2 Re-run the `comp162` smoke and confirm 7/7 gates with a non-zero denominator on `io.keepalive.android_133` and `de.markusfisch.android.binaryeye_174`, both of which carry a build suffix
 - [x] 6.3 Record in `docs/20260812_comp162.md` that measurements taken after this change are not comparable to `cmp163` for the affected applications, and why
