@@ -1,6 +1,6 @@
-# Group 4 — E3: honest transport
+# Group 5 — E3: honest transport
 
-Tracked checkboxes: `tasks.md` §4. Wave 1; disjoint from Groups 1/2/3/5/6/7; Group 9 (E6) depends on it. Soft dependency: task 4.8 (consumer matrix) cites Group 1's definitions — write it last.
+Tracked checkboxes: `tasks.md` §5. Wave 1; disjoint from Groups 1/2/3/4/6/7; Group 10 (E6) depends on it. Soft dependency: task 5.8 (consumer matrix) cites Group 1's definitions — write it last.
 
 ## Subagent brief
 
@@ -14,7 +14,7 @@ Java (git root `…/workspace-rv/rvsec`):
 | `rvsec/rvsec-android/rvsec-logger-logcat/src/main/java/br/unb/cic/mop/eh/ErrorCollector.java` | 56 | `:36-40` build the line with `escape(getExpecting().trim())`; the existing `escapeSpecialCharacters :42-49` is dead (call commented `:38`) — replace it by an `escape` that maps `\n`→`\\n` and leaves commas; `null` expecting → `v=1 code=UNSPECIFIED ev=UNSPECIFIED obj='' val='' exp='' msg=''`; new `ErrorCollectorTest` |
 | `rvsec/rvsec-logger-csv/src/main/java/br/unb/cic/mop/eh/ErrorCollector.java` | 92 | `escape() :84-91` — align with the logcat rule (same newline handling); header `:14` unchanged |
 | `rv-monitor/rv-monitor-rt/src/main/java/com/runtimeverification/rvmonitor/java/rt/ViolationRecorder.java` | 141 | `makeRelevantList :87-105`: a frame whose `fileName == null` and whose class is a monitoring-runtime class is excluded (today fail-open per frame; `getLineOfCode :53-60` returns `relevantStack.get(0)`); new `ViolationRecorderTest` |
-| `rvsec/rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorDescription.java` | 146 | no edit in this group (identity is Group 9); note `toString :143` renders `expecting %s` — envelope `msg` must not start with `expecting` |
+| `rvsec/rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorDescription.java` | 146 | no edit in this group (identity is Group 10); note `toString :143` renders `expecting %s` — envelope `msg` must not start with `expecting` |
 
 Python (`rv-android/`):
 | file | lines | edit |
@@ -30,7 +30,7 @@ Python (`rv-android/`):
 | `modules/aperv-tool/tests/test_violations.py` | 125 | +4 tests (13-col accepted; 11-col `ValueError` naming expected header; 5-part `unique_msg` unparsed; truncated envelope) |
 | `scripts/regenerate_results/regenerate_container.py` | 346 | `:244` builds `unique_msg` → import `RvErrorLog` and use it (or delete the local composition) |
 | `scripts/rv_oracle_common.py` | 174 | `:73-81` reads `parts[3]`/`parts[4]` — require seven parts, name the parts |
-| `data/gh104/consumer_matrix.md` | new | see task 4.8 |
+| `data/gh104/consumer_matrix.md` | new | see task 5.8 |
 
 ## Grammar to implement (design D-3)
 
@@ -43,7 +43,7 @@ uv run pytest --import-mode=importlib -o "addopts=" modules/rv-coverage/tests -q
 uv run pytest --import-mode=importlib -o "addopts=" modules/aperv-tool/tests -q         # baseline today: 704 passed, 22 skipped
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-platform/tests -q
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-android-core/tests -q
-grep -rn "':::'\|\":::\"" modules/ scripts/ --include=*.py | grep -v tests   # after 4.4/4.7: only log.py composes; violations.py / rv_oracle_common.py read
+grep -rn "':::'\|\":::\"" modules/ scripts/ --include=*.py | grep -v tests   # after 5.4/5.7: only log.py composes; violations.py / rv_oracle_common.py read
 cd ../rvsec/rvsec/rvsec-android/rvsec-logger-logcat && mvn -q test; cd ../../../rv-monitor/rv-monitor-rt && mvn -q test
 ```
 

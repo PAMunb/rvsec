@@ -1,6 +1,6 @@
-# Group 9 — E6: identity
+# Group 10 — E6: identity
 
-Tracked checkboxes: `tasks.md` §9. After Groups 4 (transport: `code`/`event` columns and parts) and 6 (envelope carries `ev=`). May overlap Groups 7/8 (no `.mop` file here). Device-side consequence: instrumented APKs must be rebuilt for the identity change to take effect; the change lands after the E3 trial's final runs (design D-5).
+Tracked checkboxes: `tasks.md` §10. After Groups 5 (transport: `code`/`event` columns and parts) and 7 (envelope carries `ev=`). May overlap Groups 8/9 (no `.mop` file here). Device-side consequence: instrumented APKs must be rebuilt for the identity change to take effect; the change lands after the E3 trial's final runs (design D-5).
 
 ## Subagent brief
 
@@ -8,11 +8,11 @@ Read `design.md` D-5, the `instrumentation` delta `Requirement: Dedupe Identity 
 
 ## Files
 
-- `scripts/gh104_identity_discontinuity.py` — over `experimento-comp162/results/*/*/errors.csv` (11 columns; use Group 1's reader): count distinct `(spec, error_type, class, method, source)` (today 6,344 with the `identity5` definition of Group 1 — recompute with the `ErrorSummary` five fields and record both), then with `event` added, where `event` is parsed from `message` if it is an envelope, else `UNSPECIFIED`. **Note**: comp162 was recorded before E1, so on that corpus every `event` is `UNSPECIFIED` and the discontinuity is zero *by construction*. The measurement that decides E6 is therefore on the first `jca_v2` logcat produced by task 10.4 (device validation) or by the harness traces of Group 5 (JVM): recompute on `evidence/harness/**` outputs where each accusation carries `ev=`. State clearly which corpus the non-zero number comes from.
+- `scripts/gh104_identity_discontinuity.py` — over `experimento-comp162/results/*/*/errors.csv` (11 columns; use Group 1's reader): count distinct `(spec, error_type, class, method, source)` (today 6,344 with the `identity5` definition of Group 1 — recompute with the `ErrorSummary` five fields and record both), then with `event` added, where `event` is parsed from `message` if it is an envelope, else `UNSPECIFIED`. **Note**: comp162 was recorded before E1, so on that corpus every `event` is `UNSPECIFIED` and the discontinuity is zero *by construction*. The measurement that decides E6 is therefore on the first `jca_v2` logcat produced by task 11.4 (device validation) or by the harness traces of Group 6 (JVM): recompute on `evidence/harness/**` outputs where each accusation carries `ev=`. State clearly which corpus the non-zero number comes from.
 - `data/gh104/identity_discontinuity.md` — both numbers, definitions, corpus, era declaration.
 - `rvsec/rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorSummary.java` (127 lines; `equals/hashCode :73-120`, `toString :124`) — add `code`, `event` fields; `ErrorDescription.java` (146; `createErrorSummary :216-233`) parses them from the envelope of `expecting` (`code=`, `ev=`), sentinel `UNSPECIFIED`; `toString` of `ErrorSummary` unchanged (the logcat line format is unchanged — the envelope already carries them).
 - `rvsec/rvsec-core/src/test/java/br/unb/cic/mop/eh/ErrorDescriptionTest.java` (221; `hashCodeMatchesEquals :184-197` asserts `expecting` outside identity today) — rewrite for seven fields; message text still outside.
-- Verification fixture: a recorded logcat with two envelopes at one site differing only in `ev=` → two rows in `errors.csv` (Group 4's writer) with distinct `unique_msg`.
+- Verification fixture: a recorded logcat with two envelopes at one site differing only in `ev=` → two rows in `errors.csv` (Group 5's writer) with distinct `unique_msg`.
 
 ## Acceptance
 

@@ -1,10 +1,10 @@
-# Group 7 — E4: automata and pointcuts in `jca_v2`
+# Group 8 — E4: automata and pointcuts in `jca_v2`
 
-Tracked checkboxes: `tasks.md` §7. Starts after Groups 5 (gates + harness exist) and 6 (bookkeeping invariant installed). Per file, one owner at a time. Two subagents on disjoint file halves are allowed only if each appends to its own block of `data/jca_v2/divergence_record.csv` (mark rows with the task id; the check script is order-independent).
+Tracked checkboxes: `tasks.md` §8. Starts after Groups 6 (gates + harness exist) and 7 (every report site already carries its envelope). Per file, one owner at a time. Two subagents on disjoint file halves are allowed only if each appends to its own block of `data/jca_v2/divergence_record.csv` (mark rows with the task id; the check script is order-independent).
 
 ## Subagent brief
 
-Read `design.md` D-1, D-7, D-10, D-11; the `instrumentation` delta (`Successor Specification Set`, `Executable Structural Gates`, `Differential Harness`, INV-INS-118/123/124/125); `data/gh101/divergence_record.csv` (106 rows: `layer-2-repair` 51, `predicate-graph` 42, `allow-list` 12, `cipher-import` 1 — you replay the 94 non-`allow-list`, minus three), `data/gh101/README.md` (repair narrative per file; `:546-553` the generator ceiling; `:539` CipherSpec 17→14; `:638-641` MacSpec 8→11), `data/gh101/frozen_set_debt.md`, gh101 `design.md` D-S9 (idiom for violating branches: `unsafeAlg` state in `fsm`, Kleene prefix `g3*` in `ere`; absorption rejected), `audit/20260808_validacao_jca_android/global/juizglobal_gates.csv` and `set/set_cons_fen_registry.csv` (:9 `FEN-SET-GENCIPHER-EXTRA`, :51 `FEN-SSL-RANDOMIZED-EXTRA`, :48 `FEN-KPG-INITERROR-PLACEMENT`, :65 `FEN-D-REGISTER-ANCHOR-DRIFT`). Every edit: keep the bookkeeping first statement (INV-INS-120 — the lint fails otherwise); one divergence-record entry per hunk (kind + reason + task); harness before/after per file with the classification written; event count of `CipherSpec` after edit ≤ 17 (INV-INS-115; 18 → `StackOverflowError`); `remove(Property)` one-argument sites replaced (needs a monitor field holding the object). Do not touch `jca/`, `jca_android/`. Read `jca_android/<file>` as reference — reading is not touching.
+Read `design.md` D-1, D-7, D-10, D-11; the `instrumentation` delta (`Successor Specification Set`, `Executable Structural Gates`, `Differential Harness`, INV-INS-118/123/124/125); `data/gh101/divergence_record.csv` (106 rows: `layer-2-repair` 51, `predicate-graph` 42, `allow-list` 12, `cipher-import` 1 — you replay the 94 non-`allow-list`, minus three), `data/gh101/README.md` (repair narrative per file; `:546-553` the generator ceiling; `:539` CipherSpec 17→14; `:638-641` MacSpec 8→11), `data/gh101/frozen_set_debt.md`, gh101 `design.md` D-S9 (idiom for violating branches: `unsafeAlg` state in `fsm`, Kleene prefix `g3*` in `ere`; absorption rejected), `audit/20260808_validacao_jca_android/global/juizglobal_gates.csv` and `set/set_cons_fen_registry.csv` (:9 `FEN-SET-GENCIPHER-EXTRA`, :51 `FEN-SSL-RANDOMIZED-EXTRA`, :48 `FEN-KPG-INITERROR-PLACEMENT`, :65 `FEN-D-REGISTER-ANCHOR-DRIFT`). Every edit: no bookkeeping obligation towards `ev=` — the generator emits the event name (Group 3, INV-INS-120), so you may add, rename and remove events freely; what you must keep is the `codes.csv` bijection, adding or removing a row whenever you add or remove a report site; one divergence-record entry per hunk (kind + reason + task); harness before/after per file with the classification written; event count of `CipherSpec` after edit ≤ 17 (INV-INS-115; 18 → `StackOverflowError`); `remove(Property)` one-argument sites replaced (needs a monitor field holding the object). Do not touch `jca/`, `jca_android/`. Read `jca_android/<file>` as reference — reading is not touching.
 
 ## Replay plan (94 hunks; three excluded)
 
@@ -33,7 +33,7 @@ Read `design.md` D-1, D-7, D-10, D-11; the `instrumentation` delta (`Successor S
 
 Also `remove(Property)` one-argument sites (`ExecutionContext.java:52-53` deprecated): `KeyManagerFactorySpec:91`, `TrustManagerFactorySpec:87,88`, `MacSpec:87` — covered above.
 
-## Conformance record (task 7.7)
+## Conformance record (task 8.7)
 
 23 rows, columns as `data/gh101/conformance_record.csv`, plus `anchor_by_clause` per D-10: availability (api30) for Cipher catalogue and keystore types; recommendation (1.5.2) for digests and protocols. gh101's verdict distribution for reference: 10 anchored / 11 uncontradicted / 2 no-anchor / 0 contradicted.
 

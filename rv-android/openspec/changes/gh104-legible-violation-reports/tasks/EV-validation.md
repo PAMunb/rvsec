@@ -1,6 +1,6 @@
-# Group 5 — EV: validation toolkit (gates, lint, message gate, differential harness)
+# Group 6 — EV: validation toolkit (gates, lint, message gate, differential harness)
 
-Tracked checkboxes: `tasks.md` §5. Wave 1; creates NEW files only; hard prerequisite of Group 7. Shares `tests/parity/test_gh104_specset_gates.py` with Group 2 (Group 2 creates it with two tests; this group appends — coordinate by landing Group 2's commit first or by writing the gates in a second file `test_gh104_structural_gates.py`; prefer the second to avoid a merge).
+Tracked checkboxes: `tasks.md` §6. Wave 1; creates NEW files only; hard prerequisite of Group 8. Shares `tests/parity/test_gh104_specset_gates.py` with Group 2 (Group 2 creates it with two tests; this group appends — coordinate by landing Group 2's commit first or by writing the gates in a second file `test_gh104_structural_gates.py`; prefer the second to avoid a merge).
 
 ## Subagent brief
 
@@ -9,7 +9,7 @@ Read `design.md` D-7, the `instrumentation` delta (`Requirement: Executable Stru
 ## Files (create)
 
 - `scripts/gh104_gates.py` — G-2, G-2a, G-2b′, G-2c, G-2d, G-6′ over a `MultiSpec_1RuntimeMonitor.java`; `--allowlist`; JSON report.
-- `scripts/gh104_mop_lint.py` — over a set directory: undeclared ERE/FSM symbol; duplicate event name; unbalanced parentheses; first statement of every body is `lastEventName = "<name>";` (INV-INS-120 — fails on the frozen `jca` by design; the test asserts the *count* on `jca` and zero on `jca_v2` after Group 6); three-argument `new ErrorDescription(` (INV-INS-119); reserved generator names in `declarations` (`Prop_N_state`, `Prop_N_transition_*`, `pairValue`, `RVM_lastevent`, `reset`, `getState`, `getLastEvent`, `handleEvent`, `clone`).
+- `scripts/gh104_mop_lint.py` — over a set directory: undeclared ERE/FSM symbol; duplicate event name; unbalanced parentheses; three-argument `new ErrorDescription(` (INV-INS-119 — 25 hits on the frozen `jca` by design, zero on `jca_v2` after Group 7); a hand-written event-name bookkeeping field or statement, which INV-INS-120 forbids because the generator emits the name (Group 3) and a hand-written index table would desynchronise under Group 8's alphabet edits; reserved generator names in `declarations` (`Prop_N_state`, `Prop_N_transition_*`, `pairValue`, `RVM_lastevent`, the event-name table Group 3 adds, `reset`, `getState`, `getLastEvent`, `handleEvent`, `clone`).
 - `scripts/gh104_message_gate.py` — numeric literals in a message vs the guarding `condition()`; `codes.csv` ↔ sites bijection; `ErrorType` vs site kind.
 - `tests/parity/test_gh104_structural_gates.py` — parametrised over `jca` (fixture monitor `results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1RuntimeMonitor.java`, 2026-08-08; **not** `results/gh56-smoke/` — it predates the freeze by three months and two source fixes) and `jca_v2` (generated in scratch).
 - `data/jca/gate_allowlist.csv` — names the baseline hits below with reason "frozen set; knowingly retained (data/gh101/frozen_set_debt.md)".
@@ -31,7 +31,7 @@ Read `design.md` D-7, the `instrumentation` delta (`Requirement: Executable Stru
 
 A throwaway implementation that reproduced these numbers exists in the session scratchpad of 2026-08-16 (`structural_gates.py`); re-derive rather than trust it. `scripts/gh101_monitor_transition_check.py results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1RuntimeMonitor.java` prints the 18 (exit 1).
 
-Lint/message-gate baseline on the frozen `jca`: 25 three-argument sites; `GCMParameterSpecSpec.mop:23,34` duplicate `c1`, `:48` `c2` undeclared; `SecretKeySpecSpec.mop:27-30` unbalanced; 134/134 bodies without bookkeeping; literal mismatches `PBEKeySpecSpec.mop:50` (`1000` vs `:48` `10000`) and `PBEParameterSpecSpec.mop:50` (`1000` vs `:46` `10000`); no `static` declarations in the corpus.
+Lint/message-gate baseline on the frozen `jca`: 25 three-argument sites; `GCMParameterSpecSpec.mop:23,34` duplicate `c1`, `:48` `c2` undeclared; `SecretKeySpecSpec.mop:27-30` unbalanced; zero hand-written bookkeeping (the seed has none and must keep none); literal mismatches `PBEKeySpecSpec.mop:50` (`1000` vs `:48` `10000`) and `PBEParameterSpecSpec.mop:50` (`1000` vs `:46` `10000`); no `static` declarations in the corpus.
 
 Harness self-test expected: `jca` vs `jca_android`, `TrustManagerFactorySpec`, trace `getInstance("X509"); init(ks)` → accused at `getInstance` (frozen row `{3,3,3,3}` for `g3`) vs at `init` (derived row `{0,3,3,3}`, `unsafeAlg` state) → `moved`. Trace `getInstance("PKIX"); init(ks); getTrustManagers()` → not accused in either → `unchanged`.
 
@@ -48,6 +48,6 @@ python3 scripts/gh104_diff_harness.py --a ../rvsec/rvsec/rvsec-mop/src/main/reso
 ## Acceptance
 
 - The six gates reproduce the baseline on `jca` exactly and pass with the allowlist; on `jca_v2` (seed) they report the same numbers (it is a copy) — this is the fixture for Group 7.
-- Lint and message gate report the baseline on `jca`; both are wired into the pytest for `jca_v2` (they will go green after Groups 6/7).
+- Lint and message gate report the baseline on `jca`; both are wired into the pytest for `jca_v2` (they will go green after Groups 7/8).
 - Harness self-test writes `evidence/harness/selftest.md` with the `moved` verdict for `TrustManagerFactorySpec`.
 - No emulator, no device: everything here is JVM/pytest.

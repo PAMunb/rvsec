@@ -1,6 +1,6 @@
 # Group 2 — S: seed the successor set `jca_v2`
 
-Tracked checkboxes: `tasks.md` §2. Wave 1; no dependency; Group 6 (E1) and Group 7 (E4) wait for this group's commit.
+Tracked checkboxes: `tasks.md` §2. Wave 1; no dependency; Group 7 (E1) and Group 8 (E4) wait for this group’s commit.
 
 ## Subagent brief
 
@@ -17,7 +17,7 @@ Python side (`rv-android/`):
 - `modules/rv-experiment/tests/...` — the JIT-config test file that already covers `jca_android` selection (grep `jca_android` under `modules/rv-experiment/tests/`); add `test_jca_v2_selectable_by_name`; the invalid-value test must list five sets.
 - `data/jca_v2/divergence_record.csv` (header as `data/gh101/divergence_record.csv`: copy its header line), `data/jca_v2/conformance_record.csv` (header as `data/gh101/conformance_record.csv`), `data/jca_v2/gate_allowlist.csv` (`set,gate,spec,event_or_state,reason,task`), `data/jca_v2/predicate_omissions.csv` (header as `data/gh101/predicate_omissions.csv`), `data/jca_v2/README.md` (what the set is, base commit of the seed, pointer to the records).
 - `scripts/gh104_divergence_record.py` — parametrised copy of `scripts/gh101_divergence_record.py` (169 lines): base directory `jca/`, target `jca_v2/`, record `data/jca_v2/divergence_record.csv`, `--check` exits non-zero on any hunk without an entry.
-- `tests/parity/test_gh104_specset_gates.py` — created here with two tests (`test_jca_v2_seed_is_byte_identical_plus_codes` — passes only until Group 6 lands, then is replaced by the hunks-recorded test as the sole invariant; `test_jca_v2_hunks_all_recorded`); Group 5 adds the structural gates to the same file.
+- `tests/parity/test_gh104_specset_gates.py` — created here with two tests (`test_jca_v2_seed_is_byte_identical_plus_codes` — passes only until Group 7 lands, then is replaced by the hunks-recorded test as the sole invariant; `test_jca_v2_hunks_all_recorded`); Group 6 adds the structural gates to the same file.
 
 ## Commands
 
