@@ -16,7 +16,7 @@ Only the entries this change alters are restated; every other input, output, sid
 
 ### Output
 
-- `errors.csv` -- Monitored operations violations; columns: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` (13 columns; destination: `rvsec-dataset`, `aperv_tool.analysis.violations`, article scripts)
+- `errors.csv` -- Monitored operations violations; columns: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` (13 columns; destination: `rvsec-dataset`, `aperv_tool.analysis.violations`, article scripts). This entry replaces the 11-column list of the upstream Data Contracts (`openspec/specs/platform/spec.md:131`), which lacks `code` and `event`.
 - `results.json` -- `monitored_operations_errors.messages` lists each record's `unique_msg` exactly as the domain object computed it (destination: programmatic consumers)
 
 ### Side-Effects
@@ -30,7 +30,7 @@ Only the entries this change alters are restated; every other input, output, sid
 ## Invariants
 
 - **INV-PLT-19** (restated, replacing the entry of the same number): The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` MUST NOT be changed by the diagnostic-events feature — every diagnostic field belongs to `app_events.csv` alone. `errors.csv` carries exactly `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg`; `source` was added by gh89 and `code`, `event` by this change, and these three are the only additions since the baseline. `coverage.csv` and `summary.csv` remain byte-identical to baseline.
-- **INV-PLT-30**: A failure to write a task's violation rows (`errors.csv`) or to extract a task's violation data (`results.json`) MUST be counted into that task's result and logged at ERROR level with the number of rows lost. It MUST NOT be swallowed as a WARNING that leaves the file silently short, and the writer MUST NOT re-key the record: `unique_msg` MUST be read from the domain object, never assembled in the writer (core INV-CORE-25).
+- **INV-PLT-32**: A failure to write a task's violation rows (`errors.csv`) or to extract a task's violation data (`results.json`) MUST be counted into that task's result and logged at ERROR level with the number of rows lost. It MUST NOT be swallowed as a WARNING that leaves the file silently short, and the writer MUST NOT re-key the record: `unique_msg` MUST be read from the domain object, never assembled in the writer (core INV-CORE-25).
 
 ## MODIFIED Requirements
 
@@ -48,7 +48,7 @@ The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `t
 
 `errors.csv` carries thirteen columns: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` (INV-PLT-19). `code` and `event` are the record's `code` and `event` fields — the `code=` and `ev=` values of the message envelope, or the sentinel `UNSPECIFIED` when the record carries no envelope — and `unique_msg` is the record's own key, read from the domain object. The writer MUST NOT assemble `unique_msg` from the other fields: the key is `__hash__` and `__eq__` of `RvErrorLog` and is built in exactly one place (core INV-CORE-25), so a formula copied into the writer would re-key a record under an identity the domain did not give it.
 
-A failure while writing one task's rows to `errors.csv`, or while extracting one task's data for `results.json`, MUST be counted into that task's result and logged at ERROR level with the task id and the number of rows not written (INV-PLT-30). It MUST NOT be reduced to a WARNING and skipped, because the file then ends silently short of every row of that task and nothing downstream can tell a task with no violations from a task whose violations were lost. Generation of the remaining tasks and of the other files continues.
+A failure while writing one task's rows to `errors.csv`, or while extracting one task's data for `results.json`, MUST be counted into that task's result and logged at ERROR level with the task id and the number of rows not written (INV-PLT-32). It MUST NOT be reduced to a WARNING and skipped, because the file then ends silently short of every row of that task and nothing downstream can tell a task with no violations from a task whose violations were lost. Generation of the remaining tasks and of the other files continues.
 
 #### Scenario: Full Result Generation
 

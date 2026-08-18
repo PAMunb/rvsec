@@ -1,8 +1,8 @@
 # Group 7 — E1: legible messages in `jca_android`
 
-Tracked checkboxes: `tasks.md` §7. Starts after Group 2's commits **and** Group 3's `__EVENTNAME` commit (until the macro expands, every envelope you write would carry an undefined identifier) **and** Group 6 tasks 6.4/6.5/6.7/6.8/6.9 (7.6 runs the lint, message gate, G-CONF, G-PRED; 7.7 runs the harness). `evidence/...` means `data/gh104/evidence/...`, `traces` means `data/gh104/traces`; generation under the wave's generation lock, `TMPDIR` off tmpfs, JDK 21. Edits `rvsec-mop/src/main/resources/jca_android/*.mop`, `jca_android/codes.csv`, `rvsec-core/.../eh/ErrorType.java` (+ its test), `data/jca_android/divergence_record.csv` and `evidence/harness/e1-*.md`.
+Tracked checkboxes: `tasks.md` §7. Starts after Group 2's commits **including task 2.14** (the harness before/after + promotion pass, which edits `jca_android/*.mop` last — two writers must not overlap) **and** Group 3's `__EVENTNAME` commit (until the macro expands, every envelope you write would carry an undefined identifier) **and** Group 6 tasks 6.4/6.5/6.7/6.8/6.9 (7.6 runs the lint, message gate, G-CONF, G-PRED; 7.7 runs the harness). `evidence/...` means `data/gh104/evidence/...`, `traces` means `data/gh104/traces`. Environment: prefix EVERY Java/Maven/generation command line with `export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH` (shell state does not persist between tool calls) and every generation line with `export TMPDIR=$HOME/tmp-gh104 && mkdir -p $TMPDIR` (`/tmp` and the session scratchpad are tmpfs); task 7.7 is this group's generating task (`[GEN]`) — the orchestrator dispatches at most one generating task at a time, and `mvn install` at the reactor root runs only between waves, by the orchestrator. Git: one repository (rv-android is a subdirectory of `…/rvsec`); every `git status`/`git diff` carries a pathspec (`git status --short -- <paths>`; `git diff --cached --stat -- <paths>`); commits are made by one writer at a time — the orchestrator, after each half's summary, `git add <explicit pathspecs>` + commit; the halves do not commit, and never `git add -A`/`git commit -a`. Edits `rvsec-mop/src/main/resources/jca_android/*.mop`, `jca_android/codes.csv`, `rvsec-core/.../eh/ErrorType.java` (+ its test), `data/jca_android/divergence_record.csv`, `data/jca_android/gate_allowlist.csv`, `data/jca_android/README.md` and `evidence/harness/e1-*.md`.
 
-Two subagents on disjoint halves of the **21** surviving specifications: **7.a** = `CipherInputStreamSpec, CipherOutputStreamSpec, CipherSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, IvParameterSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairGeneratorSpec, KeyPairSpec, KeyStoreSpec`; **7.b** = `MacSpec, MessageDigestSpec, PBEKeySpecSpec, PBEParameterSpecSpec, SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, SSLContextSpec, TrustManagerFactorySpec` **plus `ErrorType.java`**, which 7.b owns alone. `RandomStringPassword` and `SecretKeySpec` are not in either half — Group 2 deleted them.
+Two subagents on disjoint halves of the **21** surviving specifications: **7.a** = `CipherInputStreamSpec, CipherOutputStreamSpec, CipherSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, IvParameterSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairGeneratorSpec, KeyPairSpec, KeyStoreSpec`; **7.b** = `MacSpec, MessageDigestSpec, PBEKeySpecSpec, PBEParameterSpecSpec, SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, SSLContextSpec, TrustManagerFactorySpec` **plus `ErrorType.java`**, which 7.b owns alone. `RandomStringPassword` and `SecretKeySpec` are not in either half — Group 2 deleted them. **`codes.csv` and `data/jca_android/divergence_record.csv` are owned by 7.b**: both halves produce rows for them, so 7.a writes its rows into `jca_android/codes.7a.part` and `data/jca_android/divergence.7a.part` (or hands them over in its summary) and 7.b merges them into the two files; 7.a never appends to the files themselves.
 
 ## Subagent brief
 
@@ -34,7 +34,7 @@ Deleting `RandomStringPassword.mop` and `SecretKeySpec.mop` costs zero sites (bo
 
 One more site is settled since that provisional was written: `SecretKeySpecSpec.c3` (`:48-49`) had two halves, an allow-list test and a predicate test. The predicate half went with Group 2 task 2.3, and the allow-list half went with Group 2 task 2.4 — `generated/api30/SecretKeySpec.cryptsl` declares only `length(keyMaterial) >= off + len` and nothing about the algorithm, so the seed's algorithm list has no base and was removed. Both halves gone means the site is gone, `c4` keeps only its length test, and the arithmetic becomes **23 three-argument + 22 four-argument = 45**.
 
-That is still **A RECALCULAR na execução**, and the reasons are mechanical rather than open questions: every line number in the tables below moved when the `ExecutionContext` blocks were deleted, and the allow-list transcription may have emptied a condition somewhere else without anyone predicting it here. **Count from the files, write the count into this section, and only then start editing.** If the count is neither 45 nor 46, say which site explains the difference before continuing.
+That is still **A RECALCULAR na execução**, and the reasons are mechanical rather than open questions: every line number in the tables below moved when the `ExecutionContext` blocks were deleted, and the allow-list transcription may have emptied a condition somewhere else without anyone predicting it here. **Count from the files, write the count into `data/jca_android/README.md` (a "site census after Group 2" paragraph — not into this file), and only then start editing.** If the count is neither 45 nor 46, say there which site explains the difference before continuing. In the same pass add the G-ERE `GCMParameterSpecSpec` row to `data/jca_android/gate_allowlist.csv` (`set=jca_android, gate=G-ERE, spec=GCMParameterSpecSpec, event_or_state=c2, reason='until 8.1', task=7.6`): `ere : c1 | c2` (`:48`) names a `c2` the file never declares (`:23` and `:34` both declare `c1`) — Group 8 task 8.1 repairs it, and until then 7.6's gate run must see the hit as expected.
 
 ## Idiom (per file)
 
@@ -50,7 +50,7 @@ value site: addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "<Spec>", "
 
 `__EVENTNAME` is expanded by the generator (Group 3, INV-INS-120): inside an event body it becomes the literal name of that event, inside `@fail` it becomes the name of the event that last transitioned the monitor (`none` if there was none). **Write no bookkeeping field and no bookkeeping statement** — the lint fails on them, and a hand-written name table would desynchronise from the generator's event indices under Group 8's edits.
 
-`q(s)`: null → `""`, `'` → `\'`, cap 512 chars — a private helper in `declarations` (private methods in `declarations` are emitted verbatim; verified on `KeyPairGeneratorSpec`). No `static` declarations. `msg` must not start with `expecting` (`ErrorDescription.toString :143` prefixes it).
+`q(s)`: null → `""`, `'` → `\'`, cap 512 chars — a private helper in `declarations` (private methods in `declarations` are emitted verbatim; verified on `KeyPairGeneratorSpec`). No `static` declarations.
 
 ## Task 7.3 — the lying-message census
 
@@ -112,16 +112,20 @@ python3 scripts/gh104_mop_lint.py ../rvsec/rvsec-mop/src/main/resources/jca_andr
 python3 scripts/gh104_message_gate.py ../rvsec/rvsec-mop/src/main/resources/jca_android   # literals match; codes.csv bijective; ErrorType matches the site kind
 python3 scripts/gh104_gates.py <scratch>/MultiSpec_1RuntimeMonitor.java --allowlist data/jca_android/gate_allowlist.csv --crysl ../../MetaCrySL/generated/api30
 python3 scripts/gh104_divergence_record.py --check
+# 7.7 [GEN] — one shell line: JDK + TMPDIR (+ RVSEC_HOME) before the regeneration into scratch, then the harness
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; export TMPDIR=$HOME/tmp-gh104 && mkdir -p $TMPDIR; <regenerate the monitor of your half into <scratch>>
 python3 scripts/gh104_diff_harness.py --a <post-Group-2 snapshot: git show <group-2-final-commit>:… into scratch — NOT the seed; the seed would not classify unchanged, Group 2 already moved verdicts> --b ../rvsec/rvsec-mop/src/main/resources/jca_android --traces data/gh104/traces --out data/gh104/evidence/harness/e1
-cd .. && mvn -q test -pl rvsec/rvsec-core           # reactor root; ErrorType test
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd .. && mvn -q test -pl rvsec/rvsec-core   # reactor root; ErrorType test
 uv run pytest --import-mode=importlib -o "addopts=" tests/parity -q
+# 7.8
+/rv-test-run tests/parity
 ```
 
 ## Acceptance
 
-- The recount of task 7.2 is written into this file, with the number derived from the files and the reason for any difference from the expected 45.
+- The recount of task 7.2 is written into `data/jca_android/README.md`, with the number derived from the files and the reason for any difference from the expected 45; `data/jca_android/gate_allowlist.csv` carries the G-ERE `GCMParameterSpecSpec` row with reason `until 8.1`.
 - `ErrorType` carries `ForbiddenMethod` and not `RequiredPredicate`; the three wrong `ErrorType` values of D-13 are corrected.
 - Zero three-argument sites; zero field-interpolating `but found` sites; every envelope's `ev=` comes from `__EVENTNAME`; no bookkeeping field or statement exists; `codes.csv` bijective with the recounted sites; every hunk recorded.
 - Harness post-Group-2-vs-E1: every trace `unchanged` in accusation; envelope now carries `ev=`.
 - Monitor of `jca_android` compiles (`MultiSpec_1RuntimeMonitor.java`) and carries no unexpanded `__EVENTNAME` — record generation time.
-- Two commits (one per half): `feat(jca_android): mensagens legíveis com envelope v1 (arquivos A–K|M–T) (refs #104)`.
+- Two commits (one per half, made by the orchestrator with explicit pathspecs after each half's summary; 7.b's includes the merged `codes.csv` and `divergence_record.csv`): `feat(jca_android): mensagens legíveis com envelope v1 (arquivos A–K|M–T) (refs #104)`.

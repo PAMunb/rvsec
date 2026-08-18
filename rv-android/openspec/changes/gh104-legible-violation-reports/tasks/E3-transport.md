@@ -1,10 +1,10 @@
 # Group 5 — E3: honest transport
 
-Tracked checkboxes: `tasks.md` §5. Wave 1; disjoint from Groups 1/2/3/4/6/7; Group 9 (E6) depends on it. Order inside the group: 5.4 (`log.py` with defaults) before 5.3; 5.6 and 5.7 in **one** commit (`read_logcat`'s new return shape breaks `step_bundle.py:286` otherwise). The collectors live in `rvsec-android/rvsec-logger-logcat` and `rvsec-logger-csv`, not in `rvsec-core`. `rg` is not installed — use `grep -rE`. Soft dependency: task 5.9 (consumer matrix) cites Group 1's definitions — write it last. Task numbering shifted on 2026-08-18: the new task 5.7 is `step_bundle.py`, and the former 5.7/5.8/5.9 are now 5.8/5.9/5.10.
+Tracked checkboxes: `tasks.md` §5. Wave 1; disjoint from Groups 1/2/3/4/6/7; Group 9 (E6) depends on it. Order inside the group: 5.4 (`log.py` with defaults) before 5.3; 5.6 and 5.7 in **one** commit (`read_logcat`'s new return shape breaks `step_bundle.py:286` otherwise). The collectors live in `rvsec-android/rvsec-logger-logcat` and `rvsec-logger-csv`, not in `rvsec-core`. `rg` is not installed — use `grep -rE`. Soft dependency: task 5.9 (consumer matrix) cites Group 1's definitions — write it last. Environment: prefix EVERY Java/Maven command line (the two `mvn -q test` runs, in `rvsec-android/rvsec-logger-logcat` and `rv-monitor/rv-monitor-rt`) with `export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH` (shell state does not persist between tool calls; the default JDK is 25); pytest always with `--import-mode=importlib -o "addopts="`; no monitor generation in this group, and no `mvn install` — the reactor install is the orchestrator's, between waves. Git: one repository (rv-android is a subdirectory of `…/rvsec`); every `git status`/`git diff` carries a pathspec (`git status --short -- <paths>`; `git diff --cached --stat -- <paths>`); commits are made by the orchestrator, after this group's summary, with explicit pathspecs — this group does not commit, and never `git add -A`/`git commit -a`; the `rv-monitor/rv-monitor-rt` edit (`ViolationRecorder.java`) is committed separately from Group 3's `rv-monitor/rv-monitor` edits (same tree, different submodules).
 
 ## Subagent brief
 
-Read `design.md` D-3 and D-8, and the four deltas `analysis` (INV-ANA-08/62/63), `core` (INV-CORE-25/41/56/57), `platform` (INV-PLT-19/30), `campaign-analysis` (INV-CAN-04/25/26), plus the collector part of `instrumentation` (`Requirement: Violation Line Emission by the Collector`). Count, never drop; sentinels, never fabricated values; one `unique_msg` constructor. P3: delete the four other constructors, do not wrap them. Property tests are the deliverable of the parser work.
+Read `design.md` D-3 and D-8, and the four deltas `analysis` (INV-ANA-08/62/63), `core` (INV-CORE-25/41/56/57), `platform` (INV-PLT-19/32), `campaign-analysis` (INV-CAN-04/25/26), plus the collector part of `instrumentation` (`Requirement: Violation Line Emission by the Collector`). Count, never drop; sentinels, never fabricated values; one `unique_msg` constructor. P3: delete the four other constructors, do not wrap them. Property tests are the deliverable of the parser work.
 
 ## Files
 
@@ -14,7 +14,7 @@ Java (git root `…/workspace-rv/rvsec`):
 | `rvsec/rvsec-android/rvsec-logger-logcat/src/main/java/br/unb/cic/mop/eh/ErrorCollector.java` | 56 | `:36-40` build the line with `escape(getExpecting().trim())`; the existing `escapeSpecialCharacters :42-49` is dead (call commented `:38`) — replace it by an `escape` that maps `\n`→`\\n` and leaves commas; `null` expecting → `v=1 code=UNSPECIFIED ev=UNSPECIFIED obj='' val='' exp='' msg=''`; new `ErrorCollectorTest` |
 | `rvsec/rvsec-logger-csv/src/main/java/br/unb/cic/mop/eh/ErrorCollector.java` | 92 | `escape() :84-91` — align with the logcat rule (same newline handling); header `:14` unchanged |
 | `rv-monitor/rv-monitor-rt/src/main/java/com/runtimeverification/rvmonitor/java/rt/ViolationRecorder.java` | 141 | `makeRelevantList :87-105`: a frame whose `fileName == null` and whose class is a monitoring-runtime class is excluded (today fail-open per frame; `getLineOfCode :53-60` returns `relevantStack.get(0)`); new `ViolationRecorderTest` |
-| `rvsec/rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorDescription.java` | 146 | no edit in this group (identity is Group 9); note `toString :143` renders `expecting %s` — envelope `msg` must not start with `expecting` |
+| `rvsec/rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorDescription.java` | 146 | no edit in this group (identity is Group 9); note `toString :143` renders `expecting %s`, so consumers of `toString()` see `expecting` twice on a `msg='expecting one of … but found …'` envelope — the logcat collector emits `getErrorSummary()+","+getExpecting()` (`ErrorCollector.java:38`) and `errors.csv` carries the envelope as written, so this is a `toString()`-only artefact and not a rule on `msg` |
 
 Python (`rv-android/`):
 | file | lines | edit |
@@ -32,7 +32,11 @@ Python (`rv-android/`):
 | `modules/aperv-tool/tests/test_violations.py` | 125 | +4 tests (13-col accepted; 11-col `ValueError` naming expected header; 5-part `unique_msg` unparsed + `unique_msg_disagrees`; truncated envelope) |
 | `scripts/regenerate_results/regenerate_container.py` | 346 | `:244` builds `unique_msg` → import `RvErrorLog` and use it (or delete the local composition) |
 | `scripts/rv_oracle_common.py` | 174 | `:73-81` reads `parts[3]`/`parts[4]` — require seven parts, name the parts |
-| `data/gh104/consumer_matrix.md` | new | see task 5.9 — includes the readers the first inventory missed: `rv_android_core/domain/coverage.py:397,575,627` (`unique_errors`), `execution_status.py:87`, `scripts/derive_l3b_oracle.py`, `scripts/derive_l3c_oracle.py`, `scripts/regenerate_results/verify.py`, `scripts/jca557_*.py`, `experimento-gov/scripts/violations_detail.py` and `experimento-comp162-ajc/scripts/mop_diff.py` (parse the `RVSEC :` logcat line), the frozen `audit/20260808_validacao_jca_android/**/*.py`, and the tests under `rv-platform`, `rv-coverage`, `rv-android-core`, `aperv-tool` that build `unique_msg` fixtures; closed by an `rg`-backed check |
+| `data/gh104/consumer_matrix.md` | new | see task 5.9 — includes the readers the first inventory missed: `rv_android_core/domain/coverage.py:397,575,627` (`unique_errors`), `execution_status.py:87`, `scripts/derive_l3b_oracle.py`, `scripts/derive_l3c_oracle.py`, `scripts/regenerate_results/verify.py`, `scripts/jca557_*.py`, `experimento-gov/scripts/violations_detail.py` and `experimento-comp162-ajc/scripts/mop_diff.py` (parse the `RVSEC :` logcat line), the frozen `audit/20260808_validacao_jca_android/**/*.py`, and the tests under `rv-platform`, `rv-coverage`, `rv-android-core`, `aperv-tool` that build `unique_msg` fixtures; closed by a `grep -rE`-backed check |
+
+## Task 5.4 — `log.py` first, and the grep gate's two permitted composers
+
+`RvErrorLog` gains the six envelope fields with defaults and `unique_msg` becomes the seven-part string (table above). The grep gate `tests/parity/test_gh104_unique_msg_built_once.py` searches the f-string fragment `:::{` over `modules/ scripts/` (non-test) and permits exactly **two** composers: `RvErrorLog.unique_msg` (`log.py:113`, the seven-part violation identity) and **`RvDiagnosticEvent.unique_msg`** (`log.py:266-270`, the 4-field diagnostic variant `category:::class:::method:::message`, untouched by this group). Everything else that composes `:::{` — `result_processor.py:631,999,1038`, `regenerate_container.py:244` — is deleted (5.5, 5.8) and the gate fails on any third composer.
 
 ## Grammar to implement (design D-3)
 
@@ -45,8 +49,15 @@ uv run pytest --import-mode=importlib -o "addopts=" modules/rv-coverage/tests -q
 uv run pytest --import-mode=importlib -o "addopts=" modules/aperv-tool/tests -q         # baseline today: 704 passed, 22 skipped
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-platform/tests -q
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-android-core/tests -q
-grep -rn ':::{' modules/ scripts/ --include=*.py | grep -v tests   # after 5.4/5.8: only log.py composes (the f-string fragment `:::{` is what result_processor.py:631,999,1038 and regenerate_container.py:244 contain; a grep for the bare ':::' misses them); violations.py / rv_oracle_common.py only read
-cd ../rvsec/rvsec-android/rvsec-logger-logcat && mvn -q test; cd ../../../rv-monitor/rv-monitor-rt && mvn -q test
+grep -rn ':::{' modules/ scripts/ --include=*.py | grep -v tests   # after 5.4/5.8: only log.py composes — RvErrorLog.unique_msg (:113) and RvDiagnosticEvent.unique_msg (:266-270) — (the f-string fragment `:::{` is what result_processor.py:631,999,1038 and regenerate_container.py:244 contain; a grep for the bare ':::' misses them); violations.py / rv_oracle_common.py only read
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rvsec-android/rvsec-logger-logcat && mvn -q test
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rv-monitor/rv-monitor-rt && mvn -q test
+# 5.10
+/rv-qa-lint-fix rv-coverage
+/rv-test-run modules/rv-coverage
+/rv-test-run modules/rv-android-core
+/rv-test-run modules/rv-platform
+/rv-test-run modules/aperv-tool   # covers test_violations.py and the new test_step_bundle.py tests of task 5.7
 ```
 
 ## Acceptance
@@ -54,5 +65,5 @@ cd ../rvsec/rvsec-android/rvsec-logger-logcat && mvn -q test; cd ../../../rv-mon
 - Every counter named above exists and the sum of records + counted lines equals lines read on the parser fixtures.
 - Sentinels appear exactly where a value used to be fabricated; the same `[helper] ::: …` line yields the same count in `rv-coverage` and `aperv_tool` (both count it, neither invents a record).
 - `errors.csv` header is the 13-column string; `ERRORS_CSV_HEADER` equal to it; cmp162 fixtures (11 columns) are **not** modified — they are read by Group 1's own frozen 11-column reader, never by this module's `read_errors_csv` once the header is 13 columns; `test_errors_csv_of_the_campaign` therefore moves to a 13-column synthetic fixture.
-- `grep` gate: one `unique_msg` constructor.
+- `grep` gate: one `unique_msg` constructor for violations (`RvErrorLog.unique_msg`), with `RvDiagnosticEvent.unique_msg` as the only other permitted `:::{` composer.
 - Consumer matrix written with a verdict per consumer, and the grep-backed inventory check (`grep -rlE "errors\.csv|unique_msg|ERRORS_CSV_HEADER|read_errors_csv|RVSEC\s*:"` over `modules/ scripts/ experimento-*/ audit/`, `.venv`/`backup/` excluded — `RVSEC\s*:` because `violations_detail.py`, `mop_diff.py`, `consolidate_gov.py` write `RVSEC   :`/`RVSEC\s+:`; also catches `scripts/consolida_comparacao_aperv.py`, `experimento-20260721/scripts/consolidate_compare.py`, `aperv_tool/analysis/loader.py`, `tests/domain/test_log.py`; `execution_status.py` is a root-level untracked script, not `domain/`; `regenerate_container.py:246` writes a 10-column layout) has no hit without a row.

@@ -1,6 +1,6 @@
 # Group 4 — E2: weaver `args()` arity, **counter mode**
 
-Tracked checkboxes: `tasks.md` §4. Wave 1; Java only (sibling reactor); disjoint source set from every other group. Process prerequisite (gh100 tasks 7.5/7.6) closed on 2026-08-16; the code state this group assumes (fused wrappers, `wrappersGenerated` counter, `WrapperMergeTest`, `ResultsJsonReportingTest`, `_parse_results_json`) is committed. `sdk use java 21.0.12-tem` in every shell; the `lib/` rebuild of 4.6 takes the wave's Maven lock. `evidence/...` means `data/gh104/evidence/...`.
+Tracked checkboxes: `tasks.md` §4. Wave 1; Java only (sibling reactor); disjoint source set from every other group. Process prerequisite (gh100 tasks 7.5/7.6) closed on 2026-08-16; the code state this group assumes (fused wrappers, `wrappersGenerated` counter, `WrapperMergeTest`, `ResultsJsonReportingTest`, `_parse_results_json`) is committed. Environment: prefix EVERY Java/Maven command line with `export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH` (shell state does not persist between tool calls; the default JDK is 25). The `mvn install` at the reactor root that rebuilds `lib/` (task 4.6) is run by the orchestrator only between waves, never while a group is editing Java — this group runs its per-submodule `mvn -q test` itself and hands the re-weave to the orchestrator's between-wave install; nothing in this group generates monitors. Git: one repository (rv-android is a subdirectory of `…/rvsec`); every `git status`/`git diff` carries a pathspec (`git status --short -- <paths>`; `git diff --cached --stat -- <paths>`); commits are made by the orchestrator, after this group's summary, with explicit pathspecs — this group does not commit, and never `git add -A`/`git commit -a`. `evidence/...` means `data/gh104/evidence/...`.
 
 ## Subagent brief
 
@@ -59,7 +59,7 @@ The 14 `after`-on-constructor: `DHGenParameterSpecSpec_c1`, `GCMParameterSpecSpe
 
 Two sentences to close the file with. (i) In counter mode the number is a **diagnosis**, not a change: every advice that fired before this group still fires after it, and `wrappersGenerated` is unchanged. (ii) The positive case the counter should catch on this descriptor is `TrustManagerFactory_getInstance(String p0)`, which today fires `g1Event`, `g2Event`, `g3Event` (`results/gh101_group8_jca_frozen_control/monitors/mop/MonitorWrappers.java:538-544`) — `g2` carries `args(alg, *)` (arity 2) over a one-parameter call, so it must appear in the count and must still fire. Unit of the count: **advice/overload pairs**; predicted on this descriptor 10 pairs over 4 advices (`TrustManagerFactorySpec_g2` ×1, `KeyManagerFactorySpec_g2` ×1, `SecureRandomSpec_g2` ×3, `SecureRandomSpec_g4` ×5) — record the measured value against this prediction in `evidence/e2_reweave.md`. The `MUST be 1` scenario of the delta is for a descriptor carrying the TMF group alone. `ResultsJsonReportingTest` builds `counts` by hand (its javadoc `:24-29` says why), so it proves serialisation only; the re-weave of 4.6 is what validates the origin of the count. Also record the sha256 of `modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` after the rebuild.
 
-Note also that four of the fourteen constructor advices — `IvParameterSpecSpec_c1/c2` and `PBEKeySpecSpec_f1/f2` — sit on report sites Group 7 makes legible (`PBEKeySpecSpec.mop:24,30`, which become `ForbiddenMethod`; `IvParameterSpec.mop:48,55`, which **disappear** with the predicates in Group 2). A reader seeing `advicesExcludedByArity > 0` next to a legible `PBEKeySpecSpec` report must be able to learn from this file that the two are unrelated.
+Note also that four of the fourteen constructor advices — `IvParameterSpecSpec_c1/c2` and `PBEKeySpecSpec_f1/f2` — sit on report sites: `PBEKeySpecSpec.mop:24,30`, which Group 7 makes legible as `ForbiddenMethod`; and, at **advice** level, `IvParameterSpecSpec_c1`'s `monitorCalls` fires `c1Event` and `c3Event` (`.aj:305-310`), so that advice sits on the c3/c4 report sites (`IvParameterSpec.mop:48,55`, which **disappear** with the predicates in Group 2) while the **events** `c1`/`c2` themselves are guards (design D-6 §179) — advice and event are different units, and the sentence is about the advice. A reader seeing `advicesExcludedByArity > 0` next to a legible `PBEKeySpecSpec` report must be able to learn from this file that the two are unrelated.
 
 Reproduction command for the table (keep it in the evidence file so the numbers can be re-derived, not trusted):
 
@@ -79,13 +79,16 @@ EOF
 ## Commands
 
 ```bash
-cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter && mvn -q test
-cd ../cli && mvn -q test -Dtest=ResultsJsonReportingTest && mvn -q test
-cd ../dex-mutator && mvn -q test; cd ../validator && mvn -q test
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter && mvn -q test
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli && mvn -q test -Dtest=ResultsJsonReportingTest && mvn -q test
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/dex-mutator && mvn -q test; cd ../validator && mvn -q test
 # re-weave the frozen descriptor and read the counters (instr-cli, no device):
-java -jar <path to instr-cli.jar> instrument --results-json ... (see BatchRunner usage in gh100 tasks 1.x)
-cd /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec && mvn -q install -DskipTests -DskipMopAgent=true   # ~12 min; refreshes rv-android/lib/ and modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; java -jar <path to instr-cli.jar> instrument --results-json ... (see BatchRunner usage in gh100 tasks 1.x)
+# orchestrator only, between waves (task 4.6's lib/ rebuild): ~12 min; refreshes rv-android/lib/ and modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec && mvn -q install -DskipTests -DskipMopAgent=true
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-instrumentation-dexlib2/tests -q
+# 4.7
+/rv-verify rv-instrumentation-dexlib2
 ```
 
 ## Acceptance

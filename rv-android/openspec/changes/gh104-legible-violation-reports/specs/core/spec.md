@@ -36,9 +36,14 @@ Only the entries this change alters are restated; every other input, output, sid
 - **INV-CORE-56**: The `message` part of `unique_msg` MUST NOT contain the substring `:::`. The producer of the message (the monitor's envelope grammar) forbids it inside every value; `RvErrorLog` MUST NOT rewrite the message to hide a violation of that rule, and a reader that splits `unique_msg` on `:::` and finds a part count other than seven MUST count the record as unparsed rather than reinterpret it.
 - **INV-CORE-57**: Every published deduplicated count of violations MUST carry the identity era it was computed under. A count of the seven-part era MUST NOT be compared to a count of the five-part era without the discontinuity being stated beside the comparison, and the discontinuity measured on the same input MUST be non-zero where that input's records carry an `ev=` envelope — a zero difference there would mean `code` and `event` added no information to the identity, which is the failure the change exists to remove; on a pre-envelope input (the published dataset, comp162) the difference is zero by construction and is labelled so, not read as a failure.
 
+## RENAMED Requirements
+
+- FROM: `### Requirement: Event Granularity of unique_msg Is Documented, Not Changed (FR13)`
+- TO: `### Requirement: Event Granularity of unique_msg Is Extended and Declared (FR13)`
+
 ## MODIFIED Requirements
 
-### Requirement: Event Granularity of unique_msg Is Documented, Not Changed (FR13)
+### Requirement: Event Granularity of unique_msg Is Extended and Declared (FR13)
 
 `RvErrorLog.unique_msg` MUST be `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"`
 (INV-CORE-25). `code` and `event` are the `code=` and `ev=` values of the message envelope the monitor emitted; when the
