@@ -1,6 +1,6 @@
 # Group 9 — E6: identity
 
-Tracked checkboxes: `tasks.md` §9. After Groups 5 (transport: `code`/`event` columns and parts) and 7 (envelope carries `ev=`). May overlap Group 8 (no `.mop` file here). Device-side consequence: instrumented APKs must be rebuilt for the identity change to take effect; the change lands after the E3 trial's final runs (design D-5).
+Tracked checkboxes: `tasks.md` §9. After Groups 5 (transport: `code`/`event` columns and parts) and 7 (envelope carries `ev=`). May overlap Group 8 (no `.mop` file here). This group is JVM/Python only; the deciding corpus for 9.1 is the harness output of Group 6 task 6.9 (already there), and task 10.4's device logcat reconfirms it afterwards (design D-5). Instrumented APKs must be rebuilt for the identity change to reach a device — that is 10.4's job, not this group's. `lib/` rebuild (9.4) under the wave's Maven lock.
 
 ## Subagent brief
 
@@ -10,8 +10,8 @@ Read `design.md` D-5, the `instrumentation` delta `Requirement: Dedupe Identity 
 
 - `scripts/gh104_identity_discontinuity.py` — over `experimento-comp162/results/*/*/errors.csv` (11 columns; use Group 1's frozen 11-column reader from `scripts/gh104_baseline.py`, not `aperv_tool`'s, which reads 13 columns after Group 5): count distinct `(spec, error_type, class, method, source)` (today 6,344 with the `identity5` definition of Group 1 — recompute with the `ErrorSummary` five fields and record both), then with `event` added, where `event` is parsed from `message` if it is an envelope, else `UNSPECIFIED`. **Note**: comp162 was recorded before E1, so on that corpus every `event` is `UNSPECIFIED` and the discontinuity is zero *by construction*. The measurement that decides E6 is therefore on the first `jca_android` logcat produced by task 10.4 (device validation) or by the harness traces of Group 6 (JVM): recompute on `evidence/harness/**` outputs where each accusation carries `ev=`. State clearly which corpus the non-zero number comes from.
 - `data/gh104/identity_discontinuity.md` — both numbers, definitions, corpus, era declaration.
-- `rvsec/rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorSummary.java` (127 lines; `equals/hashCode :73-120`, `toString :124`) — add `code`, `event` fields; `ErrorDescription.java` (146; `createErrorSummary :216-233`) parses them from the envelope of `expecting` (`code=`, `ev=`), sentinel `UNSPECIFIED`; `toString` of `ErrorSummary` unchanged (the logcat line format is unchanged — the envelope already carries them).
-- `rvsec/rvsec-core/src/test/java/br/unb/cic/mop/eh/ErrorDescriptionTest.java` (221; `hashCodeMatchesEquals :184-197` asserts `expecting` outside identity today) — rewrite for seven fields; message text still outside.
+- `rvsec/rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorSummary.java` (127 lines; `equals/hashCode :73-120`, `toString :124`) — add `code`, `event` fields; `ErrorDescription.java` (146; `createErrorSummary :89-106`) parses them from the envelope of `expecting` (`code=`, `ev=`), sentinel `UNSPECIFIED`; `toString` of `ErrorSummary` unchanged (the logcat line format is unchanged — the envelope already carries them).
+- `rvsec/rvsec-core/src/test/java/br/unb/cic/mop/eh/ErrorDescriptionTest.java` (221; `hashCodeMatchesEquals :179-194` asserts `expecting` outside identity today) — rewrite for seven fields; message text still outside.
 - Verification fixture: a recorded logcat with two envelopes at one site differing only in `ev=` → two rows in `errors.csv` (Group 5's writer) with distinct `unique_msg`.
 
 ## Acceptance

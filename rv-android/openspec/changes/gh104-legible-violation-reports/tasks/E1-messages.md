@@ -1,6 +1,6 @@
 # Group 7 — E1: legible messages in `jca_android`
 
-Tracked checkboxes: `tasks.md` §7. Starts after Group 2's commits **and** Group 3's `__EVENTNAME` commit (until the macro expands, every envelope you write would carry an undefined identifier). Edits `rvsec-mop/src/main/resources/jca_android/*.mop`, `jca_android/codes.csv`, `rvsec-core/.../eh/ErrorType.java` (+ its test), `data/jca_android/divergence_record.csv` and `evidence/harness/e1-*.md`.
+Tracked checkboxes: `tasks.md` §7. Starts after Group 2's commits **and** Group 3's `__EVENTNAME` commit (until the macro expands, every envelope you write would carry an undefined identifier) **and** Group 6 tasks 6.4/6.5/6.7/6.8/6.9 (7.6 runs the lint, message gate, G-CONF, G-PRED; 7.7 runs the harness). `evidence/...` means `data/gh104/evidence/...`, `traces` means `data/gh104/traces`; generation under the wave's generation lock, `TMPDIR` off tmpfs, JDK 21. Edits `rvsec-mop/src/main/resources/jca_android/*.mop`, `jca_android/codes.csv`, `rvsec-core/.../eh/ErrorType.java` (+ its test), `data/jca_android/divergence_record.csv` and `evidence/harness/e1-*.md`.
 
 Two subagents on disjoint halves of the **21** surviving specifications: **7.a** = `CipherInputStreamSpec, CipherOutputStreamSpec, CipherSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, IvParameterSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairGeneratorSpec, KeyPairSpec, KeyStoreSpec`; **7.b** = `MacSpec, MessageDigestSpec, PBEKeySpecSpec, PBEParameterSpecSpec, SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, SSLContextSpec, TrustManagerFactorySpec` **plus `ErrorType.java`**, which 7.b owns alone. `RandomStringPassword` and `SecretKeySpec` are not in either half — Group 2 deleted them.
 
@@ -60,9 +60,9 @@ Apply these **before** writing envelopes, so the envelope is built over a true s
 |---|---|---|---|
 | `PBEKeySpecSpec:50` | message says `>= 1000` | `>= 10000` | guard at `:48` tests `10000`; `generated/api30/PBEKeySpec.cryptsl` `CONSTRAINTS: iterationCount >= 10000` |
 | `PBEParameterSpecSpec:50` | message says `at least 1000 iterations` | `10000` | guard at `:46`; `generated/api30/PBEParameterSpec.cryptsl` idem |
-| `PBEKeySpecSpec:24` (`f1`) | `ErrorType.InvalidSequenceOfMethodCalls` | **`ErrorType.ForbiddenMethod`** | `PBEKeySpec.cryptsl` `FORBIDDEN: PBEKeySpec(char[]) => c1;` — decision D-a |
-| `PBEKeySpecSpec:30` (`f2`) | `ErrorType.InvalidSequenceOfMethodCalls` | **`ErrorType.ForbiddenMethod`** | `FORBIDDEN: PBEKeySpec(char[], byte[], int) => c1;` — decision D-a |
-| `PBEParameterSpecSpec:49` (`c3`) | `ErrorType.UnsafeAlgorithm` | **`ErrorType.UnsatisfiedConstraint`** | the clause is an iteration-count bound, not an algorithm — decision D-a |
+| `PBEKeySpecSpec:24` (`f1`) | `ErrorType.InvalidSequenceOfMethodCalls` | **`ErrorType.ForbiddenMethod`** | `PBEKeySpec.cryptsl` `FORBIDDEN: PBEKeySpec(char[]) => c1;` — decision D-13 |
+| `PBEKeySpecSpec:30` (`f2`) | `ErrorType.InvalidSequenceOfMethodCalls` | **`ErrorType.ForbiddenMethod`** | `FORBIDDEN: PBEKeySpec(char[], byte[], int) => c1;` — decision D-13 |
+| `PBEParameterSpecSpec:49` (`c3`) | `ErrorType.UnsafeAlgorithm` | **`ErrorType.UnsatisfiedConstraint`** | the clause is an iteration-count bound, not an algorithm — decision D-13 |
 | `MessageDigestSpec:70,92` | message lists 3 entries | the transcribed allow-list | Group 2 rewrote `:16`; the message must join that list, not a literal |
 | `CipherSpec:61,76` | message ends in a literal `...` | drop it; name the new Java utility of task 2.8 | the list is in Java (D-b) |
 | `KeyGeneratorSpec:64`, `KeyStoreSpec:68` | missing space | — | reading the rendered line |
@@ -112,7 +112,7 @@ python3 scripts/gh104_mop_lint.py ../rvsec/rvsec-mop/src/main/resources/jca_andr
 python3 scripts/gh104_message_gate.py ../rvsec/rvsec-mop/src/main/resources/jca_android   # literals match; codes.csv bijective; ErrorType matches the site kind
 python3 scripts/gh104_gates.py <scratch>/MultiSpec_1RuntimeMonitor.java --allowlist data/jca_android/gate_allowlist.csv --crysl ../../MetaCrySL/generated/api30
 python3 scripts/gh104_divergence_record.py --check
-python3 scripts/gh104_diff_harness.py --a <seed snapshot: git show <seed-commit>:… into scratch> --b ../rvsec/rvsec-mop/src/main/resources/jca_android --traces traces --out evidence/harness/e1
+python3 scripts/gh104_diff_harness.py --a <post-Group-2 snapshot: git show <group-2-final-commit>:… into scratch — NOT the seed; the seed would not classify unchanged, Group 2 already moved verdicts> --b ../rvsec/rvsec-mop/src/main/resources/jca_android --traces data/gh104/traces --out data/gh104/evidence/harness/e1
 cd .. && mvn -q test -pl rvsec/rvsec-core           # reactor root; ErrorType test
 uv run pytest --import-mode=importlib -o "addopts=" tests/parity -q
 ```
@@ -120,8 +120,8 @@ uv run pytest --import-mode=importlib -o "addopts=" tests/parity -q
 ## Acceptance
 
 - The recount of task 7.2 is written into this file, with the number derived from the files and the reason for any difference from the expected 45.
-- `ErrorType` carries `ForbiddenMethod` and not `RequiredPredicate`; the three wrong `ErrorType` values of D-a are corrected.
+- `ErrorType` carries `ForbiddenMethod` and not `RequiredPredicate`; the three wrong `ErrorType` values of D-13 are corrected.
 - Zero three-argument sites; zero field-interpolating `but found` sites; every envelope's `ev=` comes from `__EVENTNAME`; no bookkeeping field or statement exists; `codes.csv` bijective with the recounted sites; every hunk recorded.
-- Harness seed-vs-E1: every trace `unchanged` in accusation; envelope now carries `ev=`.
+- Harness post-Group-2-vs-E1: every trace `unchanged` in accusation; envelope now carries `ev=`.
 - Monitor of `jca_android` compiles (`MultiSpec_1RuntimeMonitor.java`) and carries no unexpanded `__EVENTNAME` — record generation time.
 - Two commits (one per half): `feat(jca_android): mensagens legíveis com envelope v1 (arquivos A–K|M–T) (refs #104)`.

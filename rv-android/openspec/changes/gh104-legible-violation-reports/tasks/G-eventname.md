@@ -1,6 +1,6 @@
 # Group 3 — G: `__EVENTNAME` in the monitor generator
 
-Tracked checkboxes: `tasks.md` §3. Wave 1, in parallel with Groups 1, 2, 4, 5, 6. **Blocks Group 7** (E1 messages): no report site can compose `ev=` until this macro expands. Edits one submodule only — `rv-monitor/rv-monitor` (the *generator*). Group 5 edits `rv-monitor/rv-monitor-rt` (`ViolationRecorder`); the two are disjoint and need no lock.
+Tracked checkboxes: `tasks.md` §3. Wave 1, in parallel with Groups 1, 2, 4, 5, 6. **Blocks Group 7** (E1 messages): no report site can compose `ev=` until this macro expands. Edits one submodule only — `rv-monitor/rv-monitor` (the *generator*). Group 5 edits `rv-monitor/rv-monitor-rt` (`ViolationRecorder`); the two are disjoint source sets. Shared resources are serialised per the `tasks.md` dispatch hints: `sdk use java 21.0.12-tem` in every shell; `export TMPDIR=<dir under /home>` before generating; the Maven lock for `mvn install` (3.9) and the generation lock for 3.0/3.5/3.8 (one monitor generation at a time across wave 1). `evidence/...` means `data/gh104/evidence/...`.
 
 ## Subagent brief
 
@@ -15,9 +15,9 @@ Do not touch any `.mop` file — including the successor set `jca_android`, whic
 | shape | condition | where the last event lives | how to read it |
 |---|---|---|---|
 | atomic / table | `BaseMonitor.java:114-118` `isAtomicMoniorUsed()` (`pairValueField != null`) | packed into `pairValue` as `((lastEvent + 1) << numStateBits) \| state` (`BaseMonitor.java:1161-1166`) | `this.getLastEvent()` (emitted at `:1177-1179`) |
-| non-atomic | otherwise | plain field `RVM_lastevent` (`BaseMonitor.java:106`), assigned inline in the event method | the field itself — **no accessor is generated** |
+| non-atomic | otherwise | plain field `RVM_lastevent` (`BaseMonitor.java:106`; assigned inline at `:425-428`) — the field and its accessor are **inherited from the runtime**, `rv-monitor-rt` `AbstractSynchronizedMonitor.java:5` (`protected int RVM_lastevent = -1`) and `:21` (`public final int getLastEvent()`), declared on `IMonitor.java:19`; the generator declares neither | `this.getLastEvent()` — the same call as the atomic shape |
 
-The generator already branches between the two for exactly this purpose: `BaseMonitor.java:1044-1048` passes `"int lastEvent = this.getLastEvent();"` / `"lastEvent"` for the atomic shape and `null` otherwise, and `MonitorTermination.java:73` defaults the variable to `"RVM_lastevent"`. **Reuse that branch; do not invent a second one.**
+The generator branches between the two only where it emits *termination* code: `BaseMonitor.java:1044-1048` passes `"int lastEvent = this.getLastEvent();"` / `"lastEvent"` for the atomic shape and `null` otherwise, and `MonitorTermination.java:73` defaults the variable to `"RVM_lastevent"`. **Do not reuse that branch in `HandlerMethod`**: the `HandlerMethod` objects are constructed in `initialize` (`BaseMonitor.java:226`), before `checkIfAtomicMonitorCanBeEnabled()` runs (`:665`, at the top of `toString()`), so `isAtomicMoniorUsed()` throws `IllegalStateException` there (`:115`); and the raw field `RVM_lastevent` is undefined in the atomic shape. Since `getLastEvent()` exists in both shapes, the handler expansion is simply `this.getLastEvent()`. A non-outermost monitor (`isOutermost == false`, suffix mode; unused by `jca`) has neither — emit the literal `"none"` there and let the fail-closed check name the case.
 
 **The generator already holds the names, and writes them as comments.** `MonitorTermination.java:131-133`:
 
@@ -41,6 +41,15 @@ for (EventDefinition event : this.events) {
 
 `SuffixMonitor` does not substitute (only a commented `has__LOC` at `:245`). `logicpluginshells/fsm/CFSM.java` and `tfsm/CTFSM.java` also `replaceAll("__RESET", …)` but are the **C** output — they import `com.runtimeverification.rvmonitor.c.rvc.CSpecification` — and are off this path.
 
+## Task 3.0 — the diff tool and the control it compares against, before the generator moves
+
+Tasks 3.5 and 3.8 diff two regenerated sets against controls. `jca` has one in the tree — `results/gh101_group8_jca_frozen_control/monitors/`. The derived set has **none**, and no earlier artefact of this change creates it, so 3.0 does both jobs before a line of the generator changes:
+
+1. Write `scripts/gh104_regen_diff.py`. It regenerates one set's monitors into scratch with the current toolchain, diffs them against a recorded control directory, classifies each difference, and exits non-zero on anything outside an `--expect` list. It is the only `gh104_*` script with no creating task before 2026-08-18.
+2. Generate the derived set's control **with the generator still unmodified**, into `results/gh104_derived_pre_generator_control/monitors/`, and commit its sha256 manifest as `data/gh104/derived_pre_generator_control.sha256`; also commit `data/gh104/jca_frozen_control.sha256` for `results/gh101_group8_jca_frozen_control/monitors/`, which is unversioned today.
+
+**Address the derived set by whichever name it currently carries** — `rvsec-mop/src/main/resources/jca_android/` before Group 2 task 2.1 renames it, `jca_android_bug_predicate/` after. The bytes are identical under both names, which is precisely why this group needs no dependency on Group 2. Write the name you measured under into `evidence/g_regeneration.md`; `tasks/E0-baseline.md` applies the same discipline to the same directory.
+
 ## File inventory
 
 | file | edit |
@@ -49,6 +58,8 @@ for (EventDefinition event : this.events) {
 | `.../output/monitor/HandlerMethod.java` | `:36-48` expand `__EVENTNAME` to the shape-aware table lookup |
 | `.../output/monitor/RawMonitor.java` | `:90-105` mirror the event-body substitution |
 | `rv-monitor/rv-monitor/src/main/java/.../rvj/RVMNameSpace.java` | `:24` area — reserve the table's name beside `RVM_lastevent` |
+| `scripts/gh104_regen_diff.py` | NEW — task 3.0: regenerate a set into scratch, diff against a recorded control directory, classify each difference, exit non-zero on anything outside `--expect` |
+| `results/gh104_derived_pre_generator_control/monitors/` + `data/gh104/derived_pre_generator_control.sha256`, `data/gh104/jca_frozen_control.sha256` | NEW — task 3.0: the derived set's control, generated with the **unmodified** generator, and the manifests of both controls. `results/` is gitignored, so the committed manifests are the versioned artefacts and the check must fail with a named message when a directory is absent or disagrees with its manifest |
 | `rv-monitor/rv-monitor/src/test/java/.../EventNameMacroTest.java` | NEW |
 | `.../output/combinedoutputcode/event/advice/Advice.java` | `:176-177` (acquire, `if (isSync) ret += this.globalLock.getAcquireCode();`) and `:254-256` (release, `if (!Main.useFineGrainedLock) { if (isSync) ret += this.globalLock.getReleaseCode(); }`) — emit `try {` after the acquisition and `} finally { <release> }` in place of the bare release (task 3.7). **Not** `GlobalLock.java:40-67`: its `getAcquireCode()`/`getReleaseCode()` are string fragments that `BaseMonitor.java:543,567,583,587` (`execEvent`), `StartThread.java`, `EndThread.java` and `ThreadStatusMonitor.java` also use, unbalanced by design (release → start thread → re-acquire); framing them there would break those callers |
 | `rv-monitor/rv-monitor/src/test/java/.../DispatcherLockReleaseTest.java` | NEW — task 3.6's red test |
@@ -76,7 +87,7 @@ This is where the `static final int Prop_N_transition_*[]` arrays land in the ge
 ## Expansion contract
 
 - **event body** (`BaseMonitor.printEventMethod`, `RawMonitor`): `__EVENTNAME` → the string literal `"<event.getId()>"`. The `EventDefinition` is already in scope (`int idnum = event.getIdNum();` opens both methods). No field, no lookup, no runtime cost.
-- **handler body** (`HandlerMethod`): `__EVENTNAME` → a lookup of the table at the last-event index, using `this.getLastEvent()` when `isAtomicMoniorUsed()` and the `RVM_lastevent` field otherwise. Index `-1` (no event has transitioned the monitor) → the sentinel `none`. Never an out-of-range access.
+- **handler body** (`HandlerMethod`): `__EVENTNAME` → a lookup of the table at the last-event index, through `this.getLastEvent()` in **both** shapes (see the table above — no `isAtomicMoniorUsed()` call in the constructor, it throws there). Index `-1` (no event has transitioned the monitor) → the sentinel `none`. Never an out-of-range access. Non-outermost monitor → literal `"none"`.
 - **fail closed**: if the literal `__EVENTNAME` survives anywhere in the generated Java, generation aborts naming file and line. An unexpanded macro would otherwise reach `javac` as an undefined identifier — or, inside a string, be reported as text and read as a fact.
 
 ## The lock framing (tasks 3.6-3.8, INV-INS-129, design D-14)
@@ -97,16 +108,18 @@ mvn -q test -pl rv-monitor/rv-monitor
 mvn -q install -DskipTests -DskipMopAgent=true          # ~12 min, needed before regeneration
 
 # regeneration diff (RVSEC_HOME set, TMPDIR off tmpfs)
-python3 scripts/gh104_regen_diff.py --set jca         --against results/gh101_group8_jca_frozen_control/monitors/
-python3 scripts/gh104_regen_diff.py --set jca_android_bug_predicate --against <its recorded control>
+# $DERIVED is the derived set under whichever name it currently carries: `jca_android` before Group 2
+# task 2.1 renames it, `jca_android_bug_predicate` after. Same bytes; task 3.0 recorded which one it used.
+python3 scripts/gh104_regen_diff.py --specs-dir ../rvsec/rvsec-mop/src/main/resources/jca        --control results/gh101_group8_jca_frozen_control/monitors/    --manifest data/gh104/jca_frozen_control.sha256 --expect table,macro,lock-framing
+python3 scripts/gh104_regen_diff.py --specs-dir ../rvsec/rvsec-mop/src/main/resources/"$DERIVED" --control results/gh104_derived_pre_generator_control/monitors/ --manifest data/gh104/derived_pre_generator_control.sha256 --expect table,macro,lock-framing
 grep -rn "__EVENTNAME" <scratch>/monitors/            # must be empty
 ```
 
 ## Acceptance
 
-- `EventNameMacroTest` green on all three cases of INV-INS-120, with the handler case exercised on **one specification of each monitor shape** (e.g. `TrustManagerFactorySpec` for the atomic shape, `HMACParameterSpecSpec` for the non-atomic one).
+- `EventNameMacroTest` green on all three cases of INV-INS-120, with the handler case exercised on **one specification of each monitor shape** (`CipherSpec` or `SecretKeySpecSpec` for the atomic shape; `HMACParameterSpecSpec` or `TrustManagerFactorySpec` for the non-atomic one — `TrustManagerFactorySpecMonitor` extends `AbstractSynchronizedMonitor` in the frozen control, `:8778`).
 - `DispatcherLockReleaseTest` red before task 3.7 (second thread blocked), green after; the framing is in `Advice.java`, `GlobalLock.java` untouched.
 - Regenerating `jca` and the archived `jca_android_bug_predicate` differs from the recorded controls **only** by the new table, by expanded macros and by the `try`/`finally` framing of every dispatcher (acquisitions = releases = `finally` blocks) — no transition row, no state count, no other dispatch line changes. Both diffs committed in `evidence/g_regeneration.md`. The successor `jca_android` is deliberately **not** a control for this group: it is being built by Group 2 in parallel and has no recorded control yet; Group 7 task 7.7 regenerates it once it is stable.
 - `grep -rn "__EVENTNAME"` over any generated monitor returns nothing.
-- Reactor builds; `lib/` jars refreshed (Group 4 task 4.6 also refreshes them — coordinate so the last one wins and its sha256 is the one recorded).
+- Reactor builds under the Maven lock; `lib/` jars refreshed (Group 4 task 4.6 also refreshes `instr-cli.jar` — serialised by the same lock; the last one wins and its sha256 is the one recorded). Task 3.9's diff of the JSE agent's regenerated monitor is against the frozen control (`rvsec-agent/src/main/java/mop/MultiSpec_1RuntimeMonitor.java` is gitignored; there is no committed source).
 - Two commits: `feat(rv-monitor): macro __EVENTNAME e tabela de nomes de evento por monitor (refs #104)` and `fix(rv-monitor): libera o lock global do dispatcher em todo caminho de saída (refs #104)`.

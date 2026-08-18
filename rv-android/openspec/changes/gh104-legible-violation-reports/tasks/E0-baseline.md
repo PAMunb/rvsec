@@ -38,13 +38,13 @@ You measure; you do not repair. Read `design.md` D-9 and `docs/20260815_gh103_an
 | comp162 mute-only remainder | 10,926 rows in 183 sites |
 | comp162 per-spec mute (top 8) | SSLContext 2,916 · SecureRandom 2,882 · TMF 2,855 · MessageDigest 2,008 · Cipher 1,461 · KeyStore 1,136 · IvParameterSpec 838 · SecretKeySpecSpec 820 |
 | comp162 `but found .` | 98 |
-| comp162 identities (`identity5`) | 6,344 for 19,664 rows; 67.74 % repetition; max 49; 0 % from replication (each identity in exactly one shard) |
+| comp162 identities (`identity5` — the 8-tuple of the table above; the `ErrorSummary` 5-tuple gives 409; never call this "five-field") | 6,344 for 19,664 rows; 67.74 % repetition; max 49; 0 % from replication (each identity in exactly one shard) |
 | third-party (article) | 76,154 = 78.49 % · 80,204 = 82.67 % · 82,890 = 85.44 % |
 | `UnsafeAlgorithm` MD5/SHA-1 (article) | 5,892 of 15,444 `UnsafeAlgorithm` rows = 38.15 %, all `MessageDigestSpec`; against that specification's own 6,048 `UnsafeAlgorithm` rows = 97.4 % (36.4 % of all its 16,183 rows), and 6.1 % of the 97,018-row corpus (3,552 `MD5` + 2,340 `SHA-1`/`SHA1`/`SHA`) — the three denominators are different questions, report all three, because Group 2 task 2.4 quotes the second and third as the declared cost of accepting what api30 admits |
 | four spec-set directories | jca 23 files/21 `addError`/0 `Log.v`; the reproved derived set 23/21/0 (directory `jca_android/` until Group 2 task 2.1's `git mv`, `jca_android_bug_predicate/` after — record which name you measured under); generic 118/0/118; generic_new 27/0/27 |
 | `new ErrorDescription` in jca | 51 = 25 three-arg + 26 four-arg |
 
-Reproduction commands are in `docs/20260816_javamop_mensagens_change_handoff_prompt.md:252-313` (read-only python one-liners). Copy them into the script as functions; do not paste numbers.
+Reproduction commands are in `docs/20260816_javamop_mensagens_change_handoff_prompt.md:252-313` (read-only python one-liners; the file is untracked today — commit it with this group's first commit). Copy them into the script as functions; do not paste numbers.
 
 ## The Android tier this change is aimed at (task 1.4)
 
