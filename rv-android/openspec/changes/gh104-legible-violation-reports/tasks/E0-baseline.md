@@ -8,7 +8,7 @@ You measure; you do not repair. Read `design.md` D-9 and `docs/20260815_gh103_an
 
 ## Files (create; nothing else is edited)
 
-- `scripts/gh104_baseline.py` — the measurement script (imports `aperv_tool.analysis.violations.read_errors_csv` for comp162; declares its own 10-column reader for the article dataset — `read_errors_csv` raises `ValueError` on it by design, `violations.py:242-246`).
+- `scripts/gh104_baseline.py` — the measurement script (declares its **own frozen 11-column reader** for comp162 and its own 10-column reader for the article dataset; it does not import `aperv_tool.analysis.violations.read_errors_csv`, because that reader checks one in-place literal, `ERRORS_CSV_HEADER` at `violations.py:63-75`, which Group 5 task 5.6 changes to 13 columns — after that the shared reader raises `ValueError` on every comp162 file, `:242-246`, and an import path pins nothing).
 - `data/gh104/baseline.md`, `data/gh104/baseline.json` — the numbers with envelopes; the JSON is what the byte-identical test compares.
 - `data/gh104/definitions.md` — the freeze items.
 - `tests/parity/test_gh104_baseline.py`.
@@ -40,7 +40,7 @@ You measure; you do not repair. Read `design.md` D-9 and `docs/20260815_gh103_an
 | comp162 `but found .` | 98 |
 | comp162 identities (`identity5`) | 6,344 for 19,664 rows; 67.74 % repetition; max 49; 0 % from replication (each identity in exactly one shard) |
 | third-party (article) | 76,154 = 78.49 % · 80,204 = 82.67 % · 82,890 = 85.44 % |
-| `UnsafeAlgorithm` MD5/SHA-1 (article) | 5,892 of 15,444 `UnsafeAlgorithm` rows = 38.15 %, all `MessageDigestSpec`; against that specification's own 6,048 rows = 97.4 %, and 6.1 % of the 97,018-row corpus (3,552 `MD5` + 2,340 `SHA-1`/`SHA1`/`SHA`) — the three denominators are different questions, report all three, because Group 2 task 2.4 quotes the second and third as the declared cost of accepting what api30 admits |
+| `UnsafeAlgorithm` MD5/SHA-1 (article) | 5,892 of 15,444 `UnsafeAlgorithm` rows = 38.15 %, all `MessageDigestSpec`; against that specification's own 6,048 `UnsafeAlgorithm` rows = 97.4 % (36.4 % of all its 16,183 rows), and 6.1 % of the 97,018-row corpus (3,552 `MD5` + 2,340 `SHA-1`/`SHA1`/`SHA`) — the three denominators are different questions, report all three, because Group 2 task 2.4 quotes the second and third as the declared cost of accepting what api30 admits |
 | four spec-set directories | jca 23 files/21 `addError`/0 `Log.v`; the reproved derived set 23/21/0 (directory `jca_android/` until Group 2 task 2.1's `git mv`, `jca_android_bug_predicate/` after — record which name you measured under); generic 118/0/118; generic_new 27/0/27 |
 | `new ErrorDescription` in jca | 51 = 25 three-arg + 26 four-arg |
 
@@ -66,4 +66,5 @@ With it, record the context fixation the whole change inherits: **API 30 / Andro
 - Removing any freeze item raises `FreezeItemUnset` (`test_freeze_items_required`).
 - `data/gh104/baseline.md` states, per number, numerator, denominator, definition id, input file(s) and sha256 of the inputs.
 - The Android tier table and the API-30 / Conscrypt `android11-release` context fixation are in `data/gh104/baseline.md` with their sources.
-- The instrument discontinuity is written: comp162 through `read_errors_csv`, the article through the declared reader; parity ≠ correctness sentence quoted from the gh103 doc.
+- The instrument discontinuity is written: comp162 through the declared frozen 11-column reader, the article through the declared 10-column reader; parity ≠ correctness sentence quoted from the gh103 doc.
+- The measured footprint of two structural facts Group 8 records but does not repair is in `baseline.md` as ratios, per specification, on both corpora: `InvalidSequenceOfMethodCalls` against the specification's own labelled type (article: `SSLContextSpec` 17,510 vs 8,802 `UnsafeProtocol`; `TrustManagerFactorySpec` 9,015 vs 9,014 `UnsafeAlgorithm`; comp162: `TrustManagerFactorySpec` 2,855 vs 61, `SecureRandomSpec` 2,882 vs 0) — the first pair is the second `@fail` report every clause-encoding orphan emits, the comp162 pair the DEX-path `g1`+`g2` double fire (design D-1, task 8.12).

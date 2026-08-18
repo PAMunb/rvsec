@@ -51,7 +51,7 @@ The frozen descriptor's 115 advices (`results/gh101_group8_jca_frozen_control/mo
 | `before`, with `args()` | **9** | no — bypasses wrappers entirely |
 | `after`, constructor, with `args()` | **14** | no — dropped to the inline path by `:251-256` |
 
-**One number in `design.md` D-6 is stale; carry the corrected one.** That section explains why the lineage's *first* rule is the one to avoid even as a counter, and says it would have counted "the 16 `after` advices with parameters and no `args()`". Counted on the frozen descriptor's 115 advices the figure is **25**, and **none of the 25 is a constructor advice** (D-6 says 3 of them are). The four-class partition above is unaffected and stays exactly as written — 48 / 44 / 9 / 14 = 115, and the 25 are a subset of the 44. Two of the 25, `RandomStringPasswordSpec_gb` and `SecretKeySpec_e1`, belong to the two specifications Group 2 task 2.2 deletes, so they do not exist in `jca_android` at all. Re-derive the 25 with the reproduction command below and write the name list into `evidence/e2_reach.md`; if your count is not 25, you did not load `results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1MonitorAspect.json`.
+**D-6 records the lineage's figure and the recount; carry the recount.** That section explains why the lineage's *first* rule is the one to avoid even as a counter: the lineage put the population it would have counted at 16 (3 said to be constructor advices); counted on the frozen descriptor's 115 advices the figure is **25**, and **none of the 25 is a constructor advice**. The four-class partition above is unaffected and stays exactly as written — 48 / 44 / 9 / 14 = 115; the 44 without `args()` are 31 `after` non-constructor + 4 `after`-on-constructor + 9 `before`, and the 25 are the parameter-carrying subset of the 31. Two of the 25, `RandomStringPasswordSpec_gb` and `SecretKeySpec_e1`, belong to the two specifications Group 2 task 2.2 deletes, so they do not exist in `jca_android` at all. Re-derive the 25 with the reproduction command below and write the name list into `evidence/e2_reach.md`; if your count is not 25, you did not load `results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1MonitorAspect.json`.
 
 The 9 `before`: `CipherSpec_i1`, `CipherSpec_i2`, `MacSpec_i1`, `SecureRandomSpec_next1`, `SecureRandomSpec_next2`, `SignatureSpec_i1`, `SignatureSpec_i2`, `SignatureSpec_i3`, `SignatureSpec_i4`.
 
@@ -79,7 +79,7 @@ EOF
 ## Commands
 
 ```bash
-cd ../rvsec/rvsec/rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter && mvn -q test
+cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter && mvn -q test
 cd ../cli && mvn -q test -Dtest=ResultsJsonReportingTest && mvn -q test
 cd ../dex-mutator && mvn -q test; cd ../validator && mvn -q test
 # re-weave the frozen descriptor and read the counters (instr-cli, no device):

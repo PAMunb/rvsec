@@ -4,7 +4,7 @@ Tracked checkboxes: `tasks.md` §3. Wave 1, in parallel with Groups 1, 2, 4, 5, 
 
 ## Subagent brief
 
-Read `design.md` D-4 (the decision and the superseded one, so you do not re-take it) and the `instrumentation` delta requirement `Event-Name Emission by the Monitor Generator` (INV-INS-120). You are adding **one macro and one table**; you are not changing any existing emission. Every edit is additive: no existing generated line may change shape, and the acceptance step proves it by regenerating two frozen sets and diffing.
+Read `design.md` D-4 (the decision and the superseded one, so you do not re-take it) and D-14, and the `instrumentation` delta requirements `Event-Name Emission by the Monitor Generator` (INV-INS-120) and `The Generated Dispatcher Releases Its Lock on Every Exit` (INV-INS-129). You are doing two things in one module: adding **one macro and one table** (tasks 3.1-3.5, additive — no existing generated line changes shape) and **framing the dispatcher's guarded region** so the global lock is released on every exit (tasks 3.6-3.8 — the one existing emission this group does change, and only in its `try`/`finally` framing). The acceptance step proves both by regenerating two frozen sets and diffing: the only admissible differences are the table, the expanded macros and the framing.
 
 Do not touch any `.mop` file — including the successor set `jca_android`, which Group 2 builds in parallel with you and Group 7 fills with envelopes afterwards, and including the archived `jca_android_bug_predicate/`, which you only ever regenerate from. Do not touch `javamop` — it carries the Java block from `.mop` to `.rvm` verbatim, which is why `__LOC` traverses it today without javamop knowing what it is.
 
@@ -50,6 +50,8 @@ for (EventDefinition event : this.events) {
 | `.../output/monitor/RawMonitor.java` | `:90-105` mirror the event-body substitution |
 | `rv-monitor/rv-monitor/src/main/java/.../rvj/RVMNameSpace.java` | `:24` area — reserve the table's name beside `RVM_lastevent` |
 | `rv-monitor/rv-monitor/src/test/java/.../EventNameMacroTest.java` | NEW |
+| `.../output/combinedoutputcode/event/advice/Advice.java` | `:176-177` (acquire, `if (isSync) ret += this.globalLock.getAcquireCode();`) and `:254-256` (release, `if (!Main.useFineGrainedLock) { if (isSync) ret += this.globalLock.getReleaseCode(); }`) — emit `try {` after the acquisition and `} finally { <release> }` in place of the bare release (task 3.7). **Not** `GlobalLock.java:40-67`: its `getAcquireCode()`/`getReleaseCode()` are string fragments that `BaseMonitor.java:543,567,583,587` (`execEvent`), `StartThread.java`, `EndThread.java` and `ThreadStatusMonitor.java` also use, unbalanced by design (release → start thread → re-acquire); framing them there would break those callers |
+| `rv-monitor/rv-monitor/src/test/java/.../DispatcherLockReleaseTest.java` | NEW — task 3.6's red test |
 | `evidence/g_regeneration.md` | NEW — the two regeneration diffs |
 
 ## Where the table goes, and why there
@@ -77,10 +79,20 @@ This is where the `static final int Prop_N_transition_*[]` arrays land in the ge
 - **handler body** (`HandlerMethod`): `__EVENTNAME` → a lookup of the table at the last-event index, using `this.getLastEvent()` when `isAtomicMoniorUsed()` and the `RVM_lastevent` field otherwise. Index `-1` (no event has transitioned the monitor) → the sentinel `none`. Never an out-of-range access.
 - **fail closed**: if the literal `__EVENTNAME` survives anywhere in the generated Java, generation aborts naming file and line. An unexpanded macro would otherwise reach `javac` as an undefined identifier — or, inside a string, be reported as text and read as a fact.
 
+## The lock framing (tasks 3.6-3.8, INV-INS-129, design D-14)
+
+**The measurement.** In the frozen control every one of the 134 dispatchers opens with `while (!MultiSpec_1_RVMLock.tryLock()) { Thread.yield(); }` and closes with `MultiSpec_1_RVMLock.unlock();` (`M:9163-9188` is one), and the file has **0** `finally` blocks; the lock is one `static final ReentrantLock` shared by every specification (`M:9005`). Conditions, event bodies and `@fail`/`@match` handlers all execute inside that region, and nothing in `MonitorWrappers.java` or the aspect catches. So an exception raised inside — the frozen set has a reachable one, `KeyPairGeneratorSpec`'s `switch(null)` — propagates into the application frame with the lock still held. Because the lock is reentrant, the throwing thread keeps entering; every *other* thread spins forever in the `yield` loop at its next monitored call.
+
+**Task 3.6 — red test first.** Generate a small specification whose `@fail` handler throws; call the dispatcher once on thread A (the throw, caught by the test), then once **from thread B** with a bounded wait (`Future.get(2, SECONDS)` or equivalent); assert that B's call completes. It must be red today. Two calls on the **same** thread are not a test: `ReentrantLock.tryLock()` succeeds for the owner, so the second call passes with the lock still leaked. Commit the red output under `evidence/`.
+
+**Task 3.7 — emit the framing in `Advice.java`.** After the acquisition at `:176-177` emit `try {`; replace the bare release at `:254-256` by `} finally { <release> }`. Nothing else: not which advices fire, not the lock's identity, not the spin loop, not `GlobalLock`'s fragments (see the file inventory). The exception still propagates to the application; only the release becomes unconditional. Also honour the `useFineGrainedLock` branch as it stands — the framing wraps whatever release that branch emits today.
+
+**Task 3.8 — regenerate and diff** in the same run as 3.5: `jca` against `results/gh101_group8_jca_frozen_control/monitors/` and the archived `jca_android_bug_predicate` against its recorded control; the only admissible differences are the framing, the event-name table and the expanded macros; assert `grep -c tryLock == grep -c unlock == grep -c finally` on each regenerated monitor (134/134/134 for `jca`) and that every acquisition sits inside a `try`; record in `evidence/g_regeneration.md`. Note there that `rvsec-agent/pom.xml:94-111` regenerates the JSE agent's monitor from `resources/jca` at every build without `-DskipMopAgent=true` (task 3.9 diffs it once).
+
 ## Commands
 
 ```bash
-# from the reactor root (../rvsec)
+# from the reactor root (..)
 mvn -q test -pl rv-monitor/rv-monitor
 mvn -q install -DskipTests -DskipMopAgent=true          # ~12 min, needed before regeneration
 
@@ -93,7 +105,8 @@ grep -rn "__EVENTNAME" <scratch>/monitors/            # must be empty
 ## Acceptance
 
 - `EventNameMacroTest` green on all three cases of INV-INS-120, with the handler case exercised on **one specification of each monitor shape** (e.g. `TrustManagerFactorySpec` for the atomic shape, `HMACParameterSpecSpec` for the non-atomic one).
-- Regenerating `jca` and the archived `jca_android_bug_predicate` differs from the recorded controls **only** by the new table and by expanded macros — no transition row, no state count, no dispatch line changes. Both diffs committed in `evidence/g_regeneration.md`. The successor `jca_android` is deliberately **not** a control for this group: it is being built by Group 2 in parallel and has no recorded control yet; Group 7 task 7.7 regenerates it once it is stable.
+- `DispatcherLockReleaseTest` red before task 3.7 (second thread blocked), green after; the framing is in `Advice.java`, `GlobalLock.java` untouched.
+- Regenerating `jca` and the archived `jca_android_bug_predicate` differs from the recorded controls **only** by the new table, by expanded macros and by the `try`/`finally` framing of every dispatcher (acquisitions = releases = `finally` blocks) — no transition row, no state count, no other dispatch line changes. Both diffs committed in `evidence/g_regeneration.md`. The successor `jca_android` is deliberately **not** a control for this group: it is being built by Group 2 in parallel and has no recorded control yet; Group 7 task 7.7 regenerates it once it is stable.
 - `grep -rn "__EVENTNAME"` over any generated monitor returns nothing.
 - Reactor builds; `lib/` jars refreshed (Group 4 task 4.6 also refreshes them — coordinate so the last one wins and its sha256 is the one recorded).
-- One commit: `feat(rv-monitor): macro __EVENTNAME e tabela de nomes de evento por monitor (refs #104)`.
+- Two commits: `feat(rv-monitor): macro __EVENTNAME e tabela de nomes de evento por monitor (refs #104)` and `fix(rv-monitor): libera o lock global do dispatcher em todo caminho de saída (refs #104)`.

@@ -30,7 +30,7 @@ Python (`rv-android/`):
 | `modules/aperv-tool/tests/test_violations.py` | 125 | +4 tests (13-col accepted; 11-col `ValueError` naming expected header; 5-part `unique_msg` unparsed; truncated envelope) |
 | `scripts/regenerate_results/regenerate_container.py` | 346 | `:244` builds `unique_msg` → import `RvErrorLog` and use it (or delete the local composition) |
 | `scripts/rv_oracle_common.py` | 174 | `:73-81` reads `parts[3]`/`parts[4]` — require seven parts, name the parts |
-| `data/gh104/consumer_matrix.md` | new | see task 5.8 |
+| `data/gh104/consumer_matrix.md` | new | see task 5.8 — includes the readers the first inventory missed: `rv_android_core/domain/coverage.py:397,575,627` (`unique_errors`), `execution_status.py:87`, `scripts/derive_l3b_oracle.py`, `scripts/derive_l3c_oracle.py`, `scripts/regenerate_results/verify.py`, `scripts/jca557_*.py`, `experimento-gov/scripts/violations_detail.py` and `experimento-comp162-ajc/scripts/mop_diff.py` (parse the `RVSEC :` logcat line), the frozen `audit/20260808_validacao_jca_android/**/*.py`, and the tests under `rv-platform`, `rv-coverage`, `rv-android-core`, `aperv-tool` that build `unique_msg` fixtures; closed by an `rg`-backed check |
 
 ## Grammar to implement (design D-3)
 
@@ -44,13 +44,13 @@ uv run pytest --import-mode=importlib -o "addopts=" modules/aperv-tool/tests -q 
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-platform/tests -q
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-android-core/tests -q
 grep -rn "':::'\|\":::\"" modules/ scripts/ --include=*.py | grep -v tests   # after 5.4/5.7: only log.py composes; violations.py / rv_oracle_common.py read
-cd ../rvsec/rvsec/rvsec-android/rvsec-logger-logcat && mvn -q test; cd ../../../rv-monitor/rv-monitor-rt && mvn -q test
+cd ../rvsec/rvsec-android/rvsec-logger-logcat && mvn -q test; cd ../../../rv-monitor/rv-monitor-rt && mvn -q test
 ```
 
 ## Acceptance
 
 - Every counter named above exists and the sum of records + counted lines equals lines read on the parser fixtures.
 - Sentinels appear exactly where a value used to be fabricated; the same `[helper] ::: …` line yields the same count in `rv-coverage` and `aperv_tool` (both count it, neither invents a record).
-- `errors.csv` header is the 13-column string; `ERRORS_CSV_HEADER` equal to it; cmp162 fixtures (11 columns) are **not** modified — they are read by Group 1's declared reader; `test_errors_csv_of_the_campaign` therefore moves to a 13-column synthetic fixture.
+- `errors.csv` header is the 13-column string; `ERRORS_CSV_HEADER` equal to it; cmp162 fixtures (11 columns) are **not** modified — they are read by Group 1's own frozen 11-column reader, never by this module's `read_errors_csv` once the header is 13 columns; `test_errors_csv_of_the_campaign` therefore moves to a 13-column synthetic fixture.
 - `grep` gate: one `unique_msg` constructor.
-- Consumer matrix written with a verdict per consumer.
+- Consumer matrix written with a verdict per consumer, and the `rg`-backed inventory check (`rg -l "errors.csv|unique_msg|ERRORS_CSV_HEADER|read_errors_csv|RVSEC :"` over `modules/ scripts/ experimento-*/ audit/`, `.venv`/`backup/` excluded) has no hit without a row.

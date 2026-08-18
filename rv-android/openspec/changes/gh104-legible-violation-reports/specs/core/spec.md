@@ -34,7 +34,7 @@ Only the entries this change alters are restated; every other input, output, sid
 - **INV-CORE-25** (restated, replacing the entry of the same number): `RvErrorLog.unique_msg` MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"` — seven `:::`-separated parts, `code` and `event` read from the message envelope (`code=`, `ev=`) or equal to the sentinel `UNSPECIFIED` when the message carries no envelope. Two `RvErrorLog` instances with the same `unique_msg` MUST be considered equal. The key MUST be built in exactly one place, `RvErrorLog.unique_msg` in `rv_android_core/domain/log.py`; no other module MUST assemble it from the fields.
 - **INV-CORE-41** (restated, replacing the entry of the same number): `RvErrorLog.unique_msg` counts at event granularity (`class:::method:::spec:::error_type:::code:::event:::message`) and is deliberately finer than the `(apk, class, method, spec)` key used for unique-misuse analysis. Any documentation or export that reports `unique_errors` MUST NOT present it as equivalent to a unique-misuse count, and MUST state which identity era the count belongs to — five-part (before this change) or seven-part (after it) — because counts of the two eras are not comparable.
 - **INV-CORE-56**: The `message` part of `unique_msg` MUST NOT contain the substring `:::`. The producer of the message (the monitor's envelope grammar) forbids it inside every value; `RvErrorLog` MUST NOT rewrite the message to hide a violation of that rule, and a reader that splits `unique_msg` on `:::` and finds a part count other than seven MUST count the record as unparsed rather than reinterpret it.
-- **INV-CORE-57**: Every published deduplicated count of violations MUST carry the identity era it was computed under. A count of the seven-part era MUST NOT be compared to a count of the five-part era without the discontinuity being stated beside the comparison, and the discontinuity measured on the same input MUST be non-zero — a zero difference would mean `code` and `event` added no information to the identity, which is the failure the change exists to remove.
+- **INV-CORE-57**: Every published deduplicated count of violations MUST carry the identity era it was computed under. A count of the seven-part era MUST NOT be compared to a count of the five-part era without the discontinuity being stated beside the comparison, and the discontinuity measured on the same input MUST be non-zero where that input's records carry an `ev=` envelope — a zero difference there would mean `code` and `event` added no information to the identity, which is the failure the change exists to remove; on a pre-envelope input (the published dataset, comp162) the difference is zero by construction and is labelled so, not read as a failure.
 
 ## MODIFIED Requirements
 
@@ -59,7 +59,7 @@ Because `unique_msg` is `__hash__` and `__eq__` of `RvErrorLog`, the identity of
 this requirement. That is a declared count discontinuity, not a side effect: every deduplicated count computed
 before this change (five-part identity) is not comparable to one computed after it (seven-part identity), and any
 report of `unique_errors`, `mop_errors_unique` or the `unique_msg` column MUST say which era it belongs to
-(INV-CORE-41, INV-CORE-57). The discontinuity measured on the same input MUST be non-zero.
+(INV-CORE-41, INV-CORE-57). The discontinuity measured on the same envelope-carrying input MUST be non-zero; on a pre-envelope input it is zero by construction and is labelled so.
 
 The model documentation MUST state that this key counts at event granularity and is finer than the
 `(apk, class, method, spec)` key used to count unique misuses in the thesis and the journal article, and MUST give
@@ -112,10 +112,15 @@ reader comparing the two figures does not conclude that one is defective.
 
 #### Scenario: the discontinuity is declared and non-zero
 
-- **WHEN** `unique_errors` is computed for `experimento-comp162` once with the five-part identity and once with the seven-part identity
+- **WHEN** `unique_errors` is computed for a corpus whose records carry `ev=` envelopes (the differential-harness traces of the change, or the device logcat of its integration task) once with the five-part identity and once with the seven-part identity
 - **THEN** the two figures MUST be published side by side, each labelled with its era
 - **AND** their difference MUST be non-zero
 - **AND** neither figure MUST be presented as a correction of the other
+
+#### Scenario: a pre-envelope corpus is zero by construction
+
+- **WHEN** the same two computations run on `experimento-comp162` or the published dataset, whose records carry no envelope and whose `event` is therefore the sentinel on every row
+- **THEN** the two figures are equal, MUST be published labelled `zero by construction`, and MUST NOT be read as the failure of the seven-part identity
 
 ### Requirement: RvErrorLog Preserves the Source Location in the Written Schema (FR13, FR14)
 
