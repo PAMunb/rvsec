@@ -40,15 +40,30 @@ You measure; you do not repair. Read `design.md` D-9 and `docs/20260815_gh103_an
 | comp162 `but found .` | 98 |
 | comp162 identities (`identity5`) | 6,344 for 19,664 rows; 67.74 % repetition; max 49; 0 % from replication (each identity in exactly one shard) |
 | third-party (article) | 76,154 = 78.49 % · 80,204 = 82.67 % · 82,890 = 85.44 % |
-| `UnsafeAlgorithm` MD5/SHA-1 (article) | 5,892 of 15,444 = 38.15 %, all `MessageDigestSpec` |
-| four spec sets | jca 23 files/21 `addError`/0 `Log.v`; jca_android 23/21/0; generic 118/0/118; generic_new 27/0/27 |
+| `UnsafeAlgorithm` MD5/SHA-1 (article) | 5,892 of 15,444 `UnsafeAlgorithm` rows = 38.15 %, all `MessageDigestSpec`; against that specification's own 6,048 rows = 97.4 %, and 6.1 % of the 97,018-row corpus (3,552 `MD5` + 2,340 `SHA-1`/`SHA1`/`SHA`) — the three denominators are different questions, report all three, because Group 2 task 2.4 quotes the second and third as the declared cost of accepting what api30 admits |
+| four spec-set directories | jca 23 files/21 `addError`/0 `Log.v`; the reproved derived set 23/21/0 (directory `jca_android/` until Group 2 task 2.1's `git mv`, `jca_android_bug_predicate/` after — record which name you measured under); generic 118/0/118; generic_new 27/0/27 |
 | `new ErrorDescription` in jca | 51 = 25 three-arg + 26 four-arg |
 
 Reproduction commands are in `docs/20260816_javamop_mensagens_change_handoff_prompt.md:252-313` (read-only python one-liners). Copy them into the script as functions; do not paste numbers.
+
+## The Android tier this change is aimed at (task 1.4)
+
+The pivot to Android rests on a publishable tier with primary-source evidence: **11,409 events / 84 misuses of 454 = 18.5 %**, from `ase-journal/docs/20260806_owasp_cwe_mapping_report.md`. Record it in `data/gh104/baseline.md` as its own section, because it is the denominator against which Group 2's allow-list transcription and Group 10 task 10.5's device reading are judged.
+
+| spec / ErrorType / observed value | events | apps | misuses |
+|---|---|---|---|
+| `SSLContextSpec / UnsafeProtocol / TLS` | 8,648 | 60 | 65 |
+| `KeyStoreSpec / InvalidKeyStoreType / AndroidKeyStore` | 2,005 | 11 | 12 |
+| `TrustManagerFactorySpec / UnsafeAlgorithm / X509` | 643 | 3 | 5 |
+| `CipherSpec / UnsafeAlgorithm / RSA/ECB/OAEPWithSHA1AndMGF1Padding` | 109 | 1 | 1 |
+| `SignatureSpec / UnsafeAlgorithm / SHA256WITHRSA` | 4 | 1 | 1 |
+
+With it, record the context fixation the whole change inherits: **API 30 / Android 11**, Conscrypt branch `android11-release` (`ase-journal/dataset.tex:5`; `20260806_owasp_cwe_mapping_report.md:622-648`). This is what makes `MetaCrySL/generated/api30/*.cryptsl` the oracle and not one option among several.
 
 ## Acceptance
 
 - Two consecutive runs produce byte-identical `baseline.json` (`test_baseline_reproduces_byte_identical`).
 - Removing any freeze item raises `FreezeItemUnset` (`test_freeze_items_required`).
 - `data/gh104/baseline.md` states, per number, numerator, denominator, definition id, input file(s) and sha256 of the inputs.
+- The Android tier table and the API-30 / Conscrypt `android11-release` context fixation are in `data/gh104/baseline.md` with their sources.
 - The instrument discontinuity is written: comp162 through `read_errors_csv`, the article through the declared reader; parity ≠ correctness sentence quoted from the gh103 doc.

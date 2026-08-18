@@ -1,10 +1,40 @@
-# Group 7 — E1: legible messages in `jca_v2`
+# Group 7 — E1: legible messages in `jca_android`
 
-Tracked checkboxes: `tasks.md` §7. Starts after Group 2's seed commit **and** Group 3's `__EVENTNAME` commit (until the macro expands, every envelope you write would carry an undefined identifier). Edits only `rvsec/rvsec-mop/src/main/resources/jca_v2/*.mop` and `jca_v2/codes.csv` (+ `data/jca_v2/divergence_record.csv` entries, `evidence/harness/e1-*.md`). Two subagents on disjoint halves: **7.a** = `CipherInputStreamSpec, CipherOutputStreamSpec, CipherSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, IvParameterSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairGeneratorSpec, KeyPairSpec, KeyStoreSpec`; **7.b** = `MacSpec, MessageDigestSpec, PBEKeySpecSpec, PBEParameterSpecSpec, RandomStringPassword, SecretKeySpec, SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, SSLContextSpec, TrustManagerFactorySpec`. Each half appends its own rows to `codes.csv` and to the divergence record (distinct files touched → no merge conflict).
+Tracked checkboxes: `tasks.md` §7. Starts after Group 2's commits **and** Group 3's `__EVENTNAME` commit (until the macro expands, every envelope you write would carry an undefined identifier). Edits `rvsec-mop/src/main/resources/jca_android/*.mop`, `jca_android/codes.csv`, `rvsec-core/.../eh/ErrorType.java` (+ its test), `data/jca_android/divergence_record.csv` and `evidence/harness/e1-*.md`.
+
+Two subagents on disjoint halves of the **21** surviving specifications: **7.a** = `CipherInputStreamSpec, CipherOutputStreamSpec, CipherSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, IvParameterSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairGeneratorSpec, KeyPairSpec, KeyStoreSpec`; **7.b** = `MacSpec, MessageDigestSpec, PBEKeySpecSpec, PBEParameterSpecSpec, SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, SSLContextSpec, TrustManagerFactorySpec` **plus `ErrorType.java`**, which 7.b owns alone. `RandomStringPassword` and `SecretKeySpec` are not in either half — Group 2 deleted them.
 
 ## Subagent brief
 
-Read `design.md` D-2, D-3, D-4 and the `instrumentation` delta requirements `Violation Report Message Envelope`, `Event-Name Emission by the Monitor Generator` (INV-INS-119/120/121). Do not touch automata, pointcuts, `fsm`/`ere`, bindings or predicate reads — that is Group 8. Do not touch `jca/` or `jca_android/`. Every hunk gets a divergence-record entry (kind `message`, task `7.x`). Regenerate the monitor of your half's set in scratch at the end (`RVSEC_HOME`, `TMPDIR` off tmpfs) and run the harness seed-vs-now per file: the classification must be `unchanged` for accusation (only the envelope differs). Java inside `.mop` bodies is inlined verbatim into the monitor: keep it minimal (a field write, a string concatenation, one `addError`).
+Read `design.md` D-2, D-3, D-4 and the `instrumentation` delta requirements `Violation Report Message Envelope`, `Event-Name Emission by the Monitor Generator` (INV-INS-119/120/121). Do not touch automata, pointcuts, `fsm`/`ere` or bindings — that is Group 8. Do not touch `jca/` or the archived `jca_android_bug_predicate/`. Do not re-open the allow-lists — Group 2 settled them from the api30 rules and gate G-CONF holds them; your job is to make the message *say* what the list already is. Every hunk gets a divergence-record entry (kind `message`, task `7.x`). Regenerate the monitor of your half in scratch at the end (`RVSEC_HOME`, `TMPDIR` off tmpfs) and run the harness seed-vs-now per file: the classification must be `unchanged` for accusation — only the envelope differs. Java inside `.mop` bodies is inlined verbatim into the monitor: keep it minimal (a string concatenation and one `addError`).
+
+## Task 7.1 — `ErrorType` gains `ForbiddenMethod`, and only that
+
+`rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorType.java` has six values today (`:4-9`): `UnsafeAlgorithm`, `InvalidSequenceOfMethodCalls`, `UnsatisfiedConstraint`, `InvalidKeySize`, `InvalidKeyStoreType`, `UnsafeProtocol`. Add **`ForbiddenMethod`**.
+
+`RequiredPredicate` does **not** enter: predicates left the set in Group 2, so no site could carry it, and an enum value nothing produces is dead code (P3). `ForbiddenMethod` does enter, because CrySL's `FORBIDDEN` is not a predicate — it is a per-call prohibition, and `generated/api30/PBEKeySpec.cryptsl` declares exactly two of them (`PBEKeySpec(char[])`, `PBEKeySpec(char[], byte[], int)`), which are what `PBEKeySpecSpec` `f1`/`f2` encode. Today they report `InvalidSequenceOfMethodCalls`, which is the wrong type and sends the developer looking for a call-order bug that is not there. (`generated/api30/SSLContext.cryptsl` also declares `FORBIDDEN: getDefault()`, which no `.mop` event encodes — record it as an omission in the conformance record; adding the event is not this group's work.)
+
+KIND `FORB` joins the `codes.csv` vocabulary of design D-3: `ORDER`, `ALG`, `CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`. `REQ` is not used by this set.
+
+## Task 7.2 — recount the sites before editing anything
+
+**The seed's site census does not survive Group 2, and no number in this file may be trusted until you re-derive it.** The frozen `jca` had 51 `new ErrorDescription(` = 25 three-argument (21 `@fail` + `IvParameterSpec:48,55` + `PBEKeySpecSpec:24,30`) + 26 four-argument (one of them commented, `MessageDigestSpec:57-58`).
+
+What is known to be gone after Group 2:
+
+| site | seed line | why it disappears |
+|---|---|---|
+| `IvParameterSpec` c3 | `:48` (3-arg) | condition was `!validate(RANDOMIZED, iv)` and nothing else |
+| `IvParameterSpec` c4 | `:55` (3-arg) | idem |
+| `PBEKeySpecSpec` err2 | `:57-58` (4-arg) | condition was `!validate(RANDOMIZED, password)` and nothing else |
+| `PBEKeySpecSpec` err3 | `:65-66` (4-arg) | condition was `!validate(RANDOMIZED, salt)` and nothing else |
+| `SecureRandomSpec` setSeed3 | `:100-101` (4-arg) | condition was `!validate(RANDOMIZED, seed)` and nothing else |
+
+Deleting `RandomStringPassword.mop` and `SecretKeySpec.mop` costs zero sites (both had none). That leaves a **provisional 23 three-argument + 23 four-argument = 46**, and the 21 `@fail` are untouched.
+
+One more site is settled since that provisional was written: `SecretKeySpecSpec.c3` (`:48-49`) had two halves, an allow-list test and a predicate test. The predicate half went with Group 2 task 2.3, and the allow-list half went with Group 2 task 2.4 — `generated/api30/SecretKeySpec.cryptsl` declares only `length(keyMaterial) >= off + len` and nothing about the algorithm, so the seed's algorithm list has no base and was removed. Both halves gone means the site is gone, `c4` keeps only its length test, and the arithmetic becomes **23 three-argument + 22 four-argument = 45**.
+
+That is still **A RECALCULAR na execução**, and the reasons are mechanical rather than open questions: every line number in the tables below moved when the `ExecutionContext` blocks were deleted, and the allow-list transcription may have emptied a condition somewhere else without anyone predicting it here. **Count from the files, write the count into this section, and only then start editing.** If the count is neither 45 nor 46, say which site explains the difference before continuing.
 
 ## Idiom (per file)
 
@@ -12,57 +42,86 @@ Read `design.md` D-2, D-3, D-4 and the `instrumentation` delta requirements `Vio
 @fail {
     ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "<Spec>", "" + __LOC,
         "v=1 code=<SPEC>-ORDER-00 ev=" + __EVENTNAME + " obj=<SimpleClass> val='' exp='' msg='<sentence>'"));
-    ...existing removes...; __RESET;
+    __RESET;
 }
 value site: addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "<Spec>", "" + __LOC,
         "v=1 code=<SPEC>-ALG-01 ev=" + __EVENTNAME + " obj=<SimpleClass> val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
 ```
-`__EVENTNAME` is expanded by the generator (Group 3, INV-INS-120): inside an event body it becomes the literal name of that event, inside `@fail` it becomes the name of the event that last transitioned the monitor (`none` if there was none). **Write no bookkeeping field and no bookkeeping statement** — the lint fails on them, and a hand-written name table would desynchronise from the generator's event indices under Group 8's alphabet edits.
+
+`__EVENTNAME` is expanded by the generator (Group 3, INV-INS-120): inside an event body it becomes the literal name of that event, inside `@fail` it becomes the name of the event that last transitioned the monitor (`none` if there was none). **Write no bookkeeping field and no bookkeeping statement** — the lint fails on them, and a hand-written name table would desynchronise from the generator's event indices under Group 8's edits.
 
 `q(s)`: null → `""`, `'` → `\'`, cap 512 chars — a private helper in `declarations` (private methods in `declarations` are emitted verbatim; verified on `KeyPairGeneratorSpec`). No `static` declarations. `msg` must not start with `expecting` (`ErrorDescription.toString :143` prefixes it).
 
-## Per-file inventory (frozen `jca` = seed of `jca_v2`; line numbers of the seed)
+## Task 7.3 — the lying-message census
 
-| file | lines | events | 3-arg sites (→ 4th arg) | 4-arg value sites (→ envelope) | `@fail` `__RESET` | `but found` field→arg | census fixes (7.1) |
-|---|---|---|---|---|---|---|---|
-| CipherInputStreamSpec | 28 | 4 | `@fail :26` | – | yes | – | – |
-| CipherOutputStreamSpec | 28 | 5 | `@fail :26` | – | yes | – | – |
-| CipherSpec | 218 | 17 | `@fail :212` | i1 `:60-61` UA, i2 `:75-76` UA | yes | `:61,:76` field `currentTransformation` → arg `transformation` | drop literal `...`; `exp` = "see CipherTransformationUtil" or the utility's list |
-| DHGenParameterSpecSpec | 39 | 1 | `@fail :31` | – | yes | – | – |
-| GCMParameterSpecSpec | 59 | 2 | `@fail :51` | – | yes | – | (dup `c1` — Group 8; allowlist G-6′ meanwhile) |
-| HMACParameterSpecSpec | 37 | 1 | `@fail :29` | – | yes | – | – |
-| IvParameterSpec | 69 | 4 | c3 `:48` UC, c4 `:55` UC, `@fail :61` | – | yes | – | – |
-| KeyGeneratorSpec | 82 | 5 | `@fail :73` | gk1 `:63-64` UA | yes | `:64` field `currentAlgorithmInstance` → arg | `:64` missing space |
-| KeyManagerFactorySpec | 98 | 5 | `@fail :89` | init `:54-55` UA | yes | `:55` field → arg | `:55` leading space |
-| KeyPairGeneratorSpec | 118 | 9 | `@fail :111` | init1 `:71-72` UA, initError `:97-98` IKS | **no → add `__RESET`** | `:72` field `algorithm` → arg | `:72` leading space; `:71-72` unreachable (record; Group 8) |
-| KeyPairSpec | 52 | 3 | `@fail :44` | – | yes | – | – |
-| KeyStoreSpec | 87 | 7 | `@fail :77` | gk1 `:67-68` IKST | yes | `:68` field `currentKSType` → arg | `:68` missing space |
-| MacSpec | 94 | 8 | `@fail :86` | i1 `:49-50` UA, i2 `:61-62` UA | yes | `:50,:62` field → arg | `:50` leading space; `:62` missing verb |
-| MessageDigestSpec | 119 | 9 | `@fail :111` | update `:69-70` UA, d2 `:91-92` UA (+ commented g4 `:57-58` — un-comment, argument form) | yes | `:70,:92` field → arg | list `{SHA-256,SHA-384,SHA-512}` → allow-list `:16` (six entries) |
-| PBEKeySpecSpec | 86 | 7 | f1 `:24` ISMC, f2 `:30` ISMC, `@fail :78-79` | err1 `:49-50` UC, err2 `:57-58` UC, err3 `:65-66` UC | yes | – | `:50` `1000`→`10000`; f1/f2 `ErrorType` → UC (forbidden constructor) |
-| PBEParameterSpecSpec | 63 | 3 | `@fail :56` | c3 `:49-50` UA | yes | – | `:50` `1000`→`10000`; `:49` UA → UC |
-| RandomStringPassword | 29 | 2 | – (no `@fail`) | – | n/a | – | – |
-| SecretKeySpec | 34 | 1 | – (no `@fail`; null detector — Group 8) | – | n/a | – | – |
-| SecretKeySpecSpec | 70 | 4 | `@fail :62` | c3 `:48-49` UC, c4 `:55-56` UC | yes | – | `:49` "length is not randomized" → array; leading spaces `:49,:56`; split algorithm half as UA (`:48,:55`) |
-| SecureRandomSpec | 174 | 15 | `@fail :167` | g4 `:81-82` UA (already argument `alg`), setSeed3 `:100-101` UC | yes | – | `:82` joins with `" or "` — normalise to `","` |
-| SignatureSpec | 138 | 12 | `@fail :130` | i1 `:57-58`, i2 `:67-68`, i3 `:77-78`, i4 `:87-88` UA | yes | `:58,:68,:78,:88` field → arg | – |
-| SSLContextSpec | 93 | 5 | `@fail :84` | init `:57-58` UP | yes | `:58` field `currentProtocol` → arg | – |
-| TrustManagerFactorySpec | 97 | 5 | `@fail :85` | init `:56-57` UA | yes | `:57` field → arg | – |
+Apply these **before** writing envelopes, so the envelope is built over a true sentence. Line numbers are the seed's; locate by symbol.
 
-Totals: 25 three-argument sites (21 `@fail` + 4), 26 four-argument sites (1 commented), 134 event bodies, 17 active `but found` sites (16 field + 1 argument). `ErrorType` values (`rvsec-core/.../eh/ErrorType.java`): `UnsafeAlgorithm`, `InvalidSequenceOfMethodCalls`, `UnsatisfiedConstraint`, `InvalidKeySize`, `InvalidKeyStoreType`, `UnsafeProtocol`. KIND per code (design D-3): `ORDER`, `ALG`, `CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO` (`REQ`/`FORB` come with Group 8).
+| site | today | correct | proof |
+|---|---|---|---|
+| `PBEKeySpecSpec:50` | message says `>= 1000` | `>= 10000` | guard at `:48` tests `10000`; `generated/api30/PBEKeySpec.cryptsl` `CONSTRAINTS: iterationCount >= 10000` |
+| `PBEParameterSpecSpec:50` | message says `at least 1000 iterations` | `10000` | guard at `:46`; `generated/api30/PBEParameterSpec.cryptsl` idem |
+| `PBEKeySpecSpec:24` (`f1`) | `ErrorType.InvalidSequenceOfMethodCalls` | **`ErrorType.ForbiddenMethod`** | `PBEKeySpec.cryptsl` `FORBIDDEN: PBEKeySpec(char[]) => c1;` — decision D-a |
+| `PBEKeySpecSpec:30` (`f2`) | `ErrorType.InvalidSequenceOfMethodCalls` | **`ErrorType.ForbiddenMethod`** | `FORBIDDEN: PBEKeySpec(char[], byte[], int) => c1;` — decision D-a |
+| `PBEParameterSpecSpec:49` (`c3`) | `ErrorType.UnsafeAlgorithm` | **`ErrorType.UnsatisfiedConstraint`** | the clause is an iteration-count bound, not an algorithm — decision D-a |
+| `MessageDigestSpec:70,92` | message lists 3 entries | the transcribed allow-list | Group 2 rewrote `:16`; the message must join that list, not a literal |
+| `CipherSpec:61,76` | message ends in a literal `...` | drop it; name the new Java utility of task 2.8 | the list is in Java (D-b) |
+| `KeyGeneratorSpec:64`, `KeyStoreSpec:68` | missing space | — | reading the rendered line |
+| `MacSpec:62` | missing verb | — | idem |
+| `SecretKeySpecSpec:49` | "keyMaterial.length is not randomized" | — | **the whole site is gone after Group 2** (both halves of `c3`'s condition left; see 7.2); nothing to rewrite, only to confirm absent |
+| `MacSpec:50`, `KeyManagerFactorySpec:55`, `KeyPairGeneratorSpec:72`, `SecretKeySpecSpec:49,56` | leading space | — | idem |
+| `SecureRandomSpec:82` | joins the list with `" or "` | `","` — one separator across the set | consumers split on the rendered `exp` |
+
+`KeyPairGeneratorSpec:71-72` is unreachable; note it here and leave the repair to Group 8 task 8.6 — but write the envelope anyway, so the site is legible the moment it becomes reachable.
+
+## Task 7.4 — field → argument at the `but found` sites
+
+Sixteen sites in the seed interpolate a **monitor field** where the bound **argument** is in scope, so the message names the previous call's value: `CipherSpec:61,76` (`currentTransformation`); `KeyGeneratorSpec:64` and `MacSpec:50,62` and `SignatureSpec:58,68,78,88` and `TrustManagerFactorySpec:57` and `KeyManagerFactorySpec:55` and `MessageDigestSpec:70,92` (`currentAlgorithmInstance`); `KeyPairGeneratorSpec:72` (`algorithm`); `KeyStoreSpec:68` (`currentKSType`); `SSLContextSpec:58` (`currentProtocol`). `SecureRandomSpec:82` already uses the argument. Re-verify the list against the post-Group-2 files before editing. Un-comment `MessageDigestSpec:57-58` and use its argument form as the model.
+
+This is the message-side twin of Group 8 task 8.7, which fixes the same confusion in the *guards* of `KeyGeneratorSpec:47` and `MessageDigestSpec:55`. They are separate tasks in separate groups on purpose: one changes what is reported, the other changes whether anything is reported at all.
+
+## Per-file inventory (frozen `jca` = the seed; line numbers of the seed, **stale after Group 2**)
+
+| file | seed lines | events | 3-arg sites | 4-arg value sites | `@fail` `__RESET` | after Group 2 |
+|---|---|---|---|---|---|---|
+| CipherInputStreamSpec | 28 | 4 | `@fail :26` | – | yes | unchanged |
+| CipherOutputStreamSpec | 28 | 5 | `@fail :26` | – | yes | unchanged |
+| CipherSpec | 218 | 17 | `@fail :212` | i1 `:60-61` UA, i2 `:75-76` UA | yes | i2 keeps its transformation half only |
+| DHGenParameterSpecSpec | 39 | 1 | `@fail :31` | – | yes | unchanged |
+| GCMParameterSpecSpec | 59 | 2 | `@fail :51` | – | yes | guards widened; duplicate `c1` is Group 8 |
+| HMACParameterSpecSpec | 37 | 1 | `@fail :29` | – | yes | unchanged |
+| IvParameterSpec | 69 | 4 | c3 `:48`, c4 `:55`, `@fail :61` | – | yes | **c3 and c4 gone** → only `@fail` |
+| KeyGeneratorSpec | 82 | 5 | `@fail :73` | gk1 `:63-64` UA | yes | allow-list rewritten |
+| KeyManagerFactorySpec | 98 | 5 | `@fail :89` | init `:54-55` UA | yes | allow-list = `{PKIX}` |
+| KeyPairGeneratorSpec | 118 | 9 | `@fail :111` | init1 `:71-72` UA, initError `:97-98` IKS | **no → add `__RESET`** | allow-list + `EC` |
+| KeyPairSpec | 52 | 3 | `@fail :44` | – | yes | unchanged |
+| KeyStoreSpec | 87 | 7 | `@fail :77` | gk1 `:67-68` IKST | yes | allow-list = the Android types |
+| MacSpec | 94 | 8 | `@fail :86` | i1 `:49-50` UA, i2 `:61-62` UA | yes | both keep their allow-list half |
+| MessageDigestSpec | 119 | 9 | `@fail :111` | update `:69-70` UA, d2 `:91-92` UA (+ commented g4 `:57-58`) | yes | list = the six api30 digests, MD5 and SHA-1 included (task 2.4) |
+| PBEKeySpecSpec | 86 | 7 | f1 `:24` → FORB, f2 `:30` → FORB, `@fail :78-79` | err1 `:49-50` UC, err2 `:57-58`, err3 `:65-66` | yes | **err2 and err3 gone** |
+| PBEParameterSpecSpec | 63 | 3 | `@fail :56` | c3 `:49-50` UA → **UC** | yes | c3 keeps its iteration-count half |
+| SecretKeySpecSpec | 70 | 4 | `@fail :62` | c3 `:48-49` UC, c4 `:55-56` UC | yes | **c3 gone (both halves) — see 7.2**; c4 keeps its length test |
+| SecureRandomSpec | 174 | 15 | `@fail :167` | g4 `:81-82` UA, setSeed3 `:100-101` UC | yes | **setSeed3 gone**; list = `{SHA1PRNG}` |
+| SignatureSpec | 138 | 12 | `@fail :130` | i1 `:57-58`, i2 `:67-68`, i3 `:77-78`, i4 `:87-88` UA | yes | list = the 20 api30 entries + the four ECDSA of task 2.7 |
+| SSLContextSpec | 93 | 5 | `@fail :84` | init `:57-58` UP | yes | list = the 7 api30 protocols |
+| TrustManagerFactorySpec | 97 | 5 | `@fail :85` | init `:56-57` UA | yes | list = `{PKIX}`; `X509` resolves through the alias class (task 2.5), not through the list |
 
 ## Commands
 
 ```bash
-python3 scripts/gh104_mop_lint.py ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_v2       # 0 three-arg, 0 hand-written bookkeeping (dup c1 + parens remain until Group 8 → allowlisted)
-python3 scripts/gh104_message_gate.py ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_v2   # literals match; codes.csv bijective
+python3 scripts/gh104_mop_lint.py ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android       # 0 three-arg, 0 bookkeeping
+python3 scripts/gh104_message_gate.py ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android   # literals match; codes.csv bijective; ErrorType matches the site kind
+python3 scripts/gh104_gates.py <scratch>/MultiSpec_1RuntimeMonitor.java --allowlist data/jca_android/gate_allowlist.csv --crysl ../../MetaCrySL/generated/api30
 python3 scripts/gh104_divergence_record.py --check
-python3 scripts/gh104_diff_harness.py --a <seed snapshot (git show <seed-commit>:… into scratch)> --b ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_v2 --traces traces --out evidence/harness/e1
+python3 scripts/gh104_diff_harness.py --a <seed snapshot: git show <seed-commit>:… into scratch> --b ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android --traces traces --out evidence/harness/e1
+cd ../rvsec && mvn -q test -pl rvsec/rvsec-core     # ErrorType test
+uv run pytest --import-mode=importlib -o "addopts=" tests/parity -q
 ```
 
 ## Acceptance
 
-- Zero three-argument sites; zero field-interpolating `but found` sites; every envelope's `ev=` comes from `__EVENTNAME` and no bookkeeping field or statement exists; `codes.csv` bijective with the 51 sites (+ any envelope-only sites); every hunk recorded.
+- The recount of task 7.2 is written into this file, with the number derived from the files and the reason for any difference from the expected 45.
+- `ErrorType` carries `ForbiddenMethod` and not `RequiredPredicate`; the three wrong `ErrorType` values of D-a are corrected.
+- Zero three-argument sites; zero field-interpolating `but found` sites; every envelope's `ev=` comes from `__EVENTNAME`; no bookkeeping field or statement exists; `codes.csv` bijective with the recounted sites; every hunk recorded.
 - Harness seed-vs-E1: every trace `unchanged` in accusation; envelope now carries `ev=`.
-- Monitor of `jca_v2` compiles (`MultiSpec_1RuntimeMonitor.java`) and carries no unexpanded `__EVENTNAME` — record generation time.
-- Two commits (one per half): `feat(jca_v2): mensagens legíveis com envelope v1 (arquivos A–K|M–T) (refs #104)`.
+- Monitor of `jca_android` compiles (`MultiSpec_1RuntimeMonitor.java`) and carries no unexpanded `__EVENTNAME` — record generation time.
+- Two commits (one per half): `feat(jca_android): mensagens legíveis com envelope v1 (arquivos A–K|M–T) (refs #104)`.

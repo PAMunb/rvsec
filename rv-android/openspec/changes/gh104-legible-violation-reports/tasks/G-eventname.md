@@ -6,7 +6,7 @@ Tracked checkboxes: `tasks.md` §3. Wave 1, in parallel with Groups 1, 2, 4, 5, 
 
 Read `design.md` D-4 (the decision and the superseded one, so you do not re-take it) and the `instrumentation` delta requirement `Event-Name Emission by the Monitor Generator` (INV-INS-120). You are adding **one macro and one table**; you are not changing any existing emission. Every edit is additive: no existing generated line may change shape, and the acceptance step proves it by regenerating two frozen sets and diffing.
 
-Do not touch any `.mop` file. Do not touch `javamop` — it carries the Java block from `.mop` to `.rvm` verbatim, which is why `__LOC` traverses it today without javamop knowing what it is.
+Do not touch any `.mop` file — including the successor set `jca_android`, which Group 2 builds in parallel with you and Group 7 fills with envelopes afterwards, and including the archived `jca_android_bug_predicate/`, which you only ever regenerate from. Do not touch `javamop` — it carries the Java block from `.mop` to `.rvm` verbatim, which is why `__LOC` traverses it today without javamop knowing what it is.
 
 ## The facts this group rests on (all verified 2026-08-17, file:line)
 
@@ -86,14 +86,14 @@ mvn -q install -DskipTests -DskipMopAgent=true          # ~12 min, needed before
 
 # regeneration diff (RVSEC_HOME set, TMPDIR off tmpfs)
 python3 scripts/gh104_regen_diff.py --set jca         --against results/gh101_group8_jca_frozen_control/monitors/
-python3 scripts/gh104_regen_diff.py --set jca_android --against <its recorded control>
+python3 scripts/gh104_regen_diff.py --set jca_android_bug_predicate --against <its recorded control>
 grep -rn "__EVENTNAME" <scratch>/monitors/            # must be empty
 ```
 
 ## Acceptance
 
 - `EventNameMacroTest` green on all three cases of INV-INS-120, with the handler case exercised on **one specification of each monitor shape** (e.g. `TrustManagerFactorySpec` for the atomic shape, `HMACParameterSpecSpec` for the non-atomic one).
-- Regenerating `jca` and `jca_android` differs from the recorded controls **only** by the new table and by expanded macros — no transition row, no state count, no dispatch line changes. Both diffs committed in `evidence/g_regeneration.md`.
+- Regenerating `jca` and the archived `jca_android_bug_predicate` differs from the recorded controls **only** by the new table and by expanded macros — no transition row, no state count, no dispatch line changes. Both diffs committed in `evidence/g_regeneration.md`. The successor `jca_android` is deliberately **not** a control for this group: it is being built by Group 2 in parallel and has no recorded control yet; Group 7 task 7.7 regenerates it once it is stable.
 - `grep -rn "__EVENTNAME"` over any generated monitor returns nothing.
 - Reactor builds; `lib/` jars refreshed (Group 4 task 4.6 also refreshes them — coordinate so the last one wins and its sha256 is the one recorded).
 - One commit: `feat(rv-monitor): macro __EVENTNAME e tabela de nomes de evento por monitor (refs #104)`.

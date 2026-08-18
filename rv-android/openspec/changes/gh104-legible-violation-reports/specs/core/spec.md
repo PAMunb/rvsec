@@ -1,6 +1,6 @@
 ## Purpose
 
-The `core` capability owns `RvErrorLog`, the domain record of one runtime-verification violation, and with it the identity under which violations are deduplicated: `unique_msg` is both the `__hash__` and the `__eq__` of the record (`modules/rv-android-core/src/rv_android_core/domain/log.py`). This change touches that identity for one reason. In the published dataset 72.93 % of the 97,018 violation records carry the literal `unknown` as their message, and the identity `class:::method:::spec:::error_type:::message` therefore collapses every event of a specification that reports `unknown` into one key per method — per-event attribution is impossible for any consumer of the record. The specification-side repair (the message envelope `v=1 code=… ev=… …` emitted by the successor set `jca_v2`) puts the offending event and a stable code into the message; the domain side has to admit them into the identity, or the repair changes the text of the message and nothing about how violations are counted.
+The `core` capability owns `RvErrorLog`, the domain record of one runtime-verification violation, and with it the identity under which violations are deduplicated: `unique_msg` is both the `__hash__` and the `__eq__` of the record (`modules/rv-android-core/src/rv_android_core/domain/log.py`). This change touches that identity for one reason. In the published dataset 72.93 % of the 97,018 violation records carry the literal `unknown` as their message, and the identity `class:::method:::spec:::error_type:::message` therefore collapses every event of a specification that reports `unknown` into one key per method — per-event attribution is impossible for any consumer of the record. The specification-side repair (the message envelope `v=1 code=… ev=… …` emitted by the successor set `jca_android`) puts the offending event and a stable code into the message; the domain side has to admit them into the identity, or the repair changes the text of the message and nothing about how violations are counted.
 
 `unique_msg` therefore gains two parts, `code` and `event`, read from the envelope keys `code=` and `ev=`, and becomes a seven-part key. A record produced by the frozen `jca` (no envelope) carries the sentinel `UNSPECIFIED` in both parts, so its key is well-formed and distinguishable from a record whose envelope named the event. Because the key is the identity, this is a declared count discontinuity: a `unique_errors` computed before this change and one computed after it are not comparable numbers, and every report of a deduplicated count MUST say which era it belongs to. The change also closes a construction leak: today the same f-string is written in five places (`log.py:113`, `rv_platform/components/result_processor.py:631,:999,:1038`, `scripts/regenerate_results/regenerate_container.py:244`), so a change to the key in one place silently forks the identity in the others. After this change the key is built in exactly one place, `RvErrorLog.unique_msg`, and the other four call it.
 
@@ -74,11 +74,11 @@ reader comparing the two figures does not conclude that one is defective.
 #### Scenario: an envelope message yields code and event parts
 
 - **WHEN** an `RvErrorLog` is created with `class_full_name` = `com.apk.axml.APKParser`, `method` = `getCertificateFingerprint`,
-  `spec` = `MessageDigestSpec`, `error_type` = `ForbiddenMethod`, `code` = `MD-FM-01`, `event` = `g1` and
-  `message` = `v=1 code=MD-FM-01 ev=g1 obj=MessageDigest val='MD5' exp='SHA-256, SHA-384, SHA-512' msg='digest not allowed'`
+  `spec` = `MessageDigestSpec`, `error_type` = `ForbiddenMethod`, `code` = `MD-FORB-01`, `event` = `g1` and
+  `message` = `v=1 code=MD-FORB-01 ev=g1 obj=MessageDigest val='MD5' exp='SHA-256, SHA-384, SHA-512' msg='digest not allowed'`
 - **THEN** `unique_msg` MUST be
-  `com.apk.axml.APKParser:::getCertificateFingerprint:::MessageDigestSpec:::ForbiddenMethod:::MD-FM-01:::g1:::v=1 code=MD-FM-01 ev=g1 obj=MessageDigest val='MD5' exp='SHA-256, SHA-384, SHA-512' msg='digest not allowed'`
-- **AND** splitting it on `:::` MUST yield exactly seven parts, the fifth being `MD-FM-01` and the sixth `g1`
+  `com.apk.axml.APKParser:::getCertificateFingerprint:::MessageDigestSpec:::ForbiddenMethod:::MD-FORB-01:::g1:::v=1 code=MD-FORB-01 ev=g1 obj=MessageDigest val='MD5' exp='SHA-256, SHA-384, SHA-512' msg='digest not allowed'`
+- **AND** splitting it on `:::` MUST yield exactly seven parts, the fifth being `MD-FORB-01` and the sixth `g1`
 
 #### Scenario: a legacy `unknown` message yields the sentinels
 
