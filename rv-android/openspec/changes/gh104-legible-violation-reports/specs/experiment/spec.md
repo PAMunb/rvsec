@@ -57,17 +57,17 @@ The `get_module_config()` method MUST serve as a generic dispatcher that routes 
   - `rvsec_root="/path/to/rvsec"`
   - `javamop_bin="/path/to/rvsec/javamop/bin/javamop"`
   - `rvmonitor_bin="/path/to/rvsec/rv-monitor/bin/rv-monitor"`
-  - `mop_specs_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/jca"`
-  - `aspects_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/aspect"`
+  - `mop_specs_dir="/path/to/rvsec/rvsec-mop/src/main/resources/jca"`
+  - `aspects_dir="/path/to/rvsec/rvsec-mop/src/main/resources/aspect"`
 - **AND** `mop_specs_dir` MUST be the frozen set's directory exactly, not a directory whose name merely begins with it — `jca_android` and `jca_android_bug_predicate` are sibling directories, not sub-paths of `jca`
 
 #### Scenario: JIT Configuration for Monitor Generation With the Successor Set
 
 - **WHEN** `PreProcessor._generate_monitors()` calls `config.get_monitored_operations_config()` with `specification_set="jca_android"`, `custom_specs_dir=None` and `RVSEC_HOME="/path/to/rvsec"`
-- **THEN** the method MUST return an `RVGeneratorConfig` with `mop_specs_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android"`
+- **THEN** the method MUST return an `RVGeneratorConfig` with `mop_specs_dir="/path/to/rvsec/rvsec-mop/src/main/resources/jca_android"`
 - **AND** MUST NOT raise for the absent `custom_specs_dir`, which is required by "custom" alone
-- **AND** `mop_specs_dir` MUST NOT be `/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/jca`, so a run of the successor set can never be recorded as a run of the frozen one
-- **AND** `mop_specs_dir` MUST NOT be `/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android_bug_predicate` either — the archived directory's name has the successor's name as a prefix, so a mapping built by string matching rather than by explicit lookup would silently run the set the 2026-08-08 audit judged NOT READY
+- **AND** `mop_specs_dir` MUST NOT be `/path/to/rvsec/rvsec-mop/src/main/resources/jca`, so a run of the successor set can never be recorded as a run of the frozen one
+- **AND** `mop_specs_dir` MUST NOT be `/path/to/rvsec/rvsec-mop/src/main/resources/jca_android_bug_predicate` either — the archived directory's name has the successor's name as a prefix, so a mapping built by string matching rather than by explicit lookup would silently run the set the 2026-08-08 audit judged NOT READY
 
 #### Scenario: Unknown Specification Set Is Rejected With the Full List
 

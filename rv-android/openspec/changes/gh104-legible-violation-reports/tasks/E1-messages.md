@@ -71,7 +71,7 @@ Apply these **before** writing envelopes, so the envelope is built over a true s
 | `MacSpec:50`, `KeyManagerFactorySpec:55`, `KeyPairGeneratorSpec:72`, `SecretKeySpecSpec:49,56` | leading space | — | idem |
 | `SecureRandomSpec:82` | joins the list with `" or "` | `","` — one separator across the set | consumers split on the rendered `exp` |
 
-`KeyPairGeneratorSpec:71-72` is unreachable; note it here and leave the repair to Group 8 task 8.6 — but write the envelope anyway, so the site is legible the moment it becomes reachable.
+`KeyPairGeneratorSpec:71-72` is unreachable — `validate()` returns `true` exactly for the members of `safeAlgorithms`, so the guard at `:70` is false whenever it runs; note it here and leave the removal to Group 8 task 8.6 — but write the envelope anyway, so the site is legible the moment it becomes reachable.
 
 ## Task 7.4 — field → argument at the `but found` sites
 
@@ -108,11 +108,11 @@ This is the message-side twin of Group 8 task 8.7, which fixes the same confusio
 ## Commands
 
 ```bash
-python3 scripts/gh104_mop_lint.py ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android       # 0 three-arg, 0 bookkeeping
-python3 scripts/gh104_message_gate.py ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android   # literals match; codes.csv bijective; ErrorType matches the site kind
+python3 scripts/gh104_mop_lint.py ../rvsec/rvsec-mop/src/main/resources/jca_android       # 0 three-arg, 0 bookkeeping
+python3 scripts/gh104_message_gate.py ../rvsec/rvsec-mop/src/main/resources/jca_android   # literals match; codes.csv bijective; ErrorType matches the site kind
 python3 scripts/gh104_gates.py <scratch>/MultiSpec_1RuntimeMonitor.java --allowlist data/jca_android/gate_allowlist.csv --crysl ../../MetaCrySL/generated/api30
 python3 scripts/gh104_divergence_record.py --check
-python3 scripts/gh104_diff_harness.py --a <seed snapshot: git show <seed-commit>:… into scratch> --b ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android --traces traces --out evidence/harness/e1
+python3 scripts/gh104_diff_harness.py --a <seed snapshot: git show <seed-commit>:… into scratch> --b ../rvsec/rvsec-mop/src/main/resources/jca_android --traces traces --out evidence/harness/e1
 cd ../rvsec && mvn -q test -pl rvsec/rvsec-core     # ErrorType test
 uv run pytest --import-mode=importlib -o "addopts=" tests/parity -q
 ```

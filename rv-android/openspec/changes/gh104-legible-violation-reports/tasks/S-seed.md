@@ -37,7 +37,7 @@ Python side (`rv-android/`):
 ## Task 2.1 — archive the reproved derived set
 
 ```bash
-cd ../rvsec/rvsec/rvsec-mop/src/main/resources
+cd ../rvsec/rvsec-mop/src/main/resources
 git mv jca_android jca_android_bug_predicate
 git status --short   # 23 lines, all `R  jca_android/X.mop -> jca_android_bug_predicate/X.mop`
 ```
@@ -89,8 +89,8 @@ And the `setProperty(...)` writes: every one of them, in every one of the 21 fil
 Verification command after the pass:
 
 ```bash
-grep -rn "ExecutionContext\|Property\.\|validate(\|setProperty(" ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android/   # empty
-grep -c "ExecutionContext" ../rvsec/rvsec/rvsec-mop/src/main/resources/jca/*.mop | awk -F: '{s+=$2} END{print s}'            # 134, the negative control
+grep -rn "ExecutionContext\|Property\.\|validate(\|setProperty(" ../rvsec/rvsec-mop/src/main/resources/jca_android/   # empty
+grep -c "ExecutionContext" ../rvsec/rvsec-mop/src/main/resources/jca/*.mop | awk -F: '{s+=$2} END{print s}'            # 134, the negative control
 ```
 
 ## Task 2.4 — literal transcription of the allow-lists
@@ -220,7 +220,7 @@ The invalid-value message keeps listing four values. If you find yourself editin
 
 ```bash
 # 2.1 — archive first, and only with git mv
-cd ../rvsec/rvsec/rvsec-mop/src/main/resources && git mv jca_android jca_android_bug_predicate
+cd ../rvsec/rvsec-mop/src/main/resources && git mv jca_android jca_android_bug_predicate
 git status --short | grep -c '^R ' && git diff --cached --stat --find-renames   # 23 renames, 0 insertions, 0 deletions
 # 2.2 — then seed
 cp -r jca jca_android && rm jca_android/RandomStringPassword.mop jca_android/SecretKeySpec.mop && ls jca_android/*.mop | wc -l   # 21 && rm jca_android/RandomStringPassword.mop jca_android/SecretKeySpec.mop && ls jca_android/*.mop | wc -l   # 21

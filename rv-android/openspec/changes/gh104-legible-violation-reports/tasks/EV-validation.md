@@ -14,7 +14,7 @@ G-2 as inherited says: an event whose transition row sends every state to `fail`
 
 A CrySL rule has four clause families, and only one of them produces `ORDER` structure. `CONSTRAINTS`, `REQUIRES` and `FORBIDDEN` are **per-call predicates**: they say "this call is wrong on these arguments", not "this call is wrong at this point in the sequence". The natural encoding of such a clause in JavaMOP is exactly an event that leads to `fail` from every state — because the *state* is irrelevant to the accusation. Examples from the 18: `PBEKeySpecSpec.f1/f2` encode `FORBIDDEN: PBEKeySpec(char[]); PBEKeySpec(char[], byte[], int);` of `generated/api30/PBEKeySpec.cryptsl`; `PBEKeySpecSpec.err1` encodes `CONSTRAINTS: iterationCount >= 10000`; `SecretKeySpecSpec.c3/c4`, `SecureRandomSpec.g4`, `SignatureSpec.g3`, `TrustManagerFactorySpec.g3`, `SSLContextSpec.unsafe_protocol` encode `CONSTRAINTS … in {…}` allow-lists. They are correct code, and a gate that fails them teaches the reader to ignore the gate.
 
-**The single real orphan is `MessageDigestSpec:73 reset`**: an empty-bodied event with no clause of any family behind it in `generated/api30/MessageDigest.cryptsl`.
+**The single real orphan is `MessageDigestSpec:74-76 reset`**: an empty-bodied event with no clause of any family behind it in `generated/api30/MessageDigest.cryptsl`. It is also the only orphan of the set with no `condition()` gating it, which is why removing it is behavioural: its generated row is `{4,4,4,4,4}` against a `fail` of 4, so every woven `reset()` accuses. The two other ungated orphans, `PBEKeySpecSpec.f1`/`f2`, encode a `FORBIDDEN` clause and are meant to.
 
 So G-2 takes a second input — the specification's api30 `.cryptsl` — and splits its verdict:
 
@@ -83,10 +83,10 @@ For the record, the same first trace against the *successor* set will classify *
 ```bash
 python3 scripts/gh104_gates.py results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1RuntimeMonitor.java \
     --allowlist data/jca/gate_allowlist.csv --crysl ../../MetaCrySL/generated/api30 --alias data/jca_android/alias_table.csv
-python3 scripts/gh104_mop_lint.py ../rvsec/rvsec/rvsec-mop/src/main/resources/jca      # reports the baseline hits
+python3 scripts/gh104_mop_lint.py ../rvsec/rvsec-mop/src/main/resources/jca      # reports the baseline hits
 uv run pytest --import-mode=importlib -o "addopts=" tests/parity/test_gh104_structural_gates.py -q
-cd ../rvsec/rvsec/rvsec-mop && mvn -q test -Dtest=TraceRunnerTest
-python3 scripts/gh104_diff_harness.py --a ../rvsec/rvsec/rvsec-mop/src/main/resources/jca --b ../rvsec/rvsec/rvsec-mop/src/main/resources/jca_android_bug_predicate --traces traces --out evidence/harness/selftest
+cd ../rvsec/rvsec-mop && mvn -q test -Dtest=TraceRunnerTest
+python3 scripts/gh104_diff_harness.py --a ../rvsec/rvsec-mop/src/main/resources/jca --b ../rvsec/rvsec-mop/src/main/resources/jca_android_bug_predicate --traces traces --out evidence/harness/selftest
 ```
 
 ## Acceptance
