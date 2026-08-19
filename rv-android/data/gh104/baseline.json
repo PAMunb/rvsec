@@ -1,0 +1,1996 @@
+{
+  "android_tier": {
+    "rows": [
+      {
+        "apps": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 113,
+          "excluded": "nothing",
+          "expected": 60,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 60,
+          "percent": 53.1,
+          "quantity": "SSLContextSpec / UnsafeProtocol / `TLS` applications",
+          "unit": "apks"
+        },
+        "error_type": "UnsafeProtocol",
+        "events": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 97018,
+          "excluded": "nothing",
+          "expected": 8648,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 8648,
+          "percent": 8.91,
+          "quantity": "SSLContextSpec / UnsafeProtocol / `TLS` events",
+          "unit": "rows"
+        },
+        "misuses": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value",
+            "misuse_article"
+          ],
+          "denominator": 454,
+          "excluded": "nothing",
+          "expected": 65,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 65,
+          "percent": 14.32,
+          "quantity": "SSLContextSpec / UnsafeProtocol / `TLS` unique misuses",
+          "unit": "misuses"
+        },
+        "observed_value": "TLS",
+        "spec": "SSLContextSpec"
+      },
+      {
+        "apps": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 113,
+          "excluded": "nothing",
+          "expected": 11,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 11,
+          "percent": 9.73,
+          "quantity": "KeyStoreSpec / InvalidKeyStoreType / `AndroidKeyStore` applications",
+          "unit": "apks"
+        },
+        "error_type": "InvalidKeyStoreType",
+        "events": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 97018,
+          "excluded": "nothing",
+          "expected": 2005,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 2005,
+          "percent": 2.07,
+          "quantity": "KeyStoreSpec / InvalidKeyStoreType / `AndroidKeyStore` events",
+          "unit": "rows"
+        },
+        "misuses": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value",
+            "misuse_article"
+          ],
+          "denominator": 454,
+          "excluded": "nothing",
+          "expected": 12,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 12,
+          "percent": 2.64,
+          "quantity": "KeyStoreSpec / InvalidKeyStoreType / `AndroidKeyStore` unique misuses",
+          "unit": "misuses"
+        },
+        "observed_value": "AndroidKeyStore",
+        "spec": "KeyStoreSpec"
+      },
+      {
+        "apps": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 113,
+          "excluded": "nothing",
+          "expected": 3,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 3,
+          "percent": 2.65,
+          "quantity": "TrustManagerFactorySpec / UnsafeAlgorithm / `X509` applications",
+          "unit": "apks"
+        },
+        "error_type": "UnsafeAlgorithm",
+        "events": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 97018,
+          "excluded": "nothing",
+          "expected": 643,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 643,
+          "percent": 0.66,
+          "quantity": "TrustManagerFactorySpec / UnsafeAlgorithm / `X509` events",
+          "unit": "rows"
+        },
+        "misuses": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value",
+            "misuse_article"
+          ],
+          "denominator": 454,
+          "excluded": "nothing",
+          "expected": 5,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 5,
+          "percent": 1.1,
+          "quantity": "TrustManagerFactorySpec / UnsafeAlgorithm / `X509` unique misuses",
+          "unit": "misuses"
+        },
+        "observed_value": "X509",
+        "spec": "TrustManagerFactorySpec"
+      },
+      {
+        "apps": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 113,
+          "excluded": "nothing",
+          "expected": 1,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 1,
+          "percent": 0.88,
+          "quantity": "CipherSpec / UnsafeAlgorithm / `RSA/ECB/OAEPWithSHA1AndMGF1Padding` applications",
+          "unit": "apks"
+        },
+        "error_type": "UnsafeAlgorithm",
+        "events": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 97018,
+          "excluded": "nothing",
+          "expected": 109,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 109,
+          "percent": 0.11,
+          "quantity": "CipherSpec / UnsafeAlgorithm / `RSA/ECB/OAEPWithSHA1AndMGF1Padding` events",
+          "unit": "rows"
+        },
+        "misuses": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value",
+            "misuse_article"
+          ],
+          "denominator": 454,
+          "excluded": "nothing",
+          "expected": 1,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 1,
+          "percent": 0.22,
+          "quantity": "CipherSpec / UnsafeAlgorithm / `RSA/ECB/OAEPWithSHA1AndMGF1Padding` unique misuses",
+          "unit": "misuses"
+        },
+        "observed_value": "RSA/ECB/OAEPWithSHA1AndMGF1Padding",
+        "spec": "CipherSpec"
+      },
+      {
+        "apps": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 113,
+          "excluded": "nothing",
+          "expected": 1,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 1,
+          "percent": 0.88,
+          "quantity": "SignatureSpec / UnsafeAlgorithm / `SHA256WITHRSA` applications",
+          "unit": "apks"
+        },
+        "error_type": "UnsafeAlgorithm",
+        "events": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value"
+          ],
+          "denominator": 97018,
+          "excluded": "nothing",
+          "expected": 4,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 4,
+          "percent": 0.0,
+          "quantity": "SignatureSpec / UnsafeAlgorithm / `SHA256WITHRSA` events",
+          "unit": "rows"
+        },
+        "misuses": {
+          "agrees": true,
+          "definitions": [
+            "error_type",
+            "observed_value",
+            "misuse_article"
+          ],
+          "denominator": 454,
+          "excluded": "nothing",
+          "expected": 1,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 1,
+          "percent": 0.22,
+          "quantity": "SignatureSpec / UnsafeAlgorithm / `SHA256WITHRSA` unique misuses",
+          "unit": "misuses"
+        },
+        "observed_value": "SHA256WITHRSA",
+        "spec": "SignatureSpec"
+      }
+    ],
+    "source": {
+      "api_level": "API 30 (Android 11)",
+      "api_level_sources": [
+        "ase-journal/dataset.tex:5",
+        "ase-journal/docs/20260806_owasp_cwe_mapping_report.md:622-648"
+      ],
+      "conscrypt_branch": "android11-release",
+      "tier_table": "ase-journal/docs/20260806_owasp_cwe_mapping_report.md:1251-1259 (rows at :146-164)",
+      "tier_table_sha256": "d4bcecb0d3b26d6d1f4c8759c715213070c20f02a203f97982b900a157c72e12"
+    },
+    "total_events": {
+      "agrees": true,
+      "definitions": [
+        "error_type",
+        "observed_value"
+      ],
+      "denominator": 97018,
+      "excluded": "nothing",
+      "expected": 11409,
+      "inputs": [
+        "article_errors_csv"
+      ],
+      "note": "",
+      "numerator": 11409,
+      "percent": 11.76,
+      "quantity": "events in the publishable Android tier",
+      "unit": "rows"
+    },
+    "total_misuses": {
+      "agrees": true,
+      "definitions": [
+        "error_type",
+        "observed_value",
+        "misuse_article"
+      ],
+      "denominator": 454,
+      "excluded": "nothing",
+      "expected": 84,
+      "inputs": [
+        "article_errors_csv"
+      ],
+      "note": "",
+      "numerator": 84,
+      "percent": 18.5,
+      "quantity": "unique misuses in the publishable Android tier",
+      "unit": "misuses"
+    }
+  },
+  "article": {
+    "but_found_dot_by_spec": {
+      "MacSpec": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 8843,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 31,
+        "percent": 0.35,
+        "quantity": "`but found .` rows in MacSpec",
+        "unit": "rows"
+      },
+      "MessageDigestSpec": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 8843,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 156,
+        "percent": 1.76,
+        "quantity": "`but found .` rows in MessageDigestSpec",
+        "unit": "rows"
+      },
+      "SSLContextSpec": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 8843,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 51,
+        "percent": 0.58,
+        "quantity": "`but found .` rows in SSLContextSpec",
+        "unit": "rows"
+      },
+      "SignatureSpec": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 8843,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 234,
+        "percent": 2.65,
+        "quantity": "`but found .` rows in SignatureSpec",
+        "unit": "rows"
+      },
+      "TrustManagerFactorySpec": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 8843,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 8371,
+        "percent": 94.66,
+        "quantity": "`but found .` rows in TrustManagerFactorySpec",
+        "unit": "rows"
+      }
+    },
+    "error_types": {
+      "InvalidKeySize": 7,
+      "InvalidKeyStoreType": 2005,
+      "InvalidSequenceOfMethodCalls": 70760,
+      "UnsafeAlgorithm": 15444,
+      "UnsafeProtocol": 8802
+    },
+    "scalars": {
+      "apps": {
+        "agrees": true,
+        "definitions": [],
+        "denominator": null,
+        "excluded": "nothing",
+        "expected": 113,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 113,
+        "percent": null,
+        "quantity": "applications with at least one violation",
+        "unit": "apks"
+      },
+      "but_found_dot": {
+        "agrees": true,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 97018,
+        "excluded": "nothing",
+        "expected": 8843,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 8843,
+        "percent": 9.11,
+        "quantity": "rows whose observed value is empty (`but found .`)",
+        "unit": "rows"
+      },
+      "distinct_messages": {
+        "agrees": true,
+        "definitions": [],
+        "denominator": 97018,
+        "excluded": "nothing",
+        "expected": 19,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "19 strings for 97,018 events: the report vocabulary of the whole published corpus.",
+        "numerator": 19,
+        "percent": 0.02,
+        "quantity": "distinct `message` strings",
+        "unit": "distinct strings / rows"
+      },
+      "misuses": {
+        "agrees": true,
+        "definitions": [
+          "misuse_article"
+        ],
+        "denominator": 97018,
+        "excluded": "nothing",
+        "expected": 454,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 454,
+        "percent": 0.47,
+        "quantity": "unique misuses (R1)",
+        "unit": "misuses / rows"
+      },
+      "mute": {
+        "agrees": true,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 97018,
+        "excluded": "nothing",
+        "expected": 70760,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 70760,
+        "percent": 72.93,
+        "quantity": "mute rows (`unknown`)",
+        "unit": "rows"
+      },
+      "mute_sites": {
+        "agrees": null,
+        "definitions": [
+          "mute",
+          "site_article"
+        ],
+        "denominator": null,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 157,
+        "percent": null,
+        "quantity": "distinct sites emitting a mute row",
+        "unit": "sites"
+      },
+      "rows": {
+        "agrees": true,
+        "definitions": [],
+        "denominator": 97018,
+        "excluded": "nothing; the file is read whole",
+        "expected": 97018,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 97018,
+        "percent": 100.0,
+        "quantity": "rows in the article dataset",
+        "unit": "rows"
+      }
+    },
+    "structural_footprint": {
+      "SSLContextSpec": {
+        "labelled": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 26312,
+          "excluded": "nothing",
+          "expected": 8802,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 8802,
+          "percent": 33.45,
+          "quantity": "SSLContextSpec `UnsafeProtocol` rows",
+          "unit": "rows"
+        },
+        "sequence": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 26312,
+          "excluded": "nothing",
+          "expected": 17510,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 17510,
+          "percent": 66.55,
+          "quantity": "SSLContextSpec `InvalidSequenceOfMethodCalls` rows",
+          "unit": "rows"
+        },
+        "sequence_over_labelled": 1.9893
+      },
+      "TrustManagerFactorySpec": {
+        "labelled": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 18029,
+          "excluded": "nothing",
+          "expected": 9014,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 9014,
+          "percent": 50.0,
+          "quantity": "TrustManagerFactorySpec `UnsafeAlgorithm` rows",
+          "unit": "rows"
+        },
+        "sequence": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 18029,
+          "excluded": "nothing",
+          "expected": 9015,
+          "inputs": [
+            "article_errors_csv"
+          ],
+          "note": "",
+          "numerator": 9015,
+          "percent": 50.0,
+          "quantity": "TrustManagerFactorySpec `InvalidSequenceOfMethodCalls` rows",
+          "unit": "rows"
+        },
+        "sequence_over_labelled": 1.0001
+      }
+    },
+    "third_party": {
+      "all nine prefixes": {
+        "agrees": true,
+        "definitions": [
+          "third_party_prefixes"
+        ],
+        "denominator": 97018,
+        "excluded": "prefixes beyond the first 9 of the nine",
+        "expected": 82890,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "prefixes: okhttp3., com.google., kotlin., io.ktor., org.bouncycastle., androidx., org.conscrypt., okio., org.spongycastle.",
+        "numerator": 82890,
+        "percent": 85.44,
+        "quantity": "rows in third-party packages (all nine prefixes)",
+        "unit": "rows"
+      },
+      "plus okio.": {
+        "agrees": true,
+        "definitions": [
+          "third_party_prefixes"
+        ],
+        "denominator": 97018,
+        "excluded": "prefixes beyond the first 8 of the nine",
+        "expected": 80204,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "prefixes: okhttp3., com.google., kotlin., io.ktor., org.bouncycastle., androidx., org.conscrypt., okio.",
+        "numerator": 80204,
+        "percent": 82.67,
+        "quantity": "rows in third-party packages (plus okio.)",
+        "unit": "rows"
+      },
+      "seven-vendor list": {
+        "agrees": true,
+        "definitions": [
+          "third_party_prefixes"
+        ],
+        "denominator": 97018,
+        "excluded": "prefixes beyond the first 7 of the nine",
+        "expected": 76154,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "prefixes: okhttp3., com.google., kotlin., io.ktor., org.bouncycastle., androidx., org.conscrypt.",
+        "numerator": 76154,
+        "percent": 78.49,
+        "quantity": "rows in third-party packages (seven-vendor list)",
+        "unit": "rows"
+      }
+    },
+    "unsafe_algorithm": {
+      "weak_of_all_unsafe_algorithm": {
+        "agrees": true,
+        "definitions": [
+          "error_type",
+          "observed_value"
+        ],
+        "denominator": 15444,
+        "excluded": "nothing",
+        "expected": 5892,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "denominator: every `UnsafeAlgorithm` row of the corpus, all specifications.",
+        "numerator": 5892,
+        "percent": 38.15,
+        "quantity": "weak-digest rows among all `UnsafeAlgorithm` rows",
+        "unit": "rows"
+      },
+      "weak_of_corpus": {
+        "agrees": true,
+        "definitions": [
+          "error_type",
+          "observed_value"
+        ],
+        "denominator": 97018,
+        "excluded": "nothing",
+        "expected": 5892,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "denominator: the whole 97,018-row corpus.",
+        "numerator": 5892,
+        "percent": 6.07,
+        "quantity": "weak-digest rows in the whole corpus",
+        "unit": "rows"
+      },
+      "weak_of_spec_rows": {
+        "agrees": true,
+        "definitions": [
+          "error_type",
+          "observed_value"
+        ],
+        "denominator": 16183,
+        "excluded": "nothing",
+        "expected": 5892,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "denominator: every row the specification emitted, sequence reports included.",
+        "numerator": 5892,
+        "percent": 36.41,
+        "quantity": "weak-digest rows among all `MessageDigestSpec` rows",
+        "unit": "rows"
+      },
+      "weak_of_spec_unsafe_algorithm": {
+        "agrees": true,
+        "definitions": [
+          "error_type",
+          "observed_value"
+        ],
+        "denominator": 6048,
+        "excluded": "nothing",
+        "expected": 5892,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "denominator: the specification's own labelled rows - what the api30 rule governs.",
+        "numerator": 5892,
+        "percent": 97.42,
+        "quantity": "weak-digest rows among `MessageDigestSpec`'s own `UnsafeAlgorithm` rows",
+        "unit": "rows"
+      }
+    },
+    "weak_digest_breakdown": {
+      "MD5": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 5892,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 3552,
+        "percent": 60.29,
+        "quantity": "`MessageDigestSpec` `UnsafeAlgorithm` rows observing `MD5`",
+        "unit": "rows"
+      },
+      "SHA": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 5892,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 1,
+        "percent": 0.02,
+        "quantity": "`MessageDigestSpec` `UnsafeAlgorithm` rows observing `SHA`",
+        "unit": "rows"
+      },
+      "SHA-1": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 5892,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 1915,
+        "percent": 32.5,
+        "quantity": "`MessageDigestSpec` `UnsafeAlgorithm` rows observing `SHA-1`",
+        "unit": "rows"
+      },
+      "SHA1": {
+        "agrees": null,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 5892,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "article_errors_csv"
+        ],
+        "note": "",
+        "numerator": 424,
+        "percent": 7.2,
+        "quantity": "`MessageDigestSpec` `UnsafeAlgorithm` rows observing `SHA1`",
+        "unit": "rows"
+      }
+    }
+  },
+  "change": "gh104-legible-violation-reports",
+  "comp162": {
+    "error_types": {
+      "InvalidKeySize": 2,
+      "InvalidKeyStoreType": 265,
+      "InvalidSequenceOfMethodCalls": 15295,
+      "UnsafeAlgorithm": 1279,
+      "UnsafeProtocol": 1466,
+      "UnsatisfiedConstraint": 1357
+    },
+    "per_spec_mute": {
+      "CipherSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 1461,
+        "percent": 9.3,
+        "quantity": "mute rows in CipherSpec",
+        "unit": "rows"
+      },
+      "IvParameterSpecSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 838,
+        "percent": 5.33,
+        "quantity": "mute rows in IvParameterSpecSpec",
+        "unit": "rows"
+      },
+      "KeyManagerFactorySpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 296,
+        "percent": 1.88,
+        "quantity": "mute rows in KeyManagerFactorySpec",
+        "unit": "rows"
+      },
+      "KeyPairGeneratorSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 3,
+        "percent": 0.02,
+        "quantity": "mute rows in KeyPairGeneratorSpec",
+        "unit": "rows"
+      },
+      "KeyPairSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 111,
+        "percent": 0.71,
+        "quantity": "mute rows in KeyPairSpec",
+        "unit": "rows"
+      },
+      "KeyStoreSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 1136,
+        "percent": 7.23,
+        "quantity": "mute rows in KeyStoreSpec",
+        "unit": "rows"
+      },
+      "MacSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 145,
+        "percent": 0.92,
+        "quantity": "mute rows in MacSpec",
+        "unit": "rows"
+      },
+      "MessageDigestSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 2008,
+        "percent": 12.78,
+        "quantity": "mute rows in MessageDigestSpec",
+        "unit": "rows"
+      },
+      "PBEKeySpecSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 118,
+        "percent": 0.75,
+        "quantity": "mute rows in PBEKeySpecSpec",
+        "unit": "rows"
+      },
+      "SSLContextSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 2916,
+        "percent": 18.56,
+        "quantity": "mute rows in SSLContextSpec",
+        "unit": "rows"
+      },
+      "SecretKeySpecSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 820,
+        "percent": 5.22,
+        "quantity": "mute rows in SecretKeySpecSpec",
+        "unit": "rows"
+      },
+      "SecureRandomSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 2882,
+        "percent": 18.34,
+        "quantity": "mute rows in SecureRandomSpec",
+        "unit": "rows"
+      },
+      "SignatureSpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 125,
+        "percent": 0.8,
+        "quantity": "mute rows in SignatureSpec",
+        "unit": "rows"
+      },
+      "TrustManagerFactorySpec": {
+        "agrees": null,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": null,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 2855,
+        "percent": 18.17,
+        "quantity": "mute rows in TrustManagerFactorySpec",
+        "unit": "rows"
+      }
+    },
+    "reps": [
+      "1",
+      "2",
+      "3"
+    ],
+    "scalars": {
+      "but_found_dot": {
+        "agrees": true,
+        "definitions": [
+          "observed_value"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing",
+        "expected": 98,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 98,
+        "percent": 0.5,
+        "quantity": "rows whose observed value is empty (`but found .`)",
+        "unit": "rows"
+      },
+      "distinct_apks": {
+        "agrees": true,
+        "definitions": [
+          "shards"
+        ],
+        "denominator": null,
+        "excluded": "nothing",
+        "expected": 112,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 112,
+        "percent": null,
+        "quantity": "distinct APKs across the eight shards",
+        "unit": "apks"
+      },
+      "identities_8tuple": {
+        "agrees": true,
+        "definitions": [
+          "identity8"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing",
+        "expected": 6344,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 6344,
+        "percent": 32.26,
+        "quantity": "distinct identities under the 8-tuple",
+        "unit": "identities / rows"
+      },
+      "identities_errorsummary_5tuple": {
+        "agrees": true,
+        "definitions": [
+          "identity8",
+          "error_type"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing",
+        "expected": 409,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "a different question from the 8-tuple; the two are never interchanged.",
+        "numerator": 409,
+        "percent": 2.08,
+        "quantity": "distinct identities under the `ErrorSummary` 5-tuple `(spec, error, class, method, location)`",
+        "unit": "identities / rows"
+      },
+      "identities_spanning_shards": {
+        "agrees": true,
+        "definitions": [
+          "identity8",
+          "shards"
+        ],
+        "denominator": 6344,
+        "excluded": "nothing",
+        "expected": 0,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "zero, so 0 % of the repetition comes from replication: it is all within-shard.",
+        "numerator": 0,
+        "percent": 0.0,
+        "quantity": "8-tuple identities appearing in more than one shard",
+        "unit": "identities"
+      },
+      "legible_only_sites": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162"
+        ],
+        "denominator": 101,
+        "excluded": "nothing",
+        "expected": 0,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "zero: every legible site is also a mute site, so muteness is never the site's fault.",
+        "numerator": 0,
+        "percent": 0.0,
+        "quantity": "sites emitting only legible rows",
+        "unit": "sites"
+      },
+      "legible_rows": {
+        "agrees": true,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing",
+        "expected": 3950,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 3950,
+        "percent": 20.09,
+        "quantity": "legible rows (message is not `unknown`)",
+        "unit": "rows"
+      },
+      "legible_sites": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162"
+        ],
+        "denominator": null,
+        "excluded": "nothing",
+        "expected": 101,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 101,
+        "percent": null,
+        "quantity": "distinct sites emitting a legible row",
+        "unit": "sites"
+      },
+      "max_repetition": {
+        "agrees": true,
+        "definitions": [
+          "identity8"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing",
+        "expected": 49,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 49,
+        "percent": 0.25,
+        "quantity": "largest number of rows carried by one 8-tuple identity",
+        "unit": "rows"
+      },
+      "mute": {
+        "agrees": true,
+        "definitions": [
+          "mute"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing",
+        "expected": 15714,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 15714,
+        "percent": 79.91,
+        "quantity": "mute rows (`unknown`)",
+        "unit": "rows"
+      },
+      "mute_legible_twin_rows": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": 3950,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 3950,
+        "percent": 25.14,
+        "quantity": "mute rows at sites that also emit a legible row",
+        "unit": "rows"
+      },
+      "mute_legible_twin_sites": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162"
+        ],
+        "denominator": 296,
+        "excluded": "nothing",
+        "expected": 101,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 101,
+        "percent": 34.12,
+        "quantity": "sites emitting both a mute and a legible row",
+        "unit": "sites"
+      },
+      "mute_mute_twin_rows": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162",
+          "error_type"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": 838,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 838,
+        "percent": 5.33,
+        "quantity": "mute rows at sites emitting two ErrorTypes in equal numbers",
+        "unit": "rows"
+      },
+      "mute_mute_twin_rows_InvalidSequenceOfMethodCalls": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162",
+          "error_type"
+        ],
+        "denominator": 838,
+        "excluded": "nothing",
+        "expected": 419,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "the two labels split the twin sites exactly in half, which is what 'equal counts' means: the same call accused twice under two names, both mute. Every one of these sites belongs to IvParameterSpecSpec.",
+        "numerator": 419,
+        "percent": 50.0,
+        "quantity": "of those, rows labelled `InvalidSequenceOfMethodCalls`",
+        "unit": "rows"
+      },
+      "mute_mute_twin_rows_UnsatisfiedConstraint": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162",
+          "error_type"
+        ],
+        "denominator": 838,
+        "excluded": "nothing",
+        "expected": 419,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "the two labels split the twin sites exactly in half, which is what 'equal counts' means: the same call accused twice under two names, both mute. Every one of these sites belongs to IvParameterSpecSpec.",
+        "numerator": 419,
+        "percent": 50.0,
+        "quantity": "of those, rows labelled `UnsatisfiedConstraint`",
+        "unit": "rows"
+      },
+      "mute_mute_twin_sites": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162",
+          "error_type"
+        ],
+        "denominator": 296,
+        "excluded": "nothing",
+        "expected": 12,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 12,
+        "percent": 4.05,
+        "quantity": "sites emitting two ErrorTypes in equal numbers, all mute",
+        "unit": "sites"
+      },
+      "mute_only_rows": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162",
+          "error_type"
+        ],
+        "denominator": 15714,
+        "excluded": "nothing",
+        "expected": 10926,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 10926,
+        "percent": 69.53,
+        "quantity": "mute rows at sites with no legible twin and no equal-count second type",
+        "unit": "rows"
+      },
+      "mute_only_sites": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162",
+          "error_type"
+        ],
+        "denominator": 296,
+        "excluded": "nothing",
+        "expected": 183,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 183,
+        "percent": 61.82,
+        "quantity": "sites in that remainder",
+        "unit": "sites"
+      },
+      "mute_sites": {
+        "agrees": true,
+        "definitions": [
+          "mute",
+          "site_comp162"
+        ],
+        "denominator": null,
+        "excluded": "nothing",
+        "expected": 296,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 296,
+        "percent": null,
+        "quantity": "distinct sites emitting a mute row",
+        "unit": "sites"
+      },
+      "repeated_rows": {
+        "agrees": true,
+        "definitions": [
+          "identity8"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing",
+        "expected": 13320,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "67.74 % of the corpus is repetition of an identity under the 8-tuple.",
+        "numerator": 13320,
+        "percent": 67.74,
+        "quantity": "rows that are a repeat of an identity already seen",
+        "unit": "rows"
+      },
+      "rows": {
+        "agrees": true,
+        "definitions": [
+          "shards"
+        ],
+        "denominator": 19664,
+        "excluded": "nothing; the eight shards are concatenated, never averaged",
+        "expected": 19664,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 19664,
+        "percent": 100.0,
+        "quantity": "rows in the comp162 fixture",
+        "unit": "rows"
+      },
+      "shard_apk_overlap": {
+        "agrees": true,
+        "definitions": [
+          "shards"
+        ],
+        "denominator": 112,
+        "excluded": "nothing",
+        "expected": 0,
+        "inputs": [
+          "comp162_shards"
+        ],
+        "note": "",
+        "numerator": 0,
+        "percent": 0.0,
+        "quantity": "APKs appearing in more than one shard",
+        "unit": "apks"
+      }
+    },
+    "shards": {
+      "comp162_00": 18,
+      "comp162_01": 13,
+      "comp162_02": 16,
+      "comp162_03": 11,
+      "comp162_04": 13,
+      "comp162_05": 13,
+      "comp162_06": 14,
+      "comp162_07": 14
+    },
+    "structural_footprint": {
+      "SecureRandomSpec": {
+        "labelled": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 2882,
+          "excluded": "nothing",
+          "expected": 0,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "",
+          "numerator": 0,
+          "percent": 0.0,
+          "quantity": "SecureRandomSpec `UnsafeAlgorithm` rows",
+          "unit": "rows"
+        },
+        "sequence": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 2882,
+          "excluded": "nothing",
+          "expected": 2882,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "",
+          "numerator": 2882,
+          "percent": 100.0,
+          "quantity": "SecureRandomSpec `InvalidSequenceOfMethodCalls` rows",
+          "unit": "rows"
+        },
+        "sequence_over_labelled": null
+      },
+      "TrustManagerFactorySpec": {
+        "labelled": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 2916,
+          "excluded": "nothing",
+          "expected": 61,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "",
+          "numerator": 61,
+          "percent": 2.09,
+          "quantity": "TrustManagerFactorySpec `UnsafeAlgorithm` rows",
+          "unit": "rows"
+        },
+        "sequence": {
+          "agrees": true,
+          "definitions": [
+            "error_type"
+          ],
+          "denominator": 2916,
+          "excluded": "nothing",
+          "expected": 2855,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "",
+          "numerator": 2855,
+          "percent": 97.91,
+          "quantity": "TrustManagerFactorySpec `InvalidSequenceOfMethodCalls` rows",
+          "unit": "rows"
+        },
+        "sequence_over_labelled": 46.8033
+      }
+    },
+    "tools": [
+      "ape",
+      "aperv:mop_off_llm_off",
+      "aperv:mop_on_llm_off"
+    ]
+  },
+  "definitions": {
+    "error_type": {
+      "definition": "The `ErrorType` of a row is `unique_msg.split(':::')[3]`, never parsed from `message`.",
+      "value": "unique_msg.split(':::')[3]",
+      "why": "`unique_msg` is the machine field: `class:::method:::spec:::ErrorType:::message`. `message` is the free text this change is rewriting, so deriving the type from it would make the baseline move when the messages move - the one thing a baseline may not do."
+    },
+    "identity8": {
+      "definition": "A repeated report is counted under the 8-tuple `(apk, rep, tool, spec, class, method, source, message)`. The `ErrorSummary` identity is a different, coarser 5-tuple: `(spec, error, class, method, location)`.",
+      "value": [
+        "apk",
+        "rep",
+        "tool",
+        "spec",
+        "class",
+        "method",
+        "source",
+        "message"
+      ],
+      "why": "The two tuples answer different questions and give different numbers on the same rows - 6,344 against 409 - so every repetition figure states which one produced it. `location` in the `ErrorSummary` tuple is the `source` column."
+    },
+    "misuse_article": {
+      "definition": "A *unique misuse* on the article dataset is the 4-tuple `(apk, spec, class, method)` (rule R1 of the OWASP/CWE mapping report).",
+      "value": [
+        "apk",
+        "spec",
+        "class",
+        "method"
+      ],
+      "why": "This is the denominator of the publishable Android tier (84 of 454 = 18.5 %). It is reproduced here rather than quoted: the 4-tuple gives 454 on the corpus and gives 65 / 12 / 5 / 1 / 1 on the five tier rows, matching the report exactly. The 3-tuple `(apk, class, method)` gives 450, and `(class, method)` gives 11 for the largest row instead of 65 - so the tuple is a freeze item, not a detail."
+    },
+    "mute": {
+      "definition": "A row is *mute* when `message.strip()` equals the literal below.",
+      "value": "unknown",
+      "why": "`unknown` is the literal the three-argument `new ErrorDescription(...)` constructor writes when no message argument is supplied. It is not missing data and not a parse failure: it is the report the specification actually emitted, and it is the quantity this whole change exists to remove."
+    },
+    "observed_value": {
+      "definition": "The *observed value* of a legible row is the text after the last `but found ` in `message`, with a single trailing `.` removed. A row whose observed value is the empty string is a `but found .` row.",
+      "value": "message.rsplit('but found ', 1)[1].rstrip('.')",
+      "why": "`but found .` is the visible face of the same defect as `unknown`: the specification reached the report site with nothing to say about what it saw. Extracting the value is also what identifies the five rows of the publishable Android tier (`TLS`, `AndroidKeyStore`, `X509`, ...), so the same rule serves both."
+    },
+    "shards": {
+      "definition": "The eight files matched by `experimento-comp162/results/*/*/errors.csv` are eight disjoint **shards**, never replicas: 112 distinct APKs partitioned across them with zero overlap, each shard running 3 tools x 3 repetitions.",
+      "value": "disjoint shards of one campaign; union, never average",
+      "why": "If they were replicas, the eight files would be eight measurements of the same APKs and the right operation would be to average them. They are not: no APK appears in two shards, so the right operation is to concatenate. Calling them replicas would divide every count by eight."
+    },
+    "site_article": {
+      "definition": "A *site* on the article dataset is the 3-tuple `(spec, class, method)`.",
+      "value": [
+        "spec",
+        "class",
+        "method"
+      ],
+      "why": "The article dataset has 10 columns and **no `source`** at all. Using the comp162 4-tuple here would raise `KeyError`; using a 4-tuple with a synthesised blank would silently merge distinct call sites. The lineage's twin numbers reproduce only under the 3-tuple."
+    },
+    "site_comp162": {
+      "definition": "A *site* on comp162 is the 4-tuple `(spec, class, method, source)`.",
+      "value": [
+        "spec",
+        "class",
+        "method",
+        "source"
+      ],
+      "why": "comp162's `errors.csv` has 11 columns and carries `source` (the `File.java:line` of the accused call), so a site can be resolved to the call and not merely to the method."
+    },
+    "third_party_prefixes": {
+      "definition": "A row is *third-party* when its `class` starts with one of nine package prefixes: `okhttp3.`, `com.google.`, `kotlin.`, `io.ktor.`, `org.bouncycastle.`, `androidx.`, `org.conscrypt.`, `okio.`, `org.spongycastle.`.",
+      "value": [
+        "okhttp3.",
+        "com.google.",
+        "kotlin.",
+        "io.ktor.",
+        "org.bouncycastle.",
+        "androidx.",
+        "org.conscrypt.",
+        "okio.",
+        "org.spongycastle."
+      ],
+      "why": "The cut is reported three ways because it moves the headline: the seven-vendor list the lineage argued from, that list plus `okio.`, and all nine. Publishing one number without naming its prefix set would be publishing a choice as if it were a fact."
+    }
+  },
+  "group": "E0 - baseline and definitions",
+  "inputs": {
+    "article_errors_csv": {
+      "header": [
+        "apk",
+        "rep",
+        "timeout",
+        "tool",
+        "time",
+        "spec",
+        "class",
+        "method",
+        "message",
+        "unique_msg"
+      ],
+      "path": "ase-journal/dataset/results/errors.csv",
+      "reader": "frozen 10-column reader (no `source`)",
+      "rows": 97018,
+      "sha256": "78023defec078353bbd1f64331edb7992a2c34e29570e6ceb064fb57f37dea69"
+    },
+    "comp162_shards": {
+      "header": [
+        "apk",
+        "rep",
+        "timeout",
+        "tool",
+        "time",
+        "spec",
+        "class",
+        "method",
+        "source",
+        "message",
+        "unique_msg"
+      ],
+      "members": {
+        "comp162_00": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_00/comp162_00/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 2325,
+          "sha256": "1c31151c125378cda6c0514c4f3f9d440fb5c757a1f24b29f7ebc210490dcdd4"
+        },
+        "comp162_01": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_01/comp162_01/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1992,
+          "sha256": "1151f54b8a728f1f23e6b679cdd8f8fa14a917f7ba021899a7a8e4a99e8c391c"
+        },
+        "comp162_02": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_02/comp162_02/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1721,
+          "sha256": "0d9fa25f17e288bddeb406b9a2bfc63928937d479d6daaa77e2b1d1d53338fad"
+        },
+        "comp162_03": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_03/comp162_03/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1960,
+          "sha256": "20e7a943d2c9acb36d4f166947c7958d8f5b6a15468664279aff98d952067d2d"
+        },
+        "comp162_04": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_04/comp162_04/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 5031,
+          "sha256": "1e582dc9cd6d8a539d5a63979fb45f83e96c34aa90f55a5790b5ea6711789fa5"
+        },
+        "comp162_05": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_05/comp162_05/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 846,
+          "sha256": "0e561b3e2d3e1108885be4409ef89b522b2beca4d40bbd92835017e432b2a3ef"
+        },
+        "comp162_06": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_06/comp162_06/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1938,
+          "sha256": "3f6ae0dea444bd55e07d399d21d4215dd2044e7ae69110b32a60a0634cd3af4e"
+        },
+        "comp162_07": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_07/comp162_07/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 3851,
+          "sha256": "978da312c1a14811f8287d7f75b1e14c95a2a753a9ab26a5d1b46af3bcf3538d"
+        }
+      },
+      "path": "rvsec/rv-android/experimento-comp162/results/*/*/errors.csv",
+      "reader": "frozen 11-column reader (carries `source`), eight shards concatenated",
+      "rows": 19664,
+      "sha256": "099b1b3a50e07d36ecda0184e21fa0c8de39ab73e3ae4f8587b9180d5c4fa7a7"
+    },
+    "jca_spec_set": {
+      "files": 23,
+      "path": "rvsec/rvsec/rvsec-mop/src/main/resources/jca",
+      "reader": "text scan (`new ErrorDescription(` with string-literal-aware argument split)",
+      "sha256": "dfabcbf5f1237893c7b2792405e228cedd8f8d7e9bbcf2ef4ba45b94b62c7281"
+    }
+  },
+  "instrument": {
+    "article_reader": {
+      "columns": 10,
+      "frozen_in": "scripts/gh104_baseline.py",
+      "header": [
+        "apk",
+        "rep",
+        "timeout",
+        "tool",
+        "time",
+        "spec",
+        "class",
+        "method",
+        "message",
+        "unique_msg"
+      ]
+    },
+    "comp162_reader": {
+      "columns": 11,
+      "frozen_in": "scripts/gh104_baseline.py",
+      "header": [
+        "apk",
+        "rep",
+        "timeout",
+        "tool",
+        "time",
+        "spec",
+        "class",
+        "method",
+        "source",
+        "message",
+        "unique_msg"
+      ]
+    },
+    "parity_is_not_correctness": "Reproducing a campaign's number proves the pipeline is unchanged. It proves nothing whatever about whether the estimator is right - if the original was wrong, parity reproduces the error exactly. (docs/20260815_gh103_analysis_layer.md:108-110)",
+    "why_not_shared": "aperv_tool.analysis.violations.read_errors_csv checks one in-place literal (ERRORS_CSV_HEADER) and raises on any other header; gh104 Group 5 rewrites that literal to 13 columns, after which the shared reader rejects every comp162 file. An import pins nothing."
+  },
+  "spec_sets": {
+    "error_description": {
+      "by_file": {
+        "CipherInputStreamSpec.mop": 1,
+        "CipherOutputStreamSpec.mop": 1,
+        "CipherSpec.mop": 3,
+        "DHGenParameterSpecSpec.mop": 1,
+        "GCMParameterSpecSpec.mop": 1,
+        "HMACParameterSpecSpec.mop": 1,
+        "IvParameterSpec.mop": 3,
+        "KeyGeneratorSpec.mop": 2,
+        "KeyManagerFactorySpec.mop": 2,
+        "KeyPairGeneratorSpec.mop": 3,
+        "KeyPairSpec.mop": 1,
+        "KeyStoreSpec.mop": 2,
+        "MacSpec.mop": 3,
+        "MessageDigestSpec.mop": 4,
+        "PBEKeySpecSpec.mop": 6,
+        "PBEParameterSpecSpec.mop": 2,
+        "SSLContextSpec.mop": 2,
+        "SecretKeySpecSpec.mop": 3,
+        "SecureRandomSpec.mop": 3,
+        "SignatureSpec.mop": 5,
+        "TrustManagerFactorySpec.mop": 2
+      },
+      "four_arg": {
+        "agrees": true,
+        "definitions": [],
+        "denominator": 51,
+        "excluded": "nothing",
+        "expected": 26,
+        "inputs": [
+          "jca_spec_set"
+        ],
+        "note": "",
+        "numerator": 26,
+        "percent": 50.98,
+        "quantity": "four-argument sites (a message is supplied)",
+        "unit": "sites"
+      },
+      "other_arity": {},
+      "three_arg": {
+        "agrees": true,
+        "definitions": [],
+        "denominator": 51,
+        "excluded": "nothing",
+        "expected": 25,
+        "inputs": [
+          "jca_spec_set"
+        ],
+        "note": "",
+        "numerator": 25,
+        "percent": 49.02,
+        "quantity": "three-argument sites (no message: these emit `unknown`)",
+        "unit": "sites"
+      },
+      "total": {
+        "agrees": true,
+        "definitions": [],
+        "denominator": 51,
+        "excluded": "nothing",
+        "expected": 51,
+        "inputs": [
+          "jca_spec_set"
+        ],
+        "note": "",
+        "numerator": 51,
+        "percent": 100.0,
+        "quantity": "`new ErrorDescription(` sites in the frozen `jca` set",
+        "unit": "sites"
+      }
+    },
+    "sets": {
+      "generic": {
+        "files": 118,
+        "path": "rvsec/rvsec/rvsec-mop/src/main/resources/generic",
+        "with_Log_v": 118,
+        "with_addError": 0
+      },
+      "generic_new": {
+        "files": 27,
+        "path": "rvsec/rvsec/rvsec-mop/src/main/resources/generic_new",
+        "with_Log_v": 27,
+        "with_addError": 0
+      },
+      "jca": {
+        "files": 23,
+        "path": "rvsec/rvsec/rvsec-mop/src/main/resources/jca",
+        "with_Log_v": 0,
+        "with_addError": 21
+      },
+      "jca_android_bug_predicate": {
+        "files": 23,
+        "path": "rvsec/rvsec/rvsec-mop/src/main/resources/jca_android_bug_predicate",
+        "with_Log_v": 0,
+        "with_addError": 21
+      }
+    }
+  }
+}
