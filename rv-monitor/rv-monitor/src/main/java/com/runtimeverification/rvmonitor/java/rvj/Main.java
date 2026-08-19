@@ -183,6 +183,9 @@ public class Main {
         if (outputContent == null || outputContent.length() == 0)
             return;
 
+        checkNoUnexpandedEventNameMacro(outputContent, outputName
+                + "RuntimeMonitor.java");
+
         try {
             FileWriter f = new FileWriter(outputDir.getAbsolutePath()
                     + File.separator + outputName + "RuntimeMonitor.java");
@@ -193,6 +196,36 @@ public class Main {
         }
         System.out.println(" " + outputName
                 + "RuntimeMonitor.java is generated");
+    }
+
+    /**
+     * Abort generation if the {@code __EVENTNAME} macro reached the output
+     * (INV-INS-120).
+     *
+     * <p>
+     * The macro is expanded on every path of the Java output — event bodies in
+     * {@code BaseMonitor.printEventMethod} and {@code RawMonitor.doEvent},
+     * handler bodies in {@code HandlerMethod} — so a survivor means the
+     * specification wrote it somewhere the generator does not substitute. It has
+     * to stop the build rather than be written out: outside a string the
+     * compiler would report it as an undefined identifier in generated code
+     * nobody reads, and inside a string it would reach the logs as text and be
+     * read as the name of an event.
+     *
+     * @param outputContent
+     *            the generated Java about to be written
+     * @param fileName
+     *            the name it is being written under, so the abort can say where
+     */
+    public static void checkNoUnexpandedEventNameMacro(String outputContent,
+            String fileName) throws RVMException {
+        String[] lines = outputContent.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].contains("__EVENTNAME")) {
+                throw new RVMException("the macro __EVENTNAME was not expanded: "
+                        + fileName + ":" + (i + 1) + ": " + lines[i].trim());
+            }
+        }
     }
 
     /**

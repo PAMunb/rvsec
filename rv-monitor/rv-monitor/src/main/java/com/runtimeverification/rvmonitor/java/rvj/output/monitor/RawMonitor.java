@@ -103,6 +103,10 @@ public class RawMonitor extends Monitor {
             // -P
             eventActionStr = eventActionStr.replaceAll("__LOC",
                     Util.defaultLocation);
+            // INV-INS-120: the raw-monitor mode substitutes the same macros, so
+            // no path can leak the literal into the generated Java.
+            eventActionStr = BaseMonitor.expandEventNameToLiteral(
+                    eventActionStr, event.getId());
             eventActionStr = eventActionStr.replaceAll("__ACTIVITY", "this."
                     + activity);
             eventActionStr = eventActionStr.replaceAll("__SKIP",

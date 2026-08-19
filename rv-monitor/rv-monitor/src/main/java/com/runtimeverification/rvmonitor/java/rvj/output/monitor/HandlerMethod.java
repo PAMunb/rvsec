@@ -43,6 +43,12 @@ public class HandlerMethod {
             // __DEFAULT_MESSAGE first
             // -P
             handlerBody = handlerBody.replaceAll("__LOC", Util.defaultLocation);
+            // INV-INS-120. The helper call resolves because a handler is a
+            // method of the very monitor class whose last-event index it reads.
+            // And the specifications write __RESET — which clears that index —
+            // after the report call, so the offending event is still recorded
+            // when the envelope is composed.
+            handlerBody = BaseMonitor.expandEventNameToHelperCall(handlerBody);
             handlerBody = handlerBody.replaceAll("__SKIP",
                     BaseMonitor.skipEvent + " = true");
 

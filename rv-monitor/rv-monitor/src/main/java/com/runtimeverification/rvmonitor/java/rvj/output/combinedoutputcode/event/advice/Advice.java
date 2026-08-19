@@ -174,7 +174,7 @@ public class Advice {
                     ret += ";\n";
                 }
                 if (isSync)
-                    ret += this.globalLock.getAcquireCode();
+                    ret += enterGuardedRegion(this.globalLock);
             }
 
             Iterator<EventDefinition> iter;
@@ -253,11 +253,55 @@ public class Advice {
 
             if (!Main.useFineGrainedLock) {
                 if (isSync)
-                    ret += this.globalLock.getReleaseCode();
+                    ret += leaveGuardedRegion(this.globalLock);
             }
         }
 
         return ret;
+    }
+
+    /**
+     * Open the dispatcher's guarded region: acquire the global lock, then enter
+     * a {@code try} whose {@code finally} releases it (INV-INS-129).
+     *
+     * <p>
+     * The lock is one object shared by every specification in the generated
+     * file, and the dispatchers wait on it by spinning —
+     * {@code while (!L.tryLock()) { Thread.yield(); }} — rather than blocking.
+     * An acquisition that is never released therefore does not cost one report:
+     * it turns the instrumented application into a busy-wait that never reports
+     * again and never terminates, and nothing in the record says so. Since a
+     * {@code condition()}, an event body or a {@code @fail} handler can all
+     * raise, the release cannot be a statement on the happy path.
+     *
+     * <p>
+     * The framing lives here and not in {@link GlobalLock} because
+     * {@code getAcquireCode()} and {@code getReleaseCode()} are fragments that
+     * {@code BaseMonitor.execEvent}, {@code StartThread}, {@code EndThread} and
+     * {@code ThreadStatusMonitor} also use, and use unbalanced by design —
+     * release, start a thread, re-acquire. It also frames only the explicit
+     * {@code tryLock} form, which is the only form these sets emit:
+     * {@code GlobalLock.useImplicitLock} is hard-set {@code false}, so the
+     * implicit branch produces no acquisition to frame.
+     *
+     * <p>
+     * The exception still propagates to the woven application exactly as before.
+     * Only the release becomes unconditional.
+     */
+    static String enterGuardedRegion(GlobalLock lock) {
+        return lock.getAcquireCode() + "try {\n";
+    }
+
+    /**
+     * Close the guarded region {@link #enterGuardedRegion} opened, releasing the
+     * lock whatever path leaves it (INV-INS-129).
+     *
+     * <p>
+     * The release itself is unchanged — the same fragment, in the same order,
+     * with the same lock — only relocated into the {@code finally}.
+     */
+    static String leaveGuardedRegion(GlobalLock lock) {
+        return "} finally {\n" + lock.getReleaseCode() + "}\n";
     }
 
     @Override

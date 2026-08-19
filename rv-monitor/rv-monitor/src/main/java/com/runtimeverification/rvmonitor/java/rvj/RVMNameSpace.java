@@ -23,6 +23,10 @@ public class RVMNameSpace {
         keywords.add("null");
         keywords.add("RVM_lastevent");
         keywords.add("RVM_terminated");
+        // INV-INS-120: the generator emits a name table and its decoder into
+        // every monitor class, so a specification cannot declare either name.
+        keywords.add("RVM_eventNames");
+        keywords.add("RVM_eventName");
     }
 
     static public void init() {

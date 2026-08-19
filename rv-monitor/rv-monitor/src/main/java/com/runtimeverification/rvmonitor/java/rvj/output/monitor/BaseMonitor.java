@@ -105,6 +105,28 @@ public class BaseMonitor extends Monitor {
     // fields
     final RVMVariable lastevent = new RVMVariable("RVM_lastevent");
     public static RVMVariable skipEvent = new RVMVariable("skipEvent");
+
+    /**
+     * The per-monitor-class table of event names, indexed by the event index
+     * (INV-INS-120). One table per class and not per property: the index is
+     * spec-wide — it is the same number {@code handleEvent(idnum, …)} and
+     * MonitorTermination's switch already use — while {@code Prop_N_transition_*}
+     * is per property, so a per-property table would be indexed by a number that
+     * does not belong to it.
+     */
+    static final RVMVariable eventNames = new RVMVariable("RVM_eventNames");
+
+    /**
+     * The per-monitor-class helper that turns the monitor's last-event index
+     * into a name. A handler's {@code __EVENTNAME} expands to a call of this,
+     * never to a direct lookup in {@link #eventNames}, because the index has to
+     * be decoded differently in each monitor shape and HandlerMethod is built
+     * before the shape is known.
+     */
+    static final RVMVariable eventNameMethod = new RVMVariable("RVM_eventName");
+
+    /** What a report says when no event has transitioned the monitor. */
+    static final String NO_EVENT_NAME = "none";
     private final RVMVariable conditionFail = new RVMVariable(
             "RVM_conditionFail");
 
@@ -306,6 +328,124 @@ public class BaseMonitor extends Monitor {
         return ret;
     }
 
+    /**
+     * Expand {@code __EVENTNAME} inside an event body (INV-INS-120).
+     *
+     * <p>
+     * The event is known when the monitor is generated, so the macro becomes a
+     * string literal: no field, no lookup, no runtime cost.
+     *
+     * @param body
+     *            the user's Java block, after the other macros have run
+     * @param eventName
+     *            the declared name of the event whose body this is
+     */
+    static String expandEventNameToLiteral(String body, String eventName) {
+        return body.replaceAll("__EVENTNAME", "\"" + eventName + "\"");
+    }
+
+    /**
+     * Expand {@code __EVENTNAME} inside a handler body (INV-INS-120).
+     *
+     * <p>
+     * A handler runs after some event drove the monitor into its category, and
+     * which event that was is only known at run time. The expansion is a call of
+     * the per-class helper and never a direct table lookup: HandlerMethod
+     * objects are built in {@link #initialize} — before
+     * {@code checkIfAtomicMonitorCanBeEnabled()} has run — so the monitor's
+     * shape is not known here, and the two shapes do not store the same number.
+     */
+    static String expandEventNameToHelperCall(String body) {
+        return body.replaceAll("__EVENTNAME", eventNameMethod + "()");
+    }
+
+    /**
+     * Emit the per-class table of event names (INV-INS-120).
+     *
+     * <p>
+     * The caller builds the list from the specification's event definitions in
+     * event-index order — {@code EventDefinition.getIdNum()} is the position of
+     * the event in {@code RVMonitorSpec.events}, assigned there — so the table
+     * and the indices that read it come from one iteration and cannot
+     * desynchronise. That is the whole reason this lives in the generator
+     * instead of in a hand-written array in every specification: an array pinned
+     * to generator-assigned indices is reordered by any alphabet edit, and a
+     * misindexed name is worse than none, because it reads as a fact.
+     *
+     * <p>
+     * The line ends in {@code };;} and not {@code };}, which is also how the
+     * {@code Prop_N_transition_*} arrays beside it end. {@code Tool.changeIndentation}
+     * formats the whole generated file from its brace structure and reads a line
+     * ending in {@code };} as the close of a block: on an array initialiser it
+     * would unbalance the offset, and at the top of a class it underflows, at
+     * which point the formatter gives up and returns the file with no
+     * indentation at all.
+     */
+    static String eventNameTableCode(List<String> eventNamesInIndexOrder) {
+        StringBuilder ret = new StringBuilder();
+        ret.append("static final String[] ").append(eventNames).append(" = {");
+        for (int i = 0; i < eventNamesInIndexOrder.size(); i++) {
+            if (i > 0)
+                ret.append(", ");
+            ret.append("\"").append(eventNamesInIndexOrder.get(i)).append("\"");
+        }
+        ret.append("};;\n");
+        return ret.toString();
+    }
+
+    /**
+     * Emit the per-class helper that decodes the monitor's last-event index into
+     * a name (INV-INS-120).
+     *
+     * <p>
+     * This is emitted from {@code toString()}, after
+     * {@code checkIfAtomicMonitorCanBeEnabled()} has run, because it is the one
+     * place where the monitor's shape is known — and the shape decides the
+     * arithmetic:
+     *
+     * <ul>
+     * <li><b>atomic</b>: {@code calculatePairValue} stores {@code lastEvent + 1}
+     * in {@code pairValue} and the generated {@code getLastEvent()} shifts it
+     * back out <i>without</i> subtracting, so the accessor yields
+     * {@code index + 1}, and {@code 0} before any event
+     * ({@code calculatePairValue(-1, 0)} is the initial value);</li>
+     * <li><b>non-atomic</b>: the accessor is inherited from
+     * {@code AbstractSynchronizedMonitor} and returns the index itself, starting
+     * at {@code -1}.</li>
+     * </ul>
+     *
+     * <p>
+     * One decoding written for both shapes would name the <i>next</i> event in
+     * every atomic class, and the first event where the answer is "no event".
+     *
+     * @param isOutermost
+     *            a monitor that is not the outermost one has neither the atomic
+     *            {@code pairValue} nor the inherited field, so it records no
+     *            last event and the helper can only say so
+     * @param atomicMonitorUsed
+     *            {@code isAtomicMoniorUsed()} of the class being emitted
+     */
+    static String eventNameHelperCode(boolean isOutermost,
+            boolean atomicMonitorUsed) {
+        String ret = "";
+        ret += "final String " + eventNameMethod + "() {\n";
+        if (!isOutermost) {
+            ret += "return \"" + NO_EVENT_NAME + "\";\n";
+            ret += "}\n";
+            return ret;
+        }
+        ret += "int idx = this.getLastEvent();\n";
+        if (atomicMonitorUsed) {
+            ret += "idx = idx - 1;\n";
+        }
+        ret += "if (idx < 0 || idx >= " + eventNames + ".length) {\n";
+        ret += "return \"" + NO_EVENT_NAME + "\";\n";
+        ret += "}\n";
+        ret += "return " + eventNames + "[idx];\n";
+        ret += "}\n";
+        return ret;
+    }
+
     public String printEventMethod(PropertyAndHandlers prop,
             EventDefinition event, String methodNamePrefix) {
         String synch = this.getFeatures().isSelfSynchronizationNeeded() ? " synchronized "
@@ -360,6 +500,10 @@ public class BaseMonitor extends Monitor {
                 // -P
                 eventActionStr = eventActionStr.replaceAll("__LOC",
                         Util.defaultLocation);
+                // __EVENTNAME after __DEFAULT_MESSAGE, for the same reason
+                // __LOC is: the default message may itself carry the macro.
+                eventActionStr = expandEventNameToLiteral(eventActionStr,
+                        event.getId());
                 // "this." + loc);
                 eventActionStr = eventActionStr.replaceAll("__ACTIVITY",
                         "this." + activity);
@@ -811,6 +955,21 @@ public class BaseMonitor extends Monitor {
             ret += propMonitor.getStateDeclarationCode(this
                     .isAtomicMoniorUsed());
         }
+        ret += "\n";
+
+        // Event-name table and its decoder (INV-INS-120). They sit beside the
+        // Prop_N_transition_* arrays because they are structural siblings: the
+        // table is indexed by the same event index the transition dispatch uses.
+        // This is also the first point where the monitor's shape is settled —
+        // checkIfAtomicMonitorCanBeEnabled() ran at the top of toString() — so
+        // it is the only place the helper's arithmetic can be decided.
+        List<String> eventNamesInIndexOrder = new ArrayList<String>();
+        for (EventDefinition event : this.events) {
+            // EventDefinition.getIdNum() is this event's position in the list.
+            eventNamesInIndexOrder.add(event.getId());
+        }
+        ret += eventNameTableCode(eventNamesInIndexOrder);
+        ret += eventNameHelperCode(isOutermost, this.isAtomicMoniorUsed());
         ret += "\n";
 
         // category condition
